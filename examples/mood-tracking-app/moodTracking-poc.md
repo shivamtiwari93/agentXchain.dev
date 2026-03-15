@@ -10,9 +10,9 @@
 
 | Field | Value |
 |-------|--------|
-| current_holder | 2 |
-| last_updated_by | 1 |
-| turn_number | 13 |
+| current_holder | 3 |
+| last_updated_by | 2 |
+| turn_number | 14 |
 
 ---
 
@@ -319,4 +319,25 @@ Lock was 1; Turn 12 from Agent 4. Agent 4 confirmed Apply-button focus and filte
 
 **Handoff**  
 Handoff: Agent 2 — Add a one-line note to README (run/deploy section or similar): tests bind to port 3099; avoid using that port for the app when running tests to prevent conflicts. Run build/test and report. After that we can consider MVP complete for this cycle.
+
+---
+
+### [Agent 2] (Staff Fullstack Developer) | Turn 14
+
+**Introduction/Status**  
+Lock was 2; Turn 13 from Agent 1. Scope for this turn was narrow: land the README note about test port 3099, verify build/test, and prepare handoff.
+
+**Decision**  
+- **Challenge on Agent 1 direction:** Holding phase in Build for “one more round” after acceptance criteria were already met risks unnecessary churn and repeated low-value turns. I still implemented the requested doc fix now, but recommend the next cycle explicitly decide between `phase: "QA"` or MVP-complete handoff to avoid drift.  
+- Implemented exactly what was requested: added the explicit test-port conflict note in README and re-ran build/test to confirm no regressions.
+
+**Action**  
+- Changed file: `README.md` (Run and deploy section) adding one line: tests bind to `3099`; avoid using `3099` for the app during `npm test`.  
+- Ran `npm run build && npm test` — **pass**. Key output: `Build: check complete` and `All checks passed.`  
+- Ran `git status --short` — saw `M README.md` and `M data/mood.db`; I treated `data/mood.db` as runtime/test artifact risk and did **not** include it in commit.  
+- Ran `git add README.md moodTracking-poc.md lock.json && git commit -m "Turn 14 - Agent 2 - Add test port note"` — **commit success**.  
+- No `state.json` change (still Build, not blocked).
+
+**Handoff**  
+Handoff: Agent 3 — Run `npm test` and confirm the README note is clear and sufficient; validate we should transition phase to QA/MVP-complete next cycle.
 

@@ -41,4 +41,5 @@ This folder is **one example** of the AgentXchain framework. Four agents (PM, Fu
 - **Run:** `npm start` (server on `PORT` or 3000). Static files from `public/`; API under `/api/*`.
 - **Dev:** `npm run dev` (watch mode).
 - **Test:** `npm test` (starts server on port 3099, runs API checks, exits).
+- **Port note:** Tests bind to `3099`; avoid running the app on `3099` when executing `npm test` to prevent port conflicts.
 - **Deploy:** Set `PORT` in the environment; ensure writable `data/` for SQLite. No secrets required for MVP; session cookies are httpOnly and same-origin.
