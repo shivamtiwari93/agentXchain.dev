@@ -5,13 +5,17 @@ import { mkdirSync, existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', 'data');
-const dbPath = join(dataDir, 'mood.db');
+const defaultDbPath = join(dataDir, 'mood.db');
+const dbPath = process.env.DB_PATH?.trim() || defaultDbPath;
 
 let db;
 
 export function getDb() {
   if (!db) {
-    if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+    if (dbPath !== ':memory:') {
+      const dbDir = dirname(dbPath);
+      if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+    }
     db = new Database(dbPath);
     initSchema(db);
   }

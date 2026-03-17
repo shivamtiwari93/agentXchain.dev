@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.agentxchain-session.json
+.DS_Store

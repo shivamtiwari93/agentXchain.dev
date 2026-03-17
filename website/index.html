@@ -15,365 +15,301 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --blue: #2B7CB6;
-      --blue-light: #3A9AD9;
-      --green: #6BB536;
-      --green-light: #7ECF45;
-      --orange: #E8752A;
-      --bg: #060E1A;
-      --bg-card: #0C1829;
-      --bg-elevated: #111F38;
-      --border: #172A48;
-      --border-hover: #2B7CB6;
-      --text: #E6EDF3;
-      --text-muted: #6E86A4;
-      --text-dim: #3D5575;
+      --blue: #2B7CB6; --blue-light: #3A9AD9; --green: #6BB536; --green-light: #7ECF45;
+      --orange: #E8752A; --bg: #050C18; --bg-alt: #0A1425; --bg-card: #0D1A30;
+      --bg-elevated: #122240; --border: #162845; --border-hover: #2B7CB6;
+      --text: #E6EDF3; --text-muted: #7B92B2; --text-dim: #3D5575;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
     .container { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
-    code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; background: rgba(43,124,182,0.1); color: var(--blue-light); padding: 0.15em 0.4em; border-radius: 4px; }
+    code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; background: rgba(43,124,182,0.12); color: var(--blue-light); padding: 0.15em 0.45em; border-radius: 4px; }
 
-    /* ANIMATIONS */
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes glow { 0%, 100% { box-shadow: 0 0 20px rgba(43,124,182,0.15); } 50% { box-shadow: 0 0 40px rgba(43,124,182,0.25); } }
-    .fade-up { animation: fadeUp 0.7s ease-out both; }
+    @keyframes glow { 0%,100% { box-shadow: 0 0 24px rgba(43,124,182,0.2); } 50% { box-shadow: 0 0 48px rgba(43,124,182,0.35); } }
 
     /* NAV */
-    nav { position: sticky; top: 0; z-index: 100; background: rgba(6,14,26,0.88); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 0.75rem 0; }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(5,12,24,0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 0.7rem 0; }
     nav .container { display: flex; align-items: center; justify-content: space-between; }
     nav img { height: 34px; }
-    nav .links { display: flex; gap: 1.75rem; align-items: center; }
-    nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: color 0.2s; }
-    nav .links a:hover { color: var(--text); }
-    .btn-nav { background: var(--blue) !important; color: #fff !important; padding: 0.4rem 1rem; border-radius: 6px; font-weight: 600 !important; font-size: 0.85rem !important; transition: background 0.2s, box-shadow 0.2s; }
-    .btn-nav:hover { background: var(--blue-light) !important; box-shadow: 0 4px 16px rgba(43,124,182,0.3); }
+    .nav-links { display: flex; gap: 1.75rem; align-items: center; }
+    .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 0.88rem; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+    .btn-nav { background: var(--blue) !important; color: #fff !important; padding: 0.4rem 1rem; border-radius: 6px; font-weight: 600 !important; transition: all 0.2s; }
+    .btn-nav:hover { background: var(--blue-light) !important; box-shadow: 0 4px 16px rgba(43,124,182,0.35); }
 
     /* HERO */
-    .hero { padding: 5.5rem 0 4.5rem; text-align: center; position: relative; overflow: hidden; }
-    .hero::before { content: ''; position: absolute; top: -40%; left: 20%; width: 60%; height: 120%; background: radial-gradient(ellipse, rgba(43,124,182,0.1) 0%, transparent 65%); pointer-events: none; }
-    .hero::after { content: ''; position: absolute; top: -20%; right: 10%; width: 40%; height: 80%; background: radial-gradient(ellipse, rgba(107,181,54,0.06) 0%, transparent 60%); pointer-events: none; }
+    .hero { padding: 5rem 0 4rem; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content:''; position: absolute; top: -50%; left: 10%; width: 80%; height: 140%; background: radial-gradient(ellipse, rgba(43,124,182,0.09) 0%, transparent 60%); pointer-events: none; }
     .hero > .container { position: relative; z-index: 1; }
-    .hero-icon { width: 72px; height: 72px; margin-bottom: 1.75rem; animation: glow 4s ease-in-out infinite; border-radius: 16px; }
-    .hero .badge { display: inline-block; background: rgba(107,181,54,0.1); color: var(--green-light); font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.85rem; border-radius: 20px; border: 1px solid rgba(107,181,54,0.18); margin-bottom: 1.25rem; letter-spacing: 0.03em; text-transform: uppercase; }
-    .hero h1 { font-size: clamp(2.2rem, 5.5vw, 3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.25rem; max-width: 750px; margin-left: auto; margin-right: auto; letter-spacing: -0.02em; }
-    .hero h1 .accent-blue { color: var(--blue-light); }
-    .hero h1 .accent-green { color: var(--green-light); }
-    .hero p.sub { color: var(--text-muted); font-size: 1.1rem; max-width: 580px; margin: 0 auto 2.25rem; line-height: 1.7; }
-    .cta-group { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-    .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--blue); color: #fff; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: all 0.2s; }
-    .btn-primary:hover { background: var(--blue-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(43,124,182,0.35); }
-    .btn-secondary { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg-card); color: var(--text); padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; text-decoration: none; border: 1px solid var(--border); transition: all 0.2s; }
-    .btn-secondary:hover { border-color: var(--blue); transform: translateY(-2px); }
+    .hero-icon { width: 80px; height: 80px; margin-bottom: 1.5rem; animation: glow 3.5s ease-in-out infinite; border-radius: 18px; display: block; margin-left: auto; margin-right: auto; object-fit: contain; }
+    .badge { display: inline-block; background: rgba(107,181,54,0.1); color: var(--green-light); font-size: 0.75rem; font-weight: 600; padding: 0.3rem 0.85rem; border-radius: 20px; border: 1px solid rgba(107,181,54,0.18); margin-bottom: 1.25rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    .hero h1 { font-size: clamp(2.4rem, 5.5vw, 3.6rem); font-weight: 800; line-height: 1.08; margin-bottom: 1rem; max-width: 700px; margin-left: auto; margin-right: auto; letter-spacing: -0.025em; }
+    .hero h1 .ab { color: var(--blue-light); } .hero h1 .ag { color: var(--green-light); }
+    .hero .sub { color: var(--text-muted); font-size: 1.1rem; max-width: 520px; margin: 0 auto 2rem; }
+    .cta-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn-p { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--blue); color: #fff; padding: 0.8rem 1.6rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: all 0.2s; }
+    .btn-p:hover { background: var(--blue-light); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(43,124,182,0.35); }
+    .btn-s { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg-card); color: var(--text); padding: 0.8rem 1.6rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem; text-decoration: none; border: 1px solid var(--border); transition: all 0.2s; }
+    .btn-s:hover { border-color: var(--blue); transform: translateY(-2px); }
 
     /* TERMINAL */
-    .terminal { max-width: 580px; margin: 3rem auto 0; background: #080F1C; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; text-align: left; box-shadow: 0 16px 48px rgba(0,0,0,0.4); }
-    .terminal-bar { background: #0E1829; padding: 0.6rem 0.85rem; display: flex; gap: 7px; align-items: center; }
-    .terminal-bar span { width: 11px; height: 11px; border-radius: 50%; }
-    .terminal-bar .r { background: #ff5f57; } .terminal-bar .y { background: #febc2e; } .terminal-bar .g { background: #28c840; }
-    .terminal-bar .title { margin-left: 0.75rem; color: var(--text-dim); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; }
-    .terminal-code { padding: 1.25rem 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.8; color: var(--text-muted); overflow-x: auto; }
-    .terminal-code .prompt { color: var(--green); } .terminal-code .cmd { color: var(--text); } .terminal-code .comment { color: #2F4562; } .terminal-code .output { color: var(--green-light); }
+    .terminal { max-width: 560px; margin: 2.5rem auto 0; background: #070E1A; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; text-align: left; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .t-bar { background: #0D1728; padding: 0.55rem 0.85rem; display: flex; gap: 7px; align-items: center; }
+    .t-bar i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+    .t-bar .r { background: #ff5f57; } .t-bar .y { background: #febc2e; } .t-bar .g { background: #28c840; }
+    .t-bar span { margin-left: 0.75rem; color: var(--text-dim); font-size: 0.72rem; font-family: 'JetBrains Mono', monospace; }
+    .t-code { padding: 1.1rem 1.4rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.85; color: var(--text-muted); overflow-x: auto; white-space: nowrap; }
+    .t-code .p { color: var(--green); } .t-code .c { color: var(--text); } .t-code .cm { color: #2F4562; } .t-code .o { color: var(--green-light); }
 
     /* STATS */
-    .stats { border-top: 1px solid var(--border); padding: 2.5rem 0; }
-    .stats-grid { display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap; text-align: center; }
-    .stat-item .num { font-size: 1.75rem; font-weight: 800; background: linear-gradient(135deg, var(--blue-light), var(--green-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .stat-item .label { font-size: 0.82rem; color: var(--text-dim); margin-top: 0.15rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+    .stats { border-top: 1px solid var(--border); padding: 2.5rem 0; background: var(--bg-alt); }
+    .stats-row { display: flex; justify-content: center; gap: 3.5rem; flex-wrap: wrap; text-align: center; }
+    .stat .n { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--blue-light), var(--green-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .stat .l { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.1rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
 
-    /* SECTIONS */
+    /* SHARED */
     section { padding: 5rem 0; }
-    section h2 { font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.01em; }
-    .section-sub { color: var(--text-muted); font-size: 1.05rem; margin-bottom: 2.5rem; max-width: 560px; line-height: 1.65; }
-    .section-label { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--blue-light); margin-bottom: 0.75rem; }
+    .s-alt { background: var(--bg-alt); }
+    h2 { font-size: 1.9rem; font-weight: 700; margin-bottom: 0.4rem; letter-spacing: -0.015em; }
+    .ss { color: var(--text-muted); font-size: 1rem; margin-bottom: 2.5rem; max-width: 520px; }
+    .sl { display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem; }
+    .sl-blue { color: var(--blue-light); } .sl-green { color: var(--green-light); } .sl-orange { color: var(--orange); }
 
     /* HOW IT WORKS */
-    .how-it-works { border-top: 1px solid var(--border); }
-    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; counter-reset: step; }
-    .step { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem 1.25rem 1.5rem; text-align: center; counter-increment: step; transition: border-color 0.3s, transform 0.2s; }
-    .step:hover { border-color: var(--border-hover); transform: translateY(-3px); }
-    .step::before { content: counter(step); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; font-size: 0.8rem; font-weight: 700; margin: 0 auto 1rem; }
-    .step:nth-child(1)::before { background: rgba(43,124,182,0.15); color: var(--blue-light); }
-    .step:nth-child(2)::before { background: rgba(43,124,182,0.15); color: var(--blue-light); }
-    .step:nth-child(3)::before { background: rgba(107,181,54,0.15); color: var(--green-light); }
-    .step:nth-child(4)::before { background: rgba(232,117,42,0.15); color: var(--orange); }
-    .step h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.4rem; }
-    .step p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.55; }
-    .step-connector { position: absolute; top: 50%; right: -1rem; width: 1rem; height: 2px; background: var(--border); }
-    .step:last-child .step-connector { display: none; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .step { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem 1.1rem; text-align: center; transition: all 0.25s; position: relative; }
+    .step:hover { border-color: var(--border-hover); transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .step-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; margin: 0 auto 0.85rem; }
+    .step h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .step p { font-size: 0.84rem; color: var(--text-muted); line-height: 1.5; }
 
     /* PHILOSOPHY */
-    .philosophy { border-top: 1px solid var(--border); }
-    .philosophy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
-    .philosophy-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; transition: border-color 0.3s, transform 0.2s; position: relative; overflow: hidden; }
-    .philosophy-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border); transition: background 0.3s; }
-    .philosophy-card:nth-child(1):hover::before { background: var(--blue); }
-    .philosophy-card:nth-child(2):hover::before { background: var(--green); }
-    .philosophy-card:nth-child(3):hover::before { background: var(--orange); }
-    .philosophy-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-    .philosophy-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; }
-    .philosophy-card p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+    .phil-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .phil { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; transition: all 0.25s; overflow: hidden; position: relative; }
+    .phil::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; transition: background 0.3s; }
+    .phil:nth-child(1):hover::after { background: var(--blue); }
+    .phil:nth-child(2):hover::after { background: var(--green); }
+    .phil:nth-child(3):hover::after { background: var(--orange); }
+    .phil:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+    .phil-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+    .phil-icon svg { width: 20px; height: 20px; }
+    .phil h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .phil p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
 
-    /* COMPARISON */
-    .comparison { border-top: 1px solid var(--border); }
-    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; border: 1px solid var(--border); }
-    .comparison-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 600px; }
-    .comparison-table th, .comparison-table td { padding: 0.85rem 1.1rem; text-align: left; border-bottom: 1px solid var(--border); }
-    .comparison-table th { background: var(--bg-card); color: var(--text-dim); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-    .comparison-table td { color: var(--text-muted); }
-    .comparison-table td:last-child { color: var(--text); font-weight: 500; background: rgba(43,124,182,0.04); }
-    .comparison-table tr:last-child td { border-bottom: none; }
-    .comparison-table tbody tr { transition: background 0.15s; }
-    .comparison-table tbody tr:hover { background: rgba(43,124,182,0.03); }
+    /* TABLE */
+    .tw { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+    .ct { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 620px; }
+    .ct th,.ct td { padding: 0.85rem 1.1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .ct th { background: var(--bg-card); color: var(--text-dim); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .ct td { color: var(--text-muted); }
+    .ct td:last-child { color: var(--text); font-weight: 600; background: rgba(43,124,182,0.06); }
+    .ct th:last-child { background: rgba(43,124,182,0.08); color: var(--blue-light); }
+    .ct tr:last-child td { border-bottom: none; }
+    .ct tbody tr:hover { background: rgba(43,124,182,0.03); }
 
     /* FEATURES */
-    .features { border-top: 1px solid var(--border); }
-    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
-    .feature-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; transition: border-color 0.3s, transform 0.2s; }
-    .feature-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-    .feature-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
-    .feature-icon svg { width: 22px; height: 22px; }
-    .feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
-    .feature-card p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; }
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .feat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; transition: all 0.25s; }
+    .feat:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+    .feat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.1rem; }
+    .feat-icon svg { width: 24px; height: 24px; }
+    .feat h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .feat p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
 
     /* AUDIENCE */
-    .audience { border-top: 1px solid var(--border); }
-    .audience-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; }
-    .audience-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; display: flex; gap: 1rem; align-items: flex-start; transition: border-color 0.3s; }
-    .audience-card:hover { border-color: var(--border-hover); }
-    .audience-marker { flex-shrink: 0; width: 4px; height: 100%; border-radius: 2px; min-height: 48px; }
-    .audience-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.35rem; }
-    .audience-card p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; }
+    .aud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .aud { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem; border-left: 3px solid var(--border); transition: all 0.25s; }
+    .aud:nth-child(1) { border-left-color: var(--blue); }
+    .aud:nth-child(2) { border-left-color: var(--green); }
+    .aud:nth-child(3) { border-left-color: var(--orange); }
+    .aud:hover { transform: translateY(-3px); }
+    .aud h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.35rem; }
+    .aud p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; }
 
     /* CTA */
-    .cta-section { border-top: 1px solid var(--border); text-align: center; padding: 5.5rem 0 6rem; position: relative; overflow: hidden; }
-    .cta-section::before { content: ''; position: absolute; bottom: 0; left: 25%; width: 50%; height: 60%; background: radial-gradient(ellipse, rgba(43,124,182,0.08) 0%, transparent 65%); pointer-events: none; }
-    .cta-section > .container { position: relative; z-index: 1; }
-    .cta-section h2 { margin-bottom: 0.75rem; }
-    .cta-section p { color: var(--text-muted); margin-bottom: 2rem; max-width: 460px; margin-left: auto; margin-right: auto; }
+    .cta-s { border-top: 1px solid var(--border); text-align: center; padding: 5rem 0 5.5rem; position: relative; overflow: hidden; }
+    .cta-s::before { content:''; position: absolute; bottom: -20%; left: 20%; width: 60%; height: 80%; background: radial-gradient(ellipse, rgba(43,124,182,0.08) 0%, transparent 60%); pointer-events: none; }
+    .cta-s > .container { position: relative; z-index: 1; }
+    .cta-s h2 { margin-bottom: 0.6rem; }
+    .cta-s p { color: var(--text-muted); margin-bottom: 2rem; max-width: 420px; margin-left: auto; margin-right: auto; font-size: 1rem; }
 
     /* FOOTER */
-    footer { border-top: 1px solid var(--border); padding: 3rem 0 2rem; }
-    .footer-inner { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem; }
-    .footer-brand img { height: 28px; margin-bottom: 0.5rem; }
-    .footer-brand p { color: var(--text-dim); font-size: 0.82rem; max-width: 280px; }
-    .footer-links { display: flex; gap: 3rem; }
-    .footer-col h4 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 0.75rem; }
-    .footer-col a { display: block; color: var(--text-muted); text-decoration: none; font-size: 0.88rem; padding: 0.2rem 0; transition: color 0.2s; }
-    .footer-col a:hover { color: var(--text); }
-    .footer-copy { text-align: center; color: var(--text-dim); font-size: 0.78rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+    footer { border-top: 1px solid var(--border); padding: 2.5rem 0 1.5rem; background: var(--bg-alt); }
+    .f-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 2rem; margin-bottom: 1.5rem; }
+    .f-brand img { height: 28px; margin-bottom: 0.4rem; }
+    .f-brand p { color: var(--text-dim); font-size: 0.8rem; max-width: 260px; line-height: 1.5; }
+    .f-links { display: flex; gap: 3rem; }
+    .f-col h4 { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); margin-bottom: 0.6rem; }
+    .f-col a { display: block; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; padding: 0.15rem 0; transition: color 0.2s; }
+    .f-col a:hover { color: var(--text); }
+    .f-copy { text-align: center; color: var(--text-dim); font-size: 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
 
     @media (max-width: 768px) {
-      .hero { padding: 3.5rem 0 3rem; }
+      .hero { padding: 3.5rem 0 2.5rem; }
       section { padding: 3.5rem 0; }
-      .steps { grid-template-columns: 1fr 1fr; }
-      .step-connector { display: none; }
-      nav .links a:not(.btn-nav) { display: none; }
-      .stats-grid { gap: 2rem; }
-      .footer-inner { flex-direction: column; }
+      .steps,.phil-grid,.feat-grid,.aud-grid { grid-template-columns: 1fr; }
+      .nav-links a:not(.btn-nav) { display: none; }
+      .stats-row { gap: 2rem; }
+      .f-top { flex-direction: column; }
     }
-    @media (max-width: 480px) {
-      .steps { grid-template-columns: 1fr; }
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .steps { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
 
-  <nav>
-    <div class="container">
-      <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
-      <div class="links">
-        <a href="#how-it-works">How it works</a>
-        <a href="#philosophy">Philosophy</a>
-        <a href="#comparison">vs MCP &amp; A2A</a>
-        <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-nav">GitHub &#8599;</a>
-      </div>
+  <nav><div class="container">
+    <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#vs">vs MCP &amp; A2A</a>
+      <a href="#what">What&rsquo;s included</a>
+      <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-nav">GitHub &#8599;</a>
     </div>
-  </nav>
+  </div></nav>
 
-  <section class="hero">
-    <div class="container">
-      <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
-      <div class="badge">Open source &middot; Free &middot; Self-hosted</div>
-      <h1>Run a <span class="accent-blue">software team</span> inside your <span class="accent-green">AI workspace</span></h1>
-      <p class="sub">PM, dev, and QA agents coordinating in sequence like an SDLC pipeline &mdash; iterating recursively until they ship a real product. No orchestrator. No vendor lock-in.</p>
-      <div class="cta-group">
-        <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-primary">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.6.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.7-.9-3.7-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4C13.7 14.7 16 11.7 16 8.2 16 3.8 12.4.2 8 .2z"/></svg>
-          Star on GitHub
-        </a>
-        <a href="#how-it-works" class="btn-secondary">See how it works &darr;</a>
-      </div>
-      <div class="terminal">
-        <div class="terminal-bar"><span class="r"></span><span class="y"></span><span class="g"></span><span class="title">~/agentXchain.dev</span></div>
-        <div class="terminal-code">
-          <span class="comment"># clone and run agents in your IDE</span><br />
-          <span class="prompt">$</span> <span class="cmd">git clone https://github.com/shivamtiwari93/agentXchain.dev</span><br />
-          <span class="prompt">$</span> <span class="cmd">cd examples/mood-tracking-app</span><br />
-          <span class="prompt">$</span> <span class="cmd">./scripts/check-turn.sh</span><br />
-          <span class="output">&#10003; Agent 1&rsquo;s turn (PM). Open Cursor and start.</span>
-        </div>
+  <section class="hero"><div class="container">
+    <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
+    <div class="badge">Open source &middot; Free &middot; Self-hosted</div>
+    <h1>Run a <span class="ab">dev team</span> inside your <span class="ag">AI workspace</span></h1>
+    <p class="sub">PM, dev, QA &mdash; coordinating like a real SDLC pipeline. No orchestrator. No vendor lock-in. Just a protocol and your IDE.</p>
+    <div class="cta-row">
+      <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-p">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.6.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.7-.9-3.7-4 0-.9.3-1.6.8-2.2-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.2 0 3.1-1.9 3.8-3.7 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4C13.7 14.7 16 11.7 16 8.2 16 3.8 12.4.2 8 .2z"/></svg>
+        Clone &amp; start
+      </a>
+      <a href="#how" class="btn-s">How it works &darr;</a>
+    </div>
+    <div class="terminal">
+      <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>~/mood-tracking-app</span></div>
+      <div class="t-code">
+        <span class="cm"># 30 seconds to your first run</span><br/>
+        <span class="p">$</span> <span class="c">git clone https://github.com/shivamtiwari93/agentXchain.dev</span><br/>
+        <span class="p">$</span> <span class="c">cd examples/mood-tracking-app</span><br/>
+        <span class="p">$</span> <span class="c">./scripts/check-turn.sh</span><br/>
+        <span class="o">&#10003; Agent 1's turn (PM). Open Cursor and start.</span>
       </div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="stats">
-    <div class="container">
-      <div class="stats-grid">
-        <div class="stat-item"><div class="num">4</div><div class="label">Agent roles</div></div>
-        <div class="stat-item"><div class="num">2</div><div class="label">JSON files for all state</div></div>
-        <div class="stat-item"><div class="num">0</div><div class="label">External dependencies</div></div>
-        <div class="stat-item"><div class="num">&infin;</div><div class="label">Recursive iterations</div></div>
-      </div>
+  <section class="stats"><div class="container">
+    <div class="stats-row">
+      <div class="stat"><div class="n">4</div><div class="l">Agent roles</div></div>
+      <div class="stat"><div class="n">2</div><div class="l">Files for all state</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">Dependencies</div></div>
+      <div class="stat"><div class="n">&infin;</div><div class="l">Iterations</div></div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="how-it-works" id="how-it-works">
-    <div class="container">
-      <span class="section-label">How it works</span>
-      <h2>Four agents. One workspace. Sequential turns.</h2>
-      <p class="section-sub">Each agent reads the shared state, does its work, updates the lock, and hands off to the next. The cycle repeats until the product ships.</p>
-      <div class="steps">
-        <div class="step"><div class="step-connector"></div><h3>PM scopes it</h3><p>Agent 1 defines requirements, priorities, and acceptance criteria. Sets the phase and direction.</p></div>
-        <div class="step"><div class="step-connector"></div><h3>Dev builds it</h3><p>Agent 2 writes code, runs tests, commits. Reports what's done and what's blocked.</p></div>
-        <div class="step"><div class="step-connector"></div><h3>QA verifies it</h3><p>Agent 3 runs tests, checks acceptance criteria, files bugs. Passes or fails the build.</p></div>
-        <div class="step"><h3>UX polishes it</h3><p>Agent 4 reviews UI/UX, compresses context, and hands back to PM for the next iteration.</p></div>
-      </div>
+  <section id="how"><div class="container">
+    <span class="sl sl-blue">How it works</span>
+    <h2>Four agents. One folder. Sequential turns.</h2>
+    <p class="ss">Each agent reads state, does its work, updates the lock, hands off. The cycle repeats until the product ships.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>PM scopes</h3><p>Defines requirements, priorities, and what &ldquo;done&rdquo; looks like.</p></div>
+      <div class="step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Dev builds</h3><p>Writes code, runs tests, commits. Reports done vs. blocked.</p></div>
+      <div class="step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>QA verifies</h3><p>Runs tests, checks criteria, files bugs. Pass or fail.</p></div>
+      <div class="step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>UX polishes</h3><p>Reviews UI/UX, compresses context, hands back to PM.</p></div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="philosophy" id="philosophy">
-    <div class="container">
-      <span class="section-label">Philosophy</span>
-      <h2>Coordination, not orchestration</h2>
-      <p class="section-sub">We don&rsquo;t spawn sub-agents from a central brain. We build teams that work side by side, challenge each other, and ship under pressure.</p>
-      <div class="philosophy-grid">
-        <div class="philosophy-card">
-          <h3>No orchestrator</h3>
-          <p>Agents share the same workspace, the same state files, and an explicit turn order. No central brain deciding who does what &mdash; the protocol handles sequencing.</p>
-        </div>
-        <div class="philosophy-card">
-          <h3>Constructive tension</h3>
-          <p>Agents are slightly divergent in perspective. The PM pushes scope; the dev pushes feasibility; QA pushes quality. That tension produces better decisions.</p>
-        </div>
-        <div class="philosophy-card">
-          <h3>Ship under constraints</h3>
-          <p>Real-world pressure &mdash; time bounds, phases, explicit handoff &mdash; forces the team to converge on a real product instead of bikeshedding forever.</p>
-        </div>
+  <section class="s-alt" id="phil"><div class="container">
+    <span class="sl sl-green">Philosophy</span>
+    <h2>Coordination, not orchestration</h2>
+    <p class="ss">No central brain spawning sub-agents. A team that works together, challenges each other, and ships under pressure.</p>
+    <div class="phil-grid">
+      <div class="phil">
+        <div class="phil-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+        <h3>No orchestrator</h3>
+        <p>Same workspace. Same state files. Explicit turn order. The protocol handles sequencing &mdash; no central brain needed.</p>
+      </div>
+      <div class="phil">
+        <div class="phil-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3>Constructive tension</h3>
+        <p>PM pushes scope. Dev pushes feasibility. QA pushes quality. Divergent perspectives, better decisions.</p>
+      </div>
+      <div class="phil">
+        <div class="phil-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Ship under constraints</h3>
+        <p>Time bounds, phases, explicit handoff. The team converges on a real product instead of bikeshedding forever.</p>
       </div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="comparison" id="comparison">
-    <div class="container">
-      <span class="section-label">Positioning</span>
-      <h2>How AgentXchain differs from MCP and A2A</h2>
-      <p class="section-sub">MCP connects agents to tools. A2A connects agents to agents. AgentXchain coordinates a team in one workspace.</p>
-      <div class="table-wrap">
-        <table class="comparison-table">
-          <thead><tr><th></th><th>MCP</th><th>A2A (Google)</th><th>AgentXchain</th></tr></thead>
-          <tbody>
-            <tr><td><strong>What it does</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Team in a shared workspace</strong></td></tr>
-            <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, message passing</td><td><strong>One team: lock, state, roles, turns</strong></td></tr>
-            <tr><td><strong>Best for</strong></td><td>Agent reads docs, runs scripts</td><td>Agent calls another agent&rsquo;s API</td><td><strong>PM + dev + QA ship a product together</strong></td></tr>
-            <tr><td><strong>Workspace</strong></td><td>Single agent scope</td><td>Distributed / network</td><td><strong>Single shared folder, sequential pipeline</strong></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+  <section id="vs"><div class="container">
+    <span class="sl sl-blue">How we&rsquo;re different</span>
+    <h2>MCP connects tools. A2A connects agents. We coordinate teams.</h2>
+    <p class="ss">Three protocols for three different problems.</p>
+    <div class="tw"><table class="ct">
+      <thead><tr><th></th><th>MCP</th><th>A2A (Google)</th><th>AgentXchain</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Purpose</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Team in one shared workspace</strong></td></tr>
+        <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, messages</td><td><strong>One team: lock, state, roles, turns</strong></td></tr>
+        <tr><td><strong>Best for</strong></td><td>Agent runs scripts</td><td>Agent calls another agent</td><td><strong>PM + Dev + QA ship a product</strong></td></tr>
+        <tr><td><strong>Workspace</strong></td><td>Single agent</td><td>Distributed / network</td><td><strong>Single folder, sequential pipeline</strong></td></tr>
+      </tbody>
+    </table></div>
+  </div></section>
 
-  <section class="features" id="features">
-    <div class="container">
-      <span class="section-label">What&rsquo;s included</span>
-      <h2>Everything to run a multi-agent SDLC loop</h2>
-      <p class="section-sub">Clone it. Run it. Own it. No accounts, no platform, no hidden state.</p>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(43,124,182,0.12);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <h3>Protocol &amp; config</h3>
-          <p><code>lock.json</code> and <code>state.json</code> drive coordination. Roles, phases, turn order &mdash; documented, stable, fully editable. The coordination model is your code.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(107,181,54,0.12);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-          </div>
-          <h3>CLI &amp; scripts</h3>
-          <p>Init a project, check whose turn, run one agent loop. Drive the protocol from your terminal and your IDE &mdash; no dashboard required.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon" style="background: rgba(232,117,42,0.12);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
-          <h3>Runnable examples</h3>
-          <p>Mood Tracking App with Protocol v2, four agents, and auto-mode instructions. Clone and run in Cursor or your IDE in minutes.</p>
-        </div>
+  <section class="s-alt" id="what"><div class="container">
+    <span class="sl sl-orange">What&rsquo;s included</span>
+    <h2>Everything to run a multi-agent SDLC loop</h2>
+    <p class="ss">Clone. Run. Own. No accounts, no platform, no hidden state.</p>
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <h3>Protocol &amp; config</h3>
+        <p><code>lock.json</code> and <code>state.json</code> drive everything. Roles, phases, turn order &mdash; documented, stable, yours to edit.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+        <h3>CLI &amp; scripts</h3>
+        <p>Check whose turn. Init a project. Run one agent loop. Terminal-first &mdash; no dashboard required.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <h3>Runnable example</h3>
+        <p>Mood Tracking App: 4 agents, Protocol v2, auto-mode instructions. Clone and run in Cursor in minutes.</p>
       </div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="audience" id="audience">
-    <div class="container">
-      <span class="section-label">Who it&rsquo;s for</span>
-      <h2>Built for engineers who ship with AI</h2>
-      <p class="section-sub">If you write code and already use AI, this augments your workflow with real team coordination.</p>
-      <div class="audience-grid">
-        <div class="audience-card">
-          <div class="audience-marker" style="background: var(--blue);"></div>
-          <div><h3>Engineers who ship with AI</h3><p>You&rsquo;re already comfortable with CLI, git, and AI-assisted coding. AgentXchain.dev adds multi-agent coordination without the overhead of a platform.</p></div>
-        </div>
-        <div class="audience-card">
-          <div class="audience-marker" style="background: var(--green);"></div>
-          <div><h3>Teams that self-host</h3><p>Full control, no hidden state, no vendor dependency. Run the protocol on your own infrastructure and extend it however you want.</p></div>
-        </div>
-        <div class="audience-card">
-          <div class="audience-marker" style="background: var(--orange);"></div>
-          <div><h3>Contributors &amp; builders</h3><p>The protocol is open. Add runners for new IDEs, create new agent roles, or build tooling on top. PRs welcome.</p></div>
-        </div>
-      </div>
+  <section id="who"><div class="container">
+    <span class="sl sl-blue">Who it&rsquo;s for</span>
+    <h2>Built for engineers who already ship with AI</h2>
+    <p class="ss">You write code and use AI daily. This adds team coordination to your workflow.</p>
+    <div class="aud-grid">
+      <div class="aud"><h3>AI-native engineers</h3><p>Comfortable with CLI, git, AI-assisted coding. AgentXchain adds multi-agent coordination without a platform.</p></div>
+      <div class="aud"><h3>Self-hosting teams</h3><p>Full control. No hidden state. No vendor. Run on your infra, extend however you want.</p></div>
+      <div class="aud"><h3>Contributors</h3><p>Protocol is open. Add IDE runners, new roles, or build tooling on top. PRs welcome.</p></div>
     </div>
-  </section>
+  </div></section>
 
-  <section class="cta-section">
-    <div class="container">
-      <img src="assets/logos/agentXchain.dev_icon_only_280x280px.png" alt="" width="56" height="56" style="margin-bottom: 1.5rem;" />
-      <h2>Start building with your AI team</h2>
-      <p>Clone the repo, open Cursor, and give each agent a role. Your first multi-agent build is minutes away.</p>
-      <div class="cta-group">
-        <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-primary">Get started on GitHub</a>
-        <a href="https://agentxchain.ai" class="btn-secondary">AgentXchain.ai &rarr;</a>
-      </div>
+  <section class="cta-s s-alt"><div class="container">
+    <img src="assets/logos/agentXchain.dev_icon_only_280x280px.png" alt="" width="64" height="64" style="margin-bottom:1.25rem;" />
+    <h2>Your first multi-agent build is 5 minutes away</h2>
+    <p>Clone the repo. Open Cursor. Give each agent a role. Ship something.</p>
+    <div class="cta-row">
+      <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-p">Get started on GitHub</a>
+      <a href="https://agentxchain.ai" class="btn-s">AgentXchain.ai &rarr;</a>
     </div>
-  </section>
+  </div></section>
 
-  <footer>
-    <div class="container">
-      <div class="footer-inner">
-        <div class="footer-brand">
-          <img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" />
-          <p>Open-source multi-agent coordination framework. Run a software team inside your AI workspace.</p>
-        </div>
-        <div class="footer-links">
-          <div class="footer-col">
-            <h4>Framework</h4>
-            <a href="#how-it-works">How it works</a>
-            <a href="#philosophy">Philosophy</a>
-            <a href="#comparison">vs MCP &amp; A2A</a>
-            <a href="#features">Features</a>
-          </div>
-          <div class="footer-col">
-            <h4>Resources</h4>
-            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
-            <a href="https://agentxchain.ai">AgentXchain.ai</a>
-          </div>
-        </div>
+  <footer><div class="container">
+    <div class="f-top">
+      <div class="f-brand">
+        <img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" />
+        <p>Open-source multi-agent coordination. Run a dev team inside your AI workspace.</p>
       </div>
-      <div class="footer-copy">&copy; 2026 AgentXchain. Developer-first, open-source.</div>
+      <div class="f-links">
+        <div class="f-col"><h4>Framework</h4><a href="#how">How it works</a><a href="#phil">Philosophy</a><a href="#vs">vs MCP &amp; A2A</a><a href="#what">What&rsquo;s included</a></div>
+        <div class="f-col"><h4>Links</h4><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
+      </div>
     </div>
-  </footer>
+    <div class="f-copy">&copy; 2026 AgentXchain &mdash; Coordination, not orchestration.</div>
+  </div></footer>
 
 </body>
 </html>

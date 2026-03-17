@@ -1,0 +1,36 @@
+{
+  "name": "agentxchain",
+  "version": "0.1.0",
+  "description": "CLI for AgentXchain — multi-agent coordination in your IDE",
+  "type": "module",
+  "bin": {
+    "agentxchain": "./bin/agentxchain.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "node bin/agentxchain.js",
+    "build:macos": "bun build bin/agentxchain.js --compile --target=bun-darwin-arm64 --outfile=dist/agentxchain-macos-arm64",
+    "build:linux": "bun build bin/agentxchain.js --compile --target=bun-linux-x64 --outfile=dist/agentxchain-linux-x64"
+  },
+  "keywords": ["ai", "agents", "multi-agent", "coordination", "sdlc", "cursor", "vscode", "claude-code", "agentxchain"],
+  "author": "shivamtiwari93",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shivamtiwari93/agentXchain.dev.git"
+  },
+  "homepage": "https://agentxchain.dev",
+  "dependencies": {
+    "commander": "^13.0.0",
+    "chalk": "^5.4.0",
+    "inquirer": "^12.0.0",
+    "ora": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,5 +1,6 @@
 {
-  "current_holder": 3,
-  "last_updated_by": 2,
-  "turn_number": 14
+  "holder": null,
+  "last_released_by": "pm",
+  "turn_number": 17,
+  "claimed_at": null
 }

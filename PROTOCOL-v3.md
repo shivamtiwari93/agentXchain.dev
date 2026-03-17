@@ -1,0 +1,251 @@
+# AgentXchain Protocol v3
+
+**Generalized agents. Claim-based turns. User-defined teams.**
+
+v3 replaces hardcoded roles and fixed turn order with user-defined agents and a claim-based lock. Any number of agents, any roles, any project — configured in one file.
+
+---
+
+## How it works
+
+1. A human creates `agentxchain.json` defining the project, the agents, and the rules.
+2. Agents read this file to discover their role and mandate.
+3. When no agent holds the lock (`lock.json` → `holder: null`), any agent can **claim** it.
+4. The agent that claims the lock does its work, appends a message to the log, and **releases** the lock.
+5. Another agent claims. The cycle continues until the project ships.
+
+There is no fixed turn order. Agents self-organize based on what needs doing.
+
+---
+
+## `agentxchain.json` — the config file
+
+This is the single source of truth for the project configuration. Create it at the root of your project folder.
+
+```json
+{
+  "version": 3,
+  "project": "Short project description",
+  "agents": {
+    "agent-id": {
+      "name": "Human-readable name",
+      "mandate": "What this agent is responsible for. One paragraph max."
+    }
+  },
+  "log": "log.md",
+  "rules": {
+    "max_consecutive_claims": 2,
+    "require_message": true,
+    "compress_after_words": 5000
+  }
+}
+```
+
+### Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `version` | yes | Must be `3`. |
+| `project` | yes | One-line project description. |
+| `agents` | yes | Object. Keys are agent IDs (lowercase, no spaces). Values define name and mandate. |
+| `agents.<id>.name` | yes | Display name for this agent. |
+| `agents.<id>.mandate` | yes | What this agent does. Agents read this to understand their job. |
+| `log` | no | Path to the message log file. Default: `log.md`. |
+| `rules.max_consecutive_claims` | no | Max times one agent can hold the lock in a row before another agent must go. Default: `2`. |
+| `rules.require_message` | no | If `true`, every turn must append a message to the log. Default: `true`. |
+| `rules.compress_after_words` | no | Word count threshold for triggering context compression. Default: `5000`. Set to `0` to disable. |
+
+### Agent IDs
+
+- Lowercase alphanumeric and hyphens: `pm`, `backend`, `qa-api`, `tech-writer`.
+- Must be unique within the config.
+- Used in `lock.json`, the message log, scripts, and seed prompts.
+
+---
+
+## `lock.json` — who holds the lock
+
+```json
+{
+  "holder": null,
+  "last_released_by": null,
+  "turn_number": 0,
+  "claimed_at": null
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `holder` | `string` or `null` | Agent ID of the current lock holder. `null` = lock is free. |
+| `last_released_by` | `string` or `null` | Agent ID that last released the lock. `null` at start. |
+| `turn_number` | `number` | Monotonic counter. Incremented by 1 when an agent releases the lock. |
+| `claimed_at` | `string` or `null` | ISO 8601 timestamp of when the lock was claimed. Used to detect stale/hung claims. |
+
+### Lock states
+
+| State | `holder` | Meaning |
+|-------|----------|---------|
+| **Free** | `null` | Any agent can claim. |
+| **Claimed** | `"agent-id"` | Only this agent may write. All others wait. |
+
+---
+
+## `state.json` — project phase and status
+
+```json
+{
+  "phase": "build",
+  "blocked": false,
+  "blocked_on": null,
+  "project": "Short project description"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phase` | `string` | Current project phase. Suggested: `"discovery"`, `"build"`, `"qa"`, `"deploy"`, `"blocked"`. User can define custom phases. |
+| `blocked` | `boolean` | `true` if the project is waiting on something (usually a human action). |
+| `blocked_on` | `string` or `null` | What the project is blocked on. e.g. `"human: set API key"`. |
+| `project` | `string` | One-line project description (mirrors `agentxchain.json`). |
+
+### When blocked
+
+Any agent that claims the lock while `blocked` is `true` should check if they can resolve the blocker. If not, they do a **no-op turn**: short message ("Still blocked on X. Releasing lock."), then release. When the blocker is resolved (by a human or an agent), set `blocked: false` and `blocked_on: null`.
+
+---
+
+## Claim flow — what an agent does each turn
+
+```
+1. READ    lock.json
+2. CHECK   Is holder null?
+           → No:  Stop. Wait. Try again later.
+           → Yes: Continue to step 3.
+3. CLAIM   Write lock.json: holder = my_id, claimed_at = now()
+4. VERIFY  Re-read lock.json. Does holder still equal my_id?
+           → No:  Another agent won. Go back to step 1.
+           → Yes: I have the lock. Continue.
+5. READ    agentxchain.json (my role), state.json (phase), log (latest messages)
+6. WORK    Do my job: write code, run tests, make decisions — whatever my mandate says.
+7. LOG     Append my message to the log file (see Message Format below).
+8. STATE   Update state.json if the phase or blocked status changed.
+9. RELEASE Write lock.json: holder = null, last_released_by = my_id,
+           turn_number = previous + 1, claimed_at = null
+10. DONE   Optionally: git commit with message "Turn N - agent-id - description"
+```
+
+### Rules enforced by agents
+
+- **Never write code, files, or log messages without holding the lock.** Read is always allowed.
+- **Always release the lock.** A claimed lock that's never released blocks everyone.
+- **One message per turn.** Each claim-work-release cycle produces exactly one log message.
+- **`max_consecutive_claims`**: Before claiming, check `last_released_by` in lock.json. If it's your own ID, check how many consecutive times you've held the lock (count from the log). If you've hit the limit, skip this round and let another agent go.
+- **Release lock.json last.** All work and writes must be complete before you set `holder: null`.
+
+### Stale claim detection
+
+If `claimed_at` is more than 10 minutes old and no work has been committed, other agents (or humans) may force-release the lock by setting `holder: null`. This handles hung or crashed agents.
+
+---
+
+## Message format
+
+Each turn appends one message to the log file. Format:
+
+```markdown
+---
+
+### [agent-id] (Agent Name) | Turn N
+
+**Status:** What's the current state of the project from your perspective.
+
+**Decision:** What you decided to do this turn and why.
+
+**Action:** What you actually did. Commands run, files changed, test results.
+
+**Next:** What should happen next. What's unblocked, what's still needed.
+```
+
+- `agent-id` and `Agent Name` come from `agentxchain.json`.
+- `Turn N` matches the new `turn_number` after you release the lock.
+- All four sections are required when `rules.require_message` is true.
+
+---
+
+## Context compression
+
+When the log file exceeds `rules.compress_after_words` words:
+
+1. Any agent (not just a specific one) may compress during their turn.
+2. Move older messages from the log into a `COMPRESSED CONTEXT` section at the top.
+3. The compressed summary must keep: project scope, key decisions, open risks, in-flight work, unresolved bugs, current phase.
+4. Keep at least the last N messages uncompressed (where N = number of agents, so every agent's most recent message is visible).
+
+---
+
+## `HUMAN_TASKS.md`
+
+- When the process needs a human action, append a checkbox item.
+- When the human completes it, mark it `[x]`.
+- Agents check this file before doing work. If the only path forward is "wait for human," do a no-op turn.
+
+---
+
+## Tool use
+
+- When you hold the lock, you may run any tools: shell, editor, linter, git, npm, etc.
+- Your **Action** section must state what you ran and the outcome.
+- If you couldn't run a tool (permissions, missing dependency), say so.
+- Prefer one git commit per turn: `Turn N - agent-id - description`.
+
+---
+
+## Common rules for all agents
+
+- **Challenge each other.** Every turn should identify at least one risk, issue, or question about the previous work. Blind agreement ("looks good") is not enough.
+- **Be specific.** Don't say "there might be issues." Say what the issue is, where it is, and what to do about it.
+- **Stay in your lane.** Respect your mandate. A QA agent shouldn't redesign the architecture. A PM shouldn't write production code.
+- **Unblock > perfect.** If the project is stuck, prioritize unblocking over polishing.
+
+---
+
+## Files in a v3 project
+
+| File | Purpose |
+|------|---------|
+| `agentxchain.json` | Project config: agents, rules, settings. |
+| `lock.json` | Who holds the lock, turn counter, claim timestamp. |
+| `state.json` | Project phase, blocked status. |
+| `log.md` (or custom) | Message log: agents append one message per turn. |
+| `HUMAN_TASKS.md` | Human task list. |
+| `PROTOCOL-v3.md` | This protocol (optional — agents can read from the framework docs). |
+
+---
+
+## Quick start
+
+1. Create `agentxchain.json` with your agents and project description.
+2. Create `lock.json`: `{"holder": null, "last_released_by": null, "turn_number": 0, "claimed_at": null}`
+3. Create `state.json`: `{"phase": "discovery", "blocked": false, "blocked_on": null, "project": "..."}`
+4. Create an empty `log.md` and `HUMAN_TASKS.md`.
+5. Give each agent its seed prompt (see seed prompt template in the framework).
+6. Let agents claim and go.
+
+---
+
+## Migration from v2
+
+| v2 | v3 |
+|----|----|
+| `current_holder: 1` | `holder: "pm"` (or whatever ID you choose) |
+| `last_updated_by: 1` | `last_released_by: "pm"` |
+| Fixed cycle 1→2→3→4→1 | Claim-based: any agent claims when free |
+| Agent numbers | Agent string IDs defined in `agentxchain.json` |
+| Roles hardcoded in protocol doc | Roles defined in `agentxchain.json` |
+| `project_one_liner` in state.json | `project` in state.json (and `agentxchain.json`) |
+
+Existing message logs are compatible. Just update lock.json and state.json to the new format and add `agentxchain.json`.

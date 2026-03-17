@@ -1,7 +1,6 @@
 {
-  "phase": "Build",
+  "phase": "build",
   "blocked": false,
   "blocked_on": null,
-  "blocked_since_turn": null,
-  "project_one_liner": "Mood tracking app — log mood, view history, simple insights."
+  "project": "Mood tracking app — log mood, view history, simple insights"
 }

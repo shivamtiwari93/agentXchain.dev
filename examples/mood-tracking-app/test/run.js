@@ -32,7 +32,7 @@ async function fetchRetry(url, opts = {}, maxAttempts = 10) {
 async function run() {
   server = spawn('node', ['server/index.js'], {
     cwd: root,
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, PORT: String(PORT), DB_PATH: ':memory:' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   server.stdout?.on('data', () => {});
@@ -105,6 +105,22 @@ async function run() {
     const createdWithTags = await postWithTags.json();
     if (!Array.isArray(createdWithTags.tags) || !createdWithTags.tags.includes('work')) {
       console.error('POST /api/mood tags not returned:', createdWithTags);
+      process.exit(1);
+    }
+
+    const invalidMoodRes = await fetch(`${base}/api/mood`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie.split(';')[0] } : {}) },
+      body: JSON.stringify({ mood: 'excellent', note: 'invalid-mood-test' }),
+      credentials: 'include'
+    });
+    if (invalidMoodRes.status !== 400) {
+      console.error('POST /api/mood with invalid mood should return 400, got:', invalidMoodRes.status, await invalidMoodRes.text());
+      process.exit(1);
+    }
+    const invalidMoodData = await invalidMoodRes.json();
+    if (!invalidMoodData.error || !invalidMoodData.error.includes('mood required')) {
+      console.error('POST /api/mood invalid mood error payload unexpected:', invalidMoodData);
       process.exit(1);
     }
 

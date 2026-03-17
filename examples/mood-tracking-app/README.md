@@ -1,45 +1,31 @@
-# Mood Tracking App — example
+# Mood Tracking App — AgentXchain v3 example
 
-This folder is **one example** of the AgentXchain framework. Four agents (PM, Fullstack Dev, QA, QA/UX) build a **Mood Tracking App** (log mood, view history, simple insights) by taking turns in this shared workspace.
+This folder is a runnable example of the **AgentXchain v3 protocol**. Four agents (PM, Dev, QA, UX) build a mood tracking app using claim-based coordination.
 
-**For the full framework docs** — how to run agents, comparison with MCP and A2A, protocol v2 summary — see the **AgentXchain framework README** at the dev root:
+## Quick start
 
-**[agentXchain.dev/README.md](../../README.md)** (framework root). Examples live under **`agentXchain.dev/examples/`**.
+1. Read `agentxchain.json` to see the agents and rules.
+2. Read `../../PROTOCOL-v3.md` for the full protocol spec.
+3. Read `../../SEED-PROMPT.md` for the copy-paste prompt template.
+4. Open one Cursor session per agent. Paste the seed prompt with the agent's ID (`pm`, `dev`, `qa`, `ux`).
+5. Agents claim the lock, do work, release. The cycle continues until the app ships.
 
----
-
-## What’s in this folder
+## Files
 
 | File | Purpose |
-|------|--------|
-| **PROTOCOL-v2.md** | Full protocol for this example: Phase 0, roles, lock, state, tool use, handoff, compression. **Read this first** when working in this example. |
-| **moodTracking-poc.md** | Main log: LOCK summary, COMPRESSED CONTEXT, MESSAGE LOG. Agents append their turns here. |
-| **lock.json** | Authoritative turn state: `current_holder` (1–4), `turn_number`, `last_updated_by`. |
-| **state.json** | Phase, blocked flag, `blocked_on`, `project_one_liner`. |
-| **HUMAN_TASKS.md** | Human task list. Append when the process needs a human; mark done when complete. |
-| **AUTO-MODE-INSTRUCTIONS.md** | For Cursor Auto: copy-paste instructions so each agent recursively waits 60s, checks lock, does work or repeats. |
-| **CHECK-TURN-PROMPTS.md** | One-off prompts when you manually trigger a “check if it’s your turn” in a session. |
-| **scripts/check-turn.sh** | Prints `current_holder` and `turn_number`; with one arg (e.g. `2`), exits 0 if it’s that agent’s turn. |
-| **scripts/wait-for-my-turn.sh** | Blocking: waits 60s, checks lock, repeats until it’s your turn, then exits 0. |
+|------|---------|
+| `agentxchain.json` | Project config: 4 agents (pm, dev, qa, ux), rules. |
+| `lock.json` | Claim-based lock: who holds it, turn counter. |
+| `state.json` | Project phase, blocked status. |
+| `log.md` | Message log: agents append one message per turn. |
+| `HUMAN_TASKS.md` | Human task list. |
 
----
+## Project goal
 
-## Quick start for this example
+**Mood Tracking App** — users log their mood, view history, and get simple insights. The four agents discover scope, build, test, and polish using the v3 protocol.
 
-1. Read **PROTOCOL-v2.md** in this folder.  
-2. Use **AUTO-MODE-INSTRUCTIONS.md** for copy-paste blocks for Agent 1–4 (workspace folder = this folder).  
-3. Check whose turn it is: open `lock.json` or run `./scripts/check-turn.sh`.  
-4. Run agents (manual trigger or Auto with wait loop) as described in the **AgentXchain framework README** at [agentXchain.dev/README.md](../../README.md).
+## Framework docs
 
-**Project goal:** Mood Tracking App — users log mood, view history, get simple insights. The four agents discover scope, build, run QA, and prepare for deploy using the shared protocol and files above.
-
----
-
-## Run and deploy
-
-- **Install:** `npm install` (Node 18+).
-- **Run:** `npm start` (server on `PORT` or 3000). Static files from `public/`; API under `/api/*`.
-- **Dev:** `npm run dev` (watch mode).
-- **Test:** `npm test` (starts server on port 3099, runs API checks, exits).
-- **Port note:** Tests bind to `3099`; avoid running the app on `3099` when executing `npm test` to prevent port conflicts.
-- **Deploy:** Set `PORT` in the environment; ensure writable `data/` for SQLite. No secrets required for MVP; session cookies are httpOnly and same-origin.
+- **Protocol:** [PROTOCOL-v3.md](../../PROTOCOL-v3.md)
+- **Seed prompt:** [SEED-PROMPT.md](../../SEED-PROMPT.md)
+- **Scripts:** [scripts/](../../scripts/) — `check.sh`, `claim.sh`, `release.sh`, `wait-and-claim.sh`
