@@ -19,7 +19,7 @@ const DEFAULT_AGENTS = {
   },
   qa: {
     name: 'QA Engineer',
-    mandate: 'You assume everything is broken until you personally verify it works.\n\nEVERY TURN: 1) Test report: what tested, how, pass/fail. 2) For each bug: repro steps, expected vs actual, severity. 3) One test the dev didn\'t write. 4) Ship-ready verdict.\n\nCHALLENGE: If the dev says "tests pass," verify independently. Test the unhappy path. Question assumptions.\n\nFIRST TURN: Set up test infrastructure, one smoke test, list of planned test cases.\n\nDON\'T: say "looks good." Don\'t test only happy paths. Be surgical: file, line, input, output.'
+    mandate: 'You are the quality gatekeeper. You test BOTH the code (functional) AND the user experience (UX). Nothing ships without your evidence.\n\nFUNCTIONAL QA every turn: 1) Run test suite, report pass/fail. 2) Test against acceptance criteria in .planning/REQUIREMENTS.md. 3) Test unhappy paths: empty input, wrong types, duplicates, expired sessions. 4) Write one test the dev didn\'t. 5) File bugs in .planning/qa/BUGS.md with repro steps.\n\nUX QA every turn (if UI exists): Walk through .planning/qa/UX-AUDIT.md checklist. Test first impressions, core flow, forms, responsive (375/768/1440px), accessibility (contrast, keyboard, alt text), error states.\n\nDOCS YOU MAINTAIN: .planning/qa/BUGS.md, UX-AUDIT.md, TEST-COVERAGE.md, ACCEPTANCE-MATRIX.md, REGRESSION-LOG.md.\n\nSHIP VERDICT every turn: "Can we ship?" YES / YES WITH CONDITIONS / NO + blockers.\n\nCHALLENGE: Verify independently. Test what others skip. Don\'t trust "it works."\n\nFIRST TURN: Set up test infra, create TEST-COVERAGE.md from requirements, initialize UX-AUDIT.md, create ACCEPTANCE-MATRIX.md.\n\nDON\'T: say "looks good." Don\'t skip UX. Don\'t file vague bugs.'
   },
   ux: {
     name: 'UX Reviewer & Context Manager',
@@ -197,6 +197,7 @@ export async function initCommand(opts) {
   const lock = { holder: null, last_released_by: null, turn_number: 0, claimed_at: null };
   const state = { phase: 'discovery', blocked: false, blocked_on: null, project };
 
+  // Core protocol files
   writeFileSync(join(dir, CONFIG_FILE), JSON.stringify(config, null, 2) + '\n');
   writeFileSync(join(dir, LOCK_FILE), JSON.stringify(lock, null, 2) + '\n');
   writeFileSync(join(dir, 'state.json'), JSON.stringify(state, null, 2) + '\n');
@@ -205,17 +206,40 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'log.md'), `# ${project} — Agent Log\n\n## COMPRESSED CONTEXT\n\n(No compressed context yet.)\n\n## MESSAGE LOG\n\n(Agents append messages below this line.)\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
 
+  // .planning/ structure
+  mkdirSync(join(dir, '.planning', 'research'), { recursive: true });
+  mkdirSync(join(dir, '.planning', 'phases'), { recursive: true });
+  mkdirSync(join(dir, '.planning', 'qa'), { recursive: true });
+
+  writeFileSync(join(dir, '.planning', 'PROJECT.md'), `# ${project}\n\n## Vision\n\n(PM fills this on the first turn: who is the user, what problem are we solving, what does success look like.)\n\n## Constraints\n\n(Technical constraints, timeline, budget, dependencies.)\n\n## Stack\n\n(Tech stack decisions and rationale.)\n`);
+
+  writeFileSync(join(dir, '.planning', 'REQUIREMENTS.md'), `# Requirements — ${project}\n\n## v1 (MVP)\n\n(PM fills this: numbered list of requirements. Each requirement has one-sentence acceptance criteria.)\n\n| # | Requirement | Acceptance criteria | Phase | Status |\n|---|-------------|-------------------|-------|--------|\n| 1 | | | | Pending |\n\n## v2 (Future)\n\n(Out of scope for MVP. Captured here so they don't creep in.)\n\n## Out of scope\n\n(Explicitly not building.)\n`);
+
+  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${project}\n\n## Phases\n\n| Phase | Description | Status | Requirements |\n|-------|-------------|--------|-------------|\n| 1 | Discovery + setup | In progress | — |\n\n(PM updates this as phases are planned and completed.)\n`);
+
+  // QA structure
+  writeFileSync(join(dir, '.planning', 'qa', 'TEST-COVERAGE.md'), `# Test Coverage — ${project}\n\n## Coverage Map\n\n| Feature / Area | Unit tests | Integration tests | E2E tests | Manual QA | UX audit | Status |\n|---------------|-----------|------------------|----------|----------|---------|--------|\n| (QA fills this as testing progresses) | | | | | | |\n\n## Coverage gaps\n\n(Areas with no tests or insufficient coverage.)\n`);
+
+  writeFileSync(join(dir, '.planning', 'qa', 'REGRESSION-LOG.md'), `# Regression Log — ${project}\n\nBugs that were found and fixed. Each entry has a regression test to prevent recurrence.\n\n| Bug ID | Description | Found turn | Fixed turn | Regression test | Status |\n|--------|-------------|-----------|-----------|----------------|--------|\n| (QA adds entries as bugs are found and fixed) | | | | | |\n`);
+
+  writeFileSync(join(dir, '.planning', 'qa', 'ACCEPTANCE-MATRIX.md'), `# Acceptance Matrix — ${project}\n\nMaps every requirement to its test status. This is the definitive "can we ship?" document.\n\n| Req # | Requirement | Acceptance criteria | Functional test | UX test | Last tested | Status |\n|-------|-------------|-------------------|-----------------|---------|-------------|--------|\n| (QA fills this from REQUIREMENTS.md) | | | | | | |\n`);
+
+  writeFileSync(join(dir, '.planning', 'qa', 'UX-AUDIT.md'), `# UX Audit — ${project}\n\n## Audit checklist\n\nQA updates this every turn when the project has a user interface.\n\n### First impressions (< 5 seconds)\n- [ ] Is it immediately clear what this product does?\n- [ ] Can the user find the primary action without scrolling?\n- [ ] Does the page load in under 2 seconds?\n\n### Navigation & flow\n- [ ] Can the user complete the core workflow without getting lost?\n- [ ] Are there dead ends (pages with no next action)?\n- [ ] Does the back button work as expected?\n\n### Forms & input\n- [ ] Do all form fields have labels?\n- [ ] Are error messages specific (not just "invalid input")?\n- [ ] Is there feedback after submission (loading state, success message)?\n- [ ] Do forms work with autofill?\n\n### Visual consistency\n- [ ] Is spacing consistent across pages?\n- [ ] Are fonts consistent (max 2 font families)?\n- [ ] Are button styles consistent?\n- [ ] Are colors consistent with the design system?\n\n### Responsive\n- [ ] Does it work on mobile (375px)?\n- [ ] Does it work on tablet (768px)?\n- [ ] Does it work on desktop (1440px)?\n- [ ] Are touch targets at least 44x44px on mobile?\n\n### Accessibility\n- [ ] Do all images have alt text?\n- [ ] Is color contrast WCAG AA compliant (4.5:1 for text)?\n- [ ] Can the entire app be navigated by keyboard?\n- [ ] Do focus states exist for interactive elements?\n- [ ] Are headings in correct hierarchy (h1 > h2 > h3)?\n\n### Error states\n- [ ] What does the user see when the network is offline?\n- [ ] What does the user see when the server returns 500?\n- [ ] What does the user see on an empty state (no data yet)?\n\n## Issues found\n\n| # | Issue | Severity | Page/Component | Screenshot/Description | Status |\n|---|-------|----------|---------------|----------------------|--------|\n| (QA adds UX issues here) | | | | | |\n`);
+
+  writeFileSync(join(dir, '.planning', 'qa', 'BUGS.md'), `# Bugs — ${project}\n\n## Open\n\n(QA adds bugs here with reproduction steps.)\n\n## Fixed\n\n(Bugs move here when dev confirms the fix and QA verifies it.)\n`);
+
   const agentCount = Object.keys(agents).length;
   console.log('');
   console.log(chalk.green(`  ✓ Created ${chalk.bold(folderName)}/`));
   console.log('');
   console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim(`(${agentCount} agents)`)}`);
   console.log(`    ${chalk.dim('├──')} lock.json`);
-  console.log(`    ${chalk.dim('├──')} state.json`);
-  console.log(`    ${chalk.dim('├──')} state.md`);
-  console.log(`    ${chalk.dim('├──')} history.jsonl`);
-  console.log(`    ${chalk.dim('├──')} log.md`);
-  console.log(`    ${chalk.dim('└──')} HUMAN_TASKS.md`);
+  console.log(`    ${chalk.dim('├──')} state.json / state.md / history.jsonl`);
+  console.log(`    ${chalk.dim('├──')} log.md / HUMAN_TASKS.md`);
+  console.log(`    ${chalk.dim('└──')} .planning/`);
+  console.log(`         ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md`);
+  console.log(`         ${chalk.dim('├──')} research/ / phases/`);
+  console.log(`         ${chalk.dim('└──')} qa/  ${chalk.dim('TEST-COVERAGE / BUGS / UX-AUDIT / ACCEPTANCE-MATRIX')}`);
   console.log('');
   console.log(`  ${chalk.dim('Agents:')} ${Object.keys(agents).join(', ')}`);
   console.log('');
