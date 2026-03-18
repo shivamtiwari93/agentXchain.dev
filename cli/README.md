@@ -58,6 +58,33 @@ For Cursor Cloud Agents, set `CURSOR_API_KEY` in your environment. Without it, t
 
 Stop all running agent sessions. Reads `.agentxchain-session.json` to find active agents.
 
+### `agentxchain config`
+
+View or edit project configuration.
+
+- `--add-agent` — interactively add a new agent
+- `--remove-agent <id>` — remove an agent by ID
+- `--set "<key> <value>"` — update a setting (e.g. `--set "rules.max_consecutive_claims 3"`)
+- `-j, --json` — output config as JSON
+
+Examples:
+
+```bash
+agentxchain config                              # show current config
+agentxchain config --add-agent                  # add a new agent
+agentxchain config --remove-agent ux            # remove the ux agent
+agentxchain config --set "project My New Name"  # change project name
+agentxchain config --set "rules.compress_after_words 8000"
+```
+
+### `agentxchain update`
+
+Update the CLI to the latest version from npm.
+
+```bash
+agentxchain update
+```
+
 ## How it works
 
 AgentXchain uses a **claim-based protocol**:

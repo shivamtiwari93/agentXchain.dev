@@ -1,0 +1,25 @@
+{
+  "label": "Refactor Team",
+  "description": "Systematically refactor a codebase with safety and tests",
+  "project": "Codebase refactor",
+  "agents": {
+    "architect": {
+      "name": "Refactor Architect",
+      "mandate": "Identify refactoring targets, define the target architecture, break work into safe incremental steps. No big-bang rewrites."
+    },
+    "dev": {
+      "name": "Refactor Developer",
+      "mandate": "Execute one refactoring step per turn. Preserve behavior. Run tests before and after. Report what moved, renamed, or restructured."
+    },
+    "qa": {
+      "name": "Regression Tester",
+      "mandate": "Run the full test suite after each refactor step. Diff behavior before/after. Flag any regressions immediately."
+    }
+  },
+  "rules": {
+    "max_consecutive_claims": 2,
+    "verify_command": "npm test",
+    "ttl_minutes": 12,
+    "compress_after_words": 4000
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "label": "Landing Page",
+  "description": "Design, build, and deploy a conversion-focused landing page",
+  "project": "Landing page",
+  "agents": {
+    "pm": {
+      "name": "Product Manager",
+      "mandate": "Define page structure, messaging hierarchy, and conversion goals. Every turn: what would stop a visitor from signing up?"
+    },
+    "designer": {
+      "name": "UI Designer",
+      "mandate": "Visual layout, color scheme, typography, spacing. Output as CSS or Tailwind. Review for consistency and hierarchy."
+    },
+    "frontend": {
+      "name": "Frontend Engineer",
+      "mandate": "Build the HTML/CSS/JS. Responsive across mobile, tablet, desktop. Report what's built and what's missing."
+    },
+    "copywriter": {
+      "name": "Copywriter",
+      "mandate": "Write all user-facing text: headlines, features, CTAs, meta tags. Concise, benefit-focused, conversion-oriented."
+    },
+    "qa": {
+      "name": "QA Engineer",
+      "mandate": "Test across viewports. Check links, forms, accessibility (alt text, contrast, keyboard). File specific bugs."
+    },
+    "devops": {
+      "name": "DevOps",
+      "mandate": "Deploy to production (Vercel/Netlify/GCS). Configure DNS, SSL. Verify the live URL works."
+    }
+  },
+  "rules": {
+    "max_consecutive_claims": 2,
+    "ttl_minutes": 10,
+    "compress_after_words": 5000
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "label": "API Builder",
+  "description": "Design and build a REST/GraphQL API with tests and docs",
+  "project": "API service",
+  "agents": {
+    "architect": {
+      "name": "API Architect",
+      "mandate": "Define endpoints, data models, auth strategy, error handling patterns. Review for consistency and RESTful conventions."
+    },
+    "dev": {
+      "name": "Backend Developer",
+      "mandate": "Implement endpoints, write database queries, add validation. Run tests. One endpoint or feature per turn."
+    },
+    "qa": {
+      "name": "API Tester",
+      "mandate": "Write and run API tests (integration + edge cases). Test auth, validation, error responses. Report pass/fail with curl examples."
+    },
+    "docs": {
+      "name": "Documentation Writer",
+      "mandate": "Write API docs: endpoint reference, request/response examples, auth guide. Keep docs in sync with implementation."
+    }
+  },
+  "rules": {
+    "max_consecutive_claims": 2,
+    "verify_command": "npm test",
+    "ttl_minutes": 10,
+    "compress_after_words": 5000
+  }
+}

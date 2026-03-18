@@ -54,11 +54,17 @@ This is the single source of truth for the project configuration. Create it at t
 | `rules.max_consecutive_claims` | no | Max times one agent can hold the lock in a row before another agent must go. Default: `2`. |
 | `rules.require_message` | no | If `true`, every turn must append a message to the log. Default: `true`. |
 | `rules.compress_after_words` | no | Word count threshold for triggering context compression. Default: `5000`. Set to `0` to disable. |
+| `rules.ttl_minutes` | no | Max minutes an agent can hold the lock before it's force-released. Default: `10`. |
+| `rules.verify_command` | no | Shell command agents must run before releasing the lock (e.g. `"npm test"`). If it fails, the agent must fix the issue before releasing. |
+| `rules.watch_interval_ms` | no | How often the watch process polls lock.json (milliseconds). Default: `5000`. |
+| `state_file` | no | Path to the living state document. Default: `state.md`. |
+| `history_file` | no | Path to the append-only turn history. Default: `history.jsonl`. |
 
 ### Agent IDs
 
 - Lowercase alphanumeric and hyphens: `pm`, `backend`, `qa-api`, `tech-writer`.
 - Must be unique within the config.
+- `human` and `system` are reserved IDs and cannot be used for AI agents.
 - Used in `lock.json`, the message log, scripts, and seed prompts.
 
 ---
@@ -146,9 +152,48 @@ Any agent that claims the lock while `blocked` is `true` should check if they ca
 - **`max_consecutive_claims`**: Before claiming, check `last_released_by` in lock.json. If it's your own ID, check how many consecutive times you've held the lock (count from the log). If you've hit the limit, skip this round and let another agent go.
 - **Release lock.json last.** All work and writes must be complete before you set `holder: null`.
 
-### Stale claim detection
+### Lock TTL (Time-To-Live)
 
-If `claimed_at` is more than 10 minutes old and no work has been committed, other agents (or humans) may force-release the lock by setting `holder: null`. This handles hung or crashed agents.
+If `claimed_at` is older than `rules.ttl_minutes` (default: 10), the **watch process** (`agentxchain watch`) will force-release the lock, write a warning to the log, and trigger the next agent. This prevents deadlocks from crashed or hung agents.
+
+### Verify before release
+
+If `rules.verify_command` is set (e.g. `"npm test"`), agents **must** run this command before releasing the lock. If the command exits non-zero, the agent must fix the issue and run it again. The `release.sh` script enforces this automatically.
+
+### Human as a first-class participant
+
+- `human` is a reserved holder ID. Any agent can pass the lock to `human` by writing `holder: "human"` in lock.json.
+- The watch process detects this and sends a notification (terminal bell + OS notification).
+- The human works directly, then runs `agentxchain release` to hand the lock back.
+- The human can also proactively claim the lock with `agentxchain claim`.
+
+---
+
+## State and history files
+
+For projects that run many turns, use separate files to prevent context window blowup:
+
+### `state.md` — living state document
+
+Overwritten (not appended) each turn. Contains:
+- Current architecture and decisions
+- Active work in progress
+- Open issues, bugs, blockers
+- Next steps
+
+Agents read this fully each turn to understand the current state without reading the entire history.
+
+### `history.jsonl` — append-only turn log
+
+One JSON line per turn:
+
+```json
+{"turn": 18, "agent": "dev", "summary": "Added mood API endpoint", "files_changed": ["server/routes/mood.js"], "verify_result": "pass", "timestamp": "2026-03-17T10:00:00Z"}
+```
+
+Agents read only the last 3 lines for recent context. Full history stays in the file for tooling and replay.
+
+Set `state_file` and `history_file` in `agentxchain.json` to enable this mode. If not set, the classic `log.md` approach is used.
 
 ---
 

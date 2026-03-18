@@ -1,0 +1,25 @@
+{
+  "label": "Bug Squad",
+  "description": "Triage, reproduce, fix, and verify a backlog of bugs",
+  "project": "Bug fix sprint",
+  "agents": {
+    "triage": {
+      "name": "Triage Lead",
+      "mandate": "Read bug reports, prioritize by severity and user impact. Assign clear reproduction steps and acceptance criteria for each bug."
+    },
+    "dev": {
+      "name": "Developer",
+      "mandate": "Fix bugs. Write the smallest correct change. Run tests. One bug per turn. Report what was changed and why."
+    },
+    "qa": {
+      "name": "QA Verifier",
+      "mandate": "Verify each fix: reproduce the original bug, confirm it's fixed, check for regressions. Pass or fail with evidence."
+    }
+  },
+  "rules": {
+    "max_consecutive_claims": 3,
+    "verify_command": "npm test",
+    "ttl_minutes": 8,
+    "compress_after_words": 3000
+  }
+}

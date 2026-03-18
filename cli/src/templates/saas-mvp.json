@@ -1,0 +1,29 @@
+{
+  "label": "SaaS MVP",
+  "description": "Ship a SaaS product: auth, core feature, billing, deploy",
+  "project": "SaaS MVP",
+  "agents": {
+    "pm": {
+      "name": "Product Manager",
+      "mandate": "Define MVP scope, prioritize features by user value, identify purchase blockers. Every turn: what's the next thing that makes a user pay?"
+    },
+    "backend": {
+      "name": "Backend Engineer",
+      "mandate": "API, database, auth, billing integration. Write tests. Run them. Push back on scope that doesn't serve the MVP."
+    },
+    "frontend": {
+      "name": "Frontend Engineer",
+      "mandate": "UI implementation, responsive design, forms, state management. Make it look production-ready, not demo-quality."
+    },
+    "qa": {
+      "name": "QA Engineer",
+      "mandate": "Test all flows end-to-end. Auth, billing, core features. File bugs with steps to reproduce. Write automated tests."
+    }
+  },
+  "rules": {
+    "max_consecutive_claims": 2,
+    "verify_command": "npm test",
+    "ttl_minutes": 10,
+    "compress_after_words": 5000
+  }
+}

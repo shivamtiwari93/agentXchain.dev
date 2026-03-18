@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # release.sh — Release the lock after completing work.
 # Usage: ./release.sh <agent-id>
-# Exit 0 if released, exit 1 if the agent didn't hold the lock.
+# If verify_command is set in agentxchain.json, it must pass before release.
+# Exit 0 if released, exit 1 if verify failed or agent didn't hold the lock.
 set -e
 
 if [[ -z "$1" ]]; then
@@ -11,6 +12,7 @@ fi
 
 AGENT_ID="$1"
 LOCK="./lock.json"
+CONFIG="./agentxchain.json"
 
 if [[ ! -f "$LOCK" ]]; then
   echo "Error: lock.json not found in current directory" >&2
@@ -22,6 +24,24 @@ HOLDER=$(node -e "const l=JSON.parse(require('fs').readFileSync('$LOCK','utf8'))
 if [[ "$HOLDER" != "$AGENT_ID" ]]; then
   echo "Error: Lock is held by '$HOLDER', not '$AGENT_ID'. Cannot release."
   exit 1
+fi
+
+# Run verify_command if configured
+if [[ -f "$CONFIG" ]]; then
+  VERIFY_CMD=$(node -e "
+    const c=JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));
+    console.log(c.rules?.verify_command || '');
+  " 2>/dev/null)
+
+  if [[ -n "$VERIFY_CMD" ]]; then
+    echo "Running verify: $VERIFY_CMD"
+    if eval "$VERIFY_CMD"; then
+      echo "Verify passed."
+    else
+      echo "Error: Verify command failed. Fix the issue before releasing."
+      exit 1
+    fi
+  fi
 fi
 
 node -e "
