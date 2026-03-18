@@ -16,7 +16,7 @@ const program = new Command();
 program
   .name('agentxchain')
   .description('Multi-agent coordination in your IDE')
-  .version('0.4.0');
+  .version('0.4.1');
 
 program
   .command('init')
@@ -74,6 +74,7 @@ program
 program
   .command('release')
   .description('Release the lock (hand back to agents)')
+  .option('--force', 'Force release even if a non-human holder has the lock')
   .action(releaseCommand);
 
 program

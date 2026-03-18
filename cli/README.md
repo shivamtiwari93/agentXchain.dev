@@ -52,6 +52,13 @@ agentxchain branch --use-current    # pin to whatever branch you're on now
 agentxchain branch --unset          # remove pin; follow active git branch
 ```
 
+### Additional command flags
+
+```bash
+agentxchain watch --daemon          # run watch in background
+agentxchain release --force         # force-release non-human holder lock
+```
+
 ## Key features
 
 - **Claim-based coordination** — no fixed turn order; agents self-organize

@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
@@ -7,6 +9,11 @@ import { sendFollowup, getAgentStatus, stopAgent, loadSession } from '../adapter
 import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function watchCommand(opts) {
+  if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
+    startWatchDaemon();
+    return;
+  }
+
   const result = loadConfig();
   if (!result) {
     console.log(chalk.red('  No agentxchain.json found. Run `agentxchain init` first.'));
@@ -17,6 +24,11 @@ export async function watchCommand(opts) {
   const interval = config.rules?.watch_interval_ms || 5000;
   const ttlMinutes = config.rules?.ttl_minutes || 10;
   const agentIds = Object.keys(config.agents);
+  if (agentIds.length === 0) {
+    console.log(chalk.red('  No agents configured in agentxchain.json.'));
+    console.log(chalk.dim('  Add an agent with: agentxchain config --add-agent'));
+    process.exit(1);
+  }
   const apiKey = getCursorApiKey(root);
   const session = loadSession(root);
   const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
@@ -108,12 +120,19 @@ export async function watchCommand(opts) {
       if (stateKey !== lastState) {
         const next = pickNextAgent(lock, config);
         log('free', `Lock free (released by ${lock.last_released_by || 'none'}). Waking ${chalk.bold(next)}.`);
-        lastState = stateKey;
+        let wakeSucceeded = false;
 
         if (hasCursorSession && apiKey) {
-          await wakeCursorAgent(apiKey, session, next, lock, config);
+          wakeSucceeded = await wakeCursorAgent(apiKey, session, next, lock, config, root);
         } else {
           writeTrigger(root, next, lock, config);
+          wakeSucceeded = true;
+        }
+
+        if (wakeSucceeded) {
+          lastState = stateKey;
+        } else {
+          log('warn', `Wake for ${next} failed. Will retry next poll.`);
         }
       }
     } catch (err) {
@@ -132,11 +151,12 @@ export async function watchCommand(opts) {
   });
 }
 
-async function wakeCursorAgent(apiKey, session, agentId, lock, config) {
+async function wakeCursorAgent(apiKey, session, agentId, lock, config, root) {
   const cloudAgent = session.launched.find(a => a.id === agentId);
   if (!cloudAgent) {
     log('warn', `No Cursor cloud agent found for "${agentId}". Using trigger file.`);
-    return;
+    writeTrigger(root, agentId, lock, config);
+    return true;
   }
 
   const name = config.agents[agentId]?.name || agentId;
@@ -158,13 +178,16 @@ This must be the last thing you write. The watch process will wake the next agen
   try {
     await sendFollowup(apiKey, cloudAgent.cloudId, wakeMessage);
     log('wake', `Sent followup to ${chalk.bold(agentId)} (${cloudAgent.cloudId})`);
+    return true;
   } catch (err) {
     log('error', `Failed to wake ${agentId}: ${err.message}`);
+    return false;
   }
 }
 
 function pickNextAgent(lock, config) {
   const agentIds = Object.keys(config.agents);
+  if (agentIds.length === 0) return null;
   const lastAgent = lock.last_released_by;
 
   if (!lastAgent || !agentIds.includes(lastAgent)) return agentIds[0];
@@ -191,6 +214,7 @@ function forceRelease(root, lock, staleAgent, config) {
 }
 
 function writeTrigger(root, agentId, lock, config) {
+  if (!agentId) return;
   const triggerPath = join(root, '.agentxchain-trigger.json');
   writeFileSync(triggerPath, JSON.stringify({
     agent: agentId,
@@ -213,4 +237,21 @@ function log(type, msg) {
     stop: chalk.dim('STOP '),
   };
   console.log(`  ${chalk.dim(time)} ${tags[type] || chalk.dim(type)}  ${msg}`);
+}
+
+function startWatchDaemon() {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  const cliBin = join(currentDir, '../../bin/agentxchain.js');
+  const child = spawn(process.execPath, [cliBin, 'watch'], {
+    cwd: process.cwd(),
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, AGENTXCHAIN_WATCH_DAEMON: '1' }
+  });
+  child.unref();
+
+  console.log('');
+  console.log(chalk.green(`  ✓ Watch started in daemon mode (PID: ${child.pid})`));
+  console.log(chalk.dim('  Use `agentxchain stop` or kill the PID to stop it.'));
+  console.log('');
 }

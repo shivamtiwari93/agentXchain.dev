@@ -102,6 +102,11 @@ function removeAgent(config, configPath, id) {
   }
 
   const name = config.agents[id].name;
+  if (Object.keys(config.agents).length <= 1) {
+    console.log(chalk.red('  Cannot remove the last agent.'));
+    console.log(chalk.dim('  Add another agent first, then remove this one if needed.'));
+    process.exit(1);
+  }
   delete config.agents[id];
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 

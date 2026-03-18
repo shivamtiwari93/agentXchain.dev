@@ -71,7 +71,7 @@ export async function claimCommand(opts) {
   console.log('');
 }
 
-export async function releaseCommand() {
+export async function releaseCommand(opts) {
   const result = loadConfig();
   if (!result) { console.log(chalk.red('  No agentxchain.json found.')); process.exit(1); }
 
@@ -84,7 +84,18 @@ export async function releaseCommand() {
     return;
   }
 
+  if (lock.holder !== 'human' && !opts.force) {
+    const name = config.agents[lock.holder]?.name || lock.holder;
+    console.log('');
+    console.log(chalk.red(`  Lock is held by ${chalk.bold(lock.holder)} (${name}), not human.`));
+    console.log(chalk.dim('  Refusing to release another holder without explicit override.'));
+    console.log(chalk.dim('  Use `agentxchain release --force` if you really want to break this lock.'));
+    console.log('');
+    process.exit(1);
+  }
+
   const who = lock.holder;
+  const priorLastReleasedBy = lock.last_released_by;
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
     holder: null,
@@ -112,8 +123,12 @@ export async function releaseCommand() {
     }
 
     if (session?.ide === 'cursor' && apiKey) {
-      const agentIds = Object.keys(config.agents);
-      const next = agentIds[0];
+      const next = pickNextAgent(priorLastReleasedBy, config);
+      if (!next) {
+        console.log(chalk.dim('  No agents configured to wake.'));
+        console.log('');
+        return;
+      }
       const cloudAgent = session.launched.find(a => a.id === next);
 
       if (cloudAgent) {
@@ -132,4 +147,13 @@ export async function releaseCommand() {
   }
 
   console.log('');
+}
+
+function pickNextAgent(lastReleasedBy, config) {
+  const agentIds = Object.keys(config.agents || {});
+  if (agentIds.length === 0) return null;
+  if (!lastReleasedBy || !agentIds.includes(lastReleasedBy)) return agentIds[0];
+
+  const idx = agentIds.indexOf(lastReleasedBy);
+  return agentIds[(idx + 1) % agentIds.length];
 }

@@ -11,8 +11,21 @@ export async function startCommand(opts) {
   }
 
   const { root, config } = result;
-  const agentCount = Object.keys(config.agents).length;
+  const agentIds = Object.keys(config.agents || {});
+  const agentCount = agentIds.length;
   const ide = opts.ide;
+
+  if (agentCount === 0) {
+    console.log(chalk.red('  No agents configured in agentxchain.json.'));
+    console.log(chalk.dim('  Add an agent with: agentxchain config --add-agent'));
+    process.exit(1);
+  }
+
+  if (opts.agent && !config.agents?.[opts.agent]) {
+    console.log(chalk.red(`  Agent "${opts.agent}" not found in agentxchain.json.`));
+    console.log(chalk.dim(`  Available: ${agentIds.join(', ')}`));
+    process.exit(1);
+  }
 
   console.log('');
   console.log(chalk.bold(`  Launching ${agentCount} agents via ${ide}`));

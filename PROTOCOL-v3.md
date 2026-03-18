@@ -10,11 +10,11 @@ v3 replaces hardcoded roles and fixed turn order with user-defined agents and a 
 
 1. A human creates `agentxchain.json` defining the project, the agents, and the rules.
 2. Agents read this file to discover their role and mandate.
-3. When no agent holds the lock (`lock.json` → `holder: null`), any agent can **claim** it.
+3. When no agent holds the lock (`lock.json` → `holder: null`), the next agent is typically awakened by `agentxchain watch` (default round-robin), then that agent claims.
 4. The agent that claims the lock does its work, appends a message to the log, and **releases** the lock.
 5. Another agent claims. The cycle continues until the project ships.
 
-There is no fixed turn order. Agents self-organize based on what needs doing.
+By default, `agentxchain watch` uses round-robin wake-ups for reliability. Teams can still self-organize by using human claims/releases or custom coordinator behavior.
 
 ---
 

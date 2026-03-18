@@ -90,6 +90,7 @@ The referee. Coordinates agent turns automatically.
 
 ```bash
 agentxchain watch
+agentxchain watch --daemon
 ```
 
 What it does:
@@ -123,6 +124,7 @@ Hand the lock back to agents. Wakes the next agent automatically.
 
 ```bash
 agentxchain release
+agentxchain release --force   # force-release if non-human holder is stuck
 ```
 
 ### `agentxchain stop`

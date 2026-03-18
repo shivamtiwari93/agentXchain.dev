@@ -23,6 +23,7 @@ export async function stopCommand() {
   console.log('');
   console.log(chalk.bold(`  Stopping ${session.launched.length} agents (${session.ide})`));
   console.log('');
+  let allStopped = true;
 
   if (session.ide === 'cursor') {
     const apiKey = getCursorApiKey(root);
@@ -40,9 +41,11 @@ export async function stopCommand() {
           console.log(chalk.green(`  ✓ Deleted ${chalk.bold(agent.id)} (${agent.cloudId})`));
         } else {
           console.log(chalk.yellow(`  ⚠ Could not delete ${agent.id} — may already be gone`));
+          allStopped = false;
         }
       } catch (err) {
         console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
+        allStopped = false;
       }
     }
   } else if (session.ide === 'claude-code') {
@@ -56,18 +59,22 @@ export async function stopCommand() {
             console.log(chalk.dim(`  ${agent.id} (PID: ${agent.pid}) — already stopped`));
           } else {
             console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
+            allStopped = false;
           }
         }
       }
     }
   }
 
-  // Remove session file
-  const sessionPath = join(root, SESSION_FILE);
-  if (existsSync(sessionPath)) unlinkSync(sessionPath);
-
   console.log('');
-  console.log(chalk.dim('  Session file removed.'));
-  console.log(chalk.green('  All agents stopped.'));
+  const sessionPath = join(root, SESSION_FILE);
+  if (allStopped) {
+    if (existsSync(sessionPath)) unlinkSync(sessionPath);
+    console.log(chalk.dim('  Session file removed.'));
+    console.log(chalk.green('  All agents stopped.'));
+  } else {
+    console.log(chalk.yellow('  Some agents could not be stopped.'));
+    console.log(chalk.dim('  Session file was kept so you can retry `agentxchain stop`.'));
+  }
   console.log('');
 }
