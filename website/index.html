@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AgentXchain.dev — Open-source multi-agent coordination framework</title>
-  <meta name="description" content="CLI and protocol for multi-agent coordination. Define agents, launch in Cursor, coordinate turns automatically. npm install agentxchain." />
+  <meta name="description" content="A software team inside your AI workspace. Distributed decision-making, divergent agents, healthy friction — how real teams work, applied to AI. Open source." />
   <link rel="icon" type="image/png" href="assets/logos/agentXchain.dev_icon_only_280x280px.png" />
   <link rel="canonical" href="https://agentxchain.dev/" />
-  <meta property="og:title" content="AgentXchain.dev — Multi-agent coordination CLI" />
-  <meta property="og:description" content="Define agents, launch in Cursor, coordinate turns automatically. One command to start." />
+  <meta property="og:title" content="AgentXchain.dev — Software teams, not single agents" />
+  <meta property="og:description" content="Distributed decision-making. Divergent agents. Healthy friction. How real teams work, applied to AI." />
   <meta property="og:image" content="assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -124,212 +124,172 @@
   <nav><div class="container">
     <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
     <div class="nav-links">
-      <a href="#cli">CLI</a>
-      <a href="#features">Protocol</a>
-      <a href="#qa">QA system</a>
+      <a href="#philosophy">Philosophy</a>
+      <a href="#qa">QA</a>
+      <a href="#vs">vs MCP &amp; A2A</a>
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm &#8599;</a>
     </div>
   </div></nav>
 
+  <!-- HERO: The idea, not the CLI -->
   <section class="hero"><div class="container">
     <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
-    <div class="badge">Open source &middot; npm install &middot; Cursor integration</div>
-    <h1>Multi-agent <span class="ab">coordination</span> in your <span class="ag">IDE</span></h1>
-    <p class="sub">Define agents. Launch them in Cursor. The CLI coordinates turns, enforces timeouts, and lets you step in anytime. One command to start.</p>
+    <div class="badge">Open source &middot; Coordination, not orchestration</div>
+    <h1>A <span class="ab">software team</span> inside your <span class="ag">AI workspace</span></h1>
+    <p class="sub">Not one agent doing everything. A team of agents with different perspectives, challenging each other, shipping under real constraints. The way real teams work.</p>
     <div class="cta-row">
-      <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npm install agentxchain</a>
-      <a href="#cli" class="btn-s">See the CLI &darr;</a>
+      <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npx agentxchain init</a>
+      <a href="#philosophy" class="btn-s">Why this matters &darr;</a>
     </div>
     <div class="terminal">
-      <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>terminal</span></div>
+      <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>your workspace</span></div>
       <div class="t-code">
+        <span class="cm"># PM scopes. Dev builds. QA breaks it. Eng Director reviews.</span><br/>
+        <span class="cm"># They disagree. They challenge. They converge. They ship.</span><br/>
+        <br/>
         <span class="p">$</span> <span class="c">npx agentxchain init</span><br/>
-        <span class="o">  ✓ Created mood-tracker/</span><br/>
-        <span class="o">    Agents: pm, dev, qa, ux</span><br/>
-        <br/>
-        <span class="p">$</span> <span class="c">cd mood-tracker</span><br/>
+        <span class="o">  ✓ Created mood-tracker/ (5 agents)</span><br/>
         <span class="p">$</span> <span class="c">agentxchain start --ide cursor</span><br/>
-        <span class="o">  ✓ pm (Product Manager) — bc_a1b2c3</span><br/>
-        <span class="o">  ✓ dev (Fullstack Developer) — bc_d4e5f6</span><br/>
-        <span class="o">  ✓ qa (QA Engineer) — bc_g7h8i9</span><br/>
-        <br/>
         <span class="p">$</span> <span class="c">agentxchain watch</span><br/>
-        <span class="o">  10:30:01 FREE   Lock free. Waking pm.</span><br/>
-        <span class="o">  10:30:02 WAKE   Sent followup to pm</span><br/>
-        <span class="o">  10:32:15 WORK   pm working... (turn 1)</span><br/>
-        <span class="o">  10:35:40 FREE   Lock free. Waking dev.</span>
+        <span class="o">  10:30 FREE  Waking pm &mdash; "What should we build first?"</span><br/>
+        <span class="o">  10:35 FREE  Waking dev &mdash; "I disagree with the data model."</span><br/>
+        <span class="o">  10:42 FREE  Waking qa &mdash; "Login fails with empty email."</span>
       </div>
     </div>
   </div></section>
 
-  <section class="stats"><div class="container">
-    <div class="stats-row">
-      <div class="stat"><div class="n">9</div><div class="l">CLI commands</div></div>
-      <div class="stat"><div class="n">5</div><div class="l">Team templates</div></div>
-      <div class="stat"><div class="n">N</div><div class="l">Agents (you define)</div></div>
-      <div class="stat"><div class="n">0</div><div class="l">Central servers</div></div>
-    </div>
-  </div></section>
-
-  <section id="cli"><div class="container">
-    <span class="sl sl-blue">The CLI</span>
-    <h2>9 commands. Everything you need.</h2>
-    <p class="ss">Install globally or run with npx. No accounts, no platform, no setup beyond <code>npm install</code>.</p>
-    <div class="cmd-grid">
-      <div class="cmd"><div class="cmd-name">agentxchain init</div><div class="cmd-desc">Create a project folder. Pick a team template or define custom agents.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain start</div><div class="cmd-desc">Launch agents in Cursor, Claude Code, or VS Code via API.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain watch</div><div class="cmd-desc">The referee. Coordinates turns, enforces TTL, wakes agents automatically.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain status</div><div class="cmd-desc">Lock holder, phase, turn number, Cursor agent status — at a glance.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain claim</div><div class="cmd-desc">Human takes control. Pauses all Cursor agents instantly.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain release</div><div class="cmd-desc">Hand the lock back. Wakes the next agent automatically.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain stop</div><div class="cmd-desc">Terminate all running agents via API. Clean shutdown.</div></div>
-      <div class="cmd"><div class="cmd-name">agentxchain config</div><div class="cmd-desc">Add/remove agents, change rules, update settings — without editing JSON.</div></div>
-    </div>
-  </div></section>
-
-  <section class="s-alt" id="features"><div class="container">
-    <span class="sl sl-green">Protocol</span>
-    <h2>Built-in safeguards for when agents actually run</h2>
-    <p class="ss">Claim-based coordination, deadlock recovery, mandatory verification, and human override.</p>
+  <!-- PHILOSOPHY: The biggest section. This is the soul. -->
+  <section class="s-alt" id="philosophy"><div class="container">
+    <span class="sl sl-green">Philosophy</span>
+    <h2>Coordination, not orchestration</h2>
+    <p class="ss">Most AI agent systems have one brain that spawns sub-agents. We think that&rsquo;s wrong. Real software isn&rsquo;t built by one mind delegating &mdash; it&rsquo;s built by a team that argues, challenges, and converges.</p>
     <div class="grid-3">
       <div class="card">
-        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-        <h3>Claim-based turns</h3>
-        <p>No fixed order. The watch process picks who goes next. Agents claim, work, release.</p>
+        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+        <h3>No central decision-maker</h3>
+        <p>No orchestrator agent deciding what everyone does. Each agent has its own mandate, its own perspective, its own judgment. They coordinate through shared state, not a boss.</p>
       </div>
       <div class="card">
-        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <h3>Lock TTL + deadlock recovery</h3>
-        <p>Stale locks auto-released after timeout. Crashed agents don't block the team.</p>
+        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <h3>Divergent agents, healthy friction</h3>
+        <p>The PM pushes for user value. The dev pushes for feasibility. QA pushes for correctness. The eng director pushes for quality. They&rsquo;re <em>supposed</em> to disagree. That tension produces better software than any single agent ever could.</p>
       </div>
       <div class="card">
-        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-        <h3>Verify before release</h3>
-        <p>Agents must pass <code>npm test</code> before handing off. No broken code gets through.</p>
+        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Real-world pressure to ship</h3>
+        <p>Phases, turn limits, mandatory verification, human checkpoints. The team can&rsquo;t bikeshed forever. Constraints force convergence on a real product &mdash; just like a deadline does for human teams.</p>
       </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-        <h3>Human-in-the-loop</h3>
-        <p><code>claim</code> pauses all agents instantly. Fix things yourself. <code>release</code> hands back.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <h3>Context-safe state</h3>
-        <p><code>state.md</code> (overwritten each turn) + <code>history.jsonl</code> (append-only). No context window blowup.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
-        <h3>Team templates</h3>
-        <p>SaaS MVP, Landing Page, Bug Squad, API Builder, Refactor Team. Or define your own.</p>
-      </div>
+    </div>
+
+    <div style="margin-top:3rem; max-width:640px;">
+      <h3 style="font-size:1.15rem; margin-bottom:0.75rem;">How real teams work, applied to AI</h3>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.7; margin-bottom:1rem;">In a real software company, the PM doesn&rsquo;t write code. The dev doesn&rsquo;t decide what to build. QA doesn&rsquo;t trust anyone else&rsquo;s test results. And there&rsquo;s always a moment where someone says &ldquo;this isn&rsquo;t good enough&rdquo; and sends it back.</p>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.7; margin-bottom:1rem;">That&rsquo;s what AgentXchain recreates. Not the org chart. Not the meetings. The <strong style="color:var(--text);">distributed decision-making</strong> &mdash; where no single agent has the full picture, but the team collectively does.</p>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.7;">Every agent is <strong style="color:var(--text);">required</strong> to challenge the previous agent&rsquo;s work. Blind agreement is forbidden by the protocol. The result is software that&rsquo;s been questioned, tested, and defended before it ships.</p>
     </div>
   </div></section>
 
-  <section id="scaffold"><div class="container">
-    <span class="sl sl-orange">Project scaffolding</span>
-    <h2>Every project gets a .planning/ folder</h2>
-    <p class="ss"><code>agentxchain init</code> creates structured documentation that agents read and maintain automatically.</p>
-    <div class="grid-3">
-      <div class="card">
-        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
-        <h3>PROJECT.md + REQUIREMENTS.md</h3>
-        <p>PM writes the vision, constraints, and numbered requirements with acceptance criteria. Every agent reads these for context.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
-        <h3>ROADMAP.md + phases/</h3>
-        <p>Phased delivery plan. Each phase gets its own folder with PLAN.md, REVIEW.md, TESTS.md, and BUGS.md.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-        <h3>research/</h3>
-        <p>Domain research, prior art, technical investigation. Filled by agents during discovery.</p>
-      </div>
+  <!-- HOW IT WORKS: Brief, after philosophy -->
+  <section id="how"><div class="container">
+    <span class="sl sl-blue">How it works</span>
+    <h2>Define your team. Launch. The protocol handles the rest.</h2>
+    <p class="ss">One config file. One CLI. Agents coordinate via shared state &mdash; no central server.</p>
+    <div class="grid-4">
+      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Define</h3><p>Pick a team template or create custom agents with their own mandates and rules.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Launch</h3><p>Start agents in Cursor via Cloud API. Each gets a unique identity and seed prompt.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Watch</h3><p>The CLI referee coordinates turns, recovers from crashes, enforces verification gates.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Ship</h3><p>Agents iterate. You <code>claim</code> to step in, <code>release</code> to hand back. Ship when the QA agent says yes.</p></div>
     </div>
   </div></section>
 
+  <!-- QA SYSTEM: The quality story -->
   <section class="s-alt" id="qa"><div class="container">
-    <span class="sl sl-green">QA system</span>
-    <h2>Heavy QA. Functional + UX. Every turn.</h2>
-    <p class="ss">The QA agent doesn't just run <code>npm test</code>. It tests functional correctness, edge cases, security, accessibility, responsive design, and user experience.</p>
+    <span class="sl sl-orange">Quality</span>
+    <h2>QA that actually catches things</h2>
+    <p class="ss">Not just &ldquo;npm test passes.&rdquo; Functional testing, UX audits, accessibility, responsive design, regression tracking, and a ship/no-ship verdict every turn.</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-        <h3>BUGS.md</h3>
-        <p>Every bug filed with ID, severity (P0&ndash;P3), exact reproduction steps, expected vs actual. Open and fixed tracked separately.</p>
+        <h3>Structured bug reports</h3>
+        <p>Every bug: ID, severity (P0&ndash;P3), exact repro steps, expected vs actual, file and line. No vague &ldquo;something seems off.&rdquo;</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-        <h3>UX Audit</h3>
-        <p>35+ point checklist: first impressions, core flow, forms, responsive (375/768/1440px), accessibility (WCAG AA), error states, visual consistency.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-        <h3>Acceptance matrix</h3>
-        <p>Every requirement mapped to functional test + UX test + status. The definitive &ldquo;can we ship?&rdquo; document.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-        <h3>Test coverage map</h3>
-        <p>Feature-by-feature: unit, integration, E2E, manual QA, UX audit. See what&rsquo;s covered and what&rsquo;s not.</p>
-      </div>
-      <div class="card">
-        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></div>
-        <h3>Regression log</h3>
-        <p>Every fixed bug tracked with its regression test. Prevents the same bug from coming back.</p>
+        <h3>UX audit (35+ checks)</h3>
+        <p>First impressions, core flow, forms, responsive at 375/768/1440px, WCAG accessibility, error states, visual consistency.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <h3>Ship verdict</h3>
-        <p>Every turn ends with: YES, YES WITH CONDITIONS, or NO + blockers. No ambiguity about readiness.</p>
+        <h3>Ship verdict every turn</h3>
+        <p>YES, YES WITH CONDITIONS, or NO + blockers. The QA agent owns the &ldquo;can we ship?&rdquo; decision. No ambiguity.</p>
       </div>
     </div>
   </div></section>
 
-  <section id="how"><div class="container">
-    <span class="sl sl-blue">How it works</span>
-    <h2>Define agents. Launch. Watch. Ship.</h2>
-    <p class="ss">The CLI handles coordination so agents focus on coding, not polling.</p>
-    <div class="grid-4">
-      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Init</h3><p><code>agentxchain init</code> creates your project with agents and rules.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Start</h3><p><code>agentxchain start</code> launches agents in Cursor via Cloud API.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Watch</h3><p><code>agentxchain watch</code> coordinates turns, enforces TTL, wakes agents.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Ship</h3><p>Agents build, test, review. You <code>claim</code> to intervene, <code>release</code> to resume.</p></div>
+  <!-- SCAFFOLDING: Brief mention -->
+  <section id="scaffold"><div class="container">
+    <span class="sl sl-blue">Project structure</span>
+    <h2>Agents maintain their own documentation</h2>
+    <p class="ss">Every project gets a <code>.planning/</code> folder with structured docs. PM writes requirements. QA maintains test coverage. Eng Director writes reviews. All machine-readable, all git-tracked.</p>
+    <div class="grid-3">
+      <div class="card"><h3>PROJECT.md + REQUIREMENTS.md</h3><p>Vision, constraints, numbered requirements with acceptance criteria. Created by the PM on turn 1.</p></div>
+      <div class="card"><h3>ROADMAP.md + phases/</h3><p>Phased delivery. Each phase gets plans, reviews, tests, bugs. Agents fill these as work progresses.</p></div>
+      <div class="card"><h3>qa/ folder</h3><p>Test coverage map, acceptance matrix, UX audit checklist, bug log, regression log. QA maintains all of it.</p></div>
     </div>
   </div></section>
 
+  <!-- COMPARISON: vs MCP & A2A -->
   <section class="s-alt" id="vs"><div class="container">
-    <span class="sl sl-blue">How we&rsquo;re different</span>
+    <span class="sl sl-blue">Positioning</span>
     <h2>MCP connects tools. A2A connects agents. We coordinate teams.</h2>
     <p class="ss">Three protocols for three different problems.</p>
     <div class="tw"><table class="ct">
       <thead><tr><th></th><th>MCP</th><th>A2A (Google)</th><th>AgentXchain</th></tr></thead>
       <tbody>
-        <tr><td><strong>Purpose</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Team in one shared workspace</strong></td></tr>
-        <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, messages</td><td><strong>One team: lock, state, roles, turns</strong></td></tr>
+        <tr><td><strong>What it is</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Team in one shared workspace</strong></td></tr>
+        <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, messages</td><td><strong>Divergent agents, shared state, turns</strong></td></tr>
+        <tr><td><strong>Decision-making</strong></td><td>Single agent decides</td><td>Delegation / RPC</td><td><strong>Distributed — no central brain</strong></td></tr>
         <tr><td><strong>Best for</strong></td><td>Agent runs scripts</td><td>Agent calls another agent</td><td><strong>PM + Dev + QA ship a product</strong></td></tr>
-        <tr><td><strong>Runtime</strong></td><td>Single process</td><td>Network / RPC</td><td><strong>CLI + Cursor Cloud Agents API</strong></td></tr>
       </tbody>
     </table></div>
   </div></section>
 
-  <section id="who"><div class="container">
-    <span class="sl sl-green">Who it&rsquo;s for</span>
-    <h2>Built for engineers who ship with AI</h2>
-    <p class="ss">You write code and use AI daily. This adds team coordination.</p>
-    <div class="grid-3">
-      <div class="card aud"><h3>AI-native engineers</h3><p>Comfortable with CLI, git, Cursor. AgentXchain adds coordination without a platform.</p></div>
-      <div class="card aud"><h3>Solo founders</h3><p>Run a PM + Dev + QA team from one terminal. Ship MVPs faster with structured agent handoffs.</p></div>
-      <div class="card aud"><h3>Contributors</h3><p>Protocol is open. Add IDE adapters, new templates, or build tooling on top. PRs welcome.</p></div>
+  <!-- CLI: Compact reference, not the star -->
+  <section id="cli"><div class="container">
+    <span class="sl sl-green">CLI</span>
+    <h2>9 commands. That&rsquo;s the whole interface.</h2>
+    <p class="ss"><code>npx agentxchain init</code> to start. No accounts, no platform, no setup.</p>
+    <div class="cmd-grid">
+      <div class="cmd"><div class="cmd-name">init</div><div class="cmd-desc">Create project. Pick a template or define custom agents.</div></div>
+      <div class="cmd"><div class="cmd-name">start</div><div class="cmd-desc">Launch agents in Cursor, Claude Code, or VS Code.</div></div>
+      <div class="cmd"><div class="cmd-name">watch</div><div class="cmd-desc">Referee. Coordinates turns, enforces TTL, wakes agents.</div></div>
+      <div class="cmd"><div class="cmd-name">status</div><div class="cmd-desc">Lock holder, phase, turn number, agent status.</div></div>
+      <div class="cmd"><div class="cmd-name">claim</div><div class="cmd-desc">Human takes over. Pauses all agents.</div></div>
+      <div class="cmd"><div class="cmd-name">release</div><div class="cmd-desc">Hand back to agents. Wakes the next one.</div></div>
+      <div class="cmd"><div class="cmd-name">stop</div><div class="cmd-desc">Terminate all agents. Clean shutdown.</div></div>
+      <div class="cmd"><div class="cmd-name">config</div><div class="cmd-desc">Add/remove agents, change rules.</div></div>
     </div>
   </div></section>
 
-  <section class="cta-s s-alt"><div class="container">
+  <!-- WHO -->
+  <section class="s-alt" id="who"><div class="container">
+    <span class="sl sl-orange">Who it&rsquo;s for</span>
+    <h2>Built for people who believe teams &gt; individuals</h2>
+    <p class="ss">Even when the team is AI.</p>
+    <div class="grid-3">
+      <div class="card aud"><h3>AI-native engineers</h3><p>You already ship with AI. This adds the team dynamics that make the output actually good.</p></div>
+      <div class="card aud"><h3>Solo founders</h3><p>You&rsquo;re one person, but your AI team has a PM, a dev, a QA, and an eng director. Ship like a real company.</p></div>
+      <div class="card aud"><h3>Contributors</h3><p>Protocol is open. The philosophy is &ldquo;teams, not tools.&rdquo; Add templates, IDE adapters, or entirely new roles.</p></div>
+    </div>
+  </div></section>
+
+  <!-- CTA -->
+  <section class="cta-s"><div class="container">
     <img src="assets/logos/agentXchain.dev_icon_only_280x280px.png" alt="" width="64" height="64" style="margin-bottom:1.25rem;" />
-    <h2>One command to your first multi-agent build</h2>
-    <p>Install the CLI. Init a project. Launch agents. The watch process handles the rest.</p>
+    <h2>Software is a team sport. Even when the team is AI.</h2>
+    <p>One command. Define your agents. Let them argue, build, test, and ship.</p>
     <div class="cta-row">
-      <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npm install agentxchain</a>
+      <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npx agentxchain init</a>
       <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-s">GitHub &rarr;</a>
     </div>
   </div></section>
@@ -338,14 +298,15 @@
     <div class="f-top">
       <div class="f-brand">
         <img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" />
-        <p>Open-source multi-agent coordination. CLI + Protocol + Cursor integration.</p>
+        <p>Distributed decision-making for AI teams. Coordination, not orchestration.</p>
       </div>
       <div class="f-links">
-        <div class="f-col"><h4>Product</h4><a href="#cli">CLI</a><a href="#features">Protocol</a><a href="#scaffold">Scaffolding</a><a href="#qa">QA system</a><a href="#vs">vs MCP &amp; A2A</a></div>
+        <div class="f-col"><h4>Ideas</h4><a href="#philosophy">Philosophy</a><a href="#qa">QA system</a><a href="#vs">vs MCP &amp; A2A</a></div>
+        <div class="f-col"><h4>Product</h4><a href="#cli">CLI</a><a href="#scaffold">Project structure</a><a href="#how">How it works</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>
-    <div class="f-copy">&copy; 2026 AgentXchain &mdash; Coordination, not orchestration.</div>
+    <div class="f-copy">&copy; 2026 AgentXchain &mdash; Software is a team sport. Even when the team is AI.</div>
   </div></footer>
 
 </body>
