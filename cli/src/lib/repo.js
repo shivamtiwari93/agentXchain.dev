@@ -30,8 +30,16 @@ export async function getRepoUrl(root) {
 
 export function getCurrentBranch(root) {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, encoding: 'utf8' }).trim();
+    const current = execSync('git rev-parse --abbrev-ref HEAD', { cwd: root, encoding: 'utf8' }).trim();
+    if (current && current !== 'HEAD') return current;
+  } catch {}
+
+  try {
+    const remoteHead = execSync('git symbolic-ref --short refs/remotes/origin/HEAD', { cwd: root, encoding: 'utf8' }).trim();
+    if (remoteHead.includes('/')) return remoteHead.split('/').pop();
   } catch {
     return 'main';
   }
+
+  return 'main';
 }

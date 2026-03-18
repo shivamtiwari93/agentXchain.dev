@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { sendFollowup, getAgentStatus, stopAgent, loadSession } from '../adapters/cursor.js';
+import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function watchCommand(opts) {
   const result = loadConfig();
@@ -16,9 +17,14 @@ export async function watchCommand(opts) {
   const interval = config.rules?.watch_interval_ms || 5000;
   const ttlMinutes = config.rules?.ttl_minutes || 10;
   const agentIds = Object.keys(config.agents);
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = getCursorApiKey(root);
   const session = loadSession(root);
   const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
+
+  if (hasCursorSession && !apiKey) {
+    printCursorApiKeyRequired('`agentxchain watch` with a Cursor session');
+    process.exit(1);
+  }
 
   console.log('');
   console.log(chalk.bold('  AgentXchain Watch'));

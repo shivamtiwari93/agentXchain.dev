@@ -9,13 +9,14 @@ import { configCommand } from '../src/commands/config.js';
 import { updateCommand } from '../src/commands/update.js';
 import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
+import { branchCommand } from '../src/commands/branch.js';
 
 const program = new Command();
 
 program
   .name('agentxchain')
   .description('Multi-agent coordination in your IDE')
-  .version('0.1.1');
+  .version('0.4.0');
 
 program
   .command('init')
@@ -50,6 +51,13 @@ program
   .option('--set <key_value>', 'Set a config value (e.g. --set "rules.max_consecutive_claims 3")')
   .option('-j, --json', 'Output config as JSON')
   .action(configCommand);
+
+program
+  .command('branch [name]')
+  .description('Show or set the Cursor branch used for agent launches')
+  .option('--use-current', 'Set override to the current local git branch')
+  .option('--unset', 'Remove override and follow active git branch automatically')
+  .action(branchCommand);
 
 program
   .command('watch')

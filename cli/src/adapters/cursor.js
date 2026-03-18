@@ -2,7 +2,8 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { generateSeedPrompt } from '../lib/seed-prompt.js';
-import { getRepoUrl } from '../lib/repo.js';
+import { getRepoUrl, getCurrentBranch } from '../lib/repo.js';
+import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 const API_BASE = 'https://api.cursor.com/v0';
 
@@ -16,11 +17,11 @@ function authHeaders(apiKey) {
 // --- Public API ---
 
 export async function launchCursorAgents(config, root, opts) {
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = getCursorApiKey(root);
 
   if (!apiKey) {
-    printApiKeyHelp();
-    return fallbackPromptOutput(config, opts);
+    printCursorApiKeyRequired('`agentxchain start --ide cursor`');
+    return [];
   }
 
   const repoUrl = await getRepoUrl(root);
@@ -32,9 +33,11 @@ export async function launchCursorAgents(config, root, opts) {
   }
 
   const model = config.cursor?.model || 'default';
-  const ref = config.cursor?.ref || 'main';
+  const ref = config.cursor?.ref || getCurrentBranch(root) || 'main';
+  console.log(chalk.dim(`  Cursor source: ${repoUrl} @ ${ref}`));
   const agents = filterAgents(config, opts.agent);
   const launched = [];
+  let branchErrorCount = 0;
 
   for (const [id, agent] of Object.entries(agents)) {
     const prompt = generateSeedPrompt(id, agent, config);
@@ -56,6 +59,9 @@ export async function launchCursorAgents(config, root, opts) {
       if (!res.ok) {
         const errBody = await res.text();
         console.log(chalk.red(`  ✗ ${id}: ${res.status} ${errBody}`));
+        if (errBody.includes('Failed to verify existence of branch')) {
+          branchErrorCount += 1;
+        }
         continue;
       }
 
@@ -76,7 +82,16 @@ export async function launchCursorAgents(config, root, opts) {
   }
 
   if (launched.length > 0) {
-    saveSession(root, launched, repoUrl);
+    saveSession(root, launched, repoUrl, ref);
+  }
+
+  if (launched.length === 0 && branchErrorCount > 0) {
+    console.log('');
+    console.log(chalk.yellow('  Launch failed because the branch ref is invalid for this repository.'));
+    console.log(chalk.dim('  Fix by setting the branch explicitly in agentxchain.json:'));
+    console.log(chalk.bold('  "cursor": { "ref": "your-default-branch" }'));
+    console.log(chalk.dim('  Or switch to the target branch locally, then re-run start.'));
+    console.log('');
   }
 
   return launched;
@@ -137,12 +152,13 @@ export function loadSession(root) {
 
 // --- Internal ---
 
-function saveSession(root, launched, repoUrl) {
+function saveSession(root, launched, repoUrl, ref) {
   const session = {
     launched,
     started_at: new Date().toISOString(),
     ide: 'cursor',
-    repo: repoUrl
+    repo: repoUrl,
+    ref
   };
   const sessionPath = join(root, '.agentxchain-session.json');
   writeFileSync(sessionPath, JSON.stringify(session, null, 2) + '\n');
@@ -160,29 +176,5 @@ function filterAgents(config, specificId) {
   return config.agents;
 }
 
-function fallbackPromptOutput(config, opts) {
-  const agents = filterAgents(config, opts.agent);
-  console.log(chalk.bold('  No API key. Printing seed prompts for manual use:'));
-  console.log('');
-  for (const [id, agent] of Object.entries(agents)) {
-    const prompt = generateSeedPrompt(id, agent, config);
-    console.log(chalk.dim('  ' + '─'.repeat(50)));
-    console.log(chalk.cyan(`  Agent: ${chalk.bold(id)} (${agent.name})`));
-    console.log(chalk.dim('  ' + '─'.repeat(50)));
-    console.log('');
-    console.log(prompt);
-    console.log('');
-  }
-  return [];
-}
-
-function printApiKeyHelp() {
-  console.log('');
-  console.log(chalk.yellow('  CURSOR_API_KEY not found.'));
-  console.log('');
-  console.log(`  1. Go to ${chalk.cyan('cursor.com/settings')} → Cloud Agents`);
-  console.log('  2. Create an API key');
-  console.log(`  3. Add to .env: ${chalk.bold('CURSOR_API_KEY=your_key')}`);
-  console.log(`  4. Run: ${chalk.bold('source .env && agentxchain start')}`);
-  console.log('');
-}
+// No prompt fallback here by design.
+// Cursor mode is strict: an API key is required.

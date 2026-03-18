@@ -17,8 +17,8 @@ npx agentxchain init
 # 2. cd into your project
 cd my-project/
 
-# 3. Set your Cursor API key
-export CURSOR_API_KEY=your_key    # get from cursor.com/settings
+# 3. Set your Cursor API key in project .env
+echo "CURSOR_API_KEY=your_key" >> .env    # get from cursor.com/settings -> Cloud Agents
 
 # 4. Launch agents in Cursor
 npx agentxchain start --ide cursor
@@ -28,6 +28,8 @@ npx agentxchain watch
 ```
 
 That's it. The watch process wakes agents when it's their turn, enforces timeouts, and handles deadlock recovery. You stay in control via `claim` and `release`.
+
+`CURSOR_API_KEY` is mandatory for Cursor-mode commands (`start`, `watch`, `stop`, and Cursor-session `claim`/`release`).
 
 ---
 
@@ -131,7 +133,20 @@ Terminate all running agent sessions.
 agentxchain stop
 ```
 
-Calls the Cursor DELETE API for each agent and removes the session file.
+Calls the Cursor DELETE API for each agent and removes the session file (only after successful API access with `CURSOR_API_KEY`).
+
+### `agentxchain branch`
+
+Show or set which branch Cursor launches should use.
+
+```bash
+agentxchain branch                  # show effective branch
+agentxchain branch develop          # set branch override in agentxchain.json
+agentxchain branch --use-current    # set override to local current git branch
+agentxchain branch --unset          # remove override and follow active git branch
+```
+
+Default behavior: if no override is set, AgentXchain uses the current local git branch.
 
 ### `agentxchain config`
 
@@ -172,6 +187,8 @@ agentxchain update
 
 - **Claim-based turns** — no fixed order; agents self-organize
 - **User-defined agents** — any number, any roles, configured in one JSON file
+- **Branch-safe Cursor launches** — defaults to active git branch; optional branch override via `agentxchain branch`
+- **Project `.env` support** — Cursor key is auto-read from project root `.env`
 - **Lock TTL** — stale locks auto-released after timeout (default: 10 min)
 - **Verify command** — agents must pass (e.g. `npm test`) before releasing
 - **Human-in-the-loop** — `human` is a reserved holder; agents can pass to you
@@ -252,6 +269,19 @@ MCP and A2A don't give you an SDLC pipeline in one workspace. AgentXchain does.
 - **Protocol spec:** [PROTOCOL-v3.md](PROTOCOL-v3.md)
 - **Seed prompt template:** [SEED-PROMPT.md](SEED-PROMPT.md)
 - **AgentXchain.ai** (dashboard + apps): [agentxchain.ai](https://agentxchain.ai)
+
+---
+
+## Maintainer release flow (npm)
+
+```bash
+cd cli
+bash scripts/publish-npm.sh              # patch bump + publish
+bash scripts/publish-npm.sh minor        # minor bump + publish
+bash scripts/publish-npm.sh 0.5.0        # explicit version + publish
+```
+
+The script auto-loads `NPM_TOKEN` from `cli/.env` when present.
 
 ---
 

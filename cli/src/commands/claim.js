@@ -3,6 +3,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { stopAgent, sendFollowup, loadSession } from '../adapters/cursor.js';
+import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function claimCommand(opts) {
   const result = loadConfig();
@@ -12,9 +13,17 @@ export async function claimCommand(opts) {
   const lock = loadLock(root);
   if (!lock) { console.log(chalk.red('  lock.json not found.')); process.exit(1); }
 
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = getCursorApiKey(root);
   const session = loadSession(root);
-  const hasCursor = session?.ide === 'cursor' && apiKey;
+  const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
+  const hasCursor = hasCursorSession && apiKey;
+
+  if (hasCursorSession && !apiKey) {
+    printCursorApiKeyRequired('`agentxchain claim` with Cursor agents');
+    console.log(chalk.dim('  Claim aborted so agents are not left running unexpectedly.'));
+    console.log('');
+    process.exit(1);
+  }
 
   if (lock.holder === 'human') {
     console.log('');
@@ -90,8 +99,17 @@ export async function releaseCommand() {
 
   // If releasing from human and Cursor session exists, wake the next agent
   if (who === 'human') {
-    const apiKey = process.env.CURSOR_API_KEY;
+    const apiKey = getCursorApiKey(root);
     const session = loadSession(root);
+    const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
+
+    if (hasCursorSession && !apiKey) {
+      printCursorApiKeyRequired('`agentxchain release` with Cursor agents');
+      console.log(chalk.dim('  Lock released, but wake-up followup was skipped due to missing key.'));
+      console.log(chalk.dim('  Start `agentxchain watch` after setting the key.'));
+      console.log('');
+      return;
+    }
 
     if (session?.ide === 'cursor' && apiKey) {
       const agentIds = Object.keys(config.agents);

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import ora from 'ora';
 import { loadConfig } from '../lib/config.js';
 import { generateSeedPrompt } from '../lib/seed-prompt.js';
+import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function startCommand(opts) {
   const result = loadConfig();
@@ -33,6 +33,11 @@ export async function startCommand(opts) {
 
   switch (ide) {
     case 'cursor': {
+      const apiKey = getCursorApiKey(root);
+      if (!apiKey) {
+        printCursorApiKeyRequired('`agentxchain start --ide cursor`');
+        process.exit(1);
+      }
       const { launchCursorAgents } = await import('../adapters/cursor.js');
       await launchCursorAgents(config, root, opts);
       break;

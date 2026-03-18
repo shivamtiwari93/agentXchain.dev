@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { loadConfig, loadLock, loadState } from '../lib/config.js';
 import { getAgentStatus, loadSession } from '../adapters/cursor.js';
+import { getCursorApiKey } from '../lib/cursor-api-key.js';
 
 export async function statusCommand(opts) {
   const result = loadConfig();
@@ -52,13 +53,16 @@ export async function statusCommand(opts) {
 
   // Cursor session info
   const session = loadSession(root);
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = getCursorApiKey(root);
   const hasCursor = session?.ide === 'cursor' && session?.launched?.length > 0;
 
   if (hasCursor) {
     console.log(`  ${chalk.dim('Cursor:')}   ${chalk.cyan('Active session')} (${session.launched.length} agents)`);
     console.log(`  ${chalk.dim('Started:')}  ${session.started_at}`);
     if (session.repo) console.log(`  ${chalk.dim('Repo:')}     ${session.repo}`);
+    if (!apiKey) {
+      console.log(`  ${chalk.dim('API key:')}  ${chalk.red('Missing')} (set CURSOR_API_KEY in .env for live statuses)`);
+    }
     console.log('');
   }
 

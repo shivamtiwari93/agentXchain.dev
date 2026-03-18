@@ -2,7 +2,8 @@ import { readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
-import { deleteAgent, stopAgent, loadSession } from '../adapters/cursor.js';
+import { deleteAgent, loadSession } from '../adapters/cursor.js';
+import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 const SESSION_FILE = '.agentxchain-session.json';
 
@@ -24,22 +25,24 @@ export async function stopCommand() {
   console.log('');
 
   if (session.ide === 'cursor') {
-    const apiKey = process.env.CURSOR_API_KEY;
+    const apiKey = getCursorApiKey(root);
     if (!apiKey) {
-      console.log(chalk.yellow('  CURSOR_API_KEY not set. Cannot stop agents via API.'));
-      console.log(chalk.dim('  Stop them manually at cursor.com/agents'));
-    } else {
-      for (const agent of session.launched) {
-        try {
-          const deleted = await deleteAgent(apiKey, agent.cloudId);
-          if (deleted) {
-            console.log(chalk.green(`  ✓ Deleted ${chalk.bold(agent.id)} (${agent.cloudId})`));
-          } else {
-            console.log(chalk.yellow(`  ⚠ Could not delete ${agent.id} — may already be gone`));
-          }
-        } catch (err) {
-          console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
+      printCursorApiKeyRequired('`agentxchain stop` for Cursor agents');
+      console.log(chalk.dim('  Session file was kept so you can retry after setting the key.'));
+      console.log('');
+      return;
+    }
+
+    for (const agent of session.launched) {
+      try {
+        const deleted = await deleteAgent(apiKey, agent.cloudId);
+        if (deleted) {
+          console.log(chalk.green(`  ✓ Deleted ${chalk.bold(agent.id)} (${agent.cloudId})`));
+        } else {
+          console.log(chalk.yellow(`  ⚠ Could not delete ${agent.id} — may already be gone`));
         }
+      } catch (err) {
+        console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
       }
     }
   } else if (session.ide === 'claude-code') {
