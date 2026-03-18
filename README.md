@@ -1,66 +1,260 @@
-# AgentXchain.dev — Open-source coordination framework
+# AgentXchain.dev — Open-source multi-agent coordination framework
 
-This repo is the **core** of AgentXchain: the protocol and tooling to run a **software development team inside your AI workspace** — working in a sequential, SDLC-like pipeline and iterating recursively in a prototyping loop to ship products. It is free to use (CLI, config, examples) and runs entirely in your environment.
+Run a **software development team inside your AI workspace**. Define agents, launch them in Cursor, and let them coordinate via a shared protocol — no central orchestrator, no vendor lock-in.
 
-**AgentXchain.ai** (the parent repo) is built on top of this: same protocol, plus a dashboard, UI configurability, and managed apps/integrations for Cursor, Claude Code, Codex, Antigravity, and VS Code.
-
----
-
-## The problem AgentXchain solves
-
-You need to **recreate a software development team inside your AI workspace**: multiple agents (e.g. PM, dev, QA) working **in sequence** like an SDLC pipeline, and going over that loop **recursively** in a prototyping manner to build and ship products. That kind of **multi-agent coordination** — a team working side by side, challenging each other, under real-world constraints — is not possible with MCP or A2A alone. AgentXchain fills that gap with a file-based, turn-based protocol and no central orchestrator.
+```bash
+npx agentxchain init
+```
 
 ---
 
-## Philosophy: coordination, not orchestration
+## Quick start
 
-We aim for **multi-agent coordination**, not multi-agent orchestration:
+```bash
+# 1. Create a project (interactive template selection)
+npx agentxchain init
 
-- **No orchestrator** spawning sub-agents. The team works **side by side**: same workspace, shared state, explicit turn order.
-- Agents **challenge each other** and are slightly divergent in perspective, but are **forced to converge** on a real product and release it in a time-bound way because of the protocol and constraints.
-- That combination — **slight divergence + real-world pressure** — is the philosophy: we believe it leads to better software than a single orchestrator or uncoordinated agents.
+# 2. cd into your project
+cd my-project/
+
+# 3. Set your Cursor API key
+export CURSOR_API_KEY=your_key    # get from cursor.com/settings
+
+# 4. Launch agents in Cursor
+npx agentxchain start --ide cursor
+
+# 5. Start the referee (coordinates turns automatically)
+npx agentxchain watch
+```
+
+That's it. The watch process wakes agents when it's their turn, enforces timeouts, and handles deadlock recovery. You stay in control via `claim` and `release`.
+
+---
+
+## Install
+
+**Run without installing** (recommended):
+```bash
+npx agentxchain init
+```
+
+**Install globally:**
+```bash
+sudo npm install -g agentxchain
+agentxchain --version
+```
+
+**Update:**
+```bash
+agentxchain update
+# or
+sudo npm install -g agentxchain@latest
+```
+
+---
+
+## CLI commands
+
+### `agentxchain init`
+
+Create a new project folder with all protocol files. Choose from team templates or define custom agents.
+
+```bash
+agentxchain init              # interactive setup
+agentxchain init -y           # use defaults (pm, dev, qa, ux)
+```
+
+Templates available: **SaaS MVP**, **Landing Page**, **Bug Squad**, **API Builder**, **Refactor Team**, or **Custom**.
+
+Creates: `agentxchain.json`, `lock.json`, `state.json`, `state.md`, `history.jsonl`, `log.md`, `HUMAN_TASKS.md`
+
+### `agentxchain start`
+
+Launch agents in your IDE.
+
+```bash
+agentxchain start --ide cursor          # launch all agents via Cursor Cloud API
+agentxchain start --ide cursor --agent pm   # launch one agent only
+agentxchain start --ide claude-code     # spawn Claude CLI processes
+agentxchain start --ide vscode          # print seed prompts for manual use
+agentxchain start --dry-run             # preview without launching
+```
+
+Requires `CURSOR_API_KEY` for Cursor mode. The project must be in a GitHub repo.
+
+### `agentxchain watch`
+
+The referee. Coordinates agent turns automatically.
+
+```bash
+agentxchain watch
+```
+
+What it does:
+- Polls `lock.json` every 5 seconds (configurable)
+- When the lock is free, wakes the next agent via Cursor followup API
+- Enforces lock TTL — force-releases stale locks after timeout
+- Detects `holder: "human"` and sends you a notification
+- Logs everything with timestamps and color-coded status
+
+### `agentxchain status`
+
+Show current state: lock holder, phase, turn number, agents, and Cursor session info.
+
+```bash
+agentxchain status            # human-readable
+agentxchain status --json     # machine-readable
+```
+
+### `agentxchain claim`
+
+Human takes control. Pauses all Cursor agents.
+
+```bash
+agentxchain claim             # claim if lock is free
+agentxchain claim --force     # override an agent's lock
+```
+
+### `agentxchain release`
+
+Hand the lock back to agents. Wakes the next agent automatically.
+
+```bash
+agentxchain release
+```
+
+### `agentxchain stop`
+
+Terminate all running agent sessions.
+
+```bash
+agentxchain stop
+```
+
+Calls the Cursor DELETE API for each agent and removes the session file.
+
+### `agentxchain config`
+
+View or edit project configuration.
+
+```bash
+agentxchain config                                    # show config
+agentxchain config --add-agent                        # add a new agent
+agentxchain config --remove-agent ux                  # remove an agent
+agentxchain config --set "rules.max_consecutive_claims 3"
+agentxchain config --set "rules.verify_command npm test"
+agentxchain config --json                             # output as JSON
+```
+
+### `agentxchain update`
+
+Self-update the CLI to the latest version.
+
+```bash
+agentxchain update
+```
+
+---
+
+## How it works
+
+1. You create `agentxchain.json` — defines your agents (any number, any roles) and rules.
+2. `agentxchain start` launches each agent as a Cursor Cloud Agent with a seed prompt.
+3. `agentxchain watch` runs the coordination loop:
+   - Lock is free → wake the next agent via followup API
+   - Agent claims the lock, does its work, releases
+   - Lock TTL expired → force-release and wake the next agent
+   - Lock held by `human` → send notification, wait
+4. Agents coordinate via `lock.json` (who holds the lock), `state.md` (living project state), and `history.jsonl` (turn log).
+5. You can `claim` the lock to intervene, then `release` to hand back.
+
+### Protocol v3 features
+
+- **Claim-based turns** — no fixed order; agents self-organize
+- **User-defined agents** — any number, any roles, configured in one JSON file
+- **Lock TTL** — stale locks auto-released after timeout (default: 10 min)
+- **Verify command** — agents must pass (e.g. `npm test`) before releasing
+- **Human-in-the-loop** — `human` is a reserved holder; agents can pass to you
+- **State/history split** — `state.md` (overwritten) + `history.jsonl` (append-only) prevents context blowup
+- **Team templates** — presets for common team shapes (SaaS, landing page, bug squad, etc.)
+
+Full spec: [PROTOCOL-v3.md](PROTOCOL-v3.md)
+
+---
+
+## `agentxchain.json` example
+
+```json
+{
+  "version": 3,
+  "project": "Mood tracking app",
+  "agents": {
+    "pm": {
+      "name": "Product Manager",
+      "mandate": "Quality uplift, purchase blockers, voice of customer."
+    },
+    "dev": {
+      "name": "Fullstack Developer",
+      "mandate": "Implement features, run tests, push back on vague requirements."
+    },
+    "qa": {
+      "name": "QA Engineer",
+      "mandate": "Test coverage, regression, acceptance criteria. File bugs."
+    }
+  },
+  "log": "log.md",
+  "state_file": "state.md",
+  "history_file": "history.jsonl",
+  "rules": {
+    "max_consecutive_claims": 2,
+    "ttl_minutes": 10,
+    "verify_command": "npm test",
+    "watch_interval_ms": 5000
+  }
+}
+```
 
 ---
 
 ## How AgentXchain differs from MCP and A2A
 
-| | **MCP (Model Context Protocol)** | **A2A (Agent2Agent)** | **AgentXchain** |
-|--|--|--|--|
-| **Primary use** | Agent ↔ tools/data (servers, APIs) | Agent ↔ agent over the network (delegation, RPC) | **Team in a shared workspace**: multiple agents coordinating via shared files and turn order |
-| **Model** | One agent, many tools | Many agents, message passing | **One “team”**: lock, state, roles, sequential turns, no central brain |
-| **Fits** | “My agent can read docs and run scripts” | “My agent can call another agent’s API” | “My PM, dev, and QA agents work like a real team and ship a product” |
+| | **MCP** | **A2A (Google)** | **AgentXchain** |
+|--|---------|-----------------|-----------------|
+| **Purpose** | Agent ↔ tools/data | Agent ↔ agent over network | **Team in one shared workspace** |
+| **Model** | One agent, many tools | Many agents, messages | **One team: lock, state, roles, turns** |
+| **Best for** | Agent runs scripts | Agent calls another agent | **PM + Dev + QA ship a product** |
 
-MCP and A2A don’t give you an **SDLC-style, recursive pipeline** in one workspace. AgentXchain does: same folder, `lock.json` / `state.json`, turn order, and roles so the “team” behaves like a software team, not a single agent or a loose mesh of services.
-
----
-
-## Who this is for (.dev)
-
-- **Hardcore engineers** who are already comfortable with the CLI, writing code, and AI-assisted development, and want to **augment** that with multi-agent coordination.
-- Teams that want to **self-host** and own the protocol: full control, no hidden state, no vendor lock-in.
-- Contributors who want to extend the protocol or add runners for other IDEs.
+MCP and A2A don't give you an SDLC pipeline in one workspace. AgentXchain does.
 
 ---
 
-## What’s in this repo
+## Examples
 
-- **Protocol and config.** Coordination is driven by JSON and docs: `lock.json`, `state.json`, roles, phases. The format is documented and stable; you can read, edit, and extend it.
-- **CLI and scripts.** Commands for local use (e.g. init, check whose turn, run one agent loop). You drive the protocol from the terminal and your IDE; no dashboard required.
-- **Examples.** The `examples/` folder has runnable examples (e.g. mood-tracking-app, and the original POC under `old/`). Use them to see the protocol in action and as a starting point.
-
-**To use AgentXchain today:** clone this repo, follow the docs, run agents in Cursor (or another IDE) against the shared folder. No account or hosted service required.
-
----
-
-## Where to go
-
-- **Main example** (Protocol v2, Mood Tracking App): [examples/mood-tracking-app](examples/mood-tracking-app/).
-- **Parent product** (dashboard, apps, cloud): the [AgentXchain.ai](../README.md) repo — built on this core for explorers and large teams.
+| Example | Agents | What it shows |
+|---------|--------|---------------|
+| [mood-tracking-app](examples/mood-tracking-app/) | pm, dev, qa, ux | Standard 4-agent SDLC team |
+| [saas-landing-page](examples/saas-landing-page/) | pm, designer, frontend, copywriter, qa, devops | 6 agents, non-engineering roles |
 
 ---
 
-## Relation to AgentXchain.ai
+## Who this is for
 
-The **.ai** repo (parent of this folder) is the **hosted product**: dashboard, UI configurability, and automatic apps/integrations for Cursor, Claude Code, Codex, Antigravity, VS Code. Same protocol as here, but you install apps and use a cloud dashboard instead of the CLI. **.dev** is the open foundation: developer-first, full transparency, no lock-in. You can use .dev only, or use .ai when you want the managed experience.
+- **Engineers who ship with AI** — comfortable with CLI, git, and AI-assisted coding. This adds multi-agent coordination.
+- **Self-hosting teams** — full control, no hidden state, no vendor dependency.
+- **Contributors** — protocol is open. Add IDE runners, new templates, or build tooling on top.
 
-<!-- Last doc update: README sync -->
+---
+
+## Links
+
+- **Website:** [agentxchain.dev](https://agentxchain.dev)
+- **npm:** [npmjs.com/package/agentxchain](https://www.npmjs.com/package/agentxchain)
+- **Protocol spec:** [PROTOCOL-v3.md](PROTOCOL-v3.md)
+- **Seed prompt template:** [SEED-PROMPT.md](SEED-PROMPT.md)
+- **AgentXchain.ai** (dashboard + apps): [agentxchain.ai](https://agentxchain.ai)
+
+---
+
+## License
+
+MIT

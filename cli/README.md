@@ -1,6 +1,6 @@
 # agentxchain
 
-CLI for multi-agent coordination in your IDE. Define a team of AI agents, launch them in Cursor / Claude Code / VS Code, and let them coordinate via a shared protocol.
+CLI for multi-agent coordination in your IDE. Define a team of AI agents, launch them in Cursor, and let them coordinate via a shared protocol.
 
 ## Install
 
@@ -17,91 +17,42 @@ npx agentxchain init
 ## Quick start
 
 ```bash
-# 1. Initialize a project (creates agentxchain.json, lock.json, state.json, log.md)
-agentxchain init
-
-# 2. Check status
-agentxchain status
-
-# 3. Launch agents in your IDE
-agentxchain start --ide cursor
-
-# 4. Stop agents
-agentxchain stop
+agentxchain init                      # create a project (template selection)
+cd my-project/
+export CURSOR_API_KEY=your_key        # from cursor.com/settings
+agentxchain start --ide cursor        # launch agents
+agentxchain watch                     # coordinate turns automatically
 ```
 
 ## Commands
 
-### `agentxchain init`
+| Command | What it does |
+|---------|-------------|
+| `init` | Create project folder with agents, protocol files, and templates |
+| `start` | Launch agents in Cursor, Claude Code, or VS Code |
+| `watch` | The referee — coordinates turns, enforces TTL, wakes agents |
+| `status` | Show lock, phase, agents, Cursor session info |
+| `claim` | Human takes control (pauses Cursor agents) |
+| `release` | Hand lock back to agents |
+| `stop` | Terminate all running agents |
+| `config` | View/edit config, add/remove agents, change rules |
+| `update` | Self-update CLI from npm |
 
-Interactive setup. Creates all protocol files in the current directory.
+## Key features
 
-- `-y, --yes` — skip prompts, use 4 default agents (pm, dev, qa, ux)
-
-### `agentxchain status`
-
-Show current lock holder, phase, turn number, and all agents.
-
-- `-j, --json` — output as JSON
-
-### `agentxchain start`
-
-Launch agents in your IDE.
-
-- `--ide <ide>` — target IDE: `cursor`, `claude-code`, `vscode` (default: cursor)
-- `--agent <id>` — launch only one specific agent
-- `--dry-run` — preview what would be launched
-
-For Cursor Cloud Agents, set `CURSOR_API_KEY` in your environment. Without it, the CLI prints seed prompts you can paste manually.
-
-### `agentxchain stop`
-
-Stop all running agent sessions. Reads `.agentxchain-session.json` to find active agents.
-
-### `agentxchain config`
-
-View or edit project configuration.
-
-- `--add-agent` — interactively add a new agent
-- `--remove-agent <id>` — remove an agent by ID
-- `--set "<key> <value>"` — update a setting (e.g. `--set "rules.max_consecutive_claims 3"`)
-- `-j, --json` — output config as JSON
-
-Examples:
-
-```bash
-agentxchain config                              # show current config
-agentxchain config --add-agent                  # add a new agent
-agentxchain config --remove-agent ux            # remove the ux agent
-agentxchain config --set "project My New Name"  # change project name
-agentxchain config --set "rules.compress_after_words 8000"
-```
-
-### `agentxchain update`
-
-Update the CLI to the latest version from npm.
-
-```bash
-agentxchain update
-```
-
-## How it works
-
-AgentXchain uses a **claim-based protocol**:
-
-1. Agents are defined in `agentxchain.json` (name, mandate, rules)
-2. A `lock.json` file tracks who holds the lock
-3. When the lock is free, any agent can claim it
-4. The agent does its work, logs a message, and releases the lock
-5. Another agent claims. The cycle continues.
-
-No fixed turn order. Agents self-organize. See [PROTOCOL-v3.md](https://agentxchain.dev) for the full spec.
+- **Claim-based coordination** — no fixed turn order; agents self-organize
+- **User-defined teams** — any number of agents, any roles
+- **Cursor Cloud Agents** — launch and manage agents via API
+- **Lock TTL** — stale locks auto-released after timeout
+- **Verify command** — agents must pass tests before releasing
+- **Human-in-the-loop** — claim/release to intervene anytime
+- **Team templates** — SaaS MVP, Landing Page, Bug Squad, API Builder, Refactor Team
 
 ## Links
 
-- Website: [agentxchain.dev](https://agentxchain.dev)
-- GitHub: [github.com/shivamtiwari93/agentXchain.dev](https://github.com/shivamtiwari93/agentXchain.dev)
-- Protocol: [PROTOCOL-v3.md](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
+- [agentxchain.dev](https://agentxchain.dev)
+- [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
+- [Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 
 ## License
 
