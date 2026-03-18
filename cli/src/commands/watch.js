@@ -3,6 +3,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
+import { sendFollowup, getAgentStatus, stopAgent, loadSession } from '../adapters/cursor.js';
 
 export async function watchCommand(opts) {
   const result = loadConfig();
@@ -15,30 +16,34 @@ export async function watchCommand(opts) {
   const interval = config.rules?.watch_interval_ms || 5000;
   const ttlMinutes = config.rules?.ttl_minutes || 10;
   const agentIds = Object.keys(config.agents);
+  const apiKey = process.env.CURSOR_API_KEY;
+  const session = loadSession(root);
+  const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
 
   console.log('');
   console.log(chalk.bold('  AgentXchain Watch'));
   console.log(chalk.dim(`  Project: ${config.project}`));
   console.log(chalk.dim(`  Agents:  ${agentIds.join(', ')}`));
-  console.log(chalk.dim(`  Poll:    ${interval}ms`));
-  console.log(chalk.dim(`  TTL:     ${ttlMinutes}min`));
+  console.log(chalk.dim(`  Poll:    ${interval}ms | TTL: ${ttlMinutes}min`));
+  if (hasCursorSession) {
+    console.log(chalk.cyan(`  Mode:    Cursor Cloud Agents (${session.launched.length} agents)`));
+  } else {
+    console.log(chalk.dim(`  Mode:    Local trigger file (no Cursor session found)`));
+  }
   console.log('');
   console.log(chalk.cyan('  Watching lock.json... (Ctrl+C to stop)'));
   console.log('');
 
   let lastState = null;
 
-  const tick = () => {
+  const tick = async () => {
     try {
       const lock = loadLock(root);
-      if (!lock) {
-        log('warn', 'lock.json not found');
-        return;
-      }
+      if (!lock) { log('warn', 'lock.json not found'); return; }
 
       const stateKey = `${lock.holder}:${lock.turn_number}`;
 
-      // Detect stale lock (TTL)
+      // TTL check — stale lock
       if (lock.holder && lock.holder !== 'human' && lock.claimed_at) {
         const elapsed = Date.now() - new Date(lock.claimed_at).getTime();
         const ttlMs = ttlMinutes * 60 * 1000;
@@ -46,47 +51,71 @@ export async function watchCommand(opts) {
         if (elapsed > ttlMs) {
           const staleAgent = lock.holder;
           const minutes = Math.round(elapsed / 60000);
-          log('ttl', `Lock held by ${staleAgent} for ${minutes}min (TTL: ${ttlMinutes}min). Force-releasing.`);
+          log('ttl', `Lock held by ${staleAgent} for ${minutes}min. Force-releasing.`);
+
+          if (hasCursorSession && apiKey) {
+            const cloudAgent = session.launched.find(a => a.id === staleAgent);
+            if (cloudAgent) {
+              await stopAgent(apiKey, cloudAgent.cloudId);
+              log('ttl', `Stopped Cursor agent ${staleAgent}`);
+            }
+          }
 
           forceRelease(root, lock, staleAgent, config);
+          lastState = null;
           return;
         }
       }
 
-      // Detect human holder
+      // Human holder
       if (lock.holder === 'human') {
         if (stateKey !== lastState) {
-          log('human', 'Lock held by HUMAN. Waiting for `agentxchain release`...');
+          log('human', 'Lock held by HUMAN. Run `agentxchain release` when done.');
+          sendNotification('An agent needs your help. Run: agentxchain release');
           lastState = stateKey;
-          notifyHuman(root, config);
         }
         return;
       }
 
-      // Lock is claimed by an agent — they're working
+      // Agent is working
       if (lock.holder) {
         if (stateKey !== lastState) {
           const name = config.agents[lock.holder]?.name || lock.holder;
-          log('claimed', `${lock.holder} (${name}) is working... (turn ${lock.turn_number})`);
+          log('claimed', `${lock.holder} (${name}) working... (turn ${lock.turn_number})`);
           lastState = stateKey;
+
+          // Check Cursor agent status if available
+          if (hasCursorSession && apiKey) {
+            const cloudAgent = session.launched.find(a => a.id === lock.holder);
+            if (cloudAgent) {
+              const status = await getAgentStatus(apiKey, cloudAgent.cloudId);
+              if (status?.status === 'FINISHED') {
+                log('warn', `${lock.holder} Cursor agent is FINISHED but lock not released. May need TTL.`);
+              }
+            }
+          }
         }
         return;
       }
 
-      // Lock is FREE — pick the next agent
+      // Lock is FREE — wake the next agent
       if (stateKey !== lastState) {
         const next = pickNextAgent(lock, config);
-        log('free', `Lock released by ${lock.last_released_by || 'none'}. Next up: ${chalk.bold(next)}`);
+        log('free', `Lock free (released by ${lock.last_released_by || 'none'}). Waking ${chalk.bold(next)}.`);
         lastState = stateKey;
 
-        writeTrigger(root, next, lock, config);
+        if (hasCursorSession && apiKey) {
+          await wakeCursorAgent(apiKey, session, next, lock, config);
+        } else {
+          writeTrigger(root, next, lock, config);
+        }
       }
     } catch (err) {
       log('error', err.message);
     }
   };
 
-  tick();
+  await tick();
   const timer = setInterval(tick, interval);
 
   process.on('SIGINT', () => {
@@ -97,30 +126,52 @@ export async function watchCommand(opts) {
   });
 }
 
-function pickNextAgent(lock, config) {
-  const agentIds = Object.keys(config.agents);
-  const maxConsecutive = config.rules?.max_consecutive_claims || 2;
-  const lastAgent = lock.last_released_by;
-
-  if (!lastAgent) return agentIds[0];
-
-  const lastIndex = agentIds.indexOf(lastAgent);
-
-  // Round-robin from the agent after the last one
-  // but skip if max_consecutive_claims would be violated
-  for (let i = 1; i <= agentIds.length; i++) {
-    const candidate = agentIds[(lastIndex + i) % agentIds.length];
-    return candidate;
+async function wakeCursorAgent(apiKey, session, agentId, lock, config) {
+  const cloudAgent = session.launched.find(a => a.id === agentId);
+  if (!cloudAgent) {
+    log('warn', `No Cursor cloud agent found for "${agentId}". Using trigger file.`);
+    return;
   }
 
-  return agentIds[0];
+  const name = config.agents[agentId]?.name || agentId;
+  const wakeMessage = `The lock is free. It's your turn.
+
+READ lock.json — if holder is null, CLAIM it by writing holder="${agentId}" and claimed_at=now.
+Then do your work per your mandate:
+- Name: ${name}
+- Mandate: ${config.agents[agentId]?.mandate || '(see agentxchain.json)'}
+
+When done:
+1. Update state.md with current project state
+2. Append one line to history.jsonl
+${config.rules?.verify_command ? `3. Run verify: ${config.rules.verify_command} — fix if it fails` : ''}
+${config.rules?.verify_command ? '4' : '3'}. RELEASE lock.json: holder=null, last_released_by="${agentId}", turn_number=${lock.turn_number + 1}, claimed_at=null
+
+This must be the last thing you write. The watch process will wake the next agent.`;
+
+  try {
+    await sendFollowup(apiKey, cloudAgent.cloudId, wakeMessage);
+    log('wake', `Sent followup to ${chalk.bold(agentId)} (${cloudAgent.cloudId})`);
+  } catch (err) {
+    log('error', `Failed to wake ${agentId}: ${err.message}`);
+  }
+}
+
+function pickNextAgent(lock, config) {
+  const agentIds = Object.keys(config.agents);
+  const lastAgent = lock.last_released_by;
+
+  if (!lastAgent || !agentIds.includes(lastAgent)) return agentIds[0];
+
+  const lastIndex = agentIds.indexOf(lastAgent);
+  return agentIds[(lastIndex + 1) % agentIds.length];
 }
 
 function forceRelease(root, lock, staleAgent, config) {
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
     holder: null,
-    last_released_by: `system:ttl-expired:${staleAgent}`,
+    last_released_by: `system:ttl:${staleAgent}`,
     turn_number: lock.turn_number,
     claimed_at: null
   };
@@ -129,37 +180,31 @@ function forceRelease(root, lock, staleAgent, config) {
   const logFile = config.log || 'log.md';
   const logPath = join(root, logFile);
   if (existsSync(logPath)) {
-    const warning = `\n---\n\n### [system] (AgentXchain Watch) | Turn ${lock.turn_number}\n\n**Warning:** Lock held by \`${staleAgent}\` was force-released after TTL expired. The agent may have crashed or hung.\n\n`;
-    appendFileSync(logPath, warning);
+    appendFileSync(logPath, `\n---\n\n### [system] (Watch) | Turn ${lock.turn_number}\n\n**Warning:** Lock force-released from \`${staleAgent}\` (TTL expired).\n\n`);
   }
 }
 
 function writeTrigger(root, agentId, lock, config) {
   const triggerPath = join(root, '.agentxchain-trigger.json');
-  const trigger = {
+  writeFileSync(triggerPath, JSON.stringify({
     agent: agentId,
     turn_number: lock.turn_number,
     triggered_at: new Date().toISOString(),
     project: config.project
-  };
-  writeFileSync(triggerPath, JSON.stringify(trigger, null, 2) + '\n');
-}
-
-function notifyHuman(root, config) {
-  sendNotification('An agent needs your help. Run: agentxchain release');
+  }, null, 2) + '\n');
 }
 
 function log(type, msg) {
   const time = new Date().toLocaleTimeString();
-  const prefix = {
-    free: chalk.green('FREE'),
-    claimed: chalk.yellow('WORK'),
-    ttl: chalk.red(' TTL'),
+  const tags = {
+    free: chalk.green('FREE '),
+    claimed: chalk.yellow('WORK '),
+    wake: chalk.cyan('WAKE '),
+    ttl: chalk.red(' TTL '),
     human: chalk.magenta('HUMAN'),
-    warn: chalk.yellow('WARN'),
-    error: chalk.red('ERR '),
-    stop: chalk.dim('STOP'),
-  }[type] || chalk.dim(type);
-
-  console.log(`  ${chalk.dim(time)} ${prefix}  ${msg}`);
+    warn: chalk.yellow('WARN '),
+    error: chalk.red('ERR  '),
+    stop: chalk.dim('STOP '),
+  };
+  console.log(`  ${chalk.dim(time)} ${tags[type] || chalk.dim(type)}  ${msg}`);
 }
