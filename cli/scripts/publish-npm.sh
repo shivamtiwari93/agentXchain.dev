@@ -48,11 +48,20 @@ fi
 
 # Preflight auth/ownership checks before version bump.
 echo "Running npm preflight checks..."
-if ! npm whoami >/dev/null 2>&1; then
-  echo "Error: npm auth missing. Run: npm login"
-  exit 1
+if [[ -n "${NPM_TOKEN:-}" ]]; then
+  if ! npm whoami --//registry.npmjs.org/:_authToken="${NPM_TOKEN}" >/dev/null 2>&1; then
+    echo "Error: npm auth failed with NPM_TOKEN from agentxchain.dev/.env"
+    echo "Verify NPM_TOKEN is valid and has package publish permissions."
+    exit 1
+  fi
+  NPM_USER="$(npm whoami --//registry.npmjs.org/:_authToken="${NPM_TOKEN}")"
+else
+  if ! npm whoami >/dev/null 2>&1; then
+    echo "Error: npm auth missing. Run: npm login or set NPM_TOKEN in agentxchain.dev/.env"
+    exit 1
+  fi
+  NPM_USER="$(npm whoami)"
 fi
-NPM_USER="$(npm whoami)"
 echo "npm user:        ${NPM_USER}"
 
 if npm view "${PACKAGE_NAME}" version >/dev/null 2>&1; then

@@ -91,6 +91,8 @@ export async function launchCursorAgents(config, root, opts) {
     console.log(chalk.dim('  Fix by setting the branch explicitly in agentxchain.json:'));
     console.log(chalk.bold('  "cursor": { "ref": "your-default-branch" }'));
     console.log(chalk.dim('  Or switch to the target branch locally, then re-run start.'));
+    console.log(chalk.dim('  If the branch exists on GitHub, verify your Cursor account has GitHub access'));
+    console.log(chalk.dim('  to this repository (Cursor Settings -> GitHub integration).'));
     console.log('');
   }
 

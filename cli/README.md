@@ -20,11 +20,13 @@ npx agentxchain init
 agentxchain init                      # create a project (template selection)
 cd my-project/
 echo "CURSOR_API_KEY=your_key" >> .env # from cursor.com/settings -> Cloud Agents
+# In Cursor, connect GitHub account (needed for private repos)
+# Cursor Settings -> GitHub integration
 agentxchain start --ide cursor        # launch agents
 agentxchain watch                     # coordinate turns automatically
 ```
 
-> `CURSOR_API_KEY` is required for Cursor commands (`start/watch/stop/claim/release` when using Cursor sessions).
+> `CURSOR_API_KEY` is required for Cursor commands (`start/watch/stop/claim/release` when using Cursor sessions). Your Cursor account also needs GitHub access to the target repository.
 
 ## Commands
 
@@ -81,7 +83,7 @@ bash scripts/publish-npm.sh 0.5.0        # explicit version + publish
 bash scripts/publish-npm.sh patch --dry-run
 ```
 
-If `NPM_TOKEN` exists in `cli/.env`, the script uses it automatically.
+If `NPM_TOKEN` exists in `agentXchain.dev/.env` (project root), the script uses it automatically.
 
 ## Links
 

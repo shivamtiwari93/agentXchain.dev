@@ -20,10 +20,13 @@ cd my-project/
 # 3. Set your Cursor API key in project .env
 echo "CURSOR_API_KEY=your_key" >> .env    # get from cursor.com/settings -> Cloud Agents
 
-# 4. Launch agents in Cursor
+# 4. In Cursor, connect your GitHub account (required for private repos)
+#    Cursor Settings -> GitHub integration
+
+# 5. Launch agents in Cursor
 npx agentxchain start --ide cursor
 
-# 5. Start the referee (coordinates turns automatically)
+# 6. Start the referee (coordinates turns automatically)
 npx agentxchain watch
 ```
 
@@ -82,7 +85,7 @@ agentxchain start --ide vscode          # print seed prompts for manual use
 agentxchain start --dry-run             # preview without launching
 ```
 
-Requires `CURSOR_API_KEY` for Cursor mode. The project must be in a GitHub repo.
+Requires `CURSOR_API_KEY` for Cursor mode. The project must be in a GitHub repo, and your Cursor account must have GitHub access to that repository.
 
 ### `agentxchain watch`
 
@@ -283,7 +286,7 @@ bash scripts/publish-npm.sh minor        # minor bump + publish
 bash scripts/publish-npm.sh 0.5.0        # explicit version + publish
 ```
 
-The script auto-loads `NPM_TOKEN` from `cli/.env` when present.
+The script auto-loads `NPM_TOKEN` from `agentXchain.dev/.env` (project root).
 
 ---
 
