@@ -125,8 +125,8 @@
     <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
     <div class="nav-links">
       <a href="#cli">CLI</a>
-      <a href="#features">Features</a>
-      <a href="#vs">vs MCP &amp; A2A</a>
+      <a href="#features">Protocol</a>
+      <a href="#qa">QA system</a>
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm &#8599;</a>
     </div>
   </div></nav>
@@ -188,39 +188,100 @@
   </div></section>
 
   <section class="s-alt" id="features"><div class="container">
-    <span class="sl sl-green">Features</span>
-    <h2>Protocol v3: built for real use</h2>
-    <p class="ss">Not a toy protocol. Built-in safeguards for the failure modes that happen when AI agents actually run.</p>
+    <span class="sl sl-green">Protocol</span>
+    <h2>Built-in safeguards for when agents actually run</h2>
+    <p class="ss">Claim-based coordination, deadlock recovery, mandatory verification, and human override.</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
         <h3>Claim-based turns</h3>
-        <p>No fixed order. Agents claim the lock when free. The watch process decides who goes next.</p>
+        <p>No fixed order. The watch process picks who goes next. Agents claim, work, release.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-        <h3>Lock TTL</h3>
-        <p>Stale locks auto-released after timeout. No more deadlocks from crashed or hung agents.</p>
+        <h3>Lock TTL + deadlock recovery</h3>
+        <p>Stale locks auto-released after timeout. Crashed agents don't block the team.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-        <h3>Verify command</h3>
-        <p>Agents must pass <code>npm test</code> (or your command) before releasing. No broken code handed off.</p>
+        <h3>Verify before release</h3>
+        <p>Agents must pass <code>npm test</code> before handing off. No broken code gets through.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         <h3>Human-in-the-loop</h3>
-        <p><code>agentxchain claim</code> pauses all agents. Fix things yourself. <code>release</code> hands back.</p>
+        <p><code>claim</code> pauses all agents instantly. Fix things yourself. <code>release</code> hands back.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <h3>State / history split</h3>
-        <p><code>state.md</code> (overwritten) + <code>history.jsonl</code> (append-only). Agents read minimal context per turn.</p>
+        <h3>Context-safe state</h3>
+        <p><code>state.md</code> (overwritten each turn) + <code>history.jsonl</code> (append-only). No context window blowup.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
         <h3>Team templates</h3>
         <p>SaaS MVP, Landing Page, Bug Squad, API Builder, Refactor Team. Or define your own.</p>
+      </div>
+    </div>
+  </div></section>
+
+  <section id="scaffold"><div class="container">
+    <span class="sl sl-orange">Project scaffolding</span>
+    <h2>Every project gets a .planning/ folder</h2>
+    <p class="ss"><code>agentxchain init</code> creates structured documentation that agents read and maintain automatically.</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+        <h3>PROJECT.md + REQUIREMENTS.md</h3>
+        <p>PM writes the vision, constraints, and numbered requirements with acceptance criteria. Every agent reads these for context.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+        <h3>ROADMAP.md + phases/</h3>
+        <p>Phased delivery plan. Each phase gets its own folder with PLAN.md, REVIEW.md, TESTS.md, and BUGS.md.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <h3>research/</h3>
+        <p>Domain research, prior art, technical investigation. Filled by agents during discovery.</p>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="s-alt" id="qa"><div class="container">
+    <span class="sl sl-green">QA system</span>
+    <h2>Heavy QA. Functional + UX. Every turn.</h2>
+    <p class="ss">The QA agent doesn't just run <code>npm test</code>. It tests functional correctness, edge cases, security, accessibility, responsive design, and user experience.</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <h3>BUGS.md</h3>
+        <p>Every bug filed with ID, severity (P0&ndash;P3), exact reproduction steps, expected vs actual. Open and fixed tracked separately.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <h3>UX Audit</h3>
+        <p>35+ point checklist: first impressions, core flow, forms, responsive (375/768/1440px), accessibility (WCAG AA), error states, visual consistency.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h3>Acceptance matrix</h3>
+        <p>Every requirement mapped to functional test + UX test + status. The definitive &ldquo;can we ship?&rdquo; document.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <h3>Test coverage map</h3>
+        <p>Feature-by-feature: unit, integration, E2E, manual QA, UX audit. See what&rsquo;s covered and what&rsquo;s not.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></div>
+        <h3>Regression log</h3>
+        <p>Every fixed bug tracked with its regression test. Prevents the same bug from coming back.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <h3>Ship verdict</h3>
+        <p>Every turn ends with: YES, YES WITH CONDITIONS, or NO + blockers. No ambiguity about readiness.</p>
       </div>
     </div>
   </div></section>
@@ -280,7 +341,7 @@
         <p>Open-source multi-agent coordination. CLI + Protocol + Cursor integration.</p>
       </div>
       <div class="f-links">
-        <div class="f-col"><h4>Product</h4><a href="#cli">CLI commands</a><a href="#features">Features</a><a href="#how">How it works</a><a href="#vs">vs MCP &amp; A2A</a></div>
+        <div class="f-col"><h4>Product</h4><a href="#cli">CLI</a><a href="#features">Protocol</a><a href="#scaffold">Scaffolding</a><a href="#qa">QA system</a><a href="#vs">vs MCP &amp; A2A</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>
