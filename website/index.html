@@ -107,14 +107,31 @@
     .f-col a:hover { color: var(--text); }
     .f-copy { text-align: center; color: var(--text-dim); font-size: 0.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
     /* GITHUB RIBBON */
-    .gh-ribbon { position: fixed; top: 0; left: 0; z-index: 200; width: 200px; height: 200px; overflow: hidden; pointer-events: none; }
-    .gh-ribbon a { display: block; position: absolute; top: 50px; left: -40px; width: 250px; padding: 8px 0; text-align: center; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #fff; background: var(--green); text-decoration: none; transform: rotate(-45deg); pointer-events: auto; transition: all 0.25s; box-shadow: 0 3px 10px rgba(0,0,0,0.25); }
-    .gh-ribbon a::before, .gh-ribbon a::after { content: ''; position: absolute; bottom: -6px; border: 6px solid transparent; border-top-color: #3D7A1A; }
-    .gh-ribbon a::before { left: 0; border-left-color: #3D7A1A; }
-    .gh-ribbon a::after { right: 0; border-right-color: #3D7A1A; }
-    .gh-ribbon a:hover { background: var(--green-light); }
-    .gh-ribbon a svg { vertical-align: -2px; margin-right: 5px; }
-    @media (max-width: 640px) { .gh-ribbon { width: 160px; height: 160px; } .gh-ribbon a { top: 38px; left: -44px; font-size: 0.65rem; padding: 6px 0; } }
+    .gh-ribbon {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      width: 180px;
+      height: 180px;
+      z-index: 200;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .gh-ribbon a {
+      display: block; position: absolute; top: 28px; left: -56px;
+      width: 200px; padding: 6px 0; text-align: center;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      color: #fff; background: linear-gradient(135deg, #5A9E2F, var(--green));
+      text-decoration: none; transform: rotate(-45deg); transform-origin: center;
+      pointer-events: auto; transition: all 0.25s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    }
+    .gh-ribbon a:hover { background: linear-gradient(135deg, var(--green), var(--green-light)); box-shadow: 0 3px 14px rgba(107,181,54,0.4); }
+    .gh-ribbon a svg { vertical-align: -2px; margin-right: 4px; }
+    @media (max-width: 640px) {
+      .gh-ribbon { top: 8px; left: 8px; width: 165px; height: 165px; }
+      .gh-ribbon a { top: 24px; left: -58px; font-size: 0.62rem; padding: 5px 0; }
+    }
 
     @media (max-width: 768px) {
       .hero { padding: 3.5rem 0 2.5rem; }
