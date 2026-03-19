@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
+import { generateVSCodeFiles } from '../lib/generate-vscode.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = join(__dirname, '../templates');
@@ -194,7 +195,7 @@ export async function initCommand(opts) {
     }
   };
 
-  const lock = { holder: null, last_released_by: null, turn_number: 0, claimed_at: null };
+  const lock = { holder: 'human', last_released_by: null, turn_number: 0, claimed_at: new Date().toISOString() };
   const state = { phase: 'discovery', blocked: false, blocked_on: null, project };
 
   // Core protocol files
@@ -247,6 +248,9 @@ export async function initCommand(opts) {
 
   writeFileSync(join(dir, '.planning', 'qa', 'BUGS.md'), `# Bugs — ${project}\n\n## Open\n\n(QA adds bugs here with reproduction steps.)\n\n## Fixed\n\n(Bugs move here when dev confirms the fix and QA verifies it.)\n`);
 
+  // VS Code agent files (.github/agents/, .github/hooks/, scripts/)
+  const vsResult = generateVSCodeFiles(dir, config);
+
   const agentCount = Object.keys(agents).length;
   console.log('');
   console.log(chalk.green(`  ✓ Created ${chalk.bold(folderName)}/`));
@@ -255,10 +259,13 @@ export async function initCommand(opts) {
   console.log(`    ${chalk.dim('├──')} lock.json`);
   console.log(`    ${chalk.dim('├──')} state.json / state.md / history.jsonl`);
   console.log(`    ${chalk.dim('├──')} log.md / HUMAN_TASKS.md`);
-  console.log(`    ${chalk.dim('└──')} .planning/`);
-  console.log(`         ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md`);
-  console.log(`         ${chalk.dim('├──')} research/ / phases/`);
-  console.log(`         ${chalk.dim('└──')} qa/  ${chalk.dim('TEST-COVERAGE / BUGS / UX-AUDIT / ACCEPTANCE-MATRIX')}`);
+  console.log(`    ${chalk.dim('├──')} .planning/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} research/ / phases/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} qa/  ${chalk.dim('TEST-COVERAGE / BUGS / UX-AUDIT / ACCEPTANCE-MATRIX')}`);
+  console.log(`    ${chalk.dim('├──')} .github/agents/  ${chalk.dim(`(${agentCount} .agent.md files)`)}`);
+  console.log(`    ${chalk.dim('├──')} .github/hooks/   ${chalk.dim('agentxchain.json')}`);
+  console.log(`    ${chalk.dim('└──')} scripts/         ${chalk.dim('hook shell scripts')}`);
   console.log('');
   console.log(`  ${chalk.dim('Agents:')} ${Object.keys(agents).join(', ')}`);
   console.log('');
@@ -267,5 +274,6 @@ export async function initCommand(opts) {
   console.log(`    ${chalk.bold('edit .env')}            ${chalk.dim('# set CURSOR_API_KEY (required for Cursor mode)')}`);
   console.log(`    ${chalk.bold('agentxchain start')}    ${chalk.dim('# launch agents in Cursor')}`);
   console.log(`    ${chalk.bold('agentxchain watch')}    ${chalk.dim('# start the referee')}`);
+  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# begin automation (initial lock is human)')}`);
   console.log('');
 }

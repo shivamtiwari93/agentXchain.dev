@@ -10,6 +10,7 @@ import { updateCommand } from '../src/commands/update.js';
 import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
 import { branchCommand } from '../src/commands/branch.js';
+import { generateCommand } from '../src/commands/generate.js';
 
 const program = new Command();
 
@@ -58,6 +59,11 @@ program
   .option('--use-current', 'Set override to the current local git branch')
   .option('--unset', 'Remove override and follow active git branch automatically')
   .action(branchCommand);
+
+program
+  .command('generate')
+  .description('Regenerate VS Code agent files (.agent.md, hooks) from agentxchain.json')
+  .action(generateCommand);
 
 program
   .command('watch')

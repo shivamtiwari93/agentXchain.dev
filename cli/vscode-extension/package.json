@@ -1,0 +1,90 @@
+{
+  "name": "agentxchain",
+  "displayName": "AgentXchain",
+  "description": "Multi-agent coordination in your IDE. Define a team of AI agents, let them take turns building your project.",
+  "version": "0.1.0",
+  "publisher": "agentxchain",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shivamtiwari93/agentXchain.dev.git"
+  },
+  "homepage": "https://agentxchain.dev",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "multi-agent",
+    "coordination",
+    "copilot",
+    "cursor"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/agentxchain.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentxchain.init",
+        "title": "AgentXchain: Init Project"
+      },
+      {
+        "command": "agentxchain.generate",
+        "title": "AgentXchain: Generate Agent Files"
+      },
+      {
+        "command": "agentxchain.claim",
+        "title": "AgentXchain: Claim Lock (Human)"
+      },
+      {
+        "command": "agentxchain.release",
+        "title": "AgentXchain: Release Lock"
+      },
+      {
+        "command": "agentxchain.status",
+        "title": "AgentXchain: Show Status"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentxchain",
+          "title": "AgentXchain",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentxchain": [
+        {
+          "type": "webview",
+          "id": "agentxchain.dashboard",
+          "name": "Dashboard"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "overrides": {
+    "undici": "6.21.3"
+  }
+}

@@ -1,6 +1,6 @@
 # AgentXchain.dev — Open-source multi-agent coordination framework
 
-Run a **software development team inside your AI workspace**. Define agents, launch them in Cursor, and let them coordinate via a shared protocol — no central orchestrator, no vendor lock-in.
+Run a **software development team inside your AI workspace**. Define agents, let them take turns building your project via shared state — no central orchestrator, no vendor lock-in.
 
 ```bash
 npx agentxchain init
@@ -8,31 +8,44 @@ npx agentxchain init
 
 ---
 
-## Quick start
+## Quick start — VS Code / Cursor (recommended)
+
+AgentXchain generates native VS Code custom agents (`.agent.md`) and lifecycle hooks. No API keys, no cloud, no GitHub connection needed.
 
 ```bash
-# 1. Create a project (interactive template selection)
+# 1. Create a project
 npx agentxchain init
 
-# 2. cd into your project
-cd my-project/
+# 2. Open in VS Code / Cursor
+cd my-project/ && code .
 
-# 3. Set your Cursor API key in project .env
-echo "CURSOR_API_KEY=your_key" >> .env    # get from cursor.com/settings -> Cloud Agents
+# 3. Select an agent from the Chat dropdown (e.g. "Product Manager")
+#    Agents auto-discovered from .github/agents/
 
-# 4. In Cursor, connect your GitHub account (required for private repos)
-#    Cursor Settings -> GitHub integration
+# 4. Release the lock to begin (new projects start with human lock)
+#    Command Palette: "AgentXchain: Release Lock"
+#    Or CLI: npx agentxchain release
 
-# 5. Launch agents in Cursor
-npx agentxchain start --ide cursor
-
-# 6. Start the referee (coordinates turns automatically)
-npx agentxchain watch
+# 5. Agents coordinate via hooks — Stop hook hands off to next agent automatically
 ```
 
-That's it. The watch process wakes agents when it's their turn, enforces timeouts, and handles deadlock recovery. You stay in control via `claim` and `release`.
+The `Stop` hook acts as the referee: when an agent finishes, it determines the next agent and hands off. No polling process needed.
 
-`CURSOR_API_KEY` is mandatory for Cursor-mode commands (`start`, `watch`, `stop`, and Cursor-session `claim`/`release`).
+### Quick start — Cursor Cloud Agents
+
+For cloud-based agent execution (runs on Cursor infrastructure):
+
+```bash
+npx agentxchain init
+cd my-project/
+echo "CURSOR_API_KEY=your_key" >> .env    # cursor.com/settings -> Cloud Agents
+# Connect GitHub in Cursor Settings -> GitHub integration
+npx agentxchain start --ide cursor
+npx agentxchain watch
+npx agentxchain release
+```
+
+`CURSOR_API_KEY` is required for Cursor Cloud commands (`start`, `watch`, `stop`, `claim`/`release`).
 
 ---
 
@@ -71,7 +84,17 @@ agentxchain init -y           # use defaults (pm, dev, qa, ux)
 
 Templates available: **SaaS MVP**, **Landing Page**, **Bug Squad**, **API Builder**, **Refactor Team**, or **Custom**.
 
-Creates: `agentxchain.json`, `lock.json`, `state.json`, `state.md`, `history.jsonl`, `log.md`, `HUMAN_TASKS.md`
+Creates: `agentxchain.json`, `lock.json`, `state.json`, `state.md`, `history.jsonl`, `log.md`, `HUMAN_TASKS.md`, `.github/agents/*.agent.md`, `.github/hooks/`, `scripts/`
+
+### `agentxchain generate`
+
+Regenerate VS Code agent files from `agentxchain.json`. Run after adding/removing agents or changing config.
+
+```bash
+agentxchain generate
+```
+
+Writes `.github/agents/*.agent.md`, `.github/hooks/agentxchain.json`, and `scripts/agentxchain-*.sh`.
 
 ### `agentxchain start`
 
@@ -178,22 +201,30 @@ agentxchain update
 
 ## How it works
 
-1. You create `agentxchain.json` — defines your agents (any number, any roles) and rules.
+### VS Code / Cursor local mode (recommended)
+
+1. `agentxchain init` creates `agentxchain.json`, protocol files, and VS Code native agent files.
+2. VS Code auto-discovers `.github/agents/*.agent.md` as custom agents in the Chat dropdown.
+3. Select an agent to start a turn. The agent reads `lock.json`, claims it, does its work, and releases.
+4. The `Stop` hook (`.github/hooks/`) acts as referee: when an agent finishes, the hook determines the next agent and hands off automatically.
+5. Agents coordinate via `lock.json` (who holds the lock), `state.md` (living project state), and `history.jsonl` (turn log).
+6. Use Command Palette: "AgentXchain: Claim Lock" to intervene, "AgentXchain: Release Lock" to hand back.
+
+### Cursor Cloud mode
+
+1. You create `agentxchain.json` and set `CURSOR_API_KEY` in `.env`.
 2. `agentxchain start` launches each agent as a Cursor Cloud Agent with a seed prompt.
-3. `agentxchain watch` runs the coordination loop:
-   - Lock is free → wake the next agent via followup API
-   - Agent claims the lock, does its work, releases
-   - Lock TTL expired → force-release and wake the next agent
-   - Lock held by `human` → send notification, wait
-4. Agents coordinate via `lock.json` (who holds the lock), `state.md` (living project state), and `history.jsonl` (turn log).
-5. You can `claim` the lock to intervene, then `release` to hand back.
+3. `agentxchain watch` runs the coordination loop (polls `lock.json`, wakes agents via API).
+4. You can `claim` the lock to intervene, then `release` to hand back.
 
 ### Protocol v3 features
 
-- **Claim-based turns** — no fixed order; agents self-organize
+- **Native VS Code agents** — `.agent.md` files auto-discovered by VS Code/Cursor; no extension needed for basic use
+- **Lifecycle hooks** — `Stop` hook acts as referee, `SessionStart` injects context, `PreToolUse` gates write access
+- **Claim-based turns** — agents coordinate via shared `lock.json`
 - **User-defined agents** — any number, any roles, configured in one JSON file
+- **Handoffs** — agents hand off to the next agent automatically via VS Code handoff buttons
 - **Branch-safe Cursor launches** — defaults to active git branch; optional branch override via `agentxchain branch`
-- **Project `.env` support** — Cursor key is auto-read from project root `.env`
 - **Lock TTL** — stale locks auto-released after timeout (default: 10 min)
 - **Verify command** — agents must pass (e.g. `npm test`) before releasing
 - **Human-in-the-loop** — `human` is a reserved holder; agents can pass to you
