@@ -1,6 +1,6 @@
 # AgentXchain.dev — Open-source multi-agent coordination framework
 
-Run a **software development team inside your AI workspace**. Define agents, let them take turns building your project via shared state — no central orchestrator, no API keys, no vendor lock-in.
+Run a **software development team inside your IDE**. Define agents, launch them in separate windows, and let them take turns building your project — no central orchestrator, no API keys, no vendor lock-in.
 
 ```bash
 npx agentxchain init
@@ -11,22 +11,24 @@ npx agentxchain init
 ## Quick start
 
 ```bash
-# 1. Create a project
+# 1. Create a project (interactive template selection)
 npx agentxchain init
 
-# 2. Open in VS Code / Cursor
-cd my-project/ && code .
+# 2. Launch agents — opens a separate Cursor window per agent
+cd my-project/
+agentxchain start
 
-# 3. Select an agent from the Chat dropdown (e.g. "Product Manager")
-#    Agents auto-discovered from .github/agents/
+# 3. For each window the CLI opens:
+#    - Paste the prompt (auto-copied to clipboard) into chat
+#    - Select Agent mode
+#    - Send it
+#    The CLI walks you through one agent at a time.
 
-# 4. Release the lock to begin (new projects start with human lock)
-npx agentxchain release
-
-# 5. Agents coordinate via hooks — Stop hook hands off to next agent automatically
+# 4. Release the human lock — agents start claiming turns
+agentxchain release
 ```
 
-The `Stop` hook acts as the referee: when an agent finishes, it determines the next agent and hands off. No polling process needed.
+Each agent runs in its own IDE window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting.
 
 ---
 
@@ -65,33 +67,24 @@ agentxchain init -y           # use defaults (pm, dev, qa, ux)
 
 Templates available: **SaaS MVP**, **Landing Page**, **Bug Squad**, **API Builder**, **Refactor Team**, or **Custom**.
 
-Creates: `agentxchain.json`, `lock.json`, `state.json`, `state.md`, `history.jsonl`, `log.md`, `HUMAN_TASKS.md`, `.github/agents/*.agent.md`, `.github/hooks/`, `scripts/`
-
-### `agentxchain generate`
-
-Regenerate VS Code agent files from `agentxchain.json`. Run after adding/removing agents or changing config.
-
-```bash
-agentxchain generate
-```
-
 ### `agentxchain start`
 
-Show agent setup instructions for your IDE.
+Open a separate IDE window per agent and copy each agent's prompt to clipboard.
 
 ```bash
-agentxchain start                      # show VS Code / Cursor instructions
-agentxchain start --ide claude-code    # spawn Claude CLI processes
+agentxchain start                      # Cursor (default) — one window per agent
+agentxchain start --ide vscode         # VS Code — uses .agent.md + hooks
+agentxchain start --ide claude-code    # Claude Code — spawns CLI processes
+agentxchain start --agent pm           # launch one specific agent only
 agentxchain start --dry-run            # preview agents without launching
 ```
 
-### `agentxchain watch`
+### `agentxchain generate`
 
-Fallback referee for non-IDE environments. In VS Code / Cursor, the Stop hook handles turn coordination automatically.
+Regenerate VS Code agent files from `agentxchain.json`. Run after adding/removing agents.
 
 ```bash
-agentxchain watch
-agentxchain watch --daemon
+agentxchain generate
 ```
 
 ### `agentxchain status`
@@ -105,7 +98,7 @@ agentxchain status --json     # machine-readable
 
 ### `agentxchain claim`
 
-Human takes control.
+Human takes control. Agents stop claiming turns while you hold the lock.
 
 ```bash
 agentxchain claim             # claim if lock is free
@@ -119,6 +112,15 @@ Hand the lock back to agents.
 ```bash
 agentxchain release
 agentxchain release --force   # force-release if non-human holder is stuck
+```
+
+### `agentxchain watch`
+
+Optional safety net. Force-releases stale locks after TTL, logs turn transitions.
+
+```bash
+agentxchain watch
+agentxchain watch --daemon
 ```
 
 ### `agentxchain stop`
@@ -154,20 +156,34 @@ agentxchain update
 
 ## How it works
 
-1. `agentxchain init` creates `agentxchain.json`, protocol files, and VS Code native agent files.
-2. VS Code / Cursor auto-discovers `.github/agents/*.agent.md` as custom agents in the Chat dropdown.
-3. Select an agent to start a turn. The agent reads `lock.json`, claims it, does its work, and releases.
-4. The `Stop` hook (`.github/hooks/`) acts as referee: when an agent finishes, the hook determines the next agent and hands off automatically.
-5. Agents coordinate via `lock.json` (who holds the lock), `state.md` (living project state), and `history.jsonl` (turn log).
-6. Use `agentxchain claim` to intervene, `agentxchain release` to hand back.
+### Cursor mode (default)
+
+1. `agentxchain start` opens a **separate Cursor window** for each agent (via workspace symlinks).
+2. Each agent's prompt is copied to clipboard. You paste into chat, select Agent mode, and send.
+3. Agent prompts include a self-polling loop: read `lock.json` -> check turn -> claim -> work -> release -> `sleep 60` -> repeat.
+4. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released.
+5. You can `claim` to pause and `release` to resume anytime.
+
+### VS Code mode
+
+1. `agentxchain init` generates `.github/agents/*.agent.md` (VS Code custom agents) and `.github/hooks/` (lifecycle hooks).
+2. VS Code auto-discovers agents in the Chat dropdown (requires GitHub Copilot).
+3. The `Stop` hook acts as referee — hands off to next agent automatically.
+
+### Turn rotation
+
+Agents follow round-robin order defined in `agentxchain.json`:
+- **PM** claims after: `human`, `null`, or last agent in rotation
+- **Dev** claims after: `pm`
+- **QA** claims after: `dev`
+- And so on — wraps back to PM after the last agent
 
 ### Protocol v3 features
 
-- **Native VS Code agents** — `.agent.md` files auto-discovered by VS Code, Cursor, and other VS Code forks
-- **Lifecycle hooks** — `Stop` hook acts as referee, `SessionStart` injects context, `PreToolUse` gates write access
+- **Self-polling agents** — each agent runs an infinite loop in its own IDE window
+- **One window per agent** — separate Cursor windows via workspace symlinks
 - **Claim-based turns** — agents coordinate via shared `lock.json`
 - **User-defined agents** — any number, any roles, configured in one JSON file
-- **Handoffs** — agents hand off to the next agent automatically via VS Code handoff buttons
 - **No API keys or cloud required** — everything runs locally in your IDE
 - **Lock TTL** — stale locks auto-released after timeout (default: 10 min)
 - **Verify command** — agents must pass (e.g. `npm test`) before releasing

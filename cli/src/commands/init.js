@@ -207,7 +207,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'log.md'), `# ${project} — Agent Log\n\n## COMPRESSED CONTEXT\n\n(No compressed context yet.)\n\n## MESSAGE LOG\n\n(Agents append messages below this line.)\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
   const gitignorePath = join(dir, '.gitignore');
-  const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/'];
+  const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/', '.agentxchain-workspaces/'];
   if (!existsSync(gitignorePath)) {
     writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
   } else {
@@ -264,13 +264,7 @@ export async function initCommand(opts) {
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
   console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
-  console.log(`    ${chalk.bold('cursor .')}             ${chalk.dim('# open in Cursor')}`);
-  console.log(`    ${chalk.bold('code .')}               ${chalk.dim('# open in VS Code')}`);
-  console.log(`    ${chalk.dim('(If "command not found": open IDE → Cmd+Shift+P → "Shell Command: Install")')}`);
-  console.log('');
-  console.log(`    ${chalk.dim('In your IDE:')}`);
-  console.log(`    ${chalk.dim('  1. Open Chat (Cmd+L)')}`);
-  console.log(`    ${chalk.dim('  2. Select an agent from the dropdown (auto-discovered from .github/agents/)')}`);
-  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock to begin turns')}`);
+  console.log(`    ${chalk.bold('agentxchain start')}    ${chalk.dim('# opens Cursor windows + copies agent prompts')}`);
+  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock — agents start working')}`);
   console.log('');
 }
