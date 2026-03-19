@@ -20,18 +20,21 @@ npx agentxchain init
 # 1. Create a project (interactive template selection)
 agentxchain init
 
-# 2. Launch agents — opens a separate Cursor window per agent
+# 2. PM-first kickoff (human + PM align scope first)
 cd my-project/
-agentxchain start
+agentxchain start --agent pm
 
-# 3. For each window: paste the prompt (auto-copied to clipboard), select Agent mode, send
-#    The CLI walks you through one agent at a time.
+# 3. Launch remaining agents after planning is clear
+agentxchain start --remaining
 
-# 4. Release the human lock — agents start claiming turns
+# 4. Start supervisor (watch + auto-nudge)
+agentxchain supervise --autonudge
+
+# 5. Release the human lock — agents start claiming turns
 agentxchain release
 ```
 
-Each agent runs in its own Cursor window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting. No external referee needed.
+Each agent runs in its own Cursor window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting. `supervise --autonudge` handles watch + nudging automatically.
 
 ## Commands
 
@@ -39,8 +42,10 @@ Each agent runs in its own Cursor window with a self-polling loop. Agents check 
 |---------|-------------|
 | `init` | Create project folder with agents, protocol files, and templates |
 | `start` | Open a Cursor window per agent + copy prompts to clipboard |
+| `supervise` | Run watcher and optional AppleScript auto-nudge together |
 | `generate` | Regenerate agent files from `agentxchain.json` |
 | `status` | Show lock holder, phase, turn number, agents |
+| `doctor` | Validate local setup (tools, trigger flow, accessibility checks) |
 | `claim` | Human takes control (agents stop claiming) |
 | `release` | Hand lock back to agents |
 | `stop` | Terminate running Claude Code agent sessions |
@@ -60,10 +65,51 @@ agentxchain start --ide claude-code # Claude Code — spawns CLI processes
 
 ```bash
 agentxchain start --agent pm        # launch only one specific agent
+agentxchain start --remaining       # launch all agents except PM (PM-first flow)
 agentxchain start --dry-run         # preview agents without launching
 agentxchain watch --daemon          # run watch in background
+agentxchain supervise --autonudge   # run watch + AppleScript nudge loop
+agentxchain supervise --autonudge --send   # auto-press Enter after paste
 agentxchain release --force         # force-release non-human holder lock
 ```
+
+## macOS auto-nudge (AppleScript)
+
+If you want the next agent chat to be nudged automatically when turn changes, use the built-in AppleScript helper.
+
+1) Keep watcher running in your project:
+
+```bash
+agentxchain watch
+# or use the combined command:
+agentxchain supervise --autonudge
+```
+
+2) In another terminal (from `cli/`), start auto-nudge:
+
+```bash
+bash scripts/run-autonudge.sh --project "/absolute/path/to/your-project"
+```
+
+By default this is **paste-only** (safe mode): it opens chat and pastes the nudge message, but does not press Enter.
+
+3) Enable auto-send once confirmed:
+
+```bash
+bash scripts/run-autonudge.sh --project "/absolute/path/to/your-project" --send
+```
+
+Stop it anytime:
+
+```bash
+bash scripts/stop-autonudge.sh
+```
+
+Notes:
+- Requires macOS (`osascript`) and `jq` (`brew install jq`)
+- Grant Accessibility permissions to Terminal and Cursor
+- The script watches `.agentxchain-trigger.json`, which is written by `agentxchain watch`
+- `run-autonudge.sh` now requires watch to be running first
 
 ## How it works
 
@@ -71,9 +117,10 @@ agentxchain release --force         # force-release non-human holder lock
 
 1. `agentxchain start` opens a **separate Cursor window** for each agent
 2. Each window gets a unique prompt copied to clipboard
-3. Agent prompts include a self-polling loop: read `lock.json` → check if it's my turn → claim → work → release → sleep 60s → repeat
-4. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released
-5. Human can `claim` to pause and `release` to resume anytime
+3. Recommended first-run flow: `start --agent pm` (kickoff), then `start --remaining`
+4. Agent prompts include a self-polling loop: read `lock.json` → check if it's my turn → claim → work → release → sleep 60s → repeat
+5. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released
+6. Human can `claim` to pause and `release` to resume anytime
 
 ### VS Code mode
 

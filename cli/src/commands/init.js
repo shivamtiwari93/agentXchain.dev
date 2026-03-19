@@ -245,6 +245,7 @@ export async function initCommand(opts) {
   const vsResult = generateVSCodeFiles(dir, config);
 
   const agentCount = Object.keys(agents).length;
+  const kickoffId = pickPmKickoffId(agents);
   console.log('');
   console.log(chalk.green(`  ✓ Created ${chalk.bold(folderName)}/`));
   console.log('');
@@ -264,7 +265,18 @@ export async function initCommand(opts) {
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
   console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
-  console.log(`    ${chalk.bold('agentxchain start')}    ${chalk.dim('# opens Cursor windows + copies agent prompts')}`);
-  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock — agents start working')}`);
+  console.log(`    ${chalk.bold(`agentxchain start --agent ${kickoffId}`)} ${chalk.dim('# PM-first kickoff: align scope with human')}`);
+  console.log(`    ${chalk.bold('agentxchain start --remaining')} ${chalk.dim('# launch rest of team after PM planning')}`);
+  console.log(`    ${chalk.bold('agentxchain supervise --autonudge')} ${chalk.dim('# watch + AppleScript nudge loop')}`);
+  console.log(`    ${chalk.bold('agentxchain release')} ${chalk.dim('# release human lock when you are ready')}`);
   console.log('');
+}
+
+function pickPmKickoffId(agents) {
+  if (agents.pm) return 'pm';
+  for (const [id, def] of Object.entries(agents || {})) {
+    const name = String(def?.name || '').toLowerCase();
+    if (name.includes('product manager')) return id;
+  }
+  return Object.keys(agents || {})[0] || 'pm';
 }

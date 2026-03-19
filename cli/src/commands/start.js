@@ -1,6 +1,5 @@
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
-import { generateSeedPrompt } from '../lib/seed-prompt.js';
 
 export async function startCommand(opts) {
   const result = loadConfig();
@@ -26,15 +25,36 @@ export async function startCommand(opts) {
     process.exit(1);
   }
 
+  if (opts.agent && opts.remaining) {
+    console.log(chalk.red('  --agent and --remaining cannot be used together.'));
+    process.exit(1);
+  }
+
+  const launchConfig = buildLaunchConfig(config, opts);
+  const launchAgentIds = Object.keys(launchConfig.agents || {});
+  const launchCount = launchAgentIds.length;
+
+  if (launchCount === 0) {
+    console.log(chalk.red('  No agents selected to launch.'));
+    if (opts.remaining) {
+      console.log(chalk.dim('  Tip: this usually means only PM exists.'));
+    }
+    process.exit(1);
+  }
+
   console.log('');
   console.log(chalk.bold(`  ${agentCount} agents configured for ${config.project}`));
+  if (opts.remaining) {
+    console.log(chalk.cyan(`  Launch mode: remaining agents (${launchCount})`));
+  } else if (opts.agent) {
+    console.log(chalk.cyan(`  Launch mode: single agent (${opts.agent})`));
+  }
   console.log('');
 
   if (opts.dryRun) {
     console.log(chalk.yellow('  DRY RUN — showing agents:'));
     console.log('');
-    for (const [id, agent] of Object.entries(config.agents)) {
-      if (opts.agent && opts.agent !== id) continue;
+    for (const [id, agent] of Object.entries(launchConfig.agents)) {
       console.log(`    ${chalk.cyan(id)} — ${agent.name}`);
       console.log(chalk.dim(`    ${agent.mandate.slice(0, 80)}...`));
       console.log('');
@@ -42,12 +62,21 @@ export async function startCommand(opts) {
     return;
   }
 
+  if (!opts.agent && !opts.remaining) {
+    const kickoffId = pickPmAgentId(config);
+    if (kickoffId) {
+      console.log(chalk.yellow(`  Tip: for first run, start with ${chalk.bold(`agentxchain start --agent ${kickoffId}`)}.`));
+      console.log(chalk.dim('  Then use `agentxchain start --remaining` once PM planning is complete.'));
+      console.log('');
+    }
+  }
+
   switch (ide) {
     case 'vscode': {
       console.log(chalk.green('  Agents are set up as VS Code custom agents.'));
       console.log('');
       console.log(chalk.dim('  Your agents in .github/agents/:'));
-      for (const [id, agent] of Object.entries(config.agents)) {
+      for (const [id, agent] of Object.entries(launchConfig.agents)) {
         console.log(`    ${chalk.cyan(id)}.agent.md — ${agent.name}`);
       }
       console.log('');
@@ -65,16 +94,51 @@ export async function startCommand(opts) {
     }
     case 'cursor': {
       const { launchCursorLocal } = await import('../adapters/cursor-local.js');
-      await launchCursorLocal(config, root, opts);
+      await launchCursorLocal(launchConfig, root, opts);
       break;
     }
     case 'claude-code': {
       const { launchClaudeCodeAgents } = await import('../adapters/claude-code.js');
-      await launchClaudeCodeAgents(config, root, opts);
+      await launchClaudeCodeAgents(launchConfig, root, opts);
       break;
     }
     default:
       console.log(chalk.red(`  Unknown IDE: ${ide}. Supported: vscode, cursor, claude-code`));
       process.exit(1);
   }
+}
+
+function buildLaunchConfig(config, opts) {
+  if (opts.agent) {
+    return {
+      ...config,
+      agents: { [opts.agent]: config.agents[opts.agent] }
+    };
+  }
+
+  if (opts.remaining) {
+    const pmId = pickPmAgentId(config);
+    const agents = { ...config.agents };
+
+    if (pmId && agents[pmId]) {
+      delete agents[pmId];
+    } else {
+      const firstId = Object.keys(agents)[0];
+      if (firstId) delete agents[firstId];
+    }
+
+    return { ...config, agents };
+  }
+
+  return config;
+}
+
+function pickPmAgentId(config) {
+  if (config.agents.pm) return 'pm';
+
+  for (const [id, def] of Object.entries(config.agents || {})) {
+    const name = String(def?.name || '').toLowerCase();
+    if (name.includes('product manager')) return id;
+  }
+  return null;
 }

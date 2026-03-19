@@ -9,8 +9,13 @@ export async function launchCursorLocal(config, root, opts) {
   const agents = filterAgents(config, opts.agent);
   const agentEntries = Object.entries(agents);
   const total = agentEntries.length;
+  const selectedAgent = opts.agent ? agents[opts.agent] : null;
+  const isPmKickoff = !!selectedAgent && isPmLike(opts.agent, selectedAgent) && !opts.remaining;
 
   console.log(chalk.bold(`  Setting up ${total} agents: ${Object.keys(agents).join(', ')}`));
+  if (isPmKickoff) {
+    console.log(chalk.dim('  PM kickoff mode: start with human-PM planning before launching the full team.'));
+  }
   console.log('');
 
   const promptDir = join(root, '.agentxchain-prompts');
@@ -18,7 +23,9 @@ export async function launchCursorLocal(config, root, opts) {
 
   // Save all prompts first
   for (const [id, agent] of agentEntries) {
-    const prompt = generatePollingPrompt(id, agent, config);
+    const prompt = isPmKickoff
+      ? generateKickoffPrompt(id, agent, config)
+      : generatePollingPrompt(id, agent, config);
     writeFileSync(join(promptDir, `${id}.prompt.md`), prompt);
   }
 
@@ -28,7 +35,9 @@ export async function launchCursorLocal(config, root, opts) {
 
   for (let i = 0; i < agentEntries.length; i++) {
     const [id, agent] = agentEntries[i];
-    const prompt = generatePollingPrompt(id, agent, config);
+    const prompt = isPmKickoff
+      ? generateKickoffPrompt(id, agent, config)
+      : generatePollingPrompt(id, agent, config);
 
     // Create symlink: .agentxchain-workspaces/<id> -> project root
     const agentWorkspace = join(workspacesDir, id);
@@ -57,8 +66,13 @@ export async function launchCursorLocal(config, root, opts) {
     console.log(`  ${chalk.bold('In the new Cursor window:')}`);
     console.log(`    1. Open chat (${chalk.bold('Cmd+L')})`);
     console.log(`    2. Paste the prompt (${chalk.bold('Cmd+V')})`);
-    console.log(`    3. ${chalk.bold('Select Agent mode')} (not Ask/Edit)`);
-    console.log(`    4. Send it (${chalk.bold('Enter')})`);
+    if (isPmKickoff) {
+      console.log(`    3. ${chalk.bold('Select Agent mode')} and discuss requirements with PM`);
+      console.log(`    4. Update planning docs together (PROJECT / REQUIREMENTS / ROADMAP)`);
+    } else {
+      console.log(`    3. ${chalk.bold('Select Agent mode')} (not Ask/Edit)`);
+      console.log(`    4. Send it (${chalk.bold('Enter')})`);
+    }
 
     if (i < agentEntries.length - 1) {
       console.log('');
@@ -78,12 +92,20 @@ export async function launchCursorLocal(config, root, opts) {
   console.log(chalk.green(`  ✓ All ${total} agents launched in separate Cursor windows.`));
   console.log('');
   console.log(`  ${chalk.cyan('Now run:')}`);
-  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock — agents start claiming turns')}`);
+  if (isPmKickoff) {
+    console.log(`    ${chalk.bold('agentxchain start --remaining')} ${chalk.dim('# launch the rest of the team when PM plan is ready')}`);
+    console.log(`    ${chalk.bold('agentxchain supervise --autonudge')} ${chalk.dim('# start watch + auto-nudge')}`);
+    console.log(`    ${chalk.bold('agentxchain release')} ${chalk.dim('# release human lock to begin team turns')}`);
+  } else {
+    console.log(`    ${chalk.bold('agentxchain supervise --autonudge')} ${chalk.dim('# recommended: watch + auto-nudge in one command')}`);
+    console.log(`    ${chalk.bold('agentxchain release')} ${chalk.dim('# release human lock — agents start claiming turns')}`);
+  }
   console.log('');
   console.log(`  ${chalk.dim('Other commands:')}`);
   console.log(`    ${chalk.bold('agentxchain status')}   ${chalk.dim('# check who holds the lock')}`);
   console.log(`    ${chalk.bold('agentxchain claim')}    ${chalk.dim('# pause agents and take control')}`);
-  console.log(`    ${chalk.bold('agentxchain watch')}    ${chalk.dim('# optional: TTL safety net')}`);
+  console.log(`    ${chalk.bold('agentxchain watch')}    ${chalk.dim('# watcher / trigger writer')}`);
+  console.log(`    ${chalk.bold('agentxchain doctor')}   ${chalk.dim('# check local setup + trigger health')}`);
   console.log('');
   console.log(chalk.dim('  Agents self-coordinate via lock.json polling (sleep 60s between checks).'));
   console.log(chalk.dim('  Re-paste a prompt: cat .agentxchain-prompts/<agent>.prompt.md | pbcopy'));
@@ -123,4 +145,37 @@ function openCursorWindow(folderPath) {
     }
     execSync(`cursor --new-window "${folderPath}"`, { stdio: 'ignore' });
   } catch {}
+}
+
+function isPmLike(agentId, agentDef) {
+  if (agentId === 'pm') return true;
+  const name = String(agentDef?.name || '').toLowerCase();
+  return name.includes('product manager');
+}
+
+function generateKickoffPrompt(agentId, agentDef, config) {
+  return `You are "${agentId}" — ${agentDef.name}.
+
+This is PM kickoff mode. Your job now is to collaborate with the human and finalize scope before autonomous turns begin.
+
+Actions:
+1) Read:
+- .planning/PROJECT.md
+- .planning/REQUIREMENTS.md
+- .planning/ROADMAP.md
+- state.md
+- lock.json
+2) Ask the human focused product questions until scope is clear:
+- target user
+- top pain point
+- core workflow
+- MVP boundary
+- success metric
+3) Update planning docs with concrete acceptance criteria.
+4) Do NOT start round-robin agent handoffs yet.
+
+Context:
+- Project: ${config.project}
+- Human currently holds lock.
+- Once planning is approved, human will launch remaining agents and run release.`;
 }

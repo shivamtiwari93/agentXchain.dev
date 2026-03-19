@@ -13,6 +13,8 @@ import { updateCommand } from '../src/commands/update.js';
 import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
 import { generateCommand } from '../src/commands/generate.js';
+import { doctorCommand } from '../src/commands/doctor.js';
+import { superviseCommand } from '../src/commands/supervise.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -41,6 +43,7 @@ program
   .description('Launch agents in your IDE')
   .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
   .option('--agent <id>', 'Launch a specific agent only')
+  .option('--remaining', 'Launch all remaining agents except PM (for PM-first flow)')
   .option('--dry-run', 'Print what would be launched without doing it')
   .action(startCommand);
 
@@ -70,6 +73,14 @@ program
   .action(watchCommand);
 
 program
+  .command('supervise')
+  .description('Run watch loop and optional auto-nudge together')
+  .option('--autonudge', 'Start AppleScript auto-nudge alongside watch')
+  .option('--send', 'Auto-send nudges (default is paste-only)')
+  .option('--interval <seconds>', 'Auto-nudge poll interval in seconds', '3')
+  .action(superviseCommand);
+
+program
   .command('claim')
   .description('Claim the lock as a human (take control)')
   .option('--force', 'Force-claim even if an agent holds the lock')
@@ -85,5 +96,10 @@ program
   .command('update')
   .description('Update agentxchain CLI to the latest version')
   .action(updateCommand);
+
+program
+  .command('doctor')
+  .description('Check local environment and first-run readiness')
+  .action(doctorCommand);
 
 program.parse();

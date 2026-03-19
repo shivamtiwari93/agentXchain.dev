@@ -14,17 +14,17 @@ npx agentxchain init
 # 1. Create a project (interactive template selection)
 npx agentxchain init
 
-# 2. Launch agents — opens a separate Cursor window per agent
+# 2. PM-first kickoff
 cd my-project/
-agentxchain start
+agentxchain start --agent pm
 
-# 3. For each window the CLI opens:
-#    - Paste the prompt (auto-copied to clipboard) into chat
-#    - Select Agent mode
-#    - Send it
-#    The CLI walks you through one agent at a time.
+# 3. Launch remaining agents once PM planning docs are ready
+agentxchain start --remaining
 
-# 4. Release the human lock — agents start claiming turns
+# 4. Start supervisor (watch + AppleScript auto-nudge)
+agentxchain supervise --autonudge
+
+# 5. Release the human lock — agents start claiming turns
 agentxchain release
 ```
 
@@ -76,6 +76,7 @@ agentxchain start                      # Cursor (default) — one window per age
 agentxchain start --ide vscode         # VS Code — uses .agent.md + hooks
 agentxchain start --ide claude-code    # Claude Code — spawns CLI processes
 agentxchain start --agent pm           # launch one specific agent only
+agentxchain start --remaining          # launch all agents except PM (PM-first flow)
 agentxchain start --dry-run            # preview agents without launching
 ```
 
@@ -123,6 +124,15 @@ agentxchain watch
 agentxchain watch --daemon
 ```
 
+### `agentxchain supervise`
+
+Run watch and AppleScript auto-nudge together (recommended on macOS for first run).
+
+```bash
+agentxchain supervise --autonudge
+agentxchain supervise --autonudge --send   # auto-press Enter after paste
+```
+
 ### `agentxchain stop`
 
 Terminate running Claude Code agent sessions.
@@ -150,6 +160,14 @@ Self-update the CLI to the latest version.
 
 ```bash
 agentxchain update
+```
+
+### `agentxchain doctor`
+
+Check setup health: required tools, watch/trigger status, and accessibility hints.
+
+```bash
+agentxchain doctor
 ```
 
 ---
