@@ -52,7 +52,8 @@ export async function startCommand(opts) {
       }
       console.log('');
       console.log(`  ${chalk.bold('How to use:')}`);
-      console.log(`    1. Open this project in VS Code / Cursor`);
+      console.log(`    1. Open project: ${chalk.bold('cursor .')} or ${chalk.bold('code .')}`);
+      console.log(chalk.dim(`       (If "command not found": open IDE → Cmd+Shift+P → "Shell Command: Install")`));
       console.log(`    2. Open Chat (${chalk.bold('Cmd+L')})`);
       console.log(`    3. Select an agent from the Chat dropdown`);
       console.log(`    4. Run ${chalk.bold('agentxchain release')} to release the human lock`);

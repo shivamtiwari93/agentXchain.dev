@@ -264,8 +264,13 @@ export async function initCommand(opts) {
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
   console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
-  console.log(`    ${chalk.bold('code .')}               ${chalk.dim('# open in VS Code / Cursor')}`);
-  console.log(`    ${chalk.dim('Select an agent from the Chat dropdown (auto-discovered from .github/agents/)')}`);
+  console.log(`    ${chalk.bold('cursor .')}             ${chalk.dim('# open in Cursor')}`);
+  console.log(`    ${chalk.bold('code .')}               ${chalk.dim('# open in VS Code')}`);
+  console.log(`    ${chalk.dim('(If "command not found": open IDE → Cmd+Shift+P → "Shell Command: Install")')}`);
+  console.log('');
+  console.log(`    ${chalk.dim('In your IDE:')}`);
+  console.log(`    ${chalk.dim('  1. Open Chat (Cmd+L)')}`);
+  console.log(`    ${chalk.dim('  2. Select an agent from the dropdown (auto-discovered from .github/agents/)')}`);
   console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock to begin turns')}`);
   console.log('');
 }

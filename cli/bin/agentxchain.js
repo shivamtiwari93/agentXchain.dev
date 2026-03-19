@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { initCommand } from '../src/commands/init.js';
 import { statusCommand } from '../src/commands/status.js';
@@ -11,12 +14,15 @@ import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
 import { generateCommand } from '../src/commands/generate.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
+
 const program = new Command();
 
 program
   .name('agentxchain')
   .description('Multi-agent coordination in your IDE')
-  .version('0.4.1');
+  .version(pkg.version);
 
 program
   .command('init')
