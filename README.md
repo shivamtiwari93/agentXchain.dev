@@ -1,6 +1,6 @@
 # AgentXchain.dev — Open-source multi-agent coordination framework
 
-Run a **software development team inside your AI workspace**. Define agents, let them take turns building your project via shared state — no central orchestrator, no vendor lock-in.
+Run a **software development team inside your AI workspace**. Define agents, let them take turns building your project via shared state — no central orchestrator, no API keys, no vendor lock-in.
 
 ```bash
 npx agentxchain init
@@ -8,9 +8,7 @@ npx agentxchain init
 
 ---
 
-## Quick start — VS Code / Cursor (recommended)
-
-AgentXchain generates native VS Code custom agents (`.agent.md`) and lifecycle hooks. No API keys, no cloud, no GitHub connection needed.
+## Quick start
 
 ```bash
 # 1. Create a project
@@ -23,29 +21,12 @@ cd my-project/ && code .
 #    Agents auto-discovered from .github/agents/
 
 # 4. Release the lock to begin (new projects start with human lock)
-#    Command Palette: "AgentXchain: Release Lock"
-#    Or CLI: npx agentxchain release
+npx agentxchain release
 
 # 5. Agents coordinate via hooks — Stop hook hands off to next agent automatically
 ```
 
 The `Stop` hook acts as the referee: when an agent finishes, it determines the next agent and hands off. No polling process needed.
-
-### Quick start — Cursor Cloud Agents
-
-For cloud-based agent execution (runs on Cursor infrastructure):
-
-```bash
-npx agentxchain init
-cd my-project/
-echo "CURSOR_API_KEY=your_key" >> .env    # cursor.com/settings -> Cloud Agents
-# Connect GitHub in Cursor Settings -> GitHub integration
-npx agentxchain start --ide cursor
-npx agentxchain watch
-npx agentxchain release
-```
-
-`CURSOR_API_KEY` is required for Cursor Cloud commands (`start`, `watch`, `stop`, `claim`/`release`).
 
 ---
 
@@ -94,41 +75,28 @@ Regenerate VS Code agent files from `agentxchain.json`. Run after adding/removin
 agentxchain generate
 ```
 
-Writes `.github/agents/*.agent.md`, `.github/hooks/agentxchain.json`, and `scripts/agentxchain-*.sh`.
-
 ### `agentxchain start`
 
-Launch agents in your IDE.
+Show agent setup instructions for your IDE.
 
 ```bash
-agentxchain start --ide cursor          # launch all agents via Cursor Cloud API
-agentxchain start --ide cursor --agent pm   # launch one agent only
-agentxchain start --ide claude-code     # spawn Claude CLI processes
-agentxchain start --ide vscode          # print seed prompts for manual use
-agentxchain start --dry-run             # preview without launching
+agentxchain start                      # show VS Code / Cursor instructions
+agentxchain start --ide claude-code    # spawn Claude CLI processes
+agentxchain start --dry-run            # preview agents without launching
 ```
-
-Requires `CURSOR_API_KEY` for Cursor mode. The project must be in a GitHub repo, and your Cursor account must have GitHub access to that repository.
 
 ### `agentxchain watch`
 
-The referee. Coordinates agent turns automatically.
+Fallback referee for non-IDE environments. In VS Code / Cursor, the Stop hook handles turn coordination automatically.
 
 ```bash
 agentxchain watch
 agentxchain watch --daemon
 ```
 
-What it does:
-- Polls `lock.json` every 5 seconds (configurable)
-- When the lock is free, wakes the next agent via Cursor followup API
-- Enforces lock TTL — force-releases stale locks after timeout
-- Detects `holder: "human"` and sends you a notification
-- Logs everything with timestamps and color-coded status
-
 ### `agentxchain status`
 
-Show current state: lock holder, phase, turn number, agents, and Cursor session info.
+Show current state: lock holder, phase, turn number, agents.
 
 ```bash
 agentxchain status            # human-readable
@@ -137,7 +105,7 @@ agentxchain status --json     # machine-readable
 
 ### `agentxchain claim`
 
-Human takes control. Pauses all Cursor agents.
+Human takes control.
 
 ```bash
 agentxchain claim             # claim if lock is free
@@ -146,7 +114,7 @@ agentxchain claim --force     # override an agent's lock
 
 ### `agentxchain release`
 
-Hand the lock back to agents. Wakes the next agent automatically.
+Hand the lock back to agents.
 
 ```bash
 agentxchain release
@@ -155,26 +123,11 @@ agentxchain release --force   # force-release if non-human holder is stuck
 
 ### `agentxchain stop`
 
-Terminate all running agent sessions.
+Terminate running Claude Code agent sessions.
 
 ```bash
 agentxchain stop
 ```
-
-Calls the Cursor DELETE API for each agent and removes the session file (only after successful API access with `CURSOR_API_KEY`).
-
-### `agentxchain branch`
-
-Show or set which branch Cursor launches should use.
-
-```bash
-agentxchain branch                  # show effective branch
-agentxchain branch develop          # set branch override in agentxchain.json
-agentxchain branch --use-current    # set override to local current git branch
-agentxchain branch --unset          # remove override and follow active git branch
-```
-
-Default behavior: if no override is set, AgentXchain uses the current local git branch.
 
 ### `agentxchain config`
 
@@ -201,30 +154,21 @@ agentxchain update
 
 ## How it works
 
-### VS Code / Cursor local mode (recommended)
-
 1. `agentxchain init` creates `agentxchain.json`, protocol files, and VS Code native agent files.
-2. VS Code auto-discovers `.github/agents/*.agent.md` as custom agents in the Chat dropdown.
+2. VS Code / Cursor auto-discovers `.github/agents/*.agent.md` as custom agents in the Chat dropdown.
 3. Select an agent to start a turn. The agent reads `lock.json`, claims it, does its work, and releases.
 4. The `Stop` hook (`.github/hooks/`) acts as referee: when an agent finishes, the hook determines the next agent and hands off automatically.
 5. Agents coordinate via `lock.json` (who holds the lock), `state.md` (living project state), and `history.jsonl` (turn log).
-6. Use Command Palette: "AgentXchain: Claim Lock" to intervene, "AgentXchain: Release Lock" to hand back.
-
-### Cursor Cloud mode
-
-1. You create `agentxchain.json` and set `CURSOR_API_KEY` in `.env`.
-2. `agentxchain start` launches each agent as a Cursor Cloud Agent with a seed prompt.
-3. `agentxchain watch` runs the coordination loop (polls `lock.json`, wakes agents via API).
-4. You can `claim` the lock to intervene, then `release` to hand back.
+6. Use `agentxchain claim` to intervene, `agentxchain release` to hand back.
 
 ### Protocol v3 features
 
-- **Native VS Code agents** — `.agent.md` files auto-discovered by VS Code/Cursor; no extension needed for basic use
+- **Native VS Code agents** — `.agent.md` files auto-discovered by VS Code, Cursor, and other VS Code forks
 - **Lifecycle hooks** — `Stop` hook acts as referee, `SessionStart` injects context, `PreToolUse` gates write access
 - **Claim-based turns** — agents coordinate via shared `lock.json`
 - **User-defined agents** — any number, any roles, configured in one JSON file
 - **Handoffs** — agents hand off to the next agent automatically via VS Code handoff buttons
-- **Branch-safe Cursor launches** — defaults to active git branch; optional branch override via `agentxchain branch`
+- **No API keys or cloud required** — everything runs locally in your IDE
 - **Lock TTL** — stale locks auto-released after timeout (default: 10 min)
 - **Verify command** — agents must pass (e.g. `npm test`) before releasing
 - **Human-in-the-loop** — `human` is a reserved holder; agents can pass to you
@@ -305,19 +249,6 @@ MCP and A2A don't give you an SDLC pipeline in one workspace. AgentXchain does.
 - **Protocol spec:** [PROTOCOL-v3.md](PROTOCOL-v3.md)
 - **Seed prompt template:** [SEED-PROMPT.md](SEED-PROMPT.md)
 - **AgentXchain.ai** (dashboard + apps): [agentxchain.ai](https://agentxchain.ai)
-
----
-
-## Maintainer release flow (npm)
-
-```bash
-cd cli
-bash scripts/publish-npm.sh              # patch bump + publish
-bash scripts/publish-npm.sh minor        # minor bump + publish
-bash scripts/publish-npm.sh 0.5.0        # explicit version + publish
-```
-
-The script auto-loads `NPM_TOKEN` from `agentXchain.dev/.env` (project root).
 
 ---
 

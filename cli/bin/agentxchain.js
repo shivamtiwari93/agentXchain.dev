@@ -9,7 +9,6 @@ import { configCommand } from '../src/commands/config.js';
 import { updateCommand } from '../src/commands/update.js';
 import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
-import { branchCommand } from '../src/commands/branch.js';
 import { generateCommand } from '../src/commands/generate.js';
 
 const program = new Command();
@@ -34,7 +33,7 @@ program
 program
   .command('start')
   .description('Launch agents in your IDE')
-  .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
+  .option('--ide <ide>', 'Target IDE: vscode, claude-code', 'vscode')
   .option('--agent <id>', 'Launch a specific agent only')
   .option('--dry-run', 'Print what would be launched without doing it')
   .action(startCommand);
@@ -52,13 +51,6 @@ program
   .option('--set <key_value>', 'Set a config value (e.g. --set "rules.max_consecutive_claims 3")')
   .option('-j, --json', 'Output config as JSON')
   .action(configCommand);
-
-program
-  .command('branch [name]')
-  .description('Show or set the Cursor branch used for agent launches')
-  .option('--use-current', 'Set override to the current local git branch')
-  .option('--unset', 'Remove override and follow active git branch automatically')
-  .action(branchCommand);
 
 program
   .command('generate')

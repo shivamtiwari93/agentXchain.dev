@@ -2,8 +2,6 @@ import { readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
-import { deleteAgent, loadSession } from '../adapters/cursor.js';
-import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 const SESSION_FILE = '.agentxchain-session.json';
 
@@ -12,44 +10,28 @@ export async function stopCommand() {
   if (!result) { console.log(chalk.red('  No agentxchain.json found.')); process.exit(1); }
 
   const { root } = result;
-  const session = loadSession(root);
+  const sessionPath = join(root, SESSION_FILE);
 
-  if (!session) {
+  if (!existsSync(sessionPath)) {
     console.log(chalk.yellow('  No active session found.'));
-    console.log(chalk.dim('  If agents are running, stop them manually.'));
+    console.log(chalk.dim('  If agents are running in VS Code / Cursor, close their chat sessions manually.'));
+    return;
+  }
+
+  let session;
+  try {
+    session = JSON.parse(readFileSync(sessionPath, 'utf8'));
+  } catch {
+    console.log(chalk.yellow('  Could not read session file.'));
     return;
   }
 
   console.log('');
-  console.log(chalk.bold(`  Stopping ${session.launched.length} agents (${session.ide})`));
+  console.log(chalk.bold(`  Stopping ${session.launched?.length || 0} agents (${session.ide || 'unknown'})`));
   console.log('');
-  let allStopped = true;
 
-  if (session.ide === 'cursor') {
-    const apiKey = getCursorApiKey(root);
-    if (!apiKey) {
-      printCursorApiKeyRequired('`agentxchain stop` for Cursor agents');
-      console.log(chalk.dim('  Session file was kept so you can retry after setting the key.'));
-      console.log('');
-      return;
-    }
-
-    for (const agent of session.launched) {
-      try {
-        const deleted = await deleteAgent(apiKey, agent.cloudId);
-        if (deleted) {
-          console.log(chalk.green(`  ✓ Deleted ${chalk.bold(agent.id)} (${agent.cloudId})`));
-        } else {
-          console.log(chalk.yellow(`  ⚠ Could not delete ${agent.id} — may already be gone`));
-          allStopped = false;
-        }
-      } catch (err) {
-        console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
-        allStopped = false;
-      }
-    }
-  } else if (session.ide === 'claude-code') {
-    for (const agent of session.launched) {
+  if (session.ide === 'claude-code') {
+    for (const agent of (session.launched || [])) {
       if (agent.pid) {
         try {
           process.kill(agent.pid, 'SIGTERM');
@@ -59,22 +41,17 @@ export async function stopCommand() {
             console.log(chalk.dim(`  ${agent.id} (PID: ${agent.pid}) — already stopped`));
           } else {
             console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
-            allStopped = false;
           }
         }
       }
     }
+  } else {
+    console.log(chalk.dim('  For VS Code / Cursor agents, close the chat sessions manually.'));
   }
 
+  unlinkSync(sessionPath);
   console.log('');
-  const sessionPath = join(root, SESSION_FILE);
-  if (allStopped) {
-    if (existsSync(sessionPath)) unlinkSync(sessionPath);
-    console.log(chalk.dim('  Session file removed.'));
-    console.log(chalk.green('  All agents stopped.'));
-  } else {
-    console.log(chalk.yellow('  Some agents could not be stopped.'));
-    console.log(chalk.dim('  Session file was kept so you can retry `agentxchain stop`.'));
-  }
+  console.log(chalk.dim('  Session file removed.'));
+  console.log(chalk.green('  Done.'));
   console.log('');
 }

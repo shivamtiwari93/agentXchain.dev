@@ -1,7 +1,5 @@
 import chalk from 'chalk';
 import { loadConfig, loadLock, loadState } from '../lib/config.js';
-import { getAgentStatus, loadSession } from '../adapters/cursor.js';
-import { getCursorApiKey } from '../lib/cursor-api-key.js';
 
 export async function statusCommand(opts) {
   const result = loadConfig();
@@ -31,7 +29,6 @@ export async function statusCommand(opts) {
   }
   console.log('');
 
-  // Lock
   if (lock) {
     if (lock.holder === 'human') {
       console.log(`  ${chalk.dim('Lock:')}     ${chalk.magenta('HUMAN')} — you hold the lock`);
@@ -51,45 +48,13 @@ export async function statusCommand(opts) {
   }
   console.log('');
 
-  // Cursor session info
-  const session = loadSession(root);
-  const apiKey = getCursorApiKey(root);
-  const hasCursor = session?.ide === 'cursor' && session?.launched?.length > 0;
-
-  if (hasCursor) {
-    console.log(`  ${chalk.dim('Cursor:')}   ${chalk.cyan('Active session')} (${session.launched.length} agents)`);
-    console.log(`  ${chalk.dim('Started:')}  ${session.started_at}`);
-    if (session.repo) console.log(`  ${chalk.dim('Repo:')}     ${session.repo}`);
-    if (!apiKey) {
-      console.log(`  ${chalk.dim('API key:')}  ${chalk.red('Missing')} (set CURSOR_API_KEY in .env for live statuses)`);
-    }
-    console.log('');
-  }
-
-  // Agents
   console.log(`  ${chalk.dim('Agents:')}   ${Object.keys(config.agents).length}`);
 
   for (const [id, agent] of Object.entries(config.agents)) {
     const isHolder = lock?.holder === id;
     const marker = isHolder ? chalk.yellow('●') : chalk.dim('○');
     const label = isHolder ? chalk.bold(id) : id;
-
-    let cursorStatus = '';
-    if (hasCursor && apiKey) {
-      const cloudAgent = session.launched.find(a => a.id === id);
-      if (cloudAgent) {
-        try {
-          const statusData = await getAgentStatus(apiKey, cloudAgent.cloudId);
-          if (statusData?.status) {
-            cursorStatus = ` ${formatCursorStatus(statusData.status)}`;
-          }
-        } catch {
-          cursorStatus = chalk.dim(' [API error]');
-        }
-      }
-    }
-
-    console.log(`    ${marker} ${label} — ${agent.name}${cursorStatus}`);
+    console.log(`    ${marker} ${label} — ${agent.name}`);
   }
 
   if (lock?.holder === 'human') {
@@ -102,17 +67,6 @@ export async function statusCommand(opts) {
 function formatPhase(phase) {
   const colors = { discovery: chalk.blue, build: chalk.green, qa: chalk.yellow, deploy: chalk.magenta, blocked: chalk.red };
   return (colors[phase] || chalk.white)(phase);
-}
-
-function formatCursorStatus(status) {
-  const map = {
-    CREATING: chalk.dim('[creating]'),
-    RUNNING: chalk.cyan('[running]'),
-    FINISHED: chalk.green('[finished]'),
-    STOPPED: chalk.yellow('[stopped]'),
-    ERRORED: chalk.red('[errored]'),
-  };
-  return map[status] || chalk.dim(`[${status}]`);
 }
 
 function timeSince(iso) {

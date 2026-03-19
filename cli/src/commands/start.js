@@ -1,7 +1,6 @@
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
 import { generateSeedPrompt } from '../lib/seed-prompt.js';
-import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function startCommand(opts) {
   const result = loadConfig();
@@ -28,12 +27,11 @@ export async function startCommand(opts) {
   }
 
   console.log('');
-  console.log(chalk.bold(`  Launching ${agentCount} agents via ${ide}`));
-  console.log(chalk.dim(`  Project: ${config.project}`));
+  console.log(chalk.bold(`  ${agentCount} agents configured for ${config.project}`));
   console.log('');
 
   if (opts.dryRun) {
-    console.log(chalk.yellow('  DRY RUN — showing what would be launched:'));
+    console.log(chalk.yellow('  DRY RUN — showing agents:'));
     console.log('');
     for (const [id, agent] of Object.entries(config.agents)) {
       if (opts.agent && opts.agent !== id) continue;
@@ -45,14 +43,23 @@ export async function startCommand(opts) {
   }
 
   switch (ide) {
-    case 'cursor': {
-      const apiKey = getCursorApiKey(root);
-      if (!apiKey) {
-        printCursorApiKeyRequired('`agentxchain start --ide cursor`');
-        process.exit(1);
+    case 'vscode': {
+      console.log(chalk.green('  Agents are set up as VS Code custom agents.'));
+      console.log('');
+      console.log(chalk.dim('  Your agents in .github/agents/:'));
+      for (const [id, agent] of Object.entries(config.agents)) {
+        console.log(`    ${chalk.cyan(id)}.agent.md — ${agent.name}`);
       }
-      const { launchCursorAgents } = await import('../adapters/cursor.js');
-      await launchCursorAgents(config, root, opts);
+      console.log('');
+      console.log(`  ${chalk.bold('How to use:')}`);
+      console.log(`    1. Open this project in VS Code / Cursor`);
+      console.log(`    2. Open Chat (${chalk.bold('Cmd+L')})`);
+      console.log(`    3. Select an agent from the Chat dropdown`);
+      console.log(`    4. Run ${chalk.bold('agentxchain release')} to release the human lock`);
+      console.log(`    5. Agents coordinate via hooks — Stop hook hands off automatically`);
+      console.log('');
+      console.log(chalk.dim('  If agents don\'t appear, run: agentxchain generate'));
+      console.log('');
       break;
     }
     case 'claude-code': {
@@ -60,31 +67,8 @@ export async function startCommand(opts) {
       await launchClaudeCodeAgents(config, root, opts);
       break;
     }
-    case 'vscode': {
-      console.log(chalk.yellow('  VS Code adapter coming soon.'));
-      console.log(chalk.dim('  For now, use the seed prompts below in VS Code chat panels.'));
-      console.log('');
-      printPrompts(config, opts);
-      break;
-    }
     default:
-      console.log(chalk.red(`  Unknown IDE: ${ide}. Supported: cursor, vscode, claude-code`));
+      console.log(chalk.red(`  Unknown IDE: ${ide}. Supported: vscode, claude-code`));
       process.exit(1);
-  }
-}
-
-function printPrompts(config, opts) {
-  const agents = opts.agent
-    ? { [opts.agent]: config.agents[opts.agent] }
-    : config.agents;
-
-  for (const [id, agent] of Object.entries(agents)) {
-    const prompt = generateSeedPrompt(id, agent, config);
-    console.log(chalk.dim('  ' + '─'.repeat(50)));
-    console.log(chalk.cyan(`  Agent: ${chalk.bold(id)} (${agent.name})`));
-    console.log(chalk.dim('  ' + '─'.repeat(50)));
-    console.log('');
-    console.log(prompt);
-    console.log('');
   }
 }

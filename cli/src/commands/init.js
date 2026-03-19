@@ -206,15 +206,8 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'history.jsonl'), '');
   writeFileSync(join(dir, 'log.md'), `# ${project} — Agent Log\n\n## COMPRESSED CONTEXT\n\n(No compressed context yet.)\n\n## MESSAGE LOG\n\n(Agents append messages below this line.)\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
-  writeFileSync(join(dir, '.env.example'), 'CURSOR_API_KEY=\n');
-  if (!existsSync(join(dir, '.env'))) {
-    writeFileSync(
-      join(dir, '.env'),
-      '# Required for Cursor commands: start/watch/stop/claim/release\nCURSOR_API_KEY=\n'
-    );
-  }
   const gitignorePath = join(dir, '.gitignore');
-  const requiredIgnores = ['.env', '.agentxchain-session.json', '.agentxchain-trigger.json'];
+  const requiredIgnores = ['.env', '.agentxchain-trigger.json'];
   if (!existsSync(gitignorePath)) {
     writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
   } else {
@@ -271,9 +264,8 @@ export async function initCommand(opts) {
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
   console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
-  console.log(`    ${chalk.bold('edit .env')}            ${chalk.dim('# set CURSOR_API_KEY (required for Cursor mode)')}`);
-  console.log(`    ${chalk.bold('agentxchain start')}    ${chalk.dim('# launch agents in Cursor')}`);
-  console.log(`    ${chalk.bold('agentxchain watch')}    ${chalk.dim('# start the referee')}`);
-  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# begin automation (initial lock is human)')}`);
+  console.log(`    ${chalk.bold('code .')}               ${chalk.dim('# open in VS Code / Cursor')}`);
+  console.log(`    ${chalk.dim('Select an agent from the Chat dropdown (auto-discovered from .github/agents/)')}`);
+  console.log(`    ${chalk.bold('agentxchain release')}  ${chalk.dim('# release human lock to begin turns')}`);
   console.log('');
 }

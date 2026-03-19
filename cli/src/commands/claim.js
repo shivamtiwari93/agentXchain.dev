@@ -2,8 +2,6 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
-import { stopAgent, sendFollowup, loadSession } from '../adapters/cursor.js';
-import { getCursorApiKey, printCursorApiKeyRequired } from '../lib/cursor-api-key.js';
 
 export async function claimCommand(opts) {
   const result = loadConfig();
@@ -12,18 +10,6 @@ export async function claimCommand(opts) {
   const { root, config } = result;
   const lock = loadLock(root);
   if (!lock) { console.log(chalk.red('  lock.json not found.')); process.exit(1); }
-
-  const apiKey = getCursorApiKey(root);
-  const session = loadSession(root);
-  const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
-  const hasCursor = hasCursorSession && apiKey;
-
-  if (hasCursorSession && !apiKey) {
-    printCursorApiKeyRequired('`agentxchain claim` with Cursor agents');
-    console.log(chalk.dim('  Claim aborted so agents are not left running unexpectedly.'));
-    console.log('');
-    process.exit(1);
-  }
 
   if (lock.holder === 'human') {
     console.log('');
@@ -42,19 +28,6 @@ export async function claimCommand(opts) {
     return;
   }
 
-  // Pause all Cursor agents when human claims
-  if (hasCursor && session.launched.length > 0) {
-    console.log(chalk.dim('  Pausing Cursor agents...'));
-    for (const agent of session.launched) {
-      try {
-        await stopAgent(apiKey, agent.cloudId);
-        console.log(chalk.dim(`    Paused ${agent.id}`));
-      } catch {
-        console.log(chalk.dim(`    Could not pause ${agent.id}`));
-      }
-    }
-  }
-
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
     holder: 'human',
@@ -66,7 +39,6 @@ export async function claimCommand(opts) {
 
   console.log('');
   console.log(chalk.green(`  ✓ Lock claimed by ${chalk.bold('human')} (turn ${lock.turn_number})`));
-  if (hasCursor) console.log(chalk.dim('    All Cursor agents paused.'));
   console.log(`  ${chalk.dim('Do your work, then:')} ${chalk.bold('agentxchain release')}`);
   console.log('');
 }
@@ -88,14 +60,12 @@ export async function releaseCommand(opts) {
     const name = config.agents[lock.holder]?.name || lock.holder;
     console.log('');
     console.log(chalk.red(`  Lock is held by ${chalk.bold(lock.holder)} (${name}), not human.`));
-    console.log(chalk.dim('  Refusing to release another holder without explicit override.'));
-    console.log(chalk.dim('  Use `agentxchain release --force` if you really want to break this lock.'));
+    console.log(chalk.dim('  Use `agentxchain release --force` to break this lock.'));
     console.log('');
     process.exit(1);
   }
 
   const who = lock.holder;
-  const priorLastReleasedBy = lock.last_released_by;
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
     holder: null,
@@ -107,53 +77,6 @@ export async function releaseCommand(opts) {
 
   console.log('');
   console.log(chalk.green(`  ✓ Lock released by ${chalk.bold(who)} (turn ${newLock.turn_number})`));
-
-  // If releasing from human and Cursor session exists, wake the next agent
-  if (who === 'human') {
-    const apiKey = getCursorApiKey(root);
-    const session = loadSession(root);
-    const hasCursorSession = session?.ide === 'cursor' && session?.launched?.length > 0;
-
-    if (hasCursorSession && !apiKey) {
-      printCursorApiKeyRequired('`agentxchain release` with Cursor agents');
-      console.log(chalk.dim('  Lock released, but wake-up followup was skipped due to missing key.'));
-      console.log(chalk.dim('  Start `agentxchain watch` after setting the key.'));
-      console.log('');
-      return;
-    }
-
-    if (session?.ide === 'cursor' && apiKey) {
-      const next = pickNextAgent(priorLastReleasedBy, config);
-      if (!next) {
-        console.log(chalk.dim('  No agents configured to wake.'));
-        console.log('');
-        return;
-      }
-      const cloudAgent = session.launched.find(a => a.id === next);
-
-      if (cloudAgent) {
-        try {
-          const name = config.agents[next]?.name || next;
-          await sendFollowup(apiKey, cloudAgent.cloudId,
-            `Human released the lock. It's your turn. Read lock.json, claim it, and do your work as ${name}.`
-          );
-          console.log(chalk.cyan(`  Woke ${chalk.bold(next)} via Cursor followup.`));
-        } catch (err) {
-          console.log(chalk.dim(`  Could not wake ${next}: ${err.message}`));
-        }
-      }
-      console.log(chalk.dim('  The watch process will coordinate from here.'));
-    }
-  }
-
+  console.log(chalk.dim('  The Stop hook will coordinate the next agent turn in VS Code.'));
   console.log('');
-}
-
-function pickNextAgent(lastReleasedBy, config) {
-  const agentIds = Object.keys(config.agents || {});
-  if (agentIds.length === 0) return null;
-  if (!lastReleasedBy || !agentIds.includes(lastReleasedBy)) return agentIds[0];
-
-  const idx = agentIds.indexOf(lastReleasedBy);
-  return agentIds[(idx + 1) % agentIds.length];
 }

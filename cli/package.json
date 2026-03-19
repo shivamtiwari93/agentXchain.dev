@@ -1,6 +1,6 @@
 {
   "name": "agentxchain",
-  "version": "0.4.3",
+  "version": "0.6.0",
   "description": "CLI for AgentXchain — multi-agent coordination in your IDE",
   "type": "module",
   "bin": {
