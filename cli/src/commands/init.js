@@ -207,7 +207,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'log.md'), `# ${project} — Agent Log\n\n## COMPRESSED CONTEXT\n\n(No compressed context yet.)\n\n## MESSAGE LOG\n\n(Agents append messages below this line.)\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
   const gitignorePath = join(dir, '.gitignore');
-  const requiredIgnores = ['.env', '.agentxchain-trigger.json'];
+  const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/'];
   if (!existsSync(gitignorePath)) {
     writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
   } else {

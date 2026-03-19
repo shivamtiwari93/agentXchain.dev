@@ -39,7 +39,7 @@ program
 program
   .command('start')
   .description('Launch agents in your IDE')
-  .option('--ide <ide>', 'Target IDE: vscode, claude-code', 'vscode')
+  .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
   .option('--agent <id>', 'Launch a specific agent only')
   .option('--dry-run', 'Print what would be launched without doing it')
   .action(startCommand);

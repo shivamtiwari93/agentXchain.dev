@@ -63,13 +63,18 @@ export async function startCommand(opts) {
       console.log('');
       break;
     }
+    case 'cursor': {
+      const { launchCursorLocal } = await import('../adapters/cursor-local.js');
+      await launchCursorLocal(config, root, opts);
+      break;
+    }
     case 'claude-code': {
       const { launchClaudeCodeAgents } = await import('../adapters/claude-code.js');
       await launchClaudeCodeAgents(config, root, opts);
       break;
     }
     default:
-      console.log(chalk.red(`  Unknown IDE: ${ide}. Supported: vscode, claude-code`));
+      console.log(chalk.red(`  Unknown IDE: ${ide}. Supported: vscode, cursor, claude-code`));
       process.exit(1);
   }
 }
