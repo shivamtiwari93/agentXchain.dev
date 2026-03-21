@@ -3,6 +3,10 @@ import path from "node:path";
 import { createApp } from "./app.js";
 import { openDatabase } from "./db.js";
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV !== "production") {
+  process.env.JWT_SECRET = "dev-local-insecure-change-me";
+}
+
 const dbPath = process.env.DATABASE_PATH ?? "./data/baby-tracker.db";
 if (dbPath !== ":memory:") {
   const dir = path.dirname(dbPath);

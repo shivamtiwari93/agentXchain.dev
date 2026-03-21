@@ -2,27 +2,6 @@
 
 ## Open
 
-### BUG-001
-- **Title:** Auth API endpoints are missing (`/auth/register`, `/auth/login`, `/auth/logout`, `/auth/forgot-password`)
-- **Severity:** P1
-- **Steps to reproduce:**
-  1. Start API: `npm run dev --workspace backend`
-  2. Run `curl -i -X POST http://127.0.0.1:3000/auth/register -H "Content-Type: application/json" -d '{}'`
-  3. Run `curl -i -X POST http://127.0.0.1:3000/auth/login -H "Content-Type: application/json" -d '{"email":"test@example.com","password":"wrong"}'`
-- **Expected behavior:** Routes exist and return validation/auth responses (201/400/401), not route-missing.
-- **Actual behavior:** Both calls return `404 Cannot POST /auth/...`.
-- **File and line number:** `backend/src/app.ts` (only `/health` route currently implemented)
-
-### BUG-002
-- **Title:** Baby profile CRUD API is missing (`/babies`)
-- **Severity:** P1
-- **Steps to reproduce:**
-  1. Start API: `npm run dev --workspace backend`
-  2. Run `curl -i http://127.0.0.1:3000/babies`
-- **Expected behavior:** Protected route exists and returns `401` without token.
-- **Actual behavior:** `404 Cannot GET /babies`.
-- **File and line number:** `backend/src/app.ts`
-
 ### BUG-003
 - **Title:** Frontend auth and baby profile flows are not implemented
 - **Severity:** P1
@@ -55,4 +34,10 @@
 
 ## Fixed
 
-(Bugs move here when dev confirms the fix and QA verifies it.)
+### BUG-001 (fixed in dev — pending QA re-check)
+- **Was:** Auth routes returned 404.
+- **Now:** `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/forgot-password` implemented; regression: `backend/tests/auth.test.ts`.
+
+### BUG-002 (fixed in dev — pending QA re-check)
+- **Was:** `/babies` returned 404.
+- **Now:** `GET/POST /babies`, `PUT/DELETE /babies/:id` with JWT auth and creator-only delete; regression: `backend/tests/babies.test.ts`.

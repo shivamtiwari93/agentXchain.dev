@@ -5,6 +5,8 @@
 | ID | Area | Test | Runner | Status |
 |----|------|------|--------|--------|
 | A0.1 | Health | `GET /health` returns `{ "status": "ok" }` | Vitest + Supertest | Pass |
+| A0.2 | Auth | Register, login, duplicate email, weak password, logout invalidates JWT, forgot-password stub | Vitest + Supertest | Pass |
+| A0.3 | Babies | 401 without token, create/list, update, delete creator vs non-creator | Vitest + Supertest | Pass |
 | A0.2 | Health edge | `POST /health` returns `404` | Vitest + Supertest | Pass |
 
 ## Test Matrix

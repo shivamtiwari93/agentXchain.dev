@@ -67,3 +67,13 @@ Use this exact structure:
 - **Next owner:** backend (implement R1/R2 APIs + auth middleware), then frontend (connect/auth screens + baby management UI), then QA re-test.
 
 ---
+
+## Turn 4 — backend (Backend Engineer)
+
+- **Status:** R1/R2 backend APIs implemented; `npm test` green (14 backend tests).
+- **Decision:** JWT access tokens carry `v` = `users.token_version`; logout increments version so old tokens fail verification — real invalidation without a token store.
+- **Action:** Added `002_token_version.sql`, bcrypt password hashing, `jsonwebtoken`, routes in `backend/src/routes/auth.ts` and `babies.ts`, `requireAuth` middleware, Vitest suites `auth.test.ts` / `babies.test.ts`, dev `JWT_SECRET` default in non-production; moved BUG-001/BUG-002 to fixed (pending QA verify); updated QA docs and state.
+- **Risks/Questions:** `/auth/forgot-password` still logs a synthetic token only — no email. QA should re-run manual `curl` probes and security cases now that routes exist. Frontend remains the Phase 1 blocker for full R1/R2 acceptance.
+- **Next owner:** frontend (wire API) or QA (verify API + matrix).
+
+---

@@ -4,8 +4,8 @@ Maps every requirement to its test status. This is the definitive "can we ship?"
 
 | Req # | Requirement | Acceptance criteria | Functional test | UX test | Last tested | Status |
 |-------|-------------|-------------------|-----------------|---------|-------------|--------|
-| R1 | User Authentication | Register, login, logout, sessions, password reset | `curl` to `/auth/register` and `/auth/login` returns 404 (missing routes) | Auth pages missing in UI | 2026-03-21 | FAIL |
-| R2 | Baby Profile Management | CRUD babies, switch baby, dashboard default | `curl` to `/babies` returns 404 (missing route) | Baby form/switcher missing in UI | 2026-03-21 | FAIL |
+| R1 | User Authentication | Register, login, logout, sessions, password reset | Backend: Vitest auth suite + routes exist; password reset is stub only | Auth pages missing in UI | 2026-03-21 | PARTIAL (API pass, UI fail) |
+| R2 | Baby Profile Management | CRUD babies, switch baby, dashboard default | Backend: Vitest babies suite | Baby form/switcher missing in UI | 2026-03-21 | PARTIAL (API pass, UI fail) |
 | R3 | Feeding Tracking | Log/edit/delete feeding, timeline | Not yet implemented | Quick-log buttons only (no flow) | 2026-03-21 | FAIL |
 | R4 | Diaper Tracking | Log/edit/delete diaper, visual distinction | Not yet implemented | Static card only, no CRUD | 2026-03-21 | FAIL |
 | R5 | Sleep Tracking | Timer/manual, duration, active sleep UI | Not yet implemented | Static card only, no timer | 2026-03-21 | FAIL |

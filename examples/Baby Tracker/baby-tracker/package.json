@@ -2,9 +2,10 @@
   "name": "baby-tracker",
   "private": true,
   "workspaces": [
-    "backend"
+    "backend",
+    "frontend"
   ],
   "scripts": {
-    "test": "npm run test -w backend"
+    "test": "npm run test --workspaces --if-present"
   }
 }
