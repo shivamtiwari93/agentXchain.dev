@@ -19,7 +19,7 @@ cd my-project/
 agentxchain kickoff
 ```
 
-Each agent runs in its own IDE window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting.
+Each agent runs in its own IDE window for one turn at a time. The referee loop (`watch` / `supervise --autonudge`) wakes the correct next agent session.
 Each turn also appends a handoff update to `TALK.md` so humans and agents share one canonical conversation log.
 
 ---
@@ -47,6 +47,25 @@ sudo npm install -g agentxchain@latest
 ---
 
 ## CLI commands
+
+Complete command set:
+
+```bash
+agentxchain init
+agentxchain status
+agentxchain start
+agentxchain kickoff
+agentxchain stop
+agentxchain config
+agentxchain generate
+agentxchain watch
+agentxchain supervise
+agentxchain claim
+agentxchain release
+agentxchain update
+agentxchain doctor
+agentxchain validate
+```
 
 ### `agentxchain init`
 
@@ -82,6 +101,8 @@ Guided first-run workflow for PM-first collaboration:
 agentxchain kickoff
 agentxchain kickoff --send             # auto-send nudges in Cursor mode
 agentxchain kickoff --ide vscode       # guided flow for VS Code
+agentxchain kickoff --interval 2       # nudge poll interval override
+agentxchain kickoff --no-autonudge     # skip auto-nudge prompt
 ```
 
 ### `agentxchain generate`
@@ -107,6 +128,7 @@ Human takes control. Agents stop claiming turns while you hold the lock.
 
 ```bash
 agentxchain claim             # claim if lock is free
+agentxchain claim --agent pm  # guarded claim for the specified agent turn
 agentxchain claim --force     # override an agent's lock
 ```
 
@@ -116,6 +138,7 @@ Hand the lock back to agents.
 
 ```bash
 agentxchain release
+agentxchain release --agent pm # guarded release for the specified agent
 agentxchain release --force   # force-release if non-human holder is stuck
 ```
 
@@ -135,6 +158,7 @@ Run watch and AppleScript auto-nudge together (recommended on macOS for first ru
 ```bash
 agentxchain supervise --autonudge
 agentxchain supervise --autonudge --send   # auto-press Enter after paste
+agentxchain supervise --interval 2          # set nudge poll interval
 ```
 
 ### `agentxchain stop`
@@ -182,6 +206,7 @@ Validate Get Shit Done and QA protocol artifacts.
 agentxchain validate
 agentxchain validate --mode kickoff
 agentxchain validate --mode turn --agent pm
+agentxchain validate --json
 ```
 
 ---
@@ -192,7 +217,7 @@ agentxchain validate --mode turn --agent pm
 
 1. `agentxchain start` opens a **separate Cursor window** for each agent (via workspace symlinks).
 2. Each agent's prompt is copied to clipboard. You paste into chat, select Agent mode, and send.
-3. Agent prompts include a self-polling loop: read `lock.json` -> check turn -> claim -> work -> release -> `sleep 60` -> repeat.
+3. Agent prompts are single-turn: claim -> work -> validate -> release -> stop.
 4. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released.
 5. You can `claim` to pause and `release` to resume anytime.
 
@@ -212,7 +237,7 @@ Agents follow round-robin order defined in `agentxchain.json`:
 
 ### Protocol v3 features
 
-- **Self-polling agents** — each agent runs an infinite loop in its own IDE window
+- **Referee-driven turns** — watcher/supervisor wakes the correct agent each turn
 - **One window per agent** — separate Cursor windows via workspace symlinks
 - **Claim-based turns** — agents coordinate via shared `lock.json`
 - **User-defined agents** — any number, any roles, configured in one JSON file

@@ -11,6 +11,10 @@ export async function claimCommand(opts) {
   const lock = loadLock(root);
   if (!lock) { console.log(chalk.red('  lock.json not found.')); process.exit(1); }
 
+  if (opts.agent) {
+    return claimAsAgent({ opts, root, config, lock });
+  }
+
   if (lock.holder === 'human') {
     console.log('');
     console.log(chalk.yellow('  You already hold the lock.'));
@@ -52,6 +56,10 @@ export async function releaseCommand(opts) {
   const lock = loadLock(root);
   if (!lock) { console.log(chalk.red('  lock.json not found.')); process.exit(1); }
 
+  if (opts.agent) {
+    return releaseAsAgent({ opts, root, config, lock });
+  }
+
   if (!lock.holder) {
     console.log(chalk.yellow('  Lock is already free.'));
     return;
@@ -83,6 +91,67 @@ export async function releaseCommand(opts) {
   console.log(chalk.green(`  ✓ Lock released by ${chalk.bold(who)} (turn ${newLock.turn_number})`));
   console.log(chalk.dim('  The Stop hook will coordinate the next agent turn in VS Code.'));
   console.log('');
+}
+
+function claimAsAgent({ opts, root, config, lock }) {
+  const agentId = opts.agent;
+  if (!config.agents?.[agentId]) {
+    console.log(chalk.red(`  Agent "${agentId}" is not defined in agentxchain.json.`));
+    process.exit(1);
+  }
+
+  if (lock.holder && !opts.force) {
+    console.log(chalk.red(`  Lock is currently held by "${lock.holder}".`));
+    console.log(chalk.dim('  Use --force only for recovery scenarios.'));
+    process.exit(1);
+  }
+
+  const expected = pickNextAgent(lock, config);
+  if (!opts.force && expected && expected !== agentId) {
+    console.log(chalk.red(`  Out-of-turn claim blocked. Expected: ${expected}, got: ${agentId}.`));
+    process.exit(1);
+  }
+
+  const lockPath = join(root, LOCK_FILE);
+  const next = {
+    holder: agentId,
+    last_released_by: lock.last_released_by,
+    turn_number: lock.turn_number,
+    claimed_at: new Date().toISOString()
+  };
+  writeFileSync(lockPath, JSON.stringify(next, null, 2) + '\n');
+  console.log(chalk.green(`  ✓ Lock claimed by ${agentId} (turn ${next.turn_number})`));
+}
+
+function releaseAsAgent({ opts, root, config, lock }) {
+  const agentId = opts.agent;
+  if (!config.agents?.[agentId]) {
+    console.log(chalk.red(`  Agent "${agentId}" is not defined in agentxchain.json.`));
+    process.exit(1);
+  }
+  if (lock.holder !== agentId && !opts.force) {
+    console.log(chalk.red(`  Lock is held by "${lock.holder}", not "${agentId}".`));
+    process.exit(1);
+  }
+
+  const lockPath = join(root, LOCK_FILE);
+  const next = {
+    holder: null,
+    last_released_by: agentId,
+    turn_number: lock.turn_number + 1,
+    claimed_at: null
+  };
+  writeFileSync(lockPath, JSON.stringify(next, null, 2) + '\n');
+  console.log(chalk.green(`  ✓ Lock released by ${agentId} (turn ${next.turn_number})`));
+}
+
+function pickNextAgent(lock, config) {
+  const agentIds = Object.keys(config.agents || {});
+  if (agentIds.length === 0) return null;
+  const lastAgent = lock.last_released_by;
+  if (!lastAgent || !agentIds.includes(lastAgent)) return agentIds[0];
+  const lastIndex = agentIds.indexOf(lastAgent);
+  return agentIds[(lastIndex + 1) % agentIds.length];
 }
 
 function clearBlockedState(root) {

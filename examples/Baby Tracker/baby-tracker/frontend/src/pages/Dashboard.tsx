@@ -57,19 +57,31 @@ export default function Dashboard() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Quick Log</h2>
         <div className="grid grid-cols-2 gap-3">
-          <button className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors">
+          <button 
+            onClick={() => alert('Feeding log coming soon in Phase 2')}
+            className="bg-blue-100 hover:bg-blue-200 text-blue-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors"
+          >
             <span className="text-2xl mb-1">🍼</span>
             <span className="font-medium">Feeding</span>
           </button>
-          <button className="bg-purple-100 hover:bg-purple-200 text-purple-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors">
+          <button 
+            onClick={() => alert('Sleep log coming soon in Phase 2')}
+            className="bg-purple-100 hover:bg-purple-200 text-purple-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors"
+          >
             <span className="text-2xl mb-1">😴</span>
             <span className="font-medium">Sleep</span>
           </button>
-          <button className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors">
+          <button 
+            onClick={() => alert('Diaper log coming soon in Phase 2')}
+            className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors"
+          >
             <span className="text-2xl mb-1">💩</span>
             <span className="font-medium">Diaper</span>
           </button>
-          <button className="bg-green-100 hover:bg-green-200 text-green-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors">
+          <button 
+            onClick={() => alert('Note log coming soon in Phase 2')}
+            className="bg-green-100 hover:bg-green-200 text-green-800 p-4 rounded-xl flex flex-col items-center justify-center transition-colors"
+          >
             <span className="text-2xl mb-1">📝</span>
             <span className="font-medium">Note</span>
           </button>

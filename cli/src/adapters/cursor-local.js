@@ -107,7 +107,7 @@ export async function launchCursorLocal(config, root, opts) {
   console.log(`    ${chalk.bold('agentxchain watch')}    ${chalk.dim('# watcher / trigger writer')}`);
   console.log(`    ${chalk.bold('agentxchain doctor')}   ${chalk.dim('# check local setup + trigger health')}`);
   console.log('');
-  console.log(chalk.dim('  Agents self-coordinate via lock.json polling (sleep 60s between checks).'));
+  console.log(chalk.dim('  Agents run single turns. Watch/supervise wakes the correct next agent.'));
   console.log(chalk.dim('  Re-paste a prompt: cat .agentxchain-prompts/<agent>.prompt.md | pbcopy'));
   console.log('');
 }
@@ -162,31 +162,34 @@ Project root (strict boundary): "${projectRoot}"
 Work only inside this project folder. Do NOT scan unrelated local directories.
 
 Actions:
-1) Read:
+1) FIRST QUESTION TO HUMAN (mandatory before anything else):
+"Please describe your product idea in one paragraph, in as much detail as possible."
+
+2) Read:
 - .planning/PROJECT.md
 - .planning/REQUIREMENTS.md
 - .planning/ROADMAP.md
 - TALK.md
 - state.md
 - lock.json
-2) Ask the human focused product questions until scope is clear:
+3) After receiving that paragraph, summarize it in TALK.md, then ask focused follow-up questions:
 - target user
 - top pain point
 - core workflow
 - MVP boundary
 - success metric
-3) Update planning docs with concrete acceptance criteria and Get Shit Done structure:
+4) Update planning docs with concrete acceptance criteria and Get Shit Done structure:
 - .planning/ROADMAP.md must define Waves and Phases.
 - Create .planning/phases/phase-1/PLAN.md and TESTS.md.
-4) Update .planning/PM_SIGNOFF.md:
+5) Update .planning/PM_SIGNOFF.md:
 - Set "Approved: YES" only when human agrees kickoff is complete.
-5) Append kickoff summary to TALK.md with:
+6) Append kickoff summary to TALK.md with:
 - Status
 - Decision
 - Action
 - Risks/Questions
 - Next owner
-6) Do NOT start round-robin agent handoffs yet.
+7) Do NOT start round-robin agent handoffs yet.
 
 Context:
 - Project: ${config.project}

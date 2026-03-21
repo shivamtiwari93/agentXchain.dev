@@ -2,9 +2,9 @@
 
 ## Architecture
 
-- **Status:** Phase 1 backend P1 blockers (BUG-006 / BUG-007) addressed in code; awaiting QA re-verification.
+- **Status:** Phase 1 backend P1 blockers (BUG-006 / BUG-007) addressed in code; awaiting QA re-verification. Frontend P2 gaps (BUG-008 / BUG-009) addressed.
 - **Backend:** Node.js + TypeScript + Express + SQLite with **tracked** migrations (`schema_migrations` + backfill for legacy DBs).
-- **Frontend:** React + Vite + Tailwind with auth screens, protected layout, baby switcher, add-baby flow, and dashboard empty states.
+- **Frontend:** React + Vite + Tailwind with auth screens, protected layout, baby switcher, add-baby flow, and dashboard empty states. Added forgot-password stub UI and quick-log feedback.
 - **Auth model:** JWT access token plus `token_version` invalidation on logout.
 - **Engineering standards:** `.planning/ENGINEERING-STANDARDS.md` is the source of truth for repo structure, validation, migration safety, test expectations, and review bar.
 
@@ -15,12 +15,11 @@
 
 ## Open Issues
 
-- **P2 gaps:** `BUG-008`, `BUG-009` (frontend forgot-password link + quick-log affordances).
-- **Product gap:** password reset is still stub-only; `R1` is not truly complete for shipping to real users.
+- **Product gap:** password reset is still stub-only (both frontend and backend); `R1` is not truly complete for shipping to real users.
 - **Test gap:** frontend has no automated tests yet; Phase 1 still depends mostly on manual UI verification.
 
 ## Next Steps
 
-1. QA: re-run `BUG-006`/`BUG-007` regressions, then re-check Phase 1 acceptance and UX docs.
-2. Frontend: address `BUG-008` / `BUG-009` per eng-director priorities.
-3. Backend (follow-up): consider shared Zod or `zod` schemas for auth/babies if validation grows further.
+1. QA: re-run `BUG-006`/`BUG-007` regressions, verify `BUG-008`/`BUG-009` fixes, then re-check Phase 1 acceptance and UX docs.
+2. Backend (follow-up): consider shared Zod or `zod` schemas for auth/babies if validation grows further.
+3. PM: Decide if stub password reset is acceptable for Phase 1 closure.

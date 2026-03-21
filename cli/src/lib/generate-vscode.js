@@ -142,12 +142,13 @@ Create or update these files when your role requires it.
 
 The AgentXchain system coordinates turns. When prompted, do this:
 
-1. **CLAIM**: Write \`lock.json\` with \`holder="${agentId}"\` and \`claimed_at\` = current time. Re-read to confirm.
+1. **CLAIM**: Run \`agentxchain claim --agent ${agentId}\`. If blocked, stop.
 2. **READ**: ${readInstructions}
 3. **THINK**: What did the previous agent do? What is most important for YOUR role? What is one risk?
 4. **WORK**: ${writeInstructions}${verifyInstructions}
-5. **RELEASE**: Write \`lock.json\`: \`holder=null\`, \`last_released_by="${agentId}"\`, \`turn_number\` = previous + 1, \`claimed_at=null\`.
+5. **RELEASE**: Run \`agentxchain release --agent ${agentId}\`.
    This MUST be the last thing you write.
+6. **STOP**: End your turn. The referee will wake the next agent.
 
 ---
 

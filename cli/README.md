@@ -25,7 +25,7 @@ cd my-project/
 agentxchain kickoff
 ```
 
-Each agent runs in its own Cursor window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting. `supervise --autonudge` handles watch + nudging automatically.
+Each agent runs in its own Cursor window for a single turn at a time. The referee loop (`watch` / `supervise --autonudge`) determines the next agent and wakes that specific session.
 
 Agents are now required to maintain `TALK.md` as the human-readable handoff log each turn.
 
@@ -48,6 +48,25 @@ Agents are now required to maintain `TALK.md` as the human-readable handoff log 
 | `config` | View/edit config, add/remove agents, change rules |
 | `update` | Self-update CLI from npm |
 
+### Full command list
+
+```bash
+agentxchain init
+agentxchain status
+agentxchain start
+agentxchain kickoff
+agentxchain stop
+agentxchain config
+agentxchain generate
+agentxchain watch
+agentxchain supervise
+agentxchain claim
+agentxchain release
+agentxchain update
+agentxchain doctor
+agentxchain validate
+```
+
 ### IDE options
 
 ```bash
@@ -62,15 +81,21 @@ agentxchain start --ide claude-code # Claude Code — spawns CLI processes
 agentxchain kickoff                # guided first-run PM-first workflow
 agentxchain kickoff --ide vscode   # guided flow for VS Code mode
 agentxchain kickoff --send         # with Cursor auto-nudge auto-send enabled
+agentxchain kickoff --interval 2   # nudge poll interval override
+agentxchain kickoff --no-autonudge # skip auto-nudge prompt
 
 agentxchain start --agent pm        # launch only one specific agent
 agentxchain start --remaining       # launch all agents except PM (PM-first flow)
 agentxchain start --dry-run         # preview agents without launching
 agentxchain validate --mode kickoff # required before --remaining
 agentxchain validate --mode turn --agent pm
+agentxchain validate --json         # machine-readable validation output
 agentxchain watch --daemon          # run watch in background
 agentxchain supervise --autonudge   # run watch + AppleScript nudge loop
 agentxchain supervise --autonudge --send   # auto-press Enter after paste
+agentxchain supervise --interval 2  # set auto-nudge poll interval
+agentxchain claim --agent pm        # guarded claim as agent turn owner
+agentxchain release --agent pm      # guarded release as agent turn owner
 agentxchain release --force         # force-release non-human holder lock
 ```
 
@@ -120,7 +145,7 @@ Notes:
 1. `agentxchain kickoff` launches PM first for human-product alignment
 2. Each window gets a unique prompt copied to clipboard
 3. Kickoff validates PM signoff and launches remaining agents
-4. Agent prompts include a self-polling loop: read `lock.json` → check if it's my turn → claim → work → release → sleep 60s → repeat
+4. Agent prompts are single-turn: claim → work → validate → release → stop
 5. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released
 6. Human can `claim` to pause and `release` to resume anytime
 
@@ -141,7 +166,7 @@ Agents follow a round-robin order defined in `agentxchain.json`:
 ## Key features
 
 - **One window per agent** — each agent has its own Cursor window and chat session
-- **Self-polling coordination** — agents check `lock.json` every 60s, no external process needed
+- **Referee-driven coordination** — `watch`/`supervise` wakes the next correct agent each turn
 - **Works in Cursor, VS Code, Claude Code** — adapters for each IDE
 - **User-defined teams** — any number of agents, any roles
 - **No API keys or cloud required** — everything runs locally

@@ -94,12 +94,14 @@ program
 program
   .command('claim')
   .description('Claim the lock as a human (take control)')
+  .option('--agent <id>', 'Claim lock as a specific agent (guarded by turn order)')
   .option('--force', 'Force-claim even if an agent holds the lock')
   .action(claimCommand);
 
 program
   .command('release')
   .description('Release the lock (hand back to agents)')
+  .option('--agent <id>', 'Release lock as a specific agent')
   .option('--force', 'Force release even if a non-human holder has the lock')
   .action(releaseCommand);
 

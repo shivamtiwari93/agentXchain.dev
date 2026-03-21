@@ -107,7 +107,7 @@ ${turnCondition}
 
 ---
 
-YOUR LOOP (run forever, never exit, never say "I'm done"):
+TURN MODE (single turn only, referee wakes you again later):
 
 0. CHECK WORKING DIRECTORY:
    - Run: pwd
@@ -117,18 +117,14 @@ YOUR LOOP (run forever, never exit, never say "I'm done"):
 1. READ lock.json.
 
 2. CHECK — is it my turn?
-   - If holder is NOT null → someone else is working. Run the shell command: sleep 60
-     Then go back to step 1.
-   - If holder IS null → check last_released_by:
-     ${isFirstAgent
-       ? `- If last_released_by is null, "human", starts with "system", or "${agentIds[agentIds.length - 1]}" → IT IS YOUR TURN. Go to step 3.`
-       : `- If last_released_by is "${prevAgent}" → IT IS YOUR TURN. Go to step 3.`}
-     - Otherwise → it is another agent's turn. Run the shell command: sleep 60
-       Then go back to step 1.
+   ${isFirstAgent
+    ? `- It is your turn only when lock holder is null and last_released_by is null/human/system/${agentIds[agentIds.length - 1]}.`
+    : `- It is your turn only when lock holder is null and last_released_by is "${prevAgent}".`}
+   - If NOT your turn: STOP. Do not claim lock and do not write files.
 
 3. CLAIM the lock:
-   Write lock.json: {"holder":"${agentId}","last_released_by":<keep previous>,"turn_number":<keep previous>,"claimed_at":"<current ISO timestamp>"}
-   Then RE-READ lock.json immediately. If holder is not "${agentId}", someone else won. Go to step 1.
+   Run: agentxchain claim --agent ${agentId}
+   If claim is blocked, STOP.
 
 4. DO YOUR WORK:
    ${readSection}
@@ -142,20 +138,16 @@ YOUR LOOP (run forever, never exit, never say "I'm done"):
    If validation fails, fix docs/artifacts first. Do NOT release.
 
 5. RELEASE the lock:
-   Write lock.json: {"holder":null,"last_released_by":"${agentId}","turn_number":<previous + 1>,"claimed_at":null}
+   Run: agentxchain release --agent ${agentId}
    THIS MUST BE THE LAST FILE YOU WRITE.
-
-6. Run the shell command: sleep 60
-   Then go back to step 1.
 
 ---
 
 CRITICAL RULES:
-- ACTUALLY RUN "sleep 60" in the terminal between checks. Do NOT skip this. Do NOT just say "waiting."
 - Never write files or code without holding the lock. Reading is always allowed.
 - One git commit per turn: "Turn N - ${agentId} - description"
 - Max ${maxClaims} consecutive turns. If you have held the lock ${maxClaims} times in a row, do a short turn and release.
 - ALWAYS release the lock. A stuck lock blocks the entire team.
 - ALWAYS find at least one problem, risk, or question about the previous work. Blind agreement is forbidden.
-- NEVER exit or stop. After releasing, always sleep and poll again. You are a persistent agent.`;
+- This session is SINGLE-TURN. After release, STOP and wait for the referee to wake you again.`;
 }

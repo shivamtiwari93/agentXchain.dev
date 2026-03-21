@@ -50,6 +50,17 @@ export async function watchCommand(opts) {
 
       const stateKey = `${lock.holder}:${lock.turn_number}`;
 
+      if (lock.holder && lock.holder !== 'human') {
+        const expected = pickNextAgent(lock, config);
+        if (!isValidClaimer(lock, config)) {
+          log('warn', `Illegal claim detected: holder=${lock.holder}, expected=${expected}. Handing lock to HUMAN.`);
+          blockOnIllegalClaim(root, lock, config, expected);
+          sendNotification(`Illegal claim detected (${lock.holder}). Human intervention required.`);
+          lastState = null;
+          return;
+        }
+      }
+
       if (lock.holder && lock.holder !== 'human' && lock.claimed_at) {
         const elapsed = Date.now() - new Date(lock.claimed_at).getTime();
         const ttlMs = ttlMinutes * 60 * 1000;
@@ -129,6 +140,13 @@ function pickNextAgent(lock, config) {
   return agentIds[(lastIndex + 1) % agentIds.length];
 }
 
+function isValidClaimer(lock, config) {
+  if (!lock.holder || lock.holder === 'human') return true;
+  if (!config.agents?.[lock.holder]) return false;
+  const expected = pickNextAgent(lock, config);
+  return lock.holder === expected;
+}
+
 function forceRelease(root, lock, staleAgent, config) {
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
@@ -188,6 +206,39 @@ function blockOnValidation(root, lock, config, validation) {
     appendFileSync(
       logPath,
       `\n---\n\n### [system] (Watch Validation) | Turn ${lock.turn_number}\n\n**Status:** Validation failed after ${lock.last_released_by}.\n\n**Action:** Lock assigned to human for intervention.\n\n**Errors:**\n${summary}\n\n`
+    );
+  }
+}
+
+function blockOnIllegalClaim(root, lock, config, expected) {
+  const lockPath = join(root, LOCK_FILE);
+  const newLock = {
+    holder: 'human',
+    last_released_by: lock.last_released_by,
+    turn_number: lock.turn_number,
+    claimed_at: new Date().toISOString()
+  };
+  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+
+  const statePath = join(root, 'state.json');
+  if (existsSync(statePath)) {
+    try {
+      const current = JSON.parse(readFileSync(statePath, 'utf8'));
+      const nextState = {
+        ...current,
+        blocked: true,
+        blocked_on: `illegal-claim: expected ${expected}, got ${lock.holder}`
+      };
+      writeFileSync(statePath, JSON.stringify(nextState, null, 2) + '\n');
+    } catch {}
+  }
+
+  const logFile = config.log || 'log.md';
+  const logPath = join(root, logFile);
+  if (existsSync(logPath)) {
+    appendFileSync(
+      logPath,
+      `\n---\n\n### [system] (Watch Guard) | Turn ${lock.turn_number}\n\n**Status:** Illegal out-of-turn lock claim detected.\n\n**Action:** Lock assigned to human for intervention.\n\n**Details:** expected \`${expected}\`, got \`${lock.holder}\`.\n\n`
     );
   }
 }
