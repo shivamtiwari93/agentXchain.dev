@@ -1,0 +1,10 @@
+{
+  "name": "baby-tracker",
+  "private": true,
+  "workspaces": [
+    "backend"
+  ],
+  "scripts": {
+    "test": "npm run test -w backend"
+  }
+}
