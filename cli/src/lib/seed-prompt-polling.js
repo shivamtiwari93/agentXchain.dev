@@ -9,12 +9,6 @@ export function generatePollingPrompt(agentId, agentDef, config, projectRoot = '
 
   const agentIds = Object.keys(config.agents);
   const myIndex = agentIds.indexOf(agentId);
-  const prevAgent = myIndex === 0 ? null : agentIds[myIndex - 1];
-  const isFirstAgent = myIndex === 0;
-
-  const turnCondition = isFirstAgent
-    ? `It is YOUR turn when lock.json shows holder=null AND (last_released_by is null, "human", "system", OR the LAST agent in the rotation: "${agentIds[agentIds.length - 1]}")`
-    : `It is YOUR turn when lock.json shows holder=null AND last_released_by="${prevAgent}"`;
 
   const readSection = useSplit
     ? `READ THESE FILES:
@@ -37,6 +31,7 @@ c. Append ONE line to "${historyFile}":
    {"turn": N, "agent": "${agentId}", "summary": "what you did", "files_changed": [...], "verify_result": "pass|fail|skipped", "timestamp": "ISO8601"}
 d. Append ONE handoff entry to "${talkFile}" with:
    Turn, Status, Decision, Action, Risks/Questions, Next owner.
+   IMPORTANT: "Next owner" must be a valid agent id from [${agentIds.join(', ')}].
 e. Update state.json if phase or blocked status changed.`
     : `WRITE (in this order):
 a. Do your actual work: write code, create files, run commands, make decisions.
@@ -49,6 +44,7 @@ b. Append ONE message to ${logFile}:
    **Next:** What the next agent should focus on.
 c. Append ONE handoff entry to "${talkFile}" with:
    Turn, Status, Decision, Action, Risks/Questions, Next owner.
+   IMPORTANT: "Next owner" must be a valid agent id from [${agentIds.join(', ')}].
 d. Update state.json if phase or blocked status changed.`;
 
   const verifySection = verifyCmd
@@ -101,9 +97,9 @@ GET SHIT DONE FRAMEWORK (mandatory):
 
 ---
 
-TEAM ROTATION: ${agentIds.join(' → ')} → (repeat)
+TEAM IDS: ${agentIds.join(', ')}
 YOUR POSITION: ${agentId} (index ${myIndex} of ${agentIds.length})
-${turnCondition}
+Turn assignment is handoff-driven: previous owner writes "Next owner" in TALK.md.
 
 ---
 
@@ -115,11 +111,11 @@ TURN MODE (single turn only, referee wakes you again later):
    - Never run broad searches outside this project root.
 
 1. READ lock.json.
+   Also read .agentxchain-trigger.json when present.
 
 2. CHECK — is it my turn?
-   ${isFirstAgent
-    ? `- It is your turn only when lock holder is null and last_released_by is null/human/system/${agentIds[agentIds.length - 1]}.`
-    : `- It is your turn only when lock holder is null and last_released_by is "${prevAgent}".`}
+   - It is your turn when lock holder is null AND trigger.agent is "${agentId}".
+   - If trigger file is missing, you may still attempt claim; claim guardrails enforce expected next owner.
    - If NOT your turn: STOP. Do not claim lock and do not write files.
 
 3. CLAIM the lock:

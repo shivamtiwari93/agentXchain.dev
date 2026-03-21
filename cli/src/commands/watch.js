@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
+import { resolveNextAgent } from '../lib/next-owner.js';
 
 export async function watchCommand(opts) {
   if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
@@ -51,8 +52,8 @@ export async function watchCommand(opts) {
       const stateKey = `${lock.holder}:${lock.turn_number}`;
 
       if (lock.holder && lock.holder !== 'human') {
-        const expected = pickNextAgent(lock, config);
-        if (!isValidClaimer(lock, config)) {
+        const expected = pickNextAgent(root, lock, config);
+        if (!isValidClaimer(root, lock, config)) {
           log('warn', `Illegal claim detected: holder=${lock.holder}, expected=${expected}. Handing lock to HUMAN.`);
           blockOnIllegalClaim(root, lock, config, expected);
           sendNotification(`Illegal claim detected (${lock.holder}). Human intervention required.`);
@@ -108,7 +109,7 @@ export async function watchCommand(opts) {
           }
         }
 
-        const next = pickNextAgent(lock, config);
+        const next = pickNextAgent(root, lock, config);
         log('free', `Lock free (released by ${lock.last_released_by || 'none'}). Next: ${chalk.bold(next)}.`);
         writeTrigger(root, next, lock, config);
         lastState = stateKey;
@@ -129,21 +130,14 @@ export async function watchCommand(opts) {
   });
 }
 
-function pickNextAgent(lock, config) {
-  const agentIds = Object.keys(config.agents);
-  if (agentIds.length === 0) return null;
-  const lastAgent = lock.last_released_by;
-
-  if (!lastAgent || !agentIds.includes(lastAgent)) return agentIds[0];
-
-  const lastIndex = agentIds.indexOf(lastAgent);
-  return agentIds[(lastIndex + 1) % agentIds.length];
+function pickNextAgent(root, lock, config) {
+  return resolveNextAgent(root, config, lock).next;
 }
 
-function isValidClaimer(lock, config) {
+function isValidClaimer(root, lock, config) {
   if (!lock.holder || lock.holder === 'human') return true;
   if (!config.agents?.[lock.holder]) return false;
-  const expected = pickNextAgent(lock, config);
+  const expected = pickNextAgent(root, lock, config);
   return lock.holder === expected;
 }
 

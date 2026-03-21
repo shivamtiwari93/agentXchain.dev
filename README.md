@@ -10,12 +10,21 @@ npx agentxchain init
 
 ## Quick start
 
-```bash
-# 1. Create a project (interactive template selection)
-npx agentxchain init
+### Happy path: net-new project
 
-# 2. Run the guided PM-first kickoff wizard
-cd my-project/
+```bash
+npx agentxchain init
+cd my-project
+agentxchain kickoff
+```
+
+### Happy path: existing project
+
+Run these commands from inside your existing project folder:
+
+```bash
+agentxchain doctor
+agentxchain generate
 agentxchain kickoff
 ```
 
@@ -57,6 +66,7 @@ agentxchain start
 agentxchain kickoff
 agentxchain stop
 agentxchain config
+agentxchain rebind
 agentxchain generate
 agentxchain watch
 agentxchain supervise
@@ -111,6 +121,16 @@ Regenerate VS Code agent files from `agentxchain.json`. Run after adding/removin
 
 ```bash
 agentxchain generate
+```
+
+### `agentxchain rebind`
+
+Rebuild Cursor workspace bindings and prompts for current agents. Useful after changing agent IDs, renaming agents, or when auto-nudge can no longer map windows cleanly.
+
+```bash
+agentxchain rebind
+agentxchain rebind --open      # regenerate + reopen all Cursor windows
+agentxchain rebind --agent pm  # regenerate one agent binding only
 ```
 
 ### `agentxchain status`
@@ -215,10 +235,10 @@ agentxchain validate --json
 
 ### Cursor mode (default)
 
-1. `agentxchain start` opens a **separate Cursor window** for each agent (via workspace symlinks).
+1. `agentxchain start` opens a **separate Cursor window** for each agent (via per-agent `.code-workspace` files).
 2. Each agent's prompt is copied to clipboard. You paste into chat, select Agent mode, and send.
 3. Agent prompts are single-turn: claim -> work -> validate -> release -> stop.
-4. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released.
+4. Agent handoffs are dynamic: each turn writes `Next owner:` in `TALK.md`, and referee uses that.
 5. You can `claim` to pause and `release` to resume anytime.
 
 ### VS Code mode
@@ -227,13 +247,12 @@ agentxchain validate --json
 2. VS Code auto-discovers agents in the Chat dropdown (requires GitHub Copilot).
 3. The `Stop` hook acts as referee — hands off to next agent automatically.
 
-### Turn rotation
+### Turn ownership
 
-Agents follow round-robin order defined in `agentxchain.json`:
-- **PM** claims after: `human`, `null`, or last agent in rotation
-- **Dev** claims after: `pm`
-- **QA** claims after: `dev`
-- And so on — wraps back to PM after the last agent
+Turns are handoff-driven (not fixed cyclic):
+- Every turn must append `Next owner: <agent_id>` in `TALK.md`
+- `watch` / `supervise` dispatches the next trigger from that latest handoff
+- `claim --agent <id>` blocks out-of-turn claims unless `--force` is used
 
 ### Protocol v3 features
 
@@ -303,8 +322,7 @@ MCP and A2A don't give you an SDLC pipeline in one workspace. AgentXchain does.
 
 | Example | Agents | What it shows |
 |---------|--------|---------------|
-| [mood-tracking-app](examples/mood-tracking-app/) | pm, dev, qa, ux | Standard 4-agent SDLC team |
-| [saas-landing-page](examples/saas-landing-page/) | pm, designer, frontend, copywriter, qa, devops | 6 agents, non-engineering roles |
+| [baby-tracker](examples/Baby%20Tracker/baby-tracker/) | eng-director, pm, backend, frontend, qa | Existing-project mapping + PM-first + referee-driven turns |
 
 ---
 

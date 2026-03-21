@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { writeFileSync, mkdirSync, existsSync, symlinkSync, lstatSync, unlinkSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
@@ -29,7 +29,7 @@ export async function launchCursorLocal(config, root, opts) {
     writeFileSync(join(promptDir, `${id}.prompt.md`), prompt);
   }
 
-  // Create per-agent symlinked workspace folders so Cursor opens separate windows
+  // Create per-agent workspace files so each Cursor window has a unique identity
   const workspacesDir = join(root, '.agentxchain-workspaces');
   mkdirSync(workspacesDir, { recursive: true });
 
@@ -39,17 +39,13 @@ export async function launchCursorLocal(config, root, opts) {
       ? generateKickoffPrompt(id, agent, config, root)
       : generatePollingPrompt(id, agent, config, root);
 
-    // Create symlink: .agentxchain-workspaces/<id> -> project root
-    const agentWorkspace = join(workspacesDir, id);
-    try {
-      if (existsSync(agentWorkspace)) {
-        const stat = lstatSync(agentWorkspace);
-        if (stat.isSymbolicLink()) unlinkSync(agentWorkspace);
-      }
-      if (!existsSync(agentWorkspace)) {
-        symlinkSync(root, agentWorkspace, 'dir');
-      }
-    } catch {}
+    // Create workspace file: .agentxchain-workspaces/<id>.code-workspace
+    const agentWorkspace = join(workspacesDir, `${id}.code-workspace`);
+    const workspaceJson = {
+      folders: [{ path: root }],
+      settings: { 'agentxchain.agentId': id }
+    };
+    writeFileSync(agentWorkspace, JSON.stringify(workspaceJson, null, 2) + '\n');
 
     console.log(chalk.cyan(`  ─── Agent ${i + 1}/${total}: ${chalk.bold(id)} — ${agent.name} ───`));
     console.log('');

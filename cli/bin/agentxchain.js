@@ -17,6 +17,7 @@ import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
+import { rebindCommand } from '../src/commands/rebind.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -90,6 +91,13 @@ program
   .option('--send', 'Auto-send nudges (default is paste-only)')
   .option('--interval <seconds>', 'Auto-nudge poll interval in seconds', '3')
   .action(superviseCommand);
+
+program
+  .command('rebind')
+  .description('Rebuild Cursor prompt/workspace bindings for agents')
+  .option('--agent <id>', 'Rebind a single agent only')
+  .option('--open', 'Reopen Cursor windows after rebinding')
+  .action(rebindCommand);
 
 program
   .command('claim')

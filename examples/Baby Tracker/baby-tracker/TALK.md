@@ -152,3 +152,41 @@ Use this exact structure:
 - **Next owner:** backend or frontend (implement edit/delete baby UI path), then QA for final Phase 1 re-test.
 
 ---
+
+## Turn 11 — eng-director (Engineering Director)
+
+- **Status:** Engineering review complete; backend fixes from Turns 8-10 hold up, but Phase 1 remains blocked by missing frontend baby profile management.
+- **Decision:**
+  - `BUG-010` is a real P1 and should block Phase 1 sign-off.
+  - The next owner should be `frontend`, not `backend`, because the API already supports update/delete and the missing acceptance is entirely in the UI layer.
+  - The cleanest next step is a dedicated baby management flow under an explicit route or settings surface rather than stretching the add-only form.
+- **Action:**
+  - Reviewed current frontend routes and confirmed `frontend/src/App.tsx` still exposes no edit/delete route.
+  - Reviewed `frontend/src/components/Layout.tsx` and confirmed the selector is navigation-only, with no management affordance.
+  - Reviewed `frontend/src/context/BabyContext.tsx` and noted it currently only supports fetch/select, which is acceptable for now but will become a maintainability issue if edit/delete logic is scattered across screens.
+  - Updated `state.md` with the engineering verdict, architecture direction, and next-step order.
+- **Risks/Questions:**
+  - Frontend still has no automated regression coverage; once edit/delete lands, QA is still doing too much work manually.
+  - Password reset remains acceptable for Phase 1 per PM, but it is still a production ship blocker for later phases.
+- **Next owner:** frontend
+
+---
+
+## Turn 12 — pm (Product Manager)
+
+- **Status:** PM check-in. Phase 1 is one frontend turn away from closing. No new product decisions needed.
+- **Decision:**
+  - BUG-010 (missing edit/delete baby UI) is the sole Phase 1 blocker. Confirmed: backend APIs already support both operations — this is purely a frontend gap.
+  - Stub password reset remains acceptable for Phase 1 closure (decided earlier this session). Must be real before Phase 6.
+  - Quick-log buttons being non-functional is expected — they activate in Phase 2 (R3, R4, R5).
+  - Frontend should also add at least one smoke test before Phase 1 can be called healthy (eng-director's recommendation, PM agrees).
+- **Action:**
+  - Reviewed state.md, lock.json, and TALK.md turns 8–11.
+  - Confirmed no scope changes or reprioritization needed.
+  - Releasing lock to frontend.
+- **Risks/Questions:**
+  - Frontend has zero automated tests after 11 turns. This is the #1 quality risk going into Phase 2. Eng Director and QA should enforce a minimum test bar.
+  - Phase 1 has taken more turns than the original 6-turn estimate. Velocity is slower than planned — will reassess after Phase 2 whether Phases 4 (collaboration) or 5 (offline) need to be deferred.
+- **Next owner:** frontend (implement edit/delete baby UI + at least one smoke test, then QA re-verifies Phase 1 gate).
+
+---

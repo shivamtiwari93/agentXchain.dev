@@ -232,12 +232,29 @@ if [ -z "$HOLDER" ] || [ "$HOLDER" = "null" ]; then
   fi
 
   NEXT=$(node -e "
-    const cfg = JSON.parse(require('fs').readFileSync('agentxchain.json','utf8'));
-    const ids = Object.keys(cfg.agents);
-    const last = process.argv[1] || '';
+    const fs = require('fs');
+    const cfg = JSON.parse(fs.readFileSync('agentxchain.json','utf8'));
+    const ids = Object.keys(cfg.agents || {});
+    const lock = JSON.parse(fs.readFileSync('lock.json','utf8'));
+    const talkFile = cfg.talk_file || 'TALK.md';
+    let fromTalk = '';
+    try {
+      const talk = fs.readFileSync(talkFile, 'utf8').split(/\\r?\\n/);
+      for (let i = talk.length - 1; i >= 0; i -= 1) {
+        const m = talk[i].trim().match(/^(?:-|\\*)?\\s*\\**next\\s*owner\\**\\s*:\\s*(.+)$/i);
+        if (!m) continue;
+        let candidate = String(m[1] || '').replace(/[\\*_]/g, '').replace(/\\(.*?\\)/g, '').trim().split(/[\\s,]+/)[0].toLowerCase();
+        if (ids.includes(candidate)) { fromTalk = candidate; break; }
+      }
+    } catch {}
+    if (fromTalk) {
+      process.stdout.write(fromTalk);
+      process.exit(0);
+    }
+    const last = lock.last_released_by || '';
     const idx = ids.indexOf(last);
-    const next = ids[(idx + 1) % ids.length];
-    process.stdout.write(next);
+    const next = idx >= 0 ? ids[(idx + 1) % ids.length] : ids[0];
+    process.stdout.write(next || '');
   " -- "$LAST" 2>/dev/null)
 
   if [ -z "$NEXT" ]; then

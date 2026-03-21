@@ -2,6 +2,7 @@ import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
+import { resolveNextAgent } from '../lib/next-owner.js';
 
 export async function claimCommand(opts) {
   const result = loadConfig();
@@ -106,7 +107,7 @@ function claimAsAgent({ opts, root, config, lock }) {
     process.exit(1);
   }
 
-  const expected = pickNextAgent(lock, config);
+  const expected = pickNextAgent(root, lock, config);
   if (!opts.force && expected && expected !== agentId) {
     console.log(chalk.red(`  Out-of-turn claim blocked. Expected: ${expected}, got: ${agentId}.`));
     process.exit(1);
@@ -145,13 +146,8 @@ function releaseAsAgent({ opts, root, config, lock }) {
   console.log(chalk.green(`  ✓ Lock released by ${agentId} (turn ${next.turn_number})`));
 }
 
-function pickNextAgent(lock, config) {
-  const agentIds = Object.keys(config.agents || {});
-  if (agentIds.length === 0) return null;
-  const lastAgent = lock.last_released_by;
-  if (!lastAgent || !agentIds.includes(lastAgent)) return agentIds[0];
-  const lastIndex = agentIds.indexOf(lastAgent);
-  return agentIds[(lastIndex + 1) % agentIds.length];
+function pickNextAgent(root, lock, config) {
+  return resolveNextAgent(root, config, lock).next;
 }
 
 function clearBlockedState(root) {

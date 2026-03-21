@@ -16,12 +16,21 @@ npx agentxchain init
 
 ## Quick start
 
-```bash
-# 1. Create a project (interactive template selection)
-agentxchain init
+### Happy path: net-new project
 
-# 2. Run guided PM-first kickoff wizard
-cd my-project/
+```bash
+agentxchain init
+cd my-project
+agentxchain kickoff
+```
+
+### Happy path: existing project
+
+Run these commands from inside your existing project folder:
+
+```bash
+agentxchain doctor
+agentxchain generate
 agentxchain kickoff
 ```
 
@@ -46,6 +55,7 @@ Agents are now required to maintain `TALK.md` as the human-readable handoff log 
 | `stop` | Terminate running Claude Code agent sessions |
 | `watch` | Optional: TTL safety net + status logging |
 | `config` | View/edit config, add/remove agents, change rules |
+| `rebind` | Rebuild Cursor workspace/prompt bindings for agents |
 | `update` | Self-update CLI from npm |
 
 ### Full command list
@@ -57,6 +67,7 @@ agentxchain start
 agentxchain kickoff
 agentxchain stop
 agentxchain config
+agentxchain rebind
 agentxchain generate
 agentxchain watch
 agentxchain supervise
@@ -94,6 +105,9 @@ agentxchain watch --daemon          # run watch in background
 agentxchain supervise --autonudge   # run watch + AppleScript nudge loop
 agentxchain supervise --autonudge --send   # auto-press Enter after paste
 agentxchain supervise --interval 2  # set auto-nudge poll interval
+agentxchain rebind                  # regenerate agent prompt/workspace bindings
+agentxchain rebind --open           # regenerate and reopen all Cursor agent windows
+agentxchain rebind --agent pm       # regenerate one agent binding only
 agentxchain claim --agent pm        # guarded claim as agent turn owner
 agentxchain release --agent pm      # guarded release as agent turn owner
 agentxchain release --force         # force-release non-human holder lock
@@ -146,7 +160,7 @@ Notes:
 2. Each window gets a unique prompt copied to clipboard
 3. Kickoff validates PM signoff and launches remaining agents
 4. Agent prompts are single-turn: claim → work → validate → release → stop
-5. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released
+5. Agents use the latest `Next owner:` in `TALK.md` to pick who goes next (fallback: config order)
 6. Human can `claim` to pause and `release` to resume anytime
 
 ### VS Code mode
@@ -155,13 +169,12 @@ Notes:
 2. VS Code auto-discovers agents in the Chat dropdown
 3. The `Stop` hook acts as referee — hands off to next agent automatically
 
-### Turn rotation
+### Turn ownership
 
-Agents follow a round-robin order defined in `agentxchain.json`:
-- PM waits for: lock free + last released by `human`, `null`, or last agent in rotation
-- Dev waits for: lock free + last released by `pm`
-- QA waits for: lock free + last released by `dev`
-- And so on...
+Agent turns are handoff-driven:
+- Each turn appends a `Next owner:` in `TALK.md` with a valid agent id
+- `watch`/`supervise` dispatches the next trigger from that handoff
+- `claim --agent <id>` enforces that expected owner (with guarded fallback)
 
 ## Key features
 

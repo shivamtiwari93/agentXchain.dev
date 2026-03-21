@@ -1,6 +1,7 @@
 property projectRoot : ""
 property pollSeconds : 3
 property autoSend : false
+property lastFailedDispatch : ""
 
 on run argv
   if (count of argv) < 1 then
@@ -41,8 +42,10 @@ on run argv
           set lastKey to do shell script "test -f " & quoted form of statePath & " && cat " & quoted form of statePath & " || echo ''"
 
           if dispatchKey is not lastKey then
-            my nudgeAgent(agentId, turnNum)
-            do shell script "printf %s " & quoted form of dispatchKey & " > " & quoted form of statePath
+            set nudgedOk to my nudgeAgent(agentId, turnNum, dispatchKey)
+            if nudgedOk then
+              do shell script "printf %s " & quoted form of dispatchKey & " > " & quoted form of statePath
+            end if
           end if
         end if
       end if
@@ -52,7 +55,7 @@ on run argv
   end repeat
 end run
 
-on nudgeAgent(agentId, turnNum)
+on nudgeAgent(agentId, turnNum, dispatchKey)
   set nudgeText to "Hey " & agentId & ", it is your turn now (turn " & turnNum & "). Read lock.json, claim the lock, check state.md + history.jsonl + planning docs, do your work, and release lock."
   set the clipboard to nudgeText
 
@@ -60,8 +63,11 @@ on nudgeAgent(agentId, turnNum)
   delay 0.5
   set focusedOk to my focusAgentWindow(agentId)
   if focusedOk is false then
-    do shell script "osascript -e " & quoted form of ("display notification \"Could not identify a unique window for " & agentId & ".\" with title \"AgentXchain\"")
-    return
+    if lastFailedDispatch is not dispatchKey then
+      do shell script "osascript -e " & quoted form of ("display notification \"Could not identify a unique window for " & agentId & ".\" with title \"AgentXchain\"")
+      set lastFailedDispatch to dispatchKey
+    end if
+    return false
   end if
   delay 0.2
 
@@ -80,7 +86,9 @@ on nudgeAgent(agentId, turnNum)
     end tell
   end tell
 
+  set lastFailedDispatch to ""
   do shell script "osascript -e " & quoted form of ("display notification \"Nudged " & agentId & " for turn " & turnNum & "\" with title \"AgentXchain\"")
+  return true
 end nudgeAgent
 
 on focusAgentWindow(agentId)
@@ -117,6 +125,10 @@ end focusAgentWindow
 
 on isStrongWindowMatch(windowName, agentId)
   set tokenA to ".agentxchain-workspaces/" & agentId
+  set tokenB to ".agentxchain-workspaces\\" & agentId
+  set tokenC to agentId & ".code-workspace"
   if windowName contains tokenA then return true
+  if windowName contains tokenB then return true
+  if windowName contains tokenC then return true
   return false
 end isStrongWindowMatch
