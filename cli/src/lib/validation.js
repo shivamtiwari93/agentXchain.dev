@@ -4,6 +4,7 @@ import { join } from 'path';
 export function validateProject(root, config, opts = {}) {
   const mode = opts.mode || 'full';
   const expectedAgent = opts.expectedAgent || null;
+  const talkFile = config.talk_file || 'TALK.md';
 
   const errors = [];
   const warnings = [];
@@ -18,6 +19,7 @@ export function validateProject(root, config, opts = {}) {
     '.planning/qa/UX-AUDIT.md',
     '.planning/qa/ACCEPTANCE-MATRIX.md',
     '.planning/qa/REGRESSION-LOG.md',
+    talkFile,
     'state.md',
     'history.jsonl',
     'lock.json',
@@ -55,6 +57,10 @@ export function validateProject(root, config, opts = {}) {
   const history = validateHistory(root, config, { expectedAgent, requireEntry: mode !== 'kickoff' });
   errors.push(...history.errors);
   warnings.push(...history.warnings);
+
+  const talk = validateTalkFile(root, talkFile, { requireEntry: mode !== 'kickoff' });
+  errors.push(...talk.errors);
+  warnings.push(...talk.warnings);
 
   const qaSignals = validateQaArtifacts(root);
   warnings.push(...qaSignals.warnings);
@@ -154,6 +160,26 @@ function validateQaArtifacts(root) {
     const text = readText(root, rel);
     if (text && placeholderRegex.test(text)) {
       result.warnings.push(message);
+    }
+  }
+
+  return result;
+}
+
+function validateTalkFile(root, talkFile, opts) {
+  const result = { errors: [], warnings: [] };
+  const text = readText(root, talkFile);
+  if (!text) {
+    result.errors.push(`${talkFile} is missing or unreadable.`);
+    return result;
+  }
+
+  const hasTurnEntry = /##\s*Turn\s+\d+/i.test(text);
+  if (!hasTurnEntry) {
+    if (opts.requireEntry) {
+      result.errors.push(`${talkFile} has no turn entries.`);
+    } else {
+      result.warnings.push(`${talkFile} has no turn entries yet.`);
     }
   }
 

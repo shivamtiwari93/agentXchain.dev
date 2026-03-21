@@ -15,7 +15,7 @@ export function generateVSCodeFiles(dir, config) {
 
   for (const id of agentIds) {
     const agent = config.agents[id];
-    const md = buildAgentMd(id, agent, config, agentIds);
+    const md = buildAgentMd(id, agent, config, agentIds, dir);
     writeFileSync(join(agentsDir, `${id}.agent.md`), md);
   }
 
@@ -33,13 +33,14 @@ export function generateVSCodeFiles(dir, config) {
   return { agentsDir, hooksDir, scriptsDir, agentCount: agentIds.length };
 }
 
-function buildAgentMd(agentId, agentDef, config, allAgentIds) {
+function buildAgentMd(agentId, agentDef, config, allAgentIds, projectRoot) {
   const otherAgents = allAgentIds.filter(id => id !== agentId);
   const verifyCmd = config.rules?.verify_command || null;
   const maxClaims = config.rules?.max_consecutive_claims || 2;
   const stateFile = config.state_file || 'state.md';
   const historyFile = config.history_file || 'history.jsonl';
   const logFile = config.log || 'log.md';
+  const talkFile = config.talk_file || 'TALK.md';
   const useSplit = config.state_file || config.history_file;
 
   const handoffs = otherAgents.map(otherId => {
@@ -77,10 +78,12 @@ hooks:
     ? `Read these files at the start of your turn:
 - \`${stateFile}\` — living project state (primary context)
 - \`${historyFile}\` — last 3 lines for recent turns
+- \`${talkFile}\` — team handoff updates (read latest entries)
 - \`lock.json\` — current lock holder
 - \`state.json\` — phase and blocked status`
     : `Read these files at the start of your turn:
 - \`${logFile}\` — message log (read last few messages)
+- \`${talkFile}\` — team handoff updates (read latest entries)
 - \`lock.json\` — current lock holder
 - \`state.json\` — phase and blocked status`;
 
@@ -90,13 +93,15 @@ hooks:
 2. Overwrite \`${stateFile}\` with current project state.
 3. Append one line to \`${historyFile}\`:
    \`{"turn": N, "agent": "${agentId}", "summary": "...", "files_changed": [...], "verify_result": "pass|fail|skipped", "timestamp": "ISO8601"}\`
-4. Update \`state.json\` if phase or blocked status changed.`
+4. Append one handoff entry to \`${talkFile}\` with: Turn, Status, Decision, Action, Risks/Questions, Next owner.
+5. Update \`state.json\` if phase or blocked status changed.`
     : `When you finish your work, write in this order:
 1. Your actual work: code, files, commands, decisions.
 2. Append one message to \`${logFile}\`:
    \`### [${agentId}] (${agentDef.name}) | Turn N\`
    with Status, Decision, Action, Next sections.
-3. Update \`state.json\` if phase or blocked status changed.`;
+3. Append one handoff entry to \`${talkFile}\` with: Turn, Status, Decision, Action, Risks/Questions, Next owner.
+4. Update \`state.json\` if phase or blocked status changed.`;
 
   const verifyInstructions = verifyCmd
     ? `\n## Verify before release\nBefore releasing the lock, run: \`${verifyCmd}\`\nIf it fails, fix the problem and run again. Do NOT release with a failing verification.`
@@ -107,6 +112,15 @@ hooks:
 You are "${agentId}" on an AgentXchain team.
 
 ${agentDef.mandate}
+
+---
+
+## Project boundary
+
+- Project root: \`${projectRoot}\`
+- Work only inside this project folder.
+- Never scan unrelated local directories.
+- Start your turn by checking \`pwd\`.
 
 ---
 

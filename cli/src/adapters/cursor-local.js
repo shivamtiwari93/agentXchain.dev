@@ -24,8 +24,8 @@ export async function launchCursorLocal(config, root, opts) {
   // Save all prompts first
   for (const [id, agent] of agentEntries) {
     const prompt = isPmKickoff
-      ? generateKickoffPrompt(id, agent, config)
-      : generatePollingPrompt(id, agent, config);
+      ? generateKickoffPrompt(id, agent, config, root)
+      : generatePollingPrompt(id, agent, config, root);
     writeFileSync(join(promptDir, `${id}.prompt.md`), prompt);
   }
 
@@ -36,8 +36,8 @@ export async function launchCursorLocal(config, root, opts) {
   for (let i = 0; i < agentEntries.length; i++) {
     const [id, agent] = agentEntries[i];
     const prompt = isPmKickoff
-      ? generateKickoffPrompt(id, agent, config)
-      : generatePollingPrompt(id, agent, config);
+      ? generateKickoffPrompt(id, agent, config, root)
+      : generatePollingPrompt(id, agent, config, root);
 
     // Create symlink: .agentxchain-workspaces/<id> -> project root
     const agentWorkspace = join(workspacesDir, id);
@@ -153,16 +153,20 @@ function isPmLike(agentId, agentDef) {
   return name.includes('product manager');
 }
 
-function generateKickoffPrompt(agentId, agentDef, config) {
+function generateKickoffPrompt(agentId, agentDef, config, projectRoot) {
   return `You are "${agentId}" — ${agentDef.name}.
 
 This is PM kickoff mode. Your job now is to collaborate with the human and finalize scope before autonomous turns begin.
+
+Project root (strict boundary): "${projectRoot}"
+Work only inside this project folder. Do NOT scan unrelated local directories.
 
 Actions:
 1) Read:
 - .planning/PROJECT.md
 - .planning/REQUIREMENTS.md
 - .planning/ROADMAP.md
+- TALK.md
 - state.md
 - lock.json
 2) Ask the human focused product questions until scope is clear:
@@ -176,7 +180,13 @@ Actions:
 - Create .planning/phases/phase-1/PLAN.md and TESTS.md.
 4) Update .planning/PM_SIGNOFF.md:
 - Set "Approved: YES" only when human agrees kickoff is complete.
-5) Do NOT start round-robin agent handoffs yet.
+5) Append kickoff summary to TALK.md with:
+- Status
+- Decision
+- Action
+- Risks/Questions
+- Next owner
+6) Do NOT start round-robin agent handoffs yet.
 
 Context:
 - Project: ${config.project}

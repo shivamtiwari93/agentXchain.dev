@@ -58,7 +58,7 @@
     .stats-row { display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; text-align: center; }
     .stat .n { font-size: 2rem; font-weight: 800; background: linear-gradient(135deg, var(--blue-light), var(--green-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .stat .l { font-size: 0.78rem; color: var(--text-dim); margin-top: 0.1rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-    section { padding: 5rem 0; }
+    section { padding: 5rem 0; scroll-margin-top: 82px; }
     .s-alt { background: var(--bg-alt); }
     h2 { font-size: 1.9rem; font-weight: 700; margin-bottom: 0.4rem; letter-spacing: -0.015em; }
     .ss { color: var(--text-muted); font-size: 1rem; margin-bottom: 2.5rem; max-width: 520px; }
@@ -75,10 +75,33 @@
     .step { text-align: center; padding: 1.5rem 1.1rem; }
     .step-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; margin: 0 auto 0.85rem; }
     .step p { font-size: 0.84rem; }
-    .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-    .cmd { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; display: flex; gap: 0.75rem; align-items: baseline; }
-    .cmd-name { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--green-light); font-weight: 600; white-space: nowrap; min-width: 70px; }
-    .cmd-desc { font-size: 0.8rem; color: var(--text-muted); }
+    .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.9rem; }
+    .cmd {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      display: block;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .cmd:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .cmd-name {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--green-light);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      white-space: normal;
+      min-width: 0;
+      line-height: 1.35;
+    }
+    .cmd-desc {
+      display: block;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
     .tw { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
     .ct { width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 620px; }
     .ct th,.ct td { padding: 0.85rem 1.1rem; text-align: left; border-bottom: 1px solid var(--border); }
@@ -128,21 +151,39 @@
     }
     .gh-ribbon a:hover { background: linear-gradient(135deg, var(--green), var(--green-light)); box-shadow: 0 3px 14px rgba(107,181,54,0.4); }
     .gh-ribbon a svg { vertical-align: -2px; margin-right: 4px; }
+    @media (max-width: 900px) {
+      .gh-ribbon { display: none; }
+    }
     @media (max-width: 640px) {
       .gh-ribbon { top: 8px; left: 8px; width: 165px; height: 165px; }
       .gh-ribbon a { top: 24px; left: -58px; font-size: 0.62rem; padding: 5px 0; }
     }
 
     @media (max-width: 768px) {
+      .container { padding: 0 1rem; }
+      nav { padding: 0.55rem 0; }
+      nav img { height: 30px; max-width: 150px; object-fit: contain; }
       .hero { padding: 3.5rem 0 2.5rem; }
       section { padding: 3.5rem 0; }
       .grid-3,.grid-4,.cmd-grid { grid-template-columns: 1fr; }
       .nav-links a:not(.btn-nav) { display: none; }
+      .btn-nav { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+      .hero .sub { font-size: 0.98rem; }
+      .terminal { margin-top: 1.75rem; }
+      .t-code { white-space: normal; overflow-wrap: anywhere; font-size: 0.74rem; line-height: 1.7; }
       .stats-row { gap: 2rem; }
+      .f-links { gap: 1.5rem; width: 100%; justify-content: space-between; }
       .f-top { flex-direction: column; }
     }
     @media (min-width: 769px) and (max-width: 1024px) {
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
       .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .cmd-grid { grid-template-columns: repeat(2, 1fr); }
+      .hero .sub { max-width: 620px; }
+    }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 2rem; }
+      .f-links { flex-direction: column; gap: 1rem; }
     }
   </style>
 </head>

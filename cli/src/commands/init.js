@@ -183,6 +183,7 @@ export async function initCommand(opts) {
     project,
     agents,
     log: 'log.md',
+    talk_file: 'TALK.md',
     state_file: 'state.md',
     history_file: 'history.jsonl',
     rules: {
@@ -205,6 +206,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'state.md'), `# ${project} — Current State\n\n## Architecture\n\n(Agents update this each turn with current decisions.)\n\n## Active Work\n\n(What's in progress right now.)\n\n## Open Issues\n\n(Bugs, blockers, risks.)\n\n## Next Steps\n\n(What should happen next.)\n`);
   writeFileSync(join(dir, 'history.jsonl'), '');
   writeFileSync(join(dir, 'log.md'), `# ${project} — Agent Log\n\n## COMPRESSED CONTEXT\n\n(No compressed context yet.)\n\n## MESSAGE LOG\n\n(Agents append messages below this line.)\n`);
+  writeFileSync(join(dir, 'TALK.md'), `# ${project} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n## How to write entries\n\nUse this exact structure:\n\n## Turn N — <agent_id> (<role>)\n- Status:\n- Decision:\n- Action:\n- Risks/Questions:\n- Next owner:\n\n---\n\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
   const gitignorePath = join(dir, '.gitignore');
   const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/', '.agentxchain-workspaces/'];
@@ -253,7 +255,7 @@ export async function initCommand(opts) {
   console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim(`(${agentCount} agents)`)}`);
   console.log(`    ${chalk.dim('├──')} lock.json`);
   console.log(`    ${chalk.dim('├──')} state.json / state.md / history.jsonl`);
-  console.log(`    ${chalk.dim('├──')} log.md / HUMAN_TASKS.md`);
+  console.log(`    ${chalk.dim('├──')} TALK.md / log.md / HUMAN_TASKS.md`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md / PM_SIGNOFF.md`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} research/ / phases/`);

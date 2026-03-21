@@ -27,6 +27,8 @@ agentxchain kickoff
 
 Each agent runs in its own Cursor window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting. `supervise --autonudge` handles watch + nudging automatically.
 
+Agents are now required to maintain `TALK.md` as the human-readable handoff log each turn.
+
 ## Commands
 
 | Command | What it does |

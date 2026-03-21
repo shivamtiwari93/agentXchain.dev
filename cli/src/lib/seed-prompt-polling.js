@@ -1,5 +1,6 @@
-export function generatePollingPrompt(agentId, agentDef, config) {
+export function generatePollingPrompt(agentId, agentDef, config, projectRoot = '.') {
   const logFile = config.log || 'log.md';
+  const talkFile = config.talk_file || 'TALK.md';
   const maxClaims = config.rules?.max_consecutive_claims || 2;
   const verifyCmd = config.rules?.verify_command || null;
   const stateFile = config.state_file || 'state.md';
@@ -19,10 +20,12 @@ export function generatePollingPrompt(agentId, agentDef, config) {
     ? `READ THESE FILES:
 - "${stateFile}" — the living project state. Read fully. Primary context.
 - "${historyFile}" — turn history. Read last 3 lines for recent context.
+- "${talkFile}" — team handoff updates. Read the latest 5 entries.
 - lock.json — who holds the lock.
 - state.json — phase and blocked status.`
     : `READ THESE FILES:
 - "${logFile}" — the message log. Read last few messages.
+- "${talkFile}" — team handoff updates. Read the latest 5 entries.
 - lock.json — who holds the lock.
 - state.json — phase and blocked status.`;
 
@@ -32,7 +35,9 @@ a. Do your actual work: write code, create files, run commands, make decisions.
 b. Update "${stateFile}" — OVERWRITE with current project state.
 c. Append ONE line to "${historyFile}":
    {"turn": N, "agent": "${agentId}", "summary": "what you did", "files_changed": [...], "verify_result": "pass|fail|skipped", "timestamp": "ISO8601"}
-d. Update state.json if phase or blocked status changed.`
+d. Append ONE handoff entry to "${talkFile}" with:
+   Turn, Status, Decision, Action, Risks/Questions, Next owner.
+e. Update state.json if phase or blocked status changed.`
     : `WRITE (in this order):
 a. Do your actual work: write code, create files, run commands, make decisions.
 b. Append ONE message to ${logFile}:
@@ -42,7 +47,9 @@ b. Append ONE message to ${logFile}:
    **Decision:** What you decided and why.
    **Action:** What you did. Commands, files, results.
    **Next:** What the next agent should focus on.
-c. Update state.json if phase or blocked status changed.`;
+c. Append ONE handoff entry to "${talkFile}" with:
+   Turn, Status, Decision, Action, Risks/Questions, Next owner.
+d. Update state.json if phase or blocked status changed.`;
 
   const verifySection = verifyCmd
     ? `
@@ -55,6 +62,15 @@ If it PASSES: report the result. Then release.`
   return `You are "${agentId}" — ${agentDef.name}.
 
 ${agentDef.mandate}
+
+---
+
+PROJECT ROOT (strict boundary):
+- Absolute project root: "${projectRoot}"
+- You MUST work only inside this project root.
+- Do NOT scan your home directory or unrelated folders.
+- If unsure, run: pwd
+- If not in project root, run: cd "${projectRoot}"
 
 ---
 
@@ -92,6 +108,11 @@ ${turnCondition}
 ---
 
 YOUR LOOP (run forever, never exit, never say "I'm done"):
+
+0. CHECK WORKING DIRECTORY:
+   - Run: pwd
+   - If not inside "${projectRoot}", run: cd "${projectRoot}"
+   - Never run broad searches outside this project root.
 
 1. READ lock.json.
 

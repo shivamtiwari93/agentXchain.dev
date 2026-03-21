@@ -20,6 +20,7 @@ agentxchain kickoff
 ```
 
 Each agent runs in its own IDE window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting.
+Each turn also appends a handoff update to `TALK.md` so humans and agents share one canonical conversation log.
 
 ---
 
@@ -247,6 +248,7 @@ Full spec: [PROTOCOL-v3.md](PROTOCOL-v3.md)
     }
   },
   "log": "log.md",
+  "talk_file": "TALK.md",
   "state_file": "state.md",
   "history_file": "history.jsonl",
   "rules": {
