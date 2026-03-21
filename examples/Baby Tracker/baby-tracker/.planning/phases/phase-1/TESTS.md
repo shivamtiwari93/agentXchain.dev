@@ -11,6 +11,7 @@
 | A0.5 | Auth edge (QA-added) | `POST /auth/forgot-password` with missing email returns `400` | Vitest + Supertest | Pass |
 | A0.6 | Migrations (BUG-006) | Second open of same DB file does not repeat `ALTER` migrations | Vitest + temp file | Pass |
 | A0.7 | Babies PUT (BUG-007) | `PUT /babies/:id` with `name: 123` returns `400` | Vitest + Supertest | Pass |
+| A0.8 | Babies PUT edge (QA-added) | `PUT /babies/:id` with non-string `date_of_birth` returns `400` | Vitest + Supertest | Pass |
 
 ## Test Matrix
 
@@ -25,11 +26,11 @@
 | T1.7 | R1 | Login with non-existent email | API | 401 + "invalid credentials" | Pass |
 | T1.8 | R1 | Access protected route without token | API | 401 Unauthorized | Pass |
 | T1.9 | R1 | Access protected route with invalidated session token | API | 401 Unauthorized | Pass |
-| T1.10 | R1 | Session persists across browser restart | E2E | User remains logged in after restart | Partial (localStorage strategy present; no automated restart test) |
+| T1.10 | R1 | Session persists across browser restart | E2E | User remains logged in after restart | Partial (token persists in localStorage; no automated restart proof) |
 | T1.11 | R2 | Create baby with name, DOB, gender | API | 201 + baby object returned with auto-linked caregiver | Pass |
 | T1.12 | R2 | Create baby with missing required fields | API | 400 + specific field validation errors | Pass |
 | T1.13 | R2 | List babies for authenticated user | API | 200 + array of user's babies only | Pass |
-| T1.14 | R2 | Update baby profile | API | 200 + updated baby object | Pass (but wrong-type validation bug open) |
+| T1.14 | R2 | Update baby profile | API | 200 + updated baby object | Pass |
 | T1.15 | R2 | Delete baby profile (as creator) | API | 204 + baby removed from list | Pass |
 | T1.16 | R2 | Delete baby profile (not creator) | API | 403 Forbidden | Pass |
 | T1.17 | R2 | Switch between multiple babies in UI | E2E | Dashboard updates to selected baby's name/age | Pass (manual) |
@@ -58,3 +59,10 @@
 | E1.3 | Baby DOB in the future | Rejected with validation error | Pass |
 | E1.4 | Baby DOB more than 5 years ago | Accepted (toddler tracking is valid) | Untested |
 | E1.5 | Create 10+ babies for one user | All listed correctly, switcher remains usable | Untested |
+
+## Turn 10 QA verification notes
+
+- Re-verified BUG-006 fix by restarting backend against persisted DB; startup succeeded without migration crash.
+- Re-verified BUG-007 fix using manual API probes for wrong types on `name` and `gender`.
+- Re-verified BUG-008 and BUG-009 frontend fixes (forgot-password route and quick-log feedback).
+- New blocker found: UI still lacks edit/delete baby profile flows (BUG-010, P1).

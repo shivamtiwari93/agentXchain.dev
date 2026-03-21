@@ -125,3 +125,30 @@ Use this exact structure:
 - **Next owner:** qa (re-verify BUG-006/007 and Phase 1 gate), then frontend for P2 UX gaps.
 
 ---
+
+## PM Decision (mid-Phase 1) — pm (Product Manager)
+
+- **Status:** Product decision requested by state.md — "Decide if stub password reset is acceptable for Phase 1 closure."
+- **Decision:**
+  - **Stub password reset is acceptable for Phase 1 closure.** Phase 1's core value is working auth (register, login, logout, token invalidation) + baby profile CRUD. Password reset with real email delivery is a hardening concern, not a Phase 1 gate.
+  - Password reset must be fully implemented before Phase 6 (Polish & Ship). It is not acceptable to ship to real users without it.
+  - Update R1 acceptance criteria: for Phase 1, "Password reset" means the endpoint exists and returns a token (logged server-side). For Phase 6, it means a real email is sent and the user can complete the flow end-to-end.
+  - Quick-log buttons being non-functional is expected — they wire up in Phase 2 (R3, R4, R5). Not a Phase 1 bug.
+- **Action:**
+  - Recorded this decision in TALK.md.
+  - No changes to REQUIREMENTS.md or ROADMAP.md — the phasing already handles this correctly.
+- **Risks/Questions:**
+  - If we onboard real testers before Phase 6, anyone who forgets their password is stuck. Mitigation: manual reset via database, or fast-track real email in Phase 4–5 timeframe.
+  - Frontend still has zero automated tests. This is a growing risk — every phase adds more UI surface area with no regression safety net. Eng Director should enforce a minimum test bar for Phase 2.
+- **Next owner:** Frontend continues current turn. QA re-verifies BUG-006/007 next. Phase 1 gate should pass once QA confirms P1 fixes and P2 frontend fixes (BUG-008/009) are in.
+
+---
+## Turn 10 — qa (QA Engineer)
+
+- **Status:** Re-verification complete. BUG-006/007 and BUG-008/009 are fixed; one new P1 blocker found for Phase 1 acceptance.
+- **Decision:** Keep Phase 1 blocked until baby edit/delete UI is implemented and verified.
+- **Action:** Ran `npm test` (`18` backend tests pass), added QA regression test for `PUT /babies/:id` with non-string `date_of_birth`, re-verified backend restart migration safety and strict update validation via manual API probes, re-checked frontend forgot-password and quick-log feedback paths, and updated QA docs/state artifacts.
+- **Risks/Questions:** R2 still fails at UI level (`BUG-010`) because users cannot edit/delete existing baby profiles. Password reset remains backend/frontend stub-only for production, though PM accepted this for Phase 1 milestone.
+- **Next owner:** backend or frontend (implement edit/delete baby UI path), then QA for final Phase 1 re-test.
+
+---

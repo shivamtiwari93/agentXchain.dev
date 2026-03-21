@@ -2,7 +2,7 @@
 
 ## Audit checklist
 
-Last audited: 2026-03-21 (QA Turn 6)
+Last audited: 2026-03-21 (QA Turn 10)
 
 ### First impressions (< 5 seconds)
 - [x] Is it immediately clear what this product does?
@@ -36,11 +36,11 @@ Last audited: 2026-03-21 (QA Turn 6)
 - [x] Do all images have alt text? (No `<img>` elements currently)
 - [ ] Is color contrast WCAG AA compliant (4.5:1 for text)? (Not instrumented)
 - [ ] Can the entire app be navigated by keyboard? (quick-log controls need clearer focus behavior)
-- [ ] Do focus states exist for interactive elements? (quick-log cards missing explicit focus style)
+- [ ] Do focus states exist for interactive elements? (quick-log cards still rely on default focus only)
 - [x] Are headings in correct hierarchy (h1 > h2 > h3)?
 
 ### Error states
-- [ ] What does the user see when the network is offline? (backend-down handling is weak)
+- [ ] What does the user see when the network is offline? (generic/limited messaging)
 - [ ] What does the user see when the server returns 500? (no global boundary pattern)
 - [x] What does the user see on an empty state (no data yet)?
 
@@ -49,5 +49,7 @@ Last audited: 2026-03-21 (QA Turn 6)
 | # | Issue | Severity | Page/Component | Screenshot/Description | Status |
 |---|-------|----------|---------------|----------------------|--------|
 | UX-002 | `Timeline` and `Settings` routes remain dead ends with placeholder text | P2 | `App` nested routes | Route content is static "coming soon" with no next action | Open |
-| UX-005 | Forgot-password entry point is a non-functional link | P2 | `Login` | `href="#"` does not start reset flow | Open |
-| UX-006 | Quick-log cards look actionable but do not do anything | P2 | `Dashboard` | No click handler/feedback for Feed/Sleep/Diaper/Note buttons | Open |
+| UX-007 | Quick-log cards lack explicit focus-ring styling for keyboard users | P2 | `Dashboard` quick-log buttons | Buttons have hover states but no explicit `focus:` ring classes | Open |
+| UX-008 | Offline/server failure messaging is generic and not actionable | P2 | `Login`, `ForgotPassword`, `AddBaby`, `BabyContext` | Users get fallback errors like "Failed..." without recovery guidance | Open |
+| UX-005 | Forgot-password entry point is now functional | P2 | `Login` | Linked to `/forgot-password` page and submit flow works | Fixed (Turn 10) |
+| UX-006 | Quick-log cards now provide feedback on click | P2 | `Dashboard` | Buttons display "coming soon in Phase 2" alerts | Fixed (Turn 10) |

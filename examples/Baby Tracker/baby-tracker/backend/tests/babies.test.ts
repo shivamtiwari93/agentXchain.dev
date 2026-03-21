@@ -53,6 +53,23 @@ describe("Babies API", () => {
     expect(res.body.error).toMatch(/name must be a string/i);
   });
 
+  it("PUT /babies/:id rejects non-string date_of_birth", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    const token = await register(app, "bad-dob-type@example.com");
+    const created = await request(app)
+      .post("/babies")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Sam", date_of_birth: "2024-01-15", gender: "female" })
+      .expect(201);
+    const res = await request(app)
+      .put(`/babies/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ date_of_birth: 20240115 })
+      .expect(400);
+    expect(res.body.error).toMatch(/date_of_birth must be a string/i);
+  });
+
   it("PUT /babies/:id updates when user is a caregiver", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);

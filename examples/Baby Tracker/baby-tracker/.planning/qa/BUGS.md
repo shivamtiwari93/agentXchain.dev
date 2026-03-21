@@ -2,25 +2,16 @@
 
 ## Open
 
-### BUG-008
-- **Title:** Forgot-password UI is a dead link (`href="#"`) and does not trigger reset flow
-- **Severity:** P2
+### BUG-010
+- **Title:** Baby profile edit/delete UI is missing in Phase 1
+- **Severity:** P1
 - **Steps to reproduce:**
-  1. Open login page.
-  2. Click "Forgot your password?".
-- **Expected behavior:** User can start password reset flow.
-- **Actual behavior:** Link is non-functional placeholder.
-- **File and line number:** `frontend/src/pages/Login.tsx`
-
-### BUG-009
-- **Title:** Quick log cards are not actionable and have no feedback
-- **Severity:** P2
-- **Steps to reproduce:**
-  1. Log in and open dashboard with at least one baby.
-  2. Click `Feeding`, `Sleep`, `Diaper`, or `Note` quick-log card.
-- **Expected behavior:** Each action opens the corresponding logging flow or clear "coming soon" feedback.
-- **Actual behavior:** Buttons do nothing.
-- **File and line number:** `frontend/src/pages/Dashboard.tsx`
+  1. Register/login and create a baby profile from `/add-baby`.
+  2. Navigate across dashboard/settings/timeline.
+  3. Attempt to find any control to edit or delete an existing baby profile.
+- **Expected behavior:** User can edit and delete baby profiles from UI per R2 acceptance.
+- **Actual behavior:** No route or action exists for edit/delete in frontend navigation/pages.
+- **File and line number:** `frontend/src/App.tsx` (only `Dashboard`, `AddBaby`, `Timeline`, `Settings` routes)
 
 ## Fixed
 
@@ -44,10 +35,16 @@
 - **Was:** No desktop sidebar layout.
 - **Now:** Desktop/tablet sidebar implemented in `frontend/src/components/Layout.tsx`.
 
-### BUG-006 (fixed in dev — pending QA verify)
-- **Was:** Every `.sql` migration re-ran on startup → duplicate `token_version` column crash.
-- **Now:** `schema_migrations` table + backfill for legacy DBs; regression: `backend/tests/migrations.test.ts`.
+### BUG-006 (QA verified fixed on Turn 10)
+- **Verification evidence:** Restarted backend against persisted DB and confirmed clean startup (`Baby Tracker API listening on http://127.0.0.1:3000`) without duplicate-column crash.
 
-### BUG-007 (fixed in dev — pending QA verify)
-- **Was:** `PUT /babies/:id` coerced non-strings via `String(...)`.
-- **Now:** `name`, `date_of_birth`, and `gender` must be JSON strings when present; regression: `backend/tests/babies.test.ts`.
+### BUG-007 (QA verified fixed on Turn 10)
+- **Verification evidence:** `PUT /babies/:id` with `{"name":123}` returns `400 {"error":"name must be a string"}` and with `{"gender":false}` returns `400 {"error":"gender must be a string"}`.
+
+### BUG-008 (QA verified fixed on Turn 10)
+- **Was:** forgot-password was dead `href="#"`.
+- **Now:** login links to `ForgotPassword` page and submit triggers `/auth/forgot-password` flow in `frontend/src/pages/ForgotPassword.tsx`.
+
+### BUG-009 (QA verified fixed on Turn 10)
+- **Was:** quick-log cards had no action.
+- **Now:** dashboard quick-log buttons provide explicit "coming soon in Phase 2" feedback on click.
