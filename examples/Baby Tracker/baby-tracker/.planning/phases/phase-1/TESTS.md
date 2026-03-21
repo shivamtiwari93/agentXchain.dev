@@ -9,6 +9,8 @@
 | A0.3 | Babies | 401 without token, create/list, update, delete creator vs non-creator | Vitest + Supertest | Pass |
 | A0.4 | Health edge | `POST /health` returns `404` | Vitest + Supertest | Pass |
 | A0.5 | Auth edge (QA-added) | `POST /auth/forgot-password` with missing email returns `400` | Vitest + Supertest | Pass |
+| A0.6 | Migrations (BUG-006) | Second open of same DB file does not repeat `ALTER` migrations | Vitest + temp file | Pass |
+| A0.7 | Babies PUT (BUG-007) | `PUT /babies/:id` with `name: 123` returns `400` | Vitest + Supertest | Pass |
 
 ## Test Matrix
 

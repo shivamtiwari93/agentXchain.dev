@@ -36,6 +36,23 @@ describe("Babies API", () => {
     expect(list.body.babies[0].id).toBe(created.body.id);
   });
 
+  it("PUT /babies/:id rejects non-string fields (BUG-007)", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    const token = await register(app, "badtype@example.com");
+    const created = await request(app)
+      .post("/babies")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Sam", date_of_birth: "2024-01-15", gender: "female" })
+      .expect(201);
+    const res = await request(app)
+      .put(`/babies/${created.body.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: 123 })
+      .expect(400);
+    expect(res.body.error).toMatch(/name must be a string/i);
+  });
+
   it("PUT /babies/:id updates when user is a caregiver", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);

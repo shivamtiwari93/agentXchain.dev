@@ -2,26 +2,6 @@
 
 ## Open
 
-### BUG-006
-- **Title:** Backend dev server crashes on restart due non-idempotent migration
-- **Severity:** P1
-- **Steps to reproduce:**
-  1. Run `npm run dev --workspace backend` with existing SQLite file at `./data/baby-tracker.db`.
-  2. Observe startup logs.
-- **Expected behavior:** Server starts repeatedly without migration errors.
-- **Actual behavior:** Process crashes with `SqliteError: duplicate column name: token_version`.
-- **File and line number:** `backend/src/db.ts`, `backend/src/migrations/002_token_version.sql`
-
-### BUG-007
-- **Title:** Baby update endpoint accepts wrong type for `name` instead of rejecting invalid payload
-- **Severity:** P1
-- **Steps to reproduce:**
-  1. Register/login and create a baby.
-  2. Run `curl -i -X PUT http://127.0.0.1:3000/babies/<id> -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name":123}'`.
-- **Expected behavior:** `400` validation error for wrong type.
-- **Actual behavior:** `200 OK`; name is coerced to string `"123"` and saved.
-- **File and line number:** `backend/src/routes/babies.ts`
-
 ### BUG-008
 - **Title:** Forgot-password UI is a dead link (`href="#"`) and does not trigger reset flow
 - **Severity:** P2
@@ -63,3 +43,11 @@
 ### BUG-005 (QA verified fixed on Turn 6)
 - **Was:** No desktop sidebar layout.
 - **Now:** Desktop/tablet sidebar implemented in `frontend/src/components/Layout.tsx`.
+
+### BUG-006 (fixed in dev — pending QA verify)
+- **Was:** Every `.sql` migration re-ran on startup → duplicate `token_version` column crash.
+- **Now:** `schema_migrations` table + backfill for legacy DBs; regression: `backend/tests/migrations.test.ts`.
+
+### BUG-007 (fixed in dev — pending QA verify)
+- **Was:** `PUT /babies/:id` coerced non-strings via `String(...)`.
+- **Now:** `name`, `date_of_birth`, and `gender` must be JSON strings when present; regression: `backend/tests/babies.test.ts`.

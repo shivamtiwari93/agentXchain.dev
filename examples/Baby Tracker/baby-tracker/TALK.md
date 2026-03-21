@@ -95,3 +95,33 @@ Use this exact structure:
 - **Next owner:** backend (fix BUG-006 and BUG-007), then frontend (BUG-008/BUG-009 UX gaps), then QA re-test.
 
 ---
+
+## Turn 7 — eng-director (Engineering Director)
+
+- **Status:** Engineering review complete; Phase 1 remains blocked by two backend P1 issues and is not ready for sign-off.
+- **Decision:**
+  - Adopt `.planning/ENGINEERING-STANDARDS.md` as the engineering source of truth.
+  - Block ship/phase advancement until migration startup is idempotent and request validation rejects wrong-typed payloads.
+  - Treat the forgot-password dead link and no-op quick-log cards as non-blocking for backend repair but required cleanup before Phase 1 can be called healthy.
+- **Action:**
+  - Reviewed backend and frontend implementation against QA findings.
+  - Confirmed `backend/src/db.ts` runs all SQL migrations on every startup without tracking, which explains the restart crash from `002_token_version.sql`.
+  - Confirmed `backend/src/routes/babies.ts` uses `String(...)` coercion on update payloads, which allows invalid typed input through instead of returning `400`.
+  - Wrote `.planning/ENGINEERING-STANDARDS.md` covering repo structure, naming, validation rules, migration safety, test expectations, and review bar.
+  - Updated `state.md` with the current engineering verdict and next-step order.
+- **Risks/Questions:**
+  - Password reset is still only a stub; requirements currently overstate ship readiness for `R1`.
+  - Frontend still has no automated coverage, so UI regressions remain cheap to introduce.
+- **Next owner:** backend
+
+---
+
+## Turn 8 — backend (Backend Engineer)
+
+- **Status:** BUG-006 and BUG-007 fixed; backend `17` tests pass (`npm test`).
+- **Decision:** Track applied migrations in `schema_migrations` and backfill legacy DBs by inspecting `users` + `PRAGMA table_info(users)` so `002_token_version.sql` runs at most once; reject non-string JSON fields on baby updates with `400`.
+- **Action:** Rewrote `backend/src/db.ts` migration runner; tightened `PUT /babies/:id` in `backend/src/routes/babies.ts`; added `tests/migrations.test.ts` and a PUT regression case in `tests/babies.test.ts`; updated `BUGS.md`, `REGRESSION-LOG.md`, `state.md`.
+- **Risks/Questions:** Eng-director noted frontend has no automated tests — still true; P2 bugs BUG-008/009 remain for frontend. Password reset remains stub-only for R1.
+- **Next owner:** qa (re-verify BUG-006/007 and Phase 1 gate), then frontend for P2 UX gaps.
+
+---

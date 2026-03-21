@@ -15,6 +15,23 @@ function sendError(res: Response, err: unknown): void {
   res.status(status).json({ error: message });
 }
 
+function optionalStringField(
+  body: Record<string, unknown>,
+  key: string,
+): { ok: true; value: string | undefined } | { ok: false; message: string } {
+  if (!(key in body)) {
+    return { ok: true, value: undefined };
+  }
+  const v = body[key];
+  if (v === undefined) {
+    return { ok: true, value: undefined };
+  }
+  if (typeof v !== "string") {
+    return { ok: false, message: `${key} must be a string` };
+  }
+  return { ok: true, value: v.trim() };
+}
+
 function mapBaby(row: {
   id: string;
   name: string;
@@ -120,7 +137,12 @@ export function registerBabyRoutes(app: Express, db: SqliteDb, getSecret: () => 
         return;
       }
 
-      const body = req.body as { name?: string; date_of_birth?: string; gender?: string };
+      if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
+        res.status(400).json({ error: "Request body must be a JSON object" });
+        return;
+      }
+
+      const body = req.body as Record<string, unknown>;
       const current = db
         .prepare(
           `SELECT id, name, date_of_birth, gender, created_by_user_id, created_at FROM babies WHERE id = ?`,
@@ -140,10 +162,26 @@ export function registerBabyRoutes(app: Express, db: SqliteDb, getSecret: () => 
         return;
       }
 
-      const name = body.name !== undefined ? String(body.name).trim() : current.name;
+      const nameField = optionalStringField(body, "name");
+      if (!nameField.ok) {
+        res.status(400).json({ error: nameField.message });
+        return;
+      }
+      const dobField = optionalStringField(body, "date_of_birth");
+      if (!dobField.ok) {
+        res.status(400).json({ error: dobField.message });
+        return;
+      }
+      const genderField = optionalStringField(body, "gender");
+      if (!genderField.ok) {
+        res.status(400).json({ error: genderField.message });
+        return;
+      }
+
+      const name = nameField.value !== undefined ? nameField.value : current.name;
       const dateOfBirth =
-        body.date_of_birth !== undefined ? parseISODateOnly(String(body.date_of_birth).trim()) : current.date_of_birth;
-      const gender = body.gender !== undefined ? String(body.gender).trim() : current.gender;
+        dobField.value !== undefined ? parseISODateOnly(dobField.value) : current.date_of_birth;
+      const gender = genderField.value !== undefined ? genderField.value : current.gender;
       if (!name || !gender) {
         res.status(400).json({ error: "name and gender cannot be empty" });
         return;
