@@ -5,7 +5,7 @@ Maps every requirement to its test status. This is the definitive "can we ship?"
 | Req # | Requirement | Acceptance criteria | Functional test | UX test | Last tested | Status |
 |-------|-------------|-------------------|-----------------|---------|-------------|--------|
 | R1 | User Authentication | Register, login, logout, sessions, password reset | `npm test` auth suite passes; manual checks confirm register/login/logout/invalid-session behavior; forgot-password endpoint exists but is stub-only | Login/register/forgot-password screens work with validation feedback | 2026-03-21 | FAIL (password reset not end-to-end) |
-| R2 | Baby Profile Management | CRUD babies, switch baby, dashboard default | `npm test` babies suite passes (including wrong-type rejection); manual API checks confirm create/list/update/delete auth and validation | Add-baby + switcher + dashboard default work; **edit/delete UI missing** (`BUG-010`) | 2026-03-21 | FAIL |
+| R2 | Baby Profile Management | CRUD babies, switch baby, dashboard default | `npm test` babies suite passes (including wrong-type rejection); manual API checks confirm create/list/update/delete auth and validation | Edit route and delete/update controls now present (`/edit-baby/:id`), dashboard and layout expose management entry points | 2026-03-21 | PASS |
 | R3 | Feeding Tracking | Log/edit/delete feeding, timeline | Not yet implemented | Quick-log buttons only (no flow) | 2026-03-21 | FAIL |
 | R4 | Diaper Tracking | Log/edit/delete diaper, visual distinction | Not yet implemented | Static card only, no CRUD | 2026-03-21 | FAIL |
 | R5 | Sleep Tracking | Timer/manual, duration, active sleep UI | Not yet implemented | Static card only, no timer | 2026-03-21 | FAIL |

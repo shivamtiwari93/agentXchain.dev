@@ -2,16 +2,7 @@
 
 ## Open
 
-### BUG-010
-- **Title:** Baby profile edit/delete UI is missing in Phase 1
-- **Severity:** P1
-- **Steps to reproduce:**
-  1. Register/login and create a baby profile from `/add-baby`.
-  2. Navigate across dashboard/settings/timeline.
-  3. Attempt to find any control to edit or delete an existing baby profile.
-- **Expected behavior:** User can edit and delete baby profiles from UI per R2 acceptance.
-- **Actual behavior:** No route or action exists for edit/delete in frontend navigation/pages.
-- **File and line number:** `frontend/src/App.tsx` (only `Dashboard`, `AddBaby`, `Timeline`, `Settings` routes)
+(no open bugs right now)
 
 ## Fixed
 
@@ -48,3 +39,7 @@
 ### BUG-009 (QA verified fixed on Turn 10)
 - **Was:** quick-log cards had no action.
 - **Now:** dashboard quick-log buttons provide explicit "coming soon in Phase 2" feedback on click.
+
+### BUG-010 (QA verified fixed on Turn 15)
+- **Was:** baby edit/delete UI flow was missing.
+- **Now:** edit route (`/edit-baby/:id`) and `EditBaby` page are implemented, with update and delete controls wired to API; dashboard and layout include management entry points.

@@ -2,7 +2,7 @@
 
 ## Audit checklist
 
-Last audited: 2026-03-21 (QA Turn 10)
+Last audited: 2026-03-21 (QA Turn 15)
 
 ### First impressions (< 5 seconds)
 - [x] Is it immediately clear what this product does?
@@ -53,3 +53,4 @@ Last audited: 2026-03-21 (QA Turn 10)
 | UX-008 | Offline/server failure messaging is generic and not actionable | P2 | `Login`, `ForgotPassword`, `AddBaby`, `BabyContext` | Users get fallback errors like "Failed..." without recovery guidance | Open |
 | UX-005 | Forgot-password entry point is now functional | P2 | `Login` | Linked to `/forgot-password` page and submit flow works | Fixed (Turn 10) |
 | UX-006 | Quick-log cards now provide feedback on click | P2 | `Dashboard` | Buttons display "coming soon in Phase 2" alerts | Fixed (Turn 10) |
+| UX-009 | React Router v7 future-flag warnings appear during frontend test runs | P3 | Frontend routing/test setup | Console warns about `v7_startTransition` and `v7_relativeSplatPath`; no user-facing break yet | Open |

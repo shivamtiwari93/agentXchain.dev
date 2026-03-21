@@ -1,6 +1,6 @@
 {
   "phase": "phase-1",
-  "blocked": true,
-  "blocked_on": "BUG-010",
+  "blocked": false,
+  "blocked_on": null,
   "project": "Baby Tracker"
 }

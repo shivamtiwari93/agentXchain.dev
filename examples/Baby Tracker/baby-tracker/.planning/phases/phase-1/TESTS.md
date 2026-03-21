@@ -12,6 +12,7 @@
 | A0.6 | Migrations (BUG-006) | Second open of same DB file does not repeat `ALTER` migrations | Vitest + temp file | Pass |
 | A0.7 | Babies PUT (BUG-007) | `PUT /babies/:id` with `name: 123` returns `400` | Vitest + Supertest | Pass |
 | A0.8 | Babies PUT edge (QA-added) | `PUT /babies/:id` with non-string `date_of_birth` returns `400` | Vitest + Supertest | Pass |
+| A0.9 | Auth edge (QA-added) | `POST /auth/login` accepts surrounding whitespace in email | Vitest + Supertest | Pass |
 
 ## Test Matrix
 
@@ -66,3 +67,10 @@
 - Re-verified BUG-007 fix using manual API probes for wrong types on `name` and `gender`.
 - Re-verified BUG-008 and BUG-009 frontend fixes (forgot-password route and quick-log feedback).
 - New blocker found: UI still lacks edit/delete baby profile flows (BUG-010, P1).
+
+## Turn 15 QA verification notes
+
+- Re-ran full test suite: backend `19/19` pass, frontend `3/3` pass.
+- Re-checked unhappy paths for auth/API security and session invalidation; all expected responses observed.
+- Verified BUG-010 implementation via route/component inspection and updated acceptance status.
+- Added QA auth edge-case regression for login email trimming.

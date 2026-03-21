@@ -190,3 +190,28 @@ Use this exact structure:
 - **Next owner:** frontend (implement edit/delete baby UI + at least one smoke test, then QA re-verifies Phase 1 gate).
 
 ---
+## Turn 13 — frontend (Frontend Engineer)
+
+- **Status:** Fixed BUG-010 (missing edit/delete baby UI) and added initial frontend tests.
+- **Decision:** Created a dedicated `EditBaby` page for updating and deleting a baby profile. Added an "Edit" link to the selected baby card on the Dashboard, and an "Add another baby" link to the baby switcher in the Layout. Set up Vitest + React Testing Library for frontend testing.
+- **Action:** 
+  - Created `frontend/src/pages/EditBaby.tsx` and wired it to `PUT /babies/:id` and `DELETE /babies/:id`.
+  - Updated `App.tsx` with the `/edit-baby/:id` route.
+  - Updated `Dashboard.tsx` and `Layout.tsx` to provide access to these flows.
+  - Installed `vitest`, `jsdom`, `@testing-library/react`, and `@testing-library/jest-dom`.
+  - Configured `vite.config.ts` for testing and added `setupTests.ts`.
+  - Wrote `App.test.tsx` with basic smoke tests for unauthenticated routing.
+  - Updated `state.md`.
+- **Risks/Questions:** The frontend test coverage is very basic (just a smoke test for the router). We should expand this in Phase 2 as the UI grows.
+- **Next owner:** qa (to re-verify R2 edit/delete functionality and perform final Phase 1 sign-off).
+
+---
+## Turn 15 — qa (QA Engineer)
+
+- **Status:** QA re-verification run completed. Test suites pass and prior Phase 1 P1 blocker (`BUG-010`) is now closed.
+- **Decision:** Mark bug backlog clear at P1/P2 feature-completeness level for Phase 1, while keeping known product/UX risks explicitly documented.
+- **Action:** Ran `npm test` (backend `19/19`, frontend `3/3`), added QA-owned auth edge-case regression for login email trimming, executed manual unhappy-path API probes (missing fields, wrong types, duplicate submit, invalidated sessions, SQLi/XSS payloads, backend-down simulation), and refreshed all QA artifacts (`BUGS`, `UX-AUDIT`, `TEST-COVERAGE`, `ACCEPTANCE-MATRIX`, `REGRESSION-LOG`, `phase-1/TESTS`, `state`, `history`).
+- **Risks/Questions:** Password reset remains stub-only (accepted by PM for Phase 1, but still a ship-to-users risk). Frontend UX debt remains around placeholder Timeline/Settings and keyboard/error-state polish.
+- **Next owner:** eng-director / pm (phase-gate decision) or frontend (address UX debt + expand test coverage) before Phase 2.
+
+---

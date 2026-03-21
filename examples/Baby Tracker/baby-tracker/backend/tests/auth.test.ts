@@ -68,6 +68,20 @@ describe("Auth API", () => {
     expect(res.body.error).toBe("Invalid credentials");
   });
 
+  it("POST /auth/login accepts email with surrounding whitespace", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    await request(app)
+      .post("/auth/register")
+      .send({ email: "trim@example.com", password: "password123", name: "Trim" })
+      .expect(201);
+    const res = await request(app)
+      .post("/auth/login")
+      .send({ email: "  trim@example.com  ", password: "password123" })
+      .expect(200);
+    expect(res.body.user.email).toBe("trim@example.com");
+  });
+
   it("POST /auth/logout invalidates the JWT (token version bump)", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);

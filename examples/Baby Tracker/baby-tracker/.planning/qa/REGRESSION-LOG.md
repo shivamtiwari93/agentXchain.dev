@@ -13,4 +13,4 @@ Bugs that were found and fixed. Each entry has a regression test to prevent recu
 | BUG-007 | Baby update accepts wrong type payload (`name: 123`) | 6 | 8 | `backend/tests/babies.test.ts` + manual curl type-validation checks | Fixed (QA verified turn 10) |
 | BUG-008 | Forgot-password dead link in login page | 6 | 9 | Manual UI route + submit flow check for `/forgot-password` | Fixed (QA verified turn 10) |
 | BUG-009 | Quick-log buttons no-op without feedback | 6 | 9 | Manual dashboard click checks for all quick-log buttons | Fixed (QA verified turn 10) |
-| BUG-010 | Missing baby edit/delete UI controls | 10 | — | Pending: frontend tests for edit/delete paths | Open |
+| BUG-010 | Missing baby edit/delete UI controls | 10 | 13 | `frontend/src/App.tsx` route wiring + `frontend/src/pages/EditBaby.tsx` + QA verification turn 15 | Fixed (QA verified turn 15) |
