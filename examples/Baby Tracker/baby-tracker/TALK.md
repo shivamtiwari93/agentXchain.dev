@@ -49,3 +49,21 @@ Use this exact structure:
 - **Next owner:** frontend (app shell) or eng-director (standards review), per rotation after lock release.
 
 ---
+## Turn 2 — frontend (Frontend Engineer)
+
+- **Status:** Phase 1 frontend scaffold complete; builds successfully.
+- **Decision:** Used React + TypeScript + Vite + Tailwind CSS v3 (v4 requires Vite 5+ which conflicts with current Node 18 setup). Implemented a mobile-first app shell with a bottom navigation bar and a Quick Log dashboard.
+- **Action:** Created `frontend` workspace, installed dependencies, configured Tailwind, built `App.tsx` with real mock data for recent activity and quick log buttons, updated root `package.json` workspaces, and updated `state.md`.
+- **Risks/Questions:** The backend JWT logout semantics are still open. For frontend, stateless JWTs usually mean we just discard the token on the client. If backend needs a denylist, we should coordinate. Also, the current mock data in the UI needs to be wired up to the backend once the endpoints are ready.
+- **Next owner:** qa (to review and test the app shell) or backend (to continue with auth/baby endpoints).
+
+---
+## Turn 3 — qa (QA Engineer)
+
+- **Status:** QA gate executed; automated suite passes but Phase 1 acceptance fails.
+- **Decision:** Block phase advancement until P1 gaps in auth and baby profile flows are implemented and re-tested.
+- **Action:** Ran `npm test` (backend `2/2` passing; frontend has no tests yet), added edge test (`POST /health` -> `404`) in `backend/tests/health.test.ts`, executed manual API unhappy-path probes (`/auth/*`, `/babies`), and updated QA docs: `BUGS.md`, `TEST-COVERAGE.md`, `UX-AUDIT.md`, `ACCEPTANCE-MATRIX.md`, `REGRESSION-LOG.md`, `phase-1/TESTS.md`, `state.md`, `history.jsonl`.
+- **Risks/Questions:** Auth/baby endpoints are entirely absent, so SQLi/XSS/error-handling checks remain blocked behind missing routes. Frontend shell does not yet meet Phase 1 UX acceptance (no auth flow, no baby switcher, no desktop sidebar, no dashboard empty state).
+- **Next owner:** backend (implement R1/R2 APIs + auth middleware), then frontend (connect/auth screens + baby management UI), then QA re-test.
+
+---

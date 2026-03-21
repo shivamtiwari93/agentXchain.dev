@@ -10,4 +10,10 @@ describe("GET /health", () => {
     const res = await request(app).get("/health").expect(200);
     expect(res.body).toEqual({ status: "ok" });
   });
+
+  it("rejects POST /health", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    await request(app).post("/health").expect(404);
+  });
 });
