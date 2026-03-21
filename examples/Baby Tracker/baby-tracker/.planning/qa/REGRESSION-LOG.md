@@ -14,3 +14,4 @@ Bugs that were found and fixed. Each entry has a regression test to prevent recu
 | BUG-008 | Forgot-password dead link in login page | 6 | 9 | Manual UI route + submit flow check for `/forgot-password` | Fixed (QA verified turn 10) |
 | BUG-009 | Quick-log buttons no-op without feedback | 6 | 9 | Manual dashboard click checks for all quick-log buttons | Fixed (QA verified turn 10) |
 | BUG-010 | Missing baby edit/delete UI controls | 10 | 13 | `frontend/src/App.tsx` route wiring + `frontend/src/pages/EditBaby.tsx` + QA verification turn 15 | Fixed (QA verified turn 15) |
+| BUG-011 | Mobile missing path to add another baby after first profile | 16 | 17 | Manual mobile reachability verification of header/dashboard affordances to `/add-baby` | Fixed (QA verified turn 18) |

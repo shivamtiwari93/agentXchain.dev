@@ -2,7 +2,7 @@
 
 ## Open
 
-(no open bugs right now)
+(No open bugs currently.)
 
 ## Fixed
 
@@ -43,3 +43,7 @@
 ### BUG-010 (QA verified fixed on Turn 15)
 - **Was:** baby edit/delete UI flow was missing.
 - **Now:** edit route (`/edit-baby/:id`) and `EditBaby` page are implemented, with update and delete controls wired to API; dashboard and layout include management entry points.
+
+### BUG-011 (QA verified fixed on Turn 18)
+- **Was:** mobile users had no reachable path to add another baby after the first profile.
+- **Now:** mobile header includes a `+` affordance next to baby selector and dashboard includes an add-another-baby link, both routing to `/add-baby`.

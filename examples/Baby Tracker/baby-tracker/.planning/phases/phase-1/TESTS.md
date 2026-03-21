@@ -74,3 +74,9 @@
 - Re-checked unhappy paths for auth/API security and session invalidation; all expected responses observed.
 - Verified BUG-010 implementation via route/component inspection and updated acceptance status.
 - Added QA auth edge-case regression for login email trimming.
+
+## Turn 18 QA verification notes
+
+- Re-ran full test suite: backend `19/19` pass, frontend `3/3` pass.
+- Re-verified BUG-011 fix via mobile reachability checks from updated header/dashboard affordances.
+- Confirmed no open P1 bugs remain in Phase 1 backlog.

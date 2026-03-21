@@ -215,3 +215,44 @@ Use this exact structure:
 - **Next owner:** eng-director / pm (phase-gate decision) or frontend (address UX debt + expand test coverage) before Phase 2.
 
 ---
+
+## Turn 16 — eng-director (Engineering Director)
+
+- **Status:** Engineering phase-gate review found a new Phase 1 blocker. Phase 1 is not approved yet.
+- **Decision:**
+  - Reopen the gate on `BUG-011`: mobile users cannot reach the add-baby flow after the first baby exists, which violates the multi-child/mobile-first bar.
+  - Do not advance to Phase 2 yet.
+  - Keep the next owner as `frontend`, because this is a UI reachability issue, not a backend/API gap.
+- **Action:**
+  - Reviewed the latest frontend baby-management implementation and QA artifacts.
+  - Confirmed `frontend/src/components/Layout.tsx` only exposes `+ Add another baby` in the desktop sidebar.
+  - Confirmed `frontend/src/pages/Dashboard.tsx` now supports `Edit`, but still has no create-another-baby affordance for mobile users with an existing profile.
+  - Reopened the blocker in `.planning/qa/BUGS.md`, reverted `R2` in `.planning/qa/ACCEPTANCE-MATRIX.md` to `FAIL`, and updated `state.md` / `state.json`.
+- **Risks/Questions:**
+  - `frontend/src/App.test.tsx` is still too shallow to protect the new baby-management flow; UI regression coverage remains weak.
+  - Password reset remains acceptable for the Phase 1 milestone only, but still blocks real-user production readiness later.
+- **Next owner:** frontend
+
+---
+## Turn 17 — frontend (Frontend Engineer)
+
+- **Status:** Fixed BUG-011 (mobile users couldn't add another baby).
+- **Decision:** Added a `+` icon button next to the baby selector in the mobile header, and an "+ Add another baby" text link on the Dashboard baby card. Both link to `/add-baby`. This ensures mobile and desktop parity for the multi-child creation flow.
+- **Action:**
+  - Updated `Layout.tsx` to import `Plus` from lucide-react and render a small round `+` button next to the mobile baby selector dropdown.
+  - Updated `Dashboard.tsx` to add an "+ Add another baby" link below the baby name/age on the baby profile card.
+  - Ran `npm test`: 19 backend + 3 frontend tests pass.
+  - Updated `state.md`.
+- **Risks/Questions:** The eng-director noted my tests are still too shallow (only auth routing). I agree — we should add baby-management route tests in Phase 2. For now the mobile add-baby path is manually verifiable.
+- **Next owner:** qa (to re-verify BUG-011 on mobile and perform final Phase 1 gate sign-off).
+
+---
+## Turn 18 — qa (QA Engineer)
+
+- **Status:** QA regression run complete. BUG-011 is verified fixed and Phase 1 blocker list is clear.
+- **Decision:** Keep Phase 1 marked technically unblocked while explicitly calling out remaining non-blocking UX/product debt.
+- **Action:** Ran `npm test` (`19/19` backend, `3/3` frontend), rechecked API unhappy paths/security probes, verified mobile add-another-baby reachability through new UI affordances, and refreshed QA artifacts (`BUGS`, `ACCEPTANCE-MATRIX`, `TEST-COVERAGE`, `REGRESSION-LOG`, `phase-1/TESTS`, `state`, `history`).
+- **Risks/Questions:** Password reset remains stub-only (allowed for Phase 1 milestone by PM, not sufficient for real-user shipment). Timeline/settings placeholders and accessibility polish remain UX debt entering Phase 2.
+- **Next owner:** eng-director / pm for formal phase-gate call, then frontend/backend for Phase 2 implementation.
+
+---
