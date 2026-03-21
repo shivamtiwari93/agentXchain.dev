@@ -20,18 +20,9 @@ npx agentxchain init
 # 1. Create a project (interactive template selection)
 agentxchain init
 
-# 2. PM-first kickoff (human + PM align scope first)
+# 2. Run guided PM-first kickoff wizard
 cd my-project/
-agentxchain start --agent pm
-
-# 3. Launch remaining agents after planning is clear
-agentxchain start --remaining
-
-# 4. Start supervisor (watch + auto-nudge)
-agentxchain supervise --autonudge
-
-# 5. Release the human lock — agents start claiming turns
-agentxchain release
+agentxchain kickoff
 ```
 
 Each agent runs in its own Cursor window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting. `supervise --autonudge` handles watch + nudging automatically.
@@ -41,9 +32,11 @@ Each agent runs in its own Cursor window with a self-polling loop. Agents check 
 | Command | What it does |
 |---------|-------------|
 | `init` | Create project folder with agents, protocol files, and templates |
+| `kickoff` | Guided PM-first flow: PM kickoff, validate, launch remaining, release |
 | `start` | Open a Cursor window per agent + copy prompts to clipboard |
 | `supervise` | Run watcher and optional AppleScript auto-nudge together |
 | `generate` | Regenerate agent files from `agentxchain.json` |
+| `validate` | Enforce PM signoff + waves/phases + turn artifact schema |
 | `status` | Show lock holder, phase, turn number, agents |
 | `doctor` | Validate local setup (tools, trigger flow, accessibility checks) |
 | `claim` | Human takes control (agents stop claiming) |
@@ -64,9 +57,15 @@ agentxchain start --ide claude-code # Claude Code — spawns CLI processes
 ### Additional flags
 
 ```bash
+agentxchain kickoff                # guided first-run PM-first workflow
+agentxchain kickoff --ide vscode   # guided flow for VS Code mode
+agentxchain kickoff --send         # with Cursor auto-nudge auto-send enabled
+
 agentxchain start --agent pm        # launch only one specific agent
 agentxchain start --remaining       # launch all agents except PM (PM-first flow)
 agentxchain start --dry-run         # preview agents without launching
+agentxchain validate --mode kickoff # required before --remaining
+agentxchain validate --mode turn --agent pm
 agentxchain watch --daemon          # run watch in background
 agentxchain supervise --autonudge   # run watch + AppleScript nudge loop
 agentxchain supervise --autonudge --send   # auto-press Enter after paste
@@ -110,14 +109,15 @@ Notes:
 - Grant Accessibility permissions to Terminal and Cursor
 - The script watches `.agentxchain-trigger.json`, which is written by `agentxchain watch`
 - `run-autonudge.sh` now requires watch to be running first
+- The script only nudges when it finds a unique matching agent window (no random fallback)
 
 ## How it works
 
 ### Cursor mode (default)
 
-1. `agentxchain start` opens a **separate Cursor window** for each agent
+1. `agentxchain kickoff` launches PM first for human-product alignment
 2. Each window gets a unique prompt copied to clipboard
-3. Recommended first-run flow: `start --agent pm` (kickoff), then `start --remaining`
+3. Kickoff validates PM signoff and launches remaining agents
 4. Agent prompts include a self-polling loop: read `lock.json` → check if it's my turn → claim → work → release → sleep 60s → repeat
 5. Agents know their rotation order from `agentxchain.json` and only claim when the previous agent released
 6. Human can `claim` to pause and `release` to resume anytime

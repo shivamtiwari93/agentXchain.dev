@@ -75,6 +75,14 @@ These files give you project context. Read the ones relevant to your role.
 
 When your role requires it, CREATE or UPDATE these files.
 
+GET SHIT DONE FRAMEWORK (mandatory):
+- Plan in waves and phases (not ad hoc tasks).
+- Keep .planning/ROADMAP.md updated with explicit Wave and Phase sections.
+- For every active phase, maintain:
+  - .planning/phases/phase-N/PLAN.md
+  - .planning/phases/phase-N/TESTS.md
+- QA must keep acceptance matrix and UX audit current with evidence, not placeholders.
+
 ---
 
 TEAM ROTATION: ${agentIds.join(' → ')} → (repeat)
@@ -107,6 +115,10 @@ YOUR LOOP (run forever, never exit, never say "I'm done"):
    THINK: What did the previous agent do? What is most important for YOUR role? What is one risk?
 
    ${writeSection}${verifySection}
+
+   VALIDATE (mandatory before release):
+   Run: agentxchain validate --mode turn --agent ${agentId}
+   If validation fails, fix docs/artifacts first. Do NOT release.
 
 5. RELEASE the lock:
    Write lock.json: {"holder":null,"last_released_by":"${agentId}","turn_number":<previous + 1>,"claimed_at":null}

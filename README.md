@@ -14,18 +14,9 @@ npx agentxchain init
 # 1. Create a project (interactive template selection)
 npx agentxchain init
 
-# 2. PM-first kickoff
+# 2. Run the guided PM-first kickoff wizard
 cd my-project/
-agentxchain start --agent pm
-
-# 3. Launch remaining agents once PM planning docs are ready
-agentxchain start --remaining
-
-# 4. Start supervisor (watch + AppleScript auto-nudge)
-agentxchain supervise --autonudge
-
-# 5. Release the human lock — agents start claiming turns
-agentxchain release
+agentxchain kickoff
 ```
 
 Each agent runs in its own IDE window with a self-polling loop. Agents check `lock.json` every 60 seconds, claim when it's their turn, do their work, release, and go back to waiting.
@@ -78,6 +69,18 @@ agentxchain start --ide claude-code    # Claude Code — spawns CLI processes
 agentxchain start --agent pm           # launch one specific agent only
 agentxchain start --remaining          # launch all agents except PM (PM-first flow)
 agentxchain start --dry-run            # preview agents without launching
+agentxchain validate --mode kickoff    # required before --remaining
+```
+
+### `agentxchain kickoff`
+
+Guided first-run workflow for PM-first collaboration:
+1) launch PM, 2) validate signoff/docs, 3) launch remaining agents, 4) release lock, 5) optional auto-nudge supervisor.
+
+```bash
+agentxchain kickoff
+agentxchain kickoff --send             # auto-send nudges in Cursor mode
+agentxchain kickoff --ide vscode       # guided flow for VS Code
 ```
 
 ### `agentxchain generate`
@@ -168,6 +171,16 @@ Check setup health: required tools, watch/trigger status, and accessibility hint
 
 ```bash
 agentxchain doctor
+```
+
+### `agentxchain validate`
+
+Validate Get Shit Done and QA protocol artifacts.
+
+```bash
+agentxchain validate
+agentxchain validate --mode kickoff
+agentxchain validate --mode turn --agent pm
 ```
 
 ---

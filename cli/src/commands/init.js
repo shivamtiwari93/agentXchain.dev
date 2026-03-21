@@ -229,6 +229,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, '.planning', 'REQUIREMENTS.md'), `# Requirements — ${project}\n\n## v1 (MVP)\n\n(PM fills this: numbered list of requirements. Each requirement has one-sentence acceptance criteria.)\n\n| # | Requirement | Acceptance criteria | Phase | Status |\n|---|-------------|-------------------|-------|--------|\n| 1 | | | | Pending |\n\n## v2 (Future)\n\n(Out of scope for MVP. Captured here so they don't creep in.)\n\n## Out of scope\n\n(Explicitly not building.)\n`);
 
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${project}\n\n## Phases\n\n| Phase | Description | Status | Requirements |\n|-------|-------------|--------|-------------|\n| 1 | Discovery + setup | In progress | — |\n\n(PM updates this as phases are planned and completed.)\n`);
+  writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${project}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
 
   // QA structure
   writeFileSync(join(dir, '.planning', 'qa', 'TEST-COVERAGE.md'), `# Test Coverage — ${project}\n\n## Coverage Map\n\n| Feature / Area | Unit tests | Integration tests | E2E tests | Manual QA | UX audit | Status |\n|---------------|-----------|------------------|----------|----------|---------|--------|\n| (QA fills this as testing progresses) | | | | | | |\n\n## Coverage gaps\n\n(Areas with no tests or insufficient coverage.)\n`);
@@ -254,7 +255,7 @@ export async function initCommand(opts) {
   console.log(`    ${chalk.dim('├──')} state.json / state.md / history.jsonl`);
   console.log(`    ${chalk.dim('├──')} log.md / HUMAN_TASKS.md`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PROJECT.md / REQUIREMENTS.md / ROADMAP.md / PM_SIGNOFF.md`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} research/ / phases/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} qa/  ${chalk.dim('TEST-COVERAGE / BUGS / UX-AUDIT / ACCEPTANCE-MATRIX')}`);
   console.log(`    ${chalk.dim('├──')} .github/agents/  ${chalk.dim(`(${agentCount} .agent.md files)`)}`);

@@ -58,7 +58,11 @@ on nudgeAgent(agentId, turnNum)
 
   tell application "Cursor" to activate
   delay 0.5
-  my focusAgentWindow(agentId)
+  set focusedOk to my focusAgentWindow(agentId)
+  if focusedOk is false then
+    do shell script "osascript -e " & quoted form of ("display notification \"Could not identify a unique window for " & agentId & ".\" with title \"AgentXchain\"")
+    return
+  end if
   delay 0.2
 
   tell application "System Events"
@@ -85,23 +89,34 @@ on focusAgentWindow(agentId)
     tell process "Cursor"
       set frontmost to true
 
-      set didRaise to false
+      set matchedIndexes to {}
+      set idx to 0
       repeat with w in windows
+        set idx to idx + 1
         try
           set wn to name of w as text
-          if wn contains agentId then
-            perform action "AXRaise" of w
-            set didRaise to true
-            exit repeat
+          if my isStrongWindowMatch(wn, agentId) then
+            set end of matchedIndexes to idx
           end if
         end try
       end repeat
 
-      if didRaise is false then
+      if (count of matchedIndexes) = 1 then
         try
-          perform action "AXRaise" of window 1
+          set targetIndex to item 1 of matchedIndexes
+          perform action "AXRaise" of window targetIndex
+          return true
         end try
+      else if (count of matchedIndexes) > 1 then
+        return false
       end if
     end tell
   end tell
+  return false
 end focusAgentWindow
+
+on isStrongWindowMatch(windowName, agentId)
+  set tokenA to ".agentxchain-workspaces/" & agentId
+  if windowName contains tokenA then return true
+  return false
+end isStrongWindowMatch

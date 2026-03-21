@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { writeFileSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
@@ -36,6 +36,7 @@ export async function claimCommand(opts) {
     claimed_at: new Date().toISOString()
   };
   writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  clearBlockedState(root);
 
   console.log('');
   console.log(chalk.green(`  ✓ Lock claimed by ${chalk.bold('human')} (turn ${lock.turn_number})`));
@@ -74,9 +75,24 @@ export async function releaseCommand(opts) {
     claimed_at: null
   };
   writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  if (who === 'human') {
+    clearBlockedState(root);
+  }
 
   console.log('');
   console.log(chalk.green(`  ✓ Lock released by ${chalk.bold(who)} (turn ${newLock.turn_number})`));
   console.log(chalk.dim('  The Stop hook will coordinate the next agent turn in VS Code.'));
   console.log('');
+}
+
+function clearBlockedState(root) {
+  const statePath = join(root, 'state.json');
+  if (!existsSync(statePath)) return;
+  try {
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    if (state.blocked || state.blocked_on) {
+      const next = { ...state, blocked: false, blocked_on: null };
+      writeFileSync(statePath, JSON.stringify(next, null, 2) + '\n');
+    }
+  } catch {}
 }

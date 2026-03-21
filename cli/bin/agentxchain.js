@@ -15,6 +15,8 @@ import { claimCommand, releaseCommand } from '../src/commands/claim.js';
 import { generateCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
+import { validateCommand } from '../src/commands/validate.js';
+import { kickoffCommand } from '../src/commands/kickoff.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -46,6 +48,15 @@ program
   .option('--remaining', 'Launch all remaining agents except PM (for PM-first flow)')
   .option('--dry-run', 'Print what would be launched without doing it')
   .action(startCommand);
+
+program
+  .command('kickoff')
+  .description('Guided PM-first first-run workflow')
+  .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
+  .option('--send', 'When using Cursor auto-nudge, auto-send nudges')
+  .option('--interval <seconds>', 'Auto-nudge poll interval in seconds', '3')
+  .option('--no-autonudge', 'Skip auto-nudge supervisor prompt')
+  .action(kickoffCommand);
 
 program
   .command('stop')
@@ -101,5 +112,13 @@ program
   .command('doctor')
   .description('Check local environment and first-run readiness')
   .action(doctorCommand);
+
+program
+  .command('validate')
+  .description('Validate Get Shit Done docs and QA protocol artifacts')
+  .option('--mode <mode>', 'Validation mode: kickoff, turn, full', 'full')
+  .option('--agent <id>', 'Expected agent for last history entry (turn mode)')
+  .option('-j, --json', 'Output as JSON')
+  .action(validateCommand);
 
 program.parse();

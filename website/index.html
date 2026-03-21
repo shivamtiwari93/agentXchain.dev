@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AgentXchain.dev — Open-source multi-agent coordination framework</title>
-  <meta name="description" content="A software team inside your AI workspace. Distributed decision-making, divergent agents, healthy friction — how real teams work, applied to AI. Open source." />
+  <meta name="description" content="AgentXchain helps teams ship better products with AI by enforcing PM-first discovery, engineering debate, QA evidence, and human checkpoints." />
   <link rel="icon" type="image/png" href="assets/logos/agentXchain.dev_icon_only_280x280px.png" />
   <link rel="canonical" href="https://agentxchain.dev/" />
   <meta property="og:title" content="AgentXchain.dev — Software teams, not single agents" />
-  <meta property="og:description" content="Distributed decision-making. Divergent agents. Healthy friction. How real teams work, applied to AI." />
+  <meta property="og:description" content="Build products, not demos. PM-first discovery, divergent agents, QA rigor, and human checkpoints in one workflow." />
   <meta property="og:image" content="assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -154,7 +154,7 @@
     <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
     <div class="nav-links">
       <a href="#philosophy">Philosophy</a>
-      <a href="#qa">QA</a>
+      <a href="#outcomes">Outcomes</a>
       <a href="#vs">vs MCP &amp; A2A</a>
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm &#8599;</a>
     </div>
@@ -164,8 +164,8 @@
   <section class="hero"><div class="container">
     <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
     <div class="badge">Open source &middot; Coordination, not orchestration</div>
-    <h1>A <span class="ab">software team</span> inside your <span class="ag">AI workspace</span></h1>
-    <p class="sub">Not one agent doing everything. A team of agents with different perspectives, challenging each other, shipping under real constraints. The way real teams work.</p>
+    <h1>From <span class="ab">AI output</span> to <span class="ag">real product outcomes</span></h1>
+    <p class="sub">AgentXchain turns AI coding into a product workflow: PM-first discovery, explicit scope signoff, engineering challenge, QA evidence, and ship/no-ship decisions.</p>
     <div class="cta-row">
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npx agentxchain init</a>
       <a href="#philosophy" class="btn-s">Why this matters &darr;</a>
@@ -173,16 +173,15 @@
     <div class="terminal">
       <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>your workspace</span></div>
       <div class="t-code">
-        <span class="cm"># PM scopes. Dev builds. QA breaks it. Eng Director reviews.</span><br/>
-        <span class="cm"># They disagree. They challenge. They converge. They ship.</span><br/>
+        <span class="cm"># Build the right product first, then build it right.</span><br/>
+        <span class="cm"># PM alignment -> gated handoff -> verified execution.</span><br/>
         <br/>
         <span class="p">$</span> <span class="c">npx agentxchain init</span><br/>
-        <span class="o">  ✓ Created mood-tracker/ (5 agents)</span><br/>
-        <span class="p">$</span> <span class="c">agentxchain start --ide cursor</span><br/>
-        <span class="p">$</span> <span class="c">agentxchain watch</span><br/>
-        <span class="o">  10:30 FREE  Waking pm &mdash; "What should we build first?"</span><br/>
-        <span class="o">  10:35 FREE  Waking dev &mdash; "I disagree with the data model."</span><br/>
-        <span class="o">  10:42 FREE  Waking qa &mdash; "Login fails with empty email."</span>
+        <span class="o">  ✓ Created product-workspace/ (4 agents)</span><br/>
+        <span class="p">$</span> <span class="c">agentxchain kickoff</span><br/>
+        <span class="o">  ✓ PM kickoff complete. Signoff approved.</span><br/>
+        <span class="o">  ✓ Remaining agents launched.</span><br/>
+        <span class="o">  ✓ Validation passed. Team ready to execute.</span>
       </div>
     </div>
   </div></section>
@@ -221,13 +220,13 @@
   <!-- HOW IT WORKS: Brief, after philosophy -->
   <section id="how"><div class="container">
     <span class="sl sl-blue">How it works</span>
-    <h2>Define your team. Launch. The protocol handles the rest.</h2>
-    <p class="ss">One config file. One CLI. Agents coordinate via shared state &mdash; no central server.</p>
+    <h2>PM-first by default. Execution only after signoff.</h2>
+    <p class="ss">The workflow is optimized for product quality, not raw speed.</p>
     <div class="grid-4">
-      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Define</h3><p>Pick a team template or create custom agents with their own mandates and rules.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Launch</h3><p>Start agents in Cursor via Cloud API. Each gets a unique identity and seed prompt.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Watch</h3><p>The CLI referee coordinates turns, recovers from crashes, enforces verification gates.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Ship</h3><p>Agents iterate. You <code>claim</code> to step in, <code>release</code> to hand back. Ship when the QA agent says yes.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Align</h3><p>Run <code>agentxchain kickoff</code>. PM interviews you, clarifies scope, and writes explicit acceptance criteria.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Gate</h3><p>Kickoff must pass validation: PM signoff, waves/phases, planning docs, and QA structure all in place.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Execute</h3><p>Remaining agents run with explicit turns, human checkpoints, and evidence-driven QA.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Decide</h3><p>Ship when quality gates pass. Block and route to human when validation fails.</p></div>
     </div>
   </div></section>
 
@@ -283,20 +282,19 @@
     </table></div>
   </div></section>
 
-  <!-- CLI: Compact reference, not the star -->
-  <section id="cli"><div class="container">
-    <span class="sl sl-green">CLI</span>
-    <h2>A small CLI surface. That&rsquo;s the interface.</h2>
-    <p class="ss"><code>npx agentxchain init</code> to start. No accounts, no platform, no setup.</p>
+  <section id="outcomes"><div class="container">
+    <span class="sl sl-green">Product outcomes</span>
+    <h2>Why teams adopt AgentXchain</h2>
+    <p class="ss">The value is not "more agent activity." The value is better product decisions and fewer expensive misses.</p>
     <div class="cmd-grid">
-      <div class="cmd"><div class="cmd-name">init</div><div class="cmd-desc">Create project. Pick a template or define custom agents.</div></div>
-      <div class="cmd"><div class="cmd-name">start</div><div class="cmd-desc">Launch agents in Cursor, Claude Code, or VS Code.</div></div>
-      <div class="cmd"><div class="cmd-name">watch</div><div class="cmd-desc">Referee. Coordinates turns, enforces TTL, wakes agents.</div></div>
-      <div class="cmd"><div class="cmd-name">status</div><div class="cmd-desc">Lock holder, phase, turn number, agent status.</div></div>
-      <div class="cmd"><div class="cmd-name">claim</div><div class="cmd-desc">Human takes over. Pauses all agents.</div></div>
-      <div class="cmd"><div class="cmd-name">release</div><div class="cmd-desc">Hand back to agents. Wakes the next one.</div></div>
-      <div class="cmd"><div class="cmd-name">stop</div><div class="cmd-desc">Terminate all agents. Clean shutdown.</div></div>
-      <div class="cmd"><div class="cmd-name">config</div><div class="cmd-desc">Add/remove agents, change rules.</div></div>
+      <div class="cmd"><div class="cmd-name">Fewer false starts</div><div class="cmd-desc">PM-first signoff prevents teams from coding before the problem is clear.</div></div>
+      <div class="cmd"><div class="cmd-name">Higher quality releases</div><div class="cmd-desc">QA evidence and acceptance matrices make release readiness explicit.</div></div>
+      <div class="cmd"><div class="cmd-name">Real accountability</div><div class="cmd-desc">Every turn is logged, validated, and attributable to an agent role.</div></div>
+      <div class="cmd"><div class="cmd-name">Human control</div><div class="cmd-desc">Humans can claim/release lock and override at any point.</div></div>
+      <div class="cmd"><div class="cmd-name">Consistent execution</div><div class="cmd-desc">Waves, phases, and planning artifacts stay structured across projects.</div></div>
+      <div class="cmd"><div class="cmd-name">No hidden orchestration</div><div class="cmd-desc">Shared files and protocol state make behavior transparent and debuggable.</div></div>
+      <div class="cmd"><div class="cmd-name">Portable workflow</div><div class="cmd-desc">Works in Cursor, VS Code, and Claude Code without cloud lock-in.</div></div>
+      <div class="cmd"><div class="cmd-name">Faster decision loops</div><div class="cmd-desc">Healthy friction surfaces risks early instead of after launch.</div></div>
     </div>
   </div></section>
 
@@ -330,8 +328,8 @@
         <p>Distributed decision-making for AI teams. Coordination, not orchestration.</p>
       </div>
       <div class="f-links">
-        <div class="f-col"><h4>Why</h4><a href="#philosophy">Philosophy</a><a href="#qa">QA system</a><a href="#vs">vs MCP &amp; A2A</a></div>
-        <div class="f-col"><h4>Product</h4><a href="#cli">CLI</a><a href="#scaffold">Project structure</a><a href="#how">How it works</a></div>
+        <div class="f-col"><h4>Why</h4><a href="#philosophy">Philosophy</a><a href="#outcomes">Outcomes</a><a href="#vs">vs MCP &amp; A2A</a></div>
+        <div class="f-col"><h4>Product</h4><a href="#how">Workflow</a><a href="#qa">QA system</a><a href="#scaffold">Project structure</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>

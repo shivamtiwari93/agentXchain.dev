@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
+import { validateProject } from '../lib/validation.js';
 
 export async function watchCommand(opts) {
   if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
@@ -82,6 +83,20 @@ export async function watchCommand(opts) {
       }
 
       if (stateKey !== lastState) {
+        if (lock.last_released_by && config.agents?.[lock.last_released_by]) {
+          const validation = validateProject(root, config, {
+            mode: 'turn',
+            expectedAgent: lock.last_released_by
+          });
+          if (!validation.ok) {
+            log('warn', `Validation failed after ${lock.last_released_by}. Handing lock to HUMAN.`);
+            blockOnValidation(root, lock, config, validation);
+            sendNotification('Validation failed. Human action required: run agentxchain validate.');
+            lastState = null;
+            return;
+          }
+        }
+
         const next = pickNextAgent(lock, config);
         log('free', `Lock free (released by ${lock.last_released_by || 'none'}). Next: ${chalk.bold(next)}.`);
         writeTrigger(root, next, lock, config);
@@ -140,6 +155,41 @@ function writeTrigger(root, agentId, lock, config) {
     triggered_at: new Date().toISOString(),
     project: config.project
   }, null, 2) + '\n');
+}
+
+function blockOnValidation(root, lock, config, validation) {
+  const lockPath = join(root, LOCK_FILE);
+  const newLock = {
+    holder: 'human',
+    last_released_by: lock.last_released_by,
+    turn_number: lock.turn_number,
+    claimed_at: new Date().toISOString()
+  };
+  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+
+  const statePath = join(root, 'state.json');
+  if (existsSync(statePath)) {
+    try {
+      const current = JSON.parse(readFileSync(statePath, 'utf8'));
+      const message = validation.errors[0] || 'Validation failed';
+      const nextState = {
+        ...current,
+        blocked: true,
+        blocked_on: `validation: ${message}`
+      };
+      writeFileSync(statePath, JSON.stringify(nextState, null, 2) + '\n');
+    } catch {}
+  }
+
+  const logFile = config.log || 'log.md';
+  const logPath = join(root, logFile);
+  if (existsSync(logPath)) {
+    const summary = validation.errors.map(e => `- ${e}`).join('\n');
+    appendFileSync(
+      logPath,
+      `\n---\n\n### [system] (Watch Validation) | Turn ${lock.turn_number}\n\n**Status:** Validation failed after ${lock.last_released_by}.\n\n**Action:** Lock assigned to human for intervention.\n\n**Errors:**\n${summary}\n\n`
+    );
+  }
 }
 
 function log(type, msg) {

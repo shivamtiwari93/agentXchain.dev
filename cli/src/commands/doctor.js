@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock } from '../lib/config.js';
+import { validateProject } from '../lib/validation.js';
 
 export async function doctorCommand() {
   const result = loadConfig();
@@ -21,6 +22,7 @@ export async function doctorCommand() {
   checks.push(checkBinary('jq', 'jq installed (required for auto-nudge)'));
   checks.push(checkBinary('osascript', 'osascript available (required for auto-nudge, macOS)'));
   checks.push(checkPm(config));
+  checks.push(checkValidation(root, config));
   checks.push(checkWatchProcess());
   checks.push(checkTrigger(root));
   checks.push(checkAccessibility());
@@ -129,4 +131,16 @@ function checkAccessibility() {
       detail: 'Grant Accessibility to Terminal and Cursor in System Settings.'
     };
   }
+}
+
+function checkValidation(root, config) {
+  const validation = validateProject(root, config, { mode: 'kickoff' });
+  if (validation.ok) {
+    return { name: 'kickoff validation', level: 'pass', detail: 'PM signoff + waves/phases look ready' };
+  }
+  return {
+    name: 'kickoff validation',
+    level: 'warn',
+    detail: `Run \`agentxchain validate --mode kickoff\` (${validation.errors.length} issue(s))`
+  };
 }

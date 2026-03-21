@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
+import { validateProject } from '../lib/validation.js';
 
 export async function startCommand(opts) {
   const result = loadConfig();
@@ -28,6 +29,22 @@ export async function startCommand(opts) {
   if (opts.agent && opts.remaining) {
     console.log(chalk.red('  --agent and --remaining cannot be used together.'));
     process.exit(1);
+  }
+
+  if (opts.remaining) {
+    const kickoffValidation = validateProject(root, config, { mode: 'kickoff' });
+    if (!kickoffValidation.ok) {
+      console.log(chalk.red('  PM kickoff is incomplete. Cannot run --remaining yet.'));
+      console.log(chalk.dim('  Fix these first:'));
+      for (const e of kickoffValidation.errors) {
+        console.log(chalk.dim(`   - ${e}`));
+      }
+      console.log('');
+      console.log(chalk.dim('  Suggested next step: complete .planning/PM_SIGNOFF.md and roadmap waves/phases, then run:'));
+      console.log(chalk.bold('    agentxchain validate --mode kickoff'));
+      console.log('');
+      process.exit(1);
+    }
   }
 
   const launchConfig = buildLaunchConfig(config, opts);

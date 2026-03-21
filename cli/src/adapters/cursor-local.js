@@ -171,8 +171,12 @@ Actions:
 - core workflow
 - MVP boundary
 - success metric
-3) Update planning docs with concrete acceptance criteria.
-4) Do NOT start round-robin agent handoffs yet.
+3) Update planning docs with concrete acceptance criteria and Get Shit Done structure:
+- .planning/ROADMAP.md must define Waves and Phases.
+- Create .planning/phases/phase-1/PLAN.md and TESTS.md.
+4) Update .planning/PM_SIGNOFF.md:
+- Set "Approved: YES" only when human agrees kickoff is complete.
+5) Do NOT start round-robin agent handoffs yet.
 
 Context:
 - Project: ${config.project}
