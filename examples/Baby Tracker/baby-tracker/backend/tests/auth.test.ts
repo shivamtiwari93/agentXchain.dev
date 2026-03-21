@@ -86,4 +86,11 @@ describe("Auth API", () => {
     const res = await request(app).post("/auth/forgot-password").send({ email: "any@example.com" }).expect(200);
     expect(res.body.ok).toBe(true);
   });
+
+  it("POST /auth/forgot-password returns 400 when email is missing", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    const res = await request(app).post("/auth/forgot-password").send({}).expect(400);
+    expect(res.body.error).toMatch(/email is required/i);
+  });
 });

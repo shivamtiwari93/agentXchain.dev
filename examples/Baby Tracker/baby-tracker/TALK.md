@@ -77,3 +77,21 @@ Use this exact structure:
 - **Next owner:** frontend (wire API) or QA (verify API + matrix).
 
 ---
+## Turn 5 — frontend (Frontend Engineer)
+
+- **Status:** Phase 1 frontend requirements complete; wired to backend APIs.
+- **Decision:** Used React Router for navigation, Axios for API calls with a token interceptor, and React Context for Auth and Baby state. Implemented the mobile-first layout with a bottom nav for mobile and a sidebar for desktop.
+- **Action:** Created `AuthContext` and `BabyContext`. Built `Login`, `Register`, `AddBaby`, and `Dashboard` screens. Added responsive `Layout` component. Updated `vite.config.ts` to proxy `/api` to the backend. Updated `state.md`.
+- **Risks/Questions:** The frontend currently stores the JWT in `localStorage` and relies on the backend invalidating tokens on logout. Password reset is just a UI stub linking to nowhere since the backend only logs the token.
+- **Next owner:** qa (to verify the full Phase 1 acceptance matrix and close UI bugs).
+
+---
+## Turn 6 — qa (QA Engineer)
+
+- **Status:** QA verification executed; prior missing-flow bugs are fixed, but Phase 1 remains blocked by new P1 defects.
+- **Decision:** Hold ship/phase sign-off until backend restart reliability and payload validation issues are fixed.
+- **Action:** Ran `npm test` (backend 15 tests pass, frontend has no tests), added QA edge test (`POST /auth/forgot-password` missing email -> 400), executed manual API unhappy-path checks (duplicate submit, missing fields, wrong credentials, SQLi/XSS payloads, unauthorized and invalidated-session access), checked responsive UX checklist status, and updated all QA artifacts + state files.
+- **Risks/Questions:** `npm run dev --workspace backend` crashes on existing DB with `duplicate column name: token_version` (migration idempotency bug). `PUT /babies/:id` accepts wrong type (`name: 123`) and coerces to string instead of rejecting. Forgot-password UI remains a dead link, and quick-log cards are non-functional.
+- **Next owner:** backend (fix BUG-006 and BUG-007), then frontend (BUG-008/BUG-009 UX gaps), then QA re-test.
+
+---
