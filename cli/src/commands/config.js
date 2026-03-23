@@ -3,6 +3,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { loadConfig, CONFIG_FILE } from '../lib/config.js';
+import { validateConfigSchema } from '../lib/schema.js';
 
 export async function configCommand(opts) {
   const result = loadConfig();
@@ -127,6 +128,12 @@ function setSetting(config, configPath, keyValPair) {
   const key = parts[0];
   const rawVal = parts.slice(1).join(' ');
   const segments = key.split('.');
+  const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
+
+  if (segments.some(segment => forbiddenKeys.has(segment))) {
+    console.log(chalk.red('  Refusing to write reserved object path.'));
+    process.exit(1);
+  }
 
   let target = config;
   for (let i = 0; i < segments.length - 1; i++) {
@@ -145,6 +152,15 @@ function setSetting(config, configPath, keyValPair) {
   else if (!isNaN(rawVal) && rawVal !== '') val = Number(rawVal);
 
   target[lastKey] = val;
+  const validation = validateConfigSchema(config);
+  if (!validation.ok) {
+    target[lastKey] = oldVal;
+    if (oldVal === undefined) {
+      delete target[lastKey];
+    }
+    console.log(chalk.red(`  Refusing to save invalid config: ${validation.errors.join(', ')}`));
+    process.exit(1);
+  }
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
   console.log('');

@@ -8,7 +8,7 @@ function sendError(res: Response, err: unknown): void {
   const raw =
     typeof err === "object" && err && "status" in err ? Number((err as { status?: number }).status) : NaN;
   const status = Number.isFinite(raw) && raw >= 400 && raw < 600 ? raw : 500;
-  const message = err instanceof Error ? err.message : "Internal server error";
+  const message = status >= 500 ? "Internal server error" : err instanceof Error ? err.message : "Internal server error";
   if (status >= 500) {
     console.error(err);
   }

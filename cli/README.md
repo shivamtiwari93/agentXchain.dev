@@ -19,8 +19,8 @@ npx agentxchain init
 ### Happy path: net-new project
 
 ```bash
-agentxchain init
-cd my-project
+npx agentxchain init
+cd my-agentxchain-project   # default with init -y, or your chosen folder name
 agentxchain kickoff
 ```
 
@@ -52,8 +52,9 @@ Agents are now required to maintain `TALK.md` as the human-readable handoff log 
 | `doctor` | Validate local setup (tools, trigger flow, accessibility checks) |
 | `claim` | Human takes control (agents stop claiming) |
 | `release` | Hand lock back to agents |
-| `stop` | Terminate running Claude Code agent sessions |
-| `watch` | Optional: TTL safety net + status logging |
+| `stop` | Stop watch daemon, end Claude Code sessions; Cursor/VS Code chats close manually |
+| `branch` | Show/set Cursor branch override for launches |
+| `watch` | Referee loop: validates turns, writes next trigger, and force-releases stale locks |
 | `config` | View/edit config, add/remove agents, change rules |
 | `rebind` | Rebuild Cursor workspace/prompt bindings for agents |
 | `update` | Self-update CLI from npm |
@@ -66,6 +67,7 @@ agentxchain status
 agentxchain start
 agentxchain kickoff
 agentxchain stop
+agentxchain branch
 agentxchain config
 agentxchain rebind
 agentxchain generate
@@ -111,37 +113,22 @@ agentxchain rebind --agent pm       # regenerate one agent binding only
 agentxchain claim --agent pm        # guarded claim as agent turn owner
 agentxchain release --agent pm      # guarded release as agent turn owner
 agentxchain release --force         # force-release non-human holder lock
+agentxchain config --set "rules.strict_next_owner true"  # TALK-only next owner (no cyclic fallback)
 ```
 
 ## macOS auto-nudge (AppleScript)
 
-If you want the next agent chat to be nudged automatically when turn changes, use the built-in AppleScript helper.
-
-1) Keep watcher running in your project:
+**Recommended:** `agentxchain supervise --autonudge` (starts `watch` + auto-nudge together). Requires macOS, `jq`, and Accessibility for Terminal + Cursor.
 
 ```bash
-agentxchain watch
-# or use the combined command:
 agentxchain supervise --autonudge
+agentxchain supervise --autonudge --send   # paste + Enter
 ```
 
-2) In another terminal (from `cli/`), start auto-nudge:
+**Advanced (debugging):** from a checkout of `cli/`, run the script alone while `watch` is already running:
 
 ```bash
-bash scripts/run-autonudge.sh --project "/absolute/path/to/your-project"
-```
-
-By default this is **paste-only** (safe mode): it opens chat and pastes the nudge message, but does not press Enter.
-
-3) Enable auto-send once confirmed:
-
-```bash
-bash scripts/run-autonudge.sh --project "/absolute/path/to/your-project" --send
-```
-
-Stop it anytime:
-
-```bash
+bash scripts/run-autonudge.sh --project "/absolute/path/to/your-project" [--send]
 bash scripts/stop-autonudge.sh
 ```
 
@@ -166,7 +153,7 @@ Notes:
 ### VS Code mode
 
 1. `agentxchain init` generates `.github/agents/*.agent.md` (VS Code custom agents) and `.github/hooks/` (lifecycle hooks)
-2. VS Code auto-discovers agents in the Chat dropdown
+2. VS Code discovers custom agents in Chat when using **GitHub Copilot** agents (see Microsoft docs)
 3. The `Stop` hook acts as referee — hands off to next agent automatically
 
 ### Turn ownership
@@ -189,13 +176,11 @@ Agent turns are handoff-driven:
 
 ## VS Code extension (optional)
 
-For a richer UI in VS Code:
+The VSIX is not committed to the repo. Build/package from `cli/vscode-extension/` (see that folder’s README or `vsce package`), then:
 
 ```bash
-code --install-extension cli/vscode-extension/agentxchain-0.1.0.vsix
+code --install-extension /path/to/agentxchain-*.vsix
 ```
-
-Adds: status bar (lock holder, turn, phase), sidebar dashboard, command palette integration.
 
 ## Publish updates (maintainers)
 

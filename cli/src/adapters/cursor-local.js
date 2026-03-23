@@ -4,6 +4,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { generatePollingPrompt } from '../lib/seed-prompt-polling.js';
+import { filterAgents } from '../lib/filter-agents.js';
 
 export async function launchCursorLocal(config, root, opts) {
   const agents = filterAgents(config, opts.agent);
@@ -50,13 +51,22 @@ export async function launchCursorLocal(config, root, opts) {
     console.log(chalk.cyan(`  ─── Agent ${i + 1}/${total}: ${chalk.bold(id)} — ${agent.name} ───`));
     console.log('');
 
-    copyToClipboard(prompt);
-    console.log(chalk.green(`  ✓ Prompt copied to clipboard.`));
+    const copied = copyToClipboard(prompt);
+    if (copied) {
+      console.log(chalk.green('  ✓ Prompt copied to clipboard.'));
+    } else {
+      console.log(chalk.yellow('  ! Clipboard copy failed. Use the saved prompt file manually.'));
+    }
     console.log(chalk.dim(`    Saved to: .agentxchain-prompts/${id}.prompt.md`));
 
     // Open a separate Cursor window using the symlinked path
-    openCursorWindow(agentWorkspace);
-    console.log(chalk.dim(`    Cursor window opened for ${id}.`));
+    const opened = openCursorWindow(agentWorkspace);
+    if (opened) {
+      console.log(chalk.dim(`    Cursor window opened for ${id}.`));
+    } else {
+      console.log(chalk.yellow(`    Could not open Cursor window automatically for ${id}.`));
+      console.log(chalk.dim(`    Open manually: cursor --new-window "${agentWorkspace}"`));
+    }
 
     console.log('');
     console.log(`  ${chalk.bold('In the new Cursor window:')}`);
@@ -108,17 +118,6 @@ export async function launchCursorLocal(config, root, opts) {
   console.log('');
 }
 
-function filterAgents(config, specificId) {
-  if (specificId) {
-    if (!config.agents[specificId]) {
-      console.log(chalk.red(`  Agent "${specificId}" not found in agentxchain.json`));
-      process.exit(1);
-    }
-    return { [specificId]: config.agents[specificId] };
-  }
-  return config.agents;
-}
-
 function copyToClipboard(text) {
   try {
     if (process.platform === 'darwin') {
@@ -137,10 +136,12 @@ function openCursorWindow(folderPath) {
   try {
     if (process.platform === 'darwin') {
       execSync(`open -na "Cursor" --args "${folderPath}"`, { stdio: 'ignore' });
-      return;
+      return true;
     }
     execSync(`cursor --new-window "${folderPath}"`, { stdio: 'ignore' });
+    return true;
   } catch {}
+  return false;
 }
 
 function isPmLike(agentId, agentDef) {

@@ -1,8 +1,10 @@
-import { writeFileSync, existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
-import { resolveNextAgent } from '../lib/next-owner.js';
+import { safeWriteJson } from '../lib/safe-write.js';
+import { resolveExpectedClaimer } from '../lib/next-owner.js';
+import { runConfiguredVerify } from '../lib/verify-command.js';
 
 export async function claimCommand(opts) {
   const result = loadConfig();
@@ -40,7 +42,12 @@ export async function claimCommand(opts) {
     turn_number: lock.turn_number,
     claimed_at: new Date().toISOString()
   };
-  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  safeWriteJson(lockPath, newLock);
+  const verify = loadLock(root);
+  if (verify?.holder !== 'human') {
+    console.log(chalk.red(`  Claim race: expected holder=human, got ${verify?.holder}. Another process won.`));
+    process.exit(1);
+  }
   clearBlockedState(root);
 
   console.log('');
@@ -76,6 +83,11 @@ export async function releaseCommand(opts) {
   }
 
   const who = lock.holder;
+  const verifyResult = runConfiguredVerify(config, root);
+  if (!verifyResult.ok) {
+    console.log(chalk.red(`  Verification failed: ${verifyResult.command}`));
+    process.exit(1);
+  }
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
     holder: null,
@@ -83,14 +95,19 @@ export async function releaseCommand(opts) {
     turn_number: who === 'human' ? lock.turn_number : lock.turn_number + 1,
     claimed_at: null
   };
-  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  safeWriteJson(lockPath, newLock);
+  const verify = loadLock(root);
+  if (verify?.holder !== null || verify?.last_released_by !== who || verify?.turn_number !== newLock.turn_number) {
+    console.log(chalk.red('  Release race: lock.json changed unexpectedly after release attempt.'));
+    process.exit(1);
+  }
   if (who === 'human') {
     clearBlockedState(root);
   }
 
   console.log('');
   console.log(chalk.green(`  ✓ Lock released by ${chalk.bold(who)} (turn ${newLock.turn_number})`));
-  console.log(chalk.dim('  The Stop hook will coordinate the next agent turn in VS Code.'));
+  console.log(chalk.dim('  Next turn will be coordinated by the VS Code Stop hook or watch/supervise.'));
   console.log('');
 }
 
@@ -108,9 +125,23 @@ function claimAsAgent({ opts, root, config, lock }) {
   }
 
   const expected = pickNextAgent(root, lock, config);
+  if (!opts.force && config.rules?.strict_next_owner && (expected === null || expected === undefined)) {
+    console.log(chalk.red('  No next owner resolved. Add a valid `Next owner: <agent_id>` line to TALK.md, or set rules.strict_next_owner to false.'));
+    process.exit(1);
+  }
   if (!opts.force && expected && expected !== agentId) {
     console.log(chalk.red(`  Out-of-turn claim blocked. Expected: ${expected}, got: ${agentId}.`));
     process.exit(1);
+  }
+
+  const maxClaims = Number(config.rules?.max_consecutive_claims || 0);
+  if (!opts.force && maxClaims > 0 && lock.last_released_by === agentId) {
+    const consecutiveTurns = countRecentTurnsByAgent(root, config, agentId);
+    if (consecutiveTurns >= maxClaims) {
+      console.log(chalk.red(`  Consecutive-claim limit reached for "${agentId}" (${consecutiveTurns}/${maxClaims}).`));
+      console.log(chalk.dim('  Hand off to another agent or use --force for recovery only.'));
+      process.exit(1);
+    }
   }
 
   const lockPath = join(root, LOCK_FILE);
@@ -120,7 +151,14 @@ function claimAsAgent({ opts, root, config, lock }) {
     turn_number: lock.turn_number,
     claimed_at: new Date().toISOString()
   };
-  writeFileSync(lockPath, JSON.stringify(next, null, 2) + '\n');
+  safeWriteJson(lockPath, next);
+
+  const verify = loadLock(root);
+  if (verify?.holder !== agentId) {
+    console.log(chalk.red(`  Claim race: expected holder=${agentId}, got ${verify?.holder}. Another process won.`));
+    process.exit(1);
+  }
+
   console.log(chalk.green(`  ✓ Lock claimed by ${agentId} (turn ${next.turn_number})`));
 }
 
@@ -135,6 +173,12 @@ function releaseAsAgent({ opts, root, config, lock }) {
     process.exit(1);
   }
 
+  const verifyResult = runConfiguredVerify(config, root);
+  if (!verifyResult.ok) {
+    console.log(chalk.red(`  Verification failed: ${verifyResult.command}`));
+    process.exit(1);
+  }
+
   const lockPath = join(root, LOCK_FILE);
   const next = {
     holder: null,
@@ -142,12 +186,21 @@ function releaseAsAgent({ opts, root, config, lock }) {
     turn_number: lock.turn_number + 1,
     claimed_at: null
   };
-  writeFileSync(lockPath, JSON.stringify(next, null, 2) + '\n');
+  safeWriteJson(lockPath, next);
+  const verifyRelease = loadLock(root);
+  if (
+    verifyRelease?.holder !== null ||
+    verifyRelease?.last_released_by !== agentId ||
+    verifyRelease?.turn_number !== next.turn_number
+  ) {
+    console.log(chalk.red('  Release race: lock.json changed unexpectedly after release attempt.'));
+    process.exit(1);
+  }
   console.log(chalk.green(`  ✓ Lock released by ${agentId} (turn ${next.turn_number})`));
 }
 
 function pickNextAgent(root, lock, config) {
-  return resolveNextAgent(root, config, lock).next;
+  return resolveExpectedClaimer(root, config, lock).next;
 }
 
 function clearBlockedState(root) {
@@ -157,7 +210,29 @@ function clearBlockedState(root) {
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
     if (state.blocked || state.blocked_on) {
       const next = { ...state, blocked: false, blocked_on: null };
-      writeFileSync(statePath, JSON.stringify(next, null, 2) + '\n');
+      safeWriteJson(statePath, next);
     }
   } catch {}
+}
+
+function countRecentTurnsByAgent(root, config, agentId) {
+  const historyPath = join(root, config.history_file || 'history.jsonl');
+  if (!existsSync(historyPath)) return 0;
+
+  try {
+    const lines = readFileSync(historyPath, 'utf8')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+
+    let count = 0;
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+      const entry = JSON.parse(lines[i]);
+      if (entry?.agent !== agentId) break;
+      count += 1;
+    }
+    return count;
+  } catch {
+    return 0;
+  }
 }

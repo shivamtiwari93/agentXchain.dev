@@ -1,6 +1,6 @@
 {
-  "phase": "phase-1",
-  "blocked": false,
-  "blocked_on": null,
+  "phase": "phase-2",
+  "blocked": true,
+  "blocked_on": "illegal-claim: expected backend, got eng-director",
   "project": "Baby Tracker"
 }

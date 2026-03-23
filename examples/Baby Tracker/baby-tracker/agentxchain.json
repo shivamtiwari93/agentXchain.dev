@@ -31,7 +31,7 @@
     "max_consecutive_claims": 2,
     "require_message": true,
     "compress_after_words": 5000,
-    "ttl_minutes": 12,
+    "ttl_minutes": 20,
     "watch_interval_ms": 5000,
     "verify_command": "npm test"
   }

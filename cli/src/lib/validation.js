@@ -1,6 +1,23 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
+const DEFAULT_REQUIRED_FILES = [
+  '.planning/PROJECT.md',
+  '.planning/REQUIREMENTS.md',
+  '.planning/ROADMAP.md',
+  '.planning/PM_SIGNOFF.md',
+  '.planning/qa/TEST-COVERAGE.md',
+  '.planning/qa/BUGS.md',
+  '.planning/qa/UX-AUDIT.md',
+  '.planning/qa/ACCEPTANCE-MATRIX.md',
+  '.planning/qa/REGRESSION-LOG.md',
+];
+
+const PROTOCOL_FILES = [
+  'lock.json',
+  'state.json'
+];
+
 export function validateProject(root, config, opts = {}) {
   const mode = opts.mode || 'full';
   const expectedAgent = opts.expectedAgent || null;
@@ -9,22 +26,16 @@ export function validateProject(root, config, opts = {}) {
   const errors = [];
   const warnings = [];
 
-  const mustExist = [
-    '.planning/PROJECT.md',
-    '.planning/REQUIREMENTS.md',
-    '.planning/ROADMAP.md',
-    '.planning/PM_SIGNOFF.md',
-    '.planning/qa/TEST-COVERAGE.md',
-    '.planning/qa/BUGS.md',
-    '.planning/qa/UX-AUDIT.md',
-    '.planning/qa/ACCEPTANCE-MATRIX.md',
-    '.planning/qa/REGRESSION-LOG.md',
+  const customRequired = config.rules?.required_files;
+  const planningFiles = Array.isArray(customRequired) ? customRequired : DEFAULT_REQUIRED_FILES;
+
+  const dynamicFiles = [
     talkFile,
-    'state.md',
-    'history.jsonl',
-    'lock.json',
-    'state.json'
+    config.state_file || 'state.md',
+    config.history_file || 'history.jsonl',
   ];
+
+  const mustExist = [...planningFiles, ...dynamicFiles, ...PROTOCOL_FILES];
 
   for (const rel of mustExist) {
     if (!existsSync(join(root, rel))) {
@@ -98,9 +109,9 @@ function validatePhaseArtifacts(root) {
 
 function validateHistory(root, config, opts) {
   const result = { errors: [], warnings: [] };
-  const historyPath = join(root, 'history.jsonl');
+  const historyPath = join(root, config.history_file || 'history.jsonl');
   if (!existsSync(historyPath)) {
-    result.errors.push('history.jsonl is missing.');
+    result.errors.push(`${config.history_file || 'history.jsonl'} is missing.`);
     return result;
   }
 
@@ -111,9 +122,9 @@ function validateHistory(root, config, opts) {
 
   if (lines.length === 0) {
     if (opts.requireEntry) {
-      result.errors.push('history.jsonl has no entries.');
+      result.errors.push(`${config.history_file || 'history.jsonl'} has no entries.`);
     } else {
-      result.warnings.push('history.jsonl has no entries yet.');
+      result.warnings.push(`${config.history_file || 'history.jsonl'} has no entries yet.`);
     }
     return result;
   }
@@ -123,7 +134,7 @@ function validateHistory(root, config, opts) {
   try {
     last = JSON.parse(lastRaw);
   } catch {
-    result.errors.push('Last history.jsonl entry is not valid JSON.');
+    result.errors.push(`Last ${config.history_file || 'history.jsonl'} entry is not valid JSON.`);
     return result;
   }
 

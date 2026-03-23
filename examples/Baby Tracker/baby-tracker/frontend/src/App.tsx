@@ -9,9 +9,13 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import AddBaby from './pages/AddBaby';
+import EditBaby from './pages/EditBaby';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+  }
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
@@ -37,6 +41,7 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="add-baby" element={<AddBaby />} />
+        <Route path="edit-baby/:id" element={<EditBaby />} />
         <Route path="timeline" element={<div className="p-4 text-center text-gray-500">Timeline coming soon</div>} />
         <Route path="settings" element={<div className="p-4 text-center text-gray-500">Settings coming soon</div>} />
       </Route>

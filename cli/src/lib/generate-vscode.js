@@ -20,11 +20,13 @@ export function generateVSCodeFiles(dir, config) {
   }
 
   writeFileSync(join(hooksDir, 'agentxchain.json'), buildHooksJson());
+  writeFileSync(join(scriptsDir, 'agentxchain-hook-runtime.cjs'), buildHookRuntimeScript());
   writeFileSync(join(scriptsDir, 'agentxchain-session-start.sh'), SESSION_START_SCRIPT);
-  writeFileSync(join(scriptsDir, 'agentxchain-stop.sh'), buildStopScript(config));
+  writeFileSync(join(scriptsDir, 'agentxchain-stop.sh'), buildStopScript());
   writeFileSync(join(scriptsDir, 'agentxchain-pre-tool.sh'), PRE_TOOL_SCRIPT);
 
   try {
+    chmodSync(join(scriptsDir, 'agentxchain-hook-runtime.cjs'), 0o755);
     chmodSync(join(scriptsDir, 'agentxchain-session-start.sh'), 0o755);
     chmodSync(join(scriptsDir, 'agentxchain-stop.sh'), 0o755);
     chmodSync(join(scriptsDir, 'agentxchain-pre-tool.sh'), 0o755);
@@ -188,23 +190,150 @@ function buildHooksJson() {
   return JSON.stringify(hooks, null, 2) + '\n';
 }
 
-function buildStopScript(config) {
-  const verifyCmd = config.rules?.verify_command || '';
-  const verifyBlock = verifyCmd
-    ? `
-# Run verify command before allowing release
-if [ -z "$HOLDER" ] || [ "$HOLDER" = "null" ]; then
-  VERIFY_CMD="${verifyCmd}"
-  if [ -n "$VERIFY_CMD" ]; then
-    if ! eval "$VERIFY_CMD" > /dev/null 2>&1; then
-      echo '{"hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"Verification failed: '"$VERIFY_CMD"'. Fix the issue and release the lock."}}'
-      exit 0
-    fi
-  fi
-fi
-`
-    : '';
+function buildHookRuntimeScript() {
+  return `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
 
+function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), file), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function splitCommand(input) {
+  const out = [];
+  let current = '';
+  let quote = null;
+  let escape = false;
+  for (const char of String(input || '')) {
+    if (escape) {
+      current += char;
+      escape = false;
+      continue;
+    }
+    if (char === '\\\\') {
+      escape = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      } else {
+        current += char;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (/\\s/.test(char)) {
+      if (current) {
+        out.push(current);
+        current = '';
+      }
+      continue;
+    }
+    current += char;
+  }
+  if (current) out.push(current);
+  return out;
+}
+
+function normalizeVerifyCommand(config) {
+  const raw = config?.rules?.verify_command;
+  if (Array.isArray(raw) && raw.every(part => typeof part === 'string' && part.length > 0)) {
+    return raw;
+  }
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  return splitCommand(raw.trim());
+}
+
+function normalizeAgentId(raw) {
+  if (!raw) return null;
+  let value = String(raw).trim();
+  value = value.replace(/[\`*_]/g, '').trim();
+  value = value.replace(/\\(.*?\\)/g, '').trim();
+  value = value.split(/[\\s,]+/)[0];
+  value = value.toLowerCase();
+  return /^[a-z0-9_-]+$/.test(value) ? value : null;
+}
+
+function parseNextOwnerFromTalk(talkPath, validAgentIds) {
+  try {
+    const text = fs.readFileSync(path.join(process.cwd(), talkPath), 'utf8');
+    const lines = text.split(/\\r?\\n/);
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+      const line = lines[i].trim();
+      const match = line.match(/^(?:-|\\*)?\\s*\\**next\\s*owner\\**\\s*:\\s*(.+)$/i);
+      if (!match) continue;
+      const candidate = normalizeAgentId(match[1]);
+      if (candidate && validAgentIds.includes(candidate)) return candidate;
+    }
+  } catch {}
+  return null;
+}
+
+function resolveNextAgent(config, lock) {
+  const agentIds = Object.keys(config?.agents || {});
+  if (agentIds.length === 0) return null;
+  const talkFile = config?.talk_file || 'TALK.md';
+  const fromTalk = parseNextOwnerFromTalk(talkFile, agentIds);
+  if (fromTalk) return fromTalk;
+  const last = lock?.last_released_by;
+  if (last && agentIds.includes(last)) {
+    const idx = agentIds.indexOf(last);
+    return agentIds[(idx + 1) % agentIds.length];
+  }
+  return agentIds[0];
+}
+
+function outputJson(value) {
+  process.stdout.write(JSON.stringify(value));
+}
+
+const command = process.argv[2];
+const config = readJson('agentxchain.json');
+const lock = readJson('lock.json');
+const state = readJson('state.json');
+
+if (command === 'verify') {
+  const verifyArgs = normalizeVerifyCommand(config);
+  if (!verifyArgs || verifyArgs.length === 0) process.exit(0);
+  const result = spawnSync(verifyArgs[0], verifyArgs.slice(1), { stdio: 'ignore', cwd: process.cwd() });
+  process.exit(result.status === 0 ? 0 : 2);
+}
+
+if (command === 'next') {
+  process.stdout.write(resolveNextAgent(config, lock) || '');
+  process.exit(0);
+}
+
+if (command === 'next-name') {
+  const next = resolveNextAgent(config, lock);
+  process.stdout.write(next ? (config?.agents?.[next]?.name || next) : '');
+  process.exit(0);
+}
+
+if (command === 'session-start') {
+  if (!lock || !state) {
+    outputJson({ continue: true });
+    process.exit(0);
+  }
+  const context = \`AgentXchain context: Project=\${state.project || 'unknown'} | Phase=\${state.phase || 'unknown'} | Turn=\${lock.turn_number ?? 0} | Lock=\${lock.holder ?? 'none'} | Last released by=\${lock.last_released_by ?? 'none'} | Blocked=\${state.blocked ?? false}\`;
+  outputJson({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context } });
+  process.exit(0);
+}
+
+outputJson({ continue: true });
+`;
+}
+
+function buildStopScript() {
   return `#!/bin/bash
 INPUT=$(cat)
 STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
@@ -222,51 +351,28 @@ fi
 LOCK=$(cat lock.json 2>/dev/null)
 HOLDER=$(echo "$LOCK" | jq -r '.holder // empty')
 TURN=$(echo "$LOCK" | jq -r '.turn_number // 0')
-${verifyBlock}
 if [ -z "$HOLDER" ] || [ "$HOLDER" = "null" ]; then
-  LAST=$(echo "$LOCK" | jq -r '.last_released_by // empty')
+  node "./scripts/agentxchain-hook-runtime.cjs" verify >/dev/null 2>&1
+  VERIFY_STATUS=$?
+  if [ "$VERIFY_STATUS" -eq 2 ]; then
+    echo '{"hookSpecificOutput":{"hookEventName":"Stop","decision":"block","reason":"Verification failed. Fix the issue and release the lock."}}'
+    exit 0
+  fi
+fi
 
+if [ -z "$HOLDER" ] || [ "$HOLDER" = "null" ]; then
   if [ ! -f "agentxchain.json" ]; then
     echo '{"continue":true}'
     exit 0
   fi
 
-  NEXT=$(node -e "
-    const fs = require('fs');
-    const cfg = JSON.parse(fs.readFileSync('agentxchain.json','utf8'));
-    const ids = Object.keys(cfg.agents || {});
-    const lock = JSON.parse(fs.readFileSync('lock.json','utf8'));
-    const talkFile = cfg.talk_file || 'TALK.md';
-    let fromTalk = '';
-    try {
-      const talk = fs.readFileSync(talkFile, 'utf8').split(/\\r?\\n/);
-      for (let i = talk.length - 1; i >= 0; i -= 1) {
-        const m = talk[i].trim().match(/^(?:-|\\*)?\\s*\\**next\\s*owner\\**\\s*:\\s*(.+)$/i);
-        if (!m) continue;
-        let candidate = String(m[1] || '').replace(/[\\*_]/g, '').replace(/\\(.*?\\)/g, '').trim().split(/[\\s,]+/)[0].toLowerCase();
-        if (ids.includes(candidate)) { fromTalk = candidate; break; }
-      }
-    } catch {}
-    if (fromTalk) {
-      process.stdout.write(fromTalk);
-      process.exit(0);
-    }
-    const last = lock.last_released_by || '';
-    const idx = ids.indexOf(last);
-    const next = idx >= 0 ? ids[(idx + 1) % ids.length] : ids[0];
-    process.stdout.write(next || '');
-  " -- "$LAST" 2>/dev/null)
-
+  NEXT=$(node "./scripts/agentxchain-hook-runtime.cjs" next 2>/dev/null)
   if [ -z "$NEXT" ]; then
     echo '{"continue":true}'
     exit 0
   fi
 
-  NEXT_NAME=$(node -e "
-    const cfg = JSON.parse(require('fs').readFileSync('agentxchain.json','utf8'));
-    const a = cfg.agents[process.argv[1]];
-    process.stdout.write(a ? a.name : process.argv[1]);
-  " -- "$NEXT" 2>/dev/null)
+  NEXT_NAME=$(node "./scripts/agentxchain-hook-runtime.cjs" next-name 2>/dev/null)
 
   echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"Stop\\",\\"decision\\":\\"block\\",\\"reason\\":\\"Turn $TURN complete. Next agent: $NEXT ($NEXT_NAME). Read lock.json, claim it, and do your work.\\"}}"
 elif [ "$HOLDER" = "human" ]; then
@@ -278,24 +384,8 @@ fi
 }
 
 const SESSION_START_SCRIPT = `#!/bin/bash
-if [ ! -f "lock.json" ] || [ ! -f "state.json" ]; then
-  echo '{"continue":true}'
-  exit 0
-fi
-
-LOCK=$(cat lock.json 2>/dev/null)
-STATE=$(cat state.json 2>/dev/null)
-
-HOLDER=$(echo "$LOCK" | jq -r '.holder // "none"')
-TURN=$(echo "$LOCK" | jq -r '.turn_number // 0')
-LAST=$(echo "$LOCK" | jq -r '.last_released_by // "none"')
-PHASE=$(echo "$STATE" | jq -r '.phase // "unknown"')
-BLOCKED=$(echo "$STATE" | jq -r '.blocked // false')
-PROJECT=$(echo "$STATE" | jq -r '.project // "unknown"')
-
-CONTEXT="AgentXchain context: Project=$PROJECT | Phase=$PHASE | Turn=$TURN | Lock=$HOLDER | Last released by=$LAST | Blocked=$BLOCKED"
-
-echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"SessionStart\\",\\"additionalContext\\":\\"$CONTEXT\\"}}"
+CONTEXT_JSON=$(node "./scripts/agentxchain-hook-runtime.cjs" session-start 2>/dev/null || echo '{"continue":true}')
+printf '%s\n' "$CONTEXT_JSON"
 `;
 
 const PRE_TOOL_SCRIPT = `#!/bin/bash

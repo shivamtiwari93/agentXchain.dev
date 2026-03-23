@@ -9,7 +9,7 @@
   <link rel="canonical" href="https://agentxchain.dev/" />
   <meta property="og:title" content="AgentXchain.dev — Software teams, not single agents" />
   <meta property="og:description" content="Build products, not demos. PM-first discovery, divergent agents, QA rigor, and human checkpoints in one workflow." />
-  <meta property="og:image" content="assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -166,7 +166,15 @@
       .hero { padding: 3.5rem 0 2.5rem; }
       section { padding: 3.5rem 0; }
       .grid-3,.grid-4,.cmd-grid { grid-template-columns: 1fr; }
-      .nav-links a:not(.btn-nav) { display: none; }
+      .nav-links {
+        gap: 0.65rem;
+        max-width: calc(100vw - 11rem);
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+      .nav-links a:not(.btn-nav) { font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; }
       .btn-nav { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
       .hero .sub { font-size: 0.98rem; }
       .terminal { margin-top: 1.75rem; }
@@ -218,11 +226,11 @@
         <span class="cm"># PM alignment -> gated handoff -> verified execution.</span><br/>
         <br/>
         <span class="p">$</span> <span class="c">npx agentxchain init</span><br/>
-        <span class="o">  ✓ Created product-workspace/ (4 agents)</span><br/>
+        <span class="o">  ✓ Created &lt;your-folder&gt;/ (N agents from template)</span><br/>
         <span class="p">$</span> <span class="c">agentxchain kickoff</span><br/>
-        <span class="o">  ✓ PM kickoff complete. Signoff approved.</span><br/>
-        <span class="o">  ✓ Remaining agents launched.</span><br/>
-        <span class="o">  ✓ Validation passed. Team ready to execute.</span>
+        <span class="o">  ✓ PM-first kickoff launched.</span><br/>
+        <span class="o">  → Fill PM_SIGNOFF.md, ROADMAP.md, and TALK.md handoff.</span><br/>
+        <span class="o">  → Run validate, launch remaining agents, then release.</span>
       </div>
     </div>
   </div></section>
@@ -254,7 +262,7 @@
       <h3 style="font-size:1.15rem; margin-bottom:0.75rem; color:var(--green-light);">How real teams work, applied to AI</h3>
       <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75; margin-bottom:1rem;">In a real software company, the PM doesn&rsquo;t write code. The dev doesn&rsquo;t decide what to build. QA doesn&rsquo;t trust anyone else&rsquo;s test results. And there&rsquo;s always a moment where someone says &ldquo;this isn&rsquo;t good enough&rdquo; and sends it back.</p>
       <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75; margin-bottom:1rem;">That&rsquo;s what AgentXchain recreates. Not the org chart. Not the meetings. The <strong style="color:var(--text);">distributed decision-making</strong> &mdash; where no single agent has the full picture, but the team collectively does.</p>
-      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75;">Every agent is <strong style="color:var(--text);">required</strong> to challenge the previous agent&rsquo;s work. Blind agreement is forbidden by the protocol. The result is software that&rsquo;s been questioned, tested, and defended before it ships.</p>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75;">Prompts and protocol text <strong style="color:var(--text);">require</strong> agents to challenge prior work. The CLI enforces locks, handoffs, and artifact checks; model behavior still depends on following those rules.</p>
     </div>
   </div></section>
 
@@ -275,7 +283,7 @@
   <section class="s-alt" id="qa"><div class="container">
     <span class="sl sl-orange">Quality</span>
     <h2>QA that actually catches things</h2>
-    <p class="ss">Not just &ldquo;npm test passes.&rdquo; Functional testing, UX audits, accessibility, responsive design, regression tracking, and a ship/no-ship verdict every turn.</p>
+    <p class="ss">Structured QA artifacts and agent mandates (not an automated test runner). Teams configure checks; agents are prompted to produce evidence, acceptance matrices, and explicit ship readiness in docs.</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
@@ -284,13 +292,13 @@
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-        <h3>UX audit (35+ checks)</h3>
+        <h3>Comprehensive UX audit</h3>
         <p>First impressions, core flow, forms, responsive at 375/768/1440px, WCAG accessibility, error states, visual consistency.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <h3>Ship verdict every turn</h3>
-        <p>YES, YES WITH CONDITIONS, or NO + blockers. The QA agent owns the &ldquo;can we ship?&rdquo; decision. No ambiguity.</p>
+        <h3>Ship readiness in the record</h3>
+        <p>QA role is prompted to state YES / YES WITH CONDITIONS / NO + blockers in team docs each turn. Outcomes depend on agents following the protocol.</p>
       </div>
     </div>
   </div></section>
@@ -312,6 +320,7 @@
     <span class="sl sl-blue">Positioning</span>
     <h2>MCP connects tools. A2A connects agents. We coordinate teams.</h2>
     <p class="ss">Three protocols for three different problems.</p>
+    <p class="ss" style="font-size:0.85rem; margin-top:-1.5rem; margin-bottom:1rem;">Simplified positioning; see each project&rsquo;s spec for full scope.</p>
     <div class="tw"><table class="ct">
       <thead><tr><th></th><th>MCP</th><th>A2A (Google)</th><th>AgentXchain</th></tr></thead>
       <tbody>
@@ -334,7 +343,7 @@
       <div class="cmd"><div class="cmd-name">Human control</div><div class="cmd-desc">Humans can claim/release lock and override at any point.</div></div>
       <div class="cmd"><div class="cmd-name">Consistent execution</div><div class="cmd-desc">Waves, phases, and planning artifacts stay structured across projects.</div></div>
       <div class="cmd"><div class="cmd-name">No hidden orchestration</div><div class="cmd-desc">Shared files and protocol state make behavior transparent and debuggable.</div></div>
-      <div class="cmd"><div class="cmd-name">Portable workflow</div><div class="cmd-desc">Works in Cursor, VS Code, and Claude Code without cloud lock-in.</div></div>
+      <div class="cmd"><div class="cmd-name">Portable workflow</div><div class="cmd-desc">Cursor, VS Code (Copilot agents), and Claude Code — local coordination, no AgentXchain cloud.</div></div>
       <div class="cmd"><div class="cmd-name">Faster decision loops</div><div class="cmd-desc">Healthy friction surfaces risks early instead of after launch.</div></div>
     </div>
   </div></section>

@@ -36,6 +36,31 @@ describe("Babies API", () => {
     expect(list.body.babies[0].id).toBe(created.body.id);
   });
 
+  it("accepts the session cookie for authenticated baby routes", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    const reg = await request(app)
+      .post("/auth/register")
+      .send({ email: "cookie-parent@example.com", password: "password123", name: "Cookie Parent" })
+      .expect(201);
+
+    const cookie = reg.headers["set-cookie"];
+    expect(cookie).toBeTruthy();
+
+    const created = await request(app)
+      .post("/babies")
+      .set("Cookie", cookie)
+      .send({ name: "Cookie Kid", date_of_birth: "2024-01-15", gender: "female" })
+      .expect(201);
+
+    const list = await request(app)
+      .get("/babies")
+      .set("Cookie", cookie)
+      .expect(200);
+
+    expect(list.body.babies[0].id).toBe(created.body.id);
+  });
+
   it("PUT /babies/:id rejects non-string fields (BUG-007)", async () => {
     const db = openDatabase(":memory:");
     const app = createApp(db);

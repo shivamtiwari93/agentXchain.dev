@@ -1,8 +1,9 @@
 import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { generateSeedPrompt } from '../lib/seed-prompt.js';
-import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { safeWriteJson } from '../lib/safe-write.js';
+import { filterAgents } from '../lib/filter-agents.js';
 
 export async function launchClaudeCodeAgents(config, root, opts) {
   const agents = filterAgents(config, opts.agent);
@@ -28,22 +29,14 @@ export async function launchClaudeCodeAgents(config, root, opts) {
   }
 
   if (launched.length > 0) {
-    const sessionFile = JSON.stringify({ launched, started_at: new Date().toISOString(), ide: 'claude-code' }, null, 2);
-    writeFileSync(join(root, '.agentxchain-session.json'), sessionFile + '\n');
+    safeWriteJson(join(root, '.agentxchain-session.json'), {
+      launched,
+      started_at: new Date().toISOString(),
+      ide: 'claude-code'
+    });
     console.log('');
     console.log(chalk.dim(`  Session saved to .agentxchain-session.json`));
   }
 
   return launched;
-}
-
-function filterAgents(config, specificId) {
-  if (specificId) {
-    if (!config.agents[specificId]) {
-      console.log(chalk.red(`  Agent "${specificId}" not found in agentxchain.json`));
-      process.exit(1);
-    }
-    return { [specificId]: config.agents[specificId] };
-  }
-  return config.agents;
 }

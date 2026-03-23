@@ -1,6 +1,6 @@
 {
   "name": "agentxchain",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "description": "CLI for AgentXchain — multi-agent coordination in your IDE",
   "type": "module",
   "bin": {
@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "dev": "node bin/agentxchain.js",
+    "test": "node --test test/*.test.js",
     "build:macos": "bun build bin/agentxchain.js --compile --target=bun-darwin-arm64 --outfile=dist/agentxchain-macos-arm64",
     "build:linux": "bun build bin/agentxchain.js --compile --target=bun-linux-x64 --outfile=dist/agentxchain-linux-x64",
     "publish:npm": "bash scripts/publish-npm.sh"
@@ -43,6 +44,6 @@
     "ora": "^8.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.17.0 || >=20.5.0"
   }
 }

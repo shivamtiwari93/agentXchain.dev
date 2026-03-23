@@ -1,9 +1,52 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname, parse as pathParse, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
+
+// Load .env from AgentXchain project root when available, then cwd as fallback.
+(function loadDotenv() {
+  const cwd = process.cwd();
+  const projectRoot = findNearestProjectRoot(cwd);
+  const envPaths = [];
+
+  if (projectRoot) {
+    envPaths.push(join(projectRoot, '.env'));
+  }
+  if (!projectRoot || projectRoot !== cwd) {
+    envPaths.push(join(cwd, '.env'));
+  }
+
+  for (const envPath of envPaths) {
+    if (!existsSync(envPath)) continue;
+    try {
+      const content = readFileSync(envPath, 'utf8');
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        let val = trimmed.slice(eqIdx + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) process.env[key] = val;
+      }
+    } catch {}
+  }
+})();
+
+function findNearestProjectRoot(startDir) {
+  let dir = resolve(startDir);
+  const { root: fsRoot } = pathParse(dir);
+  while (true) {
+    if (existsSync(join(dir, 'agentxchain.json'))) return dir;
+    if (dir === fsRoot) return null;
+    dir = join(dir, '..');
+  }
+}
 import { initCommand } from '../src/commands/init.js';
 import { statusCommand } from '../src/commands/status.js';
 import { startCommand } from '../src/commands/start.js';
@@ -18,6 +61,7 @@ import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
+import { branchCommand } from '../src/commands/branch.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -61,7 +105,7 @@ program
 
 program
   .command('stop')
-  .description('Stop all running agent sessions')
+  .description('Stop watch daemon and Claude Code sessions; close Cursor/VS Code chats manually')
   .action(stopCommand);
 
 program
@@ -72,6 +116,13 @@ program
   .option('--set <key_value>', 'Set a config value (e.g. --set "rules.max_consecutive_claims 3")')
   .option('-j, --json', 'Output config as JSON')
   .action(configCommand);
+
+program
+  .command('branch [name]')
+  .description('Show or set the Cursor branch used for launches')
+  .option('--use-current', 'Set override to the current local git branch')
+  .option('--unset', 'Remove override and follow the active git branch automatically')
+  .action(branchCommand);
 
 program
   .command('generate')

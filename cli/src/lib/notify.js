@@ -1,24 +1,26 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+
+function sanitize(str) {
+  return String(str).replace(/[\\"]/g, ' ').replace(/'/g, ' ').slice(0, 200);
+}
 
 export function notifyHuman(message, title = 'AgentXchain') {
-  // Terminal bell
   process.stdout.write('\x07');
 
-  // macOS notification
+  const safeMsg = sanitize(message);
+  const safeTitle = sanitize(title);
+
   if (process.platform === 'darwin') {
     try {
-      execSync(`osascript -e 'display notification "${message}" with title "${title}"'`);
-    } catch {
-      // osascript not available or permission denied
-    }
+      execFileSync('osascript', [
+        '-e', `display notification "${safeMsg}" with title "${safeTitle}"`
+      ], { stdio: 'ignore' });
+    } catch {}
   }
 
-  // Linux notification
   if (process.platform === 'linux') {
     try {
-      execSync(`notify-send "${title}" "${message}"`);
-    } catch {
-      // notify-send not available
-    }
+      execFileSync('notify-send', [safeTitle, safeMsg], { stdio: 'ignore' });
+    } catch {}
   }
 }

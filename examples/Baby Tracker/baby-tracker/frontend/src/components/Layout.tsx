@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useBaby } from '../context/BabyContext';
-import { Home, Clock, Settings, LogOut } from 'lucide-react';
+import { Home, Clock, Settings, LogOut, Plus } from 'lucide-react';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -42,6 +42,12 @@ export default function Layout() {
                 <option key={baby.id} value={baby.id}>{baby.name}</option>
               ))}
             </select>
+            <Link 
+              to="/add-baby" 
+              className="mt-3 block w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              + Add another baby
+            </Link>
           </div>
         )}
 
@@ -86,15 +92,24 @@ export default function Layout() {
       {/* Mobile Header */}
       <header className="md:hidden bg-white shadow-sm px-4 py-3 sticky top-0 z-10 flex justify-between items-center">
         {babies.length > 0 ? (
-          <select
-            value={selectedBaby?.id || ''}
-            onChange={(e) => setSelectedBabyId(e.target.value)}
-            className="text-lg font-bold text-gray-900 border-none bg-transparent focus:ring-0 p-0"
-          >
-            {babies.map(baby => (
-              <option key={baby.id} value={baby.id}>{baby.name}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedBaby?.id || ''}
+              onChange={(e) => setSelectedBabyId(e.target.value)}
+              className="text-lg font-bold text-gray-900 border-none bg-transparent focus:ring-0 p-0"
+            >
+              {babies.map(baby => (
+                <option key={baby.id} value={baby.id}>{baby.name}</option>
+              ))}
+            </select>
+            <Link
+              to="/add-baby"
+              className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 hover:bg-indigo-200 flex-shrink-0"
+              aria-label="Add another baby"
+            >
+              <Plus className="h-4 w-4" />
+            </Link>
+          </div>
         ) : (
           <h1 className="text-lg font-bold text-indigo-600">Baby Tracker</h1>
         )}

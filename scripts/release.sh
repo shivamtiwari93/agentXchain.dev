@@ -28,19 +28,66 @@ fi
 
 # Run verify_command if configured
 if [[ -f "$CONFIG" ]]; then
-  VERIFY_CMD=$(node -e "
-    const c=JSON.parse(require('fs').readFileSync('$CONFIG','utf8'));
-    console.log(c.rules?.verify_command || '');
-  " 2>/dev/null)
+  if ! node <<'EOF' "$CONFIG"
+const fs = require('fs');
+const { spawnSync } = require('child_process');
 
-  if [[ -n "$VERIFY_CMD" ]]; then
-    echo "Running verify: $VERIFY_CMD"
-    if eval "$VERIFY_CMD"; then
-      echo "Verify passed."
-    else
-      echo "Error: Verify command failed. Fix the issue before releasing."
-      exit 1
-    fi
+function splitCommand(input) {
+  const out = [];
+  let current = '';
+  let quote = null;
+  let escape = false;
+  for (const char of String(input || '')) {
+    if (escape) {
+      current += char;
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = null;
+      else current += char;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (/\s/.test(char)) {
+      if (current) {
+        out.push(current);
+        current = '';
+      }
+      continue;
+    }
+    current += char;
+  }
+  if (current) out.push(current);
+  return out;
+}
+
+const configPath = process.argv[2];
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+const raw = config.rules?.verify_command;
+const args = Array.isArray(raw) ? raw : splitCommand(raw);
+
+if (!args || args.length === 0) {
+  process.exit(0);
+}
+
+console.log(`Running verify: ${args.join(' ')}`);
+const result = spawnSync(args[0], args.slice(1), { stdio: 'inherit' });
+if (result.status !== 0) {
+  process.exit(result.status || 1);
+}
+console.log('Verify passed.');
+EOF
+  then
+    echo "Error: Verify command failed. Fix the issue before releasing."
+    exit 1
   fi
 fi
 

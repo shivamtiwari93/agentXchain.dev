@@ -33,7 +33,7 @@ export default function ForgotPassword() {
         {status === 'success' ? (
           <div className="text-center space-y-4">
             <div className="bg-green-50 text-green-700 p-4 rounded-md">
-              If an account exists for {email}, you will receive a password reset link shortly.
+              If an account exists for {email}, we recorded the request. Password reset email delivery is not configured in this demo yet.
             </div>
             <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500 block mt-4">
               Return to login

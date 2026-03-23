@@ -19,19 +19,15 @@ TURN MODEL (watch-driven)
 - Wait until you are prompted that it is your turn.
 
 WHEN PROMPTED FOR A TURN
-1. CLAIM lock.json with `holder="{AGENT_ID}"` and `claimed_at=now`; re-read to confirm.
-2. Read `state.json` + current state/history docs.
+1. CLAIM with `agentxchain claim --agent {AGENT_ID}`. If the claim is blocked, stop and wait.
+2. Read `state.json`, the current state/history docs, and the latest handoff in `TALK.md`.
 3. Do your role-specific work (code/tests/analysis) per your mandate.
 4. Write your outputs:
    - Update state docs (`state.md`/`history.jsonl` or `log.md` depending on config).
+   - Append a handoff entry to `TALK.md` with `Next owner: <agent_id>`.
    - Update `state.json` if phase/block status changed.
 5. If `verify_command` exists in config rules, run it and fix failures before release.
-6. RELEASE lock.json with:
-   - `holder = null`
-   - `last_released_by = "{AGENT_ID}"`
-   - `turn_number = previous + 1`
-   - `claimed_at = null`
-   Release must be the final write.
+6. RELEASE with `agentxchain release --agent {AGENT_ID}`. Release must be the final write.
 
 RULES
 - Never write files or code without holding the lock. Reading is always allowed.

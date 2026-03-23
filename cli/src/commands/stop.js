@@ -2,8 +2,10 @@ import { readFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
+import { getWatchPid } from './watch.js';
 
 const SESSION_FILE = '.agentxchain-session.json';
+const WATCH_PID_FILE = '.agentxchain-watch.pid';
 
 export async function stopCommand() {
   const result = loadConfig();
@@ -11,47 +13,77 @@ export async function stopCommand() {
 
   const { root } = result;
   const sessionPath = join(root, SESSION_FILE);
+  const watchPidPath = join(root, WATCH_PID_FILE);
+  const watchPid = getWatchPid(root);
+  let didStopAnything = false;
 
-  if (!existsSync(sessionPath)) {
-    console.log(chalk.yellow('  No active session found.'));
-    console.log(chalk.dim('  If agents are running in VS Code / Cursor, close their chat sessions manually.'));
-    return;
+  if (watchPid) {
+    try {
+      process.kill(watchPid, 'SIGTERM');
+      didStopAnything = true;
+      console.log('');
+      console.log(chalk.green(`  ✓ Stopped watch process (PID: ${watchPid})`));
+      console.log('');
+    } catch (err) {
+      if (err.code === 'ESRCH') {
+        if (existsSync(watchPidPath)) {
+          try { unlinkSync(watchPidPath); } catch {}
+        }
+      } else {
+        console.log(chalk.red(`  ✗ Could not stop watch process (PID: ${watchPid}): ${err.message}`));
+      }
+    }
+  } else if (existsSync(watchPidPath)) {
+    // Stale PID file from an unexpected shutdown.
+    try {
+      unlinkSync(watchPidPath);
+      console.log(chalk.dim('  Removed stale watch PID file.'));
+    } catch {}
   }
 
-  let session;
-  try {
-    session = JSON.parse(readFileSync(sessionPath, 'utf8'));
-  } catch {
-    console.log(chalk.yellow('  Could not read session file.'));
-    return;
-  }
+  if (existsSync(sessionPath)) {
+    let session;
+    try {
+      session = JSON.parse(readFileSync(sessionPath, 'utf8'));
+    } catch {
+      console.log(chalk.yellow('  Could not read session file.'));
+      return;
+    }
 
-  console.log('');
-  console.log(chalk.bold(`  Stopping ${session.launched?.length || 0} agents (${session.ide || 'unknown'})`));
-  console.log('');
+    console.log('');
+    console.log(chalk.bold(`  Stopping ${session.launched?.length || 0} agents (${session.ide || 'unknown'})`));
+    console.log('');
 
-  if (session.ide === 'claude-code') {
-    for (const agent of (session.launched || [])) {
-      if (agent.pid) {
-        try {
-          process.kill(agent.pid, 'SIGTERM');
-          console.log(chalk.green(`  ✓ Sent SIGTERM to ${agent.id} (PID: ${agent.pid})`));
-        } catch (err) {
-          if (err.code === 'ESRCH') {
-            console.log(chalk.dim(`  ${agent.id} (PID: ${agent.pid}) — already stopped`));
-          } else {
-            console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
+    if (session.ide === 'claude-code') {
+      for (const agent of (session.launched || [])) {
+        if (agent.pid) {
+          try {
+            process.kill(agent.pid, 'SIGTERM');
+            didStopAnything = true;
+            console.log(chalk.green(`  ✓ Sent SIGTERM to ${agent.id} (PID: ${agent.pid})`));
+          } catch (err) {
+            if (err.code === 'ESRCH') {
+              console.log(chalk.dim(`  ${agent.id} (PID: ${agent.pid}) — already stopped`));
+            } else {
+              console.log(chalk.red(`  ✗ ${agent.id}: ${err.message}`));
+            }
           }
         }
       }
+    } else {
+      console.log(chalk.dim('  For VS Code / Cursor agents, close the chat sessions manually.'));
     }
-  } else {
-    console.log(chalk.dim('  For VS Code / Cursor agents, close the chat sessions manually.'));
+
+    unlinkSync(sessionPath);
+    console.log('');
+    console.log(chalk.dim('  Session file removed.'));
+    console.log(chalk.green('  Done.'));
+    console.log('');
+    return;
   }
 
-  unlinkSync(sessionPath);
-  console.log('');
-  console.log(chalk.dim('  Session file removed.'));
-  console.log(chalk.green('  Done.'));
-  console.log('');
+  if (!didStopAnything) {
+    console.log(chalk.yellow('  No active session found.'));
+    console.log(chalk.dim('  If agents are running in VS Code / Cursor, close their chat sessions manually.'));
+  }
 }

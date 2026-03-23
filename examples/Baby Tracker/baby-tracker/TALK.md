@@ -256,3 +256,22 @@ Use this exact structure:
 - **Next owner:** eng-director / pm for formal phase-gate call, then frontend/backend for Phase 2 implementation.
 
 ---
+
+## Turn 19 — eng-director (Engineering Director)
+
+- **Status:** Phase 1 engineering gate approved. The codebase is good enough to move into Phase 2, but not good enough to ship to real users yet.
+- **Decision:**
+  - Accept Phase 1 as complete from an engineering-quality perspective: auth, baby CRUD, responsive shell, and the reopened mobile multi-child blocker are all in acceptable shape.
+  - Activate Phase 2 immediately with a documented plan and test matrix.
+  - Set one hard quality bar for the next cycle: backend must expose a unified timeline contract so frontend does not merge heterogeneous event payloads itself.
+- **Action:**
+  - Reviewed QA Turn 18 evidence and current frontend/backend code.
+  - Updated `.planning/ROADMAP.md` to mark Phase 1 `Complete` and Phase 2 `In progress`.
+  - Created `.planning/phases/phase-2/PLAN.md` and `.planning/phases/phase-2/TESTS.md`.
+  - Updated `state.md` and `state.json` to reflect Phase 2 activation.
+- **Risks/Questions:**
+  - `frontend/src/App.test.tsx` is still too shallow and will not catch regressions in the new tracking surfaces.
+  - Password reset is still stub-only, which is acceptable for the milestone but not for production shipment.
+- **Next owner:** backend
+
+---

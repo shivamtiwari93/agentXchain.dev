@@ -59,8 +59,31 @@ on nudgeAgent(agentId, turnNum, dispatchKey)
   set nudgeText to "Hey " & agentId & ", it is your turn now (turn " & turnNum & "). Read lock.json, claim the lock, check state.md + history.jsonl + planning docs, do your work, and release lock."
   set the clipboard to nudgeText
 
+  tell application "System Events"
+    if not (exists process "Cursor") then
+      if lastFailedDispatch is not dispatchKey then
+        do shell script "osascript -e " & quoted form of ("display notification \"Cursor is not running.\" with title \"AgentXchain\"")
+        set lastFailedDispatch to dispatchKey
+      end if
+      return false
+    end if
+  end tell
+
   tell application "Cursor" to activate
-  delay 0.5
+  delay 0.6
+
+  -- Verify Cursor is actually frontmost before sending keystrokes
+  tell application "System Events"
+    set frontApp to name of first application process whose frontmost is true
+    if frontApp is not "Cursor" then
+      if lastFailedDispatch is not dispatchKey then
+        do shell script "osascript -e " & quoted form of ("display notification \"Cursor lost focus, skipping nudge for " & agentId & ".\" with title \"AgentXchain\"")
+        set lastFailedDispatch to dispatchKey
+      end if
+      return false
+    end if
+  end tell
+
   set focusedOk to my focusAgentWindow(agentId)
   if focusedOk is false then
     if lastFailedDispatch is not dispatchKey then
@@ -69,18 +92,22 @@ on nudgeAgent(agentId, turnNum, dispatchKey)
     end if
     return false
   end if
-  delay 0.2
+  delay 0.3
 
+  -- Re-verify focus before keystrokes
   tell application "System Events"
-    if not (exists process "Cursor") then return
+    set frontApp to name of first application process whose frontmost is true
+    if frontApp is not "Cursor" then
+      return false
+    end if
 
     tell process "Cursor"
       set frontmost to true
       keystroke "l" using {command down}
-      delay 0.2
+      delay 0.3
       keystroke "v" using {command down}
       if autoSend then
-        delay 0.15
+        delay 0.2
         key code 36
       end if
     end tell

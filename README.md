@@ -14,7 +14,7 @@ npx agentxchain init
 
 ```bash
 npx agentxchain init
-cd my-project
+cd my-agentxchain-project   # default folder with init -y; or the folder name you chose
 agentxchain kickoff
 ```
 
@@ -42,15 +42,17 @@ npx agentxchain init
 
 **Install globally:**
 ```bash
-sudo npm install -g agentxchain
+npm install -g agentxchain
 agentxchain --version
 ```
+
+Requires **Node.js 18.17+ or 20.5+** (avoids dependency engine warnings). If `npm install -g` fails with permission errors, use `sudo npm install -g agentxchain@latest` or a user npm prefix; `agentxchain update` prints the same hints on failure.
 
 **Update:**
 ```bash
 agentxchain update
 # or
-sudo npm install -g agentxchain@latest
+npm install -g agentxchain@latest
 ```
 
 ---
@@ -66,6 +68,7 @@ agentxchain start
 agentxchain kickoff
 agentxchain stop
 agentxchain config
+agentxchain branch
 agentxchain rebind
 agentxchain generate
 agentxchain watch
@@ -173,7 +176,7 @@ agentxchain watch --daemon
 
 ### `agentxchain supervise`
 
-Run watch and AppleScript auto-nudge together (recommended on macOS for first run).
+Runs `watch` and optional **macOS-only** AppleScript auto-nudge in one process. On Linux/Windows use `agentxchain watch` only (no `--autonudge`).
 
 ```bash
 agentxchain supervise --autonudge
@@ -183,7 +186,7 @@ agentxchain supervise --interval 2          # set nudge poll interval
 
 ### `agentxchain stop`
 
-Terminate running Claude Code agent sessions.
+Stops the project `watch` process if running (via PID file), terminates **Claude Code** child sessions from the session file, and removes `.agentxchain-session.json`. **Cursor / VS Code:** close agent chat windows yourself — the CLI does not close those apps.
 
 ```bash
 agentxchain stop
@@ -198,8 +201,23 @@ agentxchain config                                    # show config
 agentxchain config --add-agent                        # add a new agent
 agentxchain config --remove-agent ux                  # remove an agent
 agentxchain config --set "rules.max_consecutive_claims 3"
+agentxchain config --set "rules.strict_next_owner true"
 agentxchain config --set "rules.verify_command npm test"
 agentxchain config --json                             # output as JSON
+```
+
+`rules.verify_command` should be a trusted local command such as `npm test` or `pnpm lint`.
+Avoid shell pipelines or command chaining in this field.
+
+### `agentxchain branch`
+
+Show or set the Cursor branch override used for launches.
+
+```bash
+agentxchain branch
+agentxchain branch feature/my-branch
+agentxchain branch --use-current
+agentxchain branch --unset
 ```
 
 ### `agentxchain update`
@@ -235,11 +253,13 @@ agentxchain validate --json
 
 ### Cursor mode (default)
 
-1. `agentxchain start` opens a **separate Cursor window** for each agent (via per-agent `.code-workspace` files).
-2. Each agent's prompt is copied to clipboard. You paste into chat, select Agent mode, and send.
-3. Agent prompts are single-turn: claim -> work -> validate -> release -> stop.
-4. Agent handoffs are dynamic: each turn writes `Next owner:` in `TALK.md`, and referee uses that.
-5. You can `claim` to pause and `release` to resume anytime.
+**First run:** `agentxchain kickoff` (PM window, validation, remaining agents, optional `supervise --autonudge`). **Later / ad-hoc:** `agentxchain start` or `agentxchain rebind` to refresh windows and prompts.
+
+1. Each agent gets a **separate Cursor window** (per-agent `.code-workspace` under `.agentxchain-workspaces/`).
+2. Prompts are copied to the clipboard; paste into chat, Agent mode, send.
+3. Single-turn loop: claim → work → validate → release → stop.
+4. Handoffs: write `Next owner:` in `TALK.md` (and optional `rules.strict_next_owner` for no fallback).
+5. `claim` / `release` pause or resume anytime.
 
 ### VS Code mode
 
@@ -249,9 +269,10 @@ agentxchain validate --json
 
 ### Turn ownership
 
-Turns are handoff-driven (not fixed cyclic):
-- Every turn must append `Next owner: <agent_id>` in `TALK.md`
-- `watch` / `supervise` dispatches the next trigger from that latest handoff
+Turns are handoff-driven by default:
+- Each turn should append `Next owner: <agent_id>` in `TALK.md`
+- `watch` / `supervise` dispatches the next trigger from that handoff when possible
+- If `rules.strict_next_owner` is `true`, there is **no** cyclic fallback — missing/invalid handoff assigns the lock to **human** until `TALK.md` is fixed
 - `claim --agent <id>` blocks out-of-turn claims unless `--force` is used
 
 ### Protocol v3 features
@@ -297,6 +318,7 @@ Full spec: [PROTOCOL-v3.md](PROTOCOL-v3.md)
   "history_file": "history.jsonl",
   "rules": {
     "max_consecutive_claims": 2,
+    "strict_next_owner": false,
     "ttl_minutes": 10,
     "verify_command": "npm test",
     "watch_interval_ms": 5000

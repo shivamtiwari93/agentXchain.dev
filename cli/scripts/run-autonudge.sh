@@ -104,7 +104,7 @@ echo "Mode:      $( [[ "${AUTO_SEND}" == "true" ]] && echo "auto-send" || echo "
 echo "Interval:  ${INTERVAL_SECONDS}s"
 echo ""
 echo "Requirements:"
-echo "- Keep 'agentxchain watch' running in another terminal."
+echo "- Watch must be running (e.g. 'agentxchain supervise --autonudge' starts it in the same supervisor, or run 'agentxchain watch' in another terminal)."
 echo "- Grant Accessibility permission to Terminal and Cursor."
 echo ""
 

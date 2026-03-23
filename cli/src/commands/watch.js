@@ -1,12 +1,15 @@
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { loadConfig, loadLock, LOCK_FILE } from '../lib/config.js';
+import { safeWriteJson } from '../lib/safe-write.js';
 import { notifyHuman as sendNotification } from '../lib/notify.js';
 import { validateProject } from '../lib/validation.js';
-import { resolveNextAgent } from '../lib/next-owner.js';
+import { resolveNextAgent, resolveExpectedClaimer } from '../lib/next-owner.js';
+
+const PID_FILE = '.agentxchain-watch.pid';
 
 export async function watchCommand(opts) {
   if (opts.daemon && process.env.AGENTXCHAIN_WATCH_DAEMON !== '1') {
@@ -37,12 +40,15 @@ export async function watchCommand(opts) {
   console.log(chalk.dim(`  Poll:    ${interval}ms | TTL: ${ttlMinutes}min`));
   console.log(chalk.dim(`  Mode:    Local file watcher + trigger file`));
   console.log('');
+  writePidFile(root);
+
   console.log(chalk.cyan('  Watching lock.json... (Ctrl+C to stop)'));
   console.log(chalk.dim('  Note: In VS Code/Cursor, the Stop hook coordinates turns automatically.'));
   console.log(chalk.dim('  This watch process is a fallback for non-IDE environments.'));
   console.log('');
 
   let lastState = null;
+  let lastClaimedState = null;
 
   const tick = async () => {
     try {
@@ -50,17 +56,6 @@ export async function watchCommand(opts) {
       if (!lock) { log('warn', 'lock.json not found'); return; }
 
       const stateKey = `${lock.holder}:${lock.turn_number}`;
-
-      if (lock.holder && lock.holder !== 'human') {
-        const expected = pickNextAgent(root, lock, config);
-        if (!isValidClaimer(root, lock, config)) {
-          log('warn', `Illegal claim detected: holder=${lock.holder}, expected=${expected}. Handing lock to HUMAN.`);
-          blockOnIllegalClaim(root, lock, config, expected);
-          sendNotification(`Illegal claim detected (${lock.holder}). Human intervention required.`);
-          lastState = null;
-          return;
-        }
-      }
 
       if (lock.holder && lock.holder !== 'human' && lock.claimed_at) {
         const elapsed = Date.now() - new Date(lock.claimed_at).getTime();
@@ -86,11 +81,27 @@ export async function watchCommand(opts) {
       }
 
       if (lock.holder) {
+        // Validate claim ownership only once per new claimed state.
+        // With handoff-driven routing, TALK.md may change during an active turn.
+        // Re-validating every tick can produce false "illegal claim" alerts.
+        if (stateKey !== lastClaimedState && lock.holder !== 'human') {
+          const expected = pickNextAgent(root, lock, config);
+          if (!isValidClaimer(root, lock, config)) {
+            log('warn', `Illegal claim detected: holder=${lock.holder}, expected=${expected ?? 'none'}. Handing lock to HUMAN.`);
+            blockOnIllegalClaim(root, lock, config, expected);
+            sendNotification(`Illegal claim detected (${lock.holder}). Human intervention required.`);
+            lastState = null;
+            lastClaimedState = null;
+            return;
+          }
+        }
+
         if (stateKey !== lastState) {
           const name = config.agents[lock.holder]?.name || lock.holder;
           log('claimed', `${lock.holder} (${name}) working... (turn ${lock.turn_number})`);
           lastState = stateKey;
         }
+        lastClaimedState = stateKey;
         return;
       }
 
@@ -109,7 +120,15 @@ export async function watchCommand(opts) {
           }
         }
 
-        const next = pickNextAgent(root, lock, config);
+        const resolved = resolveNextAgent(root, config, lock);
+        const next = resolved.next;
+        if (!next) {
+          log('warn', `No next owner (${resolved.source}). strict_next_owner requires TALK.md handoff. Handing lock to HUMAN.`);
+          blockOnMissingNext(root, lock, config, resolved.source);
+          sendNotification('No next owner in TALK.md. Human action required.');
+          lastState = null;
+          return;
+        }
         log('free', `Lock free (released by ${lock.last_released_by || 'none'}). Next: ${chalk.bold(next)}.`);
         writeTrigger(root, next, lock, config);
         lastState = stateKey;
@@ -122,12 +141,16 @@ export async function watchCommand(opts) {
   await tick();
   const timer = setInterval(tick, interval);
 
-  process.on('SIGINT', () => {
+  const cleanup = () => {
     clearInterval(timer);
+    removePidFile(root);
     console.log('');
     log('stop', 'Watch stopped.');
     process.exit(0);
-  });
+  };
+
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
 }
 
 function pickNextAgent(root, lock, config) {
@@ -137,7 +160,7 @@ function pickNextAgent(root, lock, config) {
 function isValidClaimer(root, lock, config) {
   if (!lock.holder || lock.holder === 'human') return true;
   if (!config.agents?.[lock.holder]) return false;
-  const expected = pickNextAgent(root, lock, config);
+  const expected = resolveExpectedClaimer(root, config, lock).next;
   return lock.holder === expected;
 }
 
@@ -146,10 +169,10 @@ function forceRelease(root, lock, staleAgent, config) {
   const newLock = {
     holder: null,
     last_released_by: `system:ttl:${staleAgent}`,
-    turn_number: lock.turn_number,
+    turn_number: lock.turn_number + 1,
     claimed_at: null
   };
-  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  safeWriteJson(lockPath, newLock);
 
   const logFile = config.log || 'log.md';
   const logPath = join(root, logFile);
@@ -161,12 +184,12 @@ function forceRelease(root, lock, staleAgent, config) {
 function writeTrigger(root, agentId, lock, config) {
   if (!agentId) return;
   const triggerPath = join(root, '.agentxchain-trigger.json');
-  writeFileSync(triggerPath, JSON.stringify({
+  safeWriteJson(triggerPath, {
     agent: agentId,
     turn_number: lock.turn_number,
     triggered_at: new Date().toISOString(),
     project: config.project
-  }, null, 2) + '\n');
+  });
 }
 
 function blockOnValidation(root, lock, config, validation) {
@@ -177,7 +200,7 @@ function blockOnValidation(root, lock, config, validation) {
     turn_number: lock.turn_number,
     claimed_at: new Date().toISOString()
   };
-  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  safeWriteJson(lockPath, newLock);
 
   const statePath = join(root, 'state.json');
   if (existsSync(statePath)) {
@@ -189,7 +212,7 @@ function blockOnValidation(root, lock, config, validation) {
         blocked: true,
         blocked_on: `validation: ${message}`
       };
-      writeFileSync(statePath, JSON.stringify(nextState, null, 2) + '\n');
+      safeWriteJson(statePath, nextState);
     } catch {}
   }
 
@@ -204,6 +227,39 @@ function blockOnValidation(root, lock, config, validation) {
   }
 }
 
+function blockOnMissingNext(root, lock, config, source) {
+  const lockPath = join(root, LOCK_FILE);
+  const newLock = {
+    holder: 'human',
+    last_released_by: lock.last_released_by,
+    turn_number: lock.turn_number,
+    claimed_at: new Date().toISOString()
+  };
+  safeWriteJson(lockPath, newLock);
+
+  const statePath = join(root, 'state.json');
+  if (existsSync(statePath)) {
+    try {
+      const current = JSON.parse(readFileSync(statePath, 'utf8'));
+      const nextState = {
+        ...current,
+        blocked: true,
+        blocked_on: `missing-next-owner: ${source}`
+      };
+      safeWriteJson(statePath, nextState);
+    } catch {}
+  }
+
+  const logFile = config.log || 'log.md';
+  const logPath = join(root, logFile);
+  if (existsSync(logPath)) {
+    appendFileSync(
+      logPath,
+      `\n---\n\n### [system] (Watch) | Turn ${lock.turn_number}\n\n**Status:** Could not resolve next agent (${source}).\n\n**Action:** Add \`Next owner: <agent_id>\` to ${config.talk_file || 'TALK.md'}, or set \`rules.strict_next_owner\` to false for cyclic fallback.\n\n`
+    );
+  }
+}
+
 function blockOnIllegalClaim(root, lock, config, expected) {
   const lockPath = join(root, LOCK_FILE);
   const newLock = {
@@ -212,7 +268,7 @@ function blockOnIllegalClaim(root, lock, config, expected) {
     turn_number: lock.turn_number,
     claimed_at: new Date().toISOString()
   };
-  writeFileSync(lockPath, JSON.stringify(newLock, null, 2) + '\n');
+  safeWriteJson(lockPath, newLock);
 
   const statePath = join(root, 'state.json');
   if (existsSync(statePath)) {
@@ -223,7 +279,7 @@ function blockOnIllegalClaim(root, lock, config, expected) {
         blocked: true,
         blocked_on: `illegal-claim: expected ${expected}, got ${lock.holder}`
       };
-      writeFileSync(statePath, JSON.stringify(nextState, null, 2) + '\n');
+      safeWriteJson(statePath, nextState);
     } catch {}
   }
 
@@ -262,8 +318,39 @@ function startWatchDaemon() {
   });
   child.unref();
 
+  const result = loadConfig();
+  if (result) {
+    writeFileSync(join(result.root, PID_FILE), String(child.pid));
+  }
+
   console.log('');
   console.log(chalk.green(`  ✓ Watch started in daemon mode (PID: ${child.pid})`));
   console.log(chalk.dim('  Use `agentxchain stop` or kill the PID to stop it.'));
   console.log('');
+}
+
+function writePidFile(root) {
+  try {
+    writeFileSync(join(root, PID_FILE), String(process.pid));
+  } catch {}
+}
+
+function removePidFile(root) {
+  try {
+    const pidPath = join(root, PID_FILE);
+    if (existsSync(pidPath)) unlinkSync(pidPath);
+  } catch {}
+}
+
+export function getWatchPid(root) {
+  try {
+    const pidPath = join(root, PID_FILE);
+    if (!existsSync(pidPath)) return null;
+    const pid = parseInt(readFileSync(pidPath, 'utf8').trim(), 10);
+    if (!Number.isFinite(pid)) return null;
+    process.kill(pid, 0);
+    return pid;
+  } catch {
+    return null;
+  }
 }

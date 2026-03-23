@@ -1,59 +1,20 @@
-export function generatePollingPrompt(agentId, agentDef, config, projectRoot = '.') {
-  const logFile = config.log || 'log.md';
-  const talkFile = config.talk_file || 'TALK.md';
-  const maxClaims = config.rules?.max_consecutive_claims || 2;
-  const verifyCmd = config.rules?.verify_command || null;
-  const stateFile = config.state_file || 'state.md';
-  const historyFile = config.history_file || 'history.jsonl';
-  const useSplit = config.state_file || config.history_file;
+import {
+  buildReadSection,
+  buildWriteSection,
+  buildVerifySection,
+  buildRulesSection,
+  buildPlanningDocsSection,
+} from './prompt-core.js';
 
+export function generatePollingPrompt(agentId, agentDef, config, projectRoot = '.') {
   const agentIds = Object.keys(config.agents);
   const myIndex = agentIds.indexOf(agentId);
 
-  const readSection = useSplit
-    ? `READ THESE FILES:
-- "${stateFile}" — the living project state. Read fully. Primary context.
-- "${historyFile}" — turn history. Read last 3 lines for recent context.
-- "${talkFile}" — team handoff updates. Read the latest 5 entries.
-- lock.json — who holds the lock.
-- state.json — phase and blocked status.`
-    : `READ THESE FILES:
-- "${logFile}" — the message log. Read last few messages.
-- "${talkFile}" — team handoff updates. Read the latest 5 entries.
-- lock.json — who holds the lock.
-- state.json — phase and blocked status.`;
-
-  const writeSection = useSplit
-    ? `WRITE (in this order):
-a. Do your actual work: write code, create files, run commands, make decisions.
-b. Update "${stateFile}" — OVERWRITE with current project state.
-c. Append ONE line to "${historyFile}":
-   {"turn": N, "agent": "${agentId}", "summary": "what you did", "files_changed": [...], "verify_result": "pass|fail|skipped", "timestamp": "ISO8601"}
-d. Append ONE handoff entry to "${talkFile}" with:
-   Turn, Status, Decision, Action, Risks/Questions, Next owner.
-   IMPORTANT: "Next owner" must be a valid agent id from [${agentIds.join(', ')}].
-e. Update state.json if phase or blocked status changed.`
-    : `WRITE (in this order):
-a. Do your actual work: write code, create files, run commands, make decisions.
-b. Append ONE message to ${logFile}:
-   ---
-   ### [${agentId}] (${agentDef.name}) | Turn N
-   **Status:** Current project state.
-   **Decision:** What you decided and why.
-   **Action:** What you did. Commands, files, results.
-   **Next:** What the next agent should focus on.
-c. Append ONE handoff entry to "${talkFile}" with:
-   Turn, Status, Decision, Action, Risks/Questions, Next owner.
-   IMPORTANT: "Next owner" must be a valid agent id from [${agentIds.join(', ')}].
-d. Update state.json if phase or blocked status changed.`;
-
-  const verifySection = verifyCmd
-    ? `
-VERIFY (mandatory before release):
-Run: ${verifyCmd}
-If it FAILS: fix the problem. Run again. Do NOT release with failing verification.
-If it PASSES: report the result. Then release.`
-    : '';
+  const readSection = buildReadSection(config, { includeTalk: true });
+  const writeSection = buildWriteSection(agentId, agentDef, config, { includeTalk: true });
+  const verifySection = buildVerifySection(config);
+  const rulesSection = buildRulesSection(agentId, config);
+  const planningDocs = buildPlanningDocsSection();
 
   return `You are "${agentId}" — ${agentDef.name}.
 
@@ -70,22 +31,7 @@ PROJECT ROOT (strict boundary):
 
 ---
 
-PROJECT DOCUMENTATION (.planning/ folder):
-
-These files give you project context. Read the ones relevant to your role.
-
-- .planning/PROJECT.md — Vision, constraints, stack decisions. PM writes this.
-- .planning/REQUIREMENTS.md — Scoped requirements with acceptance criteria. PM writes this.
-- .planning/ROADMAP.md — Phased delivery plan. PM maintains this.
-- .planning/research/ — Domain research, prior art, technical investigation.
-- .planning/phases/ — Per-phase plans (PLAN.md), reviews (REVIEW.md), test results (TESTS.md), bugs (BUGS.md).
-- .planning/qa/TEST-COVERAGE.md — Which features are tested and how. QA maintains this.
-- .planning/qa/BUGS.md — Open and fixed bugs with reproduction steps. QA maintains this.
-- .planning/qa/UX-AUDIT.md — UX checklist and visual/usability issues. QA maintains this.
-- .planning/qa/ACCEPTANCE-MATRIX.md — Requirements mapped to test status. QA maintains this.
-- .planning/qa/REGRESSION-LOG.md — Fixed bugs and their regression tests.
-
-When your role requires it, CREATE or UPDATE these files.
+${planningDocs}
 
 GET SHIT DONE FRAMEWORK (mandatory):
 - Plan in waves and phases (not ad hoc tasks).
@@ -140,10 +86,6 @@ TURN MODE (single turn only, referee wakes you again later):
 ---
 
 CRITICAL RULES:
-- Never write files or code without holding the lock. Reading is always allowed.
-- One git commit per turn: "Turn N - ${agentId} - description"
-- Max ${maxClaims} consecutive turns. If you have held the lock ${maxClaims} times in a row, do a short turn and release.
-- ALWAYS release the lock. A stuck lock blocks the entire team.
-- ALWAYS find at least one problem, risk, or question about the previous work. Blind agreement is forbidden.
+${rulesSection}
 - This session is SINGLE-TURN. After release, STOP and wait for the referee to wake you again.`;
 }

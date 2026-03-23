@@ -1,7 +1,7 @@
-import { writeFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, CONFIG_FILE } from '../lib/config.js';
+import { safeWriteJson } from '../lib/safe-write.js';
 import { getCurrentBranch } from '../lib/repo.js';
 
 export async function branchCommand(name, opts) {
@@ -94,5 +94,5 @@ function setBranchOverride(config, configPath, branch) {
 }
 
 function saveConfig(configPath, config) {
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+  safeWriteJson(configPath, config);
 }

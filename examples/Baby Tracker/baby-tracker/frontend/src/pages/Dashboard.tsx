@@ -46,12 +46,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center relative">
+        <Link 
+          to={`/edit-baby/${selectedBaby.id}`}
+          className="absolute top-4 right-4 text-gray-400 hover:text-indigo-600 text-sm font-medium"
+        >
+          Edit
+        </Link>
         <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-3">
           {selectedBaby.name.charAt(0).toUpperCase()}
         </div>
         <h2 className="text-2xl font-bold text-gray-900">{selectedBaby.name}</h2>
         <p className="text-gray-500">{ageString} old</p>
+        <Link
+          to="/add-baby"
+          className="mt-3 inline-block text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          + Add another baby
+        </Link>
       </div>
 
       <section>

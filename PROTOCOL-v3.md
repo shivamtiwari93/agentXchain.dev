@@ -10,11 +10,11 @@ v3 replaces hardcoded roles and fixed turn order with user-defined agents and a 
 
 1. A human creates `agentxchain.json` defining the project, the agents, and the rules.
 2. Agents read this file to discover their role and mandate.
-3. When no agent holds the lock (`lock.json` → `holder: null`), the next agent is typically awakened by `agentxchain watch` (default round-robin), then that agent claims.
+3. When no agent holds the lock (`lock.json` → `holder: null`), the next agent is resolved from the latest `Next owner:` handoff in `TALK.md` (or `talk_file`), with cyclic fallback by config order if no handoff is present.
 4. The agent that claims the lock does its work, appends a message to the log, and **releases** the lock.
 5. Another agent claims. The cycle continues until the project ships.
 
-By default, `agentxchain watch` uses round-robin wake-ups for reliability. Teams can still self-organize by using human claims/releases or custom coordinator behavior.
+`agentxchain watch` and generated editor hooks use the same handoff-first routing model. Humans can still intervene with `claim` / `release` or custom coordinator behavior.
 
 ---
 
@@ -57,6 +57,7 @@ This is the single source of truth for the project configuration. Create it at t
 | `rules.ttl_minutes` | no | Max minutes an agent can hold the lock before it's force-released. Default: `10`. |
 | `rules.verify_command` | no | Shell command agents must run before releasing the lock (e.g. `"npm test"`). If it fails, the agent must fix the issue before releasing. |
 | `rules.watch_interval_ms` | no | How often the watch process polls lock.json (milliseconds). Default: `5000`. |
+| `talk_file` | no | Human-readable handoff log used to route the next owner. Default: `TALK.md`. |
 | `state_file` | no | Path to the living state document. Default: `state.md`. |
 | `history_file` | no | Path to the append-only turn history. Default: `history.jsonl`. |
 
@@ -135,7 +136,7 @@ Any agent that claims the lock while `blocked` is `true` should check if they ca
 4. VERIFY  Re-read lock.json. Does holder still equal my_id?
            → No:  Another agent won. Go back to step 1.
            → Yes: I have the lock. Continue.
-5. READ    agentxchain.json (my role), state.json (phase), log (latest messages)
+5. READ    agentxchain.json (my role), state.json (phase), state/history docs, TALK.md (latest handoff)
 6. WORK    Do my job: write code, run tests, make decisions — whatever my mandate says.
 7. LOG     Append my message to the log file (see Message Format below).
 8. STATE   Update state.json if the phase or blocked status changed.
@@ -158,7 +159,7 @@ If `claimed_at` is older than `rules.ttl_minutes` (default: 10), the **watch pro
 
 ### Verify before release
 
-If `rules.verify_command` is set (e.g. `"npm test"`), agents **must** run this command before releasing the lock. If the command exits non-zero, the agent must fix the issue and run it again. The `release.sh` script enforces this automatically.
+If `rules.verify_command` is set (e.g. `"npm test"`), agents **must** run this command before releasing the lock. If the command exits non-zero, the agent must fix the issue and run it again. The main CLI release path, the helper `release.sh` script, and generated VS Code Stop hooks all enforce this for trusted local commands. Avoid shell pipelines or chained commands in this field.
 
 ### Human as a first-class participant
 
@@ -265,7 +266,11 @@ When the log file exceeds `rules.compress_after_words` words:
 | `agentxchain.json` | Project config: agents, rules, settings. |
 | `lock.json` | Who holds the lock, turn counter, claim timestamp. |
 | `state.json` | Project phase, blocked status. |
+| `TALK.md` (or custom `talk_file`) | Canonical handoff log. The latest `Next owner:` line routes the next turn. |
+| `state.md` / custom `state_file` | Living project state snapshot. |
+| `history.jsonl` / custom `history_file` | Append-only machine-readable turn history. |
 | `log.md` (or custom) | Message log: agents append one message per turn. |
+| `.agentxchain-trigger.json` | Referee handoff marker written by `watch` / `supervise`. Ignore in git. |
 | `HUMAN_TASKS.md` | Human task list. |
 | `PROTOCOL-v3.md` | This protocol (optional — agents can read from the framework docs). |
 
@@ -274,11 +279,11 @@ When the log file exceeds `rules.compress_after_words` words:
 ## Quick start
 
 1. Create `agentxchain.json` with your agents and project description.
-2. Create `lock.json`: `{"holder": null, "last_released_by": null, "turn_number": 0, "claimed_at": null}`
+2. Create `lock.json`: `{"holder": "human", "last_released_by": null, "turn_number": 0, "claimed_at": "ISO8601"}`
 3. Create `state.json`: `{"phase": "discovery", "blocked": false, "blocked_on": null, "project": "..."}`
-4. Create an empty `log.md` and `HUMAN_TASKS.md`.
+4. Create `TALK.md`, `state.md`, `history.jsonl`, `log.md`, and `HUMAN_TASKS.md`.
 5. Give each agent its seed prompt (see seed prompt template in the framework).
-6. Let agents claim and go.
+6. Release the initial human lock when kickoff planning is ready, then let agents claim and go.
 
 ---
 

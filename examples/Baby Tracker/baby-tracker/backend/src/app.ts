@@ -6,7 +6,14 @@ import { registerBabyRoutes } from "./routes/babies.js";
 
 export function createApp(db: SqliteDb): express.Application {
   const app = express();
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(express.json({ limit: "100kb" }));
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+  });
 
   const getSecret = (): string => getJwtSecret();
 

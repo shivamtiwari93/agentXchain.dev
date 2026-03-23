@@ -4,6 +4,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock } from '../lib/config.js';
 import { validateProject } from '../lib/validation.js';
+import { getWatchPid } from './watch.js';
 
 export async function doctorCommand() {
   const result = loadConfig();
@@ -86,9 +87,16 @@ function checkPm(config) {
 }
 
 function checkWatchProcess() {
+  const result = loadConfig();
+  if (result) {
+    const pid = getWatchPid(result.root);
+    if (pid) {
+      return { name: 'watch process', level: 'pass', detail: `watch running (PID: ${pid})` };
+    }
+  }
   try {
     execSync('pgrep -f "agentxchain.*watch" >/dev/null', { stdio: 'ignore' });
-    return { name: 'watch process', level: 'pass', detail: 'watch appears to be running' };
+    return { name: 'watch process', level: 'pass', detail: 'watch appears to be running (no PID file)' };
   } catch {
     return { name: 'watch process', level: 'warn', detail: 'watch not running (start with `agentxchain watch` or `agentxchain supervise --autonudge`)' };
   }

@@ -52,7 +52,12 @@ export async function initCommand(opts) {
     project = 'My AgentXchain project';
     agents = DEFAULT_AGENTS;
     folderName = slugify(project);
-    rules = { max_consecutive_claims: 2, require_message: true, compress_after_words: 5000 };
+    rules = {
+      max_consecutive_claims: 2,
+      require_message: true,
+      compress_after_words: 5000,
+      strict_next_owner: false
+    };
   } else {
     const templates = loadTemplates();
 
@@ -86,7 +91,12 @@ export async function initCommand(opts) {
       project = projectName;
     } else if (template === 'default') {
       agents = DEFAULT_AGENTS;
-      rules = { max_consecutive_claims: 2, require_message: true, compress_after_words: 5000 };
+      rules = {
+      max_consecutive_claims: 2,
+      require_message: true,
+      compress_after_words: 5000,
+      strict_next_owner: false
+    };
       const { projectName } = await inquirer.prompt([{
         type: 'input',
         name: 'projectName',
@@ -103,7 +113,12 @@ export async function initCommand(opts) {
       }]);
       project = projectName;
       agents = {};
-      rules = { max_consecutive_claims: 2, require_message: true, compress_after_words: 5000 };
+      rules = {
+      max_consecutive_claims: 2,
+      require_message: true,
+      compress_after_words: 5000,
+      strict_next_owner: false
+    };
 
       const { count } = await inquirer.prompt([{
         type: 'number',
@@ -192,6 +207,7 @@ export async function initCommand(opts) {
       compress_after_words: rules.compress_after_words || 5000,
       ttl_minutes: rules.ttl_minutes || 10,
       watch_interval_ms: rules.watch_interval_ms || 5000,
+      strict_next_owner: rules.strict_next_owner === true,
       ...(rules.verify_command ? { verify_command: rules.verify_command } : {})
     }
   };
@@ -209,7 +225,7 @@ export async function initCommand(opts) {
   writeFileSync(join(dir, 'TALK.md'), `# ${project} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n## How to write entries\n\nUse this exact structure:\n\n## Turn N — <agent_id> (<role>)\n- Status:\n- Decision:\n- Action:\n- Risks/Questions:\n- Next owner:\n\n---\n\n`);
   writeFileSync(join(dir, 'HUMAN_TASKS.md'), '# Human Tasks\n\n(Agents append tasks here when they need human action.)\n');
   const gitignorePath = join(dir, '.gitignore');
-  const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/', '.agentxchain-workspaces/'];
+  const requiredIgnores = ['.env', '.agentxchain-trigger.json', '.agentxchain-prompts/', '.agentxchain-workspaces/', '.agentxchain-watch.pid', '.agentxchain-autonudge.state'];
   if (!existsSync(gitignorePath)) {
     writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
   } else {
@@ -230,10 +246,13 @@ export async function initCommand(opts) {
 
   writeFileSync(join(dir, '.planning', 'REQUIREMENTS.md'), `# Requirements — ${project}\n\n## v1 (MVP)\n\n(PM fills this: numbered list of requirements. Each requirement has one-sentence acceptance criteria.)\n\n| # | Requirement | Acceptance criteria | Phase | Status |\n|---|-------------|-------------------|-------|--------|\n| 1 | | | | Pending |\n\n## v2 (Future)\n\n(Out of scope for MVP. Captured here so they don't creep in.)\n\n## Out of scope\n\n(Explicitly not building.)\n`);
 
-  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${project}\n\n## Phases\n\n| Phase | Description | Status | Requirements |\n|-------|-------------|--------|-------------|\n| 1 | Discovery + setup | In progress | — |\n\n(PM updates this as phases are planned and completed.)\n`);
+  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${project}\n\n## Waves\n\n| Wave | Goal | Status |\n|------|------|--------|\n| Wave 1 | Discovery, planning, and phase setup | In progress |\n\n## Phases\n\n| Phase | Description | Status | Requirements |\n|-------|-------------|--------|-------------|\n| 1 | Discovery + setup | In progress | — |\n\n(PM updates this as phases are planned and completed.)\n`);
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${project}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
 
   // QA structure
+  mkdirSync(join(dir, '.planning', 'phases', 'phase-1'), { recursive: true });
+  writeFileSync(join(dir, '.planning', 'phases', 'phase-1', 'PLAN.md'), `# Phase 1 Plan — ${project}\n\n## Goal\n\nAlign scope, requirements, and initial implementation plan.\n\n## Deliverables\n\n- PM signoff\n- Initial requirements and roadmap\n- First implementation slice\n`);
+  writeFileSync(join(dir, '.planning', 'phases', 'phase-1', 'TESTS.md'), `# Phase 1 Tests — ${project}\n\n## Planned checks\n\n- Kickoff validation passes\n- Requirements have acceptance criteria\n- First implementation slice has an executable verification path\n`);
   writeFileSync(join(dir, '.planning', 'qa', 'TEST-COVERAGE.md'), `# Test Coverage — ${project}\n\n## Coverage Map\n\n| Feature / Area | Unit tests | Integration tests | E2E tests | Manual QA | UX audit | Status |\n|---------------|-----------|------------------|----------|----------|---------|--------|\n| (QA fills this as testing progresses) | | | | | | |\n\n## Coverage gaps\n\n(Areas with no tests or insufficient coverage.)\n`);
 
   writeFileSync(join(dir, '.planning', 'qa', 'REGRESSION-LOG.md'), `# Regression Log — ${project}\n\nBugs that were found and fixed. Each entry has a regression test to prevent recurrence.\n\n| Bug ID | Description | Found turn | Fixed turn | Regression test | Status |\n|--------|-------------|-----------|-----------|----------------|--------|\n| (QA adds entries as bugs are found and fixed) | | | | | |\n`);
