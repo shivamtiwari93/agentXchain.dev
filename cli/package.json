@@ -38,7 +38,7 @@
   },
   "homepage": "https://agentxchain.dev",
   "dependencies": {
-    "commander": "^13.0.0",
+    "commander": "^14.0.3",
     "chalk": "^5.4.0",
     "inquirer": "^12.0.0",
     "ora": "^8.0.0"
