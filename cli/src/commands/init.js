@@ -45,7 +45,472 @@ function loadTemplates() {
   return templates;
 }
 
+// ── Governed v4 init ────────────────────────────────────────────────────────
+
+const GOVERNED_ROLES = {
+  pm: {
+    title: 'Product Manager',
+    mandate: 'Protect user value, scope clarity, and acceptance criteria.',
+    write_authority: 'review_only',
+    runtime: 'manual-pm'
+  },
+  dev: {
+    title: 'Developer',
+    mandate: 'Implement approved work safely and verify behavior.',
+    write_authority: 'authoritative',
+    runtime: 'local-dev'
+  },
+  qa: {
+    title: 'QA',
+    mandate: 'Challenge correctness, acceptance coverage, and ship readiness.',
+    write_authority: 'review_only',
+    runtime: 'api-qa'
+  },
+  eng_director: {
+    title: 'Engineering Director',
+    mandate: 'Resolve tactical deadlocks and enforce technical coherence.',
+    write_authority: 'review_only',
+    runtime: 'manual-director'
+  }
+};
+
+const GOVERNED_RUNTIMES = {
+  'manual-pm': { type: 'manual' },
+  'local-dev': { type: 'local_cli', command: ['claude', '--print', '-p', '{prompt}'], cwd: '.', prompt_transport: 'argv' },
+  'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
+  'manual-director': { type: 'manual' }
+};
+
+const GOVERNED_ROUTING = {
+  planning: {
+    entry_role: 'pm',
+    allowed_next_roles: ['pm', 'eng_director', 'human'],
+    exit_gate: 'planning_signoff'
+  },
+  implementation: {
+    entry_role: 'dev',
+    allowed_next_roles: ['dev', 'qa', 'eng_director', 'human'],
+    exit_gate: 'implementation_complete'
+  },
+  qa: {
+    entry_role: 'qa',
+    allowed_next_roles: ['dev', 'qa', 'eng_director', 'human'],
+    exit_gate: 'qa_ship_verdict'
+  }
+};
+
+const GOVERNED_GATES = {
+  planning_signoff: {
+    requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+    requires_human_approval: true
+  },
+  implementation_complete: {
+    requires_verification_pass: true
+  },
+  qa_ship_verdict: {
+    requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+    requires_human_approval: true
+  }
+};
+
+function buildGovernedPrompt(roleId, role) {
+  const rolePrompts = {
+    pm: buildPmPrompt,
+    dev: buildDevPrompt,
+    qa: buildQaPrompt,
+    eng_director: buildEngDirectorPrompt,
+  };
+
+  const builder = rolePrompts[roleId];
+  if (builder) return builder(role);
+
+  // Fallback for custom roles
+  return buildGenericPrompt(roleId, role);
+}
+
+function buildPmPrompt(role) {
+  return `# Product Manager — Role Prompt
+
+You are the Product Manager. Your mandate: **${role.mandate}**
+
+## What You Do Each Turn
+
+1. **Read the previous turn** (from CONTEXT.md). Understand what was done and what decisions were made.
+2. **Challenge it.** Even if the work looks correct, identify at least one risk, scope gap, or assumption worth questioning. Rubber-stamping violates the protocol.
+3. **Create or refine planning artifacts:**
+   - \`.planning/ROADMAP.md\` — what will be built, in what order, with acceptance criteria
+   - \`.planning/PM_SIGNOFF.md\` — your formal sign-off when planning is complete
+   - \`.planning/acceptance-matrix.md\` — the acceptance criteria checklist for QA
+4. **Propose the next role.** Typically \`dev\` after planning is complete, or \`eng_director\` if there's a technical deadlock.
+
+## Planning Phase Exit
+
+To exit the planning phase, you must:
+- Ensure \`.planning/PM_SIGNOFF.md\` exists with your explicit sign-off
+- Ensure \`.planning/ROADMAP.md\` exists with clear acceptance criteria
+- Set \`phase_transition_request: "implementation"\` in your turn result
+
+The orchestrator will evaluate the gate and may require human approval.
+
+## Scope Authority
+
+You define **what** gets built and **why**. You do not define **how** — that's the developer's domain. If you disagree with a technical approach, raise an objection with rationale, but do not override implementation decisions.
+
+## Acceptance Criteria Quality
+
+Every roadmap item must have acceptance criteria that are:
+- **Observable** — can be verified by running code or inspecting output
+- **Specific** — not "works well" but "returns 200 for GET /api/users with valid token"
+- **Complete** — covers happy path, error cases, and edge cases worth testing
+`;
+}
+
+function buildDevPrompt(role) {
+  return `# Developer — Role Prompt
+
+You are the Developer. Your mandate: **${role.mandate}**
+
+## What You Do Each Turn
+
+1. **Read the previous turn and ROADMAP.md.** Understand what you're building and what the acceptance criteria are.
+2. **Challenge the previous turn.** If the PM's acceptance criteria are ambiguous, flag it. If QA's objections are unfounded, explain why. Never skip this.
+3. **Implement the work.**
+   - Write clean, correct code that meets the acceptance criteria
+   - Run tests and include the results as verification evidence
+   - Accurately list every file you changed in \`files_changed\`
+4. **Verify your work.** Run the test suite, linter, or build command. Record the commands and exit codes in \`verification.machine_evidence\`.
+
+## Implementation Rules
+
+- Only implement what the roadmap and acceptance criteria require. Do not add unrequested features.
+- If acceptance criteria are unclear, set \`status: "needs_human"\` and explain what needs clarification in \`needs_human_reason\`.
+- If you encounter a technical blocker, set \`status: "blocked"\` and describe it.
+
+## Verification Is Mandatory
+
+You must run verification commands and report them honestly:
+- \`verification.status\` must be \`"pass"\` only if all commands exited with code 0
+- \`verification.machine_evidence\` must list every command you ran with its actual exit code
+- Do NOT claim \`"pass"\` if you did not run the tests
+
+## Phase Transition
+
+When your implementation is complete and verified:
+- If the implementation phase gate requires verification pass: ensure tests pass
+- Set \`phase_transition_request: "qa"\` to advance to QA
+- The gate may auto-advance or require human approval depending on config
+
+## Artifact Type
+
+Your artifact type is \`workspace\` (direct file modifications). The orchestrator will diff your changes against the pre-turn snapshot to verify \`files_changed\` accuracy.
+`;
+}
+
+function buildQaPrompt(role) {
+  return `# QA — Role Prompt
+
+You are QA. Your mandate: **${role.mandate}**
+
+## What You Do Each Turn
+
+1. **Read the previous turn, the ROADMAP, and the acceptance matrix.** Understand what was built and what the acceptance criteria are.
+2. **Challenge the implementation.** You MUST raise at least one objection — this is a protocol requirement for review_only roles. If the code is perfect, challenge the test coverage, the edge cases, or the documentation.
+3. **Evaluate against acceptance criteria.** Go through each criterion and determine pass/fail.
+4. **Create review artifacts:**
+   - \`.planning/acceptance-matrix.md\` — updated with pass/fail verdicts per criterion
+   - \`.planning/ship-verdict.md\` — your overall ship/no-ship recommendation
+
+## You Cannot Modify Code
+
+You have \`review_only\` write authority. You may NOT modify product files. You may only create/modify files under \`.planning/\` and \`.agentxchain/reviews/\`. Your artifact type must be \`review\`.
+
+## Objection Requirement
+
+You MUST raise at least one objection in your turn result. An empty \`objections\` array is a protocol violation and will be rejected by the validator. If the work is genuinely excellent, raise a low-severity observation about test coverage, documentation, or future risk.
+
+Each objection must have:
+- \`id\`: pattern \`OBJ-NNN\`
+- \`severity\`: \`low\`, \`medium\`, \`high\`, or \`blocking\`
+- \`against_turn_id\`: the turn you're challenging
+- \`statement\`: clear description of the issue
+- \`status\`: \`"raised"\`
+
+## Blocking vs. Non-Blocking
+
+- \`blocking\` severity means the work cannot ship. Use sparingly and only for real defects.
+- \`high\` severity means significant risk but potentially shippable with mitigation.
+- \`medium\` and \`low\` are observations that improve quality but don't block.
+
+## Ship Verdict & Run Completion
+
+When you are satisfied the work meets acceptance criteria:
+1. Create \`.planning/ship-verdict.md\` with your verdict
+2. Create/update \`.planning/acceptance-matrix.md\` with all criteria checked
+3. Set \`run_completion_request: true\` in your turn result
+
+**Only set \`run_completion_request: true\` when:**
+- All blocking objections from prior turns are resolved
+- The acceptance matrix shows all critical criteria passing
+- \`.planning/ship-verdict.md\` exists with an affirmative verdict
+
+**Do NOT set \`run_completion_request: true\` if:**
+- You have unresolved blocking objections
+- Critical acceptance criteria are failing
+- You need the developer to fix issues first (propose \`dev\` as next role instead)
+
+## Routing After QA
+
+- If issues found → propose \`dev\` as next role (they fix, then you re-review)
+- If ship-ready → set \`run_completion_request: true\`
+- If deadlocked → propose \`eng_director\` or \`human\`
+`;
+}
+
+function buildEngDirectorPrompt(role) {
+  return `# Engineering Director — Role Prompt
+
+You are the Engineering Director. Your mandate: **${role.mandate}**
+
+## When You Are Called
+
+You are invoked when the normal PM → Dev → QA loop is stuck:
+- Repeated QA/Dev cycles without convergence
+- Technical disagreement between roles
+- Scope dispute that the PM cannot resolve
+- Budget or timeline pressure requiring trade-offs
+
+## What You Do Each Turn
+
+1. **Read the full context.** Review the escalation reason, unresolved objections, and the decision history.
+2. **Make a binding decision.** Your role is to break deadlocks, not to add more opinions. State your decision clearly with rationale.
+3. **Challenge what led to the deadlock.** Identify the root cause — unclear acceptance criteria? Wrong technical approach? Scope creep?
+4. **Route back to the appropriate role.** After your decision, the normal loop should resume.
+
+## Decision Authority
+
+- You may override QA objections if they are unreasonable or out of scope
+- You may override PM scope decisions if they create technical impossibility
+- You may NOT override human decisions — escalate to \`human\` if needed
+- Every override must be recorded as a decision with clear rationale
+
+## You Cannot Modify Code
+
+You have \`review_only\` write authority. Like QA, you must raise at least one objection (protocol requirement). Your artifact type is \`review\`.
+
+## Objection Requirement
+
+You MUST raise at least one objection. Typically this will be about the process failure that led to your involvement — why did the loop deadlock? What should be done differently next time?
+
+## Escalation to Human
+
+If you cannot resolve the deadlock:
+- Set \`status: "needs_human"\`
+- Explain the situation in \`needs_human_reason\`
+- The orchestrator will pause the run for human input
+`;
+}
+
+function buildGenericPrompt(roleId, role) {
+  return `# ${role.title} — Role Prompt
+
+You are the **${role.title}** on this project.
+
+**Mandate:** ${role.mandate}
+**Write authority:** ${role.write_authority}
+
+## What You Do Each Turn
+
+1. Read the previous turn and challenge it explicitly.
+2. Do your work according to your mandate.
+3. Write your structured turn result to \`.agentxchain/staging/turn-result.json\`.
+
+## File Access
+
+${role.write_authority === 'authoritative'
+    ? 'You may modify product files directly.'
+    : role.write_authority === 'proposed'
+      ? 'You may propose changes via patches.'
+      : 'You may NOT modify product files. Only create review artifacts under `.planning/` and `.agentxchain/reviews/`.'}
+`;
+}
+
+export function scaffoldGoverned(dir, projectName, projectId) {
+  const config = {
+    schema_version: '1.0',
+    project: {
+      id: projectId,
+      name: projectName,
+      default_branch: 'main'
+    },
+    roles: GOVERNED_ROLES,
+    runtimes: GOVERNED_RUNTIMES,
+    routing: GOVERNED_ROUTING,
+    gates: GOVERNED_GATES,
+    budget: {
+      per_turn_max_usd: 2.0,
+      per_run_max_usd: 50.0,
+      on_exceed: 'pause_and_escalate'
+    },
+    retention: {
+      talk_strategy: 'append_only',
+      history_strategy: 'jsonl_append_only'
+    },
+    prompts: {
+      pm: '.agentxchain/prompts/pm.md',
+      dev: '.agentxchain/prompts/dev.md',
+      qa: '.agentxchain/prompts/qa.md',
+      eng_director: '.agentxchain/prompts/eng_director.md'
+    },
+    rules: {
+      challenge_required: true,
+      max_turn_retries: 2,
+      max_deadlock_cycles: 2
+    }
+  };
+
+  const state = {
+    schema_version: '1.0',
+    run_id: null,
+    project_id: projectId,
+    status: 'idle',
+    phase: 'planning',
+    accepted_integration_ref: null,
+    current_turn: null,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    escalation: null,
+    phase_gate_status: {
+      planning_signoff: 'pending',
+      implementation_complete: 'pending',
+      qa_ship_verdict: 'pending'
+    },
+    budget_status: {
+      spent_usd: 0,
+      remaining_usd: config.budget.per_run_max_usd
+    }
+  };
+
+  // Create directories
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'prompts'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+  mkdirSync(join(dir, '.agentxchain', 'dispatch'), { recursive: true });
+  mkdirSync(join(dir, '.planning'), { recursive: true });
+
+  // Core governed files
+  writeFileSync(join(dir, CONFIG_FILE), JSON.stringify(config, null, 2) + '\n');
+  writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+  writeFileSync(join(dir, '.agentxchain', 'history.jsonl'), '');
+  writeFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), '');
+
+  // Prompt templates
+  for (const [roleId, role] of Object.entries(GOVERNED_ROLES)) {
+    writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), buildGovernedPrompt(roleId, role));
+  }
+
+  // Planning artifacts
+  writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
+  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
+  writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`);
+  writeFileSync(join(dir, '.planning', 'ship-verdict.md'), `# Ship Verdict — ${projectName}\n\n## Verdict: PENDING\n\n## QA Summary\n\n(QA writes the final ship/no-ship assessment here.)\n\n## Open Blockers\n\n(List any blocking issues.)\n\n## Conditions\n\n(List any conditions for shipping.)\n`);
+
+  // TALK.md
+  writeFileSync(join(dir, 'TALK.md'), `# ${projectName} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n---\n\n`);
+
+  // .gitignore additions
+  const gitignorePath = join(dir, '.gitignore');
+  const requiredIgnores = ['.env', '.agentxchain/staging/', '.agentxchain/dispatch/'];
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, requiredIgnores.join('\n') + '\n');
+  } else {
+    const existingIgnore = readFileSync(gitignorePath, 'utf8');
+    const missing = requiredIgnores.filter(entry => !existingIgnore.split(/\r?\n/).includes(entry));
+    if (missing.length > 0) {
+      const prefix = existingIgnore.endsWith('\n') ? '' : '\n';
+      writeFileSync(gitignorePath, existingIgnore + prefix + missing.join('\n') + '\n');
+    }
+  }
+
+  return { config, state };
+}
+
+async function initGoverned(opts) {
+  let projectName, folderName;
+
+  if (opts.yes) {
+    projectName = 'My AgentXchain Project';
+    folderName = slugify(projectName);
+  } else {
+    const { name } = await inquirer.prompt([{
+      type: 'input',
+      name: 'name',
+      message: 'Project name:',
+      default: 'My AgentXchain Project'
+    }]);
+    projectName = name;
+    folderName = slugify(projectName);
+
+    const { folder } = await inquirer.prompt([{
+      type: 'input',
+      name: 'folder',
+      message: 'Folder name:',
+      default: folderName
+    }]);
+    folderName = folder;
+  }
+
+  const dir = resolve(process.cwd(), folderName);
+  const projectId = slugify(projectName);
+
+  if (existsSync(dir) && existsSync(join(dir, CONFIG_FILE))) {
+    if (!opts.yes) {
+      const { overwrite } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'overwrite',
+        message: `${folderName}/ already has agentxchain.json. Overwrite?`,
+        default: false
+      }]);
+      if (!overwrite) {
+        console.log(chalk.yellow('  Aborted.'));
+        return;
+      }
+    }
+  }
+
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  scaffoldGoverned(dir, projectName, projectId);
+
+  console.log('');
+  console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(folderName)}/`));
+  console.log('');
+  console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim('(v4 governed)')}`);
+  console.log(`    ${chalk.dim('├──')} .agentxchain/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} state.json / history.jsonl / decision-ledger.jsonl`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} staging/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} prompts/  ${chalk.dim('(pm, dev, qa, eng_director)')}`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} reviews/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
+  console.log(`    ${chalk.dim('├──')} .planning/`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PM_SIGNOFF.md / ROADMAP.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} acceptance-matrix.md / ship-verdict.md`);
+  console.log(`    ${chalk.dim('└──')} TALK.md`);
+  console.log('');
+  console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);
+  console.log(`  ${chalk.dim('Protocol:')} governed convergence (v4)`);
+  console.log('');
+  console.log(`  ${chalk.cyan('Next:')}`);
+  console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
+  console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);
+  console.log(`    ${chalk.bold('agentxchain status')} ${chalk.dim('# inspect phase, gate, and turn state')}`);
+  console.log('');
+}
+
 export async function initCommand(opts) {
+  if (opts.governed || opts.schemaVersion === '4') {
+    return initGoverned(opts);
+  }
+
   let project, agents, folderName, rules;
 
   if (opts.yes) {

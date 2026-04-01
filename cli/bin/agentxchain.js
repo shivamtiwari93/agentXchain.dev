@@ -62,6 +62,13 @@ import { validateCommand } from '../src/commands/validate.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
+import { migrateCommand } from '../src/commands/migrate.js';
+import { resumeCommand } from '../src/commands/resume.js';
+import { acceptTurnCommand } from '../src/commands/accept-turn.js';
+import { rejectTurnCommand } from '../src/commands/reject-turn.js';
+import { stepCommand } from '../src/commands/step.js';
+import { approveTransitionCommand } from '../src/commands/approve-transition.js';
+import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -70,24 +77,26 @@ const program = new Command();
 
 program
   .name('agentxchain')
-  .description('Multi-agent coordination in your IDE')
+  .description('Governed multi-agent software delivery orchestration')
   .version(pkg.version);
 
 program
   .command('init')
   .description('Create a new AgentXchain project folder')
   .option('-y, --yes', 'Skip prompts, use defaults')
+  .option('--governed', 'Create a governed v4 project (orchestrator-owned state)')
+  .option('--schema-version <version>', 'Schema version (3 or 4)')
   .action(initCommand);
 
 program
   .command('status')
-  .description('Show lock status, phase, and agents')
+  .description('Show current run or lock status')
   .option('-j, --json', 'Output as JSON')
   .action(statusCommand);
 
 program
   .command('start')
-  .description('Launch agents in your IDE')
+  .description('Launch legacy v3 agents in your IDE')
   .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
   .option('--agent <id>', 'Launch a specific agent only')
   .option('--remaining', 'Launch all remaining agents except PM (for PM-first flow)')
@@ -96,7 +105,7 @@ program
 
 program
   .command('kickoff')
-  .description('Guided PM-first first-run workflow')
+  .description('Guided legacy PM-first first-run workflow')
   .option('--ide <ide>', 'Target IDE: cursor, vscode, claude-code', 'cursor')
   .option('--send', 'When using Cursor auto-nudge, auto-send nudges')
   .option('--interval <seconds>', 'Auto-nudge poll interval in seconds', '3')
@@ -176,10 +185,54 @@ program
 
 program
   .command('validate')
-  .description('Validate Get Shit Done docs and QA protocol artifacts')
+  .description('Validate project protocol artifacts')
   .option('--mode <mode>', 'Validation mode: kickoff, turn, full', 'full')
   .option('--agent <id>', 'Expected agent for last history entry (turn mode)')
   .option('-j, --json', 'Output as JSON')
   .action(validateCommand);
+
+program
+  .command('migrate')
+  .description('Migrate a legacy v3 project to governed v4 format')
+  .option('-y, --yes', 'Skip confirmation prompts')
+  .option('-j, --json', 'Output migration report as JSON')
+  .action(migrateCommand);
+
+program
+  .command('resume')
+  .description('Resume a governed project: initialize or continue a run and assign the next turn')
+  .option('--role <role>', 'Override the target role (default: phase entry role)')
+  .action(resumeCommand);
+
+program
+  .command('accept-turn')
+  .description('Accept the currently staged governed turn result')
+  .action(acceptTurnCommand);
+
+program
+  .command('reject-turn')
+  .description('Reject the current governed turn result and retry or escalate')
+  .option('--reason <reason>', 'Operator reason for the rejection')
+  .action(rejectTurnCommand);
+
+program
+  .command('step')
+  .description('Run a single governed turn: assign, dispatch, wait, validate, accept/reject')
+  .option('--role <role>', 'Override the target role (default: phase entry role)')
+  .option('--resume', 'Resume waiting for an already-active turn')
+  .option('--poll <seconds>', 'Polling interval for manual adapter in seconds', '2')
+  .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
+  .option('--auto-reject', 'Auto-reject and retry on validation failure')
+  .action(stepCommand);
+
+program
+  .command('approve-transition')
+  .description('Approve a pending phase transition that requires human sign-off')
+  .action(approveTransitionCommand);
+
+program
+  .command('approve-completion')
+  .description('Approve a pending run completion that requires human sign-off')
+  .action(approveCompletionCommand);
 
 program.parse();

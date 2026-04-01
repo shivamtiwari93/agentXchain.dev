@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "run_id": null,
+  "project_id": "governed-todo-app",
+  "status": "idle",
+  "phase": "planning",
+  "accepted_integration_ref": null,
+  "current_turn": null,
+  "last_completed_turn_id": null,
+  "blocked_on": null,
+  "escalation": null,
+  "phase_gate_status": {
+    "planning_signoff": "pending",
+    "implementation_complete": "pending",
+    "qa_ship_verdict": "pending"
+  },
+  "budget_status": {
+    "spent_usd": 0,
+    "remaining_usd": 50.0
+  }
+}

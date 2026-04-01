@@ -1,42 +1,18 @@
-# Homebrew formula for AgentXchain CLI
-# Tap: brew tap shivamtiwari93/agentxchain
-# Install: brew install agentxchain
-
 class Agentxchain < Formula
-  desc "CLI for multi-agent coordination in your IDE"
+  desc "CLI for AgentXchain governed multi-agent software delivery"
   homepage "https://agentxchain.dev"
-  version "0.1.0"
+  url "https://registry.npmjs.org/agentxchain/-/agentxchain-0.8.8.tgz"
+  sha256 "90de0b8b97abda37403cf325383be6753c898c52ce2609de7bea94a09beb8582"
   license "MIT"
 
-  on_macos do
-    on_arm do
-      url "https://github.com/shivamtiwari93/agentXchain.dev/releases/download/v0.1.0/agentxchain-0.1.0-macos-arm64.tar.gz"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256"
-    end
-    on_intel do
-      url "https://github.com/shivamtiwari93/agentXchain.dev/releases/download/v0.1.0/agentxchain-0.1.0-macos-x64.tar.gz"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256"
-    end
-  end
-
-  on_linux do
-    on_intel do
-      url "https://github.com/shivamtiwari93/agentXchain.dev/releases/download/v0.1.0/agentxchain-0.1.0-linux-x64.tar.gz"
-      sha256 "REPLACE_WITH_ACTUAL_SHA256"
-    end
-  end
+  depends_on "node"
 
   def install
-    if OS.mac? && Hardware::CPU.arm?
-      bin.install "agentxchain-macos-arm64" => "agentxchain"
-    elsif OS.mac? && Hardware::CPU.intel?
-      bin.install "agentxchain-macos-x64" => "agentxchain"
-    elsif OS.linux? && Hardware::CPU.intel?
-      bin.install "agentxchain-linux-x64" => "agentxchain"
-    end
+    system "npm", "install", *std_npm_args(libexec)
+    bin.install_symlink Dir["#{libexec}/bin/*"]
   end
 
   test do
-    system "#{bin}/agentxchain", "--version"
+    assert_match version.to_s, shell_output("#{bin}/agentxchain --version")
   end
 end

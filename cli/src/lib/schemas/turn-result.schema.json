@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentxchain.dev/schemas/turn-result/v1",
+  "title": "AgentXchain Turn Result v1",
+  "description": "Structured output produced by every agent turn. The orchestrator validates and accepts/rejects based on this contract.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "turn_id",
+    "role",
+    "runtime_id",
+    "status",
+    "summary",
+    "decisions",
+    "objections",
+    "files_changed",
+    "verification",
+    "artifact",
+    "proposed_next_role"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "description": "Must be '1.0' for v1 turn results."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must match the current run. Format: run_XXXX..."
+    },
+    "turn_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must match the current turn assignment. Format: turn-NNNN"
+    },
+    "role": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Must match the role assigned for this turn."
+    },
+    "runtime_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The runtime that executed this turn."
+    },
+    "status": {
+      "enum": ["completed", "blocked", "needs_human", "failed"],
+      "description": "Outcome of this turn."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable summary of what happened."
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "statement", "rationale"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^DEC-\\d+$",
+            "description": "Decision ID, e.g. DEC-014"
+          },
+          "category": {
+            "enum": ["implementation", "architecture", "scope", "process", "quality", "release"]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "objections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "statement"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^OBJ-\\d+$",
+            "description": "Objection ID, e.g. OBJ-007"
+          },
+          "severity": {
+            "enum": ["low", "medium", "high", "blocking"]
+          },
+          "against_turn_id": {
+            "type": "string",
+            "description": "Turn that this objection challenges."
+          },
+          "against_decision_id": {
+            "type": "string",
+            "description": "Decision ID being challenged."
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "proposed_resolution": {
+            "type": "string"
+          },
+          "status": {
+            "enum": ["raised", "acknowledged", "resolved", "escalated", "resolved_by_human", "resolved_by_director"],
+            "default": "raised"
+          }
+        }
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths of files modified during this turn. Must match observed diff for authoritative runtimes."
+    },
+    "artifacts_created": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths of planning/review artifacts created (under .planning/ or .agentxchain/)."
+    },
+    "verification": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": ["pass", "fail", "skipped"],
+          "description": "Raw status from agent. Orchestrator may normalize to attested_pass or not_reproducible."
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Verification commands that were run."
+        },
+        "evidence_summary": {
+          "type": "string",
+          "description": "Human-readable description of verification evidence."
+        },
+        "machine_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["command", "exit_code"],
+            "properties": {
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["workspace", "patch", "commit", "review"],
+          "description": "workspace = direct local changes, patch = unified diff, commit = git commit, review = no code changes"
+        },
+        "ref": {
+          "type": ["string", "null"],
+          "description": "Git SHA, patch path, or null for review-only."
+        },
+        "diff_summary": {
+          "type": "string"
+        }
+      }
+    },
+    "proposed_next_role": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$|^human$",
+      "description": "Role that should work next. Must be in routing allowlist or 'human'."
+    },
+    "phase_transition_request": {
+      "type": ["string", "null"],
+      "description": "If the agent believes the phase should advance, name the target phase."
+    },
+    "run_completion_request": {
+      "type": ["boolean", "null"],
+      "description": "Set to true only in the final phase when the run should complete. Mutually exclusive with phase_transition_request."
+    },
+    "needs_human_reason": {
+      "type": ["string", "null"],
+      "description": "If status is needs_human, explain why."
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "input_tokens": { "type": "integer", "minimum": 0 },
+        "output_tokens": { "type": "integer", "minimum": 0 },
+        "usd": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

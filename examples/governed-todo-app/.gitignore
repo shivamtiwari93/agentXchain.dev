@@ -1,0 +1,4 @@
+.env
+.agentxchain/staging/
+.agentxchain/dispatch/
+node_modules/

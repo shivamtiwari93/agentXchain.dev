@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
+import { validateStagedTurnResult, STAGING_PATH } from './turn-result-validator.js';
 
 const DEFAULT_REQUIRED_FILES = [
   '.planning/PROJECT.md',
@@ -75,6 +76,107 @@ export function validateProject(root, config, opts = {}) {
 
   const qaSignals = validateQaArtifacts(root);
   warnings.push(...qaSignals.warnings);
+
+  return { ok: errors.length === 0, mode, errors, warnings };
+}
+
+export function validateGovernedProject(root, rawConfig, config, opts = {}) {
+  const mode = opts.mode || 'full';
+  const expectedRole = opts.expectedAgent || null;
+  const errors = [];
+  const warnings = [];
+
+  const mustExist = [
+    config.files?.state || '.agentxchain/state.json',
+    config.files?.history || '.agentxchain/history.jsonl',
+  ];
+
+  for (const rel of mustExist) {
+    if (!existsSync(join(root, rel))) {
+      errors.push(`Missing required file: ${rel}`);
+    }
+  }
+
+  const prompts = rawConfig?.prompts && typeof rawConfig.prompts === 'object' ? rawConfig.prompts : {};
+  for (const [roleId, rel] of Object.entries(prompts)) {
+    if (typeof rel !== 'string' || !rel.trim()) {
+      errors.push(`Prompt path for role "${roleId}" must be a non-empty string.`);
+      continue;
+    }
+    if (!existsSync(join(root, rel))) {
+      errors.push(`Missing prompt file for role "${roleId}": ${rel}`);
+    }
+  }
+
+  for (const [gateId, gate] of Object.entries(config.gates || {})) {
+    for (const rel of gate.requires_files || []) {
+      if (!existsSync(join(root, rel))) {
+        errors.push(`Gate "${gateId}" requires missing file: ${rel}`);
+      }
+    }
+  }
+
+  const statePath = join(root, config.files?.state || '.agentxchain/state.json');
+  const state = readJson(statePath);
+  if (!state) {
+    errors.push(`Unable to parse ${config.files?.state || '.agentxchain/state.json'}.`);
+  } else {
+    if (state.phase && config.routing && !config.routing[state.phase]) {
+      errors.push(`State phase "${state.phase}" is not defined in routing.`);
+    }
+
+    if (state.phase_gate_status && typeof state.phase_gate_status === 'object') {
+      for (const gateId of Object.keys(state.phase_gate_status)) {
+        if (!config.gates?.[gateId]) {
+          errors.push(`state.phase_gate_status references unknown gate "${gateId}".`);
+        }
+      }
+    }
+
+    if (mode === 'turn') {
+      if (!state.current_turn) {
+        errors.push('Governed turn validation requires state.current_turn.');
+      } else if (expectedRole && state.current_turn.assigned_role !== expectedRole) {
+        errors.push(`Current turn role "${state.current_turn.assigned_role}" does not match expected "${expectedRole}".`);
+      }
+    }
+
+    if (!state.current_turn) {
+      warnings.push('No current_turn present in governed state. The run may be idle or paused.');
+    }
+  }
+
+  const historyPath = join(root, config.files?.history || '.agentxchain/history.jsonl');
+  const historyLines = readJsonLines(historyPath);
+  if (historyLines.error) {
+    errors.push(historyLines.error);
+  } else if (historyLines.lines.length === 0) {
+    warnings.push(`${config.files?.history || '.agentxchain/history.jsonl'} has no accepted turn entries yet.`);
+  } else {
+    const last = historyLines.lines[historyLines.lines.length - 1];
+    if (last && typeof last === 'object') {
+      if (!last.turn_id) warnings.push('Last governed history entry has no turn_id.');
+      if (!last.role) warnings.push('Last governed history entry has no role.');
+      if (!last.status) warnings.push('Last governed history entry has no status.');
+    }
+  }
+
+  // ── Staged turn-result validation (the acceptance boundary) ─────────────
+  if (mode === 'turn' && state) {
+    const stagingAbs = join(root, STAGING_PATH);
+    if (!existsSync(stagingAbs)) {
+      warnings.push(`No staged turn result found at ${STAGING_PATH}. Agent has not yet emitted a turn result.`);
+    } else {
+      const turnValidation = validateStagedTurnResult(root, state, config);
+      if (!turnValidation.ok) {
+        errors.push(
+          `Staged turn result failed at stage "${turnValidation.stage}" (${turnValidation.error_class}):`,
+          ...turnValidation.errors.map(e => `  • ${e}`)
+        );
+      }
+      warnings.push(...(turnValidation.warnings || []));
+    }
+  }
 
   return { ok: errors.length === 0, mode, errors, warnings };
 }
@@ -212,5 +314,38 @@ function safeReadDir(path) {
     return readdirSync(path);
   } catch {
     return [];
+  }
+}
+
+function readJson(path) {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function readJsonLines(path) {
+  if (!existsSync(path)) {
+    return { lines: [], error: `${path.split('/').pop()} is missing.` };
+  }
+
+  try {
+    const raw = readFileSync(path, 'utf8');
+    const lines = raw
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map((line, index) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          throw new Error(`Invalid JSONL entry at line ${index + 1}.`);
+        }
+      });
+    return { lines, error: null };
+  } catch (err) {
+    return { lines: [], error: err.message };
   }
 }

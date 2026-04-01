@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "id": "baby-tracker",
+    "name": "Baby Tracker",
+    "default_branch": "main"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Protect user value, scope clarity, and acceptance criteria.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    },
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement approved work safely and verify behavior.",
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
+    },
+    "qa": {
+      "title": "QA",
+      "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+      "write_authority": "review_only",
+      "runtime": "api-qa"
+    },
+    "eng_director": {
+      "title": "Engineering Director",
+      "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
+      "write_authority": "review_only",
+      "runtime": "manual-director"
+    }
+  },
+  "runtimes": {
+    "manual-pm": {
+      "type": "manual"
+    },
+    "local-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "-p", "{prompt}"],
+      "cwd": ".",
+      "prompt_transport": "argv"
+    },
+    "api-qa": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    },
+    "manual-director": {
+      "type": "manual"
+    }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "eng_director", "human"],
+      "exit_gate": "planning_signoff"
+    },
+    "implementation": {
+      "entry_role": "dev",
+      "allowed_next_roles": ["dev", "qa", "eng_director", "human"],
+      "exit_gate": "implementation_complete"
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["dev", "qa", "eng_director", "human"],
+      "exit_gate": "qa_ship_verdict"
+    }
+  },
+  "gates": {
+    "planning_signoff": {
+      "requires_files": [".planning/PM_SIGNOFF.md", ".planning/ROADMAP.md"],
+      "requires_human_approval": true
+    },
+    "implementation_complete": {
+      "requires_verification_pass": true
+    },
+    "qa_ship_verdict": {
+      "requires_files": [".planning/acceptance-matrix.md", ".planning/ship-verdict.md"],
+      "requires_human_approval": true
+    }
+  },
+  "budget": {
+    "per_turn_max_usd": 2.0,
+    "per_run_max_usd": 50.0,
+    "on_exceed": "pause_and_escalate"
+  },
+  "retention": {
+    "talk_strategy": "append_only",
+    "history_strategy": "jsonl_append_only"
+  },
+  "prompts": {
+    "pm": ".agentxchain/prompts/pm.md",
+    "dev": ".agentxchain/prompts/dev.md",
+    "qa": ".agentxchain/prompts/qa.md",
+    "eng_director": ".agentxchain/prompts/eng_director.md"
+  },
+  "rules": {
+    "challenge_required": true,
+    "max_turn_retries": 2,
+    "max_deadlock_cycles": 2
+  }
+}

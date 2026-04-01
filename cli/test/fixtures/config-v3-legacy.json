@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "project": "Baby Tracker",
+  "agents": {
+    "pm": {
+      "name": "Product Manager",
+      "mandate": "Protect user value, scope clarity, and acceptance criteria. You are the voice of the user."
+    },
+    "dev": {
+      "name": "Fullstack Developer",
+      "mandate": "Implement approved work safely and verify behavior with tests."
+    },
+    "qa": {
+      "name": "QA Engineer",
+      "mandate": "Challenge correctness, acceptance coverage, and ship readiness."
+    },
+    "ux": {
+      "name": "UX Reviewer",
+      "mandate": "Audit usability, accessibility, and visual consistency."
+    }
+  },
+  "log": "log.md",
+  "talk_file": "TALK.md",
+  "state_file": "state.md",
+  "history_file": "history.jsonl",
+  "rules": {
+    "max_consecutive_claims": 2,
+    "require_message": true,
+    "compress_after_words": 5000,
+    "ttl_minutes": 20,
+    "watch_interval_ms": 5000,
+    "verify_command": "npm test"
+  }
+}

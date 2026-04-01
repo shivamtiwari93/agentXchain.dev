@@ -7,33 +7,34 @@ brew tap shivamtiwari93/agentxchain
 brew install agentxchain
 ```
 
-## For maintainers: how to release
+## Current packaging model
 
-1. Build binaries:
-   ```bash
-   cd cli/
-   bash scripts/build-binary.sh
-   ```
+The tap currently installs the published npm package using Homebrew's `node` dependency instead of binary release assets.
 
-2. Create a GitHub release on `agentXchain.dev` repo (e.g. `v0.1.0`).
+Current formula target:
 
-3. Upload the `.tar.gz` files from `cli/dist/` to the release.
+- package: `agentxchain`
+- version: `0.8.8`
+- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-0.8.8.tgz`
 
-4. Copy the SHA256 hashes from the build output.
+## For maintainers: how to update the tap
 
-5. Create a GitHub repo: `shivamtiwari93/homebrew-agentxchain`
-   - Add one file: `Formula/agentxchain.rb` (copy from `cli/homebrew/agentxchain.rb`)
-   - Replace `REPLACE_WITH_ACTUAL_SHA256` with the real hashes
-   - Replace the URLs if the release tag is different
+1. Publish a new npm version of `agentxchain`.
+2. Fetch the new tarball URL from npm.
+3. Compute the new tarball SHA256.
+4. Update `Formula/agentxchain.rb` in `shivamtiwari93/homebrew-agentxchain`.
+5. Commit and push the tap repo.
 
-6. Users can now:
-   ```bash
-   brew tap shivamtiwari93/agentxchain
-   brew install agentxchain
-   agentxchain --version
-   ```
+## Tap repo
 
-## Requirements for building
+The tap repo is:
 
-- [Bun](https://bun.sh) — `brew install oven-sh/bun/bun`
-- Bun can cross-compile, so you can build all targets from macOS.
+- `https://github.com/shivamtiwari93/homebrew-agentxchain`
+
+Users can install with:
+
+```bash
+brew tap shivamtiwari93/agentxchain
+brew install agentxchain
+agentxchain --version
+```
