@@ -2,6 +2,29 @@ import { readFileSync, existsSync } from 'fs';
 import { join, parse as pathParse, resolve } from 'path';
 import { safeParseJson, validateConfigSchema, validateLockSchema, validateProjectStateSchema, validateStateSchema } from './schema.js';
 import { loadNormalizedConfig } from './normalized-config.js';
+import { safeWriteJson } from './safe-write.js';
+import { normalizeGovernedStateShape, getActiveTurn } from './governed-state.js';
+
+function attachLegacyCurrentTurnAlias(state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  const existing = Object.getOwnPropertyDescriptor(state, 'current_turn');
+  if (existing && existing.enumerable === false) {
+    return state;
+  }
+
+  Object.defineProperty(state, 'current_turn', {
+    configurable: true,
+    enumerable: false,
+    get() {
+      return getActiveTurn(state);
+    },
+  });
+
+  return state;
+}
 
 const CONFIG_FILE = 'agentxchain.json';
 const LOCK_FILE = 'lock.json';
@@ -55,7 +78,7 @@ export function loadProjectContext(dir = process.cwd()) {
     return null;
   }
 
-  const normalized = loadNormalizedConfig(parsed);
+  const normalized = loadNormalizedConfig(parsed, root);
   if (!normalized.ok) {
     console.error(`  Warning: agentxchain.json has issues: ${normalized.errors.join(', ')}`);
     return null;
@@ -115,12 +138,30 @@ export function loadProjectState(root, config) {
     return null;
   }
 
-  const result = safeParseJson(raw, validateProjectStateSchema);
+  const parsed = safeParseJson(raw);
+  if (!parsed.ok) {
+    console.error(`  Warning: ${relPath} has issues: ${parsed.errors.join(', ')}`);
+    return null;
+  }
+
+  let stateData = parsed.data;
+  if (config?.protocol_mode === 'governed') {
+    const normalized = normalizeGovernedStateShape(stateData);
+    stateData = normalized.state;
+    if (normalized.changed) {
+      safeWriteJson(filePath, stateData);
+    }
+  }
+
+  const result = validateProjectStateSchema(stateData);
   if (!result.ok) {
     console.error(`  Warning: ${relPath} has issues: ${result.errors.join(', ')}`);
     return null;
   }
-  return result.data;
+  if (config?.protocol_mode === 'governed') {
+    return attachLegacyCurrentTurnAlias(stateData);
+  }
+  return stateData;
 }
 
 export { CONFIG_FILE, LOCK_FILE, STATE_FILE };

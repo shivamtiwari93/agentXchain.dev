@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -78,6 +79,7 @@ function renderGovernedStatus(context, opts) {
     console.log(JSON.stringify({
       version,
       protocol_mode: config.protocol_mode,
+      template: config.template || 'generic',
       config,
       state,
     }, null, 2));
@@ -91,25 +93,85 @@ function renderGovernedStatus(context, opts) {
 
   console.log(`  ${chalk.dim('Project:')}  ${config.project.name}`);
   console.log(`  ${chalk.dim('Protocol:')} ${chalk.cyan(`governed (v${version})`)}`);
+  console.log(`  ${chalk.dim('Template:')} ${config.template || 'generic'}`);
   console.log(`  ${chalk.dim('Phase:')}    ${state?.phase ? formatGovernedPhase(state.phase) : chalk.dim('unknown')}`);
-  console.log(`  ${chalk.dim('Run:')}      ${state?.status || chalk.dim('unknown')}`);
+  console.log(`  ${chalk.dim('Run:')}      ${formatRunStatus(state?.status)}`);
   if (state?.accepted_integration_ref) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);
   }
   console.log('');
 
-  if (state?.current_turn) {
-    console.log(`  ${chalk.dim('Turn:')}     ${state.current_turn.turn_id}`);
-    console.log(`  ${chalk.dim('Role:')}     ${chalk.bold(state.current_turn.assigned_role)} (${state.current_turn.status})`);
-    console.log(`  ${chalk.dim('Runtime:')}  ${state.current_turn.runtime_id}`);
-    console.log(`  ${chalk.dim('Attempt:')}  ${state.current_turn.attempt}`);
+  const activeTurnCount = getActiveTurnCount(state);
+  const activeTurns = getActiveTurns(state);
+  const singleActiveTurn = getActiveTurn(state);
+  if (activeTurnCount > 1) {
+    console.log(`  ${chalk.dim('Turns:')}    ${activeTurnCount} active`);
+    for (const turn of Object.values(activeTurns)) {
+      const marker = turn.status === 'conflicted'
+        ? chalk.red('✗')
+        : chalk.yellow('●');
+      const statusLabel = turn.status === 'conflicted'
+        ? chalk.red('conflicted')
+        : turn.status;
+      console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]`);
+      if (turn.status === 'conflicted' && turn.conflict_state) {
+        const cs = turn.conflict_state;
+        const files = cs.conflict_error?.conflicting_files || [];
+        const count = cs.detection_count || 1;
+        console.log(`      ${chalk.dim('Conflict:')}  ${files.length} file(s) — detection #${count}`);
+        if (cs.conflict_error?.overlap_ratio != null) {
+          console.log(`      ${chalk.dim('Overlap:')}   ${(cs.conflict_error.overlap_ratio * 100).toFixed(0)}%`);
+        }
+        const suggestion = cs.conflict_error?.suggested_resolution || 'reject_and_reassign';
+        console.log(`      ${chalk.dim('Suggested:')} ${suggestion}`);
+        console.log(`      ${chalk.dim('Resolve:')}   ${chalk.cyan(`agentxchain reject-turn --turn ${turn.turn_id} --reassign`)}`);
+        console.log(`      ${chalk.dim('     or:')}   ${chalk.cyan(`agentxchain accept-turn --turn ${turn.turn_id} --resolution human_merge`)}`);
+      }
+    }
+  } else if (singleActiveTurn) {
+    console.log(`  ${chalk.dim('Turn:')}     ${singleActiveTurn.turn_id}`);
+    console.log(`  ${chalk.dim('Role:')}     ${chalk.bold(singleActiveTurn.assigned_role)} (${singleActiveTurn.status})`);
+    console.log(`  ${chalk.dim('Runtime:')}  ${singleActiveTurn.runtime_id}`);
+    console.log(`  ${chalk.dim('Attempt:')}  ${singleActiveTurn.attempt}`);
+    if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
+      const cs = singleActiveTurn.conflict_state;
+      const files = cs.conflict_error?.conflicting_files || [];
+      console.log(`  ${chalk.dim('Conflict:')} ${chalk.red(`${files.length} file(s) conflicting`)} — detection #${cs.detection_count || 1}`);
+      console.log(`  ${chalk.dim('Resolve:')}  ${chalk.cyan('agentxchain reject-turn --reassign')}`);
+      console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan('agentxchain accept-turn --resolution human_merge')}`);
+    }
   } else {
     console.log(`  ${chalk.dim('Turn:')}     ${chalk.yellow('No active turn')}`);
   }
 
+  // Queued phase/completion requests
+  if (state?.queued_phase_transition) {
+    const qt = state.queued_phase_transition;
+    console.log('');
+    console.log(`  ${chalk.dim('Queued:')}   Phase transition ${formatGovernedPhase(qt.from)} → ${formatGovernedPhase(qt.to)} (awaiting drain)`);
+  }
+  if (state?.queued_run_completion) {
+    console.log('');
+    console.log(`  ${chalk.dim('Queued:')}   Run completion (awaiting drain)`);
+  }
+
+  // Per-turn budget reservations
+  if (state?.budget_reservations && Object.keys(state.budget_reservations).length > 0) {
+    console.log('');
+    console.log(`  ${chalk.dim('Budget reservations:')}`);
+    for (const [turnId, reservation] of Object.entries(state.budget_reservations)) {
+      const amt = reservation.reserved_usd != null ? `$${formatUsd(reservation.reserved_usd)}` : '(unknown)';
+      console.log(`    ${chalk.dim('●')} ${turnId}: ${amt}`);
+    }
+  }
+
   if (state?.blocked_on) {
     console.log('');
-    if (state.blocked_on.startsWith('human_approval:')) {
+    if (state.status === 'blocked') {
+      const recovery = deriveRecoveryDescriptor(state);
+      const detail = recovery?.detail || state.blocked_on;
+      console.log(`  ${chalk.dim('Blocked:')}  ${chalk.red.bold('BLOCKED')} — ${detail}`);
+    } else if (state.blocked_on.startsWith('human_approval:')) {
       const gate = state.blocked_on.replace('human_approval:', '');
       console.log(`  ${chalk.dim('Blocked:')}  ${chalk.yellow('AWAITING HUMAN APPROVAL')} — gate: ${chalk.bold(gate)}`);
     } else {
@@ -168,7 +230,7 @@ function renderGovernedStatus(context, opts) {
   console.log('');
   console.log(`  ${chalk.dim('Roles:')}    ${Object.keys(config.roles).length}`);
   for (const [id, role] of Object.entries(config.roles)) {
-    const isAssigned = state?.current_turn?.assigned_role === id;
+    const isAssigned = Object.values(getActiveTurns(state)).some(turn => turn.assigned_role === id);
     const marker = isAssigned ? chalk.yellow('●') : chalk.dim('○');
     const label = isAssigned ? chalk.bold(id) : id;
     console.log(`    ${marker} ${label} — ${role.title} [${role.write_authority}]`);
@@ -184,6 +246,15 @@ function formatPhase(phase) {
 function formatGovernedPhase(phase) {
   const colors = { planning: chalk.blue, implementation: chalk.green, qa: chalk.yellow, paused: chalk.magenta, failed: chalk.red };
   return (colors[phase] || chalk.white)(phase);
+}
+
+function formatRunStatus(status) {
+  if (status === 'blocked') return chalk.red.bold('BLOCKED');
+  if (status === 'paused') return chalk.yellow.bold('PAUSED');
+  if (status === 'completed') return chalk.green.bold('COMPLETED');
+  if (status === 'active') return chalk.cyan('active');
+  if (status === 'idle') return chalk.dim('idle');
+  return status || chalk.dim('unknown');
 }
 
 function timeSince(iso) {

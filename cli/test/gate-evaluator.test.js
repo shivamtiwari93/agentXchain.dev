@@ -464,8 +464,9 @@ describe('acceptGovernedTurn — gate integration', () => {
     const result = acceptGovernedTurn(root, config);
     assert.ok(result.ok);
     assert.equal(result.gateResult, null); // Not evaluated
-    assert.equal(result.state.status, 'paused');
+    assert.equal(result.state.status, 'blocked');
     assert.equal(result.state.phase, 'planning'); // Not advanced
+    assert.equal(result.state.blocked_reason.category, 'needs_human');
   });
 
   it('accepts turn but stays in phase on unknown target phase', () => {
@@ -558,7 +559,44 @@ describe('approvePhaseTransition', () => {
 
     const result = approvePhaseTransition(root);
     assert.equal(result.ok, false);
-    assert.ok(result.error.includes('expected "paused"'));
+    assert.ok(result.error.includes('expected "paused" or "blocked"'));
+  });
+
+  it('advances phase from blocked state when pending transition is retained', () => {
+    const state = {
+      run_id: 'run_test',
+      project_id: 'test',
+      status: 'blocked',
+      phase: 'planning',
+      blocked_on: 'hook:before_gate:compliance-gate',
+      blocked_reason: {
+        category: 'hook_block',
+        blocked_at: '2026-04-02T13:00:00Z',
+        turn_id: 'turn_abc',
+        recovery: {
+          typed_reason: 'pending_phase_transition',
+          owner: 'human',
+          recovery_action: 'agentxchain approve-transition',
+          turn_retained: false,
+          detail: 'planning_signoff',
+        },
+      },
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+        requested_by_turn: 'turn_abc',
+      },
+    };
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state));
+
+    const result = approvePhaseTransition(root);
+    assert.ok(result.ok);
+    assert.equal(result.state.phase, 'implementation');
+    assert.equal(result.state.status, 'active');
+    assert.equal(result.state.blocked_on, null);
+    assert.equal(result.state.blocked_reason, null);
+    assert.equal(result.state.pending_phase_transition, null);
   });
 
   it('fails when no state file exists', () => {

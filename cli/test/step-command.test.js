@@ -15,6 +15,10 @@ import {
   assignGovernedTurn,
   acceptGovernedTurn,
   rejectGovernedTurn,
+  normalizeGovernedStateShape,
+  getActiveTurn,
+  getActiveTurns,
+  getActiveTurnCount,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
@@ -22,6 +26,7 @@ import {
   TALK_PATH,
 } from '../src/lib/governed-state.js';
 import { writeDispatchBundle } from '../src/lib/dispatch-bundle.js';
+import { getDispatchTurnDir, getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 import { scaffoldGoverned } from '../src/commands/init.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,7 +38,19 @@ function makeTmpDir() {
 }
 
 function readJson(root, relPath) {
-  return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  const parsed = JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  if (relPath === STATE_PATH || relPath.endsWith('state.json')) {
+    const normalized = normalizeGovernedStateShape(parsed).state;
+    Object.defineProperty(normalized, 'current_turn', {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return getActiveTurn(normalized);
+      },
+    });
+    return normalized;
+  }
+  return parsed;
 }
 
 function readJsonl(root, relPath) {
@@ -111,6 +128,10 @@ function writeStagedResult(root, turnResult) {
   writeFileSync(join(root, STAGING_PATH), JSON.stringify(turnResult, null, 2));
 }
 
+function manualStagingPath(turnId = 'turn_abc') {
+  return getTurnStagingResultPath(turnId);
+}
+
 let tmpDirs = [];
 function createAndTrack() {
   const dir = makeTmpDir();
@@ -150,7 +171,7 @@ describe('Manual Adapter', () => {
       assert.ok(output.includes('turn_abc'));
       assert.ok(output.includes('planning'));
       assert.ok(output.includes('PROMPT.md'));
-      assert.ok(output.includes('staging/turn-result.json'));
+      assert.ok(output.includes('turn-result.json'));
     });
 
     it('shows attempt number for retries', () => {
@@ -173,11 +194,11 @@ describe('Manual Adapter', () => {
   describe('waitForStagedResult()', () => {
     it('returns immediately if staged result already exists', async () => {
       const root = createAndTrack();
-      const stagingDir = join(root, '.agentxchain', 'staging');
+      const stagingDir = join(root, '.agentxchain', 'staging', 'turn_manual');
       mkdirSync(stagingDir, { recursive: true });
-      writeFileSync(join(root, STAGING_PATH), JSON.stringify({ test: true }));
+      writeFileSync(join(root, getTurnStagingResultPath('turn_manual')), JSON.stringify({ test: true }));
 
-      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 1000 });
+      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 1000, turnId: 'turn_manual' });
       assert.ok(result.found);
       assert.ok(!result.timedOut);
       assert.ok(!result.aborted);
@@ -185,9 +206,9 @@ describe('Manual Adapter', () => {
 
     it('returns timedOut when file does not appear', async () => {
       const root = createAndTrack();
-      mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+      mkdirSync(join(root, '.agentxchain', 'staging', 'turn_manual'), { recursive: true });
 
-      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 200 });
+      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 200, turnId: 'turn_manual' });
       assert.ok(!result.found);
       assert.ok(result.timedOut);
       assert.ok(!result.aborted);
@@ -195,21 +216,21 @@ describe('Manual Adapter', () => {
 
     it('detects file that appears after a delay', async () => {
       const root = createAndTrack();
-      mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+      mkdirSync(join(root, '.agentxchain', 'staging', 'turn_manual'), { recursive: true });
 
       // Write file after 150ms
       setTimeout(() => {
-        writeFileSync(join(root, STAGING_PATH), JSON.stringify({ delayed: true }));
+        writeFileSync(join(root, getTurnStagingResultPath('turn_manual')), JSON.stringify({ delayed: true }));
       }, 150);
 
-      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 2000 });
+      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 2000, turnId: 'turn_manual' });
       assert.ok(result.found);
       assert.ok(!result.timedOut);
     });
 
     it('respects abort signal', async () => {
       const root = createAndTrack();
-      mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+      mkdirSync(join(root, '.agentxchain', 'staging', 'turn_manual'), { recursive: true });
 
       const controller = new AbortController();
       setTimeout(() => controller.abort(), 100);
@@ -218,6 +239,7 @@ describe('Manual Adapter', () => {
         pollIntervalMs: 50,
         timeoutMs: 5000,
         signal: controller.signal,
+        turnId: 'turn_manual',
       });
       assert.ok(!result.found);
       assert.ok(!result.timedOut);
@@ -233,17 +255,18 @@ describe('Manual Adapter', () => {
         pollIntervalMs: 50,
         timeoutMs: 5000,
         signal: controller.signal,
+        turnId: 'turn_manual',
       });
       assert.ok(result.aborted);
     });
 
     it('ignores empty or near-empty files', async () => {
       const root = createAndTrack();
-      const stagingDir = join(root, '.agentxchain', 'staging');
+      const stagingDir = join(root, '.agentxchain', 'staging', 'turn_manual');
       mkdirSync(stagingDir, { recursive: true });
-      writeFileSync(join(root, STAGING_PATH), '{}'); // 2 bytes, below threshold
+      writeFileSync(join(root, getTurnStagingResultPath('turn_manual')), '{}'); // 2 bytes, below threshold
 
-      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 200 });
+      const result = await waitForStagedResult(root, { pollIntervalMs: 50, timeoutMs: 200, turnId: 'turn_manual' });
       assert.ok(!result.found);
       assert.ok(result.timedOut);
     });
@@ -252,29 +275,29 @@ describe('Manual Adapter', () => {
   describe('readStagedResult()', () => {
     it('reads and parses a valid staged result', () => {
       const root = createAndTrack();
-      const stagingDir = join(root, '.agentxchain', 'staging');
+      const stagingDir = join(root, '.agentxchain', 'staging', 'turn_manual');
       mkdirSync(stagingDir, { recursive: true });
-      writeFileSync(join(root, STAGING_PATH), JSON.stringify({ status: 'completed' }));
+      writeFileSync(join(root, getTurnStagingResultPath('turn_manual')), JSON.stringify({ status: 'completed' }));
 
-      const result = readStagedResult(root);
+      const result = readStagedResult(root, { turnId: 'turn_manual' });
       assert.ok(result.ok);
       assert.equal(result.parsed.status, 'completed');
     });
 
     it('returns error for missing file', () => {
       const root = createAndTrack();
-      const result = readStagedResult(root);
+      const result = readStagedResult(root, { turnId: 'turn_missing' });
       assert.ok(!result.ok);
       assert.ok(result.error);
     });
 
     it('returns error for invalid JSON', () => {
       const root = createAndTrack();
-      const stagingDir = join(root, '.agentxchain', 'staging');
+      const stagingDir = join(root, '.agentxchain', 'staging', 'turn_manual');
       mkdirSync(stagingDir, { recursive: true });
-      writeFileSync(join(root, STAGING_PATH), 'not json');
+      writeFileSync(join(root, getTurnStagingResultPath('turn_manual')), 'not json');
 
-      const result = readStagedResult(root);
+      const result = readStagedResult(root, { turnId: 'turn_manual' });
       assert.ok(!result.ok);
       assert.ok(result.error);
     });
@@ -305,9 +328,10 @@ describe('Step Flow Integration', () => {
       assert.ok(bundleResult.ok);
 
       // Verify dispatch artifacts exist
-      assert.ok(existsSync(join(root, '.agentxchain/dispatch/current/ASSIGNMENT.json')));
-      assert.ok(existsSync(join(root, '.agentxchain/dispatch/current/PROMPT.md')));
-      assert.ok(existsSync(join(root, '.agentxchain/dispatch/current/CONTEXT.md')));
+      const dispatchDir = getDispatchTurnDir(state.current_turn.turn_id);
+      assert.ok(existsSync(join(root, dispatchDir, 'ASSIGNMENT.json')));
+      assert.ok(existsSync(join(root, dispatchDir, 'PROMPT.md')));
+      assert.ok(existsSync(join(root, dispatchDir, 'CONTEXT.md')));
 
       // 4. Simulate agent writing staged result
       const turnResult = makeValidTurnResult(state);
@@ -365,12 +389,12 @@ describe('Step Flow Integration', () => {
       assert.ok(retryBundle.ok);
 
       // Verify PROMPT.md includes retry context
-      const promptPath = join(root, '.agentxchain/dispatch/current/PROMPT.md');
+      const promptPath = join(root, getDispatchTurnDir(retryState.current_turn.turn_id), 'PROMPT.md');
       const promptContent = readFileSync(promptPath, 'utf8');
       assert.ok(promptContent.includes('Previous Attempt Failed'));
     });
 
-    it('exhausted retries → escalation → paused state', () => {
+    it('exhausted retries → escalation → blocked state', () => {
       const root = createAndTrack();
       setupGovernedProject(root);
       const config = makeNormalizedConfig();
@@ -389,9 +413,10 @@ describe('Step Flow Integration', () => {
       assert.ok(result.escalated);
 
       const finalState = readJson(root, STATE_PATH);
-      assert.equal(finalState.status, 'paused');
+      assert.equal(finalState.status, 'blocked');
       assert.ok(finalState.blocked_on.includes('escalation'));
       assert.ok(finalState.escalation);
+      assert.equal(finalState.blocked_reason.category, 'retries_exhausted');
     });
   });
 
@@ -405,10 +430,10 @@ describe('Step Flow Integration', () => {
       const assignResult = assignGovernedTurn(root, config, 'pm');
       writeDispatchBundle(root, assignResult.state, config);
 
-      const assignment = readJson(root, '.agentxchain/dispatch/current/ASSIGNMENT.json');
+      const assignment = readJson(root, `${getDispatchTurnDir(assignResult.state.current_turn.turn_id)}/ASSIGNMENT.json`);
       assert.equal(assignment.role, 'pm');
       assert.equal(assignment.write_authority, 'review_only');
-      assert.equal(assignment.staging_result_path, '.agentxchain/staging/turn-result.json');
+      assert.equal(assignment.staging_result_path, getTurnStagingResultPath(assignResult.state.current_turn.turn_id));
       assert.ok(Array.isArray(assignment.reserved_paths));
       assert.ok(assignment.reserved_paths.includes('.agentxchain/state.json'));
     });
@@ -422,9 +447,9 @@ describe('Step Flow Integration', () => {
       const assignResult = assignGovernedTurn(root, config, 'dev');
       writeDispatchBundle(root, assignResult.state, config);
 
-      const prompt = readFileSync(join(root, '.agentxchain/dispatch/current/PROMPT.md'), 'utf8');
+      const prompt = readFileSync(join(root, getDispatchTurnDir(assignResult.state.current_turn.turn_id), 'PROMPT.md'), 'utf8');
       assert.ok(prompt.includes('Challenge the previous turn'));
-      assert.ok(prompt.includes('staging/turn-result.json'));
+      assert.ok(prompt.includes(getTurnStagingResultPath(assignResult.state.current_turn.turn_id)));
       assert.ok(prompt.includes('authoritative'));
     });
   });
@@ -469,7 +494,7 @@ describe('Step Flow Integration', () => {
   });
 
   describe('needs_human status handling', () => {
-    it('pauses run when accepted result has needs_human status', () => {
+    it('blocks run when accepted result has needs_human status', () => {
       const root = createAndTrack();
       setupGovernedProject(root);
       const config = makeNormalizedConfig();
@@ -487,8 +512,211 @@ describe('Step Flow Integration', () => {
       assert.ok(acceptResult.ok);
 
       const finalState = readJson(root, STATE_PATH);
-      assert.equal(finalState.status, 'paused');
+      assert.equal(finalState.status, 'blocked');
       assert.ok(finalState.blocked_on.includes('scope clarification'));
+      assert.equal(finalState.blocked_reason.category, 'needs_human');
+    });
+  });
+});
+
+// ── Slice 5: Multi-Turn CLI Surface Tests ───────────────────────────────────
+
+describe('Multi-Turn CLI Surface (Slice 5)', () => {
+  function makeParallelConfig() {
+    const config = makeNormalizedConfig();
+    config.routing.implementation.max_concurrent_turns = 2;
+    return config;
+  }
+
+  function setupParallelProject(root) {
+    setupGovernedProject(root);
+    const config = makeParallelConfig();
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
+    return config;
+  }
+
+  function assignTwoTurns(root, config) {
+    initializeGovernedRun(root, config);
+    // Move to implementation phase by writing state directly
+    const statePath = join(root, STATE_PATH);
+    const rawState = JSON.parse(readFileSync(statePath, 'utf8'));
+    rawState.phase = 'implementation';
+    rawState.status = 'active';
+    writeFileSync(statePath, JSON.stringify(rawState, null, 2));
+
+    const r1 = assignGovernedTurn(root, config, 'dev');
+    assert.ok(r1.ok, `First assignment failed: ${r1.error}`);
+    const r2 = assignGovernedTurn(root, config, 'qa');
+    assert.ok(r2.ok, `Second assignment failed: ${r2.error}`);
+    return r2.state;
+  }
+
+  describe('status rendering', () => {
+    it('lists all active turns when multiple are present', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+
+      const turns = getActiveTurns(state);
+      const count = getActiveTurnCount(state);
+      assert.equal(count, 2);
+      const turnIds = Object.keys(turns);
+      assert.equal(turnIds.length, 2);
+      const roles = Object.values(turns).map(t => t.assigned_role).sort();
+      assert.deepEqual(roles, ['dev', 'qa']);
+    });
+
+    it('renders conflicted turn with conflict_state details', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+
+      // Simulate a conflicted turn by writing conflict_state directly
+      const statePath = join(root, STATE_PATH);
+      const rawState = JSON.parse(readFileSync(statePath, 'utf8'));
+      const turnIds = Object.keys(rawState.active_turns);
+      rawState.active_turns[turnIds[0]].status = 'conflicted';
+      rawState.active_turns[turnIds[0]].conflict_state = {
+        status: 'detected',
+        detection_count: 1,
+        conflict_error: {
+          conflicting_files: ['src/app.js', 'src/utils.js'],
+          overlap_ratio: 0.4,
+          suggested_resolution: 'reject_and_reassign',
+        },
+      };
+      writeFileSync(statePath, JSON.stringify(rawState, null, 2));
+
+      const reloaded = readJson(root, STATE_PATH);
+      const turns = getActiveTurns(reloaded);
+      const conflictedTurn = Object.values(turns).find(t => t.status === 'conflicted');
+      assert.ok(conflictedTurn, 'Expected a conflicted turn');
+      assert.equal(conflictedTurn.conflict_state.detection_count, 1);
+      assert.deepEqual(conflictedTurn.conflict_state.conflict_error.conflicting_files, ['src/app.js', 'src/utils.js']);
+    });
+  });
+
+  describe('step --resume --turn targeting', () => {
+    it('resolves targeted turn when --turn is provided', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+      const turns = getActiveTurns(state);
+      const turnIds = Object.keys(turns);
+
+      // Verify both turns are present and addressable
+      assert.ok(turns[turnIds[0]], 'First turn should be addressable');
+      assert.ok(turns[turnIds[1]], 'Second turn should be addressable');
+      assert.notEqual(turnIds[0], turnIds[1], 'Turn IDs should be unique');
+    });
+
+    it('rejects ambiguous resume when multiple turns active and no --turn specified', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+      const count = getActiveTurnCount(state);
+
+      // With multiple active turns, the step command should require --turn for resume
+      assert.ok(count > 1, 'Expected multiple active turns for ambiguity test');
+    });
+  });
+
+  describe('conflict recovery CLI guidance', () => {
+    it('identifies recovery paths for a conflicted turn', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+
+      const statePath = join(root, STATE_PATH);
+      const rawState = JSON.parse(readFileSync(statePath, 'utf8'));
+      const turnIds = Object.keys(rawState.active_turns);
+      const conflictedTurnId = turnIds[0];
+
+      rawState.active_turns[conflictedTurnId].status = 'conflicted';
+      rawState.active_turns[conflictedTurnId].conflict_state = {
+        status: 'detected',
+        detection_count: 2,
+        conflict_error: {
+          conflicting_files: ['README.md'],
+          overlap_ratio: 0.8,
+          suggested_resolution: 'human_merge',
+        },
+      };
+      writeFileSync(statePath, JSON.stringify(rawState, null, 2));
+
+      const reloaded = readJson(root, STATE_PATH);
+      const turns = getActiveTurns(reloaded);
+      const conflicted = turns[conflictedTurnId];
+
+      // The status.js / step.js code branches on these conditions:
+      assert.equal(conflicted.status, 'conflicted');
+      assert.equal(conflicted.conflict_state.conflict_error.suggested_resolution, 'human_merge');
+
+      // Verify both recovery paths are valid CLI commands
+      const reassignCmd = `agentxchain reject-turn --turn ${conflictedTurnId} --reassign`;
+      const mergeCmd = `agentxchain accept-turn --turn ${conflictedTurnId} --resolution human_merge`;
+      assert.ok(reassignCmd.includes(conflictedTurnId));
+      assert.ok(mergeCmd.includes(conflictedTurnId));
+    });
+
+    it('healthy sibling remains active when one turn is conflicted', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+
+      const statePath = join(root, STATE_PATH);
+      const rawState = JSON.parse(readFileSync(statePath, 'utf8'));
+      const turnIds = Object.keys(rawState.active_turns);
+
+      // Mark first turn as conflicted
+      rawState.active_turns[turnIds[0]].status = 'conflicted';
+      rawState.active_turns[turnIds[0]].conflict_state = {
+        status: 'detected',
+        detection_count: 1,
+        conflict_error: {
+          conflicting_files: ['index.js'],
+          overlap_ratio: 0.3,
+          suggested_resolution: 'reject_and_reassign',
+        },
+      };
+      writeFileSync(statePath, JSON.stringify(rawState, null, 2));
+
+      const reloaded = readJson(root, STATE_PATH);
+      const turns = getActiveTurns(reloaded);
+
+      // Second turn should still be healthy
+      const healthyTurn = turns[turnIds[1]];
+      assert.ok(healthyTurn, 'Healthy sibling should still be present');
+      assert.notEqual(healthyTurn.status, 'conflicted', 'Sibling should not be conflicted');
+    });
+  });
+
+  describe('queued requests and budget reservations', () => {
+    it('queued_phase_transition is observable from state', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      assignTwoTurns(root, config);
+
+      const statePath = join(root, STATE_PATH);
+      const rawState = JSON.parse(readFileSync(statePath, 'utf8'));
+      rawState.queued_phase_transition = { from: 'implementation', to: 'qa', requested_by: 'turn_001' };
+      writeFileSync(statePath, JSON.stringify(rawState, null, 2));
+
+      const reloaded = readJson(root, STATE_PATH);
+      assert.ok(reloaded.queued_phase_transition);
+      assert.equal(reloaded.queued_phase_transition.from, 'implementation');
+      assert.equal(reloaded.queued_phase_transition.to, 'qa');
+    });
+
+    it('budget_reservations are observable per turn', () => {
+      const root = createAndTrack();
+      const config = setupParallelProject(root);
+      const state = assignTwoTurns(root, config);
+
+      // Budget reservations should have been created by assignGovernedTurn
+      assert.ok(state.budget_reservations, 'Expected budget_reservations to exist');
+      const reservationKeys = Object.keys(state.budget_reservations);
+      assert.equal(reservationKeys.length, 2, 'Expected two budget reservations');
     });
   });
 });

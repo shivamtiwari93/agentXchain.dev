@@ -3,7 +3,7 @@
  *
  * Supports two config generations:
  *   - Legacy v3: the current CLI format (lock.json-centered, TALK.md routing)
- *   - Governed v4: the frozen spec format (orchestrator-owned state, structured turn results)
+ *   - Governed: the current spec format (orchestrator-owned state, structured turn results)
  *
  * Both are normalized into a single internal shape so that all downstream code
  * can operate without branching on config version.
@@ -12,10 +12,159 @@
  * No automatic rewrite on read.
  */
 
+import { validateHooksConfig } from './hook-runner.js';
+
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy'];
 const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_PHASES = ['planning', 'implementation', 'qa'];
+const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
+const VALID_API_PROXY_RETRY_CLASSES = [
+  'rate_limited',
+  'network_failure',
+  'timeout',
+  'response_parse_failure',
+  'turn_result_extraction_failure',
+  'unknown_api_error',
+  'provider_overloaded',
+];
+const VALID_API_PROXY_RETRY_POLICY_FIELDS = [
+  'enabled',
+  'max_attempts',
+  'base_delay_ms',
+  'max_delay_ms',
+  'backoff_multiplier',
+  'jitter',
+  'retry_on',
+];
+const VALID_API_PROXY_PREFLIGHT_TOKENIZERS = ['provider_local'];
+const VALID_API_PROXY_PREFLIGHT_FIELDS = [
+  'enabled',
+  'tokenizer',
+  'safety_margin_tokens',
+];
+
+function validateApiProxyRetryPolicy(runtimeId, retryPolicy, errors) {
+  if (!retryPolicy || typeof retryPolicy !== 'object' || Array.isArray(retryPolicy)) {
+    errors.push(`Runtime "${runtimeId}": retry_policy must be an object`);
+    return;
+  }
+
+  for (const key of Object.keys(retryPolicy)) {
+    if (!VALID_API_PROXY_RETRY_POLICY_FIELDS.includes(key)) {
+      errors.push(`Runtime "${runtimeId}": retry_policy contains unknown field "${key}"`);
+    }
+  }
+
+  if ('enabled' in retryPolicy && typeof retryPolicy.enabled !== 'boolean') {
+    errors.push(`Runtime "${runtimeId}": retry_policy.enabled must be a boolean`);
+  }
+
+  if ('max_attempts' in retryPolicy && (!Number.isInteger(retryPolicy.max_attempts) || retryPolicy.max_attempts < 1)) {
+    errors.push(`Runtime "${runtimeId}": retry_policy.max_attempts must be an integer >= 1`);
+  }
+
+  if ('base_delay_ms' in retryPolicy && (!Number.isFinite(retryPolicy.base_delay_ms) || retryPolicy.base_delay_ms < 0)) {
+    errors.push(`Runtime "${runtimeId}": retry_policy.base_delay_ms must be a finite number >= 0`);
+  }
+
+  if ('max_delay_ms' in retryPolicy && (!Number.isFinite(retryPolicy.max_delay_ms) || retryPolicy.max_delay_ms < 0)) {
+    errors.push(`Runtime "${runtimeId}": retry_policy.max_delay_ms must be a finite number >= 0`);
+  }
+
+  if (
+    Number.isFinite(retryPolicy.base_delay_ms)
+    && Number.isFinite(retryPolicy.max_delay_ms)
+    && retryPolicy.max_delay_ms < retryPolicy.base_delay_ms
+  ) {
+    errors.push(`Runtime "${runtimeId}": retry_policy.max_delay_ms must be >= retry_policy.base_delay_ms`);
+  }
+
+  if (
+    'backoff_multiplier' in retryPolicy
+    && (!Number.isFinite(retryPolicy.backoff_multiplier) || retryPolicy.backoff_multiplier <= 0)
+  ) {
+    errors.push(`Runtime "${runtimeId}": retry_policy.backoff_multiplier must be a finite number > 0`);
+  }
+
+  if ('jitter' in retryPolicy && !VALID_API_PROXY_RETRY_JITTER.includes(retryPolicy.jitter)) {
+    errors.push(
+      `Runtime "${runtimeId}": retry_policy.jitter must be one of: ${VALID_API_PROXY_RETRY_JITTER.join(', ')}`
+    );
+  }
+
+  if ('retry_on' in retryPolicy) {
+    if (!Array.isArray(retryPolicy.retry_on)) {
+      errors.push(`Runtime "${runtimeId}": retry_policy.retry_on must be an array`);
+    } else {
+      for (const errorClass of retryPolicy.retry_on) {
+        if (!VALID_API_PROXY_RETRY_CLASSES.includes(errorClass)) {
+          errors.push(
+            `Runtime "${runtimeId}": retry_policy.retry_on contains unknown class "${errorClass}"`
+          );
+        }
+      }
+    }
+  }
+}
+
+function validateApiProxyPreflightTokenization(runtimeId, runtime, errors) {
+  const preflight = runtime?.preflight_tokenization;
+
+  if ('context_window_tokens' in runtime) {
+    if (!Number.isInteger(runtime.context_window_tokens) || runtime.context_window_tokens <= 0) {
+      errors.push(`Runtime "${runtimeId}": context_window_tokens must be a positive integer`);
+    }
+  }
+
+  if (!preflight || typeof preflight !== 'object' || Array.isArray(preflight)) {
+    errors.push(`Runtime "${runtimeId}": preflight_tokenization must be an object`);
+    return;
+  }
+
+  for (const key of Object.keys(preflight)) {
+    if (!VALID_API_PROXY_PREFLIGHT_FIELDS.includes(key)) {
+      errors.push(`Runtime "${runtimeId}": preflight_tokenization contains unknown field "${key}"`);
+    }
+  }
+
+  if ('enabled' in preflight && typeof preflight.enabled !== 'boolean') {
+    errors.push(`Runtime "${runtimeId}": preflight_tokenization.enabled must be a boolean`);
+  }
+
+  if ('tokenizer' in preflight && !VALID_API_PROXY_PREFLIGHT_TOKENIZERS.includes(preflight.tokenizer)) {
+    errors.push(
+      `Runtime "${runtimeId}": preflight_tokenization.tokenizer must be one of: ${VALID_API_PROXY_PREFLIGHT_TOKENIZERS.join(', ')}`
+    );
+  }
+
+  if (
+    'safety_margin_tokens' in preflight
+    && (!Number.isInteger(preflight.safety_margin_tokens) || preflight.safety_margin_tokens < 0)
+  ) {
+    errors.push(`Runtime "${runtimeId}": preflight_tokenization.safety_margin_tokens must be an integer >= 0`);
+  }
+
+  if (preflight.enabled === true) {
+    if (!Number.isInteger(runtime.context_window_tokens) || runtime.context_window_tokens <= 0) {
+      errors.push(`Runtime "${runtimeId}": context_window_tokens is required when preflight_tokenization.enabled is true`);
+      return;
+    }
+
+    const maxOutputTokens = Number.isInteger(runtime.max_output_tokens) && runtime.max_output_tokens > 0
+      ? runtime.max_output_tokens
+      : 4096;
+    const safetyMarginTokens = Number.isInteger(preflight.safety_margin_tokens)
+      ? preflight.safety_margin_tokens
+      : 2048;
+
+    if (runtime.context_window_tokens <= maxOutputTokens + safetyMarginTokens) {
+      errors.push(
+        `Runtime "${runtimeId}": context_window_tokens must be greater than max_output_tokens + preflight_tokenization.safety_margin_tokens`
+      );
+    }
+  }
+}
 
 /**
  * Detect config generation from raw parsed JSON.
@@ -29,10 +178,10 @@ export function detectConfigVersion(raw) {
 }
 
 /**
- * Validate a governed v4 config.
+ * Validate a governed config.
  * Returns { ok, errors }.
  */
-export function validateV4Config(data) {
+export function validateV4Config(data, projectRoot) {
   const errors = [];
 
   if (!data || typeof data !== 'object') {
@@ -97,6 +246,12 @@ export function validateV4Config(data) {
         if (typeof rt.auth_env !== 'string' || !rt.auth_env.trim()) {
           errors.push(`Runtime "${id}": api_proxy requires "auth_env" (environment variable name for API key)`);
         }
+        if ('retry_policy' in rt) {
+          validateApiProxyRetryPolicy(id, rt.retry_policy, errors);
+        }
+        if ('preflight_tokenization' in rt || 'context_window_tokens' in rt) {
+          validateApiProxyPreflightTokenization(id, rt, errors);
+        }
       }
     }
   }
@@ -145,6 +300,11 @@ export function validateV4Config(data) {
           }
         }
       }
+      if ('max_concurrent_turns' in route) {
+        if (!Number.isInteger(route.max_concurrent_turns) || route.max_concurrent_turns < 1 || route.max_concurrent_turns > 4) {
+          errors.push(`Routing "${phase}": max_concurrent_turns must be an integer between 1 and 4`);
+        }
+      }
     }
   }
 
@@ -157,6 +317,12 @@ export function validateV4Config(data) {
         }
       }
     }
+  }
+
+  // Hooks (optional but validated if present)
+  if (data.hooks) {
+    const hookValidation = validateHooksConfig(data.hooks, projectRoot || null);
+    errors.push(...hookValidation.errors);
   }
 
   return { ok: errors.length === 0, errors };
@@ -190,6 +356,7 @@ export function normalizeV3(raw) {
   return {
     schema_version: 3,
     protocol_mode: 'legacy',
+    template: null,
     project: {
       id: slugify(raw.project || 'unknown'),
       name: raw.project || 'Unknown Project',
@@ -199,6 +366,7 @@ export function normalizeV3(raw) {
     runtimes,
     routing: buildLegacyRouting(Object.keys(agents)),
     gates: {},
+    hooks: {},
     budget: null,
     retention: {
       talk_strategy: 'append_only',
@@ -228,7 +396,7 @@ export function normalizeV3(raw) {
 }
 
 /**
- * Normalize a governed v4 config into the internal shape.
+ * Normalize a governed config into the internal shape.
  */
 export function normalizeV4(raw) {
   const roles = {};
@@ -247,6 +415,7 @@ export function normalizeV4(raw) {
   return {
     schema_version: 4,
     protocol_mode: 'governed',
+    template: raw.template || 'generic',
     project: {
       id: raw.project?.id || 'unknown',
       name: raw.project?.name || 'Unknown',
@@ -256,6 +425,7 @@ export function normalizeV4(raw) {
     runtimes: raw.runtimes || {},
     routing: raw.routing || {},
     gates: raw.gates || {},
+    hooks: raw.hooks || {},
     budget: raw.budget || null,
     retention: raw.retention || {
       talk_strategy: 'append_only',
@@ -288,7 +458,7 @@ export function normalizeV4(raw) {
  * Load and normalize a config from raw JSON.
  * Returns { ok, normalized, errors, version }.
  */
-export function loadNormalizedConfig(raw) {
+export function loadNormalizedConfig(raw, projectRoot) {
   const version = detectConfigVersion(raw);
 
   if (version === null) {
@@ -321,12 +491,20 @@ export function loadNormalizedConfig(raw) {
   }
 
   if (version === 4) {
-    const validation = validateV4Config(raw);
+    const validation = validateV4Config(raw, projectRoot || null);
     if (!validation.ok) {
       return { ok: false, normalized: null, errors: validation.errors, version: 4 };
     }
     return { ok: true, normalized: normalizeV4(raw), errors: [], version: 4 };
   }
+}
+
+export function getMaxConcurrentTurns(config, phase) {
+  const configured = config?.routing?.[phase]?.max_concurrent_turns;
+  if (!Number.isInteger(configured) || configured < 1) {
+    return 1;
+  }
+  return Math.min(configured, 4);
 }
 
 

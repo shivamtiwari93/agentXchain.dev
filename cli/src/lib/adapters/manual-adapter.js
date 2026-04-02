@@ -12,19 +12,24 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
-
-const STAGING_PATH = '.agentxchain/staging/turn-result.json';
-const DISPATCH_CURRENT = '.agentxchain/dispatch/current';
+import {
+  getDispatchPromptPath,
+  getTurnStagingResultPath,
+} from '../turn-paths.js';
 
 /**
  * Print operator instructions for a manual turn.
  *
  * @param {object} state - current governed state (must have current_turn)
  * @param {object} config - normalized config
+ * @param {object} [options]
+ * @param {string} [options.turnId]
  */
-export function printManualDispatchInstructions(state, config) {
-  const turn = state.current_turn;
+export function printManualDispatchInstructions(state, config, options = {}) {
+  const turn = resolveTargetTurn(state, options.turnId);
   const role = config.roles?.[turn.assigned_role];
+  const promptPath = getDispatchPromptPath(turn.turn_id);
+  const stagingPath = getTurnStagingResultPath(turn.turn_id);
 
   const lines = [];
   lines.push('');
@@ -36,8 +41,8 @@ export function printManualDispatchInstructions(state, config) {
   lines.push(`  |  Phase:   ${pad(state.phase, 46)}|`);
   lines.push(`  |  Attempt: ${pad(String(turn.attempt), 46)}|`);
   lines.push('  |                                                          |');
-  lines.push(`  |  Prompt:  ${pad(DISPATCH_CURRENT + '/PROMPT.md', 46)}|`);
-  lines.push(`  |  Result:  ${pad(STAGING_PATH, 46)}|`);
+  lines.push(`  |  Prompt:  ${pad(promptPath, 46)}|`);
+  lines.push(`  |  Result:  ${pad(stagingPath, 46)}|`);
   lines.push('  |                                                          |');
   lines.push('  |  1. Read the prompt at the path above                    |');
   lines.push('  |  2. Complete the work described in the prompt             |');
@@ -61,6 +66,7 @@ export function printManualDispatchInstructions(state, config) {
  * @param {number} [options.pollIntervalMs=2000] - polling interval in ms
  * @param {number} [options.timeoutMs=1200000] - max wait time (default: 20 min)
  * @param {AbortSignal} [options.signal] - abort signal to cancel waiting
+ * @param {string} [options.turnId] - targeted turn id
  * @returns {Promise<{ found: boolean, timedOut: boolean, aborted: boolean }>}
  */
 export async function waitForStagedResult(root, options = {}) {
@@ -68,9 +74,10 @@ export async function waitForStagedResult(root, options = {}) {
     pollIntervalMs = 2000,
     timeoutMs = 1200000,
     signal,
+    turnId,
   } = options;
 
-  const stagingFile = join(root, STAGING_PATH);
+  const stagingFile = join(root, getTurnStagingResultPath(turnId));
   const startTime = Date.now();
 
   return new Promise((resolve) => {
@@ -132,10 +139,12 @@ function isStagedResultReady(filePath) {
  * Read the staged result file without validation.
  *
  * @param {string} root - project root directory
+ * @param {object} [options]
+ * @param {string} [options.turnId]
  * @returns {{ ok: boolean, raw?: string, parsed?: object, error?: string }}
  */
-export function readStagedResult(root) {
-  const stagingFile = join(root, STAGING_PATH);
+export function readStagedResult(root, options = {}) {
+  const stagingFile = join(root, getTurnStagingResultPath(options.turnId));
   try {
     const raw = readFileSync(stagingFile, 'utf8');
     const parsed = JSON.parse(raw);
@@ -148,6 +157,13 @@ export function readStagedResult(root) {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function pad(str, width) {
-  if (str.length >= width) return str.slice(0, width);
+  if (str.length >= width) return '...' + str.slice(-(width - 3));
   return str + ' '.repeat(width - str.length);
+}
+
+function resolveTargetTurn(state, turnId) {
+  if (turnId && state?.active_turns?.[turnId]) {
+    return state.active_turns[turnId];
+  }
+  return state?.current_turn || Object.values(state?.active_turns || {})[0];
 }

@@ -3,7 +3,7 @@
  * for a governed turn assignment.
  *
  * Per the frozen spec (§46), a dispatch bundle lives at:
- *   .agentxchain/dispatch/current/
+ *   .agentxchain/dispatch/turns/<turn_id>/
  *
  * And contains:
  *   - ASSIGNMENT.json  — machine-readable turn envelope
@@ -16,9 +16,16 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
+import { getActiveTurn, getActiveTurns } from './governed-state.js';
+import {
+  DISPATCH_INDEX_PATH,
+  getDispatchAssignmentPath,
+  getDispatchContextPath,
+  getDispatchPromptPath,
+  getDispatchTurnDir,
+  getTurnStagingResultPath,
+} from './turn-paths.js';
 
-const DISPATCH_CURRENT = '.agentxchain/dispatch/current';
-const STAGING_PATH = '.agentxchain/staging/turn-result.json';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 
 // Reserved paths that agents must never modify
@@ -35,14 +42,18 @@ const RESERVED_PATHS = [
  * @param {string} root - project root directory
  * @param {object} state - current governed state (must have current_turn)
  * @param {object} config - normalized config
+ * @param {object} [opts]
+ * @param {string} [opts.turnId]
+ * @param {string[]} [opts.warnings]
  * @returns {{ ok: boolean, error?: string, bundlePath?: string, warnings?: string[] }}
  */
-export function writeDispatchBundle(root, state, config) {
-  if (!state?.current_turn) {
+export function writeDispatchBundle(root, state, config, opts = {}) {
+  const targetTurn = resolveTargetTurn(state, opts.turnId);
+  if (!targetTurn) {
     return { ok: false, error: 'No active turn in state — cannot write dispatch bundle' };
   }
 
-  const turn = state.current_turn;
+  const turn = targetTurn;
   const roleId = turn.assigned_role;
   const role = config.roles?.[roleId];
 
@@ -56,16 +67,27 @@ export function writeDispatchBundle(root, state, config) {
   const exitGate = routing?.exit_gate;
   const gateConfig = exitGate ? config.gates?.[exitGate] : null;
 
-  const bundleDir = join(root, DISPATCH_CURRENT);
-  const warnings = [];
+  const bundleDir = join(root, getDispatchTurnDir(turn.turn_id));
+  const warnings = [...(opts.warnings || [])];
 
-  // Clear previous dispatch bundle
+  // Clear and recreate only the targeted turn bundle
   try {
     rmSync(bundleDir, { recursive: true, force: true });
   } catch (err) {
     return { ok: false, error: `Failed to clear existing dispatch bundle: ${err.message}` };
   }
   mkdirSync(bundleDir, { recursive: true });
+
+  const activeTurns = getActiveTurns(state);
+  const activeSiblings = Object.values(activeTurns)
+    .filter((activeTurn) => activeTurn.turn_id !== turn.turn_id)
+    .map((activeTurn) => ({
+      turn_id: activeTurn.turn_id,
+      role: activeTurn.assigned_role,
+      status: activeTurn.status,
+      assigned_sequence: activeTurn.assigned_sequence ?? null,
+      declared_file_scope: activeTurn.declared_file_scope,
+    }));
 
   // 1. ASSIGNMENT.json
   const assignment = {
@@ -76,27 +98,38 @@ export function writeDispatchBundle(root, state, config) {
     runtime_id: turn.runtime_id,
     write_authority: role.write_authority,
     accepted_integration_ref: state.accepted_integration_ref,
-    staging_result_path: STAGING_PATH,
+    staging_result_path: getTurnStagingResultPath(turn.turn_id),
     reserved_paths: RESERVED_PATHS,
     allowed_next_roles: allowedNextRoles,
     attempt: turn.attempt,
     deadline_at: turn.deadline_at,
+    assigned_sequence: turn.assigned_sequence ?? null,
+    budget_reservation_usd: state.budget_reservations?.[turn.turn_id]?.reserved_usd ?? null,
+    active_siblings: activeSiblings,
   };
+  if (turn.conflict_context) {
+    assignment.conflict_context = turn.conflict_context;
+  }
+  if (warnings.length > 0) {
+    assignment.advisory_warnings = warnings.map((message) => ({ code: 'advisory_scope_overlap', message }));
+  }
 
   writeFileSync(
-    join(bundleDir, 'ASSIGNMENT.json'),
+    join(root, getDispatchAssignmentPath(turn.turn_id)),
     JSON.stringify(assignment, null, 2) + '\n'
   );
 
   // 2. PROMPT.md
   const prompt = renderPrompt(role, roleId, turn, state, config, root);
   warnings.push(...prompt.warnings);
-  writeFileSync(join(bundleDir, 'PROMPT.md'), prompt.content);
+  writeFileSync(join(root, getDispatchPromptPath(turn.turn_id)), prompt.content);
 
   // 3. CONTEXT.md
   const context = renderContext(state, config, root);
   warnings.push(...context.warnings);
-  writeFileSync(join(bundleDir, 'CONTEXT.md'), context.content);
+  writeFileSync(join(root, getDispatchContextPath(turn.turn_id)), context.content);
+
+  writeDispatchIndex(root, state, warningsByTurnId(state, turn.turn_id, warnings));
 
   return warnings.length
     ? { ok: true, bundlePath: bundleDir, warnings }
@@ -156,7 +189,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   for (const p of RESERVED_PATHS) {
     lines.push(`   - \`${p}\``);
   }
-  lines.push('4. **Emit a structured turn result** to `.agentxchain/staging/turn-result.json`.');
+  lines.push(`4. **Emit a structured turn result** to \`${getTurnStagingResultPath(turn.turn_id)}\`.`);
   lines.push('5. **Propose the next role**, but do not assume routing authority.');
   lines.push('');
 
@@ -223,6 +256,36 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
   }
 
+  if (turn.conflict_context) {
+    lines.push('## File Conflict - Retry Required');
+    lines.push('');
+    lines.push('Your prior attempt conflicted with work accepted after your assignment.');
+    lines.push('');
+    if (turn.conflict_context.conflicting_files?.length) {
+      lines.push('Conflicting files:');
+      for (const file of turn.conflict_context.conflicting_files) {
+        lines.push(`- \`${file}\``);
+      }
+      lines.push('');
+    }
+    if (turn.conflict_context.accepted_turns_since?.length) {
+      lines.push('Accepted turns since assignment:');
+      for (const acceptedTurn of turn.conflict_context.accepted_turns_since) {
+        lines.push(`- \`${acceptedTurn.turn_id}\` (${acceptedTurn.role}) touched: ${acceptedTurn.files_changed.join(', ') || '(none)'}`);
+      }
+      lines.push('');
+    }
+    if (turn.conflict_context.non_conflicting_files_preserved?.length) {
+      lines.push('Non-conflicting files to preserve from your prior attempt:');
+      for (const file of turn.conflict_context.non_conflicting_files_preserved) {
+        lines.push(`- \`${file}\``);
+      }
+      lines.push('');
+    }
+    lines.push(turn.conflict_context.guidance || 'You MUST rebase your changes on top of the current workspace state before retrying.');
+    lines.push('');
+  }
+
   // Role-specific instructions (loaded from custom prompt file)
   if (customPrompt) {
     lines.push('## Role-Specific Instructions');
@@ -237,7 +300,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('When your work is complete, write your structured turn result to:');
   lines.push('');
   lines.push('```');
-  lines.push(STAGING_PATH);
+  lines.push(getTurnStagingResultPath(turn.turn_id));
   lines.push('```');
   lines.push('');
   lines.push('The JSON **must** match this exact schema. The orchestrator validates every field.');
@@ -372,6 +435,63 @@ function renderContext(state, config, root) {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+function resolveTargetTurn(state, turnId) {
+  const activeTurns = getActiveTurns(state);
+  if (turnId) {
+    return activeTurns[turnId] || null;
+  }
+  return getActiveTurn(state) || state?.current_turn || null;
+}
+
+function warningsByTurnId(state, targetTurnId, targetWarnings) {
+  const warningMap = {};
+  for (const turnId of Object.keys(getActiveTurns(state))) {
+    warningMap[turnId] = [];
+  }
+  if (targetTurnId && targetWarnings?.length) {
+    warningMap[targetTurnId] = [...targetWarnings];
+  }
+  return warningMap;
+}
+
+function writeDispatchIndex(root, state, warningsByTurn = {}) {
+  const activeTurns = getActiveTurns(state);
+  const activeEntries = {};
+
+  for (const [turnId, turn] of Object.entries(activeTurns)) {
+    const turnWarnings = warningsByTurn[turnId] || [];
+    activeEntries[turnId] = {
+      turn_id: turnId,
+      role: turn.assigned_role,
+      runtime_id: turn.runtime_id,
+      attempt: turn.attempt,
+      status: turn.status,
+      bundle_path: getDispatchTurnDir(turnId),
+      staging_result_path: getTurnStagingResultPath(turnId),
+      assigned_sequence: turn.assigned_sequence ?? null,
+      advisory_warnings: turnWarnings.map((message) => ({
+        code: 'advisory_scope_overlap',
+        message,
+      })),
+    };
+  }
+
+  mkdirSync(join(root, '.agentxchain/dispatch'), { recursive: true });
+  writeFileSync(
+    join(root, DISPATCH_INDEX_PATH),
+    JSON.stringify(
+      {
+        run_id: state.run_id,
+        phase: state.phase,
+        updated_at: new Date().toISOString(),
+        active_turns: activeEntries,
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+}
+
 function readLastHistoryEntry(root, warnings = []) {
   const historyPath = join(root, HISTORY_PATH);
   if (!existsSync(historyPath)) return null;
@@ -445,4 +565,4 @@ function buildTurnResultTemplate(state, turn, roleId, role) {
   };
 }
 
-export { DISPATCH_CURRENT, RESERVED_PATHS };
+export { DISPATCH_INDEX_PATH, RESERVED_PATHS, getDispatchTurnDir, getTurnStagingResultPath };

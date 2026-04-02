@@ -1,0 +1,581 @@
+/**
+ * Dashboard view component tests — Slice 2
+ *
+ * Tests the pure render(data) functions for all five dashboard views.
+ * Each component is a pure function: data in, HTML string out. No DOM required.
+ *
+ * See: V2_DASHBOARD_SPEC.md, DASHBOARD_IMPLEMENTATION_PLAN.md
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { render as renderTimeline } from '../dashboard/components/timeline.js';
+import { filterEntries, render as renderLedger } from '../dashboard/components/ledger.js';
+import { render as renderHooks } from '../dashboard/components/hooks.js';
+import { render as renderBlocked } from '../dashboard/components/blocked.js';
+import { render as renderGate, findPostGateTurns, aggregateEvidence } from '../dashboard/components/gate.js';
+
+// ── Timeline View ──────────────────────────────────────────────────────────
+
+describe('Timeline View', () => {
+  it('renders no-run placeholder when state is null', () => {
+    const html = renderTimeline({ state: null, history: [] });
+    assert.ok(html.includes('No Run'));
+    assert.ok(html.includes('agentxchain init --governed'));
+  });
+
+  it('renders run header with run_id, status, phase', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_abc123',
+        status: 'running',
+        phase: 'development',
+        active_turns: {},
+      },
+      history: [],
+    });
+    assert.ok(html.includes('run_abc123'));
+    assert.ok(html.includes('running'));
+    assert.ok(html.includes('development'));
+    assert.ok(html.includes('0 turns completed'));
+  });
+
+  it('renders active turns section', () => {
+    const html = renderTimeline({
+      state: {
+        run_id: 'run_001',
+        status: 'running',
+        phase: 'development',
+        active_turns: {
+          t1: { turn_id: 'turn_001', assigned_role: 'dev', status: 'assigned' },
+        },
+      },
+      history: [],
+    });
+    assert.ok(html.includes('Active Turns'));
+    assert.ok(html.includes('turn_001'));
+    assert.ok(html.includes('dev'));
+  });
+
+  it('renders turn history with summary, files, decisions, objections, risks', () => {
+    const history = [{
+      turn_id: 'turn_001',
+      role: 'pm',
+      summary: 'Defined auth scope',
+      observed_artifact: { files_changed: ['src/auth.ts'] },
+      decisions: [{ id: 'DEC-001', statement: 'Use JWT' }],
+      objections: [{ id: 'OBJ-001', severity: 'high', statement: 'No rate limiting' }],
+      risks: [{ statement: 'Token expiry edge case' }],
+      normalized_verification: { evidence_summary: 'npm test passed' },
+    }];
+    const html = renderTimeline({
+      state: { run_id: 'run_001', status: 'running', phase: 'development', active_turns: {} },
+      history,
+    });
+    assert.ok(html.includes('Turn History'));
+    assert.ok(html.includes('Defined auth scope'));
+    assert.ok(html.includes('src/auth.ts'));
+    assert.ok(html.includes('Use JWT'));
+    assert.ok(html.includes('No rate limiting'));
+    assert.ok(html.includes('Token expiry edge case'));
+    assert.ok(html.includes('npm test passed'));
+    assert.ok(html.includes('1 turn completed'));
+  });
+
+  it('renders multiple turns in reverse order (newest first)', () => {
+    const history = [
+      { turn_id: 'turn_001', role: 'pm', summary: 'First' },
+      { turn_id: 'turn_002', role: 'dev', summary: 'Second' },
+    ];
+    const html = renderTimeline({
+      state: { run_id: 'run_001', status: 'running', phase: 'development', active_turns: {} },
+      history,
+    });
+    const firstIdx = html.indexOf('Second');
+    const secondIdx = html.indexOf('First');
+    assert.ok(firstIdx < secondIdx, 'Newest turn should appear first');
+  });
+
+  it('escapes HTML in user-provided content', () => {
+    const html = renderTimeline({
+      state: { run_id: 'run_<xss>', status: 'running', phase: 'dev', active_turns: {} },
+      history: [{ turn_id: 't1', role: 'pm', summary: '<script>alert(1)</script>' }],
+    });
+    assert.ok(!html.includes('<script>'));
+    assert.ok(html.includes('&lt;script&gt;'));
+    assert.ok(html.includes('run_&lt;xss&gt;'));
+  });
+});
+
+// ── Ledger View ────────────────────────────────────────────────────────────
+
+describe('Ledger View', () => {
+  it('renders empty placeholder when no decisions', () => {
+    const html = renderLedger({ ledger: [] });
+    assert.ok(html.includes('No decisions recorded'));
+  });
+
+  it('renders null placeholder', () => {
+    const html = renderLedger({ ledger: null });
+    assert.ok(html.includes('No decisions recorded'));
+  });
+
+  it('renders decision table with turn, agent, decision', () => {
+    const html = renderLedger({
+      ledger: [
+        { turn: 1, agent: 'pm', decision: 'Auth middleware with JWT' },
+        { turn: 2, agent: 'dev', decision: 'Chose RS256 over HS256' },
+      ],
+    });
+    assert.ok(html.includes('Decision Ledger'));
+    assert.ok(html.includes('2 decisions'));
+    assert.ok(html.includes('Auth middleware with JWT'));
+    assert.ok(html.includes('RS256'));
+    assert.ok(html.includes('<table'));
+  });
+
+  it('filters decisions by agent and query', () => {
+    const ledger = [
+      { turn: 1, agent: 'pm', decision: 'Auth middleware with JWT' },
+      { turn: 2, agent: 'qa', decision: 'Reject until refresh tokens are tested' },
+      { turn: 3, agent: 'dev', decision: 'Chose RS256 over HS256' },
+    ];
+
+    assert.deepEqual(
+      filterEntries(ledger, { agent: 'qa' }).map((entry) => entry.turn),
+      [2]
+    );
+
+    assert.deepEqual(
+      filterEntries(ledger, { query: 'rs256' }).map((entry) => entry.turn),
+      [3]
+    );
+  });
+
+  it('renders filter controls and filtered rows', () => {
+    const html = renderLedger({
+      ledger: [
+        { turn: 1, agent: 'pm', decision: 'Scope auth' },
+        { turn: 2, agent: 'qa', decision: 'Need refresh coverage' },
+      ],
+      filter: { agent: 'qa', query: '' },
+    });
+
+    assert.ok(html.includes('data-view-control="ledger-agent"'));
+    assert.ok(html.includes('Need refresh coverage'));
+    assert.ok(!html.includes('Scope auth'));
+    assert.ok(html.includes('1 of 2 decisions shown'));
+  });
+
+  it('escapes HTML in decisions', () => {
+    const html = renderLedger({
+      ledger: [{ turn: 1, agent: 'pm', decision: '<img src=x onerror=alert(1)>' }],
+    });
+    assert.ok(!html.includes('<img'));
+    assert.ok(html.includes('&lt;img'));
+  });
+
+  it('escapes single quotes in filter values and decision text', () => {
+    const html = renderLedger({
+      ledger: [{ turn: 1, agent: "pm's", decision: "review user's auth flow" }],
+      filter: { agent: "pm's", query: "user's" },
+    });
+    assert.ok(html.includes('pm&#39;s'));
+    assert.ok(html.includes('user&#39;s'));
+    assert.ok(!html.includes("value=\"pm's\""));
+  });
+});
+
+// ── Hooks View ─────────────────────────────────────────────────────────────
+
+describe('Hooks View', () => {
+  it('renders empty placeholder when no audit or annotations', () => {
+    const html = renderHooks({ audit: [], annotations: [] });
+    assert.ok(html.includes('No hook activity'));
+  });
+
+  it('renders audit table with phase, hook, verdict, duration', () => {
+    const html = renderHooks({
+      audit: [
+        { timestamp: '2026-04-02T12:00:00Z', hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 120 },
+        { timestamp: '2026-04-02T12:00:01Z', hook_phase: 'before_acceptance', hook_name: 'sast', verdict: 'block', orchestrator_action: 'blocked', duration_ms: 450 },
+      ],
+      annotations: [],
+    });
+    assert.ok(html.includes('Hook Audit Log'));
+    assert.ok(html.includes('2 hook executions'));
+    assert.ok(html.includes('before_validation'));
+    assert.ok(html.includes('lint'));
+    assert.ok(html.includes('120ms'));
+    assert.ok(html.includes('block'));
+  });
+
+  it('renders annotations section', () => {
+    const html = renderHooks({
+      audit: [],
+      annotations: [
+        { turn_id: 'turn_001', hook_name: 'sast', annotations: [{ key: 'result', value: 'SAST clean' }] },
+      ],
+    });
+    assert.ok(html.includes('Hook Annotations'));
+    assert.ok(html.includes('1 annotation'));
+    assert.ok(html.includes('SAST clean'));
+  });
+
+  it('renders both audit and annotations together', () => {
+    const html = renderHooks({
+      audit: [{ timestamp: '2026-04-02T12:00:00Z', hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 50 }],
+      annotations: [{ turn_id: 'turn_001', hook_name: 'coverage', annotations: [{ key: 'coverage', value: '92%' }] }],
+    });
+    assert.ok(html.includes('Hook Audit Log'));
+    assert.ok(html.includes('Hook Annotations'));
+  });
+});
+
+// ── Blocked View ───────────────────────────────────────────────────────────
+
+describe('Blocked View', () => {
+  it('renders not-blocked placeholder when status is not blocked', () => {
+    const html = renderBlocked({ state: { status: 'running' } });
+    assert.ok(html.includes('not currently blocked'));
+  });
+
+  it('renders not-blocked placeholder when state is null', () => {
+    const html = renderBlocked({ state: null });
+    assert.ok(html.includes('not currently blocked'));
+  });
+
+  it('renders blocked banner with reason', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_on: 'hook:before_validation:lint',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T12:00:00Z',
+          turn_id: 'turn_003',
+          recovery: {
+            typed_reason: 'hook_block',
+            owner: 'human',
+            recovery_action: 'agentxchain accept-turn --turn turn_003',
+            turn_retained: true,
+            detail: 'Hook lint failed with exit code 1',
+          },
+        },
+      },
+    });
+    assert.ok(html.includes('BLOCKED'));
+    assert.ok(html.includes('hook_block'));
+    assert.ok(html.includes('Hook lint failed with exit code 1'));
+    assert.ok(html.includes('hook:before_validation:lint'));
+    assert.ok(html.includes('turn_003'));
+  });
+
+  it('renders recovery command with copy affordance when present', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_reason: {
+          category: 'pending_phase_transition',
+          recovery: {
+            recovery_action: 'agentxchain approve-transition',
+          },
+        },
+      },
+    });
+    assert.ok(html.includes('Recovery'));
+    assert.ok(html.includes('agentxchain approve-transition'));
+    assert.ok(html.includes('data-copy="agentxchain approve-transition"'));
+  });
+
+  it('renders hook-specific audit context when the block came from a hook', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_on: 'hook:before_validation:lint',
+        blocked_reason: {
+          category: 'hook_block',
+        },
+      },
+      audit: [
+        { hook_phase: 'before_validation', hook_name: 'schema-check', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 40 },
+        { hook_phase: 'before_validation', hook_name: 'lint', verdict: 'block', orchestrator_action: 'blocked', duration_ms: 120 },
+        { hook_phase: 'after_acceptance', hook_name: 'sast', verdict: 'warn', orchestrator_action: 'warned', duration_ms: 210 },
+      ],
+    });
+
+    assert.ok(html.includes('Recent Audit Context'));
+    assert.ok(html.includes('before_validation'));
+    assert.ok(html.includes('lint'));
+    assert.ok(html.includes('block -&gt; blocked (120ms)') || html.includes('block -&gt; blocked'));
+    assert.ok(!html.includes('schema-check'));
+    assert.ok(!html.includes('after_acceptance'));
+  });
+
+  it('renders recent validation audit context for validation-driven blocks', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_on: 'validator:turn-result',
+        blocked_reason: {
+          category: 'validation_failed',
+        },
+      },
+      audit: [
+        { hook_phase: 'before_assignment', hook_name: 'assignment-guard', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 10 },
+        { hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 60 },
+        { hook_phase: 'after_validation', hook_name: 'policy', verdict: 'warn', orchestrator_action: 'warned', duration_ms: 20 },
+      ],
+    });
+
+    assert.ok(html.includes('Recent Audit Context'));
+    assert.ok(html.includes('before_validation'));
+    assert.ok(html.includes('after_validation'));
+    assert.ok(!html.includes('assignment-guard'));
+  });
+
+  it('escapes HTML in blocked reason', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_reason: { category: '<b>xss</b>' },
+      },
+    });
+    assert.ok(!html.includes('<b>xss</b>'));
+    assert.ok(html.includes('&lt;b&gt;xss&lt;/b&gt;'));
+  });
+});
+
+// ── Gate View ──────────────────────────────────────────────────────────────
+
+describe('Gate View', () => {
+  it('renders no-gate placeholder when no pending gates', () => {
+    const html = renderGate({ state: { status: 'running' } });
+    assert.ok(html.includes('No pending gates'));
+  });
+
+  it('renders paused hint when status is paused but no pending', () => {
+    const html = renderGate({ state: { status: 'paused' } });
+    assert.ok(html.includes('paused'));
+    assert.ok(html.includes('agentxchain status'));
+  });
+
+  it('renders phase transition gate with from/to and CLI command', () => {
+    const html = renderGate({
+      state: {
+        status: 'paused',
+        phase: 'planning',
+        pending_phase_transition: {
+          from: 'planning',
+          to: 'development',
+          gate: 'plan-exit',
+          requested_by_turn: 'turn_001',
+        },
+      },
+      history: [
+        {
+          turn_id: 'turn_001',
+          assigned_role: 'pm',
+          summary: 'All planning criteria met',
+          objections: [{ statement: 'One objection remains' }],
+          risks: [{ statement: 'Scope risk' }],
+        },
+      ],
+    });
+    assert.ok(html.includes('Phase Transition Gate'));
+    assert.ok(html.includes('planning'));
+    assert.ok(html.includes('development'));
+    assert.ok(html.includes('plan-exit'));
+    assert.ok(html.includes('All planning criteria met'));
+    assert.ok(html.includes('One objection remains'));
+    assert.ok(html.includes('agentxchain approve-transition'));
+  });
+
+  it('renders run completion gate with CLI command', () => {
+    const html = renderGate({
+      state: {
+        status: 'paused',
+        pending_run_completion: {
+          gate: 'ship-approval',
+          requested_by_turn: 'turn_002',
+        },
+      },
+      history: [
+        {
+          turn_id: 'turn_002',
+          assigned_role: 'qa',
+          summary: 'All tests passing, QA approved',
+          objections: [{ statement: 'Refresh token coverage unresolved' }],
+        },
+      ],
+    });
+    assert.ok(html.includes('Run Completion Gate'));
+    assert.ok(html.includes('ship-approval'));
+    assert.ok(html.includes('All tests passing'));
+    assert.ok(html.includes('turn_002'));
+    assert.ok(html.includes('agentxchain approve-completion'));
+  });
+
+  it('renders both gates simultaneously', () => {
+    const html = renderGate({
+      state: {
+        status: 'paused',
+        phase: 'delivery',
+        pending_phase_transition: { to: 'done' },
+        pending_run_completion: { evidence: 'Ship it' },
+      },
+    });
+    assert.ok(html.includes('Phase Transition Gate'));
+    assert.ok(html.includes('Run Completion Gate'));
+  });
+
+  it('aggregates evidence from multiple post-gate turns', () => {
+    const html = renderGate({
+      state: {
+        status: 'paused',
+        phase: 'development',
+        pending_phase_transition: {
+          from: 'development',
+          to: 'delivery',
+          gate: 'dev-exit',
+          requested_by_turn: 'turn_003',
+        },
+      },
+      history: [
+        {
+          turn_id: 'turn_001',
+          assigned_role: 'dev',
+          summary: 'Implemented auth middleware',
+          objections: [{ statement: 'No rate limiting' }],
+          risks: [{ statement: 'Token refresh missing' }],
+          observed_artifact: { files_changed: ['src/auth.ts'] },
+        },
+        {
+          turn_id: 'turn_002',
+          assigned_role: 'qa',
+          summary: 'Wrote acceptance tests for auth',
+          objections: [{ statement: 'Edge case in expiry' }],
+          observed_artifact: { files_changed: ['test/auth.test.ts'] },
+        },
+        {
+          turn_id: 'turn_003',
+          assigned_role: 'dev',
+          summary: 'Fixed rate limiting and refresh',
+          risks: [{ statement: 'Performance impact untested' }],
+          observed_artifact: { files_changed: ['src/auth.ts', 'src/rate-limit.ts'] },
+        },
+      ],
+    });
+    assert.ok(html.includes('Implemented auth middleware'));
+    assert.ok(html.includes('Wrote acceptance tests'));
+    assert.ok(html.includes('Fixed rate limiting'));
+    assert.ok(html.includes('No rate limiting'));
+    assert.ok(html.includes('Edge case in expiry'));
+    assert.ok(html.includes('Token refresh missing'));
+    assert.ok(html.includes('Performance impact untested'));
+    assert.ok(html.includes('src/auth.ts'));
+    assert.ok(html.includes('test/auth.test.ts'));
+    assert.ok(html.includes('src/rate-limit.ts'));
+    assert.ok(html.includes('3 turns'));
+  });
+
+  it('includes data-copy attribute for clipboard affordance', () => {
+    const html = renderGate({
+      state: {
+        status: 'paused',
+        pending_phase_transition: { to: 'development', requested_by_turn: 'turn_001' },
+      },
+      history: [{ turn_id: 'turn_001', summary: 'Done' }],
+    });
+    assert.ok(html.includes('data-copy="agentxchain approve-transition"'));
+  });
+});
+
+// ── Gate View — findPostGateTurns ─────────────────────────────────────────
+
+describe('findPostGateTurns', () => {
+  it('returns all turns when no requestedByTurn', () => {
+    const history = [{ turn_id: 't1' }, { turn_id: 't2' }];
+    assert.deepEqual(findPostGateTurns(history, null).map(t => t.turn_id), ['t1', 't2']);
+  });
+
+  it('returns empty array for empty history', () => {
+    assert.deepEqual(findPostGateTurns([], 't1'), []);
+  });
+
+  it('returns turns from start to requested turn when no prior gate', () => {
+    const history = [
+      { turn_id: 't1', summary: 'A' },
+      { turn_id: 't2', summary: 'B' },
+      { turn_id: 't3', summary: 'C' },
+    ];
+    const result = findPostGateTurns(history, 't3');
+    assert.deepEqual(result.map(t => t.turn_id), ['t1', 't2', 't3']);
+  });
+
+  it('returns turns from after last phase transition request to requested turn', () => {
+    const history = [
+      { turn_id: 't1', summary: 'Planning' },
+      { turn_id: 't2', summary: 'Transition', phase_transition_request: 'development' },
+      { turn_id: 't3', summary: 'Dev 1' },
+      { turn_id: 't4', summary: 'Dev 2' },
+    ];
+    const result = findPostGateTurns(history, 't4');
+    assert.deepEqual(result.map(t => t.turn_id), ['t3', 't4']);
+  });
+
+  it('accepts the legacy phase_transition marker as a compatibility fallback', () => {
+    const history = [
+      { turn_id: 't1', summary: 'Planning' },
+      { turn_id: 't2', summary: 'Transition', phase_transition: true },
+      { turn_id: 't3', summary: 'Dev 1' },
+      { turn_id: 't4', summary: 'Dev 2' },
+    ];
+    const result = findPostGateTurns(history, 't4');
+    assert.deepEqual(result.map(t => t.turn_id), ['t3', 't4']);
+  });
+
+  it('falls back to all turns when requestedByTurn is not found', () => {
+    const history = [{ turn_id: 't1' }, { turn_id: 't2' }];
+    assert.deepEqual(findPostGateTurns(history, 'missing').map(t => t.turn_id), ['t1', 't2']);
+  });
+});
+
+// ── Gate View — aggregateEvidence ──────────────────────────────────────────
+
+describe('aggregateEvidence', () => {
+  it('aggregates summaries, objections, risks, decisions, and files', () => {
+    const turns = [
+      {
+        turn_id: 't1',
+        assigned_role: 'dev',
+        summary: 'Built it',
+        objections: [{ statement: 'Obj 1' }],
+        risks: [{ statement: 'Risk 1' }],
+        decisions: [{ id: 'D1', statement: 'Dec 1' }],
+        observed_artifact: { files_changed: ['a.ts', 'b.ts'] },
+      },
+      {
+        turn_id: 't2',
+        assigned_role: 'qa',
+        summary: 'Tested it',
+        objections: [{ statement: 'Obj 2' }],
+        observed_artifact: { files_changed: ['b.ts', 'c.ts'] },
+      },
+    ];
+    const ev = aggregateEvidence(turns);
+    assert.equal(ev.summaries.length, 2);
+    assert.equal(ev.objections.length, 2);
+    assert.equal(ev.risks.length, 1);
+    assert.equal(ev.decisions.length, 1);
+    assert.deepEqual(ev.files, ['a.ts', 'b.ts', 'c.ts']);
+  });
+
+  it('handles empty turns array', () => {
+    const ev = aggregateEvidence([]);
+    assert.equal(ev.summaries.length, 0);
+    assert.equal(ev.objections.length, 0);
+    assert.equal(ev.files.length, 0);
+  });
+});

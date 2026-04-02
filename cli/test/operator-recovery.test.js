@@ -16,6 +16,14 @@ function createGovernedProject(overrides = {}) {
   mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
   mkdirSync(join(dir, '.planning'), { recursive: true });
 
+  // Create turn-scoped staging directory if state has a turn
+  const turnId = (overrides.state?.current_turn || overrides.state?.active_turns)
+    ? (overrides.state?.current_turn?.turn_id || Object.keys(overrides.state?.active_turns || {})[0])
+    : null;
+  if (turnId) {
+    mkdirSync(join(dir, '.agentxchain', 'staging', turnId), { recursive: true });
+  }
+
   const config = {
     schema_version: '1.0',
     project: {
@@ -219,6 +227,91 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('approve-transition succeeds after a hook-blocked approval leaves pending transition intact', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'planning',
+        blocked_on: 'hook:before_gate:compliance-gate',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_01H',
+          recovery: {
+            typed_reason: 'pending_phase_transition',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-transition',
+            turn_retained: false,
+            detail: 'planning_signoff',
+          },
+        },
+        pending_phase_transition: {
+          from: 'planning',
+          to: 'implementation',
+          gate: 'planning_signoff',
+          requested_by_turn: 'turn_01H',
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['approve-transition']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Phase advanced: planning → implementation/);
+
+      const state = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'active');
+      assert.equal(state.phase, 'implementation');
+      assert.equal(state.pending_phase_transition, null);
+      assert.equal(state.blocked_on, null);
+      assert.equal(state.blocked_reason, null);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('approve-completion succeeds after a hook-blocked approval leaves pending completion intact', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        phase: 'qa',
+        blocked_on: 'hook:before_gate:final-audit',
+        blocked_reason: {
+          category: 'hook_block',
+          blocked_at: '2026-04-02T13:00:00Z',
+          turn_id: 'turn_qa_01',
+          recovery: {
+            typed_reason: 'pending_run_completion',
+            owner: 'human',
+            recovery_action: 'agentxchain approve-completion',
+            turn_retained: false,
+            detail: 'qa_ship_verdict',
+          },
+        },
+        pending_run_completion: {
+          gate: 'qa_ship_verdict',
+          requested_by_turn: 'turn_qa_01',
+          requested_at: '2026-04-02T12:50:00Z',
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['approve-completion']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Run completed/);
+
+      const state = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(state.status, 'completed');
+      assert.equal(state.pending_run_completion, null);
+      assert.equal(state.blocked_on, null);
+      assert.equal(state.blocked_reason, null);
+      assert.ok(state.completed_at);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('status shows needs_human recovery details', () => {
     const dir = createGovernedProject({
       state: {
@@ -234,6 +327,10 @@ describe('operator recovery surfaces', () => {
       assert.match(result.stdout, /Reason:\s+needs_human/);
       assert.match(result.stdout, /Action:\s+Resolve the stated issue, then run agentxchain step --resume/);
       assert.match(result.stdout, /Turn:\s+cleared/);
+
+      const migratedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(migratedState.status, 'blocked');
+      assert.equal(migratedState.blocked_reason.category, 'needs_human');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -291,6 +388,31 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('step does not bypass paused approval gates', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'paused',
+        current_turn: null,
+        blocked_on: 'human_approval:planning_signoff',
+        pending_phase_transition: {
+          from: 'planning',
+          to: 'implementation',
+          gate: 'planning_signoff',
+          requested_by_turn: 'turn_01H',
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['step']);
+      assert.equal(result.status, 1);
+      assert.match(result.stdout, /paused for approval/i);
+      assert.match(result.stdout, /agentxchain approve-transition/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('step reports clean baseline recovery instructions for dirty authoritative trees', () => {
     const dir = createGovernedProject({
       state: {
@@ -328,6 +450,11 @@ describe('operator recovery surfaces', () => {
       assert.equal(result.status, 1);
       assert.match(result.stdout, /ANTHROPIC_API_KEY/);
       assert.match(result.stdout, /agentxchain step --resume/);
+
+      const blockedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(blockedState.status, 'blocked');
+      assert.equal(blockedState.blocked_reason.category, 'dispatch_error');
+      assert.match(blockedState.blocked_on, /^dispatch:/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -415,8 +542,11 @@ describe('operator recovery surfaces', () => {
 
     try {
       const state = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      const activeTurn = state.active_turns ? Object.values(state.active_turns)[0] : state.current_turn;
+      const stagingDir = join(dir, '.agentxchain', 'staging', activeTurn.turn_id);
+      mkdirSync(stagingDir, { recursive: true });
       writeFileSync(
-        join(dir, '.agentxchain', 'staging', 'turn-result.json'),
+        join(stagingDir, 'turn-result.json'),
         JSON.stringify(
           makeValidTurnResult(state, {
             role: 'pm',
@@ -533,7 +663,8 @@ describe('operator recovery surfaces', () => {
     });
 
     try {
-      writeFileSync(join(dir, '.agentxchain', 'staging', 'turn-result.json'), JSON.stringify({ bad: true }, null, 2));
+      mkdirSync(join(dir, '.agentxchain', 'staging', 'turn_pm_retry_01'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain', 'staging', 'turn_pm_retry_01', 'turn-result.json'), JSON.stringify({ bad: true }, null, 2));
 
       const result = runCli(dir, ['step', '--resume', '--auto-reject']);
       assert.equal(result.status, 0, result.stderr);

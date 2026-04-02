@@ -22,6 +22,8 @@ import {
   acceptGovernedTurn,
   rejectGovernedTurn,
   approvePhaseTransition,
+  normalizeGovernedStateShape,
+  getActiveTurn,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
@@ -34,7 +36,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_DIR = join(__dirname, '..', '..', 'examples', 'governed-todo-app');
 
 function readJson(root, relPath) {
-  return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  const parsed = JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  if (relPath === STATE_PATH || relPath.endsWith('state.json')) {
+    const normalized = normalizeGovernedStateShape(parsed).state;
+    Object.defineProperty(normalized, 'current_turn', {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return getActiveTurn(normalized);
+      },
+    });
+    return normalized;
+  }
+  return parsed;
 }
 
 function readJsonl(root, relPath) {
@@ -195,11 +209,12 @@ describe('E2E governed reject/retry lifecycle', () => {
     const retryBundle = writeDispatchBundle(root, rejectResult.state, config);
     assert.ok(retryBundle.ok, `writeDispatchBundle(retry) failed: ${retryBundle.error}`);
 
-    const assignment = readJson(root, '.agentxchain/dispatch/current/ASSIGNMENT.json');
-    assert.equal(assignment.turn_id, assignDevResult.state.current_turn.turn_id);
+    const devTurnId = assignDevResult.state.current_turn.turn_id;
+    const assignment = readJson(root, `.agentxchain/dispatch/turns/${devTurnId}/ASSIGNMENT.json`);
+    assert.equal(assignment.turn_id, devTurnId);
     assert.equal(assignment.attempt, 2);
 
-    const retryPrompt = readFileSync(join(root, '.agentxchain', 'dispatch', 'current', 'PROMPT.md'), 'utf8');
+    const retryPrompt = readFileSync(join(root, '.agentxchain', 'dispatch', 'turns', devTurnId, 'PROMPT.md'), 'utf8');
     assert.match(retryPrompt, /Previous Attempt Failed/);
     assert.match(retryPrompt, /Schema mismatch/);
     assert.match(retryPrompt, /Failed stage:\*\* schema/);

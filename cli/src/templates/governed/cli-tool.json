@@ -1,0 +1,30 @@
+{
+  "id": "cli-tool",
+  "display_name": "CLI Tool",
+  "description": "Governed scaffold for command-line tools with command-surface, platform, and distribution planning.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [
+    {
+      "filename": "command-surface.md",
+      "content_template": "# Command Surface — {{project_name}}\n\n## Primary Commands\n| Command | Purpose | Inputs | Output / Side Effects |\n|---------|---------|--------|------------------------|\n| | | | |\n\n## Flags And Options\n| Command | Flag | Meaning | Default |\n|---------|------|---------|---------|\n| | | | |\n\n## Failure UX\n- Expected error messages:\n- Help / usage fallback:\n- Safe retry behavior:\n"
+    },
+    {
+      "filename": "platform-support.md",
+      "content_template": "# Platform Support — {{project_name}}\n\n## Supported Environments\n- Operating systems:\n- Shells / terminals:\n- Node / runtime versions:\n\n## Compatibility Risks\n| Surface | Risk | Mitigation |\n|---------|------|------------|\n| | | |\n\n## Manual Checks\n- Install path verified on:\n- Non-interactive behavior verified on:\n- Path / permission edge cases:\n"
+    },
+    {
+      "filename": "distribution-checklist.md",
+      "content_template": "# Distribution Checklist — {{project_name}}\n\n## Packaging\n- Package metadata reviewed:\n- Published files audited:\n- Version / changelog ready:\n\n## Install Paths\n- Global install path:\n- Local invocation path:\n- Upgrade / rollback path:\n\n## Release Risks\n- Breaking command changes:\n- Shell completion / docs gaps:\n- Known install blockers:\n"
+    }
+  ],
+  "prompt_overrides": {
+    "dev": "Treat help text, error messaging, shell compatibility, and safe invocation paths as product behavior, not polish.",
+    "qa": "Audit command UX, help output, failure messages, install or invocation paths, and shell/platform compatibility before sign-off."
+  },
+  "acceptance_hints": [
+    "Command help audited for every user-facing command touched",
+    "Install or invocation path checked on the intended runtime",
+    "Failure-mode UX reviewed for invalid flags or missing inputs"
+  ]
+}

@@ -1,3 +1,5 @@
+import { getActiveTurnCount } from './governed-state.js';
+
 export function deriveRecoveryDescriptor(state) {
   if (!state || typeof state !== 'object') {
     return null;
@@ -23,6 +25,21 @@ export function deriveRecoveryDescriptor(state) {
     };
   }
 
+  const turnRetained = getActiveTurnCount(state) > 0;
+
+  const persistedRecovery = state.blocked_reason?.recovery;
+  if (persistedRecovery && typeof persistedRecovery === 'object') {
+    return {
+      typed_reason: persistedRecovery.typed_reason || 'unknown_block',
+      owner: persistedRecovery.owner || 'human',
+      recovery_action: persistedRecovery.recovery_action || 'Inspect state.json and resolve manually before rerunning agentxchain step',
+      turn_retained: typeof persistedRecovery.turn_retained === 'boolean'
+        ? persistedRecovery.turn_retained
+        : turnRetained,
+      detail: persistedRecovery.detail ?? state.blocked_on ?? null,
+    };
+  }
+
   if (typeof state.blocked_on !== 'string' || !state.blocked_on.trim()) {
     return null;
   }
@@ -32,7 +49,7 @@ export function deriveRecoveryDescriptor(state) {
       typed_reason: 'needs_human',
       owner: 'human',
       recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
-      turn_retained: Boolean(state.current_turn),
+      turn_retained: turnRetained,
       detail: state.blocked_on.slice('human:'.length) || null,
     };
   }
@@ -51,9 +68,19 @@ export function deriveRecoveryDescriptor(state) {
     return {
       typed_reason: 'retries_exhausted',
       owner: 'human',
-      recovery_action: 'Resolve the escalation, then run agentxchain step',
-      turn_retained: Boolean(state.current_turn),
+      recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+      turn_retained: turnRetained,
       detail: state.blocked_on,
+    };
+  }
+
+  if (state.blocked_on.startsWith('dispatch:')) {
+    return {
+      typed_reason: 'dispatch_error',
+      owner: 'human',
+      recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+      turn_retained: turnRetained,
+      detail: state.blocked_on.slice('dispatch:'.length) || state.blocked_on,
     };
   }
 
@@ -61,7 +88,7 @@ export function deriveRecoveryDescriptor(state) {
     typed_reason: 'unknown_block',
     owner: 'human',
     recovery_action: 'Inspect state.json and resolve manually before rerunning agentxchain step',
-    turn_retained: Boolean(state.current_turn),
+    turn_retained: turnRetained,
     detail: state.blocked_on,
   };
 }

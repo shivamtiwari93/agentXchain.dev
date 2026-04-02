@@ -160,7 +160,7 @@ Rules:
 | `assigned` | `assignGovernedTurn()` | `current_turn.status = "running"` |
 | `dispatched` | `writeDispatchBundle()` plus adapter dispatch | dispatch bundle exists |
 | `waiting` | adapter running or operator editing result | active turn retained |
-| `staged` | `.agentxchain/staging/turn-result.json` exists | staging file present |
+| `staged` | `.agentxchain/staging/<turn_id>/turn-result.json` exists | staging file present |
 | `validated` | `validateStagedTurnResult()` returns ok | ephemeral command result |
 | `accepted` | `acceptGovernedTurn()` succeeds | history appended, turn cleared |
 | `rejected_for_retry` | `rejectGovernedTurn()` before max retries | `current_turn.status = "retrying"` |

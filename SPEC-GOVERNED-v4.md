@@ -353,8 +353,10 @@ Dispatch bundles are ephemeral projections. They are re-materialized on every re
 
 ### 10.1 Manual
 
-- `dispatchTurn`: writes dispatch bundle, prints operator instructions, enters paused state
+- `dispatchTurn`: writes dispatch bundle, prints operator instructions, and leaves the run `active` with the assigned `current_turn` while the operator or `step` waits for a staged result
 - `collectTurn`: reads staged `turn-result.json` when operator runs `accept-turn`
+
+Waiting on a manual turn is not itself a paused run state. In v1, `paused` is reserved for actual blocked states such as human-approval gates, `needs_human`, or retries-exhausted escalation.
 
 ### 10.2 Local CLI
 
@@ -387,6 +389,8 @@ Adapters may not:
 | Command | Description |
 |---------|-------------|
 | `init --governed` | Scaffold a governed v4 project |
+| `migrate` | Convert a legacy v3 project to governed v4 and leave it paused for human review |
+| `resume` | Initialize or continue a governed run and assign or redispatch the next turn without waiting for completion |
 | `status` | Show current phase, role, budget, blockers |
 | `step` | Assign and dispatch the next turn |
 | `step --role <role>` | Override role selection |
@@ -402,8 +406,9 @@ Adapters may not:
 ## 12. File Layout
 
 ```
+agentxchain.json            # Static config (human-authored)
+
 .agentxchain/
-  agentxchain.json          # Static config (human-authored)
   state.json                # Run state (orchestrator-owned)
   history.jsonl             # Turn history (orchestrator-appended)
   decision-ledger.jsonl     # Decision record (orchestrator-appended)

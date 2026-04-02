@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentXchain Docs — CLI Reference</title>
+  <meta name="description" content="Governed CLI reference for AgentXchain. Learn what init, status, resume, step, accept-turn, reject-turn, approval commands, validate, and migrate actually do." />
+  <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
+  <link rel="canonical" href="https://agentxchain.dev/docs/cli.html" />
+  <meta property="og:title" content="AgentXchain CLI Reference" />
+  <meta property="og:description" content="The governed command surface: assignment, execution, acceptance, recovery, and approval commands for real runs." />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain CLI Reference" />
+  <meta name="twitter:description" content="The governed command surface: assignment, execution, acceptance, recovery, and approval commands for real runs." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/"><img src="../assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+        <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="docs-hero">
+    <div class="container">
+      <span class="eyebrow">Docs / CLI</span>
+      <h1>The governed command surface, without the hand-waving.</h1>
+      <p class="lede">These commands are the operator contract for governed runs. The important distinctions are structural: <code>resume</code> assigns or redispatches work without waiting, <code>step</code> runs one governed turn lifecycle, and approval commands are how humans keep constitutional authority over phase changes and ship decisions.</p>
+      <div class="hero-links">
+        <a href="/docs/quickstart.html" class="primary">Start with quickstart</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/.planning/CLI_SPEC.md">Open canonical spec</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-layout">
+      <aside class="docs-sidebar">
+        <h2>Docs</h2>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/">Landing page</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app">Example project</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <p class="docs-note">This page documents the governed workflow only. Legacy v3 compatibility commands still exist, but they are not the primary path.</p>
+        <h2>On this page</h2>
+        <a href="#mental-model">Mental model</a>
+        <a href="#commands">Command map</a>
+        <a href="#turn-lifecycle">Turn lifecycle</a>
+        <a href="#approvals">Approvals and recovery</a>
+        <a href="#validation">Validation and migration</a>
+        <a href="#examples">Common sequences</a>
+      </aside>
+
+      <main class="docs-content">
+        <section id="mental-model">
+          <h2>The two commands people confuse</h2>
+          <div class="mini-grid">
+            <div class="surface">
+              <h3><code>resume</code></h3>
+              <p>Assignment-only. It starts or resumes a run, assigns a turn, or redispatches a retained turn, then exits. Use it when you want the orchestrator to set up work without waiting for the runtime to finish.</p>
+            </div>
+            <div class="surface">
+              <h3><code>step</code></h3>
+              <p>Full turn execution. It initializes or resumes the run, assigns or targets one turn, dispatches it, waits for a staged result, validates it, and accepts or rejects it. One invocation handles one turn lifecycle only.</p>
+            </div>
+            <div class="surface">
+              <h3>Human approval commands</h3>
+              <p><code>approve-transition</code> and <code>approve-completion</code> are not optional polish. They are the constitutional gates that keep agents from advancing phases or self-shipping.</p>
+            </div>
+          </div>
+
+          <div class="callout">
+            <p><strong>Real governed artifact paths:</strong> dispatch bundles live under <code>.agentxchain/dispatch/turns/&lt;turn_id&gt;/</code>, staged results live under <code>.agentxchain/staging/&lt;turn_id&gt;/turn-result.json</code>, and accepted evidence is appended to <code>.agentxchain/history.jsonl</code> and <code>.agentxchain/decision-ledger.jsonl</code>.</p>
+          </div>
+        </section>
+
+        <section id="commands">
+          <h2>Command map</h2>
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead>
+                <tr>
+                  <th>Command</th>
+                  <th>Purpose</th>
+                  <th>Use it when</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>init --governed [--template &lt;id&gt;]</code></td>
+                  <td>Scaffold a governed project</td>
+                  <td>You need <code>agentxchain.json</code>, governed state, prompts, and planning files, optionally with project-shape-specific artifacts</td>
+                </tr>
+                <tr>
+                  <td><code>status</code></td>
+                  <td>Inspect run, phase, active turns, and blockers</td>
+                  <td>You want to know why a run is waiting, what command comes next, or which scaffold template the repo declares</td>
+                </tr>
+                <tr>
+                  <td><code>resume</code></td>
+                  <td>Assign or redispatch without waiting</td>
+                  <td>You want the next turn bundle written but do not want full lifecycle execution</td>
+                </tr>
+                <tr>
+                  <td><code>step</code></td>
+                  <td>Execute one governed turn lifecycle</td>
+                  <td>You want the orchestrator to dispatch, wait, validate, and accept or reject</td>
+                </tr>
+                <tr>
+                  <td><code>accept-turn</code></td>
+                  <td>Accept a staged result</td>
+                  <td>A manual or recovered turn is ready to be committed to accepted history</td>
+                </tr>
+                <tr>
+                  <td><code>reject-turn</code></td>
+                  <td>Reject, retry, or reassign a staged result</td>
+                  <td>Validation failed, the work is wrong, or a conflicted turn needs redispatch</td>
+                </tr>
+                <tr>
+                  <td><code>approve-transition</code></td>
+                  <td>Advance a paused phase gate</td>
+                  <td>The run is paused awaiting human approval for planning or another human-gated transition</td>
+                </tr>
+                <tr>
+                  <td><code>approve-completion</code></td>
+                  <td>Approve run completion</td>
+                  <td>QA requested ship readiness and the human agrees</td>
+                </tr>
+                <tr>
+                  <td><code>validate</code></td>
+                  <td>Check governed project or turn-result wiring</td>
+                  <td>You want preflight validation before accepting or migrating</td>
+                </tr>
+                <tr>
+                  <td><code>migrate</code></td>
+                  <td>Convert a legacy v3 project to governed format</td>
+                  <td>You already have a legacy project and want the governed state model</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="turn-lifecycle">
+          <h2>Turn lifecycle commands</h2>
+
+          <div class="surface">
+            <h3><code>agentxchain init --governed [--template &lt;id&gt;] [--yes]</code></h3>
+            <p>Creates the governed scaffold only. It does not start a run. The initial project remains idle in the planning phase until <code>resume</code> or <code>step</code> initializes a run and assigns a turn.</p>
+            <p>Use <code>--template</code> when you want scaffold intent recorded explicitly. Built-ins are <code>generic</code>, <code>api-service</code>, <code>cli-tool</code>, and <code>web-app</code>. Non-<code>generic</code> templates add project-type-specific planning artifacts and prompt guidance.</p>
+            <pre><code>npx agentxchain init --governed --template web-app
+cd my-agentxchain-project
+agentxchain status</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain status [--json]</code></h3>
+            <p>Use this first when the workflow feels opaque. For governed projects it renders template, phase, run status, active turns, gate status, budget, and any blocked-state recovery guidance. With <code>--json</code>, it exposes the structured state for scripts or dashboards, including a top-level <code>template</code> field in addition to <code>config.template</code>.</p>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain resume [--role &lt;role&gt;] [--turn &lt;id&gt;]</code></h3>
+            <p>Writes or rewrites the dispatch bundle and exits. If the run is idle, it initializes a new run first. If the run is paused with a failed or retrying retained turn, it redispatches that same turn instead of inventing a new one.</p>
+            <pre><code># assign the planning role without waiting
+agentxchain resume --role pm
+
+# redispatch a retained turn after operator recovery
+agentxchain resume --turn turn_abc123</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain step [--role &lt;role&gt;] [--resume] [--turn &lt;id&gt;]</code></h3>
+            <p>This is the truthful one-turn command. It can assign new work, continue waiting on an active turn, or redispatch a retained blocked turn when paired with <code>--resume</code>. It never loops forever and it never silently advances paused approvals.</p>
+            <ul>
+              <li><code>manual</code> runtimes print instructions and poll for the staged result file</li>
+              <li><code>local_cli</code> runtimes spawn the configured subprocess and then validate the staged result</li>
+              <li><code>api_proxy</code> runtimes perform the API call synchronously and stage the provider-backed result before validation</li>
+            </ul>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain accept-turn [--turn &lt;id&gt;] [--resolution standard|human_merge]</code></h3>
+            <p>Accepts a staged result into governed history. Acceptance re-validates the JSON, records accepted decisions, updates orchestrator state, appends to <code>TALK.md</code>, and clears the targeted staging file. If multiple active turns exist, <code>--turn</code> becomes mandatory.</p>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain reject-turn [--turn &lt;id&gt;] --reason "..." [--reassign]</code></h3>
+            <p>Rejects the current staged result. Before retry exhaustion it keeps the same <code>turn_id</code>, increments the governed attempt count, and rewrites the dispatch bundle. For conflicted turns, <code>--reassign</code> is the fast recovery path that preserves the conflict context while redispatching the same turn.</p>
+          </div>
+        </section>
+
+        <section id="approvals">
+          <h2>Approvals and recovery</h2>
+
+          <div class="warning">
+            <ul>
+              <li>If the run is paused for approval, do not keep calling <code>step</code>. Use <code>approve-transition</code> or <code>approve-completion</code>.</li>
+              <li>If multiple active turns exist, targeted operations such as <code>step --resume</code>, <code>accept-turn</code>, and <code>reject-turn</code> require <code>--turn &lt;id&gt;</code>.</li>
+              <li>If a turn is conflicted, the recovery commands are explicit: <code>reject-turn --turn &lt;id&gt; --reassign</code> or <code>accept-turn --turn &lt;id&gt; --resolution human_merge</code>.</li>
+            </ul>
+          </div>
+
+          <div class="surface-grid">
+            <div class="surface">
+              <h3><code>approve-transition</code></h3>
+              <p>Only succeeds when the run is paused with a pending phase transition. On success it advances the phase, clears the blocker, and leaves the run ready for the next <code>step</code> or <code>resume</code>.</p>
+            </div>
+            <div class="surface">
+              <h3><code>approve-completion</code></h3>
+              <p>Only succeeds when QA or another review role requested run completion and the run is paused awaiting human approval. On success it marks the run completed and records the completion timestamp.</p>
+            </div>
+          </div>
+
+          <div class="surface">
+            <h3>Blocked-state mental model</h3>
+            <p>A blocked run is not the same as a paused approval. Blocked means the orchestrator retained a turn because recovery is required. Use <code>status</code> first, then follow the printed recovery command instead of guessing.</p>
+          </div>
+        </section>
+
+        <section id="validation">
+          <h2>Validation and migration</h2>
+          <div class="surface-grid">
+            <div class="surface">
+              <h3><code>validate --mode kickoff|turn|full</code></h3>
+              <p>Use <code>kickoff</code> to check governed project wiring, <code>turn</code> to validate a staged turn result, and <code>full</code> to run both sets. In turn mode, a missing staged result warns instead of failing hard.</p>
+            </div>
+            <div class="surface">
+              <h3><code>migrate [--yes] [--json]</code></h3>
+              <p>Converts a legacy v3 project into the governed format. This is the bridge for existing users, not the recommended starting point for new projects.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="dashboard">
+          <h2>Dashboard</h2>
+
+          <div class="surface">
+            <h3><code>agentxchain dashboard [--port &lt;port&gt;] [--no-open]</code></h3>
+            <p>Starts a read-only local bridge server and opens the governance dashboard in your browser. The dashboard is an observation surface, not a control plane: gate approvals and turn acceptance remain CLI-only. It binds to <code>127.0.0.1</code> only — no network exposure.</p>
+            <p>Requires an initialized governed project (<code>.agentxchain/</code> directory must exist). Default port is <code>3847</code>. The bridge watches <code>.agentxchain/</code> for file changes and pushes live invalidation events over WebSocket so the browser view stays current without manual refresh.</p>
+            <pre><code>agentxchain dashboard
+agentxchain dashboard --port 4000
+agentxchain dashboard --no-open</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>What the dashboard reads</h3>
+            <p>The bridge serves five <code>.agentxchain/</code> files as read-only API endpoints. It never writes to them.</p>
+            <table>
+              <thead><tr><th>File</th><th>API endpoint</th><th>Panels that use it</th></tr></thead>
+              <tbody>
+                <tr><td><code>state.json</code></td><td><code>/api/state</code></td><td>Timeline, Blocked, Gate</td></tr>
+                <tr><td><code>history.jsonl</code></td><td><code>/api/history</code></td><td>Timeline, Gate</td></tr>
+                <tr><td><code>decision-ledger.jsonl</code></td><td><code>/api/ledger</code></td><td>Ledger</td></tr>
+                <tr><td><code>hook-audit.jsonl</code></td><td><code>/api/hooks/audit</code></td><td>Hook Audit, Blocked</td></tr>
+                <tr><td><code>hook-annotations.jsonl</code></td><td><code>/api/hooks/annotations</code></td><td>Hook Audit</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="surface">
+            <h3>Five panels</h3>
+
+            <h4>Run Timeline</h4>
+            <p>The primary view. Renders the current governed run as a vertical timeline of accepted turns — newest first. Each turn card shows the agent role, summary, files changed, decisions, objections, risks, and verification evidence. Status badges are color-coded: running (green), paused (yellow), blocked (red).</p>
+
+            <h4>Decision Ledger</h4>
+            <p>Renders <code>decision-ledger.jsonl</code> as a filterable table with Turn, Agent, and Decision columns. v2.0 provides a role dropdown and a text query filter. Phase filters, date range, and objection presence filters are deferred to v2.1+.</p>
+
+            <h4>Hook Audit Log</h4>
+            <p>Renders <code>hook-audit.jsonl</code> as an event stream: phase, hook name, verdict (allow / warn / block), orchestrator action, and duration. Also shows hook annotations from <code>hook-annotations.jsonl</code>. No client-side filters in v2.0.</p>
+
+            <h4>Blocked State</h4>
+            <p>When the run is in <code>blocked</code> status, this panel shows the block reason, which agent or hook caused it, and the exact CLI recovery command to run next. It also surfaces nearby hook/validation audit context when available. Recovery commands have click-to-copy support.</p>
+            <p>The panel reads <code>state.blocked_reason.recovery</code> as the runtime source of truth. It does not show a history of prior blocks — no dedicated blocked-event ledger exists yet in v2.0.</p>
+
+            <h4>Gate Review</h4>
+            <p>When a human gate is pending (phase transition or run completion), this panel shows aggregated evidence from all turns since the last phase boundary — not just the requesting turn. It renders per-agent summaries, collected objections, risks, decisions, and files changed. The exact CLI command (<code>agentxchain approve-transition</code> or <code>agentxchain approve-completion</code>) is shown with click-to-copy.</p>
+            <p>The dashboard does not approve gates itself. The CLI remains the only mutation path.</p>
+          </div>
+
+          <div class="surface">
+            <h3>What the dashboard does NOT do in v2.0</h3>
+            <ul>
+              <li>No write operations — cannot approve gates, accept turns, or resume runs</li>
+              <li>No dispatch bundle inspection — prompt/assignment content is not rendered</li>
+              <li>No git diff rendering — file paths only, no inline diffs</li>
+              <li>No expandable full turn JSON or per-turn hook detail</li>
+              <li>No desktop notifications — use the hook system (<code>on_escalation</code>) for alerting</li>
+              <li>No multi-repo aggregation — one repo per dashboard instance</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="examples">
+          <h2>Common sequences</h2>
+
+          <div class="surface">
+            <h3>Manual-first planning turn</h3>
+            <pre><code>npx agentxchain init --governed
+cd my-agentxchain-project
+agentxchain step --role pm
+
+# fill .agentxchain/staging/&lt;turn_id&gt;/turn-result.json
+agentxchain validate --mode turn
+agentxchain accept-turn
+agentxchain approve-transition</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>Recover a conflicted turn</h3>
+            <pre><code>agentxchain status
+agentxchain reject-turn --turn turn_abc123 --reassign
+
+# or after a human merge:
+agentxchain accept-turn --turn turn_abc123 --resolution human_merge</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>Continue after a retained failed turn</h3>
+            <pre><code>agentxchain status
+agentxchain resume --turn turn_abc123
+
+# or run the full lifecycle again
+agentxchain step --resume --turn turn_abc123</code></pre>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <div class="footer-copy">
+          Governed multi-agent software delivery. Operators control assignment, approval, and recovery through an explicit command surface.
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Docs</h4>
+            <a href="/docs/quickstart.html">Quickstart</a>
+            <a href="/docs/adapters.html">Adapters</a>
+            <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/protocol.html">Protocol</a>
+          </div>
+          <div>
+            <h4>Project</h4>
+            <a href="https://www.npmjs.com/package/agentxchain">npm</a>
+            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

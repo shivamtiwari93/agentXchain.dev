@@ -158,6 +158,220 @@ describe('validateV4Config', () => {
     });
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
+
+  it('accepts a valid api_proxy retry_policy', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          retry_policy: {
+            enabled: true,
+            max_attempts: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 500,
+            backoff_multiplier: 2,
+            jitter: 'none',
+            retry_on: ['rate_limited', 'timeout'],
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects invalid api_proxy retry_policy values', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          retry_policy: {
+            enabled: true,
+            max_attempts: 0,
+            jitter: 'randomized',
+            retry_on: ['rate_limited', 'not_real'],
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('max_attempts')));
+    assert.ok(result.errors.some(e => e.includes('jitter')));
+    assert.ok(result.errors.some(e => e.includes('not_real')));
+  });
+
+  it('rejects unknown api_proxy retry_policy fields and invalid delay ranges', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          retry_policy: {
+            enabled: true,
+            base_delay_ms: 500,
+            max_delay_ms: 100,
+            custom_field: true,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('unknown field "custom_field"')));
+    assert.ok(result.errors.some(e => e.includes('max_delay_ms must be >= retry_policy.base_delay_ms')));
+  });
+
+  it('accepts provider_overloaded in api_proxy retry_policy.retry_on', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          retry_policy: {
+            enabled: true,
+            retry_on: ['provider_overloaded'],
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects invalid_request in api_proxy retry_policy.retry_on', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          retry_policy: {
+            enabled: true,
+            retry_on: ['invalid_request'],
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('invalid_request')));
+  });
+
+  it('accepts a valid api_proxy preflight_tokenization config', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          max_output_tokens: 4096,
+          context_window_tokens: 200000,
+          preflight_tokenization: {
+            enabled: true,
+            tokenizer: 'provider_local',
+            safety_margin_tokens: 2048,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects invalid api_proxy preflight_tokenization values', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          context_window_tokens: 0,
+          preflight_tokenization: {
+            enabled: true,
+            tokenizer: 'heuristic',
+            safety_margin_tokens: -1,
+            custom_field: true,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('context_window_tokens must be a positive integer')));
+    assert.ok(result.errors.some(e => e.includes('tokenizer must be one of: provider_local')));
+    assert.ok(result.errors.some(e => e.includes('safety_margin_tokens must be an integer >= 0')));
+    assert.ok(result.errors.some(e => e.includes('unknown field "custom_field"')));
+  });
+
+  it('rejects enabled preflight tokenization without a sufficient context window', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+          max_output_tokens: 4096,
+          context_window_tokens: 5000,
+          preflight_tokenization: {
+            enabled: true,
+            safety_margin_tokens: 2048,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(
+      result.errors.some(e => e.includes('context_window_tokens must be greater than max_output_tokens + preflight_tokenization.safety_margin_tokens'))
+    );
+  });
 });
 
 // --- normalizeV3 ---
@@ -239,6 +453,56 @@ describe('normalizeV4', () => {
     // Files
     assert.equal(normalized.files.state, '.agentxchain/state.json');
     assert.equal(normalized.files.history, '.agentxchain/history.jsonl');
+  });
+});
+
+// --- normalizeV4 template field ---
+
+describe('normalizeV4 — template read path', () => {
+  const minimalV4 = {
+    schema_version: '1.0',
+    project: { id: 'test', name: 'Test' },
+    roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+    runtimes: { r1: { type: 'manual' } },
+  };
+
+  it('defaults template to "generic" when missing from config', () => {
+    const normalized = normalizeV4(minimalV4);
+    assert.equal(normalized.template, 'generic');
+  });
+
+  it('preserves explicit template value from config', () => {
+    const normalized = normalizeV4({ ...minimalV4, template: 'api-service' });
+    assert.equal(normalized.template, 'api-service');
+  });
+
+  it('preserves web-app template value', () => {
+    const normalized = normalizeV4({ ...minimalV4, template: 'web-app' });
+    assert.equal(normalized.template, 'web-app');
+  });
+
+  it('preserves cli-tool template value', () => {
+    const normalized = normalizeV4({ ...minimalV4, template: 'cli-tool' });
+    assert.equal(normalized.template, 'cli-tool');
+  });
+
+  it('old v4 fixture without template normalizes to generic', () => {
+    const fixture = loadFixture('config-v4-governed.json');
+    // The fixture does not have a template field
+    const normalized = normalizeV4(fixture);
+    assert.equal(normalized.template, 'generic');
+  });
+
+  it('loadNormalizedConfig preserves template through the full pipeline', () => {
+    const result = loadNormalizedConfig({ ...minimalV4, template: 'api-service' });
+    assert.equal(result.ok, true, `Errors: ${result.errors.join(', ')}`);
+    assert.equal(result.normalized.template, 'api-service');
+  });
+
+  it('loadNormalizedConfig defaults template for old configs', () => {
+    const result = loadNormalizedConfig(minimalV4);
+    assert.equal(result.ok, true, `Errors: ${result.errors.join(', ')}`);
+    assert.equal(result.normalized.template, 'generic');
   });
 });
 

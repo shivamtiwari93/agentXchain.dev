@@ -31,19 +31,19 @@
 - [x] `manual` adapter: poll-based staging
 - [x] `local_cli` adapter: subprocess dispatch with argv/stdin/dispatch_bundle_only transport
 - [x] `api_proxy` adapter: synchronous Anthropic call, review_only only
-- [ ] `api_proxy` live validation: at least one governed turn against real Anthropic API (credential prerequisite resolved; pending full Scenario C governed run)
+- [x] `api_proxy` live validation: at least one governed turn against real Anthropic API — closed by agent concurrence (DEC-LIVE-001). Live QA turn `turn_9f5639c671280a8f` dispatched to `claude-sonnet-4-6`, telemetry captured, staged result accepted inside governed loop.
 - [x] `api_proxy` error taxonomy: categorize API errors (auth, rate-limit, model-not-found, context-overflow) into recovery descriptors
 
 ## 3. Dogfood Validation
 
 - [x] Scenario A: Happy path (PM → Dev → QA → completion) — manual turns
 - [x] Scenario B: Reject/retry path — schema failure, retry with context, re-accept
-- [ ] Scenario C: Live LLM dogfood — at least one turn dispatched to real API (blocked on P0 HUMAN_TASK)
+- [x] Scenario C: Live LLM dogfood — at least one turn dispatched to real API. Closed by agent concurrence (DEC-LIVE-001); see `LIVE_SCENARIO_A_REPORT.md`
 - [~] Scenario D: Multi-turn escalation — **deferred to post-v1** (DEC-SCENARIO-D-001: escalation state machine is implemented and unit-tested; full dogfood validation is not a v1 release gate)
 
 ## 4. Test Coverage
 
-- [x] 369 tests, 0 failures, 84 suites
+- [x] Fresh audited baseline: 522 tests, 0 failures, 113 suites (2026-04-02)
 - [x] E2E governed lifecycle test (3-phase happy path)
 - [x] Schema drift guard tests
 - [x] Operator recovery rendering tests
@@ -53,8 +53,8 @@
 
 ## 5. Documentation
 
-- [x] SPEC-GOVERNED-v4.md — standalone normative spec
-- [x] All 13 planning specs complete and verified against implementation
+- [x] SPEC-GOVERNED-v4.md — frozen v1.0 normative spec (v1.1 is SPEC-GOVERNED-v5.md)
+- [x] All planning specs required for the v1 handoff are complete and verified against implementation
 - [x] DOGFOOD-RUNBOOK.md with clean-baseline checkpoints
 - [x] CLI_SPEC.md frozen against Commander definitions
 - [x] README.md exists
@@ -69,9 +69,15 @@
 - [x] CI enabled on GitHub repo
 - [x] Branch protection requiring CI pass (`cli` on `main`)
 - [x] npm package scope/name decided — continue with existing unscoped package `agentxchain`
-- [ ] npm publish dry-run succeeds (release-day task, sequenced after npm scope decision)
-- [ ] Homebrew formula updated with real tap (blocked on P2 HUMAN_TASK)
-- [ ] Git tag v1.0.0 created on release commit (release-day task)
+- [x] npm publish dry-run succeeds — `npm pack --dry-run` passed in `cli/` and produced `agentxchain-0.9.0.tgz`
+- [x] Release preflight runs with 0 hard failures — observed result on 2026-04-01: `4 passed, 0 failed, 2 warnings` (`dirty tree`, `package.json` still `0.9.0` before the release bump)
+- [x] Release preflight strict-mode contract is frozen for the post-bump gate (`bash scripts/release-preflight.sh --strict` / `npm run preflight:release:strict`)
+- [x] Homebrew formula updated with real tap — completed in `shivamtiwari93/homebrew-agentxchain`
+- [ ] Clean release workspace prepared before the cut (release-day task)
+- [ ] `cd cli && npm version 1.0.0` run successfully, creating the release commit and git tag `v1.0.0` (release-day task)
+- [ ] Push tag `v1.0.0` to GitHub — triggers `.github/workflows/publish-npm-on-tag.yml` which calls `scripts/publish-from-tag.sh`. The workflow enforces: tag shape must be `vX.Y.Z`, `package.json.version` must match tag semver, strict preflight must pass, and npm registry visibility is polled after publish. Human only creates tag; workflow handles publish.
+- [ ] Verify `agentxchain@1.0.0` is served by npm registry (workflow does this automatically; manual fallback: `npm view agentxchain@1.0.0 version`)
+- [ ] Homebrew formula updated to the published `1.0.0` tarball URL and SHA256 (release-day task)
 
 ## 7. Code Quality
 
@@ -87,9 +93,25 @@
 1. Scenarios A, B, and C pass (C requires live API key)
 2. 0 test failures on clean `npm ci && npm test`
 3. README quickstart works for a new user with no prior context
-4. SPEC-GOVERNED-v4.md and CLI_SPEC.md match implementation with 0 drift
-5. All P0 human tasks resolved
+4. SPEC-GOVERNED-v4.md (v1.0) / SPEC-GOVERNED-v5.md (v1.1) and CLI_SPEC.md match implementation with 0 drift
+5. All P0 setup and decision human blockers resolved
 6. CHANGELOG updated with 1.0.0 entry
+
+---
+
+## Post-v1 Work Already In-Tree
+
+The following features are implemented and tested in the current workspace but are **not** part of the v1.0.0 release contract. They will ship as v1.1+.
+
+| Feature | Status | Test Count | Activation |
+|---------|--------|------------|------------|
+| Parallel agent turns (6 slices) | Complete | 485 tests / 106 suites | `max_concurrent_turns > 1` |
+| Auto-retry with backoff (`api_proxy`) | Complete | Included above | `retry_policy.enabled = true` |
+| Preemptive tokenization | Complete + live-validated | Included above | `preflight_tokenization = true` |
+| Provider error mapping (Anthropic) | Complete | Included above | Automatic when using Anthropic |
+| Persistent blocked sub-state | Complete | Included above | Automatic |
+
+> v1.0.0 defaults (`max_concurrent_turns = 1`, no retry policy, no preflight tokenization) ensure these features are inert unless explicitly configured. The v1.0.0 release contract remains: single-run, single-repo, sequential turns.
 
 ---
 
@@ -112,6 +134,6 @@
 
 | Item | Blocks |
 |------|--------|
-| Run live Scenario C with configured ANTHROPIC_API_KEY | Scenario C, api_proxy live validation |
-| Run npm publish dry-run and release-day packaging checks | Release packaging confidence |
-| Apply approved minor doc-drift corrections to SPEC-GOVERNED-v4.md | Final spec polish before tag |
+| Prepare a clean release workspace and run `cd cli && npm version 1.0.0` | Final release commit + tag |
+| Publish the approved `1.0.0` package to npm | Final public release |
+| Update the Homebrew formula to the published `1.0.0` tarball URL and SHA256 | Homebrew distribution |

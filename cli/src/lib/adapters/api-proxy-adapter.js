@@ -22,12 +22,22 @@
  * Supported providers: "anthropic" (others can be added behind the same interface)
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
-
-const DISPATCH_CURRENT = '.agentxchain/dispatch/current';
-const STAGING_DIR = '.agentxchain/staging';
-const STAGING_RESULT_PATH = '.agentxchain/staging/turn-result.json';
+import { evaluateTokenBudget, SYSTEM_PROMPT, SEPARATOR } from '../token-budget.js';
+import {
+  getDispatchApiRequestPath,
+  getDispatchContextPath,
+  getDispatchEffectiveContextPath,
+  getDispatchPromptPath,
+  getDispatchTokenBudgetPath,
+  getDispatchTurnDir,
+  getTurnApiErrorPath,
+  getTurnProviderResponsePath,
+  getTurnRetryTracePath,
+  getTurnStagingDir,
+  getTurnStagingResultPath,
+} from '../turn-paths.js';
 
 // Provider endpoint registry
 const PROVIDER_ENDPOINTS = {
@@ -41,12 +51,62 @@ const COST_RATES = {
   'claude-haiku-4-5-20251001': { input_per_1m: 0.80, output_per_1m: 4.00 },
 };
 
+const RETRYABLE_ERROR_CLASSES = [
+  'rate_limited',
+  'network_failure',
+  'timeout',
+  'response_parse_failure',
+  'turn_result_extraction_failure',
+  'unknown_api_error',
+  'provider_overloaded',
+];
+
+const DEFAULT_RETRY_POLICY = {
+  max_attempts: 3,
+  base_delay_ms: 1000,
+  max_delay_ms: 8000,
+  backoff_multiplier: 2,
+  jitter: 'full',
+  retry_on: RETRYABLE_ERROR_CLASSES,
+};
+
+const PROVIDER_ERROR_MAPS = {
+  anthropic: {
+    extractErrorType(body) {
+      return typeof body?.error?.type === 'string' ? body.error.type : null;
+    },
+    extractErrorCode(body) {
+      return typeof body?.error?.code === 'string' ? body.error.code : null;
+    },
+    mappings: [
+      { provider_error_type: 'authentication_error', http_status: 401, error_class: 'auth_failure', retryable: false },
+      { provider_error_type: 'permission_error', http_status: 403, error_class: 'auth_failure', retryable: false },
+      { provider_error_type: 'not_found_error', http_status: 404, error_class: 'model_not_found', retryable: false },
+      { provider_error_type: 'overloaded_error', http_status: 529, error_class: 'provider_overloaded', retryable: true },
+      { provider_error_type: 'rate_limit_error', http_status: 429, body_pattern: /daily|spend|budget/i, error_class: 'rate_limited', retryable: false },
+      { provider_error_type: 'rate_limit_error', http_status: 429, error_class: 'rate_limited', retryable: true },
+      { provider_error_type: 'invalid_request_error', http_status: 400, body_pattern: /context|token.*limit|too.many.tokens/i, error_class: 'context_overflow', retryable: false },
+      { provider_error_type: 'invalid_request_error', http_status: 400, error_class: 'invalid_request', retryable: false },
+      { provider_error_type: 'api_error', http_status: 500, error_class: 'unknown_api_error', retryable: true },
+    ],
+  },
+};
+
 // ── Error classification ──────────────────────────────────────────────────────
 
 /**
  * Build a classified ApiProxyError object.
  */
-function classifyError(errorClass, message, recovery, retryable, httpStatus, rawDetail) {
+function classifyError(
+  errorClass,
+  message,
+  recovery,
+  retryable,
+  httpStatus,
+  rawDetail,
+  providerErrorType = null,
+  providerErrorCode = null
+) {
   return {
     error_class: errorClass,
     message,
@@ -54,19 +114,190 @@ function classifyError(errorClass, message, recovery, retryable, httpStatus, raw
     retryable,
     http_status: httpStatus ?? null,
     raw_detail: rawDetail ? String(rawDetail).slice(0, 500) : null,
+    provider_error_type: providerErrorType,
+    provider_error_code: providerErrorCode,
   };
+}
+
+function tryParseJson(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function httpStatusMatches(ruleStatus, actualStatus) {
+  if (Array.isArray(ruleStatus)) {
+    return ruleStatus.includes(actualStatus);
+  }
+  if (typeof ruleStatus === 'number') {
+    return ruleStatus === actualStatus;
+  }
+  return true;
+}
+
+function buildMappedProviderError(mapping, context) {
+  const {
+    provider,
+    model,
+    authEnv,
+    status,
+    rawDetail,
+    providerErrorType,
+    providerErrorCode,
+  } = context;
+
+  switch (mapping.error_class) {
+    case 'auth_failure':
+      return classifyError(
+        'auth_failure',
+        `API authentication failed (${status})`,
+        `Check that "${authEnv}" contains a valid API key for ${provider}`,
+        mapping.retryable ?? false,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    case 'model_not_found':
+      return classifyError(
+        'model_not_found',
+        `Model "${model}" not found (${status})`,
+        `Model "${model}" not found. Check runtime config model name.`,
+        mapping.retryable ?? false,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    case 'provider_overloaded':
+      return classifyError(
+        'provider_overloaded',
+        `${provider} is temporarily overloaded`,
+        `${provider} is overloaded. Retry with backoff: agentxchain step --resume`,
+        mapping.retryable ?? true,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    case 'rate_limited':
+      if (mapping.retryable === false) {
+        return classifyError(
+          'rate_limited',
+          `Provider spend limit reached at ${provider}`,
+          `${provider} rejected the request due to a spend or budget limit. Increase provider budget or wait for reset before retrying.`,
+          false,
+          status,
+          rawDetail,
+          providerErrorType,
+          providerErrorCode
+        );
+      }
+      return classifyError(
+        'rate_limited',
+        `Rate limited by ${provider}`,
+        `Rate limited by ${provider}. Wait and retry: agentxchain step --resume`,
+        true,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    case 'context_overflow':
+      return classifyError(
+        'context_overflow',
+        'Prompt exceeds model context window',
+        'Prompt exceeds model context window. Reduce context or switch to a larger model.',
+        false,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    case 'invalid_request':
+      return classifyError(
+        'invalid_request',
+        `API request rejected by ${provider}`,
+        'Provider rejected the request as invalid. Fix the prompt, parameters, or adapter request shape before retrying.',
+        false,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+    default:
+      return classifyError(
+        mapping.error_class,
+        `API returned ${status}`,
+        `API returned ${status}. Review error detail and retry or complete manually.`,
+        mapping.retryable ?? true,
+        status,
+        rawDetail,
+        providerErrorType,
+        providerErrorCode
+      );
+  }
+}
+
+function classifyProviderHttpError(status, body, provider, model, authEnv) {
+  const providerMap = PROVIDER_ERROR_MAPS[provider];
+  if (!providerMap) {
+    return null;
+  }
+
+  const parsedBody = tryParseJson(body);
+  if (!parsedBody) {
+    return null;
+  }
+
+  const providerErrorType = providerMap.extractErrorType(parsedBody);
+  const providerErrorCode = providerMap.extractErrorCode(parsedBody);
+  if (!providerErrorType) {
+    return { matched: null, providerErrorType: null, providerErrorCode };
+  }
+
+  for (const mapping of providerMap.mappings) {
+    if (mapping.provider_error_type !== providerErrorType) continue;
+    if (!httpStatusMatches(mapping.http_status, status)) continue;
+    if (mapping.body_pattern && !mapping.body_pattern.test(body)) continue;
+    return {
+      matched: buildMappedProviderError(mapping, {
+        provider,
+        model,
+        authEnv,
+        status,
+        rawDetail: body,
+        providerErrorType,
+        providerErrorCode,
+      }),
+      providerErrorType,
+      providerErrorCode,
+    };
+  }
+
+  return { matched: null, providerErrorType, providerErrorCode };
 }
 
 /**
  * Classify an HTTP error response into a typed ApiProxyError.
  */
 function classifyHttpError(status, body, provider, model, authEnv) {
+  const providerClassification = classifyProviderHttpError(status, body, provider, model, authEnv);
+  if (providerClassification?.matched) {
+    return providerClassification.matched;
+  }
+  const providerErrorType = providerClassification?.providerErrorType ?? null;
+  const providerErrorCode = providerClassification?.providerErrorCode ?? null;
+
   if (status === 401 || status === 403) {
     return classifyError(
       'auth_failure',
       `API authentication failed (${status})`,
       `Check that "${authEnv}" contains a valid API key for ${provider}`,
-      false, status, body
+      false, status, body, providerErrorType, providerErrorCode
     );
   }
 
@@ -75,7 +306,7 @@ function classifyHttpError(status, body, provider, model, authEnv) {
       'rate_limited',
       `Rate limited by ${provider}`,
       `Rate limited by ${provider}. Wait and retry: agentxchain step --resume`,
-      true, status, body
+      true, status, body, providerErrorType, providerErrorCode
     );
   }
 
@@ -84,7 +315,7 @@ function classifyHttpError(status, body, provider, model, authEnv) {
       'model_not_found',
       `Model "${model}" not found (404)`,
       `Model "${model}" not found. Check runtime config model name.`,
-      false, status, body
+      false, status, body, providerErrorType, providerErrorCode
     );
   }
 
@@ -95,7 +326,7 @@ function classifyHttpError(status, body, provider, model, authEnv) {
         'context_overflow',
         'Prompt exceeds model context window',
         'Prompt exceeds model context window. Reduce context or switch to a larger model.',
-        false, status, body
+        false, status, body, providerErrorType, providerErrorCode
       );
     }
   }
@@ -104,19 +335,19 @@ function classifyHttpError(status, body, provider, model, authEnv) {
     'unknown_api_error',
     `API returned ${status}`,
     `API returned ${status}. Review error detail and retry or complete manually.`,
-    true, status, body
+    true, status, body, providerErrorType, providerErrorCode
   );
 }
 
 /**
  * Persist classified error to staging for auditability (best-effort).
  */
-function persistApiError(root, classified) {
+function persistApiError(root, turnId, classified) {
   try {
-    const stagingDir = join(root, STAGING_DIR);
+    const stagingDir = join(root, getTurnStagingDir(turnId));
     mkdirSync(stagingDir, { recursive: true });
     writeFileSync(
-      join(stagingDir, 'api-error.json'),
+      join(root, getTurnApiErrorPath(turnId)),
       JSON.stringify(classified, null, 2) + '\n'
     );
   } catch {
@@ -124,12 +355,317 @@ function persistApiError(root, classified) {
   }
 }
 
+function clearApiError(root, turnId) {
+  try {
+    rmSync(join(root, getTurnApiErrorPath(turnId)), { force: true });
+  } catch {
+    // best-effort cleanup
+  }
+}
+
+/**
+ * Persist retry trace artifact for auditability (best-effort).
+ */
+function persistRetryTrace(root, turnId, trace) {
+  try {
+    const stagingDir = join(root, getTurnStagingDir(turnId));
+    mkdirSync(stagingDir, { recursive: true });
+    const tracePath = join(root, getTurnRetryTracePath(turnId));
+    writeFileSync(tracePath, JSON.stringify(trace, null, 2) + '\n');
+    return tracePath;
+  } catch {
+    // best-effort audit artifact
+    return null;
+  }
+}
+
+function emptyUsageTotals() {
+  return {
+    input_tokens: 0,
+    output_tokens: 0,
+    usd: 0,
+  };
+}
+
+function usageFromTelemetry(model, usage) {
+  if (!usage || typeof usage !== 'object') return null;
+
+  const inputTokens = Number.isFinite(usage.input_tokens) ? usage.input_tokens : 0;
+  const outputTokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
+  const rates = COST_RATES[model];
+  const usd = rates
+    ? (inputTokens / 1_000_000) * rates.input_per_1m + (outputTokens / 1_000_000) * rates.output_per_1m
+    : 0;
+
+  return {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    usd: Math.round(usd * 1000) / 1000,
+  };
+}
+
+function addUsageTotals(total, usage) {
+  if (!usage) return total;
+  return {
+    input_tokens: total.input_tokens + (usage.input_tokens || 0),
+    output_tokens: total.output_tokens + (usage.output_tokens || 0),
+    usd: Math.round((total.usd + (usage.usd || 0)) * 1000) / 1000,
+  };
+}
+
+function writeRetryTrace(root, turnId, provider, model, state, runtimeId, retryPolicy, attemptsMade, finalOutcome, aggregateUsage, attempts) {
+  const trace = {
+    provider,
+    model,
+    run_id: state.run_id,
+    turn_id: turnId,
+    runtime_id: runtimeId,
+    max_attempts: retryPolicy?.max_attempts ?? 1,
+    attempts_made: attemptsMade,
+    final_outcome: finalOutcome,
+    aggregate_usage: { ...aggregateUsage },
+    attempts,
+  };
+  return persistRetryTrace(root, turnId, trace);
+}
+
+function persistPreflightArtifacts(root, turnId, effectiveContext, report) {
+  try {
+    const dispatchDir = join(root, getDispatchTurnDir(turnId));
+    mkdirSync(dispatchDir, { recursive: true });
+    writeFileSync(join(root, getDispatchEffectiveContextPath(turnId)), effectiveContext);
+    writeFileSync(join(root, getDispatchTokenBudgetPath(turnId)), JSON.stringify(report, null, 2) + '\n');
+  } catch {
+    // best-effort audit artifacts
+  }
+}
+
+function resolveRetryPolicy(runtime) {
+  const retryPolicy = runtime?.retry_policy;
+  if (!retryPolicy || retryPolicy.enabled !== true) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    max_attempts: retryPolicy.max_attempts ?? DEFAULT_RETRY_POLICY.max_attempts,
+    base_delay_ms: retryPolicy.base_delay_ms ?? DEFAULT_RETRY_POLICY.base_delay_ms,
+    max_delay_ms: retryPolicy.max_delay_ms ?? DEFAULT_RETRY_POLICY.max_delay_ms,
+    backoff_multiplier: retryPolicy.backoff_multiplier ?? DEFAULT_RETRY_POLICY.backoff_multiplier,
+    jitter: retryPolicy.jitter ?? DEFAULT_RETRY_POLICY.jitter,
+    retry_on: Array.isArray(retryPolicy.retry_on)
+      ? retryPolicy.retry_on
+      : DEFAULT_RETRY_POLICY.retry_on,
+  };
+}
+
+function resolvePreflightTokenization(runtime) {
+  const preflight = runtime?.preflight_tokenization;
+  if (!preflight || preflight.enabled !== true) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    tokenizer: preflight.tokenizer ?? 'provider_local',
+    safety_margin_tokens: preflight.safety_margin_tokens ?? 2048,
+    context_window_tokens: runtime.context_window_tokens,
+  };
+}
+
+function shouldRetryAttempt(classified, retryPolicy, attemptNumber) {
+  if (!retryPolicy || !classified?.retryable) return false;
+  if (attemptNumber >= retryPolicy.max_attempts) return false;
+  if (!Array.isArray(retryPolicy.retry_on)) return true;
+  return retryPolicy.retry_on.includes(classified.error_class);
+}
+
+function calculateRetryDelayMs(retryPolicy, nextAttemptNumber) {
+  const rawDelayMs = Math.min(
+    retryPolicy.max_delay_ms,
+    retryPolicy.base_delay_ms * retryPolicy.backoff_multiplier ** (nextAttemptNumber - 2)
+  );
+
+  if (retryPolicy.jitter === 'none') {
+    return rawDelayMs;
+  }
+
+  return Math.floor(Math.random() * (rawDelayMs + 1));
+}
+
+function waitForRetryDelay(delayMs, signal) {
+  if (delayMs <= 0) {
+    if (signal?.aborted) {
+      return Promise.reject(new Error('aborted'));
+    }
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('aborted'));
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, delayMs);
+
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      cleanup();
+      reject(new Error('aborted'));
+    };
+
+    const cleanup = () => {
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
+async function executeApiCall({
+  endpoint,
+  apiKey,
+  provider,
+  model,
+  authEnv,
+  requestBody,
+  timeoutSeconds,
+  signal,
+}) {
+  const timeoutMs = timeoutSeconds * 1000;
+  const controller = new AbortController();
+  let externalAbort = false;
+  let timeoutTriggered = false;
+
+  const onExternalAbort = () => {
+    externalAbort = true;
+    controller.abort();
+  };
+
+  if (signal) {
+    if (signal.aborted) {
+      return { ok: false, aborted: true, error: 'Dispatch aborted by operator' };
+    }
+    signal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
+  const timeoutId = setTimeout(() => {
+    timeoutTriggered = true;
+    controller.abort();
+  }, timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: buildAnthropicHeaders(apiKey),
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener('abort', onExternalAbort);
+    }
+
+    if (err.name === 'AbortError') {
+      if (externalAbort && !timeoutTriggered) {
+        return { ok: false, aborted: true, error: 'Dispatch aborted by operator' };
+      }
+      return {
+        ok: false,
+        classified: classifyError(
+          'timeout',
+          `Request timed out after ${timeoutSeconds}s`,
+          `Request timed out after ${timeoutSeconds}s. Increase timeout_seconds in runtime config or retry: agentxchain step --resume`,
+          true, null, null
+        ),
+        usage: null,
+      };
+    }
+
+    return {
+      ok: false,
+      classified: classifyError(
+        'network_failure',
+        `Network error: ${err.message}`,
+        `Network error: ${err.message}. Check connectivity and retry: agentxchain step --resume`,
+        true, null, err.message
+      ),
+      usage: null,
+    };
+  }
+
+  clearTimeout(timeoutId);
+  if (signal) {
+    signal.removeEventListener('abort', onExternalAbort);
+  }
+
+  if (!response.ok) {
+    let errorBody = '';
+    try { errorBody = await response.text(); } catch {}
+    return {
+      ok: false,
+      classified: classifyHttpError(response.status, errorBody, provider, model, authEnv),
+      usage: null,
+    };
+  }
+
+  let responseData;
+  try {
+    responseData = await response.json();
+  } catch (err) {
+    return {
+      ok: false,
+      classified: classifyError(
+        'response_parse_failure',
+        'Provider returned non-JSON response',
+        'Provider returned non-JSON response. This is usually transient. Retry: agentxchain step --resume',
+        true, response.status, err.message
+      ),
+      usage: null,
+    };
+  }
+
+  const usage = usageFromTelemetry(model, responseData.usage);
+  const extraction = extractTurnResult(responseData);
+
+  if (!extraction.ok) {
+    return {
+      ok: false,
+      classified: classifyError(
+        'turn_result_extraction_failure',
+        extraction.error,
+        'Model responded but did not produce valid turn result JSON. Retry or complete manually.',
+        true, null, null
+      ),
+      usage,
+      responseData,
+    };
+  }
+
+  return {
+    ok: true,
+    responseData,
+    turnResult: extraction.turnResult,
+    usage,
+  };
+}
+
 /**
  * Build an error return with classification and audit persistence.
  */
-function errorReturn(root, classified) {
-  persistApiError(root, classified);
-  return { ok: false, error: classified.message, classified };
+function errorReturn(root, turnId, classified, extras = {}) {
+  persistApiError(root, turnId, classified);
+  return { ok: false, error: classified.message, classified, ...extras };
 }
 
 // ── Main dispatch ─────────────────────────────────────────────────────────────
@@ -144,9 +680,9 @@ function errorReturn(root, classified) {
  * @returns {Promise<{ ok: boolean, error?: string, classified?: ApiProxyError, usage?: object, staged?: boolean }>}
  */
 export async function dispatchApiProxy(root, state, config, options = {}) {
-  const { signal, onStatus } = options;
+  const { signal, onStatus, turnId } = options;
 
-  const turn = state.current_turn;
+  const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
   }
@@ -166,8 +702,8 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
   }
 
   // Read dispatch bundle
-  const promptPath = join(root, DISPATCH_CURRENT, 'PROMPT.md');
-  const contextPath = join(root, DISPATCH_CURRENT, 'CONTEXT.md');
+  const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
+  const contextPath = join(root, getDispatchContextPath(turn.turn_id));
 
   if (!existsSync(promptPath)) {
     return { ok: false, error: 'Dispatch bundle not found — PROMPT.md missing' };
@@ -189,7 +725,7 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
       `Set environment variable "${authEnv}" and retry: agentxchain step --resume`,
       false, null, null
     );
-    return errorReturn(root, classified);
+    return errorReturn(root, turn.turn_id, classified);
   }
 
   const endpoint = PROVIDER_ENDPOINTS[provider];
@@ -200,26 +736,71 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
       `Provider "${provider}" is not supported. Supported: ${Object.keys(PROVIDER_ENDPOINTS).join(', ')}`,
       false, null, null
     );
-    return errorReturn(root, classified);
+    return errorReturn(root, turn.turn_id, classified);
   }
 
   // Build request
   const maxOutputTokens = runtime.max_output_tokens || 4096;
   const timeoutSeconds = runtime.timeout_seconds || 120;
-  const timeoutMs = timeoutSeconds * 1000;
+  const retryPolicy = resolveRetryPolicy(runtime);
+  const preflightTokenization = resolvePreflightTokenization(runtime);
+  let effectiveContextMd = contextMd;
 
-  const requestBody = buildAnthropicRequest(promptMd, contextMd, model, maxOutputTokens);
+  if (preflightTokenization) {
+    const budgetEvaluation = evaluateTokenBudget({
+      promptMd,
+      contextMd,
+      provider,
+      model,
+      runtimeId,
+      runId: state.run_id,
+      turnId: turn.turn_id,
+      contextWindowTokens: preflightTokenization.context_window_tokens,
+      maxOutputTokens,
+      safetyMarginTokens: preflightTokenization.safety_margin_tokens,
+    });
+
+    effectiveContextMd = budgetEvaluation.effective_context;
+    persistPreflightArtifacts(root, turn.turn_id, effectiveContextMd, budgetEvaluation.report);
+
+    if (!budgetEvaluation.sent_to_provider) {
+      const classified = classifyError(
+        'context_overflow',
+        'Prompt exceeds model context window (detected locally before API call)',
+        'Prompt exceeds model context window. Reduce context or switch to a larger model.',
+        false, null,
+        'Local preflight token-budget estimate exceeded available input tokens.'
+      );
+      return errorReturn(root, turn.turn_id, classified, {
+        preflight_artifacts: {
+          token_budget: join(root, getDispatchTokenBudgetPath(turn.turn_id)),
+          effective_context: join(root, getDispatchEffectiveContextPath(turn.turn_id)),
+        },
+      });
+    }
+  }
+
+  const requestBody = buildAnthropicRequest(promptMd, effectiveContextMd, model, maxOutputTokens);
 
   // Persist request metadata for auditability
-  const dispatchDir = join(root, DISPATCH_CURRENT);
+  const dispatchDir = join(root, getDispatchTurnDir(turn.turn_id));
   try {
     writeFileSync(
-      join(dispatchDir, 'API_REQUEST.json'),
+      join(root, getDispatchApiRequestPath(turn.turn_id)),
       JSON.stringify({
         provider,
         model,
         endpoint,
         max_output_tokens: maxOutputTokens,
+        retry_policy: retryPolicy,
+        preflight_tokenization: preflightTokenization
+          ? {
+              enabled: true,
+              tokenizer: preflightTokenization.tokenizer,
+              context_window_tokens: preflightTokenization.context_window_tokens,
+              safety_margin_tokens: preflightTokenization.safety_margin_tokens,
+            }
+          : null,
         timestamp: new Date().toISOString(),
         // Do not persist the API key
       }, null, 2) + '\n'
@@ -229,123 +810,167 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
   }
 
   onStatus?.(`Sending request to ${provider} (${model})...`);
+  const aggregateUsage = emptyUsageTotals();
+  let hasUsageTelemetry = false;
+  let attemptsMade = 0;
+  let execution;
+  const traceAttempts = [];
+  let pendingScheduledDelayMs = 0;
+  let pendingActualDelayMs = 0;
 
-  // Make the API call
-  let response;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  while (true) {
+    attemptsMade += 1;
+    const attemptStartedAt = new Date().toISOString();
+    const scheduledDelayMs = pendingScheduledDelayMs;
+    const actualDelayMs = pendingActualDelayMs;
+    pendingScheduledDelayMs = 0;
+    pendingActualDelayMs = 0;
 
-    // Respect external abort signal too
-    if (signal) {
-      signal.addEventListener('abort', () => controller.abort(), { once: true });
-    }
-
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: buildAnthropicHeaders(apiKey),
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
+    execution = await executeApiCall({
+      endpoint,
+      apiKey,
+      provider,
+      model,
+      authEnv,
+      requestBody,
+      timeoutSeconds,
+      signal,
     });
 
-    clearTimeout(timeoutId);
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      const classified = classifyError(
-        'timeout',
-        `Request timed out after ${timeoutSeconds}s`,
-        `Request timed out after ${timeoutSeconds}s. Increase timeout_seconds in runtime config or retry: agentxchain step --resume`,
-        true, null, null
-      );
-      return errorReturn(root, classified);
+    const attemptCompletedAt = new Date().toISOString();
+
+    if (execution.usage) {
+      hasUsageTelemetry = true;
+      const totals = addUsageTotals(aggregateUsage, execution.usage);
+      aggregateUsage.input_tokens = totals.input_tokens;
+      aggregateUsage.output_tokens = totals.output_tokens;
+      aggregateUsage.usd = totals.usd;
     }
-    const classified = classifyError(
-      'network_failure',
-      `Network error: ${err.message}`,
-      `Network error: ${err.message}. Check connectivity and retry: agentxchain step --resume`,
-      true, null, err.message
+
+    if (execution.ok) {
+      traceAttempts.push({
+        attempt: attemptsMade,
+        started_at: attemptStartedAt,
+        completed_at: attemptCompletedAt,
+        outcome: 'success',
+        retryable: false,
+        http_status: null,
+        scheduled_delay_ms: scheduledDelayMs,
+        actual_delay_ms: actualDelayMs,
+        usage: execution.usage || null,
+      });
+      break;
+    }
+
+    if (execution.aborted) {
+      traceAttempts.push({
+        attempt: attemptsMade,
+        started_at: attemptStartedAt,
+        completed_at: attemptCompletedAt,
+        outcome: 'aborted',
+        retryable: false,
+        http_status: null,
+        scheduled_delay_ms: scheduledDelayMs,
+        actual_delay_ms: actualDelayMs,
+        usage: execution.usage || null,
+      });
+      const tracePath = writeRetryTrace(root, turn.turn_id, provider, model, state, runtimeId, retryPolicy, attemptsMade, 'aborted', aggregateUsage, traceAttempts);
+      return { ok: false, error: execution.error, attempts_made: attemptsMade, retry_trace_path: tracePath };
+    }
+
+    const classified = execution.classified;
+      traceAttempts.push({
+        attempt: attemptsMade,
+        started_at: attemptStartedAt,
+        completed_at: attemptCompletedAt,
+        outcome: classified?.error_class || 'non_retryable_error',
+        retryable: classified?.retryable || false,
+        http_status: classified?.http_status ?? null,
+        provider_error_type: classified?.provider_error_type ?? null,
+        scheduled_delay_ms: scheduledDelayMs,
+        actual_delay_ms: actualDelayMs,
+        usage: execution.usage || null,
+      });
+
+    if (!shouldRetryAttempt(classified, retryPolicy, attemptsMade)) {
+      // Persist raw provider response on failure for debugging (e.g. extraction failure)
+      if (execution.responseData) {
+        const stagingDir = join(root, getTurnStagingDir(turn.turn_id));
+        mkdirSync(stagingDir, { recursive: true });
+        try {
+          writeFileSync(
+            join(root, getTurnProviderResponsePath(turn.turn_id)),
+            JSON.stringify(execution.responseData, null, 2) + '\n'
+          );
+        } catch {
+          // best-effort audit artifact
+        }
+      }
+      const tracePath = writeRetryTrace(root, turn.turn_id, provider, model, state, runtimeId, retryPolicy, attemptsMade, 'failure', aggregateUsage, traceAttempts);
+      return errorReturn(root, turn.turn_id, classified, { attempts_made: attemptsMade, retry_trace_path: tracePath });
+    }
+
+    const nextAttemptNumber = attemptsMade + 1;
+    const retryDelayMs = calculateRetryDelayMs(retryPolicy, nextAttemptNumber);
+    onStatus?.(
+      `Attempt ${attemptsMade}/${retryPolicy.max_attempts} failed with ${classified.error_class}; retrying in ${retryDelayMs}ms...`
     );
-    return errorReturn(root, classified);
+
+    const delayStart = Date.now();
+    try {
+      await waitForRetryDelay(retryDelayMs, signal);
+    } catch {
+      const tracePath = writeRetryTrace(root, turn.turn_id, provider, model, state, runtimeId, retryPolicy, attemptsMade, 'aborted', aggregateUsage, traceAttempts);
+      return { ok: false, error: 'Dispatch aborted by operator', attempts_made: attemptsMade, retry_trace_path: tracePath };
+    }
+    pendingScheduledDelayMs = retryDelayMs;
+    pendingActualDelayMs = Date.now() - delayStart;
   }
 
-  if (!response.ok) {
-    let errorBody = '';
-    try { errorBody = await response.text(); } catch {}
-    const classified = classifyHttpError(response.status, errorBody, provider, model, authEnv);
-    return errorReturn(root, classified);
+  // Write trace on success too (only when retries were attempted)
+  let retryTracePath = undefined;
+  if (attemptsMade > 1) {
+    retryTracePath = writeRetryTrace(root, turn.turn_id, provider, model, state, runtimeId, retryPolicy, attemptsMade, 'success', aggregateUsage, traceAttempts);
   }
 
-  let responseData;
-  try {
-    responseData = await response.json();
-  } catch (err) {
-    const classified = classifyError(
-      'response_parse_failure',
-      'Provider returned non-JSON response',
-      'Provider returned non-JSON response. This is usually transient. Retry: agentxchain step --resume',
-      true, response.status, err.message
-    );
-    return errorReturn(root, classified);
-  }
+  const { responseData, turnResult } = execution;
 
   // Persist raw response for auditability
-  const stagingDir = join(root, STAGING_DIR);
+  const stagingDir = join(root, getTurnStagingDir(turn.turn_id));
   mkdirSync(stagingDir, { recursive: true });
 
   try {
     writeFileSync(
-      join(stagingDir, 'provider-response.json'),
+      join(root, getTurnProviderResponsePath(turn.turn_id)),
       JSON.stringify(responseData, null, 2) + '\n'
     );
   } catch {
     // best-effort audit artifact
   }
 
-  // Extract turn result JSON from response
-  const extraction = extractTurnResult(responseData);
-  if (!extraction.ok) {
-    const classified = classifyError(
-      'turn_result_extraction_failure',
-      extraction.error,
-      'Model responded but did not produce valid turn result JSON. Retry or complete manually.',
-      true, null, null
-    );
-    return errorReturn(root, classified);
-  }
-
-  // Overwrite cost with provider telemetry (authoritative source)
-  const usage = responseData.usage;
-  if (usage && extraction.turnResult) {
-    const inputTokens = usage.input_tokens || 0;
-    const outputTokens = usage.output_tokens || 0;
-    const rates = COST_RATES[model];
-    const usd = rates
-      ? (inputTokens / 1_000_000) * rates.input_per_1m + (outputTokens / 1_000_000) * rates.output_per_1m
-      : 0;
-
-    extraction.turnResult.cost = {
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      usd: Math.round(usd * 1000) / 1000,
-    };
+  if (hasUsageTelemetry && turnResult) {
+    turnResult.cost = { ...aggregateUsage };
   }
 
   // Stage the turn result
   try {
     writeFileSync(
-      join(root, STAGING_RESULT_PATH),
-      JSON.stringify(extraction.turnResult, null, 2) + '\n'
+      join(root, getTurnStagingResultPath(turn.turn_id)),
+      JSON.stringify(turnResult, null, 2) + '\n'
     );
   } catch (err) {
     return { ok: false, error: `Failed to stage turn result: ${err.message}` };
   }
 
+  clearApiError(root, turn.turn_id);
   onStatus?.('Turn result staged successfully.');
 
   return {
     ok: true,
     staged: true,
-    usage: responseData.usage || null,
+    usage: hasUsageTelemetry ? { ...aggregateUsage } : null,
+    attempts_made: attemptsMade,
+    retry_trace_path: retryTracePath,
   };
 }
 
@@ -360,21 +985,14 @@ function buildAnthropicHeaders(apiKey) {
 }
 
 function buildAnthropicRequest(promptMd, contextMd, model, maxOutputTokens) {
-  const systemPrompt = [
-    'You are acting as a governed agent in an AgentXchain protocol run.',
-    'Your task and rules are described in the user message.',
-    'You MUST respond with a valid JSON object matching the turn result schema provided in the prompt.',
-    'Do NOT wrap the JSON in markdown code fences. Respond with raw JSON only.',
-  ].join('\n');
-
   const userContent = contextMd
-    ? `${promptMd}\n\n---\n\n${contextMd}`
+    ? `${promptMd}${SEPARATOR}${contextMd}`
     : promptMd;
 
   return {
     model,
     max_tokens: maxOutputTokens,
-    system: systemPrompt,
+    system: SYSTEM_PROMPT,
     messages: [
       { role: 'user', content: userContent },
     ],
@@ -438,6 +1056,13 @@ function extractTurnResult(responseData) {
     ok: false,
     error: 'Could not extract structured turn result JSON from API response. The model did not return valid turn result JSON.',
   };
+}
+
+function resolveTargetTurn(state, turnId) {
+  if (turnId && state?.active_turns?.[turnId]) {
+    return state.active_turns[turnId];
+  }
+  return state?.current_turn || Object.values(state?.active_turns || {})[0];
 }
 
 export { extractTurnResult, buildAnthropicRequest, classifyError, classifyHttpError, COST_RATES };

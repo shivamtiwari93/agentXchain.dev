@@ -5,11 +5,19 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 
-import { writeDispatchBundle, DISPATCH_CURRENT, RESERVED_PATHS } from '../src/lib/dispatch-bundle.js';
+import {
+  writeDispatchBundle,
+  DISPATCH_INDEX_PATH,
+  RESERVED_PATHS,
+  getDispatchTurnDir,
+  getTurnStagingResultPath,
+} from '../src/lib/dispatch-bundle.js';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
+  normalizeGovernedStateShape,
+  getActiveTurn,
   STATE_PATH,
   HISTORY_PATH,
   STAGING_PATH,
@@ -25,7 +33,19 @@ function makeTmpDir() {
 }
 
 function readJson(root, relPath) {
-  return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  const parsed = JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  if (relPath === STATE_PATH || relPath.endsWith('state.json')) {
+    const normalized = normalizeGovernedStateShape(parsed).state;
+    Object.defineProperty(normalized, 'current_turn', {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return getActiveTurn(normalized);
+      },
+    });
+    return normalized;
+  }
+  return parsed;
 }
 
 function makeNormalizedConfig() {
@@ -69,6 +89,14 @@ function makeNormalizedConfig() {
   };
 }
 
+function bundleDirFor(state) {
+  return getDispatchTurnDir(state.current_turn.turn_id);
+}
+
+function stagingPathFor(state) {
+  return getTurnStagingResultPath(state.current_turn.turn_id);
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('writeDispatchBundle', () => {
@@ -100,7 +128,7 @@ describe('writeDispatchBundle', () => {
     const result = writeDispatchBundle(root, state, config);
     assert.equal(result.ok, true);
 
-    const bundleDir = join(root, DISPATCH_CURRENT);
+    const bundleDir = join(root, bundleDirFor(state));
     assert.ok(existsSync(join(bundleDir, 'ASSIGNMENT.json')));
     assert.ok(existsSync(join(bundleDir, 'PROMPT.md')));
     assert.ok(existsSync(join(bundleDir, 'CONTEXT.md')));
@@ -112,7 +140,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const assignment = readJson(root, join(DISPATCH_CURRENT, 'ASSIGNMENT.json'));
+    const assignment = readJson(root, join(bundleDirFor(state), 'ASSIGNMENT.json'));
 
     assert.equal(assignment.run_id, state.run_id);
     assert.equal(assignment.turn_id, state.current_turn.turn_id);
@@ -120,7 +148,7 @@ describe('writeDispatchBundle', () => {
     assert.equal(assignment.role, 'pm');
     assert.equal(assignment.runtime_id, 'manual-pm');
     assert.equal(assignment.write_authority, 'review_only');
-    assert.equal(assignment.staging_result_path, '.agentxchain/staging/turn-result.json');
+    assert.equal(assignment.staging_result_path, stagingPathFor(state));
     assert.deepEqual(assignment.reserved_paths, RESERVED_PATHS);
     assert.deepEqual(assignment.allowed_next_roles, ['pm', 'eng_director', 'human']);
     assert.equal(assignment.attempt, 1);
@@ -133,12 +161,12 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /Product Manager/);
     assert.match(prompt, /Protect user value/);
     assert.match(prompt, /Protocol Rules/);
-    assert.match(prompt, /staging\/turn-result\.json/);
+    assert.match(prompt, /staging\/turn_[^/]+\/turn-result\.json/);
     assert.match(prompt, /review_only/);
     assert.match(prompt, /Challenge the previous turn/);
     assert.match(prompt, /reserved state files/);
@@ -150,7 +178,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /Write Authority: review_only/);
     assert.match(prompt, /may NOT modify product\/code files/);
@@ -168,7 +196,7 @@ describe('writeDispatchBundle', () => {
     const updatedState = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, updatedState, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(updatedState), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /Write Authority: authoritative/);
     assert.match(prompt, /directly modify repository files/);
@@ -180,7 +208,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /planning_signoff/);
     assert.match(prompt, /PM_SIGNOFF\.md/);
@@ -202,12 +230,47 @@ describe('writeDispatchBundle', () => {
     writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /Previous Attempt Failed/);
     assert.match(prompt, /attempt 2/);
     assert.match(prompt, /Schema validation failed/);
     assert.match(prompt, /Missing required field: summary/);
+  });
+
+  it('ASSIGNMENT.json and PROMPT.md include conflict context on reassign', () => {
+    initializeGovernedRun(root, config);
+    const assignResult = assignGovernedTurn(root, config, 'dev');
+    const state = assignResult.state;
+
+    state.current_turn.attempt = 2;
+    state.current_turn.status = 'retrying';
+    state.current_turn.conflict_context = {
+      prior_attempt_turn_id: state.current_turn.turn_id,
+      prior_attempt_number: 1,
+      conflict_type: 'file_conflict',
+      conflicting_files: ['src/core/handler.ts'],
+      accepted_turns_since: [
+        {
+          turn_id: 'turn_prev',
+          role: 'qa',
+          files_changed: ['src/core/handler.ts'],
+        },
+      ],
+      non_conflicting_files_preserved: ['src/core/types.ts'],
+      guidance: 'Rebase on the current workspace state before retrying.',
+    };
+
+    writeDispatchBundle(root, state, config);
+
+    const assignment = readJson(root, join(bundleDirFor(state), 'ASSIGNMENT.json'));
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.deepEqual(assignment.conflict_context.conflicting_files, ['src/core/handler.ts']);
+    assert.match(prompt, /File Conflict - Retry Required/);
+    assert.match(prompt, /src\/core\/handler\.ts/);
+    assert.match(prompt, /turn_prev/);
+    assert.match(prompt, /src\/core\/types\.ts/);
   });
 
   it('CONTEXT.md includes current state summary', () => {
@@ -216,7 +279,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const context = readFileSync(join(root, DISPATCH_CURRENT, 'CONTEXT.md'), 'utf8');
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
 
     assert.match(context, /Current State/);
     assert.match(context, /Phase:.*planning/);
@@ -229,7 +292,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const context = readFileSync(join(root, DISPATCH_CURRENT, 'CONTEXT.md'), 'utf8');
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
 
     // PM_SIGNOFF.md is scaffolded by init --governed
     assert.match(context, /PM_SIGNOFF\.md/);
@@ -242,7 +305,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const context = readFileSync(join(root, DISPATCH_CURRENT, 'CONTEXT.md'), 'utf8');
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
 
     assert.match(context, /Phase Gate Status/);
     assert.match(context, /planning_signoff/);
@@ -254,7 +317,7 @@ describe('writeDispatchBundle', () => {
     const state = readJson(root, STATE_PATH);
 
     // Write a stale file in the dispatch dir
-    const bundleDir = join(root, DISPATCH_CURRENT);
+    const bundleDir = join(root, bundleDirFor(state));
     mkdirSync(bundleDir, { recursive: true });
     writeFileSync(join(bundleDir, 'STALE.txt'), 'old data');
 
@@ -303,8 +366,8 @@ describe('resume workflow: full dispatch cycle', () => {
     assert.ok(bundleResult.ok);
 
     // Verify all three files exist
-    const bundleDir = join(root, DISPATCH_CURRENT);
-    const assignment = readJson(root, join(DISPATCH_CURRENT, 'ASSIGNMENT.json'));
+    const bundleDir = join(root, bundleDirFor(assignResult.state));
+    const assignment = readJson(root, join(bundleDirFor(assignResult.state), 'ASSIGNMENT.json'));
     const prompt = readFileSync(join(bundleDir, 'PROMPT.md'), 'utf8');
     const context = readFileSync(join(bundleDir, 'CONTEXT.md'), 'utf8');
 
@@ -376,7 +439,7 @@ describe('resume workflow: full dispatch cycle', () => {
     const devState = readJson(root, STATE_PATH);
     writeDispatchBundle(root, devState, config);
 
-    const context = readFileSync(join(root, DISPATCH_CURRENT, 'CONTEXT.md'), 'utf8');
+    const context = readFileSync(join(root, bundleDirFor(devState), 'CONTEXT.md'), 'utf8');
     assert.match(context, /Last Accepted Turn/);
     assert.match(context, /Defined MVP scope/);
     assert.match(context, /DEC-001/);
@@ -395,7 +458,7 @@ describe('resume workflow: full dispatch cycle', () => {
     assert.equal(result.ok, true);
     assert.ok(result.warnings?.some((warning) => warning.includes('.agentxchain/history.jsonl')));
 
-    const context = readFileSync(join(root, DISPATCH_CURRENT, 'CONTEXT.md'), 'utf8');
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
     assert.match(context, /Current State/);
     assert.ok(!context.includes('## Last Accepted Turn'));
   });
@@ -425,10 +488,10 @@ describe('resume workflow: full dispatch cycle', () => {
     const bundleResult = writeDispatchBundle(root, state, config);
     assert.ok(bundleResult.ok);
 
-    const assignment = readJson(root, join(DISPATCH_CURRENT, 'ASSIGNMENT.json'));
+    const assignment = readJson(root, join(bundleDirFor(state), 'ASSIGNMENT.json'));
     assert.equal(assignment.attempt, 3);
 
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
     assert.match(prompt, /Previous Attempt Failed/);
     assert.match(prompt, /attempt 3/);
     assert.match(prompt, /Reserved path modified/);
@@ -462,7 +525,7 @@ describe('dispatch bundle: prompt file loading', () => {
     );
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /Role-Specific Instructions/);
     assert.match(prompt, /Always prioritize user retention metrics/);
@@ -477,7 +540,7 @@ describe('dispatch bundle: prompt file loading', () => {
     try { rmSync(join(root, '.agentxchain/prompts/pm.md'), { force: true }); } catch {}
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     // Should not include "Role-Specific Instructions" section if file missing
     assert.ok(!prompt.includes('Role-Specific Instructions'));
@@ -498,7 +561,7 @@ describe('dispatch bundle: prompt file loading', () => {
     assert.equal(result.ok, true);
     assert.ok(result.warnings?.some((warning) => warning.includes('.agentxchain/prompts/pm.md')));
 
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
     assert.ok(!prompt.includes('Role-Specific Instructions'));
     assert.match(prompt, /Required Output/);
   });
@@ -511,7 +574,7 @@ describe('dispatch bundle: prompt file loading', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, configNoPrompts);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.ok(!prompt.includes('Role-Specific Instructions'));
     assert.match(prompt, /Required Output/);
@@ -538,7 +601,7 @@ describe('dispatch bundle: turn result template', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     // Should contain the actual JSON template
     assert.match(prompt, /"schema_version": "1\.0"/);
@@ -563,7 +626,7 @@ describe('dispatch bundle: turn result template', () => {
     const devState = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, devState, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(devState), 'PROMPT.md'), 'utf8');
 
     // Authoritative template should have workspace artifact type
     assert.match(prompt, /"type": "workspace"/);
@@ -579,7 +642,7 @@ describe('dispatch bundle: turn result template', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     // Extract the JSON block from the prompt
     const jsonMatch = prompt.match(/```json\n([\s\S]*?)```/);
@@ -598,7 +661,7 @@ describe('dispatch bundle: turn result template', () => {
     const state = readJson(root, STATE_PATH);
 
     writeDispatchBundle(root, state, config);
-    const prompt = readFileSync(join(root, DISPATCH_CURRENT, 'PROMPT.md'), 'utf8');
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
 
     assert.match(prompt, /phase_transition_request/);
     assert.match(prompt, /run_completion_request/);

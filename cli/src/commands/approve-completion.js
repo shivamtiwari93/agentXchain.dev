@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { approveRunCompletion } from '../lib/governed-state.js';
+import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 
 export async function approveCompletionCommand(opts) {
   const context = loadProjectContext();
@@ -10,7 +11,7 @@ export async function approveCompletionCommand(opts) {
   }
 
   if (context.config.protocol_mode !== 'governed') {
-    console.log(chalk.red('approve-completion is only available in governed mode (v4).'));
+    console.log(chalk.red('approve-completion is only available in governed mode.'));
     process.exit(1);
   }
 
@@ -36,14 +37,44 @@ export async function approveCompletionCommand(opts) {
   console.log(`  ${chalk.dim('Turn:')}   ${pc.requested_by_turn}`);
   console.log('');
 
-  const result = approveRunCompletion(root);
+  const result = approveRunCompletion(root, config);
 
   if (!result.ok) {
-    console.log(chalk.red(`  Failed: ${result.error}`));
+    if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
+      printGateHookFailure(result, 'run_completion', pc);
+    } else {
+      console.log(chalk.red(`  Failed: ${result.error}`));
+    }
     process.exit(1);
   }
 
   console.log(chalk.green('  \u2713 Run completed'));
   console.log(chalk.dim(`  Completed at: ${result.state.completed_at}`));
+  console.log('');
+}
+
+function printGateHookFailure(result, gateType, gateInfo) {
+  const recovery = deriveRecoveryDescriptor(result.state);
+  const hookName = result.hookResults?.blocker?.hook_name
+    || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
+    || '(unknown)';
+
+  console.log('');
+  console.log(chalk.yellow(`  ${gateType === 'phase_transition' ? 'Phase Transition' : 'Run Completion'} Blocked By Hook`));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  console.log(`  ${chalk.dim('Gate:')}     ${gateInfo.gate}`);
+  console.log(`  ${chalk.dim('Hook:')}     ${hookName}`);
+  console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+  if (recovery) {
+    console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+    console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+    console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+    if (recovery.detail) {
+      console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  } else {
+    console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure hook "${hookName}", then rerun agentxchain approve-completion`);
+  }
   console.log('');
 }

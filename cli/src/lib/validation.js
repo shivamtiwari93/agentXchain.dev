@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { validateStagedTurnResult, STAGING_PATH } from './turn-result-validator.js';
+import { getActiveTurn } from './governed-state.js';
 
 const DEFAULT_REQUIRED_FILES = [
   '.planning/PROJECT.md',
@@ -134,15 +135,16 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
     }
 
     if (mode === 'turn') {
-      if (!state.current_turn) {
-        errors.push('Governed turn validation requires state.current_turn.');
-      } else if (expectedRole && state.current_turn.assigned_role !== expectedRole) {
-        errors.push(`Current turn role "${state.current_turn.assigned_role}" does not match expected "${expectedRole}".`);
+      const activeTurn = getActiveTurn(state) || state.current_turn;
+      if (!activeTurn) {
+        errors.push('Governed turn validation requires an active turn.');
+      } else if (expectedRole && activeTurn.assigned_role !== expectedRole) {
+        errors.push(`Current turn role "${activeTurn.assigned_role}" does not match expected "${expectedRole}".`);
       }
     }
 
-    if (!state.current_turn) {
-      warnings.push('No current_turn present in governed state. The run may be idle or paused.');
+    if (!getActiveTurn(state) && !state.current_turn) {
+      warnings.push('No active turn present in governed state. The run may be idle or paused.');
     }
   }
 

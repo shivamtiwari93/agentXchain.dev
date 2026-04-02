@@ -62,21 +62,26 @@ describe('validateStateSchema', () => {
 describe('validateGovernedStateSchema', () => {
   it('accepts an idle uninitialized governed state', () => {
     const result = validateGovernedStateSchema({
-      schema_version: '1.0',
+      schema_version: '1.1',
       run_id: null,
       project_id: 'test-project',
       status: 'idle',
       phase: 'planning',
       accepted_integration_ref: null,
-      current_turn: null,
+      active_turns: {},
+      turn_sequence: 0,
       last_completed_turn_id: null,
       blocked_on: null,
+      blocked_reason: null,
       escalation: null,
+      queued_phase_transition: null,
+      queued_run_completion: null,
       phase_gate_status: {
         planning_signoff: 'pending',
         implementation_complete: 'pending',
         qa_ship_verdict: 'pending',
       },
+      budget_reservations: {},
       budget_status: {
         spent_usd: 0,
         remaining_usd: 50,
@@ -88,15 +93,81 @@ describe('validateGovernedStateSchema', () => {
 
   it('rejects null run_id once the run is active', () => {
     const result = validateGovernedStateSchema({
-      schema_version: '1.0',
+      schema_version: '1.1',
       run_id: null,
       project_id: 'test-project',
       status: 'active',
       phase: 'planning',
-      current_turn: null,
+      active_turns: {},
+      turn_sequence: 0,
     });
     assert.equal(result.ok, false);
     assert.ok(result.errors.some(e => e.includes('run_id')));
+  });
+
+  it('accepts a blocked governed state with blocked_reason', () => {
+    const result = validateGovernedStateSchema({
+      schema_version: '1.1',
+      run_id: 'run_123',
+      project_id: 'test-project',
+      status: 'blocked',
+      phase: 'qa',
+      active_turns: {
+        turn_123: {
+          turn_id: 'turn_123',
+          assigned_role: 'qa',
+          status: 'failed',
+          runtime_id: 'api-qa',
+          attempt: 2,
+          assigned_sequence: 1,
+        },
+      },
+      turn_sequence: 1,
+      blocked_on: 'dispatch:auth_failure',
+      blocked_reason: {
+        category: 'dispatch_error',
+        blocked_at: '2026-04-01T12:00:00.000Z',
+        turn_id: 'turn_123',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: 'Set ANTHROPIC_API_KEY and retry.',
+        },
+      },
+    });
+    assert.equal(result.ok, true);
+  });
+
+  it('rejects blocked governed state without blocked_reason', () => {
+    const result = validateGovernedStateSchema({
+      schema_version: '1.1',
+      run_id: 'run_123',
+      project_id: 'test-project',
+      status: 'blocked',
+      phase: 'qa',
+      active_turns: {},
+      turn_sequence: 0,
+      blocked_on: 'human:need clarification',
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('blocked_reason')));
+  });
+
+  it('rejects persisted current_turn in schema_version 1.1 state', () => {
+    const result = validateGovernedStateSchema({
+      schema_version: '1.1',
+      run_id: 'run_123',
+      project_id: 'test-project',
+      status: 'active',
+      phase: 'planning',
+      current_turn: null,
+      active_turns: {},
+      turn_sequence: 0,
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('current_turn is not allowed')));
   });
 });
 

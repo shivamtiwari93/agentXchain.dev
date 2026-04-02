@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
+import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS } from '../lib/governed-templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = join(__dirname, '../templates');
@@ -45,7 +46,25 @@ function loadTemplates() {
   return templates;
 }
 
-// ── Governed v4 init ────────────────────────────────────────────────────────
+function interpolateTemplateContent(contentTemplate, projectName) {
+  return contentTemplate.replaceAll('{{project_name}}', projectName);
+}
+
+function appendPromptOverride(basePrompt, override) {
+  if (!override || !override.trim()) return basePrompt;
+  return `${basePrompt}\n\n---\n\n## Project-Type-Specific Guidance\n\n${override.trim()}\n`;
+}
+
+function appendAcceptanceHints(baseMatrix, acceptanceHints) {
+  if (!Array.isArray(acceptanceHints) || acceptanceHints.length === 0) {
+    return baseMatrix;
+  }
+
+  const hintLines = acceptanceHints.map((hint) => `- [ ] ${hint}`).join('\n');
+  return `${baseMatrix}\n\n## Template Guidance\n${hintLines}\n`;
+}
+
+// ── Governed init ───────────────────────────────────────────────────────────
 
 const GOVERNED_ROLES = {
   pm: {
@@ -322,7 +341,7 @@ You are the **${role.title}** on this project.
 
 1. Read the previous turn and challenge it explicitly.
 2. Do your work according to your mandate.
-3. Write your structured turn result to \`.agentxchain/staging/turn-result.json\`.
+3. Write your structured turn result to the turn-scoped staging path printed by the orchestrator (\`.agentxchain/staging/<turn_id>/turn-result.json\`).
 
 ## File Access
 
@@ -334,9 +353,11 @@ ${role.write_authority === 'authoritative'
 `;
 }
 
-export function scaffoldGoverned(dir, projectName, projectId) {
+export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic') {
+  const template = loadGovernedTemplate(templateId);
   const config = {
     schema_version: '1.0',
+    template: template.id,
     project: {
       id: projectId,
       name: projectName,
@@ -369,21 +390,26 @@ export function scaffoldGoverned(dir, projectName, projectId) {
   };
 
   const state = {
-    schema_version: '1.0',
+    schema_version: '1.1',
     run_id: null,
     project_id: projectId,
     status: 'idle',
     phase: 'planning',
     accepted_integration_ref: null,
-    current_turn: null,
+    active_turns: {},
+    turn_sequence: 0,
     last_completed_turn_id: null,
     blocked_on: null,
+    blocked_reason: null,
     escalation: null,
+    queued_phase_transition: null,
+    queued_run_completion: null,
     phase_gate_status: {
       planning_signoff: 'pending',
       implementation_complete: 'pending',
       qa_ship_verdict: 'pending'
     },
+    budget_reservations: {},
     budget_status: {
       spent_usd: 0,
       remaining_usd: config.budget.per_run_max_usd
@@ -405,14 +431,26 @@ export function scaffoldGoverned(dir, projectName, projectId) {
 
   // Prompt templates
   for (const [roleId, role] of Object.entries(GOVERNED_ROLES)) {
-    writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), buildGovernedPrompt(roleId, role));
+    const basePrompt = buildGovernedPrompt(roleId, role);
+    const prompt = appendPromptOverride(basePrompt, template.prompt_overrides?.[roleId]);
+    writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), prompt);
   }
 
   // Planning artifacts
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
-  writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`);
+  const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
+  writeFileSync(
+    join(dir, '.planning', 'acceptance-matrix.md'),
+    appendAcceptanceHints(baseAcceptanceMatrix, template.acceptance_hints)
+  );
   writeFileSync(join(dir, '.planning', 'ship-verdict.md'), `# Ship Verdict — ${projectName}\n\n## Verdict: PENDING\n\n## QA Summary\n\n(QA writes the final ship/no-ship assessment here.)\n\n## Open Blockers\n\n(List any blocking issues.)\n\n## Conditions\n\n(List any conditions for shipping.)\n`);
+  for (const artifact of template.planning_artifacts) {
+    writeFileSync(
+      join(dir, '.planning', artifact.filename),
+      interpolateTemplateContent(artifact.content_template, projectName)
+    );
+  }
 
   // TALK.md
   writeFileSync(join(dir, 'TALK.md'), `# ${projectName} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n---\n\n`);
@@ -436,6 +474,18 @@ export function scaffoldGoverned(dir, projectName, projectId) {
 
 async function initGoverned(opts) {
   let projectName, folderName;
+  const templateId = opts.template || 'generic';
+
+  if (!VALID_GOVERNED_TEMPLATE_IDS.includes(templateId)) {
+    console.error(chalk.red(`  Error: Unknown template "${templateId}".`));
+    console.error('');
+    console.error('  Available templates:');
+    console.error('    generic       Default governed scaffold');
+    console.error('    api-service   Governed scaffold for a backend service');
+    console.error('    cli-tool      Governed scaffold for a CLI tool');
+    console.error('    web-app       Governed scaffold for a web application');
+    process.exit(1);
+  }
 
   if (opts.yes) {
     projectName = 'My AgentXchain Project';
@@ -479,12 +529,12 @@ async function initGoverned(opts) {
 
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  scaffoldGoverned(dir, projectName, projectId);
+  scaffoldGoverned(dir, projectName, projectId, templateId);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(folderName)}/`));
   console.log('');
-  console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim('(v4 governed)')}`);
+  console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim('(governed)')}`);
   console.log(`    ${chalk.dim('├──')} .agentxchain/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} state.json / history.jsonl / decision-ledger.jsonl`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} staging/`);
@@ -497,7 +547,8 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);
-  console.log(`  ${chalk.dim('Protocol:')} governed convergence (v4)`);
+  console.log(`  ${chalk.dim('Template:')} ${templateId}`);
+  console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
   console.log(`    ${chalk.bold(`cd ${folderName}`)}`);

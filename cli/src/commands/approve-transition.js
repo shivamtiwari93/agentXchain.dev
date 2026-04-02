@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { approvePhaseTransition } from '../lib/governed-state.js';
+import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 
 export async function approveTransitionCommand(opts) {
   const context = loadProjectContext();
@@ -10,7 +11,7 @@ export async function approveTransitionCommand(opts) {
   }
 
   if (context.config.protocol_mode !== 'governed') {
-    console.log(chalk.red('approve-transition is only available in governed mode (v4).'));
+    console.log(chalk.red('approve-transition is only available in governed mode.'));
     process.exit(1);
   }
 
@@ -35,10 +36,14 @@ export async function approveTransitionCommand(opts) {
   console.log(`  ${chalk.dim('Turn:')}  ${pt.requested_by_turn}`);
   console.log('');
 
-  const result = approvePhaseTransition(root);
+  const result = approvePhaseTransition(root, config);
 
   if (!result.ok) {
-    console.log(chalk.red(`  Failed: ${result.error}`));
+    if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
+      printGateHookFailure(result, 'phase_transition', pt);
+    } else {
+      console.log(chalk.red(`  Failed: ${result.error}`));
+    }
     process.exit(1);
   }
 
@@ -46,5 +51,35 @@ export async function approveTransitionCommand(opts) {
   console.log(chalk.dim(`  Run status: ${result.state.status}`));
   console.log('');
   console.log(chalk.dim(`  Next: agentxchain step  (to run the first turn in ${pt.to} phase)`));
+  console.log('');
+}
+
+function printGateHookFailure(result, gateType, gateInfo) {
+  const recovery = deriveRecoveryDescriptor(result.state);
+  const hookName = result.hookResults?.blocker?.hook_name
+    || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
+    || '(unknown)';
+
+  console.log('');
+  console.log(chalk.yellow(`  ${gateType === 'phase_transition' ? 'Phase Transition' : 'Run Completion'} Blocked By Hook`));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  if (gateType === 'phase_transition') {
+    console.log(`  ${chalk.dim('From:')}     ${gateInfo.from}`);
+    console.log(`  ${chalk.dim('To:')}       ${gateInfo.to}`);
+  }
+  console.log(`  ${chalk.dim('Gate:')}     ${gateInfo.gate}`);
+  console.log(`  ${chalk.dim('Hook:')}     ${hookName}`);
+  console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+  if (recovery) {
+    console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+    console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+    console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+    if (recovery.detail) {
+      console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  } else {
+    console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure hook "${hookName}", then rerun agentxchain approve-transition`);
+  }
   console.log('');
 }

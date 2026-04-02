@@ -1,12 +1,46 @@
 #!/usr/bin/env bash
-# Release preflight — run this before cutting v1.0.0.
+# Release preflight — run this before cutting a release.
 # Verifies: clean tree, deps, tests, CHANGELOG entry, pack dry-run.
-# Usage: bash scripts/release-preflight.sh
+# Usage: bash scripts/release-preflight.sh [--strict] [--target-version <semver>]
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLI_DIR="${SCRIPT_DIR}/.."
 cd "$CLI_DIR"
+
+STRICT_MODE=0
+TARGET_VERSION="1.0.0"
+
+usage() {
+  echo "Usage: bash scripts/release-preflight.sh [--strict] [--target-version <semver>]" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --strict)
+      STRICT_MODE=1
+      shift
+      ;;
+    --target-version)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --target-version requires a semver argument" >&2
+        usage
+        exit 1
+      fi
+      if ! [[ "$2" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Invalid semver: $2" >&2
+        usage
+        exit 1
+      fi
+      TARGET_VERSION="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+done
 
 PASS=0
 FAIL=0
@@ -29,9 +63,18 @@ run_and_capture() {
   return "$status"
 }
 
-echo "AgentXchain v1.0.0 Release Preflight"
+echo "AgentXchain v${TARGET_VERSION} Release Preflight"
 echo "====================================="
-echo "Local checks only. Human-gated release items remain in .planning/V1_RELEASE_CHECKLIST.md."
+if [[ "$TARGET_VERSION" == "1.0.0" ]]; then
+  echo "Local checks only. Human-gated release items remain in .planning/V1_RELEASE_CHECKLIST.md."
+else
+  echo "Local checks only. Human-gated release items remain in .planning/V1_RELEASE_CHECKLIST.md (v1.0) or .planning/V1_1_RELEASE_CHECKLIST.md (v1.1+)."
+fi
+if [[ "$STRICT_MODE" -eq 1 ]]; then
+  echo "Mode: STRICT (dirty tree and non-${TARGET_VERSION} package version are hard failures)"
+else
+  echo "Mode: DEFAULT (dirty tree and pre-bump package version are warnings)"
+fi
 echo ""
 
 # 1. Clean working tree
@@ -39,7 +82,11 @@ echo "[1/6] Git status"
 if git diff --quiet HEAD 2>/dev/null && [ -z "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
   pass "Working tree is clean"
 else
-  warn "Uncommitted or untracked files present"
+  if [[ "$STRICT_MODE" -eq 1 ]]; then
+    fail "Working tree is not clean"
+  else
+    warn "Uncommitted or untracked files present"
+  fi
 fi
 
 # 2. Dependencies
@@ -67,22 +114,26 @@ else
   printf '%s\n' "$TEST_OUTPUT" | tail -20
 fi
 
-# 4. CHANGELOG has 1.0.0
+# 4. CHANGELOG has target version
 echo "[4/6] CHANGELOG"
-if grep -q "^## 1.0.0" CHANGELOG.md 2>/dev/null; then
-  pass "CHANGELOG.md contains 1.0.0 entry"
+if grep -Fxq "## ${TARGET_VERSION}" CHANGELOG.md 2>/dev/null; then
+  pass "CHANGELOG.md contains ${TARGET_VERSION} entry"
 else
-  fail "CHANGELOG.md missing 1.0.0 entry"
+  fail "CHANGELOG.md missing ${TARGET_VERSION} entry"
 fi
 
 # 5. Package version
 echo "[5/6] Package version"
 PKG_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json','utf8')).version)")
 echo "  Current version: ${PKG_VERSION}"
-if [ "$PKG_VERSION" = "1.0.0" ]; then
-  pass "package.json is at 1.0.0"
+if [ "$PKG_VERSION" = "${TARGET_VERSION}" ]; then
+  pass "package.json is at ${TARGET_VERSION}"
 else
-  warn "package.json is at ${PKG_VERSION}, not yet bumped to 1.0.0"
+  if [[ "$STRICT_MODE" -eq 1 ]]; then
+    fail "package.json is at ${PKG_VERSION}, expected ${TARGET_VERSION}"
+  else
+    warn "package.json is at ${PKG_VERSION}, not yet bumped to ${TARGET_VERSION}"
+  fi
 fi
 
 # 6. Pack dry-run

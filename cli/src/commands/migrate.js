@@ -1,5 +1,5 @@
 /**
- * Migrate a legacy v3 AgentXchain project to governed v4.
+ * Migrate a legacy v3 AgentXchain project to governed mode.
  *
  * Non-destructive: backs up the original config, archives legacy coordination
  * artifacts, and creates governed state + directory structure.
@@ -46,7 +46,7 @@ export async function migrateCommand(opts) {
 
   const version = detectConfigVersion(rawConfig);
   if (version === 4) {
-    console.log(chalk.yellow('  This project is already governed v4. Nothing to migrate.'));
+    console.log(chalk.yellow('  This project is already governed. Nothing to migrate.'));
     return;
   }
   if (version !== 3) {
@@ -70,7 +70,7 @@ export async function migrateCommand(opts) {
     console.log('');
     console.log(chalk.dim('  This will:'));
     console.log(chalk.dim('    1. Back up agentxchain.json'));
-    console.log(chalk.dim('    2. Rewrite config to governed v4'));
+    console.log(chalk.dim('    2. Rewrite config to governed mode'));
     console.log(chalk.dim('    3. Create .agentxchain/ directory structure'));
     console.log(chalk.dim('    4. Archive legacy coordination files'));
     console.log(chalk.dim('    5. Set status to paused (requires human review)'));
@@ -154,6 +154,7 @@ export async function migrateCommand(opts) {
 
   const governedConfig = {
     schema_version: '1.0',
+    template: 'generic',
     project: {
       id: projectId,
       name: projectName,
@@ -202,21 +203,26 @@ export async function migrateCommand(opts) {
   const inferredPhase = inferPhase(legacyState);
 
   const governedState = {
-    schema_version: '1.0',
+    schema_version: '1.1',
     run_id: null,
     project_id: projectId,
     status: 'paused',
     phase: inferredPhase,
     accepted_integration_ref: null,
-    current_turn: null,
+    active_turns: {},
+    turn_sequence: 0,
     last_completed_turn_id: null,
     blocked_on: 'human:migration-review',
+    blocked_reason: null,
     escalation: null,
+    queued_phase_transition: null,
+    queued_run_completion: null,
     phase_gate_status: {
       planning_signoff: inferredPhase === 'planning' ? 'pending' : 'passed',
       implementation_complete: inferredPhase === 'qa' ? 'passed' : 'pending',
       qa_ship_verdict: 'pending'
     },
+    budget_reservations: {},
     budget_status: {
       spent_usd: 0,
       remaining_usd: governedConfig.budget.per_run_max_usd
@@ -231,7 +237,7 @@ export async function migrateCommand(opts) {
 
   // Step 5: Generate prompt templates
   for (const [id, role] of Object.entries(roles)) {
-    const promptContent = `# ${role.title}\n\n## Identity\n\nYou are the **${role.title}** on this project.\n\n**Mandate:** ${role.mandate}\n\n**Write authority:** ${role.write_authority}\n**Runtime:** ${role.runtime}\n\n## Protocol Rules\n\n1. Challenge the previous turn explicitly.\n2. Do not claim verification you did not perform.\n3. Do not modify reserved state files under \`.agentxchain/\`.\n4. Emit structured turn result to \`.agentxchain/staging/turn-result.json\`.\n5. Propose next role, but do not assume routing authority.\n`;
+    const promptContent = `# ${role.title}\n\n## Identity\n\nYou are the **${role.title}** on this project.\n\n**Mandate:** ${role.mandate}\n\n**Write authority:** ${role.write_authority}\n**Runtime:** ${role.runtime}\n\n## Protocol Rules\n\n1. Challenge the previous turn explicitly.\n2. Do not claim verification you did not perform.\n3. Do not modify reserved state files under \`.agentxchain/\`.\n4. Emit structured turn result to \`.agentxchain/staging/<turn_id>/turn-result.json\`.\n5. Propose next role, but do not assume routing authority.\n`;
     writeFileSync(join(root, '.agentxchain', 'prompts', `${id}.md`), promptContent);
   }
 
@@ -252,6 +258,7 @@ export async function migrateCommand(opts) {
     original_version: 3,
     target_version: '1.0',
     project: projectName,
+    template: 'generic',
     backup_path: `.agentxchain/backups/agentxchain.v3.${timestamp}.json`,
     inferred_phase: inferredPhase,
     archived_files: archived,
@@ -270,8 +277,9 @@ export async function migrateCommand(opts) {
   const reportMd = `# Migration Report
 
 **Migrated at:** ${report.migrated_at}
-**Original version:** v3 → governed v4 (schema_version: "1.0")
+**Original version:** v3 → governed mode (schema_version: "1.0")
 **Project:** ${projectName}
+**Template:** \`generic\` (explicit baseline; migrate does not infer project shape)
 **Backup:** \`${report.backup_path}\`
 
 ## Inferred Phase
@@ -320,7 +328,7 @@ ${report.requires_human_review.map((r, i) => `${i + 1}. ${r}`).join('\n')}
   }
 
   console.log('');
-  console.log(chalk.green(`  ✓ Migrated to governed v4`));
+  console.log(chalk.green(`  ✓ Migrated to governed mode`));
   console.log('');
   console.log(`    ${chalk.dim('Backup:')}   ${report.backup_path}`);
   console.log(`    ${chalk.dim('Archived:')} ${archived.join(', ') || '(none)'}`);

@@ -2,9 +2,17 @@
 
 CLI for governed multi-agent software delivery.
 
-The canonical mode is governed v4: one active turn at a time, orchestrator-owned state, structured turn results, phase gates, and explicit human approvals where required.
+The canonical mode is governed delivery: orchestrator-owned state, structured turn results, phase gates, mandatory challenge, and explicit human approvals where required.
 
 Legacy IDE-window coordination is still shipped as a compatibility mode for teams that want lock-based handoff in Cursor, VS Code, or Claude Code.
+
+## Docs
+
+- [Quickstart](https://agentxchain.dev/docs/quickstart)
+- [CLI reference](https://agentxchain.dev/docs/cli)
+- [Adapter reference](https://agentxchain.dev/docs/adapters)
+- [Protocol spec](https://agentxchain.dev/docs/protocol)
+- [Why governed multi-agent delivery matters](https://agentxchain.dev/why.html)
 
 ## Install
 
@@ -15,27 +23,48 @@ npm install -g agentxchain
 Or run without installing:
 
 ```bash
-npx agentxchain init --governed
+npx agentxchain init --governed -y
 ```
 
 ## Quick Start
 
-### Governed v4
+### Governed workflow
 
 ```bash
-npx agentxchain init --governed
+npx agentxchain init --governed -y
 cd my-agentxchain-project
+git init
+git add -A
+git commit -m "initial governed scaffold"
 agentxchain status
 agentxchain step --role pm
 ```
 
-Typical continuation:
+If you want template-specific planning artifacts from day one:
 
 ```bash
+npx agentxchain init --governed --template api-service -y
+```
+
+Built-in governed templates:
+
+- `generic`: baseline governed scaffold
+- `api-service`: API contract, operational readiness, error budget
+- `cli-tool`: command surface, platform support, distribution checklist
+- `web-app`: user flows, UI acceptance, browser support
+
+`step` writes a turn-scoped bundle under `.agentxchain/dispatch/turns/<turn_id>/` and expects a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`. Typical continuation:
+
+```bash
+agentxchain validate --mode turn
+agentxchain accept-turn
 agentxchain approve-transition
-agentxchain step
+agentxchain step --role dev
+agentxchain step --role qa
 agentxchain approve-completion
 ```
+
+Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step.
 
 ### Migrate a legacy project
 
@@ -47,19 +76,21 @@ agentxchain step
 
 ## Command Sets
 
-### Governed v4
+### Governed
 
 | Command | What it does |
 |---|---|
-| `init --governed` | Create a governed v4 project |
-| `migrate` | Convert a legacy v3 project to governed v4 |
-| `status` | Show current run, phase, turn, and approval state |
+| `init --governed [--template <id>]` | Create a governed project, optionally with project-shape-specific planning artifacts |
+| `migrate` | Convert a legacy v3 project to governed format |
+| `status` | Show current run, template, phase, turn, and approval state |
 | `resume` | Initialize or continue a governed run and assign the next turn |
-| `step` | Run one governed turn end to end |
+| `step` | Run one governed turn end to end or resume an active turn |
 | `accept-turn` | Accept the staged governed turn result |
-| `reject-turn` | Reject the staged result and retry or escalate |
+| `reject-turn` | Reject the staged result, retry, or reassign |
 | `approve-transition` | Approve a pending human-gated phase transition |
 | `approve-completion` | Approve a pending human-gated run completion |
+| `validate` | Validate governed kickoff wiring, a staged turn, or both |
+| `dashboard` | Open the read-only governance dashboard in your browser |
 
 ### Shared utilities
 
@@ -81,7 +112,6 @@ agentxchain step
 | `rebind` | Rebuild Cursor bindings |
 | `generate` | Regenerate VS Code agent files |
 | `branch` | Manage Cursor branch override for launches |
-| `validate` | Validate legacy docs and turn protocol artifacts |
 | `doctor` | Check local environment and setup |
 | `stop` | Stop watch daemon and local sessions |
 
@@ -89,8 +119,8 @@ agentxchain step
 
 1. `agentxchain step` initializes or resumes the run if needed.
 2. It assigns the next role for the current phase.
-3. It writes `.agentxchain/dispatch/current/`.
-4. The assigned role writes `.agentxchain/staging/turn-result.json`.
+3. It writes `.agentxchain/dispatch/turns/<turn_id>/`.
+4. The assigned role writes `.agentxchain/staging/<turn_id>/turn-result.json`.
 5. The orchestrator validates and either accepts, rejects, advances phase, pauses for approval, or completes the run.
 
 Important governed files:
@@ -100,8 +130,8 @@ agentxchain.json
 .agentxchain/state.json
 .agentxchain/history.jsonl
 .agentxchain/decision-ledger.jsonl
-.agentxchain/dispatch/current/
-.agentxchain/staging/turn-result.json
+.agentxchain/dispatch/turns/<turn_id>/
+.agentxchain/staging/<turn_id>/turn-result.json
 TALK.md
 .planning/
 ```
@@ -144,6 +174,10 @@ Requires:
 ## Links
 
 - [agentxchain.dev](https://agentxchain.dev)
+- [Quickstart](https://agentxchain.dev/docs/quickstart)
+- [CLI reference](https://agentxchain.dev/docs/cli)
+- [Adapter reference](https://agentxchain.dev/docs/adapters)
+- [Protocol spec](https://agentxchain.dev/docs/protocol)
 - [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 

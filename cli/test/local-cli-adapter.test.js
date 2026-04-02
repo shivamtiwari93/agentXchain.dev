@@ -11,6 +11,10 @@ import {
   resolvePromptTransport,
 } from '../src/lib/adapters/local-cli-adapter.js';
 import { writeDispatchBundle } from '../src/lib/dispatch-bundle.js';
+import {
+  getDispatchTurnDir,
+  getTurnStagingResultPath,
+} from '../src/lib/turn-paths.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -103,9 +107,15 @@ function makeValidTurnResult(state) {
 }
 
 function setupDispatchBundle(root, state, config) {
-  // Write the dispatch bundle so the adapter can read PROMPT.md
-  mkdirSync(join(root, '.agentxchain/dispatch/current'), { recursive: true });
   writeDispatchBundle(root, state, config);
+}
+
+function stagingPathFor(state) {
+  return getTurnStagingResultPath(state.current_turn.turn_id);
+}
+
+function dispatchDirFor(state) {
+  return getDispatchTurnDir(state.current_turn.turn_id);
 }
 
 let tmpDirs = [];
@@ -178,7 +188,7 @@ describe('local-cli-adapter', () => {
       const scriptContent = `
         const fs = require('fs');
         const path = require('path');
-        const stagingDir = path.join(process.cwd(), '.agentxchain', 'staging');
+        const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(
           path.join(stagingDir, 'turn-result.json'),
@@ -199,7 +209,7 @@ describe('local-cli-adapter', () => {
       assert.equal(result.exitCode, 0);
 
       // Verify staged result was written
-      const staged = readJson(join(root, '.agentxchain/staging/turn-result.json'));
+      const staged = readJson(join(root, stagingPathFor(state)));
       assert.equal(staged.run_id, state.run_id);
       assert.equal(staged.turn_id, state.current_turn.turn_id);
     });
@@ -248,7 +258,7 @@ describe('local-cli-adapter', () => {
       const scriptContent = `
         const fs = require('fs');
         const path = require('path');
-        const stagingDir = path.join(process.cwd(), '.agentxchain', 'staging');
+        const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(
           path.join(stagingDir, 'turn-result.json'),
@@ -384,9 +394,9 @@ describe('local-cli-adapter', () => {
       const state = makeState();
 
       // Pre-populate staging with a valid-looking result
-      const stagingDir = join(root, '.agentxchain/staging');
+      const stagingDir = join(root, '.agentxchain/staging', state.current_turn.turn_id);
       mkdirSync(stagingDir, { recursive: true });
-      writeFileSync(join(root, '.agentxchain/staging/turn-result.json'),
+      writeFileSync(join(root, stagingPathFor(state)),
         JSON.stringify({ old: true, schema_version: '1.0' }, null, 2));
 
       // Subprocess that does NOT write a result
@@ -418,7 +428,7 @@ describe('local-cli-adapter', () => {
         const fs = require('fs');
         const path = require('path');
         const root = path.resolve(process.cwd(), '..');
-        const stagingDir = path.join(root, '.agentxchain', 'staging');
+        const stagingDir = path.join(root, ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(
           path.join(stagingDir, 'turn-result.json'),
@@ -446,7 +456,7 @@ describe('local-cli-adapter', () => {
       const scriptContent = `
         const fs = require('fs');
         const path = require('path');
-        const stagingDir = path.join(process.cwd(), '.agentxchain', 'staging');
+        const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(
           path.join(stagingDir, 'turn-result.json'),
@@ -488,10 +498,11 @@ describe('local-cli-adapter', () => {
   describe('saveDispatchLogs', () => {
     it('writes logs to dispatch directory', () => {
       const root = createAndTrack();
-      const logDir = join(root, '.agentxchain/dispatch/current');
+      const state = makeState();
+      const logDir = join(root, dispatchDirFor(state));
       mkdirSync(logDir, { recursive: true });
 
-      saveDispatchLogs(root, ['line 1\n', 'line 2\n']);
+      saveDispatchLogs(root, state.current_turn.turn_id, ['line 1\n', 'line 2\n']);
 
       const logPath = join(logDir, 'stdout.log');
       assert.ok(existsSync(logPath));
@@ -503,7 +514,7 @@ describe('local-cli-adapter', () => {
     it('does nothing when dispatch directory missing', () => {
       const root = createAndTrack();
       // Should not throw
-      saveDispatchLogs(root, ['test']);
+      saveDispatchLogs(root, 'turn_missing', ['test']);
     });
   });
 
@@ -546,7 +557,7 @@ describe('local-cli-adapter', () => {
         process.stdin.setEncoding('utf8');
         process.stdin.on('data', (chunk) => { input += chunk; });
         process.stdin.on('end', () => {
-          const stagingDir = path.join(process.cwd(), '.agentxchain', 'staging');
+          const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
           fs.mkdirSync(stagingDir, { recursive: true });
           const result = ${JSON.stringify(turnResult)};
           result.summary = 'stdin_received:' + input.substring(0, 50);
@@ -569,7 +580,7 @@ describe('local-cli-adapter', () => {
       assert.equal(result.ok, true);
 
       // Verify the subprocess actually received stdin content
-      const staged = JSON.parse(readFileSync(join(root, '.agentxchain/staging/turn-result.json'), 'utf8'));
+      const staged = JSON.parse(readFileSync(join(root, stagingPathFor(state)), 'utf8'));
       assert.ok(staged.summary.startsWith('stdin_received:'), 'Subprocess should have received prompt via stdin');
       assert.ok(staged.summary.length > 'stdin_received:'.length, 'Stdin should contain prompt text');
     });
@@ -588,7 +599,7 @@ describe('local-cli-adapter', () => {
         process.stdin.on('data', () => { gotStdin = true; });
         // stdin will close immediately if nothing is written
         process.stdin.on('end', () => {
-          const stagingDir = path.join(process.cwd(), '.agentxchain', 'staging');
+          const stagingDir = path.join(process.cwd(), ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
           fs.mkdirSync(stagingDir, { recursive: true });
           const result = ${JSON.stringify(turnResult)};
           result.summary = 'stdin_got_data:' + gotStdin;
@@ -610,7 +621,7 @@ describe('local-cli-adapter', () => {
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, true);
 
-      const staged = JSON.parse(readFileSync(join(root, '.agentxchain/staging/turn-result.json'), 'utf8'));
+      const staged = JSON.parse(readFileSync(join(root, stagingPathFor(state)), 'utf8'));
       assert.equal(staged.summary, 'stdin_got_data:false', 'Subprocess should NOT receive stdin for argv transport');
     });
   });

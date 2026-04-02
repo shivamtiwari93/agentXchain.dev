@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentXchain Dashboard</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e0e0e6;
+      --text-dim: #8888a0;
+      --accent: #6366f1;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    header h1 span { color: var(--accent); }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .status-dot.disconnected { background: var(--red); }
+    nav {
+      display: flex;
+      gap: 0;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    nav a {
+      padding: 10px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    nav a:hover { color: var(--text); }
+    nav a.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    main {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+
+    /* Placeholder */
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+    .placeholder h2 { font-size: 18px; margin-bottom: 8px; font-weight: 500; }
+    .placeholder p { font-size: 14px; max-width: 400px; line-height: 1.5; }
+    .placeholder code { background: var(--surface); padding: 2px 6px; border-radius: 3px; }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Run header */
+    .run-header {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .run-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .run-id { font-size: 13px; color: var(--text-dim); }
+    .phase-label { font-size: 13px; color: var(--text-dim); }
+    .phase-label strong { color: var(--text); }
+    .turn-count { font-size: 13px; color: var(--text-dim); }
+
+    /* Sections */
+    .section { margin-bottom: 24px; }
+    .section h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    .section-subtitle { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+
+    /* Turn cards */
+    .turn-list { display: flex; flex-direction: column; gap: 8px; }
+    .turn-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+    .turn-card.active { border-left: 3px solid var(--green); }
+    .turn-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .turn-status { font-size: 12px; color: var(--text-dim); }
+    .turn-summary { font-size: 13px; color: var(--text); margin: 6px 0; line-height: 1.4; }
+    .turn-detail { font-size: 12px; color: var(--text-dim); margin: 4px 0; }
+    .turn-detail .detail-label { font-weight: 600; color: var(--text); }
+    .turn-detail ul { margin: 4px 0 4px 20px; }
+    .turn-detail li { margin: 2px 0; }
+    .turn-detail.objections { color: var(--yellow); }
+    .turn-detail.risks { color: var(--red); }
+
+    /* Data tables */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .data-table th {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .data-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table tr:hover { background: rgba(99, 102, 241, 0.05); }
+
+    /* Filters */
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .filter-control {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 220px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .filter-control select,
+    .filter-control input {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font: inherit;
+    }
+
+    /* Annotation cards */
+    .annotation-list { display: flex; flex-direction: column; gap: 6px; }
+    .annotation-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    /* Blocked state */
+    .blocked-banner {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .blocked-icon {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--red);
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    .blocked-reason { font-size: 14px; color: var(--text); }
+
+    /* Detail list */
+    .detail-list { font-size: 13px; }
+    .detail-list dt {
+      font-weight: 600;
+      color: var(--text-dim);
+      display: inline;
+    }
+    .detail-list dt::after { content: ': '; }
+    .detail-list dd {
+      display: inline;
+      margin: 0;
+      color: var(--text);
+    }
+    .detail-list dd::after { content: '\A'; white-space: pre; }
+
+    /* Gate cards */
+    .gate-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .gate-card h3 { font-size: 14px; margin-bottom: 12px; }
+    .gate-action { margin-top: 12px; }
+    .gate-action p { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+
+    /* Recovery command */
+    .recovery-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+    .recovery-command {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--green);
+      cursor: pointer;
+      user-select: all;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+    .recovery-command:hover {
+      border-color: var(--green);
+    }
+    .recovery-command.copied::after {
+      content: attr(data-copied);
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: var(--green);
+      opacity: 0.9;
+    }
+    .gate-evidence { margin: 8px 0; }
+    .gate-evidence h4 { font-size: 13px; color: var(--text-dim); margin-bottom: 4px; }
+    .gate-evidence ul { list-style: none; padding: 0; }
+    .gate-evidence li { padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span>AgentXchain</span> Dashboard</h1>
+    <div class="status-indicator">
+      <div class="status-dot disconnected" id="ws-status"></div>
+      <span id="ws-label">Connecting...</span>
+    </div>
+  </header>
+  <nav>
+    <a href="#timeline" class="active">Timeline</a>
+    <a href="#ledger">Decisions</a>
+    <a href="#hooks">Hooks</a>
+    <a href="#blocked">Blocked</a>
+    <a href="#gate">Gates</a>
+  </nav>
+  <main id="view-container">
+    <div class="placeholder">
+      <h2>Loading...</h2>
+      <p>Connecting to bridge server...</p>
+    </div>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

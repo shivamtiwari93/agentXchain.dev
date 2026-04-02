@@ -1,0 +1,557 @@
+/**
+ * Dashboard bridge server tests — Slice 1
+ *
+ * Tests the HTTP bridge server, read-only API endpoints, WebSocket
+ * invalidation, and security constraints (localhost-only, no mutations).
+ *
+ * See: V2_DASHBOARD_SPEC.md, AT-DASH-007, AT-DASH-008.
+ */
+
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+import { createHash, randomBytes } from 'crypto';
+import http from 'http';
+
+import { createBridgeServer } from '../src/lib/dashboard/bridge-server.js';
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function tmpDir() {
+  const dir = join(tmpdir(), `axc-dash-test-${randomBytes(6).toString('hex')}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function httpGet(port, path) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(`http://127.0.0.1:${port}${path}`, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+function httpRequest(port, path, method) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(`http://127.0.0.1:${port}${path}`, { method }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
+    });
+    req.on('error', reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.end();
+  });
+}
+
+function createTestFixture() {
+  const root = tmpDir();
+  const axcDir = join(root, '.agentxchain');
+  const dashDir = join(root, 'dashboard');
+  mkdirSync(axcDir, { recursive: true });
+  mkdirSync(dashDir, { recursive: true });
+
+  // State file
+  writeFileSync(join(axcDir, 'state.json'), JSON.stringify({
+    schema_version: '1.1',
+    run_id: 'run_test_001',
+    status: 'running',
+    phase: 'development',
+    turns: [{ turn_id: 'turn_001', role: 'pm', status: 'accepted' }],
+  }));
+
+  // History
+  writeFileSync(join(axcDir, 'history.jsonl'),
+    JSON.stringify({ turn_id: 'turn_001', role: 'pm', summary: 'Defined scope' }) + '\n'
+  );
+
+  // Decision ledger
+  writeFileSync(join(axcDir, 'decision-ledger.jsonl'),
+    JSON.stringify({ turn: 1, agent: 'pm', decision: 'Auth middleware with JWT' }) + '\n' +
+    JSON.stringify({ turn: 2, agent: 'dev', decision: 'Chose RS256 over HS256' }) + '\n'
+  );
+
+  // Hook audit
+  writeFileSync(join(axcDir, 'hook-audit.jsonl'),
+    JSON.stringify({ phase: 'before_validation', hook: 'lint', verdict: 'allow', duration_ms: 120 }) + '\n'
+  );
+
+  // Hook annotations
+  writeFileSync(join(axcDir, 'hook-annotations.jsonl'),
+    JSON.stringify({ phase: 'after_acceptance', annotation: 'SAST clean' }) + '\n'
+  );
+
+  // Dashboard HTML
+  writeFileSync(join(dashDir, 'index.html'), '<html><body>Dashboard</body></html>');
+  writeFileSync(join(dashDir, 'app.js'), 'console.log("dashboard")');
+
+  return { root, axcDir, dashDir };
+}
+
+function expectedWebSocketAccept(key) {
+  return createHash('sha1')
+    .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+    .digest('base64');
+}
+
+function createMaskedTextFrame(text) {
+  const payload = Buffer.from(text, 'utf8');
+  const mask = randomBytes(4);
+  const len = payload.length;
+  let header;
+
+  if (len < 126) {
+    header = Buffer.alloc(2);
+    header[0] = 0x81;
+    header[1] = 0x80 | len;
+  } else if (len < 65536) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 0x80 | 126;
+    header.writeUInt16BE(len, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 0x80 | 127;
+    header.writeBigUInt64BE(BigInt(len), 2);
+  }
+
+  const maskedPayload = Buffer.from(payload);
+  for (let i = 0; i < maskedPayload.length; i += 1) {
+    maskedPayload[i] ^= mask[i % 4];
+  }
+
+  return Buffer.concat([header, mask, maskedPayload]);
+}
+
+// ── Tests ───────────────────────────────────────────────────────────────────
+
+describe('Dashboard Bridge Server', () => {
+  let fixture;
+  let bridge;
+  let port;
+
+  before(async () => {
+    fixture = createTestFixture();
+    bridge = createBridgeServer({
+      agentxchainDir: fixture.axcDir,
+      dashboardDir: fixture.dashDir,
+      port: 0, // random available port
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  after(async () => {
+    await bridge.stop();
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+
+  // ── API endpoints ──
+
+  describe('API endpoints', () => {
+    it('GET /api/state returns state.json content', async () => {
+      const res = await httpGet(port, '/api/state');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.run_id, 'run_test_001');
+      assert.equal(data.phase, 'development');
+    });
+
+    it('GET /api/history returns history.jsonl as array', async () => {
+      const res = await httpGet(port, '/api/history');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data.length, 1);
+      assert.equal(data[0].turn_id, 'turn_001');
+    });
+
+    it('GET /api/ledger returns decision-ledger.jsonl as array', async () => {
+      const res = await httpGet(port, '/api/ledger');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data.length, 2);
+      assert.equal(data[1].agent, 'dev');
+    });
+
+    it('GET /api/hooks/audit returns hook-audit.jsonl as array', async () => {
+      const res = await httpGet(port, '/api/hooks/audit');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data.length, 1);
+      assert.equal(data[0].verdict, 'allow');
+    });
+
+    it('GET /api/hooks/annotations returns hook-annotations.jsonl as array', async () => {
+      const res = await httpGet(port, '/api/hooks/annotations');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data.length, 1);
+    });
+
+    it('GET /api/unknown returns 404', async () => {
+      const res = await httpGet(port, '/api/unknown');
+      assert.equal(res.status, 404);
+    });
+  });
+
+  // ── Static asset serving ──
+
+  describe('Static assets', () => {
+    it('GET / serves index.html', async () => {
+      const res = await httpGet(port, '/');
+      assert.equal(res.status, 200);
+      assert.ok(res.body.includes('Dashboard'));
+      assert.ok(res.headers['content-type'].includes('text/html'));
+    });
+
+    it('GET /app.js serves JavaScript', async () => {
+      const res = await httpGet(port, '/app.js');
+      assert.equal(res.status, 200);
+      assert.ok(res.headers['content-type'].includes('javascript'));
+    });
+
+    it('GET /nonexistent falls back to index.html (SPA)', async () => {
+      const res = await httpGet(port, '/some/route');
+      assert.equal(res.status, 200);
+      assert.ok(res.body.includes('Dashboard'));
+    });
+
+    it('rejects encoded path traversal attempts', async () => {
+      writeFileSync(join(fixture.root, 'secret.txt'), 'top-secret');
+      const res = await httpGet(port, '/..%2Fsecret.txt');
+      assert.equal(res.status, 403);
+      assert.equal(res.body, 'Forbidden');
+    });
+  });
+
+  // ── Security: read-only (AT-DASH-008) ──
+
+  describe('Read-only enforcement (AT-DASH-008)', () => {
+    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
+      it(`${method} requests return 405`, async () => {
+        const res = await httpRequest(port, '/api/state', method);
+        assert.equal(res.status, 405);
+        const data = JSON.parse(res.body);
+        assert.ok(data.error.includes('read-only'));
+      });
+    }
+  });
+
+  // ── Security: localhost-only (AT-DASH-007) ──
+
+  describe('Localhost binding (AT-DASH-007)', () => {
+    it('Bridge binds to 127.0.0.1', () => {
+      const addr = bridge.server.address();
+      assert.equal(addr.address, '127.0.0.1');
+    });
+  });
+
+  // ── Missing files ──
+
+  describe('Missing .agentxchain files', () => {
+    let emptyBridge;
+    let emptyPort;
+    let emptyFixture;
+
+    before(async () => {
+      const root = tmpDir();
+      const axcDir = join(root, '.agentxchain');
+      const dashDir = join(root, 'dashboard');
+      mkdirSync(axcDir, { recursive: true });
+      mkdirSync(dashDir, { recursive: true });
+      writeFileSync(join(dashDir, 'index.html'), '<html><body>Empty</body></html>');
+
+      emptyFixture = { root, axcDir, dashDir };
+      emptyBridge = createBridgeServer({
+        agentxchainDir: axcDir,
+        dashboardDir: dashDir,
+        port: 0,
+      });
+      const result = await emptyBridge.start();
+      emptyPort = result.port;
+    });
+
+    after(async () => {
+      await emptyBridge.stop();
+      rmSync(emptyFixture.root, { recursive: true, force: true });
+    });
+
+    it('GET /api/state returns 404 when state.json is missing', async () => {
+      const res = await httpGet(emptyPort, '/api/state');
+      assert.equal(res.status, 404);
+    });
+
+    it('GET /api/history returns 404 when history.jsonl is missing', async () => {
+      const res = await httpGet(emptyPort, '/api/history');
+      assert.equal(res.status, 404);
+    });
+  });
+});
+
+describe('Dashboard State Reader', () => {
+  let axcDir;
+  let root;
+
+  before(() => {
+    root = tmpDir();
+    axcDir = join(root, '.agentxchain');
+    mkdirSync(axcDir, { recursive: true });
+  });
+
+  after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('readJsonFile returns parsed JSON', async () => {
+    const { readJsonFile } = await import('../src/lib/dashboard/state-reader.js');
+    writeFileSync(join(axcDir, 'state.json'), JSON.stringify({ run_id: 'test' }));
+    const result = readJsonFile(axcDir, 'state.json');
+    assert.deepEqual(result, { run_id: 'test' });
+  });
+
+  it('readJsonFile returns null for missing file', async () => {
+    const { readJsonFile } = await import('../src/lib/dashboard/state-reader.js');
+    const result = readJsonFile(axcDir, 'nonexistent.json');
+    assert.equal(result, null);
+  });
+
+  it('readJsonlFile returns array of parsed entries', async () => {
+    const { readJsonlFile } = await import('../src/lib/dashboard/state-reader.js');
+    writeFileSync(join(axcDir, 'test.jsonl'),
+      JSON.stringify({ a: 1 }) + '\n' + JSON.stringify({ b: 2 }) + '\n'
+    );
+    const result = readJsonlFile(axcDir, 'test.jsonl');
+    assert.deepEqual(result, [{ a: 1 }, { b: 2 }]);
+  });
+
+  it('readJsonlFile returns empty array for empty file', async () => {
+    const { readJsonlFile } = await import('../src/lib/dashboard/state-reader.js');
+    writeFileSync(join(axcDir, 'empty.jsonl'), '');
+    const result = readJsonlFile(axcDir, 'empty.jsonl');
+    assert.deepEqual(result, []);
+  });
+
+  it('readJsonlFile returns null for missing file', async () => {
+    const { readJsonlFile } = await import('../src/lib/dashboard/state-reader.js');
+    const result = readJsonlFile(axcDir, 'missing.jsonl');
+    assert.equal(result, null);
+  });
+
+  it('readJsonFile throws on malformed JSON', async () => {
+    const { readJsonFile } = await import('../src/lib/dashboard/state-reader.js');
+    writeFileSync(join(axcDir, 'bad.json'), '{ not valid json');
+    assert.throws(() => readJsonFile(axcDir, 'bad.json'));
+  });
+});
+
+describe('Dashboard File Watcher', () => {
+  let root;
+  let axcDir;
+
+  before(() => {
+    root = tmpDir();
+    axcDir = join(root, '.agentxchain');
+    mkdirSync(axcDir, { recursive: true });
+    // Create the files before starting the watcher
+    writeFileSync(join(axcDir, 'state.json'), '{}');
+  });
+
+  after(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('emits invalidate event when a tracked file changes', async () => {
+    const { FileWatcher } = await import('../src/lib/dashboard/file-watcher.js');
+    const watcher = new FileWatcher(axcDir);
+    watcher.start();
+
+    const event = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        watcher.stop();
+        reject(new Error('Watcher did not emit invalidate within 3s'));
+      }, 3000);
+
+      watcher.on('invalidate', (evt) => {
+        clearTimeout(timeout);
+        watcher.stop();
+        resolve(evt);
+      });
+
+      // Trigger a change after watcher is set up
+      setTimeout(() => {
+        writeFileSync(join(axcDir, 'state.json'), JSON.stringify({ changed: true }));
+      }, 200);
+    });
+
+    assert.equal(event.resource, '/api/state');
+  });
+
+  it('does not emit for untracked files', async () => {
+    // Use a separate directory with no tracked files to avoid macOS fs.watch noise
+    const isolatedRoot = tmpDir();
+    const isolatedDir = join(isolatedRoot, '.agentxchain');
+    mkdirSync(isolatedDir, { recursive: true });
+
+    const { FileWatcher } = await import('../src/lib/dashboard/file-watcher.js');
+    const watcher = new FileWatcher(isolatedDir);
+    watcher.start();
+
+    // Wait for watcher to stabilize
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    let emitted = false;
+    watcher.on('invalidate', () => { emitted = true; });
+
+    writeFileSync(join(isolatedDir, 'untracked.txt'), 'hello');
+
+    await new Promise(resolve => setTimeout(resolve, 400));
+    watcher.stop();
+    rmSync(isolatedRoot, { recursive: true, force: true });
+    assert.equal(emitted, false);
+  });
+});
+
+describe('WebSocket invalidation', () => {
+  let fixture;
+  let bridge;
+  let port;
+
+  before(async () => {
+    fixture = createTestFixture();
+    bridge = createBridgeServer({
+      agentxchainDir: fixture.axcDir,
+      dashboardDir: fixture.dashDir,
+      port: 0,
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  after(async () => {
+    await bridge.stop();
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+
+  it('receives invalidation event on file change', async () => {
+    // Connect via raw HTTP upgrade (no ws library needed in tests)
+    const event = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('No WS message within 5s')), 5000);
+      const key = randomBytes(16).toString('base64');
+
+      const req = http.request({
+        host: '127.0.0.1',
+        port,
+        path: '/ws',
+        headers: {
+          'Connection': 'Upgrade',
+          'Upgrade': 'websocket',
+          'Sec-WebSocket-Version': '13',
+          'Sec-WebSocket-Key': key,
+        },
+      });
+
+      req.on('upgrade', (res, socket, head) => {
+        assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
+
+        socket.on('data', (data) => {
+          // Parse WebSocket text frame
+          if (data.length < 2) return;
+          const opcode = data[0] & 0x0f;
+          if (opcode !== 1) return; // only text frames
+          const payloadLen = data[1] & 0x7f;
+          let offset = 2;
+          if (payloadLen === 126) offset = 4;
+          if (payloadLen === 127) offset = 10;
+          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          try {
+            const msg = JSON.parse(payload);
+            if (msg.resource === '/api/state') {
+              clearTimeout(timeout);
+              socket.destroy();
+              resolve(msg);
+            }
+          } catch {}
+        });
+
+        // Trigger a file change after connection is established
+        setTimeout(() => {
+          writeFileSync(join(fixture.axcDir, 'state.json'), JSON.stringify({ updated: true }));
+        }, 300);
+      });
+
+      req.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+
+      req.end();
+    });
+
+    assert.equal(event.type, 'invalidate');
+    assert.equal(event.resource, '/api/state');
+  });
+
+  it('rejects websocket command messages because the bridge is read-only', async () => {
+    const message = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('No WS error message within 5s')), 5000);
+      const key = randomBytes(16).toString('base64');
+
+      const req = http.request({
+        host: '127.0.0.1',
+        port,
+        path: '/ws',
+        headers: {
+          Connection: 'Upgrade',
+          Upgrade: 'websocket',
+          'Sec-WebSocket-Version': '13',
+          'Sec-WebSocket-Key': key,
+        },
+      });
+
+      req.on('upgrade', (res, socket) => {
+        assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
+
+        socket.on('data', (data) => {
+          if (data.length < 2) return;
+          const opcode = data[0] & 0x0f;
+          if (opcode !== 1) return;
+          const payloadLen = data[1] & 0x7f;
+          let offset = 2;
+          if (payloadLen === 126) offset = 4;
+          if (payloadLen === 127) offset = 10;
+          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          const parsed = JSON.parse(payload);
+          clearTimeout(timeout);
+          socket.destroy();
+          resolve(parsed);
+        });
+
+        socket.write(createMaskedTextFrame(JSON.stringify({
+          action: 'approve-transition',
+        })));
+      });
+
+      req.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+
+      req.end();
+    });
+
+    assert.equal(message.type, 'error');
+    assert.match(message.error, /read-only/i);
+    assert.match(message.error, /not supported/i);
+  });
+});

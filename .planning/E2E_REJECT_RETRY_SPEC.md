@@ -33,9 +33,9 @@ approvePhaseTransition(root)
 Files observed during the test:
 
 - `.agentxchain/state.json`
-- `.agentxchain/staging/turn-result.json`
-- `.agentxchain/dispatch/current/ASSIGNMENT.json`
-- `.agentxchain/dispatch/current/PROMPT.md`
+- `.agentxchain/staging/<turn_id>/turn-result.json`
+- `.agentxchain/dispatch/turns/<turn_id>/ASSIGNMENT.json`
+- `.agentxchain/dispatch/turns/<turn_id>/PROMPT.md`
 - `.agentxchain/dispatch/rejected/*.json`
 - `.agentxchain/history.jsonl`
 - `.agentxchain/decision-ledger.jsonl`

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentXchain Docs — Adapters</title>
+  <meta name="description" content="How AgentXchain adapters bridge the orchestrator to agent runtimes. Manual, local CLI, and API proxy — what each does, how they differ, and how to build your own." />
+  <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
+  <link rel="canonical" href="https://agentxchain.dev/docs/adapters.html" />
+  <meta property="og:title" content="AgentXchain Adapters" />
+  <meta property="og:description" content="Three adapter types, one shared contract. Manual for learning, local CLI for automation, API proxy for review turns." />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain Adapters" />
+  <meta name="twitter:description" content="Three adapter types, one shared contract. Manual for learning, local CLI for automation, API proxy for review turns." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/"><img src="../assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html" class="active">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+        <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="docs-hero">
+    <div class="container">
+      <span class="eyebrow">Docs / Adapters</span>
+      <h1>Three adapters, one contract. Governance stays the same regardless of how you reach the agent.</h1>
+      <p class="lede">Adapters are the transport layer between the orchestrator and agent runtimes. Each adapter is intentionally thin (~200 lines). The orchestrator handles governance — dispatch bundles, validation, gates, state. Adapters handle delivery — getting the prompt to the agent and the result back to staging.</p>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-layout">
+      <aside class="docs-sidebar">
+        <h2>Docs</h2>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html" class="active">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/">Landing page</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="/docs/cli.html">CLI reference</a>
+        <h2>On this page</h2>
+        <a href="#contract">Shared contract</a>
+        <a href="#manual">Manual</a>
+        <a href="#local-cli">Local CLI</a>
+        <a href="#api-proxy">API proxy</a>
+        <a href="#new-adapter">Build your own</a>
+        <a href="#comparison">Comparison</a>
+      </aside>
+
+      <main class="docs-content">
+
+        <!-- SHARED CONTRACT -->
+        <section id="contract">
+          <h2>The shared adapter contract</h2>
+          <p>Every adapter — regardless of transport — follows the same 3-phase lifecycle:</p>
+          <pre><code>dispatch  →  wait  →  collect
+   │            │          │
+   ▼            ▼          ▼
+Deliver      Block      Read staged
+prompt to    until      turn-result.json
+the agent    result     and return to
+             appears    orchestrator</code></pre>
+
+          <div class="callout">
+            <p><strong>Adapters never write state.</strong> Only the orchestrator advances <code>.agentxchain/state.json</code>. Adapters never validate turn results (that's the orchestrator's 5-stage validator). Adapters never decide turn routing (agents propose <code>proposed_next_role</code>, orchestrator decides).</p>
+          </div>
+
+          <h3>Filesystem contract</h3>
+          <p>The orchestrator writes the dispatch bundle. The agent (via adapter) writes the staging result. Everything else is off-limits.</p>
+          <div class="surface">
+            <pre><code># Orchestrator writes (adapter reads)
+.agentxchain/dispatch/turns/&lt;turn_id&gt;/ASSIGNMENT.json
+.agentxchain/dispatch/turns/&lt;turn_id&gt;/PROMPT.md
+.agentxchain/dispatch/turns/&lt;turn_id&gt;/CONTEXT.md
+
+# Agent writes via adapter (orchestrator reads)
+.agentxchain/staging/&lt;turn_id&gt;/turn-result.json
+
+# Reserved — adapters MUST NOT write
+.agentxchain/state.json
+.agentxchain/history.jsonl
+.agentxchain/decision-ledger.jsonl
+.agentxchain/lock.json</code></pre>
+          </div>
+
+          <h3>What the dispatch bundle contains</h3>
+          <p>The orchestrator renders three files per turn:</p>
+          <ul>
+            <li><code>ASSIGNMENT.json</code> — Machine-readable envelope: run ID, turn ID, phase, role, write authority, deadline, allowed next roles, budget reservation, and conflict context (for parallel turns).</li>
+            <li><code>PROMPT.md</code> — Rendered seed prompt with the agent's mandate, protocol rules (challenge requirement, reserved paths, output format), write authority rules, phase exit gate requirements, and a full JSON template for the turn result.</li>
+            <li><code>CONTEXT.md</code> — Execution context: current state summary, last accepted turn summary, blockers, and gate status.</li>
+          </ul>
+
+          <h3>What the staged result must look like</h3>
+          <p>The turn result is a JSON file with required fields validated by a 5-stage pipeline (schema → assignment → artifact → verification → protocol compliance). The key fields:</p>
+          <pre><code>{
+  "schema_version": "1.0",
+  "run_id": "...",
+  "turn_id": "...",
+  "role": "qa",
+  "runtime_id": "qa_review",
+  "status": "completed",
+  "summary": "Reviewed auth middleware...",
+  "decisions": [{ "id": "DEC-12", "text": "...", "category": "..." }],
+  "objections": [{ "id": "OBJ-5", "text": "...", "severity": "..." }],
+  "files_changed": [".planning/acceptance-matrix.md"],
+  "verification": { "status": "pass", "evidence_summary": "..." },
+  "artifact": { "type": "review" },
+  "proposed_next_role": "human"
+}</code></pre>
+          <p class="caption">Review-only roles must raise at least one objection. This is the mandatory challenge requirement — blind agreement is a protocol violation.</p>
+        </section>
+
+        <!-- MANUAL ADAPTER -->
+        <section id="manual">
+          <h2><code>manual</code> — Human-operated turns</h2>
+          <div class="callout">
+            <p><strong>Use when:</strong> Learning the protocol for the first time, PM turns where a human authors the planning artifacts, or any role where you want full control over the output.</p>
+          </div>
+
+          <h3>How it works</h3>
+          <ol>
+            <li><strong>Dispatch:</strong> <code>step --role pm</code> writes the dispatch bundle and prints a formatted instruction box showing the paths to the prompt, context, and staging target.</li>
+            <li><strong>Wait:</strong> The CLI polls <code>.agentxchain/staging/&lt;turn_id&gt;/turn-result.json</code> every 2 seconds, waiting for you to create the file. Default timeout: 20 minutes.</li>
+            <li><strong>Collect:</strong> Once the file exists and is >2 bytes, the adapter reads it and hands it to the orchestrator for validation.</li>
+          </ol>
+
+          <h3>Your workflow</h3>
+          <pre><code># 1. Start the turn
+agentxchain step --role pm
+
+# 2. Read the dispatch bundle
+cat .agentxchain/dispatch/turns/&lt;turn_id&gt;/PROMPT.md
+
+# 3. Do the work — edit planning files, write code, whatever the role requires
+
+# 4. Create the staged result (copy the JSON template from PROMPT.md)
+$EDITOR .agentxchain/staging/&lt;turn_id&gt;/turn-result.json
+
+# 5. Optionally validate before accepting
+agentxchain validate --mode turn
+
+# 6. Accept
+agentxchain accept-turn</code></pre>
+
+          <h3>Configuration</h3>
+          <pre><code>// agentxchain.json → runtimes
+{
+  "pm_manual": {
+    "type": "manual",
+    "roles": ["pm"]
+  }
+}</code></pre>
+          <p>No additional fields needed. The manual adapter has no subprocess, no API call, no auth — it's pure filesystem handoff.</p>
+        </section>
+
+        <!-- LOCAL CLI ADAPTER -->
+        <section id="local-cli">
+          <h2><code>local_cli</code> — Subprocess-based automation</h2>
+          <div class="callout">
+            <p><strong>Use when:</strong> Automating dev turns with local coding agents (Claude Code, Codex CLI, Aider, or any CLI tool that reads a prompt and writes files).</p>
+          </div>
+
+          <h3>How it works</h3>
+          <ol>
+            <li><strong>Dispatch:</strong> Spawns the configured command as a subprocess, delivering the rendered prompt via one of three transport modes.</li>
+            <li><strong>Wait:</strong> Blocks until the subprocess exits. Collects stdout/stderr for audit logs.</li>
+            <li><strong>Collect:</strong> Reads the staged <code>turn-result.json</code>. A process exit code of 0 does not mean the turn succeeded — only a valid staged result counts.</li>
+          </ol>
+
+          <h3>Prompt transport modes</h3>
+          <div class="surface">
+            <h3><code>argv</code></h3>
+            <p>Replaces <code>{prompt}</code> placeholders in the command/args with the full rendered prompt. Default if <code>{prompt}</code> appears anywhere in the command.</p>
+            <pre><code>"command": ["claude", "--print", "-p", "{prompt}"]</code></pre>
+          </div>
+          <div class="surface">
+            <h3><code>stdin</code></h3>
+            <p>Writes the full prompt to the subprocess's stdin. Use when the tool reads from stdin or the prompt is too large for argv.</p>
+            <pre><code>"command": ["my-agent"],
+"prompt_transport": "stdin"</code></pre>
+          </div>
+          <div class="surface">
+            <h3><code>dispatch_bundle_only</code></h3>
+            <p>No prompt delivery — the subprocess reads directly from <code>.agentxchain/dispatch/turns/&lt;turn_id&gt;/PROMPT.md</code> and <code>CONTEXT.md</code>. Use for agents that are already dispatch-bundle-aware.</p>
+            <pre><code>"command": ["my-governed-agent", "--dispatch-dir", ".agentxchain/dispatch/turns"],
+"prompt_transport": "dispatch_bundle_only"</code></pre>
+          </div>
+
+          <h3>Timeout handling</h3>
+          <p>Configurable via <code>timeout_seconds</code> (default: 120). On timeout:</p>
+          <ol>
+            <li>Sends <code>SIGTERM</code> to the subprocess</li>
+            <li>Waits 10 seconds for graceful shutdown</li>
+            <li>Sends <code>SIGKILL</code> if still running</li>
+          </ol>
+          <p>Logs are persisted to <code>.agentxchain/dispatch/turns/&lt;turn_id&gt;/stdout.log</code> for post-mortem debugging.</p>
+
+          <h3>Configuration</h3>
+          <pre><code>// agentxchain.json → runtimes
+{
+  "dev_claude": {
+    "type": "local_cli",
+    "roles": ["dev"],
+    "command": ["claude", "--print", "-p", "{prompt}"],
+    "cwd": ".",
+    "timeout_seconds": 300
+  }
+}</code></pre>
+        </section>
+
+        <!-- API PROXY ADAPTER -->
+        <section id="api-proxy">
+          <h2><code>api_proxy</code> — Direct model API calls</h2>
+          <div class="callout">
+            <p><strong>Use when:</strong> QA/review turns where the model reviews code and produces structured feedback. In v1, API proxy is restricted to <strong>review_only</strong> roles — it cannot make authoritative file changes.</p>
+          </div>
+
+          <h3>How it works</h3>
+          <ol>
+            <li><strong>Dispatch:</strong> Sends an HTTP POST to the model provider (Anthropic Messages API in v1) with the rendered prompt and context as the user message.</li>
+            <li><strong>Wait:</strong> Synchronous — the adapter blocks on the HTTP response.</li>
+            <li><strong>Collect:</strong> Extracts the turn result JSON from the response text (tries full-text parse, then markdown fences, then JSON boundary detection). Stages the result and audit artifacts.</li>
+          </ol>
+
+          <h3>Retry logic</h3>
+          <p>Exponential backoff with jitter. Retries on transient errors only — auth failures, invalid requests, and context overflow are not retried.</p>
+          <pre><code>// Default retry policy
+{
+  "max_attempts": 3,
+  "base_delay_ms": 1000,
+  "max_delay_ms": 8000,
+  "backoff_multiplier": 2,
+  "jitter": "full"
+}</code></pre>
+          <p>Every retry attempt is recorded in <code>.agentxchain/staging/retry-trace.json</code> with timestamps, outcomes, delays, and per-attempt token usage.</p>
+
+          <h3>Preflight tokenization</h3>
+          <p>Optional. When enabled, the adapter estimates token usage before making the API call. If the prompt + context exceeds the model's context window (minus safety margin), the adapter returns <code>context_overflow</code> without spending money on a doomed request.</p>
+          <pre><code>"preflight_tokenization": {
+  "enabled": true,
+  "tokenizer": "provider_local",
+  "safety_margin_tokens": 2048,
+  "context_window_tokens": 200000
+}</code></pre>
+
+          <h3>Cost tracking</h3>
+          <p>Provider telemetry is authoritative. The adapter reads <code>input_tokens</code> and <code>output_tokens</code> from the API response and computes cost using published rates. This overwrites any cost the model may have self-reported in the turn result.</p>
+          <div class="surface">
+            <h3>Supported models (v1)</h3>
+            <pre><code>claude-sonnet-4-6      $3.00 / $15.00 per 1M tokens (in/out)
+claude-opus-4-6       $15.00 / $75.00 per 1M tokens (in/out)
+claude-haiku-4-5      $0.80 / $4.00 per 1M tokens (in/out)</code></pre>
+          </div>
+
+          <h3>Audit artifacts</h3>
+          <p>The API proxy writes more audit artifacts than any other adapter — all best-effort (failure to write doesn't fail the turn):</p>
+          <ul>
+            <li><code>API_REQUEST.json</code> — Request metadata (provider, model, endpoint, params, timestamp). No API key.</li>
+            <li><code>TOKEN_BUDGET.json</code> — Preflight token budget report (if tokenization enabled).</li>
+            <li><code>CONTEXT.effective.md</code> — Exact context sent after any compression.</li>
+            <li><code>provider-response.json</code> — Raw API response (success and extraction failure).</li>
+            <li><code>api-error.json</code> — Classified error object (on failure).</li>
+            <li><code>retry-trace.json</code> — Full retry history with per-attempt telemetry.</li>
+          </ul>
+
+          <h3>Error classification</h3>
+          <p>Every API failure is classified into one of 13 error classes, each with a recovery hint and retryability flag:</p>
+          <div class="surface">
+            <pre><code>Retryable:        rate_limited, provider_overloaded, timeout,
+                  network_failure, response_parse_failure,
+                  turn_result_extraction_failure, unknown_api_error
+
+Not retryable:    auth_failure, model_not_found, context_overflow,
+                  invalid_request, missing_credentials,
+                  unsupported_provider</code></pre>
+          </div>
+
+          <h3>Configuration</h3>
+          <pre><code>// agentxchain.json → runtimes
+{
+  "qa_api": {
+    "type": "api_proxy",
+    "roles": ["qa"],
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "auth_env": "ANTHROPIC_API_KEY",
+    "max_output_tokens": 4096,
+    "timeout_seconds": 120,
+    "retry_policy": {
+      "enabled": true,
+      "max_attempts": 3
+    },
+    "preflight_tokenization": {
+      "enabled": true,
+      "safety_margin_tokens": 2048,
+      "context_window_tokens": 200000
+    }
+  }
+}</code></pre>
+        </section>
+
+        <!-- BUILD YOUR OWN -->
+        <section id="new-adapter">
+          <h2>Implementing a new adapter</h2>
+          <p>Adding support for a new agent runtime is a ~200-line adapter. Here's what you need.</p>
+
+          <h3>The contract</h3>
+          <ol>
+            <li><strong>Read the dispatch bundle.</strong> Load <code>ASSIGNMENT.json</code>, <code>PROMPT.md</code>, and <code>CONTEXT.md</code> from <code>.agentxchain/dispatch/turns/&lt;turn_id&gt;/</code>.</li>
+            <li><strong>Deliver the prompt</strong> to the agent runtime however it expects (HTTP, subprocess, message queue, WebSocket — the transport is yours to define).</li>
+            <li><strong>Stage the result.</strong> Write the agent's turn result to <code>.agentxchain/staging/&lt;turn_id&gt;/turn-result.json</code>. Must be valid JSON, >2 bytes.</li>
+            <li><strong>Return a status object:</strong> <code>{ ok: boolean, error?: string }</code>. Optionally include <code>classified</code> error details with <code>error_class</code>, <code>message</code>, <code>recovery</code>, and <code>retryable</code>.</li>
+          </ol>
+
+          <h3>Rules</h3>
+          <div class="warning">
+            <ul>
+              <li>Never write to <code>.agentxchain/state.json</code>, <code>history.jsonl</code>, <code>decision-ledger.jsonl</code>, or <code>lock.json</code>.</li>
+              <li>Never validate the turn result — the orchestrator's 5-stage validator handles that.</li>
+              <li>Never decide turn routing — the agent proposes <code>proposed_next_role</code>, the orchestrator decides.</li>
+              <li>Respect <code>write_authority</code> from the assignment. If review_only, reject authoritative roles.</li>
+              <li>Support <code>options.signal</code> (AbortSignal) for cancellation.</li>
+              <li>Support timeout via <code>deadline_at</code> from the assignment or a configurable default.</li>
+              <li>Audit artifacts are best-effort. Don't fail the turn because you couldn't write a log file.</li>
+            </ul>
+          </div>
+
+          <h3>Minimal implementation shape</h3>
+          <pre><code>// my-adapter.js
+export async function dispatchMyAdapter(root, state, config, options = {}) {
+  const turn = state.active_turns?.[0] ?? state.current_turn;
+  if (!turn) return { ok: false, error: 'No active turn in state' };
+
+  // 1. Read dispatch bundle
+  const prompt = readFileSync(getDispatchPromptPath(turn.turn_id), 'utf8');
+  const context = readFileSync(getDispatchContextPath(turn.turn_id), 'utf8');
+
+  // 2. Send to your runtime (HTTP, subprocess, etc.)
+  const response = await yourRuntime.send({ prompt, context });
+
+  // 3. Stage the result
+  const stagingDir = getTurnStagingDir(turn.turn_id);
+  mkdirSync(stagingDir, { recursive: true });
+  writeFileSync(join(stagingDir, 'turn-result.json'),
+    JSON.stringify(response.turnResult, null, 2));
+
+  return { ok: true };
+}</code></pre>
+        </section>
+
+        <!-- COMPARISON TABLE -->
+        <section id="comparison">
+          <h2>Adapter comparison</h2>
+          <div class="surface">
+            <pre><code>                  manual           local_cli         api_proxy
+─────────────────────────────────────────────────────────────────
+Transport         Filesystem       Subprocess        HTTP API
+Write authority   All              All               review_only (v1)
+Dispatch          Prints paths     Spawns process    Sends POST
+Wait              Polls file (2s)  Blocks on exit    Blocks on HTTP
+Timeout           20 min default   SIGTERM → SIGKILL HTTP + retry
+Retry             Manual (human)   None (timeout)    Exponential backoff
+Cost tracking     None             None              Provider telemetry
+Audit artifacts   None             stdout.log        6 artifact types
+Preflight         None             None              Token budget check</code></pre>
+          </div>
+        </section>
+
+        <!-- TROUBLESHOOTING -->
+        <section id="troubleshooting">
+          <h2>Troubleshooting</h2>
+          <div class="surface">
+            <h3>Subprocess exits 0 but the turn fails</h3>
+            <p>A clean exit code does not mean the turn succeeded. The orchestrator validates the staged <code>turn-result.json</code> independently. Check that the file exists, is valid JSON, matches the required schema, and satisfies protocol rules (mandatory challenge for review roles, correct role/turn assignment).</p>
+          </div>
+          <div class="surface">
+            <h3>API proxy returns <code>context_overflow</code></h3>
+            <p>The prompt + context exceeds the model's context window. Either reduce context (shorter history, fewer files), increase <code>context_window_tokens</code> if using a larger model, or switch to a model with a bigger window.</p>
+          </div>
+          <div class="surface">
+            <h3>API proxy returns <code>auth_failure</code></h3>
+            <p>The environment variable specified in <code>auth_env</code> is missing or contains an invalid key. Check <code>echo $ANTHROPIC_API_KEY</code> (or whatever your <code>auth_env</code> points to).</p>
+          </div>
+          <div class="surface">
+            <h3>Manual adapter times out</h3>
+            <p>The default polling timeout is 20 minutes. If you need more time, cancel the current step and re-run it. The dispatch bundle persists — you don't lose work.</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <div class="footer-copy">
+          Governed multi-agent software delivery. Agents are required to challenge each other, and humans approve the moments that define the outcome.
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Docs</h4>
+            <a href="/docs/quickstart.html">Quickstart</a>
+            <a href="/docs/adapters.html">Adapters</a>
+            <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/protocol.html">Protocol</a>
+          </div>
+          <div>
+            <h4>Project</h4>
+            <a href="https://www.npmjs.com/package/agentxchain">npm</a>
+            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

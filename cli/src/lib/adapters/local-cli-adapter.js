@@ -20,9 +20,14 @@
 import { spawn } from 'child_process';
 import { existsSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-
-const STAGING_PATH = '.agentxchain/staging/turn-result.json';
-const DISPATCH_CURRENT = '.agentxchain/dispatch/current';
+import {
+  getDispatchContextPath,
+  getDispatchLogPath,
+  getDispatchPromptPath,
+  getDispatchTurnDir,
+  getTurnStagingDir,
+  getTurnStagingResultPath,
+} from '../turn-paths.js';
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -40,9 +45,9 @@ const DISPATCH_CURRENT = '.agentxchain/dispatch/current';
  * @returns {Promise<{ ok: boolean, exitCode?: number, timedOut?: boolean, aborted?: boolean, error?: string, logs?: string[] }>}
  */
 export async function dispatchLocalCli(root, state, config, options = {}) {
-  const { signal, onStdout, onStderr } = options;
+  const { signal, onStdout, onStderr, turnId } = options;
 
-  const turn = state.current_turn;
+  const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
   }
@@ -54,8 +59,8 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
   }
 
   // Read the dispatch bundle prompt
-  const promptPath = join(root, DISPATCH_CURRENT, 'PROMPT.md');
-  const contextPath = join(root, DISPATCH_CURRENT, 'CONTEXT.md');
+  const promptPath = join(root, getDispatchPromptPath(turn.turn_id));
+  const contextPath = join(root, getDispatchContextPath(turn.turn_id));
 
   if (!existsSync(promptPath)) {
     return { ok: false, error: 'Dispatch bundle not found. Run writeDispatchBundle() first.' };
@@ -77,9 +82,9 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
     : 1200000;
 
   // Ensure staging directory exists and clear any previous result
-  const stagingDir = join(root, '.agentxchain/staging');
+  const stagingDir = join(root, getTurnStagingDir(turn.turn_id));
   mkdirSync(stagingDir, { recursive: true });
-  const stagingFile = join(root, STAGING_PATH);
+  const stagingFile = join(root, getTurnStagingResultPath(turn.turn_id));
   try {
     if (existsSync(stagingFile)) {
       writeFileSync(stagingFile, '{}');
@@ -194,7 +199,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       const timedOut = killSignal === 'SIGTERM' || killSignal === 'SIGKILL';
 
       // Check if staged result was written (regardless of exit code)
-      const hasResult = isStagedResultReady(join(root, STAGING_PATH));
+      const hasResult = isStagedResultReady(join(root, getTurnStagingResultPath(turn.turn_id)));
 
       if (hasResult) {
         settle({ ok: true, exitCode, timedOut: false, aborted: false, logs });
@@ -206,7 +211,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
           exitCode,
           timedOut: false,
           aborted: false,
-          error: `Subprocess exited (code ${exitCode}) without writing a staged turn result to ${STAGING_PATH}.`,
+          error: `Subprocess exited (code ${exitCode}) without writing a staged turn result to ${getTurnStagingResultPath(turn.turn_id)}.`,
           logs,
         });
       }
@@ -225,14 +230,15 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
  * Save dispatch logs to the dispatch directory for auditability.
  *
  * @param {string} root - project root
+ * @param {string} turnId - target turn id
  * @param {string[]} logs - collected log lines
  */
-export function saveDispatchLogs(root, logs) {
-  const logDir = join(root, DISPATCH_CURRENT);
+export function saveDispatchLogs(root, turnId, logs) {
+  const logDir = join(root, getDispatchTurnDir(turnId));
   if (!existsSync(logDir)) return;
 
   try {
-    writeFileSync(join(logDir, 'stdout.log'), logs.join(''));
+    writeFileSync(join(root, getDispatchLogPath(turnId)), logs.join(''));
   } catch {}
 }
 
@@ -311,4 +317,11 @@ function isStagedResultReady(filePath) {
   }
 }
 
-export { STAGING_PATH, DISPATCH_CURRENT, resolvePromptTransport };
+function resolveTargetTurn(state, turnId) {
+  if (turnId && state?.active_turns?.[turnId]) {
+    return state.active_turns[turnId];
+  }
+  return state?.current_turn || Object.values(state?.active_turns || {})[0];
+}
+
+export { resolvePromptTransport };

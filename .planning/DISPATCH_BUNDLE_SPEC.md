@@ -27,16 +27,18 @@ type DispatchBundleResult =
 ### Bundle Location
 
 ```text
-.agentxchain/dispatch/current/
+.agentxchain/dispatch/turns/<turn_id>/
 ```
 
-The directory contains exactly three orchestrator-authored files:
+Each turn gets its own isolated dispatch directory. The directory contains exactly three orchestrator-authored files:
 
 | File | Format | Purpose |
 |------|--------|---------|
 | `ASSIGNMENT.json` | JSON | Machine-readable turn envelope |
 | `PROMPT.md` | Markdown | Rendered role prompt with protocol rules and JSON output template |
 | `CONTEXT.md` | Markdown | Current run context, last accepted turn summary, blockers, and gate visibility |
+
+> **Compatibility note (v1.1+):** Adapters may write additional adapter-scoped audit artifacts into the same turn-scoped dispatch directory. For example, `api_proxy` preflight tokenization writes `TOKEN_BUDGET.json` and `CONTEXT.effective.md` into `.agentxchain/dispatch/turns/<turn_id>/`. These are adapter-authored, not orchestrator-authored, and do not change the three-file orchestrator contract. The orchestrator's `writeDispatchBundle()` cleans the turn directory before each dispatch, so stale adapter artifacts are removed automatically.
 
 ### `ASSIGNMENT.json`
 
@@ -49,7 +51,7 @@ type AssignmentBundle = {
   runtime_id: string;
   write_authority: "authoritative" | "proposed" | "review_only";
   accepted_integration_ref: string | null | undefined;
-  staging_result_path: ".agentxchain/staging/turn-result.json";
+  staging_result_path: ".agentxchain/staging/<turn_id>/turn-result.json";
   reserved_paths: string[];
   allowed_next_roles: string[];
   attempt: number;
@@ -97,7 +99,7 @@ The bundle writer is not an assignment function. It consumes already-assigned st
 
 ### 2. Bundle Replacement
 
-Before writing a new bundle, the orchestrator deletes the existing `.agentxchain/dispatch/current/` directory recursively and recreates it. Stale files are not preserved across assignments or redispatches.
+Before writing a new bundle, the orchestrator deletes the existing turn-scoped dispatch directory (`.agentxchain/dispatch/turns/<turn_id>/`) recursively and recreates it. Stale files are not preserved across redispatches of the same turn.
 
 ### 3. Assignment Envelope Rules
 
@@ -201,5 +203,5 @@ The bundle therefore carries retry context forward without mutating assignment i
 
 ## Open Questions
 
-1. Should v1.1 retain per-turn historical dispatch bundles under `.agentxchain/dispatch/archive/` instead of only rewriting `current/`?
+1. ~~Should v1.1 retain per-turn historical dispatch bundles?~~ **Resolved:** v1.1 uses turn-scoped dispatch directories (`.agentxchain/dispatch/turns/<turn_id>/`), so each turn's bundle is naturally preserved.
 2. Should unresolved objections and acceptance-criteria excerpts become first-class sections in `CONTEXT.md`, rather than only whatever is recoverable from the last accepted turn and planning files today?

@@ -463,8 +463,9 @@ describe('acceptGovernedTurn — run completion', () => {
 
     const result = acceptGovernedTurn(root, config);
     assert.equal(result.ok, true);
-    assert.equal(result.state.status, 'paused');
+    assert.equal(result.state.status, 'blocked');
     assert.equal(result.completionResult, null);
+    assert.equal(result.state.blocked_reason.category, 'needs_human');
   });
 
   it('run_completion_request takes precedence over phase_transition_request=null', () => {
@@ -572,7 +573,45 @@ describe('approveRunCompletion', () => {
 
     const result = approveRunCompletion(root);
     assert.equal(result.ok, false);
-    assert.ok(result.error.includes('expected "paused"'));
+    assert.ok(result.error.includes('expected "paused" or "blocked"'));
+  });
+
+  it('completes the run from blocked state when pending completion is retained', () => {
+    writeJson(root, STATE_PATH, {
+      schema_version: '1.0',
+      run_id: 'run_test123',
+      status: 'blocked',
+      phase: 'qa',
+      blocked_on: 'hook:before_gate:final-audit',
+      blocked_reason: {
+        category: 'hook_block',
+        blocked_at: '2026-04-02T13:00:00Z',
+        turn_id: 'turn_test456',
+        recovery: {
+          typed_reason: 'pending_run_completion',
+          owner: 'human',
+          recovery_action: 'agentxchain approve-completion',
+          turn_retained: false,
+          detail: 'qa_ship_verdict',
+        },
+      },
+      pending_run_completion: {
+        gate: 'qa_ship_verdict',
+        requested_by_turn: 'turn_test456',
+        requested_at: '2026-03-31T14:00:00Z',
+      },
+      phase_gate_status: { planning_signoff: 'passed', implementation_complete: 'passed' },
+      budget_status: { spent_usd: 10.0, remaining_usd: 40.0 },
+    });
+
+    const result = approveRunCompletion(root);
+    assert.equal(result.ok, true);
+    assert.equal(result.state.status, 'completed');
+    assert.ok(result.state.completed_at);
+    assert.equal(result.state.blocked_on, null);
+    assert.equal(result.state.blocked_reason, null);
+    assert.equal(result.state.pending_run_completion, null);
+    assert.equal(result.state.phase_gate_status.qa_ship_verdict, 'passed');
   });
 
   it('fails when no state file', () => {

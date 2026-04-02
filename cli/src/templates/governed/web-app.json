@@ -1,0 +1,30 @@
+{
+  "id": "web-app",
+  "display_name": "Web App",
+  "description": "Governed scaffold for web products with user-flow, UI, and browser-support planning artifacts.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [
+    {
+      "filename": "user-flows.md",
+      "content_template": "# User Flows — {{project_name}}\n\n## Primary Flows\n| Flow | User goal | Entry point | Success state |\n|------|-----------|-------------|---------------|\n| | | | |\n\n## Failure And Recovery\n| Flow | Failure state | Recovery path |\n|------|---------------|---------------|\n| | | |\n"
+    },
+    {
+      "filename": "ui-acceptance.md",
+      "content_template": "# UI Acceptance — {{project_name}}\n\n## Screens / States\n| Surface | Happy path expectations | Empty / error states | Notes |\n|---------|-------------------------|----------------------|-------|\n| | | | |\n\n## Accessibility And Copy\n- Keyboard expectations:\n- Contrast / readability notes:\n- Copy review focus:\n"
+    },
+    {
+      "filename": "browser-support.md",
+      "content_template": "# Browser Support — {{project_name}}\n\n## Target Environments\n- Desktop browsers:\n- Mobile browsers:\n- Minimum viewport assumptions:\n\n## Compatibility Risks\n| Browser / device | Risk | Mitigation |\n|------------------|------|------------|\n| | | |\n\n## Smoke Checklist\n- Primary flow works on desktop:\n- Primary flow works on mobile:\n- Known degraded experiences:\n"
+    }
+  ],
+  "prompt_overrides": {
+    "pm": "Define the primary user flows and the minimum browser or device support up front. Vague UX scope will cause downstream churn.",
+    "qa": "Verify primary user flows, responsive behavior, accessibility smoke checks, and copy regressions. Do not treat visual breakage as a minor issue."
+  },
+  "acceptance_hints": [
+    "Primary user flow reviewed end to end",
+    "Mobile and desktop behavior checked explicitly",
+    "Accessibility or copy regressions noted before ship request"
+  ]
+}

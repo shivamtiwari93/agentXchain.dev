@@ -1,0 +1,10 @@
+{
+  "id": "generic",
+  "display_name": "Generic",
+  "description": "Default governed scaffold with the baseline planning artifacts and no project-type-specific guidance.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [],
+  "prompt_overrides": {},
+  "acceptance_hints": []
+}

@@ -20,16 +20,20 @@
  */
 
 import chalk from 'chalk';
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { loadProjectContext } from '../lib/config.js';
+import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
   rejectGovernedTurn,
+  markRunBlocked,
+  getActiveTurnCount,
+  getActiveTurns,
   STATE_PATH,
 } from '../lib/governed-state.js';
+import { getMaxConcurrentTurns } from '../lib/normalized-config.js';
 import { writeDispatchBundle } from '../lib/dispatch-bundle.js';
 import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
 import {
@@ -41,9 +45,18 @@ import {
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
+import {
+  getDispatchAssignmentPath,
+  getDispatchContextPath,
+  getDispatchEffectiveContextPath,
+  getDispatchPromptPath,
+  getDispatchTurnDir,
+  getTurnStagingResultPath,
+} from '../lib/turn-paths.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { runHooks } from '../lib/hook-runner.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -55,14 +68,14 @@ export async function stepCommand(opts) {
   const { root, config } = context;
 
   if (config.protocol_mode !== 'governed') {
-    console.log(chalk.red('The step command is only available for governed (v4) projects.'));
+    console.log(chalk.red('The step command is only available for governed projects.'));
     console.log(chalk.dim('Legacy projects use: agentxchain start'));
     process.exit(1);
   }
 
   // ── Phase 1: Initialize/Resume Run ────────────────────────────────────────
 
-  let state = loadState(root);
+  let state = loadProjectState(root, config);
   if (!state) {
     console.log(chalk.red('No governed state.json found. Run `agentxchain init --governed` first.'));
     process.exit(1);
@@ -78,33 +91,137 @@ export async function stepCommand(opts) {
     process.exit(0);
   }
 
-  // If a turn is already active, skip assignment and go straight to waiting
+  // If a turn is already active, decide whether to skip assignment or allow parallel
   let skipAssignment = false;
+  let bundleWritten = false;
+  let targetTurn = null;
+  const maxConcurrent = getMaxConcurrentTurns(config, state.phase);
+  const activeCount = getActiveTurnCount(state);
+  const activeTurns = getActiveTurns(state);
 
-  if (state.status === 'active' && state.current_turn) {
+  if (state.status === 'active' && activeCount > 0) {
     if (opts.resume) {
-      // User explicitly wants to resume waiting for the active turn
+      // Resolve the target turn for resume
+      if (opts.turn) {
+        targetTurn = activeTurns[opts.turn];
+        if (!targetTurn) {
+          console.log(chalk.red(`No active turn found for --turn ${opts.turn}`));
+          process.exit(1);
+        }
+      } else if (activeCount > 1) {
+        console.log(chalk.red('Multiple active turns exist. Use --turn <id> to specify which turn to resume.'));
+        console.log('');
+        for (const turn of Object.values(activeTurns)) {
+          const statusLabel = turn.status === 'conflicted' ? chalk.red('conflicted') : turn.status;
+          console.log(`  ${chalk.yellow('●')} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel})`);
+        }
+        console.log('');
+        console.log(chalk.dim('Example: agentxchain step --resume --turn <turn_id>'));
+        process.exit(1);
+      } else {
+        targetTurn = Object.values(activeTurns)[0];
+      }
+
+      // If the target turn is conflicted, print recovery paths instead of resuming
+      if (targetTurn.status === 'conflicted') {
+        console.log(chalk.yellow(`Turn ${targetTurn.turn_id} is conflicted. Resolve the conflict before resuming.`));
+        console.log('');
+        console.log(chalk.dim('Recovery options:'));
+        console.log(`  ${chalk.cyan(`agentxchain reject-turn --turn ${targetTurn.turn_id} --reassign`)}  — reject and re-dispatch with conflict context`);
+        console.log(`  ${chalk.cyan(`agentxchain accept-turn --turn ${targetTurn.turn_id} --resolution human_merge`)}  — manually merge and re-accept`);
+        process.exit(1);
+      }
+
       skipAssignment = true;
-      console.log(chalk.yellow(`Resuming active turn: ${state.current_turn.turn_id}`));
-    } else {
-      console.log(chalk.yellow('A turn is already active:'));
-      console.log(`  Turn:  ${state.current_turn.turn_id}`);
-      console.log(`  Role:  ${state.current_turn.assigned_role}`);
+      console.log(chalk.yellow(`Resuming active turn: ${targetTurn.turn_id}`));
+    } else if (activeCount >= maxConcurrent) {
+      // At capacity — cannot assign more
+      if (activeCount === 1) {
+        const turn = Object.values(activeTurns)[0];
+        console.log(chalk.yellow('A turn is already active:'));
+        console.log(`  Turn:  ${turn.turn_id}`);
+        console.log(`  Role:  ${turn.assigned_role}`);
+      } else {
+        console.log(chalk.yellow(`${activeCount} turns are active (at capacity ${maxConcurrent}):`));
+        for (const turn of Object.values(activeTurns)) {
+          const statusLabel = turn.status === 'conflicted' ? chalk.red('conflicted') : turn.status;
+          console.log(`  ${chalk.yellow('●')} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel})`);
+        }
+      }
       console.log('');
-      console.log(chalk.dim('Use agentxchain step --resume to continue waiting for this turn.'));
+      console.log(chalk.dim('Use agentxchain step --resume to continue waiting for an active turn.'));
       console.log(chalk.dim('Or run: agentxchain accept-turn / reject-turn'));
       process.exit(1);
     }
+    // else: under capacity, fall through to assignment
   }
 
   if (!skipAssignment) {
+    if (state.status === 'paused' && (state.pending_phase_transition || state.pending_run_completion)) {
+      printRecoverySummary(state, 'This run is paused for approval.');
+      process.exit(1);
+    }
+
+    if (state.status === 'blocked' && activeCount > 0) {
+      if (!opts.resume) {
+        printRecoverySummary(state, 'This run is blocked on a retained turn.');
+        process.exit(1);
+      }
+
+      // Resolve target for blocked resume
+      if (!targetTurn) {
+        if (opts.turn) {
+          targetTurn = activeTurns[opts.turn];
+          if (!targetTurn) {
+            console.log(chalk.red(`No active turn found for --turn ${opts.turn}`));
+            process.exit(1);
+          }
+        } else if (activeCount > 1) {
+          console.log(chalk.red('Multiple retained turns exist. Use --turn <id> to specify which to resume.'));
+          for (const turn of Object.values(activeTurns)) {
+            console.log(`  ${chalk.yellow('●')} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${turn.status})`);
+          }
+          console.log('');
+          console.log(chalk.dim('Example: agentxchain step --resume --turn <turn_id>'));
+          process.exit(1);
+        } else {
+          targetTurn = Object.values(activeTurns)[0];
+        }
+      }
+
+      // If the target turn is conflicted, print recovery paths
+      if (targetTurn.status === 'conflicted') {
+        console.log(chalk.yellow(`Turn ${targetTurn.turn_id} is conflicted. Resolve the conflict before resuming.`));
+        console.log('');
+        console.log(chalk.dim('Recovery options:'));
+        console.log(`  ${chalk.cyan(`agentxchain reject-turn --turn ${targetTurn.turn_id} --reassign`)}  — reject and re-dispatch with conflict context`);
+        console.log(`  ${chalk.cyan(`agentxchain accept-turn --turn ${targetTurn.turn_id} --resolution human_merge`)}  — manually merge and re-accept`);
+        process.exit(1);
+      }
+
+      console.log(chalk.yellow(`Re-dispatching blocked turn: ${targetTurn.turn_id}`));
+      state = clearBlockedState(state);
+      safeWriteJson(join(root, STATE_PATH), state);
+      skipAssignment = true;
+
+      const bundleResult = writeDispatchBundle(root, state, config);
+      if (!bundleResult.ok) {
+        console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
+        process.exit(1);
+      }
+      bundleWritten = true;
+      printDispatchBundleWarnings(bundleResult);
+    }
+
     // Handle paused + failed/retrying turn → re-dispatch
-    if (state.status === 'paused' && state.current_turn) {
-      const turnStatus = state.current_turn.status;
+    if (!skipAssignment && state.status === 'paused' && activeCount > 0) {
+      const pausedTurn = targetTurn || Object.values(activeTurns)[0];
+      const turnStatus = pausedTurn?.status;
       if (turnStatus === 'failed' || turnStatus === 'retrying') {
-        console.log(chalk.yellow(`Re-dispatching failed turn: ${state.current_turn.turn_id}`));
+        console.log(chalk.yellow(`Re-dispatching failed turn: ${pausedTurn.turn_id}`));
         state.status = 'active';
         state.blocked_on = null;
+        state.blocked_reason = null;
         safeWriteJson(join(root, STATE_PATH), state);
         skipAssignment = true;
 
@@ -113,6 +230,7 @@ export async function stepCommand(opts) {
           console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
           process.exit(1);
         }
+        bundleWritten = true;
         printDispatchBundleWarnings(bundleResult);
       }
     }
@@ -129,9 +247,16 @@ export async function stepCommand(opts) {
     }
 
     // paused → resume
+    if (!skipAssignment && state.status === 'blocked' && state.run_id) {
+      state = clearBlockedState(state);
+      safeWriteJson(join(root, STATE_PATH), state);
+      console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+    }
+
     if (!skipAssignment && state.status === 'paused' && state.run_id) {
       state.status = 'active';
       state.blocked_on = null;
+      state.blocked_reason = null;
       state.escalation = null;
       safeWriteJson(join(root, STATE_PATH), state);
       console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
@@ -146,6 +271,9 @@ export async function stepCommand(opts) {
 
       const assignResult = assignGovernedTurn(root, config, roleId);
       if (!assignResult.ok) {
+        if (assignResult.error_code?.startsWith('hook_') || assignResult.error_code === 'hook_blocked') {
+          printAssignmentHookFailure(assignResult, roleId);
+        }
         console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
         process.exit(1);
       }
@@ -156,6 +284,7 @@ export async function stepCommand(opts) {
         console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
         process.exit(1);
       }
+      bundleWritten = true;
       printDispatchBundleWarnings(bundleResult);
     }
   } else {
@@ -164,17 +293,51 @@ export async function stepCommand(opts) {
       console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
       process.exit(1);
     }
+    bundleWritten = true;
     printDispatchBundleWarnings(bundleResult);
   }
 
   // ── Phase 2: Dispatch — adapter-specific ──────────────────────────────────
 
-  const turn = state.current_turn;
+  const turn = targetTurn || state.current_turn;
   const roleId = turn.assigned_role;
   const role = config.roles?.[roleId];
   const runtimeId = turn.runtime_id;
   const runtime = config.runtimes?.[runtimeId];
   const runtimeType = runtime?.type || role?.runtime_class || 'manual';
+  const hooksConfig = config.hooks || {};
+
+  if (bundleWritten && hooksConfig.after_dispatch?.length > 0) {
+    const afterDispatchHooks = runHooks(root, hooksConfig, 'after_dispatch', {
+      turn_id: turn.turn_id,
+      role_id: roleId,
+      bundle_path: getDispatchTurnDir(turn.turn_id),
+      bundle_files: ['ASSIGNMENT.json', 'PROMPT.md', 'CONTEXT.md'],
+    }, {
+      run_id: state.run_id,
+      turn_id: turn.turn_id,
+      protectedPaths: [
+        getDispatchAssignmentPath(turn.turn_id),
+        getDispatchPromptPath(turn.turn_id),
+        getDispatchContextPath(turn.turn_id),
+        getDispatchEffectiveContextPath(turn.turn_id),
+      ],
+    });
+
+    if (!afterDispatchHooks.ok) {
+      const blocked = blockStepForHookIssue(root, turn, {
+        hookResults: afterDispatchHooks,
+        phase: 'after_dispatch',
+        defaultDetail: `after_dispatch hook blocked dispatch for turn ${turn.turn_id}`,
+      });
+      printLifecycleHookFailure('Dispatch Blocked By Hook', blocked.result, {
+        turnId: turn.turn_id,
+        roleId,
+        action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+      });
+      process.exit(1);
+    }
+  }
 
   const controller = new AbortController();
   process.on('SIGINT', () => {
@@ -191,13 +354,43 @@ export async function stepCommand(opts) {
     });
 
     if (!apiResult.ok) {
+      const blocked = markRunBlocked(root, {
+        blockedOn: `dispatch:${apiResult.classified?.error_class || 'api_proxy_failure'}`,
+        category: 'dispatch_error',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: apiResult.classified?.recovery || apiResult.error,
+        },
+        turnId: turn.turn_id,
+        hooksConfig,
+      });
+      if (blocked.ok) {
+        state = blocked.state;
+      }
+
       console.log('');
-      console.log(chalk.red(`API proxy dispatch failed: ${apiResult.error}`));
+      if (apiResult.attempts_made > 1) {
+        console.log(chalk.red(`API proxy dispatch failed after ${apiResult.attempts_made} attempts: ${apiResult.error}`));
+      } else {
+        console.log(chalk.red(`API proxy dispatch failed: ${apiResult.error}`));
+      }
 
       if (apiResult.classified) {
         const c = apiResult.classified;
         console.log(chalk.yellow(`  Error class: ${c.error_class}${c.retryable ? ' (retryable)' : ''}`));
         console.log(chalk.yellow(`  Recovery: ${c.recovery}`));
+      }
+
+      if (apiResult.preflight_artifacts) {
+        console.log(chalk.dim(`  Token budget report: ${apiResult.preflight_artifacts.token_budget}`));
+        console.log(chalk.dim(`  Effective context:   ${apiResult.preflight_artifacts.effective_context}`));
+      }
+
+      if (apiResult.retry_trace_path) {
+        console.log(chalk.dim(`  Retry trace: ${apiResult.retry_trace_path}`));
       }
 
       console.log(chalk.dim('The turn remains assigned. You can:'));
@@ -207,7 +400,11 @@ export async function stepCommand(opts) {
       process.exit(1);
     }
 
-    console.log(chalk.green('API proxy completed. Staged result detected.'));
+    if (apiResult.attempts_made > 1) {
+      console.log(chalk.green(`API proxy completed after ${apiResult.attempts_made} attempts. Staged result detected.`));
+    } else {
+      console.log(chalk.green('API proxy completed. Staged result detected.'));
+    }
     if (apiResult.usage) {
       console.log(chalk.dim(`  Tokens: ${apiResult.usage.input_tokens || 0} in / ${apiResult.usage.output_tokens || 0} out`));
     }
@@ -225,7 +422,7 @@ export async function stepCommand(opts) {
     console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}  Transport: ${transport}`));
     if (transport === 'dispatch_bundle_only') {
       console.log(chalk.yellow('Warning: prompt_transport is "dispatch_bundle_only" — the prompt will NOT be delivered to the subprocess automatically.'));
-      console.log(chalk.yellow('The subprocess must independently read from .agentxchain/dispatch/current/PROMPT.md'));
+      console.log(chalk.yellow(`The subprocess must independently read from .agentxchain/dispatch/turns/${turn.turn_id}/PROMPT.md`));
       console.log(chalk.dim('To enable automatic prompt delivery, set prompt_transport to "argv" or "stdin" in the runtime config.'));
     }
     console.log(chalk.dim('Press Ctrl+C to abort and leave the turn assigned.'));
@@ -239,7 +436,7 @@ export async function stepCommand(opts) {
 
     // Save logs for auditability
     if (cliResult.logs?.length) {
-      saveDispatchLogs(root, cliResult.logs);
+      saveDispatchLogs(root, turn.turn_id, cliResult.logs);
     }
 
     if (cliResult.aborted) {
@@ -251,6 +448,23 @@ export async function stepCommand(opts) {
     }
 
     if (cliResult.timedOut) {
+      const blocked = markRunBlocked(root, {
+        blockedOn: 'dispatch:timeout',
+        category: 'dispatch_error',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: 'Subprocess timed out before staging a turn result.',
+        },
+        turnId: turn.turn_id,
+        hooksConfig,
+      });
+      if (blocked.ok) {
+        state = blocked.state;
+      }
+
       console.log('');
       console.log(chalk.red('Turn timed out. Subprocess was terminated.'));
       console.log(chalk.dim('The turn remains assigned. You can:'));
@@ -260,6 +474,23 @@ export async function stepCommand(opts) {
     }
 
     if (!cliResult.ok) {
+      const blocked = markRunBlocked(root, {
+        blockedOn: `dispatch:${cliResult.exitCode != null ? `exit-${cliResult.exitCode}` : 'subprocess_failed'}`,
+        category: 'dispatch_error',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: cliResult.error,
+        },
+        turnId: turn.turn_id,
+        hooksConfig,
+      });
+      if (blocked.ok) {
+        state = blocked.state;
+      }
+
       console.log('');
       console.log(chalk.red(`Subprocess failed: ${cliResult.error}`));
       if (cliResult.exitCode != null) {
@@ -277,7 +508,7 @@ export async function stepCommand(opts) {
     // ── Manual adapter: poll for staged result ──
     console.log(printManualDispatchInstructions(state, config));
     console.log(chalk.dim('Waiting for turn result...'));
-    console.log(chalk.dim(`Polling: .agentxchain/staging/turn-result.json (every ${opts.poll || 2}s)`));
+    console.log(chalk.dim(`Polling: .agentxchain/staging/${turn.turn_id}/turn-result.json (every ${opts.poll || 2}s)`));
     console.log(chalk.dim('Press Ctrl+C to abort and leave the turn assigned.'));
     console.log('');
 
@@ -290,6 +521,7 @@ export async function stepCommand(opts) {
       pollIntervalMs,
       timeoutMs,
       signal: controller.signal,
+      turnId: turn.turn_id,
     });
 
     if (waitResult.aborted) {
@@ -316,15 +548,81 @@ export async function stepCommand(opts) {
   // ── Phase 4: Validate and accept/reject ───────────────────────────────────
 
   // Reload state (it may have been modified by the agent in local_cli mode)
-  state = loadState(root);
+  state = loadProjectState(root, config);
 
-  const validation = validateStagedTurnResult(root, state, config);
+  // Resolve staging path: prefer turn-scoped, fall back to flat
+  const turnStaging = getTurnStagingResultPath(turn.turn_id);
+  const resolvedStaging = existsSync(join(root, turnStaging)) ? turnStaging : undefined;
+  const stagedTurn = loadHookStagedTurn(root, resolvedStaging || getTurnStagingResultPath(turn.turn_id));
+
+  if (hooksConfig.before_validation?.length > 0) {
+    const beforeValidationHooks = runHooks(root, hooksConfig, 'before_validation', {
+      turn_id: turn.turn_id,
+      role_id: roleId,
+      staging_path: resolvedStaging || getTurnStagingResultPath(turn.turn_id),
+      turn_result: stagedTurn.turnResult ?? null,
+      ...(stagedTurn.parse_error ? { parse_error: stagedTurn.parse_error } : {}),
+      ...(stagedTurn.read_error ? { read_error: stagedTurn.read_error } : {}),
+    }, {
+      run_id: state.run_id,
+      turn_id: turn.turn_id,
+    });
+
+    if (!beforeValidationHooks.ok) {
+      const blocked = blockStepForHookIssue(root, turn, {
+        hookResults: beforeValidationHooks,
+        phase: 'before_validation',
+        defaultDetail: `before_validation hook blocked validation for turn ${turn.turn_id}`,
+      });
+      printLifecycleHookFailure('Validation Blocked By Hook', blocked.result, {
+        turnId: turn.turn_id,
+        roleId,
+        action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+      });
+      process.exit(1);
+    }
+  }
+
+  const validation = validateStagedTurnResult(root, state, config, resolvedStaging ? { stagingPath: resolvedStaging } : {});
+
+  if (hooksConfig.after_validation?.length > 0) {
+    const afterValidationHooks = runHooks(root, hooksConfig, 'after_validation', {
+      turn_id: turn.turn_id,
+      role_id: roleId,
+      validation_ok: validation.ok,
+      validation_stage: validation.stage,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      turn_result: validation.turnResult ?? stagedTurn.turnResult ?? null,
+    }, {
+      run_id: state.run_id,
+      turn_id: turn.turn_id,
+    });
+
+    if (!afterValidationHooks.ok) {
+      const blocked = blockStepForHookIssue(root, turn, {
+        hookResults: afterValidationHooks,
+        phase: 'after_validation',
+        defaultDetail: `after_validation hook blocked acceptance for turn ${turn.turn_id}`,
+      });
+      printLifecycleHookFailure('Validation Blocked By Hook', blocked.result, {
+        turnId: turn.turn_id,
+        roleId,
+        action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+      });
+      process.exit(1);
+    }
+  }
 
   if (validation.ok) {
     // Accept the turn
-    const acceptResult = acceptGovernedTurn(root, config);
+    const acceptResult = acceptGovernedTurn(root, config, { turnId: turn.turn_id });
     if (!acceptResult.ok) {
-      console.log(chalk.red(`Acceptance failed: ${acceptResult.error}`));
+      if (acceptResult.accepted && acceptResult.error_code?.startsWith('hook_')) {
+        printAcceptedHookFailure(acceptResult);
+      } else {
+        console.log(chalk.red(`Acceptance failed: ${acceptResult.error}`));
+      }
       process.exit(1);
     }
 
@@ -370,14 +668,84 @@ export async function stepCommand(opts) {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function loadState(root) {
-  const statePath = join(root, STATE_PATH);
-  if (!existsSync(statePath)) return null;
-  try {
-    return JSON.parse(readFileSync(statePath, 'utf8'));
-  } catch {
-    return null;
+function loadHookStagedTurn(root, stagingRel) {
+  const stagingAbs = join(root, stagingRel);
+  if (!existsSync(stagingAbs)) {
+    return { turnResult: null };
   }
+
+  let raw;
+  try {
+    raw = readFileSync(stagingAbs, 'utf8');
+  } catch (err) {
+    return { turnResult: null, read_error: err.message };
+  }
+
+  try {
+    return { turnResult: JSON.parse(raw) };
+  } catch (err) {
+    return { turnResult: null, parse_error: err.message };
+  }
+}
+
+function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail }) {
+  const hookName = hookResults.blocker?.hook_name
+    || hookResults.results?.find((entry) => entry.hook_name)?.hook_name
+    || 'unknown';
+  const detail = hookResults.blocker?.message
+    || hookResults.tamper?.message
+    || defaultDetail;
+  const errorCode = hookResults.tamper?.error_code || 'hook_blocked';
+  const blocked = markRunBlocked(root, {
+    blockedOn: `hook:${phase}:${hookName}`,
+    category: phase === 'after_dispatch' ? 'dispatch_error' : 'validation_error',
+    recovery: {
+      typed_reason: hookResults.tamper ? 'hook_tamper' : 'hook_block',
+      owner: 'human',
+      recovery_action: 'Fix or reconfigure the hook, then run agentxchain step --resume',
+      turn_retained: true,
+      detail,
+    },
+    turnId: turn.turn_id,
+  });
+
+  return {
+    result: {
+      ok: false,
+      error: detail,
+      error_code: errorCode,
+      state: blocked.ok ? blocked.state : null,
+      hookResults,
+    },
+    hookName,
+  };
+}
+
+function printLifecycleHookFailure(title, result, { turnId, roleId, action }) {
+  const recovery = deriveRecoveryDescriptor(result.state);
+  const hookName = result.hookResults?.blocker?.hook_name
+    || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
+    || '(unknown)';
+
+  console.log('');
+  console.log(chalk.yellow(`  ${title}`));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  console.log(`  ${chalk.dim('Turn:')}     ${turnId || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Role:')}     ${roleId || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Hook:')}     ${hookName}`);
+  console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+  if (recovery) {
+    console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+    console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+    console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+    if (recovery.detail) {
+      console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  } else if (action) {
+    console.log(`  ${chalk.dim('Action:')}   ${action}`);
+  }
+  console.log('');
 }
 
 function resolveTargetRole(opts, state, config) {
@@ -422,10 +790,84 @@ function resolveTargetRole(opts, state, config) {
   return null;
 }
 
+function clearBlockedState(state) {
+  return {
+    ...state,
+    status: 'active',
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+  };
+}
+
+function printRecoverySummary(state, heading) {
+  const recovery = deriveRecoveryDescriptor(state);
+  console.log(chalk.yellow(heading));
+  if (!recovery) {
+    return;
+  }
+  console.log(`  ${chalk.dim('Reason:')} ${recovery.typed_reason}`);
+  console.log(`  ${chalk.dim('Action:')} ${recovery.recovery_action}`);
+  if (recovery.detail) {
+    console.log(`  ${chalk.dim('Detail:')} ${recovery.detail}`);
+  }
+}
+
 function printDispatchBundleWarnings(bundleResult) {
   for (const warning of bundleResult.warnings || []) {
     console.log(chalk.yellow(`Dispatch bundle warning: ${warning}`));
   }
+}
+
+function printAssignmentHookFailure(result, roleId) {
+  const recovery = deriveRecoveryDescriptor(result.state);
+  const hookName = result.hookResults?.blocker?.hook_name
+    || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
+    || '(unknown)';
+
+  console.log('');
+  console.log(chalk.yellow('  Turn Assignment Blocked By Hook'));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  console.log(`  ${chalk.dim('Role:')}     ${roleId || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Phase:')}    ${result.state?.phase || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Hook:')}     ${hookName}`);
+  console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+  if (recovery) {
+    console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+    console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+    console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+    if (recovery.detail) {
+      console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  } else {
+    console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure hook "${hookName}", then rerun agentxchain step --role ${roleId}`);
+  }
+  console.log('');
+}
+
+function printAcceptedHookFailure(result) {
+  const recovery = deriveRecoveryDescriptor(result.state);
+  const hookName = result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name || '(unknown)';
+
+  console.log('');
+  console.log(chalk.yellow('  Turn Accepted, Hook Failure Detected'));
+  console.log(chalk.dim('  ' + '-'.repeat(44)));
+  console.log('');
+  console.log(`  ${chalk.dim('Turn:')}     ${result.accepted?.turn_id || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Role:')}     ${result.accepted?.role || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Status:')}   ${result.accepted?.status || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Hook:')}     ${hookName}`);
+  console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+  if (recovery) {
+    console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+    console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+    console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+    if (recovery.detail) {
+      console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  }
+  console.log('');
 }
 
 function printAcceptSummary(result) {

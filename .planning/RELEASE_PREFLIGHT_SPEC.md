@@ -18,8 +18,11 @@ This spec exists because the preflight script is release tooling and must follow
 
 ```text
 bash cli/scripts/release-preflight.sh
+bash cli/scripts/release-preflight.sh --strict
 cd cli && bash scripts/release-preflight.sh
+cd cli && bash scripts/release-preflight.sh --strict
 cd cli && npm run preflight:release
+cd cli && npm run preflight:release:strict
 ```
 
 ### Output Contract
@@ -33,6 +36,13 @@ The script prints:
 5. An exit code:
    - `0` when all hard checks pass
    - `1` when any hard check fails
+
+### Modes
+
+The script supports two modes:
+
+- default mode: rehearsal and pre-bump validation
+- `--strict`: post-bump release-cut validation
 
 ### Check Set
 
@@ -66,6 +76,13 @@ Those remain governed by `V1_RELEASE_CHECKLIST.md`, `HUMAN_TASKS.md`, and the do
 - dirty git state is a warning, not a hard failure
 - `package.json` not yet at `1.0.0` is a warning, not a hard failure
 
+In `--strict` mode:
+
+- dirty git state becomes a hard failure
+- `package.json !== "1.0.0"` becomes a hard failure
+
+The intended operator flow is: run default preflight before `npm version 1.0.0`, then run strict preflight after the version bump and before pushing the release tag that triggers publish automation.
+
 ### 3. Failure Reporting
 
 The script MUST continue through all six checks even if an earlier hard check fails, then exit non-zero at the end. This gives the operator a complete summary instead of stopping at the first failure.
@@ -90,7 +107,9 @@ When a hard check fails, the script SHOULD print a short tail of the failing com
 | `npm test` exits non-zero | Mark check as `FAIL`, print tail output, continue |
 | `CHANGELOG.md` missing or lacks `## 1.0.0` | Mark check as `FAIL`, continue |
 | `package.json` version is not `1.0.0` | Mark check as `WARN`, continue |
+| `package.json` version is not `1.0.0` in `--strict` mode | Mark check as `FAIL`, continue |
 | `npm pack --dry-run` exits non-zero | Mark check as `FAIL`, print tail output, continue |
+| Working tree is dirty in `--strict` mode | Mark check as `FAIL`, continue |
 
 ---
 
@@ -103,11 +122,13 @@ When a hard check fails, the script SHOULD print a short tail of the failing com
 5. If `npm pack --dry-run` fails, the script exits `1` and does not incorrectly report that check as passed.
 6. If `CHANGELOG.md` lacks `## 1.0.0`, the script exits `1`.
 7. If `package.json` remains below `1.0.0`, the script reports a warning rather than a failure.
+8. If the working tree is dirty in `--strict` mode, the script exits `1`.
+9. If `package.json !== "1.0.0"` in `--strict` mode, the script exits `1`.
+10. If the working tree is clean and `package.json === "1.0.0"` in `--strict` mode, the script exits `0` with no warnings from those checks.
 
 ---
 
 ## Open Questions
 
-1. Should a dirty git working tree become a hard failure on release day, with warnings reserved only for in-progress rehearsal runs?
-2. Should the script eventually verify tarball contents more strictly than `npm pack --dry-run`, for example by asserting expected key files?
-3. Should the script grow a `--strict` mode that turns current warnings into failures after the release decision is made?
+1. Should the script eventually verify tarball contents more strictly than `npm pack --dry-run`, for example by asserting expected key files?
+2. Should `--strict` later add a git-tag verification check once the canonical cut flow is fully scripted?

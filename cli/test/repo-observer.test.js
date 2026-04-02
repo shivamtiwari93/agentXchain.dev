@@ -398,6 +398,133 @@ describe('checkCleanBaseline — operational path exclusion', () => {
   });
 });
 
+// ── Tests: dirty-snapshot baseline filtering ────────────────────────────────
+
+describe('captureBaseline — dirty workspace snapshot', () => {
+  let dir;
+  beforeEach(() => { dir = makeTmpGitRepo(); });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('records dirty snapshot for actor-owned files on dirty workspace', () => {
+    writeFileSync(join(dir, 'dirty-actor.txt'), 'original content');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, false);
+    assert.ok(baseline.dirty_snapshot, 'dirty_snapshot should be present');
+    assert.ok('dirty-actor.txt' in baseline.dirty_snapshot, 'actor file should be in snapshot');
+    assert.match(baseline.dirty_snapshot['dirty-actor.txt'], /^sha256:/);
+  });
+
+  it('does not include operational paths in dirty snapshot', () => {
+    mkdirSync(join(dir, '.agentxchain/dispatch/current'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain/dispatch/current/PROMPT.md'), '# prompt');
+    writeFileSync(join(dir, 'actor-file.txt'), 'content');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, false);
+    assert.ok(!('.agentxchain/dispatch/current/PROMPT.md' in baseline.dirty_snapshot),
+      'operational paths should not appear in dirty_snapshot');
+    assert.ok('actor-file.txt' in baseline.dirty_snapshot);
+  });
+
+  it('records empty dirty snapshot for clean workspace', () => {
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true);
+    assert.deepEqual(baseline.dirty_snapshot, {});
+  });
+});
+
+describe('observeChanges — dirty-snapshot baseline filtering', () => {
+  let dir;
+  beforeEach(() => { dir = makeTmpGitRepo(); });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('excludes unchanged dirty baseline files from same-HEAD observation', () => {
+    // Dirty the workspace before capturing baseline
+    writeFileSync(join(dir, 'pre-existing-dirty.txt'), 'original');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, false);
+
+    // Observe without changing anything — the pre-existing dirty file
+    // should be filtered out since its content matches the snapshot
+    const obs = observeChanges(dir, baseline);
+    assert.ok(!obs.files_changed.includes('pre-existing-dirty.txt'),
+      'unchanged dirty baseline file should be filtered out');
+  });
+
+  it('re-includes a baseline-dirty file if its content changes after baseline', () => {
+    // Dirty the workspace before capturing baseline
+    writeFileSync(join(dir, 'evolving-file.txt'), 'original content');
+    const baseline = captureBaseline(dir);
+
+    // Now change the file's content after baseline capture
+    writeFileSync(join(dir, 'evolving-file.txt'), 'modified content');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('evolving-file.txt'),
+      'file whose content changed since baseline should be observed');
+  });
+
+  it('observes newly created files alongside unchanged dirty baseline files', () => {
+    // Pre-existing dirty file
+    writeFileSync(join(dir, 'pre-existing.txt'), 'old content');
+    const baseline = captureBaseline(dir);
+
+    // Add a new file during the turn — should be observed
+    writeFileSync(join(dir, 'new-during-turn.txt'), 'new content');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('new-during-turn.txt'),
+      'new file should be observed');
+    assert.ok(!obs.files_changed.includes('pre-existing.txt'),
+      'unchanged pre-existing dirty file should be filtered');
+  });
+
+  it('handles deleted file markers correctly under dirty-snapshot filtering', () => {
+    // Create a file, commit it, then delete it before baseline
+    writeFileSync(join(dir, 'will-delete.txt'), 'to be deleted');
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "add file"', { cwd: dir, stdio: 'ignore' });
+    rmSync(join(dir, 'will-delete.txt'));
+
+    // Capture baseline with the file already deleted (dirty state)
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, false);
+    assert.equal(baseline.dirty_snapshot['will-delete.txt'], 'deleted',
+      'deleted file should be recorded as "deleted" marker');
+
+    // Observe — the file is still deleted, so content matches baseline → filtered
+    const obs = observeChanges(dir, baseline);
+    assert.ok(!obs.files_changed.includes('will-delete.txt'),
+      'already-deleted file matching baseline should be filtered');
+  });
+
+  it('observes a baseline-deleted file if it reappears', () => {
+    // Create a file, commit it, then delete it before baseline
+    writeFileSync(join(dir, 'will-delete.txt'), 'to be deleted');
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "add file"', { cwd: dir, stdio: 'ignore' });
+    rmSync(join(dir, 'will-delete.txt'));
+
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.dirty_snapshot['will-delete.txt'], 'deleted');
+
+    // Recreate the file — content no longer matches "deleted" marker
+    writeFileSync(join(dir, 'will-delete.txt'), 'resurrected');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('will-delete.txt'),
+      'resurrected file should be observed since content differs from "deleted" marker');
+  });
+
+  it('does not filter dirty files when baseline has no dirty_snapshot', () => {
+    // Capture on a clean tree (no dirty_snapshot or empty)
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true);
+
+    // Dirty the workspace after baseline
+    writeFileSync(join(dir, 'new-dirty.txt'), 'content');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('new-dirty.txt'),
+      'files should not be filtered when baseline had no dirty_snapshot');
+  });
+});
+
 // ── Tests: compareDeclaredVsObserved — operational path in review_only ─────
 
 describe('compareDeclaredVsObserved — operational path exclusion', () => {

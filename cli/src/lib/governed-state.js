@@ -15,7 +15,7 @@
  *   - Reject does NOT append to history or decision ledger (§39.2)
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { randomBytes } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
@@ -24,12 +24,16 @@ import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
 import {
   captureBaseline,
   observeChanges,
+  classifyObservedChanges,
   buildObservedArtifact,
   normalizeVerification,
   compareDeclaredVsObserved,
   deriveAcceptedRef,
   checkCleanBaseline,
 } from './repo-observer.js';
+import { getMaxConcurrentTurns } from './normalized-config.js';
+import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir } from './turn-paths.js';
+import { runHooks } from './hook-runner.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,6 +42,10 @@ const HISTORY_PATH = '.agentxchain/history.jsonl';
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const STAGING_PATH = '.agentxchain/staging/turn-result.json';
 const TALK_PATH = 'TALK.md';
+const ACCEPTANCE_LOCK_PATH = '.agentxchain/locks/accept-turn.lock';
+const ACCEPTANCE_JOURNAL_DIR = '.agentxchain/transactions/accept';
+const STALE_LOCK_TIMEOUT_MS = 30_000;
+const GOVERNED_SCHEMA_VERSION = '1.1';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,18 +53,136 @@ function generateId(prefix) {
   return `${prefix}_${randomBytes(8).toString('hex')}`;
 }
 
+function normalizeActiveTurns(activeTurns) {
+  if (!activeTurns || typeof activeTurns !== 'object' || Array.isArray(activeTurns)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(activeTurns).filter(([, turn]) => turn && typeof turn === 'object' && !Array.isArray(turn)),
+  );
+}
+
+function stripLegacyCurrentTurn(state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  const { current_turn, ...rest } = state;
+  return {
+    ...rest,
+    active_turns: normalizeActiveTurns(rest.active_turns),
+  };
+}
+
+export function getActiveTurns(state) {
+  return normalizeActiveTurns(state?.active_turns);
+}
+
+export function getActiveTurnCount(state) {
+  return Object.keys(getActiveTurns(state)).length;
+}
+
+export function getActiveTurn(state) {
+  const turns = Object.values(getActiveTurns(state));
+  return turns.length === 1 ? turns[0] : null;
+}
+
+export function getActiveTurnOrThrow(state) {
+  const turns = Object.values(getActiveTurns(state));
+  if (turns.length === 0) {
+    throw new Error('No active turn is available in governed state.');
+  }
+  if (turns.length > 1) {
+    throw new Error('Multiple active turns are present; this command requires explicit turn targeting.');
+  }
+  return turns[0];
+}
+
+function attachLegacyCurrentTurnAlias(state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  const existing = Object.getOwnPropertyDescriptor(state, 'current_turn');
+  if (existing && existing.enumerable === false) {
+    return state;
+  }
+
+  Object.defineProperty(state, 'current_turn', {
+    configurable: true,
+    enumerable: false,
+    get() {
+      return getActiveTurn(state);
+    },
+  });
+
+  return state;
+}
+
+function normalizeV1toV1_1(state) {
+  const hadLegacyCurrentTurn = Object.prototype.hasOwnProperty.call(state, 'current_turn');
+  const activeTurns = normalizeActiveTurns(state.active_turns);
+  const legacyTurn = hadLegacyCurrentTurn ? state.current_turn : null;
+
+  if (legacyTurn && typeof legacyTurn === 'object' && legacyTurn.turn_id && !activeTurns[legacyTurn.turn_id]) {
+    activeTurns[legacyTurn.turn_id] = {
+      ...legacyTurn,
+      assigned_sequence: 1,
+    };
+  }
+
+  let turnSequence = Number.isInteger(state.turn_sequence) && state.turn_sequence >= 0
+    ? state.turn_sequence
+    : Object.keys(activeTurns).length > 0 ? 1 : 0;
+
+  if (Object.keys(activeTurns).length > 0 && turnSequence < 1) {
+    turnSequence = 1;
+  }
+
+  const normalizedActiveTurns = Object.fromEntries(
+    Object.entries(activeTurns).map(([turnId, turn]) => [
+      turnId,
+      {
+        ...turn,
+        assigned_sequence: Number.isInteger(turn.assigned_sequence) && turn.assigned_sequence >= 1
+          ? turn.assigned_sequence
+          : 1,
+      },
+    ]),
+  );
+
+  return {
+    ...state,
+    schema_version: GOVERNED_SCHEMA_VERSION,
+    active_turns: normalizedActiveTurns,
+    turn_sequence: turnSequence,
+    budget_reservations:
+      state.budget_reservations && typeof state.budget_reservations === 'object' && !Array.isArray(state.budget_reservations)
+        ? state.budget_reservations
+        : {},
+    queued_phase_transition: state.queued_phase_transition ?? null,
+    queued_run_completion: state.queued_run_completion ?? null,
+  };
+}
+
 function readState(root) {
   const filePath = join(root, STATE_PATH);
   if (!existsSync(filePath)) return null;
   try {
-    return JSON.parse(readFileSync(filePath, 'utf8'));
+    const parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+    const { state, changed } = normalizeGovernedStateShape(parsed);
+    if (changed) {
+      safeWriteJson(filePath, stripLegacyCurrentTurn(state));
+    }
+    return attachLegacyCurrentTurnAlias(state);
   } catch {
     return null;
   }
 }
 
 function writeState(root, state) {
-  safeWriteJson(join(root, STATE_PATH), state);
+  safeWriteJson(join(root, STATE_PATH), stripLegacyCurrentTurn(state));
 }
 
 function appendJsonl(root, relPath, entry) {
@@ -74,6 +200,641 @@ function appendTalk(root, section) {
   }
   const prefix = existing.endsWith('\n') || existing === '' ? '' : '\n';
   writeFileSync(filePath, existing + prefix + section + '\n');
+}
+
+function loadHookStagedTurn(root, stagingRel) {
+  const stagingAbs = join(root, stagingRel);
+  if (!existsSync(stagingAbs)) {
+    return { turnResult: null };
+  }
+
+  let raw;
+  try {
+    raw = readFileSync(stagingAbs, 'utf8');
+  } catch (err) {
+    return { turnResult: null, read_error: err.message };
+  }
+
+  try {
+    return { turnResult: JSON.parse(raw) };
+  } catch (err) {
+    return { turnResult: null, parse_error: err.message };
+  }
+}
+
+function readJsonlEntries(root, relPath) {
+  const filePath = join(root, relPath);
+  if (!existsSync(filePath)) {
+    return [];
+  }
+
+  const content = readFileSync(filePath, 'utf8').trim();
+  if (!content) {
+    return [];
+  }
+
+  return content
+    .split('\n')
+    .filter(Boolean)
+    .map((line, index) => {
+      try {
+        const entry = JSON.parse(line);
+        const acceptedSequence = Number.isInteger(entry.accepted_sequence) && entry.accepted_sequence >= 1
+          ? entry.accepted_sequence
+          : index + 1;
+        return {
+          ...entry,
+          accepted_sequence: acceptedSequence,
+          assigned_sequence: Number.isInteger(entry.assigned_sequence) && entry.assigned_sequence >= 1
+            ? entry.assigned_sequence
+            : acceptedSequence,
+          concurrent_with: Array.isArray(entry.concurrent_with) ? entry.concurrent_with : [],
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function getObservedFiles(entry) {
+  if (Array.isArray(entry?.observed_artifact?.files_changed)) {
+    return entry.observed_artifact.files_changed;
+  }
+  if (Array.isArray(entry?.files_changed)) {
+    return entry.files_changed;
+  }
+  return [];
+}
+
+function resolveTurnTarget(state, turnId) {
+  const activeTurns = getActiveTurns(state);
+
+  if (turnId) {
+    const turn = activeTurns[turnId];
+    if (!turn) {
+      return { ok: false, error: `No active turn found for --turn ${turnId}`, error_code: 'not_found' };
+    }
+    return { ok: true, turn };
+  }
+
+  const activeEntries = Object.values(activeTurns);
+  if (activeEntries.length === 0) {
+    return { ok: false, error: 'No active turn to accept', error_code: 'not_found' };
+  }
+  if (activeEntries.length > 1) {
+    return {
+      ok: false,
+      error: 'Multiple active turns are present. Re-run with --turn <turn_id>.',
+      error_code: 'target_required',
+    };
+  }
+
+  return { ok: true, turn: activeEntries[0] };
+}
+
+// ── Acceptance Lock ─────────────────────────────────────────────────────────
+
+function isProcessRunning(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function acquireAcceptanceLock(root) {
+  const lockPath = join(root, ACCEPTANCE_LOCK_PATH);
+  mkdirSync(dirname(lockPath), { recursive: true });
+
+  if (existsSync(lockPath)) {
+    try {
+      const existing = JSON.parse(readFileSync(lockPath, 'utf8'));
+      const acquiredAt = new Date(existing.acquired_at).getTime();
+      const elapsed = Date.now() - acquiredAt;
+      const ownerAlive = existing.owner_pid && isProcessRunning(existing.owner_pid);
+
+      if (ownerAlive && elapsed < STALE_LOCK_TIMEOUT_MS) {
+        return { ok: false, error: `Acceptance lock held by PID ${existing.owner_pid}`, error_code: 'lock_timeout' };
+      }
+      // Stale lock — reclaim it
+    } catch {
+      // Corrupt lock file — reclaim it
+    }
+  }
+
+  const lock = {
+    owner_pid: process.pid,
+    acquired_at: new Date().toISOString(),
+  };
+  writeFileSync(lockPath, JSON.stringify(lock, null, 2));
+  return { ok: true };
+}
+
+export function releaseAcceptanceLock(root) {
+  const lockPath = join(root, ACCEPTANCE_LOCK_PATH);
+  try {
+    if (existsSync(lockPath)) {
+      const existing = JSON.parse(readFileSync(lockPath, 'utf8'));
+      if (existing.owner_pid === process.pid) {
+        unlinkSync(lockPath);
+      }
+    }
+  } catch {
+    // Best-effort cleanup
+  }
+}
+
+// ── Acceptance Transaction Journal ──────────────────────────────────────────
+
+function writeAcceptanceJournal(root, journal) {
+  const journalDir = join(root, ACCEPTANCE_JOURNAL_DIR);
+  mkdirSync(journalDir, { recursive: true });
+  const journalPath = join(journalDir, `${journal.transaction_id}.json`);
+  safeWriteJson(journalPath, journal);
+  return journalPath;
+}
+
+function commitAcceptanceJournal(root, transactionId) {
+  const journalPath = join(root, ACCEPTANCE_JOURNAL_DIR, `${transactionId}.json`);
+  try {
+    if (existsSync(journalPath)) {
+      unlinkSync(journalPath);
+    }
+  } catch {
+    // Best-effort
+  }
+}
+
+export function replayPreparedJournals(root) {
+  const journalDir = join(root, ACCEPTANCE_JOURNAL_DIR);
+  if (!existsSync(journalDir)) return [];
+
+  const replayed = [];
+  let files;
+  try {
+    files = readdirSync(journalDir).filter(f => f.endsWith('.json'));
+  } catch {
+    return [];
+  }
+
+  for (const file of files) {
+    const journalPath = join(journalDir, file);
+    let journal;
+    try {
+      journal = JSON.parse(readFileSync(journalPath, 'utf8'));
+    } catch {
+      continue;
+    }
+
+    if (journal.status !== 'prepared') continue;
+
+    const state = readState(root);
+    if (!state) continue;
+
+    const activeTurns = getActiveTurns(state);
+    const turnAlreadyRemoved = !activeTurns[journal.turn_id];
+    const sequenceAlreadyApplied = (state.turn_sequence || 0) >= journal.accepted_sequence;
+
+    if (turnAlreadyRemoved && sequenceAlreadyApplied) {
+      // State commit succeeded but cleanup may be incomplete — finish cleanup
+      cleanupTurnArtifacts(root, journal.turn_id);
+      commitAcceptanceJournal(root, journal.transaction_id);
+      replayed.push({ transaction_id: journal.transaction_id, action: 'cleanup_only' });
+    } else {
+      // State commit did not complete — replay from journal
+      if (journal.history_entry) {
+        appendJsonl(root, HISTORY_PATH, journal.history_entry);
+      }
+      if (journal.ledger_entries) {
+        for (const entry of journal.ledger_entries) {
+          appendJsonl(root, LEDGER_PATH, entry);
+        }
+      }
+      if (journal.next_state) {
+        writeState(root, journal.next_state);
+      }
+      cleanupTurnArtifacts(root, journal.turn_id);
+      commitAcceptanceJournal(root, journal.transaction_id);
+      replayed.push({ transaction_id: journal.transaction_id, action: 'full_replay' });
+    }
+  }
+  return replayed;
+}
+
+function cleanupTurnArtifacts(root, turnId) {
+  const stagingDir = join(root, getTurnStagingDir(turnId));
+  const dispatchDir = join(root, getDispatchTurnDir(turnId));
+
+  try {
+    if (existsSync(stagingDir)) rmSync(stagingDir, { recursive: true });
+  } catch { /* best-effort */ }
+  try {
+    if (existsSync(dispatchDir)) rmSync(dispatchDir, { recursive: true });
+  } catch { /* best-effort */ }
+}
+
+function detectAcceptanceConflict(targetTurn, observedArtifact, historyEntries) {
+  const observedFiles = [...new Set(getObservedFiles({ observed_artifact: observedArtifact }))];
+  if (observedFiles.length === 0) {
+    return null;
+  }
+
+  const observedFileSet = new Set(observedFiles);
+  const acceptedSince = [];
+  const conflictingFiles = new Set();
+
+  for (const entry of historyEntries) {
+    if ((entry.accepted_sequence || 0) <= (targetTurn.assigned_sequence || 0)) {
+      continue;
+    }
+
+    const overlap = [...new Set(getObservedFiles(entry).filter(file => observedFileSet.has(file)))];
+    if (overlap.length === 0) {
+      continue;
+    }
+
+    overlap.forEach(file => conflictingFiles.add(file));
+    acceptedSince.push({
+      turn_id: entry.turn_id,
+      role: entry.role,
+      accepted_sequence: entry.accepted_sequence,
+      files_changed: overlap,
+    });
+  }
+
+  if (acceptedSince.length === 0) {
+    return null;
+  }
+
+  const conflicting = [...conflictingFiles];
+  const overlapRatio = observedFiles.length > 0 ? conflicting.length / observedFiles.length : 0;
+
+  return {
+    type: 'file_conflict',
+    conflicting_turn: {
+      turn_id: targetTurn.turn_id,
+      role: targetTurn.assigned_role,
+      attempt: targetTurn.attempt,
+      files_changed: observedFiles,
+    },
+    accepted_since: acceptedSince,
+    conflicting_files: conflicting,
+    non_conflicting_files: observedFiles.filter(file => !conflictingFiles.has(file)),
+    overlap_ratio: overlapRatio,
+    suggested_resolution: overlapRatio < 0.5 ? 'reject_and_reassign' : 'human_merge',
+  };
+}
+
+function buildConflictContext(turn) {
+  const conflictError = turn?.conflict_state?.conflict_error;
+  if (!conflictError) {
+    return null;
+  }
+
+  const acceptedTurnsSince = Array.isArray(conflictError.accepted_since)
+    ? conflictError.accepted_since.map((entry) => ({
+        turn_id: entry.turn_id,
+        role: entry.role,
+        files_changed: Array.isArray(entry.files_changed) ? entry.files_changed : [],
+      }))
+    : [];
+
+  return {
+    prior_attempt_turn_id: turn.turn_id,
+    prior_attempt_number: turn.attempt,
+    conflict_type: conflictError.type || 'file_conflict',
+    conflicting_files: Array.isArray(conflictError.conflicting_files) ? conflictError.conflicting_files : [],
+    accepted_turns_since: acceptedTurnsSince,
+    non_conflicting_files_preserved: Array.isArray(conflictError.non_conflicting_files)
+      ? conflictError.non_conflicting_files
+      : [],
+    guidance: 'Rebase the rejected work on top of the current workspace state and preserve non-conflicting changes.',
+  };
+}
+
+function buildConflictDetail(conflict) {
+  if (!conflict?.conflicting_files?.length) {
+    return 'Resolve the retained file conflict, then resume the turn.';
+  }
+  return `Conflicting files: ${conflict.conflicting_files.join(', ')}`;
+}
+
+function hasBlockingActiveTurn(activeTurns) {
+  return Object.values(activeTurns || {}).some((turn) => turn?.status === 'failed' || turn?.status === 'conflicted');
+}
+
+function findHistoryTurnRequest(historyEntries, turnId, kind) {
+  if (!turnId) {
+    return null;
+  }
+
+  const entry = [...historyEntries].reverse().find(item => item.turn_id === turnId);
+  if (!entry) {
+    return null;
+  }
+
+  if (kind === 'run_completion') {
+    return { ...entry, run_completion_request: true };
+  }
+
+  if (kind === 'phase_transition') {
+    return { ...entry, phase_transition_request: entry.phase_transition_request || null };
+  }
+
+  return entry;
+}
+
+function buildBlockedReason({ category, recovery, turnId, blockedAt = new Date().toISOString() }) {
+  return {
+    category,
+    recovery,
+    blocked_at: blockedAt,
+    turn_id: turnId ?? null,
+  };
+}
+
+function canApprovePendingGate(state) {
+  return state?.status === 'paused' || state?.status === 'blocked';
+}
+
+function deriveHookRecovery(state, { phase, hookName, detail, errorCode, turnId, turnRetained }) {
+  const isTamper = errorCode?.includes('_tamper');
+  const pendingPhaseTransition = state?.pending_phase_transition;
+  const pendingRunCompletion = state?.pending_run_completion;
+
+  if (phase === 'before_gate' && pendingPhaseTransition) {
+    return {
+      typed_reason: isTamper ? 'hook_tamper' : 'pending_phase_transition',
+      owner: 'human',
+      recovery_action: isTamper
+        ? 'Disable or fix the hook, verify protected files, then rerun agentxchain approve-transition'
+        : 'agentxchain approve-transition',
+      turn_retained: false,
+      detail: pendingPhaseTransition.gate || detail || hookName || phase,
+    };
+  }
+
+  if (phase === 'before_gate' && pendingRunCompletion) {
+    return {
+      typed_reason: isTamper ? 'hook_tamper' : 'pending_run_completion',
+      owner: 'human',
+      recovery_action: isTamper
+        ? 'Disable or fix the hook, verify protected files, then rerun agentxchain approve-completion'
+        : 'agentxchain approve-completion',
+      turn_retained: false,
+      detail: pendingRunCompletion.gate || detail || hookName || phase,
+    };
+  }
+
+  return {
+    typed_reason: isTamper ? 'hook_tamper' : 'hook_block',
+    owner: 'human',
+    recovery_action: isTamper
+      ? 'Disable or fix the hook, verify protected files, then run agentxchain step --resume'
+      : `Fix or reconfigure hook "${hookName}", then rerun agentxchain accept-turn${turnId ? ` --turn ${turnId}` : ''}`,
+    turn_retained: Boolean(turnRetained),
+    detail: detail || hookName || phase,
+  };
+}
+
+function blockRunForHookIssue(root, state, { phase, turnId, hookName, detail, errorCode, turnRetained }) {
+  const blockedAt = new Date().toISOString();
+  const typedReason = errorCode?.includes('_tamper') ? 'hook_tamper' : 'hook_block';
+  const recovery = deriveHookRecovery(state, {
+    phase,
+    hookName,
+    detail,
+    errorCode,
+    turnId,
+    turnRetained,
+  });
+  const blockedState = {
+    ...state,
+    status: 'blocked',
+    blocked_on: `hook:${phase}:${hookName || 'unknown'}`,
+    blocked_reason: buildBlockedReason({
+      category: typedReason,
+      recovery,
+      turnId,
+      blockedAt,
+    }),
+  };
+  writeState(root, blockedState);
+  return attachLegacyCurrentTurnAlias(blockedState);
+}
+
+/**
+ * Fire on_escalation hooks (advisory-only) after blocked state is persisted.
+ * These hooks are for external notification (Slack, PagerDuty, etc.).
+ * They cannot block or mutate state. Failures are logged to hook-audit.jsonl only.
+ *
+ * IMPORTANT: Do not call this from blockRunForHookIssue() — that would create
+ * a circular invocation where a hook failure triggers another hook.
+ */
+function _fireOnEscalationHooks(root, hooksConfig, payload) {
+  try {
+    const hookResult = runHooks(root, hooksConfig, 'on_escalation', payload, {
+      run_id: payload.run_id,
+      turn_id: payload.failed_turn_id,
+    });
+    // Advisory-only: result is logged in hook-audit.jsonl by runHooks().
+    // We do not act on the result — on_escalation cannot block.
+    return hookResult;
+  } catch (err) {
+    // Swallow errors — on_escalation must not prevent the blocked state from
+    // being returned to the caller. The error is already in hook-audit.jsonl
+    // if runHooks got far enough to write it.
+    return { ok: true, results: [], swallowed_error: err.message };
+  }
+}
+
+function normalizeRecoveryDescriptor(recovery, turnRetained, detail) {
+  if (!recovery || typeof recovery !== 'object') {
+    return null;
+  }
+
+  return {
+    typed_reason: typeof recovery.typed_reason === 'string' ? recovery.typed_reason : 'unknown_block',
+    owner: typeof recovery.owner === 'string' ? recovery.owner : 'human',
+    recovery_action: typeof recovery.recovery_action === 'string'
+      ? recovery.recovery_action
+      : 'Inspect state.json and resolve manually before rerunning agentxchain step',
+    turn_retained: typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : Boolean(turnRetained),
+    detail: recovery.detail ?? detail ?? null,
+  };
+}
+
+function inferBlockedReasonFromState(state) {
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  if (typeof state.blocked_on !== 'string' || !state.blocked_on.trim()) {
+    return null;
+  }
+
+  const turnRetained = getActiveTurnCount(state) > 0;
+  const activeTurn = getActiveTurn(state);
+
+  if (state.blocked_on.startsWith('human:')) {
+    const detail = state.blocked_on.slice('human:'.length) || null;
+    return buildBlockedReason({
+      category: 'needs_human',
+      recovery: {
+        typed_reason: 'needs_human',
+        owner: 'human',
+        recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
+        turn_retained: turnRetained,
+        detail,
+      },
+      turnId: activeTurn?.turn_id ?? state.last_completed_turn_id ?? null,
+    });
+  }
+
+  if (state.blocked_on.startsWith('escalation:')) {
+    return buildBlockedReason({
+      category: 'retries_exhausted',
+      recovery: {
+        typed_reason: 'retries_exhausted',
+        owner: 'human',
+        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        turn_retained: turnRetained,
+        detail: state.blocked_on,
+      },
+      turnId: activeTurn?.turn_id ?? null,
+    });
+  }
+
+  if (state.blocked_on.startsWith('dispatch:')) {
+    const detail = state.blocked_on.slice('dispatch:'.length) || null;
+    return buildBlockedReason({
+      category: 'dispatch_error',
+      recovery: {
+        typed_reason: 'dispatch_error',
+        owner: 'human',
+        recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+        turn_retained: turnRetained,
+        detail,
+      },
+      turnId: activeTurn?.turn_id ?? null,
+    });
+  }
+
+  return null;
+}
+
+export function normalizeGovernedStateShape(state) {
+  if (!state || typeof state !== 'object') {
+    return { state, changed: false };
+  }
+
+  let nextState = state;
+  let changed = false;
+
+  if (nextState.schema_version !== GOVERNED_SCHEMA_VERSION || 'current_turn' in nextState || !('active_turns' in nextState)) {
+    nextState = normalizeV1toV1_1(nextState);
+    changed = true;
+  }
+
+  const hasApprovalPause = Boolean(state.pending_phase_transition || state.pending_run_completion);
+  const legacyBlockedPause =
+    state.status === 'paused' &&
+    !hasApprovalPause &&
+    typeof state.blocked_on === 'string' &&
+    (state.blocked_on.startsWith('human:') || state.blocked_on.startsWith('escalation:'));
+
+  if (legacyBlockedPause) {
+    nextState = {
+      ...nextState,
+      status: 'blocked',
+    };
+    changed = true;
+  }
+
+  if (nextState.status === 'blocked') {
+    const inferred = inferBlockedReasonFromState(nextState);
+    const normalizedRecovery = normalizeRecoveryDescriptor(
+      nextState.blocked_reason?.recovery,
+      getActiveTurn(nextState),
+      nextState.blocked_reason?.recovery?.detail ?? inferred?.recovery?.detail ?? nextState.blocked_on ?? null,
+    );
+
+    if (!nextState.blocked_reason && inferred) {
+      nextState = {
+        ...nextState,
+        blocked_reason: inferred,
+      };
+      changed = true;
+    } else if (
+      nextState.blocked_reason &&
+      normalizedRecovery &&
+      JSON.stringify(nextState.blocked_reason.recovery) !== JSON.stringify(normalizedRecovery)
+    ) {
+      nextState = {
+        ...nextState,
+        blocked_reason: {
+          ...nextState.blocked_reason,
+          recovery: normalizedRecovery,
+        },
+      };
+      changed = true;
+    }
+  }
+
+  if (nextState.status !== 'blocked' && 'blocked_reason' in nextState && nextState.blocked_reason != null) {
+    nextState = {
+      ...nextState,
+      blocked_reason: null,
+    };
+    changed = true;
+  }
+
+  return { state: stripLegacyCurrentTurn(nextState), changed };
+}
+
+export function markRunBlocked(root, details) {
+  const state = readState(root);
+  if (!state) {
+    return { ok: false, error: 'No governed state.json found' };
+  }
+
+  const blockedAt = details.blockedAt || new Date().toISOString();
+  const turnId = details.turnId ?? getActiveTurn(state)?.turn_id ?? null;
+  const blockedReason = buildBlockedReason({
+    category: details.category,
+    recovery: details.recovery,
+    turnId,
+    blockedAt,
+  });
+
+  const updatedState = {
+    ...state,
+    status: 'blocked',
+    blocked_on: details.blockedOn,
+    blocked_reason: blockedReason,
+    escalation: details.escalation ?? state.escalation ?? null,
+  };
+
+  writeState(root, updatedState);
+
+  // Fire on_escalation hooks (advisory-only) after blocked state is persisted.
+  // Only fire for non-hook-caused blocks to prevent circular invocations.
+  if (details.hooksConfig?.on_escalation?.length > 0) {
+    const activeTurn = getActiveTurn(updatedState);
+    _fireOnEscalationHooks(root, details.hooksConfig, {
+      blocked_reason: details.category || 'unknown',
+      recovery_action: details.recovery?.recovery_action || 'unknown',
+      failed_turn_id: turnId || null,
+      failed_role: activeTurn?.assigned_role || null,
+      attempt_count: activeTurn?.attempt || 0,
+      last_error: details.recovery?.detail || details.blockedOn || 'unknown',
+      run_id: updatedState.run_id,
+    });
+  }
+
+  return { ok: true, state: updatedState };
 }
 
 // ── Core Operations ──────────────────────────────────────────────────────────
@@ -94,8 +855,9 @@ export function initializeGovernedRun(root, config) {
   if (state.status === 'completed') {
     return { ok: false, error: 'Cannot initialize run: this run is already completed. Start a new project or reset state.' };
   }
-  if (state.status !== 'idle' && state.status !== 'paused') {
-    return { ok: false, error: `Cannot initialize run: status is "${state.status}", expected "idle" or "paused"` };
+  const allowBlockedBootstrap = state.status === 'blocked' && state.run_id === null && getActiveTurnCount(state) === 0;
+  if (state.status !== 'idle' && state.status !== 'paused' && !allowBlockedBootstrap) {
+    return { ok: false, error: `Cannot initialize run: status is "${state.status}", expected "idle", "paused", or pre-run "blocked"` };
   }
 
   const runId = generateId('run');
@@ -104,6 +866,7 @@ export function initializeGovernedRun(root, config) {
     run_id: runId,
     status: 'active',
     blocked_on: null,
+    blocked_reason: null,
     budget_status: {
       spent_usd: 0,
       remaining_usd: config.budget?.per_run_max_usd ?? null
@@ -111,28 +874,36 @@ export function initializeGovernedRun(root, config) {
   };
 
   writeState(root, updatedState);
-  return { ok: true, state: updatedState };
+  return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState) };
 }
 
 /**
  * Assign a turn to a role.
- * Sets current_turn in state.json.
+ * Supports parallel assignment up to max_concurrent_turns for the current phase.
+ *
+ * Guards (DEC-PARALLEL-006, DEC-PARALLEL-007, DEC-PARALLEL-011):
+ *   - No assignment while run is blocked
+ *   - Same role cannot hold two active turns
+ *   - Concurrency limit per phase is respected
+ *   - Budget reservation is created per turn
  *
  * @param {string} root - project root directory
  * @param {object} config - normalized config
  * @param {string} roleId - the role to assign
- * @returns {{ ok: boolean, error?: string, state?: object }}
+ * @returns {{ ok: boolean, error?: string, warnings?: string[], state?: object }}
  */
 export function assignGovernedTurn(root, config, roleId) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
   }
+
+  // DEC-PARALLEL-007: No new assignment while run is blocked
+  if (state.status === 'blocked') {
+    return { ok: false, error: 'Cannot assign turn: run is blocked. Resolve the blocked state before assigning new turns.' };
+  }
   if (state.status !== 'active') {
     return { ok: false, error: `Cannot assign turn: status is "${state.status}", expected "active"` };
-  }
-  if (state.current_turn) {
-    return { ok: false, error: `Turn already assigned: ${state.current_turn.turn_id} to ${state.current_turn.assigned_role}` };
   }
 
   const role = config.roles?.[roleId];
@@ -144,6 +915,63 @@ export function assignGovernedTurn(root, config, roleId) {
     return { ok: false, error: `Role "${roleId}" has no runtime identifier` };
   }
 
+  // Concurrency checks
+  const activeTurns = getActiveTurns(state);
+  const activeCount = Object.keys(activeTurns).length;
+  const maxConcurrent = getMaxConcurrentTurns(config, state.phase);
+
+  // When max_concurrent_turns = 1 (sequential mode), preserve backward-compatible
+  // error message before any parallel-specific checks
+  if (maxConcurrent === 1 && activeCount >= 1) {
+    const existing = Object.values(activeTurns)[0];
+    return { ok: false, error: `Turn already assigned: ${existing.turn_id} to ${existing.assigned_role}` };
+  }
+
+  // DEC-PARALLEL-006: One active turn per role at a time
+  const existingRoleTurn = Object.values(activeTurns).find(t => t.assigned_role === roleId);
+  if (existingRoleTurn) {
+    return { ok: false, error: `Role "${roleId}" already has an active turn: ${existingRoleTurn.turn_id}` };
+  }
+
+  // Concurrency limit
+  if (activeCount >= maxConcurrent) {
+    return { ok: false, error: `Cannot assign turn: ${activeCount} active turn(s) already at capacity (max_concurrent_turns = ${maxConcurrent})` };
+  }
+
+  // DEC-PARALLEL-011: Budget reservation
+  const warnings = [];
+  const reservations = { ...(state.budget_reservations || {}) };
+  const turnId = generateId('turn');
+  const estimatedCost = estimateTurnBudget(config, roleId);
+
+  if (estimatedCost > 0 && state.budget_status?.remaining_usd != null) {
+    const alreadyReserved = Object.values(reservations).reduce((sum, r) => sum + (r.reserved_usd || 0), 0);
+    const available = state.budget_status.remaining_usd - alreadyReserved;
+    if (estimatedCost > available) {
+      return { ok: false, error: `Cannot assign turn: estimated cost $${estimatedCost.toFixed(2)} exceeds available budget $${available.toFixed(2)} (after reservations)` };
+    }
+    reservations[turnId] = {
+      reserved_usd: estimatedCost,
+      role_id: roleId,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  // DEC-PARALLEL-008: Advisory overlap warning (declared_file_scope)
+  if (role.declared_file_scope && activeCount > 0) {
+    const roleScope = new Set(Array.isArray(role.declared_file_scope) ? role.declared_file_scope : []);
+    for (const existingTurn of Object.values(activeTurns)) {
+      const existingRole = config.roles?.[existingTurn.assigned_role];
+      if (existingRole?.declared_file_scope) {
+        const existingScope = new Set(Array.isArray(existingRole.declared_file_scope) ? existingRole.declared_file_scope : []);
+        const overlap = [...roleScope].filter(f => existingScope.has(f));
+        if (overlap.length > 0) {
+          warnings.push(`Advisory: declared_file_scope overlap with turn ${existingTurn.turn_id} (${existingTurn.assigned_role}): ${overlap.join(', ')}`);
+        }
+      }
+    }
+  }
+
   // v1 clean-baseline rule: authoritative/proposed turns require a clean working tree
   const writeAuthority = role.write_authority || 'review_only';
   const cleanCheck = checkCleanBaseline(root, writeAuthority);
@@ -151,29 +979,114 @@ export function assignGovernedTurn(root, config, roleId) {
     return { ok: false, error: cleanCheck.reason };
   }
 
+  const hooksConfig = config.hooks || {};
+  if (hooksConfig.before_assignment && hooksConfig.before_assignment.length > 0) {
+    const historyLength = readJsonlEntries(root, HISTORY_PATH).length;
+    const beforeAssignmentPayload = {
+      role_id: roleId,
+      role_config: role,
+      phase: state.phase,
+      active_turns: Object.values(activeTurns).map((turn) => ({
+        turn_id: turn.turn_id,
+        role_id: turn.assigned_role,
+        status: turn.status,
+        attempt: turn.attempt,
+      })),
+      history_length: historyLength,
+    };
+    const beforeAssignmentHooks = runHooks(root, hooksConfig, 'before_assignment', beforeAssignmentPayload, {
+      run_id: state.run_id,
+    });
+
+    if (!beforeAssignmentHooks.ok) {
+      const hookName = beforeAssignmentHooks.blocker?.hook_name
+        || beforeAssignmentHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = beforeAssignmentHooks.blocker?.message
+        || beforeAssignmentHooks.tamper?.message
+        || `before_assignment hook "${hookName}" halted assignment`;
+
+      if (beforeAssignmentHooks.tamper) {
+        const blockedState = blockRunForHookIssue(root, state, {
+          phase: 'before_assignment',
+          turnId: null,
+          hookName,
+          detail,
+          errorCode: beforeAssignmentHooks.tamper.error_code,
+          turnRetained: activeCount > 0,
+        });
+        return {
+          ok: false,
+          error: detail,
+          error_code: beforeAssignmentHooks.tamper.error_code,
+          state: blockedState,
+          hookResults: beforeAssignmentHooks,
+        };
+      }
+
+      return {
+        ok: false,
+        error: detail,
+        error_code: 'hook_blocked',
+        state: attachLegacyCurrentTurnAlias(state),
+        hookResults: beforeAssignmentHooks,
+      };
+    }
+  }
+
   // Capture baseline snapshot for observed diff at acceptance time
   const baseline = captureBaseline(root);
 
-  const turnId = generateId('turn');
   const now = new Date().toISOString();
   const timeoutMinutes = 20;
+  const nextSequence = (state.turn_sequence || 0) + 1;
+
+  // Record which turns are concurrent siblings (for conflict detection context)
+  const concurrentWith = Object.keys(activeTurns);
 
   const updatedState = {
     ...state,
-    current_turn: {
-      turn_id: turnId,
-      assigned_role: roleId,
-      status: 'running',
-      attempt: 1,
-      started_at: now,
-      deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
-      runtime_id: runtimeId,
-      baseline,
-    }
+    turn_sequence: nextSequence,
+    budget_reservations: reservations,
+    active_turns: {
+      ...activeTurns,
+      [turnId]: {
+        turn_id: turnId,
+        assigned_role: roleId,
+        status: 'running',
+        attempt: 1,
+        started_at: now,
+        deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
+        runtime_id: runtimeId,
+        baseline,
+        assigned_sequence: nextSequence,
+        concurrent_with: concurrentWith,
+      },
+    },
   };
 
   writeState(root, updatedState);
-  return { ok: true, state: updatedState };
+  const result = { ok: true, state: attachLegacyCurrentTurnAlias(updatedState) };
+  if (warnings.length > 0) {
+    result.warnings = warnings;
+  }
+  return result;
+}
+
+/**
+ * Estimate the budget for a single turn based on role/runtime configuration.
+ * Used for DEC-PARALLEL-011 budget reservation.
+ *
+ * @param {object} config - normalized config
+ * @param {string} roleId - the role being assigned
+ * @returns {number} estimated cost in USD (0 if not estimable)
+ */
+function estimateTurnBudget(config, roleId) {
+  // Use per_turn_max_usd as the reservation estimate
+  if (config.budget?.per_turn_max_usd != null && config.budget.per_turn_max_usd > 0) {
+    return config.budget.per_turn_max_usd;
+  }
+  return 0;
 }
 
 /**
@@ -191,43 +1104,211 @@ export function assignGovernedTurn(root, config, roleId) {
  *
  * @param {string} root - project root directory
  * @param {object} config - normalized config
- * @returns {{ ok: boolean, error?: string, validation?: object, state?: object }}
+ * @param {object} [opts]
+ * @param {string} [opts.turnId] - explicit target turn when multiple turns are active
+ * @returns {{ ok: boolean, error?: string, error_code?: string, validation?: object, state?: object }}
  */
-export function acceptGovernedTurn(root, config) {
-  const state = readState(root);
+export function acceptGovernedTurn(root, config, opts = {}) {
+  // Replay any prepared journals from previous crashes before starting
+  replayPreparedJournals(root);
+
+  // Pre-lock target resolution (quick fail for obviously invalid requests)
+  const preState = readState(root);
+  if (!preState) {
+    return { ok: false, error: 'No governed state.json found' };
+  }
+  const preResolution = resolveTurnTarget(preState, opts.turnId);
+  if (!preResolution.ok) {
+    return preResolution;
+  }
+
+  // Acquire acceptance lock — serializes concurrent acceptance attempts
+  const lockResult = acquireAcceptanceLock(root);
+  if (!lockResult.ok) {
+    return lockResult;
+  }
+
+  try {
+    return _acceptGovernedTurnLocked(root, config, opts);
+  } finally {
+    releaseAcceptanceLock(root);
+  }
+}
+
+function _acceptGovernedTurnLocked(root, config, opts) {
+  // Re-read state under lock (a sibling acceptance may have committed)
+  let state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
   }
-  if (!state.current_turn) {
-    return { ok: false, error: 'No active turn to accept' };
+
+  const targetResolution = resolveTurnTarget(state, opts.turnId);
+  if (!targetResolution.ok) {
+    return targetResolution;
+  }
+  let currentTurn = targetResolution.turn;
+
+  const resolutionMode = opts.resolutionMode || 'standard';
+  if (resolutionMode !== 'standard' && resolutionMode !== 'human_merge') {
+    return {
+      ok: false,
+      error: `Unknown resolution mode "${resolutionMode}"`,
+      error_code: 'protocol_error',
+    };
   }
 
-  // Validate staged turn result (validator reads the file itself)
-  const validation = validateStagedTurnResult(root, state, config);
+  if (resolutionMode === 'human_merge') {
+    if (!currentTurn.conflict_state) {
+      return {
+        ok: false,
+        error: 'human_merge resolution requires a conflicted active turn.',
+        error_code: 'protocol_error',
+      };
+    }
+
+    if (currentTurn.conflict_state.status !== 'human_merging') {
+      appendJsonl(root, LEDGER_PATH, {
+        timestamp: new Date().toISOString(),
+        decision: 'conflict_resolution_selected',
+        turn_id: currentTurn.turn_id,
+        attempt: currentTurn.attempt,
+        role: currentTurn.assigned_role,
+        phase: state.phase,
+        conflict: {
+          conflicting_files: currentTurn.conflict_state.conflict_error?.conflicting_files || [],
+          accepted_since_turn_ids: (currentTurn.conflict_state.conflict_error?.accepted_since || []).map((entry) => entry.turn_id),
+          overlap_ratio: currentTurn.conflict_state.conflict_error?.overlap_ratio ?? 0,
+        },
+        resolution_chosen: 'human_merge',
+      });
+
+      state = {
+        ...state,
+        active_turns: {
+          ...getActiveTurns(state),
+          [currentTurn.turn_id]: {
+            ...currentTurn,
+            status: 'conflicted',
+            conflict_state: {
+              ...currentTurn.conflict_state,
+              status: 'human_merging',
+            },
+          },
+        },
+      };
+      writeState(root, state);
+      currentTurn = state.active_turns[currentTurn.turn_id];
+    }
+  }
+
+  const turnStagingPath = getTurnStagingResultPath(currentTurn.turn_id);
+  const resolvedStagingPath = existsSync(join(root, turnStagingPath)) ? turnStagingPath : STAGING_PATH;
+  const stagedTurn = loadHookStagedTurn(root, resolvedStagingPath);
+  const validationState = attachLegacyCurrentTurnAlias({
+    ...state,
+    active_turns: {
+      [currentTurn.turn_id]: currentTurn,
+    },
+  });
+  const hooksConfig = config.hooks || {};
+
+  if (hooksConfig.before_validation && hooksConfig.before_validation.length > 0) {
+    const beforeValidationPayload = {
+      turn_id: currentTurn.turn_id,
+      role_id: currentTurn.assigned_role,
+      staging_path: resolvedStagingPath,
+      turn_result: stagedTurn.turnResult ?? null,
+      ...(stagedTurn.parse_error ? { parse_error: stagedTurn.parse_error } : {}),
+      ...(stagedTurn.read_error ? { read_error: stagedTurn.read_error } : {}),
+    };
+    const beforeValidationHooks = runHooks(root, hooksConfig, 'before_validation', beforeValidationPayload, {
+      run_id: state.run_id,
+      turn_id: currentTurn.turn_id,
+    });
+
+    if (!beforeValidationHooks.ok) {
+      const hookName = beforeValidationHooks.blocker?.hook_name
+        || beforeValidationHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = beforeValidationHooks.blocker?.message
+        || beforeValidationHooks.tamper?.message
+        || `before_validation hook "${hookName}" halted acceptance`;
+      const blockedState = blockRunForHookIssue(root, state, {
+        phase: 'before_validation',
+        turnId: currentTurn.turn_id,
+        hookName,
+        detail,
+        errorCode: beforeValidationHooks.tamper?.error_code || 'hook_blocked',
+        turnRetained: true,
+      });
+      return {
+        ok: false,
+        error: detail,
+        error_code: beforeValidationHooks.tamper?.error_code || 'hook_blocked',
+        state: blockedState,
+        hookResults: beforeValidationHooks,
+      };
+    }
+  }
+
+  const validation = validateStagedTurnResult(root, validationState, config, { stagingPath: resolvedStagingPath });
+  if (hooksConfig.after_validation && hooksConfig.after_validation.length > 0) {
+    const afterValidationPayload = {
+      turn_id: currentTurn.turn_id,
+      role_id: currentTurn.assigned_role,
+      validation_ok: validation.ok,
+      validation_stage: validation.stage,
+      errors: validation.errors,
+      warnings: validation.warnings,
+      turn_result: validation.turnResult ?? stagedTurn.turnResult ?? null,
+    };
+    const afterValidationHooks = runHooks(root, hooksConfig, 'after_validation', afterValidationPayload, {
+      run_id: state.run_id,
+      turn_id: currentTurn.turn_id,
+    });
+
+    if (!afterValidationHooks.ok) {
+      const hookName = afterValidationHooks.blocker?.hook_name
+        || afterValidationHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = afterValidationHooks.blocker?.message
+        || afterValidationHooks.tamper?.message
+        || `after_validation hook "${hookName}" halted acceptance`;
+      const blockedState = blockRunForHookIssue(root, state, {
+        phase: 'after_validation',
+        turnId: currentTurn.turn_id,
+        hookName,
+        detail,
+        errorCode: afterValidationHooks.tamper?.error_code || 'hook_blocked',
+        turnRetained: true,
+      });
+      return {
+        ok: false,
+        error: detail,
+        error_code: afterValidationHooks.tamper?.error_code || 'hook_blocked',
+        state: blockedState,
+        hookResults: afterValidationHooks,
+      };
+    }
+  }
+
   if (!validation.ok) {
     return {
       ok: false,
       error: `Validation failed at stage ${validation.stage}: ${validation.errors.join('; ')}`,
-      validation
+      validation,
     };
   }
 
   const turnResult = validation.turnResult;
-  const stagingFile = join(root, STAGING_PATH);
-
+  const stagingFile = join(root, resolvedStagingPath);
   const now = new Date().toISOString();
-
-  // ── Orchestrator-derived observation ───────────────────────────────────
-  const baseline = state.current_turn?.baseline || null;
+  const baseline = currentTurn.baseline || null;
   const observation = observeChanges(root, baseline);
-
-  // Derive runtime type for verification normalization
   const role = config.roles?.[turnResult.role];
   const runtimeId = turnResult.runtime_id;
   const runtime = config.runtimes?.[runtimeId];
   const runtimeType = runtime?.type || 'manual';
-
-  // Compare declared vs observed files (artifact validation Stage C extension)
   const writeAuthority = role?.write_authority || 'review_only';
   const diffComparison = compareDeclaredVsObserved(
     turnResult.files_changed || [],
@@ -249,17 +1330,114 @@ export function acceptGovernedTurn(root, config) {
     };
   }
 
-  // Build observed artifact record
   const observedArtifact = buildObservedArtifact(observation, baseline);
-
-  // Normalize verification
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
-
-  // Derive accepted_integration_ref from orchestrator observation
   const artifactType = turnResult.artifact?.type || 'review';
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
+  const historyEntries = readJsonlEntries(root, HISTORY_PATH);
+  const conflict = detectAcceptanceConflict(currentTurn, observedArtifact, historyEntries);
 
-  // 1. Append to history.jsonl
+  if (conflict) {
+    const detectionCount = (currentTurn.conflict_state?.detection_count || 0) + 1;
+    const conflictState = {
+      detected_at: now,
+      detection_count: detectionCount,
+      status: 'pending_operator',
+      conflict_error: conflict,
+    };
+    const updatedState = {
+      ...state,
+      active_turns: {
+        ...getActiveTurns(state),
+        [currentTurn.turn_id]: {
+          ...currentTurn,
+          status: 'conflicted',
+          conflict_state: conflictState,
+        },
+      },
+    };
+
+    if (detectionCount >= 3) {
+      updatedState.status = 'blocked';
+      updatedState.blocked_on = `human:conflict_loop:${currentTurn.turn_id}`;
+      updatedState.blocked_reason = buildBlockedReason({
+        category: 'conflict_loop',
+        recovery: {
+          typed_reason: 'conflict_loop',
+          owner: 'human',
+          recovery_action: `Serialize the conflicting work, then run agentxchain step --resume --turn ${currentTurn.turn_id}`,
+          turn_retained: true,
+          detail: buildConflictDetail(conflict),
+        },
+        turnId: currentTurn.turn_id,
+        blockedAt: now,
+      });
+    }
+
+    appendJsonl(root, LEDGER_PATH, {
+      timestamp: now,
+      decision: 'conflict_detected',
+      turn_id: currentTurn.turn_id,
+      attempt: currentTurn.attempt,
+      role: currentTurn.assigned_role,
+      phase: state.phase,
+      conflict: {
+        conflicting_files: conflict.conflicting_files,
+        accepted_since_turn_ids: conflict.accepted_since.map(entry => entry.turn_id),
+        overlap_ratio: conflict.overlap_ratio,
+      },
+    });
+
+    writeState(root, updatedState);
+    return {
+      ok: false,
+      error: `Acceptance conflict detected for turn ${currentTurn.turn_id}`,
+      error_code: 'conflict',
+      state: attachLegacyCurrentTurnAlias(updatedState),
+      conflict,
+    };
+  }
+
+  if (hooksConfig.before_acceptance && hooksConfig.before_acceptance.length > 0) {
+    const classified = classifyObservedChanges(root, observation, baseline);
+    const beforeAcceptancePayload = {
+      turn_id: currentTurn.turn_id,
+      role_id: currentTurn.assigned_role,
+      turn_result: turnResult,
+      observed_changes: classified,
+      conflict_detected: false,
+    };
+    const beforeAcceptanceHooks = runHooks(root, hooksConfig, 'before_acceptance', beforeAcceptancePayload, {
+      run_id: state.run_id,
+      turn_id: currentTurn.turn_id,
+    });
+
+    if (!beforeAcceptanceHooks.ok) {
+      const hookName = beforeAcceptanceHooks.blocker?.hook_name
+        || beforeAcceptanceHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = beforeAcceptanceHooks.blocker?.message
+        || beforeAcceptanceHooks.tamper?.message
+        || `before_acceptance hook "${hookName}" halted acceptance`;
+      const blockedState = blockRunForHookIssue(root, state, {
+        phase: 'before_acceptance',
+        turnId: currentTurn.turn_id,
+        hookName,
+        detail,
+        errorCode: beforeAcceptanceHooks.tamper?.error_code || 'hook_blocked',
+        turnRetained: true,
+      });
+      return {
+        ok: false,
+        error: detail,
+        error_code: beforeAcceptanceHooks.tamper?.error_code || 'hook_blocked',
+        state: blockedState,
+        hookResults: beforeAcceptanceHooks,
+      };
+    }
+  }
+
+  const acceptedSequence = (state.turn_sequence || 0) + 1;
   const historyEntry = {
     turn_id: turnResult.turn_id,
     run_id: turnResult.run_id,
@@ -277,15 +1455,18 @@ export function acceptGovernedTurn(root, config) {
     observed_artifact: observedArtifact,
     proposed_next_role: turnResult.proposed_next_role,
     phase_transition_request: turnResult.phase_transition_request,
+    run_completion_request: Boolean(turnResult.run_completion_request),
+    assigned_sequence: Number.isInteger(currentTurn.assigned_sequence) ? currentTurn.assigned_sequence : acceptedSequence,
+    accepted_sequence: acceptedSequence,
+    concurrent_with: Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
     cost: turnResult.cost || {},
-    accepted_at: now
+    accepted_at: now,
   };
-  appendJsonl(root, HISTORY_PATH, historyEntry);
-
-  // 2. Append decisions to ledger
+  // Build ledger entries for the journal
+  const ledgerEntries = [];
   if (turnResult.decisions && turnResult.decisions.length > 0) {
     for (const decision of turnResult.decisions) {
-      const ledgerEntry = {
+      ledgerEntries.push({
         id: decision.id,
         turn_id: turnResult.turn_id,
         role: turnResult.role,
@@ -296,24 +1477,27 @@ export function acceptGovernedTurn(root, config) {
         objections_against: [],
         status: 'accepted',
         overridden_by: null,
-        created_at: now
-      };
-      appendJsonl(root, LEDGER_PATH, ledgerEntry);
+        created_at: now,
+      });
     }
   }
 
-  // 3. Append to TALK.md
   const turnNumber = turnResult.turn_id.replace(/^turn_/, '').slice(0, 8);
   const talkSection = `## Turn ${turnNumber} — ${turnResult.role} (${state.phase})\n\n- **Status:** ${turnResult.status}\n- **Summary:** ${turnResult.summary}\n${turnResult.decisions?.length ? turnResult.decisions.map(d => `- **Decision ${d.id}:** ${d.statement}`).join('\n') + '\n' : ''}${turnResult.objections?.length ? turnResult.objections.map(o => `- **Objection ${o.id} (${o.severity}):** ${o.statement}`).join('\n') + '\n' : ''}- **Proposed next:** ${turnResult.proposed_next_role || 'human'}\n\n---\n`;
-  appendTalk(root, talkSection);
 
-  // 4. Update state
+  const remainingTurns = { ...getActiveTurns(state) };
+  delete remainingTurns[currentTurn.turn_id];
+  const remainingReservations = { ...(state.budget_reservations || {}) };
+  delete remainingReservations[currentTurn.turn_id];
   const costUsd = turnResult.cost?.usd || 0;
   const updatedState = {
     ...state,
-    last_completed_turn_id: state.current_turn.turn_id,
-    current_turn: null,
+    turn_sequence: acceptedSequence,
+    last_completed_turn_id: currentTurn.turn_id,
+    active_turns: remainingTurns,
+    budget_reservations: remainingReservations,
     blocked_on: turnResult.status === 'needs_human' ? `human:${turnResult.needs_human_reason || 'unspecified'}` : null,
+    blocked_reason: null,
     escalation: null,
     accepted_integration_ref: derivedRef,
     next_recommended_role: deriveNextRecommendedRole(turnResult, state, config),
@@ -321,94 +1505,222 @@ export function acceptGovernedTurn(root, config) {
       spent_usd: (state.budget_status?.spent_usd || 0) + costUsd,
       remaining_usd: state.budget_status?.remaining_usd != null
         ? state.budget_status.remaining_usd - costUsd
-        : null
-    }
+        : null,
+    },
   };
 
-  // If status is needs_human, pause the run
-  if (turnResult.status === 'needs_human') {
-    updatedState.status = 'paused';
+  if (updatedState.status === 'blocked' && !hasBlockingActiveTurn(remainingTurns)) {
+    updatedState.status = 'active';
+    updatedState.blocked_on = null;
+    updatedState.blocked_reason = null;
+    updatedState.escalation = null;
   }
 
-  // 5. Evaluate phase exit gate (§40-§43) and run completion
+  if (turnResult.status === 'needs_human') {
+    updatedState.status = 'blocked';
+    updatedState.blocked_reason = buildBlockedReason({
+      category: 'needs_human',
+      recovery: {
+        typed_reason: 'needs_human',
+        owner: 'human',
+        recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
+        turn_retained: false,
+        detail: turnResult.needs_human_reason || 'unspecified',
+      },
+      turnId: turnResult.turn_id,
+      blockedAt: now,
+    });
+  }
+
   let gateResult = null;
   let completionResult = null;
+  const hasRemainingTurns = Object.keys(remainingTurns).length > 0;
   if (turnResult.status !== 'needs_human') {
-    // First: check if this is a run completion request
-    if (turnResult.run_completion_request) {
-      completionResult = evaluateRunCompletion({
-        state: { ...state, current_turn: null },
-        config,
-        acceptedTurn: turnResult,
-        root,
-      });
+    if (hasRemainingTurns) {
+      if (turnResult.run_completion_request && !updatedState.queued_run_completion) {
+        updatedState.queued_run_completion = {
+          requested_by_turn: turnResult.turn_id,
+          requested_at: now,
+        };
+      }
+      if (turnResult.phase_transition_request && !updatedState.queued_phase_transition) {
+        updatedState.queued_phase_transition = {
+          from: state.phase,
+          to: turnResult.phase_transition_request,
+          requested_by_turn: turnResult.turn_id,
+          requested_at: now,
+        };
+      }
+    } else {
+      const postAcceptanceState = {
+        ...state,
+        active_turns: remainingTurns,
+        turn_sequence: acceptedSequence,
+      };
+      const nextHistoryEntries = [...historyEntries, historyEntry];
+      const completionSource = turnResult.run_completion_request
+        ? turnResult
+        : findHistoryTurnRequest(nextHistoryEntries, state.queued_run_completion?.requested_by_turn, 'run_completion');
 
-      if (completionResult.action === 'complete') {
-        // Final gate passes, no human approval → run is done
-        updatedState.status = 'completed';
-        updatedState.completed_at = new Date().toISOString();
-        if (completionResult.gate_id) {
+      if (completionSource?.run_completion_request) {
+        completionResult = evaluateRunCompletion({
+          state: postAcceptanceState,
+          config,
+          acceptedTurn: completionSource,
+          root,
+        });
+
+        if (completionResult.action === 'complete') {
+          updatedState.status = 'completed';
+          updatedState.completed_at = now;
+          if (completionResult.gate_id) {
+            updatedState.phase_gate_status = {
+              ...(updatedState.phase_gate_status || {}),
+              [completionResult.gate_id]: 'passed',
+            };
+          }
+          updatedState.queued_run_completion = null;
+          updatedState.queued_phase_transition = null;
+        } else if (completionResult.action === 'awaiting_human_approval') {
+          updatedState.status = 'paused';
+          updatedState.blocked_on = `human_approval:${completionResult.gate_id}`;
+          updatedState.blocked_reason = null;
+          updatedState.pending_run_completion = {
+            gate: completionResult.gate_id,
+            requested_by_turn: completionSource.turn_id,
+            requested_at: now,
+          };
+          updatedState.queued_run_completion = null;
+          updatedState.queued_phase_transition = null;
+        } else if (state.queued_run_completion) {
+          updatedState.queued_run_completion = null;
+        }
+      }
+
+      if (updatedState.status !== 'blocked' && updatedState.status !== 'paused' && updatedState.status !== 'completed') {
+        const phaseSource = turnResult.phase_transition_request
+          ? turnResult
+          : findHistoryTurnRequest(nextHistoryEntries, state.queued_phase_transition?.requested_by_turn, 'phase_transition');
+
+        // Always evaluate phase exit when the run drains — even without a request,
+        // evaluatePhaseExit returns { action: 'no_request' } which callers depend on.
+        gateResult = evaluatePhaseExit({
+          state: postAcceptanceState,
+          config,
+          acceptedTurn: phaseSource || turnResult,
+          root,
+        });
+
+        if (gateResult.action === 'advance') {
+          updatedState.phase = gateResult.next_phase;
           updatedState.phase_gate_status = {
             ...(updatedState.phase_gate_status || {}),
-            [completionResult.gate_id]: 'passed',
+            [gateResult.gate_id || 'no_gate']: 'passed',
           };
+          updatedState.queued_phase_transition = null;
+        } else if (gateResult.action === 'awaiting_human_approval') {
+          updatedState.status = 'paused';
+          updatedState.blocked_on = `human_approval:${gateResult.gate_id}`;
+          updatedState.blocked_reason = null;
+          updatedState.pending_phase_transition = {
+            from: state.phase,
+            to: gateResult.next_phase,
+            gate: gateResult.gate_id,
+            requested_by_turn: phaseSource.turn_id,
+          };
+          updatedState.queued_phase_transition = null;
+        } else if (state.queued_phase_transition) {
+          updatedState.queued_phase_transition = null;
         }
-      } else if (completionResult.action === 'awaiting_human_approval') {
-        // Final gate passes structurally but needs human sign-off
-        updatedState.status = 'paused';
-        updatedState.blocked_on = `human_approval:${completionResult.gate_id}`;
-        updatedState.pending_run_completion = {
-          gate: completionResult.gate_id,
-          requested_by_turn: turnResult.turn_id,
-          requested_at: new Date().toISOString(),
-        };
       }
-      // gate_failed or not_final_phase: accept turn but don't complete
-    } else {
-      // Standard phase exit gate evaluation
-      gateResult = evaluatePhaseExit({
-        state: { ...state, current_turn: null },  // post-acceptance state view
-        config,
-        acceptedTurn: turnResult,
-        root,
-      });
-
-      if (gateResult.action === 'advance') {
-        // Rule 4: Gate passes, no human approval → advance phase immediately
-        updatedState.phase = gateResult.next_phase;
-        updatedState.phase_gate_status = {
-          ...(updatedState.phase_gate_status || {}),
-          [gateResult.gate_id || 'no_gate']: 'passed',
-        };
-      } else if (gateResult.action === 'awaiting_human_approval') {
-        // Rule 5: Gate passes structurally but requires human approval → pause
-        updatedState.status = 'paused';
-        updatedState.blocked_on = `human_approval:${gateResult.gate_id}`;
-        updatedState.pending_phase_transition = {
-          from: state.phase,
-          to: gateResult.next_phase,
-          gate: gateResult.gate_id,
-          requested_by_turn: turnResult.turn_id,
-        };
-      }
-      // Rule 3 (gate_failed) and Rule 1 (no_request): stay in current phase, no state change
     }
   }
 
+  // ── Transaction journal: prepare before committing writes ──────────────
+  const transactionId = generateId('txn');
+  const journal = {
+    transaction_id: transactionId,
+    kind: 'accept_turn',
+    run_id: state.run_id,
+    turn_id: currentTurn.turn_id,
+    phase: state.phase,
+    status: 'prepared',
+    prepared_at: now,
+    accepted_sequence: acceptedSequence,
+    history_entry: historyEntry,
+    ledger_entries: ledgerEntries,
+    next_state: stripLegacyCurrentTurn(updatedState),
+  };
+  writeAcceptanceJournal(root, journal);
+
+  // ── Commit order: history → ledger → talk → state → cleanup → journal ─
+  appendJsonl(root, HISTORY_PATH, historyEntry);
+  for (const entry of ledgerEntries) {
+    appendJsonl(root, LEDGER_PATH, entry);
+  }
+  appendTalk(root, talkSection);
   writeState(root, updatedState);
 
-  // 6. Clear staging
+  // Cleanup turn-scoped artifacts
+  cleanupTurnArtifacts(root, currentTurn.turn_id);
   try {
     unlinkSync(stagingFile);
   } catch {}
 
+  // Journal committed — remove it
+  commitAcceptanceJournal(root, transactionId);
+
+  // ── Post-acceptance hooks (advisory only — cannot block) ──────────────
+  let hookResults = null;
+  if (hooksConfig.after_acceptance && hooksConfig.after_acceptance.length > 0) {
+    const hookPayload = {
+      turn_id: currentTurn.turn_id,
+      role_id: currentTurn.assigned_role,
+      history_entry_index: acceptedSequence - 1,
+      accepted_integration_ref: derivedRef,
+      decisions_count: (turnResult.decisions || []).length,
+      objections_count: (turnResult.objections || []).length,
+      run_status: updatedState.status,
+      phase: updatedState.phase,
+    };
+    hookResults = runHooks(root, hooksConfig, 'after_acceptance', hookPayload, {
+      run_id: state.run_id,
+      turn_id: currentTurn.turn_id,
+    });
+
+    if (!hookResults.ok) {
+      const hookName = hookResults.results?.find((entry) => entry.hook_name)?.hook_name || 'unknown';
+      const detail = hookResults.tamper?.message || `after_acceptance hook "${hookName}" failed after commit`;
+      const blockedState = blockRunForHookIssue(root, updatedState, {
+        phase: 'after_acceptance',
+        turnId: currentTurn.turn_id,
+        hookName,
+        detail,
+        errorCode: hookResults.tamper?.error_code || 'hook_post_commit_error',
+        turnRetained: Object.keys(getActiveTurns(updatedState)).length > 0,
+      });
+      return {
+        ok: false,
+        error: `Turn accepted, but post-commit hook handling failed: ${detail}`,
+        error_code: hookResults.tamper?.error_code || 'hook_post_commit_error',
+        state: blockedState,
+        validation,
+        accepted: historyEntry,
+        gateResult,
+        completionResult,
+        hookResults,
+      };
+    }
+  }
+
   return {
     ok: true,
-    state: updatedState,
+    state: attachLegacyCurrentTurnAlias(updatedState),
     validation,
     accepted: historyEntry,
     gateResult,
     completionResult,
+    hookResults,
   };
 }
 
@@ -429,27 +1741,43 @@ export function acceptGovernedTurn(root, config) {
  * @param {string} [reason] - human-readable rejection reason
  * @returns {{ ok: boolean, error?: string, state?: object, escalated?: boolean }}
  */
-export function rejectGovernedTurn(root, config, validationResult, reason) {
+export function rejectGovernedTurn(root, config, validationResult, reasonOrOptions, opts = {}) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
   }
-  if (!state.current_turn) {
-    return { ok: false, error: 'No active turn to reject' };
+  const normalizedOpts = typeof reasonOrOptions === 'object' && reasonOrOptions !== null && !Array.isArray(reasonOrOptions)
+    ? reasonOrOptions
+    : { ...opts, reason: reasonOrOptions };
+  const targetResolution = resolveTurnTarget(state, normalizedOpts.turnId);
+  if (!targetResolution.ok) {
+    return targetResolution.error_code === 'target_required'
+      ? {
+          ok: false,
+          error: 'Multiple active turns are present. Re-run reject-turn with --turn <turn_id>.',
+          error_code: 'target_required',
+        }
+      : targetResolution;
   }
+  const currentTurn = targetResolution.turn;
 
   const maxRetries = config.rules?.max_turn_retries ?? 2;
-  const currentAttempt = state.current_turn.attempt || 1;
+  const currentAttempt = currentTurn.attempt || 1;
   const canRetry = currentAttempt < maxRetries;
+  const conflictContext = buildConflictContext(currentTurn);
+  const isConflictReject = Boolean(conflictContext);
 
   // Preserve rejected artifact
   const rejectedDir = join(root, '.agentxchain', 'dispatch', 'rejected');
   mkdirSync(rejectedDir, { recursive: true });
 
-  const stagingFile = join(root, STAGING_PATH);
+  // Resolve staging path: prefer turn-scoped, fall back to flat
+  const turnStagingRej = getTurnStagingResultPath(currentTurn.turn_id);
+  const resolvedStagingRej = existsSync(join(root, turnStagingRej)) ? turnStagingRej : STAGING_PATH;
+  const stagingFile = join(root, resolvedStagingRej);
   if (existsSync(stagingFile)) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const rejectedFile = join(rejectedDir, `${state.current_turn.turn_id}-attempt-${currentAttempt}-${timestamp}.json`);
+    const rejectedFile = join(rejectedDir, `${currentTurn.turn_id}-attempt-${currentAttempt}-${timestamp}.json`);
     try {
       const content = readFileSync(stagingFile, 'utf8');
       writeFileSync(rejectedFile, content);
@@ -459,43 +1787,109 @@ export function rejectGovernedTurn(root, config, validationResult, reason) {
 
   // Write rejection context for the next retry
   const rejectionContext = {
-    turn_id: state.current_turn.turn_id,
+    turn_id: currentTurn.turn_id,
     attempt: currentAttempt,
     rejected_at: new Date().toISOString(),
-    reason: reason || 'Validation failed',
+    reason: normalizedOpts.reason || (isConflictReject ? 'file_conflict' : 'Validation failed'),
     validation_errors: validationResult?.errors || [],
-    failed_stage: validationResult?.failed_stage || validationResult?.stage || 'unknown'
+    failed_stage: validationResult?.failed_stage || validationResult?.stage || (isConflictReject ? 'conflict' : 'unknown'),
   };
 
+  if (conflictContext) {
+    rejectionContext.conflict_context = conflictContext;
+  }
+
+  if (isConflictReject) {
+    appendJsonl(root, LEDGER_PATH, {
+      timestamp: rejectionContext.rejected_at,
+      decision: 'conflict_rejected',
+      turn_id: currentTurn.turn_id,
+      attempt: currentAttempt,
+      role: currentTurn.assigned_role,
+      phase: state.phase,
+      conflict: {
+        conflicting_files: currentTurn.conflict_state.conflict_error?.conflicting_files || [],
+        accepted_since_turn_ids: (currentTurn.conflict_state.conflict_error?.accepted_since || []).map((entry) => entry.turn_id),
+        overlap_ratio: currentTurn.conflict_state.conflict_error?.overlap_ratio ?? 0,
+      },
+      resolution_chosen: 'reject_and_reassign',
+      operator_reason: normalizedOpts.reason || null,
+    });
+  }
+
   if (canRetry) {
+    const retryTurn = {
+      ...currentTurn,
+      attempt: currentAttempt + 1,
+      status: 'retrying',
+      last_rejection: rejectionContext,
+      conflict_state: null,
+      conflict_context: conflictContext,
+    };
+
+    if (isConflictReject) {
+      const retryStartedAt = new Date().toISOString();
+      retryTurn.baseline = captureBaseline(root);
+      retryTurn.assigned_sequence = Math.max(
+        state.turn_sequence || 0,
+        currentTurn.assigned_sequence || 0,
+      );
+      retryTurn.started_at = retryStartedAt;
+      retryTurn.deadline_at = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+      retryTurn.concurrent_with = Object.keys(getActiveTurns(state)).filter((turnId) => turnId !== currentTurn.turn_id);
+    }
+
     // Increment attempt and keep the turn assigned
     const updatedState = {
       ...state,
-      current_turn: {
-        ...state.current_turn,
-        attempt: currentAttempt + 1,
-        status: 'retrying',
-        last_rejection: rejectionContext
-      }
+      queued_phase_transition:
+        isConflictReject && state.queued_phase_transition?.requested_by_turn === currentTurn.turn_id
+          ? null
+          : state.queued_phase_transition,
+      active_turns: {
+        ...getActiveTurns(state),
+        [currentTurn.turn_id]: retryTurn,
+      },
     };
 
     writeState(root, updatedState);
-    return { ok: true, state: updatedState, escalated: false };
+    return {
+      ok: true,
+      state: attachLegacyCurrentTurnAlias(updatedState),
+      escalated: false,
+      turn: updatedState.active_turns[currentTurn.turn_id],
+    };
   }
 
   // Retries exhausted — escalate
   const updatedState = {
     ...state,
-    status: 'paused',
-    current_turn: {
-      ...state.current_turn,
-      status: 'failed',
-      last_rejection: rejectionContext
+    status: 'blocked',
+    active_turns: {
+      ...getActiveTurns(state),
+      [currentTurn.turn_id]: {
+        ...currentTurn,
+        status: 'failed',
+        last_rejection: rejectionContext,
+        conflict_state: null,
+        conflict_context: conflictContext,
+      },
     },
-    blocked_on: `escalation:retries-exhausted:${state.current_turn.assigned_role}`,
+    blocked_on: `escalation:retries-exhausted:${currentTurn.assigned_role}`,
+    blocked_reason: buildBlockedReason({
+      category: 'retries_exhausted',
+      recovery: {
+        typed_reason: 'retries_exhausted',
+        owner: 'human',
+        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        turn_retained: true,
+        detail: `escalation:retries-exhausted:${currentTurn.assigned_role}`,
+      },
+      turnId: currentTurn.turn_id,
+    }),
     escalation: {
-      from_role: state.current_turn.assigned_role,
-      from_turn_id: state.current_turn.turn_id,
+      from_role: currentTurn.assigned_role,
+      from_turn_id: currentTurn.turn_id,
       reason: `Turn rejected ${currentAttempt} times. Retries exhausted.`,
       validation_errors: validationResult?.errors || [],
       escalated_at: new Date().toISOString()
@@ -503,7 +1897,27 @@ export function rejectGovernedTurn(root, config, validationResult, reason) {
   };
 
   writeState(root, updatedState);
-  return { ok: true, state: updatedState, escalated: true };
+
+  // Fire on_escalation hooks (advisory-only) after blocked state is persisted.
+  const hooksConfig = config?.hooks || {};
+  if (hooksConfig.on_escalation?.length > 0) {
+    _fireOnEscalationHooks(root, hooksConfig, {
+      blocked_reason: 'retries_exhausted',
+      recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+      failed_turn_id: currentTurn.turn_id,
+      failed_role: currentTurn.assigned_role,
+      attempt_count: currentAttempt,
+      last_error: validationResult?.errors?.[0] || 'retries_exhausted',
+      run_id: updatedState.run_id,
+    });
+  }
+
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(updatedState),
+    escalated: true,
+    turn: updatedState.active_turns[currentTurn.turn_id],
+  };
 }
 
 /**
@@ -513,10 +1927,14 @@ export function rejectGovernedTurn(root, config, validationResult, reason) {
  * the run pauses with a pending_phase_transition. This function
  * advances the phase after explicit human approval.
  *
+ * Runs `before_gate` hooks when config is provided. A blocking hook
+ * or tamper detection aborts the approval and blocks the run.
+ *
  * @param {string} root - project root directory
- * @returns {{ ok: boolean, error?: string, state?: object, transition?: object }}
+ * @param {object} [config] - normalized config (optional; required for hook support)
+ * @returns {{ ok: boolean, error?: string, error_code?: string, state?: object, transition?: object, hookResults?: object }}
  */
-export function approvePhaseTransition(root) {
+export function approvePhaseTransition(root, config) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -524,16 +1942,58 @@ export function approvePhaseTransition(root) {
   if (!state.pending_phase_transition) {
     return { ok: false, error: 'No pending phase transition to approve' };
   }
-  if (state.status !== 'paused') {
-    return { ok: false, error: `Cannot approve transition: status is "${state.status}", expected "paused"` };
+  if (!canApprovePendingGate(state)) {
+    return { ok: false, error: `Cannot approve transition: status is "${state.status}", expected "paused" or "blocked"` };
   }
 
   const transition = state.pending_phase_transition;
+
+  // ── before_gate hooks ──────────────────────────────────────────────
+  const hooksConfig = config?.hooks || {};
+  if (hooksConfig.before_gate && hooksConfig.before_gate.length > 0) {
+    const historyLength = readJsonlEntries(root, HISTORY_PATH).length;
+    const gatePayload = {
+      gate_type: 'phase_transition',
+      current_phase: transition.from,
+      target_phase: transition.to,
+      gate_config: transition,
+      history_length: historyLength,
+    };
+    const gateHooks = runHooks(root, hooksConfig, 'before_gate', gatePayload, {
+      run_id: state.run_id,
+    });
+
+    if (!gateHooks.ok) {
+      const hookName = gateHooks.blocker?.hook_name
+        || gateHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = gateHooks.blocker?.message
+        || gateHooks.tamper?.message
+        || `before_gate hook "${hookName}" blocked phase transition`;
+      const blockedState = blockRunForHookIssue(root, state, {
+        phase: 'before_gate',
+        turnId: transition.requested_by_turn || null,
+        hookName,
+        detail,
+        errorCode: gateHooks.tamper?.error_code || 'hook_blocked',
+        turnRetained: false,
+      });
+      return {
+        ok: false,
+        error: detail,
+        error_code: gateHooks.tamper?.error_code || 'hook_blocked',
+        state: blockedState,
+        hookResults: gateHooks,
+      };
+    }
+  }
+
   const updatedState = {
     ...state,
     phase: transition.to,
     status: 'active',
     blocked_on: null,
+    blocked_reason: null,
     pending_phase_transition: null,
     phase_gate_status: {
       ...(state.phase_gate_status || {}),
@@ -545,7 +2005,7 @@ export function approvePhaseTransition(root) {
 
   return {
     ok: true,
-    state: updatedState,
+    state: attachLegacyCurrentTurnAlias(updatedState),
     transition,
   };
 }
@@ -557,10 +2017,14 @@ export function approvePhaseTransition(root) {
  * the run pauses with a pending_run_completion. This function marks the run
  * as completed after explicit human approval.
  *
+ * Runs `before_gate` hooks when config is provided. A blocking hook
+ * or tamper detection aborts the approval and blocks the run.
+ *
  * @param {string} root - project root directory
- * @returns {{ ok: boolean, error?: string, state?: object, completion?: object }}
+ * @param {object} [config] - normalized config (optional; required for hook support)
+ * @returns {{ ok: boolean, error?: string, error_code?: string, state?: object, completion?: object, hookResults?: object }}
  */
-export function approveRunCompletion(root) {
+export function approveRunCompletion(root, config) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -568,16 +2032,58 @@ export function approveRunCompletion(root) {
   if (!state.pending_run_completion) {
     return { ok: false, error: 'No pending run completion to approve' };
   }
-  if (state.status !== 'paused') {
-    return { ok: false, error: `Cannot approve completion: status is "${state.status}", expected "paused"` };
+  if (!canApprovePendingGate(state)) {
+    return { ok: false, error: `Cannot approve completion: status is "${state.status}", expected "paused" or "blocked"` };
   }
 
   const completion = state.pending_run_completion;
+
+  // ── before_gate hooks ──────────────────────────────────────────────
+  const hooksConfig = config?.hooks || {};
+  if (hooksConfig.before_gate && hooksConfig.before_gate.length > 0) {
+    const historyLength = readJsonlEntries(root, HISTORY_PATH).length;
+    const gatePayload = {
+      gate_type: 'run_completion',
+      current_phase: state.phase,
+      target_phase: null,
+      gate_config: completion,
+      history_length: historyLength,
+    };
+    const gateHooks = runHooks(root, hooksConfig, 'before_gate', gatePayload, {
+      run_id: state.run_id,
+    });
+
+    if (!gateHooks.ok) {
+      const hookName = gateHooks.blocker?.hook_name
+        || gateHooks.results?.find((entry) => entry.hook_name)?.hook_name
+        || 'unknown';
+      const detail = gateHooks.blocker?.message
+        || gateHooks.tamper?.message
+        || `before_gate hook "${hookName}" blocked run completion`;
+      const blockedState = blockRunForHookIssue(root, state, {
+        phase: 'before_gate',
+        turnId: completion.requested_by_turn || null,
+        hookName,
+        detail,
+        errorCode: gateHooks.tamper?.error_code || 'hook_blocked',
+        turnRetained: false,
+      });
+      return {
+        ok: false,
+        error: detail,
+        error_code: gateHooks.tamper?.error_code || 'hook_blocked',
+        state: blockedState,
+        hookResults: gateHooks,
+      };
+    }
+  }
+
   const updatedState = {
     ...state,
     status: 'completed',
     completed_at: new Date().toISOString(),
     blocked_on: null,
+    blocked_reason: null,
     pending_run_completion: null,
     phase_gate_status: {
       ...(state.phase_gate_status || {}),
@@ -589,7 +2095,7 @@ export function approveRunCompletion(root) {
 
   return {
     ok: true,
-    state: updatedState,
+    state: attachLegacyCurrentTurnAlias(updatedState),
     completion,
   };
 }

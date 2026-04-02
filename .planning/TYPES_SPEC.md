@@ -116,7 +116,7 @@ Only `governed-state.js` writes to `state.json`. Adapters, agents, and CLI comma
 
 ## 2. `turn-result.json` — Staged Turn Result
 
-**Path:** `.agentxchain/staging/turn-result.json`
+**Path:** `.agentxchain/staging/<turn_id>/turn-result.json`
 **Writer:** Agent (via adapter or manual)
 **Reader:** `turn-result-validator.js`, `acceptGovernedTurn()`
 **JSON Schema:** `cli/src/lib/schemas/turn-result.schema.json` (draft 2020-12)
@@ -328,7 +328,7 @@ interface LedgerEntry {
 
 ## 5. `ASSIGNMENT.json` — Dispatch Bundle Envelope
 
-**Path:** `.agentxchain/dispatch/current/ASSIGNMENT.json`
+**Path:** `.agentxchain/dispatch/turns/<turn_id>/ASSIGNMENT.json`
 **Writer:** `writeDispatchBundle()` in `dispatch-bundle.js`
 **Reader:** Adapter, agent
 
@@ -341,7 +341,7 @@ interface Assignment {
   runtime_id: string;
   write_authority: "authoritative" | "proposed" | "review_only";
   accepted_integration_ref: string | null;
-  staging_result_path: string;                // Always ".agentxchain/staging/turn-result.json".
+  staging_result_path: string;                // Always ".agentxchain/staging/<turn_id>/turn-result.json".
   reserved_paths: string[];                   // Always the 4 orchestrator-owned paths.
   allowed_next_roles: string[];               // From config.routing[phase].allowed_next_roles.
   attempt: number;
@@ -451,7 +451,7 @@ interface RunCompletionResult {
 
 **Path:** `.agentxchain/lock.json`
 **Writer:** Legacy (non-governed) protocol path only
-**Status:** Reserved path. Listed in `ASSIGNMENT.json.reserved_paths`. Not used in governed v4 mode.
+**Status:** Reserved path. Listed in `ASSIGNMENT.json.reserved_paths`. Not used in governed mode.
 
 ```typescript
 interface LockFile {

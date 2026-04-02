@@ -1,0 +1,266 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
+
+function writeJson(path, value) {
+  writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+}
+
+function writeGovernedRepo(root, projectId) {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, '.agentxchain', 'prompts'), { recursive: true });
+  mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+  // Write an idle state so coordinator can initialize a run
+  writeJson(join(root, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    status: 'idle',
+    run_id: null,
+    phase: null,
+    active_turns: {},
+    retained_turns: {},
+    protocol_mode: 'governed',
+  });
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: projectId, name: projectId, default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+      qa: {
+        title: 'QA',
+        mandate: 'Challenge.',
+        write_authority: 'review_only',
+        runtime: 'manual-qa',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+      'manual-qa': { type: 'manual' },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['qa', 'human'],
+      },
+    },
+    gates: {},
+  });
+}
+
+function buildCoordinatorConfig(repoPaths) {
+  return {
+    schema_version: '0.1',
+    project: {
+      id: 'test-multi',
+      name: 'Test Multi Repo',
+    },
+    repos: {
+      web: { path: repoPaths.web, default_branch: 'main', required: true },
+      api: { path: repoPaths.api, default_branch: 'main', required: true },
+    },
+    workstreams: {
+      auth_rollout: {
+        phase: 'implementation',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'auth_rollout' },
+    },
+    gates: {
+      initiative_ship: {
+        requires_human_approval: true,
+        requires_repos: ['web', 'api'],
+      },
+    },
+  };
+}
+
+function runCli(cwd, args) {
+  return spawnSync(process.execPath, [CLI_BIN, ...args], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 15000,
+    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+  });
+}
+
+function makeMultiWorkspace() {
+  const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+  const webRepo = join(workspace, 'repos', 'web');
+  const apiRepo = join(workspace, 'repos', 'api');
+  writeGovernedRepo(webRepo, 'web');
+  writeGovernedRepo(apiRepo, 'api');
+  writeJson(
+    join(workspace, 'agentxchain-multi.json'),
+    buildCoordinatorConfig({ web: './repos/web', api: './repos/api' }),
+  );
+  return { workspace, webRepo, apiRepo };
+}
+
+describe('multi init CLI', () => {
+  it('AT-CLI-MR-001: multi init bootstraps a coordinator run', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const result = runCli(workspace, ['multi', 'init']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.ok(result.stdout.includes('Coordinator run initialized'), result.stdout);
+
+      // Verify state files exist
+      assert.ok(existsSync(join(workspace, '.agentxchain/multirepo/state.json')));
+      assert.ok(existsSync(join(workspace, '.agentxchain/multirepo/history.jsonl')));
+      assert.ok(existsSync(join(workspace, '.agentxchain/multirepo/barriers.json')));
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-002: multi init --json returns structured output', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const result = runCli(workspace, ['multi', 'init', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.ok(parsed.super_run_id);
+      assert.ok(parsed.repo_runs.web);
+      assert.ok(parsed.repo_runs.api);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-003: multi init fails without agentxchain-multi.json', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+    try {
+      const result = runCli(workspace, ['multi', 'init']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('config') || result.stderr.includes('error'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('multi status CLI', () => {
+  it('AT-CLI-MR-004: multi status shows coordinator state after init', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.ok(result.stdout.includes('Super Run:'), result.stdout);
+      assert.ok(result.stdout.includes('web:'), result.stdout);
+      assert.ok(result.stdout.includes('api:'), result.stdout);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-005: multi status --json returns full snapshot', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'status', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.ok(parsed.super_run_id);
+      assert.ok(parsed.repo_runs);
+      assert.ok(parsed.barriers);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-006: multi status fails without init', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+    try {
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('No coordinator state'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('multi resync CLI', () => {
+  it('AT-CLI-MR-007: multi resync --dry-run reports no divergence', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'resync', '--dry-run']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      // No divergence right after init
+      assert.ok(
+        result.stdout.includes('No divergence') || result.stdout.includes('"diverged": false'),
+        result.stdout,
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-008: multi resync --json --dry-run returns structured output', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'resync', '--json', '--dry-run']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.diverged, false);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('multi approve-gate CLI', () => {
+  it('AT-CLI-MR-009: multi approve-gate fails with no pending gate', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'approve-gate']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('No pending gate'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('multi help surface', () => {
+  it('AT-CLI-MR-010: multi --help lists subcommands', () => {
+    const result = runCli(process.cwd(), ['multi', '--help']);
+    assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+    assert.ok(result.stdout.includes('init'), result.stdout);
+    assert.ok(result.stdout.includes('status'), result.stdout);
+    assert.ok(result.stdout.includes('step'), result.stdout);
+    assert.ok(result.stdout.includes('approve-gate'), result.stdout);
+    assert.ok(result.stdout.includes('resync'), result.stdout);
+  });
+
+  it('AT-CLI-MR-011: top-level --help shows multi command', () => {
+    const result = runCli(process.cwd(), ['--help']);
+    assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+    assert.ok(result.stdout.includes('multi'), result.stdout);
+  });
+});

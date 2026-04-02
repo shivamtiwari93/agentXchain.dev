@@ -1,0 +1,31 @@
+{
+  "id": "api-service",
+  "display_name": "API Service",
+  "description": "Governed scaffold for backend services with explicit API, operational, and failure-budget planning.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [
+    {
+      "filename": "api-contract.md",
+      "content_template": "# API Contract — {{project_name}}\n\n## Consumers\n- Primary caller:\n- Authentication expectations:\n- Backward-compatibility policy:\n\n## Endpoints\n| Method | Path | Purpose | Auth | Status |\n|--------|------|---------|------|--------|\n| | | | | |\n\n## Error Cases\n| Scenario | HTTP Status | Error Shape | Recovery |\n|----------|-------------|-------------|----------|\n| | | | |\n"
+    },
+    {
+      "filename": "operational-readiness.md",
+      "content_template": "# Operational Readiness — {{project_name}}\n\n## Runtime Dependencies\n- Data stores:\n- Queues / cron jobs:\n- External APIs:\n\n## Observability\n- Required logs:\n- Metrics / alerts:\n- Smoke checks:\n\n## Recovery\n- Rollback plan:\n- On-call notes:\n- Known operational risks:\n"
+    },
+    {
+      "filename": "error-budget.md",
+      "content_template": "# Error Budget — {{project_name}}\n\n## Service Objective\n- Target availability / reliability:\n- Measurement window:\n\n## Failure Modes\n| Failure mode | User impact | Detection | Mitigation |\n|--------------|-------------|-----------|------------|\n| | | | |\n\n## Escalation Thresholds\n- Immediate ship blocker:\n- Needs mitigation before release:\n- Post-release follow-up allowed when:\n"
+    }
+  ],
+  "prompt_overrides": {
+    "pm": "Define the external contract, compatibility expectations, and operational constraints before the team treats the API as ready for implementation.",
+    "dev": "Treat schema changes, API contract drift, and migration safety as first-class implementation risks. Call out any hidden operational coupling.",
+    "qa": "Verify API contract conformance, error handling, auth failures, and rollback safety. Do not sign off without explicit coverage of unhappy paths."
+  },
+  "acceptance_hints": [
+    "API contract reviewed and endpoints listed",
+    "Error cases enumerated with recovery expectations",
+    "Verification command covers automated tests or smoke checks"
+  ]
+}

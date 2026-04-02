@@ -1,4 +1,4 @@
-# Governed Todo App — AgentXchain v4 Example
+# Governed Todo App — AgentXchain Example
 
 A minimal governed project demonstrating the full PM → Dev → QA lifecycle.
 
@@ -33,7 +33,9 @@ agentxchain step
 # 4. Complete the PM turn manually:
 #    - Edit .planning/ROADMAP.md with scope and acceptance criteria
 #    - Edit .planning/PM_SIGNOFF.md with sign-off
-#    - Fill in .agentxchain/staging/turn-result.json
+#    - Use the turn ID/path printed by `step`
+#    - Fill in .agentxchain/staging/<turn_id>/turn-result.json
+#    - Optional preflight: agentxchain validate --mode turn
 #    - Run: agentxchain accept-turn
 
 # 5. Approve phase transition to implementation
@@ -62,7 +64,7 @@ agentxchain approve-completion
 
 ```
 governed-todo-app/
-├── agentxchain.json          # v4 governed config
+├── agentxchain.json          # Governed config
 ├── TALK.md                   # Human-readable collaboration log
 ├── .agentxchain/
 │   ├── state.json            # Orchestrator-owned run state

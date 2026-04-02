@@ -3,16 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AgentXchain.dev — Open-source multi-agent coordination framework</title>
-  <meta name="description" content="AgentXchain helps teams ship better products with AI by enforcing PM-first discovery, engineering debate, QA evidence, and human checkpoints." />
+  <title>AgentXchain.dev — Governed multi-agent software delivery</title>
+  <meta name="description" content="Agents are required to challenge each other. Structured turns, mandatory objections, phase gates, and human authority — governance infrastructure for AI software teams." />
   <link rel="icon" type="image/png" href="assets/logos/agentXchain.dev_icon_only_280x280px.png" />
   <link rel="canonical" href="https://agentxchain.dev/" />
-  <meta property="og:title" content="AgentXchain.dev — Software teams, not single agents" />
-  <meta property="og:description" content="Build products, not demos. PM-first discovery, divergent agents, QA rigor, and human checkpoints in one workflow." />
+  <meta property="og:title" content="AgentXchain — Governed multi-agent software delivery" />
+  <meta property="og:description" content="AI agents required to challenge each other. Structured turns, mandatory objections, audit trail, and human authority at every phase gate." />
   <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain — Governed multi-agent software delivery" />
+  <meta name="twitter:description" content="AI agents required to challenge each other. Structured turns, mandatory objections, audit trail, and human authority at every phase gate." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
   <style>
     :root {
       --blue: #2B7CB6; --blue-light: #3A9AD9; --green: #6BB536; --green-light: #7ECF45;
@@ -202,9 +206,10 @@
   <nav><div class="container">
     <a href="/"><img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
     <div class="nav-links">
-      <a href="#philosophy">Philosophy</a>
+      <a href="/docs/quickstart.html">Docs</a>
+      <a href="/why.html">Why</a>
       <a href="#outcomes">Outcomes</a>
-      <a href="#vs">vs MCP &amp; A2A</a>
+      <a href="#vs">Positioning</a>
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm &#8599;</a>
     </div>
   </div></nav>
@@ -212,25 +217,26 @@
   <!-- HERO: The idea, not the CLI -->
   <section class="hero"><div class="container">
     <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
-    <div class="badge">Open source &middot; Coordination, not orchestration</div>
-    <h1>From <span class="ab">AI output</span> to <span class="ag">real product outcomes</span></h1>
-    <p class="sub">AgentXchain turns AI coding into a product workflow: PM-first discovery, explicit scope signoff, engineering challenge, QA evidence, and ship/no-ship decisions.</p>
+    <div class="badge">Open source &middot; MIT &middot; v1.0</div>
+    <h1><span class="ag">Governed</span> multi-agent <span class="ab">software delivery</span></h1>
+    <p class="sub">Agents are required to challenge each other. Structured turns, phase gates, and human authority at the moments that matter. Constitutional governance for AI software teams.</p>
     <div class="cta-row">
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npx agentxchain init</a>
-      <a href="#philosophy" class="btn-s">Why this matters &darr;</a>
+      <a href="/docs/quickstart.html" class="btn-s">Docs quickstart &rarr;</a>
     </div>
     <div class="terminal">
-      <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>your workspace</span></div>
+      <div class="t-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>governed workflow</span></div>
       <div class="t-code">
-        <span class="cm"># Build the right product first, then build it right.</span><br/>
-        <span class="cm"># PM alignment -> gated handoff -> verified execution.</span><br/>
+        <span class="cm"># PM plans → Dev builds → QA reviews → Human ships</span><br/>
         <br/>
-        <span class="p">$</span> <span class="c">npx agentxchain init</span><br/>
-        <span class="o">  ✓ Created &lt;your-folder&gt;/ (N agents from template)</span><br/>
-        <span class="p">$</span> <span class="c">agentxchain kickoff</span><br/>
-        <span class="o">  ✓ PM-first kickoff launched.</span><br/>
-        <span class="o">  → Fill PM_SIGNOFF.md, ROADMAP.md, and TALK.md handoff.</span><br/>
-        <span class="o">  → Run validate, launch remaining agents, then release.</span>
+        <span class="p">$</span> <span class="c">npx agentxchain init --governed</span><br/>
+        <span class="o">  ✓ Created agentxchain.json (pm → dev → qa)</span><br/>
+        <span class="p">$</span> <span class="c">agentxchain step --role pm</span><br/>
+        <span class="o">  ⧖ Turn assigned to pm (manual)</span><br/>
+        <span class="p">$</span> <span class="c">agentxchain accept-turn</span><br/>
+        <span class="o">  ✓ Turn accepted. Phase gate: human approval required.</span><br/>
+        <span class="p">$</span> <span class="c">agentxchain approve-transition</span><br/>
+        <span class="o">  ✓ Phase advanced: planning → implementation</span>
       </div>
     </div>
   </div></section>
@@ -238,13 +244,13 @@
   <!-- PHILOSOPHY: The biggest section. This is the soul. -->
   <section class="s-alt" id="philosophy"><div class="container">
     <span class="sl sl-green">Philosophy</span>
-    <h2>Coordination, not orchestration</h2>
-    <p class="ss">Most AI agent systems have one brain that spawns sub-agents. We think that&rsquo;s wrong. Real software isn&rsquo;t built by one mind delegating &mdash; it&rsquo;s built by a team that argues, challenges, and converges.</p>
+    <h2>Mandatory challenge, explicit gates, auditable delivery</h2>
+    <p class="ss">Most multi-agent systems delegate from one brain to sub-agents. AgentXchain inverts this: each agent has its own mandate and is <em>required</em> to challenge the others. The orchestrator enforces turn-taking, validates results, and gates phase transitions &mdash; it doesn&rsquo;t make the decisions.</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
-        <h3>No central decision-maker</h3>
-        <p>No orchestrator agent deciding what everyone does. Each agent has its own mandate, its own perspective, its own judgment. They coordinate through shared state, not a boss.</p>
+        <h3>Mandatory challenge</h3>
+        <p>Every turn must identify at least one risk or objection about the previous agent&rsquo;s work. Blind agreement is a protocol violation. This is adversarial robustness applied to software delivery.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
@@ -261,44 +267,44 @@
     <div style="margin-top:3rem; max-width:640px; border-left:3px solid var(--green); padding-left:1.5rem;">
       <h3 style="font-size:1.15rem; margin-bottom:0.75rem; color:var(--green-light);">How real teams work, applied to AI</h3>
       <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75; margin-bottom:1rem;">In a real software company, the PM doesn&rsquo;t write code. The dev doesn&rsquo;t decide what to build. QA doesn&rsquo;t trust anyone else&rsquo;s test results. And there&rsquo;s always a moment where someone says &ldquo;this isn&rsquo;t good enough&rdquo; and sends it back.</p>
-      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75; margin-bottom:1rem;">That&rsquo;s what AgentXchain recreates. Not the org chart. Not the meetings. The <strong style="color:var(--text);">distributed decision-making</strong> &mdash; where no single agent has the full picture, but the team collectively does.</p>
-      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75;">Prompts and protocol text <strong style="color:var(--text);">require</strong> agents to challenge prior work. The CLI enforces locks, handoffs, and artifact checks; model behavior still depends on following those rules.</p>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75; margin-bottom:1rem;">That&rsquo;s what AgentXchain recreates. Not the org chart. Not the meetings. The <strong style="color:var(--text);">structured disagreement</strong> that forces one agent&rsquo;s blind spot into another agent&rsquo;s review surface.</p>
+      <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.75;">Prompts and protocol text <strong style="color:var(--text);">require</strong> agents to challenge prior work. The CLI enforces turn routing, handoffs, and artifact checks; model behavior still depends on following those rules.</p>
     </div>
   </div></section>
 
   <!-- HOW IT WORKS: Brief, after philosophy -->
   <section id="how"><div class="container">
     <span class="sl sl-blue">How it works</span>
-    <h2>PM-first by default. Execution only after signoff.</h2>
-    <p class="ss">The workflow is optimized for product quality, not raw speed.</p>
+    <h2>Structured turns. Mandatory challenge. Human authority.</h2>
+    <p class="ss">The workflow is optimized for convergence quality, not generation speed.</p>
     <div class="grid-4">
-      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Align</h3><p>Run <code>agentxchain kickoff</code>. PM interviews you, clarifies scope, and writes explicit acceptance criteria.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Gate</h3><p>Kickoff must pass validation: PM signoff, waves/phases, planning docs, and QA structure all in place.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Execute</h3><p>Remaining agents run with explicit turns, human checkpoints, and evidence-driven QA.</p></div>
-      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Decide</h3><p>Ship when quality gates pass. Block and route to human when validation fails.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(56,189,248,0.12);color:#38BDF8;">1</div><h3>Init</h3><p>Run <code>agentxchain init --governed</code>. Define roles, phases, adapters, and gates in <code>agentxchain.json</code>.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(43,124,182,0.12);color:var(--blue-light);">2</div><h3>Step</h3><p><code>agentxchain step</code> assigns a turn. The agent works within its mandate and produces a structured turn result.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(107,181,54,0.12);color:var(--green-light);">3</div><h3>Gate</h3><p>Orchestrator validates artifacts, enforces challenge requirements, and checks phase gates. Human approves transitions.</p></div>
+      <div class="card step"><div class="step-num" style="background:rgba(232,117,42,0.12);color:var(--orange);">4</div><h3>Ship</h3><p>QA requests completion. Human makes the final ship/no-ship decision. Every turn is in the audit trail.</p></div>
     </div>
   </div></section>
 
   <!-- QA SYSTEM: The quality story -->
   <section class="s-alt" id="qa"><div class="container">
     <span class="sl sl-orange">Quality</span>
-    <h2>QA that actually catches things</h2>
-    <p class="ss">Structured QA artifacts and agent mandates (not an automated test runner). Teams configure checks; agents are prompted to produce evidence, acceptance matrices, and explicit ship readiness in docs.</p>
+    <h2>Protocol checks that keep review honest</h2>
+    <p class="ss">AgentXchain does not pretend a review model equals a test runner. It enforces review boundaries, challenge requirements, and evidence-backed acceptance before the run can advance.</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
-        <h3>Structured bug reports</h3>
-        <p>Every bug: ID, severity (P0&ndash;P3), exact repro steps, expected vs actual, file and line. No vague &ldquo;something seems off.&rdquo;</p>
+        <h3>Mandatory objections</h3>
+        <p>Review turns must raise at least one objection. Blind approval is a protocol violation, so QA cannot rubber-stamp the previous turn and call it done.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-        <h3>Comprehensive UX audit</h3>
-        <p>First impressions, core flow, forms, responsive at 375/768/1440px, WCAG accessibility, error states, visual consistency.</p>
+        <h3>Evidence, not vibes</h3>
+        <p>Verification claims are recorded as structured machine evidence. The orchestrator checks files, gate artifacts, and turn-result compliance before acceptance.</p>
       </div>
       <div class="card">
         <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-        <h3>Ship readiness in the record</h3>
-        <p>QA role is prompted to state YES / YES WITH CONDITIONS / NO + blockers in team docs each turn. Outcomes depend on agents following the protocol.</p>
+        <h3>Review-only boundaries</h3>
+        <p>QA and leadership roles can challenge, document, and escalate, but they cannot silently edit product code. Write authority is part of the contract.</p>
       </div>
     </div>
   </div></section>
@@ -306,30 +312,46 @@
   <!-- SCAFFOLDING: Brief mention -->
   <section id="scaffold"><div class="container">
     <span class="sl sl-blue">Project structure</span>
-    <h2>Agents maintain their own documentation</h2>
-    <p class="ss">Every project gets a <code>.planning/</code> folder with structured docs. PM writes requirements. QA maintains test coverage. Eng Director writes reviews. All machine-readable, all git-tracked.</p>
+    <h2>The governed scaffold is the working surface</h2>
+    <p class="ss">A governed project starts with real protocol artifacts: orchestrator state, append-only history, turn-scoped dispatch bundles, staged results, and planning documents the phase gates actually inspect.</p>
     <div class="grid-3">
-      <div class="card"><h3>PROJECT.md + REQUIREMENTS.md</h3><p>Vision, constraints, numbered requirements with acceptance criteria. Created by the PM on turn 1.</p></div>
-      <div class="card"><h3>ROADMAP.md + phases/</h3><p>Phased delivery. Each phase gets plans, reviews, tests, bugs. Agents fill these as work progresses.</p></div>
-      <div class="card"><h3>qa/ folder</h3><p>Test coverage map, acceptance matrix, UX audit checklist, bug log, regression log. QA maintains all of it.</p></div>
+      <div class="card"><h3><code>.agentxchain/state.json</code></h3><p>The orchestrator-owned source of truth for phase, active turns, gate status, and run completion.</p></div>
+      <div class="card"><h3><code>dispatch/</code> + <code>staging/</code></h3><p>Each turn gets a dispatch bundle and a matching staged <code>turn-result.json</code>. This is the handoff contract.</p></div>
+      <div class="card"><h3><code>.planning/</code> gate docs</h3><p><code>PM_SIGNOFF.md</code>, <code>ROADMAP.md</code>, <code>acceptance-matrix.md</code>, and <code>ship-verdict.md</code> are checked by the phase gates.</p></div>
     </div>
   </div></section>
 
-  <!-- COMPARISON: vs MCP & A2A -->
+  <!-- COMPARISON: Protocols -->
   <section class="s-alt" id="vs"><div class="container">
     <span class="sl sl-blue">Positioning</span>
-    <h2>MCP connects tools. A2A connects agents. We coordinate teams.</h2>
-    <p class="ss">Three protocols for three different problems.</p>
+    <h2>MCP connects tools. A2A connects agents. We govern delivery.</h2>
+    <p class="ss">Three protocols for three different problems. They&rsquo;re complementary.</p>
     <p class="ss" style="font-size:0.85rem; margin-top:-1.5rem; margin-bottom:1rem;">Simplified positioning; see each project&rsquo;s spec for full scope.</p>
     <div class="tw"><table class="ct">
       <thead><tr><th></th><th>MCP</th><th>A2A (Google)</th><th>AgentXchain</th></tr></thead>
       <tbody>
-        <tr><td><strong>What it is</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Team in one shared workspace</strong></td></tr>
-        <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, messages</td><td><strong>Divergent agents, shared state, turns</strong></td></tr>
-        <tr><td><strong>Decision-making</strong></td><td>Single agent decides</td><td>Delegation / RPC</td><td><strong>Distributed — no central brain</strong></td></tr>
-        <tr><td><strong>Best for</strong></td><td>Agent runs scripts</td><td>Agent calls another agent</td><td><strong>PM + Dev + QA ship a product</strong></td></tr>
+        <tr><td><strong>Layer</strong></td><td>Agent &#8596; tools &amp; data</td><td>Agent &#8596; agent over network</td><td><strong>Governance over shared work</strong></td></tr>
+        <tr><td><strong>Model</strong></td><td>One agent, many tools</td><td>Many agents, messages</td><td><strong>Adversarial collaboration, turns</strong></td></tr>
+        <tr><td><strong>Authority</strong></td><td>Single agent decides</td><td>Delegation / RPC</td><td><strong>Constitutional human sovereignty</strong></td></tr>
+        <tr><td><strong>Audit trail</strong></td><td>Tool call logs</td><td>Message history</td><td><strong>Structured decisions + objections</strong></td></tr>
+        <tr><td><strong>Best for</strong></td><td>Agent uses tools</td><td>Agent calls another agent</td><td><strong>AI team ships governed software</strong></td></tr>
       </tbody>
     </table></div>
+
+    <!-- COMPARISON: Agent Frameworks -->
+    <h3 style="margin-top:3rem;">vs agent frameworks</h3>
+    <p class="ss">AgentXchain is not a replacement for agent construction or orchestration frameworks. They build agents. We govern how agents converge on a shared codebase. You can use both.</p>
+    <div class="tw"><table class="ct">
+      <thead><tr><th></th><th>CrewAI</th><th>AG2 / AutoGen</th><th>LangGraph</th><th>AgentXchain</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Purpose</strong></td><td>Build &amp; orchestrate agent crews</td><td>Conversation-pattern orchestration</td><td>Graph-based agent state machines</td><td><strong>Governed software delivery</strong></td></tr>
+        <tr><td><strong>Mandatory challenge</strong></td><td>No</td><td>No</td><td>No</td><td><strong>Yes &mdash; protocol-enforced</strong></td></tr>
+        <tr><td><strong>Phase gates</strong></td><td>Optional HITL steps</td><td>No delivery-phase gates</td><td>Human interrupts, no delivery model</td><td><strong>First-class gates with human approval</strong></td></tr>
+        <tr><td><strong>Delivery audit trail</strong></td><td>AMP tracing platform + integrations</td><td>Conversation history + observability</td><td>Persisted state + LangSmith</td><td><strong>Append-only decisions + objections ledger</strong></td></tr>
+        <tr><td><strong>Model-agnostic</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td><strong>Yes</strong></td></tr>
+      </tbody>
+    </table></div>
+    <p class="ss" style="font-size:0.85rem; margin-top:0.5rem;">CrewAI and LangGraph have stronger general orchestration ergonomics and observability today. AgentXchain&rsquo;s wedge is narrower: governed convergence on one codebase with mandatory challenge and explicit ship gates.</p>
   </div></section>
 
   <section id="outcomes"><div class="container">
@@ -337,13 +359,13 @@
     <h2>Why teams adopt AgentXchain</h2>
     <p class="ss">The value is not "more agent activity." The value is better product decisions and fewer expensive misses.</p>
     <div class="cmd-grid">
-      <div class="cmd"><div class="cmd-name">Fewer false starts</div><div class="cmd-desc">PM-first signoff prevents teams from coding before the problem is clear.</div></div>
+      <div class="cmd"><div class="cmd-name">Errors caught earlier</div><div class="cmd-desc">Mandatory challenge surfaces risks before they compound across agent turns.</div></div>
       <div class="cmd"><div class="cmd-name">Higher quality releases</div><div class="cmd-desc">QA evidence and acceptance matrices make release readiness explicit.</div></div>
       <div class="cmd"><div class="cmd-name">Real accountability</div><div class="cmd-desc">Every turn is logged, validated, and attributable to an agent role.</div></div>
-      <div class="cmd"><div class="cmd-name">Human control</div><div class="cmd-desc">Humans can claim/release lock and override at any point.</div></div>
-      <div class="cmd"><div class="cmd-name">Consistent execution</div><div class="cmd-desc">Waves, phases, and planning artifacts stay structured across projects.</div></div>
-      <div class="cmd"><div class="cmd-name">No hidden orchestration</div><div class="cmd-desc">Shared files and protocol state make behavior transparent and debuggable.</div></div>
-      <div class="cmd"><div class="cmd-name">Portable workflow</div><div class="cmd-desc">Cursor, VS Code (Copilot agents), and Claude Code — local coordination, no AgentXchain cloud.</div></div>
+      <div class="cmd"><div class="cmd-name">Human control</div><div class="cmd-desc">The protocol requires human approval for phase transitions and run completion, and humans unblock states agents cannot resolve.</div></div>
+      <div class="cmd"><div class="cmd-name">Structured convergence</div><div class="cmd-desc">Phases, turn limits, and gate approvals force the team toward a shippable result &mdash; no bikeshedding.</div></div>
+      <div class="cmd"><div class="cmd-name">Complete audit trail</div><div class="cmd-desc">Every turn records decisions, objections, risks, and verification evidence in machine-readable format.</div></div>
+      <div class="cmd"><div class="cmd-name">Portable workflow</div><div class="cmd-desc">Manual, local CLI, and API-backed runtimes can all participate under the same protocol contract.</div></div>
       <div class="cmd"><div class="cmd-name">Faster decision loops</div><div class="cmd-desc">Healthy friction surfaces risks early instead of after launch.</div></div>
     </div>
   </div></section>
@@ -364,10 +386,10 @@
   <section class="cta-s"><div class="container">
     <img src="assets/logos/agentXchain.dev_icon_only_280x280px.png" alt="" width="64" height="64" style="margin-bottom:1.25rem;" />
     <h2>Software is a team sport. Even when the team is AI.</h2>
-    <p>One command. Define your agents. Let them argue, build, test, and ship.</p>
+    <p>One protocol. Define your roles, route turns through real gates, and keep a decision trail you can inspect later.</p>
     <div class="cta-row">
       <a href="https://www.npmjs.com/package/agentxchain" class="btn-p">npx agentxchain init</a>
-      <a href="https://github.com/shivamtiwari93/agentXchain.dev" class="btn-s">GitHub &rarr;</a>
+      <a href="/docs/quickstart.html" class="btn-s">Read the docs &rarr;</a>
     </div>
   </div></section>
 
@@ -375,11 +397,11 @@
     <div class="f-top">
       <div class="f-brand">
         <img src="assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" />
-        <p>Distributed decision-making for AI teams. Coordination, not orchestration.</p>
+        <p>Governed multi-agent software delivery. Agents required to challenge each other.</p>
       </div>
       <div class="f-links">
-        <div class="f-col"><h4>Why</h4><a href="#philosophy">Philosophy</a><a href="#outcomes">Outcomes</a><a href="#vs">vs MCP &amp; A2A</a></div>
-        <div class="f-col"><h4>Product</h4><a href="#how">Workflow</a><a href="#qa">QA system</a><a href="#scaffold">Project structure</a></div>
+        <div class="f-col"><h4>Why</h4><a href="/why.html">Why governed delivery</a><a href="#outcomes">Outcomes</a><a href="#vs">Positioning</a></div>
+        <div class="f-col"><h4>Product</h4><a href="/docs/quickstart.html">Quickstart</a><a href="#how">Workflow</a><a href="#scaffold">Project structure</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>

@@ -1,76 +1,91 @@
 # Post-v1 Roadmap — AgentXchain
 
-> Draft priorities for v1.1+ after the governed v1.0.0 release.
+> Draft priorities after the governed `1.0.0` public release.
 
 ---
 
-## Tier 1 — Next Release (v1.1)
+## Purpose
 
-### 1.1 Scenario D: Multi-Turn Escalation Dogfood
-- **What:** Run a full governed lifecycle where an objection escalates through agent → director → human.
-- **Why:** The escalation state machine is implemented and unit-tested but never dogfooded end-to-end.
-- **Acceptance:** A real repo dogfood session where a blocking objection is raised, auto-escalated after 2 unresolved turns, and resolved by human override.
-- **Depends on:** v1.0.0 released, `ANTHROPIC_API_KEY` available.
-
-### 1.2 Auto-Retry with Backoff for `api_proxy`
-- **What:** When `api_proxy` returns a retryable error (rate limit, transient network), automatically retry with exponential backoff before surfacing to the operator.
-- **Why:** Currently all `api_proxy` failures immediately block the run and require `agentxchain step` manual recovery. Rate limits are common and self-resolving.
-- **Spec needed:** Retry policy (max attempts, base delay, jitter), which error categories are retryable, how retries appear in history.
-
-### 1.3 Preemptive Tokenization
-- **What:** Count tokens in the dispatch bundle before sending to `api_proxy`, and truncate or split context if it would exceed the model's context window.
-- **Why:** Context overflow is currently detected post-hoc via API error. Preemptive detection avoids wasted API calls and improves operator-facing recovery before the request leaves the machine.
-- **Spec needed:** Tokenizer selection (tiktoken vs provider SDK), truncation strategy, which context sections are compressible.
+Keep the roadmap honest about what is already implemented versus what is still upcoming. The repo now contains a substantial in-tree v1.1 feature set; the remaining work for that release is operational hardening, not speculative implementation.
 
 ---
 
-## Tier 2 — Medium Term (v1.2–v1.3)
+## Tier 1 — Release Hardening (v1.1)
 
-### 2.1 Parallel Agent Turns
-- **What:** Allow multiple agents to work concurrently within a single phase (e.g., two devs implementing different modules).
-- **Why:** Sequential-only is the correct v1 simplification, but real multi-agent workflows need parallelism.
-- **Design questions:**
-  - Conflict detection when parallel agents touch the same files
-  - Turn ordering in history (logical clock vs wall clock)
-  - State model: `current_turn` becomes `current_turns[]`?
-  - Merge strategy: orchestrator-mediated or agent-mediated
-- **Deferred since:** Turn 1, explicitly out of v1 scope.
+### 1.1 Release-Candidate Hygiene
 
-### 2.2 Provider-Specific Error Code Mapping
-- **What:** Map Anthropic/OpenAI error response bodies to typed error codes beyond the current HTTP-status heuristic.
-- **Why:** The current classifier is already good enough for v1 recovery. Provider-native codes improve precision, but they are a refinement after the larger reliability wins land.
-- **Spec needed:** Error taxonomy per provider, mapping table, adapter extension point.
+- **What:** Prepare a clean release-candidate workspace, rerun the full CLI suite, and record the baseline that will justify `npm version 1.1.0`.
+- **Why:** The open work for v1.1 is no longer feature construction. It is proving that the release artifact is cut from a clean tree with a current baseline.
+- **Source of truth:** `.planning/V1_1_RELEASE_CHECKLIST.md`
 
-### 2.3 Persistent Blocked Sub-State
-- **What:** Promote `blocked` from a derived state (inferred from `current_turn.status` + recovery descriptors) to a first-class `state.json` status.
-- **Why:** Currently, `state.json` shows `active` even when the run is blocked waiting for human recovery. External tools can't distinguish "active and running" from "active but stuck."
-- **Open question:** Does this break the state machine invariant that `active` is the only in-progress state?
+### 1.2 Publish And Package Handoff
 
----
+- **What:** Confirm the tag-push publish path, Homebrew follow-up, and release brief for `1.1.0`.
+- **Why:** The automation exists. What remains is release-day readiness, not more core protocol code.
+- **Source of truth:** `.planning/V1_1_RELEASE_HANDOFF_SPEC.md`, `.planning/RELEASE_CUT_SPEC.md`, `.planning/RELEASE_BRIEF.md`
 
-## Tier 3 — Longer Term (v2.0)
+### 1.3 Scenario D Escalation Dogfood
 
-### 3.1 Multi-Repo Orchestration
-- **What:** A single governed run spans multiple repositories (e.g., frontend + backend + shared types).
-- **Why:** Real-world delivery often requires coordinated changes across repos.
-- **Complexity:** Workspace isolation, cross-repo artifact references, distributed state.
+- **What:** Run the two human-in-the-loop escalation paths that already exist:
+  - `D1` retry exhaustion -> blocked recovery -> redispatch of the preserved turn
+  - `D2` explicit `eng_director` intervention -> human follow-up
+- **Why:** This validates operator ergonomics and evidence quality after release. It does **not** block the v1.1 cut.
+- **Spec:** `.planning/SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md`
+- **Dependency:** v1.0.0 released, human operator available, optional live `ANTHROPIC_API_KEY`
 
-### 3.2 Persistent Run History / Dashboard
-- **What:** A web or TUI dashboard showing run history, decision ledger, and agent performance metrics.
-- **Why:** The CLI is sufficient for operators but not for stakeholders who want visibility.
+### Graduated v1.1 Feature Set Already Implemented
 
-### 3.3 Plugin / Hook System
-- **What:** User-defined hooks at protocol events (turn-start, validation-pass, phase-transition, etc.).
-- **Why:** Enables custom integrations (Slack notifications, Jira updates, custom validators) without modifying the core protocol.
+These are no longer roadmap candidates. They are already in the workspace and belong to the v1.1 release contract:
+
+- Parallel agent turns
+- `api_proxy` auto-retry with backoff
+- Preemptive tokenization
+- Anthropic-specific provider error mapping
+- Persistent blocked state
+
+The checklist question is release proof, not feature existence.
 
 ---
 
-## Deferred Open Questions (Carry-Forward)
+## Tier 2 — Next Product Frontier (v2 Architecture)
 
-These were identified during v1 development and explicitly deferred:
+### 2.1 Multi-Repo Orchestration
 
-1. Should `approve-transition` and `approve-completion` be idempotent? (P2 HUMAN_TASK)
-2. Should `run_completion_request` be raisable by any role or only by the last assigned agent?
-3. Should the decision ledger support amendment (correcting a past decision) or only append?
-4. What is the right retention policy for `history.jsonl` in long-running projects?
-5. Should adapters be pluggable (user-provided adapter classes) or only the three built-in ones?
+- **What:** Govern one initiative across multiple repositories without allowing any single turn to mutate multiple repos.
+- **Why:** This is the first real expansion beyond the single-repo safety model and the most important v2 architecture boundary.
+- **Spec:** `.planning/MULTI_REPO_ORCHESTRATION_SPEC.md`
+- **Next deliverable:** implementation plan with coordinator state transitions, repo registration/bootstrap flow, and failure recovery rules
+
+### 2.2 Cloud Boundary / Managed Control Plane
+
+- **What:** Define the first cloud-facing seam between the open-source orchestrator and a hosted coordination surface.
+- **Why:** The business model in `VISION.md` depends on separating protocol/orchestrator concerns from hosted visibility and policy infrastructure.
+- **Open question:** whether the first boundary is run-history ingestion, remote dashboard state, or managed adapter execution
+
+### 2.3 SDLC Template System Adoption
+
+- **What:** Finish surfacing the built-in governed templates cleanly across docs and examples after the core command set (`agentxchain init --governed --template <id>`, `agentxchain template list`, `agentxchain template set <id>`) is stable.
+- **Why:** Template scaffolds matter, but they are not a higher-order architecture frontier than multi-repo governance.
+- **Specs:** `.planning/SDLC_TEMPLATE_SYSTEM_SPEC.md`, `.planning/TEMPLATE_INIT_IMPL_SPEC.md`, `.planning/TEMPLATE_SET_SPEC.md`
+
+---
+
+## Tier 3 — Broader Platform Surface
+
+### 3.1 Dashboard Evolution
+
+- **What:** Build beyond the v2.0 read-only local dashboard toward richer operator evidence and, later, organizational visibility.
+- **Why:** The local dashboard is shipped. The next step is deciding which deeper visibility or control surfaces are worth adding without violating the governance model.
+
+### 3.2 Plugin / Hook Expansion
+
+- **What:** Extend the shipped hook system into organization-facing integrations and policy bundles.
+- **Why:** The core hook lifecycle exists. The next work is packaging and safely exposing it for real teams.
+
+---
+
+## Deferred Open Questions
+
+1. Which v2 boundary lands first after the v1.1 cut: multi-repo execution or the first cloud-managed control-plane slice?
+2. Does template-system documentation stop at command/operator guidance, or is a public `/templates` site surface worth the maintenance burden?
+3. When multi-repo orchestration lands, does it ship as coordinator-only planning/spec state first, or with repo-bootstrap commands in the same cut?

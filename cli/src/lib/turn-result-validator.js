@@ -14,6 +14,7 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { getActiveTurn } from './governed-state.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -301,9 +302,9 @@ function validateAssignment(tr, state) {
     errors.push(`run_id mismatch: turn result has "${tr.run_id}", state has "${state.run_id}".`);
   }
 
-  const currentTurn = state.current_turn;
+  const currentTurn = getActiveTurn(state) || state.current_turn;
   if (!currentTurn) {
-    errors.push('No current_turn in state.json — cannot validate assignment.');
+    errors.push('No active turn in state.json — cannot validate assignment.');
     return errors;
   }
 

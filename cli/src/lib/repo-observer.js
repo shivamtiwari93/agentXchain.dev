@@ -14,6 +14,8 @@
 
 import { execSync } from 'child_process';
 import { createHash } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 // ── Orchestrator-Owned Operational Paths ────────────────────────────────────
 // These paths are written by the orchestrator during dispatch/accept cycles.
@@ -23,6 +25,8 @@ import { createHash } from 'crypto';
 const OPERATIONAL_PATH_PREFIXES = [
   '.agentxchain/dispatch/',
   '.agentxchain/staging/',
+  '.agentxchain/locks/',
+  '.agentxchain/transactions/',
 ];
 
 // Orchestrator-owned state files that agents must never be blamed for modifying.
@@ -32,6 +36,8 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
   '.agentxchain/lock.json',
+  '.agentxchain/hook-audit.jsonl',
+  '.agentxchain/hook-annotations.jsonl',
 ];
 
 /**
@@ -61,6 +67,7 @@ export function captureBaseline(root) {
       head_ref: null,
       clean: true,
       captured_at: now,
+      dirty_snapshot: {},
     };
   }
 
@@ -72,6 +79,7 @@ export function captureBaseline(root) {
     head_ref: headRef,
     clean,
     captured_at: now,
+    dirty_snapshot: clean ? {} : captureDirtyWorkspaceSnapshot(root),
   };
 }
 
@@ -102,6 +110,7 @@ export function observeChanges(root, baseline) {
   if (baseline?.head_ref && baseline.head_ref === currentHead) {
     // Same commit — changes are in working tree / staging area
     changedFiles = getWorkingTreeChanges(root);
+    changedFiles = filterBaselineDirtyFiles(root, changedFiles, baseline);
     diffSummary = buildObservedDiffSummary(getWorkingTreeDiffSummary(root), untrackedFiles);
   } else if (baseline?.head_ref) {
     // New commits exist — get files changed since baseline ref
@@ -126,6 +135,112 @@ export function observeChanges(root, baseline) {
     head_ref: currentHead,
     diff_summary: diffSummary,
   };
+}
+
+/**
+ * Classify observed file changes into added, modified, and deleted.
+ *
+ * Uses git diff-filter when a baseline ref is available; falls back to
+ * heuristic classification (untracked → added, missing → deleted, else modified)
+ * when working from working-tree-only observation.
+ *
+ * @param {string} root — project root
+ * @param {object} observation — from observeChanges()
+ * @param {object} baseline — from captureBaseline()
+ * @returns {{ added: string[], modified: string[], deleted: string[] }}
+ */
+export function classifyObservedChanges(root, observation, baseline) {
+  const files = observation.files_changed || [];
+  if (files.length === 0) {
+    return { added: [], modified: [], deleted: [] };
+  }
+
+  // If we have a baseline ref, use git diff-filter for accurate classification
+  if (baseline?.head_ref && isGitRepo(root)) {
+    const added = new Set();
+    const modified = new Set();
+    const deleted = new Set();
+
+    try {
+      const diffAdded = getFilteredChanges(root, baseline.head_ref, 'A');
+      const diffModified = getFilteredChanges(root, baseline.head_ref, 'M');
+      const diffDeleted = getFilteredChanges(root, baseline.head_ref, 'D');
+
+      for (const f of diffAdded) added.add(f);
+      for (const f of diffModified) modified.add(f);
+      for (const f of diffDeleted) deleted.add(f);
+    } catch {
+      // Fall through to heuristic
+    }
+
+    // Untracked files are always "added"
+    try {
+      const untracked = getUntrackedFiles(root);
+      for (const f of untracked) {
+        if (files.includes(f)) added.add(f);
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Working tree changes not in the committed diff — use heuristic
+    for (const f of files) {
+      if (!added.has(f) && !modified.has(f) && !deleted.has(f)) {
+        if (existsSync(join(root, f))) {
+          modified.add(f);
+        } else {
+          deleted.add(f);
+        }
+      }
+    }
+
+    const fileSet = new Set(files);
+    return {
+      added: [...added].filter(f => fileSet.has(f)).sort(),
+      modified: [...modified].filter(f => fileSet.has(f)).sort(),
+      deleted: [...deleted].filter(f => fileSet.has(f)).sort(),
+    };
+  }
+
+  // No baseline ref — heuristic classification
+  const added = [];
+  const modified = [];
+  const deleted = [];
+
+  for (const f of files) {
+    if (!existsSync(join(root, f))) {
+      deleted.push(f);
+    } else {
+      try {
+        execSync(`git ls-files --error-unmatch -- "${f}"`, {
+          cwd: root,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        modified.push(f);
+      } catch {
+        added.push(f);
+      }
+    }
+  }
+
+  return { added: added.sort(), modified: modified.sort(), deleted: deleted.sort() };
+}
+
+/**
+ * Get files matching a specific diff-filter from baseline ref to HEAD/working tree.
+ */
+function getFilteredChanges(root, baseRef, filter) {
+  try {
+    const result = execSync(`git diff --name-only --diff-filter=${filter} ${baseRef}`, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return result ? result.split('\n').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -376,6 +491,42 @@ function getWorkingTreeChanges(root) {
     return [...all];
   } catch {
     return [];
+  }
+}
+
+function captureDirtyWorkspaceSnapshot(root) {
+  const snapshot = {};
+  for (const filePath of getWorkingTreeChanges(root).filter((filePath) => !isOperationalPath(filePath))) {
+    snapshot[filePath] = getWorkspaceFileMarker(root, filePath);
+  }
+  return snapshot;
+}
+
+function filterBaselineDirtyFiles(root, changedFiles, baseline) {
+  const snapshot = baseline?.dirty_snapshot;
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return changedFiles;
+  }
+
+  return changedFiles.filter((filePath) => {
+    if (!(filePath in snapshot)) {
+      return true;
+    }
+    return snapshot[filePath] !== getWorkspaceFileMarker(root, filePath);
+  });
+}
+
+function getWorkspaceFileMarker(root, filePath) {
+  const absPath = join(root, filePath);
+  if (!existsSync(absPath)) {
+    return 'deleted';
+  }
+
+  try {
+    const content = readFileSync(absPath);
+    return `sha256:${createHash('sha256').update(content).digest('hex')}`;
+  } catch {
+    return 'unreadable';
   }
 }
 

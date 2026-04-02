@@ -2,19 +2,31 @@
 
 Tasks that require human action. Organized by priority.
 
+Current state: **no active human setup, credential, or decision blockers remain.** `NPM_TOKEN` is present in the repo-local `.env` **and** has now been synchronized into the GitHub Actions secret `NPM_TOKEN` for `shivamtiwari93/agentXchain.dev`, so the publish workflow prerequisites are satisfied. The remaining release-cut items below are operational steps that have been delegated back to the collaborating AI agents. Human escalation is only required if the agents hit an external blocker, publish failure, policy conflict, or explicit operator hold.
+
 ---
 
-## P0 — Blocking
+## P0 — Delegated Release Execution
+
+- [~] Prepare a clean release workspace before the cut (Priority: P0) — Delegated to AI agents. Context: the canonical `cd cli && npm version 1.0.0` step is expected to create the release commit and tag. A dirty working tree risks pulling unrelated changes into the release or causing the version step to fail. Human escalation only if the agents cannot reconcile the workspace safely.
+
+- [~] Run `cd cli && npm version 1.0.0` from the clean workspace (Priority: P0) — Delegated to AI agents. Context: this is the canonical v1 version-bump step. In the current npm configuration (`git-tag-version = true`), it creates the release commit and git tag `v1.0.0`. This establishes the immutable release identity that the publish workflow requires.
+
+- [~] Push tag `v1.0.0` to GitHub to trigger automated publish (Priority: P0) — Delegated to AI agents. Context: `git push origin v1.0.0` triggers `.github/workflows/publish-npm-on-tag.yml`, which calls `scripts/publish-from-tag.sh`. The workflow enforces version/tag match, runs strict preflight, publishes via temporary `.npmrc`, and polls the registry for visibility. `NPM_TOKEN` prerequisite is now satisfied in GitHub Actions. Manual fallback if workflow fails: `cd cli && NPM_TOKEN=<token> bash scripts/publish-from-tag.sh v1.0.0`.
 
 - [x] Set `ANTHROPIC_API_KEY` environment variable for live API dogfood run (Priority: P0) — Status: configured in repo-local `.env` and validated with a successful minimal Anthropic Messages API call. Context: this clears the credential prerequisite for Scenario C, but does **not** complete the live governed dogfood run itself.
 
 ---
 
-## P1 — Important
+## P1 — Delegated Follow-Through
+
+- [~] Update the Homebrew tap formula to the published `agentxchain@1.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds.
+
+- [~] Execute Scenario D escalation dogfood from `.planning/SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md` after `agentxchain@1.0.0` is released (Priority: P1) — Delegated to AI agents for execution planning and evidence collection. Context: this is post-release validation, not a release blocker. Human escalation is only required if the agents determine a true operator-only decision is necessary to preserve the fidelity of the escalation-path evidence.
 
 - [x] Verify `claude` CLI is installed and authenticated for `local_cli` dogfood (Priority: P1, downgraded from P0 per DEC-LOCAL-CLI-001) — Status: verified on the release machine. `claude` resolves at `/usr/local/bin/claude`, `claude --version` returned `2.1.87 (Claude Code)`, and a live `claude --print "Reply with the single word ok."` call returned `ok`. Context: this clears the operator prerequisite for `local_cli` dogfood but does **not** complete the governed live run itself.
 
-- [~] Run full Scenario A dogfood with live LLM (Priority: P1) — Delegation update: the human has delegated this back to the AI agents. If both collaborating agents concur that they can execute the run, interpret the evidence correctly, and record a shared judgment, they should proceed without waiting for human intervention. Human involvement is only required if they cannot complete the run, cannot agree on the outcome, or hit an external blocker that requires operator action. Context: Scenario A (PM → Dev → QA → completion) has been validated with mock/manual turns, but the `api_proxy` QA turn has not been exercised against a real API inside the governed loop. This remains the last major release-validation gap. Prerequisites now satisfied: `ANTHROPIC_API_KEY` configured and validated, `claude` CLI installed and authenticated.
+- [x] Run full Scenario A dogfood with live LLM (Priority: P1) — Status: **closed by agent concurrence (DEC-LIVE-001)**. The Anthropic-backed `api_proxy` QA turn succeeded inside the governed loop (run `run_399aea020ebb68d4`, turn `turn_9f5639c671280a8f`, provider telemetry captured). The `local_cli` dev turn hit an external Claude CLI quota limit — not a protocol deficiency. Both collaborating agents (GPT 5.4 Turn 2, Claude Opus 4.6 Turn 3) concur this closes the release-critical Scenario C validation gap. Full evidence in `LIVE_SCENARIO_A_REPORT.md`.
 
 - [x] Decide on npm package scope/name for first publish (Priority: P1) — Decision: continue with the existing unscoped package name `agentxchain` to preserve continuity with prior npm releases through `0.8.8`. Context: local `package.json` remains `agentxchain`; first governed release will continue that lineage rather than creating a new scoped package.
 
@@ -26,8 +38,8 @@ Tasks that require human action. Organized by priority.
 
 - [x] Review and approve `SPEC-GOVERNED-v4.md` as the normative v1 spec (Priority: P2) — Decision: **approved with minor corrections, not a release blocker**. Rationale: the spec is good enough to serve as the v1 normative reference, but three documentation-drift fixes should be made before the final release tag: (1) reconcile the config file location (`agentxchain.json` root vs `.agentxchain/agentxchain.json` in file layout), (2) align manual adapter wording so it does not imply the run enters `paused` merely because a manual turn is waiting, and (3) add missing governed CLI commands (`resume`, `migrate`) to the command list.
 
-- [~] Review and approve the frozen v1 `accepted_integration_ref` semantics for uncommitted workspace acceptances (Priority: P2) — Delegation update: the human has delegated this decision back to the AI agents. If both collaborating agents independently review the semantics, concur on the judgment, and write down the rationale, their shared decision is sufficient for v1. Human escalation is only required if they disagree or uncover a real contradiction between spec and implementation. Context: The current spec defines `accepted_integration_ref` as the best-known git anchor, with the exact accepted workspace state carried by `observed_artifact` in `history.jsonl`.
+- [x] Review and approve the frozen v1 `accepted_integration_ref` semantics for uncommitted workspace acceptances (Priority: P2) — Status: **closed by agent concurrence (DEC-INTREF-002)**. Both agents independently verified the code (`deriveAcceptedRef()` in `repo-observer.js`) and the live dogfood evidence. `accepted_integration_ref` is the orchestrator-derived git lineage anchor; exact workspace state lives in `history.jsonl → observed_artifact`. Implementation matches spec. No contradiction found.
 
-- [~] Decide whether `approve-transition` and `approve-completion` should stay strict or become idempotent (Priority: P2) — Delegation update: the human has delegated this decision back to the AI agents. If both collaborating agents review the operator semantics and concur on the right v1 behavior, they should record the decision and proceed. Human escalation is only required if they cannot reach concurrence or if the choice would force a release-scope expansion. Context: Current behavior is strict: no pending request means failure. Idempotent approval sounds nicer operationally, but the commands currently have no request identifier, so "already approved" cannot be distinguished safely from "nothing pending." Blocks: future operator UX polish and any machine-consumable recovery automation.
+- [x] Decide whether `approve-transition` and `approve-completion` should stay strict or become idempotent (Priority: P2) — Status: **closed by agent concurrence (DEC-APPROVAL-001)**. Both agents verified the code (`approvePhaseTransition()` and `approveRunCompletion()` in `governed-state.js`). Strict behavior is correct for v1: no pending request = failure. No request identifier exists, so idempotent success would unsafely collapse "already approved" and "nothing pending" into one response. Idempotency may be revisited post-v1 if a request_id is added.
 
-- [ ] Set up Homebrew tap for macOS distribution (Priority: P2) — Context: `cli/homebrew/` directory exists with a formula skeleton. Needs a real Homebrew tap repo and release automation. Blocks: `brew install agentxchain`.
+- [x] Set up Homebrew tap for macOS distribution (Priority: P2) — Status: complete. Tap repo created at `shivamtiwari93/homebrew-agentxchain`, formula published, and installation flow verified with `brew tap shivamtiwari93/agentxchain` plus `brew install --dry-run shivamtiwari93/agentxchain/agentxchain`. Current packaging model uses the published npm package `agentxchain@0.8.8`; when `1.0.0` is published, the tap formula only needs its npm tarball URL and SHA256 updated.

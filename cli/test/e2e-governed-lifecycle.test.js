@@ -24,6 +24,8 @@ import {
   rejectGovernedTurn,
   approvePhaseTransition,
   approveRunCompletion,
+  normalizeGovernedStateShape,
+  getActiveTurn,
   STATE_PATH,
   HISTORY_PATH,
   LEDGER_PATH,
@@ -37,7 +39,19 @@ const EXAMPLE_DIR = join(__dirname, '..', '..', 'examples', 'governed-todo-app')
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function readJson(root, relPath) {
-  return JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  const parsed = JSON.parse(readFileSync(join(root, relPath), 'utf8'));
+  if (relPath === STATE_PATH || relPath.endsWith('state.json')) {
+    const normalized = normalizeGovernedStateShape(parsed).state;
+    Object.defineProperty(normalized, 'current_turn', {
+      configurable: true,
+      enumerable: false,
+      get() {
+        return getActiveTurn(normalized);
+      },
+    });
+    return normalized;
+  }
+  return parsed;
 }
 
 function readJsonl(root, relPath) {

@@ -1,0 +1,120 @@
+/**
+ * Blocked State view — renders current blocked state with recovery info.
+ *
+ * Pure render function: takes data, returns HTML string. Testable in Node.js.
+ * Per DEC-DASH-002: read-only. Shows copyable CLI recovery commands, no write actions.
+ */
+
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getHookPhase(entry) {
+  return entry?.hook_phase || entry?.phase || '';
+}
+
+function getHookName(entry) {
+  return entry?.hook_name || entry?.hook || entry?.name || '';
+}
+
+function selectRelevantAuditEntries(state, audit) {
+  if (!Array.isArray(audit) || audit.length === 0) {
+    return [];
+  }
+
+  const blocked = state?.blocked_reason || state?.blocked_state || {};
+  const blockedOn = String(state?.blocked_on || '');
+  const hookMatch = blockedOn.match(/^hook:([^:]+):(.+)$/);
+
+  if (hookMatch) {
+    const [, hookPhase, hookName] = hookMatch;
+    const matchingEntries = audit.filter((entry) => (
+      getHookPhase(entry) === hookPhase && getHookName(entry) === hookName
+    ));
+    if (matchingEntries.length > 0) {
+      return matchingEntries.slice(-3);
+    }
+  }
+
+  const category = String(blocked.category || blocked.reason || '').toLowerCase();
+  if (category.includes('validation') || blockedOn.startsWith('validator:')) {
+    const validationEntries = audit.filter((entry) => (
+      getHookPhase(entry).includes('validation')
+    ));
+    if (validationEntries.length > 0) {
+      return validationEntries.slice(-3);
+    }
+  }
+
+  return audit.slice(-3);
+}
+
+export function render({ state, audit = [] }) {
+  if (!state || state.status !== 'blocked') {
+    return `<div class="placeholder"><h2>Blocked State</h2><p>Run is not currently blocked.</p></div>`;
+  }
+
+  const blocked = state.blocked_reason || state.blocked_state || {};
+  const recovery = blocked.recovery || {};
+  const reason = blocked.category || blocked.reason || state.blocked_on || 'Unknown';
+  const detail = recovery.detail || blocked.detail || null;
+  const recoveryAction = recovery.recovery_action || blocked.recovery_action || blocked.recovery_command || null;
+  const blockedBy = state.blocked_on || blocked.blocked_by || blocked.source || null;
+  const turnId = blocked.turn_id || null;
+  const owner = recovery.owner || null;
+  const typedReason = recovery.typed_reason || null;
+  const turnRetained = typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : null;
+  const blockedAt = blocked.blocked_at || null;
+  const relevantAudit = selectRelevantAuditEntries(state, audit);
+
+  let html = `<div class="blocked-view">
+    <div class="blocked-banner">
+      <div class="blocked-icon">BLOCKED</div>
+      <div class="blocked-reason">${esc(reason)}</div>
+    </div>`;
+
+  // Metadata
+  html += `<div class="section"><h3>Block Details</h3><dl class="detail-list">`;
+  if (blockedBy) html += `<dt>Blocked By</dt><dd>${esc(blockedBy)}</dd>`;
+  if (typedReason) html += `<dt>Recovery Type</dt><dd>${esc(typedReason)}</dd>`;
+  if (owner) html += `<dt>Owner</dt><dd>${esc(owner)}</dd>`;
+  if (turnId) html += `<dt>Turn</dt><dd class="mono">${esc(turnId)}</dd>`;
+  if (blocked.phase) html += `<dt>Phase</dt><dd>${esc(blocked.phase)}</dd>`;
+  if (blocked.hook) html += `<dt>Hook</dt><dd class="mono">${esc(blocked.hook)}</dd>`;
+  if (detail) html += `<dt>Detail</dt><dd>${esc(detail)}</dd>`;
+  if (turnRetained != null) html += `<dt>Turn Retained</dt><dd>${turnRetained ? 'yes' : 'no'}</dd>`;
+  if (blockedAt) html += `<dt>Blocked At</dt><dd class="mono">${esc(blockedAt)}</dd>`;
+  html += `</dl></div>`;
+
+  // Recovery command
+  if (recoveryAction) {
+    html += `<div class="section"><h3>Recovery</h3>
+      <p class="recovery-hint">Run this command to recover:</p>
+      <pre class="recovery-command mono" data-copy="${esc(recoveryAction)}">${esc(recoveryAction)}</pre>
+    </div>`;
+  }
+
+  if (relevantAudit.length > 0) {
+    html += `<div class="section"><h3>Recent Audit Context</h3><div class="annotation-list">`;
+    for (const entry of relevantAudit) {
+      const duration = entry.duration_ms != null ? `${entry.duration_ms}ms` : '-';
+      const verdict = entry.verdict || 'unknown';
+      const action = entry.orchestrator_action || entry.action || 'continued';
+      html += `<div class="annotation-card">
+        <span class="mono">${esc(getHookPhase(entry) || '-')}</span>
+        <span class="mono">${esc(getHookName(entry) || '-')}</span>
+        <span>${esc(`${verdict} -> ${action} (${duration})`)}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}

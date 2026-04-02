@@ -1,6 +1,6 @@
-# AgentXchain v0.9 Dogfood Runbook
+# AgentXchain Dogfood Runbook
 
-Operator checklist for validating the governed v4 lifecycle end-to-end.
+Operator checklist for validating the governed lifecycle end-to-end.
 
 ---
 
@@ -37,7 +37,7 @@ agentxchain status
 agentxchain step
 ```
 
-Expected output: Manual turn prompt written to `.agentxchain/dispatch/current/PROMPT.md`
+Expected output: Manual turn prompt written to `.agentxchain/dispatch/turns/<turn_id>/PROMPT.md` (the turn ID and path are printed by `step`)
 
 **Operator action:** Complete the PM turn manually.
 
@@ -79,7 +79,7 @@ Approved: YES
 - [x] Success metric defined — all 5 acceptance criteria pass
 ```
 
-3. Write the turn result to `.agentxchain/staging/turn-result.json`:
+3. Write the turn result to `.agentxchain/staging/<turn_id>/turn-result.json` (use the turn ID printed by `step`):
 
 ```json
 {
@@ -170,7 +170,7 @@ Expected: Dispatches to `claude --print -p {prompt}` with the full seed prompt. 
 - Stage a turn result
 
 **Verify after completion:**
-- [ ] `.agentxchain/staging/turn-result.json` exists with valid JSON
+- [ ] `.agentxchain/staging/<turn_id>/turn-result.json` exists with valid JSON
 - [ ] Product files created (e.g., `todo.js`, `package.json`)
 - [ ] `verification.status` is `pass` with real `machine_evidence`
 - [ ] `files_changed` matches actual git diff
@@ -202,7 +202,7 @@ agentxchain step
 Expected: Sends the dispatch bundle to Anthropic API. The QA agent reviews the implementation against acceptance criteria and stages a structured review.
 
 **Verify after completion:**
-- [ ] `.agentxchain/staging/turn-result.json` exists
+- [ ] `.agentxchain/staging/<turn_id>/turn-result.json` exists
 - [ ] `.agentxchain/staging/provider-response.json` exists (audit trail)
 - [ ] `artifact.type` is `review`
 - [ ] `objections` array is non-empty
@@ -246,7 +246,7 @@ Start from a running governed project (after A2, with phase=implementation).
 
 ### B1. Stage an Invalid Turn Result
 
-Create `.agentxchain/staging/turn-result.json` with intentionally bad data:
+Create `.agentxchain/staging/<turn_id>/turn-result.json` with intentionally bad data (use the turn ID from `state.json`):
 
 ```json
 {
@@ -355,9 +355,10 @@ After completing all three scenarios:
 - [ ] All three adapter types exercised (manual, local_cli, api_proxy)
 - [ ] At least one real LLM call completed (dev or QA)
 
-## Known Limitations for v0.9
+## Known Limitations (v1.0)
 
-- `api_proxy` supports review-only roles only (no remote code writing)
+- `api_proxy` supports `review_only` roles only (no remote code writing)
 - `local_cli` requires `prompt_transport: argv` or `stdin` for automatic prompt delivery
-- Parallel turns are not supported
 - Multi-repo coordination is not supported
+
+> **v1.1 additions:** Parallel turns (up to 4 concurrent agents), auto-retry with backoff, preemptive tokenization, provider error mapping, persistent blocked state.

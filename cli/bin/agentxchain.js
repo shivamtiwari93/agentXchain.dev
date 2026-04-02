@@ -69,6 +69,16 @@ import { rejectTurnCommand } from '../src/commands/reject-turn.js';
 import { stepCommand } from '../src/commands/step.js';
 import { approveTransitionCommand } from '../src/commands/approve-transition.js';
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
+import { dashboardCommand } from '../src/commands/dashboard.js';
+import { templateSetCommand } from '../src/commands/template-set.js';
+import { templateListCommand } from '../src/commands/template-list.js';
+import {
+  multiInitCommand,
+  multiStatusCommand,
+  multiStepCommand,
+  multiApproveGateCommand,
+  multiResyncCommand,
+} from '../src/commands/multi.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -84,8 +94,9 @@ program
   .command('init')
   .description('Create a new AgentXchain project folder')
   .option('-y, --yes', 'Skip prompts, use defaults')
-  .option('--governed', 'Create a governed v4 project (orchestrator-owned state)')
-  .option('--schema-version <version>', 'Schema version (3 or 4)')
+  .option('--governed', 'Create a governed project (orchestrator-owned state)')
+  .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, web-app')
+  .option('--schema-version <version>', 'Schema version (3 for legacy, or use --governed for current)')
   .action(initCommand);
 
 program
@@ -193,7 +204,7 @@ program
 
 program
   .command('migrate')
-  .description('Migrate a legacy v3 project to governed v4 format')
+  .description('Migrate a legacy v3 project to governed format')
   .option('-y, --yes', 'Skip confirmation prompts')
   .option('-j, --json', 'Output migration report as JSON')
   .action(migrateCommand);
@@ -202,17 +213,22 @@ program
   .command('resume')
   .description('Resume a governed project: initialize or continue a run and assign the next turn')
   .option('--role <role>', 'Override the target role (default: phase entry role)')
+  .option('--turn <id>', 'Target a specific retained turn when multiple exist')
   .action(resumeCommand);
 
 program
   .command('accept-turn')
   .description('Accept the currently staged governed turn result')
+  .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
+  .option('--resolution <mode>', 'Conflict resolution mode for conflicted turns (standard, human_merge)', 'standard')
   .action(acceptTurnCommand);
 
 program
   .command('reject-turn')
   .description('Reject the current governed turn result and retry or escalate')
+  .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
   .option('--reason <reason>', 'Operator reason for the rejection')
+  .option('--reassign', 'Immediately re-dispatch a conflicted turn with conflict context')
   .action(rejectTurnCommand);
 
 program
@@ -220,6 +236,7 @@ program
   .description('Run a single governed turn: assign, dispatch, wait, validate, accept/reject')
   .option('--role <role>', 'Override the target role (default: phase entry role)')
   .option('--resume', 'Resume waiting for an already-active turn')
+  .option('--turn <id>', 'Target a specific active turn (required with --resume when multiple turns exist)')
   .option('--poll <seconds>', 'Polling interval for manual adapter in seconds', '2')
   .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
   .option('--auto-reject', 'Auto-reject and retry on validation failure')
@@ -234,5 +251,64 @@ program
   .command('approve-completion')
   .description('Approve a pending run completion that requires human sign-off')
   .action(approveCompletionCommand);
+
+program
+  .command('dashboard')
+  .description('Open the read-only governance dashboard in your browser')
+  .option('--port <port>', 'Server port', '3847')
+  .option('--no-open', 'Do not auto-open the browser')
+  .action(dashboardCommand);
+
+const templateCmd = program
+  .command('template')
+  .description('Manage governed project templates');
+
+templateCmd
+  .command('set <id>')
+  .description('Set or change the governed template for this project')
+  .option('-y, --yes', 'Skip confirmation prompt')
+  .option('--dry-run', 'Print what would change without writing anything')
+  .action(templateSetCommand);
+
+templateCmd
+  .command('list')
+  .description('List available governed templates')
+  .option('-j, --json', 'Output as JSON')
+  .action(templateListCommand);
+
+const multiCmd = program
+  .command('multi')
+  .description('Multi-repo coordinator orchestration');
+
+multiCmd
+  .command('init')
+  .description('Bootstrap a multi-repo coordinator run')
+  .option('-j, --json', 'Output as JSON')
+  .action(multiInitCommand);
+
+multiCmd
+  .command('status')
+  .description('Show coordinator status and repo-run snapshots')
+  .option('-j, --json', 'Output as JSON')
+  .action(multiStatusCommand);
+
+multiCmd
+  .command('step')
+  .description('Select the next workstream and dispatch a coordinator turn')
+  .option('-j, --json', 'Output as JSON')
+  .action(multiStepCommand);
+
+multiCmd
+  .command('approve-gate')
+  .description('Approve a pending phase transition or completion gate')
+  .option('-j, --json', 'Output as JSON')
+  .action(multiApproveGateCommand);
+
+multiCmd
+  .command('resync')
+  .description('Detect divergence and rebuild coordinator state from repo authority')
+  .option('-j, --json', 'Output as JSON')
+  .option('--dry-run', 'Detect divergence without resyncing')
+  .action(multiResyncCommand);
 
 program.parse();

@@ -24,9 +24,9 @@ dispatch → wait → collect
 
 | Phase | Responsibility | Output |
 |-------|---------------|--------|
-| **dispatch** | Deliver the prompt/context to the agent execution environment | Dispatch artifacts written to `.agentxchain/dispatch/current/` |
+| **dispatch** | Deliver the prompt/context to the agent execution environment | Dispatch artifacts written to `.agentxchain/dispatch/turns/<turn_id>/` |
 | **wait** | Block until the agent produces a result (or timeout/abort) | `{ found, timedOut, aborted }` |
-| **collect** | Read the staged turn result without validation | Raw JSON from `.agentxchain/staging/turn-result.json` |
+| **collect** | Read the staged turn result without validation | Raw JSON from `.agentxchain/staging/<turn_id>/turn-result.json` |
 
 Validation is NOT the adapter's responsibility. The orchestrator validates after collect.
 
@@ -36,10 +36,10 @@ All adapters share these paths:
 
 | Path | Purpose | Writer | Reader |
 |------|---------|--------|--------|
-| `.agentxchain/dispatch/current/ASSIGNMENT.json` | Machine-readable turn envelope | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
-| `.agentxchain/dispatch/current/PROMPT.md` | Rendered seed prompt with protocol rules | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
-| `.agentxchain/dispatch/current/CONTEXT.md` | Execution context (state, last turn, gates) | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
-| `.agentxchain/staging/turn-result.json` | Structured turn result JSON | Agent (via adapter or manual) | Orchestrator (via `accept-turn`) |
+| `.agentxchain/dispatch/turns/<turn_id>/ASSIGNMENT.json` | Machine-readable turn envelope | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
+| `.agentxchain/dispatch/turns/<turn_id>/PROMPT.md` | Rendered seed prompt with protocol rules | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
+| `.agentxchain/dispatch/turns/<turn_id>/CONTEXT.md` | Execution context (state, last turn, gates) | Orchestrator (via `writeDispatchBundle`) | Adapter, Agent |
+| `.agentxchain/staging/<turn_id>/turn-result.json` | Structured turn result JSON | Agent (via adapter or manual) | Orchestrator (via `accept-turn`) |
 
 ### Reserved Paths
 
@@ -67,7 +67,7 @@ These are orchestrator-owned. Any adapter that writes to these paths violates th
 - Does NOT deliver the prompt to any automated system
 
 **Wait phase:**
-- Polls `.agentxchain/staging/turn-result.json` every 2 seconds (configurable)
+- Polls `.agentxchain/staging/<turn_id>/turn-result.json` every 2 seconds (configurable)
 - Returns when file exists and is >2 bytes (not just `{}`)
 - Respects `timeoutMs` (default: 20 minutes) and `AbortSignal`
 
@@ -105,7 +105,7 @@ No additional fields required.
 
 **Wait phase:**
 - Waits for subprocess exit
-- On exit, checks if `.agentxchain/staging/turn-result.json` was written
+- On exit, checks if `.agentxchain/staging/<turn_id>/turn-result.json` was written
 - Subprocess success (exit 0) does NOT mean turn success — only a valid staged result counts
 
 **Collect phase:**
@@ -144,7 +144,7 @@ Alternative config (command + args separated):
 
 **Recovery on failure:**
 - `RecoveryDescriptor.typed_reason = "dispatch_error"`
-- Operator checks subprocess output (saved to `.agentxchain/dispatch/current/stdout.log`)
+- Operator checks subprocess output (saved to `.agentxchain/dispatch/turns/<turn_id>/stdout.log`)
 - Then either stages result manually + `accept-turn`, or `reject-turn`
 
 ---
@@ -160,7 +160,7 @@ Alternative config (command + args separated):
 - Resolves provider, model, and API key from runtime config
 - Validates API key is present in environment
 - Builds provider-specific request (currently Anthropic only)
-- Persists request metadata to `.agentxchain/dispatch/current/API_REQUEST.json` (excluding the API key)
+- Persists request metadata to `.agentxchain/dispatch/turns/<turn_id>/API_REQUEST.json` (excluding the API key)
 - Sends the HTTP request
 
 **Wait phase:**
@@ -173,7 +173,7 @@ Alternative config (command + args separated):
 - Persists raw response to `.agentxchain/staging/provider-response.json`
 - Extracts structured turn result JSON from response text (tries: raw parse → markdown fence extraction → JSON boundary detection)
 - Overwrites `cost` field with provider telemetry (authoritative for billing)
-- Stages extracted result at `.agentxchain/staging/turn-result.json`
+- Stages extracted result at `.agentxchain/staging/<turn_id>/turn-result.json`
 
 **Config schema:**
 ```json
@@ -215,11 +215,16 @@ Provider telemetry is authoritative. The adapter computes cost from token counts
 
 4. **Subprocess success ≠ turn success.** For `local_cli`, exit code 0 only means the process finished — the turn is only successful when the staged result passes orchestrator validation.
 
-5. **All adapters share the staging contract.** Regardless of how the turn was executed, the result appears at `.agentxchain/staging/turn-result.json`. This makes the orchestrator adapter-agnostic after the dispatch phase.
+5. **All adapters share the staging contract.** Regardless of how the turn was executed, the result appears at `.agentxchain/staging/<turn_id>/turn-result.json`. This makes the orchestrator adapter-agnostic after the dispatch phase.
 
 6. **Audit artifacts are best-effort.** `API_REQUEST.json`, `stdout.log`, `provider-response.json` are written for operator visibility. Failure to write them does not fail the turn.
 
 7. **Prompt rendering is orchestrator-owned.** The dispatch bundle (`writeDispatchBundle()`) renders prompts. Adapters consume the rendered bundle, not raw config.
+
+8. **Preflight audit artifacts are adapter-authored.** When `api_proxy` preflight tokenization is enabled (v1.1+), the adapter writes two additional audit artifacts into `.agentxchain/dispatch/turns/<turn_id>/`:
+   - `TOKEN_BUDGET.json` — token budget decision report (provider, counts, section-level compression log, send/no-send verdict)
+   - `CONTEXT.effective.md` — the exact context markdown sent to the provider after any compression
+   These are adapter-scoped, not orchestrator-owned. They do not replace or modify the orchestrator-authored `CONTEXT.md`. See `PREEMPTIVE_TOKENIZATION_SPEC.md` for the full contract.
 
 ---
 

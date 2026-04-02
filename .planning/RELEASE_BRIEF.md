@@ -1,109 +1,109 @@
-# Release Brief — AgentXchain Governed CLI v1.0.0
+# Release Brief — AgentXchain Governed CLI v1.1.0
 
-Purpose: give Shivam a single handoff document for final human-gated release work.
+Purpose: give Shivam a single handoff document for the v1.1.0 release cut.
 
 ## Current Status
 
-- Autonomous protocol, spec, test, and docs work is complete.
-- Governed CLI is feature-complete for v1.0.0 pending human-gated tasks.
-- Test status at handoff: `369 tests`, `84 suites`, `0 failures`.
-- Frozen planning/spec artifacts: `13`.
+**The product and protocol work for v1.1.0 are implemented and test-backed, but this brief is still future-facing. The immediate public release track remains `1.0.0` until that cut is complete and the operator intentionally starts a `1.1.0` release candidate cycle.**
 
-## What v1.0.0 Ships
+- Normative v1.1 spec: **complete** (`SPEC-GOVERNED-v5.md`)
+- Frozen v1.1 release gate: **complete** (`V1_1_RELEASE_CHECKLIST.md`)
+- Governed CLI surface spec: **complete** (`.planning/CLI_SPEC.md`)
+- README upgrade and operator guidance: **complete**
+- `cli/CHANGELOG.md` `1.1.0` delta entry: **complete**
+- Remaining autonomous release-prep gap before a real `1.1.0` cut: **none**
+- Remaining human work for today: **the active release path is still the `1.0.0` cut in `.planning/HUMAN_TASKS.md`**
 
-- Governed v4 as the canonical CLI surface.
-- Single-run, single-repo, sequential turn orchestration.
-- Full governed lifecycle: assign, dispatch, validate, accept, reject, retry, approve transition, approve completion.
-- Three adapter classes: `manual`, `local_cli`, `api_proxy`.
-- Five-stage turn-result validation.
-- Append-only run history and decision ledger.
-- Retry-aware dispatch bundles and rejected-attempt preservation.
-- Typed `api_proxy` recovery with staged `api-error.json`.
-- Automated lifecycle coverage for happy path and reject/retry.
+## What v1.1.0 Ships
 
-## Human Actions Required
+v1.1.0 graduates exactly five already-implemented features:
 
-1. P0: Live API validation.
-   Status: **Credential prerequisite resolved** — `ANTHROPIC_API_KEY` is configured in repo-local `.env` and has been verified with a successful minimal Anthropic Messages API call.
-   `local_cli` prerequisite is also resolved — `claude` is installed at `/usr/local/bin/claude`, reports version `2.1.87 (Claude Code)`, and a live `claude --print` sanity check returned `ok`.
-   Delegation rule: the human has delegated this item back to the collaborating AI agents. If both agents concur that the run was executed correctly and the evidence is sufficient, they may close this item without further human approval.
-   Remaining work: release criterion `Scenario C` still requires a full governed run exercising a real Anthropic-backed QA `api_proxy` turn.
-   Steps:
-   `cd cli && npm link`
-   Follow [`DOGFOOD-RUNBOOK.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/DOGFOOD-RUNBOOK.md) prerequisites plus Scenario A through the QA `api_proxy` turn.
+1. Parallel governed turns
+2. `api_proxy` auto-retry with backoff
+3. Preemptive tokenization
+4. Anthropic-specific provider error mapping
+5. Persistent blocked state
 
-2. P1: Enable GitHub Actions and branch protection.
-   Status: **Resolved**
-   Applied on `main`:
-   - pull request required
-   - 1 approving review required
-   - required status check: `cli`
-   - up-to-date branch required before merge
-   - conversation resolution required
-   - force pushes disabled
-   - deletions disabled
+Compatibility contract:
 
-3. P1: npm package scope/name decision.
-   Status: **Resolved**
-   Decision: continue publishing under the existing unscoped package name:
-   `agentxchain`
-   Context: prior npm releases already exist under this name through `0.8.8`, so the governed `1.0.0` release will continue the same package lineage instead of introducing a new scoped identity.
+- v1.0 sequential behavior remains the default
+- `max_concurrent_turns = 1` preserves the single-turn flow
+- retry and preflight remain opt-in
+- provider mapping and blocked-state visibility are automatic improvements
+- v1.1 reads and migrates v1.0 state, but v1.0 does not read v1.1 state
 
-4. P1: Run release packaging checks after the npm name decision.
-   Steps:
-   `cd cli`
-   `npm ci`
-   `npm test`
-   `npm pack --dry-run`
+## Release Readiness Snapshot
 
-5. P2: Review and approve [`SPEC-GOVERNED-v4.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/SPEC-GOVERNED-v4.md).
-   Status: **Resolved**
-   Decision: approved for v1 with minor pre-tag documentation cleanup only (config path wording, manual adapter state wording, governed CLI command list completeness).
+From the current planning state:
 
-6. P2: Agent-delegable product judgments.
-   Status: **Delegated back to AI**
-   The following items no longer require default human signoff if both collaborating agents reach explicit concurrence and record the rationale in the planning artifacts:
-   - live Scenario A judgment after execution
-   - frozen `accepted_integration_ref` semantics
-   - strict vs idempotent `approve-transition` / `approve-completion`
-   Human escalation is only required on disagreement, missing evidence, or external blockers.
+- Feature implementation: **complete**
+- Automated acceptance matrix: **mapped and green**
+- `1.1.0` human handoff sequencing: **defined** (`V1_1_RELEASE_HANDOFF_SPEC.md`)
+- Normative/operator docs:
+  - `SPEC-GOVERNED-v5.md`: done
+  - `.planning/CLI_SPEC.md`: done
+  - `README.md`: done
+  - `.planning/RELEASE_BRIEF.md`: reconciled
+  - `cli/CHANGELOG.md`: done
+- Release-preflight retargeting for `1.1.0`: **complete** (`--target-version <semver>`)
+- Human-gated release execution for `1.1.0`: **future**, not the active release-day path yet
 
-## Release Criteria
+## Canonical Release Sequence
 
-- Scenarios A, B, and C pass.
-- Clean `npm ci && npm test` passes with `0` failures.
-- README quickstart works for a new user.
-- `SPEC-GOVERNED-v4.md` and `CLI_SPEC.md` match implementation.
-- All P0 human tasks are resolved.
-- `cli/CHANGELOG.md` contains the `1.0.0` entry.
+Do **not** use this sequence as the active public-release checklist until the `1.0.0` release is complete and the operator intentionally starts a `1.1.0` release candidate cycle.
 
-## Deferred To Post-v1
+```bash
+cd cli
 
-- Scenario D: multi-turn escalation dogfood.
-- Parallel agent turns / multi-agent concurrency.
-- Provider-specific API error code mapping beyond heuristic HTTP/body classification.
-- Preemptive tokenization for context-overflow avoidance.
-- Automatic retry with backoff for retryable `api_proxy` failures.
-- Open state-model questions: persisted blocked sub-state, persisted dispatch/staging sub-state, reachable run-level `failed`.
+# 1. Confirm the release candidate workspace is clean
+git status --short
+
+# 2. Re-run the full test baseline from the clean workspace
+npm test
+
+# 3. Re-run release preflight against the target release
+bash scripts/release-preflight.sh --target-version 1.1.0
+
+# 4. From the clean tree, cut the version/tag (creates release commit + v1.1.0 tag)
+npm version 1.1.0
+
+# 5. Re-run strict preflight after the bump
+bash scripts/release-preflight.sh --target-version 1.1.0 --strict
+
+# 6. Push the tag to trigger automated publish
+git push origin v1.1.0
+# This triggers .github/workflows/publish-npm-on-tag.yml which:
+#   - Checks out the tag ref (not branch head)
+#   - Runs npm ci in cli/
+#   - Calls scripts/publish-from-tag.sh
+#   - Enforces package.json.version === tag semver
+#   - Runs strict preflight before publish
+#   - Publishes via temporary .npmrc (no token on CLI)
+#   - Polls npm view until the registry serves the version
+
+# 7. Verify the registry serves the published artifact (workflow does this;
+#    manual fallback if workflow fails)
+npm view agentxchain@1.1.0 version
+
+# 8. Update Homebrew tap with the published tarball URL + SHA256
+```
+
+Note: `npm version 1.1.0` remains the canonical version-bump, release-commit, and tag step while `git-tag-version = true`. The push-to-publish contract is: human owns the version identity (`npm version`); CI owns the publish execution (`publish-npm-on-tag.yml`). See DEC-RELEASE-AUTO-001.
+
+## Non-Gating Validation Track
+
+Scenario D live escalation dogfood remains valuable, but it is **not** a hard v1.1 release gate. Product correctness is already covered by automated specs and tests; Scenario D is post-release operator-validation evidence.
 
 ## Where To Look
 
-- Normative product spec:
-  [`SPEC-GOVERNED-v4.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/SPEC-GOVERNED-v4.md)
-- Release gate:
-  [`V1_RELEASE_CHECKLIST.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/V1_RELEASE_CHECKLIST.md)
-- Human-only tasks:
-  [`HUMAN_TASKS.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/HUMAN_TASKS.md)
-- Live validation procedure:
-  [`DOGFOOD-RUNBOOK.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/DOGFOOD-RUNBOOK.md)
-- CLI release notes:
-  [`cli/CHANGELOG.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/CHANGELOG.md)
-- Collaboration record:
-  [`vision-discussion.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/vision-discussion.md)
-
-## Recommended Order
-
-1. Run Scenario C now that `ANTHROPIC_API_KEY` is configured and `claude` is verified.
-2. Run packaging dry-run.
-3. Apply the minor spec doc-drift corrections already approved for v1.
-4. Cut the `1.0.0` release commit/tag.
+| Artifact | Purpose |
+|----------|---------|
+| [`SPEC-GOVERNED-v5.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/SPEC-GOVERNED-v5.md) | Normative v1.1 product spec |
+| [`V1_1_RELEASE_SCOPE_SPEC.md`](V1_1_RELEASE_SCOPE_SPEC.md) | Frozen v1.1 scope |
+| [`V1_1_RELEASE_CHECKLIST.md`](V1_1_RELEASE_CHECKLIST.md) | Acceptance gate |
+| [`V1_1_RELEASE_HANDOFF_SPEC.md`](V1_1_RELEASE_HANDOFF_SPEC.md) | Sequencing rule for when the v1.1 handoff becomes actionable |
+| [`HUMAN_TASKS.md`](HUMAN_TASKS.md) | Human-only tasks, including release execution |
+| [`cli/CHANGELOG.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/CHANGELOG.md) | Completed v1.1 delta entry |
+| [`cli/scripts/release-preflight.sh`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/scripts/release-preflight.sh) | One-command release check |
+| [`SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md`](SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md) | Non-gating live validation track |
+| [`vision-discussion.md`](vision-discussion.md) | Full collaboration record |
