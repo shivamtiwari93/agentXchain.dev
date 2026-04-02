@@ -401,7 +401,7 @@ Allowed coordinator phases:
 | Phase | Trigger Point | Blocking? | Scope |
 |---|---|---|---|
 | `before_assignment` | Before the coordinator dispatches a repo-local turn | Yes | Can block workstream selection or repo assignment |
-| `after_acceptance` | After a repo-local acceptance is projected and barrier state is updated | No | Notifications, metrics, external annotations |
+| `after_acceptance` | After a newly discovered repo-local acceptance is projected and barrier state is updated | No | Notifications, metrics, external annotations |
 | `before_gate` | Before a shared coordinator gate executes | Yes | Shared human/compliance gates only |
 | `on_escalation` | When the coordinator enters blocked state | No | Alerting and external incident creation |
 
@@ -416,6 +416,7 @@ Coordinator hook payloads must include:
 - `pending_gate`
 
 Coordinator hooks may not mutate repo-local state, repo-local history, or repo-local dispatch bundles. Repo-local hooks remain responsible for repo-scoped enforcement.
+If a coordinator hook tampers with protected orchestrator-owned files, AgentXchain restores the protected content, records the tamper in coordinator hook audit, and fails closed.
 
 ## Error Cases
 
@@ -474,7 +475,7 @@ Given a barrier moves from `pending` to `partially_satisfied` to `satisfied`, wh
 
 ### AT-MR-011: Coordinator hook scope is limited
 
-Given a coordinator `after_acceptance` hook attempts to modify a repo-local dispatch bundle or repo-local state, when the hook exits, then the orchestrator rejects the mutation as a protocol violation and leaves repo-local artifacts unchanged.
+Given a coordinator `after_acceptance` hook attempts to modify a repo-local dispatch bundle or repo-local state, when the hook exits, then the orchestrator restores the protected content, rejects the mutation as a protocol violation, and blocks further coordinator progress.
 
 ## Open Questions
 

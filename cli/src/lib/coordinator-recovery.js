@@ -211,11 +211,12 @@ export function detectDivergence(workspacePath, state, config) {
  * @param {string} workspacePath
  * @param {object} state - current coordinator state
  * @param {object} config - normalized coordinator config
- * @returns {{ ok: boolean, resynced_repos: string[], barrier_changes: object[], errors: string[], blocked_reason?: string }}
+ * @returns {{ ok: boolean, resynced_repos: string[], projected_acceptances: object[], barrier_changes: object[], errors: string[], blocked_reason?: string }}
  */
 export function resyncFromRepoAuthority(workspacePath, state, config) {
   const errors = [];
   const resyncedRepos = [];
+  const projectedAcceptances = [];
   const barrierChanges = [];
 
   // Step 1: Refresh repo_runs from repo-local authority
@@ -301,6 +302,12 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
 
       appendJsonl(historyPath(workspacePath), projection);
       resyncedRepos.push(dispatch.repo_id);
+      projectedAcceptances.push({
+        repo_id: dispatch.repo_id,
+        repo_turn_id: dispatch.repo_turn_id,
+        workstream_id: dispatch.workstream_id,
+        projection_ref: projection.projection_ref,
+      });
     }
   }
 
@@ -320,6 +327,8 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
         barrier_id: barrierId,
         previous_status: previousStatus,
         new_status: newStatus,
+        workstream_id: barrier.workstream_id,
+        type: barrier.type,
       });
 
       barrier.status = newStatus;
@@ -391,6 +400,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   return {
     ok: !blockedReason,
     resynced_repos: [...new Set(resyncedRepos)],
+    projected_acceptances: projectedAcceptances,
     barrier_changes: barrierChanges,
     errors,
     blocked_reason: blockedReason || undefined,

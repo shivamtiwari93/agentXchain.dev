@@ -366,9 +366,11 @@ fireCoordinatorHook(workspacePath, phase, payload)
 | AT-CR-002 | Re-sync rebuilds coordinator projections from repo-local history without mutating repo-local state (AT-MR-009) |
 | AT-CR-003 | Re-sync appends `state_resynced` to coordinator history |
 | AT-CR-004 | Ambiguous divergence enters `blocked` with mismatch details |
-| AT-CR-005 | Coordinator hook on `after_acceptance` that attempts repo-local mutation is rejected (AT-MR-011) |
-| AT-CR-006 | `before_gate` hook block prevents phase advancement |
-| AT-CR-007 | `on_escalation` fires when coordinator enters blocked state |
+| AT-CR-005 | Coordinator hook on `after_acceptance` that attempts repo-local mutation is rejected and restored (AT-MR-011) |
+| AT-CR-006 | `before_assignment` hook block prevents dispatch |
+| AT-CR-007 | `before_gate` hook block prevents phase advancement |
+| AT-CR-008 | `on_escalation` fires when coordinator enters blocked state |
+| AT-CR-009 | Full coordinator hook composition preserves order and payload contract across multi-repo lifecycle |
 
 ---
 

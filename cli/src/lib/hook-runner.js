@@ -10,8 +10,8 @@
  *   - Advisory hooks cannot block; blocking verdict is downgraded to warn
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
-import { join, isAbsolute } from 'path';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync } from 'fs';
+import { join, isAbsolute, dirname } from 'path';
 import { createHash } from 'crypto';
 import { spawnSync } from 'child_process';
 
@@ -214,6 +214,16 @@ function computeFileDigest(filePath) {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function captureProtectedSnapshots(root, extraProtectedPaths = []) {
+  const snapshots = {};
+  const protectedPaths = [...new Set([...PROTECTED_FILES, ...extraProtectedPaths])];
+  for (const relPath of protectedPaths) {
+    const absPath = join(root, relPath);
+    snapshots[relPath] = existsSync(absPath) ? readFileSync(absPath) : null;
+  }
+  return snapshots;
+}
+
 function captureProtectedDigests(root, extraProtectedPaths = []) {
   const digests = {};
   const protectedPaths = [...new Set([...PROTECTED_FILES, ...extraProtectedPaths])];
@@ -244,6 +254,21 @@ function verifyProtectedDigests(root, preDigests, extraProtectedPaths = []) {
     }
   }
   return { tampered: false };
+}
+
+function restoreProtectedSnapshots(root, snapshots) {
+  for (const [relPath, content] of Object.entries(snapshots || {})) {
+    const absPath = join(root, relPath);
+    if (content === null) {
+      if (existsSync(absPath)) {
+        rmSync(absPath, { force: true });
+      }
+      continue;
+    }
+
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, content);
+  }
 }
 
 // ── Audit Trail ──────────────────────────────────────────────────────────────
@@ -374,6 +399,7 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
 
   for (const hookDef of hookList) {
     // Capture protected file digests before hook execution
+    const preSnapshots = captureProtectedSnapshots(root, protectedPaths);
     const preDigests = captureProtectedDigests(root, protectedPaths);
 
     // Build envelope payload
@@ -392,6 +418,7 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
     // Verify tamper detection
     const tamperCheck = verifyProtectedDigests(root, preDigests, protectedPaths);
     if (tamperCheck.tampered) {
+      restoreProtectedSnapshots(root, preSnapshots);
       const auditEntry = {
         timestamp: now(),
         hook_phase: phase,
@@ -400,7 +427,7 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
         turn_id: options.turn_id || null,
         duration_ms: exec.durationMs,
         verdict: null,
-        message: tamperCheck.message,
+        message: `${tamperCheck.message}. Protected content restored.`,
         annotations: [],
         exit_code: exec.exitCode,
         timed_out: exec.timedOut,

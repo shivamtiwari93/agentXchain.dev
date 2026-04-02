@@ -15,6 +15,7 @@ import {
   loadCoordinatorState,
   getCoordinatorStatus,
   readBarriers,
+  saveCoordinatorState,
 } from '../lib/coordinator-state.js';
 import { selectNextAssignment, dispatchCoordinatorTurn } from '../lib/coordinator-dispatch.js';
 import {
@@ -177,18 +178,33 @@ export async function multiStepCommand(options) {
       return;
     }
 
-    // Fire after_acceptance hooks for any repos that were resynced (advisory)
-    if (resync.resynced_repos.length > 0) {
-      for (const repoId of resync.resynced_repos) {
+    // Fire after_acceptance hooks only for newly projected acceptances.
+    if ((resync.projected_acceptances || []).length > 0) {
+      for (const projection of resync.projected_acceptances) {
         const acceptancePayload = buildAcceptancePayload(
-          { projection_ref: `proj_resync_${repoId}`, barrier_effects: resync.barrier_changes, context_invalidations: [] },
-          repoId,
-          null, // workstream not always known during resync
+          {
+            projection_ref: projection.projection_ref,
+            barrier_effects: resync.barrier_changes.filter(
+              (change) => change.workstream_id === projection.workstream_id,
+            ),
+            context_invalidations: [],
+          },
+          projection.repo_id,
+          projection.workstream_id,
           state,
         );
-        fireCoordinatorHook(workspacePath, configResult.config, 'after_acceptance', acceptancePayload, {
+        const acceptanceHook = fireCoordinatorHook(workspacePath, configResult.config, 'after_acceptance', acceptancePayload, {
           super_run_id: state.super_run_id,
         });
+
+        if (!acceptanceHook.ok) {
+          const reason = acceptanceHook.error || `after_acceptance hook failed for repo "${repoId}"`;
+          const blockedState = blockCoordinator(workspacePath, state, `coordinator_hook_violation: ${reason}`);
+          fireEscalationHook(workspacePath, configResult.config, blockedState, blockedState.blocked_reason);
+          console.error(`Coordinator blocked by after_acceptance hook: ${reason}`);
+          process.exitCode = 1;
+          return;
+        }
       }
     }
   }
@@ -240,6 +256,19 @@ export async function multiStepCommand(options) {
     console.error(`Assignment blocked by hook: ${reason}`);
     if (options.json) {
       console.log(JSON.stringify({ blocked: true, hook_phase: 'before_assignment', reason }, null, 2));
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!assignmentHook.ok) {
+    console.error(`Assignment hook failed: ${assignmentHook.error || 'unknown hook failure'}`);
+    if (options.json) {
+      console.log(JSON.stringify({
+        blocked: true,
+        hook_phase: 'before_assignment',
+        reason: assignmentHook.error || 'unknown hook failure',
+      }, null, 2));
     }
     process.exitCode = 1;
     return;
@@ -364,6 +393,19 @@ export async function multiApproveGateCommand(options) {
     return;
   }
 
+  if (!gateHook.ok) {
+    console.error(`Gate hook failed: ${gateHook.error || 'unknown hook failure'}`);
+    if (options.json) {
+      console.log(JSON.stringify({
+        blocked: true,
+        hook_phase: 'before_gate',
+        reason: gateHook.error || 'unknown hook failure',
+      }, null, 2));
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   const gateType = state.pending_gate.gate_type;
   let result;
 
@@ -480,4 +522,14 @@ function fireEscalationHook(workspacePath, config, state, blockedReason) {
   return fireCoordinatorHook(workspacePath, config, 'on_escalation', payload, {
     super_run_id: state.super_run_id,
   });
+}
+
+function blockCoordinator(workspacePath, state, blockedReason) {
+  const blockedState = {
+    ...state,
+    status: 'blocked',
+    blocked_reason: blockedReason,
+  };
+  saveCoordinatorState(workspacePath, blockedState);
+  return blockedState;
 }

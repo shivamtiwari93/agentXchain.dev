@@ -14,7 +14,8 @@
  *   - Hook payloads include coordinator context (super_run_id, workstreams, barriers)
  */
 
-import { join } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { runHooks } from './hook-runner.js';
 import { readBarriers } from './coordinator-state.js';
 
@@ -28,6 +29,65 @@ const COORDINATOR_HOOK_PHASES = [
 ];
 
 const BLOCKING_PHASES = new Set(['before_assignment', 'before_gate']);
+const REPO_LOCAL_PROTECTED_FILES = [
+  '.agentxchain/state.json',
+  '.agentxchain/history.jsonl',
+  '.agentxchain/decision-ledger.jsonl',
+];
+
+function summarizePendingBarriers(barriers) {
+  return Object.entries(barriers)
+    .filter(([, barrier]) => barrier?.status === 'pending' || barrier?.status === 'partially_satisfied')
+    .map(([barrierId, barrier]) => ({
+      barrier_id: barrierId,
+      workstream_id: barrier.workstream_id ?? null,
+      type: barrier.type ?? null,
+      status: barrier.status ?? null,
+      required_repos: Array.isArray(barrier.required_repos) ? [...barrier.required_repos] : [],
+      satisfied_repos: Array.isArray(barrier.satisfied_repos) ? [...barrier.satisfied_repos] : [],
+    }));
+}
+
+function walkFiles(rootPath) {
+  if (!existsSync(rootPath)) {
+    return [];
+  }
+
+  const entries = readdirSync(rootPath, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const absPath = join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkFiles(absPath));
+      continue;
+    }
+    if (entry.isFile()) {
+      files.push(absPath);
+    }
+  }
+  return files;
+}
+
+function collectRepoProtectedPaths(workspacePath, config) {
+  const protectedPaths = [];
+
+  for (const repo of Object.values(config.repos || {})) {
+    if (!repo?.resolved_path) {
+      continue;
+    }
+
+    for (const relPath of REPO_LOCAL_PROTECTED_FILES) {
+      protectedPaths.push(relative(workspacePath, join(repo.resolved_path, relPath)));
+    }
+
+    const dispatchRoot = join(repo.resolved_path, '.agentxchain', 'dispatch');
+    for (const filePath of walkFiles(dispatchRoot)) {
+      protectedPaths.push(relative(workspacePath, filePath));
+    }
+  }
+
+  return protectedPaths;
+}
 
 // ── Core API ────────────────────────────────────────────────────────────────
 
@@ -57,6 +117,8 @@ export function fireCoordinatorHook(workspacePath, config, phase, payload, optio
   const coordinatorPayload = {
     ...payload,
     super_run_id: options.super_run_id || null,
+    pending_barriers: summarizePendingBarriers(barriers),
+    pending_gate: payload.pending_gate ?? null,
     coordinator_workspace: workspacePath,
     barriers: Object.fromEntries(
       Object.entries(barriers).map(([id, b]) => [id, { status: b.status, type: b.type }])
@@ -69,6 +131,7 @@ export function fireCoordinatorHook(workspacePath, config, phase, payload, optio
     '.agentxchain/multirepo/history.jsonl',
     '.agentxchain/multirepo/barriers.json',
     '.agentxchain/multirepo/barrier-ledger.jsonl',
+    ...collectRepoProtectedPaths(workspacePath, config),
   ];
 
   const auditDir = join(workspacePath, '.agentxchain', 'multirepo');
@@ -93,6 +156,8 @@ export function fireCoordinatorHook(workspacePath, config, phase, payload, optio
     ok: result.ok !== false,
     blocked,
     verdicts,
+    tamper: result.tamper || null,
+    error: result.tamper?.message || result.blocker?.message || null,
   };
 }
 
@@ -104,6 +169,7 @@ export function buildAssignmentPayload(assignment, state) {
     phase: 'before_assignment',
     workstream_id: assignment.workstream_id,
     repo_id: assignment.repo_id,
+    repo_run_id: state.repo_runs?.[assignment.repo_id]?.run_id ?? null,
     role: assignment.role,
     coordinator_status: state.status,
     coordinator_phase: state.phase,
@@ -119,11 +185,13 @@ export function buildAcceptancePayload(projectionResult, repoId, workstreamId, s
     phase: 'after_acceptance',
     workstream_id: workstreamId,
     repo_id: repoId,
+    repo_run_id: state.repo_runs?.[repoId]?.run_id ?? null,
     projection_ref: projectionResult.projection_ref,
     barrier_effects: projectionResult.barrier_effects || [],
     context_invalidations: projectionResult.context_invalidations || [],
     coordinator_status: state.status,
     coordinator_phase: state.phase,
+    pending_gate: state.pending_gate || null,
   };
 }
 
@@ -133,6 +201,9 @@ export function buildAcceptancePayload(projectionResult, repoId, workstreamId, s
 export function buildGatePayload(pendingGate, state) {
   return {
     phase: 'before_gate',
+    workstream_id: pendingGate.workstream_id || null,
+    repo_id: null,
+    repo_run_id: null,
     gate_type: pendingGate.gate_type,
     gate: pendingGate.gate,
     from_phase: pendingGate.from || null,
@@ -141,6 +212,7 @@ export function buildGatePayload(pendingGate, state) {
     human_barriers: pendingGate.human_barriers || [],
     coordinator_status: state.status,
     coordinator_phase: state.phase,
+    pending_gate: pendingGate,
   };
 }
 
@@ -150,6 +222,9 @@ export function buildGatePayload(pendingGate, state) {
 export function buildEscalationPayload(blockedReason, state) {
   return {
     phase: 'on_escalation',
+    workstream_id: null,
+    repo_id: null,
+    repo_run_id: null,
     blocked_reason: blockedReason,
     coordinator_status: state.status,
     coordinator_phase: state.phase,

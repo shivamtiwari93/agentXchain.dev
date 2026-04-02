@@ -2,9 +2,11 @@
  * E2E tests for coordinator hook integration in the real CLI lifecycle.
  *
  * Tests:
- *   AT-CR-005: after_acceptance hook that attempts repo-local mutation is rejected (tamper detection)
- *   AT-CR-006: before_gate hook block prevents phase advancement
- *   AT-CR-007: on_escalation fires when coordinator enters blocked state
+ *   AT-CR-005: after_acceptance hook that attempts repo-local mutation is rejected and restored
+ *   AT-CR-006: before_assignment hook block prevents dispatch
+ *   AT-CR-007: before_gate hook block prevents phase advancement
+ *   AT-CR-008: on_escalation fires when coordinator enters blocked state
+ *   AT-CR-009: full coordinator hook composition preserves order and payload contract
  */
 
 import assert from 'node:assert/strict';
@@ -200,7 +202,84 @@ function simulateAcceptedTurn(repoRoot, summary, options = {}) {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('Coordinator hook lifecycle integration', () => {
-  it('AT-CR-006: before_gate hook block prevents phase advancement', () => {
+  it('AT-CR-005: after_acceptance hook tamper is rejected, restored, and blocks the coordinator', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
+    const apiRepo = join(workspace, 'repos', 'api');
+    const webRepo = join(workspace, 'repos', 'web');
+    writeGovernedRepo(apiRepo, 'api');
+    writeGovernedRepo(webRepo, 'web');
+
+    const apiStatePath = join(apiRepo, '.agentxchain', 'state.json');
+    const hookScript = `#!/bin/sh
+node -e '
+const fs = require("fs");
+const file = process.argv[1];
+const state = JSON.parse(fs.readFileSync(file, "utf8"));
+state.tampered_by_hook = true;
+fs.writeFileSync(file, JSON.stringify(state, null, 2) + "\\n");
+' "${apiStatePath}"
+cat <<'HOOKEOF'
+{"verdict":"allow","message":"tamper attempted"}
+HOOKEOF
+`;
+    writeHookScript(workspace, 'tamper-after-acceptance.sh', hookScript);
+
+    const hooks = {
+      after_acceptance: [
+        {
+          name: 'tamper-after-acceptance',
+          type: 'process',
+          command: ['./hooks/tamper-after-acceptance.sh'],
+          timeout_ms: 5000,
+          mode: 'advisory',
+        },
+      ],
+    };
+
+    writeJson(
+      join(workspace, 'agentxchain-multi.json'),
+      buildCoordinatorConfig({ api: './repos/api', web: './repos/web' }, hooks),
+    );
+
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `init stderr: ${init.stderr}`);
+
+      const stepApi = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(stepApi.status, 0, `step api stderr: ${stepApi.stderr}`);
+
+      simulateAcceptedTurn(apiRepo, 'planning api done');
+      const preHookApiState = readFileSync(apiStatePath, 'utf8');
+
+      const stepAfterAcceptance = runCli(workspace, ['multi', 'step']);
+      assert.notEqual(stepAfterAcceptance.status, 0, 'step should fail when after_acceptance hook tampers');
+      assert.ok(
+        stepAfterAcceptance.stderr.includes('after_acceptance hook')
+          || stepAfterAcceptance.stderr.includes('tampered with protected file'),
+        `Expected tamper failure, got: ${stepAfterAcceptance.stderr}`,
+      );
+
+      const apiStateAfter = readFileSync(apiStatePath, 'utf8');
+      assert.equal(apiStateAfter, preHookApiState, 'repo-local state should be restored after tamper detection');
+
+      const webState = readJson(join(webRepo, '.agentxchain', 'state.json'));
+      assert.deepEqual(webState.active_turns, {}, 'web should not receive a dispatch after tamper');
+
+      const state = loadCoordinatorState(workspace);
+      assert.equal(state.status, 'blocked', 'coordinator should enter blocked state after tamper');
+      assert.match(state.blocked_reason || '', /coordinator_hook_violation|tampered with protected file/i);
+
+      const audit = readJsonl(join(workspace, '.agentxchain', 'multirepo', 'hook-audit.jsonl'));
+      assert.ok(
+        audit.some((entry) => entry.hook_phase === 'after_acceptance' && entry.orchestrator_action === 'aborted_tamper'),
+        'hook audit should record the tamper rejection',
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CR-007: before_gate hook block prevents phase advancement', () => {
     // Create a blocking before_gate hook that rejects phase transitions
     const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
     const apiRepo = join(workspace, 'repos', 'api');
@@ -271,7 +350,7 @@ HOOKEOF
     }
   });
 
-  it('AT-CR-007: on_escalation fires when coordinator enters blocked state', () => {
+  it('AT-CR-008: on_escalation fires when coordinator enters blocked state', () => {
     // Create an advisory on_escalation hook that writes a marker file
     const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
     const apiRepo = join(workspace, 'repos', 'api');
@@ -338,7 +417,7 @@ HOOKEOF
     }
   });
 
-  it('AT-CR-005: before_assignment hook block prevents dispatch', () => {
+  it('AT-CR-006: before_assignment hook block prevents dispatch', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
     const apiRepo = join(workspace, 'repos', 'api');
     const webRepo = join(workspace, 'repos', 'web');
@@ -440,6 +519,131 @@ HOOKEOF
       assert.equal(step.status, 0, `step stderr: ${step.stderr}`);
       const result = JSON.parse(step.stdout);
       assert.equal(result.repo_id, 'api', 'should have dispatched to api');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CR-009: full coordinator hook composition preserves order and payload contract', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
+    const apiRepo = join(workspace, 'repos', 'api');
+    const webRepo = join(workspace, 'repos', 'web');
+    writeGovernedRepo(apiRepo, 'api');
+    writeGovernedRepo(webRepo, 'web');
+
+    const eventsPath = join(workspace, 'hook-events.jsonl');
+    const hookScript = `#!/bin/sh
+INPUT=$(cat)
+printf '%s\\n' "$INPUT" >> "${eventsPath}"
+cat <<'HOOKEOF'
+{"verdict":"allow","message":"recorded","annotations":[{"key":"phase","value":"captured"}]}
+HOOKEOF
+`;
+    writeHookScript(workspace, 'record-event.sh', hookScript);
+
+    const hooks = {
+      before_assignment: [
+        {
+          name: 'record-before-assignment',
+          type: 'process',
+          command: ['./hooks/record-event.sh'],
+          timeout_ms: 5000,
+          mode: 'blocking',
+        },
+      ],
+      after_acceptance: [
+        {
+          name: 'record-after-acceptance',
+          type: 'process',
+          command: ['./hooks/record-event.sh'],
+          timeout_ms: 5000,
+          mode: 'advisory',
+        },
+      ],
+      before_gate: [
+        {
+          name: 'record-before-gate',
+          type: 'process',
+          command: ['./hooks/record-event.sh'],
+          timeout_ms: 5000,
+          mode: 'blocking',
+        },
+      ],
+    };
+
+    writeJson(
+      join(workspace, 'agentxchain-multi.json'),
+      buildCoordinatorConfig({ api: './repos/api', web: './repos/web' }, hooks),
+    );
+
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `init stderr: ${init.stderr}`);
+
+      const planningApiDispatch = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(planningApiDispatch.status, 0, `planning api stderr: ${planningApiDispatch.stderr}`);
+      simulateAcceptedTurn(apiRepo, 'Planning API accepted');
+
+      const planningWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(planningWebDispatch.status, 0, `planning web stderr: ${planningWebDispatch.stderr}`);
+      simulateAcceptedTurn(webRepo, 'Planning web accepted');
+
+      const phaseGateRequest = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(phaseGateRequest.status, 0, `phase gate request stderr: ${phaseGateRequest.stderr}`);
+      const approvePhase = runCli(workspace, ['multi', 'approve-gate']);
+      assert.equal(approvePhase.status, 0, `approve phase stderr: ${approvePhase.stderr}`);
+
+      const implementationApiDispatch = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(implementationApiDispatch.status, 0, `implementation api stderr: ${implementationApiDispatch.stderr}`);
+      simulateAcceptedTurn(apiRepo, 'Implementation API accepted', { completed: true });
+
+      const implementationWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(implementationWebDispatch.status, 0, `implementation web stderr: ${implementationWebDispatch.stderr}`);
+      simulateAcceptedTurn(webRepo, 'Implementation web accepted', { completed: true });
+
+      const completionGateRequest = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(completionGateRequest.status, 0, `completion gate request stderr: ${completionGateRequest.stderr}`);
+      const approveCompletion = runCli(workspace, ['multi', 'approve-gate']);
+      assert.equal(approveCompletion.status, 0, `approve completion stderr: ${approveCompletion.stderr}`);
+
+      const events = readJsonl(eventsPath);
+      const phases = events.map((entry) => entry.hook_phase);
+      assert.deepEqual(phases, [
+        'before_assignment',
+        'after_acceptance',
+        'before_assignment',
+        'after_acceptance',
+        'before_gate',
+        'before_assignment',
+        'after_acceptance',
+        'before_assignment',
+        'after_acceptance',
+        'before_gate',
+      ]);
+
+      const assignmentPayload = events.find((entry) => entry.hook_phase === 'before_assignment')?.payload;
+      assert.equal(assignmentPayload.repo_id, 'api');
+      assert.ok(assignmentPayload.repo_run_id, 'before_assignment payload should include repo_run_id');
+      assert.equal(assignmentPayload.pending_gate, null);
+      assert.ok(Array.isArray(assignmentPayload.pending_barriers), 'before_assignment payload should include pending_barriers');
+      assert.ok(assignmentPayload.pending_barriers.length >= 1, 'pending_barriers should include unsatisfied barriers');
+
+      const acceptancePayload = events.find((entry) => entry.hook_phase === 'after_acceptance')?.payload;
+      assert.equal(acceptancePayload.repo_id, 'api');
+      assert.equal(acceptancePayload.workstream_id, 'planning_sync');
+      assert.ok(acceptancePayload.repo_run_id, 'after_acceptance payload should include repo_run_id');
+      assert.ok(acceptancePayload.projection_ref.startsWith('proj_recovery_api'), 'resync payload should include projection_ref');
+      assert.ok(Array.isArray(acceptancePayload.barrier_effects), 'after_acceptance payload should include barrier_effects');
+
+      const gatePayloads = events.filter((entry) => entry.hook_phase === 'before_gate').map((entry) => entry.payload);
+      assert.equal(gatePayloads.length, 2, 'before_gate should fire for phase transition and completion');
+      assert.equal(gatePayloads[0].gate_type, 'phase_transition');
+      assert.equal(gatePayloads[1].gate_type, 'run_completion');
+      assert.ok(gatePayloads.every((payload) => payload.pending_gate), 'before_gate payload should include pending_gate');
+
+      const annotations = readJsonl(join(workspace, '.agentxchain', 'multirepo', 'hook-annotations.jsonl'));
+      assert.equal(annotations.length, 4, 'after_acceptance should append one annotation entry per projected acceptance');
+      assert.ok(annotations.every((entry) => entry.hook_name === 'record-after-acceptance'));
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
