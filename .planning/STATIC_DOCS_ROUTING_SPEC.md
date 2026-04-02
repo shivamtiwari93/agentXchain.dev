@@ -14,6 +14,7 @@ Today the docs pages are physical files:
 - `website/docs/adapters.html`
 - `website/docs/cli.html`
 - `website/docs/protocol.html`
+- `website/docs/protocol-v6.html`
 
 Using extensionless links like `/docs/quickstart` is only safe if the host rewrites to `.html` or serves directory indexes. This repo does not currently declare such routing.
 
@@ -27,6 +28,7 @@ Examples:
 - `/docs/adapters.html`
 - `/docs/cli.html`
 - `/docs/protocol.html`
+- `/docs/protocol-v6.html`
 
 ## Behavior
 

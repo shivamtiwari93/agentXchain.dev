@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AgentXchain Docs — Protocol Specification</title>
-  <meta name="description" content="The governed convergence protocol for AI software teams. Run state, turn results, validation pipeline, phase gates, challenge requirement, and state machine — the normative reference." />
+  <title>AgentXchain Docs — Protocol v6</title>
+  <meta name="description" content="Protocol v6 is the current constitutional reference for AgentXchain: repo-local governed delivery plus multi-repo coordination, coordinator gates, context generation, invalidation signals, and coordinator hooks." />
   <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
   <link rel="canonical" href="https://agentxchain.dev/docs/protocol.html" />
-  <meta property="og:title" content="AgentXchain Protocol Specification" />
-  <meta property="og:description" content="The normative reference for governed multi-agent software delivery. State machine, turn results, validation, phase gates, and the mandatory challenge requirement." />
+  <meta property="og:title" content="AgentXchain Protocol v6" />
+  <meta property="og:description" content="The current constitutional reference for governed multi-agent software delivery and multi-repo coordination." />
   <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="AgentXchain Protocol Specification" />
-  <meta name="twitter:description" content="The normative reference for governed multi-agent software delivery. State machine, turn results, validation, phase gates, and the mandatory challenge requirement." />
+  <meta name="twitter:title" content="AgentXchain Protocol v6" />
+  <meta name="twitter:description" content="The current constitutional reference for governed multi-agent software delivery and multi-repo coordination." />
   <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,12 +37,12 @@
 
   <header class="docs-hero">
     <div class="container">
-      <span class="eyebrow">Docs / Protocol</span>
-      <h1>The protocol is the product. This is the protocol.</h1>
-      <p class="lede">AgentXchain is a governed convergence protocol for AI software teams. It assigns roles, requires structured turn results, validates artifacts, enforces phase gates, and maintains append-only history. The runner is replaceable. The protocol is the durable layer.</p>
+      <span class="eyebrow">Docs / Protocol v6</span>
+      <h1>The protocol is still the product. v6 is the current constitution.</h1>
+      <p class="lede">Protocol v6 keeps the governed repo-local run from v5, then adds the multi-repo coordinator layer: <code>agentxchain-multi.json</code>, coordinator state, acceptance projections, barrier-driven gates, cross-repo context generation, invalidation signals, and coordinator-scoped hooks.</p>
       <div class="hero-links">
-        <a href="/docs/quickstart.html" class="primary">Start with quickstart</a>
-        <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/SPEC-GOVERNED-v5.md">View full spec on GitHub</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v6.md" class="primary">Read PROTOCOL-v6.md</a>
+        <a href="/docs/protocol-v6.html">Open versioned permalink</a>
       </div>
     </div>
   </header>
@@ -56,480 +56,343 @@
         <a href="/docs/cli.html">CLI</a>
         <a href="/docs/protocol.html" class="active">Protocol</a>
         <a href="/">Landing page</a>
-        <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app">Example project</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v6.md">Raw v6 markdown</a>
         <h2>On this page</h2>
         <a href="#overview">Overview</a>
-        <a href="#runtime-model">Runtime model</a>
-        <a href="#configuration">Configuration</a>
-        <a href="#state-machine">State machine</a>
-        <a href="#turn-result">Turn result contract</a>
-        <a href="#validation">Validation pipeline</a>
-        <a href="#dispatch">Dispatch bundles</a>
-        <a href="#observation">Repo observation</a>
-        <a href="#challenge">Challenge requirement</a>
-        <a href="#file-layout">File layout</a>
-        <a href="#errors">Error taxonomy</a>
-        <a href="#compatibility">v1.0 compatibility</a>
+        <a href="#versioning">Versioning</a>
+        <a href="#repo-local">Repo-Local Run</a>
+        <a href="#coordinator">Coordinator Initiative</a>
+        <a href="#config">Coordinator Config</a>
+        <a href="#gates">Gates And Resync</a>
+        <a href="#context">Cross-Repo Context</a>
+        <a href="#hooks">Coordinator Hooks</a>
+        <a href="#files">File Layout</a>
+        <a href="#compatibility">Compatibility</a>
       </aside>
 
       <main class="docs-content">
-
-        <!-- OVERVIEW -->
         <section id="overview">
           <h2>Overview</h2>
-          <p>The protocol governs how multiple AI agents collaborate on a single codebase. It does not build agents, connect them to tools, or decide what they work on. It governs the workflow between them: who can work, what they must produce, how results are validated, when phases advance, how conflicts are resolved, and where decisions are recorded.</p>
+          <p>Protocol v6 closes the constitutional gap that v5 left open. v5 described one governed repo. v6 governs both the repo-local workflow and the initiative-level coordinator that can sequence several governed repos under one <code>super_run_id</code>.</p>
 
           <div class="callout">
-            <strong>Model-agnostic.</strong> A team can run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules, all producing structured artifacts against the same state.
+            <strong>Authority split:</strong> repo-local accepted history remains the source of truth for accepted work inside a repo. The coordinator derives projections, barriers, pending initiative gates, and cross-repo context from that repo-local truth.
           </div>
-
-          <h3>v1.1 scope</h3>
-          <ul>
-            <li>One project repo per run</li>
-            <li>Parallel governed turns — up to 4 concurrent (v1.1)</li>
-            <li>Sequential turns as default (backward compatible with v1.0)</li>
-            <li>Role-based routing with human checkpoints</li>
-            <li>Structured turn results (JSON) plus human-readable prose</li>
-            <li>Three runtime types: <code>manual</code>, <code>local_cli</code>, <code>api_proxy</code></li>
-            <li>Four artifact types: <code>workspace</code>, <code>patch</code>, <code>commit</code>, <code>review</code></li>
-            <li>Orchestrator-derived artifact truth (not agent self-reporting)</li>
-            <li>Adapter-local auto-retry for <code>api_proxy</code> (v1.1, opt-in)</li>
-            <li>Preemptive tokenization for <code>api_proxy</code> (v1.1, opt-in)</li>
-            <li>Provider-specific error mapping (v1.1, automatic)</li>
-            <li>Persistent blocked state with structured recovery descriptors (v1.1)</li>
-          </ul>
-        </section>
-
-        <!-- RUNTIME MODEL -->
-        <section id="runtime-model">
-          <h2>Runtime model</h2>
-          <p>The orchestrator manages a run using three entities. Everything else — <code>TALK.md</code>, <code>history.jsonl</code>, <code>decision-ledger.jsonl</code>, phase summaries — is derivative.</p>
 
           <div class="mini-grid">
             <div class="surface">
-              <h3>Run State</h3>
-              <p>The accepted state of the project and workflow. Contains run status, current phase, active turns, budget, blocked state, and pending approvals. Written only by the orchestrator.</p>
+              <h3>Repo-local run</h3>
+              <p>The v5 governed state machine still handles actual turn assignment, staging, validation, acceptance, rejection, and repo-local human gates.</p>
             </div>
             <div class="surface">
-              <h3>Turn Assignment</h3>
-              <p>Which role(s) are currently authorized to act. Each assignment captures a baseline (git HEAD, clean status, timestamp), a deadline, and a turn sequence number.</p>
+              <h3>Coordinator initiative</h3>
+              <p>The v6 coordinator sequences workstreams across repos, requests initiative gates, records <code>acceptance_projection</code> events, and writes cross-repo context artifacts.</p>
             </div>
             <div class="surface">
-              <h3>Turn Result</h3>
-              <p>The structured output of one completed turn. Contains summary, decisions, objections, files changed, verification evidence, artifact reference, and routing suggestions.</p>
+              <h3>Constitutional command</h3>
+              <p><code>agentxchain multi step</code> is not a dumb dispatcher. It reconciles repo-local truth first, then dispatches or requests the next coordinator gate.</p>
             </div>
           </div>
         </section>
 
-        <!-- CONFIGURATION -->
-        <section id="configuration">
-          <h2>Configuration</h2>
-          <p>Static project configuration in <code>agentxchain.json</code>, checked into the repo. Schema version <code>"1.0"</code> or <code>"1.1"</code>. A v1.0 config with no new fields runs identically under v1.1.</p>
-
-          <h3>Top-level shape</h3>
-<pre><code>{
-  "schema_version": "1.0",
-  "project": { "id": "", "name": "", "default_branch": "main" },
-  "roles": {},
-  "runtimes": {},
-  "routing": {},
-  "gates": {},
-  "budget": {},
-  "retention": {},
-  "prompts": {},
-  "rules": {}
-}</code></pre>
-
-          <h3>Roles</h3>
-          <p>Each role declares a title, mandate, write authority, and runtime binding.</p>
+        <section id="versioning">
+          <h2>Versioning</h2>
           <table class="docs-table">
-            <thead><tr><th>Field</th><th>Type</th><th>Values</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Artifact</th>
+                <th>Status</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td><code>title</code></td><td>string</td><td>Human-readable name</td></tr>
-              <tr><td><code>mandate</code></td><td>string</td><td>Role's governing directive</td></tr>
-              <tr><td><code>write_authority</code></td><td>enum</td><td><code>authoritative</code>, <code>proposed</code>, <code>review_only</code></td></tr>
-              <tr><td><code>runtime</code></td><td>string</td><td>Reference to a runtime ID</td></tr>
+              <tr>
+                <td><code>SPEC-GOVERNED-v4.md</code></td>
+                <td>Historical</td>
+                <td>Frozen v1.0 single-repo reference</td>
+              </tr>
+              <tr>
+                <td><code>SPEC-GOVERNED-v5.md</code></td>
+                <td>Historical</td>
+                <td>Frozen v1.1 single-repo reference with parallel turns and blocked state</td>
+              </tr>
+              <tr>
+                <td><code>PROTOCOL-v6.md</code></td>
+                <td>Current</td>
+                <td>Current constitutional reference with multi-repo coordinator semantics</td>
+              </tr>
             </tbody>
           </table>
 
-          <div class="callout">
-            <strong>Write authority semantics:</strong>
-            <code>authoritative</code> — may directly modify repo files.
-            <code>proposed</code> — may return patches but not directly update accepted state.
-            <code>review_only</code> — may not change product files; only emit review artifacts under <code>.planning/</code> or <code>.agentxchain/reviews/</code>.
-          </div>
-
-          <h3>Runtimes</h3>
-          <table class="docs-table">
-            <thead><tr><th>Field</th><th>Required</th><th>Notes</th></tr></thead>
-            <tbody>
-              <tr><td><code>type</code></td><td>yes</td><td><code>manual</code>, <code>local_cli</code>, <code>api_proxy</code></td></tr>
-              <tr><td><code>command</code></td><td>local_cli</td><td>Command array, may contain <code>{prompt}</code></td></tr>
-              <tr><td><code>prompt_transport</code></td><td>local_cli</td><td><code>argv</code>, <code>stdin</code>, or <code>dispatch_bundle_only</code></td></tr>
-              <tr><td><code>provider</code></td><td>api_proxy</td><td>Provider name (e.g., <code>anthropic</code>)</td></tr>
-              <tr><td><code>model</code></td><td>api_proxy</td><td>Model identifier</td></tr>
-              <tr><td><code>auth_env</code></td><td>api_proxy</td><td>Environment variable for API key</td></tr>
-              <tr><td><code>timeout_seconds</code></td><td>optional</td><td>Default 120</td></tr>
-              <tr><td><code>retry_policy</code></td><td>optional</td><td>Auto-retry config (v1.1). See below.</td></tr>
-              <tr><td><code>preflight_tokenization</code></td><td>optional</td><td>Preflight token budget (v1.1). See below.</td></tr>
-            </tbody>
-          </table>
-
-          <div class="warning">
-            <strong>v1.1 restriction:</strong> <code>api_proxy</code> may only bind to <code>review_only</code> roles.
-          </div>
-
-          <h3>Retry policy (v1.1, opt-in)</h3>
-<pre><code>{
-  "retry_policy": {
-    "enabled": true,
-    "max_attempts": 3,
-    "base_delay_ms": 1000,
-    "max_delay_ms": 8000,
-    "backoff_multiplier": 2,
-    "jitter": "full",
-    "retry_on": ["rate_limited", "network_failure", "timeout"]
-  }
-}</code></pre>
-          <p>Retries are adapter-local. They do NOT create governed turns or mutate governed attempt counters. Delay formula: <code>min(base_delay_ms * backoff_multiplier^attempt, max_delay_ms)</code> with optional full jitter. Non-retryable classes (<code>invalid_request</code>, <code>budget_error</code>, <code>context_overflow</code>) are never retried.</p>
-
-          <h3>Preemptive tokenization (v1.1, opt-in)</h3>
-<pre><code>{
-  "context_window_tokens": 200000,
-  "preflight_tokenization": {
-    "enabled": true,
-    "tokenizer": "provider_local",
-    "safety_margin_tokens": 2048
-  }
-}</code></pre>
-          <p>Token budget: <code>context_window_tokens - max_output_tokens - safety_margin_tokens</code>. If estimated input exceeds budget, attempt bounded compression. If still over, fail locally with <code>context_overflow</code> without making the API call.</p>
-
-          <h3>Routing</h3>
-          <p>Each phase declares an entry role, allowed next roles, exit gate, and max concurrent turns.</p>
-          <table class="docs-table">
-            <thead><tr><th>Field</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr><td><code>entry_role</code></td><td>Default role for the phase</td></tr>
-              <tr><td><code>allowed_next_roles</code></td><td>Hard allowlist; <code>human</code> is reserved</td></tr>
-              <tr><td><code>exit_gate</code></td><td>Gate ID that must pass before phase advancement</td></tr>
-              <tr><td><code>max_concurrent_turns</code></td><td>Maximum parallel turns (v1.1). Default: 1. Cap: 4.</td></tr>
-            </tbody>
-          </table>
-
-          <h3>Gates</h3>
-          <table class="docs-table">
-            <thead><tr><th>Predicate</th><th>Behavior</th></tr></thead>
-            <tbody>
-              <tr><td><code>requires_files</code></td><td>Listed file paths must exist</td></tr>
-              <tr><td><code>requires_verification_pass</code></td><td>Turn verification must be <code>pass</code> or <code>attested_pass</code></td></tr>
-              <tr><td><code>requires_human_approval</code></td><td>Blocks auto-advance; run pauses for <code>approve-transition</code></td></tr>
-            </tbody>
-          </table>
-
-          <h3>Validation rules</h3>
           <ul>
-            <li>Unknown top-level keys are rejected</li>
-            <li>Every role must reference an existing runtime</li>
-            <li>Every routing role must exist or be <code>human</code></li>
-            <li><code>review_only</code> roles cannot use <code>local_cli</code> runtimes</li>
-            <li><code>api_proxy</code> runtimes may only bind to <code>review_only</code> roles (v1.1)</li>
-            <li><code>argv</code> transport requires <code>{prompt}</code> placeholder in command</li>
-            <li><code>max_concurrent_turns</code> must be &gt;= 1 and &lt;= 4</li>
+            <li><code>/docs/protocol.html</code> is the latest stable alias.</li>
+            <li><code>/docs/protocol-v6.html</code> is the immutable v6 permalink.</li>
+            <li>The current normative source is <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v6.md">PROTOCOL-v6.md</a>, not <code>SPEC-GOVERNED-v5.md</code>.</li>
           </ul>
         </section>
 
-        <!-- STATE MACHINE -->
-        <section id="state-machine">
-          <h2>State machine</h2>
+        <section id="repo-local">
+          <h2>Repo-Local Governed Run</h2>
+          <p>Protocol v6 does not replace the repo-local governed lifecycle. It builds on it. Each participating repo still owns its own <code>agentxchain.json</code>, run state, dispatch bundles, staging files, and accepted history.</p>
 
-          <h3>Run statuses</h3>
-          <table class="docs-table">
-            <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
-            <tbody>
-              <tr><td><code>idle</code></td><td>Initialized, no run started</td></tr>
-              <tr><td><code>active</code></td><td>Run in progress, turns may be assigned and accepted</td></tr>
-              <tr><td><code>paused</code></td><td>Waiting for a known human approval (phase transition or run completion)</td></tr>
-              <tr><td><code>blocked</code></td><td>Cannot make forward progress; requires human diagnosis or external action</td></tr>
-              <tr><td><code>completed</code></td><td>All phases complete, final approval recorded</td></tr>
-              <tr><td><code>failed</code></td><td>Terminal failure (reserved)</td></tr>
-            </tbody>
-          </table>
-
-          <div class="callout">
-            <strong>blocked vs paused (v1.1):</strong>
-            <code>paused</code> = the operator knows exactly what to do (approve-transition or approve-completion).
-            <code>blocked</code> = the operator must diagnose and resolve a problem before resuming.
-            <code>blocked</code> requires a structured <code>BlockedReason</code> with category, recovery, timestamp, and turn ID.
-          </div>
-
-          <h3>State transitions</h3>
-          <table class="docs-table">
-            <thead><tr><th>Current</th><th>Action</th><th>Next</th><th>Side effects</th></tr></thead>
-            <tbody>
-              <tr><td>idle/paused</td><td>initializeRun</td><td>active</td><td>Creates run_id</td></tr>
-              <tr><td>active</td><td>assignTurn</td><td>active (turn assigned)</td><td>Captures baseline, writes state, increments turn_sequence</td></tr>
-              <tr><td>active (running)</td><td>acceptTurn</td><td>active / paused / completed</td><td>Appends history/ledger/TALK, evaluates gates</td></tr>
-              <tr><td>active (running)</td><td>acceptTurn (conflict)</td><td>active (conflicted)</td><td>Persists conflict_state on the turn</td></tr>
-              <tr><td>active (running)</td><td>acceptTurn (needs_human)</td><td>blocked</td><td>Sets blocked_on, blocked_reason</td></tr>
-              <tr><td>active (running)</td><td>rejectTurn (retries left)</td><td>active (attempt++)</td><td>Preserves rejected artifact</td></tr>
-              <tr><td>active (running)</td><td>rejectTurn (exhausted)</td><td>blocked (escalated)</td><td>Creates escalation, sets blocked_reason</td></tr>
-              <tr><td>active (conflicted)</td><td>reject --reassign</td><td>active (rebased)</td><td>Re-baselines, redispatches with conflict context</td></tr>
-              <tr><td>active (conflicted)</td><td>human_merge</td><td>active (re-validate)</td><td>Re-runs acceptance pipeline</td></tr>
-              <tr><td>paused (transition)</td><td>approveTransition</td><td>active (new phase)</td><td>Advances phase</td></tr>
-              <tr><td>paused (completion)</td><td>approveCompletion</td><td>completed</td><td>Terminal</td></tr>
-              <tr><td>blocked</td><td>step --resume</td><td>active</td><td>Clears blocked state</td></tr>
-            </tbody>
-          </table>
-
-          <h3>Key rules</h3>
-          <ul>
-            <li>The orchestrator never enters accepting for an unvalidated turn result</li>
-            <li>Phase advancement is gate-driven and orchestrator-enforced, never from agent suggestion alone</li>
-            <li>Phase transitions require all active turns resolved before gate evaluation (v1.1)</li>
-            <li>Acceptance never auto-assigns the next turn</li>
-            <li>Retry is per turn assignment, not per phase</li>
-            <li>History is append-only</li>
-            <li><code>blocked</code> blocks new assignment but does not cancel running sibling turns (v1.1)</li>
-            <li>Acceptance is serialized via an acceptance lock (v1.1)</li>
-          </ul>
-
-          <h3>Conflict detection (v1.1)</h3>
-          <p>File-level conflict detection at acceptance time. Two turns conflict when their observed changed files overlap AND the later turn was assigned before the earlier turn was accepted.</p>
-          <p><strong>Operator resolution paths:</strong></p>
-          <ul>
-            <li><code>reject_and_reassign</code> — same turn_id, increment attempt, re-baseline, redispatch with conflict context</li>
-            <li><code>human_merge</code> — operator manually resolves files, re-runs acceptance pipeline</li>
-          </ul>
-          <div class="warning">No silent auto-merge or auto-accept for conflicts. Repeated re-conflict is bounded by a loop guard.</div>
-        </section>
-
-        <!-- TURN RESULT CONTRACT -->
-        <section id="turn-result">
-          <h2>Turn result contract</h2>
-          <p>Every turn produces this shape. The orchestrator validates it before acceptance.</p>
-
-<pre><code>{
-  "schema_version": "1.0",
-  "run_id": "...",
-  "turn_id": "...",
-  "role": "...",
-  "runtime_id": "...",
-  "status": "completed | blocked | needs_human | failed",
-  "summary": "...",
-  "decisions": [
-    { "id": "DEC-NNN", "category": "...", "statement": "...", "rationale": "..." }
-  ],
-  "objections": [
-    { "id": "OBJ-NNN", "severity": "low|medium|high|blocking", "statement": "...", "status": "raised" }
-  ],
-  "files_changed": ["..."],
-  "artifacts_created": ["..."],
-  "verification": {
-    "status": "pass | fail | skipped",
-    "commands": ["..."],
-    "evidence_summary": "...",
-    "machine_evidence": [{ "command": "...", "exit_code": 0 }]
-  },
-  "artifact": { "type": "workspace|patch|commit|review", "ref": "..." },
-  "proposed_next_role": "...",
-  "phase_transition_request": "implementation | qa | null",
-  "run_completion_request": false,
-  "needs_human_reason": "... | null",
-  "cost": { "input_tokens": 0, "output_tokens": 0, "usd": 0 }
-}</code></pre>
-
-          <h3>Required invariants</h3>
-          <ul>
-            <li><code>run_id</code> and <code>turn_id</code> must match current assignment</li>
-            <li><code>role</code> and <code>runtime_id</code> must match current assignment</li>
-            <li><code>proposed_next_role</code> must be routing-legal or <code>human</code></li>
-            <li><code>review_only</code> roles must not declare product file changes</li>
-            <li><code>review_only</code> roles must have <code>artifact.type = "review"</code></li>
-            <li><code>phase_transition_request</code> and <code>run_completion_request</code> are mutually exclusive</li>
-            <li>Decision IDs match <code>DEC-NNN</code>, objection IDs match <code>OBJ-NNN</code></li>
-          </ul>
-
-          <h3>Verification normalization</h3>
-          <p>The orchestrator normalizes verification status at acceptance time:</p>
-          <table class="docs-table">
-            <thead><tr><th>Claimed status</th><th>Runtime type</th><th>Normalized</th></tr></thead>
-            <tbody>
-              <tr><td><code>pass</code></td><td><code>local_cli</code> + all exit_code=0</td><td><code>pass</code></td></tr>
-              <tr><td><code>pass</code></td><td><code>local_cli</code> + any exit_code!=0</td><td><code>not_reproducible</code></td></tr>
-              <tr><td><code>pass</code></td><td><code>local_cli</code> + no evidence</td><td><code>not_reproducible</code></td></tr>
-              <tr><td><code>pass</code></td><td><code>manual</code></td><td><code>attested_pass</code></td></tr>
-              <tr><td><code>pass</code></td><td><code>api_proxy</code></td><td><code>attested_pass</code></td></tr>
-              <tr><td><code>fail</code></td><td>any</td><td><code>fail</code></td></tr>
-              <tr><td><code>skipped</code></td><td>any</td><td><code>skipped</code></td></tr>
-            </tbody>
-          </table>
-
-          <h3>Cost accounting</h3>
-          <ul>
-            <li>Provider telemetry is the authoritative cost source</li>
-            <li>Hardcoded model rates are fallback estimation only</li>
-            <li>When auto-retry is enabled, the success-path cost aggregates usage across all adapter-local attempts</li>
-          </ul>
-        </section>
-
-        <!-- VALIDATION PIPELINE -->
-        <section id="validation">
-          <h2>Validation pipeline</h2>
-          <p>Five stages, executed in order. Short-circuits on first failure.</p>
-
-          <table class="docs-table">
-            <thead><tr><th>Stage</th><th>Name</th><th>Error class</th><th>Checks</th></tr></thead>
-            <tbody>
-              <tr><td>A</td><td>Schema</td><td><code>schema_error</code></td><td>Valid JSON, required fields, enum values, field types, ID patterns</td></tr>
-              <tr><td>B</td><td>Assignment</td><td><code>assignment_error</code></td><td>run_id, turn_id, role, runtime_id match current assignment</td></tr>
-              <tr><td>C</td><td>Artifact</td><td><code>artifact_error</code></td><td>Write authority compliance, reserved path protection, artifact type consistency</td></tr>
-              <tr><td>D</td><td>Verification</td><td><code>verification_error</code></td><td>Evidence consistency, exit code truth, pass claim requires evidence</td></tr>
-              <tr><td>E</td><td>Protocol</td><td><code>protocol_error</code></td><td>Challenge requirement, routing legality, mutual exclusion of phase/run requests</td></tr>
-            </tbody>
-          </table>
-        </section>
-
-        <!-- DISPATCH BUNDLES -->
-        <section id="dispatch">
-          <h2>Dispatch bundles</h2>
-          <p>Dispatch bundles are turn-scoped. When only one turn is active, there is simply one live bundle:</p>
-
-<pre><code>.agentxchain/dispatch/turns/&lt;turn_id&gt;/ASSIGNMENT.json
-.agentxchain/dispatch/turns/&lt;turn_id&gt;/PROMPT.md
-.agentxchain/dispatch/turns/&lt;turn_id&gt;/CONTEXT.md
+<pre><code>agentxchain.json
+.agentxchain/state.json
+.agentxchain/history.jsonl
+.agentxchain/decision-ledger.jsonl
+.agentxchain/dispatch/turns/&lt;turn_id&gt;/
 .agentxchain/staging/&lt;turn_id&gt;/turn-result.json</code></pre>
 
-          <h3>Parallel turn isolation (v1.1)</h3>
-          <p>When <code>max_concurrent_turns > 1</code>, multiple turn-scoped bundles coexist. <code>dispatch/index.json</code> is the operator-visible manifest listing all active dispatch bundles.</p>
-
-          <h3>Conflict context in redispatch</h3>
-          <p>When a turn is redispatched after <code>reject_and_reassign</code>, the bundle carries structured conflict context: which files conflicted, which turn was accepted ahead, and the new baseline ref.</p>
-
-          <p>Dispatch bundles are ephemeral projections, re-materialized on every resume/retry.</p>
-        </section>
-
-        <!-- REPO OBSERVATION -->
-        <section id="observation">
-          <h2>Repo observation</h2>
-          <p>The orchestrator independently verifies what happened in the repo. Agents do not self-report truth — the orchestrator observes it.</p>
-
-          <h3>Baseline capture</h3>
-          <p>At turn assignment: Git HEAD ref, working tree clean status, and timestamp.</p>
-
-          <h3>Change observation</h3>
-          <p>At acceptance: actual files changed (via <code>git diff</code> against baseline), current HEAD ref, and diff summary.</p>
-
-          <h3>Declared vs observed</h3>
+          <p>Repo-local commands remain authoritative for actual turn completion:</p>
           <ul>
-            <li><strong>Authoritative roles:</strong> undeclared file changes are an <code>artifact_error</code></li>
-            <li><strong>Review-only roles:</strong> any observed product file changes are an <code>artifact_error</code></li>
+            <li><code>agentxchain step</code></li>
+            <li><code>agentxchain accept-turn</code></li>
+            <li><code>agentxchain reject-turn</code></li>
+            <li><code>agentxchain approve-transition</code></li>
+            <li><code>agentxchain approve-completion</code></li>
           </ul>
-
-          <h3>Integration ref derivation</h3>
-          <p><code>accepted_integration_ref</code> is derived from orchestrator observation, not from the agent's <code>artifact.ref</code>. It is a git anchor. The exact accepted state is the combination of <code>accepted_integration_ref</code> and the corresponding <code>history.jsonl</code> row's <code>observed_artifact</code>.</p>
-
-          <h3>Operational path exclusion</h3>
-          <p>Orchestrator-owned paths (<code>.agentxchain/dispatch/</code>, <code>.agentxchain/staging/</code>) are excluded from actor observation and the clean baseline check.</p>
         </section>
 
-        <!-- CHALLENGE REQUIREMENT -->
-        <section id="challenge">
-          <h2>Challenge requirement</h2>
-          <p>The core protocol differentiator. Enforced mechanically, not suggested politely.</p>
+        <section id="coordinator">
+          <h2>Coordinator Initiative</h2>
+          <p>The coordinator lives in the workspace root and persists initiative state under <code>.agentxchain/multirepo/</code>. Its primary entities are <code>super_run_id</code>, <code>repo_runs</code>, workstreams, barriers, pending gates, and acceptance projections.</p>
 
-          <div class="callout">
-            <strong>Mandatory objection:</strong> <code>review_only</code> roles MUST have a non-empty <code>objections</code> array. Empty objections from a review role is a <code>protocol_error</code> — the turn is rejected.
+          <div class="surface-grid">
+            <div class="surface">
+              <h3><code>super_run_id</code></h3>
+              <p>The initiative-wide identifier written at <code>multi init</code> time and included in coordinator history, gate requests, and hook payloads.</p>
+            </div>
+            <div class="surface">
+              <h3><code>acceptance_projection</code></h3>
+              <p>A derived history event that projects one repo-local accepted turn into coordinator space with <code>projection_ref</code>, <code>repo_turn_id</code>, <code>files_changed</code>, decisions, and verification evidence.</p>
+            </div>
+            <div class="surface">
+              <h3>Barrier snapshot</h3>
+              <p>Each workstream has a completion barrier recorded in <code>barriers.json</code>. Barrier transitions are append-only in <code>barrier-ledger.jsonl</code>.</p>
+            </div>
           </div>
 
-          <ul>
-            <li><code>review_only</code> roles: objections required, always</li>
-            <li><code>authoritative</code> roles: may have empty objections only on the first turn in a phase</li>
-            <li>Objection substance is not validated by the orchestrator — but the structural requirement is enforced</li>
-          </ul>
-
-          <p>This is adversarial robustness applied to software delivery. The quality of collective output depends not on the intelligence of participants, but on the structure of their disagreement.</p>
+          <p>The operator surface is explicit:</p>
+<pre><code>agentxchain multi init
+agentxchain multi status
+agentxchain multi step
+agentxchain multi approve-gate
+agentxchain multi resync</code></pre>
         </section>
 
-        <!-- FILE LAYOUT -->
-        <section id="file-layout">
-          <h2>File layout</h2>
-<pre><code>agentxchain.json            # Static config (human-authored)
+        <section id="config">
+          <h2>Coordinator Config</h2>
+          <p>The coordinator contract is declared in <code>agentxchain-multi.json</code>. The current config schema value is <code>"0.1"</code>.</p>
 
-.agentxchain/
-  state.json                # Run state (orchestrator-owned)
-  history.jsonl             # Turn history (orchestrator-appended)
-  decision-ledger.jsonl     # Decision record (orchestrator-appended)
-  prompts/                  # Role prompt templates (human-authored)
-  reviews/                  # QA/director review artifacts
-  staging/                  # Turn result staging area (ephemeral)
-    &lt;turn_id&gt;/              # v1.1: per-turn staging isolation
-  dispatch/                 # Dispatch bundles (ephemeral)
-    turns/                  # v1.1: per-turn dispatch isolation
-      &lt;turn_id&gt;/
-    index.json              # v1.1: active dispatch manifest
-    rejected/               # Preserved rejected artifacts
+<pre><code>{
+  "schema_version": "0.1",
+  "project": { "id": "agentxchain-dev", "name": "AgentXchain.dev" },
+  "repos": {
+    "api": { "path": "./repos/api", "default_branch": "main", "required": true },
+    "web": { "path": "./repos/web", "default_branch": "main", "required": true }
+  },
+  "workstreams": {
+    "delivery": {
+      "phase": "implementation",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": [],
+      "completion_barrier": "all_repos_accepted"
+    }
+  },
+  "routing": {
+    "implementation": { "entry_workstream": "delivery" }
+  },
+  "gates": {
+    "initiative_ship": {
+      "requires_human_approval": true,
+      "requires_repos": ["api", "web"]
+    }
+  },
+  "hooks": {
+    "before_assignment": [],
+    "after_acceptance": [],
+    "before_gate": [],
+    "on_escalation": []
+  }
+}</code></pre>
 
-.planning/
-  PM_SIGNOFF.md             # PM sign-off document
-  ROADMAP.md                # Roadmap with acceptance criteria
-  acceptance-matrix.md      # QA acceptance verdict matrix
-  ship-verdict.md           # QA ship/no-ship verdict
-
-TALK.md                     # Human-readable collaboration log</code></pre>
-
-          <h3>Reserved paths</h3>
-          <p>Agents must not write to these orchestrator-owned files:</p>
-          <ul>
-            <li><code>.agentxchain/state.json</code></li>
-            <li><code>.agentxchain/history.jsonl</code></li>
-            <li><code>.agentxchain/decision-ledger.jsonl</code></li>
-            <li><code>.agentxchain/lock.json</code></li>
-          </ul>
-        </section>
-
-        <!-- ERROR TAXONOMY -->
-        <section id="errors">
-          <h2>Error taxonomy</h2>
           <table class="docs-table">
-            <thead><tr><th>Code</th><th>Meaning</th><th>Retryable</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Rule</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td><code>schema_error</code></td><td>Malformed turn result</td><td>yes</td></tr>
-              <tr><td><code>assignment_error</code></td><td>Stale or mismatched turn identity</td><td>no</td></tr>
-              <tr><td><code>artifact_error</code></td><td>Declared/observed file mismatch</td><td>yes</td></tr>
-              <tr><td><code>verification_error</code></td><td>Evidence inconsistency</td><td>yes</td></tr>
-              <tr><td><code>protocol_error</code></td><td>Challenge/gate/routing violation</td><td>no</td></tr>
-              <tr><td><code>budget_error</code></td><td>Budget threshold exceeded</td><td>no</td></tr>
-              <tr><td><code>config_error</code></td><td>Invalid configuration</td><td>no</td></tr>
-              <tr><td><code>dispatch_error</code></td><td>Adapter failed to start turn</td><td>yes</td></tr>
-              <tr><td><code>timeout_error</code></td><td>Turn exceeded deadline</td><td>yes</td></tr>
-              <tr><td><code>context_overflow</code></td><td>Preflight token budget exceeded (v1.1)</td><td>no</td></tr>
-              <tr><td><code>invalid_request</code></td><td>Provider rejected request shape (v1.1)</td><td>no</td></tr>
-              <tr><td><code>provider_overloaded</code></td><td>Provider temporarily overloaded (v1.1)</td><td>yes</td></tr>
+              <tr>
+                <td><code>workstreams.*.phase</code></td>
+                <td>Must be <code>planning</code>, <code>implementation</code>, or <code>qa</code></td>
+              </tr>
+              <tr>
+                <td><code>workstreams.*.completion_barrier</code></td>
+                <td>Must be <code>all_repos_accepted</code>, <code>interface_alignment</code>, <code>ordered_repo_sequence</code>, or <code>shared_human_gate</code></td>
+              </tr>
+              <tr>
+                <td><code>workstreams.*.entry_repo</code></td>
+                <td>Must also appear in the workstream repo list</td>
+              </tr>
+              <tr>
+                <td><code>workstreams.*.depends_on</code></td>
+                <td>Must reference declared workstreams and remain acyclic</td>
+              </tr>
+              <tr>
+                <td><code>routing.&lt;phase&gt;.entry_workstream</code></td>
+                <td>Must exist and belong to the same phase</td>
+              </tr>
+              <tr>
+                <td><code>gates.*.requires_repos</code></td>
+                <td>Must reference declared repos only</td>
+              </tr>
             </tbody>
           </table>
-          <p>Retryable errors retry up to <code>rules.max_turn_retries</code> (default: 2). Non-retryable errors escalate or block.</p>
         </section>
 
-        <!-- COMPATIBILITY -->
-        <section id="compatibility">
-          <h2>v1.0 compatibility</h2>
-
-          <h3>Config compatibility</h3>
-          <p>A valid v1.0 <code>agentxchain.json</code> with <code>schema_version: "1.0"</code> and no v1.1 fields runs identically under v1.1. No config changes required to upgrade.</p>
-
-          <h3>State migration</h3>
-          <p>v1.1 reads and migrates <code>"1.0"</code> state files in place. Key migration steps:</p>
+        <section id="gates">
+          <h2>Gates And Resync</h2>
+          <p><code>agentxchain multi step</code> enforces three invariants before dispatch:</p>
           <ul>
-            <li><code>current_turn</code> (if present) migrates to <code>active_turns[turn_id]</code></li>
-            <li><code>paused + blocked_on</code> migrates to <code>status: "blocked"</code> with structured <code>blocked_reason</code></li>
-            <li><code>schema_version</code> updated to <code>"1.1"</code></li>
+            <li>Do not dispatch when the initiative is already completed.</li>
+            <li>Do not dispatch when a coordinator gate is pending; require <code>agentxchain multi approve-gate</code>.</li>
+            <li>Resync from repo-local authority before selecting the next assignment when divergence is detected.</li>
           </ul>
-          <div class="warning">v1.0 does NOT read <code>"1.1"</code> state files. There is no forward compatibility guarantee.</div>
 
-          <h3>Behavioral preservation</h3>
-          <p>With default settings (no retry_policy, no preflight_tokenization, <code>max_concurrent_turns = 1</code> or absent): sequential single-turn behavior is unchanged. Turn lifecycle, validation, acceptance, and rejection are identical to v1.0.</p>
+          <div class="callout">
+            <strong>Important:</strong> <code>after_acceptance</code> hooks fire only for newly projected acceptances discovered during resync, not for arbitrary coordinator churn.
+          </div>
+
+          <div class="surface-grid">
+            <div class="surface">
+              <h3>Phase transition</h3>
+              <p>When the current phase is satisfied, <code>multi step</code> requests a coordinator phase gate automatically and pauses the initiative until <code>agentxchain multi approve-gate</code> is run.</p>
+            </div>
+            <div class="surface">
+              <h3>Initiative completion</h3>
+              <p>When the final phase is satisfied and required repos are completion-ready, <code>multi step</code> requests the initiative completion gate automatically and the operator approves it with the same command surface.</p>
+            </div>
+          </div>
+
+          <p>Coordinator history records these gate events:</p>
+          <ul>
+            <li><code>phase_transition_requested</code></li>
+            <li><code>phase_transition_approved</code></li>
+            <li><code>run_completion_requested</code></li>
+            <li><code>run_completed</code></li>
+          </ul>
         </section>
 
+        <section id="context">
+          <h2>Cross-Repo Context</h2>
+          <p>Every coordinator dispatch generates a context snapshot for the target repo. The coordinator writes it under <code>.agentxchain/multirepo/context/&lt;context_ref&gt;/</code> and copies it into the repo-local dispatch bundle as <code>COORDINATOR_CONTEXT.json</code> and <code>COORDINATOR_CONTEXT.md</code>.</p>
+
+          <p>The snapshot includes:</p>
+          <ul>
+            <li><code>upstream_acceptances</code> from already accepted upstream repos</li>
+            <li><code>active_barriers</code> that still constrain the target repo</li>
+            <li><code>required_followups</code> derived from dependencies, accepted outputs, and barrier notes</li>
+          </ul>
+
+          <p>The coordinator also appends a <code>context_generated</code> event to <code>history.jsonl</code> with <code>context_ref</code>, <code>target_repo_id</code>, <code>relevant_workstream_ids</code>, and <code>upstream_repo_ids</code>.</p>
+
+          <div class="warning">
+            <strong>Invalidation is informational.</strong> When a later acceptance makes downstream context stale, the coordinator computes <code>context_invalidations</code> for hooks and operator tooling. The invalidation signal does not itself mutate coordinator state.
+          </div>
+        </section>
+
+        <section id="hooks">
+          <h2>Coordinator Hooks</h2>
+          <p>Coordinator hooks are declared in <code>agentxchain-multi.json</code> and run through four phases distinct from repo-local hooks:</p>
+
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Phase</th>
+                <th>Type</th>
+                <th>Use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>before_assignment</code></td>
+                <td>Blocking</td>
+                <td>Prevent dispatch before the next repo-local turn is assigned</td>
+              </tr>
+              <tr>
+                <td><code>after_acceptance</code></td>
+                <td>Advisory</td>
+                <td>React to new acceptance projections, barrier effects, and <code>context_invalidations</code></td>
+              </tr>
+              <tr>
+                <td><code>before_gate</code></td>
+                <td>Blocking</td>
+                <td>Prevent coordinator phase/completion approval while keeping pending gate state coherent</td>
+              </tr>
+              <tr>
+                <td><code>on_escalation</code></td>
+                <td>Advisory</td>
+                <td>Notify when the coordinator enters blocked state</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>Common payload fields include <code>super_run_id</code>, <code>workstream_id</code>, <code>repo_id</code>, <code>repo_run_id</code>, <code>pending_barriers</code>, <code>pending_gate</code>, <code>coordinator_status</code>, and <code>coordinator_phase</code>.</p>
+
+          <p><code>after_acceptance</code> adds <code>projection_ref</code>, <code>barrier_effects</code>, and <code>context_invalidations</code>. <code>before_gate</code> adds gate metadata. <code>on_escalation</code> adds <code>blocked_reason</code> and <code>repo_runs</code>.</p>
+
+          <div class="callout">
+            <strong>Tamper protection:</strong> coordinator hooks may not mutate coordinator-owned files under <code>.agentxchain/multirepo/</code> and may not mutate protected repo-local orchestrator files or existing dispatch bundle artifacts. Protected-file tamper is rolled back and treated as a protocol violation.
+          </div>
+        </section>
+
+        <section id="files">
+          <h2>File Layout</h2>
+<pre><code>agentxchain-multi.json
+
+.agentxchain/multirepo/
+  state.json
+  history.jsonl
+  decision-ledger.jsonl
+  barriers.json
+  barrier-ledger.jsonl
+  context/
+    &lt;context_ref&gt;/
+      COORDINATOR_CONTEXT.json
+      COORDINATOR_CONTEXT.md
+  hook-audit.jsonl
+  hook-annotations.jsonl
+
+repo-a/.agentxchain/dispatch/turns/&lt;turn_id&gt;/
+  DISPATCH_BUNDLE.json
+  COORDINATOR_CONTEXT.json
+  COORDINATOR_CONTEXT.md</code></pre>
+
+          <p>Coordinator history event types you should expect to see in the current implementation:</p>
+          <ul>
+            <li><code>run_initialized</code></li>
+            <li><code>turn_dispatched</code></li>
+            <li><code>acceptance_projection</code></li>
+            <li><code>context_generated</code></li>
+            <li><code>phase_transition_requested</code></li>
+            <li><code>phase_transition_approved</code></li>
+            <li><code>run_completion_requested</code></li>
+            <li><code>run_completed</code></li>
+          </ul>
+        </section>
+
+        <section id="compatibility">
+          <h2>Compatibility</h2>
+          <p>Protocol v6 extends the v5 single-repo model; it does not erase it. Existing repo-local governed projects still use the v5 governed surface. The new coordinator layer is additive.</p>
+
+          <ul>
+            <li>Use <code>SPEC-GOVERNED-v5.md</code> when you need the frozen v1.1 single-repo reference.</li>
+            <li>Use <code>PROTOCOL-v6.md</code> when you need the current multi-repo constitutional contract.</li>
+            <li>Use <code>/docs/protocol-v6.html</code> when you need a stable permalink for the current protocol version.</li>
+          </ul>
+        </section>
       </main>
     </div>
   </div>
@@ -538,7 +401,7 @@ TALK.md                     # Human-readable collaboration log</code></pre>
     <div class="container">
       <div class="footer-row">
         <div class="footer-copy">
-          Governed multi-agent software delivery. Agents are required to challenge each other, and humans approve the moments that define the outcome.
+          Governed multi-agent software delivery. The protocol is versioned, explicit, and auditable because coordination claims without a constitution are not credible.
         </div>
         <div class="footer-links">
           <div>

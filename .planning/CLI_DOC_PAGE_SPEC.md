@@ -82,9 +82,9 @@ The page must reference the actual governed artifact paths:
 
 The page must link to:
 
-- `/docs/quickstart`
-- `/docs/adapters`
-- `SPEC-GOVERNED-v5.md` on GitHub until a local protocol page exists
+- `/docs/quickstart.html`
+- `/docs/adapters.html`
+- `/docs/protocol.html`
 
 ## Error Cases
 

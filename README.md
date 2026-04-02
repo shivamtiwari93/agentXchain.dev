@@ -13,6 +13,7 @@ The product is the protocol and orchestrator. Agents are required to challenge e
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Supports `manual`, `local_cli`, and `api_proxy` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
+- Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
 ## Docs
@@ -20,7 +21,7 @@ The product is the protocol and orchestrator. Agents are required to challenge e
 - [Quickstart](https://agentxchain.dev/docs/quickstart.html)
 - [CLI reference](https://agentxchain.dev/docs/cli.html)
 - [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec](https://agentxchain.dev/docs/protocol.html)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why.html)
 
 ## Install
@@ -274,7 +275,7 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 - [Quickstart](https://agentxchain.dev/docs/quickstart.html)
 - [CLI reference](https://agentxchain.dev/docs/cli.html)
 - [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec](https://agentxchain.dev/docs/protocol.html)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
 - [npm package](https://www.npmjs.com/package/agentxchain)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 - [AgentXchain.ai (commercial cloud)](https://agentxchain.ai)

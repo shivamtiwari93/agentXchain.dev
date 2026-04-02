@@ -21,7 +21,8 @@ Expose documentation on agentxchain.dev without adopting Docusaurus, Starlight, 
 | Path | Content Source | Purpose |
 |------|---------------|---------|
 | `/docs/quickstart` | New content | 5-minute getting-started: install, init, step, accept, approve, ship |
-| `/docs/protocol` | `SPEC-GOVERNED-v5.md` rendered | The full protocol specification |
+| `/docs/protocol` | `PROTOCOL-v6.md` rendered (latest alias) | The current protocol specification |
+| `/docs/protocol-v6` | `PROTOCOL-v6.md` rendered (versioned permalink) | Immutable v6 protocol reference |
 | `/docs/adapters` | New content | How the three adapters work, how to add a new one |
 | `/docs/cli` | `.planning/CLI_SPEC.md` rendered | Complete CLI command reference |
 

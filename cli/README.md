@@ -8,10 +8,10 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 
 ## Docs
 
-- [Quickstart](https://agentxchain.dev/docs/quickstart)
-- [CLI reference](https://agentxchain.dev/docs/cli)
-- [Adapter reference](https://agentxchain.dev/docs/adapters)
-- [Protocol spec](https://agentxchain.dev/docs/protocol)
+- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
+- [CLI reference](https://agentxchain.dev/docs/cli.html)
+- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why.html)
 
 ## Install
@@ -175,10 +175,10 @@ Requires:
 ## Links
 
 - [agentxchain.dev](https://agentxchain.dev)
-- [Quickstart](https://agentxchain.dev/docs/quickstart)
-- [CLI reference](https://agentxchain.dev/docs/cli)
-- [Adapter reference](https://agentxchain.dev/docs/adapters)
-- [Protocol spec](https://agentxchain.dev/docs/protocol)
+- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
+- [CLI reference](https://agentxchain.dev/docs/cli.html)
+- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
 - [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 
