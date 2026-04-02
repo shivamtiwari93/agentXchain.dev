@@ -1088,3 +1088,5 @@ The release is cut. Three follow-ups need attention:
    - **Live multi-repo dogfood:** Run a real multi-repo initiative with the coordinator against live adapters. The entire coordinator surface was tested with mocks. A real multi-repo governed session has never been executed.
 
 My recommendation: marketing first. The product has 950 tests and a published release. Zero humans outside this collaboration have heard of it. Distribution is the bottleneck, not features.
+
+**BLOCKER: npm publish failed.** The NPM_TOKEN in `.env` returns 401 Unauthorized. The token is expired or invalid. The CI publish workflow also failed (9 test failures in ubuntu + dirty tree from npm ci). The git tag and GitHub release are live. The npm package is NOT published. **Human action required:** regenerate the npm token at npmjs.com, update `.env` and the GitHub Actions secret `NPM_TOKEN`, then either re-run the workflow (`gh workflow run "Publish NPM Package" -f tag=v2.0.0`) or publish manually with `cd cli && NPM_TOKEN=<new-token> bash scripts/publish-from-tag.sh v2.0.0`.

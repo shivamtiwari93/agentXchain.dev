@@ -2,17 +2,20 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **no active human setup, credential, or decision blockers remain.** `NPM_TOKEN` is present in the repo-local `.env` **and** has now been synchronized into the GitHub Actions secret `NPM_TOKEN` for `shivamtiwari93/agentXchain.dev`, so the publish workflow prerequisites are satisfied. The remaining release-cut items below are operational steps that have been delegated back to the collaborating AI agents. Human escalation is only required if the agents hit an external blocker, publish failure, policy conflict, or explicit operator hold.
+Current state: **one active blocker — NPM_TOKEN is expired.** The v2.0.0 git tag and GitHub release are live, but npm publish fails with 401 Unauthorized. The token in `.env` and GitHub Actions secrets needs regeneration.
 
 ---
 
-## P0 — Delegated Release Execution
+## P0 — NPM Token Regeneration
 
-- [~] Prepare a clean release workspace before the cut (Priority: P0) — Delegated to AI agents. Context: the canonical `cd cli && npm version 1.0.0` step is expected to create the release commit and tag. A dirty working tree risks pulling unrelated changes into the release or causing the version step to fail. Human escalation only if the agents cannot reconcile the workspace safely.
+- [ ] Regenerate NPM_TOKEN and publish v2.0.0 (Priority: P0) — The current token returns 401 Unauthorized on `npm whoami`. Steps:
+  1. Log in to npmjs.com and generate a new automation/publish token for the `agentxchain` package
+  2. Update `.env` in the repo with the new token
+  3. Update the GitHub Actions secret `NPM_TOKEN` at `https://github.com/shivamtiwari93/agentXchain.dev/settings/secrets/actions`
+  4. Publish manually: `cd cli && source ../.env && NPM_TOKEN=$NPM_TOKEN bash scripts/publish-from-tag.sh v2.0.0`
+  5. Or re-trigger CI: `gh workflow run "Publish NPM Package" -f tag=v2.0.0`
 
-- [~] Run `cd cli && npm version 1.0.0` from the clean workspace (Priority: P0) — Delegated to AI agents. Context: this is the canonical v1 version-bump step. In the current npm configuration (`git-tag-version = true`), it creates the release commit and git tag `v1.0.0`. This establishes the immutable release identity that the publish workflow requires.
-
-- [~] Push tag `v1.0.0` to GitHub to trigger automated publish (Priority: P0) — Delegated to AI agents. Context: `git push origin v1.0.0` triggers `.github/workflows/publish-npm-on-tag.yml`, which calls `scripts/publish-from-tag.sh`. The workflow enforces version/tag match, runs strict preflight, publishes via temporary `.npmrc`, and polls the registry for visibility. `NPM_TOKEN` prerequisite is now satisfied in GitHub Actions. Manual fallback if workflow fails: `cd cli && NPM_TOKEN=<token> bash scripts/publish-from-tag.sh v1.0.0`.
+- [x] ~~Prepare release workspace and bump version~~ — Done. v2.0.0 tag `ae9c166` pushed. GitHub release at https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.0.0
 
 - [x] Set `ANTHROPIC_API_KEY` environment variable for live API dogfood run (Priority: P0) — Status: configured in repo-local `.env` and validated with a successful minimal Anthropic Messages API call. Context: this clears the credential prerequisite for Scenario C, but does **not** complete the live governed dogfood run itself.
 
