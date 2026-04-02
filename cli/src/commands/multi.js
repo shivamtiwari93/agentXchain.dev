@@ -34,6 +34,7 @@ import {
   buildGatePayload,
   buildEscalationPayload,
 } from '../lib/coordinator-hooks.js';
+import { computeContextInvalidations } from '../lib/cross-repo-context.js';
 
 // ── multi init ─────────────────────────────────────────────────────────────
 
@@ -181,13 +182,21 @@ export async function multiStepCommand(options) {
     // Fire after_acceptance hooks only for newly projected acceptances.
     if ((resync.projected_acceptances || []).length > 0) {
       for (const projection of resync.projected_acceptances) {
+        // Compute real context invalidation signals for this acceptance
+        const contextInvalidations = computeContextInvalidations(
+          workspacePath,
+          projection.repo_id,
+          projection.workstream_id,
+          projection.files_changed || [],
+        );
+
         const acceptancePayload = buildAcceptancePayload(
           {
             projection_ref: projection.projection_ref,
             barrier_effects: resync.barrier_changes.filter(
               (change) => change.workstream_id === projection.workstream_id,
             ),
-            context_invalidations: [],
+            context_invalidations: contextInvalidations,
           },
           projection.repo_id,
           projection.workstream_id,

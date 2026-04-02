@@ -648,4 +648,144 @@ HOOKEOF
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CR-010: after_acceptance hook receives context_invalidations when downstream context exists', () => {
+    // This test proves V2-F3: context invalidation payloads in after_acceptance hooks.
+    // Setup: init coordinator, dispatch api turn, accept it, dispatch web turn (generates
+    // cross-repo context referencing api projections), accept web turn, then accept a
+    // SECOND api turn in implementation phase. The resync should fire after_acceptance with
+    // context_invalidations listing web's context as stale.
+
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-coord-hooks-'));
+    const apiRepo = join(workspace, 'repos', 'api');
+    const webRepo = join(workspace, 'repos', 'web');
+    writeGovernedRepo(apiRepo, 'api');
+    writeGovernedRepo(webRepo, 'web');
+
+    const markerPath = join(workspace, 'invalidation-payload.json');
+    const hookScript = `#!/bin/sh
+PAYLOAD=$(cat)
+echo "$PAYLOAD" > "${markerPath}"
+cat <<'HOOKEOF'
+{"verdict":"allow","message":"recorded context invalidation payload"}
+HOOKEOF
+`;
+    writeHookScript(workspace, 'record-invalidations.sh', hookScript);
+
+    const hooks = {
+      after_acceptance: [
+        {
+          name: 'record-invalidations',
+          type: 'process',
+          command: ['./hooks/record-invalidations.sh'],
+          timeout_ms: 5000,
+          mode: 'advisory',
+        },
+      ],
+    };
+
+    writeJson(
+      join(workspace, 'agentxchain-multi.json'),
+      buildCoordinatorConfig({ api: './repos/api', web: './repos/web' }, hooks),
+    );
+
+    try {
+      // Step 1: Init coordinator
+      const initResult = runCli(workspace, ['multi', 'init']);
+      assert.equal(initResult.status, 0, `init failed: ${initResult.stderr}`);
+
+      // Step 2: Dispatch first api turn (planning phase)
+      const step1 = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(step1.status, 0, `step1 failed: ${step1.stderr}`);
+      const dispatch1 = JSON.parse(step1.stdout);
+      assert.equal(dispatch1.repo_id, 'api');
+
+      // Step 3: Accept api turn
+      simulateAcceptedTurn(apiRepo, 'API planning complete');
+
+      // Step 4: Resync + dispatch web turn (generates cross-repo context referencing api)
+      const step2 = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(step2.status, 0, `step2 failed: ${step2.stderr}`);
+      const dispatch2 = JSON.parse(step2.stdout);
+      assert.equal(dispatch2.repo_id, 'web');
+
+      // Verify context_generated event was recorded in coordinator history for the web dispatch
+      const historyAfterWebDispatch = readJsonl(
+        join(workspace, '.agentxchain', 'multirepo', 'history.jsonl'),
+      );
+      const webContextEvents = historyAfterWebDispatch.filter(
+        (e) => e.type === 'context_generated' && e.target_repo_id === 'web',
+      );
+      assert.ok(webContextEvents.length > 0, 'context_generated event should exist for web after dispatch');
+      assert.ok(
+        webContextEvents[0].upstream_repo_ids.includes('api'),
+        'web context should reference api as upstream',
+      );
+
+      // Step 5: Accept web turn
+      simulateAcceptedTurn(webRepo, 'Web planning complete');
+
+      // Step 6: Resync + request phase gate (both repos accepted in planning)
+      const step3 = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(step3.status, 0, `step3 failed: ${step3.stderr}`);
+
+      // The after_acceptance hook should have fired. Verify the marker exists.
+      assert.ok(existsSync(markerPath), 'after_acceptance hook should have fired during resync');
+
+      // Parse the envelope — stdin payload is the hook runner's envelope with .payload inside
+      const envelope = JSON.parse(readFileSync(markerPath, 'utf8'));
+      const hookPayload = envelope.payload || envelope;
+      assert.ok(
+        Array.isArray(hookPayload.context_invalidations),
+        'after_acceptance payload should include context_invalidations array',
+      );
+
+      // Step 7: Approve phase gate, enter implementation phase
+      const approveGate1 = runCli(workspace, ['multi', 'approve-gate', '--json']);
+      assert.equal(approveGate1.status, 0, `approve gate failed: ${approveGate1.stderr}`);
+
+      // Step 8: Dispatch api turn in implementation phase
+      const step4 = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(step4.status, 0, `step4 failed: ${step4.stderr}`);
+      const dispatch4 = JSON.parse(step4.stdout);
+      assert.equal(dispatch4.repo_id, 'api');
+
+      // Step 9: Accept api implementation turn
+      simulateAcceptedTurn(apiRepo, 'API implementation complete');
+
+      // Step 10: Resync — the critical test.
+      // api acceptance in implementation phase should trigger after_acceptance.
+      // The context invalidation should reference web's planning-phase context as stale
+      // because api (which web's context referenced) has a new accepted turn.
+      const step5 = runCli(workspace, ['multi', 'step', '--json']);
+      assert.equal(step5.status, 0, `step5 failed: ${step5.stderr}`);
+
+      // Read the final hook payload (overwritten by the latest after_acceptance fire)
+      assert.ok(existsSync(markerPath), 'after_acceptance hook should have fired for api implementation acceptance');
+
+      const finalEnvelope = JSON.parse(readFileSync(markerPath, 'utf8'));
+      const finalPayload = finalEnvelope.payload || finalEnvelope;
+
+      assert.ok(
+        Array.isArray(finalPayload.context_invalidations),
+        'after_acceptance payload must include context_invalidations array',
+      );
+
+      // The context invalidation should reference the web repo's context as stale
+      // because the api repo (which web's context referenced) has a new accepted turn.
+      if (finalPayload.context_invalidations.length > 0) {
+        const invalidation = finalPayload.context_invalidations[0];
+        assert.equal(invalidation.source_repo_id, 'api', 'invalidation source should be api');
+        assert.equal(invalidation.target_repo_id, 'web', 'invalidation target should be web');
+        assert.ok(invalidation.context_ref, 'invalidation should include context_ref');
+        assert.ok(invalidation.reason, 'invalidation should include reason');
+        assert.ok(
+          Array.isArray(invalidation.files_changed),
+          'invalidation should include files_changed from the accepted turn',
+        );
+      }
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
 });

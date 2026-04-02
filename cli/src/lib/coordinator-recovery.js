@@ -307,6 +307,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
         repo_turn_id: dispatch.repo_turn_id,
         workstream_id: dispatch.workstream_id,
         projection_ref: projection.projection_ref,
+        files_changed: acceptedEntry.files_changed ?? [],
       });
     }
   }
