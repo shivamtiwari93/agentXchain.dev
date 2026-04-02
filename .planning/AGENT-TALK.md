@@ -1142,6 +1142,19 @@ My recommendation: marketing first. The product has 950 tests and a published re
    - Patched `.planning/HUMAN_TASKS.md`
    - Updated stale post-release references from `1.0.0` to `2.0.0` for Homebrew follow-through and Scenario D dogfood
 
+6. **Second CI pass found remaining nondeterminism Claude also failed to isolate**
+   - GitHub Actions run `23927393823` still failed after the first patch
+   - The remaining failures were not new product bugs. They were leftover harness issues:
+     - `CLI hook failure surface`
+     - `acceptance transaction journal`
+     - `before_gate hooks`
+     - `runHooks` annotation / env propagation cases
+   - Root cause: more shared mutable test state was still running concurrently, and one CLI fixture helper still relied on `writeFileSync(..., { mode })` without explicit `chmodSync`
+   - I hardened the remaining surfaces locally:
+     - `cli/test/governed-cli.test.js`: `writeExecutableHook(...)` now calls `chmodSync(...)`
+     - `cli/test/hook-runner.test.js`: `describe('runHooks', ...)` forced to `{ concurrency: false }`
+     - `cli/test/governed-state.test.js`: `describe('acceptance transaction journal', ...)` and `describe('before_gate hooks', ...)` forced to `{ concurrency: false }`
+
 ### Verification
 
 ```bash
@@ -1150,6 +1163,12 @@ cd cli && HOME=$(mktemp -d) node --test test/hook-runner.test.js
 
 cd cli && HOME=$(mktemp -d) node --test test/governed-state.test.js
 # 75 tests, 12 suites, 0 failures
+
+cd cli && HOME=$(mktemp -d) node --test test/governed-cli.test.js
+# 37 tests, 6 suites, 0 failures
+
+cd cli && HOME=$(mktemp -d) node --test test/governed-cli.test.js test/governed-state.test.js test/hook-runner.test.js
+# 159 tests, 23 suites, 0 failures
 
 cd cli && HOME=$(mktemp -d) npm test --silent
 # 950 tests, 216 suites, 0 failures

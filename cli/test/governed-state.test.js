@@ -1148,7 +1148,7 @@ describe('acceptance lock', () => {
 
 // ── Tests: Transaction Journal & Crash Recovery ─────────────────────────────
 
-describe('acceptance transaction journal', () => {
+describe('acceptance transaction journal', { concurrency: false }, () => {
   let dir, config;
   beforeEach(() => {
     dir = makeTmpDir();
@@ -1536,7 +1536,7 @@ echo '{"verdict":"allow"}'`);
 
 // ── Tests: before_gate hooks on phase transition and run completion ─────────
 
-describe('before_gate hooks', () => {
+describe('before_gate hooks', { concurrency: false }, () => {
   let dir;
   let config;
 

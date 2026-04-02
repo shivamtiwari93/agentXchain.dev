@@ -312,7 +312,7 @@ describe('validateAnnotations', () => {
 
 // ── Hook Execution Tests ─────────────────────────────────────────────────────
 
-describe('runHooks', () => {
+describe('runHooks', { concurrency: false }, () => {
   let dir;
   beforeEach(() => { dir = makeTmpDir(); });
   afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
