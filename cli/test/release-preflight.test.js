@@ -14,7 +14,7 @@ function writeExecutable(path, content) {
   chmodSync(path, 0o755);
 }
 
-function createFixture({ version = '0.9.0', changelogVersions = ['1.0.0'] } = {}) {
+function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'] } = {}) {
   const root = join(
     tmpdir(),
     `axc-release-preflight-${randomBytes(6).toString('hex')}`,
@@ -122,16 +122,16 @@ describe('release-preflight.sh', () => {
     const result = runPreflight(fixture.cliDir, fixture.fakeBinDir);
 
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /AgentXchain v1\.0\.0 Release Preflight/);
+    assert.match(result.stdout, /AgentXchain v2\.0\.0 Release Preflight/);
     assert.match(
       result.stdout,
-      /Human-gated release items remain in \.planning\/V1_RELEASE_CHECKLIST\.md\./,
+      /Human-gated release items remain in \.planning\/V1_RELEASE_CHECKLIST\.md/,
     );
     assert.match(result.stdout, /Mode: DEFAULT/);
     assert.match(result.stdout, /WARN: Uncommitted or untracked files present/);
     assert.match(
       result.stdout,
-      /WARN: package\.json is at 0\.9\.0, not yet bumped to 1\.0\.0/,
+      /WARN: package\.json is at 0\.9\.0, not yet bumped to 2\.0\.0/,
     );
     assert.match(result.stdout, /Results: 4 passed, 0 failed, 2 warnings/);
   });
@@ -146,19 +146,19 @@ describe('release-preflight.sh', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /Mode: STRICT/);
     assert.match(result.stdout, /FAIL: Working tree is not clean/);
-    assert.match(result.stdout, /FAIL: package\.json is at 0\.9\.0, expected 1\.0\.0/);
+    assert.match(result.stdout, /FAIL: package\.json is at 0\.9\.0, expected 2\.0\.0/);
     assert.match(result.stdout, /Results: 4 passed, 2 failed, 0 warnings/);
   });
 
   it('passes in strict mode after bump when the tree is clean', () => {
-    const fixture = createFixture({ version: '1.0.0' });
+    const fixture = createFixture({ version: '2.0.0' });
     fixtures.push(fixture);
 
     const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, ['--strict']);
 
     assert.equal(result.status, 0);
     assert.match(result.stdout, /PASS: Working tree is clean/);
-    assert.match(result.stdout, /PASS: package\.json is at 1\.0\.0/);
+    assert.match(result.stdout, /PASS: package\.json is at 2\.0\.0/);
     assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
   });
 

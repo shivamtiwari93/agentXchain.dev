@@ -1,4 +1,4 @@
-# Launch Evidence Report — AgentXchain v1.0.0
+# Launch Evidence Report — AgentXchain v2.0.0
 
 > Single-source evidence artifact for all launch-facing claims. Updated 2026-04-02.
 

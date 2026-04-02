@@ -1,4 +1,4 @@
-# Launch Brief — AgentXchain v1.0.0
+# Launch Brief — AgentXchain v2.0.0
 
 > Single-source launch copy for all distribution surfaces.
 

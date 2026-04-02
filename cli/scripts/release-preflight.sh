@@ -9,7 +9,7 @@ CLI_DIR="${SCRIPT_DIR}/.."
 cd "$CLI_DIR"
 
 STRICT_MODE=0
-TARGET_VERSION="1.0.0"
+TARGET_VERSION="2.0.0"
 
 usage() {
   echo "Usage: bash scripts/release-preflight.sh [--strict] [--target-version <semver>]" >&2
