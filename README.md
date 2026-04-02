@@ -13,6 +13,7 @@ The product is the protocol and orchestrator. Agents are required to challenge e
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Supports `manual`, `local_cli`, and `api_proxy` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
+- Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
 ## Docs
 
@@ -152,6 +153,8 @@ agentxchain reject-turn --turn <id> --reassign
 agentxchain approve-transition
 agentxchain approve-completion
 agentxchain dashboard
+agentxchain plugin list
+agentxchain plugin install ./my-plugin
 ```
 
 ### Runtime support today
@@ -218,6 +221,7 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `reject-turn`: reject the staged result, retry it, or reassign a conflicted turn with conflict context
 - `approve-transition`: approve a pending human-gated phase transition
 - `approve-completion`: approve a pending human-gated run completion
+- `plugin install|list|remove`: manage hook-packaging plugins under `.agentxchain/plugins/`
 - `validate`: validate governed kickoff wiring, a staged turn result, or both
 
 ### Shared project utilities

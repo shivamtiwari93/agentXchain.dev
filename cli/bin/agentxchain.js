@@ -70,6 +70,11 @@ import { stepCommand } from '../src/commands/step.js';
 import { approveTransitionCommand } from '../src/commands/approve-transition.js';
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
+import {
+  pluginInstallCommand,
+  pluginListCommand,
+  pluginRemoveCommand,
+} from '../src/commands/plugin.js';
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
 import {
@@ -258,6 +263,28 @@ program
   .option('--port <port>', 'Server port', '3847')
   .option('--no-open', 'Do not auto-open the browser')
   .action(dashboardCommand);
+
+const pluginCmd = program
+  .command('plugin')
+  .description('Manage governed project plugins');
+
+pluginCmd
+  .command('install <source>')
+  .description('Install a plugin from a local path, archive, or npm package spec')
+  .option('-j, --json', 'Output as JSON')
+  .action(pluginInstallCommand);
+
+pluginCmd
+  .command('list')
+  .description('List installed plugins')
+  .option('-j, --json', 'Output as JSON')
+  .action(pluginListCommand);
+
+pluginCmd
+  .command('remove <name>')
+  .description('Remove an installed plugin')
+  .option('-j, --json', 'Output as JSON')
+  .action(pluginRemoveCommand);
 
 const templateCmd = program
   .command('template')
