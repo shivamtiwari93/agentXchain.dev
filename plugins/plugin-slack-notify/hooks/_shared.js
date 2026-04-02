@@ -1,0 +1,81 @@
+import http from 'node:http';
+import https from 'node:https';
+import process from 'node:process';
+
+export async function readEnvelope() {
+  let input = '';
+  for await (const chunk of process.stdin) {
+    input += chunk;
+  }
+  return input.trim() ? JSON.parse(input) : {};
+}
+
+function getWebhookUrl() {
+  return process.env.AGENTXCHAIN_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL || '';
+}
+
+function buildText(title, lines) {
+  const mention = process.env.AGENTXCHAIN_SLACK_MENTION || '';
+  return [mention, title, ...lines.filter(Boolean)].filter(Boolean).join('\n');
+}
+
+export async function sendSlackMessage(title, lines) {
+  const webhookUrl = getWebhookUrl();
+  if (!webhookUrl) {
+    return {
+      verdict: 'warn',
+      message: 'Missing AGENTXCHAIN_SLACK_WEBHOOK_URL or SLACK_WEBHOOK_URL',
+    };
+  }
+
+  const body = JSON.stringify({
+    text: buildText(title, lines),
+  });
+
+  const url = new URL(webhookUrl);
+  const transport = url.protocol === 'https:' ? https : http;
+  let response;
+  try {
+    response = await new Promise((resolve, reject) => {
+      const req = transport.request(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+        },
+        timeout: 4000,
+      }, (res) => {
+        res.resume();
+        res.on('end', () => resolve({ ok: (res.statusCode || 500) >= 200 && (res.statusCode || 500) < 300, status: res.statusCode || 500 }));
+      });
+
+      req.on('timeout', () => {
+        req.destroy(new Error('request timed out'));
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  } catch (error) {
+    return {
+      verdict: 'warn',
+      message: `Slack webhook request failed: ${error.message}`,
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      verdict: 'warn',
+      message: `Slack webhook failed with HTTP ${response.status}`,
+    };
+  }
+
+  return {
+    verdict: 'allow',
+    message: 'Slack notification delivered',
+  };
+}
+
+export function writeResult(result) {
+  process.stdout.write(JSON.stringify(result));
+}

@@ -19,6 +19,7 @@ import {
   readFileSync,
   appendFileSync,
   existsSync,
+  realpathSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -607,6 +608,7 @@ HOOKEOF
       assert.equal(approveCompletion.status, 0, `approve completion stderr: ${approveCompletion.stderr}`);
 
       const events = readJsonl(eventsPath);
+      const finalState = loadCoordinatorState(workspace);
       const phases = events.map((entry) => entry.hook_phase);
       assert.deepEqual(phases, [
         'before_assignment',
@@ -621,25 +623,111 @@ HOOKEOF
         'before_gate',
       ]);
 
-      const assignmentPayload = events.find((entry) => entry.hook_phase === 'before_assignment')?.payload;
-      assert.equal(assignmentPayload.repo_id, 'api');
-      assert.ok(assignmentPayload.repo_run_id, 'before_assignment payload should include repo_run_id');
-      assert.equal(assignmentPayload.pending_gate, null);
-      assert.ok(Array.isArray(assignmentPayload.pending_barriers), 'before_assignment payload should include pending_barriers');
-      assert.ok(assignmentPayload.pending_barriers.length >= 1, 'pending_barriers should include unsatisfied barriers');
+      assert.ok(finalState?.super_run_id, 'completed coordinator state should retain super_run_id');
+      assert.ok(
+        events.every((entry) => entry.timestamp && entry.hook_name && entry.payload),
+        'every hook envelope should include timestamp, hook_name, and payload',
+      );
+      assert.ok(
+        events.every((entry) => entry.run_id === finalState.super_run_id),
+        'every hook envelope should carry the coordinator run id',
+      );
+      assert.ok(
+        events.every((entry) => realpathSync(entry.project_root) === realpathSync(workspace)),
+        'every hook envelope should carry the coordinator workspace',
+      );
 
-      const acceptancePayload = events.find((entry) => entry.hook_phase === 'after_acceptance')?.payload;
-      assert.equal(acceptancePayload.repo_id, 'api');
-      assert.equal(acceptancePayload.workstream_id, 'planning_sync');
-      assert.ok(acceptancePayload.repo_run_id, 'after_acceptance payload should include repo_run_id');
-      assert.ok(acceptancePayload.projection_ref.startsWith('proj_recovery_api'), 'resync payload should include projection_ref');
-      assert.ok(Array.isArray(acceptancePayload.barrier_effects), 'after_acceptance payload should include barrier_effects');
+      const assignmentPayloads = events
+        .filter((entry) => entry.hook_phase === 'before_assignment')
+        .map((entry) => entry.payload);
+      assert.equal(assignmentPayloads.length, 4, 'before_assignment should fire once per dispatch');
+      assert.deepEqual(
+        assignmentPayloads.map((payload) => `${payload.workstream_id}:${payload.repo_id}`),
+        [
+          'planning_sync:api',
+          'planning_sync:web',
+          'implementation_sync:api',
+          'implementation_sync:web',
+        ],
+      );
+      assert.ok(
+        assignmentPayloads.every((payload) => payload.repo_run_id),
+        'before_assignment payload should include repo_run_id',
+      );
+      assert.ok(
+        assignmentPayloads.every((payload) => payload.pending_gate === null),
+        'before_assignment payload should not carry a pending gate during dispatch',
+      );
+      assert.ok(
+        assignmentPayloads.every((payload) => Array.isArray(payload.pending_barriers)),
+        'before_assignment payload should include pending_barriers',
+      );
+      assert.ok(
+        assignmentPayloads.some((payload) => payload.pending_barriers.length >= 1),
+        'before_assignment should surface unsatisfied barriers while work remains',
+      );
+
+      const acceptancePayloads = events
+        .filter((entry) => entry.hook_phase === 'after_acceptance')
+        .map((entry) => entry.payload);
+      assert.equal(acceptancePayloads.length, 4, 'after_acceptance should fire once per projected acceptance');
+      assert.deepEqual(
+        acceptancePayloads.map((payload) => `${payload.workstream_id}:${payload.repo_id}`),
+        [
+          'planning_sync:api',
+          'planning_sync:web',
+          'implementation_sync:api',
+          'implementation_sync:web',
+        ],
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => payload.repo_run_id),
+        'after_acceptance payload should include repo_run_id',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => payload.repo_turn_id),
+        'after_acceptance payload should include repo_turn_id',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => typeof payload.summary === 'string' && payload.summary.length > 0),
+        'after_acceptance payload should include accepted-turn summary',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => Array.isArray(payload.files_changed) && payload.files_changed.length === 1),
+        'after_acceptance payload should include accepted-turn files_changed',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => Array.isArray(payload.decisions) && payload.decisions.length === 1),
+        'after_acceptance payload should include accepted-turn decisions',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => payload.verification?.exit_code === 0),
+        'after_acceptance payload should include accepted-turn verification',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => payload.projection_ref.startsWith(`proj_recovery_${payload.repo_id}`)),
+        'after_acceptance payload should include recovery projection references',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => Array.isArray(payload.barrier_effects)),
+        'after_acceptance payload should include barrier_effects',
+      );
+      assert.ok(
+        acceptancePayloads.every((payload) => Array.isArray(payload.context_invalidations)),
+        'after_acceptance payload should include context_invalidations',
+      );
 
       const gatePayloads = events.filter((entry) => entry.hook_phase === 'before_gate').map((entry) => entry.payload);
       assert.equal(gatePayloads.length, 2, 'before_gate should fire for phase transition and completion');
       assert.equal(gatePayloads[0].gate_type, 'phase_transition');
       assert.equal(gatePayloads[1].gate_type, 'run_completion');
       assert.ok(gatePayloads.every((payload) => payload.pending_gate), 'before_gate payload should include pending_gate');
+      assert.ok(
+        gatePayloads.every((payload) => Array.isArray(payload.required_repos)),
+        'before_gate payload should include required_repos',
+      );
+      assert.deepEqual(gatePayloads[0].required_repos, ['api', 'web'], 'phase transition gate should carry required repos');
+      assert.deepEqual(gatePayloads[1].required_repos, ['api', 'web'], 'completion gate should carry required repos');
 
       const annotations = readJsonl(join(workspace, '.agentxchain', 'multirepo', 'hook-annotations.jsonl'));
       assert.equal(annotations.length, 4, 'after_acceptance should append one annotation entry per projected acceptance');
@@ -739,6 +827,19 @@ HOOKEOF
         Array.isArray(hookPayload.context_invalidations),
         'after_acceptance payload should include context_invalidations array',
       );
+      assert.ok(hookPayload.repo_turn_id, 'after_acceptance payload should include repo_turn_id');
+      assert.equal(hookPayload.summary, 'Web planning complete', 'after_acceptance payload should include accepted summary');
+      assert.deepEqual(
+        hookPayload.decisions,
+        ['DEC-WEB-PLANNING-COMPLETE'],
+        'after_acceptance payload should include accepted decisions',
+      );
+      assert.equal(hookPayload.verification?.exit_code, 0, 'after_acceptance payload should include verification');
+      assert.deepEqual(
+        hookPayload.files_changed,
+        ['src/web-planning-complete.ts'],
+        'after_acceptance payload should include files_changed',
+      );
 
       // Step 7: Approve phase gate, enter implementation phase
       const approveGate1 = runCli(workspace, ['multi', 'approve-gate', '--json']);
@@ -769,6 +870,19 @@ HOOKEOF
       assert.ok(
         Array.isArray(finalPayload.context_invalidations),
         'after_acceptance payload must include context_invalidations array',
+      );
+      assert.ok(finalPayload.repo_turn_id, 'after_acceptance payload must include repo_turn_id');
+      assert.equal(finalPayload.summary, 'API implementation complete', 'payload should include accepted summary');
+      assert.deepEqual(
+        finalPayload.decisions,
+        ['DEC-API-IMPLEMENTATION-COMPLETE'],
+        'payload should include accepted decisions',
+      );
+      assert.equal(finalPayload.verification?.exit_code, 0, 'payload should include accepted verification');
+      assert.deepEqual(
+        finalPayload.files_changed,
+        ['src/api-implementation-complete.ts'],
+        'payload should include accepted files_changed',
       );
 
       // The context invalidation should reference the web repo's context as stale

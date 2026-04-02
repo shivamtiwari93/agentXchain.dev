@@ -1,0 +1,8 @@
+{
+  "name": "@agentxchain/plugin-json-report",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Built-in AgentXchain plugin that writes JSON lifecycle reports for CI and operators.",
+  "license": "MIT"
+}

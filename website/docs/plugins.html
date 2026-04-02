@@ -184,6 +184,15 @@
           <div class="callout">
             <p><strong>Collision protection:</strong> If any plugin hook name already exists in the same lifecycle phase of <code>agentxchain.json</code>, the install is rejected with no config or filesystem mutation. This is fail-closed by design.</p>
           </div>
+
+          <div class="surface">
+            <h3>Built-in packages in this repo</h3>
+            <p>The repo ships two installable built-ins today. Use local paths until they are published as standalone npm packages.</p>
+            <ul>
+              <li><code>agentxchain plugin install ./plugins/plugin-slack-notify</code> — Slack incoming webhook notifications for accepted turns, gate approvals, and escalations</li>
+              <li><code>agentxchain plugin install ./plugins/plugin-json-report</code> — JSON lifecycle report artifacts under <code>.agentxchain/reports/</code></li>
+            </ul>
+          </div>
         </section>
 
         <section id="list">

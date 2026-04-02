@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 946 tests, 0 failures across 215 suites
+- **Result**: 950 tests, 0 failures across 216 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -150,6 +150,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-02, 946 tests / 0 failures (`900+` launch-copy floor)
+- **Test count verified**: 2026-04-02, 950 tests / 0 failures (`900+` launch-copy floor)
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

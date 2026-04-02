@@ -193,6 +193,11 @@ export async function multiStepCommand(options) {
         const acceptancePayload = buildAcceptancePayload(
           {
             projection_ref: projection.projection_ref,
+            repo_turn_id: projection.repo_turn_id,
+            summary: projection.summary,
+            files_changed: projection.files_changed || [],
+            decisions: projection.decisions || [],
+            verification: projection.verification ?? null,
             barrier_effects: resync.barrier_changes.filter(
               (change) => change.workstream_id === projection.workstream_id,
             ),
@@ -207,7 +212,7 @@ export async function multiStepCommand(options) {
         });
 
         if (!acceptanceHook.ok) {
-          const reason = acceptanceHook.error || `after_acceptance hook failed for repo "${repoId}"`;
+          const reason = acceptanceHook.error || `after_acceptance hook failed for repo "${projection.repo_id}"`;
           const blockedState = blockCoordinator(workspacePath, state, `coordinator_hook_violation: ${reason}`);
           fireEscalationHook(workspacePath, configResult.config, blockedState, blockedState.blocked_reason);
           console.error(`Coordinator blocked by after_acceptance hook: ${reason}`);

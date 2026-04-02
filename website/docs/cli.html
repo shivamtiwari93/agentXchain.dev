@@ -347,7 +347,8 @@ agentxchain dashboard --no-open</code></pre>
               <h3><code>plugin install &lt;source&gt;</code></h3>
               <p>Installs a plugin from a local directory, <code>.tgz</code> archive, or npm package spec. Validates the <code>agentxchain-plugin.json</code> manifest, checks for hook-name collisions, copies the payload into <code>.agentxchain/plugins/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
               <pre><code>agentxchain plugin install ./my-plugin
-agentxchain plugin install @agentxchain/plugin-slack-notify</code></pre>
+agentxchain plugin install ./plugins/plugin-slack-notify
+agentxchain plugin install ./plugins/plugin-json-report</code></pre>
             </div>
             <div class="surface">
               <h3><code>plugin list [--json]</code></h3>

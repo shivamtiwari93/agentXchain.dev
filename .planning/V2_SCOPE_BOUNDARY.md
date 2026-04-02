@@ -80,8 +80,8 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 - `agentxchain plugin remove <name>` — uninstalls a plugin
 - Plugins are thin wrappers around the existing hook system. A plugin's hooks are registered as additional entries in the hook configuration at install time. They run in the same lifecycle with the same tamper protections.
 - Built-in plugins shipped with v2:
-  - `@agentxchain/plugin-slack-notify` — posts turn summaries and gate requests to a Slack channel via webhook URL
-  - `@agentxchain/plugin-json-report` — writes structured JSON reports after each phase for CI consumption
+  - `@agentxchain/plugin-slack-notify` — shipped in-repo at `plugins/plugin-slack-notify/`; posts turn summaries, gate approvals, and escalations to a Slack incoming webhook
+  - `@agentxchain/plugin-json-report` — shipped in-repo at `plugins/plugin-json-report/`; writes structured JSON lifecycle reports under `.agentxchain/reports/` for CI and operator tooling
 
 **What does NOT ship as part of V2-F4:**
 - No plugin marketplace or remote registry. Plugins are installed from local paths or npm packages.

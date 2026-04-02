@@ -46,7 +46,7 @@ Every coordinator hook `payload` must include these fields, with `null` when not
 Phase-specific payload fields may extend that base contract:
 
 - `before_assignment`: `role`, `coordinator_status`, `coordinator_phase`
-- `after_acceptance`: `projection_ref`, `barrier_effects`, `context_invalidations`
+- `after_acceptance`: `projection_ref`, `repo_turn_id`, `summary`, `files_changed`, `decisions`, `verification`, `barrier_effects`, `context_invalidations`
 - `before_gate`: `gate_type`, `gate`, `from_phase`, `to_phase`, `required_repos`
 - `on_escalation`: `blocked_reason`, `repo_runs`
 
@@ -62,11 +62,12 @@ Protected paths for coordinator hooks include:
 
 1. `before_assignment` runs immediately before dispatch and may block the step.
 2. `after_acceptance` runs after repo-local acceptance is projected into coordinator history and barrier state is updated.
-3. `before_gate` runs immediately before a coordinator phase/completion gate is approved and may block the approval.
-4. `on_escalation` runs whenever the coordinator enters blocked state.
-5. If a coordinator hook mutates any protected file, the orchestrator restores the protected content, records tamper in coordinator hook audit, and treats the hook as failed.
-6. A failed `after_acceptance` hook blocks the coordinator and surfaces the protocol violation to the operator.
-7. A failed `before_assignment` or `before_gate` hook exits non-zero without mutating coordinator gate/dispatch state.
+3. `after_acceptance` payloads must carry the accepted-turn facts that downstream auditors and notification hooks actually need: repo turn identity, summary, changed files, decisions, and verification. A projection reference alone is not enough.
+4. `before_gate` runs immediately before a coordinator phase/completion gate is approved and may block the approval.
+5. `on_escalation` runs whenever the coordinator enters blocked state.
+6. If a coordinator hook mutates any protected file, the orchestrator restores the protected content, records tamper in coordinator hook audit, and treats the hook as failed.
+7. A failed `after_acceptance` hook blocks the coordinator and surfaces the protocol violation to the operator.
+8. A failed `before_assignment` or `before_gate` hook exits non-zero without mutating coordinator gate/dispatch state.
 
 ---
 
@@ -75,7 +76,8 @@ Protected paths for coordinator hooks include:
 1. If `repo_run_id` or `pending_barriers` are omitted from coordinator hook payloads, the test fails because the payload contract drifted.
 2. If a coordinator hook can modify repo-local `state.json`, `history.jsonl`, `decision-ledger.jsonl`, or an existing dispatch bundle file without rollback, the test fails because hook scope is unenforced.
 3. If `after_acceptance` tamper is detected but the coordinator continues dispatching or requesting gates, the test fails because advisory hooks were treated as ignorable.
-4. If the full lifecycle ordering differs from the expected sequence, the test fails because composition regressed.
+4. If `after_acceptance` omits accepted-turn metadata (`repo_turn_id`, `summary`, `files_changed`, `decisions`, `verification`), the test fails because the payload contract is not operationally useful.
+5. If the full lifecycle ordering differs from the expected sequence, the test fails because composition regressed.
 
 ---
 
@@ -85,7 +87,7 @@ Protected paths for coordinator hooks include:
 2. `AT-CR-006`: a `before_assignment` hook can block dispatch without creating repo-local active turns.
 3. `AT-CR-007`: a `before_gate` hook can block gate approval while leaving the pending gate intact.
 4. `AT-CR-008`: `on_escalation` fires when the coordinator enters blocked state.
-5. `AT-CR-009`: a full multi-repo lifecycle with coordinator hooks preserves hook order and emits the required payload fields at each boundary.
+5. `AT-CR-009`: a full multi-repo lifecycle with coordinator hooks preserves hook order and emits the required payload fields, including accepted-turn metadata, at each boundary.
 
 ---
 
