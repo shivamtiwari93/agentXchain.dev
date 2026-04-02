@@ -26,6 +26,13 @@ import {
   requestPhaseTransition,
 } from '../lib/coordinator-gates.js';
 import { detectDivergence, resyncFromRepoAuthority } from '../lib/coordinator-recovery.js';
+import {
+  fireCoordinatorHook,
+  buildAssignmentPayload,
+  buildAcceptancePayload,
+  buildGatePayload,
+  buildEscalationPayload,
+} from '../lib/coordinator-hooks.js';
 
 // ── multi init ─────────────────────────────────────────────────────────────
 
@@ -142,6 +149,8 @@ export async function multiStepCommand(options) {
   }
 
   if (state.status === 'blocked') {
+    // Fire on_escalation hook (advisory — cannot block, only notifies)
+    fireEscalationHook(workspacePath, configResult.config, state, state.blocked_reason || 'unknown reason');
     console.error(`Coordinator is blocked: ${state.blocked_reason || 'unknown reason'}`);
     console.error('Resolve the blocked state before stepping.');
     process.exitCode = 1;
@@ -161,9 +170,26 @@ export async function multiStepCommand(options) {
     state = loadCoordinatorState(workspacePath) || state;
 
     if (!resync.ok) {
+      // Fire on_escalation for the blocked resync
+      fireEscalationHook(workspacePath, configResult.config, state, resync.blocked_reason || 'resync failure');
       console.error(`Coordinator resync entered blocked state: ${resync.blocked_reason || 'unknown reason'}`);
       process.exitCode = 1;
       return;
+    }
+
+    // Fire after_acceptance hooks for any repos that were resynced (advisory)
+    if (resync.resynced_repos.length > 0) {
+      for (const repoId of resync.resynced_repos) {
+        const acceptancePayload = buildAcceptancePayload(
+          { projection_ref: `proj_resync_${repoId}`, barrier_effects: resync.barrier_changes, context_invalidations: [] },
+          repoId,
+          null, // workstream not always known during resync
+          state,
+        );
+        fireCoordinatorHook(workspacePath, configResult.config, 'after_acceptance', acceptancePayload, {
+          super_run_id: state.super_run_id,
+        });
+      }
     }
   }
 
@@ -197,6 +223,23 @@ export async function multiStepCommand(options) {
       for (const blocker of gate.blockers) {
         console.error(`  - ${blocker.message}`);
       }
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  // Fire before_assignment hook (blocking — can prevent dispatch)
+  const assignmentPayload = buildAssignmentPayload(assignment, state);
+  const assignmentHook = fireCoordinatorHook(workspacePath, configResult.config, 'before_assignment', assignmentPayload, {
+    super_run_id: state.super_run_id,
+  });
+
+  if (assignmentHook.blocked) {
+    const blocker = assignmentHook.verdicts.find(v => v.verdict === 'block');
+    const reason = blocker?.message || 'before_assignment hook blocked dispatch';
+    console.error(`Assignment blocked by hook: ${reason}`);
+    if (options.json) {
+      console.log(JSON.stringify({ blocked: true, hook_phase: 'before_assignment', reason }, null, 2));
     }
     process.exitCode = 1;
     return;
@@ -304,6 +347,23 @@ export async function multiApproveGateCommand(options) {
     return;
   }
 
+  // Fire before_gate hook (blocking — can prevent gate approval)
+  const gatePayload = buildGatePayload(state.pending_gate, state);
+  const gateHook = fireCoordinatorHook(workspacePath, configResult.config, 'before_gate', gatePayload, {
+    super_run_id: state.super_run_id,
+  });
+
+  if (gateHook.blocked) {
+    const blocker = gateHook.verdicts.find(v => v.verdict === 'block');
+    const reason = blocker?.message || 'before_gate hook blocked approval';
+    console.error(`Gate approval blocked by hook: ${reason}`);
+    if (options.json) {
+      console.log(JSON.stringify({ blocked: true, hook_phase: 'before_gate', reason }, null, 2));
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   const gateType = state.pending_gate.gate_type;
   let result;
 
@@ -407,4 +467,17 @@ export async function multiResyncCommand(options) {
     console.error(`  Reason: ${result.blocked_reason}`);
     process.exitCode = 1;
   }
+}
+
+// ── Hook helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Fire the on_escalation coordinator hook (advisory — never blocks).
+ * Used when the coordinator enters a blocked state from any path.
+ */
+function fireEscalationHook(workspacePath, config, state, blockedReason) {
+  const payload = buildEscalationPayload(blockedReason, state);
+  return fireCoordinatorHook(workspacePath, config, 'on_escalation', payload, {
+    super_run_id: state.super_run_id,
+  });
 }

@@ -349,6 +349,7 @@ export function normalizeCoordinatorConfig(raw) {
     ),
     routing: normalizeRouting(raw.routing),
     gates: normalizeGates(raw.gates),
+    hooks: raw.hooks && typeof raw.hooks === 'object' ? raw.hooks : {},
   };
 }
 
