@@ -28,6 +28,7 @@
         <a href="/docs/quickstart.html">Quickstart</a>
         <a href="/docs/adapters.html">Adapters</a>
         <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/docs/plugins.html">Plugins</a>
         <a href="/docs/protocol.html">Protocol</a>
         <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
         <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
@@ -54,6 +55,7 @@
         <a href="/docs/quickstart.html">Quickstart</a>
         <a href="/docs/adapters.html">Adapters</a>
         <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/docs/plugins.html">Plugins</a>
         <a href="/">Landing page</a>
         <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app">Example project</a>
         <a href="/docs/protocol.html">Protocol</a>
@@ -64,6 +66,7 @@
         <a href="#turn-lifecycle">Turn lifecycle</a>
         <a href="#approvals">Approvals and recovery</a>
         <a href="#validation">Validation and migration</a>
+        <a href="#plugins">Plugins</a>
         <a href="#examples">Common sequences</a>
       </aside>
 
@@ -151,6 +154,21 @@
                   <td><code>migrate</code></td>
                   <td>Convert a legacy v3 project to governed format</td>
                   <td>You already have a legacy project and want the governed state model</td>
+                </tr>
+                <tr>
+                  <td><code>plugin install &lt;source&gt;</code></td>
+                  <td>Install a governed hook plugin</td>
+                  <td>You want to add a packaged hook integration from a local path, archive, or npm package</td>
+                </tr>
+                <tr>
+                  <td><code>plugin list</code></td>
+                  <td>List installed plugins</td>
+                  <td>You want to see which plugins are installed, their hook bindings, and install paths</td>
+                </tr>
+                <tr>
+                  <td><code>plugin remove &lt;name&gt;</code></td>
+                  <td>Remove an installed plugin</td>
+                  <td>You want to cleanly remove a plugin and its hook bindings without affecting other hooks</td>
                 </tr>
               </tbody>
             </table>
@@ -321,6 +339,27 @@ agentxchain dashboard --no-open</code></pre>
           </div>
         </section>
 
+        <section id="plugins">
+          <h2>Plugins</h2>
+          <p>Plugins package hook integrations with a manifest, install lifecycle, and clean removal. See the <a href="/docs/plugins.html">full plugin docs</a> for authoring details.</p>
+          <div class="surface-grid">
+            <div class="surface">
+              <h3><code>plugin install &lt;source&gt;</code></h3>
+              <p>Installs a plugin from a local directory, <code>.tgz</code> archive, or npm package spec. Validates the <code>agentxchain-plugin.json</code> manifest, checks for hook-name collisions, copies the payload into <code>.agentxchain/plugins/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
+              <pre><code>agentxchain plugin install ./my-plugin
+agentxchain plugin install @agentxchain/plugin-slack-notify</code></pre>
+            </div>
+            <div class="surface">
+              <h3><code>plugin list [--json]</code></h3>
+              <p>Lists installed plugins with name, version, install path, source type, and hook bindings by phase.</p>
+            </div>
+            <div class="surface">
+              <h3><code>plugin remove &lt;name&gt;</code></h3>
+              <p>Removes only the named plugin's hook bindings and metadata. Unrelated operator hooks are preserved. The install directory under <code>.agentxchain/plugins/</code> is deleted.</p>
+            </div>
+          </div>
+        </section>
+
         <section id="examples">
           <h2>Common sequences</h2>
 
@@ -370,6 +409,7 @@ agentxchain step --resume --turn turn_abc123</code></pre>
             <a href="/docs/quickstart.html">Quickstart</a>
             <a href="/docs/adapters.html">Adapters</a>
             <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/plugins.html">Plugins</a>
             <a href="/docs/protocol.html">Protocol</a>
           </div>
           <div>

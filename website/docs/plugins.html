@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentXchain Docs — Plugins</title>
+  <meta name="description" content="How to author, install, and manage governed plugins for AgentXchain. Plugins package hook integrations without forking core config." />
+  <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
+  <link rel="canonical" href="https://agentxchain.dev/docs/plugins.html" />
+  <meta property="og:title" content="AgentXchain Plugin System" />
+  <meta property="og:description" content="Author, install, and manage governed plugins. Package hook integrations without forking core config." />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain Plugin System" />
+  <meta name="twitter:description" content="Author, install, and manage governed plugins. Package hook integrations without forking core config." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/"><img src="../assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/plugins.html" class="active">Plugins</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+        <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="docs-hero">
+    <div class="container">
+      <span class="eyebrow">Docs / Plugins</span>
+      <h1>Package hook integrations without forking core config.</h1>
+      <p class="lede">Plugins are governed hook bundles with a manifest, an install lifecycle, and clean removal. They run under the same trust model and tamper protections as hand-written hooks. No marketplace, no sandboxing, no magic.</p>
+      <div class="hero-links">
+        <a href="/docs/cli.html" class="primary">CLI reference</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/blob/main/.planning/PLUGIN_SYSTEM_PHASE1_SPEC.md">Open canonical spec</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-layout">
+      <aside class="docs-sidebar">
+        <h2>Docs</h2>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/plugins.html" class="active">Plugins</a>
+        <a href="/">Landing page</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app">Example project</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <p class="docs-note">Plugins require a governed project (<code>schema_version: "1.0"</code>). Legacy v3 projects reject all plugin commands.</p>
+        <h2>On this page</h2>
+        <a href="#manifest">Plugin manifest</a>
+        <a href="#install">Installing plugins</a>
+        <a href="#list">Listing plugins</a>
+        <a href="#remove">Removing plugins</a>
+        <a href="#authoring">Authoring a plugin</a>
+        <a href="#failure-modes">Failure modes</a>
+      </aside>
+
+      <main class="docs-content">
+        <section id="manifest">
+          <h2>Plugin manifest</h2>
+          <p>Every plugin root must contain an <code>agentxchain-plugin.json</code> file:</p>
+          <pre><code>{
+  "schema_version": "0.1",
+  "name": "@agentxchain/plugin-slack-notify",
+  "version": "1.0.0",
+  "description": "Posts governed lifecycle notifications to Slack.",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "slack_notify_acceptance",
+        "type": "process",
+        "command": ["node", "./hooks/after-acceptance.js"],
+        "timeout_ms": 3000,
+        "mode": "advisory"
+      }
+    ]
+  },
+  "config_schema": {
+    "type": "object"
+  }
+}</code></pre>
+
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Required</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>schema_version</code></td>
+                  <td>Yes</td>
+                  <td>Must be <code>"0.1"</code> for phase 1 plugins</td>
+                </tr>
+                <tr>
+                  <td><code>name</code></td>
+                  <td>Yes</td>
+                  <td>Package-style identifier (e.g. <code>@org/plugin-name</code> or <code>my-plugin</code>)</td>
+                </tr>
+                <tr>
+                  <td><code>version</code></td>
+                  <td>Yes</td>
+                  <td>Semantic version string</td>
+                </tr>
+                <tr>
+                  <td><code>hooks</code></td>
+                  <td>Yes</td>
+                  <td>Object mapping lifecycle phases to hook arrays. Same shape as <code>agentxchain.json</code> hook config.</td>
+                </tr>
+                <tr>
+                  <td><code>description</code></td>
+                  <td>No</td>
+                  <td>Human-readable description</td>
+                </tr>
+                <tr>
+                  <td><code>config_schema</code></td>
+                  <td>No</td>
+                  <td>JSON Schema for plugin config. Recorded but not enforced in phase 1.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="install">
+          <h2>Installing plugins</h2>
+          <pre><code>agentxchain plugin install &lt;path|npm-package&gt;</code></pre>
+          <p>Install resolves the source, validates the manifest, checks for hook-name collisions, copies the plugin into <code>.agentxchain/plugins/&lt;derived-id&gt;/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
+
+          <div class="surface">
+            <h3>Three source types</h3>
+            <div class="docs-table-wrap">
+              <table class="docs-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Example</th>
+                    <th>How it works</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Local directory</td>
+                    <td><code>agentxchain plugin install ./my-plugin</code></td>
+                    <td>Reads <code>agentxchain-plugin.json</code> from the directory root</td>
+                  </tr>
+                  <tr>
+                    <td>Local archive</td>
+                    <td><code>agentxchain plugin install ./my-plugin.tgz</code></td>
+                    <td>Extracts <code>.tgz</code>/<code>.tar.gz</code> and reads the manifest</td>
+                  </tr>
+                  <tr>
+                    <td>npm package spec</td>
+                    <td><code>agentxchain plugin install @agentxchain/plugin-slack-notify</code></td>
+                    <td>Runs <code>npm pack</code> to download, then extracts and reads the manifest</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="surface">
+            <h3>Path rewriting</h3>
+            <p>Command tokens beginning with <code>./</code> or <code>../</code> are rewritten to project-relative paths under <code>.agentxchain/plugins/&lt;id&gt;/</code> so hook execution remains valid after copy. Absolute paths and bare commands are not rewritten.</p>
+          </div>
+
+          <div class="callout">
+            <p><strong>Collision protection:</strong> If any plugin hook name already exists in the same lifecycle phase of <code>agentxchain.json</code>, the install is rejected with no config or filesystem mutation. This is fail-closed by design.</p>
+          </div>
+        </section>
+
+        <section id="list">
+          <h2>Listing plugins</h2>
+          <pre><code>agentxchain plugin list [--json]</code></pre>
+          <p>Reports each installed plugin's name, version, install path, source type, declared hook bindings by phase, and whether the install directory still exists on disk.</p>
+        </section>
+
+        <section id="remove">
+          <h2>Removing plugins</h2>
+          <pre><code>agentxchain plugin remove &lt;name&gt;</code></pre>
+          <p>Removal is metadata-driven. It deletes only the hook names recorded for that plugin, preserves unrelated operator-defined hooks, removes the plugin metadata entry from <code>agentxchain.json</code>, and deletes the installed plugin directory under <code>.agentxchain/plugins/</code>.</p>
+
+          <div class="warning">
+            <ul>
+              <li>Removal refuses to proceed if the plugin install path points outside <code>.agentxchain/plugins/</code> (safety check).</li>
+              <li>There is no upgrade command in phase 1. To upgrade, remove then reinstall.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="authoring">
+          <h2>Authoring a plugin</h2>
+          <p>A minimal plugin is a directory with two files:</p>
+
+          <div class="surface">
+            <h3>1. <code>agentxchain-plugin.json</code></h3>
+            <pre><code>{
+  "schema_version": "0.1",
+  "name": "my-notify-plugin",
+  "version": "0.1.0",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "my_notify",
+        "type": "process",
+        "command": ["node", "./notify.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ]
+  }
+}</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>2. <code>notify.js</code></h3>
+            <pre><code>// Hook receives the turn payload on stdin as JSON
+const chunks = [];
+process.stdin.on('data', c =&gt; chunks.push(c));
+process.stdin.on('end', () =&gt; {
+  const payload = JSON.parse(Buffer.concat(chunks).toString());
+  console.log(`Turn accepted: ${payload.summary}`);
+  // Exit 0 = allow, exit 1 = warn (advisory) or block (blocking)
+});</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>Test it locally</h3>
+            <pre><code># From a governed project directory
+agentxchain plugin install ./path/to/my-notify-plugin
+agentxchain plugin list
+agentxchain step --role pm
+# Hook fires after acceptance</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3>Distribute as npm package</h3>
+            <pre><code># Publish to npm
+cd my-notify-plugin
+npm init -y  # if no package.json
+npm publish
+
+# Install from npm
+agentxchain plugin install my-notify-plugin</code></pre>
+          </div>
+        </section>
+
+        <section id="failure-modes">
+          <h2>Failure modes</h2>
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Non-governed project</td>
+                  <td>All plugin commands rejected</td>
+                </tr>
+                <tr>
+                  <td>Missing <code>agentxchain-plugin.json</code></td>
+                  <td>Install rejected</td>
+                </tr>
+                <tr>
+                  <td>Invalid manifest shape</td>
+                  <td>Install rejected with field-level errors</td>
+                </tr>
+                <tr>
+                  <td>Hook name collision</td>
+                  <td>Install rejected, no config or filesystem mutation</td>
+                </tr>
+                <tr>
+                  <td>Plugin already installed</td>
+                  <td>Install rejected</td>
+                </tr>
+                <tr>
+                  <td><code>npm pack</code> failure</td>
+                  <td>Install rejected with captured stderr context</td>
+                </tr>
+                <tr>
+                  <td>Partial install failure</td>
+                  <td>Staged plugin directory cleaned up, config unchanged</td>
+                </tr>
+                <tr>
+                  <td>Unsafe removal path</td>
+                  <td>Removal rejected (path must be under <code>.agentxchain/plugins/</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <div class="footer-copy">
+          Governed multi-agent software delivery. Plugins package hook integrations without forking core config.
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Docs</h4>
+            <a href="/docs/quickstart.html">Quickstart</a>
+            <a href="/docs/adapters.html">Adapters</a>
+            <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/plugins.html">Plugins</a>
+            <a href="/docs/protocol.html">Protocol</a>
+          </div>
+          <div>
+            <h4>Project</h4>
+            <a href="https://www.npmjs.com/package/agentxchain">npm</a>
+            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -13,6 +13,7 @@ Today the docs pages are physical files:
 - `website/docs/quickstart.html`
 - `website/docs/adapters.html`
 - `website/docs/cli.html`
+- `website/docs/plugins.html`
 - `website/docs/protocol.html`
 - `website/docs/protocol-v6.html`
 
@@ -27,6 +28,7 @@ Examples:
 - `/docs/quickstart.html`
 - `/docs/adapters.html`
 - `/docs/cli.html`
+- `/docs/plugins.html`
 - `/docs/protocol.html`
 - `/docs/protocol-v6.html`
 

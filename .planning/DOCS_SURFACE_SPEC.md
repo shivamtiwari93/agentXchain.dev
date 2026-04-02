@@ -25,6 +25,7 @@ Expose documentation on agentxchain.dev without adopting Docusaurus, Starlight, 
 | `/docs/protocol-v6` | `PROTOCOL-v6.md` rendered (versioned permalink) | Immutable v6 protocol reference |
 | `/docs/adapters` | New content | How the three adapters work, how to add a new one |
 | `/docs/cli` | `.planning/CLI_SPEC.md` rendered | Complete CLI command reference |
+| `/docs/plugins` | `.planning/PLUGIN_SYSTEM_PHASE1_SPEC.md` rendered | Plugin authoring, install, list, remove |
 
 ### Phase 2 (post-launch, demand-driven)
 
