@@ -45,7 +45,9 @@ describe('Dashboard operator documentation — CLI docs page', () => {
     );
   });
 
-  it('documents all five panels', () => {
+  it('documents repo-local and coordinator dashboard views', () => {
+    assert.ok(CLI_DOCS.includes('Initiative') || CLI_DOCS.includes('initiative'), 'must document initiative view');
+    assert.ok(CLI_DOCS.includes('Cross-Repo') || CLI_DOCS.includes('cross-repo'), 'must document cross-repo view');
     assert.ok(CLI_DOCS.includes('Run Timeline') || CLI_DOCS.includes('timeline'), 'must document timeline panel');
     assert.ok(CLI_DOCS.includes('Decision Ledger') || CLI_DOCS.includes('ledger'), 'must document ledger panel');
     assert.ok(CLI_DOCS.includes('Hook Audit') || CLI_DOCS.includes('hook audit'), 'must document hook audit panel');
@@ -59,6 +61,8 @@ describe('Dashboard operator documentation — CLI docs page', () => {
     assert.ok(CLI_DOCS.includes('decision-ledger.jsonl'), 'must mention decision-ledger.jsonl');
     assert.ok(CLI_DOCS.includes('hook-audit.jsonl'), 'must mention hook-audit.jsonl');
     assert.ok(CLI_DOCS.includes('hook-annotations.jsonl'), 'must mention hook-annotations.jsonl');
+    assert.ok(CLI_DOCS.includes('multirepo/state.json'), 'must mention coordinator state');
+    assert.ok(CLI_DOCS.includes('multirepo/barriers.json'), 'must mention coordinator barriers');
   });
 
   it('documents the API endpoints', () => {
@@ -67,11 +71,15 @@ describe('Dashboard operator documentation — CLI docs page', () => {
     assert.ok(CLI_DOCS.includes('/api/ledger'), 'must document /api/ledger endpoint');
     assert.ok(CLI_DOCS.includes('/api/hooks/audit'), 'must document /api/hooks/audit endpoint');
     assert.ok(CLI_DOCS.includes('/api/hooks/annotations'), 'must document /api/hooks/annotations endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/state'), 'must document /api/coordinator/state endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/history'), 'must document /api/coordinator/history endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/barriers'), 'must document /api/coordinator/barriers endpoint');
   });
 
   it('documents exact CLI commands operators see in the dashboard', () => {
     assert.ok(CLI_DOCS.includes('approve-transition'), 'must mention approve-transition');
     assert.ok(CLI_DOCS.includes('approve-completion'), 'must mention approve-completion');
+    assert.ok(CLI_DOCS.includes('multi approve-gate'), 'must mention multi approve-gate');
   });
 
   it('documents what is NOT in v2.0', () => {

@@ -91,6 +91,7 @@
     .placeholder h2 { font-size: 18px; margin-bottom: 8px; font-weight: 500; }
     .placeholder p { font-size: 14px; max-width: 400px; line-height: 1.5; }
     .placeholder code { background: var(--surface); padding: 2px 6px; border-radius: 3px; }
+    .placeholder.compact { min-height: 120px; }
 
     /* Badge */
     .badge {
@@ -252,6 +253,11 @@
     .gate-card h3 { font-size: 14px; margin-bottom: 12px; }
     .gate-action { margin-top: 12px; }
     .gate-action p { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+    .initiative-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
 
     /* Recovery command */
     .recovery-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
@@ -295,6 +301,8 @@
     </div>
   </header>
   <nav>
+    <a href="#initiative">Initiative</a>
+    <a href="#cross-repo">Cross-Repo</a>
     <a href="#timeline" class="active">Timeline</a>
     <a href="#ledger">Decisions</a>
     <a href="#hooks">Hooks</a>

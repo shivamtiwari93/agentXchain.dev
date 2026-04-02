@@ -1,6 +1,6 @@
 # AgentXchain.dev
 
-Governed multi-agent software delivery for a single repo.
+Governed multi-agent software delivery for a single repo by default, with multi-repo coordination in v2.
 
 AgentXchain runs sequential turns by default and can optionally run parallel governed turns, always requiring a structured turn result, validating artifacts and verification claims, enforcing phase gates, and keeping a human-readable collaboration log alongside append-only machine history.
 

@@ -116,12 +116,90 @@ function renderList(title, items, formatter = (item) => item) {
 
 export { findPostGateTurns, aggregateEvidence };
 
-export function render({ state, history = [] }) {
-  const pendingTransition = state?.pending_phase_transition || null;
-  const pendingCompletion = state?.pending_run_completion || null;
+function findCoordinatorGateRequest(history, pendingGate) {
+  if (!Array.isArray(history) || !pendingGate?.gate) {
+    return null;
+  }
+
+  const requestedType = pendingGate.gate_type === 'phase_transition'
+    ? 'phase_transition_requested'
+    : 'run_completion_requested';
+
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (entry?.type === requestedType && entry.gate === pendingGate.gate) {
+      return { entry, index: i };
+    }
+  }
+
+  return null;
+}
+
+function findCoordinatorGateEvidence(history, pendingGate) {
+  if (!Array.isArray(history) || history.length === 0 || !pendingGate) {
+    return [];
+  }
+
+  const gateRequest = findCoordinatorGateRequest(history, pendingGate);
+  const endIndex = gateRequest ? gateRequest.index : history.length;
+  let startIndex = 0;
+
+  for (let i = endIndex - 1; i >= 0; i -= 1) {
+    if (history[i]?.type === 'phase_transition_approved') {
+      startIndex = i + 1;
+      break;
+    }
+  }
+
+  return history
+    .slice(startIndex, endIndex)
+    .filter((entry) => entry?.type === 'acceptance_projection');
+}
+
+function aggregateCoordinatorEvidence(entries) {
+  const summaries = [];
+  const decisions = [];
+  const files = [];
+
+  for (const entry of entries) {
+    summaries.push({
+      role: entry.repo_id || 'repo',
+      summary: entry.summary || 'Accepted turn projected',
+      turn_id: entry.repo_turn_id || entry.projection_ref || '-',
+    });
+
+    if (Array.isArray(entry.decisions)) {
+      for (const decision of entry.decisions) {
+        decisions.push(decision);
+      }
+    }
+
+    for (const file of entry.files_changed || []) {
+      if (!files.includes(file)) {
+        files.push(file);
+      }
+    }
+  }
+
+  return { summaries, decisions, objections: [], risks: [], files };
+}
+
+export function render({
+  state,
+  history = [],
+  coordinatorState = null,
+  coordinatorHistory = [],
+  coordinatorBarriers = {},
+}) {
+  const repoPendingTransition = state?.pending_phase_transition || null;
+  const repoPendingCompletion = state?.pending_run_completion || null;
+  const coordinatorPendingGate = coordinatorState?.pending_gate || null;
+  const pendingTransition = repoPendingTransition || (coordinatorPendingGate?.gate_type === 'phase_transition' ? coordinatorPendingGate : null);
+  const pendingCompletion = repoPendingCompletion || (coordinatorPendingGate?.gate_type === 'run_completion' ? coordinatorPendingGate : null);
+  const isCoordinator = Boolean(!repoPendingTransition && !repoPendingCompletion && coordinatorPendingGate);
 
   if (!pendingTransition && !pendingCompletion) {
-    const status = state?.status || 'unknown';
+    const status = state?.status || coordinatorState?.status || 'unknown';
     if (status === 'paused') {
       return `<div class="placeholder"><h2>Gate Review</h2><p>Run is paused. A human gate approval may be pending. Check <code class="mono">agentxchain status</code> for details.</p></div>`;
     }
@@ -131,12 +209,16 @@ export function render({ state, history = [] }) {
   let html = `<div class="gate-view">`;
 
   if (pendingTransition) {
-    const postGateTurns = findPostGateTurns(history, pendingTransition.requested_by_turn);
-    const evidence = aggregateEvidence(postGateTurns);
+    const postGateTurns = isCoordinator
+      ? findCoordinatorGateEvidence(coordinatorHistory, pendingTransition)
+      : findPostGateTurns(history, pendingTransition.requested_by_turn);
+    const evidence = isCoordinator
+      ? aggregateCoordinatorEvidence(postGateTurns)
+      : aggregateEvidence(postGateTurns);
     html += `<div class="gate-card">
       <h3>Phase Transition Gate</h3>
       <dl class="detail-list">
-        <dt>From</dt><dd>${esc(pendingTransition.from || state.phase)}</dd>
+        <dt>From</dt><dd>${esc(pendingTransition.from || state?.phase || coordinatorState?.phase)}</dd>
         <dt>To</dt><dd>${esc(pendingTransition.to)}</dd>`;
     if (pendingTransition.gate) {
       html += `<dt>Gate</dt><dd class="mono">${esc(pendingTransition.gate)}</dd>`;
@@ -146,6 +228,9 @@ export function render({ state, history = [] }) {
     }
     if (postGateTurns.length > 0) {
       html += `<dt>Evidence Turns</dt><dd>${postGateTurns.length} turn${postGateTurns.length !== 1 ? 's' : ''}</dd>`;
+    }
+    if (isCoordinator && Array.isArray(pendingTransition.required_repos) && pendingTransition.required_repos.length > 0) {
+      html += `<dt>Required Repos</dt><dd>${esc(pendingTransition.required_repos.join(', '))}</dd>`;
     }
     html += `</dl>`;
     if (evidence.summaries.length > 0) {
@@ -157,20 +242,33 @@ export function render({ state, history = [] }) {
     }
     html += renderList('Objections', evidence.objections, (item) => item?.statement || item);
     html += renderList('Risks', evidence.risks, (item) => item?.statement || item);
+    html += renderList('Decisions', evidence.decisions, (item) => item?.statement || item);
     if (evidence.files.length > 0) {
       html += `<div class="gate-support"><p><strong>Files Changed:</strong></p><ul>${evidence.files.map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul></div>`;
+    }
+    if (isCoordinator) {
+      const pendingBarriers = Object.entries(coordinatorBarriers || {}).filter(([, barrier]) => barrier?.status !== 'satisfied');
+      if (pendingBarriers.length > 0) {
+        html += `<div class="gate-support"><p><strong>Coordinator Barriers:</strong></p><ul>${pendingBarriers.map(([barrierId, barrier]) => (
+          `<li>${esc(`${barrierId}: ${barrier.status}`)}</li>`
+        )).join('')}</ul></div>`;
+      }
     }
     html += `
       <div class="gate-action">
         <p>Approve with:</p>
-        <pre class="recovery-command mono" data-copy="agentxchain approve-transition">agentxchain approve-transition</pre>
+        <pre class="recovery-command mono" data-copy="${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition'}">${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition'}</pre>
       </div>
     </div>`;
   }
 
   if (pendingCompletion) {
-    const postGateTurns = findPostGateTurns(history, pendingCompletion.requested_by_turn);
-    const evidence = aggregateEvidence(postGateTurns);
+    const postGateTurns = isCoordinator
+      ? findCoordinatorGateEvidence(coordinatorHistory, pendingCompletion)
+      : findPostGateTurns(history, pendingCompletion.requested_by_turn);
+    const evidence = isCoordinator
+      ? aggregateCoordinatorEvidence(postGateTurns)
+      : aggregateEvidence(postGateTurns);
     html += `<div class="gate-card">
       <h3>Run Completion Gate</h3>
       <dl class="detail-list">`;
@@ -183,6 +281,9 @@ export function render({ state, history = [] }) {
     if (postGateTurns.length > 0) {
       html += `<dt>Evidence Turns</dt><dd>${postGateTurns.length} turn${postGateTurns.length !== 1 ? 's' : ''}</dd>`;
     }
+    if (isCoordinator && Array.isArray(pendingCompletion.required_repos) && pendingCompletion.required_repos.length > 0) {
+      html += `<dt>Required Repos</dt><dd>${esc(pendingCompletion.required_repos.join(', '))}</dd>`;
+    }
     html += `</dl>`;
     if (evidence.summaries.length > 0) {
       html += `<div class="gate-evidence"><h4>Agent Summaries</h4><ul>`;
@@ -193,13 +294,14 @@ export function render({ state, history = [] }) {
     }
     html += renderList('Objections', evidence.objections, (item) => item?.statement || item);
     html += renderList('Risks', evidence.risks, (item) => item?.statement || item);
+    html += renderList('Decisions', evidence.decisions, (item) => item?.statement || item);
     if (evidence.files.length > 0) {
       html += `<div class="gate-support"><p><strong>Files Changed:</strong></p><ul>${evidence.files.map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul></div>`;
     }
     html += `
       <div class="gate-action">
         <p>Approve with:</p>
-        <pre class="recovery-command mono" data-copy="agentxchain approve-completion">agentxchain approve-completion</pre>
+        <pre class="recovery-command mono" data-copy="${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-completion'}">${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-completion'}</pre>
       </div>
     </div>`;
   }

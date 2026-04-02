@@ -10,13 +10,17 @@ import { render as renderLedger } from './components/ledger.js';
 import { render as renderHooks } from './components/hooks.js';
 import { render as renderBlocked } from './components/blocked.js';
 import { render as renderGate } from './components/gate.js';
+import { render as renderInitiative } from './components/initiative.js';
+import { render as renderCrossRepo } from './components/cross-repo.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'history'], render: renderTimeline },
   ledger: { fetch: ['ledger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
-  blocked: { fetch: ['state', 'audit'], render: renderBlocked },
-  gate: { fetch: ['state', 'history'], render: renderGate },
+  blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
+  gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
+  initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger'], render: renderInitiative },
+  'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
 };
 
 const API_MAP = {
@@ -25,6 +29,11 @@ const API_MAP = {
   ledger: '/api/ledger',
   audit: '/api/hooks/audit',
   annotations: '/api/hooks/annotations',
+  coordinatorState: '/api/coordinator/state',
+  coordinatorHistory: '/api/coordinator/history',
+  coordinatorBarriers: '/api/coordinator/barriers',
+  barrierLedger: '/api/coordinator/barrier-ledger',
+  coordinatorAudit: '/api/coordinator/hooks/audit',
 };
 
 const viewState = {
@@ -62,6 +71,24 @@ async function fetchData(keys) {
 
 function currentView() {
   return (location.hash || '#timeline').slice(1);
+}
+
+async function pickInitialView() {
+  if (location.hash) {
+    return currentView();
+  }
+
+  const [stateResult, coordinatorResult] = await Promise.all([
+    fetchData(['state']).catch(() => ({ state: null })),
+    fetchData(['coordinatorState']).catch(() => ({ coordinatorState: null })),
+  ]);
+
+  if (!stateResult.state && coordinatorResult.coordinatorState) {
+    location.hash = '#initiative';
+    return 'initiative';
+  }
+
+  return currentView();
 }
 
 function buildRenderData(viewName, data) {
@@ -212,5 +239,7 @@ function fallbackSelect(el) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
-updateNav();
-connect();
+pickInitialView().finally(() => {
+  updateNav();
+  connect();
+});

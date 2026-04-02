@@ -236,7 +236,7 @@ agentxchain dashboard [--port 3847] [--no-open]
 
 ## Non-Goals for v2.0
 
-- **Multi-repo view.** v2.0 dashboard shows one repo at a time. Multi-repo aggregation is a cloud feature.
+- **Multi-repo view.** Superseded by `.planning/V2_DASHBOARD_MULTI_REPO_SPEC.md`. Local v2.0 dashboard includes read-only coordinator state integration; cloud remains the multi-tenant extension.
 - **User authentication.** Local dashboard has no auth. Cloud dashboard handles auth.
 - **Real-time agent output streaming.** The dashboard shows completed turns, not in-progress agent output. Streaming adapter stdout is a v2.1 consideration.
 - **Dashboard-triggered approvals or resume actions.** All mutations remain CLI-only in v2.0.

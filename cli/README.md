@@ -90,7 +90,7 @@ agentxchain step
 | `approve-transition` | Approve a pending human-gated phase transition |
 | `approve-completion` | Approve a pending human-gated run completion |
 | `validate` | Validate governed kickoff wiring, a staged turn, or both |
-| `dashboard` | Open the read-only governance dashboard in your browser |
+| `dashboard` | Open the read-only governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives |
 
 ### Shared utilities
 

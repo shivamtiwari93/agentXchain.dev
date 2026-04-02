@@ -20,6 +20,8 @@ import { render as renderGate } from '../dashboard/components/gate.js';
 import { render as renderHooks } from '../dashboard/components/hooks.js';
 import { filterEntries, render as renderLedger } from '../dashboard/components/ledger.js';
 import { render as renderTimeline } from '../dashboard/components/timeline.js';
+import { render as renderInitiative } from '../dashboard/components/initiative.js';
+import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 
 const DASHBOARD_DIR = fileURLToPath(new URL('../dashboard', import.meta.url));
 
@@ -203,6 +205,61 @@ function writeFixture(agentxchainDir, state) {
   writeJsonl(join(agentxchainDir, 'decision-ledger.jsonl'), data.ledger);
   writeJsonl(join(agentxchainDir, 'hook-audit.jsonl'), data.audit);
   writeJsonl(join(agentxchainDir, 'hook-annotations.jsonl'), data.annotations);
+  return data;
+}
+
+function coordinatorFixture() {
+  return {
+    state: {
+      super_run_id: 'srun_dashboard_e2e',
+      status: 'paused',
+      phase: 'integration',
+      pending_gate: {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:integration->release',
+        from: 'integration',
+        to: 'release',
+        required_repos: ['api', 'web'],
+      },
+      repo_runs: {
+        api: { run_id: 'run_api_dashboard', status: 'linked', phase: 'integration' },
+        web: { run_id: 'run_web_dashboard', status: 'initialized', phase: 'integration' },
+      },
+    },
+    history: [
+      { type: 'run_initialized', timestamp: '2026-04-02T12:00:00Z', repo_runs: { api: {}, web: {} } },
+      { type: 'turn_dispatched', timestamp: '2026-04-02T12:01:00Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001', role: 'dev', context_ref: 'ctx_api_001' },
+      { type: 'acceptance_projection', timestamp: '2026-04-02T12:02:00Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001', summary: 'API integration accepted', files_changed: ['api/src/index.ts'], decisions: [{ statement: 'Promote shared schema' }] },
+      { type: 'context_generated', timestamp: '2026-04-02T12:03:00Z', target_repo_id: 'web', workstream_id: 'frontend', upstream_repo_ids: ['api'] },
+      { type: 'phase_transition_requested', timestamp: '2026-04-02T12:04:00Z', gate: 'phase_transition:integration->release', from: 'integration', to: 'release', required_repos: ['api', 'web'] },
+    ],
+    barriers: {
+      backend_completion: {
+        workstream_id: 'backend',
+        type: 'all_repos_accepted',
+        status: 'partially_satisfied',
+        required_repos: ['api', 'web'],
+        satisfied_repos: ['api'],
+      },
+    },
+    barrierLedger: [
+      { type: 'barrier_transition', barrier_id: 'backend_completion', previous_status: 'pending', new_status: 'partially_satisfied' },
+    ],
+    audit: [
+      { hook_phase: 'before_gate', hook_name: 'release-guard', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 33 },
+    ],
+  };
+}
+
+function writeCoordinatorFixture(agentxchainDir) {
+  const multiDir = join(agentxchainDir, 'multirepo');
+  const data = coordinatorFixture();
+  mkdirSync(multiDir, { recursive: true });
+  writeJson(join(multiDir, 'state.json'), data.state);
+  writeJsonl(join(multiDir, 'history.jsonl'), data.history);
+  writeJson(join(multiDir, 'barriers.json'), data.barriers);
+  writeJsonl(join(multiDir, 'barrier-ledger.jsonl'), data.barrierLedger);
+  writeJsonl(join(multiDir, 'hook-audit.jsonl'), data.audit);
   return data;
 }
 
@@ -417,5 +474,45 @@ describe('Dashboard E2E acceptance', () => {
 
     assert.equal(wsMessage.type, 'error');
     assert.match(wsMessage.error, /read-only/i);
+  });
+
+  it('AT-DASH-MR-001 renders coordinator initiative and cross-repo timeline from multirepo files', async () => {
+    writeFixture(agentxchainDir, baseState());
+    writeCoordinatorFixture(agentxchainDir);
+
+    const coordinatorState = await getJson(port, '/api/coordinator/state');
+    const coordinatorHistory = await getJson(port, '/api/coordinator/history');
+    const coordinatorBarriers = await getJson(port, '/api/coordinator/barriers');
+    const barrierLedger = await getJson(port, '/api/coordinator/barrier-ledger');
+
+    const initiativeHtml = renderInitiative({ coordinatorState, coordinatorBarriers, barrierLedger });
+    const timelineHtml = renderCrossRepo({ coordinatorState, coordinatorHistory });
+
+    assert.ok(initiativeHtml.includes('srun_dashboard_e2e'));
+    assert.ok(initiativeHtml.includes('agentxchain multi approve-gate'));
+    assert.ok(initiativeHtml.includes('backend_completion'));
+    assert.ok(timelineHtml.includes('Turn Dispatched'));
+    assert.ok(timelineHtml.includes('Context Generated'));
+  });
+
+  it('AT-DASH-MR-002 renders coordinator gate and blocked panels from multirepo files', async () => {
+    writeFixture(agentxchainDir, baseState());
+    const fixture = writeCoordinatorFixture(agentxchainDir);
+    fixture.state.status = 'blocked';
+    fixture.state.blocked_reason = 'coordinator_hook_violation';
+    writeJson(join(agentxchainDir, 'multirepo', 'state.json'), fixture.state);
+
+    const coordinatorState = await getJson(port, '/api/coordinator/state');
+    const coordinatorHistory = await getJson(port, '/api/coordinator/history');
+    const coordinatorBarriers = await getJson(port, '/api/coordinator/barriers');
+    const coordinatorAudit = await getJson(port, '/api/coordinator/hooks/audit');
+
+    const gateHtml = renderGate({ state: null, coordinatorState, coordinatorHistory, coordinatorBarriers });
+    const blockedHtml = renderBlocked({ state: null, coordinatorState, coordinatorAudit });
+
+    assert.ok(gateHtml.includes('agentxchain multi approve-gate'));
+    assert.ok(gateHtml.includes('API integration accepted'));
+    assert.ok(blockedHtml.includes('coordinator_hook_violation'));
+    assert.ok(blockedHtml.includes('release-guard'));
   });
 });

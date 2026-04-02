@@ -253,7 +253,7 @@ agentxchain resume --turn turn_abc123</code></pre>
           <div class="surface">
             <h3><code>agentxchain dashboard [--port &lt;port&gt;] [--no-open]</code></h3>
             <p>Starts a read-only local bridge server and opens the governance dashboard in your browser. The dashboard is an observation surface, not a control plane: gate approvals and turn acceptance remain CLI-only. It binds to <code>127.0.0.1</code> only — no network exposure.</p>
-            <p>Requires an initialized governed project (<code>.agentxchain/</code> directory must exist). Default port is <code>3847</code>. The bridge watches <code>.agentxchain/</code> for file changes and pushes live invalidation events over WebSocket so the browser view stays current without manual refresh.</p>
+            <p>Requires an initialized governed project (<code>.agentxchain/</code> directory must exist). Default port is <code>3847</code>. The bridge watches both repo-local state and <code>.agentxchain/multirepo/</code> coordinator state when present, then pushes live invalidation events over WebSocket so the browser view stays current without manual refresh.</p>
             <pre><code>agentxchain dashboard
 agentxchain dashboard --port 4000
 agentxchain dashboard --no-open</code></pre>
@@ -261,7 +261,7 @@ agentxchain dashboard --no-open</code></pre>
 
           <div class="surface">
             <h3>What the dashboard reads</h3>
-            <p>The bridge serves five <code>.agentxchain/</code> files as read-only API endpoints. It never writes to them.</p>
+            <p>The bridge serves repo-local and coordinator files as read-only API endpoints. It never writes to them.</p>
             <table>
               <thead><tr><th>File</th><th>API endpoint</th><th>Panels that use it</th></tr></thead>
               <tbody>
@@ -270,12 +270,23 @@ agentxchain dashboard --no-open</code></pre>
                 <tr><td><code>decision-ledger.jsonl</code></td><td><code>/api/ledger</code></td><td>Ledger</td></tr>
                 <tr><td><code>hook-audit.jsonl</code></td><td><code>/api/hooks/audit</code></td><td>Hook Audit, Blocked</td></tr>
                 <tr><td><code>hook-annotations.jsonl</code></td><td><code>/api/hooks/annotations</code></td><td>Hook Audit</td></tr>
+                <tr><td><code>multirepo/state.json</code></td><td><code>/api/coordinator/state</code></td><td>Initiative, Blocked, Gate</td></tr>
+                <tr><td><code>multirepo/history.jsonl</code></td><td><code>/api/coordinator/history</code></td><td>Cross-Repo, Gate</td></tr>
+                <tr><td><code>multirepo/barriers.json</code></td><td><code>/api/coordinator/barriers</code></td><td>Initiative, Gate</td></tr>
+                <tr><td><code>multirepo/barrier-ledger.jsonl</code></td><td><code>/api/coordinator/barrier-ledger</code></td><td>Initiative</td></tr>
+                <tr><td><code>multirepo/hook-audit.jsonl</code></td><td><code>/api/coordinator/hooks/audit</code></td><td>Blocked</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="surface">
-            <h3>Five panels</h3>
+            <h3>Seven views</h3>
+
+            <h4>Initiative</h4>
+            <p>The coordinator overview for multi-repo work. Shows <code>super_run_id</code>, coordinator status and phase, repo run linkage, barrier snapshot, recent barrier transitions, and any pending coordinator gate. The exact CLI action shown for coordinator gates is <code>agentxchain multi approve-gate</code>.</p>
+
+            <h4>Cross-Repo Timeline</h4>
+            <p>Renders coordinator history newest-first across repos: dispatches, acceptance projections, context generation, resync events, and gate requests/approvals. Unknown coordinator event types are still shown as generic entries instead of being dropped.</p>
 
             <h4>Run Timeline</h4>
             <p>The primary view. Renders the current governed run as a vertical timeline of accepted turns — newest first. Each turn card shows the agent role, summary, files changed, decisions, objections, risks, and verification evidence. Status badges are color-coded: running (green), paused (yellow), blocked (red).</p>
@@ -289,9 +300,11 @@ agentxchain dashboard --no-open</code></pre>
             <h4>Blocked State</h4>
             <p>When the run is in <code>blocked</code> status, this panel shows the block reason, which agent or hook caused it, and the exact CLI recovery command to run next. It also surfaces nearby hook/validation audit context when available. Recovery commands have click-to-copy support.</p>
             <p>The panel reads <code>state.blocked_reason.recovery</code> as the runtime source of truth. It does not show a history of prior blocks — no dedicated blocked-event ledger exists yet in v2.0.</p>
+            <p>When coordinator state exists and repo-local state does not, the same view falls back to coordinator blocked state plus recent coordinator hook audit context from <code>.agentxchain/multirepo/hook-audit.jsonl</code>.</p>
 
             <h4>Gate Review</h4>
             <p>When a human gate is pending (phase transition or run completion), this panel shows aggregated evidence from all turns since the last phase boundary — not just the requesting turn. It renders per-agent summaries, collected objections, risks, decisions, and files changed. The exact CLI command (<code>agentxchain approve-transition</code> or <code>agentxchain approve-completion</code>) is shown with click-to-copy.</p>
+            <p>When coordinator state has a pending gate, this view aggregates coordinator acceptance projections and barrier state, then renders <code>agentxchain multi approve-gate</code>.</p>
             <p>The dashboard does not approve gates itself. The CLI remains the only mutation path.</p>
           </div>
 
@@ -303,7 +316,7 @@ agentxchain dashboard --no-open</code></pre>
               <li>No git diff rendering — file paths only, no inline diffs</li>
               <li>No expandable full turn JSON or per-turn hook detail</li>
               <li>No desktop notifications — use the hook system (<code>on_escalation</code>) for alerting</li>
-              <li>No multi-repo aggregation — one repo per dashboard instance</li>
+              <li>No cloud-hosted state or multi-tenant persistence — this remains a localhost observation surface</li>
             </ul>
           </div>
         </section>

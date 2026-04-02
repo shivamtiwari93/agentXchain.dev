@@ -55,23 +55,27 @@ function selectRelevantAuditEntries(state, audit) {
   return audit.slice(-3);
 }
 
-export function render({ state, audit = [] }) {
-  if (!state || state.status !== 'blocked') {
+export function render({ state, audit = [], coordinatorState = null, coordinatorAudit = [] }) {
+  const activeState = state?.status === 'blocked' ? state : coordinatorState;
+  const activeAudit = activeState === state ? audit : coordinatorAudit;
+  const isCoordinator = activeState === coordinatorState;
+
+  if (!activeState || activeState.status !== 'blocked') {
     return `<div class="placeholder"><h2>Blocked State</h2><p>Run is not currently blocked.</p></div>`;
   }
 
-  const blocked = state.blocked_reason || state.blocked_state || {};
+  const blocked = activeState.blocked_reason || activeState.blocked_state || {};
   const recovery = blocked.recovery || {};
-  const reason = blocked.category || blocked.reason || state.blocked_on || 'Unknown';
+  const reason = blocked.category || blocked.reason || activeState.blocked_on || blocked || 'Unknown';
   const detail = recovery.detail || blocked.detail || null;
   const recoveryAction = recovery.recovery_action || blocked.recovery_action || blocked.recovery_command || null;
-  const blockedBy = state.blocked_on || blocked.blocked_by || blocked.source || null;
+  const blockedBy = activeState.blocked_on || blocked.blocked_by || blocked.source || null;
   const turnId = blocked.turn_id || null;
   const owner = recovery.owner || null;
   const typedReason = recovery.typed_reason || null;
   const turnRetained = typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : null;
   const blockedAt = blocked.blocked_at || null;
-  const relevantAudit = selectRelevantAuditEntries(state, audit);
+  const relevantAudit = selectRelevantAuditEntries(activeState, activeAudit);
 
   let html = `<div class="blocked-view">
     <div class="blocked-banner">
@@ -98,6 +102,27 @@ export function render({ state, audit = [] }) {
       <p class="recovery-hint">Run this command to recover:</p>
       <pre class="recovery-command mono" data-copy="${esc(recoveryAction)}">${esc(recoveryAction)}</pre>
     </div>`;
+  }
+
+  if (isCoordinator && activeState.pending_gate) {
+    html += `<div class="section"><h3>Pending Gate</h3>
+      <dl class="detail-list">
+        <dt>Gate</dt><dd class="mono">${esc(activeState.pending_gate.gate || '-')}</dd>
+        <dt>Type</dt><dd>${esc(activeState.pending_gate.gate_type || '-')}</dd>
+      </dl>
+      <pre class="recovery-command mono" data-copy="agentxchain multi approve-gate">agentxchain multi approve-gate</pre>
+    </div>`;
+  }
+
+  if (isCoordinator && activeState.repo_runs && Object.keys(activeState.repo_runs).length > 0) {
+    html += `<div class="section"><h3>Repo Status</h3><div class="annotation-list">`;
+    for (const [repoId, repoRun] of Object.entries(activeState.repo_runs)) {
+      html += `<div class="annotation-card">
+        <span class="mono">${esc(repoId)}</span>
+        <span>${esc(`${repoRun.status || 'unknown'}${repoRun.phase ? ` [${repoRun.phase}]` : ''}`)}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
   }
 
   if (relevantAudit.length > 0) {

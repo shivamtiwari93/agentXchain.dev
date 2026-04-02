@@ -21,6 +21,8 @@ import { filterEntries, render as renderLedger } from '../dashboard/components/l
 import { render as renderHooks } from '../dashboard/components/hooks.js';
 import { render as renderBlocked } from '../dashboard/components/blocked.js';
 import { render as renderGate } from '../dashboard/components/gate.js';
+import { render as renderInitiative } from '../dashboard/components/initiative.js';
+import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 
 // ── escapeHtml correctness ────────────────────────────────────────────────
 
@@ -329,8 +331,10 @@ describe('App Shell — VIEWS registry', () => {
     timeline: { fetch: ['state', 'history'], render: renderTimeline },
     ledger: { fetch: ['ledger'], render: renderLedger },
     hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
-    blocked: { fetch: ['state'], render: renderBlocked },
-    gate: { fetch: ['state'], render: renderGate },
+    blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
+    gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
+    initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger'], render: renderInitiative },
+    'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
   };
 
   for (const [name, { render }] of Object.entries(VIEWS)) {
@@ -338,6 +342,8 @@ describe('App Shell — VIEWS registry', () => {
       // Each component must handle null data gracefully
       const data = name === 'ledger' ? { ledger: null } :
                    name === 'hooks' ? { audit: null, annotations: null } :
+                   name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null } :
+                   name === 'cross-repo' ? { coordinatorState: null, coordinatorHistory: [] } :
                    { state: null, history: [] };
       const result = render(data);
       assert.equal(typeof result, 'string');
@@ -345,13 +351,15 @@ describe('App Shell — VIEWS registry', () => {
     });
   }
 
-  it('all five views are registered', () => {
-    assert.equal(Object.keys(VIEWS).length, 5);
+  it('all seven views are registered', () => {
+    assert.equal(Object.keys(VIEWS).length, 7);
     assert.ok(VIEWS.timeline);
     assert.ok(VIEWS.ledger);
     assert.ok(VIEWS.hooks);
     assert.ok(VIEWS.blocked);
     assert.ok(VIEWS.gate);
+    assert.ok(VIEWS.initiative);
+    assert.ok(VIEWS['cross-repo']);
   });
 
   it('each view has a fetch array and a render function', () => {

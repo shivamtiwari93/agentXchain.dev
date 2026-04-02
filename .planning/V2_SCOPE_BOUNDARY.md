@@ -40,7 +40,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 
 ### V2-F2: Dashboard Multi-Repo Integration
 
-**Status:** Local dashboard v2.0 is shipped (bridge server, 5 panels, WebSocket). Needs coordinator state integration.
+**Status:** Local dashboard v2.0 baseline is shipped (bridge server, 5 repo-local panels, WebSocket). Coordinator state integration extends it to 7 total views.
 
 **Scope:**
 - Dashboard bridge reads coordinator state files alongside repo-local state

@@ -53,8 +53,10 @@ function httpRequest(port, path, method) {
 function createTestFixture() {
   const root = tmpDir();
   const axcDir = join(root, '.agentxchain');
+  const multiDir = join(axcDir, 'multirepo');
   const dashDir = join(root, 'dashboard');
   mkdirSync(axcDir, { recursive: true });
+  mkdirSync(multiDir, { recursive: true });
   mkdirSync(dashDir, { recursive: true });
 
   // State file
@@ -87,11 +89,47 @@ function createTestFixture() {
     JSON.stringify({ phase: 'after_acceptance', annotation: 'SAST clean' }) + '\n'
   );
 
+  writeFileSync(join(multiDir, 'state.json'), JSON.stringify({
+    super_run_id: 'srun_test_001',
+    status: 'paused',
+    phase: 'integration',
+    pending_gate: {
+      gate_type: 'phase_transition',
+      gate: 'phase_transition:integration->release',
+      from: 'integration',
+      to: 'release',
+      required_repos: ['api', 'web'],
+    },
+    repo_runs: {
+      api: { run_id: 'run_api_001', status: 'linked', phase: 'integration' },
+      web: { run_id: 'run_web_001', status: 'initialized', phase: 'integration' },
+    },
+  }));
+  writeFileSync(join(multiDir, 'history.jsonl'),
+    JSON.stringify({ type: 'turn_dispatched', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001' }) + '\n' +
+    JSON.stringify({ type: 'acceptance_projection', repo_id: 'api', workstream_id: 'backend', summary: 'API accepted', repo_turn_id: 'turn_api_001' }) + '\n'
+  );
+  writeFileSync(join(multiDir, 'barriers.json'), JSON.stringify({
+    backend_completion: {
+      workstream_id: 'backend',
+      type: 'all_repos_accepted',
+      status: 'partially_satisfied',
+      required_repos: ['api', 'web'],
+      satisfied_repos: ['api'],
+    },
+  }));
+  writeFileSync(join(multiDir, 'barrier-ledger.jsonl'),
+    JSON.stringify({ type: 'barrier_transition', barrier_id: 'backend_completion', previous_status: 'pending', new_status: 'partially_satisfied' }) + '\n'
+  );
+  writeFileSync(join(multiDir, 'hook-audit.jsonl'),
+    JSON.stringify({ phase: 'before_gate', hook: 'release-guard', verdict: 'allow', duration_ms: 42 }) + '\n'
+  );
+
   // Dashboard HTML
   writeFileSync(join(dashDir, 'index.html'), '<html><body>Dashboard</body></html>');
   writeFileSync(join(dashDir, 'app.js'), 'console.log("dashboard")');
 
-  return { root, axcDir, dashDir };
+  return { root, axcDir, multiDir, dashDir };
 }
 
 function expectedWebSocketAccept(key) {
@@ -197,6 +235,29 @@ describe('Dashboard Bridge Server', () => {
       const data = JSON.parse(res.body);
       assert.ok(Array.isArray(data));
       assert.equal(data.length, 1);
+    });
+
+    it('GET /api/coordinator/state returns multirepo state.json content', async () => {
+      const res = await httpGet(port, '/api/coordinator/state');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.super_run_id, 'srun_test_001');
+      assert.equal(data.pending_gate.gate_type, 'phase_transition');
+    });
+
+    it('GET /api/coordinator/barriers returns barrier snapshot', async () => {
+      const res = await httpGet(port, '/api/coordinator/barriers');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.backend_completion.status, 'partially_satisfied');
+    });
+
+    it('GET /api/coordinator/barrier-ledger returns barrier transition audit', async () => {
+      const res = await httpGet(port, '/api/coordinator/barrier-ledger');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data[0].barrier_id, 'backend_completion');
     });
 
     it('GET /api/unknown returns 404', async () => {
@@ -397,6 +458,38 @@ describe('Dashboard File Watcher', () => {
     assert.equal(event.resource, '/api/state');
   });
 
+  it('emits invalidate event when coordinator state changes', async () => {
+    const multiDir = join(axcDir, 'multirepo');
+    mkdirSync(multiDir, { recursive: true });
+    writeFileSync(join(multiDir, 'state.json'), '{}');
+
+    const { FileWatcher } = await import('../src/lib/dashboard/file-watcher.js');
+    const watcher = new FileWatcher(axcDir);
+    watcher.start();
+
+    const event = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        watcher.stop();
+        reject(new Error('Watcher did not emit coordinator invalidate within 3s'));
+      }, 3000);
+
+      watcher.on('invalidate', (evt) => {
+        if (evt.resource !== '/api/coordinator/state') {
+          return;
+        }
+        clearTimeout(timeout);
+        watcher.stop();
+        resolve(evt);
+      });
+
+      setTimeout(() => {
+        writeFileSync(join(multiDir, 'state.json'), JSON.stringify({ changed: true }));
+      }, 200);
+    });
+
+    assert.equal(event.resource, '/api/coordinator/state');
+  });
+
   it('does not emit for untracked files', async () => {
     // Use a separate directory with no tracked files to avoid macOS fs.watch noise
     const isolatedRoot = tmpDir();
@@ -500,6 +593,62 @@ describe('WebSocket invalidation', () => {
 
     assert.equal(event.type, 'invalidate');
     assert.equal(event.resource, '/api/state');
+  });
+
+  it('receives coordinator invalidation event on multirepo state change', async () => {
+    const event = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('No coordinator WS message within 5s')), 5000);
+      const key = randomBytes(16).toString('base64');
+
+      const req = http.request({
+        host: '127.0.0.1',
+        port,
+        path: '/ws',
+        headers: {
+          'Connection': 'Upgrade',
+          'Upgrade': 'websocket',
+          'Sec-WebSocket-Version': '13',
+          'Sec-WebSocket-Key': key,
+        },
+      });
+
+      req.on('upgrade', (res, socket) => {
+        assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
+
+        socket.on('data', (data) => {
+          if (data.length < 2) return;
+          const opcode = data[0] & 0x0f;
+          if (opcode !== 1) return;
+          const payloadLen = data[1] & 0x7f;
+          let offset = 2;
+          if (payloadLen === 126) offset = 4;
+          if (payloadLen === 127) offset = 10;
+          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          try {
+            const msg = JSON.parse(payload);
+            if (msg.resource === '/api/coordinator/state') {
+              clearTimeout(timeout);
+              socket.destroy();
+              resolve(msg);
+            }
+          } catch {}
+        });
+
+        setTimeout(() => {
+          writeFileSync(join(fixture.multiDir, 'state.json'), JSON.stringify({ updated: true }));
+        }, 300);
+      });
+
+      req.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+
+      req.end();
+    });
+
+    assert.equal(event.type, 'invalidate');
+    assert.equal(event.resource, '/api/coordinator/state');
   });
 
   it('rejects websocket command messages because the bridge is read-only', async () => {

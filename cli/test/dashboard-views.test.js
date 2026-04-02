@@ -15,6 +15,8 @@ import { filterEntries, render as renderLedger } from '../dashboard/components/l
 import { render as renderHooks } from '../dashboard/components/hooks.js';
 import { render as renderBlocked } from '../dashboard/components/blocked.js';
 import { render as renderGate, findPostGateTurns, aggregateEvidence } from '../dashboard/components/gate.js';
+import { render as renderInitiative } from '../dashboard/components/initiative.js';
+import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 
 // ── Timeline View ──────────────────────────────────────────────────────────
 
@@ -233,6 +235,73 @@ describe('Hooks View', () => {
   });
 });
 
+describe('Initiative View', () => {
+  it('renders placeholder when coordinator state is missing', () => {
+    const html = renderInitiative({ coordinatorState: null });
+    assert.ok(html.includes('No Initiative'));
+    assert.ok(html.includes('agentxchain multi init'));
+  });
+
+  it('renders coordinator summary, repo runs, pending gate, and barriers', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_123',
+        status: 'paused',
+        phase: 'integration',
+        pending_gate: {
+          gate_type: 'phase_transition',
+          gate: 'phase_transition:integration->release',
+          required_repos: ['api', 'web'],
+        },
+        repo_runs: {
+          api: { run_id: 'run_api', status: 'linked', phase: 'integration' },
+          web: { run_id: 'run_web', status: 'initialized', phase: 'integration' },
+        },
+      },
+      coordinatorBarriers: {
+        backend_completion: {
+          workstream_id: 'backend',
+          type: 'all_repos_accepted',
+          status: 'partially_satisfied',
+          required_repos: ['api', 'web'],
+          satisfied_repos: ['api'],
+        },
+      },
+      barrierLedger: [
+        { barrier_id: 'backend_completion', previous_status: 'pending', new_status: 'partially_satisfied' },
+      ],
+    });
+
+    assert.ok(html.includes('srun_123'));
+    assert.ok(html.includes('phase_transition:integration-&gt;release') || html.includes('phase_transition:integration->release'));
+    assert.ok(html.includes('agentxchain multi approve-gate'));
+    assert.ok(html.includes('run_api'));
+    assert.ok(html.includes('backend_completion'));
+    assert.ok(html.includes('partially_satisfied'));
+  });
+});
+
+describe('Cross-Repo View', () => {
+  it('renders placeholder when coordinator state is missing', () => {
+    const html = renderCrossRepo({ coordinatorState: null });
+    assert.ok(html.includes('No Cross-Repo Timeline'));
+  });
+
+  it('renders recognized events newest-first and keeps unknown event types', () => {
+    const html = renderCrossRepo({
+      coordinatorState: { super_run_id: 'srun_123' },
+      coordinatorHistory: [
+        { type: 'turn_dispatched', timestamp: '2026-04-02T12:00:00Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001' },
+        { type: 'mystery_event', timestamp: '2026-04-02T12:05:00Z', repo_id: 'web' },
+      ],
+    });
+
+    assert.ok(html.includes('Unknown Event') || html.includes('mystery_event'));
+    assert.ok(html.includes('Turn Dispatched'));
+    assert.ok(html.indexOf('Unknown Event') < html.indexOf('Turn Dispatched') || html.indexOf('mystery_event') < html.indexOf('Turn Dispatched'));
+  });
+});
+
 // ── Blocked View ───────────────────────────────────────────────────────────
 
 describe('Blocked View', () => {
@@ -344,6 +413,28 @@ describe('Blocked View', () => {
     });
     assert.ok(!html.includes('<b>xss</b>'));
     assert.ok(html.includes('&lt;b&gt;xss&lt;/b&gt;'));
+  });
+
+  it('renders coordinator blocked state when repo-local state is absent', () => {
+    const html = renderBlocked({
+      state: null,
+      coordinatorState: {
+        status: 'blocked',
+        blocked_reason: 'coordinator_hook_violation',
+        pending_gate: { gate: 'initiative_ship', gate_type: 'run_completion' },
+        repo_runs: {
+          api: { status: 'linked', phase: 'integration' },
+        },
+      },
+      coordinatorAudit: [
+        { hook_phase: 'before_gate', hook_name: 'release-guard', verdict: 'block', orchestrator_action: 'blocked', duration_ms: 42 },
+      ],
+    });
+
+    assert.ok(html.includes('coordinator_hook_violation'));
+    assert.ok(html.includes('agentxchain multi approve-gate'));
+    assert.ok(html.includes('Repo Status'));
+    assert.ok(html.includes('release-guard'));
   });
 });
 
@@ -489,6 +580,36 @@ describe('Gate View', () => {
       history: [{ turn_id: 'turn_001', summary: 'Done' }],
     });
     assert.ok(html.includes('data-copy="agentxchain approve-transition"'));
+  });
+
+  it('renders coordinator pending gate evidence with multi approve command', () => {
+    const html = renderGate({
+      state: null,
+      coordinatorState: {
+        status: 'paused',
+        phase: 'integration',
+        pending_gate: {
+          gate_type: 'phase_transition',
+          gate: 'phase_transition:integration->release',
+          from: 'integration',
+          to: 'release',
+          required_repos: ['api', 'web'],
+        },
+      },
+      coordinatorHistory: [
+        { type: 'acceptance_projection', repo_id: 'api', repo_turn_id: 'turn_api_001', summary: 'API integration accepted', files_changed: ['api/src/index.ts'], decisions: [{ statement: 'Promote shared schema' }] },
+        { type: 'phase_transition_requested', gate: 'phase_transition:integration->release' },
+      ],
+      coordinatorBarriers: {
+        backend_completion: { status: 'partially_satisfied' },
+      },
+    });
+
+    assert.ok(html.includes('Phase Transition Gate'));
+    assert.ok(html.includes('API integration accepted'));
+    assert.ok(html.includes('Promote shared schema'));
+    assert.ok(html.includes('backend_completion'));
+    assert.ok(html.includes('agentxchain multi approve-gate'));
   });
 });
 

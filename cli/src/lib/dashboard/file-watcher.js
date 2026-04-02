@@ -5,15 +5,15 @@
  * mapped to API resource paths. Debounces rapid successive changes.
  */
 
-import { watch } from 'fs';
-import { basename } from 'path';
+import { watch, existsSync } from 'fs';
+import { basename, join } from 'path';
 import { EventEmitter } from 'events';
-import { FILE_TO_RESOURCE } from './state-reader.js';
+import { WATCH_DIRECTORIES, resourceForRelativePath } from './state-reader.js';
 
 const DEBOUNCE_MS = 100;
 
 export class FileWatcher extends EventEmitter {
-  #watcher = null;
+  #watchers = new Map();
   #debounceTimers = new Map();
   #agentxchainDir;
   #closed = false;
@@ -23,43 +23,68 @@ export class FileWatcher extends EventEmitter {
     this.#agentxchainDir = agentxchainDir;
   }
 
-  start() {
-    if (this.#watcher) return;
+  #watchPath(relativeDir) {
+    if (this.#watchers.has(relativeDir)) {
+      return;
+    }
+
+    const watchPath = relativeDir
+      ? join(this.#agentxchainDir, relativeDir)
+      : this.#agentxchainDir;
+    if (!existsSync(watchPath)) {
+      return;
+    }
+
     try {
-      this.#watcher = watch(this.#agentxchainDir, { recursive: false }, (eventType, filename) => {
+      const watcher = watch(watchPath, { recursive: false }, (eventType, filename) => {
         if (!filename || this.#closed) return;
         const base = basename(filename);
-        const resource = FILE_TO_RESOURCE[base];
-        if (!resource) return; // not a tracked file
+        const relativePath = relativeDir ? `${relativeDir}/${base}` : base;
+        const resource = resourceForRelativePath(relativePath);
 
-        // Debounce: coalesce rapid changes to the same file
-        if (this.#debounceTimers.has(base)) {
-          clearTimeout(this.#debounceTimers.get(base));
+        if (!resource) {
+          if (!relativeDir && base === 'multirepo') {
+            this.#watchPath('multirepo');
+          }
+          return;
         }
-        this.#debounceTimers.set(base, setTimeout(() => {
-          this.#debounceTimers.delete(base);
+
+        if (this.#debounceTimers.has(resource)) {
+          clearTimeout(this.#debounceTimers.get(resource));
+        }
+        this.#debounceTimers.set(resource, setTimeout(() => {
+          this.#debounceTimers.delete(resource);
           if (!this.#closed) {
             this.emit('invalidate', { resource });
           }
         }, DEBOUNCE_MS));
       });
 
-      this.#watcher.on('error', (err) => {
+      watcher.on('error', (err) => {
         if (!this.#closed) {
           this.emit('error', err);
         }
       });
+
+      this.#watchers.set(relativeDir, watcher);
     } catch (err) {
       this.emit('error', err);
     }
   }
 
+  start() {
+    if (this.#watchers.size > 0) return;
+    for (const relativeDir of WATCH_DIRECTORIES) {
+      this.#watchPath(relativeDir);
+    }
+  }
+
   stop() {
     this.#closed = true;
-    if (this.#watcher) {
-      this.#watcher.close();
-      this.#watcher = null;
+    for (const watcher of this.#watchers.values()) {
+      watcher.close();
     }
+    this.#watchers.clear();
     for (const timer of this.#debounceTimers.values()) {
       clearTimeout(timer);
     }

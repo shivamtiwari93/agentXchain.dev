@@ -27,9 +27,9 @@ describe('Launch evidence report', () => {
   });
 
   it('references the current test count floor', () => {
-    assert.match(report, /800\+.*launch-copy floor/i,
+    assert.match(report, /900\+.*launch-copy floor/i,
       'report should state the current launch-copy floor explicitly');
-    assert.match(report, /898 tests\s*\/\s*0 failures/i,
+    assert.match(report, /913 tests\s*\/\s*0 failures/i,
       'report should record the current exact suite count verified on 2026-04-02');
   });
 });

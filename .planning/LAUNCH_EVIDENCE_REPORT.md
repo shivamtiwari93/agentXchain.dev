@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 898 tests, 0 failures across 202 suites
+- **Result**: 913 tests, 0 failures across 204 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -69,7 +69,7 @@
 - **Location**: `cli/dashboard/`, `cli/src/lib/dashboard/`, `cli/src/commands/dashboard.js`
 - **Result**: implemented and tested
 - **What it proves**:
-  - Read-only localhost dashboard with 5 panels (timeline, ledger, hooks, blocked, gate)
+  - Read-only localhost dashboard with 7 views: 5 repo-local panels plus coordinator `initiative` and `cross-repo` views
   - Bridge server with WebSocket invalidation + HTTP refetch
   - Static asset routing with path-traversal containment
   - HTTP mutation rejection (405) and WebSocket mutation rejection (structured error)
@@ -105,7 +105,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "800+ tests" | E1 (898 tests as of 2026-04-02) | Use floor-hundred format per DEC-SHOW-HN-003. Update when floor crosses 900. |
+| "900+ tests" | E1 (913 tests as of 2026-04-02) | Use floor-hundred format per DEC-SHOW-HN-003. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live) | Phrase this as a protocol guarantee, not as evidence that `approve-completion` has been exercised live. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -147,6 +147,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-02, 898 tests / 0 failures (`800+` launch-copy floor)
+- **Test count verified**: 2026-04-02, 913 tests / 0 failures (`900+` launch-copy floor)
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

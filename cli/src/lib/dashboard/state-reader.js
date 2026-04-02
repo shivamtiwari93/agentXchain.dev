@@ -7,13 +7,16 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, normalize } from 'path';
 
 const STATE_FILE = 'state.json';
 const HISTORY_FILE = 'history.jsonl';
 const LEDGER_FILE = 'decision-ledger.jsonl';
 const HOOK_AUDIT_FILE = 'hook-audit.jsonl';
 const HOOK_ANNOTATIONS_FILE = 'hook-annotations.jsonl';
+const MULTIREPO_DIR = 'multirepo';
+const BARRIERS_FILE = 'barriers.json';
+const BARRIER_LEDGER_FILE = 'barrier-ledger.jsonl';
 
 /**
  * Map of API resource paths to their .agentxchain/ file names.
@@ -24,14 +27,34 @@ export const RESOURCE_MAP = {
   '/api/ledger': LEDGER_FILE,
   '/api/hooks/audit': HOOK_AUDIT_FILE,
   '/api/hooks/annotations': HOOK_ANNOTATIONS_FILE,
+  '/api/coordinator/state': join(MULTIREPO_DIR, STATE_FILE),
+  '/api/coordinator/history': join(MULTIREPO_DIR, HISTORY_FILE),
+  '/api/coordinator/ledger': join(MULTIREPO_DIR, LEDGER_FILE),
+  '/api/coordinator/barriers': join(MULTIREPO_DIR, BARRIERS_FILE),
+  '/api/coordinator/barrier-ledger': join(MULTIREPO_DIR, BARRIER_LEDGER_FILE),
+  '/api/coordinator/hooks/audit': join(MULTIREPO_DIR, HOOK_AUDIT_FILE),
+  '/api/coordinator/hooks/annotations': join(MULTIREPO_DIR, HOOK_ANNOTATIONS_FILE),
 };
 
 /**
- * Reverse map: file basename → API resource path.
+ * Reverse map: relative file path under .agentxchain/ → API resource path.
  */
 export const FILE_TO_RESOURCE = Object.fromEntries(
-  Object.entries(RESOURCE_MAP).map(([resource, file]) => [file, resource])
+  Object.entries(RESOURCE_MAP).map(([resource, file]) => [normalizeRelativePath(file), resource])
 );
+
+export const WATCH_DIRECTORIES = [
+  '',
+  MULTIREPO_DIR,
+];
+
+export function normalizeRelativePath(filePath) {
+  return normalize(filePath).replace(/\\/g, '/').replace(/^\.\/+/, '');
+}
+
+export function resourceForRelativePath(filePath) {
+  return FILE_TO_RESOURCE[normalizeRelativePath(filePath)] || null;
+}
 
 /**
  * Read a JSON file. Returns parsed object or null if file doesn't exist.
