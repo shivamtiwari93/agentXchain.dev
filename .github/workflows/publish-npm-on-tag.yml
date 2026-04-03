@@ -12,6 +12,7 @@ on:
         type: string
 
 permissions:
+  id-token: write
   contents: read
 
 concurrency:
@@ -25,51 +26,22 @@ jobs:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
     steps:
       - name: Checkout tagged release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 24
           cache: npm
           cache-dependency-path: cli/package-lock.json
 
-      - name: Install CLI dependencies
+      - name: Install dependencies
         working-directory: cli
         run: npm ci
 
-      - name: Run tests
+      - name: Publish tagged release
         working-directory: cli
-        run: npm test
-
-      - name: Run release preflight (non-strict)
-        working-directory: cli
-        run: bash scripts/release-preflight.sh --target-version "$(echo "$RELEASE_TAG" | sed 's/^v//')"
-
-      - name: Publish to npm
-        working-directory: cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
-
-      - name: Verify registry visibility
-        working-directory: cli
-        run: |
-          RELEASE_VERSION="$(echo "$RELEASE_TAG" | sed 's/^v//')"
-          PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
-          for attempt in $(seq 1 12); do
-            PUBLISHED_VERSION="$(npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version 2>/dev/null || true)"
-            if [[ "$PUBLISHED_VERSION" == "$RELEASE_VERSION" ]]; then
-              echo "Verified ${PACKAGE_NAME}@${RELEASE_VERSION} on npm (attempt ${attempt}/12)"
-              exit 0
-            fi
-            if [[ "$attempt" -lt 12 ]]; then
-              echo "Registry not updated yet (attempt ${attempt}/12); retrying in 5s..."
-              sleep 5
-            fi
-          done
-          echo "Error: npm registry did not serve ${PACKAGE_NAME}@${RELEASE_VERSION} after 12 attempts" >&2
-          exit 1
+        shell: bash
+        run: bash scripts/publish-from-tag.sh "${RELEASE_TAG}"
