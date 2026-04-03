@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.5.0
+
+Remote MCP transport. Governed agents can now run over network via streamable HTTP, completing the MCP connector story for both local and remote deployment.
+
+### Remote MCP Transport (streamable HTTP)
+
+- New `streamable_http` transport for the `mcp` runtime type. Governed MCP agents can now run over HTTP in addition to local stdio.
+- Transport selection via `transport` config field (defaults to `stdio`). Remote mode requires an absolute `http` or `https` `url`.
+- Optional static `headers` map for remote requests (API keys, auth tokens, custom metadata).
+- Config validation enforces mode-specific fields: stdio rejects `url`/`headers`, remote rejects `command`/`args`/`cwd`.
+- `step` command prints the real transport target (stdio command vs HTTP URL) instead of hard-coding stdio.
+- Documented `Accept: application/json, text/event-stream` requirement for streamable HTTP servers.
+
+### Remote MCP Example
+
+- New `examples/mcp-http-echo-agent/` reference server: stateless streamable HTTP MCP server implementing the same 13-argument `agentxchain_turn` tool contract as the stdio variant.
+- Configurable port (`--port` flag or `PORT` env), `/mcp` endpoint, 404/405 for invalid paths/methods.
+- Contract test proves: tool name parity, argument parity, `structuredContent` return, live MCP initialize response, docs coverage.
+- Governed dispatch proof uses the real shipped HTTP example server as a subprocess, not an inline mock.
+
+### Docs
+
+- Adapter deep-dive updated with `streamable_http` config, transport comparison table (stdio vs HTTP examples), remote headers, and SSE non-support.
+- Governed-todo-app README documents both stdio and remote MCP wiring paths with complete config examples.
+
+### Evidence
+
+- 652 Vitest tests (36 files) + 1394 node --test (317 suites), 0 failures.
+- Website production build passes.
+
 ## 2.4.0
 
 MCP runtime adapter, template validation layer, and library template. First governed connector beyond local_cli and api_proxy.
