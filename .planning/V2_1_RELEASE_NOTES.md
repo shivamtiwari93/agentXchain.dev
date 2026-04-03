@@ -16,7 +16,7 @@ Status: draft only. Do not publish until `v2.0.1` is published to npm, merged fr
 
 ### V2.1-F2 — HTTP Hooks And Plugin Hardening
 
-- Hooks now support `"type": "http"` with JSON POST transport, env-backed header interpolation, timeout handling, and the same allow/warn/block verdict contract as process hooks.
+- Hooks now support `"type": "http"` with JSON POST transport, env-backed header interpolation, missing-placeholder rejection, timeout handling, and the same allow/warn/block verdict contract as process hooks.
 - Blocking HTTP hooks fail closed on timeout or explicit `block`.
 - Plugin lifecycle is harder to abuse: enforced `config_schema`, first-class upgrade flow, and rollback on failed upgrade.
 
@@ -35,7 +35,7 @@ Status: draft only. Do not publish until `v2.0.1` is published to npm, merged fr
 
 ## Verification Status
 
-- Current pre-merge `main` verification: `1031 tests / 235 suites / 0 failures`
+- Current pre-merge `main` verification: `1033 tests / 235 suites / 0 failures`
 - Final release proof still requires:
   - successful `release/v2.0.1` publish
   - merge-back to `main`

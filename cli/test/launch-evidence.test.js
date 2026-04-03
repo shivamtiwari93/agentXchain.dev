@@ -29,7 +29,7 @@ describe('Launch evidence report', () => {
   it('references the current test count floor', () => {
     assert.match(report, /1000\+.*launch-copy floor/i,
       'report should state the current launch-copy floor explicitly');
-    assert.match(report, /1031 tests\s*[,\/]\s*0 failures/i,
+    assert.match(report, /1033 tests\s*[,\/]\s*0 failures/i,
       'report should record the current exact suite count verified on 2026-04-03');
     assert.doesNotMatch(report, /900\+.*launch-copy floor/i,
       'report should not retain the stale 900+ floor after crossing 1000+');

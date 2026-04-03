@@ -865,6 +865,18 @@ describe('HTTP hooks', () => {
     assert.ok(!badMethod.ok);
     assert.ok(badMethod.errors.some(e => e.includes('POST')));
 
+    const missingMethod = validateHooksConfig({
+      before_assignment: [{
+        name: 'missing-method',
+        type: 'http',
+        url: 'https://example.com',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    });
+    assert.ok(!missingMethod.ok);
+    assert.ok(missingMethod.errors.some(e => e.includes('required')));
+
     // Invalid URL scheme
     const badUrl = validateHooksConfig({
       before_assignment: [{
@@ -877,6 +889,22 @@ describe('HTTP hooks', () => {
     });
     assert.ok(!badUrl.ok);
     assert.ok(badUrl.errors.some(e => e.includes('HTTP or HTTPS')));
+
+    const missingHeaderEnv = validateHooksConfig({
+      before_assignment: [{
+        name: 'missing-header-env',
+        type: 'http',
+        url: 'https://example.com/hook',
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+        headers: {
+          Authorization: 'Bearer ${NO_SUCH_TOKEN}',
+        },
+      }],
+    });
+    assert.ok(!missingHeaderEnv.ok);
+    assert.ok(missingHeaderEnv.errors.some(e => e.includes('unresolved header env vars')));
   });
 
   it('blocking HTTP hook returns block verdict → command fails closed (AT-V21-004a)', async () => {
@@ -996,6 +1024,40 @@ describe('HTTP hooks', () => {
     assert.equal(receivedHeaders['x-static'], 'plain-value');
   });
 
+  it('HTTP hook with missing auth env var fails closed before request dispatch', async () => {
+    const touchedFile = join(dir, '_unexpected_request');
+    const server = await startTestServerProcess(dir, `
+      const fs = require('fs');
+      fs.writeFileSync(${JSON.stringify(touchedFile)}, 'reached');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ verdict: 'allow' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'missing-auth-env',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+        headers: {
+          Authorization: 'Bearer ${MISSING_HTTP_TOKEN}',
+        },
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(!result.ok);
+    assert.ok(result.blocked);
+    assert.equal(result.blocker.hook_name, 'missing-auth-env');
+    assert.ok(!existsSync(touchedFile), 'request should not be sent when auth interpolation is unresolved');
+
+    const audit = readJsonl(dir, HOOK_AUDIT_PATH);
+    assert.match(audit[0].stderr_excerpt, /Unresolved HTTP hook header variables/);
+  });
+
   it('HTTP hook with non-2xx response is treated as failure (AT-V21-004e)', async () => {
     const server = await startTestServerProcess(dir, `
       res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -1101,10 +1163,18 @@ describe('interpolateHeaders', () => {
     }
   });
 
-  it('replaces unresolvable vars with empty string', () => {
+  it('throws on unresolvable vars by default', () => {
+    assert.throws(
+      () => interpolateHeaders({ 'X-Missing': '${NONEXISTENT_VAR_12345}' }, {}),
+      /Unresolved HTTP hook header variables/,
+    );
+  });
+
+  it('can allow unresolved vars for non-validating callers', () => {
     const result = interpolateHeaders(
       { 'X-Missing': '${NONEXISTENT_VAR_12345}' },
       {},
+      { allowUnresolved: true },
     );
     assert.equal(result['X-Missing'], '');
   });

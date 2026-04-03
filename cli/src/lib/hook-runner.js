@@ -39,6 +39,7 @@ const ANNOTATION_KEY_RE = /^[a-z0-9_-]+$/;
 const MAX_ANNOTATIONS = 16;
 const MAX_ANNOTATION_VALUE_LENGTH = 1000;
 const MAX_STDERR_CAPTURE = 4096;
+const HEADER_VAR_RE = /\$\{([^}]+)\}/g;
 
 // ── Protected Files ──────────────────────────────────────────────────────────
 
@@ -185,8 +186,8 @@ export function validateHooksConfig(hooks, projectRoot) {
           errors.push(`${label}: url must be a valid HTTP or HTTPS URL`);
         }
         // method
-        if (hook.method !== undefined && hook.method !== 'POST') {
-          errors.push(`${label}: method must be "POST" (only POST is supported)`);
+        if (hook.method !== 'POST') {
+          errors.push(`${label}: method must be "POST" (required; only POST is supported)`);
         }
         // headers (optional)
         if ('headers' in hook && hook.headers !== undefined) {
@@ -197,6 +198,12 @@ export function validateHooksConfig(hooks, projectRoot) {
               if (typeof hv !== 'string') {
                 errors.push(`${label}: headers.${hk} must be a string`);
               }
+            }
+            const missingHeaderVars = collectMissingHeaderVars(hook.headers, hook.env);
+            if (missingHeaderVars.length > 0) {
+              errors.push(
+                `${label}: unresolved header env vars ${missingHeaderVars.map(({ header, varName }) => `${header}:${varName}`).join(', ')}`,
+              );
             }
           }
         }
@@ -376,16 +383,48 @@ export function normalizeHookProcessError(result) {
 /**
  * Resolve `${VAR_NAME}` placeholders in header values from hook env + process.env.
  */
-function interpolateHeaders(headers, hookEnv) {
+function collectMissingHeaderVars(headers, hookEnv) {
+  if (!headers) return [];
+  const missing = [];
+  const mergedEnv = { ...process.env };
+
+  for (const [key, value] of Object.entries(hookEnv || {})) {
+    if (typeof value === 'string') {
+      mergedEnv[key] = value;
+    }
+  }
+
+  for (const [headerName, value] of Object.entries(headers)) {
+    let match;
+    while ((match = HEADER_VAR_RE.exec(value)) !== null) {
+      if (mergedEnv[match[1]] === undefined) {
+        missing.push({ header: headerName, varName: match[1] });
+      }
+    }
+    HEADER_VAR_RE.lastIndex = 0;
+  }
+
+  return missing;
+}
+
+function interpolateHeaders(headers, hookEnv, options = {}) {
   if (!headers) return {};
+  const missing = collectMissingHeaderVars(headers, hookEnv);
+  if (!options.allowUnresolved && missing.length > 0) {
+    throw new Error(
+      `Unresolved HTTP hook header variables: ${missing.map(({ header, varName }) => `${header}:${varName}`).join(', ')}`,
+    );
+  }
+
   const resolved = {};
   const mergedEnv = { ...process.env, ...(hookEnv || {}) };
   for (const [key, value] of Object.entries(headers)) {
-    resolved[key] = value.replace(/\$\{([^}]+)\}/g, (_match, varName) => {
+    resolved[key] = value.replace(HEADER_VAR_RE, (_match, varName) => {
       const envVal = mergedEnv[varName];
       if (envVal === undefined) return '';
       return envVal;
     });
+    HEADER_VAR_RE.lastIndex = 0;
   }
   return resolved;
 }
@@ -403,7 +442,20 @@ function interpolateHeaders(headers, hookEnv) {
  * @returns {object} execution result (same shape as executeHookProcess)
  */
 function executeHttpHook(hookDef, payload) {
-  const resolvedHeaders = interpolateHeaders(hookDef.headers, hookDef.env);
+  const startTime = Date.now();
+  let resolvedHeaders;
+  try {
+    resolvedHeaders = interpolateHeaders(hookDef.headers, hookDef.env);
+  } catch (error) {
+    return {
+      timedOut: false,
+      stdout: '',
+      stderr: String(error?.message || error).slice(0, MAX_STDERR_CAPTURE),
+      exitCode: 1,
+      durationMs: Date.now() - startTime,
+      processError: String(error?.message || error),
+    };
+  }
   resolvedHeaders['Content-Type'] = 'application/json';
 
   const fetchScript = `
@@ -426,7 +478,6 @@ req.write(body);
 req.end();
 `;
 
-  const startTime = Date.now();
   const result = spawnSync(process.execPath, ['-e', fetchScript, JSON.stringify(payload)], {
     timeout: hookDef.timeout_ms + SIGKILL_GRACE_MS,
     maxBuffer: 1024 * 1024,

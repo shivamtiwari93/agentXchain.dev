@@ -14,7 +14,7 @@
 Three features on top of the v2.0.x governed coordination base:
 
 1. **Dispatch manifests** (V2.1-F1) — structured dispatch descriptors for turn assignment with provider routing and constraint propagation
-2. **HTTP hooks + plugin hardening** (V2.1-F2) — webhook-style hook delivery with retry, plus plugin install validation hardening
+2. **HTTP hooks + plugin hardening** (V2.1-F2) — JSON POST hook delivery with fail-closed timeout/auth handling, plus plugin config and upgrade hardening
 3. **Dashboard evidence drill-down** (V2.1-F3) — expandable turn detail panels with hook annotations, decision ledger filters (phase, date, objection badges), and hook audit filters
 
 All three features are implementation-complete and tested on `main`.
@@ -22,7 +22,7 @@ All three features are implementation-complete and tested on `main`.
 ## Release Readiness
 
 - Feature implementation: **complete** (all 3 V2.1 features shipped)
-- Test suite: **1031 tests / 235 suites / 0 failures** (pre-merge count on main)
+- Test suite: **1033 tests / 235 suites / 0 failures** (pre-merge count on main)
 - Protocol: v6 normative spec (`PROTOCOL-v6.md`)
 - Docs: quickstart, adapters, CLI, plugins, protocol pages all published
 - Publish workflow: script-delegated architecture with postflight verification

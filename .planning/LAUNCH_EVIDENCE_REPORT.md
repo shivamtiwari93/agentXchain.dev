@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 1031 tests, 0 failures across 235 suites
+- **Result**: 1033 tests, 0 failures across 235 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -26,7 +26,7 @@
   - Protocol v6 docs surface: normative markdown, published HTML, versioned permalink, and planning-spec drift assertions
   - Plugin docs surface: published HTML, CLI reference integration, nav consistency, planning-spec alignment, rollback/failure-mode documentation
   - Dispatch manifest integrity: finalize/verify, tamper detection (unexpected file, digest mismatch, missing file, size mismatch), supplement inclusion, adapter verification integration
-  - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation, non-2xx failure handling, annotation recording, audit trail with transport field
+  - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation with unresolved-placeholder rejection, non-2xx failure handling, annotation recording, audit trail with transport field
   - Dashboard evidence drill-down: turn detail panels with hook annotations/audit, decision ledger filters (phase, date range, objection), hook audit filters (phase, verdict, hook name)
   - Context compressor, token counter, token budget
   - Release preflight and publish scripts
@@ -111,7 +111,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "1000+ tests" | E1 (1031 tests as of 2026-04-03) | Use floor-hundred format per DEC-SHOW-HN-003. |
+| "1000+ tests" | E1 (1033 tests as of 2026-04-03) | Use floor-hundred format per DEC-SHOW-HN-003. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live) | Phrase this as a protocol guarantee, not as evidence that `approve-completion` has been exercised live. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -153,6 +153,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-03, 1031 tests / 0 failures across 235 suites (`1000+` launch-copy floor)
+- **Test count verified**: 2026-04-03, 1033 tests / 0 failures across 235 suites (`1000+` launch-copy floor)
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

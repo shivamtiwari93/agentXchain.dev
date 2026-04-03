@@ -318,6 +318,7 @@ agentxchain plugin install my-notify-plugin</code></pre>
               <li>Annotations work the same as process hooks.</li>
               <li>Timeout and failure semantics are identical: blocking hooks fail closed, advisory hooks downgrade to warn.</li>
               <li>Header values support <code>${ENV_VAR}</code> interpolation from the hook's <code>env</code> object and <code>process.env</code>.</li>
+              <li>Missing header variables are rejected during validation and execution. AgentXchain does not silently send blank auth headers.</li>
               <li>Only <code>POST</code> method is supported.</li>
               <li>Non-2xx responses are treated as hook failures.</li>
             </ul>
@@ -325,7 +326,7 @@ agentxchain plugin install my-notify-plugin</code></pre>
 
           <div class="surface">
             <h3>Auth headers</h3>
-            <p>Use <code>${VAR_NAME}</code> in header values. The variable is resolved from the hook's <code>env</code> field first, then from the system environment. Secrets are never stored in config — only variable references.</p>
+            <p>Use <code>${VAR_NAME}</code> in header values. The variable is resolved from the hook's <code>env</code> field first, then from the system environment. Secrets are never stored in config — only variable references. If a referenced variable is missing, config validation fails and the hook request is not sent.</p>
             <pre><code>{
   "headers": {
     "Authorization": "Bearer ${MY_API_TOKEN}",
