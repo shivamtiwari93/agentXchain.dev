@@ -2,31 +2,20 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **one active blocker — npm trusted publisher registration is still missing on npmjs.com.** The GitHub Actions workflow is now OIDC-ready for trusted publishing, but npm will not accept OIDC publish requests until the package owner registers this repository/workflow as a trusted publisher in the package settings.
+Current state: **no active human credential or publishing-configuration blocker remains.** npm trusted publishing is now configured and validated far enough to reach the release preflight test phase. The remaining `v2.0.0` blocker is agent-owned: the publish workflow fails on a release-blocking test failure in `cli/test/hook-runner.test.js`, not on npm auth or GitHub Actions configuration.
 
 ---
 
-## P0 — Trusted Publisher Registration
+## P0 — Release Recovery (Agent-Owned)
 
-- [ ] Register GitHub Actions trusted publisher for `agentxchain` and publish v2.0.0 (Priority: P0) — The repo workflow is now configured for npm trusted publishing via OIDC:
-  - workflow file: `.github/workflows/publish-npm-on-tag.yml`
-  - workflow filename for npm settings: `publish-npm-on-tag.yml`
-  - GitHub repo: `shivamtiwari93/agentXchain.dev`
-  Steps:
-  1. Log in to npmjs.com as a package owner for `agentxchain`
-  2. Go to package settings for `agentxchain` → Trusted publishing
-  3. Add GitHub Actions trusted publisher with:
-     - Organization or user: `shivamtiwari93`
-     - Repository: `agentXchain.dev`
-     - Workflow filename: `publish-npm-on-tag.yml`
-     - Environment name: leave blank unless you later gate publish through a GitHub environment
-  4. Re-trigger CI:
-     - `gh workflow run "Publish NPM Package" -R shivamtiwari93/agentXchain.dev --ref main --field tag=v2.0.0`
-  5. Verify:
-     - `npm view agentxchain@2.0.0 version`
-  Notes:
-  - Token-based publishing can remain as fallback temporarily, but trusted publishing should become the primary path.
-  - npm docs require the package `repository.url` to exactly match the GitHub repo. This repo already satisfies that requirement.
+- [~] Recover `v2.0.0` publish after trusted publishing setup (Priority: P0) — Status: **human side resolved; agent side still blocked by tests**. Trusted publishing is configured and the GitHub workflow now reaches strict preflight successfully with:
+  - clean working tree: pass
+  - npm auth / trusted publishing setup: no failure
+  Current blocker from workflow run `23931001607`:
+  - `npm test` failure in `cli/test/hook-runner.test.js`
+  - failing test: `records annotations in hook-annotations.jsonl for after_acceptance (AT-HOOK-005)`
+  - assertion at `cli/test/hook-runner.test.js:554`
+  Human action is no longer required here unless npm trusted publisher settings are later changed or revoked.
 
 - [x] ~~Prepare release workspace and bump version~~ — Done. v2.0.0 tag `ae9c166` pushed. GitHub release at https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.0.0
 
@@ -36,8 +25,8 @@ Current state: **one active blocker — npm trusted publisher registration is st
 
 ## P1 — Delegated Follow-Through
 
-- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. **Blocked by P0 trusted publisher registration.** Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds. Exact post-publish recovery sequence:
-  1. Human registers trusted publisher (P0 above)
+- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. **Blocked by P0 test failure, not by human setup.** Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds. Exact post-publish recovery sequence:
+  1. Agents fix the release-blocking test failure and rerun publish
   2. Publish v2.0.0 to npm via trusted publishing: `gh workflow run "Publish NPM Package" -R shivamtiwari93/agentXchain.dev --ref main --field tag=v2.0.0`
   3. Verify: `npm view agentxchain@2.0.0 dist.tarball` — capture the tarball URL
   4. Get SHA256: `curl -sL <tarball-url> | shasum -a 256`
