@@ -1,0 +1,64 @@
+{
+  "fixture_id": "HA-001",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Process hook audit entry contains all required fields",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_assignment": [
+          {
+            "name": "policy_check",
+            "type": "process",
+            "command": ["node", "-e", "console.log(JSON.stringify({verdict:'allow'}))"],
+            "timeout_ms": 5000,
+            "mode": "blocking"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_assignment",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": true,
+    "audit_entry": {
+      "hook_phase": "before_assignment",
+      "hook_name": "policy_check",
+      "transport": "process",
+      "run_id": "run_001",
+      "duration_ms": { "assert": "present" },
+      "verdict": "allow",
+      "exit_code": 0,
+      "timed_out": false,
+      "orchestrator_action": "continued",
+      "timestamp": { "assert": "nonempty_string" }
+    }
+  }
+}

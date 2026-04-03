@@ -6,14 +6,16 @@
     "protocol": "stdio-fixture-v1",
     "command": ["node", ".agentxchain-conformance/reference-adapter.js"]
   },
-  "tiers": [1],
+  "tiers": [1, 2],
   "surfaces": {
     "state_machine": true,
     "turn_result_validation": true,
     "gate_semantics": true,
     "decision_ledger": true,
     "history": true,
-    "config_schema": true
+    "config_schema": true,
+    "dispatch_manifest": true,
+    "hook_audit": true
   },
   "metadata": {
     "name": "AgentXchain Reference CLI",

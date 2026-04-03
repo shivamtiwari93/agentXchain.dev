@@ -1,0 +1,53 @@
+{
+  "fixture_id": "DM-003",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "Digest mismatch after content tampering fails verification",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
+        "PROMPT.md": "Original content here."
+      }
+    },
+    "post_finalize_tamper": {
+      "turn_abc": {
+        "PROMPT.md": "Tampered content here!"
+      }
+    }
+  },
+  "input": {
+    "operation": "finalize_then_tamper_and_verify",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "digest_mismatch",
+    "verification_errors": [
+      {
+        "type": "digest_mismatch",
+        "detail": { "assert": "nonempty_string" }
+      }
+    ]
+  }
+}

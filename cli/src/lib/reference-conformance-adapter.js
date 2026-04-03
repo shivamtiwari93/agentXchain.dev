@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { evaluatePhaseExit } from './gate-evaluator.js';
@@ -10,6 +10,9 @@ import {
   normalizeGovernedStateShape,
 } from './governed-state.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
+import { finalizeDispatchManifest, verifyDispatchManifest } from './dispatch-manifest.js';
+import { getDispatchTurnDir } from './turn-paths.js';
+import { runHooks } from './hook-runner.js';
 
 const VALID_DECISION_CATEGORIES = ['implementation', 'architecture', 'scope', 'process', 'quality', 'release'];
 const FULL_STAGE_PIPELINE = ['schema', 'assignment', 'artifact', 'verification', 'protocol'];
@@ -189,6 +192,15 @@ function materializeFixtureWorkspace(fixture) {
     const absPath = join(root, relPath);
     mkdirSync(dirname(absPath), { recursive: true });
     writeFileSync(absPath, content);
+  }
+
+  // Materialize dispatch bundle files for manifest fixtures
+  for (const [turnId, files] of Object.entries(setup.dispatch_bundle || {})) {
+    const bundleDir = join(root, getDispatchTurnDir(turnId));
+    mkdirSync(bundleDir, { recursive: true });
+    for (const [fileName, content] of Object.entries(files)) {
+      writeFileSync(join(bundleDir, fileName), content);
+    }
   }
 
   return {
@@ -576,6 +588,147 @@ function executeFixtureOperation(workspace, fixture) {
         return mapConfigErrors(errors);
       }
       return { result: 'success', errors: [] };
+    }
+
+    // ── Tier 2: Dispatch Manifest ────────────────────────────────────────
+
+    case 'finalize_and_verify_manifest': {
+      const turnId = fixture.input.args.turn_id;
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const activeTurn = state.active_turns?.[turnId];
+      const identity = {
+        run_id: state.run_id || 'run_001',
+        role: activeTurn?.assigned_role || 'dev',
+      };
+      const fin = finalizeDispatchManifest(root, turnId, identity);
+      if (!fin.ok) {
+        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      }
+      const ver = verifyDispatchManifest(root, turnId);
+      if (!ver.ok) {
+        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
+      }
+      return {
+        result: 'success',
+        manifest_valid: true,
+        manifest: ver.manifest,
+        verification_errors: [],
+      };
+    }
+
+    case 'finalize_then_inject_and_verify': {
+      const turnId = fixture.input.args.turn_id;
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const activeTurn = state.active_turns?.[turnId];
+      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
+      const fin = finalizeDispatchManifest(root, turnId, identity);
+      if (!fin.ok) {
+        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      }
+      // Inject unexpected files after finalization
+      const injections = fixture.setup.post_finalize_inject?.[turnId] || {};
+      const bundleDir = join(root, getDispatchTurnDir(turnId));
+      for (const [fileName, content] of Object.entries(injections)) {
+        writeFileSync(join(bundleDir, fileName), content);
+      }
+      const ver = verifyDispatchManifest(root, turnId);
+      if (!ver.ok) {
+        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
+      }
+      return { result: 'success', manifest_valid: true, verification_errors: [] };
+    }
+
+    case 'finalize_then_tamper_and_verify': {
+      const turnId = fixture.input.args.turn_id;
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const activeTurn = state.active_turns?.[turnId];
+      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
+      const fin = finalizeDispatchManifest(root, turnId, identity);
+      if (!fin.ok) {
+        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      }
+      // Tamper with files after finalization
+      const tampers = fixture.setup.post_finalize_tamper?.[turnId] || {};
+      const bundleDir = join(root, getDispatchTurnDir(turnId));
+      for (const [fileName, content] of Object.entries(tampers)) {
+        writeFileSync(join(bundleDir, fileName), content);
+      }
+      const ver = verifyDispatchManifest(root, turnId);
+      if (!ver.ok) {
+        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
+      }
+      return { result: 'success', manifest_valid: true, verification_errors: [] };
+    }
+
+    case 'finalize_then_delete_and_verify': {
+      const turnId = fixture.input.args.turn_id;
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const activeTurn = state.active_turns?.[turnId];
+      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
+      const fin = finalizeDispatchManifest(root, turnId, identity);
+      if (!fin.ok) {
+        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      }
+      // Delete files after finalization
+      const deletions = fixture.setup.post_finalize_delete?.[turnId] || [];
+      const bundleDir = join(root, getDispatchTurnDir(turnId));
+      for (const fileName of deletions) {
+        try { unlinkSync(join(bundleDir, fileName)); } catch { /* already absent */ }
+      }
+      const ver = verifyDispatchManifest(root, turnId);
+      if (!ver.ok) {
+        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
+      }
+      return { result: 'success', manifest_valid: true, verification_errors: [] };
+    }
+
+    case 'finalize_and_check_self_exclusion': {
+      const turnId = fixture.input.args.turn_id;
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const activeTurn = state.active_turns?.[turnId];
+      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
+      const fin = finalizeDispatchManifest(root, turnId, identity);
+      if (!fin.ok) {
+        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      }
+      const ver = verifyDispatchManifest(root, turnId);
+      const manifest = ver.manifest || readJson(join(root, getDispatchTurnDir(turnId), 'MANIFEST.json'));
+      const filePaths = manifest.files.map((f) => f.path);
+      const containsSelf = filePaths.includes('MANIFEST.json');
+      return {
+        result: 'success',
+        manifest_contains_self: containsSelf,
+        file_paths: filePaths,
+      };
+    }
+
+    // ── Tier 2: Hook Audit ──────────────────────────────────────────────
+
+    case 'run_hooks': {
+      const phase = fixture.input.args.phase;
+      const payload = fixture.input.args.payload || {};
+      const hooksConfig = fixtureConfig.hooks || {};
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const auditDir = join(root, '.agentxchain');
+      const hookResult = runHooks(root, hooksConfig, phase, payload, {
+        run_id: state.run_id || payload.run_id || '',
+        turn_id: payload.turn_id || null,
+        auditDir,
+        protectedPaths: [
+          '.agentxchain/state.json',
+          '.agentxchain/history.jsonl',
+          '.agentxchain/decision-ledger.jsonl',
+        ],
+      });
+
+      // Return the first audit entry for single-hook fixtures
+      const auditEntry = hookResult.results?.[0] || null;
+      return {
+        result: 'success',
+        hook_ok: hookResult.ok,
+        blocked: hookResult.blocked || false,
+        audit_entry: auditEntry,
+      };
     }
 
     default:

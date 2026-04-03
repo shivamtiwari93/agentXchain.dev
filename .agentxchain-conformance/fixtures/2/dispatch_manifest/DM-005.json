@@ -1,0 +1,42 @@
+{
+  "fixture_id": "DM-005",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "MANIFEST.json is excluded from its own file entries",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}"
+      }
+    }
+  },
+  "input": {
+    "operation": "finalize_and_check_self_exclusion",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "manifest_contains_self": false,
+    "file_paths": { "assert": "present" }
+  }
+}

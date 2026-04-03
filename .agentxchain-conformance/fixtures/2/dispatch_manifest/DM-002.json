@@ -1,0 +1,53 @@
+{
+  "fixture_id": "DM-002",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "Unexpected file after finalization fails verification",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
+        "PROMPT.md": "# Task"
+      }
+    },
+    "post_finalize_inject": {
+      "turn_abc": {
+        "INJECTED.txt": "This file was not in the manifest"
+      }
+    }
+  },
+  "input": {
+    "operation": "finalize_then_inject_and_verify",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "unexpected_file",
+    "verification_errors": [
+      {
+        "type": "unexpected_file",
+        "detail": { "assert": "nonempty_string" }
+      }
+    ]
+  }
+}

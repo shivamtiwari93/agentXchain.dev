@@ -1,0 +1,51 @@
+{
+  "fixture_id": "DM-004",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "Missing file after deletion fails verification",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
+        "PROMPT.md": "# Task prompt"
+      }
+    },
+    "post_finalize_delete": {
+      "turn_abc": ["PROMPT.md"]
+    }
+  },
+  "input": {
+    "operation": "finalize_then_delete_and_verify",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "missing_file",
+    "verification_errors": [
+      {
+        "type": "missing_file",
+        "detail": { "assert": "nonempty_string" }
+      }
+    ]
+  }
+}

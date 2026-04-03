@@ -1,0 +1,53 @@
+{
+  "fixture_id": "HA-003",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Advisory hook block verdict downgraded to warn",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001"
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "after_acceptance": [
+          {
+            "name": "advisory_scanner",
+            "type": "process",
+            "command": ["node", "-e", "console.log(JSON.stringify({verdict:'block',message:'Policy violation detected'}))"],
+            "timeout_ms": 5000,
+            "mode": "advisory"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "after_acceptance",
+      "payload": {
+        "run_id": "run_001",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": true,
+    "blocked": false,
+    "audit_entry": {
+      "hook_phase": "after_acceptance",
+      "hook_name": "advisory_scanner",
+      "transport": "process",
+      "verdict": "warn",
+      "orchestrator_action": "downgraded_block_to_warn",
+      "timestamp": { "assert": "nonempty_string" }
+    }
+  }
+}

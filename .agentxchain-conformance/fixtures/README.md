@@ -25,13 +25,23 @@ These verbs are fixture abstractions, not CLI command names:
 - `evaluate_phase_exit` — evaluate gate predicates for phase transition
 - `append_decision` — append a decision to the decision ledger
 - `validate_config` — validate a governed config against schema
+- `finalize_and_verify_manifest` — finalize dispatch bundle and verify integrity
+- `finalize_then_inject_and_verify` — finalize, inject unexpected file, verify fails
+- `finalize_then_tamper_and_verify` — finalize, tamper content, verify digest mismatch
+- `finalize_then_delete_and_verify` — finalize, delete declared file, verify missing
+- `finalize_and_check_self_exclusion` — finalize and verify MANIFEST.json excludes itself
+- `run_hooks` — execute hook phase and return audit entry
 
 The adapter is responsible for mapping these operations onto the target implementation.
 
 ## Setup Helpers
 
 - `setup.filesystem` is a map of relative file paths to UTF-8 file contents the adapter must materialize before executing the fixture.
-- Fixture setup is limited to repo-local state, ledger/history files, staged turn results, and text files required for gate predicates.
+- `setup.dispatch_bundle` is a map of `{ turn_id: { filename: content } }` to materialize dispatch bundle files before manifest operations.
+- `setup.post_finalize_inject` is a map of `{ turn_id: { filename: content } }` to inject unexpected files after manifest finalization.
+- `setup.post_finalize_tamper` is a map of `{ turn_id: { filename: content } }` to overwrite files after manifest finalization.
+- `setup.post_finalize_delete` is a map of `{ turn_id: [filenames] }` to delete files after manifest finalization.
+- Fixture setup is limited to repo-local state, ledger/history files, staged turn results, dispatch bundles, and text files required for gate predicates.
 
 ## Assertion Objects
 
@@ -54,9 +64,12 @@ The corpus uses a minimal matcher vocabulary inside `expected`:
 | History | 3 | HS-001 through HS-003 |
 | Config Schema | 5 | CS-001 through CS-005 |
 
-### Tier 2 — Pending (8 fixtures)
+### Tier 2 — Complete (8 fixtures)
 
-DM-001 through DM-005, HA-001 through HA-003.
+| Surface | Count | IDs |
+|---------|-------|-----|
+| Dispatch Manifest | 5 | DM-001 through DM-005 |
+| Hook Audit | 3 | HA-001 through HA-003 |
 
 ### Tier 3 — Pending (5 fixtures)
 

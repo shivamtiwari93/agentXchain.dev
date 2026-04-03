@@ -1,0 +1,52 @@
+{
+  "fixture_id": "DM-001",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "Finalized manifest with valid SHA-256 digests verifies successfully",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
+        "PROMPT.md": "# Implementation Task\n\nBuild auth middleware.",
+        "CONTEXT.md": "# Context\n\nExisting codebase uses Express."
+      }
+    }
+  },
+  "input": {
+    "operation": "finalize_and_verify_manifest",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "manifest_valid": true,
+    "manifest": {
+      "manifest_version": "1.0",
+      "run_id": "run_001",
+      "turn_id": "turn_abc",
+      "role": "dev",
+      "finalized_at": { "assert": "nonempty_string" },
+      "files": { "assert": "present" }
+    },
+    "verification_errors": []
+  }
+}

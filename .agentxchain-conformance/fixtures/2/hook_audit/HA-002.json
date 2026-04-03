@@ -1,0 +1,64 @@
+{
+  "fixture_id": "HA-002",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "HTTP hook audit entry records transport=http even on connection failure",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "after_acceptance": [
+          {
+            "name": "webhook_notify",
+            "type": "http",
+            "url": "http://127.0.0.1:1/unreachable",
+            "method": "POST",
+            "headers": {},
+            "timeout_ms": 2000,
+            "mode": "advisory"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "after_acceptance",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": true,
+    "blocked": false,
+    "audit_entry": {
+      "hook_phase": "after_acceptance",
+      "hook_name": "webhook_notify",
+      "transport": "http",
+      "run_id": "run_001",
+      "verdict": "warn",
+      "timed_out": false,
+      "timestamp": { "assert": "nonempty_string" }
+    }
+  }
+}
