@@ -37,11 +37,13 @@ describe('Continuous delivery intake docs surface', () => {
       'intake approve',
       'intake plan',
       'intake start',
+      'intake resolve',
       'intake scan',
       'intake status',
       '.agentxchain/intake/',
       '.agentxchain/intake/events/',
       '.agentxchain/intake/intents/',
+      '.agentxchain/intake/observations/',
       'loop-state.json',
       'dedup_key',
       'approved_by',
@@ -60,14 +62,22 @@ describe('Continuous delivery intake docs surface', () => {
     }
   });
 
-  it('documents the shipped intake state machine, intake scan contract, and deferred later-v3 states', () => {
+  it('documents the shipped intake state machine, intake resolve contract, intake scan contract, and deferred later-v3 states', () => {
     assert.match(DOC, /Implemented now/);
     assert.match(DOC, /Deferred beyond the shipped intake surface/);
     assert.match(DOC, /triaged -> approved/);
     assert.match(DOC, /approved -> planned/);
     assert.match(DOC, /planned -> executing/);
-    assert.match(DOC, /awaiting_release_approval/);
+    assert.match(DOC, /executing -> blocked/);
+    assert.match(DOC, /executing -> completed/);
+    assert.match(DOC, /executing -> failed/);
+    assert.match(DOC, /blocked -> approved/);
+    assert.match(DOC, /completed -> awaiting_release_approval/);
     assert.match(DOC, /Under the current governed-state contract, `paused` is an approval-held state/);
+    assert.match(DOC, /Use `intake resolve` to close the loop/);
+    assert.match(DOC, /run_outcome/);
+    assert.match(DOC, /no_change/);
+    assert.match(DOC, /observations\/<intent_id>/);
     assert.match(DOC, /Use `intake scan` to ingest a deterministic source snapshot/);
     assert.match(DOC, /`manual` is excluded on purpose/);
     assert.match(DOC, /items` must be a non-empty array/);
@@ -82,7 +92,8 @@ describe('Continuous delivery intake docs surface', () => {
     assert.match(V3_SCOPE, /V3-S2 \(shipped\)/);
     assert.match(V3_SCOPE, /V3-S3 \(shipped\)/);
     assert.match(V3_SCOPE, /V3-S4 \(shipped\)/);
-    assert.match(V3_SCOPE, /v3 intake surface is feature-complete for now/i);
+    assert.match(V3_SCOPE, /V3-S5 \(shipped\)/);
+    assert.match(V3_SCOPE, /intake lifecycle is feature-complete for now/i);
     assert.match(V3_SCOPE, /`schedule` is a first-class event source/i);
     assert.match(V3_SCOPE, /append-only child records under `\.agentxchain\/intake\/observations\/`/i);
     assert.match(V3_SCOPE, /fallback template is `generic`/i);

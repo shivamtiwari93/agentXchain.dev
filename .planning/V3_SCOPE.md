@@ -107,6 +107,7 @@ The first v3 command family:
 - `agentxchain intake status [--json]`
 - `agentxchain intake scan --source <ci_failure|git_ref_change|schedule>`
 - `agentxchain intake start --intent <id>`
+- `agentxchain intake resolve --intent <id>`
 
 These commands create and govern intake artifacts. They do not bypass the existing run engine.
 
@@ -127,21 +128,24 @@ This extends the template system already scoped in `.planning/SDLC_TEMPLATE_SYST
 
 ### Delivery Intent Lifecycle
 
-```text
-detected
-  -> triaged
-  -> approved
-  -> planned
-  -> executing
-  -> awaiting_release_approval
-  -> released
-  -> observing
-  -> closed
+**Shipped intake lifecycle:**
 
+```text
+detected -> triaged -> approved -> planned -> executing
 detected -> suppressed
 triaged -> rejected
 executing -> blocked
 blocked -> approved
+executing -> completed
+executing -> failed
+```
+
+**Deferred later-v3 direction:**
+
+```text
+completed -> awaiting_release_approval
+awaiting_release_approval -> released
+released -> observing
 observing -> reopened
 reopened -> planned
 ```
@@ -153,11 +157,11 @@ reopened -> planned
 3. `approved` means a human or policy-authorized operator accepted that the intent may start a governed run.
 4. `planned` means the planning artifacts for the selected template exist and the run is ready to initialize.
 5. `executing` means an existing governed run owns implementation.
-6. `awaiting_release_approval` means QA requested ship or deployment approval.
-7. `released` means the governed change reached its target delivery surface.
-8. `observing` means the system is collecting post-release evidence and can reopen if regressions appear.
-9. `blocked` means the active run cannot continue without recovery input.
-10. `suppressed` and `rejected` are terminal for the current intent.
+6. `blocked` means the active run cannot continue without recovery input; the intent may be re-approved after recovery work.
+7. `completed` means the governed run completed successfully and the intake intent closes with recorded run evidence pointers.
+8. `failed` means the governed run reached a non-recoverable failure and the intake intent closes as failed.
+9. `awaiting_release_approval`, `released`, `observing`, and `reopened` remain deferred later-v3 concepts. They are not part of the shipped CLI truth.
+10. `suppressed`, `rejected`, `completed`, and `failed` are terminal for the current intake surface.
 
 ---
 
@@ -199,9 +203,9 @@ When an event becomes an intent, the system must select a template (`generic`, `
 
 Continuous delivery does not introduce a second execution engine. Once an intent is approved and planned, the existing governed run model executes the work.
 
-### 4. Post-Release Observation Is Part Of The Contract
+### 4. Observation Record Scaffolding Is Part Of The Contract
 
-`released` is not terminal. v3 adds an `observing` state so regression signals can reopen the same intent lineage instead of creating disconnected follow-up work.
+The shipped S5 slice does not implement a full `observing` state. It does establish the repo-native place where later observation evidence will live. When an intent resolves to `completed`, the CLI creates `.agentxchain/intake/observations/<intent_id>/` as an empty scaffold so future slices do not have to invent a second storage contract.
 
 ### 5. Evidence Must Stay Repo-Native
 
@@ -285,34 +289,36 @@ The implementation contract for this slice lives in `.planning/V3_S4_SCAN_SPEC.m
 - no post-release reopen automation
 - no run recycling
 
-### After S4: Recommended Direction
+### V3-S5 (shipped): Execution Exit And Intent Closure Linkage
 
-The v3 intake surface is feature-complete for now. More ingestion mechanics are not the highest-value move.
+The next useful v3 boundary was not more ingestion mechanics. It was truthful lifecycle closure after `executing`.
 
-The next useful v3 boundary is not live polling, auto-triage, auto-start, or run recycling. Those widen authority or lifecycle complexity before the repo can truthfully close the loop after `executing`.
+The implementation contract for this slice lives in `.planning/V3_S5_INTENT_CLOSURE_SPEC.md`.
 
-The smaller next product slice should be:
+**Shipped scope:**
 
-### V3-S5 (next): Execution Exit And Intent Closure Linkage
+- `agentxchain intake resolve --intent <id>`
+- deterministic linkage from governed run outcomes into intake intent updates
+- shipped outcome mappings: `executing -> blocked`, `executing -> completed`, `executing -> failed`
+- `blocked -> approved` re-approval through the existing `intake approve` command
+- additive intent evidence fields that reference run outcome data instead of copying whole governed state
+- repo-native observation directory scaffolding under `.agentxchain/intake/observations/<intent_id>/`
+- `no_change: true` behavior for still-running `active` and approval-held `paused` governed runs
 
-Purpose:
-
-- connect governed run outcomes back into intake intent state truth
-- make `executing` lead somewhere evidence-backed instead of becoming a dead-end label
-- prepare later release and observation work without inventing a daemon or reopening run identity
-
-Candidate scope:
-
-- deterministic linkage from governed run completion or blocked outcomes into intake intent updates
-- additive intent outcome fields that reference final run evidence instead of copying it
-- repo-native observation record scaffolding under `.agentxchain/intake/observations/`
-
-Explicitly not in V3-S5:
+**Explicitly not in S5:**
 
 - no post-completion run recycling
 - no background polling loop
 - no policy-driven auto-triage or auto-start
+- no release-gate automation
+- no observation evidence writer beyond the empty directory scaffold
 - no hosted control plane
+
+### After S5: Recommended Direction
+
+The intake lifecycle is feature-complete for now. More intake automation is not the highest-value move.
+
+If v3 intake work resumes later, the next honest slice is release or observation evidence behavior with its own standalone spec. Do not smuggle that work in through intake automation, run recycling, or hidden policy authority.
 
 ---
 
@@ -350,6 +356,7 @@ Explicitly not in V3-S5:
 8. `AT-V3-INTAKE-008`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
 9. `AT-V3-INTAKE-009`: `intake start` sets `target_run`, `target_turn`, and transitions `planned -> executing` without waiting for turn completion.
 10. `AT-V3-INTAKE-010`: `intake scan` records valid snapshot items through the existing deduplicating `record` path, excludes `manual`, and rejects empty `items` arrays.
+11. `AT-V3-INTAKE-011`: `intake resolve` maps governed `blocked`, `completed`, and `failed` outcomes back onto the linked intent, returns `no_change` for `active` and `paused`, and creates `.agentxchain/intake/observations/<intent_id>/` on `completed`.
 
 ---
 

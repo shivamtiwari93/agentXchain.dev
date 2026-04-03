@@ -1,6 +1,6 @@
 ---
 title: Continuous Delivery Intake
-description: "Repo-native intake for continuous governed delivery: record and scan signals, triage work, approve intent, generate planning artifacts, start governed execution, and inspect backlog state."
+description: "Repo-native intake for continuous governed delivery: record and scan signals, triage work, approve intent, generate planning artifacts, start governed execution, resolve governed outcomes, and inspect backlog state."
 ---
 
 # Continuous Delivery Intake
@@ -11,7 +11,7 @@ This is the v3 entrypoint that exists today. It records signals, creates deliver
 
 ## What ships today
 
-The current CLI surface is seven commands:
+The current CLI surface is eight commands:
 
 ```bash
 agentxchain intake record
@@ -19,6 +19,7 @@ agentxchain intake triage
 agentxchain intake approve
 agentxchain intake plan
 agentxchain intake start
+agentxchain intake resolve
 agentxchain intake scan
 agentxchain intake status
 ```
@@ -33,17 +34,21 @@ All intake state lives under the repo-local `.agentxchain/intake/` directory:
     <event_id>.json
   intents/
     <intent_id>.json
+  observations/
+    <intent_id>/
   loop-state.json
 ```
 
 - `events/` stores the raw trigger signal.
 - `intents/` stores the governed delivery intent derived from that event.
+- `observations/` is created when an intent resolves to `completed`. S5 only scaffolds the directory; later slices may write evidence under it.
 - `loop-state.json` is a cache written by `intake status`. It is not the source of truth.
 
 Concrete artifact paths:
 
 - `.agentxchain/intake/events/<event_id>.json`
 - `.agentxchain/intake/intents/<intent_id>.json`
+- `.agentxchain/intake/observations/<intent_id>/`
 - `.agentxchain/intake/loop-state.json`
 
 ## `intake record`
@@ -228,9 +233,10 @@ agentxchain intake approve \
 
 Approval is not triage with different wording. It is the explicit transition from classified work to authorized work.
 
-Current approval action:
+Current approval actions:
 
 - `triaged -> approved`
+- `blocked -> approved`
 
 `approved` still does not start a governed run. It only means the intent may proceed to planning.
 
@@ -299,6 +305,68 @@ On success the intent gains:
 - the run is paused on `pending_phase_transition` or `pending_run_completion`
 
 Do not blur that last rule. Under the current governed-state contract, `paused` is an approval-held state, not a generic resumable idle state for intake.
+
+## `intake resolve`
+
+Use `intake resolve` to close the loop between a governed run outcome and the linked intake intent.
+
+```bash
+agentxchain intake resolve \
+  --intent intent_1712173200000_c3d4 \
+  --json
+```
+
+`intake resolve` reads `.agentxchain/state.json`, verifies that the governed `run_id` still matches the intent's `target_run`, and then maps the run outcome back onto intake state truth.
+
+### Run-outcome mapping
+
+| Governed run status | Intent transition | Notes |
+| --- | --- | --- |
+| `blocked` | `executing -> blocked` | Copies `run_blocked_on`, `run_blocked_reason`, and `run_blocked_recovery` onto the intent |
+| `completed` | `executing -> completed` | Copies `run_completed_at`, `run_final_turn`, and creates `.agentxchain/intake/observations/<intent_id>/` |
+| `failed` | `executing -> failed` | Records failure-linked run fields without reopening the run |
+| `active` | no change | Returns `ok: true`, `no_change: true`; the intent stays `executing` |
+| `paused` | no change | Returns `ok: true`, `no_change: true`; approval-held pause is not an intake outcome |
+| `idle` | error | Indicates the governed state was reset or no longer matches the started intent |
+
+### Resolve result shape
+
+Structured output includes:
+
+- `previous_status`
+- `new_status`
+- `run_outcome`
+- `no_change`
+- the updated `intent`
+
+Example success result:
+
+```json
+{
+  "ok": true,
+  "previous_status": "executing",
+  "new_status": "blocked",
+  "run_outcome": "blocked",
+  "no_change": false,
+  "intent": {
+    "intent_id": "intent_1712173200000_c3d4",
+    "status": "blocked",
+    "target_run": "run_20260403_001",
+    "run_blocked_on": "human_approval",
+    "run_blocked_reason": "pending_review"
+  }
+}
+```
+
+### Re-approval after a block
+
+S5 makes the recovery path explicit:
+
+```text
+planned -> executing -> blocked -> approved -> planned -> executing
+```
+
+`intake resolve` does not restart work by itself. It records the outcome. If the run blocked and the operator decides to continue, the next step is `agentxchain intake approve --intent <id>` followed by re-planning and a new `intake start`.
 
 ## `intake scan`
 
@@ -406,7 +474,7 @@ Mixed snapshots are processed per item. One bad item does not roll back valid si
 
 ## State machine: shipped vs deferred
 
-The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 through S3.
+The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 through S5.
 
 ### Implemented now
 
@@ -417,18 +485,23 @@ triaged -> approved
 triaged -> rejected
 approved -> planned
 planned -> executing
+executing -> blocked
+executing -> completed
+executing -> failed
+blocked -> approved
 ```
 
 ### Deferred beyond the shipped intake surface
 
 ```text
-executing -> awaiting_release_approval
+completed -> awaiting_release_approval
 awaiting_release_approval -> released
 released -> observing
 observing -> reopened
+reopened -> planned
 ```
 
-That distinction still matters. The repo continues to store `requires_human_start: true`. Approval and planning prepare work; `intake start` is the explicit human-authorized bridge that turns prepared work into governed execution. `intake scan` only widens ingestion. It does not widen execution authority.
+That distinction still matters. The repo continues to store `requires_human_start: true`. Approval and planning prepare work; `intake start` is the explicit human-authorized bridge that turns prepared work into governed execution. `intake resolve` closes the loop after execution without creating release authority or post-release observation evidence. `intake scan` only widens ingestion. It does not widen execution authority.
 
 ## `intake status`
 
@@ -466,6 +539,7 @@ Intake is an entrypoint, not a loophole.
 - approving or planning an intent does not create a governed run
 - scanning a snapshot does not triage, approve, plan, or start anything
 - `intake start` does create or attach one planned intent to the governed execution boundary
+- `intake resolve` reads governed outcome state and updates the intent; it does not create release evidence or reopen runs
 - `planned` is not the same thing as `executing`
 - the future continuous loop still has to respect explicit approval transitions
 - neither `intake scan` nor `intake start` auto-triages, auto-approves, or auto-starts from raw signals
