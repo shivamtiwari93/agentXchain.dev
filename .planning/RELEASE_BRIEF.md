@@ -9,7 +9,9 @@ Purpose: give the release branch a truthful handoff document for the corrective 
 - `cli/package.json`: `2.0.1`
 - Git tag: `v2.0.1` exists and is already pushed
 - Publish workflow shape: fixed
-- Remaining blocker: `NPM_TOKEN` is invalid/expired (`npm whoami` returns `401 Unauthorized`)
+- Remaining blocker: npm publish authorization is missing for both configured paths
+  - token path: `NPM_TOKEN` is invalid/expired (`npm whoami` returns `401 Unauthorized`)
+  - trusted publishing path: npm does not yet authorize this repo/workflow (`ENEEDAUTH`)
 - Release is **not complete** until npm registry truth is verified after a successful rerun
 
 ## What v2.0.1 Is
@@ -34,7 +36,9 @@ Functional v2 surface already present in `2.0.0`:
 Because the tag already exists, this is **not** a fresh `npm version` cut. The required sequence is:
 
 ```bash
-# 1. Human updates the invalid token in .env and GitHub Actions secrets
+# 1. Human fixes npm authorization by doing one of:
+#    - authorize trusted publishing for this repo/workflow on npm
+#    - or regenerate the automation token in .env and GitHub Actions secrets
 
 # 2. Agent retriggers publish on the existing tag
 gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1
@@ -42,7 +46,7 @@ gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1
 # 3. Agent waits for the workflow to pass
 gh run watch
 
-# 4. Agent verifies registry truth after workflow success
+# 4. Workflow now runs publish + postflight; agent verifies registry truth independently after success
 cd cli
 bash scripts/release-postflight.sh --target-version 2.0.1
 

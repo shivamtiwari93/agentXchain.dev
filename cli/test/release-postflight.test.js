@@ -37,21 +37,44 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       'if [[ "$1" == "view" ]]; then',
       '  spec="$2"',
       '  field="$3"',
+      '  counter_file="${FAKE_COUNTER_DIR:?}/$(echo "${field}" | tr ".:" "__")-count.txt"',
       '  if [[ "${FAKE_REGISTRY_MISSING:-0}" == "1" ]]; then',
       '    echo "E404 Not Found: ${spec}" >&2',
       '    exit 1',
       '  fi',
+      '  count=0',
+      '  if [[ -f "${counter_file}" ]]; then',
+      '    count="$(cat "${counter_file}")"',
+      '  fi',
+      '  count=$((count + 1))',
+      '  printf "%s" "${count}" > "${counter_file}"',
       '  case "${field}" in',
       '    version)',
+      '      if [[ "${count}" -lt "${FAKE_VERSION_AVAILABLE_AFTER:-1}" ]]; then',
+      '        echo "E404 Not Found: ${spec}" >&2',
+      '        exit 1',
+      '      fi',
       '      printf "%s\\n" "${FAKE_REGISTRY_VERSION:-2.0.1}"',
       '      ;;',
       '    dist.tarball)',
+      '      if [[ "${count}" -lt "${FAKE_TARBALL_AVAILABLE_AFTER:-1}" ]]; then',
+      '        printf "\\n"',
+      '        exit 0',
+      '      fi',
       '      printf "%s\\n" "${FAKE_DIST_TARBALL:-https://registry.npmjs.org/agentxchain/-/agentxchain-2.0.1.tgz}"',
       '      ;;',
       '    dist.integrity)',
+      '      if [[ "${count}" -lt "${FAKE_CHECKSUM_AVAILABLE_AFTER:-1}" ]]; then',
+      '        printf "\\n"',
+      '        exit 0',
+      '      fi',
       '      printf "%s\\n" "${FAKE_DIST_INTEGRITY:-sha512-test}"',
       '      ;;',
       '    dist.shasum)',
+      '      if [[ "${count}" -lt "${FAKE_CHECKSUM_AVAILABLE_AFTER:-1}" ]]; then',
+      '        printf "\\n"',
+      '        exit 0',
+      '      fi',
       '      printf "%s\\n" "${FAKE_DIST_SHASUM:-}"',
       '      ;;',
       '    *)',
@@ -63,6 +86,17 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       'fi',
       '',
       'if [[ "$1" == "exec" ]]; then',
+      '  exec_counter_file="${FAKE_COUNTER_DIR:?}/exec-count.txt"',
+      '  exec_count=0',
+      '  if [[ -f "${exec_counter_file}" ]]; then',
+      '    exec_count="$(cat "${exec_counter_file}")"',
+      '  fi',
+      '  exec_count=$((exec_count + 1))',
+      '  printf "%s" "${exec_count}" > "${exec_counter_file}"',
+      '  if [[ "${exec_count}" -lt "${FAKE_EXEC_AVAILABLE_AFTER:-1}" ]]; then',
+      '    echo "npm exec failed" >&2',
+      '    exit 1',
+      '  fi',
       '  if [[ "${FAKE_EXEC_FAIL:-0}" == "1" ]]; then',
       '    echo "npm exec failed" >&2',
       '    exit 1',
@@ -96,6 +130,9 @@ function runPostflight(cliDir, fakeBinDir, args = [], envOverrides = {}) {
     env: {
       ...process.env,
       PATH: `${fakeBinDir}:${process.env.PATH}`,
+      FAKE_COUNTER_DIR: fakeBinDir,
+      RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: '1',
+      RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: '0',
       ...envOverrides,
     },
   });
@@ -174,5 +211,31 @@ describe('release-postflight.sh', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: published CLI reported '2\.0\.0', expected '2\.0\.1'/);
+  });
+
+  it('retries registry metadata and install smoke until the published artifact is ready', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      {
+        FAKE_VERSION_AVAILABLE_AFTER: '2',
+        FAKE_TARBALL_AVAILABLE_AFTER: '2',
+        FAKE_CHECKSUM_AVAILABLE_AFTER: '2',
+        FAKE_EXEC_AVAILABLE_AFTER: '2',
+        RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: '3',
+        RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: '0',
+      },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /INFO: registry version not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /INFO: registry tarball metadata not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /INFO: registry checksum metadata not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /INFO: install smoke not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
   });
 });

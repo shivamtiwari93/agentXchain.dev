@@ -86,9 +86,9 @@ All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key const
 
 ## Release Day Sequence
 
-1. Human: regenerate the invalid `NPM_TOKEN` in `.env` and GitHub Actions secrets
+1. Human: restore npm publish authorization by either authorizing trusted publishing for `.github/workflows/publish-npm-on-tag.yml` or regenerating the invalid `NPM_TOKEN` in `.env` and GitHub Actions secrets
 2. AI: retrigger `publish-npm-on-tag.yml` for `v2.0.1`
-3. AI: run `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1`
+3. AI: confirm the workflow completes publish plus `release-postflight.sh`, then rerun `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1` locally for independent verification
 4. AI: verify `npm exec --yes --package agentxchain@2.0.1 -- agentxchain --version` returns `2.0.1`
 5. AI: update the Homebrew tap formula (tarball URL + SHA256) after postflight passes
 6. AI: publish the GitHub release and set repo description/topics from this brief

@@ -11,6 +11,8 @@ cd "$CLI_DIR"
 
 TARGET_VERSION=""
 TAG=""
+RETRY_ATTEMPTS="${RELEASE_POSTFLIGHT_RETRY_ATTEMPTS:-6}"
+RETRY_DELAY_SECONDS="${RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS:-10}"
 
 usage() {
   echo "Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]" >&2
@@ -58,6 +60,16 @@ if [[ -z "$TAG" ]]; then
   TAG="v${TARGET_VERSION}"
 fi
 
+if ! [[ "$RETRY_ATTEMPTS" =~ ^[0-9]+$ ]] || [[ "$RETRY_ATTEMPTS" -lt 1 ]]; then
+  echo "Error: RELEASE_POSTFLIGHT_RETRY_ATTEMPTS must be a positive integer" >&2
+  exit 1
+fi
+
+if ! [[ "$RETRY_DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
+  echo "Error: RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS must be a non-negative integer" >&2
+  exit 1
+fi
+
 PASS=0
 FAIL=0
 TARBALL_URL=""
@@ -71,17 +83,68 @@ run_and_capture() {
   local __var_name="$1"
   shift
 
-  local output
+  local captured_output
   local status
-  output="$("$@" 2>&1)"
+  captured_output="$("$@" 2>&1)"
   status=$?
 
-  printf -v "$__var_name" '%s' "$output"
+  printf -v "$__var_name" '%s' "$captured_output"
   return "$status"
 }
 
 trim_last_line() {
   printf '%s\n' "$1" | awk 'NF { line=$0 } END { gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line }'
+}
+
+run_with_retry() {
+  local __output_var="$1"
+  local description="$2"
+  local success_mode="$3"
+  local expected_value="$4"
+  shift 4
+
+  local output=""
+  local status=0
+  local value=""
+  local attempt=1
+
+  while [[ "$attempt" -le "$RETRY_ATTEMPTS" ]]; do
+    if run_and_capture output "$@"; then
+      status=0
+    else
+      status=$?
+    fi
+
+    value="$(trim_last_line "$output")"
+
+    case "$success_mode" in
+      equals)
+        if [[ "$status" -eq 0 && "$value" == "$expected_value" ]]; then
+          printf -v "$__output_var" '%s' "$output"
+          return 0
+        fi
+        ;;
+      nonempty)
+        if [[ "$status" -eq 0 && -n "$value" ]]; then
+          printf -v "$__output_var" '%s' "$output"
+          return 0
+        fi
+        ;;
+      *)
+        echo "Error: unsupported retry success mode '${success_mode}'" >&2
+        exit 1
+        ;;
+    esac
+
+    if [[ "$attempt" -lt "$RETRY_ATTEMPTS" ]]; then
+      echo "  INFO: ${description} not ready (attempt ${attempt}/${RETRY_ATTEMPTS}); retrying in ${RETRY_DELAY_SECONDS}s..."
+      sleep "$RETRY_DELAY_SECONDS"
+    fi
+    attempt=$((attempt + 1))
+  done
+
+  printf -v "$__output_var" '%s' "$output"
+  return 1
 }
 
 echo "AgentXchain v${TARGET_VERSION} Release Postflight"
@@ -97,7 +160,7 @@ else
 fi
 
 echo "[2/5] Registry version"
-if run_and_capture VERSION_OUTPUT npm view "${PACKAGE_NAME}@${TARGET_VERSION}" version; then
+if run_with_retry VERSION_OUTPUT "registry version" equals "${TARGET_VERSION}" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" version; then
   PUBLISHED_VERSION="$(trim_last_line "$VERSION_OUTPUT")"
   if [[ "$PUBLISHED_VERSION" == "$TARGET_VERSION" ]]; then
     pass "npm registry serves ${PACKAGE_NAME}@${TARGET_VERSION}"
@@ -110,7 +173,7 @@ else
 fi
 
 echo "[3/5] Registry tarball metadata"
-if run_and_capture TARBALL_OUTPUT npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball; then
+if run_with_retry TARBALL_OUTPUT "registry tarball metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball; then
   TARBALL_URL="$(trim_last_line "$TARBALL_OUTPUT")"
   if [[ -n "$TARBALL_URL" ]]; then
     pass "registry exposes dist.tarball metadata"
@@ -123,11 +186,11 @@ else
 fi
 
 echo "[4/5] Registry checksum metadata"
-if run_and_capture INTEGRITY_OUTPUT npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.integrity; then
+if run_with_retry INTEGRITY_OUTPUT "registry checksum metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.integrity; then
   REGISTRY_CHECKSUM="$(trim_last_line "$INTEGRITY_OUTPUT")"
 fi
 if [[ -z "$REGISTRY_CHECKSUM" ]]; then
-  if run_and_capture SHASUM_OUTPUT npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.shasum; then
+  if run_with_retry SHASUM_OUTPUT "registry shasum metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.shasum; then
     REGISTRY_CHECKSUM="$(trim_last_line "$SHASUM_OUTPUT")"
   fi
 fi
@@ -138,7 +201,7 @@ else
 fi
 
 echo "[5/5] Install smoke"
-if run_and_capture EXEC_OUTPUT npm exec --yes --package "${PACKAGE_NAME}@${TARGET_VERSION}" -- agentxchain --version; then
+if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" npm exec --yes --package "${PACKAGE_NAME}@${TARGET_VERSION}" -- agentxchain --version; then
   EXEC_VERSION="$(trim_last_line "$EXEC_OUTPUT")"
   if [[ "$EXEC_VERSION" == "$TARGET_VERSION" ]]; then
     pass "published CLI executes and reports ${TARGET_VERSION}"

@@ -22,6 +22,13 @@ cd cli && bash scripts/release-postflight.sh --target-version 2.0.1 --tag v2.0.1
 cd cli && npm run postflight:release
 ```
 
+### Optional Environment
+
+```text
+RELEASE_POSTFLIGHT_RETRY_ATTEMPTS      # optional, default 6
+RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
+```
+
 ### Output Contract
 
 The script prints:
@@ -58,6 +65,7 @@ The script is a **local/networked postflight**. It intentionally depends on regi
 - The script is fail-closed: any missing registry signal or install-smoke mismatch exits non-zero.
 - The script continues through all five checks even if early ones fail so the operator gets a complete picture.
 - A present git tag is not enough. The release remains incomplete until the registry and executable artifact both agree with the tag.
+- Network-backed checks retry with a bounded budget because registry metadata and install resolution can lag the initial publish by several seconds.
 
 ### Metadata Output
 
@@ -81,6 +89,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `dist.integrity` missing but `dist.shasum` present | Accept `dist.shasum` as fallback checksum metadata |
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
+| registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
 
 ---
 
@@ -90,6 +99,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 2. The script passes when the tag exists, the registry serves the target version, metadata is present, and install smoke returns the expected version.
 3. The script fails when the registry does not yet serve the version and still evaluates the later checks.
 4. The script fails when the installed CLI reports a mismatched version.
+5. The script retries registry metadata and install smoke checks before failing closed.
 
 ---
 

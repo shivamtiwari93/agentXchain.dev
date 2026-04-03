@@ -41,3 +41,8 @@ jobs:
         working-directory: cli
         shell: bash
         run: bash scripts/publish-from-tag.sh "${RELEASE_TAG}"
+
+      - name: Verify published artifact
+        working-directory: cli
+        shell: bash
+        run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"
