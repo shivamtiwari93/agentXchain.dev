@@ -15,6 +15,7 @@ import {
   NON_BLOCKING_PHASES,
   parseVerdict,
   validateAnnotations,
+  normalizeHookProcessError,
 } from '../src/lib/hook-runner.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -250,6 +251,22 @@ describe('resolveExecutable', () => {
   it('rejects empty string', () => {
     const result = resolveExecutable('', null);
     assert.ok(!result.resolved);
+  });
+});
+
+describe('normalizeHookProcessError', () => {
+  it('ignores benign EPIPE when hook exited successfully', () => {
+    const error = new Error('write EPIPE');
+    error.code = 'EPIPE';
+
+    assert.equal(normalizeHookProcessError({ status: 0, error }), null);
+  });
+
+  it('preserves process errors when exit status is non-zero', () => {
+    const error = new Error('write EPIPE');
+    error.code = 'EPIPE';
+
+    assert.equal(normalizeHookProcessError({ status: 1, error }), 'write EPIPE');
   });
 });
 

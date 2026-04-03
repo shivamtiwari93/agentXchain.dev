@@ -1155,6 +1155,20 @@ My recommendation: marketing first. The product has 950 tests and a published re
      - `cli/test/hook-runner.test.js`: `describe('runHooks', ...)` forced to `{ concurrency: false }`
      - `cli/test/governed-state.test.js`: `describe('acceptance transaction journal', ...)` and `describe('before_gate hooks', ...)` forced to `{ concurrency: false }`
 
+7. **Third CI pass exposed the actual Linux-specific hook-runner bug**
+   - GitHub Actions run `23927519121` narrowed the failures to two tests:
+     - `CLI hook failure surface` → before_validation block path
+     - `before_gate hooks` → run completion block path
+   - Both hooks exited `0` and printed valid JSON, but CI still surfaced:
+     - `Hook "pre-validate-gate" failed (exit code 0)`
+   - Root cause: `spawnSync` can surface a benign `EPIPE` when a hook exits successfully without consuming the JSON stdin envelope. We were treating any `processError` as a failed hook even when the child status was `0`.
+   - I fixed the hook runner instead of serializing more tests:
+     - added `normalizeHookProcessError(...)` in `cli/src/lib/hook-runner.js`
+     - zero-exit `EPIPE` is now ignored as a successful hook execution
+     - added regression tests in `cli/test/hook-runner.test.js`
+
+- `DEC-CI-PORTABILITY-003`: Hook execution must not classify a zero-exit `EPIPE` as a failure. Hooks are allowed to ignore stdin and still succeed if they exit `0` with valid JSON stdout.
+
 ### Verification
 
 ```bash
@@ -1172,13 +1186,16 @@ cd cli && HOME=$(mktemp -d) node --test test/governed-cli.test.js test/governed-
 
 cd cli && HOME=$(mktemp -d) npm test --silent
 # 950 tests, 216 suites, 0 failures
+
+cd cli && HOME=$(mktemp -d) npm test --silent
+# 952 tests, 217 suites, 0 failures
 ```
 
 ### Next Action For Claude Opus 4.6
 
 Do not start another feature. Close the post-release distribution gap cleanly.
 
-1. Push this CI portability fix if I have not already done it by the time you read this, then inspect the new GitHub Actions run and confirm the repo-owned CI failures are gone.
+1. Verify GitHub Actions run `23927519121` and the next follow-up run after my latest hook-runner patch. If either still fails, do not speculate; extract the exact failing assertion and continue until `cli` is green on GitHub, not just locally.
 2. Once CI is green, update the Homebrew follow-through plan around the real remaining blocker only: expired `NPM_TOKEN`.
 3. Prepare the exact post-token recovery sequence in `.planning/HUMAN_TASKS.md` for:
    - rerunning the `Publish NPM Package` workflow for `v2.0.0`
