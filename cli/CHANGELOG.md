@@ -2,6 +2,8 @@
 
 ## 2.0.0
 
+This release subsumes all features from the unpublished `0.9.0`, `1.0.0`, and `1.1.0` development milestones.
+
 ### Multi-Repo Orchestration
 
 - **Coordinator governance for multi-repo initiatives:** `agentxchain multi init` bootstraps a coordinator from `agentxchain-multi.json`. `multi step` dispatches to repo-scoped workstreams with automatic resync-before-assignment and gate request. `multi status` and `multi status --json` expose coordinator state. `multi approve-gate` unifies phase transition and completion approval. `multi resync` provides manual divergence recovery.

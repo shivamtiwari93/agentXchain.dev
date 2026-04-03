@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync, chmodSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -131,6 +131,7 @@ function writeHookScript(root, name, script) {
   mkdirSync(hookDir, { recursive: true });
   const hookPath = join(hookDir, name);
   writeFileSync(hookPath, script, { mode: 0o755 });
+  chmodSync(hookPath, 0o755);
   return hookPath;
 }
 
@@ -1543,7 +1544,11 @@ describe('before_gate hooks', () => {
     dir = makeTmpDir();
     mkdirSync(join(dir, '.agentxchain'), { recursive: true });
     execSync('git init', { cwd: dir, stdio: 'ignore' });
-    execSync('git add -A && git commit --allow-empty -m "init"', { cwd: dir, stdio: 'ignore' });
+    execSync('git add -A', { cwd: dir, stdio: 'ignore' });
+    execSync('git -c user.name="Test User" -c user.email="test@example.com" commit --allow-empty -m "init"', {
+      cwd: dir,
+      stdio: 'ignore',
+    });
     config = makeNormalizedConfig();
   });
 

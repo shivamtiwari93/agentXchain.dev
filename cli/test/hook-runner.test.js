@@ -43,6 +43,7 @@ function writeHookScript(dir, name, script) {
   mkdirSync(hookDir, { recursive: true });
   const hookPath = join(hookDir, name);
   writeFileSync(hookPath, script, { mode: 0o755 });
+  chmodSync(hookPath, 0o755);
   return hookPath;
 }
 
