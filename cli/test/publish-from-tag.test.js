@@ -160,7 +160,7 @@ describe('publish-from-tag.sh', () => {
     assert.match(result.stderr, /package\.json version is 0\.9\.0, expected 1\.0\.0/);
   });
 
-  it('requires NPM_TOKEN', () => {
+  it('falls back to trusted publishing (OIDC) when NPM_TOKEN is absent', () => {
     const fixture = createFixture();
     fixtures.push(fixture);
 
@@ -171,8 +171,13 @@ describe('publish-from-tag.sh', () => {
       ['v1.0.0'],
     );
 
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /NPM_TOKEN is required/);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Publish auth mode: trusted publishing/);
+    // No temp npmrc should be created when using OIDC
+    assert.ok(
+      !existsSync(join(fixture.stateDir, 'npm-userconfig-path.txt')),
+      'trusted publishing should not create a temp npmrc',
+    );
   });
 
   it('runs strict preflight, publishes, and verifies registry visibility', () => {
