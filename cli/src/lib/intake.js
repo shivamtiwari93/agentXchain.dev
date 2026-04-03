@@ -3,20 +3,32 @@ import { join, basename } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { safeWriteJson } from './safe-write.js';
 import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
+import {
+  initializeGovernedRun,
+  assignGovernedTurn,
+  getActiveTurns,
+  getActiveTurnCount,
+  STATE_PATH,
+} from './governed-state.js';
+import { loadProjectContext, loadProjectState } from './config.js';
+import { writeDispatchBundle } from './dispatch-bundle.js';
+import { finalizeDispatchManifest } from './dispatch-manifest.js';
+import { getDispatchTurnDir } from './turn-paths.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
 const EVENT_ID_RE = /^evt_\d+_[0-9a-f]{4}$/;
 const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
 
-// V3-S1 states only
-const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'suppressed', 'rejected']);
+// V3-S1 through S3 states
+const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'suppressed', 'rejected']);
 const TERMINAL_STATES = new Set(['suppressed', 'rejected']);
 
 const VALID_TRANSITIONS = {
   detected: ['triaged', 'suppressed'],
   triaged: ['approved', 'rejected'],
   approved: ['planned'],
+  planned: ['executing'],
 };
 
 // ---------------------------------------------------------------------------
@@ -432,6 +444,200 @@ export function planIntent(root, intentId, options = {}) {
 
   safeWriteJson(intentPath, intent);
   return { ok: true, intent, artifacts_generated: generated, artifacts_skipped: [], exitCode: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Start — planned → executing bridge (V3-S3)
+// ---------------------------------------------------------------------------
+
+export function startIntent(root, intentId, options = {}) {
+  const dirs = intakeDirs(root);
+  const intentPath = join(dirs.intents, `${intentId}.json`);
+
+  if (!existsSync(intentPath)) {
+    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  }
+
+  const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+
+  if (intent.status !== 'planned') {
+    return { ok: false, error: `cannot start from status "${intent.status}" (must be planned)`, exitCode: 1 };
+  }
+
+  // Verify planning artifacts still exist on disk
+  const planningArtifacts = intent.planning_artifacts || [];
+  const missingArtifacts = [];
+  for (const relPath of planningArtifacts) {
+    if (!existsSync(join(root, relPath))) {
+      missingArtifacts.push(relPath);
+    }
+  }
+  if (missingArtifacts.length > 0) {
+    return {
+      ok: false,
+      error: 'recorded planning artifacts are missing on disk',
+      missing: missingArtifacts,
+      exitCode: 1,
+    };
+  }
+
+  // Load governed project context
+  const context = loadProjectContext(root);
+  if (!context) {
+    return { ok: false, error: 'agentxchain.json not found or invalid', exitCode: 2 };
+  }
+  const { config } = context;
+
+  if (config.protocol_mode !== 'governed') {
+    return { ok: false, error: 'intake start requires a governed project', exitCode: 2 };
+  }
+
+  // Load governed state
+  const statePath = join(root, STATE_PATH);
+  if (!existsSync(statePath)) {
+    return { ok: false, error: 'No governed state.json found', exitCode: 2 };
+  }
+
+  let state = loadProjectState(root, config);
+  if (!state) {
+    return { ok: false, error: 'Failed to parse governed state.json', exitCode: 2 };
+  }
+
+  // Check busy-run conditions
+  const activeTurns = getActiveTurns(state);
+  const activeCount = getActiveTurnCount(state);
+
+  if (activeCount > 0) {
+    const turnIds = Object.keys(activeTurns);
+    return {
+      ok: false,
+      error: `cannot start: active turn(s) already exist: ${turnIds.join(', ')}`,
+      exitCode: 1,
+    };
+  }
+
+  if (state.status === 'blocked') {
+    const reason = state.blocked_reason?.recovery?.detail || state.blocked_on || 'unknown';
+    return { ok: false, error: `cannot start: run is blocked (${reason})`, exitCode: 1 };
+  }
+
+  if (state.status === 'completed') {
+    return {
+      ok: false,
+      error: 'cannot start: governed run is already completed. S3 does not reopen completed runs.',
+      exitCode: 1,
+    };
+  }
+
+  if (state.pending_phase_transition) {
+    return { ok: false, error: `cannot start: pending phase transition to "${state.pending_phase_transition}"`, exitCode: 1 };
+  }
+
+  if (state.pending_run_completion) {
+    return { ok: false, error: 'cannot start: pending run completion approval', exitCode: 1 };
+  }
+
+  // Bootstrap: idle with no run → initialize
+  if (state.status === 'idle' && !state.run_id) {
+    const initResult = initializeGovernedRun(root, config);
+    if (!initResult.ok) {
+      return { ok: false, error: `run initialization failed: ${initResult.error}`, exitCode: 1 };
+    }
+    state = initResult.state;
+  }
+
+  // Resume: paused with no active turns → reactivate
+  if (state.status === 'paused' && state.run_id) {
+    state.status = 'active';
+    state.blocked_on = null;
+    state.escalation = null;
+    safeWriteJson(statePath, state);
+  }
+
+  // Resolve role
+  const roleId = resolveIntakeRole(options.role, state, config);
+  if (!roleId.ok) {
+    return { ok: false, error: roleId.error, exitCode: 1 };
+  }
+
+  // Assign governed turn
+  const assignResult = assignGovernedTurn(root, config, roleId.role);
+  if (!assignResult.ok) {
+    return { ok: false, error: `turn assignment failed: ${assignResult.error}`, exitCode: 1 };
+  }
+  state = assignResult.state;
+
+  // Find the newly assigned turn
+  const newActiveTurns = getActiveTurns(state);
+  const assignedTurn = Object.values(newActiveTurns).find(t => t.assigned_role === roleId.role);
+  if (!assignedTurn) {
+    return { ok: false, error: 'turn assignment succeeded but turn not found in state', exitCode: 1 };
+  }
+
+  // Write dispatch bundle
+  const bundleResult = writeDispatchBundle(root, state, config);
+  if (!bundleResult.ok) {
+    return { ok: false, error: `dispatch bundle failed: ${bundleResult.error}`, exitCode: 1 };
+  }
+
+  // Finalize dispatch manifest
+  finalizeDispatchManifest(root, assignedTurn.turn_id, {
+    run_id: state.run_id,
+    role: assignedTurn.assigned_role,
+  });
+
+  // Update intent: planned → executing
+  const now = nowISO();
+  intent.status = 'executing';
+  intent.target_run = state.run_id;
+  intent.target_turn = assignedTurn.turn_id;
+  intent.started_at = now;
+  intent.updated_at = now;
+  intent.history.push({
+    from: 'planned',
+    to: 'executing',
+    at: now,
+    run_id: state.run_id,
+    turn_id: assignedTurn.turn_id,
+    role: roleId.role,
+    reason: 'governed execution started',
+  });
+
+  safeWriteJson(intentPath, intent);
+
+  return {
+    ok: true,
+    intent,
+    run_id: state.run_id,
+    turn_id: assignedTurn.turn_id,
+    role: roleId.role,
+    dispatch_dir: getDispatchTurnDir(assignedTurn.turn_id),
+    exitCode: 0,
+  };
+}
+
+function resolveIntakeRole(roleOverride, state, config) {
+  const phase = state.phase;
+  const routing = config.routing?.[phase];
+
+  if (roleOverride) {
+    if (!config.roles?.[roleOverride]) {
+      const available = Object.keys(config.roles || {}).join(', ');
+      return { ok: false, error: `unknown role: "${roleOverride}". Available: ${available}` };
+    }
+    return { ok: true, role: roleOverride };
+  }
+
+  if (routing?.entry_role) {
+    return { ok: true, role: routing.entry_role };
+  }
+
+  const roles = Object.keys(config.roles || {});
+  if (roles.length > 0) {
+    return { ok: true, role: roles[0] };
+  }
+
+  return { ok: false, error: 'no roles defined in project config' };
 }
 
 // ---------------------------------------------------------------------------
