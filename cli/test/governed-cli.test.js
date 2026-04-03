@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, chmodSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync, execSync } from 'node:child_process';
@@ -157,6 +157,7 @@ function writeExecutableHook(dir, name, script) {
   mkdirSync(hooksDir, { recursive: true });
   const hookPath = join(hooksDir, name);
   writeFileSync(hookPath, script, { mode: 0o755 });
+  chmodSync(hookPath, 0o755);
   return hookPath;
 }
 
