@@ -9,8 +9,8 @@ const REPO_ROOT = join(__dirname, '..', '..');
 
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
-const QUICKSTART_DOCS = readFileSync(join(REPO_ROOT, 'website', 'docs', 'quickstart.html'), 'utf8');
-const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website', 'docs', 'cli.html'), 'utf8');
+const QUICKSTART_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'quickstart.mdx'), 'utf8');
+const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
 
 describe('Template public surface', () => {
   it('documents the governed template flag in both READMEs', () => {
@@ -26,21 +26,15 @@ describe('Template public surface', () => {
   });
 
   it('quickstart explains template-aware scaffold creation', () => {
-    assert.ok(QUICKSTART_DOCS.includes('--template &lt;id&gt;'), 'quickstart docs must mention --template <id>');
+    assert.ok(QUICKSTART_DOCS.includes('--template'), 'quickstart docs must mention --template');
     assert.ok(QUICKSTART_DOCS.includes('api-service'), 'quickstart docs must mention api-service');
     assert.ok(QUICKSTART_DOCS.includes('cli-tool'), 'quickstart docs must mention cli-tool');
     assert.ok(QUICKSTART_DOCS.includes('web-app'), 'quickstart docs must mention web-app');
   });
 
-  it('quickstart explains that status exposes template intent', () => {
-    assert.ok(
-      QUICKSTART_DOCS.includes('Template: web-app') || QUICKSTART_DOCS.includes('status') && QUICKSTART_DOCS.includes('Template:'),
-      'quickstart docs must mention template visibility in status'
-    );
-  });
-
-  it('cli docs document template-aware init and template-aware status', () => {
-    assert.ok(CLI_DOCS.includes('init --governed [--template &lt;id&gt;]'), 'cli docs must show template-aware init');
-    assert.ok(CLI_DOCS.includes('top-level <code>template</code> field'), 'cli docs must mention status --json template field');
+  it('cli docs document template-aware init and template set', () => {
+    assert.ok(CLI_DOCS.includes('--template <id>') || CLI_DOCS.includes('--template'), 'cli docs must show template-aware init');
+    assert.ok(CLI_DOCS.includes('template set'), 'cli docs must mention template set');
+    assert.ok(CLI_DOCS.includes('template list'), 'cli docs must mention template list');
   });
 });

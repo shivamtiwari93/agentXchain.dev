@@ -8,8 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
-const HOME_PAGE = readFileSync(join(REPO_ROOT, 'website', 'index.html'), 'utf8');
-const WHY_PAGE = readFileSync(join(REPO_ROOT, 'website', 'why.html'), 'utf8');
+const HOME_PAGE = readFileSync(join(REPO_ROOT, 'website-v2', 'src', 'pages', 'index.tsx'), 'utf8');
+const WHY_PAGE = readFileSync(join(REPO_ROOT, 'website-v2', 'src', 'pages', 'why.mdx'), 'utf8');
 const SHOW_HN_DRAFT = readFileSync(join(REPO_ROOT, '.planning', 'SHOW_HN_DRAFT.md'), 'utf8');
 const POSITIONING_MATRIX = readFileSync(
   join(REPO_ROOT, '.planning', 'COMPETITIVE_POSITIONING_MATRIX.md'),
@@ -57,8 +57,8 @@ describe('OpenAI positioning surfaces', () => {
 
     for (const [label, content] of [
       ['README.md', ROOT_README],
-      ['website/index.html', HOME_PAGE],
-      ['website/why.html', WHY_PAGE],
+      ['website-v2/src/pages/index.tsx', HOME_PAGE],
+      ['website-v2/src/pages/why.mdx', WHY_PAGE],
       ['.planning/SHOW_HN_DRAFT.md', SHOW_HN_DRAFT]
     ]) {
       assert.ok(

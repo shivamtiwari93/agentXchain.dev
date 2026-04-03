@@ -46,8 +46,8 @@ describe('Launch surfaces do not contain disallowed claims', () => {
     '.planning/SHOW_HN_DRAFT.md',
     '.planning/LAUNCH_BRIEF.md',
     'README.md',
-    'website/index.html',
-    'website/why.html',
+    'website-v2/src/pages/index.tsx',
+    'website-v2/src/pages/why.mdx',
   ];
 
   // Surfaces that contain user-facing copy (not internal constraint docs)

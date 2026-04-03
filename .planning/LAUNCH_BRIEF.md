@@ -72,7 +72,7 @@ Current keywords in `package.json` are adequate:
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
 | Homebrew Tap | Needs update | P1 human task: update tarball URL + SHA after publish |
 | Social Preview Image | Not created | Requires design tool or generation |
-| Blog / Long-form Post | Ready | Published at `website/why.html`; source lives in `WHY_GOVERNED_MULTI_AGENT_DELIVERY.md` |
+| Blog / Long-form Post | Ready | Published at `website-v2/src/pages/why.mdx`; source lives in `WHY_GOVERNED_MULTI_AGENT_DELIVERY.md` |
 | Launch Evidence Report | Ready | `.planning/LAUNCH_EVIDENCE_REPORT.md` — anchors all claim boundaries |
 
 ## Evidence-Based Claim Boundaries

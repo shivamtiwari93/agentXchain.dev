@@ -16,9 +16,8 @@ const CLI_DOC_SOURCE = read('website-v2/docs/cli.mdx');
 const SIDEBARS = read('website-v2/sidebars.ts');
 
 describe('Templates docs surface', () => {
-  it('ships the templates doc source and built public page', () => {
+  it('ships the templates doc source', () => {
     assert.ok(existsSync(join(REPO_ROOT, 'website-v2', 'docs', 'templates.mdx')));
-    assert.ok(existsSync(join(REPO_ROOT, 'website', 'docs', 'templates.html')));
   });
 
   it('documents the shipped template commands and built-in ids', () => {

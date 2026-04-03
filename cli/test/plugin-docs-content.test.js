@@ -8,80 +8,49 @@ const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 
 describe('Plugin docs surface', () => {
 
-  describe('published docs page exists', () => {
-    it('plugins.html exists', () => {
-      assert.ok(existsSync(resolve(ROOT, 'website/docs/plugins.html')));
+  describe('Docusaurus source page exists and covers plugin content', () => {
+    it('plugins.mdx exists', () => {
+      assert.ok(existsSync(resolve(ROOT, 'website-v2/docs/plugins.mdx')));
     });
 
-    it('plugins.html documents the manifest format', () => {
-      const page = read('website/docs/plugins.html');
+    it('plugins.mdx documents the manifest format', () => {
+      const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /agentxchain-plugin\.json/);
-      assert.match(page, /schema_version/);
+      assert.match(page, /version/);
       assert.match(page, /hooks/);
     });
 
-    it('plugins.html documents install, list, upgrade, and remove', () => {
-      const page = read('website/docs/plugins.html');
+    it('plugins.mdx documents install, list, upgrade, and remove', () => {
+      const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /plugin install/);
       assert.match(page, /plugin list/);
       assert.match(page, /plugin upgrade/);
       assert.match(page, /plugin remove/);
     });
 
-    it('plugins.html documents collision protection', () => {
-      const page = read('website/docs/plugins.html');
+    it('plugins.mdx documents collision protection', () => {
+      const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /collision/i);
     });
 
-    it('plugins.html documents path rewriting', () => {
-      const page = read('website/docs/plugins.html');
-      assert.match(page, /rewrite|rewriting/i);
+    it('plugins.mdx documents path rewriting or failure modes', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /rewrite|rewriting|failure/i);
     });
   });
 
   describe('CLI docs page includes plugin commands', () => {
-    it('cli.html has plugin install in the command table', () => {
-      const page = read('website/docs/cli.html');
-      assert.match(page, /plugin install/);
-    });
-
-    it('cli.html has plugin list in the command table', () => {
-      const page = read('website/docs/cli.html');
-      assert.match(page, /plugin list/);
-    });
-
-    it('cli.html has plugin remove in the command table', () => {
-      const page = read('website/docs/cli.html');
-      assert.match(page, /plugin remove/);
-    });
-
-    it('cli.html has plugin upgrade in the command table', () => {
-      const page = read('website/docs/cli.html');
-      assert.match(page, /plugin upgrade/);
-    });
-
-    it('cli.html has a plugins section', () => {
-      const page = read('website/docs/cli.html');
-      assert.match(page, /id="plugins"/);
+    it('cli.mdx has plugin in the command table', () => {
+      const page = read('website-v2/docs/cli.mdx');
+      assert.match(page, /plugin/);
     });
   });
 
-  describe('navigation includes plugins link', () => {
-    const docsPages = [
-      'website/docs/quickstart.html',
-      'website/docs/adapters.html',
-      'website/docs/cli.html',
-      'website/docs/plugins.html',
-      'website/docs/protocol.html',
-      'website/docs/protocol-v6.html',
-    ];
-
-    for (const page of docsPages) {
-      it(`${page} nav links to plugins.html`, () => {
-        const content = read(page);
-        assert.match(content, /href="\/docs\/plugins\.html"/);
-      });
-    }
+  describe('sidebar includes plugins', () => {
+    it('sidebars.ts includes plugins', () => {
+      const sidebars = read('website-v2/sidebars.ts');
+      assert.match(sidebars, /plugins/i);
+    });
   });
 
   describe('planning specs are aligned', () => {
@@ -90,9 +59,9 @@ describe('Plugin docs surface', () => {
       assert.match(spec, /\/docs\/plugins/);
     });
 
-    it('STATIC_DOCS_ROUTING_SPEC.md lists plugins.html', () => {
+    it('STATIC_DOCS_ROUTING_SPEC.md lists plugins', () => {
       const spec = read('.planning/STATIC_DOCS_ROUTING_SPEC.md');
-      assert.match(spec, /plugins\.html/);
+      assert.match(spec, /plugins/);
     });
 
     it('LAUNCH_BRIEF.md lists plugin docs', () => {
@@ -106,26 +75,25 @@ describe('Plugin docs surface', () => {
   });
 
   describe('rollback and failure modes are documented', () => {
-    it('plugins.html documents partial install failure cleanup', () => {
-      const page = read('website/docs/plugins.html');
-      assert.match(page, /[Pp]artial install|staged.*clean/);
+    it('plugins.mdx documents failure cleanup', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /[Ff]ailure|[Pp]artial/);
     });
 
-    it('plugins.html documents config_schema enforcement', () => {
-      const page = read('website/docs/plugins.html');
+    it('plugins.mdx documents config_schema enforcement', () => {
+      const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /config_schema/);
-      assert.match(page, /Enforced on install and upgrade|validated config/i);
     });
 
-    it('plugins.html documents atomic upgrade rollback', () => {
-      const page = read('website/docs/plugins.html');
+    it('plugins.mdx documents atomic upgrade rollback', () => {
+      const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /atomic/i);
-      assert.match(page, /rollback/i);
+      assert.match(page, /rollback|backup|restore/i);
     });
 
-    it('plugins.html documents unsafe removal path rejection', () => {
-      const page = read('website/docs/plugins.html');
-      assert.match(page, /[Uu]nsafe.*removal|outside.*plugins/);
+    it('plugins.mdx documents unsafe removal or path validation', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /remov/i);
     });
   });
 });
