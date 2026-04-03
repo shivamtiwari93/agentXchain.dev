@@ -128,7 +128,9 @@ function stageTurnResult(root, state, overrides = {}) {
     cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
   };
 
-  writeFileSync(join(root, STAGING_PATH), JSON.stringify({ ...base, ...overrides }, null, 2));
+  const stagingFile = join(root, STAGING_PATH);
+  mkdirSync(dirname(stagingFile), { recursive: true });
+  writeFileSync(stagingFile, JSON.stringify({ ...base, ...overrides }, null, 2));
 }
 
 function createMcpExampleConfig(root) {
