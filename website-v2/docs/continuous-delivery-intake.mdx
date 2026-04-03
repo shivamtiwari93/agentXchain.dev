@@ -1,0 +1,253 @@
+---
+title: Continuous Delivery Intake
+description: "Repo-native intake for continuous governed delivery: record signals, triage intents, and inspect backlog state."
+---
+
+# Continuous Delivery Intake
+
+Continuous governed delivery starts before any agent writes code. The intake surface turns delivery signals into repo-native artifacts that can be triaged, challenged, and governed without inventing a hosted control plane.
+
+This is the v3 entrypoint that exists today. It records signals, creates delivery intents, and exposes triage/status workflows. It does **not** auto-start implementation, auto-approve work, or bypass human authority.
+
+## What ships today
+
+The current CLI surface is three commands:
+
+```bash
+agentxchain intake record
+agentxchain intake triage
+agentxchain intake status
+```
+
+What is intentionally **not** shipped yet:
+
+- `agentxchain intake scan`
+- `agentxchain intake start`
+- CLI transitions into `approved` or `planned`
+
+Those belong to later v3 slices. Do not claim those commands exist unless the repo actually ships them.
+
+## Artifact layout
+
+All intake state lives under the repo-local `.agentxchain/intake/` directory:
+
+```text
+.agentxchain/intake/
+  events/
+    <event_id>.json
+  intents/
+    <intent_id>.json
+  loop-state.json
+```
+
+- `events/` stores the raw trigger signal.
+- `intents/` stores the governed delivery intent derived from that event.
+- `loop-state.json` is a cache written by `intake status`. It is not the source of truth.
+
+Concrete artifact paths:
+
+- `.agentxchain/intake/events/<event_id>.json`
+- `.agentxchain/intake/intents/<intent_id>.json`
+- `.agentxchain/intake/loop-state.json`
+
+## `intake record`
+
+Use `intake record` to ingest a signal from a file, stdin, or inline flags.
+
+```bash
+# inline manual signal
+agentxchain intake record \
+  --source manual \
+  --signal '{"description":"release smoke failed"}' \
+  --evidence '{"type":"text","value":"release-postflight.sh failed on tarball smoke"}'
+
+# file-driven CI signal
+agentxchain intake record --file ./failed-run.json --json
+
+# stdin-driven schedule signal
+cat stale-release-check.json | agentxchain intake record --stdin --json
+```
+
+Supported sources today:
+
+- `manual`
+- `ci_failure`
+- `git_ref_change`
+- `schedule`
+
+### Event schema
+
+`intake record` writes an event file like this:
+
+```json
+{
+  "schema_version": "1.0",
+  "event_id": "evt_1712173200000_a1b2",
+  "source": "ci_failure",
+  "category": "ci_failure_signal",
+  "created_at": "2026-04-03T20:10:00Z",
+  "repo": null,
+  "ref": null,
+  "signal": {
+    "workflow": "publish-npm-on-tag",
+    "run_id": "23944719936"
+  },
+  "evidence": [
+    {
+      "type": "url",
+      "value": "https://github.com/shivamtiwari93/agentXchain.dev/actions/runs/23944719936"
+    }
+  ],
+  "dedup_key": "ci_failure:6e544bb0df4c4b11"
+}
+```
+
+The command also creates a linked intent in `detected` state.
+
+## Deduplication is deterministic
+
+The intake surface is idempotent by contract. Duplicate signals do not create duplicate backlog noise.
+
+Dedup key:
+
+```text
+${source}:${sha256(JSON.stringify(sortedSignal)).slice(0, 16)}
+```
+
+Implications:
+
+- signal keys are sorted before hashing
+- repeated records for the same source + signal return the existing event
+- the linked intent is reused instead of creating a second one
+
+If your intake layer cannot answer "did we already see this signal?" deterministically, it is not governed delivery. It is chaos with JSON files.
+
+## `intake triage`
+
+Use `intake triage` to turn a detected intent into governed, reviewable work.
+
+```bash
+agentxchain intake triage \
+  --intent intent_1712173200000_c3d4 \
+  --priority p1 \
+  --template cli-tool \
+  --charter "Stabilize the published install smoke contract" \
+  --acceptance "tarball installs by explicit path,docs match release proof"
+```
+
+Current triage actions:
+
+- `detected -> triaged`
+- `detected -> suppressed`
+- `triaged -> rejected`
+
+Examples:
+
+```bash
+# suppress a noisy or already-handled signal
+agentxchain intake triage \
+  --intent intent_1712173200000_c3d4 \
+  --suppress \
+  --reason "duplicate of active release fix"
+
+# reject a triaged intent after review
+agentxchain intake triage \
+  --intent intent_1712173200000_c3d4 \
+  --reject \
+  --reason "not worth automated follow-up"
+```
+
+### Intent schema
+
+```json
+{
+  "schema_version": "1.0",
+  "intent_id": "intent_1712173200000_c3d4",
+  "event_id": "evt_1712173200000_a1b2",
+  "status": "triaged",
+  "priority": "p1",
+  "template": "cli-tool",
+  "charter": "Stabilize the published install smoke contract",
+  "acceptance_contract": [
+    "tarball installs by explicit path",
+    "docs match release proof"
+  ],
+  "requires_human_start": true,
+  "target_run": null,
+  "created_at": "2026-04-03T20:10:00Z",
+  "updated_at": "2026-04-03T20:15:00Z",
+  "history": [
+    {
+      "from": null,
+      "to": "detected",
+      "at": "2026-04-03T20:10:00Z",
+      "reason": "event ingested"
+    },
+    {
+      "from": "detected",
+      "to": "triaged",
+      "at": "2026-04-03T20:15:00Z",
+      "reason": "triage completed"
+    }
+  ]
+}
+```
+
+## State machine: shipped vs deferred
+
+The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface is narrower.
+
+### Implemented now
+
+```text
+detected -> triaged
+detected -> suppressed
+triaged -> rejected
+```
+
+### Defined in v3 scope, not exposed yet
+
+```text
+triaged -> approved -> planned
+```
+
+That distinction matters. The repo currently stores `requires_human_start: true`, but there is no `intake approve` or `intake plan` command yet. Public docs that blur those boundaries are lying.
+
+## `intake status`
+
+Use `intake status` to inspect backlog state or one specific intent.
+
+```bash
+# summary
+agentxchain intake status
+
+# machine-readable summary
+agentxchain intake status --json
+
+# one intent plus linked event
+agentxchain intake status --intent intent_1712173200000_c3d4 --json
+```
+
+Summary mode reports:
+
+- total events
+- total intents
+- counts by status
+- recent intents ordered by `updated_at`
+
+Detail mode returns:
+
+- the selected intent
+- linked source event
+- full transition history
+
+## Governance boundary
+
+Intake is an entrypoint, not a loophole.
+
+- recording an event does not create a governed run
+- triaging an intent does not authorize code execution
+- the current CLI does not auto-promote intents into `approved` or `planned`
+- the future continuous loop still has to respect explicit approval transitions
+
+If you want automatic code-writing execution from repo signals, that is a later governance decision, not a default.

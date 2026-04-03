@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Give AgentXchain a continuous governed delivery entrypoint: structured intake of delivery signals, conversion to governed work intents, and triage into the existing run engine — all repo-native, no cloud dependencies, no auto-execution bypass.
+Give AgentXchain a continuous governed delivery entrypoint: structured intake of delivery signals, conversion to governed work intents, and governed triage of those intents — all repo-native, no cloud dependencies, no auto-execution bypass.
 
 This spec covers three CLI commands (`intake record`, `intake triage`, `intake status`) and the library that backs them.
 
@@ -94,7 +94,7 @@ Loop state is recomputed from events/ and intents/ on every `intake status` call
 ### V3-S1 States (this slice)
 
 ```
-detected -> triaged -> approved -> planned
+detected -> triaged
 detected -> suppressed  (terminal)
 triaged  -> rejected    (terminal)
 ```
@@ -105,13 +105,11 @@ triaged  -> rejected    (terminal)
 |------|----|----------|
 | `detected` | `triaged` | `priority` set (p0-p3), `template` set (valid template id), `charter` non-empty, `acceptance_contract` non-empty array |
 | `detected` | `suppressed` | `reason` string in transition |
-| `triaged` | `approved` | explicit approval (default: `requires_human_start: true`) |
 | `triaged` | `rejected` | `reason` string in transition |
-| `approved` | `planned` | planning artifacts for selected template exist under `.planning/` |
 
 ### States Deferred Beyond S1
 
-`executing`, `awaiting_release_approval`, `released`, `observing`, `closed`, `blocked`, `reopened` — defined in V3_SCOPE.md but not implemented in this slice. Transitions into these states are rejected with a "not yet implemented" error.
+`approved`, `planned`, `executing`, `awaiting_release_approval`, `released`, `observing`, `closed`, `blocked`, `reopened` — defined in `V3_SCOPE.md` but not implemented in this slice. Transitions into these states require a later intake approval/planning command surface.
 
 ---
 
@@ -218,7 +216,7 @@ agentxchain intake status [--json] [--intent <id>]
   AgentXchain Intake Status
   ──────────────────────────────────────────────
   Events:  3
-  Intents: 3  (detected: 1, triaged: 1, approved: 1)
+  Intents: 3  (detected: 1, triaged: 1, suppressed: 1)
 
   Recent Intents:
   intent_...  p1  cli-tool  detected   2026-04-03T20:15:00Z
@@ -274,4 +272,4 @@ If a new event's dedup key matches an existing event, `intake record` returns th
 ## Open Questions
 
 1. Should `intake record` accept `--category` as an optional override, or should category always be derived from source type?
-2. Should `intake triage --approve` be added to this slice for convenience, or should approval remain a separate future command (`intake approve`)?
+2. When approval/planning transitions land, should they extend `intake triage` or ship as dedicated `intake approve` / `intake plan` commands?

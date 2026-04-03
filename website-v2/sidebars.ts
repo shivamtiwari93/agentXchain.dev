@@ -12,6 +12,13 @@ const sidebars: SidebarsConfig = {
         'protocol-implementor-guide',
       ],
     },
+    {
+      type: 'category',
+      label: 'Continuous Delivery',
+      items: [
+        'continuous-delivery-intake',
+      ],
+    },
     'adapters',
     'plugins',
   ],

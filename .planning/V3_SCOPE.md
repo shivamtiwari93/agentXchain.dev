@@ -191,7 +191,7 @@ The intake loop may create events and intents automatically. It may not start co
 
 ### 2. Intent Creation Is Template-Aware
 
-When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `web-app`) and create the corresponding planning artifact skeleton.
+When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `web-app`). For unmapped signals, the safe fallback is `generic`. Template-specific planning artifact creation is part of the approval/planning slice, not the currently shipped intake commands.
 
 ### 3. Runs Remain The Execution Boundary
 
@@ -219,8 +219,7 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 - `agentxchain intake record`
 - `agentxchain intake triage`
 - `agentxchain intake status`
-- delivery-intent state machine for `detected -> triaged -> approved -> planned`
-- template-aware planning artifact creation for approved intents
+- delivery-intent state machine for `detected -> triaged`, plus terminal `suppressed` / `rejected`
 - acceptance tests for event ingestion, duplicate suppression, invalid source rejection, and triage-state transitions
 
 **Why this slice first:**
@@ -231,6 +230,8 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 
 **Not in slice 1:**
 
+- no approval or planning transition command yet
+- no template-artifact generation yet
 - no automatic run start from CI signals
 - no automated release approval
 - no production or incident integrations
@@ -254,8 +255,8 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 
 1. Duplicate event payload for the same external signal: must be deduplicated or linked, not create unbounded duplicate intents.
 2. Intake event missing source-specific evidence: triage fails with a deterministic validation error.
-3. Template selection impossible for an intent: system leaves the intent in `triaged` with a blocking reason instead of generating fake artifacts.
-4. Approved intent without generated planning artifacts: transition to `planned` is rejected.
+3. Explicit template override invalid or missing template manifest: triage fails with a deterministic validation error.
+4. Future approval/planning slice must reject any attempt to enter `planned` without generated planning artifacts.
 5. Observation signal for unknown released intent: creates a new `detected` event, not an orphaned reopen transition.
 
 ---
@@ -265,14 +266,14 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 1. `AT-V3-INTAKE-001`: valid `manual` event records under `.agentxchain/intake/events/` and appears in `intake status`.
 2. `AT-V3-INTAKE-002`: duplicate `ci_failure` event does not create a second active intent.
 3. `AT-V3-INTAKE-003`: triage assigns priority, template, and acceptance contract before leaving `detected`.
-4. `AT-V3-INTAKE-004`: approved intent generates template-specific planning artifacts before entering `planned`.
+4. `AT-V3-INTAKE-004`: `intake status --intent <id>` returns the linked source event plus intent history.
 5. `AT-V3-INTAKE-005`: invalid source-specific payload is rejected with a deterministic error.
-6. `AT-V3-INTAKE-006`: `released -> observing -> reopened` preserves lineage to the original intent.
+6. `AT-V3-INTAKE-006`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should `schedule` be a first-class event source in v3.0, or should it remain an external cron wrapper around `intake scan`?
-2. Do we store observation evidence inside the original intent file or as append-only child records under `.agentxchain/intake/observations/`?
-3. Which template should be the fallback when a signal cannot be mapped confidently: `generic` or fail-closed?
+1. `schedule` is a first-class event source in v3.0. It is valid input to the repo-native intake surface even before `intake scan` exists.
+2. Observation evidence belongs in append-only child records under `.agentxchain/intake/observations/`, not by mutating historical intent records.
+3. The fallback template is `generic`. Fail-closed template selection is rejected for unmapped signals because it would block safe intake without adding governance value.

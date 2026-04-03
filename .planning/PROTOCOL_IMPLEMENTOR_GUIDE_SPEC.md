@@ -47,11 +47,13 @@ The page must document the repo's actual conformance contract, not an aspiration
    - `dispatch_manifest`
    - `hook_audit`
    - `coordinator`
-8. Call out that `surfaces` in `capabilities.json` is current metadata for humans and tooling, but the verifier today hard-requires tiers and the adapter contract, not per-surface claims.
+8. Call out the current `surfaces` enforcement rule truthfully:
+   - when `capabilities.json.surfaces` exists, `--surface <name>` must be explicitly claimed
+   - when the `surfaces` map is absent, surface filtering remains backward compatible and unenforced
 
 ## Error Cases
 
-- The page must not claim that `surfaces` is currently enforced if the verifier does not validate it.
+- The page must not claim that `surfaces` is purely informational when the verifier enforces it for declared maps.
 - The page must not imply that `verify protocol` itself exits `3`; only the adapter uses `3` for `not_implemented`.
 - The page must not describe fixture paths, counts, or surface names that diverge from `.agentxchain-conformance/fixtures/README.md`.
 
