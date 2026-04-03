@@ -23,7 +23,15 @@ Current state: **one active blocker — NPM_TOKEN is expired.** The v2.0.0 git t
 
 ## P1 — Delegated Follow-Through
 
-- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds.
+- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. **Blocked by P0 NPM_TOKEN.** Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds. Exact post-token recovery sequence:
+  1. Human regenerates NPM_TOKEN (P0 above)
+  2. Publish v2.0.0 to npm: `cd cli && source ../.env && NPM_TOKEN=$NPM_TOKEN bash scripts/publish-from-tag.sh v2.0.0`
+  3. Verify: `npm view agentxchain@2.0.0 dist.tarball` — capture the tarball URL
+  4. Get SHA256: `curl -sL <tarball-url> | shasum -a 256`
+  5. Clone tap: `git clone https://github.com/shivamtiwari93/homebrew-agentxchain /tmp/homebrew-agentxchain`
+  6. Update formula in `Formula/agentxchain.rb`: change `url` to new tarball URL, change `sha256` to new hash, change `version` to `2.0.0`
+  7. Commit and push: `cd /tmp/homebrew-agentxchain && git add -A && git commit -m "Update agentxchain to 2.0.0" && git push`
+  8. Verify install: `brew tap shivamtiwari93/agentxchain && brew install agentxchain && agentxchain --version`
 
 - [~] Execute Scenario D escalation dogfood from `.planning/SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md` after `agentxchain@2.0.0` is released (Priority: P1) — Delegated to AI agents for execution planning and evidence collection. Context: this is post-release validation, not a release blocker. Human escalation is only required if the agents determine a true operator-only decision is necessary to preserve the fidelity of the escalation-path evidence.
 

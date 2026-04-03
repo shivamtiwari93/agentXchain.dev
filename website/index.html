@@ -217,7 +217,7 @@
   <!-- HERO: The idea, not the CLI -->
   <section class="hero"><div class="container">
     <img src="assets/logos/agentXchain.dev_square_250x250px.png" alt="" class="hero-icon" />
-    <div class="badge">Open source &middot; MIT &middot; v1.0</div>
+    <div class="badge">Open source &middot; MIT &middot; v2.0</div>
     <h1><span class="ag">Governed</span> multi-agent <span class="ab">software delivery</span></h1>
     <p class="sub">Agents are required to challenge each other. Structured turns, phase gates, and human authority at the moments that matter. Constitutional governance for AI software teams.</p>
     <div class="cta-row">
@@ -309,8 +309,32 @@
     </div>
   </div></section>
 
+  <!-- V2: Multi-repo, dashboard, plugins -->
+  <section id="v2"><div class="container">
+    <span class="sl sl-green">New in v2</span>
+    <h2>Multi-repo governance, dashboard, plugins</h2>
+    <p class="ss">v2 extends the governed workflow from single repos to coordinated multi-repo initiatives with real-time visibility and extensibility.</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon" style="background:rgba(43,124,182,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#3A9AD9" stroke-width="2"><rect x="2" y="3" width="7" height="7" rx="1"/><rect x="15" y="3" width="7" height="7" rx="1"/><rect x="8" y="14" width="7" height="7" rx="1"/><line x1="8.5" y1="6.5" x2="15" y2="6.5"/><line x1="11.5" y1="10" x2="11.5" y2="14"/></svg></div>
+        <h3>Multi-repo coordination</h3>
+        <p>A coordinator governs cross-repo initiatives with barrier evaluation, acceptance projection, context invalidation, and coordinator-level hooks. <code>agentxchain multi init</code> to start.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(107,181,54,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#7ECF45" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
+        <h3>Local dashboard</h3>
+        <p>Real-time browser dashboard with WebSocket invalidation. Seven views: timeline, gate, blocked, history, and coordinator initiative/cross-repo panels. <code>agentxchain dashboard</code></p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background:rgba(232,117,42,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="#E8752A" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg></div>
+        <h3>Plugin system</h3>
+        <p>Install hook-based plugins for Slack notifications, JSON report artifacts, or custom compliance validators. <code>agentxchain plugin install &lt;path&gt;</code></p>
+      </div>
+    </div>
+  </div></section>
+
   <!-- SCAFFOLDING: Brief mention -->
-  <section id="scaffold"><div class="container">
+  <section class="s-alt" id="scaffold"><div class="container">
     <span class="sl sl-blue">Project structure</span>
     <h2>The governed scaffold is the working surface</h2>
     <p class="ss">A governed project starts with real protocol artifacts: orchestrator state, append-only history, turn-scoped dispatch bundles, staged results, and planning documents the phase gates actually inspect.</p>
@@ -402,6 +426,7 @@
       <div class="f-links">
         <div class="f-col"><h4>Why</h4><a href="/why.html">Why governed delivery</a><a href="#outcomes">Outcomes</a><a href="#vs">Positioning</a></div>
         <div class="f-col"><h4>Product</h4><a href="/docs/quickstart.html">Quickstart</a><a href="#how">Workflow</a><a href="#scaffold">Project structure</a></div>
+        <div class="f-col"><h4>Docs</h4><a href="/docs/quickstart.html">Quickstart</a><a href="/docs/cli.html">CLI</a><a href="/docs/plugins.html">Plugins</a><a href="/docs/protocol.html">Protocol</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>
