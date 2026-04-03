@@ -239,11 +239,37 @@ The MCP server must expose one tool named by `tool_name`. The default is `agentx
 
 The adapter sends an argument object containing:
 
-- `run_id`, `turn_id`, `role`, `phase`, `runtime_id`
-- `project_root`, `dispatch_dir`, `assignment_path`, `prompt_path`, `context_path`, `staging_path`
-- `prompt` and `context` as rendered markdown strings
+| Argument | Description |
+|----------|-------------|
+| `run_id` | Current run identifier |
+| `turn_id` | Current turn identifier |
+| `role` | Assigned role for this turn |
+| `phase` | Current governed phase (`planning`, `implementation`, `qa`) |
+| `runtime_id` | Runtime identifier from config |
+| `project_root` | Absolute path to the project root |
+| `dispatch_dir` | Absolute path to the dispatch turn directory containing `ASSIGNMENT.json`, `PROMPT.md`, `CONTEXT.md` |
+| `assignment_path` | Absolute path to `ASSIGNMENT.json` |
+| `prompt_path` | Absolute path to `PROMPT.md` |
+| `context_path` | Absolute path to `CONTEXT.md` |
+| `staging_path` | Absolute path where the adapter will write the staged result (the tool does not write this file) |
+| `prompt` | Rendered `PROMPT.md` content as a string |
+| `context` | Rendered `CONTEXT.md` content as a string (empty string if no context file) |
 
-The tool must return a valid turn-result object. The adapter stages it, then the normal orchestrator validation and acceptance flow runs unchanged.
+The tool must return a valid turn-result object. The adapter accepts the result in three forms:
+
+1. **`structuredContent`** (preferred) — the turn result as a direct object in the MCP response
+2. **JSON text** — a text content block containing the turn-result JSON string
+3. **Nested SDK wrapper** — some MCP SDK versions wrap the response in a `toolResult` envelope; the adapter unwraps this automatically
+
+The adapter stages the result, then the normal orchestrator validation and acceptance flow runs unchanged.
+
+:::tip Validation leniency
+The adapter accepts any object that has at least one identity field (`run_id` or `turn_id`) and one lifecycle field (`status`, `role`, or `runtime_id`). Missing fields are handled downstream by the turn-result validator. Your tool does not need to produce every field to be staged successfully.
+:::
+
+### Timeout
+
+The default timeout for MCP dispatch is **20 minutes** (1,200,000 ms). If the turn has a `deadline_at`, the remaining time until deadline is used instead. The timeout applies to both the `tools/list` and `tools/call` requests, and resets on progress notifications from the server.
 
 ### Configuration
 
@@ -261,13 +287,25 @@ The tool must return a valid turn-result object. The adapter stages it, then the
     "mcp-dev": {
       "type": "mcp",
       "command": "node",
-      "args": ["./scripts/mcp-agent.js"],
+      "args": ["./examples/mcp-echo-agent/server.js"],
       "tool_name": "agentxchain_turn",
       "cwd": "."
     }
   }
 }
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `type` | yes | Must be `"mcp"` |
+| `command` | yes | Executable to spawn (string or string array) |
+| `args` | no | Arguments when `command` is a string (not valid with array command) |
+| `tool_name` | no | Tool to call on the server (default: `agentxchain_turn`) |
+| `cwd` | no | Working directory for the server process (relative to project root) |
+
+### Example server
+
+A reference MCP server is available at [`examples/mcp-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent). It implements the full `agentxchain_turn` tool contract and returns a governed turn result that echoes the assignment metadata. Use it as a starting point for building your own governed MCP agent.
 
 ### When to use
 
