@@ -92,6 +92,7 @@ import { intakeApproveCommand } from '../src/commands/intake-approve.js';
 import { intakePlanCommand } from '../src/commands/intake-plan.js';
 import { intakeStartCommand } from '../src/commands/intake-start.js';
 import { intakeScanCommand } from '../src/commands/intake-scan.js';
+import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -436,6 +437,13 @@ intakeCmd
   .option('--stdin', 'Read snapshot from stdin')
   .option('-j, --json', 'Output as JSON')
   .action(intakeScanCommand);
+
+intakeCmd
+  .command('resolve')
+  .description('Resolve an executing intent by reading the governed run outcome')
+  .option('--intent <id>', 'Intent ID to resolve')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeResolveCommand);
 
 intakeCmd
   .command('status')

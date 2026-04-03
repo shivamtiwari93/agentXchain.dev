@@ -20,15 +20,17 @@ const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
 const EVENT_ID_RE = /^evt_\d+_[0-9a-f]{4}$/;
 const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
 
-// V3-S1 through S3 states
-const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'suppressed', 'rejected']);
-const TERMINAL_STATES = new Set(['suppressed', 'rejected']);
+// V3-S1 through S5 states
+const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'blocked', 'completed', 'failed', 'suppressed', 'rejected']);
+const TERMINAL_STATES = new Set(['suppressed', 'rejected', 'completed', 'failed']);
 
 const VALID_TRANSITIONS = {
   detected: ['triaged', 'suppressed'],
   triaged: ['approved', 'rejected'],
   approved: ['planned'],
   planned: ['executing'],
+  executing: ['blocked', 'completed', 'failed'],
+  blocked: ['approved'],
 };
 
 // ---------------------------------------------------------------------------
@@ -354,18 +356,19 @@ export function approveIntent(root, intentId, options = {}) {
 
   const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
 
-  if (intent.status !== 'triaged') {
-    return { ok: false, error: `cannot approve from status "${intent.status}" (must be triaged)`, exitCode: 1 };
+  if (intent.status !== 'triaged' && intent.status !== 'blocked') {
+    return { ok: false, error: `cannot approve from status "${intent.status}" (must be triaged or blocked)`, exitCode: 1 };
   }
 
   const approver = options.approver || 'operator';
-  const reason = options.reason || 'approved for planning';
+  const previousStatus = intent.status;
+  const reason = options.reason || (previousStatus === 'blocked' ? 're-approved after block resolution' : 'approved for planning');
   const now = nowISO();
 
   intent.status = 'approved';
   intent.approved_by = approver;
   intent.updated_at = now;
-  intent.history.push({ from: 'triaged', to: 'approved', at: now, reason, approver });
+  intent.history.push({ from: previousStatus, to: 'approved', at: now, reason, approver });
 
   safeWriteJson(intentPath, intent);
   return { ok: true, intent, exitCode: 0 };
@@ -638,6 +641,135 @@ function resolveIntakeRole(roleOverride, state, config) {
   }
 
   return { ok: false, error: 'no roles defined in project config' };
+}
+
+// ---------------------------------------------------------------------------
+// Resolve — execution exit and intent closure linkage (V3-S5)
+// ---------------------------------------------------------------------------
+
+export function resolveIntent(root, intentId) {
+  const dirs = intakeDirs(root);
+  const intentPath = join(dirs.intents, `${intentId}.json`);
+
+  if (!existsSync(intentPath)) {
+    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  }
+
+  const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+
+  if (intent.status !== 'executing') {
+    return { ok: false, error: `cannot resolve from status "${intent.status}" (must be executing)`, exitCode: 1 };
+  }
+
+  if (!intent.target_run) {
+    return { ok: false, error: `intent ${intentId} has no linked run (target_run is null)`, exitCode: 1 };
+  }
+
+  // Load governed state
+  const statePath = join(root, STATE_PATH);
+  if (!existsSync(statePath)) {
+    return { ok: false, error: 'governed state not found at .agentxchain/state.json', exitCode: 1 };
+  }
+
+  let state;
+  try {
+    state = JSON.parse(readFileSync(statePath, 'utf8'));
+  } catch {
+    return { ok: false, error: 'failed to parse governed state.json', exitCode: 1 };
+  }
+
+  // Validate run identity
+  if (state.run_id !== intent.target_run) {
+    return {
+      ok: false,
+      error: `run_id mismatch: intent targets ${intent.target_run} but governed state has ${state.run_id}`,
+      exitCode: 1,
+    };
+  }
+
+  if (state.status === 'idle') {
+    return {
+      ok: false,
+      error: 'governed run is idle — state may have been reset after intent start',
+      exitCode: 1,
+    };
+  }
+
+  // Map run outcome to intent transition
+  const now = nowISO();
+  const previousStatus = intent.status;
+
+  if (state.status === 'blocked' || state.status === 'failed') {
+    const newStatus = state.status === 'blocked' ? 'blocked' : 'failed';
+    intent.status = newStatus;
+    intent.run_blocked_on = state.blocked_on || null;
+    intent.run_blocked_reason = state.blocked_reason?.category || null;
+    intent.run_blocked_recovery = state.blocked_reason?.recovery?.recovery_action || null;
+    if (newStatus === 'failed') {
+      intent.run_failed_at = now;
+    }
+    intent.updated_at = now;
+    intent.history.push({
+      from: previousStatus,
+      to: newStatus,
+      at: now,
+      reason: `governed run ${intent.target_run} reached status ${state.status}`,
+      run_id: intent.target_run,
+      run_status: state.status,
+    });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: newStatus,
+      run_outcome: state.status,
+      no_change: false,
+      exitCode: 0,
+    };
+  }
+
+  if (state.status === 'completed') {
+    intent.status = 'completed';
+    intent.run_completed_at = state.completed_at || now;
+    intent.run_final_turn = state.last_completed_turn_id || null;
+    intent.updated_at = now;
+    intent.history.push({
+      from: previousStatus,
+      to: 'completed',
+      at: now,
+      reason: `governed run ${intent.target_run} reached status completed`,
+      run_id: intent.target_run,
+      run_status: 'completed',
+    });
+
+    // Create observation directory scaffold
+    const obsDir = join(dirs.base, 'observations', intentId);
+    mkdirSync(obsDir, { recursive: true });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: 'completed',
+      run_outcome: 'completed',
+      no_change: false,
+      exitCode: 0,
+    };
+  }
+
+  // active or paused — no transition yet
+  return {
+    ok: true,
+    intent,
+    previous_status: previousStatus,
+    new_status: previousStatus,
+    run_outcome: state.status,
+    no_change: true,
+    exitCode: 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
