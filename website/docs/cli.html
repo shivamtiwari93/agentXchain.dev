@@ -28,6 +28,7 @@
         <a href="/docs/quickstart.html">Quickstart</a>
         <a href="/docs/adapters.html">Adapters</a>
         <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/docs/templates.html">Templates</a>
         <a href="/docs/plugins.html">Plugins</a>
         <a href="/docs/protocol.html">Protocol</a>
         <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
@@ -55,6 +56,7 @@
         <a href="/docs/quickstart.html">Quickstart</a>
         <a href="/docs/adapters.html">Adapters</a>
         <a href="/docs/cli.html" class="active">CLI</a>
+        <a href="/docs/templates.html">Templates</a>
         <a href="/docs/plugins.html">Plugins</a>
         <a href="/">Landing page</a>
         <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app">Example project</a>
@@ -109,6 +111,16 @@
                   <td><code>init --governed [--template &lt;id&gt;]</code></td>
                   <td>Scaffold a governed project</td>
                   <td>You need <code>agentxchain.json</code>, governed state, prompts, and planning files, optionally with project-shape-specific artifacts</td>
+                </tr>
+                <tr>
+                  <td><code>template list</code></td>
+                  <td>Inspect built-in governed templates</td>
+                  <td>You want the actual built-in template ids, artifact lists, and prompt-override roles before choosing one</td>
+                </tr>
+                <tr>
+                  <td><code>template set &lt;id&gt;</code></td>
+                  <td>Apply template guidance additively</td>
+                  <td>You want to annotate an existing governed repo without overwriting operator-authored planning docs</td>
                 </tr>
                 <tr>
                   <td><code>status</code></td>
@@ -186,10 +198,20 @@
           <div class="surface">
             <h3><code>agentxchain init --governed [--template &lt;id&gt;] [--yes]</code></h3>
             <p>Creates the governed scaffold only. It does not start a run. The initial project remains idle in the planning phase until <code>resume</code> or <code>step</code> initializes a run and assigns a turn.</p>
-            <p>Use <code>--template</code> when you want scaffold intent recorded explicitly. Built-ins are <code>generic</code>, <code>api-service</code>, <code>cli-tool</code>, and <code>web-app</code>. Non-<code>generic</code> templates add project-type-specific planning artifacts and prompt guidance.</p>
+            <p>Use <code>--template</code> when you want scaffold intent recorded explicitly. Built-ins are <code>generic</code>, <code>api-service</code>, <code>cli-tool</code>, and <code>web-app</code>. Non-<code>generic</code> templates add project-type-specific planning artifacts and prompt guidance. See the <a href="/docs/templates.html">templates guide</a> for the exact contract.</p>
             <pre><code>npx agentxchain init --governed --template web-app
 cd my-agentxchain-project
 agentxchain status</code></pre>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain template list [--json]</code></h3>
+            <p>Lists the built-in governed templates with their descriptions, planning artifacts, prompt-override roles, and acceptance hints. Use it when you want the CLI to show the current shipped template surface instead of relying on memory.</p>
+          </div>
+
+          <div class="surface">
+            <h3><code>agentxchain template set &lt;id&gt; [--yes] [--dry-run]</code></h3>
+            <p>Applies a template to an existing governed project. The mutation is intentionally conservative: it updates the top-level <code>template</code> field, creates missing planning artifacts, appends prompt guidance once, appends acceptance hints once, and records the change in <code>.agentxchain/decision-ledger.jsonl</code>. It does <strong>not</strong> overwrite existing planning docs or replace an existing guidance block.</p>
           </div>
 
           <div class="surface">
@@ -419,6 +441,7 @@ agentxchain step --resume --turn turn_abc123</code></pre>
             <a href="/docs/quickstart.html">Quickstart</a>
             <a href="/docs/adapters.html">Adapters</a>
             <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/templates.html">Templates</a>
             <a href="/docs/plugins.html">Plugins</a>
             <a href="/docs/protocol.html">Protocol</a>
           </div>

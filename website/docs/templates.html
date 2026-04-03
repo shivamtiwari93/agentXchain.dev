@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentXchain Docs — Templates</title>
+  <meta name="description" content="Choose a governed scaffold template for AgentXchain and understand what template set changes without overwriting operator-authored docs." />
+  <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
+  <link rel="canonical" href="https://agentxchain.dev/docs/templates.html" />
+  <meta property="og:title" content="AgentXchain Templates" />
+  <meta property="og:description" content="Governed scaffold templates for API services, CLI tools, web apps, and the generic baseline." />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain Templates" />
+  <meta name="twitter:description" content="Governed scaffold templates for API services, CLI tools, web apps, and the generic baseline." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/"><img src="../assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/templates.html" class="active">Templates</a>
+        <a href="/docs/plugins.html">Plugins</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+        <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="docs-hero">
+    <div class="container">
+      <span class="eyebrow">Docs / Templates</span>
+      <h1>Templates are scaffold intent, not protocol magic.</h1>
+      <p class="lede">Use governed templates when you want project-shape-specific planning artifacts and prompt guidance without changing the protocol contract. The template lives in <code>agentxchain.json</code>, not hidden state.</p>
+      <div class="hero-links">
+        <a href="/docs/quickstart.html" class="primary">Start with quickstart</a>
+        <a href="/docs/cli.html">Open CLI reference</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-layout">
+      <aside class="docs-sidebar">
+        <h2>Docs</h2>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/adapters.html">Adapters</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/templates.html" class="active">Templates</a>
+        <a href="/docs/plugins.html">Plugins</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="/">Landing page</a>
+        <a href="https://github.com/shivamtiwari93/agentXchain.dev/tree/main/cli/src/templates/governed">Template manifests</a>
+        <h2>On this page</h2>
+        <a href="#contract">Contract</a>
+        <a href="#builtins">Built-ins</a>
+        <a href="#init">Init with a template</a>
+        <a href="#list">List templates</a>
+        <a href="#set">Template set</a>
+        <a href="#status">Status visibility</a>
+      </aside>
+
+      <main class="docs-content">
+        <section id="contract">
+          <h2>What a template actually is</h2>
+          <div class="callout">
+            <p><strong>Template choice is scaffold intent.</strong> It adds planning structure and guidance, then records that choice in the top-level <code>template</code> field in <code>agentxchain.json</code>. It does not fork the protocol, gates, or turn-result schema.</p>
+          </div>
+          <ul>
+            <li>Templates are for governed mode only.</li>
+            <li>Existing governed repos without a <code>template</code> field are treated as <code>generic</code>.</li>
+            <li>The scaffold decision is config, not run state.</li>
+            <li>Template choice stays visible in <code>status</code> and <code>status --json</code>.</li>
+          </ul>
+        </section>
+
+        <section id="builtins">
+          <h2>Built-in templates</h2>
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Template</th>
+                <th>Best fit</th>
+                <th>Planning artifacts added</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>generic</code></td>
+                <td>Default governed scaffold</td>
+                <td>No extra project-type files</td>
+              </tr>
+              <tr>
+                <td><code>api-service</code></td>
+                <td>Backend services and API-heavy repos</td>
+                <td><code>api-contract.md</code>, <code>operational-readiness.md</code>, <code>error-budget.md</code></td>
+              </tr>
+              <tr>
+                <td><code>cli-tool</code></td>
+                <td>Command-line tools and installable CLIs</td>
+                <td><code>command-surface.md</code>, <code>platform-support.md</code>, <code>distribution-checklist.md</code></td>
+              </tr>
+              <tr>
+                <td><code>web-app</code></td>
+                <td>Browser-facing products and UI-heavy repos</td>
+                <td><code>user-flows.md</code>, <code>ui-acceptance.md</code>, <code>browser-support.md</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <p>If none of the specialized templates fit honestly, stay on <code>generic</code>. Decorative metadata is useless. Clear planning artifacts are the point.</p>
+        </section>
+
+        <section id="init">
+          <h2>Choose a template at init time</h2>
+          <p>The init-time command surface is <code>agentxchain init --governed --template &lt;id&gt;</code>.</p>
+          <pre><code>npx agentxchain init --governed --template web-app -y
+cd my-agentxchain-project</code></pre>
+          <p>This writes the governed scaffold plus the template-specific planning files. The config then records a top-level <code>template</code> field so later status, migrations, and docs can see the scaffold intent directly.</p>
+        </section>
+
+        <section id="list">
+          <h2>Inspect the shipped template surface</h2>
+          <pre><code>agentxchain template list
+agentxchain template list --json</code></pre>
+          <p><code>template list</code> is the discovery command. It prints the built-in descriptions, planning artifact filenames, prompt-override roles, and acceptance hints. Use it before mutating an existing repo if you want the CLI to show the current shipped surface instead of guessing.</p>
+        </section>
+
+        <section id="set">
+          <h2>Apply template guidance to an existing repo</h2>
+          <p>The mutation command surface is <code>agentxchain template set &lt;id&gt;</code>.</p>
+          <pre><code>agentxchain template set api-service --yes
+agentxchain template set web-app --dry-run</code></pre>
+          <p><code>template set</code> is intentionally conservative. It is additive, not destructive.</p>
+          <div class="mini-grid">
+            <div class="surface">
+              <h3>What it does</h3>
+              <ul>
+                <li>Updates the config <code>template</code> field</li>
+                <li>Creates missing planning artifacts from the target template</li>
+                <li>Appends <code>## Project-Type-Specific Guidance</code> once per prompt when missing</li>
+                <li>Appends <code>## Template Guidance</code> once to <code>.planning/acceptance-matrix.md</code> when missing</li>
+                <li>Appends a <code>template_set</code> entry to <code>.agentxchain/decision-ledger.jsonl</code></li>
+              </ul>
+            </div>
+            <div class="surface">
+              <h3>What it does not do</h3>
+              <ul>
+                <li>Overwrite existing planning docs</li>
+                <li>Replace an existing prompt-guidance section</li>
+                <li>Delete old template files when switching templates</li>
+                <li>Infer a template from repo contents</li>
+              </ul>
+            </div>
+          </div>
+          <p>That means switching from one non-<code>generic</code> template to another is still additive. If you want to replace prior guidance, do it manually and deliberately.</p>
+        </section>
+
+        <section id="status">
+          <h2>Template intent stays visible</h2>
+          <pre><code>agentxchain status
+agentxchain status --json</code></pre>
+          <p>Human-readable status prints <code>Template: web-app</code>. JSON status includes both a top-level <code>template</code> field and <code>config.template</code>. That keeps scaffold intent visible to operators and automation without burying it in run state.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <div class="footer-copy">
+          Governed multi-agent software delivery. Planning structure is explicit on purpose because long-horizon agent work collapses without artifact discipline.
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Docs</h4>
+            <a href="/docs/quickstart.html">Quickstart</a>
+            <a href="/docs/adapters.html">Adapters</a>
+            <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/templates.html">Templates</a>
+            <a href="/docs/plugins.html">Plugins</a>
+            <a href="/docs/protocol.html">Protocol</a>
+          </div>
+          <div>
+            <h4>Project</h4>
+            <a href="https://www.npmjs.com/package/agentxchain">npm</a>
+            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

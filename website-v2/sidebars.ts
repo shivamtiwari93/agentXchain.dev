@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'quickstart',
     'cli',
+    'templates',
     {
       type: 'category',
       label: 'Protocol',

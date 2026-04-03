@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: CLI Reference
-description: "The governed command surface — step, accept, approve, dashboard, and plugin management."
+description: "The governed command surface — scaffold, run, approve, inspect, and verify."
 ---
 
 # CLI Reference
@@ -29,6 +29,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | Command | Phase | Description |
 |---------|-------|-------------|
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
+| `template list` | Setup | Inspect the built-in governed scaffold templates |
+| `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `resume` | Turn lifecycle | Re-dispatch an existing pending turn without creating a new one |
 | `step` | Turn lifecycle | Create a new turn, dispatch to adapter, wait for result, collect and validate |
@@ -47,17 +49,33 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 ### `init`
 
 ```bash
-agentxchain init [options]
+agentxchain init --governed [--template <id>] [options]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--governed` | `false` | Enable governed mode with gates and constitutional checks |
-| `--template <name>` | `pm-dev-qa` | Role template to scaffold (`pm-dev-qa`, `dev-qa`, `solo-dev`) |
+| `--governed` | `false` | Create the governed scaffold with protocol-owned state and prompts |
+| `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `web-app` |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
-| `--dir <path>` | `.` | Target directory for scaffold |
+| `--schema-version <version>` | governed default | Force a specific schema path when needed |
 
-Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. If `--governed` is set, the scaffold includes the decision ledger, dispatch directories, and gate configuration.
+Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. In governed mode, the scaffold also includes the decision ledger, dispatch directories, and gate configuration. Non-`generic` templates add project-type-specific planning artifacts and prompt guidance. See [Templates](/docs/templates) for the full template contract instead of guessing from command help.
+
+### `template list`
+
+```bash
+agentxchain template list [--json]
+```
+
+Prints the built-in governed templates with their descriptions, planning artifacts, prompt override roles, and acceptance hints. Use this before `template set` when you want the exact built-in surface.
+
+### `template set`
+
+```bash
+agentxchain template set <id> [--yes] [--dry-run]
+```
+
+Annotates an existing governed project with a template. This command is additive by design: it updates the config `template` field, creates missing planning artifacts, appends prompt guidance once, appends template guidance to `acceptance-matrix.md` once, and records the change in `.agentxchain/decision-ledger.jsonl`. It does **not** overwrite operator-authored planning docs or replace existing template-guidance blocks. See [Templates](/docs/templates) for the full mutation semantics.
 
 ### `status`
 
@@ -67,10 +85,9 @@ agentxchain status [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--json` | `false` | Output structured JSON instead of human-readable text |
-| `--verbose` | `false` | Include full turn history and decision log |
+| `-j, --json` | `false` | Output structured JSON instead of human-readable text |
 
-Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Does not modify state.
+Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. Does not modify state.
 
 ### `resume`
 

@@ -1,0 +1,137 @@
+---
+sidebar_position: 3
+title: Templates
+description: "Choose a governed scaffold shape and apply template guidance without rewriting operator docs."
+---
+
+# Governed project templates
+
+Templates let you make scaffold intent explicit without changing the governed protocol. They add planning structure and prompt guidance for a project shape, then record that choice in `agentxchain.json`.
+
+This is the contract:
+
+- Template choice is **scaffold intent**, not runtime magic.
+- The selected template is stored in the top-level `template` field in `agentxchain.json`.
+- Templates add planning artifacts and guidance; they do **not** fork the protocol, role schema, or gate model.
+- Existing governed repos without a `template` field are treated as `generic`.
+
+## Built-in templates
+
+| Template | Best fit | Planning artifacts added |
+|---|---|---|
+| `generic` | Baseline governed scaffold | No extra project-type files |
+| `api-service` | Backend services and APIs | `api-contract.md`, `operational-readiness.md`, `error-budget.md` |
+| `cli-tool` | Command-line tools and packaged CLIs | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` |
+| `web-app` | Product UIs and browser-facing apps | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` |
+
+If you cannot justify one of the specialized templates honestly, stay on `generic`. The point is clearer planning, not decorative metadata.
+
+## Use a template at init time
+
+The init-time command surface is:
+
+```bash
+agentxchain init --governed --template <id>
+```
+
+For a new governed repo, choose the template up front:
+
+```bash
+npx agentxchain init --governed --template web-app -y
+cd my-agentxchain-project
+```
+
+That writes the governed scaffold plus the template-specific planning files. The config then records:
+
+```json
+{
+  "schema_version": "1.0",
+  "template": "web-app"
+}
+```
+
+## Inspect available templates
+
+Use `template list` when you want the built-in descriptions instead of guessing from docs:
+
+```bash
+agentxchain template list
+agentxchain template list --json
+```
+
+The JSON mode exposes the operator-relevant shape directly:
+
+- template `id`
+- `display_name`
+- `description`
+- planning artifact filenames
+- roles with prompt overrides
+- acceptance hints
+
+## Apply a template to an existing governed repo
+
+The mutation command surface is:
+
+```bash
+agentxchain template set <id>
+```
+
+If a repo was initialized as `generic`, annotate it later:
+
+```bash
+agentxchain template set api-service --yes
+```
+
+`template set` is intentionally conservative:
+
+- updates the top-level `template` field in `agentxchain.json`
+- creates missing planning artifacts from the target template
+- appends prompt guidance once per role when no template-guidance section exists
+- appends acceptance hints once when `acceptance-matrix.md` has no template-guidance section
+- records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
+
+What it does **not** do:
+
+- overwrite existing planning docs
+- replace an existing `## Project-Type-Specific Guidance` block
+- delete old template files when switching templates
+- infer a template from repo contents
+
+Switching from one non-generic template to another is therefore additive, not destructive. If you want to rewrite prior docs manually, do it explicitly.
+
+## See template intent in status
+
+Template choice stays visible in routine operator commands:
+
+```bash
+agentxchain status
+agentxchain status --json
+```
+
+Human-readable status shows:
+
+```text
+Template: web-app
+```
+
+JSON status includes both:
+
+- top-level `template`
+- `config.template`
+
+That makes scaffold intent visible to operators, scripts, and future migration logic without hiding it in run state.
+
+## Choosing honestly
+
+Use `api-service` when the repo's risk is mostly API contract and operability.
+
+Use `cli-tool` when the repo's risk is command surface, install path, and distribution quality.
+
+Use `web-app` when the repo's risk is user flow, browser behavior, and UI acceptance proof.
+
+Use `generic` when none of those specializations fit cleanly or when you want the base governed scaffold first.
+
+## Related docs
+
+- [Quickstart](/docs/quickstart)
+- [CLI Reference](/docs/cli)
