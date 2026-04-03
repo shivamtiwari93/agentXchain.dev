@@ -130,6 +130,68 @@ describe('protocol conformance verifier', () => {
     }
   });
 
+  it('treats not_implemented adapter responses as non-failing with exit code 0', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-ni-'));
+    try {
+      mkdirSync(join(dir, '.agentxchain-conformance'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({
+        implementation: 'progressive-target',
+        protocol_version: 'v6',
+        adapter: {
+          protocol: 'stdio-fixture-v1',
+          command: ['node', '.agentxchain-conformance/ni-adapter.js'],
+        },
+        tiers: [1],
+        surfaces: { state_machine: true },
+      }, null, 2));
+      writeFileSync(join(dir, '.agentxchain-conformance', 'ni-adapter.js'),
+        `process.stdin.resume();process.stdin.on('data',()=>{});process.stdin.on('end',()=>{process.stdout.write(JSON.stringify({status:'not_implemented',message:'state_machine not yet implemented'})+'\\n');process.exit(3);});`);
+
+      const result = runCli(['verify', 'protocol', '--tier', '1', '--surface', 'state_machine', '--target', dir, '--format', 'json']);
+      assert.equal(result.status, 0, `Expected exit 0 but got ${result.status}: ${result.stderr}`);
+
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+      assert.ok(report.results.tier_1.fixtures_not_implemented > 0, 'Should have not_implemented fixtures');
+      assert.equal(report.results.tier_1.fixtures_passed, 0, 'not_implemented should not count as passed');
+      assert.equal(report.results.tier_1.fixtures_failed, 0);
+      assert.ok(report.results.tier_1.not_implemented.length > 0, 'Should have not_implemented entries');
+      assert.equal(report.results.tier_1.not_implemented[0].message, 'state_machine not yet implemented');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports mixed pass and not_implemented as overall pass', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-mixed-'));
+    try {
+      mkdirSync(join(dir, '.agentxchain-conformance'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({
+        implementation: 'mixed-target',
+        protocol_version: 'v6',
+        adapter: {
+          protocol: 'stdio-fixture-v1',
+          command: ['node', '.agentxchain-conformance/mixed-adapter.js'],
+        },
+        tiers: [1],
+        surfaces: { state_machine: true },
+      }, null, 2));
+      // Adapter returns pass for SM-001, not_implemented for everything else
+      writeFileSync(join(dir, '.agentxchain-conformance', 'mixed-adapter.js'),
+        `let d='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const f=JSON.parse(d);if(f.fixture_id==='SM-001'){process.stdout.write(JSON.stringify({status:'pass',message:'ok'})+'\\n');process.exit(0);}else{process.stdout.write(JSON.stringify({status:'not_implemented',message:'pending'})+'\\n');process.exit(3);}});`);
+
+      const result = runCli(['verify', 'protocol', '--tier', '1', '--surface', 'state_machine', '--target', dir, '--format', 'json']);
+      assert.equal(result.status, 0, `Expected exit 0: ${result.stderr}`);
+
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+      assert.equal(report.results.tier_1.fixtures_passed, 1);
+      assert.ok(report.results.tier_1.fixtures_not_implemented > 0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('surfaces malformed adapter responses as exit code 2', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-error-'));
     try {

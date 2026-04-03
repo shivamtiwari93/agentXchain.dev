@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_FIXTURE_ROOT = resolve(__dirname, '..', '..', '..', '.agentxchain-conformance', 'fixtures');
-const VALID_RESPONSE_STATUSES = new Set(['pass', 'fail', 'error']);
+const VALID_RESPONSE_STATUSES = new Set(['pass', 'fail', 'error', 'not_implemented']);
 const VALID_TIERS = new Set([1, 2, 3]);
 
 function readJsonFile(filePath) {
@@ -119,16 +119,18 @@ function createTierSummary(status = 'skipped', note = null) {
     fixtures_passed: 0,
     fixtures_failed: 0,
     fixtures_errored: 0,
+    fixtures_not_implemented: 0,
     surfaces: {},
     failures: [],
     errors: [],
+    not_implemented: [],
     ...(note ? { note } : {}),
   };
 }
 
 function ensureSurfaceSummary(tierSummary, surface) {
   if (!tierSummary.surfaces[surface]) {
-    tierSummary.surfaces[surface] = { passed: 0, failed: 0, errored: 0 };
+    tierSummary.surfaces[surface] = { passed: 0, failed: 0, errored: 0, not_implemented: 0 };
   }
   return tierSummary.surfaces[surface];
 }
@@ -149,7 +151,7 @@ function executeFixture(targetRoot, adapterCommand, fixture) {
     };
   }
 
-  if (![0, 1, 2].includes(result.status ?? -1)) {
+  if (![0, 1, 2, 3].includes(result.status ?? -1)) {
     return {
       status: 'error',
       message: `Adapter exited with unsupported status ${result.status}`,
@@ -182,7 +184,7 @@ function executeFixture(targetRoot, adapterCommand, fixture) {
     };
   }
 
-  const expectedExitCode = parsed.status === 'pass' ? 0 : parsed.status === 'fail' ? 1 : 2;
+  const expectedExitCode = parsed.status === 'pass' ? 0 : parsed.status === 'fail' ? 1 : parsed.status === 'not_implemented' ? 3 : 2;
   if (result.status !== expectedExitCode) {
     return {
       status: 'error',
@@ -247,6 +249,17 @@ export function verifyProtocolConformance({
     if (adapterResult.status === 'pass') {
       tierSummary.fixtures_passed += 1;
       surfaceSummary.passed += 1;
+      continue;
+    }
+
+    if (adapterResult.status === 'not_implemented') {
+      tierSummary.fixtures_not_implemented += 1;
+      surfaceSummary.not_implemented += 1;
+      tierSummary.not_implemented.push({
+        fixture_id: fixture.fixture_id,
+        surface: fixture.surface,
+        message: adapterResult.message || 'Not implemented',
+      });
       continue;
     }
 

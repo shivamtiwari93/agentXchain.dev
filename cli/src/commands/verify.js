@@ -57,13 +57,18 @@ function printProtocolReport(report) {
       : tier.status === 'skipped'
         ? chalk.yellow('skipped')
         : chalk.red(tier.status);
-    console.log(`  ${tierKey}: ${label} (${tier.fixtures_passed}/${tier.fixtures_run} passed)`);
+    const niCount = tier.fixtures_not_implemented || 0;
+    const niSuffix = niCount > 0 ? chalk.yellow(`, ${niCount} not implemented`) : '';
+    console.log(`  ${tierKey}: ${label} (${tier.fixtures_passed}/${tier.fixtures_run} passed${niSuffix})`);
 
+    for (const ni of tier.not_implemented || []) {
+      console.log(chalk.yellow(`    ○ ${ni.fixture_id}: ${ni.message}`));
+    }
     for (const failure of tier.failures || []) {
-      console.log(chalk.red(`    - ${failure.fixture_id}: ${failure.message}`));
+      console.log(chalk.red(`    ✗ ${failure.fixture_id}: ${failure.message}`));
     }
     for (const error of tier.errors || []) {
-      console.log(chalk.red(`    - ${error.fixture_id}: ${error.message}`));
+      console.log(chalk.red(`    ✗ ${error.fixture_id}: ${error.message}`));
     }
   }
 
