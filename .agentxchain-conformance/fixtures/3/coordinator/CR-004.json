@@ -1,0 +1,113 @@
+{
+  "fixture_id": "CR-004",
+  "tier": 3,
+  "surface": "coordinator",
+  "description": "Barrier transitions from partially_satisfied to satisfied when all repos accepted",
+  "type": "transition",
+  "setup": {
+    "coordinator_config": {
+      "schema_version": "0.1",
+      "project": { "id": "barrier-test", "name": "Barrier Test" },
+      "repos": {
+        "api": { "path": "./repos/api", "required": true },
+        "web": { "path": "./repos/web", "required": true }
+      },
+      "workstreams": {
+        "core": {
+          "phase": "implementation",
+          "repos": ["api", "web"],
+          "entry_repo": "api",
+          "depends_on": [],
+          "completion_barrier": "all_repos_accepted"
+        }
+      }
+    },
+    "repos": {
+      "api": {
+        "path": "./repos/api",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "api", "name": "API" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        },
+        "state": {
+          "run_id": "run_api_001",
+          "status": "active",
+          "phase": "implementation"
+        }
+      },
+      "web": {
+        "path": "./repos/web",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "web", "name": "Web" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        },
+        "state": {
+          "run_id": "run_web_001",
+          "status": "active",
+          "phase": "implementation"
+        }
+      }
+    },
+    "coordinator_state": {
+      "super_run_id": "srun_test_001",
+      "status": "active",
+      "phase": "implementation",
+      "repo_runs": {
+        "api": { "run_id": "run_api_001", "status": "active" },
+        "web": { "run_id": "run_web_001", "status": "active" }
+      }
+    },
+    "barriers": {
+      "core_barrier": {
+        "type": "all_repos_accepted",
+        "workstream_id": "core",
+        "status": "partially_satisfied",
+        "required_repos": ["api", "web"],
+        "satisfied_repos": ["api"]
+      }
+    },
+    "coordinator_history": [
+      {
+        "type": "acceptance_projection",
+        "timestamp": "2026-04-01T00:00:00Z",
+        "super_run_id": "srun_test_001",
+        "projection_ref": "proj_core_api_prev",
+        "workstream_id": "core",
+        "repo_id": "api",
+        "repo_turn_id": "turn_api_001",
+        "summary": "Implemented auth middleware",
+        "files_changed": ["src/auth.ts"],
+        "decisions": [],
+        "verification": { "status": "pass" }
+      }
+    ]
+  },
+  "input": {
+    "operation": "project_repo_acceptance",
+    "args": {
+      "repo_id": "web",
+      "workstream_id": "core",
+      "accepted_turn": {
+        "turn_id": "turn_web_001",
+        "summary": "Implemented frontend auth flow",
+        "files_changed": ["src/login.tsx"],
+        "decisions": [],
+        "verification": { "status": "pass" }
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "projection_ref": { "assert": "id_prefix", "value": "proj_" },
+    "barrier_effects": { "assert": "present" },
+    "barrier_snapshot": {
+      "core_barrier": {
+        "status": "satisfied"
+      }
+    }
+  }
+}

@@ -28,6 +28,8 @@ These verbs are fixture abstractions, not CLI command names:
 - `verify_dispatch_manifest` — finalize a dispatch bundle, apply declared post-finalize mutations, and verify integrity
 - `inspect_dispatch_manifest` — finalize a dispatch bundle and inspect manifest contents for structural invariants
 - `run_hooks` — execute hook phase and return audit entry
+- `validate_coordinator_config` — validate a multi-repo coordinator config (agentxchain-multi.json)
+- `project_repo_acceptance` — project a repo-local acceptance into coordinator state and evaluate barriers
 
 The adapter is responsible for mapping these operations onto the target implementation.
 
@@ -40,6 +42,11 @@ The adapter is responsible for mapping these operations onto the target implemen
 - `setup.post_finalize_delete` is a map of `{ turn_id: [filenames] }` to delete files after manifest finalization.
 - Manifest mutations are fixture data, not separate operations. Adapters own the finalize → mutate → verify sequence behind `verify_dispatch_manifest`.
 - Fixture setup is limited to repo-local state, ledger/history files, staged turn results, dispatch bundles, and text files required for gate predicates.
+- `setup.coordinator_config` is the `agentxchain-multi.json` contents for Tier 3 multi-repo fixtures.
+- `setup.repos` is a map of `{ repo_id: { path, config, state, history, files } }` for Tier 3 multi-workspace materialization.
+- `setup.coordinator_state` is the coordinator multirepo state for Tier 3 fixtures.
+- `setup.barriers` is the initial barrier snapshot for Tier 3 fixtures.
+- `setup.coordinator_history` is the coordinator history JSONL entries for Tier 3 fixtures.
 
 ## Assertion Objects
 
@@ -69,6 +76,8 @@ The corpus uses a minimal matcher vocabulary inside `expected`:
 | Dispatch Manifest | 5 | DM-001 through DM-005 |
 | Hook Audit | 3 | HA-001 through HA-003 |
 
-### Tier 3 — Pending (5 fixtures)
+### Tier 3 — Complete (5 fixtures)
 
-CR-001 through CR-005.
+| Surface | Count | IDs |
+|---------|-------|-----|
+| Coordinator | 5 | CR-001 through CR-005 |

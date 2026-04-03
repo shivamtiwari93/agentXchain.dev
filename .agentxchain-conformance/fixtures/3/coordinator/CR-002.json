@@ -1,0 +1,62 @@
+{
+  "fixture_id": "CR-002",
+  "tier": 3,
+  "surface": "coordinator",
+  "description": "Cyclic workstream dependencies rejected",
+  "type": "reject",
+  "setup": {
+    "coordinator_config": {
+      "schema_version": "0.1",
+      "project": { "id": "cycle-test", "name": "Cycle Test" },
+      "repos": {
+        "api": { "path": "./repos/api", "required": true },
+        "web": { "path": "./repos/web", "required": true }
+      },
+      "workstreams": {
+        "alpha": {
+          "phase": "implementation",
+          "repos": ["api"],
+          "entry_repo": "api",
+          "depends_on": ["beta"],
+          "completion_barrier": "all_repos_accepted"
+        },
+        "beta": {
+          "phase": "implementation",
+          "repos": ["web"],
+          "entry_repo": "web",
+          "depends_on": ["alpha"],
+          "completion_barrier": "all_repos_accepted"
+        }
+      }
+    },
+    "repos": {
+      "api": {
+        "path": "./repos/api",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "api", "name": "API" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        }
+      },
+      "web": {
+        "path": "./repos/web",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "web", "name": "Web" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_coordinator_config",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "workstream_cycle",
+    "errors": { "assert": "present" }
+  }
+}

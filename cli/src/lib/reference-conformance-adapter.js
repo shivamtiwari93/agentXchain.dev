@@ -13,6 +13,9 @@ import { validateStagedTurnResult } from './turn-result-validator.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from './dispatch-manifest.js';
 import { getDispatchTurnDir } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
+import { validateCoordinatorConfig, normalizeCoordinatorConfig } from './coordinator-config.js';
+import { projectRepoAcceptance, evaluateBarriers } from './coordinator-acceptance.js';
+import { readBarriers, saveCoordinatorState, readCoordinatorHistory } from './coordinator-state.js';
 
 const VALID_DECISION_CATEGORIES = ['implementation', 'architecture', 'scope', 'process', 'quality', 'release'];
 const FULL_STAGE_PIPELINE = ['schema', 'assignment', 'artifact', 'verification', 'protocol'];
@@ -211,6 +214,69 @@ function materializeFixtureWorkspace(fixture) {
     configErrors: validateFixtureConfig(inflatedConfig),
     initialState: state,
   };
+}
+
+// ── Tier 3: Multi-workspace materialization ─────────────────────────────────
+
+function materializeTier3Workspace(fixture) {
+  const root = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-multi-'));
+  const setup = fixture.setup || {};
+
+  // Write coordinator config
+  if (setup.coordinator_config) {
+    writeJson(join(root, 'agentxchain-multi.json'), setup.coordinator_config);
+  }
+
+  // Materialize governed repo roots
+  for (const [repoId, repoSetup] of Object.entries(setup.repos || {})) {
+    const repoPath = join(root, repoSetup.path || `./repos/${repoId}`);
+    mkdirSync(join(repoPath, '.agentxchain'), { recursive: true });
+
+    // Write repo-local agentxchain.json
+    if (repoSetup.config) {
+      writeJson(join(repoPath, 'agentxchain.json'), repoSetup.config);
+    }
+
+    // Write repo-local state
+    if (repoSetup.state) {
+      const repoConfig = repoSetup.config || {};
+      const inflatedRepoConfig = inflateConfig(repoConfig);
+      const repoState = inflateState(repoSetup.state, inflatedRepoConfig);
+      writeJson(join(repoPath, '.agentxchain', 'state.json'), repoState);
+    }
+
+    // Write repo-local history
+    if (repoSetup.history) {
+      writeJsonl(join(repoPath, '.agentxchain', 'history.jsonl'), repoSetup.history);
+    }
+
+    // Write repo-local files
+    for (const [filePath, content] of Object.entries(repoSetup.files || {})) {
+      const absPath = join(repoPath, filePath);
+      mkdirSync(dirname(absPath), { recursive: true });
+      writeFileSync(absPath, content);
+    }
+  }
+
+  // Write coordinator multirepo state if provided
+  if (setup.coordinator_state || setup.barriers) {
+    const multiDir = join(root, '.agentxchain', 'multirepo');
+    mkdirSync(multiDir, { recursive: true });
+
+    if (setup.coordinator_state) {
+      writeJson(join(multiDir, 'state.json'), setup.coordinator_state);
+    }
+
+    if (setup.barriers) {
+      writeJson(join(multiDir, 'barriers.json'), setup.barriers);
+    }
+
+    // Write coordinator history
+    writeJsonl(join(multiDir, 'history.jsonl'), setup.coordinator_history || []);
+    writeJsonl(join(multiDir, 'barrier-ledger.jsonl'), setup.barrier_ledger || []);
+  }
+
+  return root;
 }
 
 function isAssertionObject(value) {
@@ -699,6 +765,74 @@ function executeFixtureOperation(workspace, fixture) {
   }
 }
 
+function executeTier3Operation(fixture) {
+  const root = materializeTier3Workspace(fixture);
+  try {
+    const operation = fixture.input.operation;
+
+    if (operation === 'validate_coordinator_config') {
+      const configPath = join(root, 'agentxchain-multi.json');
+      const raw = JSON.parse(readFileSync(configPath, 'utf8'));
+      const validation = validateCoordinatorConfig(raw);
+      if (!validation.ok) {
+        const firstError = validation.errors[0] || '';
+        let errorType = 'invalid_coordinator_config';
+        if (firstError.startsWith('workstream_cycle:')) {
+          errorType = 'workstream_cycle';
+        }
+        return { result: 'error', error_type: errorType, errors: validation.errors };
+      }
+      return { result: 'success', errors: [] };
+    }
+
+    if (operation === 'project_repo_acceptance') {
+      const args = fixture.input.args;
+      const configPath = join(root, 'agentxchain-multi.json');
+      const raw = JSON.parse(readFileSync(configPath, 'utf8'));
+      const normalized = normalizeCoordinatorConfig(raw);
+
+      // Resolve repo paths against the materialized workspace
+      for (const [repoId, repo] of Object.entries(normalized.repos)) {
+        const resolvedPath = join(root, repo.path);
+        normalized.repos[repoId] = { ...repo, resolved_path: resolvedPath };
+      }
+      normalized.repo_order = Object.keys(normalized.repos);
+
+      const stateDir = join(root, '.agentxchain', 'multirepo');
+      const state = JSON.parse(readFileSync(join(stateDir, 'state.json'), 'utf8'));
+
+      const projectionResult = projectRepoAcceptance(
+        root, state, normalized,
+        args.repo_id, args.accepted_turn, args.workstream_id,
+      );
+
+      if (!projectionResult.ok) {
+        let errorType = 'projection_failed';
+        if (projectionResult.error && projectionResult.error.includes('Cross-repo write violation')) {
+          errorType = 'cross_repo_write_violation';
+        }
+        return { result: 'error', error_type: errorType, error: projectionResult.error };
+      }
+
+      // Evaluate barriers after projection
+      const barrierResult = evaluateBarriers(root, state, normalized);
+
+      return {
+        result: 'success',
+        projection_ref: projectionResult.projection_ref,
+        barrier_effects: projectionResult.barrier_effects || [],
+        barrier_snapshot: Object.fromEntries(
+          Object.entries(barrierResult.barriers).map(([id, b]) => [id, { status: b.status }]),
+        ),
+      };
+    }
+
+    return { result: 'error', error_type: 'unsupported_operation', operation };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 function compareActualToExpected(fixture, actual) {
   if (matchExpected(fixture.expected, actual)) {
     return buildPass(actual);
@@ -707,6 +841,13 @@ function compareActualToExpected(fixture, actual) {
 }
 
 export function runReferenceFixture(fixture) {
+  // Tier 3 fixtures use multi-workspace materialization; route before creating a Tier 1/2 workspace
+  const operation = fixture.input?.operation;
+  if (operation === 'validate_coordinator_config' || operation === 'project_repo_acceptance') {
+    const actual = executeTier3Operation(fixture);
+    return compareActualToExpected(fixture, actual);
+  }
+
   const workspace = materializeFixtureWorkspace(fixture);
   try {
     const actual = executeFixtureOperation(workspace, fixture);
