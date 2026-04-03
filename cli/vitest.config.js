@@ -1,12 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
     alias: {
-      // Redirect node:test imports to vitest so files work with both runners.
+      // Redirect node:test imports to a vitest-backed shim so files work with both runners.
       // Under `node --test`, the real node:test module is used.
-      // Under vitest, this alias maps describe/it/before/after to vitest equivalents.
-      'node:test': 'vitest',
+      // Under vitest, the shim maps describe/it plus before/after semantics correctly.
+      'node:test': fileURLToPath(
+        new URL('./test/vitest-node-test-shim.js', import.meta.url),
+      ),
     },
   },
   test: {
@@ -18,7 +21,21 @@ export default defineConfig({
       'test/dashboard-evidence-drilldown.test.js',
       'test/dashboard-views.test.js',
       'test/verify-command.test.js',
+      'test/api-proxy-adapter.test.js',
+      'test/dashboard-bridge.test.js',
+      'test/gate-evaluator.test.js',
+      'test/dispatch-bundle.test.js',
+      'test/step-command.test.js',
+      'test/local-cli-adapter.test.js',
+      'test/run-completion.test.js',
+      'test/dispatch-manifest.test.js',
+      'test/normalized-config.test.js',
+      'test/schema.test.js',
+      'test/safe-write.test.js',
+      'test/turn-result-validator.test.js',
     ],
+    // Keep file-level execution serial until all fixed-path temp-dir tests are migrated.
+    fileParallelism: false,
     testTimeout: 10000,
   },
 });

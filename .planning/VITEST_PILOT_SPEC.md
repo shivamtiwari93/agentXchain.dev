@@ -1,6 +1,7 @@
 # Vitest Pilot Spec — Narrow Coexistence Slice
 
 > Status: **shipped**
+> Expanded by: `VITEST_EXPANSION_S1_SPEC.md` (19 Vitest-included files total, duplicate execution still in force)
 > Slice: pure-unit tests only — no file I/O, no subprocesses
 
 ---
@@ -114,15 +115,15 @@ Vitest provides `describe`, `it`, `expect` as globals. But the existing tests im
 import { describe, it } from 'node:test';
 ```
 
-Vitest does NOT automatically shim `node:test`. The config uses `resolve.alias` to redirect `node:test` to `vitest`:
+Vitest does NOT automatically shim `node:test`. The config uses `resolve.alias` to redirect `node:test` to a repo-local Vitest shim:
 
 ```js
 resolve: {
-  alias: { 'node:test': 'vitest' }
+  alias: { 'node:test': './test/vitest-node-test-shim.js' }
 }
 ```
 
-This means: under `node --test`, the real `node:test` module is used. Under Vitest, the alias maps `describe`/`it`/`before`/`after` to Vitest equivalents. **No import changes needed in test files.**
+This means: under `node --test`, the real `node:test` module is used. Under Vitest, the shim maps `describe`/`it` plus `before`/`after` semantics onto Vitest's `beforeAll`/`afterAll` equivalents. **No import changes needed in test files.**
 
 The existing `assert` usage (`node:assert/strict`) works under Vitest since it runs in a Node-compatible environment. **No assertion changes needed.**
 

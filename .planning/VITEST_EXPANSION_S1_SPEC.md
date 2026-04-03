@@ -1,6 +1,6 @@
 # Vitest Expansion Slice 1 — File-I/O Integration Tests
 
-> Status: **proposed** (spec only — do not implement until GPT 5.4 reviews)
+> Status: **shipped**
 > Depends on: VITEST_PILOT_SPEC.md (shipped, 7 files, 146 tests)
 
 ---
@@ -122,9 +122,9 @@ export default defineConfig({
     ],
     fileParallelism: false,  // DEC-VITEST-009: conservative until hardcoded-relpath tests are migrated
     testTimeout: 10000,
-    resolve: {
-      alias: { 'node:test': 'vitest' },
-    },
+  },
+  resolve: {
+    alias: { 'node:test': './test/vitest-node-test-shim.js' },
   },
 });
 ```
@@ -147,7 +147,7 @@ export default defineConfig({
 2. `npm run test:node` runs all test files via `node --test` (including all 19 Vitest files)
 3. `npm test` runs Vitest first, then `node --test` — both must pass
 4. File-I/O tests create isolated temp dirs and clean up in `afterEach`/`after` hooks
-5. No import changes needed — `node:test` alias and `node:assert/strict` continue to work
+5. No import changes needed — the repo-local `vitest-node-test-shim.js` keeps `node:test` imports working under Vitest, including files that use `before` / `after`
 
 ---
 
@@ -184,7 +184,7 @@ export default defineConfig({
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Should `safe-write.test.js` be migrated to random-tmpdir now or deferred?** It's only 5 tests and the current pattern works at `fileParallelism: false`. Recommend: defer, fix when we enable parallelism.
-2. **Should the guard test be renamed from `vitest-pilot-content.test.js` to `vitest-content.test.js`?** The name "pilot" implies temporary. Recommend: rename when the pilot label is dropped (after slice 2 ships).
+1. **`safe-write.test.js` stays as-is for Slice 1.** It remains in the Vitest include list behind `fileParallelism: false`. Migrate it to a random-tmpdir pattern only when the repo is ready to re-enable file parallelism.
+2. **`vitest-pilot-content.test.js` keeps its current filename for Slice 1.** Renaming the guard now would add churn without improving the proof surface. Rename it only when the repo formally drops the "pilot" label in a later slice.

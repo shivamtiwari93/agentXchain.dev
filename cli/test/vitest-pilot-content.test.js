@@ -14,8 +14,9 @@ const CLI_README = read('cli/README.md');
 const PACKAGE_JSON = JSON.parse(read('cli/package.json'));
 const VITEST_CONFIG = read('cli/vitest.config.js');
 const VITEST_SPEC = read('.planning/VITEST_PILOT_SPEC.md');
+const VITEST_EXPANSION_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
 
-const PILOT_FILES = [
+const VITEST_INCLUDED_FILES = [
   'test/token-counter.test.js',
   'test/token-budget.test.js',
   'test/context-compressor.test.js',
@@ -23,9 +24,21 @@ const PILOT_FILES = [
   'test/dashboard-evidence-drilldown.test.js',
   'test/dashboard-views.test.js',
   'test/verify-command.test.js',
+  'test/api-proxy-adapter.test.js',
+  'test/dashboard-bridge.test.js',
+  'test/gate-evaluator.test.js',
+  'test/dispatch-bundle.test.js',
+  'test/step-command.test.js',
+  'test/local-cli-adapter.test.js',
+  'test/run-completion.test.js',
+  'test/dispatch-manifest.test.js',
+  'test/normalized-config.test.js',
+  'test/schema.test.js',
+  'test/safe-write.test.js',
+  'test/turn-result-validator.test.js',
 ];
 
-describe('Vitest pilot contract', () => {
+describe('Vitest coverage contract', () => {
   it('documents the dual-runner workflow in both READMEs', () => {
     for (const readme of [ROOT_README, CLI_README]) {
       assert.match(readme, /npm run test:vitest/);
@@ -42,16 +55,27 @@ describe('Vitest pilot contract', () => {
     assert.equal(PACKAGE_JSON.scripts.test, 'npm run test:vitest && npm run test:node');
   });
 
-  it('guards the node:test alias and explicit pilot include list', () => {
-    assert.match(VITEST_CONFIG, /'node:test': 'vitest'/);
-    for (const file of PILOT_FILES) {
+  it('guards the node:test alias, serial file execution, and explicit include list', () => {
+    assert.match(VITEST_CONFIG, /vitest-node-test-shim\.js/);
+    assert.match(VITEST_CONFIG, /fileParallelism:\s*false/);
+    for (const file of VITEST_INCLUDED_FILES) {
       assert.match(VITEST_CONFIG, new RegExp(file.replaceAll('.', '\\.')));
     }
   });
 
-  it('keeps the shipped spec aligned with dashboard-module eligibility and dual execution', () => {
+  it('keeps the shipped specs aligned with dashboard-module eligibility and slice-1 coexistence', () => {
     assert.match(VITEST_SPEC, /\.\.\/dashboard\//);
     assert.match(VITEST_SPEC, /both runners exercise the same files/i);
     assert.match(VITEST_SPEC, /DEC-VITEST-006/);
+    assert.match(VITEST_EXPANSION_SPEC, /Status:\s+\*\*shipped\*\*/);
+    assert.match(VITEST_EXPANSION_SPEC, /fileParallelism:\s*false/);
+    assert.match(VITEST_EXPANSION_SPEC, /Duplicate execution:\s+YES/i);
+  });
+
+  it('keeps child_process out of every Vitest-included file', () => {
+    for (const file of VITEST_INCLUDED_FILES) {
+      const source = read(`cli/${file}`);
+      assert.doesNotMatch(source, /from ['"](?:node:)?child_process['"]/);
+    }
   });
 });
