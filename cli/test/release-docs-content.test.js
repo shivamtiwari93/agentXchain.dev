@@ -9,6 +9,8 @@ const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 describe('release operations docs', () => {
   const brief = read('.planning/RELEASE_BRIEF.md');
   const humanTasks = read('.planning/HUMAN_TASKS.md');
+  const releaseNotes = read('.planning/V2_1_RELEASE_NOTES.md');
+  const changelog = read('cli/CHANGELOG.md');
   const postflightSpec = read('.planning/RELEASE_POSTFLIGHT_SPEC.md');
   const workflowSpec = read('.planning/GITHUB_NPM_PUBLISH_WORKFLOW_SPEC.md');
   const workflow = read('.github/workflows/publish-npm-on-tag.yml');
@@ -23,6 +25,25 @@ describe('release operations docs', () => {
   it('requires postflight verification before the release is called complete', () => {
     assert.match(brief, /release-postflight\.sh --target-version/);
     assert.match(postflightSpec, /Install smoke/);
+  });
+
+  it('ships a real v2.1.0 changelog delta and release-notes draft on main', () => {
+    assert.match(changelog, /^## 2\.1\.0$/m);
+    assert.match(changelog, /Dispatch Manifest Integrity/);
+    assert.match(changelog, /HTTP Hooks And Plugin Hardening/);
+    assert.match(changelog, /Dashboard Evidence Drill-Down/);
+    assert.match(releaseNotes, /AgentXchain v2\.1\.0 Release Notes Draft/);
+    assert.match(releaseNotes, /V2\.1-F1/);
+    assert.match(releaseNotes, /V2\.1-F2/);
+    assert.match(releaseNotes, /V2\.1-F3/);
+    assert.match(releaseNotes, /Do not publish until `v2\.0\.1` is published to npm, merged/);
+  });
+
+  it('keeps the release brief aligned with the current verified main-branch evidence count', () => {
+    assert.match(brief, /1028 tests \/ 235 suites \/ 0 failures/);
+    assert.match(brief, /V2_1_RELEASE_NOTES\.md/);
+    assert.doesNotMatch(brief, /1025 tests \/ 235 suites \/ 0 failures/);
+    assert.doesNotMatch(brief, /1016 tests \/ 233 suites/);
   });
 
   it('keeps GitHub release and Homebrew follow-through gated on registry truth', () => {

@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.1.0
+
+Trust-hardening and operator-visibility release on top of the v2 governed coordination base.
+
+### Dispatch Manifest Integrity
+
+- Finalized dispatch bundles now write `MANIFEST.json` with bundle identity plus per-file SHA-256 digest and byte size.
+- Adapters verify finalized bundles before execution and fail closed on unexpected files, missing files, digest mismatch, or size mismatch.
+- Coordinator dispatch protection now covers finalized directory integrity, not only rollback of modified existing files.
+
+### HTTP Hooks And Plugin Hardening
+
+- Hooks now support `"type": "http"` with JSON POST transport, timeout enforcement, env-backed header interpolation, and allow/warn/block verdict parity with process hooks.
+- Plugin `config_schema` is now enforced during install/load rather than treated as passive metadata.
+- Plugin upgrades are first-class and atomic: success replaces prior state, failure restores the prior installation and hook config.
+
+### Dashboard Evidence Drill-Down
+
+- Timeline cards now expand into turn detail panels with hook annotations and nearby hook-audit context.
+- Decision ledger adds phase/date filtering and objection visibility.
+- Hook audit log adds phase, verdict, and hook-name filters.
+- Dashboard remains read-only; the release improves audit depth, not mutation authority.
+
 ## 2.0.0
 
 This release subsumes all features from the unpublished `0.9.0`, `1.0.0`, and `1.1.0` development milestones.

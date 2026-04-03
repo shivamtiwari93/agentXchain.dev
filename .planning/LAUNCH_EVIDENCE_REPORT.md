@@ -1,6 +1,6 @@
 # Launch Evidence Report — AgentXchain v2.0.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-02.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-03.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 1025 tests, 0 failures across 235 suites
+- **Result**: 1028 tests, 0 failures across 235 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -111,7 +111,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "900+ tests" | E1 (976 tests as of 2026-04-02) | Use floor-hundred format per DEC-SHOW-HN-003. |
+| "1000+ tests" | E1 (1028 tests as of 2026-04-03) | Use floor-hundred format per DEC-SHOW-HN-003. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live) | Phrase this as a protocol guarantee, not as evidence that `approve-completion` has been exercised live. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -145,14 +145,14 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 |-----|--------|--------------|
 | `local_cli` adapter completing a turn with a real LLM | Unlocks "all three adapters proven live" claim | Claude CLI quota availability |
 | Full governed run through `approve-completion` | Unlocks "full lifecycle proven" claim | Complete a run to ship decision |
-| Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v1.0.0 published to npm |
-| Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v1.0.0 published (per spec) |
+| Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
+| Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |
 
 ---
 
 ## Audit
 
-- **Test count verified**: 2026-04-02, 976 tests / 0 failures across 228 suites (`900+` launch-copy floor)
+- **Test count verified**: 2026-04-03, 1028 tests / 0 failures across 235 suites (`1000+` launch-copy floor)
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

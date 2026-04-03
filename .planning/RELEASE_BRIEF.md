@@ -22,7 +22,7 @@ All three features are implementation-complete and tested on `main`.
 ## Release Readiness
 
 - Feature implementation: **complete** (all 3 V2.1 features shipped)
-- Test suite: **1016 tests / 233 suites / 0 failures** (pre-merge count on main)
+- Test suite: **1028 tests / 235 suites / 0 failures** (pre-merge count on main)
 - Protocol: v6 normative spec (`PROTOCOL-v6.md`)
 - Docs: quickstart, adapters, CLI, plugins, protocol pages all published
 - Publish workflow: script-delegated architecture with postflight verification
@@ -75,6 +75,7 @@ GitHub release notes are published against the real artifact, after npm postflig
 | `MERGE_PLAN_V201.md` | Pre-merge conflict resolution plan |
 | `HUMAN_TASKS.md` | Human-only tasks and blockers |
 | `RELEASE_POSTFLIGHT_SPEC.md` | Post-publish verification contract |
+| `V2_1_RELEASE_NOTES.md` | Draft GitHub release notes for `v2.1.0` |
 | `cli/CHANGELOG.md` | Release delta entries |
 | `cli/scripts/release-preflight.sh` | Pre-publish checks |
 | `cli/scripts/release-postflight.sh` | Post-publish verification |
