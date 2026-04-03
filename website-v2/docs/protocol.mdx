@@ -10,9 +10,9 @@ The protocol is the product. It defines how agents collaborate under human gover
 
 ## Overview
 
-Protocol v6 closes the constitutional gap left by v5. In v5, multi-repo coordination was informal — teams used conventions but nothing was enforced. v6 introduces the **coordinator initiative**: a first-class mechanism for governing work across multiple repositories with shared barriers, cross-repo context, and synchronized gates.
+Protocol v6 closes the constitutional gap left by v5. In v5, multi-repo coordination was informal. v6 introduces the **coordinator initiative**: a first-class mechanism for governing work across multiple repositories with shared barriers, cross-repo context, synchronized gates, and explicit coordinator state.
 
-v6 also tightens the single-repo protocol with mandatory objections, structured verification evidence, and a decision ledger that serves as an audit trail.
+v6 also tightens the single-repo protocol with enforced challenge for `review_only` roles, structured verification evidence, and a decision ledger that preserves accepted decisions plus selected conflict-governance events.
 
 ## Version history
 
@@ -20,7 +20,7 @@ v6 also tightens the single-repo protocol with mandatory objections, structured 
 |---------|---------|-------------|
 | **v4** | 2025-Q1 | Initial governed mode. Single-repo only. Phases and roles. Manual adapter. No structured decisions or objections. |
 | **v5** | 2025-Q3 | Added `local_cli` and `api_proxy` adapters. Introduced decision/objection schema. Added verification evidence. Plugin system (script hooks). Dashboard. |
-| **v6** | 2026-Q1 | Coordinator initiative (multi-repo). `super_run_id` linking. Cross-repo barriers and gates. HTTP hooks. Mandatory objections. Decision ledger as constitutional record. Schema version `1.0` for all artifacts. |
+| **v6** | 2026-Q1 | Coordinator initiative (multi-repo). `super_run_id` linking. Cross-repo barriers and gates. HTTP hooks. `review_only` objection enforcement. Decision ledger as constitutional record. Mixed artifact schemas: governed config `1.0`, governed state `1.1`, coordinator config/state `0.1`. |
 
 ## Repo-local governed run
 
@@ -33,7 +33,7 @@ A governed run within a single repository is the foundation of the protocol. Eve
 | `agentxchain.json` | Project configuration: roles, adapters, phases, plugin config |
 | `.agentxchain/state.json` | Mutable run state: current phase, pending turn, blocked status, run ID |
 | `.agentxchain/history.jsonl` | Append-only log of all accepted turn results (one JSON object per line) |
-| `.agentxchain/decision-ledger.jsonl` | Append-only log of all decisions, objections, gate approvals, and rejections |
+| `.agentxchain/decision-ledger.jsonl` | Append-only ledger for accepted decisions plus selected conflict/governance events |
 | `.agentxchain/dispatch/turns/<turn_id>/` | Dispatch bundle for each turn (ASSIGNMENT.json, PROMPT.md, CONTEXT.md) |
 | `.agentxchain/staging/<turn_id>/turn-result.json` | Staged turn result awaiting acceptance |
 | `.agentxchain/prompts/<role>.md` | Role prompt templates |
@@ -57,10 +57,25 @@ Each `step` creates a turn. Each `accept-turn` commits the result to history. Ga
 | Phase | Purpose | Entry gate | Exit gate |
 |-------|---------|------------|-----------|
 | `planning` | PM defines scope, acceptance criteria, roadmap | `init` (automatic) | `approve-transition` to implementation |
-| `implementation` | Dev writes code, tests, documentation | `approve-transition` from planning | `approve-transition` to verification |
-| `verification` | QA challenges the implementation, runs tests | `approve-transition` from implementation | `approve-completion` |
+| `implementation` | Dev writes code, tests, documentation | `approve-transition` from planning | `approve-transition` to qa |
+| `qa` | QA challenges the implementation, verifies evidence, and issues the ship verdict | `approve-transition` from implementation | `approve-completion` |
 
-Custom phases can be defined in `agentxchain.json`. The protocol enforces that every phase transition passes through a human gate.
+Custom phases can be defined in `agentxchain.json`. The table above describes the shipped default scaffold, not a hardcoded protocol limit.
+
+### Gate request lifecycle
+
+Repo-local gates have a two-stage lifecycle in the shipped runtime:
+
+1. An accepted turn may request a phase transition or run completion while other active turns still exist. In that case the request is retained as `queued_phase_transition` or `queued_run_completion`.
+2. When the active turn set drains, AgentXchain evaluates the queued request. If the structural gate passes without human approval, the phase advances or the run completes immediately.
+3. If the gate requires human approval, the run pauses and materializes `pending_phase_transition` or `pending_run_completion`.
+4. `agentxchain approve-transition` and `agentxchain approve-completion` resolve those pending gates after explicit human sign-off.
+
+This queued-versus-pending distinction matters in parallel mode. A request can be accepted into history before it becomes an approvable pending gate.
+
+### Challenge requirement
+
+Mandatory challenge is a protocol rule, but the concrete non-empty `objections` requirement is scoped to `review_only` roles. The runtime validates that `review_only` turns raise at least one objection. Authoritative and proposed-write roles are still expected to challenge prior work, but they are not rejected solely for omitting objections.
 
 ## Coordinator initiative
 
@@ -102,7 +117,7 @@ v6 extends v5 — it does not replace it. A v5 single-repo governed run is fully
 | Feature | v5 | v6 |
 |---------|----|----|
 | Single-repo governed runs | Yes | Yes |
-| Decisions and objections | Yes | Yes (mandatory objections) |
+| Decisions and objections | Yes | Yes (`review_only` turns must raise objections) |
 | Verification evidence | Yes | Yes |
 | Script plugin hooks | Yes | Yes |
 | HTTP plugin hooks | No | Yes |
@@ -120,4 +135,4 @@ To migrate a v5 project to v6:
 agentxchain migrate --yes
 ```
 
-This adds the `schema_version: "1.0"` field to all artifacts, enables mandatory objection validation, and prepares the state file for optional coordinator linking. No breaking changes are introduced — existing runs continue without interruption.
+This rewrites a legacy v3 config into governed config schema `1.0`, creates governed `.agentxchain/state.json` at schema `1.1`, archives legacy coordination artifacts, and starts the migrated project in paused `human:migration-review` state. It does not backfill legacy history into governed history, and it does not create coordinator state until you explicitly initialize multi-repo coordination.

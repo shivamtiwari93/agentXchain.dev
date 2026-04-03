@@ -1,61 +1,69 @@
 # Protocol Doc Page Spec
 
-> Last updated: 2026-04-02 (Turn 7, Claude Opus 4.6)
+> Last updated: 2026-04-03 (Turn 14, GPT 5.4)
 
 ---
 
 ## Purpose
 
-Render the current governed protocol specification (`PROTOCOL-v6.md`) as a browsable, static HTML docs page at `/docs/protocol.html`, with a versioned permalink at `/docs/protocol-v6.html`. This is the normative reference for operators and adapter authors who need to understand the protocol contract without reading raw markdown on GitHub.
+Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/website-v2/docs/protocol.mdx) truthful against the shipped governed runtime and coordinator implementation. This page is the public constitutional overview. It must explain the operator-facing contract without inventing behaviors, flattening important schema differences, or hand-waving the repo-local gate lifecycle.
 
 ## Interface
 
-- **Latest URL**: `/docs/protocol.html` → `website/docs/protocol.html`
-- **Versioned URL**: `/docs/protocol-v6.html` → `website/docs/protocol-v6.html`
-- **Stylesheet**: `website/docs.css` (shared)
-- **Nav pattern**: Matches existing docs pages (quickstart, adapters, cli)
-- **Sidebar**: "Docs" section links + "On this page" section anchors
+- Latest docs route: `/docs/protocol`
+- Versioned protocol permalink: `/docs/protocol-v6`
+- Normative repo-native source: `PROTOCOL-v6.md`
+- Deep-dive dependency: `/docs/multi-repo`
 
-## Page Structure
+## Behavioral Contract
 
-The page does NOT reproduce the spec verbatim. It reorganizes the spec content into a browsable reference with these sections:
-
-1. **Overview** — What protocol v6 adds beyond v5
-2. **Versioning** — v4/v5/v6 boundaries and latest-vs-versioned URLs
-3. **Repo-Local Run** — The v5 single-repo layer that remains in force
-4. **Coordinator Initiative** — `super_run_id`, repo linkage, projections, barriers
-5. **Coordinator Config** — `agentxchain-multi.json` contract and allowed barrier types
-6. **Coordinator Gates** — request/approval semantics for `multi step` and `multi approve-gate`
-7. **Cross-Repo Context** — `COORDINATOR_CONTEXT.json`, `context_generated`, invalidations
-8. **Coordinator Hooks** — four phases, blocking/advisory behavior, payload contract
-9. **File Layout** — workspace and repo-local artifacts involved in multi-repo governance
-10. **Compatibility** — how v6 coexists with v5 and legacy docs
-
-## Behavior
-
-- Static HTML, no JavaScript required
-- `website/docs/protocol.html` is the latest stable alias for the current protocol version
-- `website/docs/protocol-v6.html` is the immutable versioned permalink for v6
-- All code examples use `<pre><code>` with inline styling consistent with docs.css
-- JSON examples show real coordinator field names from implementation
-- Internal cross-references use `#section-id` anchors
-- External links point to `PROTOCOL-v6.md` and the historical `SPEC-GOVERNED-v5.md`
+1. The protocol page remains high-level and constitutional. Detailed coordinator operator mechanics stay on `/docs/multi-repo`.
+2. Default repo-local phases are `planning`, `implementation`, and `qa`. The page may mention custom phases, but it must not present `verification` as the shipped default phase name.
+3. The challenge requirement is precise:
+   - mandatory challenge is a protocol principle
+   - non-empty `objections` are enforced for `review_only` roles
+   - the page must not imply that every role is required to emit objections on every turn
+4. Artifact schema versions are mixed and must stay explicit:
+   - governed config: `schema_version: "1.0"`
+   - governed state: `schema_version: "1.1"`
+   - coordinator config/state: `schema_version: "0.1"`
+   - turn results: `schema_version: "1.0"`
+   The page must not claim `1.0` for all artifacts.
+5. Repo-local gate lifecycle must reflect the real queued-versus-pending behavior:
+   - accepted turns may set `queued_phase_transition` or `queued_run_completion`
+   - when the active turn set drains, those requests either auto-advance/complete or become `pending_phase_transition` / `pending_run_completion`
+   - `approve-transition` and `approve-completion` resolve pending gates after explicit human approval
+6. Migration docs must match `cli/src/commands/migrate.js`:
+   - v3 config is rewritten into governed config schema `1.0`
+   - governed state is created as schema `1.1`
+   - migrated state starts `paused` for `human:migration-review`
+   - legacy artifacts are archived, not backfilled into governed history
+   - migration does not create coordinator state by itself
+7. The decision ledger description must stay truthful:
+   - accepted decisions are appended to `.agentxchain/decision-ledger.jsonl`
+   - selected conflict/governance events are also recorded
+   - normal turn rejection is not described as a generic ledger append path
 
 ## Error Cases
 
-- N/A (static page)
+- Claiming a single schema version across all governed artifacts
+- Presenting `verification` as the default scaffold phase instead of `qa`
+- Describing objections as mandatory for every role rather than `review_only`
+- Omitting queued gate requests and only documenting pending approval state
+- Claiming migration upgrades all artifacts to `1.0`
+- Claiming the ledger generically records rejections
 
 ## Acceptance Tests
 
-- [ ] AT-1: `website/docs/protocol.html` loads and identifies itself as protocol v6
-- [ ] AT-2: `website/docs/protocol-v6.html` exists as the versioned permalink
-- [ ] AT-3: Both pages link to `PROTOCOL-v6.md` on GitHub
-- [ ] AT-4: The published docs mention `agentxchain-multi.json`, `multi approve-gate`, `context_generated`, and coordinator hooks
-- [ ] AT-5: The docs no longer present `SPEC-GOVERNED-v5.md` as the current normative spec
-- [ ] AT-6: Planning specs (`PROTOCOL_DOC_PAGE_SPEC.md`, `DOCS_SURFACE_SPEC.md`, `V2_SCOPE_BOUNDARY.md`) agree on the v6 surface
-- [ ] AT-7: README-facing protocol links still resolve to explicit `.html` docs targets
+1. [`cli/test/protocol-docs-content.test.js`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/cli/test/protocol-docs-content.test.js) verifies the protocol page still presents v6 as current.
+2. The guard verifies `/docs/protocol` still links the coordinator overview to `/docs/multi-repo`.
+3. The guard verifies the page documents `qa` as the default final phase and does not present `verification` as the default phase name.
+4. The guard verifies the page documents `review_only` objection enforcement without claiming objections are mandatory for every role.
+5. The guard verifies the page documents mixed schema versions and rejects the phrase "schema version `1.0` for all artifacts".
+6. The guard verifies the page documents queued and pending repo-local gate lifecycle fields.
+7. The guard verifies the migration section matches the shipped v3 → governed migration behavior.
+8. The guard verifies the decision-ledger description does not claim generic rejection logging.
 
 ## Open Questions
 
-- Q1: Should `/docs/protocol.html` always be the latest alias, or should it freeze per major line and require explicit versioned docs selection? **Current decision: latest alias plus immutable versioned permalink.**
-- Q2: When v7 ships, should `protocol-v6.html` remain verbatim or gain a historical banner linking to newer versions? **Open.**
+1. When protocol v7 ships, should `/docs/protocol` keep a compact constitutional overview while `/docs/protocol-v7` carries the detailed version delta, or should the latest page expand again? Deferred.
