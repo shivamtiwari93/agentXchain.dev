@@ -1,0 +1,350 @@
+---
+title: Protocol Implementor Guide
+description: "How to implement AgentXchain protocol conformance against the shipped fixture corpus."
+---
+
+# Protocol Implementor Guide
+
+The protocol is only real if another implementation can prove it. This page is for runner authors, adapter authors, and compatibility-layer maintainers who want to implement AgentXchain and verify that claim against the repo's published fixture corpus.
+
+If you want the constitutional model, start with [Protocol v6](./protocol). If you want the executable adoption contract, start here.
+
+## What protocol conformance means
+
+AgentXchain ships a repo-native conformance corpus under `.agentxchain-conformance/fixtures/`. The verifier runs those fixtures against your implementation through a thin adapter boundary. You are not proving that your CLI looks like the reference CLI. You are proving that your implementation behaves the same way at the protocol surface.
+
+The current corpus is split into three tiers:
+
+| Tier | Focus | Current surfaces | Current fixture count |
+| --- | --- | --- | --- |
+| `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema` | `40` |
+| `2` | Trust-hardening behavior | `dispatch_manifest`, `hook_audit` | `8` |
+| `3` | Multi-repo coordination | `coordinator` | `5` |
+
+The verifier selects every fixture up to the requested tier. `--tier 2` runs Tier 1 plus Tier 2. `--tier 3` runs the entire corpus.
+
+## Required repo contract
+
+Your implementation target must expose a repo-local conformance directory:
+
+```text
+.agentxchain-conformance/
+  capabilities.json
+  your-adapter.js
+```
+
+`capabilities.json` tells the verifier what implementation it is testing and how to invoke your adapter.
+
+## Writing `capabilities.json`
+
+This is the reference CLI's current file:
+
+```json
+{
+  "implementation": "agentxchain-cli",
+  "version": "2.2.0-dev",
+  "protocol_version": "v6",
+  "adapter": {
+    "protocol": "stdio-fixture-v1",
+    "command": ["node", ".agentxchain-conformance/reference-adapter.js"]
+  },
+  "tiers": [1, 2, 3],
+  "surfaces": {
+    "state_machine": true,
+    "turn_result_validation": true,
+    "gate_semantics": true,
+    "decision_ledger": true,
+    "history": true,
+    "config_schema": true,
+    "dispatch_manifest": true,
+    "hook_audit": true,
+    "coordinator": true
+  },
+  "metadata": {
+    "name": "AgentXchain Reference CLI",
+    "url": "https://github.com/shivamtiwari93/agentXchain.dev"
+  }
+}
+```
+
+Fields that matter today:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `implementation` | Yes | Non-empty string used in the report |
+| `protocol_version` | No | Informational but useful for humans and release evidence |
+| `adapter.protocol` | Yes | Must be exactly `stdio-fixture-v1` |
+| `adapter.command` | Yes | Non-empty command array passed to `spawnSync()` |
+| `tiers` | Yes | Non-empty array containing only `1`, `2`, or `3` |
+
+Fields that are currently informative rather than hard-enforced:
+
+| Field | Current role |
+| --- | --- |
+| `version` | Human-readable implementation version |
+| `surfaces` | Capability metadata for humans/tooling. The verifier does not yet reject a target for missing per-surface declarations. |
+| `metadata` | Display metadata only |
+
+Do not overstate what the verifier checks. Today it hard-requires tiers plus the adapter contract. Surface claims are useful metadata, not yet a strict gate.
+
+## Writing a `stdio-fixture-v1` adapter
+
+The adapter contract is intentionally narrow:
+
+1. Read one fixture JSON object from stdin.
+2. Materialize the fixture setup in your implementation's test workspace.
+3. Execute the fixture's `input.operation` against your implementation.
+4. Compare the result against `expected`.
+5. Emit exactly one JSON result on stdout.
+6. Exit with the status code that matches the JSON result.
+
+Adapter result shape:
+
+```json
+{
+  "status": "pass",
+  "message": "optional human-readable note",
+  "actual": null
+}
+```
+
+Valid adapter statuses:
+
+| Adapter status | Meaning | Required process exit code |
+| --- | --- | --- |
+| `pass` | Fixture behavior matched expectation | `0` |
+| `fail` | Fixture executed but the behavior was wrong | `1` |
+| `error` | Adapter or implementation could not evaluate the fixture correctly | `2` |
+| `not_implemented` | Fixture surface is intentionally unsupported for now | `3` |
+
+Minimal adapter skeleton:
+
+```js
+#!/usr/bin/env node
+
+import { stdin, stdout, stderr, exit } from 'node:process';
+
+let input = '';
+stdin.setEncoding('utf8');
+stdin.on('data', (chunk) => {
+  input += chunk;
+});
+
+stdin.on('end', async () => {
+  try {
+    const fixture = JSON.parse(input);
+    const result = await runFixtureAgainstYourImplementation(fixture);
+    stdout.write(`${JSON.stringify(result)}\n`);
+
+    const code =
+      result.status === 'pass' ? 0 :
+      result.status === 'fail' ? 1 :
+      result.status === 'not_implemented' ? 3 :
+      2;
+
+    exit(code);
+  } catch (error) {
+    stderr.write(`${error.message}\n`);
+    stdout.write(`${JSON.stringify({
+      status: 'error',
+      message: error.message,
+      actual: null,
+    })}\n`);
+    exit(2);
+  }
+});
+```
+
+### Progressive conformance
+
+`not_implemented` exists so third-party implementations can adopt the protocol incrementally without faking success or collapsing into generic adapter errors. That status is valid adapter output.
+
+Be precise about the semantics:
+
+- `not_implemented` is counted separately from pass, fail, and error.
+- A tier can still be reported as overall `pass` when every selected fixture is either `pass` or `not_implemented`.
+- `not_implemented` is not a loophole for broken behavior. If the surface exists and behaves incorrectly, return `fail`.
+
+## Running `agentxchain verify protocol`
+
+Typical usage:
+
+```bash
+# Run Tier 1 against the current directory
+agentxchain verify protocol --tier 1 --target .
+
+# Run up to Tier 2 and isolate one surface
+agentxchain verify protocol --tier 2 --surface dispatch_manifest --target .
+
+# Emit JSON for CI or a reporting pipeline
+agentxchain verify protocol --tier 3 --target . --format json
+```
+
+Command options:
+
+| Flag | Meaning |
+| --- | --- |
+| `--tier &lt;1|2|3&gt;` | Maximum tier to include |
+| `--surface &lt;name&gt;` | Restrict execution to one surface |
+| `--target &lt;path&gt;` | Root containing `.agentxchain-conformance/capabilities.json` |
+| `--format &lt;text|json&gt;` | Human-readable or machine-readable report |
+
+### Do not confuse verifier exit codes with adapter exit codes
+
+The adapter speaks per-fixture status. The verifier speaks overall run status.
+
+| Surface | Exit codes |
+| --- | --- |
+| Adapter process | `0=pass`, `1=fail`, `2=error`, `3=not_implemented` |
+| `agentxchain verify protocol` | `0=overall pass`, `1=one or more fixture failures`, `2=verifier or adapter error` |
+
+The verifier never exits `3`. `not_implemented` is adapter-level truth that gets folded into the final report.
+
+### Report interpretation
+
+The JSON report includes:
+
+- `implementation`
+- `protocol_version`
+- `tier_requested`
+- `target_root`
+- `results.tier_N`
+- `overall`
+
+Each tier summary tracks:
+
+- `fixtures_run`
+- `fixtures_passed`
+- `fixtures_failed`
+- `fixtures_errored`
+- `fixtures_not_implemented`
+- `surfaces`
+- `failures[]`
+- `errors[]`
+- `not_implemented[]`
+
+That shape lets you distinguish "we have not built this yet" from "we built it and got it wrong." If your CI collapses those cases together, your adoption signal is garbage.
+
+## Fixture anatomy
+
+Every fixture is a single JSON file under `.agentxchain-conformance/fixtures/<tier>/<surface>/`.
+
+Real Tier 1 example:
+
+```json
+{
+  "fixture_id": "SM-001",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "Completed state rejects assignment",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "completed",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "roles": {
+        "dev": {
+          "runtime": "manual"
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "assign_turn",
+    "args": {
+      "role_id": "dev"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_state_transition",
+    "state_unchanged": true
+  }
+}
+```
+
+The important fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `fixture_id` | Stable identifier used in reports and CI failures |
+| `tier` | Which conformance tier the fixture belongs to |
+| `surface` | Protocol subsystem under test |
+| `description` | Human-readable contract summary |
+| `type` | Fixture intent such as `validate`, `reject`, or `transition` |
+| `setup` | Files, state, config, dispatch bundles, or coordinator state to materialize |
+| `input` | Abstract operation plus arguments your adapter must map onto your implementation |
+| `expected` | Minimal assertion object the adapter must satisfy |
+
+The `input.operation` verbs are fixture abstractions, not CLI command names. Your adapter is responsible for mapping those verbs onto your implementation.
+
+## Surface reference
+
+### `state_machine`
+
+Core run lifecycle rules: initialization, assignment, completion, blocked-state transitions, and invalid transitions. If your state machine is loose here, every higher surface becomes untrustworthy.
+
+### `turn_result_validation`
+
+Validation pipeline for staged turn results: required fields, objection rules, schema correctness, and rejection of malformed or incomplete artifacts before they enter history.
+
+### `gate_semantics`
+
+Human approval boundaries for phase transitions and run completion. This is where AgentXchain stops pretending a model can unilaterally ship.
+
+### `decision_ledger`
+
+Append-only constitutional record for decisions, objections, approvals, and rejections. If this surface is wrong, your audit trail is fiction.
+
+### `history`
+
+Accepted turn-result history and its integrity constraints. This surface proves what actually happened across the run, not what a status screen claims happened.
+
+### `config_schema`
+
+Validation of governed config shape, roles, runtimes, and baseline project contract. Broken config validation pushes protocol drift downstream where it is harder to debug.
+
+### `dispatch_manifest`
+
+Dispatch-bundle finalization and integrity verification. This is the hardening layer that proves agents received the expected assignment files and that post-finalization tampering is detectable.
+
+### `hook_audit`
+
+Execution and audit recording for lifecycle hooks. The important contract is not just "hooks run" but "their effects are observable and attributable."
+
+### `coordinator`
+
+Multi-repo coordination: coordinator config validation, acceptance projection, workstream state, and barrier semantics. Tier 3 starts here because cross-repo governance is where weak protocol claims usually collapse.
+
+## Fixture setup helpers you need to support
+
+Depending on the surface, fixtures may ask your adapter to materialize:
+
+- `setup.filesystem`
+- `setup.dispatch_bundle`
+- `setup.post_finalize_inject`
+- `setup.post_finalize_tamper`
+- `setup.post_finalize_delete`
+- `setup.coordinator_config`
+- `setup.repos`
+- `setup.coordinator_state`
+- `setup.barriers`
+- `setup.coordinator_history`
+
+The authoritative helper list lives in `.agentxchain-conformance/fixtures/README.md`. Do not fork the contract in your own docs and hope it stays aligned.
+
+## Recommended adoption sequence
+
+1. Implement Tier 1 first and return `not_implemented` for higher tiers.
+2. Add Tier 2 once your dispatch-manifest and hook-audit surfaces are real, not mocked.
+3. Add Tier 3 only when your coordinator model is actually multi-repo and barrier-aware.
+4. Run `agentxchain verify protocol --format json` in CI and publish the report with your release evidence.
+
+Protocol claims without conformance evidence are marketing. AgentXchain only becomes an open protocol if independent implementations can fail publicly and fix themselves against the same corpus.

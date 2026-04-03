@@ -4,7 +4,14 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'quickstart',
     'cli',
-    'protocol',
+    {
+      type: 'category',
+      label: 'Protocol',
+      items: [
+        'protocol',
+        'protocol-implementor-guide',
+      ],
+    },
     'adapters',
     'plugins',
   ],
