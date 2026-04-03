@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, readdirSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, basename } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { safeWriteJson } from './safe-write.js';
-import { VALID_GOVERNED_TEMPLATE_IDS } from './governed-templates.js';
+import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
@@ -326,6 +326,112 @@ export function intakeStatus(root, intentId) {
   }
 
   return { ok: true, summary, exitCode: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Approve
+// ---------------------------------------------------------------------------
+
+export function approveIntent(root, intentId, options = {}) {
+  const dirs = intakeDirs(root);
+  const intentPath = join(dirs.intents, `${intentId}.json`);
+
+  if (!existsSync(intentPath)) {
+    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  }
+
+  const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+
+  if (intent.status !== 'triaged') {
+    return { ok: false, error: `cannot approve from status "${intent.status}" (must be triaged)`, exitCode: 1 };
+  }
+
+  const approver = options.approver || 'operator';
+  const reason = options.reason || 'approved for planning';
+  const now = nowISO();
+
+  intent.status = 'approved';
+  intent.approved_by = approver;
+  intent.updated_at = now;
+  intent.history.push({ from: 'triaged', to: 'approved', at: now, reason, approver });
+
+  safeWriteJson(intentPath, intent);
+  return { ok: true, intent, exitCode: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Plan
+// ---------------------------------------------------------------------------
+
+export function planIntent(root, intentId, options = {}) {
+  const dirs = intakeDirs(root);
+  const intentPath = join(dirs.intents, `${intentId}.json`);
+
+  if (!existsSync(intentPath)) {
+    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  }
+
+  const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+
+  if (intent.status !== 'approved') {
+    return { ok: false, error: `cannot plan from status "${intent.status}" (must be approved)`, exitCode: 1 };
+  }
+
+  // Load the governed template
+  let manifest;
+  try {
+    manifest = loadGovernedTemplate(intent.template);
+  } catch (err) {
+    return { ok: false, error: err.message, exitCode: 2 };
+  }
+
+  const planningDir = join(root, '.planning');
+  const projectName = options.projectName || basename(root);
+  const artifacts = manifest.planning_artifacts || [];
+
+  // Check for conflicts
+  if (!options.force) {
+    const conflicts = [];
+    for (const artifact of artifacts) {
+      const targetPath = join(planningDir, artifact.filename);
+      if (existsSync(targetPath)) {
+        conflicts.push(`.planning/${artifact.filename}`);
+      }
+    }
+    if (conflicts.length > 0) {
+      return {
+        ok: false,
+        error: 'existing planning artifacts would be overwritten',
+        conflicts,
+        exitCode: 1,
+      };
+    }
+  }
+
+  // Generate artifacts
+  mkdirSync(planningDir, { recursive: true });
+  const generated = [];
+  for (const artifact of artifacts) {
+    const targetPath = join(planningDir, artifact.filename);
+    const content = artifact.content_template.replace(/\{\{project_name\}\}/g, projectName);
+    writeFileSync(targetPath, content + '\n');
+    generated.push(`.planning/${artifact.filename}`);
+  }
+
+  const now = nowISO();
+  intent.status = 'planned';
+  intent.planning_artifacts = generated;
+  intent.updated_at = now;
+  intent.history.push({
+    from: 'approved',
+    to: 'planned',
+    at: now,
+    reason: `generated ${generated.length} planning artifact(s) from template "${intent.template}"`,
+    artifacts: generated,
+  });
+
+  safeWriteJson(intentPath, intent);
+  return { ok: true, intent, artifacts_generated: generated, artifacts_skipped: [], exitCode: 0 };
 }
 
 // ---------------------------------------------------------------------------

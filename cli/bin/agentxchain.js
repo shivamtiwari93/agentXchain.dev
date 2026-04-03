@@ -88,6 +88,8 @@ import {
 } from '../src/commands/multi.js';
 import { intakeRecordCommand } from '../src/commands/intake-record.js';
 import { intakeTriageCommand } from '../src/commands/intake-triage.js';
+import { intakeApproveCommand } from '../src/commands/intake-approve.js';
+import { intakePlanCommand } from '../src/commands/intake-plan.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -397,6 +399,24 @@ intakeCmd
   .option('--reason <text>', 'Reason for suppress or reject')
   .option('-j, --json', 'Output as JSON')
   .action(intakeTriageCommand);
+
+intakeCmd
+  .command('approve')
+  .description('Approve a triaged intent for planning')
+  .option('--intent <id>', 'Intent ID to approve')
+  .option('--approver <name>', 'Name of the approving authority', 'operator')
+  .option('--reason <text>', 'Reason for approval')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeApproveCommand);
+
+intakeCmd
+  .command('plan')
+  .description('Generate planning artifacts and transition an approved intent to planned')
+  .option('--intent <id>', 'Intent ID to plan')
+  .option('--project-name <name>', 'Project name for template substitution')
+  .option('--force', 'Overwrite existing planning artifacts')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakePlanCommand);
 
 intakeCmd
   .command('status')
