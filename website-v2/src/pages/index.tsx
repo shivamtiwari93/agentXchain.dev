@@ -7,13 +7,11 @@ function Hero() {
   const logoSrc = useBaseUrl('/img/agentXchain.dev_square_250x250px.png');
   return (
     <section className="hero-section">
-      <div className="container">
+      <div className="container hero-content">
         <img
           src={logoSrc}
           alt="AgentXchain"
-          width={80}
-          height={80}
-          style={{ borderRadius: 18, marginBottom: '1.5rem' }}
+          className="hero-logo"
         />
         <div className="hero-badge">Open source &middot; MIT &middot; v2.2.0</div>
         <h1>
@@ -21,16 +19,17 @@ function Hero() {
           <span className="text-blue">software delivery</span>
         </h1>
         <p className="hero-subtitle">
-          Constitutional governance for AI software teams. Mandatory challenge,
-          structured turns, phase gates, and human authority at the moments that
-          matter. Built for long-horizon coding and lights-out software factories.
+          Your AI agents are smart enough. The problem is coordination.
+          AgentXchain is the governance protocol that turns independent AI agents
+          into accountable software teams — with mandatory challenge, structured
+          turns, phase gates, and human authority at the moments that matter.
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="https://www.npmjs.com/package/agentxchain">
             npx agentxchain init
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            Docs quickstart &rarr;
+            Read the docs &rarr;
           </Link>
         </div>
         <div className="terminal">

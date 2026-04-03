@@ -46,6 +46,18 @@ const config: Config = {
     ],
   ],
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '32x32',
+        href: '/img/favicon-32x32.png',
+      },
+    },
+  ],
+
   themeConfig: {
     image: 'img/agentXchain.dev_rectangle_600x120px.png',
     metadata: [

@@ -53,7 +53,7 @@
 
 /* Hero section */
 .hero-section {
-  padding: 5rem 0 4rem;
+  padding: 6rem 0 4rem;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -70,6 +70,20 @@
   pointer-events: none;
 }
 
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hero-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  margin-bottom: 1.5rem;
+  display: block;
+}
+
 .hero-section h1 {
   font-size: clamp(2.4rem, 5.5vw, 3.6rem);
   font-weight: 800;
@@ -77,14 +91,16 @@
   letter-spacing: -0.025em;
   max-width: 780px;
   margin: 0 auto 1rem;
+  text-align: center;
 }
 
 .hero-section .hero-subtitle {
   color: var(--ifm-font-color-secondary, var(--ifm-color-emphasis-600));
   font-size: 1.15rem;
-  max-width: 600px;
+  max-width: 620px;
   margin: 0 auto 2rem;
-  line-height: 1.6;
+  line-height: 1.7;
+  text-align: center;
 }
 
 .text-blue { color: var(--axc-blue-light); }
@@ -93,7 +109,9 @@
 
 /* Badge */
 .hero-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
   background: rgba(107, 181, 54, 0.1);
   color: var(--axc-green-light);
   font-size: 0.75rem;
