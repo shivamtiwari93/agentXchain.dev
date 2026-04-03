@@ -366,19 +366,20 @@
     <h3 style="margin-top:3rem;">vs agent frameworks</h3>
     <p class="ss">AgentXchain is not a replacement for agent construction or orchestration frameworks. They build agents. We govern how agents converge on a shared codebase. You can use both.</p>
     <div class="tw"><table class="ct">
-      <thead><tr><th></th><th>CrewAI</th><th>AG2 / AutoGen</th><th>LangGraph</th><th>AgentXchain</th></tr></thead>
+      <thead><tr><th></th><th>CrewAI</th><th>AG2 / AutoGen</th><th>LangGraph</th><th>OpenAI Agents SDK</th><th>AgentXchain</th></tr></thead>
       <tbody>
-        <tr><td><strong>Purpose</strong></td><td>Build &amp; orchestrate agent crews</td><td>Conversation-pattern orchestration</td><td>Graph-based agent state machines</td><td><strong>Governed software delivery</strong></td></tr>
-        <tr><td><strong>Mandatory challenge</strong></td><td>No</td><td>No</td><td>No</td><td><strong>Yes &mdash; protocol-enforced</strong></td></tr>
-        <tr><td><strong>Phase gates</strong></td><td>Optional HITL steps</td><td>No delivery-phase gates</td><td>Human interrupts, no delivery model</td><td><strong>First-class gates with human approval</strong></td></tr>
-        <tr><td><strong>Delivery audit trail</strong></td><td>AMP tracing platform + integrations</td><td>Conversation history + observability</td><td>Persisted state + LangSmith</td><td><strong>Append-only decisions + objections ledger</strong></td></tr>
-        <tr><td><strong>Model-agnostic</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td><strong>Yes</strong></td></tr>
+        <tr><td><strong>Purpose</strong></td><td>Build &amp; orchestrate agent crews</td><td>Conversation-pattern orchestration</td><td>Graph-based agent state machines</td><td>SDK primitives for agent apps</td><td><strong>Governed software delivery</strong></td></tr>
+        <tr><td><strong>Mandatory challenge</strong></td><td>No</td><td>No</td><td>No</td><td>No</td><td><strong>Yes &mdash; protocol-enforced</strong></td></tr>
+        <tr><td><strong>Phase gates</strong></td><td>Optional HITL steps</td><td>No delivery-phase gates</td><td>Human interrupts, no delivery model</td><td>HITL approvals, no delivery model</td><td><strong>First-class gates with human approval</strong></td></tr>
+        <tr><td><strong>Delivery audit trail</strong></td><td>AMP tracing platform + integrations</td><td>Conversation history + observability</td><td>Persisted state + LangSmith</td><td>Built-in tracing + sessions</td><td><strong>Append-only decisions + objections ledger</strong></td></tr>
+        <tr><td><strong>Model-agnostic</strong></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td><strong>Yes</strong></td></tr>
       </tbody>
     </table></div>
     <p class="ss" style="font-size:0.85rem; margin-top:0.5rem;">CrewAI and LangGraph have stronger general orchestration ergonomics and observability today. AgentXchain&rsquo;s wedge is narrower: governed convergence on one codebase with mandatory challenge and explicit ship gates.</p>
     <div class="cta-row" style="justify-content:flex-start; margin-top:0.5rem;">
       <a href="/docs/vs-crewai.html" class="btn-s">AgentXchain vs CrewAI</a>
       <a href="/docs/vs-langgraph.html" class="btn-s">AgentXchain vs LangGraph</a>
+      <a href="/docs/vs-openai-agents-sdk.html" class="btn-s">AgentXchain vs OpenAI Agents SDK</a>
     </div>
   </div></section>
 
@@ -431,7 +432,7 @@
         <div class="f-col"><h4>Why</h4><a href="/why.html">Why governed delivery</a><a href="#outcomes">Outcomes</a><a href="#vs">Positioning</a></div>
         <div class="f-col"><h4>Product</h4><a href="/docs/quickstart.html">Quickstart</a><a href="#how">Workflow</a><a href="#scaffold">Project structure</a></div>
         <div class="f-col"><h4>Docs</h4><a href="/docs/quickstart.html">Quickstart</a><a href="/docs/cli.html">CLI</a><a href="/docs/plugins.html">Plugins</a><a href="/docs/protocol.html">Protocol</a></div>
-        <div class="f-col"><h4>Compare</h4><a href="/docs/vs-crewai.html">vs CrewAI</a><a href="/docs/vs-langgraph.html">vs LangGraph</a></div>
+        <div class="f-col"><h4>Compare</h4><a href="/docs/vs-crewai.html">vs CrewAI</a><a href="/docs/vs-langgraph.html">vs LangGraph</a><a href="/docs/vs-openai-agents-sdk.html">vs OpenAI Agents SDK</a></div>
         <div class="f-col"><h4>Links</h4><a href="https://www.npmjs.com/package/agentxchain">npm</a><a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a><a href="https://agentxchain.ai">AgentXchain.ai</a></div>
       </div>
     </div>

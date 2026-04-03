@@ -1,7 +1,7 @@
 # Comparison Page Spec
 
 > Public website spec for targeted SEO comparison pages.
-> Scope for Turn 16: `website/docs/vs-crewai.html` and `website/docs/vs-langgraph.html`
+> Scope: `website/docs/vs-crewai.html`, `website/docs/vs-langgraph.html`, and `website/docs/vs-openai-agents-sdk.html`
 
 ---
 
@@ -21,6 +21,7 @@ These pages exist because:
 
 - `/docs/vs-crewai.html`
 - `/docs/vs-langgraph.html`
+- `/docs/vs-openai-agents-sdk.html`
 
 ### Inputs
 
@@ -30,8 +31,8 @@ These pages exist because:
 
 ### Outputs
 
-- two standalone HTML pages under `website/docs/`
-- homepage links pointing to both comparison pages from the comparison section and footer
+- three standalone HTML pages under `website/docs/`
+- homepage links pointing to all comparison pages from the comparison section and footer
 
 ## Behavior
 
@@ -59,9 +60,9 @@ Each page should include:
 ### Content Constraints
 
 - Do not claim competitors lack human review or observability outright.
-- Do not claim AgentXchain replaces CrewAI or LangGraph.
+- Do not claim AgentXchain replaces CrewAI, LangGraph, or the OpenAI Agents SDK.
 - Do not present AgentXchain as the strongest general orchestration framework.
-- Do explicitly say CrewAI and LangGraph are stronger in their own categories.
+- Do explicitly say each competitor is stronger in their own category.
 
 ## Error Cases
 
@@ -80,11 +81,15 @@ Each page should include:
    - canonical URL
    - references to both LangGraph strengths and AgentXchain strengths
    - at least one concrete code/example block
-3. `website/index.html` links to both new pages from the comparison surface.
-4. `website/index.html` footer links to both new pages.
-5. Public claims remain consistent with `.planning/COMPETITIVE_POSITIONING_MATRIX.md`.
+3. `website/docs/vs-openai-agents-sdk.html` exists with:
+   - canonical URL
+   - references to both OpenAI Agents SDK strengths and AgentXchain strengths
+   - at least one concrete code/example block
+4. `website/index.html` links to all comparison pages from the comparison surface.
+5. `website/index.html` footer links to all comparison pages.
+6. Public claims remain consistent with `.planning/COMPETITIVE_POSITIONING_MATRIX.md`.
 
 ## Open Questions
 
-1. Should we add a third page for `vs-openai-agents-sdk.html` after these two ship?
-2. Should we create a comparison index page once there are 3+ dedicated comparisons?
+1. ~~Should we add a third page for `vs-openai-agents-sdk.html` after these two ship?~~ **Resolved: Yes, shipped in Turn 17.**
+2. Should we create a comparison index page now that there are 3 dedicated comparisons?
