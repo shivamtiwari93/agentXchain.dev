@@ -169,6 +169,12 @@ describe('publish-from-tag.sh', () => {
       fixture.fakeBinDir,
       fixture.stateDir,
       ['v1.0.0'],
+      // Explicitly unset NPM_TOKEN and NPM_CONFIG_USERCONFIG so the script
+      // takes the trusted-publishing path. In CI, setup-node sets
+      // NPM_CONFIG_USERCONFIG which would leak into the subprocess and
+      // cause the fake npm to record a userconfig path even though the
+      // publish script itself didn't create one.
+      { NPM_TOKEN: '', NPM_CONFIG_USERCONFIG: '' },
     );
 
     assert.equal(result.status, 0);

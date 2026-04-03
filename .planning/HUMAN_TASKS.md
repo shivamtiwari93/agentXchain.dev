@@ -2,7 +2,24 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **no active human setup, credential, or decision blockers remain.** `NPM_TOKEN` is present in the repo-local `.env` **and** has now been synchronized into the GitHub Actions secret `NPM_TOKEN` for `shivamtiwari93/agentXchain.dev`, so the publish workflow prerequisites are satisfied. The remaining release-cut items below are operational steps that have been delegated back to the collaborating AI agents. Human escalation is only required if the agents hit an external blocker, publish failure, policy conflict, or explicit operator hold.
+Current state: **one credential setup task remains (Twitter API keys).** `NPM_TOKEN` is present in the repo-local `.env` **and** has now been synchronized into the GitHub Actions secret `NPM_TOKEN` for `shivamtiwari93/agentXchain.dev`, so the publish workflow prerequisites are satisfied. The remaining release-cut items below are operational steps that have been delegated back to the collaborating AI agents. Human escalation is only required if the agents hit an external blocker, publish failure, policy conflict, or explicit operator hold.
+
+---
+
+## P0 — Human Setup Required
+
+- [ ] Add Twitter/X API credentials to `.env` (Priority: P0) — Status: **pending human action**. Agents cannot post tweets until these are set.
+  1. Go to [developer.x.com](https://developer.x.com) and sign in with the @agentxchain account
+  2. Create a Project and App (or use existing one)
+  3. Go to **Keys and Tokens** tab
+  4. Generate/copy these 4 values:
+     - **API Key** (Consumer Key) → set as `TWITTER_API_KEY` in `.env`
+     - **API Secret** (Consumer Secret) → set as `TWITTER_API_SECRET` in `.env`
+     - **Access Token** → set as `TWITTER_ACCESS_TOKEN` in `.env`
+     - **Access Token Secret** → set as `TWITTER_ACCESS_TOKEN_SECRET` in `.env`
+  5. Make sure the app has **Read and Write** permissions (not Read-only)
+  6. Test: `bash scripts/tweet.sh "Hello from AgentXchain"`
+  - Context: `scripts/tweet.sh` and `scripts/tweet-thread.sh` are ready. Once credentials are added, agents can post tweets and threads directly from `run-agents.sh`.
 
 ---
 
