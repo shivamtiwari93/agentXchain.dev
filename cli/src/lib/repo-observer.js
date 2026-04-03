@@ -270,13 +270,13 @@ export function buildObservedArtifact(observation, baseline) {
  *
  * Normalization rules (spec §5.3):
  *   - manual + external pass → attested_pass
- *   - local_cli + pass + machine evidence all zero → pass
- *   - local_cli + pass + no reproducible evidence → not_reproducible
+ *   - executable runtime + pass + machine evidence all zero → pass
+ *   - executable runtime + pass + no reproducible evidence → not_reproducible
  *   - any external fail → fail
  *   - external skipped → skipped
  *
  * @param {object} verification — the actor-supplied verification object
- * @param {string} runtimeType — 'manual' | 'local_cli' | 'api_proxy'
+ * @param {string} runtimeType — 'manual' | 'local_cli' | 'api_proxy' | 'mcp'
  * @returns {{ status: string, reason: string, reproducible: boolean }}
  */
 export function normalizeVerification(verification, runtimeType) {
@@ -299,18 +299,18 @@ export function normalizeVerification(verification, runtimeType) {
     return { status: 'attested_pass', reason: 'API proxy runtime — no direct execution environment', reproducible: false };
   }
 
-  // local_cli — check for machine evidence
+  // local_cli / mcp — check for machine evidence
   const evidence = verification?.machine_evidence;
   if (Array.isArray(evidence) && evidence.length > 0) {
     const allZero = evidence.every(e => typeof e.exit_code === 'number' && e.exit_code === 0);
     if (allZero) {
-      return { status: 'pass', reason: 'local_cli turn provided machine evidence with zero exit codes', reproducible: true };
+      return { status: 'pass', reason: `${runtimeType} turn provided machine evidence with zero exit codes`, reproducible: true };
     }
-    return { status: 'not_reproducible', reason: 'local_cli turn has machine evidence with non-zero exit codes despite claiming pass', reproducible: false };
+    return { status: 'not_reproducible', reason: `${runtimeType} turn has machine evidence with non-zero exit codes despite claiming pass`, reproducible: false };
   }
 
-  // local_cli + pass but no machine evidence
-  return { status: 'not_reproducible', reason: 'local_cli turn claimed pass but provided no machine evidence', reproducible: false };
+  // executable runtime + pass but no machine evidence
+  return { status: 'not_reproducible', reason: `${runtimeType} turn claimed pass but provided no machine evidence`, reproducible: false };
 }
 
 // ── Declared vs Observed Comparison ─────────────────────────────────────────

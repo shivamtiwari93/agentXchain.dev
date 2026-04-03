@@ -16,7 +16,7 @@ import { validateHooksConfig } from './hook-runner.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
-const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy'];
+const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp'];
 const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_PHASES = ['planning', 'implementation', 'qa'];
@@ -45,6 +45,36 @@ const VALID_API_PROXY_PREFLIGHT_FIELDS = [
   'tokenizer',
   'safety_margin_tokens',
 ];
+
+function validateMcpRuntime(runtimeId, runtime, errors) {
+  const command = runtime?.command;
+
+  if (typeof command === 'string') {
+    if (!command.trim()) {
+      errors.push(`Runtime "${runtimeId}": mcp command must be a non-empty string`);
+    }
+  } else if (Array.isArray(command)) {
+    if (command.length === 0 || command.some((part) => typeof part !== 'string' || !part.trim())) {
+      errors.push(`Runtime "${runtimeId}": mcp command array must contain at least one non-empty string and no empty parts`);
+    }
+  } else {
+    errors.push(`Runtime "${runtimeId}": mcp requires "command" as a string or string array`);
+  }
+
+  if ('args' in runtime) {
+    if (!Array.isArray(runtime.args) || runtime.args.some((part) => typeof part !== 'string')) {
+      errors.push(`Runtime "${runtimeId}": mcp args must be an array of strings`);
+    }
+  }
+
+  if ('tool_name' in runtime && (typeof runtime.tool_name !== 'string' || !runtime.tool_name.trim())) {
+    errors.push(`Runtime "${runtimeId}": mcp tool_name must be a non-empty string`);
+  }
+
+  if ('cwd' in runtime && (typeof runtime.cwd !== 'string' || !runtime.cwd.trim())) {
+    errors.push(`Runtime "${runtimeId}": mcp cwd must be a non-empty string`);
+  }
+}
 
 function validateApiProxyRetryPolicy(runtimeId, retryPolicy, errors) {
   if (!retryPolicy || typeof retryPolicy !== 'object' || Array.isArray(retryPolicy)) {
@@ -262,6 +292,9 @@ export function validateV4Config(data, projectRoot) {
         if ('preflight_tokenization' in rt || 'context_window_tokens' in rt) {
           validateApiProxyPreflightTokenization(id, rt, errors);
         }
+      }
+      if (rt.type === 'mcp') {
+        validateMcpRuntime(id, rt, errors);
       }
     }
   }

@@ -22,6 +22,7 @@ const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 describe('Adapter docs contract', () => {
   const adapterDocs = read('website-v2/docs/adapters.mdx');
   const localCliSource = read('cli/src/lib/adapters/local-cli-adapter.js');
+  const mcpAdapterSource = read('cli/src/lib/adapters/mcp-adapter.js');
   const apiProxySource = read('cli/src/lib/adapters/api-proxy-adapter.js');
   const normalizedConfigSource = read('cli/src/lib/normalized-config.js');
   const turnResultValidatorSource = read('cli/src/lib/turn-result-validator.js');
@@ -204,6 +205,29 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('mcp adapter scope', () => {
+    it('docs mention the mcp adapter and stdio boundary', () => {
+      assert.match(adapterDocs, /## mcp adapter/i,
+        'adapters.mdx must document the mcp adapter');
+      assert.match(adapterDocs, /stdio only|MCP stdio/i,
+        'adapters.mdx must document the stdio-only v1 scope');
+    });
+
+    it('docs bind to the real default tool name', () => {
+      const toolMatch = mcpAdapterSource.match(/DEFAULT_MCP_TOOL_NAME\s*=\s*'([^']+)'/);
+      assert.ok(toolMatch, 'DEFAULT_MCP_TOOL_NAME found in mcp-adapter.js');
+      assert.match(adapterDocs, new RegExp(`\`${toolMatch[1]}\``),
+        `adapters.mdx must document the default MCP tool name "${toolMatch[1]}"`);
+    });
+
+    it('docs do NOT claim arbitrary MCP server compatibility', () => {
+      assert.doesNotMatch(adapterDocs, /any MCP server can execute a governed turn/i,
+        'adapters.mdx must not claim arbitrary MCP server compatibility');
+      assert.match(adapterDocs, /does not claim that any arbitrary MCP server can execute a governed turn/i,
+        'adapters.mdx must explain the governed-turn tool boundary');
+    });
+  });
+
   describe('objections requirement scoping', () => {
     it('code requires objections only for review_only roles', () => {
       assert.match(turnResultValidatorSource, /review_only.*at least one objection/,
@@ -255,6 +279,11 @@ describe('Adapter docs contract', () => {
     it('comparison table states 10s grace period', () => {
       assert.match(adapterDocs, /SIGTERM.*10s.*SIGKILL/i,
         'comparison table must state 10s grace period');
+    });
+
+    it('comparison table includes the mcp adapter column', () => {
+      assert.match(adapterDocs, /\| Feature \| manual \| local_cli \| mcp \| api_proxy \|/,
+        'comparison table must include the mcp adapter');
     });
   });
 });

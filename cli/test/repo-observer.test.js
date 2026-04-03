@@ -139,6 +139,15 @@ describe('normalizeVerification', () => {
     assert.equal(result.reproducible, true);
   });
 
+  it('mcp + pass + machine evidence all zero → pass', () => {
+    const result = normalizeVerification({
+      status: 'pass',
+      machine_evidence: [{ command: 'npm test', exit_code: 0 }],
+    }, 'mcp');
+    assert.equal(result.status, 'pass');
+    assert.equal(result.reproducible, true);
+  });
+
   it('local_cli + pass + no machine evidence → not_reproducible', () => {
     const result = normalizeVerification({ status: 'pass' }, 'local_cli');
     assert.equal(result.status, 'not_reproducible');

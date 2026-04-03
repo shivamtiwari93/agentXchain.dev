@@ -17,6 +17,7 @@
  *   - local_cli: implemented via subprocess dispatch + staged turn result
  *   - api_proxy: implemented for synchronous review-only turns and stages
  *     provider-backed JSON before validation/acceptance
+ *   - mcp: implemented for synchronous MCP stdio tool dispatch
  */
 
 import chalk from 'chalk';
@@ -45,6 +46,7 @@ import {
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
+import { dispatchMcp } from '../lib/adapters/mcp-adapter.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -423,12 +425,64 @@ export async function stepCommand(opts) {
       console.log(chalk.dim(`  Tokens: ${apiResult.usage.input_tokens || 0} in / ${apiResult.usage.output_tokens || 0} out`));
     }
     console.log('');
+  } else if (runtimeType === 'mcp') {
+    console.log(chalk.cyan(`Dispatching to MCP stdio: ${runtime?.command || '(unknown)'}`));
+    console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}  Tool: ${runtime?.tool_name || 'agentxchain_turn'}`));
+
+    const mcpResult = await dispatchMcp(root, state, config, {
+      signal: controller.signal,
+      onStatus: (msg) => console.log(chalk.dim(`  ${msg}`)),
+      onStderr: opts.verbose ? (text) => process.stderr.write(chalk.yellow(text)) : undefined,
+      verifyManifest: true,
+    });
+
+    if (mcpResult.logs?.length) {
+      saveDispatchLogs(root, turn.turn_id, mcpResult.logs);
+    }
+
+    if (mcpResult.aborted) {
+      console.log('');
+      console.log(chalk.yellow('Aborted. Turn remains assigned.'));
+      console.log(chalk.dim('Resume later with: agentxchain step --resume'));
+      console.log(chalk.dim('Or accept/reject manually: agentxchain accept-turn / reject-turn'));
+      process.exit(0);
+    }
+
+    if (!mcpResult.ok) {
+      const blocked = markRunBlocked(root, {
+        blockedOn: 'dispatch:mcp_failure',
+        category: 'dispatch_error',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the MCP dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: mcpResult.error,
+        },
+        turnId: turn.turn_id,
+        hooksConfig,
+      });
+      if (blocked.ok) {
+        state = blocked.state;
+      }
+
+      console.log('');
+      console.log(chalk.red(`MCP dispatch failed: ${mcpResult.error}`));
+      console.log(chalk.dim('The turn remains assigned. You can:'));
+      console.log(chalk.dim('  - Fix the MCP server/runtime and retry: agentxchain step --resume'));
+      console.log(chalk.dim('  - Complete manually: edit .agentxchain/staging/turn-result.json'));
+      console.log(chalk.dim('  - Reject: agentxchain reject-turn --reason "mcp dispatch failed"'));
+      process.exit(1);
+    }
+
+    console.log(chalk.green(`MCP tool completed${mcpResult.toolName ? ` (${mcpResult.toolName})` : ''}. Staged result detected.`));
+    console.log('');
   }
 
   // ── Phase 3: Wait for turn completion ─────────────────────────────────────
 
-  if (runtimeType === 'api_proxy') {
-    // api_proxy is synchronous — result already staged in Phase 2
+  if (runtimeType === 'api_proxy' || runtimeType === 'mcp') {
+    // api_proxy and mcp are synchronous — result already staged in Phase 2
   } else if (runtimeType === 'local_cli') {
     // ── Local CLI adapter: spawn subprocess ──
     const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';

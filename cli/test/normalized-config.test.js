@@ -206,6 +206,65 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts a valid mcp runtime config', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          command: 'node',
+          args: ['./scripts/mcp-agent.js'],
+          tool_name: 'agentxchain_turn',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects mcp runtime without a command', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          tool_name: 'agentxchain_turn',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('mcp requires "command"')));
+  });
+
+  it('rejects invalid mcp args and tool_name', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          command: ['node', ''],
+          args: 'not-an-array',
+          tool_name: '',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('command array')));
+    assert.ok(result.errors.some((e) => e.includes('args')));
+    assert.ok(result.errors.some((e) => e.includes('tool_name')));
+  });
+
   it('rejects invalid api_proxy retry_policy values', () => {
     const result = validateV4Config({
       schema_version: '1.0',

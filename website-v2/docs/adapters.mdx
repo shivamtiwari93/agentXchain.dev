@@ -1,12 +1,12 @@
 ---
 sidebar_position: 4
 title: Adapters
-description: "Three adapters, one contract. manual, local_cli, and api_proxy explained."
+description: "Four adapters, one contract. manual, local_cli, mcp, and api_proxy explained."
 ---
 
 # Adapters
 
-Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, or a remote API — it only cares that the result conforms to the protocol.
+Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, or a remote API — it only cares that the result conforms to the protocol.
 
 ## Shared adapter contract
 
@@ -213,6 +213,68 @@ Default timeout when no turn deadline is set: **20 minutes** (1,200,000 ms).
 - QA turns with automated test runners
 - Any turn where a local tool can produce a valid turn result
 
+## mcp adapter
+
+The `mcp` adapter connects to a local Model Context Protocol server over stdio and calls one explicit governed-turn tool.
+
+:::info v1 scope
+This slice is **stdio only** and **tool-contract based**. AgentXchain does not claim that any arbitrary MCP server can execute a governed turn. The runtime is valid only when the target server exposes the configured tool (default: `agentxchain_turn`) and that tool returns a valid AgentXchain turn result.
+:::
+
+### How it works
+
+1. The orchestrator writes the dispatch bundle.
+2. The adapter spawns the configured MCP stdio server.
+3. The adapter initializes an MCP client connection and runs `tools/list`.
+4. It verifies that the configured tool exists.
+5. It calls that tool with governed turn metadata, dispatch file paths, and the rendered `PROMPT.md` and `CONTEXT.md` content.
+6. The tool returns the turn result either as `structuredContent` or JSON text in a text content block.
+7. The adapter stages that result at `.agentxchain/staging/<turn_id>/turn-result.json`.
+
+This is synchronous in v1, like `api_proxy`. There is no separate polling phase.
+
+### Required tool contract
+
+The MCP server must expose one tool named by `tool_name`. The default is `agentxchain_turn`.
+
+The adapter sends an argument object containing:
+
+- `run_id`, `turn_id`, `role`, `phase`, `runtime_id`
+- `project_root`, `dispatch_dir`, `assignment_path`, `prompt_path`, `context_path`, `staging_path`
+- `prompt` and `context` as rendered markdown strings
+
+The tool must return a valid turn-result object. The adapter stages it, then the normal orchestrator validation and acceptance flow runs unchanged.
+
+### Configuration
+
+```json title="agentxchain.json (excerpt)"
+{
+  "roles": {
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement approved work safely.",
+      "write_authority": "authoritative",
+      "runtime": "mcp-dev"
+    }
+  },
+  "runtimes": {
+    "mcp-dev": {
+      "type": "mcp",
+      "command": "node",
+      "args": ["./scripts/mcp-agent.js"],
+      "tool_name": "agentxchain_turn",
+      "cwd": "."
+    }
+  }
+}
+```
+
+### When to use
+
+- Local agent runtimes that already expose an MCP stdio server
+- Connector work where you want a governed turn contract over MCP instead of raw subprocess prompts
+- Tool-driven local integrations that can return structured turn output directly
+
 ## api_proxy adapter
 
 The api_proxy adapter calls an LLM API directly, handles retries, tracks token usage, and writes the staged result on behalf of the model.
@@ -364,14 +426,14 @@ Use an Anthropic runtime when you want local preflight tokenization. Use an Open
 
 ## Comparison table
 
-| Feature | manual | local_cli | api_proxy |
-|---------|--------|-----------|-----------|
-| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — API call runs autonomously |
-| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds |
-| **Cost** | Human time | Tool license + compute | API tokens |
-| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | HTTP request body |
-| **Retry logic** | N/A | Exit code based | Configurable exponential backoff with jitter |
-| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | HTTP timeout + retry policy |
-| **Cost tracking** | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
-| **Write authority** | Any | Any | `review_only` only (v1) |
-| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct Anthropic or OpenAI review calls |
+| Feature | manual | local_cli | mcp | api_proxy |
+|---------|--------|-----------|-----|-----------|
+| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — MCP tool call runs autonomously | Full — API call runs autonomously |
+| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds to minutes | Seconds |
+| **Cost** | Human time | Tool license + compute | Tool/runtime dependent | API tokens |
+| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | MCP stdio `tools/list` + `tools/call` | HTTP request body |
+| **Retry logic** | N/A | Exit code based | None in v1 | Configurable exponential backoff with jitter |
+| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy |
+| **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
+| **Write authority** | Any | Any | Any | `review_only` only (v1) |
+| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls |
