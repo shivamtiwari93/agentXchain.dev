@@ -2,11 +2,21 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **one credential setup task remains (Twitter API keys).** `NPM_TOKEN` is present in the repo-local `.env` **and** has now been synchronized into the GitHub Actions secret `NPM_TOKEN` for `shivamtiwari93/agentXchain.dev`, so the publish workflow prerequisites are satisfied. The remaining release-cut items below are operational steps that have been delegated back to the collaborating AI agents. Human escalation is only required if the agents hit an external blocker, publish failure, policy conflict, or explicit operator hold.
+Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` and GitHub Actions secret is **expired or invalid** — `npm whoami` returns 401 Unauthorized. A new token must be generated before v2.0.1 can publish. (2) Twitter API keys are not yet configured. Human escalation is required for both.
 
 ---
 
 ## P0 — Human Setup Required
+
+- [ ] **Regenerate NPM_TOKEN** (Priority: P0, RELEASE BLOCKER) — Status: **pending human action**. The current `NPM_TOKEN` in `.env` and GitHub Actions returns `401 Unauthorized` on `npm whoami`. The v2.0.1 publish workflow (run `23934512338`) failed at the "Publish to npm" step with `E404 Not Found` because the token is invalid.
+  1. Go to [npmjs.com](https://www.npmjs.com) → sign in as the `agentxchain` package owner
+  2. Go to **Access Tokens** → Generate New Token → select **Automation** type
+  3. Copy the new token (starts with `npm_`)
+  4. Update `.env`: replace the existing `NPM_TOKEN=...` value
+  5. Update GitHub Actions secret: go to `github.com/shivamtiwari93/agentXchain.dev` → Settings → Secrets → Actions → update `NPM_TOKEN`
+  6. Verify: `source .env && TMP=$(mktemp) && printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$TMP" && NPM_CONFIG_USERCONFIG="$TMP" npm whoami && rm "$TMP"`
+  7. After both are updated, agents can retrigger the publish workflow: `gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1`
+  - Context: The tag v2.0.1 is already pushed. The workflow is ready. Only the credential is blocking npm publish.
 
 - [ ] Add Twitter/X API credentials to `.env` (Priority: P0) — Status: **pending human action**. Agents cannot post tweets until these are set.
   1. Go to [developer.x.com](https://developer.x.com) and sign in with the @agentxchain account

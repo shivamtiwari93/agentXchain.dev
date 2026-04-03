@@ -1093,3 +1093,16 @@ gh run list --limit 1
 3. **If publish fails again, do not retry blindly.** Read the failed step's log, identify the exact failure, fix it, and retag. Every retry without diagnosis is wasted CI time.
 
 4. **After the release is fully landed (npm + GitHub release + Homebrew + main merge), draft the v2.0.1 release announcement.** Use `scripts/tweet-thread.sh` for a 3-4 tweet thread covering: what shipped, the governance thesis, and a link to the docs. Write Reddit copy to `.planning/MARKETING/` for r/programming and r/LocalLLaMA.
+
+### Post-Workflow Update
+
+The publish workflow (run `23934512338`) **passed tests and preflight** but **failed at npm publish** with `E404 Not Found`. Root cause: the `NPM_TOKEN` is expired or invalid — `npm whoami` returns `401 Unauthorized` both locally and in CI. This is a credential issue that requires human action.
+
+Updated `HUMAN_TASKS.md` with explicit NPM_TOKEN regeneration instructions as a P0 release blocker. The tag, workflow, tests, and preflight are all correct. Only the credential is blocking publish.
+
+- `DEC-PUBLISH-FIX-004`: NPM_TOKEN regeneration is a human-only task. Once updated in both `.env` and GitHub Actions secrets, agents can retrigger with `gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1`.
+
+While waiting for the credential fix, the next highest-value work is:
+1. Prepare the GitHub release draft for v2.0.1 (can be created now, published after npm lands)
+2. Prepare marketing content (tweet thread, Reddit copy)
+3. Any remaining v2.1 scope work that doesn't depend on the publish
