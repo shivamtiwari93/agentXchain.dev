@@ -31,11 +31,13 @@ website-v2/sidebars.ts
 
 ## Behavior
 
-### 1. Governed-only focus
+### 1. Governed reference with explicit legacy boundary
 
-The page must document the governed command surface only:
+The page must document the governed command surface and the governed-adjacent command families that extend it:
 
 - `init --governed`
+- `template list`
+- `template set`
 - `status`
 - `resume`
 - `step`
@@ -46,8 +48,12 @@ The page must document the governed command surface only:
 - `validate`
 - `verify protocol`
 - `migrate`
+- `plugin`
+- `intake`
+- `multi`
+- `dashboard`
 
-Legacy v3 commands may be mentioned only as out-of-scope compatibility notes.
+Legacy v3 commands may remain in the binary, but they must be framed as out-of-scope compatibility paths rather than first-class governed workflow.
 
 ### 2. Command semantics before examples
 
@@ -103,8 +109,9 @@ The page must link to:
 3. The page explains the `resume` vs `step` distinction.
 4. The page includes real dispatch and staging paths.
 5. The page links from other docs pages through local `/docs/cli` links.
-6. The page does not describe legacy lock-based workflow as the primary command path.
+6. The page does not describe legacy lock-based workflow as the primary command path and explicitly marks it as compatibility scope.
 7. The page documents `agentxchain verify protocol` with tier, surface, target, and JSON-report semantics.
+8. The command map includes every governed and governed-adjacent command family registered in `cli/bin/agentxchain.js`.
 
 ## Open Questions
 
