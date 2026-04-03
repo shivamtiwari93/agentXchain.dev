@@ -27,6 +27,7 @@ import {
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle, getDispatchTurnDir, getTurnStagingResultPath } from '../lib/dispatch-bundle.js';
+import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -206,6 +207,16 @@ export async function resumeCommand(opts) {
     if (!afterDispatchResult.ok) {
       process.exit(1);
     }
+  }
+
+  // Finalize dispatch manifest (seals bundle after hooks)
+  const manifestResult = finalizeDispatchManifest(root, turn.turn_id, {
+    run_id: state.run_id,
+    role: turn.assigned_role,
+  });
+  if (!manifestResult.ok) {
+    console.log(chalk.red(`Failed to finalize dispatch manifest: ${manifestResult.error}`));
+    process.exit(1);
   }
 
   printDispatchSummary(state, config);

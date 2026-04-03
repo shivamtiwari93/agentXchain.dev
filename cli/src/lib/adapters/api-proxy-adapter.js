@@ -38,6 +38,7 @@ import {
   getTurnStagingDir,
   getTurnStagingResultPath,
 } from '../turn-paths.js';
+import { verifyDispatchManifest } from '../dispatch-manifest.js';
 
 // Provider endpoint registry
 const PROVIDER_ENDPOINTS = {
@@ -680,11 +681,20 @@ function errorReturn(root, turnId, classified, extras = {}) {
  * @returns {Promise<{ ok: boolean, error?: string, classified?: ApiProxyError, usage?: object, staged?: boolean }>}
  */
 export async function dispatchApiProxy(root, state, config, options = {}) {
-  const { signal, onStatus, turnId } = options;
+  const { signal, onStatus, turnId, verifyManifest = false } = options;
 
   const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
+  }
+
+  // Verify dispatch manifest before consuming bundle files (enabled by step command)
+  if (verifyManifest) {
+    const manifestCheck = verifyDispatchManifest(root, turn.turn_id);
+    if (!manifestCheck.ok) {
+      const errorDetail = manifestCheck.errors.map((e) => `${e.type}: ${e.detail}`).join('; ');
+      return { ok: false, error: `Dispatch manifest verification failed: ${errorDetail}` };
+    }
   }
 
   const roleId = turn.assigned_role;

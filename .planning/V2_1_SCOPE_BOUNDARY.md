@@ -56,7 +56,7 @@ The v2.1 surface touches four operator-facing areas:
 
 ### V2.1-F1: Dispatch Manifest Integrity
 
-**Status:** Defined, not implemented.
+**Status:** Implemented and tested. 17 tests across 11 suites (AT-V21-001 through AT-V21-003, AT-V21-MANIFEST-001 through 003, plus unit and integration tests).
 
 **Scope:**
 - Each finalized dispatch bundle writes `MANIFEST.json` containing:

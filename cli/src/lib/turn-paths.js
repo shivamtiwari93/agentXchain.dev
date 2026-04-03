@@ -31,6 +31,10 @@ export function getDispatchEffectiveContextPath(turnId) {
   return `${getDispatchTurnDir(turnId)}/CONTEXT.effective.md`;
 }
 
+export function getDispatchManifestPath(turnId) {
+  return `${getDispatchTurnDir(turnId)}/MANIFEST.json`;
+}
+
 export function getDispatchLogPath(turnId) {
   return `${getDispatchTurnDir(turnId)}/stdout.log`;
 }

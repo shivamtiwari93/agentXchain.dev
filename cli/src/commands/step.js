@@ -57,6 +57,7 @@ import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import { safeWriteJson } from '../lib/safe-write.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
+import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -339,6 +340,18 @@ export async function stepCommand(opts) {
     }
   }
 
+  // ── Phase 2b: Finalize dispatch manifest ────────────────────────────────
+  if (bundleWritten) {
+    const manifestResult = finalizeDispatchManifest(root, turn.turn_id, {
+      run_id: state.run_id,
+      role: roleId,
+    });
+    if (!manifestResult.ok) {
+      console.log(chalk.red(`Failed to finalize dispatch manifest: ${manifestResult.error}`));
+      process.exit(1);
+    }
+  }
+
   const controller = new AbortController();
   process.on('SIGINT', () => {
     controller.abort();
@@ -351,6 +364,7 @@ export async function stepCommand(opts) {
     const apiResult = await dispatchApiProxy(root, state, config, {
       signal: controller.signal,
       onStatus: (msg) => console.log(chalk.dim(`  ${msg}`)),
+      verifyManifest: true,
     });
 
     if (!apiResult.ok) {
@@ -432,6 +446,7 @@ export async function stepCommand(opts) {
       signal: controller.signal,
       onStdout: opts.verbose ? (text) => process.stdout.write(chalk.dim(text)) : undefined,
       onStderr: opts.verbose ? (text) => process.stderr.write(chalk.yellow(text)) : undefined,
+      verifyManifest: true,
     });
 
     // Save logs for auditability

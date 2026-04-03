@@ -28,6 +28,7 @@ import {
   getTurnStagingDir,
   getTurnStagingResultPath,
 } from '../turn-paths.js';
+import { verifyDispatchManifest } from '../dispatch-manifest.js';
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -45,11 +46,20 @@ import {
  * @returns {Promise<{ ok: boolean, exitCode?: number, timedOut?: boolean, aborted?: boolean, error?: string, logs?: string[] }>}
  */
 export async function dispatchLocalCli(root, state, config, options = {}) {
-  const { signal, onStdout, onStderr, turnId } = options;
+  const { signal, onStdout, onStderr, turnId, verifyManifest = false } = options;
 
   const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
+  }
+
+  // Verify dispatch manifest before consuming bundle files (enabled by step command)
+  if (verifyManifest) {
+    const manifestCheck = verifyDispatchManifest(root, turn.turn_id);
+    if (!manifestCheck.ok) {
+      const errorDetail = manifestCheck.errors.map((e) => `${e.type}: ${e.detail}`).join('; ');
+      return { ok: false, error: `Dispatch manifest verification failed: ${errorDetail}` };
+    }
   }
 
   const runtimeId = turn.runtime_id;
