@@ -1,21 +1,23 @@
 ---
 title: Continuous Delivery Intake
-description: "Repo-native intake for continuous governed delivery: record signals, triage intents, and inspect backlog state."
+description: "Repo-native intake for continuous governed delivery: record signals, triage work, approve intent, generate planning artifacts, and inspect backlog state."
 ---
 
 # Continuous Delivery Intake
 
 Continuous governed delivery starts before any agent writes code. The intake surface turns delivery signals into repo-native artifacts that can be triaged, challenged, and governed without inventing a hosted control plane.
 
-This is the v3 entrypoint that exists today. It records signals, creates delivery intents, and exposes triage/status workflows. It does **not** auto-start implementation, auto-approve work, or bypass human authority.
+This is the v3 entrypoint that exists today. It records signals, creates delivery intents, exposes triage and approval workflows, and generates execution-ready planning artifacts. It does **not** auto-start implementation or bypass human authority.
 
 ## What ships today
 
-The current CLI surface is three commands:
+The current CLI surface is five commands:
 
 ```bash
 agentxchain intake record
 agentxchain intake triage
+agentxchain intake approve
+agentxchain intake plan
 agentxchain intake status
 ```
 
@@ -23,7 +25,6 @@ What is intentionally **not** shipped yet:
 
 - `agentxchain intake scan`
 - `agentxchain intake start`
-- CLI transitions into `approved` or `planned`
 
 Those belong to later v3 slices. Do not claim those commands exist unless the repo actually ships them.
 
@@ -164,7 +165,7 @@ agentxchain intake triage \
   "schema_version": "1.0",
   "intent_id": "intent_1712173200000_c3d4",
   "event_id": "evt_1712173200000_a1b2",
-  "status": "triaged",
+  "status": "planned",
   "priority": "p1",
   "template": "cli-tool",
   "charter": "Stabilize the published install smoke contract",
@@ -172,10 +173,16 @@ agentxchain intake triage \
     "tarball installs by explicit path",
     "docs match release proof"
   ],
+  "approved_by": "release-manager",
+  "planning_artifacts": [
+    ".planning/command-surface.md",
+    ".planning/platform-support.md",
+    ".planning/distribution-checklist.md"
+  ],
   "requires_human_start": true,
   "target_run": null,
   "created_at": "2026-04-03T20:10:00Z",
-  "updated_at": "2026-04-03T20:15:00Z",
+  "updated_at": "2026-04-03T20:18:00Z",
   "history": [
     {
       "from": null,
@@ -188,30 +195,92 @@ agentxchain intake triage \
       "to": "triaged",
       "at": "2026-04-03T20:15:00Z",
       "reason": "triage completed"
+    },
+    {
+      "from": "triaged",
+      "to": "approved",
+      "at": "2026-04-03T20:16:00Z",
+      "reason": "critical release regression",
+      "approver": "release-manager"
+    },
+    {
+      "from": "approved",
+      "to": "planned",
+      "at": "2026-04-03T20:18:00Z",
+      "reason": "generated 3 planning artifact(s) from template \"cli-tool\"",
+      "artifacts": [
+        ".planning/command-surface.md",
+        ".planning/platform-support.md",
+        ".planning/distribution-checklist.md"
+      ]
     }
   ]
 }
 ```
 
+## `intake approve`
+
+Use `intake approve` to move a triaged intent through the authorization gate.
+
+```bash
+agentxchain intake approve \
+  --intent intent_1712173200000_c3d4 \
+  --approver release-manager \
+  --reason "critical release regression"
+```
+
+Approval is not triage with different wording. It is the explicit transition from classified work to authorized work.
+
+Current approval action:
+
+- `triaged -> approved`
+
+`approved` still does not start a governed run. It only means the intent may proceed to planning.
+
+## `intake plan`
+
+Use `intake plan` to materialize template-backed planning artifacts and transition an approved intent to `planned`.
+
+```bash
+agentxchain intake plan \
+  --intent intent_1712173200000_c3d4 \
+  --project-name AgentXchain \
+  --json
+```
+
+Current planning action:
+
+- `approved -> planned`
+
+Planning behavior is template-aware:
+
+- `cli-tool`, `api-service`, and `web-app` can generate `.planning/` artifacts from the governed template manifest
+- `generic` is valid and may generate zero planning artifacts
+- if any target artifact already exists, planning fails atomically unless `--force` is supplied
+
+`planned` means execution-ready. It does **not** mean execution has started.
+
 ## State machine: shipped vs deferred
 
-The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface is narrower.
+The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 plus S2.
 
 ### Implemented now
 
 ```text
 detected -> triaged
 detected -> suppressed
+triaged -> approved
 triaged -> rejected
+approved -> planned
 ```
 
 ### Defined in v3 scope, not exposed yet
 
 ```text
-triaged -> approved -> planned
+planned -> executing
 ```
 
-That distinction matters. The repo currently stores `requires_human_start: true`, but there is no `intake approve` or `intake plan` command yet. Public docs that blur those boundaries are lying.
+That distinction matters. The repo currently stores `requires_human_start: true` and leaves `target_run` as `null` after planning. There is still no `intake start` command, so a planned intent is prepared work, not running work.
 
 ## `intake status`
 
@@ -246,8 +315,8 @@ Detail mode returns:
 Intake is an entrypoint, not a loophole.
 
 - recording an event does not create a governed run
-- triaging an intent does not authorize code execution
-- the current CLI does not auto-promote intents into `approved` or `planned`
+- approving or planning an intent does not create a governed run
+- `planned` is not the same thing as `executing`
 - the future continuous loop still has to respect explicit approval transitions
 
 If you want automatic code-writing execution from repo signals, that is a later governance decision, not a default.

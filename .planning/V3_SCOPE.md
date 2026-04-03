@@ -101,9 +101,11 @@ Stored at `.agentxchain/intake/loop-state.json`.
 The first v3 command family:
 
 - `agentxchain intake record --file <event.json>`
-- `agentxchain intake scan --source <manual|ci|git|schedule>`
 - `agentxchain intake triage [--intent <id>]`
+- `agentxchain intake approve --intent <id>`
+- `agentxchain intake plan --intent <id>`
 - `agentxchain intake status [--json]`
+- `agentxchain intake scan --source <manual|ci|git|schedule>`
 - `agentxchain intake start --intent <id>`
 
 These commands create and govern intake artifacts. They do not bypass the existing run engine.
@@ -191,7 +193,7 @@ The intake loop may create events and intents automatically. It may not start co
 
 ### 2. Intent Creation Is Template-Aware
 
-When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `web-app`). For unmapped signals, the safe fallback is `generic`. Template-specific planning artifact creation is part of the approval/planning slice, not the currently shipped intake commands.
+When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `web-app`). For unmapped signals, the safe fallback is `generic`. Template-specific planning artifact creation is now part of the shipped approval/planning slice.
 
 ### 3. Runs Remain The Execution Boundary
 
@@ -207,35 +209,55 @@ Trigger events, intents, and observation evidence live in repo files. No hosted 
 
 ---
 
-## First Implementable Slice
+## Delivery Slices
 
-### V3-S1: Repo-Native Intake And Governed Triage
+### V3-S1 (shipped): Repo-Native Intake And Governed Triage
 
-This is the first slice worth building. Anything more ambitious first is sloppy.
-
-**In scope:**
+**Shipped scope:**
 
 - intake artifact directories under `.agentxchain/intake/`
 - `agentxchain intake record`
 - `agentxchain intake triage`
 - `agentxchain intake status`
 - delivery-intent state machine for `detected -> triaged`, plus terminal `suppressed` / `rejected`
-- acceptance tests for event ingestion, duplicate suppression, invalid source rejection, and triage-state transitions
 
-**Why this slice first:**
+### V3-S2 (shipped): Approval And Planning Artifact Generation
 
-- It creates the continuous loop entrypoint without pretending observability or auto-release already exist.
-- It reuses the current governed runner instead of inventing parallel orchestration.
-- It directly advances the agent-native SDLC vision by making backlog generation and planning a governed, testable surface.
+**Shipped scope:**
 
-**Not in slice 1:**
+- `agentxchain intake approve`
+- `agentxchain intake plan`
+- `triaged -> approved -> planned`
+- governed-template-backed `.planning/` artifact generation
+- atomic artifact-conflict rejection with `--force` override
 
-- no approval or planning transition command yet
-- no template-artifact generation yet
-- no automatic run start from CI signals
-- no automated release approval
+### V3-S3 (next): Planned Intent To Governed Run Start
+
+This is the next slice worth implementing. Anything broader is sloppy because the missing bridge is now obvious: planned work still has no truthful handoff into the governed run engine.
+
+The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.md`.
+
+**In scope:**
+
+- `agentxchain intake start --intent <id>`
+- `planned -> executing` transition
+- linkage from intake intent to governed `run_id` and first `turn_id`
+- reuse of the existing governed run engine and dispatch bundle machinery
+- deterministic rejection when the project is already busy, completed, blocked, or missing recorded planning artifacts
+
+**Why this slice next:**
+
+- It closes the gap between backlog preparation and governed execution.
+- It makes `target_run` real instead of dead schema weight.
+- It advances continuous governed delivery without smuggling in auto-execution from raw signals.
+
+**Explicitly not in slice 3:**
+
+- no background daemon that auto-starts intents from CI or schedule signals
+- no multi-intent scheduler
+- no post-completion run recycling
+- no release approval automation
 - no production or incident integrations
-- no background daemon that mutates repos continuously
 
 ---
 
@@ -256,7 +278,7 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 1. Duplicate event payload for the same external signal: must be deduplicated or linked, not create unbounded duplicate intents.
 2. Intake event missing source-specific evidence: triage fails with a deterministic validation error.
 3. Explicit template override invalid or missing template manifest: triage fails with a deterministic validation error.
-4. Future approval/planning slice must reject any attempt to enter `planned` without generated planning artifacts.
+4. Future start slice must reject any attempt to enter `executing` when recorded planning artifacts are missing on disk.
 5. Observation signal for unknown released intent: creates a new `detected` event, not an orphaned reopen transition.
 
 ---
@@ -266,9 +288,12 @@ This is the first slice worth building. Anything more ambitious first is sloppy.
 1. `AT-V3-INTAKE-001`: valid `manual` event records under `.agentxchain/intake/events/` and appears in `intake status`.
 2. `AT-V3-INTAKE-002`: duplicate `ci_failure` event does not create a second active intent.
 3. `AT-V3-INTAKE-003`: triage assigns priority, template, and acceptance contract before leaving `detected`.
-4. `AT-V3-INTAKE-004`: `intake status --intent <id>` returns the linked source event plus intent history.
-5. `AT-V3-INTAKE-005`: invalid source-specific payload is rejected with a deterministic error.
-6. `AT-V3-INTAKE-006`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
+4. `AT-V3-INTAKE-004`: `intake approve` records approver identity and transitions `triaged -> approved`.
+5. `AT-V3-INTAKE-005`: `intake plan` generates template-backed planning artifacts and transitions `approved -> planned`.
+6. `AT-V3-INTAKE-006`: `intake status --intent <id>` returns the linked source event plus intent history.
+7. `AT-V3-INTAKE-007`: invalid source-specific payload is rejected with a deterministic error.
+8. `AT-V3-INTAKE-008`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
+9. `AT-V3-INTAKE-009`: future `intake start` must set `target_run` and transition `planned -> executing` without waiting for turn completion.
 
 ---
 

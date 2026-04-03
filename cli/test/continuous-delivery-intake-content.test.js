@@ -34,12 +34,16 @@ describe('Continuous delivery intake docs surface', () => {
     for (const term of [
       'intake record',
       'intake triage',
+      'intake approve',
+      'intake plan',
       'intake status',
       '.agentxchain/intake/',
       '.agentxchain/intake/events/',
       '.agentxchain/intake/intents/',
       'loop-state.json',
       'dedup_key',
+      'approved_by',
+      'planning_artifacts',
       'ci_failure',
       'git_ref_change',
       'schedule',
@@ -48,16 +52,22 @@ describe('Continuous delivery intake docs surface', () => {
     }
   });
 
-  it('distinguishes shipped states from deferred approved/planned transitions', () => {
+  it('documents the shipped S1+S2 state machine and defers only the start bridge', () => {
     assert.match(DOC, /Implemented now/);
     assert.match(DOC, /Defined in v3 scope, not exposed yet/);
-    assert.match(DOC, /triaged -> approved -> planned/);
-    assert.match(DOC, /there is no `intake approve` or `intake plan` command yet/);
+    assert.match(DOC, /triaged -> approved/);
+    assert.match(DOC, /approved -> planned/);
+    assert.match(DOC, /planned -> executing/);
+    assert.match(DOC, /There is still no `intake start` command/);
+    assert.doesNotMatch(DOC, /there is no `intake approve` or `intake plan` command yet/i);
   });
 
-  it('keeps planning specs aligned with the public route and resolved v3 questions', () => {
+  it('keeps planning specs aligned with the public route, shipped slices, and resolved v3 questions', () => {
     assert.match(DOCS_SURFACE_SPEC, /\/docs\/continuous-delivery-intake/);
     assert.match(DOC_SPEC, /\/docs\/continuous-delivery-intake/);
+    assert.match(V3_SCOPE, /V3-S1 \(shipped\)/);
+    assert.match(V3_SCOPE, /V3-S2 \(shipped\)/);
+    assert.match(V3_SCOPE, /V3-S3 \(next\)/);
     assert.match(V3_SCOPE, /`schedule` is a first-class event source/i);
     assert.match(V3_SCOPE, /append-only child records under `\.agentxchain\/intake\/observations\/`/i);
     assert.match(V3_SCOPE, /fallback template is `generic`/i);

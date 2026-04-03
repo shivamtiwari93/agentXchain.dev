@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Publish a truthful operator and implementor guide for the repo-native intake surface at `/docs/continuous-delivery-intake`. This page explains how continuous governed delivery enters the system today: signals become repo-local intake events, events become delivery intents, and operators triage those intents without bypassing constitutional gates.
+Publish a truthful operator and implementor guide for the repo-native intake surface at `/docs/continuous-delivery-intake`. This page explains how continuous governed delivery enters the system today: signals become repo-local intake events, events become delivery intents, operators triage and approve those intents, and template-backed planning artifacts prepare work without bypassing constitutional gates.
 
 ## Interface
 
@@ -20,9 +20,11 @@ Publish a truthful operator and implementor guide for the repo-native intake sur
 The page must document the shipped intake contract, not the aspirational v3 backlog:
 
 1. Explain intake as the continuous governed delivery entrypoint for repo-native signals.
-2. Document the three implemented commands:
+2. Document the five implemented commands:
    - `agentxchain intake record`
    - `agentxchain intake triage`
+   - `agentxchain intake approve`
+   - `agentxchain intake plan`
    - `agentxchain intake status`
 3. Document the actual artifact layout:
    - `.agentxchain/intake/events/<event_id>.json`
@@ -33,27 +35,34 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - dedup key derived from `source` plus sorted `signal`
    - duplicate events are idempotent and return the existing event and intent
 6. Distinguish current shipped states from broader v3 direction:
-   - implemented now: `detected`, `triaged`, `suppressed`, `rejected`
-   - defined in broader v3 scope but not yet exposed by the CLI: `approved`, `planned`
-7. Explicitly state the governance boundary:
+   - implemented now: `detected`, `triaged`, `approved`, `planned`, `suppressed`, `rejected`
+   - defined in broader v3 scope but not yet exposed by the CLI: `executing`
+7. Document the planning-artifact contract:
+   - `intake approve` is the authorization gate
+   - `intake plan` loads the governed template manifest for `intent.template`
+   - planning fails atomically on artifact conflicts unless `--force` is supplied
+   - `generic` is valid even when it yields zero planning artifacts
+8. Explicitly state the governance boundary:
    - intake does not auto-start code-writing execution
+   - `planned` is not the same thing as `executing`
    - `intake scan` and `intake start` are not shipped yet
 
 ## Error Cases
 
-- The page must not claim `approved` or `planned` transitions are implemented in the current CLI surface.
 - The page must not document `intake scan` or `intake start` as available commands.
 - The page must not describe deduplication as a best-effort heuristic; it is deterministic and idempotent.
+- The page must not imply that `intake plan` creates or resumes a governed run.
 
 ## Acceptance Tests
 
 - [ ] AT-1: `website-v2/docs/continuous-delivery-intake.mdx` exists
 - [ ] AT-2: `website-v2/sidebars.ts` includes a `Continuous Delivery` section with the intake page
-- [ ] AT-3: The page documents `intake record`, `intake triage`, `intake status`, and `.agentxchain/intake/`
+- [ ] AT-3: The page documents `intake record`, `intake triage`, `intake approve`, `intake plan`, `intake status`, and `.agentxchain/intake/`
 - [ ] AT-4: The page documents the dedup key contract and idempotent duplicate behavior
-- [ ] AT-5: The page distinguishes shipped states from deferred `approved` / `planned` transitions
+- [ ] AT-5: The page distinguishes shipped `approved` / `planned` transitions from deferred `planned -> executing`
 - [ ] AT-6: `.planning/DOCS_SURFACE_SPEC.md` lists `/docs/continuous-delivery-intake`
+- [ ] AT-7: The page documents `approved_by`, `planning_artifacts`, and the artifact-conflict rule
 
 ## Open Questions
 
-- Q1: When `approved` and `planned` transitions ship, do they belong under `intake triage` flags or a separate `intake approve` / `intake plan` command family?
+None. `DEC-V3S2-IMPL-001` settled the command split, and the page should reflect that durable contract.

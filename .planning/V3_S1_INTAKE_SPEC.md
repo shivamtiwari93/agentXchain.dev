@@ -272,4 +272,4 @@ If a new event's dedup key matches an existing event, `intake record` returns th
 ## Open Questions
 
 1. Should `intake record` accept `--category` as an optional override, or should category always be derived from source type?
-2. When approval/planning transitions land, should they extend `intake triage` or ship as dedicated `intake approve` / `intake plan` commands?
+2. Resolved by S2: approval and planning ship as dedicated `intake approve` and `intake plan` commands, not as `intake triage` flags.
