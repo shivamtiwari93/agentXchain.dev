@@ -67,7 +67,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 - **Deferred to v2.1.** Current tamper detection protects existing files in protected paths via pre-hook snapshot + post-hook comparison. It does NOT detect newly created files in dispatch bundle directories by hooks. This is a real gap — a hook could drop a file into a dispatch dir that the adapter would consume as if it were coordinator-generated. However:
   - The attack surface is limited: hooks run as operator-configured processes, not as untrusted third-party code
   - The mitigation for v2 is documentation: hooks MUST NOT create files in dispatch bundle directories. The coordinator logs a warning if it detects unexpected files in the dispatch dir at dispatch time.
-  - v2.1 adds a content-addressed manifest of dispatch bundle files at generation time, and the adapter rejects any file not in the manifest.
+  - v2.1 adds a content-addressed manifest of dispatch bundle files at bundle finalization time, and the adapter rejects any file not in the manifest. See `V2_1_SCOPE_BOUNDARY.md` for the exact contract.
 
 ### V2-F4: Plugin System — Organization Integrations (Phase 1)
 
@@ -154,7 +154,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 | v1.0.0 | Single-repo governed sequential + 3 adapters + hooks + templates | Clean tree, test baseline, npm publish |
 | v1.1.0 | Parallel turns, api_proxy retry/tokenization, blocked state | v1.0.0 published, checklist complete |
 | v2.0.0 | Multi-repo coordinator + dashboard integration + plugin system phase 1 + protocol spec v6 + context invalidation payloads | v1.1.0 stable, multi-repo integration tests with live adapters |
-| v2.1.0 | Content-addressed dispatch manifests, plugin ecosystem hardening | v2.0.0 feedback cycle |
+| v2.1.0 | Dispatch manifest integrity, hook/plugin hardening, dashboard evidence drill-down | v2.0.0 feedback cycle |
 | v3.0.0 | Cloud dashboard, managed adapters, continuous delivery loop | v2.x stable, agentxchain.ai infrastructure |
 
 ---
