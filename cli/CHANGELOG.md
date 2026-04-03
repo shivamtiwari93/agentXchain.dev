@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.1
+
+Corrective release to recover the v2.0.0 publish path.
+
+### Fixes
+
+- Fix CI test portability: explicit `chmodSync` for hook scripts, git user config in CI environments
+- Harden hook test concurrency: disable parallel execution in stateful hook test suites
+- Ignore benign `EPIPE` from hook stdin when child exits zero without consuming input
+- Configure trusted publishing (OIDC) as fallback auth in publish workflow
+- Fix `publish-from-tag` test for dual-auth (NPM_TOKEN + OIDC) script behavior
+
 ## 2.0.0
 
 This release subsumes all features from the unpublished `0.9.0`, `1.0.0`, and `1.1.0` development milestones.
