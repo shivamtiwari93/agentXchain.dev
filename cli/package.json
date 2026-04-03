@@ -15,7 +15,9 @@
   ],
   "scripts": {
     "dev": "node bin/agentxchain.js",
-    "test": "node --test test/*.test.js",
+    "test": "npm run test:vitest && npm run test:node",
+    "test:vitest": "vitest run --reporter=verbose",
+    "test:node": "node --test test/*.test.js",
     "preflight:release": "bash scripts/release-preflight.sh",
     "preflight:release:strict": "bash scripts/release-preflight.sh --strict",
     "build:macos": "bun build bin/agentxchain.js --compile --target=bun-darwin-arm64 --outfile=dist/agentxchain-macos-arm64",
@@ -53,5 +55,8 @@
   },
   "engines": {
     "node": ">=18.17.0 || >=20.5.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.2"
   }
 }
