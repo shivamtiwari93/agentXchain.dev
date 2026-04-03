@@ -247,6 +247,117 @@ export function validateProjectPlanningArtifacts(root, templateId) {
   };
 }
 
+const TEMPLATE_GUIDANCE_HEADER = '## Template Guidance';
+
+export function validateAcceptanceHintCompletion(root, templateId) {
+  const effectiveTemplateId = templateId || 'generic';
+  const errors = [];
+  const warnings = [];
+
+  let manifest;
+  try {
+    manifest = loadGovernedTemplate(effectiveTemplateId);
+  } catch {
+    return {
+      ok: true,
+      template: effectiveTemplateId,
+      total: 0,
+      checked: 0,
+      unchecked: 0,
+      missing_file: false,
+      missing_section: false,
+      unchecked_hints: [],
+      errors,
+      warnings: ['Template could not be loaded; acceptance hint check skipped.'],
+    };
+  }
+
+  const hints = manifest.acceptance_hints || [];
+  if (hints.length === 0) {
+    return {
+      ok: true,
+      template: effectiveTemplateId,
+      total: 0,
+      checked: 0,
+      unchecked: 0,
+      missing_file: false,
+      missing_section: false,
+      unchecked_hints: [],
+      errors,
+      warnings,
+    };
+  }
+
+  const matrixPath = join(root, '.planning', 'acceptance-matrix.md');
+  if (!existsSync(matrixPath)) {
+    warnings.push('acceptance-matrix.md not found; cannot verify template acceptance hints.');
+    return {
+      ok: true,
+      template: effectiveTemplateId,
+      total: hints.length,
+      checked: 0,
+      unchecked: hints.length,
+      missing_file: true,
+      missing_section: false,
+      unchecked_hints: [...hints],
+      errors,
+      warnings,
+    };
+  }
+
+  const matrixContent = readFileSync(matrixPath, 'utf8');
+  const sectionIndex = matrixContent.indexOf(TEMPLATE_GUIDANCE_HEADER);
+  if (sectionIndex === -1) {
+    warnings.push('acceptance-matrix.md has no "## Template Guidance" section; cannot verify template acceptance hints.');
+    return {
+      ok: true,
+      template: effectiveTemplateId,
+      total: hints.length,
+      checked: 0,
+      unchecked: hints.length,
+      missing_file: false,
+      missing_section: true,
+      unchecked_hints: [...hints],
+      errors,
+      warnings,
+    };
+  }
+
+  // Parse the Template Guidance section for checked/unchecked items
+  const sectionContent = matrixContent.slice(sectionIndex);
+  const checkedPattern = /^- \[x\]\s+(.+)$/gim;
+  const checkedTexts = new Set();
+  let match;
+  while ((match = checkedPattern.exec(sectionContent)) !== null) {
+    checkedTexts.add(match[1].trim());
+  }
+
+  const uncheckedHints = [];
+  let checkedCount = 0;
+
+  for (const hint of hints) {
+    if (checkedTexts.has(hint)) {
+      checkedCount++;
+    } else {
+      uncheckedHints.push(hint);
+      warnings.push(`Acceptance hint unchecked: "${hint}"`);
+    }
+  }
+
+  return {
+    ok: true,
+    template: effectiveTemplateId,
+    total: hints.length,
+    checked: checkedCount,
+    unchecked: uncheckedHints.length,
+    missing_file: false,
+    missing_section: false,
+    unchecked_hints: uncheckedHints,
+    errors,
+    warnings,
+  };
+}
+
 export function validateGovernedProjectTemplate(templateId, source = 'agentxchain.json') {
   const effectiveTemplateId = templateId || 'generic';
   const effectiveSource = templateId ? source : 'implicit_default';

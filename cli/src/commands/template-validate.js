@@ -6,6 +6,7 @@ import {
   validateGovernedProjectTemplate,
   validateGovernedTemplateRegistry,
   validateProjectPlanningArtifacts,
+  validateAcceptanceHintCompletion,
 } from '../lib/governed-templates.js';
 
 function loadProjectTemplateValidation() {
@@ -56,6 +57,12 @@ export function templateValidateCommand(opts = {}) {
     planningArtifacts = validateProjectPlanningArtifacts(project.root, project.template);
   }
 
+  // Acceptance hint completion check
+  let acceptanceHints = null;
+  if (project.present && project.ok && project.root) {
+    acceptanceHints = validateAcceptanceHintCompletion(project.root, project.template);
+  }
+
   const errors = [
     ...registry.errors,
     ...project.errors,
@@ -65,6 +72,7 @@ export function templateValidateCommand(opts = {}) {
     ...registry.warnings,
     ...project.warnings,
     ...(planningArtifacts?.warnings || []),
+    ...(acceptanceHints?.warnings || []),
   ];
   const ok = errors.length === 0;
 
@@ -73,6 +81,7 @@ export function templateValidateCommand(opts = {}) {
     registry,
     project,
     planning_artifacts: planningArtifacts,
+    acceptance_hints: acceptanceHints,
     errors,
     warnings,
   };
@@ -109,11 +118,20 @@ export function templateValidateCommand(opts = {}) {
       const total = planningArtifacts.expected.length;
       const found = planningArtifacts.present.length;
       if (total === 0) {
-        console.log(`  ${chalk.dim('Planning:')} ${chalk.green('OK')} (no template artifacts required)`);
+        console.log(`  ${chalk.dim('Planning:')}   ${chalk.green('OK')} (no template artifacts required)`);
       } else if (planningArtifacts.ok) {
-        console.log(`  ${chalk.dim('Planning:')} ${chalk.green('OK')} (${found}/${total} present)`);
+        console.log(`  ${chalk.dim('Planning:')}   ${chalk.green('OK')} (${found}/${total} present)`);
       } else {
-        console.log(`  ${chalk.dim('Planning:')} ${chalk.red('FAIL')} (${planningArtifacts.missing.length}/${total} missing: ${planningArtifacts.missing.join(', ')})`);
+        console.log(`  ${chalk.dim('Planning:')}   ${chalk.red('FAIL')} (${planningArtifacts.missing.length}/${total} missing: ${planningArtifacts.missing.join(', ')})`);
+      }
+    }
+    if (acceptanceHints) {
+      if (acceptanceHints.total === 0) {
+        console.log(`  ${chalk.dim('Acceptance:')} ${chalk.green('OK')} (no template hints defined)`);
+      } else if (acceptanceHints.unchecked === 0) {
+        console.log(`  ${chalk.dim('Acceptance:')} ${chalk.green('OK')} (${acceptanceHints.checked}/${acceptanceHints.total} checked)`);
+      } else {
+        console.log(`  ${chalk.dim('Acceptance:')} ${chalk.yellow('WARN')} (${acceptanceHints.unchecked}/${acceptanceHints.total} unchecked)`);
       }
     }
   } else {

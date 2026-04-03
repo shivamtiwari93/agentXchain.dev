@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import {
   validateGovernedTemplateRegistry,
   validateProjectPlanningArtifacts,
+  validateAcceptanceHintCompletion,
 } from '../src/lib/governed-templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -252,6 +253,160 @@ describe('planning artifact completeness validation', () => {
 
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.planning_artifacts, null);
+  });
+});
+
+describe('acceptance hint completion validation', () => {
+  it('AT-HINT-001: library project with all hints checked → no warnings', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      // Check all hints in acceptance-matrix.md
+      const matrixPath = join(projectDir, '.planning', 'acceptance-matrix.md');
+      let content = readFileSync(matrixPath, 'utf8');
+      content = content.replace(/- \[ \]/g, '- [x]');
+      writeFileSync(matrixPath, content);
+
+      const result = validateAcceptanceHintCompletion(projectDir, 'library');
+      assert.equal(result.total, 3);
+      assert.equal(result.checked, 3);
+      assert.equal(result.unchecked, 0);
+      assert.deepEqual(result.unchecked_hints, []);
+      assert.equal(result.warnings.length, 0);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-002: library project with one hint unchecked → warning naming the hint', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      // Check only the first two hints
+      const matrixPath = join(projectDir, '.planning', 'acceptance-matrix.md');
+      let content = readFileSync(matrixPath, 'utf8');
+      // Check first two, leave third unchecked
+      const lines = content.split('\n');
+      let checkedCount = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('- [ ]') && checkedCount < 2) {
+          lines[i] = lines[i].replace('- [ ]', '- [x]');
+          checkedCount++;
+        }
+      }
+      writeFileSync(matrixPath, lines.join('\n'));
+
+      const result = validateAcceptanceHintCompletion(projectDir, 'library');
+      assert.equal(result.total, 3);
+      assert.equal(result.checked, 2);
+      assert.equal(result.unchecked, 1);
+      assert.equal(result.unchecked_hints.length, 1);
+      assert.equal(result.warnings.length, 1);
+      assert.match(result.warnings[0], /unchecked/i);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-003: library project with missing acceptance-matrix.md → missing_file warning', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      rmSync(join(projectDir, '.planning', 'acceptance-matrix.md'));
+
+      const result = validateAcceptanceHintCompletion(projectDir, 'library');
+      assert.equal(result.missing_file, true);
+      assert.equal(result.total, 3);
+      assert.equal(result.unchecked, 3);
+      assert.equal(result.warnings.length, 1);
+      assert.match(result.warnings[0], /not found/i);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-004: library project with no Template Guidance section → missing_section warning', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      // Overwrite acceptance-matrix.md without the Template Guidance section
+      const matrixPath = join(projectDir, '.planning', 'acceptance-matrix.md');
+      writeFileSync(matrixPath, '# Acceptance Matrix\n\nSome content without template guidance.\n');
+
+      const result = validateAcceptanceHintCompletion(projectDir, 'library');
+      assert.equal(result.missing_section, true);
+      assert.equal(result.total, 3);
+      assert.equal(result.unchecked, 3);
+      assert.equal(result.warnings.length, 1);
+      assert.match(result.warnings[0], /Template Guidance/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-005: generic template → trivially OK, zero warnings', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      const result = validateAcceptanceHintCompletion(projectDir, 'generic');
+      assert.equal(result.total, 0);
+      assert.equal(result.checked, 0);
+      assert.equal(result.unchecked, 0);
+      assert.equal(result.warnings.length, 0);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-006: template validate --json includes acceptance_hints key', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 0, result.stderr);
+
+      const payload = JSON.parse(result.stdout);
+      assert.ok(payload.acceptance_hints, 'acceptance_hints key must be present');
+      assert.equal(payload.acceptance_hints.template, 'library');
+      assert.equal(payload.acceptance_hints.total, 3);
+      assert.equal(typeof payload.acceptance_hints.checked, 'number');
+      assert.equal(typeof payload.acceptance_hints.unchecked, 'number');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-007: governed validate surfaces unchecked hints as warnings', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      const result = runCli(projectDir, ['validate', '--json']);
+      // validate may fail for other reasons (missing QA files etc.) but should contain hint warnings
+      const payload = JSON.parse(result.stdout);
+      // Library hints are unchecked by default after init
+      assert.ok(payload.warnings.some((w) => w.includes('unchecked') || w.includes('Acceptance hint')),
+        'should surface acceptance hint warnings');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-008: hint text deleted from file treated as unchecked', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      // Remove the Template Guidance content but keep the header
+      const matrixPath = join(projectDir, '.planning', 'acceptance-matrix.md');
+      writeFileSync(matrixPath, '# Acceptance Matrix\n\n## Template Guidance\n\n');
+
+      const result = validateAcceptanceHintCompletion(projectDir, 'library');
+      assert.equal(result.total, 3);
+      assert.equal(result.checked, 0);
+      assert.equal(result.unchecked, 3);
+      assert.equal(result.warnings.length, 3);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HINT-009: no acceptance_hints when no project detected', () => {
+    const result = runCli(tmpdir(), ['template', 'validate', '--json']);
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.acceptance_hints, null);
   });
 });
 

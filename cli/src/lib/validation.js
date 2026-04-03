@@ -6,6 +6,7 @@ import {
   validateGovernedProjectTemplate,
   validateGovernedTemplateRegistry,
   validateProjectPlanningArtifacts,
+  validateAcceptanceHintCompletion,
 } from './governed-templates.js';
 
 const DEFAULT_REQUIRED_FILES = [
@@ -104,6 +105,10 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const planningArtifacts = validateProjectPlanningArtifacts(root, rawConfig?.template);
   errors.push(...planningArtifacts.errors);
   warnings.push(...planningArtifacts.warnings);
+
+  // Validate acceptance hint completion against the configured template
+  const acceptanceHints = validateAcceptanceHintCompletion(root, rawConfig?.template);
+  warnings.push(...acceptanceHints.warnings);
 
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',
