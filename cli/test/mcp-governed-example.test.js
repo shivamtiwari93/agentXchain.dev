@@ -290,7 +290,11 @@ function prepareImplementationReadyRepoWithConfig(factory) {
 async function startHttpExampleServer() {
   const exampleNodeModules = join(dirname(MCP_HTTP_SERVER_PATH), 'node_modules');
   if (!existsSync(exampleNodeModules)) {
-    execSync('npm install --ignore-scripts', { cwd: dirname(MCP_HTTP_SERVER_PATH), stdio: 'ignore' });
+    execSync('npm install --ignore-scripts --userconfig /dev/null', {
+      cwd: dirname(MCP_HTTP_SERVER_PATH),
+      stdio: 'pipe',
+      env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
+    });
   }
 
   const port = 10000 + Math.floor(Math.random() * 50000);
@@ -348,7 +352,11 @@ describe('MCP governed example proof', () => {
   before(() => {
     const exampleNodeModules = join(dirname(MCP_SERVER_PATH), 'node_modules');
     if (!existsSync(exampleNodeModules)) {
-      execSync('npm install --ignore-scripts', { cwd: dirname(MCP_SERVER_PATH), stdio: 'ignore' });
+      execSync('npm install --ignore-scripts --userconfig /dev/null', {
+        cwd: dirname(MCP_SERVER_PATH),
+        stdio: 'pipe',
+        env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
+      });
     }
   });
 

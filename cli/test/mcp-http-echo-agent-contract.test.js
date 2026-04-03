@@ -151,11 +151,17 @@ describe('MCP HTTP echo agent contract', () => {
 
   describe('live server proof', () => {
     it('starts and responds to MCP initialize request', async () => {
-      // Install deps if needed
+      // Install deps if needed (CI does not install example deps automatically).
+      // Use --userconfig /dev/null to isolate from CI OIDC auth that scopes
+      // to npm publishing and can interfere with public registry fetches.
       const nodeModulesPath = join(EXAMPLE_DIR, 'node_modules');
       if (!existsSync(nodeModulesPath)) {
         const { execSync } = await import('child_process');
-        execSync('npm install --ignore-scripts', { cwd: EXAMPLE_DIR, stdio: 'ignore' });
+        execSync('npm install --ignore-scripts --userconfig /dev/null', {
+          cwd: EXAMPLE_DIR,
+          stdio: 'pipe',
+          env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
+        });
       }
 
       // Start the server on a random port
