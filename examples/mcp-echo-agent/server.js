@@ -4,8 +4,9 @@
  * agentxchain-mcp-echo-agent
  *
  * Minimal MCP server that implements the agentxchain_turn tool contract.
- * It reads the dispatched PROMPT.md and CONTEXT.md, then returns a valid
- * governed turn result with a summary that echoes the assignment.
+ * It reads the dispatched PROMPT.md and CONTEXT.md, then returns a
+ * validator-clean governed turn result with a summary that echoes
+ * the assignment.
  *
  * Usage with agentxchain:
  *
@@ -90,21 +91,30 @@ server.tool(
       summary: `Echo agent completed ${role} turn in ${phase} phase. Received ${promptLines}-line prompt and ${contextLines}-line context.`,
       decisions: [
         {
-          id: `echo-${turn_id}`,
-          description: `Acknowledged assignment for ${role} in ${phase} phase.`,
-          rationale: 'Echo agent confirms receipt of governed turn dispatch.',
+          id: 'DEC-001',
+          category: 'implementation',
+          statement: `Acknowledge ${role} assignment for the ${phase} phase without modifying product files.`,
+          rationale: 'The echo server is a transport reference, not a real worker.',
         },
       ],
-      objections: [],
+      objections: [
+        {
+          id: 'OBJ-001',
+          severity: 'low',
+          statement: 'No-op MCP example does not perform real implementation or verification work.',
+          status: 'raised',
+        },
+      ],
       files_changed: [],
       artifacts_created: [],
       verification: {
-        ran: false,
-        passed: false,
-        detail: 'Echo agent does not run verification. Replace with real test execution.',
+        status: 'skipped',
+        commands: [],
+        evidence_summary: 'Echo agent intentionally skips verification. Replace with real test execution.',
+        machine_evidence: [],
       },
-      artifact: assignment?.artifact || null,
-      proposed_next_role: null,
+      artifact: assignment?.artifact || { type: 'review', ref: assignment_path },
+      proposed_next_role: 'human',
       phase_transition_request: null,
       run_completion_request: null,
       needs_human_reason: null,

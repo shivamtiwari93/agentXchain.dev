@@ -60,6 +60,39 @@ agentxchain approve-completion
 | qa | api-qa | api_proxy | Anthropic API (review-only) |
 | eng_director | manual-director | manual | File handoff |
 
+## MCP Dev Variant
+
+You do not need a second example project to try MCP. Swap the `dev` runtime in `agentxchain.json` to the shipped echo server:
+
+```json
+{
+  "roles": {
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement approved work safely and verify behavior.",
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
+    }
+  },
+  "runtimes": {
+    "local-dev": {
+      "type": "mcp",
+      "command": "node",
+      "args": ["../mcp-echo-agent/server.js"],
+      "tool_name": "agentxchain_turn"
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+agentxchain step --role dev
+```
+
+That path exercises the real MCP adapter against the governed todo app. The shipped echo server returns a validator-clean no-op result, so `step` can auto-accept the turn without modifying product files.
+
 ## Project Structure
 
 ```

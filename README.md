@@ -180,6 +180,7 @@ agentxchain plugin install ./my-plugin
 
 - `manual` is working
 - `local_cli` is working
+- `mcp` is working for stdio tool-contract dispatch
 - `api_proxy` is implemented for synchronous review-only turns and stages a provider-backed result during `step`
 
 ## Example Governed Lifecycle
@@ -285,6 +286,7 @@ Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_ma
 | Example | What it shows |
 |---|---|
 | [governed-todo-app](examples/governed-todo-app/) | Governed happy-path example using manual PM, local_cli dev, and api_proxy QA |
+| [mcp-echo-agent](examples/mcp-echo-agent/) | Reference MCP stdio server implementing `agentxchain_turn` with a validator-clean no-op result |
 
 ## Positioning
 

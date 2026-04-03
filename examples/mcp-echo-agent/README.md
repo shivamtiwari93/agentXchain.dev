@@ -4,7 +4,7 @@ Minimal [Model Context Protocol](https://modelcontextprotocol.io/) server that i
 
 ## What it does
 
-The echo agent receives a governed turn dispatch from AgentXchain and returns a valid turn result that echoes the assignment metadata. It does not modify files or run tests — it is a reference implementation showing the exact tool contract your MCP server must satisfy.
+The echo agent receives a governed turn dispatch from AgentXchain and returns a validator-clean turn result that echoes the assignment metadata. It does not modify files or run tests. It exists to prove the MCP transport and governed turn contract, not to act as a real worker.
 
 ## Quick start
 
@@ -50,7 +50,7 @@ Run a governed turn:
 agentxchain step
 ```
 
-The echo agent will return a completed turn result with a summary of what it received.
+The echo agent will return a completed no-op turn result with a summary of what it received. The result is intentionally minimal but valid for governed acceptance.
 
 ## Tool contract
 
@@ -75,6 +75,16 @@ The server exposes one tool: `agentxchain_turn`
 | `context` | Rendered `CONTEXT.md` content |
 
 **Return**: A valid turn-result object via `structuredContent` or as JSON in a text content block.
+
+The shipped example returns:
+
+- one valid `DEC-*` decision
+- one valid `OBJ-*` objection
+- `verification.status: "skipped"`
+- `artifact.type: "review"`
+- `proposed_next_role: "human"`
+
+That shape is deliberate. It keeps the payload acceptable even when you bind the example to a review-only role or a phase whose `allowed_next_roles` are narrow.
 
 ## Building a real agent
 
