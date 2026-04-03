@@ -16,13 +16,13 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 
 | | `resume` | `step` |
 |---|---------|--------|
-| **Purpose** | Re-assign a turn that already exists | Create a new turn and execute the full lifecycle |
-| **Creates a turn?** | No | Yes |
-| **Dispatches?** | Yes (re-dispatch) | Yes (fresh dispatch) |
-| **Runs adapter?** | No — assignment only | Yes — dispatch, wait, collect |
-| **When to use** | A turn was interrupted or you need to re-dispatch without losing history | Normal flow — advance the run by one turn |
+| **Purpose** | Initialize or resume a governed run and assign or re-dispatch one turn without waiting | Run one governed turn end-to-end |
+| **Creates a new turn?** | Sometimes — yes when the run has no active turn | Yes, unless `--resume` targets an existing turn |
+| **Materializes dispatch bundle?** | Yes | Yes |
+| **Runs adapter?** | No — writes dispatch state and exits | Yes — dispatches, waits, validates, and records outcome |
+| **When to use** | You want a turn assigned now, or you need to re-dispatch a failed retained turn without waiting for completion | You want the CLI to drive one turn through execution and staged-result handling |
 
-`resume` is an assignment-only operation. It re-dispatches the current pending turn to the same or a different adapter. `step` is the full lifecycle: it creates the turn, dispatches to the adapter, waits for a result, collects and validates the staged output, and records it in history.
+`resume` is the non-waiting path. It can initialize an idle run, resume a paused run, assign a fresh turn when no turn is active, or re-dispatch a retained failed turn. If a turn is already active and you need to keep waiting on it, use `agentxchain step --resume` instead. `step` is the full lifecycle: it creates or resumes the turn, dispatches to the adapter, waits for a result, validates the staged output, and records the outcome.
 
 ## Command map
 
@@ -32,8 +32,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template list` | Setup | Inspect the built-in governed scaffold templates |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
-| `resume` | Turn lifecycle | Re-dispatch an existing pending turn without creating a new one |
-| `step` | Turn lifecycle | Create a new turn, dispatch to adapter, wait for result, collect and validate |
+| `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
+| `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -97,10 +97,10 @@ agentxchain resume [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--role <role>` | (phase entry role) | Override the target role for the re-dispatch |
-| `--turn <id>` | (current pending) | Target a specific retained turn when multiple exist |
+| `--role <role>` | (phase entry role) | Override the target role for the next assignment or re-dispatch |
+| `--turn <id>` | (selected retained turn) | Target a specific retained turn when multiple failed or retrying turns exist |
 
-Re-dispatches an existing pending turn. Use this when a turn was interrupted (adapter crash, timeout) and you want to re-assign it without losing the turn ID or history context. Does not create a new turn.
+Initializes or resumes a governed run and then assigns or re-dispatches one turn without waiting for completion. Use it when you want a fresh dispatch bundle now, or when a retained `failed` / `retrying` turn should be re-dispatched without running the rest of the lifecycle in the same command. If a turn is already active and you need to continue waiting on it, use `agentxchain step --resume` instead.
 
 ### `step`
 

@@ -9,9 +9,16 @@ const cliRoot = join(__dirname, '..');
 const docsPath = join(cliRoot, '..', 'website-v2', 'docs', 'cli.mdx');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 const specPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_GOVERNANCE_CONTRACT_SPEC.md');
+const resumePath = join(cliRoot, 'src', 'commands', 'resume.js');
+const stepPath = join(cliRoot, 'src', 'commands', 'step.js');
+const governedStatePath = join(cliRoot, 'src', 'lib', 'governed-state.js');
+const resumeStepSpecPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_RESUME_STEP_CONTRACT_SPEC.md');
 
 const docs = readFileSync(docsPath, 'utf8');
 const bin = readFileSync(binPath, 'utf8');
+const resumeSource = readFileSync(resumePath, 'utf8');
+const stepSource = readFileSync(stepPath, 'utf8');
+const governedStateSource = readFileSync(governedStatePath, 'utf8');
 
 /**
  * Extract .option() flags registered for a command in agentxchain.js.
@@ -186,10 +193,39 @@ describe('CLI governance docs contract — approval commands have no flag tables
   }
 });
 
+describe('CLI governance docs contract — resume vs step behavior', () => {
+  it('documents resume as a non-waiting assignment or re-dispatch path, not existing-turn-only', () => {
+    assert.match(resumeSource, /initializeGovernedRun\(/);
+    assert.match(resumeSource, /assignGovernedTurn\(/);
+    assert.match(governedStateSource, /status:\s*'running'/);
+
+    assert.match(
+      docs,
+      /Initialize or resume a governed run and assign or re-dispatch one turn without waiting/i
+    );
+    assert.doesNotMatch(docs, /\|\s+\*\*Creates a new turn\?\*\*\s+\|\s+No\s+\|/);
+    assert.doesNotMatch(docs, /assignment-only operation/i);
+    assert.doesNotMatch(docs, /Re-dispatches an existing pending turn\./);
+  });
+
+  it('documents step --resume as the active-turn continuation path', () => {
+    assert.match(resumeSource, /Use agentxchain step --resume to continue waiting for an active turn\./);
+    assert.match(stepSource, /if \(opts\.resume\)/);
+    assert.match(docs, /use `agentxchain step --resume` instead/i);
+    assert.match(docs, /Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome/i);
+  });
+});
+
 describe('CLI governance docs contract — spec exists', () => {
   it('CLI_DOCS_GOVERNANCE_CONTRACT_SPEC.md exists', () => {
     const spec = readFileSync(specPath, 'utf8');
     assert.ok(spec.includes('Discrepancies Found'), 'spec must document discrepancies');
     assert.ok(spec.includes('AT-CLI-GOV-001'), 'spec must have acceptance tests');
+  });
+
+  it('CLI_DOCS_RESUME_STEP_CONTRACT_SPEC.md exists', () => {
+    const spec = readFileSync(resumeStepSpecPath, 'utf8');
+    assert.ok(spec.includes('AT-CLI-RS-001'), 'resume/step spec must have acceptance tests');
+    assert.ok(spec.includes('step --resume'), 'resume/step spec must document the active-turn path');
   });
 });
