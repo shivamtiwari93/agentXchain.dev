@@ -19,6 +19,7 @@ const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp'];
 const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
+const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
 const VALID_PHASES = ['planning', 'implementation', 'qa'];
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
 const VALID_API_PROXY_RETRY_CLASSES = [
@@ -47,7 +48,59 @@ const VALID_API_PROXY_PREFLIGHT_FIELDS = [
 ];
 
 function validateMcpRuntime(runtimeId, runtime, errors) {
+  const transport = typeof runtime?.transport === 'string' && runtime.transport.trim()
+    ? runtime.transport.trim()
+    : 'stdio';
   const command = runtime?.command;
+
+  if (!VALID_MCP_TRANSPORTS.includes(transport)) {
+    errors.push(`Runtime "${runtimeId}": mcp transport must be one of: ${VALID_MCP_TRANSPORTS.join(', ')}`);
+  }
+
+  if ('tool_name' in runtime && (typeof runtime.tool_name !== 'string' || !runtime.tool_name.trim())) {
+    errors.push(`Runtime "${runtimeId}": mcp tool_name must be a non-empty string`);
+  }
+
+  if (transport === 'streamable_http') {
+    if (typeof runtime?.url !== 'string' || !runtime.url.trim()) {
+      errors.push(`Runtime "${runtimeId}": mcp streamable_http requires "url"`);
+    } else {
+      try {
+        const parsed = new URL(runtime.url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          errors.push(`Runtime "${runtimeId}": mcp url must use http or https`);
+        }
+      } catch {
+        errors.push(`Runtime "${runtimeId}": mcp url must be a valid absolute URL`);
+      }
+    }
+
+    if ('headers' in runtime) {
+      if (!runtime.headers || typeof runtime.headers !== 'object' || Array.isArray(runtime.headers)) {
+        errors.push(`Runtime "${runtimeId}": mcp headers must be an object of string values`);
+      } else {
+        for (const [key, value] of Object.entries(runtime.headers)) {
+          if (typeof value !== 'string') {
+            errors.push(`Runtime "${runtimeId}": mcp headers["${key}"] must be a string`);
+          }
+        }
+      }
+    }
+
+    if ('command' in runtime) {
+      errors.push(`Runtime "${runtimeId}": mcp streamable_http does not accept "command"`);
+    }
+
+    if ('args' in runtime) {
+      errors.push(`Runtime "${runtimeId}": mcp streamable_http does not accept "args"`);
+    }
+
+    if ('cwd' in runtime) {
+      errors.push(`Runtime "${runtimeId}": mcp streamable_http does not accept "cwd"`);
+    }
+
+    return;
+  }
 
   if (typeof command === 'string') {
     if (!command.trim()) {
@@ -67,12 +120,16 @@ function validateMcpRuntime(runtimeId, runtime, errors) {
     }
   }
 
-  if ('tool_name' in runtime && (typeof runtime.tool_name !== 'string' || !runtime.tool_name.trim())) {
-    errors.push(`Runtime "${runtimeId}": mcp tool_name must be a non-empty string`);
-  }
-
   if ('cwd' in runtime && (typeof runtime.cwd !== 'string' || !runtime.cwd.trim())) {
     errors.push(`Runtime "${runtimeId}": mcp cwd must be a non-empty string`);
+  }
+
+  if ('url' in runtime) {
+    errors.push(`Runtime "${runtimeId}": mcp stdio does not accept "url"`);
+  }
+
+  if ('headers' in runtime) {
+    errors.push(`Runtime "${runtimeId}": mcp stdio does not accept "headers"`);
   }
 }
 

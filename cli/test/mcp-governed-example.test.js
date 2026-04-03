@@ -1,5 +1,6 @@
 import { describe, it, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
 import {
   cpSync,
   existsSync,
@@ -8,11 +9,15 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { spawnSync, execSync } from 'node:child_process';
+import { createServer } from 'node:http';
+import { spawn, spawnSync, execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import * as z from 'zod/v4';
 
 import {
   initializeGovernedRun,
@@ -38,6 +43,7 @@ const EXAMPLE_DIR = join(REPO_ROOT, 'examples', 'governed-todo-app');
 const MCP_SERVER_PATH = join(REPO_ROOT, 'examples', 'mcp-echo-agent', 'server.js');
 
 let tmpDirs = [];
+let httpServers = [];
 
 function makeTmpDir() {
   const dir = join(tmpdir(), `axc-mcp-example-${randomBytes(6).toString('hex')}`);
@@ -79,6 +85,55 @@ function runCli(cwd, args) {
     stderr: result.stderr || '',
     combined: (result.stdout || '') + (result.stderr || ''),
   };
+}
+
+function runCliAsync(cwd, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI_BIN, ...args], {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      resolve({
+        exit_code: null,
+        stdout,
+        stderr,
+        combined: stdout + stderr,
+      });
+    }, 20000);
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({
+        exit_code: code,
+        stdout,
+        stderr,
+        combined: stdout + stderr,
+      });
+    });
+  });
 }
 
 function writePmArtifacts(root) {
@@ -149,6 +204,24 @@ function createMcpExampleConfig(root) {
   return normalized.normalized;
 }
 
+function createRemoteMcpExampleConfig(root, url) {
+  const rawConfig = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+  rawConfig.runtimes['local-dev'] = {
+    type: 'mcp',
+    transport: 'streamable_http',
+    url,
+    tool_name: 'agentxchain_turn',
+    headers: {
+      'x-agentxchain-project': 'governed-example',
+    },
+  };
+  writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(rawConfig, null, 2));
+
+  const normalized = loadNormalizedConfig(rawConfig);
+  assert.ok(normalized.ok, `loadNormalizedConfig failed: ${normalized.errors?.join(', ')}`);
+  return normalized.normalized;
+}
+
 function gitCommitAll(root, message) {
   execSync('git add -A', { cwd: root, stdio: 'ignore' });
   execSync(`git -c user.name="test" -c user.email="test@test" commit -m "${message}" --allow-empty`, {
@@ -187,13 +260,161 @@ function prepareImplementationReadyRepo() {
   return { root, config };
 }
 
-afterEach(() => {
+function prepareImplementationReadyRepoWithConfig(factory) {
+  const root = makeTmpDir();
+  cpSync(EXAMPLE_DIR, root, { recursive: true });
+  const config = factory(root);
+
+  execSync('git init', { cwd: root, stdio: 'ignore' });
+  gitCommitAll(root, 'initial');
+
+  const initResult = initializeGovernedRun(root, config);
+  assert.ok(initResult.ok, `initializeGovernedRun failed: ${initResult.error}`);
+
+  const assignPm = assignGovernedTurn(root, config, 'pm');
+  assert.ok(assignPm.ok, `assignGovernedTurn(pm) failed: ${assignPm.error}`);
+
+  writePmArtifacts(root);
+  gitCommitAll(root, 'add pm artifacts');
+
+  stageTurnResult(root, readJson(root, STATE_PATH));
+
+  const acceptPm = acceptGovernedTurn(root, config);
+  assert.ok(acceptPm.ok, `acceptGovernedTurn(pm) failed: ${acceptPm.error}`);
+
+  const approve = approvePhaseTransition(root);
+  assert.ok(approve.ok, `approvePhaseTransition failed: ${approve.error}`);
+
+  gitCommitAll(root, 'orchestrator: accept pm turn');
+
+  return { root, config };
+}
+
+function makeRemoteTurnResult(args) {
+  return {
+    schema_version: '1.0',
+    run_id: args.run_id,
+    turn_id: args.turn_id,
+    role: args.role,
+    runtime_id: args.runtime_id,
+    status: 'completed',
+    summary: `Turn completed by ${args.role}.`,
+    decisions: [
+      {
+        id: 'DEC-001',
+        category: 'implementation',
+        statement: 'Remote MCP server returned a governed turn result.',
+        rationale: 'Proves streamable_http MCP dispatch through the real CLI path.',
+      },
+    ],
+    objections: [
+      {
+        id: 'OBJ-001',
+        severity: 'low',
+        statement: 'Remote MCP example remains a no-op implementation proof, not a real coding agent.',
+        status: 'raised',
+      },
+    ],
+    files_changed: [],
+    artifacts_created: [],
+    verification: {
+      status: 'skipped',
+      commands: [],
+      evidence_summary: 'Example MCP server does not run automated verification.',
+      machine_evidence: [],
+    },
+    artifact: { type: 'review', ref: '.planning/PM_SIGNOFF.md' },
+    proposed_next_role: 'human',
+    phase_transition_request: null,
+    run_completion_request: null,
+    needs_human_reason: null,
+    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+  };
+}
+
+async function startStreamableHttpMcpServer() {
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    if (req.url !== '/mcp') {
+      res.writeHead(404).end('not found');
+      return;
+    }
+
+    if (req.method === 'GET') {
+      res.writeHead(405, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Method not allowed.' },
+        id: null,
+      }));
+      return;
+    }
+
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const bodyText = Buffer.concat(chunks).toString('utf8');
+    const body = bodyText ? JSON.parse(bodyText) : undefined;
+    requests.push({ method: req.method, headers: req.headers, body });
+
+    const mcpServer = new McpServer({ name: 'axc-remote-example-server', version: '1.0.0' });
+    mcpServer.registerTool('agentxchain_turn', {
+      description: 'Execute a governed turn',
+      inputSchema: {
+        run_id: z.string(),
+        turn_id: z.string(),
+        role: z.string(),
+        phase: z.string(),
+        runtime_id: z.string(),
+        project_root: z.string(),
+        dispatch_dir: z.string(),
+        assignment_path: z.string(),
+        prompt_path: z.string(),
+        context_path: z.string(),
+        staging_path: z.string(),
+        prompt: z.string(),
+        context: z.string(),
+      },
+    }, async (args) => ({
+      content: [{ type: 'text', text: 'ok' }],
+      structuredContent: makeRemoteTurnResult(args),
+    }));
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    await mcpServer.connect(transport);
+    res.on('close', () => {
+      void transport.close();
+      void mcpServer.close();
+    });
+    await transport.handleRequest(req, res, body);
+  });
+
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  httpServers.push(server);
+  const address = server.address();
+  return {
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    requests,
+  };
+}
+
+afterEach(async () => {
   for (const dir of tmpDirs) {
     try {
       rmSync(dir, { recursive: true, force: true });
     } catch {}
   }
   tmpDirs = [];
+  for (const server of httpServers) {
+    try {
+      await new Promise((resolve) => server.close(resolve));
+    } catch {}
+  }
+  httpServers = [];
 });
 
 describe('MCP governed example proof', () => {
@@ -245,6 +466,21 @@ describe('MCP governed example proof', () => {
     assert.equal(history.length, 2);
     assert.deepEqual(history.map((entry) => entry.role), ['pm', 'dev']);
     assert.equal(history[1].runtime_id, 'local-dev');
+  });
+
+  it('auto-accepts a streamable_http MCP-backed dev turn through the real CLI step command', async () => {
+    const remote = await startStreamableHttpMcpServer();
+    const { root } = prepareImplementationReadyRepoWithConfig((repoRoot) => createRemoteMcpExampleConfig(repoRoot, remote.url));
+
+    const result = await runCliAsync(root, ['step', '--role', 'dev']);
+    assert.equal(result.exit_code, 0, result.combined);
+    assert.match(result.combined, /Dispatching to MCP streamable_http:/i);
+    assert.match(result.combined, new RegExp(remote.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(result.combined, /accepted/i);
+    assert.ok(
+      remote.requests.some((request) => request.headers['x-agentxchain-project'] === 'governed-example'),
+      'streamable_http CLI step should forward configured MCP headers'
+    );
   });
 
   it('documents the governed todo app MCP dev variant', () => {

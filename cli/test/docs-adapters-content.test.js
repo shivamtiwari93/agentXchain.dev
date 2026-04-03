@@ -206,11 +206,23 @@ describe('Adapter docs contract', () => {
   });
 
   describe('mcp adapter scope', () => {
-    it('docs mention the mcp adapter and stdio boundary', () => {
+    it('docs mention the mcp adapter and the shipped transport set', () => {
       assert.match(adapterDocs, /## mcp adapter/i,
         'adapters.mdx must document the mcp adapter');
-      assert.match(adapterDocs, /stdio only|MCP stdio/i,
-        'adapters.mdx must document the stdio-only v1 scope');
+      const transportMatch = normalizedConfigSource.match(/VALID_MCP_TRANSPORTS\s*=\s*\[([^\]]+)\]/);
+      assert.ok(transportMatch, 'VALID_MCP_TRANSPORTS found in normalized-config.js');
+      const validTransports = transportMatch[1].match(/'([^']+)'/g).map((s) => s.replace(/'/g, ''));
+      for (const transport of validTransports) {
+        assert.match(adapterDocs, new RegExp(`\`${transport}\``),
+          `adapters.mdx must document MCP transport "${transport}"`);
+      }
+    });
+
+    it('docs do NOT claim SSE support in this slice', () => {
+      assert.doesNotMatch(adapterDocs, /- remote `sse`|`sse`.*\|\s*Supported|Supported.*`sse`/i,
+        'adapters.mdx must not claim SSE support for the mcp adapter');
+      assert.match(adapterDocs, /SSE transport is not part of this contract|does not require SSE support/i,
+        'adapters.mdx must scope SSE as unsupported in this mcp slice');
     });
 
     it('docs bind to the real default tool name', () => {
@@ -225,6 +237,13 @@ describe('Adapter docs contract', () => {
         'adapters.mdx must not claim arbitrary MCP server compatibility');
       assert.match(adapterDocs, /does not claim that any arbitrary MCP server can execute a governed turn/i,
         'adapters.mdx must explain the governed-turn tool boundary');
+    });
+
+    it('docs describe remote streamable_http config fields truthfully', () => {
+      assert.match(adapterDocs, /`url`.*streamable_http|streamable_http.*`url`/i,
+        'adapters.mdx must document the mcp streamable_http url field');
+      assert.match(adapterDocs, /`headers`.*streamable_http|streamable_http.*`headers`/i,
+        'adapters.mdx must document the mcp streamable_http headers field');
     });
   });
 

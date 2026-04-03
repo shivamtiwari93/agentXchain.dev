@@ -215,16 +215,19 @@ Default timeout when no turn deadline is set: **20 minutes** (1,200,000 ms).
 
 ## mcp adapter
 
-The `mcp` adapter connects to a local Model Context Protocol server over stdio and calls one explicit governed-turn tool.
+The `mcp` adapter connects to a Model Context Protocol server and calls one explicit governed-turn tool. In the current shipped slice, it supports:
+
+- local `stdio`
+- remote `streamable_http`
 
 :::info v1 scope
-This slice is **stdio only** and **tool-contract based**. AgentXchain does not claim that any arbitrary MCP server can execute a governed turn. The runtime is valid only when the target server exposes the configured tool (default: `agentxchain_turn`) and that tool returns a valid AgentXchain turn result.
+This slice is **tool-contract based**. AgentXchain does not claim that any arbitrary MCP server can execute a governed turn. The runtime is valid only when the target server exposes the configured tool (default: `agentxchain_turn`) and that tool returns a valid AgentXchain turn result. Supported MCP transports in this slice are `stdio` and `streamable_http`. Deprecated SSE transport is not part of this contract.
 :::
 
 ### How it works
 
 1. The orchestrator writes the dispatch bundle.
-2. The adapter spawns the configured MCP stdio server.
+2. The adapter either spawns the configured `stdio` server or connects to the configured `streamable_http` endpoint.
 3. The adapter initializes an MCP client connection and runs `tools/list`.
 4. It verifies that the configured tool exists.
 5. It calls that tool with governed turn metadata, dispatch file paths, and the rendered `PROMPT.md` and `CONTEXT.md` content.
@@ -273,6 +276,8 @@ The default timeout for MCP dispatch is **20 minutes** (1,200,000 ms). If the tu
 
 ### Configuration
 
+#### Local stdio runtime
+
 ```json title="agentxchain.json (excerpt)"
 {
   "roles": {
@@ -298,10 +303,41 @@ The default timeout for MCP dispatch is **20 minutes** (1,200,000 ms). If the tu
 | Field | Required | Description |
 |-------|----------|-------------|
 | `type` | yes | Must be `"mcp"` |
-| `command` | yes | Executable to spawn (string or string array) |
+| `transport` | no | MCP transport. Defaults to `stdio`. `streamable_http` is supported for remote endpoints |
+| `command` | yes for `stdio` | Executable to spawn (string or string array) |
 | `args` | no | Arguments when `command` is a string (not valid with array command) |
 | `tool_name` | no | Tool to call on the server (default: `agentxchain_turn`) |
-| `cwd` | no | Working directory for the server process (relative to project root) |
+| `cwd` | no for `stdio` | Working directory for the server process (relative to project root) |
+| `url` | yes for `streamable_http` | Absolute HTTP or HTTPS MCP endpoint |
+| `headers` | no for `streamable_http` | Static string request headers attached to MCP HTTP requests |
+
+#### Remote streamable HTTP runtime
+
+```json title="agentxchain.json (excerpt)"
+{
+  "roles": {
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement approved work safely.",
+      "write_authority": "authoritative",
+      "runtime": "mcp-remote-dev"
+    }
+  },
+  "runtimes": {
+    "mcp-remote-dev": {
+      "type": "mcp",
+      "transport": "streamable_http",
+      "url": "http://127.0.0.1:8787/mcp",
+      "tool_name": "agentxchain_turn",
+      "headers": {
+        "x-agentxchain-project": "demo"
+      }
+    }
+  }
+}
+```
+
+For `streamable_http`, the runtime stays synchronous from AgentXchain's point of view: `tools/list`, `tools/call`, stage result, validate, accept. If the server returns `405` on `GET`, the MCP SDK still proceeds over POST request flow. AgentXchain does not require SSE support in this slice.
 
 ### Example server
 
@@ -310,6 +346,7 @@ A reference MCP server is available at [`examples/mcp-echo-agent/`](https://gith
 ### When to use
 
 - Local agent runtimes that already expose an MCP stdio server
+- Remote MCP servers that expose a governed-turn tool over `streamable_http`
 - Connector work where you want a governed turn contract over MCP instead of raw subprocess prompts
 - Tool-driven local integrations that can return structured turn output directly
 

@@ -1,13 +1,19 @@
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import * as z from 'zod/v4';
 
 import {
   dispatchMcp,
   extractTurnResultFromMcpToolResult,
+  resolveMcpTransport,
   resolveMcpToolName,
 } from '../src/lib/adapters/mcp-adapter.js';
 import { writeDispatchBundle } from '../src/lib/dispatch-bundle.js';
@@ -185,6 +191,7 @@ function setupDispatchBundle(root, state, config) {
 }
 
 let tmpDirs = [];
+let httpServers = [];
 function createAndTrack() {
   const dir = makeTmpDir();
   tmpDirs.push(dir);
@@ -196,11 +203,139 @@ function linkNodeModules(root) {
   symlinkSync(realNodeModules, join(root, 'node_modules'), 'dir');
 }
 
-afterEach(() => {
+function makeTurnResult(args) {
+  return {
+    schema_version: '1.0',
+    run_id: args.run_id,
+    turn_id: args.turn_id,
+    role: args.role,
+    runtime_id: args.runtime_id,
+    status: 'completed',
+    summary: 'Handled by MCP.',
+    decisions: [],
+    objections: [],
+    files_changed: [],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['npm test'],
+      evidence_summary: 'All good.',
+      machine_evidence: [{ command: 'npm test', exit_code: 0 }],
+    },
+    artifact: { type: 'workspace', ref: 'git:dirty' },
+    proposed_next_role: 'qa',
+    phase_transition_request: null,
+    run_completion_request: null,
+    needs_human_reason: null,
+    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+  };
+}
+
+async function startStreamableHttpServer(mode = 'structured') {
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    if (req.url !== '/mcp') {
+      res.writeHead(404).end('not found');
+      return;
+    }
+
+    if (req.method === 'GET') {
+      res.writeHead(405, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Method not allowed.' },
+        id: null,
+      }));
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.writeHead(405).end();
+      return;
+    }
+
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const bodyText = Buffer.concat(chunks).toString('utf8');
+    const body = bodyText ? JSON.parse(bodyText) : undefined;
+    requests.push({
+      method: req.method,
+      headers: req.headers,
+      body,
+    });
+
+    const mcpServer = new McpServer({ name: 'axc-http-test-server', version: '1.0.0' });
+
+    if (mode !== 'missing-tool') {
+      mcpServer.registerTool('agentxchain_turn', {
+        description: 'Execute a governed turn',
+        inputSchema: {
+          run_id: z.string(),
+          turn_id: z.string(),
+          role: z.string(),
+          phase: z.string(),
+          runtime_id: z.string(),
+          project_root: z.string(),
+          dispatch_dir: z.string(),
+          assignment_path: z.string(),
+          prompt_path: z.string(),
+          context_path: z.string(),
+          staging_path: z.string(),
+          prompt: z.string(),
+          context: z.string(),
+        },
+      }, async (args) => {
+        if (mode === 'invalid') {
+          return { content: [{ type: 'text', text: 'not valid json' }] };
+        }
+        if (mode === 'text') {
+          return { content: [{ type: 'text', text: JSON.stringify(makeTurnResult(args)) }] };
+        }
+        return {
+          content: [{ type: 'text', text: 'ok' }],
+          structuredContent: makeTurnResult(args),
+        };
+      });
+    } else {
+      mcpServer.registerTool('other_tool', { description: 'Wrong tool' }, async () => ({
+        content: [{ type: 'text', text: 'wrong tool' }],
+      }));
+    }
+
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+    });
+    await mcpServer.connect(transport);
+    res.on('close', () => {
+      void transport.close();
+      void mcpServer.close();
+    });
+    await transport.handleRequest(req, res, body);
+  });
+
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  httpServers.push(server);
+  const address = server.address();
+  return {
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    requests,
+  };
+}
+
+afterEach(async () => {
   for (const dir of tmpDirs) {
     try { rmSync(dir, { recursive: true, force: true }); } catch {}
   }
   tmpDirs = [];
+  for (const server of httpServers) {
+    try {
+      await new Promise((resolve) => server.close(resolve));
+    } catch {}
+  }
+  httpServers = [];
 });
 
 describe('mcp-adapter', () => {
@@ -263,6 +398,52 @@ describe('mcp-adapter', () => {
     assert.equal(result.ok, false);
     assert.match(result.error, /none of the text blocks contained valid turn-result JSON/);
   });
+
+  it('stages turn results from a streamable_http MCP server and forwards headers', async () => {
+    const root = createAndTrack();
+    const remote = await startStreamableHttpServer('structured');
+    const state = makeState();
+    const config = makeConfig({
+      transport: 'streamable_http',
+      url: remote.url,
+      headers: {
+        'x-agentxchain-project': 'test-suite',
+      },
+    });
+    delete config.runtimes['mcp-dev'].command;
+    delete config.runtimes['mcp-dev'].args;
+    delete config.runtimes['mcp-dev'].cwd;
+    setupDispatchBundle(root, state, config);
+
+    const result = await dispatchMcp(root, state, config);
+    assert.equal(result.ok, true, result.error);
+
+    const staged = readJson(join(root, getTurnStagingResultPath(state.current_turn.turn_id)));
+    assert.equal(staged.run_id, state.run_id);
+    assert.equal(staged.turn_id, state.current_turn.turn_id);
+    assert.ok(
+      remote.requests.some((request) => request.headers['x-agentxchain-project'] === 'test-suite'),
+      'streamable_http dispatch should forward configured static headers'
+    );
+  });
+
+  it('returns error when required tool is missing on a streamable_http MCP server', async () => {
+    const root = createAndTrack();
+    const remote = await startStreamableHttpServer('missing-tool');
+    const state = makeState();
+    const config = makeConfig({
+      transport: 'streamable_http',
+      url: remote.url,
+    });
+    delete config.runtimes['mcp-dev'].command;
+    delete config.runtimes['mcp-dev'].args;
+    delete config.runtimes['mcp-dev'].cwd;
+    setupDispatchBundle(root, state, config);
+
+    const result = await dispatchMcp(root, state, config);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /does not expose required tool "agentxchain_turn"/);
+  });
 });
 
 describe('extractTurnResultFromMcpToolResult', () => {
@@ -304,5 +485,15 @@ describe('resolveMcpToolName', () => {
 
   it('honors configured tool_name', () => {
     assert.equal(resolveMcpToolName({ tool_name: 'custom_turn_tool' }), 'custom_turn_tool');
+  });
+});
+
+describe('resolveMcpTransport', () => {
+  it('defaults to stdio', () => {
+    assert.equal(resolveMcpTransport({}), 'stdio');
+  });
+
+  it('honors configured transport', () => {
+    assert.equal(resolveMcpTransport({ transport: 'streamable_http' }), 'streamable_http');
   });
 });

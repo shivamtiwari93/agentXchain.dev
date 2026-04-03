@@ -265,6 +265,93 @@ describe('validateV4Config', () => {
     assert.ok(result.errors.some((e) => e.includes('tool_name')));
   });
 
+  it('accepts a valid streamable_http mcp runtime config', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          transport: 'streamable_http',
+          url: 'http://127.0.0.1:8787/mcp',
+          tool_name: 'agentxchain_turn',
+          headers: {
+            'x-agentxchain-project': 'demo',
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects streamable_http mcp runtime without url', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          transport: 'streamable_http',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('requires "url"')));
+  });
+
+  it('rejects streamable_http mcp runtime with stdio-only fields', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          transport: 'streamable_http',
+          url: 'http://127.0.0.1:8787/mcp',
+          command: 'node',
+          args: ['./server.js'],
+          cwd: '.',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('does not accept "command"')));
+    assert.ok(result.errors.some((e) => e.includes('does not accept "args"')));
+    assert.ok(result.errors.some((e) => e.includes('does not accept "cwd"')));
+  });
+
+  it('rejects stdio mcp runtime with remote-only fields', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'mcp-dev' },
+      },
+      runtimes: {
+        'mcp-dev': {
+          type: 'mcp',
+          command: 'node',
+          url: 'http://127.0.0.1:8787/mcp',
+          headers: {
+            'x-test': 'demo',
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('stdio does not accept "url"')));
+    assert.ok(result.errors.some((e) => e.includes('stdio does not accept "headers"')));
+  });
+
   it('rejects invalid api_proxy retry_policy values', () => {
     const result = validateV4Config({
       schema_version: '1.0',

@@ -17,7 +17,7 @@
  *   - local_cli: implemented via subprocess dispatch + staged turn result
  *   - api_proxy: implemented for synchronous review-only turns and stages
  *     provider-backed JSON before validation/acceptance
- *   - mcp: implemented for synchronous MCP stdio tool dispatch
+ *   - mcp: implemented for synchronous MCP stdio or streamable_http tool dispatch
  */
 
 import chalk from 'chalk';
@@ -46,7 +46,7 @@ import {
   saveDispatchLogs,
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
-import { dispatchMcp } from '../lib/adapters/mcp-adapter.js';
+import { describeMcpRuntimeTarget, dispatchMcp, resolveMcpTransport } from '../lib/adapters/mcp-adapter.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -426,7 +426,8 @@ export async function stepCommand(opts) {
     }
     console.log('');
   } else if (runtimeType === 'mcp') {
-    console.log(chalk.cyan(`Dispatching to MCP stdio: ${runtime?.command || '(unknown)'}`));
+    const mcpTransport = resolveMcpTransport(runtime);
+    console.log(chalk.cyan(`Dispatching to MCP ${mcpTransport}: ${describeMcpRuntimeTarget(runtime)}`));
     console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}  Tool: ${runtime?.tool_name || 'agentxchain_turn'}`));
 
     const mcpResult = await dispatchMcp(root, state, config, {

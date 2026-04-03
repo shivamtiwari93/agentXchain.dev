@@ -2,6 +2,7 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -13,12 +14,13 @@ import {
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 
 export const DEFAULT_MCP_TOOL_NAME = 'agentxchain_turn';
+export const DEFAULT_MCP_TRANSPORT = 'stdio';
 
 /**
- * Dispatch a governed turn to an MCP server over stdio.
+ * Dispatch a governed turn to an MCP server.
  *
- * v1 scope:
- *   - stdio transport only
+ * Current scope:
+ *   - stdio or streamable_http transport
  *   - single tool call per turn
  *   - required governed-turn tool contract
  *   - synchronous dispatch/wait flow (like api_proxy)
@@ -55,7 +57,8 @@ export async function dispatchMcp(root, state, config, options = {}) {
   const prompt = readFileSync(promptPath, 'utf8');
   const context = existsSync(contextPath) ? readFileSync(contextPath, 'utf8') : '';
   const { command, args } = resolveMcpCommand(runtime);
-  if (!command) {
+  const transportType = resolveMcpTransport(runtime);
+  if (transportType === 'stdio' && !command) {
     return { ok: false, error: `Cannot resolve MCP command for runtime "${runtimeId}". Expected "command" field in runtime config.` };
   }
 
@@ -68,20 +71,16 @@ export async function dispatchMcp(root, state, config, options = {}) {
   const stagingDir = join(root, getTurnStagingDir(turn.turn_id));
   mkdirSync(stagingDir, { recursive: true });
 
-  const transport = new StdioClientTransport({
+  const transport = buildMcpClientTransport({
+    root,
+    runtime,
     command,
     args,
-    cwd: runtime.cwd ? join(root, runtime.cwd) : root,
-    env: buildTransportEnv(process.env),
-    stderr: 'pipe',
+    logs,
+    onStderr,
   });
-
-  if (transport.stderr) {
-    transport.stderr.on('data', (chunk) => {
-      const text = chunk.toString();
-      logs.push(`[stderr] ${text}`);
-      if (onStderr) onStderr(text);
-    });
+  if (!transport.ok) {
+    return { ok: false, error: transport.error, logs };
   }
 
   const client = new Client({
@@ -100,8 +99,8 @@ export async function dispatchMcp(root, state, config, options = {}) {
       return { ok: false, aborted: true, logs };
     }
 
-    onStatus?.(`Connecting to MCP stdio server (${command})`);
-    await client.connect(transport);
+    onStatus?.(`Connecting to MCP ${transportType} server (${describeMcpRuntimeTarget(runtime)})`);
+    await client.connect(transport.transport);
 
     if (signal?.aborted) {
       return { ok: false, aborted: true, logs };
@@ -182,7 +181,7 @@ export async function dispatchMcp(root, state, config, options = {}) {
       logs,
     };
   } finally {
-    await safeCloseClient(client, transport);
+    await safeCloseClient(client, transport.transport);
   }
 }
 
@@ -204,6 +203,18 @@ export function resolveMcpToolName(runtime) {
   return typeof runtime?.tool_name === 'string' && runtime.tool_name.trim()
     ? runtime.tool_name.trim()
     : DEFAULT_MCP_TOOL_NAME;
+}
+
+export function resolveMcpTransport(runtime) {
+  return typeof runtime?.transport === 'string' && runtime.transport.trim()
+    ? runtime.transport.trim()
+    : DEFAULT_MCP_TRANSPORT;
+}
+
+export function describeMcpRuntimeTarget(runtime) {
+  return resolveMcpTransport(runtime) === 'streamable_http'
+    ? runtime?.url || '(unknown)'
+    : resolveMcpCommand(runtime).command || '(unknown)';
 }
 
 export function extractTurnResultFromMcpToolResult(toolResult) {
@@ -266,6 +277,58 @@ function buildTransportEnv(env) {
     }
   }
   return result;
+}
+
+function buildMcpClientTransport({ root, runtime, command, args, logs, onStderr }) {
+  if (resolveMcpTransport(runtime) === 'streamable_http') {
+    try {
+      const requestHeaders = buildRequestHeaders(runtime?.headers);
+      return {
+        ok: true,
+        transport: new StreamableHTTPClientTransport(new URL(runtime.url), {
+          requestInit: requestHeaders ? { headers: requestHeaders } : undefined,
+        }),
+      };
+    } catch (error) {
+      logs.push(`[transport-error] ${error.message}`);
+      return {
+        ok: false,
+        error: `Cannot resolve MCP streamable_http runtime: ${error.message}`,
+      };
+    }
+  }
+
+  const transport = new StdioClientTransport({
+    command,
+    args,
+    cwd: runtime.cwd ? join(root, runtime.cwd) : root,
+    env: buildTransportEnv(process.env),
+    stderr: 'pipe',
+  });
+
+  if (transport.stderr) {
+    transport.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      logs.push(`[stderr] ${text}`);
+      if (onStderr) onStderr(text);
+    });
+  }
+
+  return { ok: true, transport };
+}
+
+function buildRequestHeaders(headers) {
+  if (!headers || typeof headers !== 'object' || Array.isArray(headers)) {
+    return null;
+  }
+
+  const result = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === 'string') {
+      result[key] = value;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : null;
 }
 
 function isPlainObject(value) {
