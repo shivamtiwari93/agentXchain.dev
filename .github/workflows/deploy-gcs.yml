@@ -52,6 +52,10 @@ jobs:
       # Docusaurus generates content-hashed filenames for JS/CSS bundles
       # (e.g., assets/js/main.abc123.js) — these are safe to cache aggressively.
       # HTML files get short cache TTLs so content updates propagate quickly.
+      #
+      # Important: `gsutil rsync -h` only applies headers to rewritten objects.
+      # We explicitly correct metadata after sync so stale cache headers from
+      # older deploy strategies do not survive indefinitely.
 
       - name: Sync hashed assets (long cache)
         env:
@@ -72,6 +76,26 @@ jobs:
             website-v2/build/ \
             gs://${GCS_BUCKET}/
 
+      - name: Enforce cache metadata on assets
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
+        shell: bash
+        run: |
+          mapfile -t asset_objects < <(gsutil ls -r "gs://${GCS_BUCKET}/assets/**" 2>/dev/null | grep -v '/$' || true)
+          if [ "${#asset_objects[@]}" -gt 0 ]; then
+            printf '%s\n' "${asset_objects[@]}" | xargs -n 100 gsutil -m setmeta -h "Cache-Control:public, max-age=31536000, immutable"
+          fi
+
+      - name: Enforce cache metadata on mutable objects
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
+        shell: bash
+        run: |
+          mapfile -t mutable_objects < <(gsutil ls -r "gs://${GCS_BUCKET}/**" 2>/dev/null | grep -v '/$' | grep -v '/assets/' || true)
+          if [ "${#mutable_objects[@]}" -gt 0 ]; then
+            printf '%s\n' "${mutable_objects[@]}" | xargs -n 100 gsutil -m setmeta -h "Cache-Control:public, max-age=300, s-maxage=60"
+          fi
+
       - name: Verify deployment
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
@@ -84,3 +108,10 @@ jobs:
           echo ""
           echo "Asset bundles:"
           gsutil ls gs://${GCS_BUCKET}/assets/ 2>/dev/null | head -10 || echo "(none)"
+          echo ""
+          echo "Cache metadata checks:"
+          gsutil stat gs://${GCS_BUCKET}/index.html | grep "Cache-Control" || true
+          first_asset="$(gsutil ls gs://${GCS_BUCKET}/assets/** 2>/dev/null | grep -v '/$' | head -n 1 || true)"
+          if [ -n "$first_asset" ]; then
+            gsutil stat "$first_asset" | grep "Cache-Control" || true
+          fi

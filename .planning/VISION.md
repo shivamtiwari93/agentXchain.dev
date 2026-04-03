@@ -42,6 +42,18 @@ Three forces are converging simultaneously:
 
 AgentXchain fills that gap.
 
+### Long-horizon coding changes the optimization target
+
+Short interactive coding sessions tolerate drift, missing context, and fuzzy ownership because the human can keep re-steering. Long-horizon coding does not. Once agents are running for hours, days, or continuously across repos, the system needs persistent state, explicit workflow stages, constitutional checkpoints, and evidence that survives any individual model session.
+
+That is why AgentXchain is not "another coding agent." It is workflow infrastructure for long-horizon software delivery.
+
+### Lights-out software factories require constitutional controls
+
+"Lights-out" does not mean "no humans ever intervene." It means the factory can keep operating without line-by-line human supervision because the workflow itself is governed. Agents can plan, implement, review, escalate, retry, and coordinate across boundaries, while humans retain sovereign authority at the constitutional layer: scope, phase transitions, recovery, and ship decisions.
+
+Without those controls, a lights-out software factory is just unattended code generation. With them, it becomes an auditable production system.
+
 ---
 
 ## Core Ideas
@@ -119,25 +131,39 @@ These are different objectives with different optimal strategies. Speed favors o
 
 AgentXchain bets that as AI-generated code scales, the cost of *wrong code shipped fast* will dominate the cost of *right code shipped slower*. The most expensive line of code is the one that ships to production, breaks something, and takes a week to diagnose — especially when no one can explain why the AI wrote it that way.
 
+### 6. Workflows and integrations matter as much as model quality
+
+The durable system is not just "protocol + orchestrator + adapters." Real deployment needs governed workflows and integration surfaces.
+
+- **Workflows** define how planning, implementation, QA, escalation, release, and recovery actually proceed.
+- **Connectors** bridge AgentXchain to agent runtimes such as local CLIs and APIs.
+- **Integrations** connect the workflow to the surrounding organization: dashboards, CI, Slack, Jira, compliance hooks, and custom validators.
+
+This distinction matters because the protocol is only useful if it can govern the real software factory, not just an isolated CLI demo.
+
 ---
 
 ## Architecture
 
-Three layers, cleanly separated, each replaceable independently:
+Five surfaces, cleanly separated, each replaceable independently:
 
 **Protocol layer** — the constitution. Config schema, state machine, turn-result schema, validation rules, phase gates, decision ledger format. Versioned independently. Could be implemented by anyone. This is the layer that should eventually become an open standard.
 
-**Orchestrator layer** — the enforcement engine. Reads config, manages run state, assigns turns, validates results, enforces gates, handles recovery and conflict resolution. Currently implemented as a Node.js CLI. Could be reimplemented as a cloud service, a GitHub Action, a VS Code extension, or a Kubernetes operator without changing the protocol.
+**Runner layer** — the enforcement engine. Reads config, manages run state, assigns turns, validates results, enforces gates, handles recovery and conflict resolution. Currently implemented as a Node.js CLI. Could be reimplemented as a cloud service, a GitHub Action, a VS Code extension, or a Kubernetes operator without changing the protocol.
 
-**Adapter layer** — the bridge to agent runtimes. Three modes:
+**Connector layer** — the bridge to agent runtimes. Three modes:
 
-| Adapter | How it works | Automation level |
+| Connector | How it works | Automation level |
 |---------|-------------|-----------------|
 | `manual` | Human receives a brief, does the work, submits a turn result | Full human control |
 | `local_cli` | Orchestrator spawns a local agent process (Claude Code, Codex, Aider) | Fully automated |
 | `api_proxy` | Orchestrator calls an LLM API directly, with retry, tokenization, and cost tracking | Fully automated |
 
-Adapters are intentionally thin. Adding support for a new agent runtime (a future Anthropic agent, a new OpenAI tool, a custom fine-tuned model) is a ~200-line adapter that translates between the protocol's dispatch bundle and whatever the runtime expects. The protocol and orchestrator don't change.
+**Workflow layer** — the governed delivery programs that run on top of the protocol: single-repo delivery, multi-repo coordination, release recovery, escalation handling, and eventually continuous governed delivery.
+
+**Integration layer** — the organizational edges: dashboards, plugins, HTTP hooks, CI providers, ticketing systems, notification channels, and compliance/reporting surfaces.
+
+Connectors are intentionally thin. Adding support for a new agent runtime (a future Anthropic agent, a new OpenAI tool, a custom fine-tuned model) is a ~200-line connector that translates between the protocol's dispatch bundle and whatever the runtime expects. The protocol and runner don't change.
 
 ---
 
@@ -183,13 +209,21 @@ That is what AgentXchain builds. The protocol is the product. The future is gove
 
 ---
 
+## Product Split
+
+**agentxchain.dev** is the open-source protocol and runner surface. It should remain the canonical place for the specification, CLI, connectors, workflow contracts, and implementation evidence.
+
+**agentxchain.ai** is the managed cloud surface. It should package the same protocol into hosted infrastructure: persistent run history, organization-wide dashboards, managed connectors, integrations, governance reporting, and eventually lights-out software factory operations.
+
+The split is strategic, not cosmetic. `.dev` drives protocol adoption. `.ai` monetizes managed operation.
+
 ## Business Model
 
 Open-core, designed for ecosystem gravity:
 
-**agentxchain.dev** (open source, MIT) — the protocol specification, CLI orchestrator, and adapter layer. Free forever. The protocol's value is proportional to its adoption; keeping it open maximizes network effects and makes it the default standard.
+**agentxchain.dev** (open source, MIT) — the protocol specification, CLI runner, connector layer, and workflow contracts. Free forever. The protocol's value is proportional to its adoption; keeping it open maximizes network effects and makes it the default standard.
 
-**agentxchain.ai** (commercial cloud) — hosted orchestration, persistent run history, team dashboards, managed adapter fleet, compliance reporting, usage-based billing. This is where the business lives. The open protocol creates the market. The cloud product captures value from organizations that want managed infrastructure, cross-team visibility, and enterprise-grade audit trails without running their own orchestrator.
+**agentxchain.ai** (commercial cloud) — hosted orchestration, persistent run history, team dashboards, managed connector fleet, integrations, compliance reporting, and usage-based billing. This is where the business lives. The open protocol creates the market. The cloud product captures value from organizations that want managed infrastructure, cross-team visibility, and enterprise-grade audit trails without running their own runner stack.
 
 The strategic logic: **if AgentXchain becomes the standard protocol for governed multi-agent software delivery, the managed cloud offering sells itself to every organization that adopts the protocol but doesn't want to operate the infrastructure.**
 

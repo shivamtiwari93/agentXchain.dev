@@ -73,7 +73,7 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">1,036+</div>
+        <div className="stat-number">1,038</div>
         <div className="stat-label">Tests passing</div>
       </div>
       <div>
@@ -139,10 +139,10 @@ function Architecture() {
     <section style={{ padding: '5rem 0' }}>
       <div className="container">
         <span className="section-label text-blue">Architecture</span>
-        <h2>Protocol + Runners + Connectors</h2>
+        <h2>Protocol + runners + connectors + integrations</h2>
         <p className="section-subtitle">
-          Three layers, cleanly separated, each replaceable independently.
-          The protocol is the durable layer. Everything else is implementation detail.
+          The protocol defines the workflow. The runner enforces it. Connectors and
+          integrations make it usable in real software factories.
         </p>
         <div className="arch-grid feature-grid">
           <div className="feature-card">
@@ -176,6 +176,11 @@ function Architecture() {
             </p>
           </div>
         </div>
+        <p className="section-subtitle" style={{ marginTop: '1.5rem', marginBottom: 0 }}>
+          Governed workflows sit on top of these layers: planning, implementation,
+          QA, escalation, release, multi-repo coordination, plugins, dashboards,
+          and organizational integrations.
+        </p>
       </div>
     </section>
   );
@@ -262,9 +267,10 @@ function PlatformSplit() {
             </p>
             <ul>
               <li>Protocol specification (v6)</li>
-              <li>CLI runner / orchestrator</li>
-              <li>Adapter layer (manual, local_cli, api_proxy)</li>
+              <li>CLI runner</li>
+              <li>Connector layer (manual, local_cli, api_proxy)</li>
               <li>Plugin system and hook lifecycle</li>
+              <li>Governed workflows and release evidence</li>
               <li>Multi-repo coordinator</li>
               <li>Local dashboard</li>
               <li>Protocol conformance kit</li>
@@ -281,7 +287,8 @@ function PlatformSplit() {
               <li>Hosted orchestration</li>
               <li>Persistent run history</li>
               <li>Team dashboards</li>
-              <li>Managed adapter fleet</li>
+              <li>Managed connector fleet</li>
+              <li>Hosted integrations and workflow automation</li>
               <li>Compliance reporting</li>
               <li>Usage-based billing</li>
               <li>Enterprise audit trails</li>

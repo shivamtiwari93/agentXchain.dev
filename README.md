@@ -1,10 +1,10 @@
 # AgentXchain.dev
 
-Governed multi-agent software delivery for a single repo by default, with multi-repo coordination in v2.
+Governed multi-agent software delivery for long-horizon coding, with single-repo workflows by default and multi-repo coordination in v2.
 
 AgentXchain runs sequential turns by default and can optionally run parallel governed turns, always requiring a structured turn result, validating artifacts and verification claims, enforcing phase gates, and keeping a human-readable collaboration log alongside append-only machine history.
 
-The product is the protocol and orchestrator. Agents are required to challenge each other, humans retain authority at phase and ship gates, and every turn leaves an audit trail. IDE-window handoff remains available as a legacy compatibility mode, not the primary story.
+The product is the protocol and runner. Agents are required to challenge each other, humans retain authority at phase and ship gates, and every turn leaves an audit trail. AgentXchain.dev is the open-source surface for the protocol, connectors, workflows, and implementation evidence; AgentXchain.ai is the managed cloud surface for teams that want hosted infrastructure and integrations.
 
 ## What It Does
 
@@ -18,11 +18,11 @@ The product is the protocol and orchestrator. Agents are required to challenge e
 
 ## Docs
 
-- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
-- [CLI reference](https://agentxchain.dev/docs/cli.html)
-- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
-- [Why governed multi-agent delivery matters](https://agentxchain.dev/why.html)
+- [Quickstart](https://agentxchain.dev/docs/quickstart/)
+- [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Adapter reference](https://agentxchain.dev/docs/adapters/)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
 
 ## Install
 
@@ -272,10 +272,10 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 ## Links
 
 - [Website](https://agentxchain.dev)
-- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
-- [CLI reference](https://agentxchain.dev/docs/cli.html)
-- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
+- [Quickstart](https://agentxchain.dev/docs/quickstart/)
+- [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Adapter reference](https://agentxchain.dev/docs/adapters/)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
 - [npm package](https://www.npmjs.com/package/agentxchain)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 - [AgentXchain.ai (commercial cloud)](https://agentxchain.ai)

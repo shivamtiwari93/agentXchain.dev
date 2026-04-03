@@ -1,88 +1,101 @@
 # Docs Surface Spec — AgentXchain.dev
 
-> Lightweight documentation strategy. No framework adoption until information architecture is proven.
+> Docusaurus migration, vision alignment, and GCS deployment contract.
 
 ---
 
 ## Purpose
 
-Expose documentation on agentxchain.dev without adopting Docusaurus, Starlight, or any docs framework. Prove the IA first, then decide if a framework is warranted.
+Ship AgentXchain.dev on a mature OSS docs stack that can serve the current public site and scale to versioned protocol/workflow docs without maintaining a hand-written static HTML system.
 
-## Decision
+## Decisions
 
-**DEC-DOCS-001**: Documentation will be served as static HTML pages under `/docs/` on agentxchain.dev, using the same visual design system as the landing page. No build step. No framework. Each page is a standalone `.html` file.
+**DEC-DOCS-MIGRATION-001**: The public docs surface is migrated from hand-written static HTML to Docusaurus.
 
-**Rationale**: The project has ~4 docs pages worth of content. A framework adds dependency surface, build complexity, and design inconsistency for zero gain at this scale. If docs grow past ~10 pages, revisit.
+**Rationale**: The site is now large enough that standalone HTML pages are a maintenance liability. We need structured docs navigation, MDX authoring, static output, and a credible path to versioned public documentation. Docmost was explicitly rejected because it is the wrong product category for a statically hosted OSS docs site.
 
-## Pages
+**DEC-DOCS-MIGRATION-002**: The migration lands in `website-v2/` first. The legacy `website/` directory remains only as a rollback path until the Docusaurus surface is verified live on the canonical domain.
 
-### Phase 1 (pre-launch)
+**DEC-DOCS-MIGRATION-003**: The public site must reflect the current product direction:
 
-| Path | Content Source | Purpose |
-|------|---------------|---------|
-| `/docs/quickstart` | New content | 5-minute getting-started: install, init, step, accept, approve, ship |
-| `/docs/protocol` | `PROTOCOL-v6.md` rendered (latest alias) | The current protocol specification |
-| `/docs/protocol-v6` | `PROTOCOL-v6.md` rendered (versioned permalink) | Immutable v6 protocol reference |
-| `/docs/adapters` | New content | How the three adapters work, how to add a new one |
-| `/docs/cli` | `.planning/CLI_SPEC.md` rendered | Complete CLI command reference |
-| `/docs/plugins` | `.planning/PLUGIN_SYSTEM_PHASE1_SPEC.md` rendered | Plugin authoring, install, list, remove |
+- long-horizon coding
+- lights-out software factories
+- protocol + runners + connectors + integrations + workflows
+- explicit `agentxchain.dev` (OSS) vs `agentxchain.ai` (cloud) split
+- released version reality (`2.1.1` at the time of this spec update)
 
-### Phase 2 (post-launch, demand-driven)
+**DEC-GCS-DEPLOY-001**: GCS deployment is the primary static hosting path. GitHub Pages remains a fallback/public mirror, not the canonical deployment target.
 
-| Path | Content Source | Purpose |
-|------|---------------|---------|
-| `/docs/examples` | New content | Walkthrough of a governed todo-app build |
-| `/docs/faq` | Show HN responses + common questions | Anticipated objections answered |
-| `/docs/contributing` | New content | How to contribute adapters, roles, protocol extensions |
+**DEC-GCS-DEPLOY-002**: Cache policy is enforced after sync, not merely implied during sync. Content-hashed Docusaurus assets receive immutable long-cache headers. HTML and all non-hashed mutable objects receive short-cache headers.
+
+## Site Structure
+
+### Landing pages
+
+- `/` — product landing page
+- `/why` — governance thesis / positioning page
+- `/compare/vs-crewai`
+- `/compare/vs-langgraph`
+- `/compare/vs-openai-agents-sdk`
+
+### Docs
+
+- `/docs/quickstart`
+- `/docs/cli`
+- `/docs/protocol`
+- `/docs/adapters`
+- `/docs/plugins`
 
 ## Design Constraints
 
-1. **Same stylesheet** as `index.html`. Docs pages import the same CSS variables and component styles. No separate design system.
-2. **No JavaScript required** for reading docs. Pages are static HTML with optional nav enhancement.
-3. **Nav bar** gets a "Docs" link pointing to the quickstart page. Until host-level rewrite support exists, internal links should use explicit `.html` targets for host-safe static routing.
-4. **Code blocks** use the same `JetBrains Mono` + dark background treatment as the landing page terminal.
-5. **Mobile-first**. Sidebar collapses to a top dropdown on screens < 768px.
+1. Use a mature OSS static site generator, not a custom HTML-only stack.
+2. Preserve clean public URLs without `.html` suffixes where the framework supports it.
+3. Keep the site static-output compatible with GCS hosting.
+4. Keep the docs/nav/content contract repo-native inside `website-v2/`.
+5. Public copy must stay consistent with `.planning/VISION.md`, README, and released product state.
 
-## Implementation
+## Deployment Contract
 
-Each docs page is a file at `website/docs/{slug}.html` with this structure:
+### Build
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <!-- Same meta, fonts, base styles as index.html -->
-  <link rel="stylesheet" href="../docs.css" />
-</head>
-<body>
-  <nav><!-- Same nav as index.html with "Docs" active --></nav>
-  <div class="docs-layout">
-    <aside class="docs-sidebar"><!-- Page list --></aside>
-    <main class="docs-content"><!-- Content --></main>
-  </div>
-  <footer><!-- Same footer --></footer>
-</body>
-</html>
+```bash
+cd website-v2
+npm ci
+npm run build
 ```
 
-Shared styles go in `website/docs.css`. Page-specific content is inline HTML — no markdown rendering, no build step.
+### Sync
+
+1. Sync `build/assets/` to `gs://agentxchain.dev/assets/`
+2. Sync the rest of `build/` to `gs://agentxchain.dev/`
+
+### Cache policy
+
+- `gs://agentxchain.dev/assets/**`
+  - `Cache-Control: public, max-age=31536000, immutable`
+- All other objects in `gs://agentxchain.dev/**`
+  - `Cache-Control: public, max-age=300, s-maxage=60`
+
+The important constraint is operational, not theoretical: headers must be corrected even when the object already existed with stale metadata from an earlier deployment regime.
+
+## Behavior
+
+1. Docusaurus is the only supported authoring/build path for the public docs surface.
+2. Release/version references on the landing page must match the latest canonical released version.
+3. Public docs URLs in README and linked surfaces must use the Docusaurus route structure.
+4. Deployment scripts/workflows must not rely on cache-busting query strings when the build already emits hashed asset filenames.
+5. Deployment verification must inspect the bucket after upload, not stop at local build success.
 
 ## Acceptance Tests
 
-1. Each docs page loads without JavaScript enabled
-2. Each docs page passes Lighthouse accessibility audit (score >= 90)
-3. Nav bar "Docs" link is visible on the landing page
-4. Sidebar navigation works on mobile (< 768px)
-5. Code blocks are syntax-highlighted and horizontally scrollable
-6. All internal links resolve (no 404s)
+1. `cd website-v2 && npm run build` succeeds with no broken links.
+2. The generated site includes the expected landing, docs, and comparison routes.
+3. `README.md` links point at the clean Docusaurus routes.
+4. `gsutil stat gs://agentxchain.dev/index.html` shows short-cache metadata after deployment.
+5. At least one object under `gs://agentxchain.dev/assets/` shows immutable long-cache metadata after deployment.
+6. The landing page copy explicitly references long-horizon coding, lights-out software factories, and the `.dev` vs `.ai` split.
 
 ## Open Questions
 
-1. Should the protocol spec page be a faithful rendering of the markdown, or a restructured "reference" page? The spec is 800+ lines and may need a table of contents.
-2. Should we extract shared HTML (nav, footer) into partials and use a simple include mechanism (e.g., a 10-line build script with `sed`), or keep each page fully self-contained?
-
-## What This Is NOT
-
-- Not a docs framework adoption decision
-- Not a content management system
-- Not a blog (if we add a blog later, it gets its own spec)
+1. When the Docusaurus migration is fully verified in production, should `website-v2/` replace `website/` in-place or remain versioned as the canonical directory?
+2. When docs volume increases further, do we introduce Docusaurus versioned docs or keep a single moving docs set plus protocol-version pages?
