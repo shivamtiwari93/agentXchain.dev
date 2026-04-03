@@ -1,0 +1,29 @@
+{
+  "fixture_id": "SM-011",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "Illegal transition idle to paused is rejected",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "idle",
+      "phase": "planning",
+      "run_id": null,
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "transition_state",
+    "args": {
+      "target_status": "paused"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_state_transition",
+    "state_unchanged": true
+  }
+}

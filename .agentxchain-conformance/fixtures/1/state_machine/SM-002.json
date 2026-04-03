@@ -1,0 +1,27 @@
+{
+  "fixture_id": "SM-002",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "Completed state rejects approval",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "completed",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "approve_completion",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_state_transition",
+    "state_unchanged": true
+  }
+}

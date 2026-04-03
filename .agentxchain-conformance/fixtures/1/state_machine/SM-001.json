@@ -1,0 +1,36 @@
+{
+  "fixture_id": "SM-001",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "Completed state rejects assignment",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "completed",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "roles": {
+        "dev": {
+          "runtime": "manual"
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "assign_turn",
+    "args": {
+      "role_id": "dev"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_state_transition",
+    "state_unchanged": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "fixture_id": "SM-009",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "active to blocked on escalation",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_001": {
+          "turn_id": "turn_001",
+          "assigned_role": "dev"
+        }
+      },
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "transition_state",
+    "args": {
+      "trigger": "escalation",
+      "reason": "retries_exhausted",
+      "role_id": "dev"
+    }
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "blocked",
+      "blocked_on": "escalation:retries-exhausted:dev"
+    }
+  }
+}

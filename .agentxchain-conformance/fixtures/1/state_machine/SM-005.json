@@ -1,0 +1,40 @@
+{
+  "fixture_id": "SM-005",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "active to paused on human gate",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "planning",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "transition_state",
+    "args": {
+      "trigger": "gate_requires_human_approval",
+      "gate": {
+        "gate": "planning_gate",
+        "from": "planning",
+        "to": "implementation"
+      }
+    }
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "paused",
+      "pending_phase_transition": {
+        "gate": "planning_gate",
+        "from": "planning",
+        "to": "implementation"
+      }
+    }
+  }
+}

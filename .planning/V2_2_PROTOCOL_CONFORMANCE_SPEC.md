@@ -87,6 +87,7 @@ Every conformant implementation MUST pass Tier 1. These are the protocol invaria
 ### Tier 2 — Trust Hardening (Optional)
 
 Implementations claiming trust-hardened execution MUST pass Tier 2 in addition to Tier 1.
+These surfaces strengthen governed execution materially, but they remain optional until they are promoted into the normative protocol reference itself. They are not baseline v6 constitutional requirements today.
 
 | Surface | Invariants |
 |---------|-----------|
@@ -167,6 +168,11 @@ Fixture types:
 - **`transition`** — state changes to expected values after operation
 - **`validate`** — artifact (turn result, config, manifest) validated against schema
 
+`expected` may contain exact values plus simple assertion objects for generated data. The first-cut fixture corpus uses:
+- `{ "assert": "nonempty_string" }`
+- `{ "assert": "id_prefix", "value": "run_" }`
+- `{ "assert": "present" }`
+
 ---
 
 ## Fixture Inventory (First Cut)
@@ -225,6 +231,14 @@ Fixture types:
 | DL-003 | reject | Decision with invalid category |
 | DL-004 | reject | Duplicate decision ID within a run |
 
+**History (HS-001 through HS-003)**
+
+| ID | Type | Description |
+|----|------|-------------|
+| HS-001 | transition | Accepted turn appends one history entry atomically with state update |
+| HS-002 | reject | Re-accepting the same turn does not duplicate history |
+| HS-003 | reject | Orphaned history append without corresponding state advance fails |
+
 **Config Schema (CS-001 through CS-005)**
 
 | ID | Type | Description |
@@ -267,7 +281,7 @@ Fixture types:
 | CR-004 | transition | Barrier partially_satisfied → satisfied when all repos done |
 | CR-005 | reject | Cross-repo file write violation |
 
-**Total: 50 fixtures across 3 tiers.**
+**Total: 53 fixtures across 3 tiers.**
 
 ---
 
@@ -292,10 +306,10 @@ agentxchain verify protocol --tier 1 --target <path> --format json
 ### Target Interface
 
 The `--target` path must contain:
-1. A `.agentxchain-conformance/capabilities.json` declaring supported tiers and surfaces
-2. An adapter script at `.agentxchain-conformance/adapter.sh` (or `.js`) that the validator invokes for each fixture
+1. A `.agentxchain-conformance/capabilities.json` declaring supported tiers, surfaces, and adapter invocation metadata
+2. An executable adapter command declared inside `capabilities.json`
 
-The adapter script receives fixture JSON on stdin and must:
+The adapter command is resolved relative to the target root when a relative path is used. The validator invokes that command once per fixture, writes fixture JSON to stdin, and expects:
 1. Execute the operation described in the fixture against the implementation
 2. Return a result JSON on stdout with `{ "status": "pass" | "fail" | "error", "actual": {...}, "message": "..." }`
 3. Exit 0 on pass, 1 on fail, 2 on error
@@ -309,12 +323,17 @@ This adapter model means the validator does not need to know how to invoke the i
   "implementation": "agentxchain-cli",
   "version": "2.2.0",
   "protocol_version": "v6",
+  "adapter": {
+    "protocol": "stdio-fixture-v1",
+    "command": ["node", ".agentxchain-conformance/reference-adapter.js"]
+  },
   "tiers": [1, 2, 3],
   "surfaces": {
     "state_machine": true,
     "turn_result_validation": true,
     "gate_semantics": true,
     "decision_ledger": true,
+    "history": true,
     "config_schema": true,
     "dispatch_manifest": true,
     "hook_audit": true,
@@ -340,14 +359,15 @@ This adapter model means the validator does not need to know how to invoke the i
   "results": {
     "tier_1": {
       "status": "pass",
-      "fixtures_run": 37,
-      "fixtures_passed": 37,
+      "fixtures_run": 40,
+      "fixtures_passed": 40,
       "fixtures_failed": 0,
       "surfaces": {
         "state_machine": { "passed": 12, "failed": 0 },
         "turn_result_validation": { "passed": 10, "failed": 0 },
         "gate_semantics": { "passed": 6, "failed": 0 },
         "decision_ledger": { "passed": 4, "failed": 0 },
+        "history": { "passed": 3, "failed": 0 },
         "config_schema": { "passed": 5, "failed": 0 }
       }
     },
@@ -385,7 +405,7 @@ This adapter model means the validator does not need to know how to invoke the i
 
 ## Implementation Strategy
 
-1. **Fixtures first.** Write all 50 fixtures as static JSON files. No code. Review them for protocol correctness before building the validator.
+1. **Fixtures first.** Write the fixtures as static JSON files. Start with Tier 1 state machine fixtures, review them, then expand to the remaining Tier 1 surfaces before writing Tier 2 or Tier 3. Do not dump all 53 fixtures into one unreviewed blob.
 2. **Validator second.** Build the `verify protocol` command that reads fixtures, invokes the adapter, collects results, and produces the report.
 3. **Reference adapter third.** Write the adapter script that bridges fixtures to the reference CLI's internal APIs (governed-state, turn-result-validator, gate-evaluator, etc.).
 4. **Self-validation last.** Prove that the reference CLI passes its own conformance suite. This is AT-V22-001 through AT-V22-003.
@@ -407,7 +427,7 @@ These are NOT part of v2.2 conformance and should not leak into the fixture set:
 
 ## Open Questions
 
-1. **Should the adapter interface be synchronous (stdin/stdout per fixture) or batch (all fixtures at once)?** Stdin/stdout is simpler but slower. Batch requires a richer result format but tests faster. Recommend: synchronous first, batch optimization later.
+1. **Should batch adapter mode be added later as an optimization alongside `stdio-fixture-v1`?** Not for the first cut. Freeze synchronous per-fixture execution first; add batching only if fixture volume makes it necessary.
 
 2. **Should Tier 1 conformance be required for npm package naming?** E.g., packages claiming `agentxchain-*` must pass Tier 1. This is a governance decision, not a technical one. Defer to post-v2.2.
 

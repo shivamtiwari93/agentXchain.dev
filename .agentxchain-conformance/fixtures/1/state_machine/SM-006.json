@@ -1,0 +1,34 @@
+{
+  "fixture_id": "SM-006",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "paused to active on approve-transition",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "paused",
+      "phase": "planning",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": {
+        "gate": "planning_gate",
+        "from": "planning",
+        "to": "implementation"
+      },
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "approve_transition",
+    "args": {}
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "active",
+      "phase": "implementation",
+      "pending_phase_transition": null
+    }
+  }
+}

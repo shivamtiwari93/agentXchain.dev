@@ -1,0 +1,41 @@
+{
+  "fixture_id": "SM-004",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "idle to active fails with invalid config",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "idle",
+      "phase": "planning",
+      "run_id": null,
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "roles": {
+        "pm": {
+          "runtime": "missing_runtime"
+        }
+      },
+      "runtimes": {},
+      "routing": {
+        "planning": {
+          "entry_role": "pm"
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "initialize_run",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_config",
+    "state_unchanged": true
+  }
+}

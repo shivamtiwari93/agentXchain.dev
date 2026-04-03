@@ -1,0 +1,32 @@
+{
+  "fixture_id": "SM-012",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "run_id mutation after initialization is rejected",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "planning",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "transition_state",
+    "args": {
+      "target_status": "active",
+      "candidate_overrides": {
+        "run_id": "run_002"
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "immutable_field",
+    "state_unchanged": true
+  }
+}

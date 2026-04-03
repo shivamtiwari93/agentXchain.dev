@@ -1,0 +1,34 @@
+{
+  "fixture_id": "SM-007",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "paused to completed on approve-completion",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "paused",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": {
+        "gate": "ship_gate"
+      },
+      "blocked_on": null
+    }
+  },
+  "input": {
+    "operation": "approve_completion",
+    "args": {}
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "completed",
+      "completed_at": {
+        "assert": "present"
+      },
+      "pending_run_completion": null
+    }
+  }
+}

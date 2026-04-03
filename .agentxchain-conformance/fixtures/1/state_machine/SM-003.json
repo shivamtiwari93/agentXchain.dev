@@ -1,0 +1,52 @@
+{
+  "fixture_id": "SM-003",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "idle to active on initialize with valid config",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "idle",
+      "phase": "planning",
+      "run_id": null,
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "roles": {
+        "pm": {
+          "runtime": "manual",
+          "write_authority": "authoritative"
+        }
+      },
+      "runtimes": {
+        "manual": {
+          "type": "manual"
+        }
+      },
+      "routing": {
+        "planning": {
+          "entry_role": "pm"
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "initialize_run",
+    "args": {}
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "active",
+      "run_id": {
+        "assert": "id_prefix",
+        "value": "run_"
+      },
+      "blocked_on": null
+    }
+  }
+}

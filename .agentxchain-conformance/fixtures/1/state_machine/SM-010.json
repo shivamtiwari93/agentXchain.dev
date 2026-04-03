@@ -1,0 +1,31 @@
+{
+  "fixture_id": "SM-010",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "blocked to active on resolve",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "blocked",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": "human:waiting-for-recovery"
+    }
+  },
+  "input": {
+    "operation": "resolve_blocked",
+    "args": {
+      "action": "resume"
+    }
+  },
+  "expected": {
+    "result": "ok",
+    "state_assertions": {
+      "status": "active",
+      "blocked_on": null
+    }
+  }
+}
