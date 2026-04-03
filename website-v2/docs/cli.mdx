@@ -334,8 +334,40 @@ agentxchain plugin <subcommand> [options]
 |------------|-------------|
 | `install <source>` | Install a plugin from a local directory, archive, or npm package |
 | `list` | List all installed plugins with version and hook count |
-| `upgrade <name>` | Upgrade an installed plugin to the latest version |
+| `upgrade <name> [source]` | Upgrade an installed plugin atomically, rolling back on failure |
 | `remove <name>` | Remove an installed plugin and its hooks |
+
+#### `plugin install` flags
+
+| Flag | Description |
+|------|-------------|
+| `--config <json>` | Inline JSON plugin config validated against `config_schema` |
+| `--config-file <path>` | Read plugin config JSON from a file |
+| `-j, --json` | Output as JSON |
+
+`--config` and `--config-file` are mutually exclusive.
+
+#### `plugin list` flags
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
+#### `plugin upgrade` flags
+
+| Flag | Description |
+|------|-------------|
+| `--config <json>` | Inline JSON plugin config validated against `config_schema` |
+| `--config-file <path>` | Read plugin config JSON from a file |
+| `-j, --json` | Output as JSON |
+
+The optional `[source]` positional argument specifies a local directory, archive, or npm package to upgrade from. If omitted, the plugin is upgraded from its original source.
+
+#### `plugin remove` flags
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
 
 See [Plugins](/docs/plugins) for full details on authoring and managing plugins.
 

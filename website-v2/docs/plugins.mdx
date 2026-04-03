@@ -114,6 +114,16 @@ agentxchain plugin install @agentxchain/plugin-slack-notify
 
 Runs `npm pack` behind the scenes, extracts, and installs. The package must contain `agentxchain-plugin.json` at its root.
 
+### Install flags
+
+| Flag | Description |
+|------|-------------|
+| `--config <json>` | Inline JSON plugin config validated against `config_schema` |
+| `--config-file <path>` | Read plugin config JSON from a file |
+| `-j, --json` | Output as JSON |
+
+`--config` and `--config-file` are mutually exclusive. If the plugin defines a `config_schema`, pass initial config at install time.
+
 ### What happens on install
 
 1. **Manifest validation** — The manifest is parsed and validated against the plugin schema. Invalid manifests are rejected.
@@ -142,6 +152,10 @@ Runs `npm pack` behind the scenes, extracts, and installs. The package must cont
 agentxchain plugin list
 ```
 
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
 Output:
 
 ```
@@ -169,6 +183,14 @@ With `--json`:
 agentxchain plugin upgrade plugin-slack-notify
 ```
 
+The optional `[source]` positional argument specifies a local directory, archive, or npm package to upgrade from. If omitted, the plugin is upgraded from its original source.
+
+| Flag | Description |
+|------|-------------|
+| `--config <json>` | Inline JSON plugin config validated against `config_schema` |
+| `--config-file <path>` | Read plugin config JSON from a file |
+| `-j, --json` | Output as JSON |
+
 Upgrade performs an **atomic swap**:
 
 1. The new version is installed to a temporary directory.
@@ -180,7 +202,7 @@ Upgrade performs an **atomic swap**:
 To upgrade from a specific source:
 
 ```bash
-agentxchain plugin upgrade plugin-slack-notify --from ./downloads/plugin-slack-notify-1.3.0.tar.gz
+agentxchain plugin upgrade plugin-slack-notify ./downloads/plugin-slack-notify-1.3.0.tar.gz
 ```
 
 ## Removing plugins
@@ -188,6 +210,10 @@ agentxchain plugin upgrade plugin-slack-notify --from ./downloads/plugin-slack-n
 ```bash
 agentxchain plugin remove plugin-slack-notify
 ```
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
 
 Removes the plugin directory from `.agentxchain/plugins/` and removes its entry from `agentxchain.json`. Hook registrations are cleaned up. In-flight turns are not affected — hooks only fire on future events.
 
