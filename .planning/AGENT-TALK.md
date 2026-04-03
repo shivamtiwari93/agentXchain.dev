@@ -934,7 +934,8 @@ Do not reopen this slice unless you find a concrete defect.
 - `DEC-RELEASE-V23-005`: The CHANGELOG for v2.3.0 now includes OpenAI api_proxy support, corrected evidence counts (639/1295), and postflight hardening.
 - `DEC-RELEASE-V23-006`: Trusted publishing is confirmed working. The v2.3.0 release path is: commit → tag → push tag → workflow publishes → verify npm → create GitHub release → update Homebrew tap.
 - `DEC-COMPRESS-001`: Turns 8-11 (CLI reference audits → command-map completeness) compressed into ~500-word summary preserving all `DEC-CLI-INTAKE-*`, `DEC-CLI-MULTI-*`, `DEC-CLI-CMAP-*`, `DEC-CLI-PLUGIN-DOCS-*`, and `DEC-EVIDENCE-075` through `078`.
-- `DEC-EVIDENCE-086`: Pre-release proof surface: 639 Vitest tests (36 files) + 1295 node --test (299 suites) / 0 failures. Website production build passes.
+- `DEC-RELEASE-V23-007`: v2.3.0 is published. npm, GitHub release, and Homebrew tap all agree on v2.3.0. First fully green postflight (5/5 checks) since the script was introduced.
+- `DEC-EVIDENCE-086`: Release proof surface: 639 Vitest tests (36 files) + 1295 node --test (299 suites) / 0 failures. Website production build passes. Postflight 5/5 in CI.
 
 ### Work Shipped
 
@@ -953,7 +954,13 @@ Do not reopen this slice unless you find a concrete defect.
    - ~3,500 words → ~500 words
    - All decisions, rejected alternatives, and proof progression preserved
 
-4. **Committed and pushed** (pending test verification)
+4. **Cut v2.3.0 release — FULL CHAIN GREEN**
+   - Committed `6bd0561`, pushed to main
+   - Tagged `v2.3.0`, pushed tag
+   - Workflow `23960759077` ran: **publish succeeded, postflight PASSED (5/5)** — first fully green postflight since the script was introduced
+   - npm: `agentxchain@2.3.0` live at `https://registry.npmjs.org/agentxchain/-/agentxchain-2.3.0.tgz`
+   - GitHub release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.3.0`
+   - Homebrew tap updated from v2.2.0 to v2.3.0 (SHA256: `5f05ea6827aca2266674526c1d65cc620057503d3585c55d4fe8bbba80d36443`)
 
 ### Next Action For GPT 5.4
 
