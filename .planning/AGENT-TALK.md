@@ -271,3 +271,160 @@ Implement HTTP hooks as the remaining half of F2. Do not touch plugin lifecycle 
    - timeout fail-closed
    - advisory downgrade semantics preserved
    - env-backed auth headers resolved without literal secrets in config
+
+---
+
+## Human Note — 2026-04-02 — Release Recovery Guidance
+
+The public GitHub release/tag for `v2.0.0` exists, but npm and Homebrew did not advance. This is **not** a credential blocker. It is now a release recovery and CI correctness problem.
+
+### Verified External State
+
+- GitHub release exists:
+  - `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.0.0`
+- npm package is still:
+  - `agentxchain@0.8.8`
+- Homebrew tap is still pinned to:
+  - `https://registry.npmjs.org/agentxchain/-/agentxchain-0.8.8.tgz`
+- `NPM_TOKEN` is already configured in GitHub Actions secrets for `shivamtiwari93/agentXchain.dev`
+
+### Root Cause Of The Failed Publish
+
+The original tag-triggered workflow `Publish NPM Package` failed in strict preflight before `npm publish` ran.
+
+Observed failure reasons from GitHub Actions run `23927089502`:
+
+1. **Working tree not clean**
+2. **`npm test` failed**
+   - summary from the failed run:
+     - `950` tests
+     - `941` pass
+     - `9` fail
+
+Because strict preflight failed, npm never published `2.0.0`.
+
+### Important Constraint
+
+Do **not** update the Homebrew tap to `2.0.0` until npm actually serves `agentxchain@2.0.0`.
+
+The current tap model installs from the npm tarball, not from GitHub release assets. So the recovery order is:
+
+1. make the repo/tag publishable
+2. get npm to serve `2.0.0` or explicitly decide on `2.0.1`
+3. update the Homebrew formula URL + SHA256
+4. verify `brew install`
+
+### What Agents Should Do Next
+
+1. **Reproduce the release-preflight failure locally**
+   - run:
+     - `cd cli && bash scripts/release-preflight.sh --strict --target-version 2.0.0`
+
+2. **Identify the failing tests**
+   - run:
+     - `cd cli && npm test`
+   - record the exact failing suites/tests
+
+3. **Fix only release-blocking failures**
+   - do not widen scope
+   - goal is to recover the release path, not add new product surface
+
+4. **Make an explicit recovery decision**
+   - either recover `v2.0.0` cleanly
+   - or recommend `v2.0.1` if the tag/release state makes `v2.0.0` unsafe or inconsistent
+
+5. **Only after npm is live, update Homebrew**
+   - change tarball URL
+   - update SHA256
+   - verify install flow
+
+### Escalation Rule
+
+Escalate back to the human only if:
+- npm registry behavior contradicts the workflow result
+- GitHub tag state makes recovery unsafe
+- a release-policy decision genuinely requires human approval
+
+Otherwise, agents should drive this to closure.
+
+---
+
+## Human Note — 2026-04-02 — OSS-First Guidance
+
+Two product-direction notes for future implementation choices:
+
+1. **Docs should bias toward an existing open-source solution**
+   - For the docs surface specifically, evaluate established OSS options before extending the custom static HTML system further.
+   - `Docmost` is one candidate worth examining, along with other mature docs platforms if they fit the product constraints better.
+   - The current custom `/docs/` surface was acceptable as an early lightweight choice, but it should no longer be treated as the default forever.
+
+2. **General engineering principle: prefer existing open-source solutions where practical**
+   - As a default rule, do **not** build custom infrastructure from scratch if a credible open-source solution already solves the problem well enough.
+   - Custom implementation should require a clear reason: protocol differentiation, product-specific constraints, integration limits, or unacceptable tradeoffs in the existing OSS options.
+   - This applies especially to docs systems, dashboards, plugin packaging/distribution surfaces, and other commodity scaffolding.
+
+### Decision Standard
+
+Before building a custom subsystem, agents should first ask:
+
+1. is there a mature OSS option already available?
+2. does it cover at least 80 percent of the need with acceptable constraints?
+3. is the remaining 20 percent actually product-differentiating enough to justify custom work?
+
+If the answer is "yes, OSS is sufficient," prefer reuse over reinvention.
+
+---
+
+## Human Note — 2026-04-02 — Final Operating Model Direction
+
+This is now a **final direction**, not an open brainstorming item.
+
+Agents should explicitly shape AgentXchain's internal planning/process/documentation layer around:
+
+- **GSD-inspired planning / execution discipline**
+- **spec-first development**
+- **repo-native documentation**
+- **TDD gates inspired by Vitest + E2E proof**
+
+### Intended Layering
+
+1. **GSD-inspired planning layer**
+   - defines what is being shipped
+   - keeps scope cuts aggressive and practical
+   - drives planning artifacts, milestones, delivery slices, and execution momentum
+
+2. **Spec-first layer**
+   - every meaningful subsystem gets a written spec before implementation
+   - specs stay repo-native in `.planning/`
+   - specs define purpose, interface, behavior, error cases, acceptance tests, and open questions
+
+3. **Repo documentation layer**
+   - the repo itself should clearly explain how the system works, how to run it, and how to contribute
+   - docs should not drift into vague marketing-only prose
+   - public docs, internal docs, and release docs should all be consistent and intentionally structured
+
+4. **TDD / proof layer**
+   - use **Vitest** as the primary fast feedback loop where appropriate
+   - use **E2E** tests for workflow/protocol/CLI proof surfaces
+   - acceptance gates should be evidence-backed, not intuition-backed
+   - think in terms of executable proof, not just “we wrote some tests”
+
+### Important Clarification
+
+Vitest and E2E are not replacements for development discipline; they are the concrete testing stack the agents should lean on.
+
+So the target model is:
+
+- **GSD** for planning and execution discipline
+- **spec-first repo docs** for design clarity
+- **Vitest + E2E** for TDD-style proof gates
+- **AgentXchain** as the governance/orchestration layer above that stack
+
+### What Agents Should Do
+
+Going forward, when evolving the product and its repo conventions:
+
+1. make this operating model explicit in the planning/docs surface
+2. align specs, README/docs, and release surfaces to that model
+3. prefer Vitest and E2E as the default proof layers unless there is a strong reason otherwise
+4. keep the whole thing repo-native and execution-oriented rather than bloated with abstract process language

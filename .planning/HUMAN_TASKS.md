@@ -2,18 +2,31 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **one active blocker — NPM_TOKEN is expired.** The v2.0.0 git tag and GitHub release are live, but npm publish fails with 401 Unauthorized. The token in `.env` and GitHub Actions secrets needs regeneration.
+Current state: **one active blocker — npm trusted publisher registration is still missing on npmjs.com.** The GitHub Actions workflow is now OIDC-ready for trusted publishing, but npm will not accept OIDC publish requests until the package owner registers this repository/workflow as a trusted publisher in the package settings.
 
 ---
 
-## P0 — NPM Token Regeneration
+## P0 — Trusted Publisher Registration
 
-- [ ] Regenerate NPM_TOKEN and publish v2.0.0 (Priority: P0) — The current token returns 401 Unauthorized on `npm whoami`. Steps:
-  1. Log in to npmjs.com and generate a new automation/publish token for the `agentxchain` package
-  2. Update `.env` in the repo with the new token
-  3. Update the GitHub Actions secret `NPM_TOKEN` at `https://github.com/shivamtiwari93/agentXchain.dev/settings/secrets/actions`
-  4. Publish manually: `cd cli && source ../.env && NPM_TOKEN=$NPM_TOKEN bash scripts/publish-from-tag.sh v2.0.0`
-  5. Or re-trigger CI: `gh workflow run "Publish NPM Package" -f tag=v2.0.0`
+- [ ] Register GitHub Actions trusted publisher for `agentxchain` and publish v2.0.0 (Priority: P0) — The repo workflow is now configured for npm trusted publishing via OIDC:
+  - workflow file: `.github/workflows/publish-npm-on-tag.yml`
+  - workflow filename for npm settings: `publish-npm-on-tag.yml`
+  - GitHub repo: `shivamtiwari93/agentXchain.dev`
+  Steps:
+  1. Log in to npmjs.com as a package owner for `agentxchain`
+  2. Go to package settings for `agentxchain` → Trusted publishing
+  3. Add GitHub Actions trusted publisher with:
+     - Organization or user: `shivamtiwari93`
+     - Repository: `agentXchain.dev`
+     - Workflow filename: `publish-npm-on-tag.yml`
+     - Environment name: leave blank unless you later gate publish through a GitHub environment
+  4. Re-trigger CI:
+     - `gh workflow run "Publish NPM Package" -R shivamtiwari93/agentXchain.dev --ref main --field tag=v2.0.0`
+  5. Verify:
+     - `npm view agentxchain@2.0.0 version`
+  Notes:
+  - Token-based publishing can remain as fallback temporarily, but trusted publishing should become the primary path.
+  - npm docs require the package `repository.url` to exactly match the GitHub repo. This repo already satisfies that requirement.
 
 - [x] ~~Prepare release workspace and bump version~~ — Done. v2.0.0 tag `ae9c166` pushed. GitHub release at https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.0.0
 
@@ -23,9 +36,9 @@ Current state: **one active blocker — NPM_TOKEN is expired.** The v2.0.0 git t
 
 ## P1 — Delegated Follow-Through
 
-- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. **Blocked by P0 NPM_TOKEN.** Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds. Exact post-token recovery sequence:
-  1. Human regenerates NPM_TOKEN (P0 above)
-  2. Publish v2.0.0 to npm: `cd cli && source ../.env && NPM_TOKEN=$NPM_TOKEN bash scripts/publish-from-tag.sh v2.0.0`
+- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. **Blocked by P0 trusted publisher registration.** Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds. Exact post-publish recovery sequence:
+  1. Human registers trusted publisher (P0 above)
+  2. Publish v2.0.0 to npm via trusted publishing: `gh workflow run "Publish NPM Package" -R shivamtiwari93/agentXchain.dev --ref main --field tag=v2.0.0`
   3. Verify: `npm view agentxchain@2.0.0 dist.tarball` — capture the tarball URL
   4. Get SHA256: `curl -sL <tarball-url> | shasum -a 256`
   5. Clone tap: `git clone https://github.com/shivamtiwari93/homebrew-agentxchain /tmp/homebrew-agentxchain`
