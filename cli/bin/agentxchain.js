@@ -71,6 +71,7 @@ import { stepCommand } from '../src/commands/step.js';
 import { approveTransitionCommand } from '../src/commands/approve-transition.js';
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
+import { exportCommand } from '../src/commands/export.js';
 import {
   pluginInstallCommand,
   pluginListCommand,
@@ -120,6 +121,13 @@ program
   .description('Show current run or lock status')
   .option('-j, --json', 'Output as JSON')
   .action(statusCommand);
+
+program
+  .command('export')
+  .description('Export the governed run audit surface as a single artifact')
+  .option('--format <format>', 'Export format (json)', 'json')
+  .option('--output <path>', 'Write the export artifact to a file instead of stdout')
+  .action(exportCommand);
 
 program
   .command('start')

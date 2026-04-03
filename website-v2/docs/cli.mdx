@@ -35,6 +35,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template validate` | Setup | Prove template registry, project binding, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
+| `export` | Inspection | Emit a single JSON audit artifact for the current governed run |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
@@ -101,6 +102,19 @@ agentxchain status [options]
 | `-j, --json` | `false` | Output structured JSON instead of human-readable text |
 
 Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. Does not modify state.
+
+### `export`
+
+```bash
+agentxchain export [--format json] [--output <path>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format <format>` | `json` | Export format. Only `json` is supported in this slice |
+| `--output <path>` | stdout | Write the export artifact to a file instead of stdout |
+
+Governed projects only. `export` snapshots the repo-native audit surface into one JSON artifact so operators can move or attach run evidence without scraping `.agentxchain/` by hand. The export includes config, governed state, history, decision ledger, dispatch bundles, staging artifacts, hook audit surfaces, and intake artifacts when present. If `.agentxchain/multirepo/` exists under the same governed root, those coordinator files are included too. Without `--output`, the JSON is printed to stdout by default.
 
 ### `resume`
 

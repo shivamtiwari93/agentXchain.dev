@@ -55,6 +55,7 @@ describe('CLI command map docs contract', () => {
   const expectedRowMapping = new Map([
     ['init', ['init']],
     ['status', ['status']],
+    ['export', ['export']],
     ['validate', ['validate']],
     ['verify', ['verify protocol']],
     ['migrate', ['migrate']],
@@ -75,6 +76,7 @@ describe('CLI command map docs contract', () => {
     assert.deepEqual(governedCommands, [
       'init',
       'status',
+      'export',
       'validate',
       'verify',
       'migrate',
