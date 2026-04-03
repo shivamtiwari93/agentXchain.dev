@@ -302,9 +302,16 @@ On success the intent gains:
 - another governed turn is already active
 - the run is `blocked`
 - the run is `completed`
-- the run is paused on `pending_phase_transition` or `pending_run_completion`
+- the run has a `pending_phase_transition` or `pending_run_completion` gate
 
-Do not blur that last rule. Under the current governed-state contract, `paused` is an approval-held state, not a generic resumable idle state for intake.
+### Bootstrap and resume behavior
+
+`intake start` can also handle two non-rejection cases that operators should understand:
+
+- **Idle bootstrap:** If the governed state is `idle` with no `run_id`, `intake start` initializes a new governed run before assigning the first turn. You do not need to run `agentxchain init` separately.
+- **Paused resume:** If the governed state is `paused` with an existing `run_id` but no pending gate (`pending_phase_transition` or `pending_run_completion`), `intake start` reactivates the run to `active` before assigning the turn. This means `intake start` can resume a paused run when the pause is not held by an approval gate.
+
+The distinction matters: paused-with-pending-gate is rejected. Paused-without-pending-gate is resumed. If you are unsure whether a paused run has a pending gate, check `.agentxchain/state.json` for `pending_phase_transition` or `pending_run_completion` fields.
 
 ## `intake resolve`
 
@@ -322,9 +329,9 @@ agentxchain intake resolve \
 
 | Governed run status | Intent transition | Notes |
 | --- | --- | --- |
-| `blocked` | `executing -> blocked` | Copies `run_blocked_on`, `run_blocked_reason`, and `run_blocked_recovery` onto the intent |
+| `blocked` | `executing -> blocked` | Copies `run_blocked_on`, `run_blocked_reason`, and `run_blocked_recovery` onto the intent. All three fields are set from the governed state. |
 | `completed` | `executing -> completed` | Copies `run_completed_at`, `run_final_turn`, and creates `.agentxchain/intake/observations/<intent_id>/` |
-| `failed` | `executing -> failed` | Records failure-linked run fields without reopening the run |
+| `failed` | `executing -> failed` | Sets `run_failed_at` on the intent. Does not reopen the run. |
 | `active` | no change | Returns `ok: true`, `no_change: true`; the intent stays `executing` |
 | `paused` | no change | Returns `ok: true`, `no_change: true`; approval-held pause is not an intake outcome |
 | `idle` | error | Indicates the governed state was reset or no longer matches the started intent |
@@ -353,7 +360,8 @@ Example success result:
     "status": "blocked",
     "target_run": "run_20260403_001",
     "run_blocked_on": "human_approval",
-    "run_blocked_reason": "pending_review"
+    "run_blocked_reason": "pending_review",
+    "run_blocked_recovery": "approve_phase_transition"
   }
 }
 ```
@@ -471,6 +479,8 @@ Machine-readable output includes aggregate counts plus per-item results:
 - `items` is missing or empty
 
 Mixed snapshots are processed per item. One bad item does not roll back valid siblings.
+
+If **every** item in the snapshot is rejected (zero created, zero deduplicated), the entire scan fails with `ok: false` and exit code 1. Partial success (at least one created or deduplicated item) returns `ok: true` even if some items were rejected.
 
 ## State machine: shipped vs deferred
 
