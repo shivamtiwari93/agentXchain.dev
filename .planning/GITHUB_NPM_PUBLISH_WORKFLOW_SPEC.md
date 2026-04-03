@@ -71,6 +71,8 @@ The publish job must operate on the tagged commit, not the default branch head. 
 5. publish via temporary `.npmrc` when `NPM_TOKEN` is present, otherwise use trusted publishing
 6. poll `npm view <package>@<semver> version` until the registry serves the version or the retry budget is exhausted
 
+If the registry already serves the exact `<package>@<semver>` when the script starts, the workflow must treat the run as a verification rerun: skip `npm publish`, keep the strict preflight, and continue into postflight.
+
 ### 4. Registry Verification
 
 Registry verification is part of the publish contract, not a best-effort extra. Publish success is not complete until `npm view agentxchain@<semver> version` returns the requested version.

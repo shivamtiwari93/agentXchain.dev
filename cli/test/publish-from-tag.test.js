@@ -74,6 +74,11 @@ function createFixture({ version = '1.0.0' } = {}) {
       '    fi',
       '    count=$((count + 1))',
       '    printf "%s" "${count}" > "${VIEW_COUNTER_FILE}"',
+      '    if [[ "${FAKE_ALREADY_PUBLISHED:-0}" == "1" ]]; then',
+      '      version="$(grep -E \'"version"\' package.json | head -1 | sed -E \'s/.*"version": "([^"]+)".*/\\1/\')"',
+      '      printf "%s" "${version}"',
+      '      exit 0',
+      '    fi',
       '    if [[ ! -f "${PUBLISHED_FILE}" ]]; then',
       '      exit 1',
       '    fi',
@@ -218,6 +223,27 @@ describe('publish-from-tag.sh', () => {
     assert.equal(existsSync(userconfigPath), false);
   });
 
+  it('skips npm publish on manual reruns when the target version is already on npm', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPublish(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      fixture.stateDir,
+      ['v1.0.0'],
+      {
+        FAKE_ALREADY_PUBLISHED: '1',
+      },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /skipping npm publish and proceeding to verification/i);
+    const npmCalls = readFileSync(join(fixture.stateDir, 'npm-calls.log'), 'utf8');
+    assert.doesNotMatch(npmCalls, /publish --access public/);
+    assert.match(result.stdout, /Verified agentxchain@1\.0\.0 on npm/);
+  });
+
   it('retries npm view until the registry serves the published version', () => {
     const fixture = createFixture();
     fixtures.push(fixture);
@@ -237,7 +263,6 @@ describe('publish-from-tag.sh', () => {
 
     assert.equal(result.status, 0);
     assert.match(result.stdout, /Registry not updated yet \(attempt 1\/4\)/);
-    assert.match(result.stdout, /Registry not updated yet \(attempt 2\/4\)/);
-    assert.match(result.stdout, /Verified agentxchain@1\.0\.0 on npm \(attempt 3\/4\)/);
+    assert.match(result.stdout, /Verified agentxchain@1\.0\.0 on npm \(attempt 2\/4\)/);
   });
 });

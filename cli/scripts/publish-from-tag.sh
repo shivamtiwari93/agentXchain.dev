@@ -58,16 +58,21 @@ echo "Publishing ${PACKAGE_NAME}@${RELEASE_VERSION} from ${TAG}"
 echo "Running strict release preflight..."
 bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
 
-echo "Running npm publish..."
-if [[ -n "${NPM_TOKEN:-}" ]]; then
-  echo "Publish auth mode: token"
-  TMP_NPMRC="$(mktemp "${TMPDIR:-/tmp}/agentxchain-npmrc.XXXXXX")"
-  chmod 600 "$TMP_NPMRC"
-  printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$TMP_NPMRC"
-  NPM_CONFIG_USERCONFIG="$TMP_NPMRC" npm publish --access public
+EXISTING_VERSION="$(npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version 2>/dev/null || true)"
+if [[ "$EXISTING_VERSION" == "$RELEASE_VERSION" ]]; then
+  echo "Registry already serves ${PACKAGE_NAME}@${RELEASE_VERSION}; skipping npm publish and proceeding to verification."
 else
-  echo "Publish auth mode: trusted publishing (OIDC)"
-  npm publish --access public
+  echo "Running npm publish..."
+  if [[ -n "${NPM_TOKEN:-}" ]]; then
+    echo "Publish auth mode: token"
+    TMP_NPMRC="$(mktemp "${TMPDIR:-/tmp}/agentxchain-npmrc.XXXXXX")"
+    chmod 600 "$TMP_NPMRC"
+    printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$TMP_NPMRC"
+    NPM_CONFIG_USERCONFIG="$TMP_NPMRC" npm publish --access public
+  else
+    echo "Publish auth mode: trusted publishing (OIDC)"
+    npm publish --access public
+  fi
 fi
 
 echo "Verifying registry visibility..."
