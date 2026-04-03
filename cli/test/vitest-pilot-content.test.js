@@ -16,6 +16,7 @@ const VITEST_CONFIG = read('cli/vitest.config.js');
 const VITEST_SPEC = read('.planning/VITEST_PILOT_SPEC.md');
 const VITEST_EXPANSION_S1_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
 const VITEST_EXPANSION_S2_SPEC = read('.planning/VITEST_EXPANSION_S2_SPEC.md');
+const VITEST_EXPANSION_S3_SPEC = read('.planning/VITEST_EXPANSION_S3_SPEC.md');
 
 const VITEST_INCLUDED_FILES = [
   // ── Pilot + Slice 1 (19 files) ──
@@ -50,6 +51,13 @@ const VITEST_INCLUDED_FILES = [
   'test/continuous-delivery-intake-content.test.js',
   'test/vitest-pilot-content.test.js',
   'test/protocol-conformance-docs.test.js',
+  // ── Slice 3 (6 files, coordinator suite) ──
+  'test/coordinator-acceptance.test.js',
+  'test/coordinator-config.test.js',
+  'test/coordinator-dispatch.test.js',
+  'test/coordinator-gates.test.js',
+  'test/coordinator-recovery.test.js',
+  'test/coordinator-state.test.js',
 ];
 const VITEST_FILE_COUNT = VITEST_INCLUDED_FILES.length;
 
@@ -89,6 +97,9 @@ describe('Vitest coverage contract', () => {
     assert.match(VITEST_EXPANSION_S1_SPEC, /Duplicate execution:\s+YES/i);
     assert.match(VITEST_EXPANSION_S2_SPEC, /read-only/i);
     assert.match(VITEST_EXPANSION_S2_SPEC, /Duplicate execution:\s+YES/i);
+    assert.match(VITEST_EXPANSION_S3_SPEC, /coordinator/i);
+    assert.match(VITEST_EXPANSION_S3_SPEC, /Duplicate execution remains in force/i);
+    assert.match(VITEST_EXPANSION_S3_SPEC, /Status:\s+\*\*shipped\*\*/);
   });
 
   it('keeps child_process out of every Vitest-included file', () => {

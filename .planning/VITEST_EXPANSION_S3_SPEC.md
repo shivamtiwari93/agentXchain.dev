@@ -1,6 +1,6 @@
 # Vitest Expansion Slice 3 — Coordinator Suite
 
-> Status: **proposed**
+> Status: **shipped**
 > Depends on: `VITEST_PILOT_SPEC.md`, `VITEST_EXPANSION_S1_SPEC.md`, `VITEST_EXPANSION_S2_SPEC.md`
 
 ---

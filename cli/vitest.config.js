@@ -45,6 +45,13 @@ export default defineConfig({
       'test/continuous-delivery-intake-content.test.js',
       'test/vitest-pilot-content.test.js',
       'test/protocol-conformance-docs.test.js',
+      // ── Slice 3 (6 files, coordinator suite) ──
+      'test/coordinator-acceptance.test.js',
+      'test/coordinator-config.test.js',
+      'test/coordinator-dispatch.test.js',
+      'test/coordinator-gates.test.js',
+      'test/coordinator-recovery.test.js',
+      'test/coordinator-state.test.js',
     ],
     // Keep file-level execution serial until all fixed-path temp-dir tests are migrated.
     fileParallelism: false,

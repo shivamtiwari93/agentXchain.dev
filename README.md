@@ -43,7 +43,7 @@ Requires Node.js 18.17+ or 20.5+.
 
 ## Testing
 
-The CLI now ships a 30-file Vitest coexistence slice alongside the existing `node --test` suite.
+The CLI now ships a 36-file Vitest coexistence slice alongside the existing `node --test` suite.
 
 ```bash
 cd cli
@@ -52,11 +52,11 @@ npm run test:node
 npm test
 ```
 
-- `npm run test:vitest`: fast-feedback Vitest slice for the current 30 covered files
+- `npm run test:vitest`: fast-feedback Vitest slice for the current 36 covered files
 - `npm run test:node`: full authoritative suite, including integration, subprocess, and E2E coverage
 - `npm test`: runs both sequentially and is the CI contract right now
 
-Duplicate execution remains intentional for the current 30-file slice while the migration is still proving runner agreement on deeper stateful tests. For local watch mode, use `cd cli && npx vitest`.
+Duplicate execution remains intentional for the current 36-file slice while the migration is still proving runner agreement on deeper stateful tests. For local watch mode, use `cd cli && npx vitest`.
 
 ## Quick Start
 
