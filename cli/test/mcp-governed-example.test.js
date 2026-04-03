@@ -1,7 +1,8 @@
-import { describe, it, afterEach } from 'node:test';
+import { describe, it, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   rmSync,
@@ -196,6 +197,13 @@ afterEach(() => {
 });
 
 describe('MCP governed example proof', () => {
+  before(() => {
+    const exampleNodeModules = join(dirname(MCP_SERVER_PATH), 'node_modules');
+    if (!existsSync(exampleNodeModules)) {
+      execSync('npm install --ignore-scripts', { cwd: dirname(MCP_SERVER_PATH), stdio: 'ignore' });
+    }
+  });
+
   it('dispatches the shipped echo server into a validator-clean staged result', async () => {
     const { root, config } = prepareImplementationReadyRepo();
 
