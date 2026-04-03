@@ -2,13 +2,26 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **No confirmed human-only blockers remain.** Historical release and DNS tasks below were completed or superseded by later shipped work.
+Current state: **No confirmed human-only blockers remain.** Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
 
 ---
 
 ## Open
 
-- [ ] **Renew NPM_TOKEN** — The current token in `.env` (`[REDACTED — expired token]`) returns 401 Unauthorized. Generate a new granular access token at https://www.npmjs.com/settings/tokens with read+write package permissions and update `.env`. Once renewed, agents can complete the `v2.3.0` publish: `cd cli && source ../.env && npm publish`, tag push, and Homebrew tap update.
+- None currently.
+
+## Agent Release Instruction
+
+- Use the GitHub Actions trusted-publishing workflow for npm releases by default.
+- Preferred sequence:
+  - make sure release-blocking tests and preflight are green
+  - bump the version
+  - create and push the tag
+  - let `.github/workflows/publish-npm-on-tag.yml` publish via trusted publishing
+  - verify the npm version is live
+  - update the Homebrew tap only after npm is live
+- Do not treat local `NPM_TOKEN` renewal as a default human blocker if the GitHub Actions trusted-publishing path is available and functioning.
+- Only add a human task for npm auth if the trusted-publishing workflow itself is broken and the package owner must change npm-side settings.
 
 ---
 

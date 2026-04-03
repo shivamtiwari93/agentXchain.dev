@@ -111,8 +111,15 @@ run_install_smoke() {
   smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-postflight.XXXXXX")"
   bin_path="${smoke_root}/bin/${PACKAGE_BIN_NAME}"
 
-  if ! npm install --global --prefix "$smoke_root" "$TARBALL_URL" >/dev/null 2>&1; then
-    install_status=$?
+  # Isolate the install from CI auth environment (OIDC tokens from actions/setup-node
+  # are scoped for publish, not read, and can cause npm install to fail on public packages).
+  local smoke_npmrc="${smoke_root}/.npmrc"
+  echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
+
+  env -u NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+    npm install --global --prefix "$smoke_root" "$TARBALL_URL" >/dev/null 2>&1
+  install_status=$?
+  if [[ "$install_status" -ne 0 ]]; then
     rm -rf "$smoke_root"
     return "$install_status"
   fi

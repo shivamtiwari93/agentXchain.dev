@@ -22,10 +22,19 @@ Continuous delivery intake lifecycle and docs truthfulness release. Intake is th
 - Repo-local `vitest-node-test-shim.js` resolves `node:test` → `vitest` hook incompatibility.
 - Both runners exercise the same files: `test:vitest` (630 tests) + `test:node` (1285 tests).
 
+### OpenAI API Proxy Support
+
+- `api_proxy` adapter now supports `provider: "openai"` for synchronous `review_only` governed turns via OpenAI Chat Completions API.
+- Provider-specific request building: developer/user message mapping, `response_format: { type: "json_object" }`, `max_completion_tokens`.
+- Provider-specific error classification: `invalid_api_key`, `model_not_found`, rate limits, context overflow.
+- Provider-specific usage telemetry: `prompt_tokens` / `completion_tokens` mapped to existing cost object.
+- Config validation rejects OpenAI + `preflight_tokenization` (no OpenAI `provider_local` tokenizer in-repo).
+- Scope: Chat-Completions-only JSON output. Responses API, tool use, background execution, and write-capable roles remain out of scope.
+
 ### Docs Truthfulness Hardening
 
 - **CLI reference audits:** Fixed 15 ghost/missing flags across governance commands, added missing `intake` and `multi` command families to the command map, and shipped a meta-guard for command-map completeness.
-- **Adapter deep-dive rewrite:** Fixed 12 defects including 3 fabricated sections (TypeScript adapter interface, OpenAI provider support, per-HTTP-status retry schedules). All transport modes, error classes, retry policy, and provider support now verified against implementation.
+- **Adapter deep-dive rewrite:** Fixed 12 defects including 3 fabricated sections (TypeScript adapter interface, fabricated multi-provider claims, per-HTTP-status retry schedules). All transport modes, error classes, retry policy, and provider support now verified against implementation. (Note: real OpenAI support was subsequently implemented and documented — see above.)
 - **Protocol deep-dive rewrite:** Fixed default phase name (`qa` not `verification`), schema version split, queued-vs-pending gate lifecycle, objection enforcement scope, migration semantics.
 - **Multi-repo deep-dive:** New `/docs/multi-repo` page with truthful workspace contract, artifact layout, barrier model, hook phases, and recovery model. Config filename corrected from fabricated `coordinator.yaml` to shipped `agentxchain-multi.json`.
 - **Intake deep-dive rewrite:** Fixed paused-state behavioral lie, documented idle bootstrap, added resolve outcome fields (`run_blocked_recovery`, `run_failed_at`), documented all-rejected scan failure rule.
@@ -41,8 +50,9 @@ Continuous delivery intake lifecycle and docs truthfulness release. Intake is th
 
 ### Evidence
 
-- 630 Vitest tests (36 files) + 1285 node --test (298 suites), 0 failures.
+- 639 Vitest tests (36 files) + 1295 node --test (299 suites), 0 failures.
 - Website production build passes.
+- Postflight install smoke test hardened for CI OIDC auth isolation.
 
 ## 2.2.0
 
