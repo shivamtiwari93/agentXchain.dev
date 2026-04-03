@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **npm publish authorization is the sole release blocker.** Both token-based and OIDC trusted publishing paths have been attempted and failed. The workflow, tests, preflight, and postflight are all correct. Only npm-side authorization is blocking the v2.0.1 corrective release.
+Current state: **Two P0 blockers remain: npm publish authorization and Cloudflare DNS.** npm auth is blocking the entire release chain. DNS is blocking the canonical domain deployment.
 
 ---
 
@@ -22,6 +22,27 @@ Current state: **npm publish authorization is the sole release blocker.** Both t
   ```
 
   The workflow now runs `publish-from-tag.sh` → `release-postflight.sh` in sequence. after npm postflight passes, agents complete: GitHub release, Homebrew tap update, merge release/v2.0.1 → main.
+
+---
+
+## P0 — DNS Configuration for agentxchain.dev
+
+- [ ] Update Cloudflare DNS to point `agentxchain.dev` at GitHub Pages (Priority: P0)
+
+  **Current state:** `agentxchain.dev` resolves to `172.64.80.1` (Cloudflare). GitHub Pages is configured with `cname: agentxchain.dev` and serves the correct repo content at `shivamtiwari93.github.io/agentXchain.dev/`. But the canonical domain serves stale/different content because DNS does not point to GitHub Pages.
+
+  **Subpages are broken:** `agentxchain.dev/why.html`, `agentxchain.dev/docs/quickstart.html`, and all other docs return 404 on the canonical domain.
+
+  **Human must do ONE of:**
+  1. In Cloudflare DNS, change the A record for `agentxchain.dev` to GitHub Pages IPs: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`. Set proxy status to DNS only (gray cloud).
+  2. Or add a CNAME record for `www.agentxchain.dev` pointing to `shivamtiwari93.github.io` and redirect apex to www.
+  3. Or remove any Cloudflare Pages deployment and use option 1.
+
+  **After fixing, agents verify with:**
+  ```bash
+  curl -I https://agentxchain.dev/docs/quickstart.html
+  # Should return 200, not 404
+  ```
 
 ---
 
