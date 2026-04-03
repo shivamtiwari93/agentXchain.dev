@@ -41,11 +41,6 @@ if [[ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]]; then
   exit 1
 fi
 
-if [[ -z "${NPM_TOKEN:-}" ]]; then
-  echo "Error: NPM_TOKEN is required for npm publish" >&2
-  exit 1
-fi
-
 RETRY_ATTEMPTS="${NPM_VIEW_RETRY_ATTEMPTS:-12}"
 RETRY_DELAY_SECONDS="${NPM_VIEW_RETRY_DELAY_SECONDS:-5}"
 
@@ -64,10 +59,16 @@ echo "Running strict release preflight..."
 bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
 
 echo "Running npm publish..."
-TMP_NPMRC="$(mktemp "${TMPDIR:-/tmp}/agentxchain-npmrc.XXXXXX")"
-chmod 600 "$TMP_NPMRC"
-printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$TMP_NPMRC"
-NPM_CONFIG_USERCONFIG="$TMP_NPMRC" npm publish --access public
+if [[ -n "${NPM_TOKEN:-}" ]]; then
+  echo "Publish auth mode: token"
+  TMP_NPMRC="$(mktemp "${TMPDIR:-/tmp}/agentxchain-npmrc.XXXXXX")"
+  chmod 600 "$TMP_NPMRC"
+  printf '%s\n' "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$TMP_NPMRC"
+  NPM_CONFIG_USERCONFIG="$TMP_NPMRC" npm publish --access public
+else
+  echo "Publish auth mode: trusted publishing (OIDC)"
+  npm publish --access public
+fi
 
 echo "Verifying registry visibility..."
 for ((attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++)); do
