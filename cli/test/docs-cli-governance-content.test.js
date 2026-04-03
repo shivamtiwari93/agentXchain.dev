@@ -1,0 +1,195 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const cliRoot = join(__dirname, '..');
+const docsPath = join(cliRoot, '..', 'website-v2', 'docs', 'cli.mdx');
+const binPath = join(cliRoot, 'bin', 'agentxchain.js');
+const specPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_GOVERNANCE_CONTRACT_SPEC.md');
+
+const docs = readFileSync(docsPath, 'utf8');
+const bin = readFileSync(binPath, 'utf8');
+
+/**
+ * Extract .option() flags registered for a command in agentxchain.js.
+ * Walks from `.command('<name>')` to the next `.action(` and collects
+ * every `--<flag>` from `.option(` calls.
+ */
+function extractBinFlags(commandName) {
+  // Find the .command('name') registration
+  const cmdPattern = new RegExp(`\\.command\\('${commandName}'\\)`);
+  const cmdMatch = cmdPattern.exec(bin);
+  if (!cmdMatch) return null; // command not found
+  const start = cmdMatch.index;
+  // Find the next .action( after the command
+  const actionMatch = /\.action\(/.exec(bin.slice(start));
+  if (!actionMatch) return [];
+  const block = bin.slice(start, start + actionMatch.index);
+  const flags = [];
+  const optionRe = /\.option\(\s*'([^']+)'/g;
+  let m;
+  while ((m = optionRe.exec(block)) !== null) {
+    // Extract the long flag (e.g., from '-j, --json' get '--json')
+    const parts = m[1].split(',').map(s => s.trim());
+    const long = parts.find(p => p.startsWith('--'));
+    if (long) {
+      // Strip value placeholder: '--turn <id>' -> '--turn'
+      flags.push(long.split(/\s/)[0]);
+    }
+  }
+  return flags;
+}
+
+/**
+ * Extract documented flags from a command section in cli.mdx.
+ * Looks for backtick-wrapped flags in table rows.
+ */
+function extractDocsFlags(commandName) {
+  // Find the ### `commandName` heading — must be the standalone command heading,
+  // not a comparison heading like `### resume vs step`. Match end-of-line after backtick.
+  const headingRe = new RegExp(`###\\s+\`${commandName}\`\\s*$`, 'gm');
+  let headingMatch = null;
+  let m;
+  while ((m = headingRe.exec(docs)) !== null) {
+    headingMatch = m;
+    // Take the last match — the standalone command heading, not the comparison
+    // Actually take the match that has a code block (```bash) shortly after
+    const after = docs.slice(m.index, m.index + 200);
+    if (after.includes('```bash') || after.includes('No flags')) {
+      headingMatch = m;
+      break;
+    }
+  }
+  if (!headingMatch) return null;
+  const start = headingMatch.index;
+  // Find the next ### or ## heading
+  const nextHeading = /\n##[#]?\s/.exec(docs.slice(start + 1));
+  const end = nextHeading ? start + 1 + nextHeading.index : docs.length;
+  const section = docs.slice(start, end);
+
+  // Check for "No flags" statement
+  if (/No flags\./.test(section)) return [];
+
+  // Extract flags from table rows: | `--flag`, | `--flag <value>`, or | `-j, --json`
+  const flags = [];
+  const flagRe = /\|\s*`(?:-\w,\s*)?(--[a-z][-a-z]*)/g;
+  let m2;
+  while ((m2 = flagRe.exec(section)) !== null) {
+    flags.push(m2[1]);
+  }
+  return flags;
+}
+
+// Commands to audit — governance, turn lifecycle, approval, migration, validation
+const GOVERNED_COMMANDS = [
+  'resume',
+  'step',
+  'accept-turn',
+  'reject-turn',
+  'approve-transition',
+  'approve-completion',
+  'validate',
+  'migrate',
+];
+
+describe('CLI governance docs contract — flag alignment', () => {
+  for (const cmd of GOVERNED_COMMANDS) {
+    it(`${cmd}: every documented flag exists in the CLI`, () => {
+      const binFlags = extractBinFlags(cmd);
+      assert.ok(binFlags !== null, `command '${cmd}' not found in agentxchain.js`);
+      const docsFlags = extractDocsFlags(cmd);
+      assert.ok(docsFlags !== null, `command '${cmd}' section not found in cli.mdx`);
+
+      for (const flag of docsFlags) {
+        assert.ok(
+          binFlags.includes(flag),
+          `docs claim '${cmd}' has flag ${flag}, but the CLI does not register it. Ghost flag.`
+        );
+      }
+    });
+
+    it(`${cmd}: every CLI flag is documented`, () => {
+      const binFlags = extractBinFlags(cmd);
+      assert.ok(binFlags !== null, `command '${cmd}' not found in agentxchain.js`);
+      const docsFlags = extractDocsFlags(cmd);
+      assert.ok(docsFlags !== null, `command '${cmd}' section not found in cli.mdx`);
+
+      for (const flag of binFlags) {
+        assert.ok(
+          docsFlags.includes(flag),
+          `CLI registers '${cmd} ${flag}' but docs do not mention it. Undocumented flag.`
+        );
+      }
+    });
+  }
+});
+
+describe('CLI governance docs contract — no ghost flag names', () => {
+  it('docs do not use --turn-id (correct name is --turn)', () => {
+    assert.ok(
+      !docs.includes('--turn-id'),
+      'cli.mdx still references --turn-id which does not exist. The correct flag is --turn.'
+    );
+  });
+
+  it('docs do not use --adapter on resume or step', () => {
+    // Check that --adapter does not appear in the resume or step sections
+    for (const cmd of ['resume', 'step']) {
+      const headingRe = new RegExp(`###\\s+\`${cmd}\``, 'm');
+      const match = headingRe.exec(docs);
+      if (!match) continue;
+      const start = match.index;
+      const nextHeading = /\n##[#]?\s/.exec(docs.slice(start + 1));
+      const end = nextHeading ? start + 1 + nextHeading.index : docs.length;
+      const section = docs.slice(start, end);
+      assert.ok(
+        !section.includes('--adapter'),
+        `cli.mdx ${cmd} section still references --adapter which does not exist`
+      );
+    }
+  });
+
+  it('docs do not use --fix on validate', () => {
+    const headingRe = /###\s+`validate`/m;
+    const match = headingRe.exec(docs);
+    assert.ok(match, 'validate section not found');
+    const start = match.index;
+    const nextHeading = /\n##[#]?\s/.exec(docs.slice(start + 1));
+    const end = nextHeading ? start + 1 + nextHeading.index : docs.length;
+    const section = docs.slice(start, end);
+    assert.ok(
+      !section.includes('--fix'),
+      'cli.mdx validate section still references --fix which does not exist'
+    );
+  });
+});
+
+describe('CLI governance docs contract — common sequences', () => {
+  it('common sequences do not use --verbose on status', () => {
+    assert.ok(
+      !docs.includes('status --verbose'),
+      'cli.mdx common sequences reference "status --verbose" but status has no --verbose flag'
+    );
+  });
+});
+
+describe('CLI governance docs contract — approval commands have no flag tables', () => {
+  for (const cmd of ['approve-transition', 'approve-completion']) {
+    it(`${cmd} docs state "No flags"`, () => {
+      const docsFlags = extractDocsFlags(cmd);
+      assert.ok(docsFlags !== null, `${cmd} section not found`);
+      assert.equal(docsFlags.length, 0, `${cmd} should have no flags documented`);
+    });
+  }
+});
+
+describe('CLI governance docs contract — spec exists', () => {
+  it('CLI_DOCS_GOVERNANCE_CONTRACT_SPEC.md exists', () => {
+    const spec = readFileSync(specPath, 'utf8');
+    assert.ok(spec.includes('Discrepancies Found'), 'spec must document discrepancies');
+    assert.ok(spec.includes('AT-CLI-GOV-001'), 'spec must have acceptance tests');
+  });
+});

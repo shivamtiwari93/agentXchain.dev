@@ -97,23 +97,25 @@ agentxchain resume [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--adapter <name>` | (from config) | Override the adapter for this re-dispatch |
-| `--turn-id <id>` | (current pending) | Target a specific pending turn |
+| `--role <role>` | (phase entry role) | Override the target role for the re-dispatch |
+| `--turn <id>` | (current pending) | Target a specific retained turn when multiple exist |
 
 Re-dispatches an existing pending turn. Use this when a turn was interrupted (adapter crash, timeout) and you want to re-assign it without losing the turn ID or history context. Does not create a new turn.
 
 ### `step`
 
 ```bash
-agentxchain step --role <role> [options]
+agentxchain step [options]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--role <role>` | (required) | The role to assign: `pm`, `dev`, `qa`, `eng_director` |
-| `--adapter <name>` | (from config) | Override the adapter for this turn |
-| `--timeout <ms>` | (from config) | Override the adapter timeout |
-| `--dry-run` | `false` | Create the dispatch bundle but do not execute the adapter |
+| `--role <role>` | (phase entry role) | Override the target role for this turn |
+| `--resume` | `false` | Resume waiting for an already-active turn instead of creating a new one |
+| `--turn <id>` | (current active) | Target a specific active turn (required with `--resume` when multiple turns exist) |
+| `--poll <seconds>` | `2` | Polling interval for the manual adapter |
+| `--verbose` | `false` | Stream `local_cli` subprocess output while the turn is running |
+| `--auto-reject` | `false` | Auto-reject and retry on validation failure |
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
 
@@ -125,21 +127,22 @@ agentxchain accept-turn [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--turn-id <id>` | (current staged) | Accept a specific turn by ID |
-| `--comment <text>` | `""` | Optional human comment recorded in the decision ledger |
+| `--turn <id>` | (current active) | Target a specific active turn when multiple turns exist |
+| `--resolution <mode>` | `standard` | Conflict resolution mode for conflicted turns: `standard` or `human_merge` |
 
 Accepts the most recent staged turn result. The result is committed to `.agentxchain/history.jsonl` and the decision ledger is updated. If the turn included a `phase_transition_request`, the run enters a `blocked:gate` state pending `approve-transition`.
 
 ### `reject-turn`
 
 ```bash
-agentxchain reject-turn --reason <text> [options]
+agentxchain reject-turn [options]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--reason <text>` | (required) | Human-readable reason for rejection |
-| `--turn-id <id>` | (current staged) | Reject a specific turn by ID |
+| `--turn <id>` | (current active) | Target a specific active turn when multiple turns exist |
+| `--reason <reason>` | `""` | Operator reason for the rejection |
+| `--reassign` | `false` | Immediately re-dispatch a conflicted turn with conflict context |
 
 Rejects the staged turn result. The turn returns to `pending` status and can be re-dispatched via `resume` or replaced by a new `step`. The rejection reason is recorded in the decision ledger.
 
@@ -148,15 +151,10 @@ Rejects the staged turn result. The turn returns to `pending` status and can be 
 ### `approve-transition`
 
 ```bash
-agentxchain approve-transition [options]
+agentxchain approve-transition
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--comment <text>` | `""` | Optional human comment for the ledger |
-| `--json` | `false` | Output structured JSON |
-
-Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
+No flags. Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
 
 **Blocked state model:**
 
@@ -169,15 +167,10 @@ Approves a pending phase transition gate. The run must be in `blocked:gate` stat
 ### `approve-completion`
 
 ```bash
-agentxchain approve-completion [options]
+agentxchain approve-completion
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--comment <text>` | `""` | Optional human comment for the ledger |
-| `--json` | `false` | Output structured JSON |
-
-Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval.
+No flags. Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval.
 
 ## Validation
 
@@ -190,8 +183,8 @@ agentxchain validate [options]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--mode <mode>` | `full` | Validation mode: `kickoff`, `turn`, or `full` |
-| `--json` | `false` | Output structured JSON |
-| `--fix` | `false` | Attempt automatic fixes for recoverable issues |
+| `--agent <id>` | — | Expected agent for last history entry (turn mode) |
+| `-j, --json` | `false` | Output as JSON |
 
 Validation modes:
 
@@ -250,12 +243,10 @@ agentxchain migrate [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--yes` | `false` | Skip confirmation prompt |
-| `--json` | `false` | Output structured JSON |
-| `--dry-run` | `false` | Show what would change without modifying files |
-| `--backup` | `true` | Create a backup of current state before migrating |
+| `-y, --yes` | `false` | Skip confirmation prompts |
+| `-j, --json` | `false` | Output migration report as JSON |
 
-Migrates state and config from an older protocol version to the current version (v6). Handles schema changes in `agentxchain.json`, `state.json`, and history entries. Creates a `.agentxchain/backup/` directory with the pre-migration state unless `--no-backup` is passed.
+Migrates state and config from an older protocol version to the current version (v6). Handles schema changes in `agentxchain.json`, `state.json`, and history entries.
 
 ## Dashboard
 
@@ -329,7 +320,7 @@ agentxchain approve-transition
 
 ```bash
 # 1. Check what went wrong
-agentxchain status --verbose
+agentxchain status --json
 
 # 2. The status shows blocked:conflict — resolve manually
 #    Fix the conflicting state in .agentxchain/staging/
