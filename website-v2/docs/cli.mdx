@@ -32,7 +32,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 |---------|-------|-------------|
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
 | `template list` | Setup | Inspect the built-in governed scaffold templates |
-| `template validate` | Setup | Prove the built-in template registry and current project template binding |
+| `template validate` | Setup | Prove template registry, project binding, and planning artifact completeness |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
@@ -80,7 +80,7 @@ Prints the built-in governed templates with their descriptions, planning artifac
 agentxchain template validate [--json]
 ```
 
-Runs explicit proof for the template layer. It validates the built-in manifest registry and, when you are inside a project, validates the repo's configured template binding. A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation.
+Runs explicit proof for the template layer. It validates the built-in manifest registry, the repo's configured template binding, and planning artifact completeness against the template's required artifact set. A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation. If the template requires planning artifacts (e.g., `library` requires `public-api.md`, `compatibility-policy.md`, `release-adoption.md`) and any are missing from `.planning/`, validation fails.
 
 ### `template set`
 

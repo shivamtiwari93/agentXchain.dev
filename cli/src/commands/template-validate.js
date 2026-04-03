@@ -5,6 +5,7 @@ import { CONFIG_FILE, findProjectRoot } from '../lib/config.js';
 import {
   validateGovernedProjectTemplate,
   validateGovernedTemplateRegistry,
+  validateProjectPlanningArtifacts,
 } from '../lib/governed-templates.js';
 
 function loadProjectTemplateValidation() {
@@ -48,14 +49,30 @@ function loadProjectTemplateValidation() {
 export function templateValidateCommand(opts = {}) {
   const registry = validateGovernedTemplateRegistry();
   const project = loadProjectTemplateValidation();
-  const errors = [...registry.errors, ...project.errors];
-  const warnings = [...registry.warnings, ...project.warnings];
+
+  // Planning artifact completeness check
+  let planningArtifacts = null;
+  if (project.present && project.ok && project.root) {
+    planningArtifacts = validateProjectPlanningArtifacts(project.root, project.template);
+  }
+
+  const errors = [
+    ...registry.errors,
+    ...project.errors,
+    ...(planningArtifacts?.errors || []),
+  ];
+  const warnings = [
+    ...registry.warnings,
+    ...project.warnings,
+    ...(planningArtifacts?.warnings || []),
+  ];
   const ok = errors.length === 0;
 
   const payload = {
     ok,
     registry,
     project,
+    planning_artifacts: planningArtifacts,
     errors,
     warnings,
   };
@@ -87,6 +104,17 @@ export function templateValidateCommand(opts = {}) {
     console.log(`  ${chalk.dim('Project:')}  ${project.ok ? chalk.green('OK') : chalk.red('FAIL')} (${project.template} via ${sourceLabel})`);
     if (project.root && existsSync(project.root)) {
       console.log(`  ${chalk.dim('Root:')}     ${project.root}`);
+    }
+    if (planningArtifacts) {
+      const total = planningArtifacts.expected.length;
+      const found = planningArtifacts.present.length;
+      if (total === 0) {
+        console.log(`  ${chalk.dim('Planning:')} ${chalk.green('OK')} (no template artifacts required)`);
+      } else if (planningArtifacts.ok) {
+        console.log(`  ${chalk.dim('Planning:')} ${chalk.green('OK')} (${found}/${total} present)`);
+      } else {
+        console.log(`  ${chalk.dim('Planning:')} ${chalk.red('FAIL')} (${planningArtifacts.missing.length}/${total} missing: ${planningArtifacts.missing.join(', ')})`);
+      }
     }
   } else {
     console.log(`  ${chalk.dim('Project:')}  ${chalk.dim('No project detected; registry-only validation')}`);

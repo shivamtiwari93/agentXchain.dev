@@ -5,6 +5,7 @@ import { getActiveTurn } from './governed-state.js';
 import {
   validateGovernedProjectTemplate,
   validateGovernedTemplateRegistry,
+  validateProjectPlanningArtifacts,
 } from './governed-templates.js';
 
 const DEFAULT_REQUIRED_FILES = [
@@ -98,6 +99,11 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const projectTemplate = validateGovernedProjectTemplate(rawConfig?.template);
   errors.push(...projectTemplate.errors);
   warnings.push(...projectTemplate.warnings);
+
+  // Validate planning artifact completeness against the configured template
+  const planningArtifacts = validateProjectPlanningArtifacts(root, rawConfig?.template);
+  errors.push(...planningArtifacts.errors);
+  warnings.push(...planningArtifacts.warnings);
 
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',

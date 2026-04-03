@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   validateGovernedTemplateRegistry,
+  validateProjectPlanningArtifacts,
 } from '../src/lib/governed-templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -133,6 +134,124 @@ describe('validate integration', () => {
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
+  });
+});
+
+describe('planning artifact completeness validation', () => {
+  it('AT-PLANNING-001: library project with all artifacts passes', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      const result = validateProjectPlanningArtifacts(projectDir, 'library');
+      assert.equal(result.ok, true);
+      assert.equal(result.template, 'library');
+      assert.deepEqual(result.expected, ['public-api.md', 'compatibility-policy.md', 'release-adoption.md']);
+      assert.deepEqual(result.present, ['public-api.md', 'compatibility-policy.md', 'release-adoption.md']);
+      assert.deepEqual(result.missing, []);
+      assert.equal(result.errors.length, 0);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-002: library project missing an artifact fails', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      // Delete one planning artifact
+      rmSync(join(projectDir, '.planning', 'public-api.md'));
+
+      const result = validateProjectPlanningArtifacts(projectDir, 'library');
+      assert.equal(result.ok, false);
+      assert.deepEqual(result.missing, ['public-api.md']);
+      assert.deepEqual(result.present, ['compatibility-policy.md', 'release-adoption.md']);
+      assert.ok(result.errors.some((e) => e.includes('public-api.md')));
+      assert.ok(result.errors.some((e) => e.includes('missing')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-003: generic project passes trivially (no artifacts)', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      const result = validateProjectPlanningArtifacts(projectDir, 'generic');
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.expected, []);
+      assert.deepEqual(result.present, []);
+      assert.deepEqual(result.missing, []);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-004: implicit generic (no template key) passes', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      const result = validateProjectPlanningArtifacts(projectDir, undefined);
+      assert.equal(result.ok, true);
+      assert.equal(result.template, 'generic');
+      assert.deepEqual(result.expected, []);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-005: template validate --json includes planning_artifacts', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 0, result.stderr);
+
+      const payload = JSON.parse(result.stdout);
+      assert.ok(payload.planning_artifacts, 'planning_artifacts key must be present');
+      assert.equal(payload.planning_artifacts.ok, true);
+      assert.equal(payload.planning_artifacts.template, 'library');
+      assert.deepEqual(payload.planning_artifacts.expected, ['public-api.md', 'compatibility-policy.md', 'release-adoption.md']);
+      assert.deepEqual(payload.planning_artifacts.missing, []);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-006: template validate --json fails when artifact missing', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      rmSync(join(projectDir, '.planning', 'compatibility-policy.md'));
+
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 1);
+
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, false);
+      assert.equal(payload.planning_artifacts.ok, false);
+      assert.deepEqual(payload.planning_artifacts.missing, ['compatibility-policy.md']);
+      assert.ok(payload.errors.some((e) => e.includes('compatibility-policy.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-007: governed validate fails when planning artifact missing', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      rmSync(join(projectDir, '.planning', 'release-adoption.md'));
+
+      const result = runCli(projectDir, ['validate', '--json']);
+      assert.equal(result.status, 1);
+
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, false);
+      assert.ok(payload.errors.some((e) => e.includes('release-adoption.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PLANNING-008: no planning_artifacts when no project detected', () => {
+    const result = runCli(tmpdir(), ['template', 'validate', '--json']);
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.planning_artifacts, null);
   });
 });
 

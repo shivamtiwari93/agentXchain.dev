@@ -78,17 +78,19 @@ agentxchain template validate
 agentxchain template validate --json
 ```
 
-This checks two things:
+This checks three things:
 
 - the built-in registry is coherent: every registered template manifest exists, parses, and validates
 - the current project template is coherent: the repo's `agentxchain.json` template value resolves under the installed CLI
+- planning artifact completeness: every file the template's `planning_artifacts` array requires exists in `.planning/`
 
-Important truth:
+Important truths:
 
 - if a governed repo omits `template`, validation treats it as implicit `generic`
 - if the repo names a template the installed CLI does not recognize, validation fails
+- if the template requires planning artifacts (e.g., `library` requires `public-api.md`, `compatibility-policy.md`, `release-adoption.md`) and any are missing from `.planning/`, validation fails
 
-That failure is correct. Silent tolerance here would hide registry drift and turn `validate` into theater.
+These failures are correct. Silent tolerance here would hide registry drift and planning surface gaps, turning `validate` into theater.
 
 ## Apply a template to an existing governed repo
 

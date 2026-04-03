@@ -199,6 +199,54 @@ export function validateGovernedTemplateRegistry(options = {}) {
   };
 }
 
+export function validateProjectPlanningArtifacts(root, templateId) {
+  const effectiveTemplateId = templateId || 'generic';
+  const errors = [];
+  const warnings = [];
+
+  let manifest;
+  try {
+    manifest = loadGovernedTemplate(effectiveTemplateId);
+  } catch {
+    // Template load failure is already reported by validateGovernedProjectTemplate.
+    // Skip artifact check — we cannot know what artifacts to expect.
+    return {
+      ok: true,
+      template: effectiveTemplateId,
+      expected: [],
+      present: [],
+      missing: [],
+      errors,
+      warnings: ['Template could not be loaded; planning artifact check skipped.'],
+    };
+  }
+
+  const artifacts = manifest.planning_artifacts || [];
+  const expected = artifacts.map((a) => a.filename);
+  const present = [];
+  const missing = [];
+
+  for (const filename of expected) {
+    const artifactPath = join(root, '.planning', filename);
+    if (existsSync(artifactPath)) {
+      present.push(filename);
+    } else {
+      missing.push(filename);
+      errors.push(`Template "${effectiveTemplateId}" requires planning artifact ".planning/${filename}" but it is missing.`);
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    template: effectiveTemplateId,
+    expected,
+    present,
+    missing,
+    errors,
+    warnings,
+  };
+}
+
 export function validateGovernedProjectTemplate(templateId, source = 'agentxchain.json') {
   const effectiveTemplateId = templateId || 'generic';
   const effectiveSource = templateId ? source : 'implicit_default';
