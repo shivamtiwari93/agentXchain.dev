@@ -39,9 +39,11 @@ bash scripts/publish-from-tag.sh v1.0.0
 ### Required Environment
 
 ```text
-NPM_TOKEN                         # required
+NPM_TOKEN                         # optional; when absent, publish uses trusted publishing (OIDC)
 NPM_VIEW_RETRY_ATTEMPTS           # optional, default 12
 NPM_VIEW_RETRY_DELAY_SECONDS      # optional, default 5
+RELEASE_POSTFLIGHT_RETRY_ATTEMPTS # optional, default 6
+RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
 ```
 
 ---
@@ -65,16 +67,21 @@ The publish job must operate on the tagged commit, not the default branch head. 
 1. reject missing or malformed tags
 2. derive the semver from `v<semver>`
 3. require `cli/package.json.version === <semver>`
-4. require `NPM_TOKEN`
-5. run `bash scripts/release-preflight.sh --strict --target-version <semver>`
-6. run `npm publish --access public`
-7. poll `npm view <package>@<semver> version` until the registry serves the version or the retry budget is exhausted
+4. run `bash scripts/release-preflight.sh --strict --target-version <semver>`
+5. publish via temporary `.npmrc` when `NPM_TOKEN` is present, otherwise use trusted publishing
+6. poll `npm view <package>@<semver> version` until the registry serves the version or the retry budget is exhausted
 
 ### 4. Registry Verification
 
 Registry verification is part of the publish contract, not a best-effort extra. Publish success is not complete until `npm view agentxchain@<semver> version` returns the requested version.
 
 The verification loop exists because registry visibility can lag publication by several seconds.
+
+After `publish-from-tag.sh` succeeds, the workflow must run `scripts/release-postflight.sh --target-version <semver>` so the same workflow also verifies:
+
+- `dist.tarball`
+- checksum metadata
+- install smoke via `npm exec`
 
 ### 5. Failure Semantics
 
@@ -83,6 +90,8 @@ If strict preflight fails, the workflow must fail without publishing.
 If `package.json` and the release tag disagree, the workflow must fail. Publishing `v1.0.0` from a commit whose package version is `0.9.0` is not a recoverable warning; it is a broken release.
 
 If registry verification never converges within the retry budget, the workflow must fail. A half-finished publish with no verification signal is not trustworthy automation.
+
+If postflight fails after publish, the workflow must still fail. A package that uploaded but does not expose tarball/checksum metadata or cannot execute from the registry is not a complete release.
 
 ---
 
@@ -93,10 +102,11 @@ If registry verification never converges within the retry budget, the workflow m
 | Tag argument missing | Fail with usage text. |
 | Tag is not `v<semver>` | Fail before any npm command runs. |
 | `package.json.version` does not match tag semver | Fail before publish. |
-| `NPM_TOKEN` missing | Fail before publish. |
+| `NPM_TOKEN` missing | Use trusted publishing instead of token auth. |
 | Strict preflight fails | Fail before publish. |
 | `npm publish` fails | Fail the workflow. |
 | `npm view` does not return the new version before retry budget is exhausted | Fail the workflow. |
+| publish succeeds but postflight fails | Fail the workflow. |
 
 ---
 
@@ -104,11 +114,12 @@ If registry verification never converges within the retry budget, the workflow m
 
 1. A standalone spec exists for the GitHub/npm publish path instead of burying the rules inside workflow YAML.
 2. `cli/scripts/publish-from-tag.sh` rejects malformed tags and version mismatches.
-3. `cli/scripts/publish-from-tag.sh` requires `NPM_TOKEN`.
+3. `cli/scripts/publish-from-tag.sh` supports token auth and trusted publishing.
 4. `cli/scripts/publish-from-tag.sh` runs strict release preflight before publish.
 5. `cli/scripts/publish-from-tag.sh` verifies registry visibility after publish with bounded retries.
 6. `.github/workflows/publish-npm-on-tag.yml` triggers on semver tag pushes and supports manual reruns against an existing tag.
 7. `.github/workflows/publish-npm-on-tag.yml` checks out the tag ref, not branch head state.
+8. `.github/workflows/publish-npm-on-tag.yml` runs `release-postflight.sh` after publish succeeds.
 
 ---
 

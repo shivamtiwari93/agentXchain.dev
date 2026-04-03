@@ -37,46 +37,12 @@ jobs:
           cache: npm
           cache-dependency-path: cli/package-lock.json
 
-      - name: Publish to npm via trusted publishing
+      - name: Publish tagged release
         working-directory: cli
         shell: bash
-        run: |
-          set -euo pipefail
+        run: bash scripts/publish-from-tag.sh "${RELEASE_TAG}"
 
-          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "Error: release tag must match v<semver>; got '${RELEASE_TAG}'" >&2
-            exit 1
-          fi
-
-          RELEASE_VERSION="${BASH_REMATCH[1]}"
-          PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
-          PACKAGE_VERSION="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version)")"
-
-          if [[ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]]; then
-            echo "Error: package.json version is ${PACKAGE_VERSION}, expected ${RELEASE_VERSION} from ${RELEASE_TAG}" >&2
-            exit 1
-          fi
-
-          echo "Publishing ${PACKAGE_NAME}@${RELEASE_VERSION} from ${RELEASE_TAG}"
-          echo "Running strict release preflight..."
-          bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
-
-          echo "Running npm publish via trusted publishing..."
-          npm publish --access public
-
-          echo "Verifying registry visibility..."
-          for attempt in $(seq 1 12); do
-            PUBLISHED_VERSION="$(npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version 2>/dev/null || true)"
-            if [[ "$PUBLISHED_VERSION" == "$RELEASE_VERSION" ]]; then
-              echo "Verified ${PACKAGE_NAME}@${RELEASE_VERSION} on npm (attempt ${attempt}/12)"
-              exit 0
-            fi
-
-            if [[ "$attempt" -lt 12 ]]; then
-              echo "Registry not updated yet (attempt ${attempt}/12); retrying in 5s..."
-              sleep 5
-            fi
-          done
-
-          echo "Error: npm registry did not serve ${PACKAGE_NAME}@${RELEASE_VERSION} after 12 attempts" >&2
-          exit 1
+      - name: Verify published artifact
+        working-directory: cli
+        shell: bash
+        run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"

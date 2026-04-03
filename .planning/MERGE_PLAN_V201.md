@@ -1,24 +1,42 @@
 # Merge Plan — release/v2.0.1 → main
 
 > Written: 2026-04-03T05:45:00Z
-> State: 17 commits on release not on main, 17 commits on main not on release
+> Updated: 2026-04-03T06:20:00Z (Turn 7 — accounts for Turn 6 workflow+postflight changes and Turn 7 forward-port)
 > 9 files conflict. Resolution strategies below.
 
 ---
 
-## Conflict Resolution Table
+## Forward-Ported Files (Turn 7)
+
+The following release-branch files were forward-ported to main in Turn 7 to reduce merge surface:
+
+| File | Status on main |
+|------|---------------|
+| `.github/workflows/publish-npm-on-tag.yml` | **Ported** — script-delegation + postflight |
+| `cli/scripts/release-postflight.sh` | **Ported** — with retry support |
+| `cli/test/release-postflight.test.js` | **Ported** |
+| `cli/test/release-docs-content.test.js` | **Ported and adapted** for v2.1.0 context |
+| `.planning/RELEASE_POSTFLIGHT_SPEC.md` | **Ported** |
+| `.planning/GITHUB_NPM_PUBLISH_WORKFLOW_SPEC.md` | **Ported** |
+| `.planning/RELEASE_BRIEF.md` | **Rewritten** for v2.1.0 (not ported — main has different release target) |
+| `.planning/HUMAN_TASKS.md` | **Rewritten** for current blocker state |
+
+These forward-ports eliminate 4 previously-conflicting files from the merge. The workflow, postflight script, and postflight spec are now identical on both branches.
+
+## Remaining Conflict Resolution Table
 
 | File | Strategy | Rationale |
 |------|----------|-----------|
-| `.github/workflows/publish-npm-on-tag.yml` | **keep-release** | Release has correct script-delegation architecture (`publish-from-tag.sh`). Main has inline bash that duplicates logic. |
 | `.planning/AGENT-TALK.md` | **manual-merge** | Both branches have unique turn entries. Append release turns after main turns chronologically. |
-| `.planning/HUMAN_TASKS.md` | **keep-release** | Release reflects v2.0.1 corrective state with accurate npm auth blocker. Main's tasks are stale. |
 | `.planning/LAUNCH_BRIEF.md` | **keep-release** | Release has correct v2.0.1 version, HN deferred, corrected plugin scope. |
-| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **manual-merge** | Release has v2.0.1 evidence (960 tests). Main has v2.1 features (988 tests). Post-merge suite run determines final count. |
+| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **manual-merge** | Release has v2.0.1 evidence (962 tests). Main has v2.1 features (1016+ tests). Post-merge suite run determines final count. |
 | `cli/src/lib/hook-runner.js` | **manual-merge (P0)** | Main added HTTP hook support (v2.1-F2). Release has rollback tamper-detection fixes. Must combine both. |
 | `cli/test/hook-runner.test.js` | **manual-merge (P0)** | Main has `interpolateHeaders` tests for HTTP hooks. Release has tamper rollback tests. Must combine. |
 | `cli/test/launch-evidence.test.js` | **manual-merge** | Post-merge test count replaces both assertions. Run suite first, then update assertion. |
 | `run-agents.sh` | **manual-merge** | Release has Twitter support, product boundary, trusted-publish-first guidance. Main has OSS-first principle. Combine. |
+| `.planning/HUMAN_TASKS.md` | **keep-main** | Main now has the accurate blocker state (rewritten in Turn 7). Release version is stale. |
+| `.planning/RELEASE_BRIEF.md` | **keep-main** | Main now targets v2.1.0 (rewritten in Turn 7). Release version is for v2.0.1 corrective. |
+| `cli/test/release-docs-content.test.js` | **keep-main** | Main version is adapted for v2.1.0 context. Release version hardcodes v2.0.1. |
 
 ## Execution Sequence
 
@@ -39,3 +57,4 @@
 ## Decision
 
 - `DEC-MERGE-001`: Merge uses explicit merge commit (no rebase). Release branch history is the audit trail for the corrective release.
+- `DEC-MERGE-002`: Forward-port release infrastructure to main before merge to reduce conflict surface. The workflow, postflight script, and release ops docs are now on both branches.

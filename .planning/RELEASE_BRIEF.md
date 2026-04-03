@@ -1,109 +1,80 @@
-# Release Brief — AgentXchain Governed CLI v1.1.0
+# Release Brief — AgentXchain v2.1.0
 
-Purpose: give Shivam a single handoff document for the v1.1.0 release cut.
+`v2.1.0` is the active release identity on `main`. It is the next release after the corrective `v2.0.1` publish completes from `release/v2.0.1`.
 
-## Current Status
+## Pre-Conditions
 
-**The product and protocol work for v1.1.0 are implemented and test-backed, but this brief is still future-facing. The immediate public release track remains `1.0.0` until that cut is complete and the operator intentionally starts a `1.1.0` release candidate cycle.**
+1. `v2.0.1` must be published to npm first (currently blocked on npm authorization — see `HUMAN_TASKS.md`)
+2. `release/v2.0.1` must be merged back into `main` per `MERGE_PLAN_V201.md`
+3. Full test suite must pass on the merged result
+4. Then `v2.1.0` can be cut from `main`
 
-- Normative v1.1 spec: **complete** (`SPEC-GOVERNED-v5.md`)
-- Frozen v1.1 release gate: **complete** (`V1_1_RELEASE_CHECKLIST.md`)
-- Governed CLI surface spec: **complete** (`.planning/CLI_SPEC.md`)
-- README upgrade and operator guidance: **complete**
-- `cli/CHANGELOG.md` `1.1.0` delta entry: **complete**
-- Remaining autonomous release-prep gap before a real `1.1.0` cut: **none**
-- Remaining human work for today: **the active release path is still the `1.0.0` cut in `.planning/HUMAN_TASKS.md`**
+## What v2.1.0 Ships
 
-## What v1.1.0 Ships
+Three features on top of the v2.0.x governed coordination base:
 
-v1.1.0 graduates exactly five already-implemented features:
+1. **Dispatch manifests** (V2.1-F1) — structured dispatch descriptors for turn assignment with provider routing and constraint propagation
+2. **HTTP hooks + plugin hardening** (V2.1-F2) — webhook-style hook delivery with retry, plus plugin install validation hardening
+3. **Dashboard evidence drill-down** (V2.1-F3) — expandable turn detail panels with hook annotations, decision ledger filters (phase, date, objection badges), and hook audit filters
 
-1. Parallel governed turns
-2. `api_proxy` auto-retry with backoff
-3. Preemptive tokenization
-4. Anthropic-specific provider error mapping
-5. Persistent blocked state
+All three features are implementation-complete and tested on `main`.
 
-Compatibility contract:
+## Release Readiness
 
-- v1.0 sequential behavior remains the default
-- `max_concurrent_turns = 1` preserves the single-turn flow
-- retry and preflight remain opt-in
-- provider mapping and blocked-state visibility are automatic improvements
-- v1.1 reads and migrates v1.0 state, but v1.0 does not read v1.1 state
-
-## Release Readiness Snapshot
-
-From the current planning state:
-
-- Feature implementation: **complete**
-- Automated acceptance matrix: **mapped and green**
-- `1.1.0` human handoff sequencing: **defined** (`V1_1_RELEASE_HANDOFF_SPEC.md`)
-- Normative/operator docs:
-  - `SPEC-GOVERNED-v5.md`: done
-  - `.planning/CLI_SPEC.md`: done
-  - `README.md`: done
-  - `.planning/RELEASE_BRIEF.md`: reconciled
-  - `cli/CHANGELOG.md`: done
-- Release-preflight retargeting for `1.1.0`: **complete** (`--target-version <semver>`)
-- Human-gated release execution for `1.1.0`: **future**, not the active release-day path yet
+- Feature implementation: **complete** (all 3 V2.1 features shipped)
+- Test suite: **1016 tests / 233 suites / 0 failures** (pre-merge count on main)
+- Protocol: v6 normative spec (`PROTOCOL-v6.md`)
+- Docs: quickstart, adapters, CLI, plugins, protocol pages all published
+- Publish workflow: script-delegated architecture with postflight verification
+- Blocked on: v2.0.1 npm publish → merge-back → v2.1.0 cut
 
 ## Canonical Release Sequence
-
-Do **not** use this sequence as the active public-release checklist until the `1.0.0` release is complete and the operator intentionally starts a `1.1.0` release candidate cycle.
 
 ```bash
 cd cli
 
-# 1. Confirm the release candidate workspace is clean
+# 0. Pre-condition: v2.0.1 is published, release/v2.0.1 merged to main, tests green
+
+# 1. Confirm clean workspace
 git status --short
 
-# 2. Re-run the full test baseline from the clean workspace
+# 2. Run the full test suite
 npm test
 
-# 3. Re-run release preflight against the target release
-bash scripts/release-preflight.sh --target-version 1.1.0
+# 3. Run release preflight
+bash scripts/release-preflight.sh --target-version 2.1.0
 
-# 4. From the clean tree, cut the version/tag (creates release commit + v1.1.0 tag)
-npm version 1.1.0
+# 4. Bump version and create tag
+npm version 2.1.0
 
-# 5. Re-run strict preflight after the bump
-bash scripts/release-preflight.sh --target-version 1.1.0 --strict
+# 5. Strict preflight after bump
+bash scripts/release-preflight.sh --target-version 2.1.0 --strict
 
-# 6. Push the tag to trigger automated publish
-git push origin v1.1.0
-# This triggers .github/workflows/publish-npm-on-tag.yml which:
-#   - Checks out the tag ref (not branch head)
-#   - Runs npm ci in cli/
-#   - Calls scripts/publish-from-tag.sh
-#   - Enforces package.json.version === tag semver
-#   - Runs strict preflight before publish
-#   - Publishes via temporary .npmrc (no token on CLI)
-#   - Polls npm view until the registry serves the version
+# 6. Push tag to trigger publish workflow
+git push origin v2.1.0
+# Workflow runs: publish-from-tag.sh → release-postflight.sh
 
-# 7. Verify the registry serves the published artifact (workflow does this;
-#    manual fallback if workflow fails)
-npm view agentxchain@1.1.0 version
+# 7. After workflow completes, verify postflight
+bash scripts/release-postflight.sh --target-version 2.1.0
 
-# 8. Update Homebrew tap with the published tarball URL + SHA256
+# 8. Verify the registry serves the artifact
+npm view agentxchain@2.1.0 version
+
+# 9. Create GitHub release notes
+# 10. Update Homebrew tap
 ```
 
-Note: `npm version 1.1.0` remains the canonical version-bump, release-commit, and tag step while `git-tag-version = true`. The push-to-publish contract is: human owns the version identity (`npm version`); CI owns the publish execution (`publish-npm-on-tag.yml`). See DEC-RELEASE-AUTO-001.
-
-## Non-Gating Validation Track
-
-Scenario D live escalation dogfood remains valuable, but it is **not** a hard v1.1 release gate. Product correctness is already covered by automated specs and tests; Scenario D is post-release operator-validation evidence.
+GitHub release notes are published against the real artifact, after npm postflight passes. Not before.
 
 ## Where To Look
 
 | Artifact | Purpose |
 |----------|---------|
-| [`SPEC-GOVERNED-v5.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/SPEC-GOVERNED-v5.md) | Normative v1.1 product spec |
-| [`V1_1_RELEASE_SCOPE_SPEC.md`](V1_1_RELEASE_SCOPE_SPEC.md) | Frozen v1.1 scope |
-| [`V1_1_RELEASE_CHECKLIST.md`](V1_1_RELEASE_CHECKLIST.md) | Acceptance gate |
-| [`V1_1_RELEASE_HANDOFF_SPEC.md`](V1_1_RELEASE_HANDOFF_SPEC.md) | Sequencing rule for when the v1.1 handoff becomes actionable |
-| [`HUMAN_TASKS.md`](HUMAN_TASKS.md) | Human-only tasks, including release execution |
-| [`cli/CHANGELOG.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/CHANGELOG.md) | Completed v1.1 delta entry |
-| [`cli/scripts/release-preflight.sh`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/scripts/release-preflight.sh) | One-command release check |
-| [`SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md`](SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md) | Non-gating live validation track |
-| [`vision-discussion.md`](vision-discussion.md) | Full collaboration record |
+| `V2_1_SCOPE_BOUNDARY.md` | Frozen v2.1 scope |
+| `PROTOCOL-v6.md` | Normative protocol spec |
+| `MERGE_PLAN_V201.md` | Pre-merge conflict resolution plan |
+| `HUMAN_TASKS.md` | Human-only tasks and blockers |
+| `RELEASE_POSTFLIGHT_SPEC.md` | Post-publish verification contract |
+| `cli/CHANGELOG.md` | Release delta entries |
+| `cli/scripts/release-preflight.sh` | Pre-publish checks |
+| `cli/scripts/release-postflight.sh` | Post-publish verification |

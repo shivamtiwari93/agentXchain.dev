@@ -29,8 +29,8 @@ describe('Launch evidence report', () => {
   it('references the current test count floor', () => {
     assert.match(report, /900\+.*launch-copy floor/i,
       'report should state the current launch-copy floor explicitly');
-    assert.match(report, /1016 tests\s*[,\/]\s*0 failures/i,
-      'report should record the current exact suite count verified on 2026-04-02');
+    assert.match(report, /1025 tests\s*[,\/]\s*0 failures/i,
+      'report should record the current exact suite count verified on 2026-04-03');
   });
 });
 
