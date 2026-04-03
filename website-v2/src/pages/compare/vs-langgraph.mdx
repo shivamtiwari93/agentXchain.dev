@@ -1,0 +1,47 @@
+---
+title: AgentXchain vs LangGraph
+description: "LangGraph is stronger for durable graph orchestration. AgentXchain is stronger for governed delivery on a codebase."
+---
+
+# AgentXchain vs LangGraph
+
+## The short answer
+
+**Choose LangGraph** if you need explicit graph control flow, durable execution, interrupts, time-travel debugging, and long-running agent systems.
+
+**Choose AgentXchain** if you need PM/dev/QA challenge dynamics, human-controlled phase gates, repo-local audit trails, and governed code convergence.
+
+They operate at different layers.
+
+## Comparison
+
+| | LangGraph | AgentXchain |
+|---|---|---|
+| **Primary job** | Graph orchestration | Governed delivery |
+| **Workflow model** | Developer-defined nodes/edges | Role-based turns + gates |
+| **Mandatory challenge** | No | Yes — protocol-enforced |
+| **Human authority** | Interrupts / intervention | Phase + ship gates + recovery |
+| **Audit surface** | Persisted state + LangSmith | Append-only decision ledgers |
+| **Best fit** | Long-running agent apps | Auditable code convergence |
+
+## Choose LangGraph when
+
+- Need explicit graph branching, retries, loops, interrupts, durable execution
+- Building an always-on or long-running agent system, not a governed repo workflow
+- Care more about runtime orchestration and state than delivery governance
+- Want the broader LangGraph / LangSmith ecosystem
+
+## Choose AgentXchain when
+
+- PM, dev, QA must challenge each other (structural enforcement)
+- Need human-controlled planning gates and final ship approval
+- Need accepted changes recorded with role ownership, objections, and evidence
+- Care about governed delivery over graph expressiveness
+
+## The difference
+
+LangGraph provides powerful runtime orchestration. AgentXchain provides delivery governance. LangGraph doesn't structurally prevent blind agreement between agents. AgentXchain rejects it as a protocol violation.
+
+## Using both together
+
+A useful split: LangGraph for agent runtime orchestration, AgentXchain for governed codebase delivery. Runtime orchestration and delivery governance are complementary.

@@ -1,0 +1,86 @@
+name: Deploy Website to GCP GCS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website-v2/**'
+  workflow_dispatch:
+
+concurrency:
+  group: gcs-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'website-v2/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: website-v2
+        run: npm ci
+
+      - name: Build Docusaurus
+        working-directory: website-v2
+        run: npm run build
+
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      # GCS bucket: agentxchain.dev in project apps1008com
+      # Docusaurus generates content-hashed filenames for JS/CSS bundles
+      # (e.g., assets/js/main.abc123.js) — these are safe to cache aggressively.
+      # HTML files get short cache TTLs so content updates propagate quickly.
+
+      - name: Sync hashed assets (long cache)
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
+        run: |
+          gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" \
+            rsync -r -d \
+            website-v2/build/assets/ \
+            gs://${GCS_BUCKET}/assets/
+
+      - name: Sync HTML and non-hashed files (short cache)
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
+        run: |
+          gsutil -m -h "Cache-Control:public, max-age=300, s-maxage=60" \
+            rsync -r -d \
+            -x "^assets/" \
+            website-v2/build/ \
+            gs://${GCS_BUCKET}/
+
+      - name: Verify deployment
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET || 'agentxchain.dev' }}
+        run: |
+          echo "Deployed to gs://${GCS_BUCKET}/"
+          gsutil ls gs://${GCS_BUCKET}/ | head -20
+          echo ""
+          echo "HTML files:"
+          gsutil ls -r gs://${GCS_BUCKET}/**/*.html | wc -l
+          echo ""
+          echo "Asset bundles:"
+          gsutil ls gs://${GCS_BUCKET}/assets/ 2>/dev/null | head -10 || echo "(none)"

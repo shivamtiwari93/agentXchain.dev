@@ -1,0 +1,362 @@
+---
+sidebar_position: 4
+title: Adapters
+description: "Three adapters, one contract. manual, local_cli, and api_proxy explained."
+---
+
+# Adapters
+
+Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, or a remote API — it only cares that the result conforms to the protocol.
+
+## Shared adapter contract
+
+Every adapter follows a three-phase lifecycle:
+
+### 1. Dispatch
+
+The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/`. The bundle contains everything the agent needs to do its work.
+
+### 2. Wait
+
+The orchestrator waits for the adapter to signal completion. How it waits depends on the adapter type (polling, subprocess exit, HTTP response).
+
+### 3. Collect
+
+The orchestrator reads the staged result from `.agentxchain/staging/<turn_id>/turn-result.json`, validates it against the protocol schema, and either accepts it into the pipeline or marks it as failed.
+
+```
+┌─────────────┐     dispatch bundle      ┌──────────────┐
+│ Orchestrator │ ──────────────────────► │   Adapter    │
+│              │                          │              │
+│              │ ◄────────────────────── │              │
+│              │     staged result        │              │
+└─────────────┘                          └──────────────┘
+```
+
+## Filesystem contract
+
+### Dispatch bundle
+
+The orchestrator writes these files to `.agentxchain/dispatch/turns/<turn_id>/`:
+
+| File | Purpose |
+|------|---------|
+| `ASSIGNMENT.json` | Structured assignment metadata: run ID, turn ID, role, phase, adapter config, timeout |
+| `PROMPT.md` | The role prompt from `.agentxchain/prompts/<role>.md` with variable interpolation |
+| `CONTEXT.md` | Assembled context from previous turns: accepted decisions, open objections, files changed, verification evidence |
+
+```json title="ASSIGNMENT.json"
+{
+  "schema_version": "1.0",
+  "run_id": "run_a1b2c3",
+  "turn_id": "turn_x7y8z9",
+  "role": "dev",
+  "phase": "implementation",
+  "adapter": "local_cli",
+  "adapter_config": {
+    "command": "claude",
+    "args": ["--print", "--dangerously-skip-permissions"],
+    "prompt_transport": "stdin"
+  },
+  "timeout_ms": 600000,
+  "context_ref": "./CONTEXT.md",
+  "prompt_ref": "./PROMPT.md"
+}
+```
+
+### Staged result schema
+
+The adapter must write a valid turn result to `.agentxchain/staging/<turn_id>/turn-result.json`. The schema is consistent across all adapters:
+
+```json title="turn-result.json"
+{
+  "schema_version": "1.0",
+  "run_id": "run_...",
+  "turn_id": "turn_...",
+  "role": "dev",
+  "runtime_id": "local_cli-claude",
+  "status": "completed",
+  "summary": "Implemented the authentication module...",
+  "decisions": [
+    {
+      "id": "DEC-005",
+      "category": "implementation",
+      "statement": "Use bcrypt for password hashing",
+      "rationale": "Industry standard, constant-time comparison"
+    }
+  ],
+  "objections": [
+    {
+      "id": "OBJ-003",
+      "severity": "low",
+      "against_turn_id": "turn_prev",
+      "statement": "PM spec did not address rate limiting",
+      "status": "raised"
+    }
+  ],
+  "files_changed": [
+    { "path": "src/auth.ts", "action": "created" },
+    { "path": "src/auth.test.ts", "action": "created" }
+  ],
+  "verification": {
+    "status": "passed",
+    "commands": ["npm test", "npm run lint"],
+    "evidence_summary": "All 14 tests pass. No lint errors.",
+    "machine_evidence": [
+      { "command": "npm test", "exit_code": 0, "stdout_tail": "14 passing (1.2s)" }
+    ]
+  },
+  "artifact": {
+    "type": "code",
+    "ref": "src/auth.ts"
+  },
+  "proposed_next_role": "qa",
+  "phase_transition_request": null,
+  "run_completion_request": null
+}
+```
+
+**Required fields:** All fields shown above are required. The `objections` array must contain at least one entry — blind agreement is a protocol violation.
+
+## manual adapter
+
+The manual adapter is designed for human-in-the-loop workflows where a person reads the dispatch, does the work, and stages the result themselves.
+
+### How it works
+
+1. The orchestrator writes the dispatch bundle and prints instructions to the terminal.
+2. The adapter polls `.agentxchain/staging/<turn_id>/turn-result.json` every **2 seconds**.
+3. When the file appears and is valid JSON, the adapter collects it.
+4. Default timeout: **20 minutes** (1,200,000 ms). Configurable via `--timeout`.
+
+### Configuration
+
+```json title="agentxchain.json (excerpt)"
+{
+  "roles": {
+    "pm": {
+      "adapter": "manual",
+      "adapter_config": {
+        "poll_interval_ms": 2000,
+        "timeout_ms": 1200000
+      }
+    }
+  }
+}
+```
+
+### When to use
+
+- Planning turns where a human PM writes the spec
+- Code review turns where a senior engineer reviews the work
+- Any turn where you want full human control over the output
+
+## local_cli adapter
+
+The local_cli adapter spawns a local subprocess — typically an AI coding agent like Claude Code, Codex CLI, or Aider — and feeds it the dispatch bundle.
+
+### How it works
+
+1. The orchestrator writes the dispatch bundle.
+2. The adapter spawns the configured command as a child process.
+3. The prompt is delivered via one of three **prompt transport modes**.
+4. The adapter waits for the subprocess to exit.
+5. On exit code `0`, the adapter collects the staged result.
+6. On timeout, the adapter sends `SIGTERM`, waits 5 seconds, then `SIGKILL`.
+
+### Prompt transport modes
+
+| Mode | How the prompt reaches the agent | Best for |
+|------|----------------------------------|----------|
+| `stdin` | Prompt is piped to the process's standard input | Claude Code (`--print` mode), simple scripts |
+| `file` | Prompt is written to a temp file; path passed as an argument | Agents that read from file paths |
+| `arg` | Prompt is passed as a CLI argument | Short prompts, simple tools |
+
+### Configuration
+
+```json title="agentxchain.json (excerpt)"
+{
+  "roles": {
+    "dev": {
+      "adapter": "local_cli",
+      "adapter_config": {
+        "command": "claude",
+        "args": ["--print", "--dangerously-skip-permissions"],
+        "prompt_transport": "stdin",
+        "timeout_ms": 600000,
+        "env": {
+          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
+        }
+      }
+    }
+  }
+}
+```
+
+### Timeout and signal handling
+
+| Event | Action |
+|-------|--------|
+| Subprocess exits with code `0` | Collect staged result |
+| Subprocess exits with non-zero code | Mark turn as `failed`, retain for inspection |
+| Timeout reached | Send `SIGTERM` to process group |
+| 5 seconds after `SIGTERM` | Send `SIGKILL` to process group |
+| `SIGKILL` sent | Mark turn as `failed` with reason `timeout` |
+
+### When to use
+
+- Dev turns with Claude Code, Codex CLI, or Aider
+- QA turns with automated test runners
+- Any turn where a local tool can produce a valid turn result
+
+## api_proxy adapter
+
+The api_proxy adapter calls an LLM API directly, handles retries, tracks token usage, and writes the staged result on behalf of the model.
+
+### How it works
+
+1. The orchestrator writes the dispatch bundle.
+2. The adapter assembles a prompt from `PROMPT.md` and `CONTEXT.md`.
+3. The adapter calls the configured LLM API with retry logic.
+4. On success, the adapter parses the model's response into a turn result and stages it.
+5. Token usage and cost are recorded in the turn metadata.
+
+### Retry logic
+
+| Condition | Behavior |
+|-----------|----------|
+| HTTP 429 (rate limit) | Exponential backoff: 1s, 2s, 4s, 8s, 16s (max 5 retries) |
+| HTTP 500/502/503 (server error) | Exponential backoff: 2s, 4s, 8s (max 3 retries) |
+| HTTP 400 (bad request) | No retry — fail immediately with error details |
+| HTTP 401/403 (auth error) | No retry — fail immediately, prompt for key check |
+| Network timeout | Retry once after 5s, then fail |
+| Malformed JSON response | Retry once, then fail with parse error |
+
+### Error classification
+
+The adapter classifies errors into three categories:
+
+| Category | Examples | Retryable |
+|----------|----------|-----------|
+| `transient` | Rate limits, server errors, network timeouts | Yes |
+| `permanent` | Auth failures, bad requests, invalid model | No |
+| `parse` | Model returned invalid JSON, missing required fields | Once |
+
+### Token usage and cost tracking
+
+The adapter records token usage in the turn result metadata:
+
+```json
+{
+  "adapter_meta": {
+    "model": "claude-sonnet-4-20250514",
+    "provider": "anthropic",
+    "input_tokens": 12450,
+    "output_tokens": 3820,
+    "total_tokens": 16270,
+    "cost_usd": 0.0731,
+    "latency_ms": 8420,
+    "retries": 0
+  }
+}
+```
+
+### Supported models
+
+| Provider | Models | Notes |
+|----------|--------|-------|
+| Anthropic | Claude Opus, Sonnet, Haiku (4.x, 3.5) | Native support, recommended |
+| OpenAI | GPT-4o, GPT-4 Turbo, o1, o3 | Via OpenAI-compatible endpoint |
+| Custom | Any OpenAI-compatible API | Set `base_url` in config |
+
+### Configuration
+
+```json title="agentxchain.json (excerpt)"
+{
+  "roles": {
+    "qa": {
+      "adapter": "api_proxy",
+      "adapter_config": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-20250514",
+        "max_tokens": 8192,
+        "temperature": 0.2,
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "timeout_ms": 120000,
+        "max_retries": 5
+      }
+    }
+  }
+}
+```
+
+## Implementing a new adapter
+
+A custom adapter is roughly 200 lines of code. It must implement the `Adapter` interface:
+
+```typescript title="my-adapter.ts"
+import { Adapter, DispatchBundle, TurnResult } from "agentxchain";
+
+export class MyAdapter implements Adapter {
+  name = "my_adapter";
+
+  /**
+   * Phase 1: Dispatch
+   * Write any adapter-specific files or set up the environment.
+   * The dispatch bundle is already on disk at this point.
+   */
+  async dispatch(bundle: DispatchBundle): Promise<void> {
+    // Prepare your adapter's runtime environment
+  }
+
+  /**
+   * Phase 2: Wait
+   * Block until the work is done or timeout is reached.
+   * Return the raw result data.
+   */
+  async wait(
+    turnId: string,
+    timeoutMs: number
+  ): Promise<{ status: "completed" | "failed"; data: unknown }> {
+    // Poll, wait for subprocess, or await HTTP response
+  }
+
+  /**
+   * Phase 3: Collect
+   * Transform the raw result into a valid TurnResult.
+   * The orchestrator will validate the schema after this.
+   */
+  async collect(
+    turnId: string,
+    rawData: unknown
+  ): Promise<TurnResult> {
+    // Parse and return a protocol-compliant turn result
+  }
+}
+```
+
+Register the adapter in `agentxchain.json`:
+
+```json
+{
+  "adapters": {
+    "my_adapter": {
+      "module": "./adapters/my-adapter.js"
+    }
+  }
+}
+```
+
+## Comparison table
+
+| Feature | manual | local_cli | api_proxy |
+|---------|--------|-----------|-----------|
+| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — API call runs autonomously |
+| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds |
+| **Cost** | Human time | Tool license + compute | API tokens |
+| **Prompt transport** | N/A (human reads files) | stdin, file, or arg | HTTP request body |
+| **Retry logic** | N/A | Exit code based | Exponential backoff |
+| **Timeout handling** | Configurable poll timeout | SIGTERM then SIGKILL | HTTP timeout + retry |
+| **Cost tracking** | N/A | N/A | Automatic (tokens + USD) |
+| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct LLM calls, batch processing |
+| **Lines to implement** | Built-in | Built-in | Built-in |

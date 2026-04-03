@@ -1,0 +1,144 @@
+---
+sidebar_position: 1
+title: Quickstart
+description: "Run a governed PM → dev → QA flow in five minutes."
+---
+
+# Run a governed PM → dev → QA flow
+
+This page documents the workflow that exists today. Governed mode is staged and gate-driven: `step` creates a turn, the role produces a structured result, the orchestrator validates it, and a human approves phase changes and final ship decisions.
+
+## Before you start
+
+- **Node.js 18.17+** (or 20.5+)
+- **git** (governed scaffold expects a repo)
+- `npx agentxchain` or `npm install -g agentxchain`
+- Scaffold intent via `--template` or defaults to `pm → dev → qa`
+- QA runtime: manual, local_cli, or api_proxy
+
+## What governed mode creates
+
+```bash
+npx agentxchain init --governed -y
+```
+
+This creates the scaffold:
+
+| Category | Files |
+|----------|-------|
+| Configuration | `agentxchain.json`, `.agentxchain/state.json`, `.agentxchain/history.jsonl`, `.agentxchain/decision-ledger.jsonl` |
+| Turn handoff | `.agentxchain/dispatch/turns/<turn_id>/`, `.agentxchain/staging/<turn_id>/turn-result.json`, `TALK.md` |
+| Planning artifacts | `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md` |
+| Role prompts | `.agentxchain/prompts/pm.md`, `.agentxchain/prompts/dev.md`, `.agentxchain/prompts/qa.md`, `.agentxchain/prompts/eng_director.md` |
+
+## Five-minute walkthrough
+
+### 1. Initialize
+
+```bash
+npx agentxchain init --governed -y
+cd my-agentxchain-project
+git init && git add -A && git commit -m "initial governed scaffold"
+```
+
+### 2. Assign the PM turn
+
+```bash
+agentxchain step --role pm
+```
+
+The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/` and waits for a staged result.
+
+### 3. Create PM artifacts and stage the turn result
+
+Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then stage a turn result:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "run_...",
+  "turn_id": "turn_...",
+  "role": "pm",
+  "runtime_id": "manual-pm",
+  "status": "completed",
+  "summary": "Defined the planning scope...",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "category": "scope",
+      "statement": "...",
+      "rationale": "..."
+    }
+  ],
+  "objections": [
+    {
+      "id": "OBJ-001",
+      "severity": "medium",
+      "against_turn_id": "TODO",
+      "statement": "...",
+      "status": "raised"
+    }
+  ],
+  "files_changed": [],
+  "verification": {
+    "status": "skipped",
+    "commands": [],
+    "evidence_summary": "Review turn.",
+    "machine_evidence": []
+  },
+  "artifact": {
+    "type": "review",
+    "ref": null
+  },
+  "proposed_next_role": "human",
+  "phase_transition_request": "implementation",
+  "run_completion_request": null
+}
+```
+
+### 4. Accept and approve the gate
+
+```bash
+agentxchain accept-turn
+agentxchain approve-transition
+```
+
+The phase advances from `planning` to `implementation`.
+
+### 5. Run the dev turn
+
+```bash
+agentxchain step --role dev
+```
+
+The dev agent receives context from the PM's accepted turn, implements the work, and stages a result.
+
+### 6. Run QA and complete
+
+```bash
+agentxchain step --role qa
+agentxchain approve-completion
+```
+
+QA must challenge the dev's work (mandatory objection). After QA acceptance, the human approves run completion.
+
+## Adapter modes
+
+| Adapter | How it works | Automation |
+|---------|-------------|------------|
+| `manual` | Human reads dispatch, does work, stages result | Full human control |
+| `local_cli` | Orchestrator spawns local agent (Claude Code, Codex, Aider) | Fully automated |
+| `api_proxy` | Orchestrator calls LLM API directly with retry and cost tracking | Fully automated |
+
+## Common mistakes
+
+- **Don't confuse `init` with `step`.** `init` creates the scaffold. `step` runs a turn.
+- **Don't edit `state.json` manually.** The orchestrator owns it.
+- **Don't skip gates.** `approve-transition` and `approve-completion` are constitutional — they exist so humans stay in control.
+- **Turn results must have `objections`.** Blind agreement is a protocol violation.
+
+## Next steps
+
+- [CLI Reference](/docs/cli) — full command surface
+- [Adapters](/docs/adapters) — configure automated agents
+- [Protocol v6](/docs/protocol) — the constitutional spec

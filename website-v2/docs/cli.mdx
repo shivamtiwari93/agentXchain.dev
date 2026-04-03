@@ -1,0 +1,297 @@
+---
+sidebar_position: 2
+title: CLI Reference
+description: "The governed command surface — step, accept, approve, dashboard, and plugin management."
+---
+
+# CLI Reference
+
+The `agentxchain` CLI is the primary interface for governed multi-agent runs. Every command operates on the repo-local `.agentxchain/` directory and respects the constitutional invariants defined by the protocol.
+
+## The two commands people confuse
+
+### `resume` vs `step`
+
+These are not interchangeable. They serve different purposes in the turn lifecycle.
+
+| | `resume` | `step` |
+|---|---------|--------|
+| **Purpose** | Re-assign a turn that already exists | Create a new turn and execute the full lifecycle |
+| **Creates a turn?** | No | Yes |
+| **Dispatches?** | Yes (re-dispatch) | Yes (fresh dispatch) |
+| **Runs adapter?** | No — assignment only | Yes — dispatch, wait, collect |
+| **When to use** | A turn was interrupted or you need to re-dispatch without losing history | Normal flow — advance the run by one turn |
+
+`resume` is an assignment-only operation. It re-dispatches the current pending turn to the same or a different adapter. `step` is the full lifecycle: it creates the turn, dispatches to the adapter, waits for a result, collects and validates the staged output, and records it in history.
+
+## Command map
+
+| Command | Phase | Description |
+|---------|-------|-------------|
+| `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
+| `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
+| `resume` | Turn lifecycle | Re-dispatch an existing pending turn without creating a new one |
+| `step` | Turn lifecycle | Create a new turn, dispatch to adapter, wait for result, collect and validate |
+| `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
+| `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
+| `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
+| `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
+| `validate` | Validation | Validate config, state, or full run integrity |
+| `migrate` | Migration | Migrate state and config from an older protocol version |
+| `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
+| `dashboard` | Visualization | Launch a local read-only web dashboard |
+
+## Turn lifecycle commands
+
+### `init`
+
+```bash
+agentxchain init [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--governed` | `false` | Enable governed mode with gates and constitutional checks |
+| `--template <name>` | `pm-dev-qa` | Role template to scaffold (`pm-dev-qa`, `dev-qa`, `solo-dev`) |
+| `-y, --yes` | `false` | Accept all defaults without prompting |
+| `--dir <path>` | `.` | Target directory for scaffold |
+
+Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. If `--governed` is set, the scaffold includes the decision ledger, dispatch directories, and gate configuration.
+
+### `status`
+
+```bash
+agentxchain status [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output structured JSON instead of human-readable text |
+| `--verbose` | `false` | Include full turn history and decision log |
+
+Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Does not modify state.
+
+### `resume`
+
+```bash
+agentxchain resume [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--adapter <name>` | (from config) | Override the adapter for this re-dispatch |
+| `--turn-id <id>` | (current pending) | Target a specific pending turn |
+
+Re-dispatches an existing pending turn. Use this when a turn was interrupted (adapter crash, timeout) and you want to re-assign it without losing the turn ID or history context. Does not create a new turn.
+
+### `step`
+
+```bash
+agentxchain step --role <role> [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--role <role>` | (required) | The role to assign: `pm`, `dev`, `qa`, `eng_director` |
+| `--adapter <name>` | (from config) | Override the adapter for this turn |
+| `--timeout <ms>` | (from config) | Override the adapter timeout |
+| `--dry-run` | `false` | Create the dispatch bundle but do not execute the adapter |
+
+The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
+
+### `accept-turn`
+
+```bash
+agentxchain accept-turn [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--turn-id <id>` | (current staged) | Accept a specific turn by ID |
+| `--comment <text>` | `""` | Optional human comment recorded in the decision ledger |
+
+Accepts the most recent staged turn result. The result is committed to `.agentxchain/history.jsonl` and the decision ledger is updated. If the turn included a `phase_transition_request`, the run enters a `blocked:gate` state pending `approve-transition`.
+
+### `reject-turn`
+
+```bash
+agentxchain reject-turn --reason <text> [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--reason <text>` | (required) | Human-readable reason for rejection |
+| `--turn-id <id>` | (current staged) | Reject a specific turn by ID |
+
+Rejects the staged turn result. The turn returns to `pending` status and can be re-dispatched via `resume` or replaced by a new `step`. The rejection reason is recorded in the decision ledger.
+
+## Approval commands
+
+### `approve-transition`
+
+```bash
+agentxchain approve-transition [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--comment <text>` | `""` | Optional human comment for the ledger |
+| `--json` | `false` | Output structured JSON |
+
+Approves a pending phase transition gate. The run must be in `blocked:gate` state with a pending `phase_transition_request`. On approval, the phase advances (e.g., `planning` to `implementation`, `implementation` to `verification`).
+
+**Blocked state model:**
+
+| Blocked state | Trigger | Resolution |
+|---------------|---------|------------|
+| `blocked:gate` | A turn's `phase_transition_request` was accepted | `approve-transition` |
+| `blocked:completion` | A turn's `run_completion_request` was accepted | `approve-completion` |
+| `blocked:conflict` | State file conflict detected | Manual resolution, then `resume` |
+
+### `approve-completion`
+
+```bash
+agentxchain approve-completion [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--comment <text>` | `""` | Optional human comment for the ledger |
+| `--json` | `false` | Output structured JSON |
+
+Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval.
+
+## Validation
+
+### `validate`
+
+```bash
+agentxchain validate [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--mode <mode>` | `full` | Validation mode: `kickoff`, `turn`, or `full` |
+| `--json` | `false` | Output structured JSON |
+| `--fix` | `false` | Attempt automatic fixes for recoverable issues |
+
+Validation modes:
+
+| Mode | What it checks |
+|------|---------------|
+| `kickoff` | Config schema, role definitions, adapter configuration, prompt files exist |
+| `turn` | Current staged turn result schema, required fields, objection presence, decision ID uniqueness |
+| `full` | Everything in `kickoff` + `turn`, plus history integrity, decision ledger consistency, phase sequence validity, and state file coherence |
+
+Returns exit code `0` on success, `1` on validation failure with details.
+
+## Migration
+
+### `migrate`
+
+```bash
+agentxchain migrate [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--yes` | `false` | Skip confirmation prompt |
+| `--json` | `false` | Output structured JSON |
+| `--dry-run` | `false` | Show what would change without modifying files |
+| `--backup` | `true` | Create a backup of current state before migrating |
+
+Migrates state and config from an older protocol version to the current version (v6). Handles schema changes in `agentxchain.json`, `state.json`, and history entries. Creates a `.agentxchain/backup/` directory with the pre-migration state unless `--no-backup` is passed.
+
+## Dashboard
+
+### `dashboard`
+
+```bash
+agentxchain dashboard [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port <number>` | `7420` | Port for the local web server |
+| `--no-open` | `false` | Do not auto-open the browser |
+| `--host <addr>` | `127.0.0.1` | Bind address |
+
+Launches a local read-only web dashboard with live updates via WebSocket. The dashboard provides seven views:
+
+| View | Description |
+|------|-------------|
+| **Run overview** | Current phase, status, blocked state, and run metadata |
+| **Turn timeline** | Chronological list of all turns with status indicators |
+| **Turn detail** | Full turn result, decisions, objections, and verification evidence |
+| **Decision ledger** | Filterable table of all decisions across all turns |
+| **Objection tracker** | All objections with status (raised, resolved, withdrawn) |
+| **Phase graph** | Visual representation of phase transitions and gates |
+| **File diff** | Files changed across turns with inline diff rendering |
+
+The dashboard is strictly read-only. It watches `.agentxchain/` for filesystem changes and pushes updates over WebSocket in real time.
+
+## Plugin management
+
+### `plugin`
+
+```bash
+agentxchain plugin <subcommand> [options]
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `install <source>` | Install a plugin from a local directory, archive, or npm package |
+| `list` | List all installed plugins with version and hook count |
+| `upgrade <name>` | Upgrade an installed plugin to the latest version |
+| `remove <name>` | Remove an installed plugin and its hooks |
+
+See [Plugins](/docs/plugins) for full details on authoring and managing plugins.
+
+## Common sequences
+
+### Manual planning turn
+
+```bash
+# 1. Start the PM turn
+agentxchain step --role pm
+
+# 2. Human writes PM_SIGNOFF.md, ROADMAP.md, stages turn result
+#    (work happens outside the CLI)
+
+# 3. Accept and gate
+agentxchain accept-turn
+agentxchain approve-transition
+```
+
+### Recover a conflicted turn
+
+```bash
+# 1. Check what went wrong
+agentxchain status --verbose
+
+# 2. The status shows blocked:conflict — resolve manually
+#    Fix the conflicting state in .agentxchain/staging/
+
+# 3. Re-dispatch
+agentxchain resume
+
+# 4. After result is staged, accept
+agentxchain accept-turn
+```
+
+### Continue after a retained failed turn
+
+```bash
+# 1. A step failed validation — turn is retained with status: failed
+agentxchain status
+# Output: Turn turn_abc123 — status: failed (retained), reason: missing objections
+
+# 2. Fix the staged result
+#    Edit .agentxchain/staging/<turn_id>/turn-result.json to add objections
+
+# 3. Re-validate
+agentxchain validate --mode turn
+
+# 4. Accept the fixed turn
+agentxchain accept-turn
+```

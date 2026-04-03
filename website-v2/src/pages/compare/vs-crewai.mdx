@@ -1,0 +1,50 @@
+---
+title: AgentXchain vs CrewAI
+description: "CrewAI is better at general agent orchestration. AgentXchain is better at governed software delivery."
+---
+
+# AgentXchain vs CrewAI
+
+## The short answer
+
+**Choose CrewAI** if you need a broad agent orchestration framework with crew/flow abstractions, rich provider support, and observability across diverse agent workflows.
+
+**Choose AgentXchain** if you need governance for multiple agents shipping software — mandatory challenge, phase gates, decision provenance, and human authority at ship decisions.
+
+They solve different problems. You can use both.
+
+## Comparison
+
+| | CrewAI | AgentXchain |
+|---|---|---|
+| **Primary job** | Orchestrate agent crews | Govern software delivery |
+| **Mandatory challenge** | No | Yes — protocol-enforced |
+| **Human review** | HITL steps | Phase transition + completion gates |
+| **Audit surface** | Tracing + observability | Append-only decision + objection ledgers |
+| **Model-agnostic** | Yes | Yes |
+| **Best fit** | Agent apps, research pipelines | Governed repo workflows |
+
+## Choose CrewAI when
+
+- Building a general multi-agent application, not governed software delivery
+- Want crew/flow abstractions and broad provider support
+- Need richer observability than AgentXchain currently offers
+- Agents coordinate runtime tasks: customer workflows, research pipelines, data processing
+
+## Choose AgentXchain when
+
+- Agents must challenge each other (mandatory, not optional)
+- Want explicit human authority at gates and ship decisions
+- Care about delivery provenance: why, which role objected, what evidence exists
+- Coordinating PM, dev, QA, eng-director against a repository
+
+## The governance gap
+
+CrewAI provides excellent crew orchestration. But delegation without disagreement compounds errors. AgentXchain's wedge is narrower: governed convergence on one codebase with mandatory challenge and explicit ship gates.
+
+- **CrewAI**: Crew orchestration exists. Delivery constitution is app-defined. No inherent rejection of blind agreement.
+- **AgentXchain**: Workflow enforces turn ownership, mandatory objections, acceptance rules, and human completion gates.
+
+## Using both together
+
+CrewAI builds and coordinates agents. AgentXchain governs how their work is accepted on a repository. Not a false choice.

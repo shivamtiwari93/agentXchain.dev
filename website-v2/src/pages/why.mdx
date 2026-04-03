@@ -1,0 +1,95 @@
+---
+title: Why AgentXchain
+description: "Multi-agent coding breaks on coordination long before it breaks on intelligence."
+---
+
+# Multi-agent coding breaks on coordination, not intelligence
+
+## The problem nobody talks about
+
+One AI agent on a codebase is capable. Three AI agents on the same codebase produce merge conflicts, contradictory architectures, duplicated work, and no audit trail.
+
+What goes wrong:
+- One agent refactors auth while another builds features against the old interface
+- Two agents independently solve the same problem with incompatible approaches
+- No record of why any agent chose what it did — just a pile of diffs
+
+The bottleneck is not model IQ. **It's governance.**
+
+> The limiting factor for AI software teams is not smarter individuals. It is better governance.
+
+## What existing tooling gets wrong
+
+Most multi-agent frameworks use a manager-worker pattern: one "brain" delegates tasks to workers. This replicates the worst failure mode of human organizations — a single point of failure that compounds its own errors because nobody is structurally required to disagree.
+
+AgentXchain inverts this. Every agent has a mandate — a specific perspective it is *required* to defend.
+
+## What AgentXchain does differently
+
+### 1. PM defines scope and exposes risk
+Real scope, identified risks. Not a wish list.
+
+### 2. Dev challenges scope before implementing
+Edge cases, constraints, architecture tradeoffs. The dev must object to at least one thing from the PM's turn.
+
+### 3. QA challenges both product and process
+Review-only role. Records objections, risks, and evidence. Cannot silently edit code.
+
+### 4. Human gate decides phase or ship
+Agents execute. Humans decide. Phase transitions and run completion require human approval.
+
+## Why the audit trail matters more than the diff
+
+A git diff tells you what changed. It does not tell you:
+- Why those changes were made
+- What alternatives were considered
+- What risks were identified
+- Whether another agent reviewed and challenged the work
+
+Governed delivery records all of this as structured evidence:
+
+```json
+{
+  "agent": "dev",
+  "summary": "Implemented auth middleware with JWT validation",
+  "files_changed": ["src/middleware/auth.ts"],
+  "decisions": [{"id": "DEC-003", "statement": "Chose RS256 over HS256 for key rotation support"}],
+  "objections": [{"id": "OBJ-002", "statement": "QA acceptance matrix doesn't cover token refresh"}],
+  "risks": ["No rate limiting on token endpoint yet"],
+  "verification": {"command": "npm test", "exit_code": 0, "passing": 504}
+}
+```
+
+## Humans stay at the constitutional layer
+
+Humans don't approve every turn (that defeats automation). Humans approve the **moments that define the outcome**:
+
+| Human approves | Agents handle |
+|---------------|--------------|
+| Phase transitions (planning → implementation) | Phase execution within boundaries |
+| Run completion (ship/no-ship) | Challenge, review, escalation |
+| Blocked-state recovery | Verification, evidence collection |
+
+**The human is not a fallback. The human is sovereign.**
+
+## Model-agnostic by design
+
+The protocol survives model churn. Run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules. Three adapter modes:
+
+- `manual` — human reads dispatch, stages result
+- `local_cli` — spawns Claude Code, Codex, Aider
+- `api_proxy` — direct LLM API with retry and cost tracking
+
+## What this is NOT
+
+- **Not an agent framework.** LangChain, CrewAI, AutoGen build agents. AgentXchain governs how agents collaborate.
+- **Not just a workflow.** "Workflow" implies routing. AgentXchain enforces mandatory challenge, constitutional gates, and append-only audit. Enforcement matters.
+- **Not CI/CD.** CI validates and deploys. AgentXchain governs the *creation* of code before it reaches CI.
+
+## The bet
+
+AI coding is moving from single assistants to teams. Every organization will face the same question: **how do we trust AI teams to build our software?**
+
+The answer is governance protocols: defined roles, mandatory challenge, explicit boundaries, constitutional human authority, and complete audit trails.
+
+**The protocol is the product. The future is governed convergence.**

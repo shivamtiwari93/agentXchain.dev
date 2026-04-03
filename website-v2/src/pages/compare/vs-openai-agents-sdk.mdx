@@ -1,0 +1,48 @@
+---
+title: AgentXchain vs OpenAI Agents SDK
+description: "The Agents SDK builds agent apps. AgentXchain governs how agents deliver software."
+---
+
+# AgentXchain vs OpenAI Agents SDK
+
+## The short answer
+
+**Choose the Agents SDK** if you need lightweight primitives for building agent applications: handoffs, agents-as-tools, guardrails, tracing, and multi-provider support.
+
+**Choose AgentXchain** if you need governance for multiple agents shipping code: structured disagreement, phase gates, decision provenance, and human authority at ship decisions.
+
+## Comparison
+
+| | OpenAI Agents SDK | AgentXchain |
+|---|---|---|
+| **Primary job** | Build agent apps | Govern software delivery |
+| **Orchestration** | Handoffs / agents-as-tools | Adversarial turn-taking |
+| **Mandatory challenge** | No | Yes — protocol-enforced |
+| **Human review** | Approvals / interruptions | Phase + completion gates |
+| **Audit** | Tracing + sessions | Append-only decision ledgers |
+| **Guardrails** | Input/output validation | Protocol-level validation |
+| **Model-agnostic** | Yes | Yes |
+| **Best fit** | Agent apps | Governed repo workflows |
+
+## Choose the Agents SDK when
+
+- Building an agent application (support, research, data processing), not governed delivery
+- Want lightweight handoff and agents-as-tools primitives
+- Need built-in tracing with sessions and run state
+- Want guardrails for I/O validation at the agent interaction level
+
+## Choose AgentXchain when
+
+- Agents must challenge each other (structural enforcement, not suggestion)
+- Want explicit human authority at gates, not just interruption points
+- Care about delivery provenance: why the change was made, who objected, what evidence backs it
+- Coordinating PM, dev, QA, eng-director against a repository
+- Need an append-only decision and objection ledger
+
+## The governance gap
+
+The Agents SDK provides excellent primitives for multi-agent systems. But a manager delegating to workers with no structural disagreement compounds the manager's blind spots. AgentXchain's workflow enforces turn ownership, mandatory objections, acceptance rules, and human-gated completion.
+
+## Using both together
+
+The Agents SDK builds agents. AgentXchain governs how they deliver software. Not a replacement — complementary layers. The SDK constructs agents with handoffs, guardrails, and tracing. AgentXchain governs their collaboration on a codebase.
