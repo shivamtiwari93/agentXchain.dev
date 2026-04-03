@@ -37,10 +37,6 @@ jobs:
           cache: npm
           cache-dependency-path: cli/package-lock.json
 
-      - name: Install dependencies
-        working-directory: cli
-        run: npm ci
-
       - name: Publish tagged release
         working-directory: cli
         shell: bash
