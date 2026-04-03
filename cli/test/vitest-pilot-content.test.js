@@ -51,6 +51,7 @@ const VITEST_INCLUDED_FILES = [
   'test/vitest-pilot-content.test.js',
   'test/protocol-conformance-docs.test.js',
 ];
+const VITEST_FILE_COUNT = VITEST_INCLUDED_FILES.length;
 
 describe('Vitest coverage contract', () => {
   it('documents the dual-runner workflow in both READMEs', () => {
@@ -60,6 +61,8 @@ describe('Vitest coverage contract', () => {
       assert.match(readme, /npm test/);
       assert.match(readme, /Vitest/i);
       assert.match(readme, /node --test/);
+      assert.match(readme, new RegExp(`${VITEST_FILE_COUNT}-file`));
+      assert.doesNotMatch(readme, /7 (?:pilot )?files/i);
     }
   });
 
