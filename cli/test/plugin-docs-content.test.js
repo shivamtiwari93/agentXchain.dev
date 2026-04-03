@@ -20,10 +20,11 @@ describe('Plugin docs surface', () => {
       assert.match(page, /hooks/);
     });
 
-    it('plugins.html documents install, list, and remove', () => {
+    it('plugins.html documents install, list, upgrade, and remove', () => {
       const page = read('website/docs/plugins.html');
       assert.match(page, /plugin install/);
       assert.match(page, /plugin list/);
+      assert.match(page, /plugin upgrade/);
       assert.match(page, /plugin remove/);
     });
 
@@ -52,6 +53,11 @@ describe('Plugin docs surface', () => {
     it('cli.html has plugin remove in the command table', () => {
       const page = read('website/docs/cli.html');
       assert.match(page, /plugin remove/);
+    });
+
+    it('cli.html has plugin upgrade in the command table', () => {
+      const page = read('website/docs/cli.html');
+      assert.match(page, /plugin upgrade/);
     });
 
     it('cli.html has a plugins section', () => {
@@ -103,6 +109,18 @@ describe('Plugin docs surface', () => {
     it('plugins.html documents partial install failure cleanup', () => {
       const page = read('website/docs/plugins.html');
       assert.match(page, /[Pp]artial install|staged.*clean/);
+    });
+
+    it('plugins.html documents config_schema enforcement', () => {
+      const page = read('website/docs/plugins.html');
+      assert.match(page, /config_schema/);
+      assert.match(page, /Enforced on install and upgrade|validated config/i);
+    });
+
+    it('plugins.html documents atomic upgrade rollback', () => {
+      const page = read('website/docs/plugins.html');
+      assert.match(page, /atomic/i);
+      assert.match(page, /rollback/i);
     });
 
     it('plugins.html documents unsafe removal path rejection', () => {

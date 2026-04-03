@@ -166,6 +166,11 @@
                   <td>You want to see which plugins are installed, their hook bindings, and install paths</td>
                 </tr>
                 <tr>
+                  <td><code>plugin upgrade &lt;name&gt; [source]</code></td>
+                  <td>Upgrade an installed plugin</td>
+                  <td>You want atomic plugin replacement with rollback instead of remove-then-install</td>
+                </tr>
+                <tr>
                   <td><code>plugin remove &lt;name&gt;</code></td>
                   <td>Remove an installed plugin</td>
                   <td>You want to cleanly remove a plugin and its hook bindings without affecting other hooks</td>
@@ -345,7 +350,7 @@ agentxchain dashboard --no-open</code></pre>
           <div class="surface-grid">
             <div class="surface">
               <h3><code>plugin install &lt;source&gt;</code></h3>
-              <p>Installs a plugin from a local directory, <code>.tgz</code> archive, or npm package spec. Validates the <code>agentxchain-plugin.json</code> manifest, checks for hook-name collisions, copies the payload into <code>.agentxchain/plugins/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
+              <p>Installs a plugin from a local directory, <code>.tgz</code> archive, or npm package spec. Validates the <code>agentxchain-plugin.json</code> manifest, enforces <code>config_schema</code> when present, checks for hook-name collisions, copies the payload into <code>.agentxchain/plugins/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
               <pre><code>agentxchain plugin install ./my-plugin
 agentxchain plugin install ./plugins/plugin-slack-notify
 agentxchain plugin install ./plugins/plugin-json-report</code></pre>
@@ -353,6 +358,10 @@ agentxchain plugin install ./plugins/plugin-json-report</code></pre>
             <div class="surface">
               <h3><code>plugin list [--json]</code></h3>
               <p>Lists installed plugins with name, version, install path, source type, and hook bindings by phase.</p>
+            </div>
+            <div class="surface">
+              <h3><code>plugin upgrade &lt;name&gt; [source]</code></h3>
+              <p>Stages and validates the new version, swaps the install atomically, and rolls back to the previous plugin if config commit fails.</p>
             </div>
             <div class="surface">
               <h3><code>plugin remove &lt;name&gt;</code></h3>

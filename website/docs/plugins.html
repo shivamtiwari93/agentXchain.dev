@@ -64,6 +64,7 @@
         <a href="#manifest">Plugin manifest</a>
         <a href="#install">Installing plugins</a>
         <a href="#list">Listing plugins</a>
+        <a href="#upgrade">Upgrading plugins</a>
         <a href="#remove">Removing plugins</a>
         <a href="#authoring">Authoring a plugin</a>
         <a href="#failure-modes">Failure modes</a>
@@ -132,7 +133,7 @@
                 <tr>
                   <td><code>config_schema</code></td>
                   <td>No</td>
-                  <td>JSON Schema for plugin config. Recorded but not enforced in phase 1.</td>
+                  <td>JSON Schema for plugin config. Enforced on install and upgrade in v2.1.</td>
                 </tr>
               </tbody>
             </table>
@@ -141,8 +142,8 @@
 
         <section id="install">
           <h2>Installing plugins</h2>
-          <pre><code>agentxchain plugin install &lt;path|npm-package&gt;</code></pre>
-          <p>Install resolves the source, validates the manifest, checks for hook-name collisions, copies the plugin into <code>.agentxchain/plugins/&lt;derived-id&gt;/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
+          <pre><code>agentxchain plugin install &lt;path|npm-package&gt; [--config &lt;json&gt; | --config-file &lt;path&gt;]</code></pre>
+          <p>Install resolves the source, validates the manifest, enforces <code>config_schema</code> when present, checks for hook-name collisions, copies the plugin into <code>.agentxchain/plugins/&lt;derived-id&gt;/</code>, rewrites relative command paths, and merges hooks into <code>agentxchain.json</code>.</p>
 
           <div class="surface">
             <h3>Three source types</h3>
@@ -181,6 +182,14 @@
             <p>Command tokens beginning with <code>./</code> or <code>../</code> are rewritten to project-relative paths under <code>.agentxchain/plugins/&lt;id&gt;/</code> so hook execution remains valid after copy. Absolute paths and bare commands are not rewritten.</p>
           </div>
 
+          <div class="surface">
+            <h3>Validated config</h3>
+            <p>If a plugin declares <code>config_schema</code>, install requires config that matches it. Use inline JSON via <code>--config</code> or load JSON from disk with <code>--config-file</code>. The validated config is stored in plugin metadata and exposed to hooks via <code>AGENTXCHAIN_PLUGIN_CONFIG</code>.</p>
+            <pre><code>agentxchain plugin install ./plugins/plugin-slack-notify
+agentxchain plugin install ./my-plugin --config '{"channel":"ops-alerts"}'
+agentxchain plugin install ./my-plugin --config-file ./plugin-config.json</code></pre>
+          </div>
+
           <div class="callout">
             <p><strong>Collision protection:</strong> If any plugin hook name already exists in the same lifecycle phase of <code>agentxchain.json</code>, the install is rejected with no config or filesystem mutation. This is fail-closed by design.</p>
           </div>
@@ -201,6 +210,16 @@
           <p>Reports each installed plugin's name, version, install path, source type, declared hook bindings by phase, and whether the install directory still exists on disk.</p>
         </section>
 
+        <section id="upgrade">
+          <h2>Upgrading plugins</h2>
+          <pre><code>agentxchain plugin upgrade &lt;name&gt; [source] [--config &lt;json&gt; | --config-file &lt;path&gt;]</code></pre>
+          <p>Upgrade is first-class in v2.1. AgentXchain stages the new payload, validates config and hook collisions, swaps the install directory, and then commits updated metadata. If commit fails after the swap, rollback restores both the prior plugin files and the prior <code>agentxchain.json</code>.</p>
+
+          <div class="callout">
+            <p><strong>Atomic rollback:</strong> upgrade is fail-closed. You do not end up with half-updated hook files or a partially mutated config.</p>
+          </div>
+        </section>
+
         <section id="remove">
           <h2>Removing plugins</h2>
           <pre><code>agentxchain plugin remove &lt;name&gt;</code></pre>
@@ -209,7 +228,7 @@
           <div class="warning">
             <ul>
               <li>Removal refuses to proceed if the plugin install path points outside <code>.agentxchain/plugins/</code> (safety check).</li>
-              <li>There is no upgrade command in phase 1. To upgrade, remove then reinstall.</li>
+              <li>Upgrades use the dedicated <code>plugin upgrade</code> flow instead of remove-then-install. That preserves rollback safety.</li>
             </ul>
           </div>
         </section>
@@ -253,7 +272,8 @@ process.stdin.on('end', () =&gt; {
           <div class="surface">
             <h3>Test it locally</h3>
             <pre><code># From a governed project directory
-agentxchain plugin install ./path/to/my-notify-plugin
+agentxchain plugin install ./path/to/my-notify-plugin --config '{"channel":"ops"}'
+agentxchain plugin upgrade my-notify-plugin ./path/to/my-notify-plugin-v2
 agentxchain plugin list
 agentxchain step --role pm
 # Hook fires after acceptance</code></pre>

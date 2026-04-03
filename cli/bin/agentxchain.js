@@ -74,6 +74,7 @@ import {
   pluginInstallCommand,
   pluginListCommand,
   pluginRemoveCommand,
+  pluginUpgradeCommand,
 } from '../src/commands/plugin.js';
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
@@ -271,6 +272,8 @@ const pluginCmd = program
 pluginCmd
   .command('install <source>')
   .description('Install a plugin from a local path, archive, or npm package spec')
+  .option('--config <json>', 'Inline JSON plugin config validated against config_schema')
+  .option('--config-file <path>', 'Read plugin config JSON from a file')
   .option('-j, --json', 'Output as JSON')
   .action(pluginInstallCommand);
 
@@ -285,6 +288,14 @@ pluginCmd
   .description('Remove an installed plugin')
   .option('-j, --json', 'Output as JSON')
   .action(pluginRemoveCommand);
+
+pluginCmd
+  .command('upgrade <name> [source]')
+  .description('Upgrade an installed plugin atomically, rolling back on failure')
+  .option('--config <json>', 'Inline JSON plugin config validated against config_schema')
+  .option('--config-file <path>', 'Read plugin config JSON from a file')
+  .option('-j, --json', 'Output as JSON')
+  .action(pluginUpgradeCommand);
 
 const templateCmd = program
   .command('template')

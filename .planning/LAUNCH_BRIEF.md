@@ -66,7 +66,7 @@ Current keywords in `package.json` are adequate:
 | Docs: Quickstart | Ready | Reproducible scaffold path, QA dependency disclosed |
 | Docs: CLI Reference | Ready | All governed commands documented |
 | Docs: Adapters | Ready | All 3 adapter types, build-your-own guide |
-| Docs: Plugins | Ready | Plugin authoring, install/list/remove, manifest format, failure modes |
+| Docs: Plugins | Ready | Plugin authoring, install/list/upgrade/remove, config enforcement, rollback semantics |
 | Docs: Protocol | Ready | Protocol v6 published; v5 remains historical reference |
 | Show HN Draft | Frozen | DEC-SHOW-HN-002 |
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
@@ -78,7 +78,7 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses floor-hundred format: "900+" (currently 969)
+- Test count uses floor-hundred format: "900+" (currently 976)
 - Do not claim "full live end-to-end proof" — `local_cli` was not completed live (E2)
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)

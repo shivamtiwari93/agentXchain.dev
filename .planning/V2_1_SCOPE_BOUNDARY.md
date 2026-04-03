@@ -91,7 +91,7 @@ The v2.1 surface touches four operator-facing areas:
 
 ### V2.1-F2: Hook And Plugin Hardening
 
-**Status:** Defined, not implemented.
+**Status:** Partially implemented. Plugin hardening is implemented and tested; HTTP hooks remain defined, not implemented.
 
 **Scope:**
 - Add `"type": "http"` hooks with explicit request/response contract:

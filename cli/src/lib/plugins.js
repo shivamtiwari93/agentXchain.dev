@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
 } from 'fs';
@@ -14,6 +15,7 @@ import { spawnSync } from 'child_process';
 
 import { loadProjectContext, CONFIG_FILE } from './config.js';
 import { validateHooksConfig } from './hook-runner.js';
+import { validateInstalledPluginConfigs, validatePluginConfigInput } from './plugin-config-schema.js';
 import { safeWriteJson } from './safe-write.js';
 
 export const PLUGIN_MANIFEST_FILE = 'agentxchain-plugin.json';
@@ -65,6 +67,18 @@ function cleanupEmptyPluginsDir(projectRoot) {
   if (readdirSync(pluginsRoot).length === 0) {
     rmSync(pluginsRoot, { recursive: true, force: true });
   }
+}
+
+function ensureInstalledPluginsAreValid(rawConfig) {
+  const validation = validateInstalledPluginConfigs(rawConfig);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: `Installed plugin config is invalid: ${validation.errors.join('; ')}`,
+      errors: validation.errors,
+    };
+  }
+  return { ok: true };
 }
 
 function findManifestRoot(baseDir) {
@@ -256,13 +270,17 @@ function rewriteCommandTokens(command, sourceRoot, installRoot, projectRoot) {
   });
 }
 
-function buildInstalledHooks(manifest, sourceRoot, installRoot, projectRoot) {
+function buildInstalledHooks(manifest, sourceRoot, installRoot, projectRoot, runtimeEnv = {}) {
   const installedHooks = {};
 
   for (const [phase, hookList] of Object.entries(manifest.hooks || {})) {
     installedHooks[phase] = hookList.map((hookDef) => ({
       ...clone(hookDef),
       command: rewriteCommandTokens(hookDef.command, sourceRoot, installRoot, projectRoot),
+      env: {
+        ...(hookDef.env || {}),
+        ...runtimeEnv,
+      },
     }));
   }
 
@@ -292,7 +310,7 @@ function mergePluginHooks(existingHooks, pluginHooks) {
   return { merged, collisions };
 }
 
-function buildPluginMetadata(manifest, installRelPath, sourceType, sourceSpec) {
+function buildPluginMetadata(manifest, installRelPath, sourceType, sourceSpec, pluginConfig) {
   const hooks = {};
   for (const [phase, hookList] of Object.entries(manifest.hooks || {})) {
     hooks[phase] = hookList.map((hook) => hook.name);
@@ -311,7 +329,67 @@ function buildPluginMetadata(manifest, installRelPath, sourceType, sourceSpec) {
     installed_at: new Date().toISOString(),
     hooks,
     config_schema: manifest.config_schema || null,
+    config: pluginConfig,
   };
+}
+
+function buildPluginRuntimeEnv(manifest, pluginConfig) {
+  const runtimeEnv = {
+    AGENTXCHAIN_PLUGIN_NAME: manifest.name,
+    AGENTXCHAIN_PLUGIN_VERSION: manifest.version,
+  };
+
+  if (pluginConfig !== undefined) {
+    runtimeEnv.AGENTXCHAIN_PLUGIN_CONFIG = JSON.stringify(pluginConfig);
+  }
+
+  return runtimeEnv;
+}
+
+function buildValidatedPluginConfig(manifest, requestedConfig) {
+  const validation = validatePluginConfigInput(
+    manifest.config_schema,
+    requestedConfig,
+    `plugins.${manifest.name}.config`,
+  );
+  if (!validation.ok) {
+    return {
+      ok: false,
+      error: validation.errors.join('; '),
+      errors: validation.errors,
+    };
+  }
+  return { ok: true, config: validation.value };
+}
+
+function stripPluginHooksFromConfig(rawConfig, pluginName) {
+  const nextConfig = clone(rawConfig);
+  const pluginMeta = rawConfig.plugins?.[pluginName];
+  const pluginHooks = pluginMeta?.hooks || {};
+
+  for (const [phase, hookNames] of Object.entries(pluginHooks)) {
+    if (!Array.isArray(nextConfig.hooks?.[phase])) {
+      continue;
+    }
+    nextConfig.hooks[phase] = nextConfig.hooks[phase].filter((hook) => !hookNames.includes(hook.name));
+    if (nextConfig.hooks[phase].length === 0) {
+      delete nextConfig.hooks[phase];
+    }
+  }
+
+  if (nextConfig.plugins) {
+    delete nextConfig.plugins[pluginName];
+    if (Object.keys(nextConfig.plugins).length === 0) {
+      delete nextConfig.plugins;
+    }
+  }
+
+  return nextConfig;
+}
+
+function assertSafeInstallPath(installRelPath) {
+  return typeof installRelPath === 'string'
+    && (installRelPath.startsWith(`${PLUGINS_DIR}/`) || installRelPath === PLUGINS_DIR);
 }
 
 export function listInstalledPlugins(startDir = process.cwd()) {
@@ -321,6 +399,10 @@ export function listInstalledPlugins(startDir = process.cwd()) {
   }
 
   const { project } = governed;
+  const pluginValidation = ensureInstalledPluginsAreValid(project.rawConfig);
+  if (!pluginValidation.ok) {
+    return pluginValidation;
+  }
   const plugins = Object.entries(project.rawConfig.plugins || {}).map(([name, meta]) => ({
     name,
     version: meta.version || null,
@@ -334,13 +416,17 @@ export function listInstalledPlugins(startDir = process.cwd()) {
   return { ok: true, plugins };
 }
 
-export function installPlugin(spec, startDir = process.cwd()) {
+export function installPlugin(spec, startDir = process.cwd(), options = {}) {
   const governed = ensureGovernedProject(startDir);
   if (!governed.ok) {
     return governed;
   }
 
   const { project } = governed;
+  const pluginValidation = ensureInstalledPluginsAreValid(project.rawConfig);
+  if (!pluginValidation.ok) {
+    return pluginValidation;
+  }
   const source = resolvePluginSource(spec, startDir);
   if (!source.ok) {
     return source;
@@ -357,6 +443,11 @@ export function installPlugin(spec, startDir = process.cwd()) {
       return { ok: false, error: manifestValidation.errors.join('; '), errors: manifestValidation.errors };
     }
 
+    const configValidation = buildValidatedPluginConfig(manifest, options.config);
+    if (!configValidation.ok) {
+      return configValidation;
+    }
+
     if (project.rawConfig.plugins?.[manifest.name]) {
       return { ok: false, error: `Plugin "${manifest.name}" is already installed.` };
     }
@@ -371,7 +462,8 @@ export function installPlugin(spec, startDir = process.cwd()) {
 
     cpSync(source.root, installAbsPath, { recursive: true, force: false });
 
-    const installedHooks = buildInstalledHooks(manifest, source.root, installAbsPath, project.root);
+    const runtimeEnv = buildPluginRuntimeEnv(manifest, configValidation.config);
+    const installedHooks = buildInstalledHooks(manifest, source.root, installAbsPath, project.root, runtimeEnv);
     const mergedHooks = mergePluginHooks(project.rawConfig.hooks || {}, installedHooks);
     if (mergedHooks.collisions.length > 0) {
       return {
@@ -390,7 +482,13 @@ export function installPlugin(spec, startDir = process.cwd()) {
     nextConfig.hooks = mergedHooks.merged;
     nextConfig.plugins = {
       ...(nextConfig.plugins || {}),
-      [manifest.name]: buildPluginMetadata(manifest, installRelPath, source.type, source.sourceSpec),
+      [manifest.name]: buildPluginMetadata(
+        manifest,
+        installRelPath,
+        source.type,
+        source.sourceSpec,
+        configValidation.config,
+      ),
     };
 
     safeWriteJson(join(project.root, CONFIG_FILE), nextConfig);
@@ -404,6 +502,7 @@ export function installPlugin(spec, startDir = process.cwd()) {
       install_path: installRelPath,
       hooks: nextConfig.plugins[manifest.name].hooks,
       source: nextConfig.plugins[manifest.name].source,
+      config: nextConfig.plugins[manifest.name].config,
     };
   } catch (error) {
     return { ok: false, error: error.message || String(error) };
@@ -424,36 +523,22 @@ export function removePlugin(name, startDir = process.cwd()) {
   }
 
   const { project } = governed;
+  const pluginValidation = ensureInstalledPluginsAreValid(project.rawConfig);
+  if (!pluginValidation.ok) {
+    return pluginValidation;
+  }
   const pluginMeta = project.rawConfig.plugins?.[name];
   if (!pluginMeta) {
     return { ok: false, error: `Plugin "${name}" is not installed.` };
   }
 
   const installRelPath = pluginMeta.install_path;
-  if (
-    typeof installRelPath !== 'string'
-    || (!installRelPath.startsWith(`${PLUGINS_DIR}/`) && installRelPath !== PLUGINS_DIR)
-  ) {
+  if (!assertSafeInstallPath(installRelPath)) {
     return { ok: false, error: `Refusing to remove unsafe plugin path: ${installRelPath || 'missing path'}` };
   }
 
-  const nextConfig = clone(project.rawConfig);
+  const nextConfig = stripPluginHooksFromConfig(project.rawConfig, name);
   const pluginHooks = pluginMeta.hooks || {};
-
-  for (const [phase, hookNames] of Object.entries(pluginHooks)) {
-    if (!Array.isArray(nextConfig.hooks?.[phase])) {
-      continue;
-    }
-    nextConfig.hooks[phase] = nextConfig.hooks[phase].filter((hook) => !hookNames.includes(hook.name));
-    if (nextConfig.hooks[phase].length === 0) {
-      delete nextConfig.hooks[phase];
-    }
-  }
-
-  delete nextConfig.plugins[name];
-  if (Object.keys(nextConfig.plugins).length === 0) {
-    delete nextConfig.plugins;
-  }
 
   safeWriteJson(join(project.root, CONFIG_FILE), nextConfig);
   rmSync(join(project.root, installRelPath), { recursive: true, force: true });
@@ -466,4 +551,142 @@ export function removePlugin(name, startDir = process.cwd()) {
     removed_hooks: pluginHooks,
     install_path: installRelPath,
   };
+}
+
+export function upgradePlugin(name, spec, startDir = process.cwd(), options = {}) {
+  const governed = ensureGovernedProject(startDir);
+  if (!governed.ok) {
+    return governed;
+  }
+
+  const { project } = governed;
+  const pluginValidation = ensureInstalledPluginsAreValid(project.rawConfig);
+  if (!pluginValidation.ok) {
+    return pluginValidation;
+  }
+
+  const currentMeta = project.rawConfig.plugins?.[name];
+  if (!currentMeta) {
+    return { ok: false, error: `Plugin "${name}" is not installed.` };
+  }
+
+  const sourceSpec = spec || currentMeta.source?.spec;
+  if (!sourceSpec) {
+    return { ok: false, error: `Plugin "${name}" has no recorded source spec. Pass an explicit source to upgrade.` };
+  }
+
+  const installRelPath = currentMeta.install_path;
+  if (!assertSafeInstallPath(installRelPath)) {
+    return { ok: false, error: `Refusing to upgrade unsafe plugin path: ${installRelPath || 'missing path'}` };
+  }
+
+  const installAbsPath = join(project.root, installRelPath);
+  if (!existsSync(installAbsPath)) {
+    return { ok: false, error: `Plugin "${name}" install path is missing on disk: ${installRelPath}` };
+  }
+
+  const source = resolvePluginSource(sourceSpec, startDir);
+  if (!source.ok) {
+    return source;
+  }
+
+  const stagePath = `${installAbsPath}.upgrade-${Date.now()}`;
+  const backupPath = `${installAbsPath}.rollback-${Date.now()}`;
+  const commitJson = options.writeJson || safeWriteJson;
+
+  try {
+    const manifest = readJson(join(source.root, PLUGIN_MANIFEST_FILE));
+    const manifestValidation = validatePluginManifest(manifest, source.root);
+    if (!manifestValidation.ok) {
+      return { ok: false, error: manifestValidation.errors.join('; '), errors: manifestValidation.errors };
+    }
+
+    if (manifest.name !== name) {
+      return {
+        ok: false,
+        error: `Upgrade source manifest name "${manifest.name}" does not match installed plugin "${name}"`,
+      };
+    }
+
+    const configCandidate = options.config !== undefined ? options.config : currentMeta.config;
+    const configValidation = buildValidatedPluginConfig(manifest, configCandidate);
+    if (!configValidation.ok) {
+      return configValidation;
+    }
+
+    cpSync(source.root, stagePath, { recursive: true, force: false });
+
+    const baseConfig = stripPluginHooksFromConfig(project.rawConfig, name);
+    const runtimeEnv = buildPluginRuntimeEnv(manifest, configValidation.config);
+    const installedHooks = buildInstalledHooks(manifest, source.root, installAbsPath, project.root, runtimeEnv);
+    const mergedHooks = mergePluginHooks(baseConfig.hooks || {}, installedHooks);
+    if (mergedHooks.collisions.length > 0) {
+      return {
+        ok: false,
+        error: `Plugin hook conflicts with existing config: ${mergedHooks.collisions.map((c) => `${c.phase}:${c.hook_name}`).join(', ')}`,
+        collisions: mergedHooks.collisions,
+      };
+    }
+
+    const hookValidation = validateHooksConfig(mergedHooks.merged, project.root);
+    if (!hookValidation.ok) {
+      return { ok: false, error: hookValidation.errors.join('; '), errors: hookValidation.errors };
+    }
+
+    const nextConfig = clone(baseConfig);
+    nextConfig.hooks = mergedHooks.merged;
+    nextConfig.plugins = {
+      ...(nextConfig.plugins || {}),
+      [name]: buildPluginMetadata(
+        manifest,
+        installRelPath,
+        source.type,
+        source.sourceSpec,
+        configValidation.config,
+      ),
+    };
+
+    renameSync(installAbsPath, backupPath);
+    try {
+      renameSync(stagePath, installAbsPath);
+      try {
+        commitJson(join(project.root, CONFIG_FILE), nextConfig);
+      } catch (error) {
+        rmSync(installAbsPath, { recursive: true, force: true });
+        renameSync(backupPath, installAbsPath);
+        try {
+          safeWriteJson(join(project.root, CONFIG_FILE), project.rawConfig);
+        } catch {}
+        return { ok: false, error: error.message || String(error) };
+      }
+    } catch (error) {
+      if (!existsSync(installAbsPath) && existsSync(backupPath)) {
+        renameSync(backupPath, installAbsPath);
+      }
+      return { ok: false, error: error.message || String(error) };
+    }
+
+    rmSync(backupPath, { recursive: true, force: true });
+
+    return {
+      ok: true,
+      action: 'upgraded',
+      name,
+      version: manifest.version,
+      install_path: installRelPath,
+      hooks: nextConfig.plugins[name].hooks,
+      source: nextConfig.plugins[name].source,
+      config: nextConfig.plugins[name].config,
+    };
+  } catch (error) {
+    return { ok: false, error: error.message || String(error) };
+  } finally {
+    if (existsSync(stagePath)) {
+      rmSync(stagePath, { recursive: true, force: true });
+    }
+    if (existsSync(backupPath) && !existsSync(installAbsPath)) {
+      renameSync(backupPath, installAbsPath);
+    }
+    source.cleanup?.();
+  }
 }
