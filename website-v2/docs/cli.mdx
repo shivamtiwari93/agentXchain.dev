@@ -42,6 +42,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
+| `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
 | `dashboard` | Visualization | Launch a local read-only web dashboard |
 
 ## Turn lifecycle commands
@@ -286,6 +287,37 @@ The dashboard is strictly read-only. It serves protocol state and operator guida
 - `agentxchain multi approve-gate`
 
 For repo-local runs, the Timeline, Decisions, Hooks, Blocked, and Gates views render governed runtime state from `.agentxchain/`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views.
+
+## Continuous delivery intake
+
+### `intake`
+
+```bash
+agentxchain intake <subcommand> [options]
+```
+
+The intake command family is the repo-native entrypoint for continuous governed delivery. It records signals under `.agentxchain/intake/`, turns them into governed intents, and then hands approved work into the existing governed run engine without bypassing human authority.
+
+| Subcommand | Purpose | Key contract |
+|------------|---------|--------------|
+| `record` | Record one delivery trigger event and create a detected intent | Accepts inline, file, or stdin payloads. Supported sources: `manual`, `ci_failure`, `git_ref_change`, `schedule` |
+| `triage` | Turn a detected intent into governed work, or suppress/reject it | Sets priority, template, charter, and acceptance contract for real work |
+| `approve` | Authorize a `triaged` or re-reviewed `blocked` intent for planning | Approval is an explicit gate. It does not start a governed run |
+| `plan` | Materialize template-backed planning artifacts and move `approved -> planned` | Generates `.planning/` artifacts and fails on conflicts unless `--force` is supplied |
+| `start` | Hand one `planned` intent into the governed execution engine | This is the explicit `planned -> executing` bridge. It assigns a governed run and turn, records `target_run` and `target_turn`, and is not triggered automatically from raw signals |
+| `resolve` | Read governed run outcome back into intake state | Maps `blocked`, `completed`, and `failed` run outcomes back onto the linked intent; `active` and `paused` remain `no_change` |
+| `scan` | Ingest a deterministic source snapshot through the same event-recording path | Supported scan sources are `ci_failure`, `git_ref_change`, and `schedule`. `manual` is intentionally excluded |
+| `status` | Inspect intake backlog summary or one intent in detail | Summary mode reports counts and recent intents; `--intent` shows the linked event and transition history |
+
+The command family is intentionally staged:
+
+- `record` and `scan` ingest signals only
+- `approve` authorizes but does not start execution
+- `plan` prepares artifacts but does not start execution
+- `start` is the first command that creates or attaches governed execution for intake work
+- `resolve` closes the loop by reading governed outcome state back into intake truth
+
+Use [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full artifact layout, state-machine transitions, deduplication contract, and lifecycle details. The CLI reference should help you find the command family quickly, not become a second hand-maintained copy of the entire intake spec.
 
 ## Plugin management
 
