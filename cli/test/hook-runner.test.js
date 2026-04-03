@@ -16,7 +16,9 @@ import {
   parseVerdict,
   validateAnnotations,
   normalizeHookProcessError,
+  interpolateHeaders,
 } from '../src/lib/hook-runner.js';
+import { spawn } from 'child_process';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -753,5 +755,362 @@ fi`);
     assert.equal(annotations.length, 2);
     assert.equal(annotations[0].hook_name, 'first');
     assert.equal(annotations[1].hook_name, 'second');
+  });
+});
+
+// ── HTTP Hook Tests ─────────────────────────────────────────────────────────
+
+/**
+ * Start an HTTP server in a CHILD PROCESS (required because spawnSync in the
+ * hook runner blocks the parent event loop, preventing an in-process server
+ * from responding).
+ *
+ * The server script writes its port to a file, then the parent reads it.
+ * Returns { url, port, proc, kill }.
+ */
+function startTestServerProcess(dir, handlerCode, { statusCode = 200 } = {}) {
+  return new Promise((resolve, reject) => {
+    const portFile = join(dir, `_server_port_${Date.now()}`);
+    const script = `
+const http = require('http');
+const fs = require('fs');
+const server = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => {
+    const parsed = JSON.parse(body || '{}');
+    ${handlerCode}
+  });
+});
+server.listen(0, '127.0.0.1', () => {
+  fs.writeFileSync(${JSON.stringify(portFile)}, String(server.address().port));
+});
+`;
+    const proc = spawn(process.execPath, ['-e', script], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    // Wait for port file to appear
+    const start = Date.now();
+    const poll = setInterval(() => {
+      if (existsSync(portFile)) {
+        clearInterval(poll);
+        const port = parseInt(readFileSync(portFile, 'utf8').trim(), 10);
+        resolve({
+          url: `http://127.0.0.1:${port}`,
+          port,
+          proc,
+          kill: () => { proc.kill('SIGTERM'); },
+        });
+      } else if (Date.now() - start > 5000) {
+        clearInterval(poll);
+        proc.kill('SIGTERM');
+        reject(new Error('Test server failed to start'));
+      }
+    }, 20);
+  });
+}
+
+describe('HTTP hooks', () => {
+  let dir;
+  const procs = [];
+
+  beforeEach(() => {
+    dir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    for (const p of procs) {
+      try { p.kill(); } catch { /* ignore */ }
+    }
+    procs.length = 0;
+  });
+
+  it('validates HTTP hook config fields', () => {
+    const valid = validateHooksConfig({
+      before_assignment: [{
+        name: 'http-check',
+        type: 'http',
+        url: 'https://example.com/hook',
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    });
+    assert.ok(valid.ok, `Unexpected errors: ${valid.errors.join(', ')}`);
+
+    // Missing URL
+    const noUrl = validateHooksConfig({
+      before_assignment: [{
+        name: 'bad',
+        type: 'http',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    });
+    assert.ok(!noUrl.ok);
+    assert.ok(noUrl.errors.some(e => e.includes('url')));
+
+    // Invalid method
+    const badMethod = validateHooksConfig({
+      before_assignment: [{
+        name: 'bad',
+        type: 'http',
+        url: 'https://example.com',
+        method: 'GET',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    });
+    assert.ok(!badMethod.ok);
+    assert.ok(badMethod.errors.some(e => e.includes('POST')));
+
+    // Invalid URL scheme
+    const badUrl = validateHooksConfig({
+      before_assignment: [{
+        name: 'bad',
+        type: 'http',
+        url: 'ftp://example.com',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    });
+    assert.ok(!badUrl.ok);
+    assert.ok(badUrl.errors.some(e => e.includes('HTTP or HTTPS')));
+  });
+
+  it('blocking HTTP hook returns block verdict → command fails closed (AT-V21-004a)', async () => {
+    const server = await startTestServerProcess(dir, `
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ verdict: 'block', message: 'Policy violation' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'policy-gate',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(!result.ok);
+    assert.ok(result.blocked);
+    assert.equal(result.blocker.hook_name, 'policy-gate');
+    assert.equal(result.blocker.verdict, 'block');
+
+    const audit = readJsonl(dir, HOOK_AUDIT_PATH);
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].transport, 'http');
+    assert.equal(audit[0].orchestrator_action, 'blocked');
+  });
+
+  it('HTTP hook timeout on blocking phase fails closed (AT-V21-004b)', async () => {
+    const server = await startTestServerProcess(dir, `
+      // Never respond — causes timeout
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'slow-hook',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 500,
+        mode: 'blocking',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(!result.ok);
+    assert.ok(result.blocked);
+
+    const audit = readJsonl(dir, HOOK_AUDIT_PATH);
+    assert.equal(audit[0].timed_out, true);
+    assert.equal(audit[0].transport, 'http');
+  });
+
+  it('advisory HTTP hook block verdict is downgraded to warn (AT-V21-004c)', async () => {
+    const server = await startTestServerProcess(dir, `
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ verdict: 'block', message: 'Not allowed' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      after_acceptance: [{
+        name: 'advisory-gate',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'advisory',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'after_acceptance', {}, { run_id: 'r1', turn_id: 't1' });
+    assert.ok(result.ok);
+    assert.equal(result.results[0].verdict, 'warn');
+    assert.equal(result.results[0].orchestrator_action, 'downgraded_block_to_warn');
+    assert.equal(result.results[0].transport, 'http');
+  });
+
+  it('HTTP hook with env-backed auth headers resolves variables (AT-V21-004d)', async () => {
+    const headerFile = join(dir, '_received_headers.json');
+    const server = await startTestServerProcess(dir, `
+      const fs = require('fs');
+      fs.writeFileSync(${JSON.stringify(headerFile)}, JSON.stringify(req.headers));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ verdict: 'allow' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'auth-hook',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+        headers: {
+          'Authorization': 'Bearer ${TEST_HOOK_TOKEN}',
+          'X-Static': 'plain-value',
+        },
+        env: {
+          TEST_HOOK_TOKEN: 'secret-abc-123',
+        },
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(result.ok);
+    // Read captured headers from server
+    const receivedHeaders = JSON.parse(readFileSync(headerFile, 'utf8'));
+    assert.equal(receivedHeaders['authorization'], 'Bearer secret-abc-123');
+    assert.equal(receivedHeaders['x-static'], 'plain-value');
+  });
+
+  it('HTTP hook with non-2xx response is treated as failure (AT-V21-004e)', async () => {
+    const server = await startTestServerProcess(dir, `
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'forbidden' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'forbidden-hook',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(!result.ok);
+    assert.ok(result.blocked);
+
+    const audit = readJsonl(dir, HOOK_AUDIT_PATH);
+    assert.equal(audit[0].transport, 'http');
+    assert.ok(audit[0].stderr_excerpt.includes('403'));
+  });
+
+  it('HTTP hook annotations recorded for after_acceptance (AT-V21-004f)', async () => {
+    const server = await startTestServerProcess(dir, `
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        verdict: 'allow',
+        annotations: [{ key: 'scan_result', value: 'clean' }],
+      }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      after_acceptance: [{
+        name: 'scanner',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'advisory',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'after_acceptance', {}, { run_id: 'r1', turn_id: 't1' });
+    assert.ok(result.ok);
+
+    const annotations = readJsonl(dir, HOOK_ANNOTATIONS_PATH);
+    assert.equal(annotations.length, 1);
+    assert.equal(annotations[0].hook_name, 'scanner');
+    assert.equal(annotations[0].annotations[0].key, 'scan_result');
+    assert.equal(annotations[0].annotations[0].value, 'clean');
+  });
+
+  it('HTTP hook allow verdict continues execution', async () => {
+    const server = await startTestServerProcess(dir, `
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ verdict: 'allow', message: 'All good' }));
+    `);
+    procs.push(server);
+
+    const hooksConfig = {
+      before_assignment: [{
+        name: 'pass-hook',
+        type: 'http',
+        url: server.url,
+        method: 'POST',
+        timeout_ms: 5000,
+        mode: 'blocking',
+      }],
+    };
+
+    const result = runHooks(dir, hooksConfig, 'before_assignment', {}, { run_id: 'r1' });
+    assert.ok(result.ok);
+    assert.equal(result.results[0].verdict, 'allow');
+    assert.equal(result.results[0].transport, 'http');
+    assert.equal(result.results[0].orchestrator_action, 'continued');
+  });
+});
+
+describe('interpolateHeaders', () => {
+  it('resolves env variables in header values', () => {
+    const result = interpolateHeaders(
+      { 'Authorization': 'Bearer ${MY_TOKEN}', 'X-Plain': 'no-vars' },
+      { MY_TOKEN: 'tok_123' },
+    );
+    assert.equal(result['Authorization'], 'Bearer tok_123');
+    assert.equal(result['X-Plain'], 'no-vars');
+  });
+
+  it('resolves from process.env when not in hook env', () => {
+    const key = `AXC_TEST_HEADER_${Date.now()}`;
+    process.env[key] = 'from-process';
+    try {
+      const result = interpolateHeaders({ 'X-Val': `\${${key}}` }, {});
+      assert.equal(result['X-Val'], 'from-process');
+    } finally {
+      delete process.env[key];
+    }
+  });
+
+  it('replaces unresolvable vars with empty string', () => {
+    const result = interpolateHeaders(
+      { 'X-Missing': '${NONEXISTENT_VAR_12345}' },
+      {},
+    );
+    assert.equal(result['X-Missing'], '');
+  });
+
+  it('returns empty object for null/undefined headers', () => {
+    assert.deepEqual(interpolateHeaders(null, {}), {});
+    assert.deepEqual(interpolateHeaders(undefined, {}), {});
   });
 });

@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join, isAbsolute, dirname } from 'path';
 import { createHash } from 'crypto';
-import { spawnSync } from 'child_process';
+import { spawnSync, execFileSync } from 'child_process';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -152,26 +152,52 @@ export function validateHooksConfig(hooks, projectRoot) {
       }
 
       // type
-      if (hook.type !== 'process') {
-        errors.push(`${label}: type must be "process" (v2 only supports process hooks)`);
+      if (hook.type !== 'process' && hook.type !== 'http') {
+        errors.push(`${label}: type must be "process" or "http"`);
       }
 
-      // command (argv array)
-      if (!Array.isArray(hook.command) || hook.command.length === 0) {
-        errors.push(`${label}: command must be a non-empty array of strings`);
-      } else {
-        let commandValid = true;
-        for (let j = 0; j < hook.command.length; j++) {
-          if (typeof hook.command[j] !== 'string') {
-            errors.push(`${label}: command[${j}] must be a string`);
-            commandValid = false;
+      // type-specific validation
+      if (hook.type === 'process') {
+        // command (argv array)
+        if (!Array.isArray(hook.command) || hook.command.length === 0) {
+          errors.push(`${label}: command must be a non-empty array of strings`);
+        } else {
+          let commandValid = true;
+          for (let j = 0; j < hook.command.length; j++) {
+            if (typeof hook.command[j] !== 'string') {
+              errors.push(`${label}: command[${j}] must be a string`);
+              commandValid = false;
+            }
+          }
+          // Resolve command[0] as executable when projectRoot is available
+          if (commandValid && projectRoot) {
+            const resolution = resolveExecutable(hook.command[0], projectRoot);
+            if (!resolution.resolved) {
+              errors.push(`${label}: ${resolution.error}`);
+            }
           }
         }
-        // Resolve command[0] as executable when projectRoot is available
-        if (commandValid && projectRoot) {
-          const resolution = resolveExecutable(hook.command[0], projectRoot);
-          if (!resolution.resolved) {
-            errors.push(`${label}: ${resolution.error}`);
+      } else if (hook.type === 'http') {
+        // url
+        if (typeof hook.url !== 'string' || !hook.url.trim()) {
+          errors.push(`${label}: url must be a non-empty string`);
+        } else if (!/^https?:\/\/.+/.test(hook.url)) {
+          errors.push(`${label}: url must be a valid HTTP or HTTPS URL`);
+        }
+        // method
+        if (hook.method !== undefined && hook.method !== 'POST') {
+          errors.push(`${label}: method must be "POST" (only POST is supported)`);
+        }
+        // headers (optional)
+        if ('headers' in hook && hook.headers !== undefined) {
+          if (!hook.headers || typeof hook.headers !== 'object' || Array.isArray(hook.headers)) {
+            errors.push(`${label}: headers must be an object`);
+          } else {
+            for (const [hk, hv] of Object.entries(hook.headers)) {
+              if (typeof hv !== 'string') {
+                errors.push(`${label}: headers.${hk} must be a string`);
+              }
+            }
           }
         }
       }
@@ -345,6 +371,116 @@ export function normalizeHookProcessError(result) {
   return errorMessage;
 }
 
+// ── Header Interpolation ────────────────────────────────────────────────────
+
+/**
+ * Resolve `${VAR_NAME}` placeholders in header values from hook env + process.env.
+ */
+function interpolateHeaders(headers, hookEnv) {
+  if (!headers) return {};
+  const resolved = {};
+  const mergedEnv = { ...process.env, ...(hookEnv || {}) };
+  for (const [key, value] of Object.entries(headers)) {
+    resolved[key] = value.replace(/\$\{([^}]+)\}/g, (_match, varName) => {
+      const envVal = mergedEnv[varName];
+      if (envVal === undefined) return '';
+      return envVal;
+    });
+  }
+  return resolved;
+}
+
+// ── HTTP Hook Execution ─────────────────────────────────────────────────────
+
+/**
+ * Execute a single HTTP hook via a synchronous child process bridge.
+ *
+ * Uses `node -e` to perform the HTTP fetch synchronously without making the
+ * hook runner async. The child process writes the response JSON to stdout.
+ *
+ * @param {object} hookDef - hook config definition
+ * @param {object} payload - JSON envelope payload
+ * @returns {object} execution result (same shape as executeHookProcess)
+ */
+function executeHttpHook(hookDef, payload) {
+  const resolvedHeaders = interpolateHeaders(hookDef.headers, hookDef.env);
+  resolvedHeaders['Content-Type'] = 'application/json';
+
+  const fetchScript = `
+const http = require('http');
+const https = require('https');
+const url = new URL(${JSON.stringify(hookDef.url)});
+const headers = ${JSON.stringify(resolvedHeaders)};
+const body = process.argv[1];
+const mod = url.protocol === 'https:' ? https : http;
+const req = mod.request(url, { method: 'POST', headers, timeout: ${hookDef.timeout_ms} }, (res) => {
+  let data = '';
+  res.on('data', (chunk) => { data += chunk; });
+  res.on('end', () => {
+    process.stdout.write(JSON.stringify({ status: res.statusCode, body: data }));
+  });
+});
+req.on('timeout', () => { req.destroy(); process.stderr.write('timeout'); process.exit(2); });
+req.on('error', (e) => { process.stderr.write(e.message); process.exit(1); });
+req.write(body);
+req.end();
+`;
+
+  const startTime = Date.now();
+  const result = spawnSync(process.execPath, ['-e', fetchScript, JSON.stringify(payload)], {
+    timeout: hookDef.timeout_ms + SIGKILL_GRACE_MS,
+    maxBuffer: 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...(hookDef.env || {}) },
+  });
+  const durationMs = Date.now() - startTime;
+
+  const timedOut = result.error?.code === 'ETIMEDOUT' || durationMs > hookDef.timeout_ms;
+  const rawStdout = result.stdout ? result.stdout.toString('utf8') : '';
+  const stderr = result.stderr ? result.stderr.toString('utf8').slice(0, MAX_STDERR_CAPTURE) : '';
+  const exitCode = result.status;
+
+  // Parse the bridge response to extract the HTTP response body as the "stdout" for verdict parsing
+  let stdout = '';
+  if (!timedOut && exitCode === 0 && rawStdout) {
+    try {
+      const bridgeResponse = JSON.parse(rawStdout);
+      if (bridgeResponse.status >= 200 && bridgeResponse.status < 300) {
+        stdout = bridgeResponse.body || '';
+      } else {
+        // Non-2xx → treat as failure
+        return {
+          timedOut: false,
+          stdout: '',
+          stderr: `HTTP ${bridgeResponse.status}: ${bridgeResponse.body?.slice(0, 200) || ''}`,
+          exitCode: 1,
+          durationMs,
+          processError: `HTTP hook returned status ${bridgeResponse.status}`,
+        };
+      }
+    } catch {
+      // Could not parse bridge output
+      return {
+        timedOut: false,
+        stdout: '',
+        stderr: `Failed to parse HTTP bridge response: ${rawStdout.slice(0, 200)}`,
+        exitCode: 1,
+        durationMs,
+        processError: 'HTTP bridge response parse error',
+      };
+    }
+  }
+
+  return {
+    timedOut,
+    stdout,
+    stderr,
+    exitCode,
+    durationMs,
+    processError: normalizeHookProcessError(result),
+  };
+}
+
 // ── Hook Execution ───────────────────────────────────────────────────────────
 
 /**
@@ -437,8 +573,10 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
       payload,
     };
 
-    // Execute hook process
-    const exec = executeHookProcess(root, hookDef, envelope);
+    // Execute hook (process or HTTP transport)
+    const exec = hookDef.type === 'http'
+      ? executeHttpHook(hookDef, envelope)
+      : executeHookProcess(root, hookDef, envelope);
 
     // Verify tamper detection
     const tamperCheck = verifyProtectedDigests(root, preDigests, protectedPaths);
@@ -448,6 +586,7 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
         timestamp: now(),
         hook_phase: phase,
         hook_name: hookDef.name,
+        transport: hookDef.type || 'process',
         run_id: options.run_id || '',
         turn_id: options.turn_id || null,
         duration_ms: exec.durationMs,
@@ -517,6 +656,7 @@ export function runHooks(root, hooksConfig, phase, payload, options = {}) {
       timestamp: now(),
       hook_phase: phase,
       hook_name: hookDef.name,
+      transport: hookDef.type || 'process',
       run_id: options.run_id || '',
       turn_id: options.turn_id || null,
       duration_ms: exec.durationMs,
@@ -593,4 +733,5 @@ export {
   verifyProtectedDigests,
   parseVerdict,
   validateAnnotations,
+  interpolateHeaders,
 };

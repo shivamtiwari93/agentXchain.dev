@@ -291,6 +291,53 @@ agentxchain plugin install my-notify-plugin</code></pre>
           </div>
         </section>
 
+        <section id="http-hooks">
+          <h2>HTTP hooks (v2.1)</h2>
+          <p>Hooks can call external HTTP services instead of spawning local processes. Use <code>"type": "http"</code> in the hook definition:</p>
+          <pre><code>{
+  "before_assignment": [
+    {
+      "name": "compliance-check",
+      "type": "http",
+      "url": "https://compliance.internal/api/v1/check",
+      "method": "POST",
+      "timeout_ms": 5000,
+      "mode": "blocking",
+      "headers": {
+        "Authorization": "Bearer ${COMPLIANCE_API_TOKEN}"
+      }
+    }
+  ]
+}</code></pre>
+
+          <div class="surface">
+            <h3>How it works</h3>
+            <ul>
+              <li>The hook sends a JSON POST with the same envelope payload that process hooks receive on stdin.</li>
+              <li>The HTTP service responds with the same verdict JSON: <code>{"verdict":"allow"}</code>, <code>{"verdict":"warn"}</code>, or <code>{"verdict":"block"}</code>.</li>
+              <li>Annotations work the same as process hooks.</li>
+              <li>Timeout and failure semantics are identical: blocking hooks fail closed, advisory hooks downgrade to warn.</li>
+              <li>Header values support <code>${ENV_VAR}</code> interpolation from the hook's <code>env</code> object and <code>process.env</code>.</li>
+              <li>Only <code>POST</code> method is supported.</li>
+              <li>Non-2xx responses are treated as hook failures.</li>
+            </ul>
+          </div>
+
+          <div class="surface">
+            <h3>Auth headers</h3>
+            <p>Use <code>${VAR_NAME}</code> in header values. The variable is resolved from the hook's <code>env</code> field first, then from the system environment. Secrets are never stored in config — only variable references.</p>
+            <pre><code>{
+  "headers": {
+    "Authorization": "Bearer ${MY_API_TOKEN}",
+    "X-Custom-Header": "static-value"
+  },
+  "env": {
+    "MY_API_TOKEN": "..."
+  }
+}</code></pre>
+          </div>
+        </section>
+
         <section id="failure-modes">
           <h2>Failure modes</h2>
           <div class="docs-table-wrap">

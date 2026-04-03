@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 976 tests, 0 failures across 228 suites
+- **Result**: 988 tests, 0 failures across 230 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -26,6 +26,7 @@
   - Protocol v6 docs surface: normative markdown, published HTML, versioned permalink, and planning-spec drift assertions
   - Plugin docs surface: published HTML, CLI reference integration, nav consistency, planning-spec alignment, rollback/failure-mode documentation
   - Dispatch manifest integrity: finalize/verify, tamper detection (unexpected file, digest mismatch, missing file, size mismatch), supplement inclusion, adapter verification integration
+  - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation, non-2xx failure handling, annotation recording, audit trail with transport field
   - Context compressor, token counter, token budget
   - Release preflight and publish scripts
   - Competitive positioning and documentation content assertions
