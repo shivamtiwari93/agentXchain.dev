@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Introduce Vitest as the fast-feedback test runner for pure-unit test suites while preserving `node --test` for integration, subprocess, and E2E tests. This is a coexistence pilot, not a full migration.
+Introduce Vitest as the fast-feedback test runner for pure-unit test suites while preserving `node --test` for integration, subprocess, and E2E tests. This document records the original coexistence pilot. The current steady-state contract is tracked in `VITEST_STEADY_STATE_SPEC.md`.
 
 WAYS-OF-WORKING.md says: "bias toward a clearer Vitest-style fast-feedback model where appropriate, without pretending the migration is already complete." This spec implements that bias as a bounded first slice.
 

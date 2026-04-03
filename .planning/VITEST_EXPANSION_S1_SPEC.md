@@ -167,7 +167,7 @@ export default defineConfig({
 - **AT-VE1-003**: `npm test` exits 0 (both runners pass sequentially)
 - **AT-VE1-004**: Vitest test count is ≥486 (146 pilot + 340 slice 1)
 - **AT-VE1-005**: Adding a failing assertion to a Slice 1 file causes both runners to fail
-- **AT-VE1-006**: The `vitest-pilot-content.test.js` guard is updated to reflect the 19-file include list
+- **AT-VE1-006**: The guard test is updated to reflect the 19-file include list. Current filename: `vitest-contract.test.js`
 - **AT-VE1-007**: No `child_process` import exists in any of the 19 Vitest-included files (automated guard)
 
 ---
@@ -178,7 +178,7 @@ export default defineConfig({
 2. Run `npm run test:vitest` — verify all 19 files pass
 3. Run `npm run test:node` — verify full suite still passes
 4. Run `npm test` — verify sequential pass
-5. Update `cli/test/vitest-pilot-content.test.js` guard to expect 19 files and add a `child_process` import guard
+5. Update the Vitest contract guard to expect 19 files and add a `child_process` import guard
 6. Update `VITEST_PILOT_SPEC.md` status to reference this expansion
 7. Commit and push
 
@@ -187,4 +187,4 @@ export default defineConfig({
 ## Resolved Questions
 
 1. **`safe-write.test.js` stays as-is for Slice 1.** It remains in the Vitest include list behind `fileParallelism: false`. Migrate it to a random-tmpdir pattern only when the repo is ready to re-enable file parallelism.
-2. **`vitest-pilot-content.test.js` keeps its current filename for Slice 1.** Renaming the guard now would add churn without improving the proof surface. Rename it only when the repo formally drops the "pilot" label in a later slice.
+2. Slice 1 deliberately kept the original guard filename. That choice was later superseded by `VITEST_STEADY_STATE_SPEC.md`, which retires the "pilot" label and renames the guard to `vitest-contract.test.js`.

@@ -40,7 +40,7 @@ All files are pure read-only. No parallel-safety concern exists — they cannot 
 | 7 | `protocol-implementor-guide-content.test.js` | 5 | Protocol implementor guide completeness |
 | 8 | `release-docs-content.test.js` | 6 | Release documentation accuracy |
 | 9 | `continuous-delivery-intake-content.test.js` | 5 | Intake lifecycle docs accuracy |
-| 10 | `vitest-pilot-content.test.js` | 5 | Vitest pilot contract guard (meta) |
+| 10 | `vitest-contract.test.js` | 5 | Vitest contract guard (meta) |
 | 11 | `protocol-conformance-docs.test.js` | 4 | Protocol conformance documentation |
 
 ### Total: 11 files, ~78 tests
@@ -93,7 +93,7 @@ Per `DEC-VITEST-009`, serial file execution continues until all hardcoded-relpat
 
 - If a Slice 2 file gains `writeFileSync` or `child_process` imports, remove it from the Vitest include list
 - If Vitest and `node --test` disagree on a test result, `node --test` is authoritative
-- If `vitest-pilot-content.test.js` (the guard) fails because it asserts a stale file count, update the guard to match the new 30-file include list
+- If `vitest-contract.test.js` (the guard) fails because it asserts a stale file count, update the guard to match the new 30-file include list
 
 ---
 
@@ -103,7 +103,7 @@ Per `DEC-VITEST-009`, serial file execution continues until all hardcoded-relpat
 - **AT-VE2-002**: `npm run test:node` exits 0 and reports the full suite passing
 - **AT-VE2-003**: `npm test` exits 0 (both runners pass sequentially)
 - **AT-VE2-004**: Vitest test count is ≥567 (489 Slice 1 + 78 Slice 2)
-- **AT-VE2-005**: The `vitest-pilot-content.test.js` guard is updated to reflect the 30-file include list
+- **AT-VE2-005**: The `vitest-contract.test.js` guard is updated to reflect the 30-file include list
 - **AT-VE2-006**: No `child_process` import exists in any of the 30 Vitest-included files
 
 ---
@@ -114,6 +114,6 @@ Per `DEC-VITEST-009`, serial file execution continues until all hardcoded-relpat
 2. Run `npm run test:vitest` — verify all 30 files pass
 3. Run `npm run test:node` — verify full suite still passes
 4. Run `npm test` — verify sequential pass
-5. Update `cli/test/vitest-pilot-content.test.js` guard to expect 30 files
+5. Update `cli/test/vitest-contract.test.js` guard to expect 30 files
 6. Update `VITEST_EXPANSION_S1_SPEC.md` to reference Slice 2
 7. Commit and push

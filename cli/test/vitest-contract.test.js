@@ -3,6 +3,11 @@ import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  VITEST_FILE_COUNT,
+  VITEST_INCLUDED_FILES,
+  VITEST_FILE_PARALLELISM,
+} from './vitest-slice-manifest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -13,53 +18,12 @@ const ROOT_README = read('README.md');
 const CLI_README = read('cli/README.md');
 const PACKAGE_JSON = JSON.parse(read('cli/package.json'));
 const VITEST_CONFIG = read('cli/vitest.config.js');
+const VITEST_MANIFEST = read('cli/test/vitest-slice-manifest.js');
 const VITEST_SPEC = read('.planning/VITEST_PILOT_SPEC.md');
 const VITEST_EXPANSION_S1_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
 const VITEST_EXPANSION_S2_SPEC = read('.planning/VITEST_EXPANSION_S2_SPEC.md');
 const VITEST_EXPANSION_S3_SPEC = read('.planning/VITEST_EXPANSION_S3_SPEC.md');
-
-const VITEST_INCLUDED_FILES = [
-  // ── Pilot + Slice 1 (19 files) ──
-  'test/token-counter.test.js',
-  'test/token-budget.test.js',
-  'test/context-compressor.test.js',
-  'test/dashboard-app.test.js',
-  'test/dashboard-evidence-drilldown.test.js',
-  'test/dashboard-views.test.js',
-  'test/verify-command.test.js',
-  'test/api-proxy-adapter.test.js',
-  'test/dashboard-bridge.test.js',
-  'test/gate-evaluator.test.js',
-  'test/dispatch-bundle.test.js',
-  'test/step-command.test.js',
-  'test/local-cli-adapter.test.js',
-  'test/run-completion.test.js',
-  'test/dispatch-manifest.test.js',
-  'test/normalized-config.test.js',
-  'test/schema.test.js',
-  'test/safe-write.test.js',
-  'test/turn-result-validator.test.js',
-  // ── Slice 2 (11 files, docs-content & read-only contract) ──
-  'test/openai-positioning-content.test.js',
-  'test/template-surface-content.test.js',
-  'test/docs-dashboard-content.test.js',
-  'test/plugin-docs-content.test.js',
-  'test/why-page-content.test.js',
-  'test/protocol-docs-content.test.js',
-  'test/protocol-implementor-guide-content.test.js',
-  'test/release-docs-content.test.js',
-  'test/continuous-delivery-intake-content.test.js',
-  'test/vitest-pilot-content.test.js',
-  'test/protocol-conformance-docs.test.js',
-  // ── Slice 3 (6 files, coordinator suite) ──
-  'test/coordinator-acceptance.test.js',
-  'test/coordinator-config.test.js',
-  'test/coordinator-dispatch.test.js',
-  'test/coordinator-gates.test.js',
-  'test/coordinator-recovery.test.js',
-  'test/coordinator-state.test.js',
-];
-const VITEST_FILE_COUNT = VITEST_INCLUDED_FILES.length;
+const VITEST_STEADY_STATE_SPEC = read('.planning/VITEST_STEADY_STATE_SPEC.md');
 
 describe('Vitest coverage contract', () => {
   it('documents the dual-runner workflow in both READMEs', () => {
@@ -74,7 +38,7 @@ describe('Vitest coverage contract', () => {
     }
   });
 
-  it('keeps the package scripts aligned with the shipped pilot', () => {
+  it('keeps the package scripts aligned with the shipped Vitest contract', () => {
     assert.equal(PACKAGE_JSON.scripts['test:vitest'], 'vitest run --reporter=verbose');
     assert.equal(PACKAGE_JSON.scripts['test:node'], 'node --test test/*.test.js');
     assert.equal(PACKAGE_JSON.scripts.test, 'npm run test:vitest && npm run test:node');
@@ -82,9 +46,12 @@ describe('Vitest coverage contract', () => {
 
   it('guards the node:test alias, serial file execution, and explicit include list', () => {
     assert.match(VITEST_CONFIG, /vitest-node-test-shim\.js/);
-    assert.match(VITEST_CONFIG, /fileParallelism:\s*false/);
+    assert.match(VITEST_CONFIG, /from '\.\/test\/vitest-slice-manifest\.js'/);
+    assert.match(VITEST_CONFIG, /include:\s*VITEST_INCLUDED_FILES/);
+    assert.match(VITEST_CONFIG, /fileParallelism:\s*VITEST_FILE_PARALLELISM/);
+    assert.equal(VITEST_FILE_PARALLELISM, false);
     for (const file of VITEST_INCLUDED_FILES) {
-      assert.match(VITEST_CONFIG, new RegExp(file.replaceAll('.', '\\.')));
+      assert.match(VITEST_MANIFEST, new RegExp(file.replaceAll('.', '\\.')));
     }
   });
 
@@ -100,6 +67,10 @@ describe('Vitest coverage contract', () => {
     assert.match(VITEST_EXPANSION_S3_SPEC, /coordinator/i);
     assert.match(VITEST_EXPANSION_S3_SPEC, /Duplicate execution remains in force/i);
     assert.match(VITEST_EXPANSION_S3_SPEC, /Status:\s+\*\*shipped\*\*/);
+    assert.match(VITEST_STEADY_STATE_SPEC, /Status:\s+\*\*shipped\*\*/);
+    assert.match(VITEST_STEADY_STATE_SPEC, /36 files/);
+    assert.match(VITEST_STEADY_STATE_SPEC, /No Slice 4 ships until a dedicated subprocess\/E2E strategy spec exists/i);
+    assert.match(VITEST_STEADY_STATE_SPEC, /vitest-contract\.test\.js/);
   });
 
   it('keeps child_process out of every Vitest-included file', () => {

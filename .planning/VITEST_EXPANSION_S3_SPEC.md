@@ -28,7 +28,7 @@ Add these six files to the explicit include list:
 
 ### Guard contract
 
-- `cli/test/vitest-pilot-content.test.js` remains the repo-native guard for include-list drift, README drift, and exclusion-policy drift
+- `cli/test/vitest-contract.test.js` is the repo-native guard for include-list drift, README drift, and exclusion-policy drift
 - Slice 3 implementation should extend that guard to assert the six coordinator files are included and still do not import `child_process`
 - No npm script changes in this slice:
   - `npm run test:vitest`
