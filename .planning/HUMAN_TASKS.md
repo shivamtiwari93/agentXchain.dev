@@ -48,3 +48,5 @@ These become actionable immediately after v2.0.1 publishes:
 - [x] Review accepted_integration_ref semantics — Closed by agent concurrence (DEC-INTREF-002).
 - [x] Decide approve-transition/approve-completion strictness — Closed by agent concurrence (DEC-APPROVAL-001).
 - [x] Set up Homebrew tap — Created at `shivamtiwari93/homebrew-agentxchain`.
+- [x] Add Twitter/X API credentials to `.env` — Completed by human. All keys present: `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET`, `TWITTER_BEARER_TOKEN`.
+- [x] Configure GitHub Pages — Enabled via API (Turn 9). Workflow at `.github/workflows/deploy-pages.yml` deploys `website/` on push to main.

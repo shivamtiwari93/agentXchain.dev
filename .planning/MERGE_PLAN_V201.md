@@ -1,8 +1,8 @@
 # Merge Plan — release/v2.0.1 → main
 
 > Written: 2026-04-03T05:45:00Z
-> Updated: 2026-04-03T06:20:00Z (Turn 7 — accounts for Turn 6 workflow+postflight changes and Turn 7 forward-port)
-> 9 files conflict. Resolution strategies below.
+> Updated: 2026-04-03T06:45:00Z (Turn 9 — accounts for Turn 8 main-only artifacts and website deployment)
+> 7 remaining conflicts. Resolution strategies below.
 
 ---
 
@@ -23,20 +23,33 @@ The following release-branch files were forward-ported to main in Turn 7 to redu
 
 These forward-ports eliminate 4 previously-conflicting files from the merge. The workflow, postflight script, and postflight spec are now identical on both branches.
 
+## Main-Only Artifacts (Turn 8, preserve during merge)
+
+Turn 8 (GPT 5.4) added these files on main only. They do not exist on the release branch and must be preserved verbatim during merge:
+
+| File | Purpose |
+|------|---------|
+| `cli/CHANGELOG.md` | v2.1.0 delta entry (dispatch manifests, HTTP hooks, dashboard drill-down) |
+| `.planning/V2_1_RELEASE_NOTES.md` | Draft release notes for v2.1.0 |
+| `.planning/V2_1_RELEASE_NOTES_SPEC.md` | Release notes spec |
+| `.github/workflows/deploy-pages.yml` | Website deployment to GitHub Pages (Turn 9) |
+
+These are additive — no merge conflict. Just ensure they survive the merge.
+
 ## Remaining Conflict Resolution Table
 
 | File | Strategy | Rationale |
 |------|----------|-----------|
-| `.planning/AGENT-TALK.md` | **manual-merge** | Both branches have unique turn entries. Append release turns after main turns chronologically. |
-| `.planning/LAUNCH_BRIEF.md` | **keep-release** | Release has correct v2.0.1 version, HN deferred, corrected plugin scope. |
-| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **manual-merge** | Release has v2.0.1 evidence (962 tests). Main has v2.1 features (1016+ tests). Post-merge suite run determines final count. |
+| `.planning/AGENT-TALK.md` | **manual-merge** | Both branches have unique turn entries. Main has Turns 1-18 compression + Turn 8. Release has Turns 2-9 compression + Turns 10-13 + Turns 2-7. During merge: keep main's version as base, append release-only turns chronologically. |
+| `.planning/LAUNCH_BRIEF.md` | **keep-main** | Main has current state with v2.1.0 target and 1028 test count. Release version is stale v2.0.1-era. |
+| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **keep-main** | Main has 1028 tests / 235 suites. Post-merge suite run determines final count, update if it changes. |
 | `cli/src/lib/hook-runner.js` | **manual-merge (P0)** | Main added HTTP hook support (v2.1-F2). Release has rollback tamper-detection fixes. Must combine both. |
 | `cli/test/hook-runner.test.js` | **manual-merge (P0)** | Main has `interpolateHeaders` tests for HTTP hooks. Release has tamper rollback tests. Must combine. |
-| `cli/test/launch-evidence.test.js` | **manual-merge** | Post-merge test count replaces both assertions. Run suite first, then update assertion. |
+| `cli/test/launch-evidence.test.js` | **keep-main** | Main has current 1028 assertion and Turn 8's release-notes guards. Post-merge re-run determines final count. |
 | `run-agents.sh` | **manual-merge** | Release has Twitter support, product boundary, trusted-publish-first guidance. Main has OSS-first principle. Combine. |
 | `.planning/HUMAN_TASKS.md` | **keep-main** | Main now has the accurate blocker state (rewritten in Turn 7). Release version is stale. |
 | `.planning/RELEASE_BRIEF.md` | **keep-main** | Main now targets v2.1.0 (rewritten in Turn 7). Release version is for v2.0.1 corrective. |
-| `cli/test/release-docs-content.test.js` | **keep-main** | Main version is adapted for v2.1.0 context. Release version hardcodes v2.0.1. |
+| `cli/test/release-docs-content.test.js` | **keep-main** | Main version is adapted for v2.1.0 context with Turn 8 guards. Release version hardcodes v2.0.1. |
 
 ## Execution Sequence
 
@@ -58,3 +71,4 @@ These forward-ports eliminate 4 previously-conflicting files from the merge. The
 
 - `DEC-MERGE-001`: Merge uses explicit merge commit (no rebase). Release branch history is the audit trail for the corrective release.
 - `DEC-MERGE-002`: Forward-port release infrastructure to main before merge to reduce conflict surface. The workflow, postflight script, and release ops docs are now on both branches.
+- `DEC-MERGE-003`: Turn 8 main-only artifacts (CHANGELOG, release notes, release notes spec) are additive — no conflict, just preserve during merge. Resolution reclassified: LAUNCH_BRIEF, LAUNCH_EVIDENCE_REPORT, launch-evidence.test.js, and release-docs-content.test.js are now keep-main (main has current counts and Turn 8 guards).
