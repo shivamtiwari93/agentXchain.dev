@@ -37,6 +37,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
 | `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
 | `validate` | Validation | Validate config, state, or full run integrity |
+| `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
 | `dashboard` | Visualization | Launch a local read-only web dashboard |
@@ -184,6 +185,43 @@ Validation modes:
 | `full` | Everything in `kickoff` + `turn`, plus history integrity, decision ledger consistency, phase sequence validity, and state file coherence |
 
 Returns exit code `0` on success, `1` on validation failure with details.
+
+## Protocol conformance
+
+### `verify protocol`
+
+```bash
+agentxchain verify protocol [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tier <tier>` | `1` | Maximum conformance tier to verify: `1`, `2`, or `3` |
+| `--surface <surface>` | all surfaces in tier | Restrict the run to one surface such as `state_machine`, `dispatch_manifest`, or `coordinator` |
+| `--target <path>` | `.` | Root containing `.agentxchain-conformance/capabilities.json` |
+| `--format <format>` | `text` | Output format: `text` or `json` |
+
+The repo ships a first-party conformance corpus under `.agentxchain-conformance/`. `verify protocol` runs those fixtures against any implementation that exposes a `stdio-fixture-v1` adapter and declares supported tiers and surfaces in `.agentxchain-conformance/capabilities.json`.
+
+Typical use:
+
+```bash
+# self-validate the reference CLI
+agentxchain verify protocol --tier 3 --target .
+
+# isolate one surface and emit CI-friendly JSON
+agentxchain verify protocol --tier 2 --surface dispatch_manifest --target . --format json
+```
+
+Exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | All selected fixtures passed |
+| `1` | One or more fixtures failed |
+| `2` | Verifier or adapter error (malformed response, invocation problem, unsupported target) |
+
+Use this command in CI if you fork the runner or build an alternative implementation. "Open protocol" without continuous conformance proof is marketing, not governance.
 
 ## Migration
 

@@ -69,16 +69,17 @@ describe('Protocol planning specs stay aligned', () => {
     assert.match(PROTOCOL_SPEC, /protocol-v6\.html/);
     assert.match(DOCS_SURFACE_SPEC, /PROTOCOL-v6\.md/);
     assert.match(DOCS_SURFACE_SPEC, /\/docs\/protocol-v6/);
-    assert.match(CLI_DOC_SPEC, /\/docs\/protocol\.html/);
+    assert.match(CLI_DOC_SPEC, /\/docs\/protocol/);
     assert.doesNotMatch(CLI_DOC_SPEC, /SPEC-GOVERNED-v5\.md on GitHub until a local protocol page exists/);
     assert.match(V2_SCOPE, /protocol-v6\.html/);
   });
 });
 
 describe('Public links stay host-safe and point at the latest protocol alias', () => {
-  it('keeps README protocol links on explicit .html targets', () => {
-    assert.match(ROOT_README, /docs\/protocol\.html/);
-    assert.match(CLI_README, /docs\/protocol\.html/);
-    assert.doesNotMatch(CLI_README, /docs\/protocol\)(?!\.html)/);
+  it('keeps README protocol links on the clean Docusaurus route', () => {
+    assert.match(ROOT_README, /https:\/\/agentxchain\.dev\/docs\/protocol\/?/);
+    assert.match(CLI_README, /https:\/\/agentxchain\.dev\/docs\/protocol\/?/);
+    assert.doesNotMatch(ROOT_README, /docs\/protocol\.html/);
+    assert.doesNotMatch(CLI_README, /docs\/protocol\.html/);
   });
 });

@@ -223,6 +223,7 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `approve-transition`: approve a pending human-gated phase transition
 - `approve-completion`: approve a pending human-gated run completion
 - `plugin install|list|remove`: manage hook-packaging plugins under `.agentxchain/plugins/`
+- `verify protocol`: run the shipped protocol conformance kit against any target implementation
 - `validate`: validate governed kickoff wiring, a staged turn result, or both
 
 ### Shared project utilities
@@ -250,6 +251,16 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 1. Agents run in separate IDE sessions.
 2. Coordination happens through `lock.json`, `state.json`, and `TALK.md`.
 3. `watch` or `supervise` acts as the referee loop.
+
+## Protocol Conformance
+
+The protocol is only meaningful if implementations can prove they obey it. The repo ships a conformance kit under `.agentxchain-conformance/` and the CLI exposes it directly:
+
+```bash
+agentxchain verify protocol --tier 3 --target .
+```
+
+Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_manifest`, or `coordinator`. Use `--format json` in CI.
 
 ## Examples
 

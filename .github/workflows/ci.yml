@@ -22,6 +22,7 @@ jobs:
           cache-dependency-path: cli/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: node bin/agentxchain.js verify protocol --tier 3 --target ..
 
   baby-tracker:
     runs-on: ubuntu-latest

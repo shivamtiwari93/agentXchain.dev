@@ -8,11 +8,11 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 
 ## Docs
 
-- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
-- [CLI reference](https://agentxchain.dev/docs/cli.html)
-- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
-- [Why governed multi-agent delivery matters](https://agentxchain.dev/why.html)
+- [Quickstart](https://agentxchain.dev/docs/quickstart/)
+- [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Adapter reference](https://agentxchain.dev/docs/adapters/)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
 
 ## Install
 
@@ -90,6 +90,7 @@ agentxchain step
 | `approve-transition` | Approve a pending human-gated phase transition |
 | `approve-completion` | Approve a pending human-gated run completion |
 | `validate` | Validate governed kickoff wiring, a staged turn, or both |
+| `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the read-only governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives |
 | `plugin install|list|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
 
@@ -123,6 +124,21 @@ agentxchain step
 3. It writes `.agentxchain/dispatch/turns/<turn_id>/`.
 4. The assigned role writes `.agentxchain/staging/<turn_id>/turn-result.json`.
 5. The orchestrator validates and either accepts, rejects, advances phase, pauses for approval, or completes the run.
+
+## Protocol Conformance
+
+AgentXchain ships a conformance kit under `.agentxchain-conformance/`. Use it to prove a runner or fork still implements the governed workflow contract:
+
+```bash
+agentxchain verify protocol --tier 3 --target .
+```
+
+Useful flags:
+
+- `--tier 1|2|3`: maximum conformance tier to verify
+- `--surface <name>`: isolate one surface such as `state_machine`, `dispatch_manifest`, or `coordinator`
+- `--format json`: emit a machine-readable report for CI
+- `--target <path>`: point at the root containing `.agentxchain-conformance/capabilities.json`
 
 Important governed files:
 
@@ -175,10 +191,10 @@ Requires:
 ## Links
 
 - [agentxchain.dev](https://agentxchain.dev)
-- [Quickstart](https://agentxchain.dev/docs/quickstart.html)
-- [CLI reference](https://agentxchain.dev/docs/cli.html)
-- [Adapter reference](https://agentxchain.dev/docs/adapters.html)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol.html)
+- [Quickstart](https://agentxchain.dev/docs/quickstart/)
+- [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Adapter reference](https://agentxchain.dev/docs/adapters/)
+- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
 - [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 

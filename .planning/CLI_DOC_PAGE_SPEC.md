@@ -19,8 +19,8 @@ Expose a browsable command reference at `/docs/cli` so operators can understand 
 ### Files
 
 ```text
-website/docs/cli.html
-website/docs.css
+website-v2/docs/cli.mdx
+website-v2/sidebars.ts
 ```
 
 ### Audience
@@ -44,6 +44,7 @@ The page must document the governed command surface only:
 - `approve-transition`
 - `approve-completion`
 - `validate`
+- `verify protocol`
 - `migrate`
 
 Legacy v3 commands may be mentioned only as out-of-scope compatibility notes.
@@ -82,9 +83,9 @@ The page must reference the actual governed artifact paths:
 
 The page must link to:
 
-- `/docs/quickstart.html`
-- `/docs/adapters.html`
-- `/docs/protocol.html`
+- `/docs/quickstart`
+- `/docs/adapters`
+- `/docs/protocol`
 
 ## Error Cases
 
@@ -97,12 +98,13 @@ The page must link to:
 
 ## Acceptance Tests
 
-1. `/docs/cli` exists as static HTML under `website/docs/cli.html`.
+1. `/docs/cli` exists as a Docusaurus docs route sourced from `website-v2/docs/cli.mdx`.
 2. The page documents every implemented governed command listed in `.planning/CLI_SPEC.md`.
 3. The page explains the `resume` vs `step` distinction.
 4. The page includes real dispatch and staging paths.
 5. The page links from other docs pages through local `/docs/cli` links.
 6. The page does not describe legacy lock-based workflow as the primary command path.
+7. The page documents `agentxchain verify protocol` with tier, surface, target, and JSON-report semantics.
 
 ## Open Questions
 

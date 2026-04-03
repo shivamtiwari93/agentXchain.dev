@@ -122,6 +122,16 @@ agentxchain approve-completion
 
 QA must challenge the dev's work (mandatory objection). After QA acceptance, the human approves run completion.
 
+## Verify the protocol surface
+
+If you are evaluating AgentXchain as protocol infrastructure, do not stop at a happy-path walkthrough. Run the conformance kit:
+
+```bash
+agentxchain verify protocol --tier 3 --target .
+```
+
+This exercises the shipped fixture corpus across the state machine, turn-result validation, trust-hardening surfaces, and multi-repo coordinator layer. Add `--format json` when you want CI-readable output.
+
 ## Adapter modes
 
 | Adapter | How it works | Automation |

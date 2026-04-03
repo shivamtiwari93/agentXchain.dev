@@ -42,8 +42,8 @@ describe('Why page discoverability', () => {
   });
 
   it('is linked from both READMEs', () => {
-    assert.ok(ROOT_README.includes('https://agentxchain.dev/why.html'));
-    assert.ok(CLI_README.includes('https://agentxchain.dev/why.html'));
+    assert.ok(ROOT_README.includes('https://agentxchain.dev/why/'));
+    assert.ok(CLI_README.includes('https://agentxchain.dev/why/'));
   });
 
   it('is reflected in the launch brief as a ready surface', () => {
