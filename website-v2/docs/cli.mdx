@@ -267,23 +267,30 @@ agentxchain dashboard [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--port <number>` | `7420` | Port for the local web server |
+| `--port <port>` | `3847` | Port for the local bridge server |
 | `--no-open` | `false` | Do not auto-open the browser |
-| `--host <addr>` | `127.0.0.1` | Bind address |
 
-Launches a local read-only web dashboard with live updates via WebSocket. The dashboard provides seven views:
+Launches a local read-only web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
+
+The shipped dashboard surface has seven top-level views:
 
 | View | Description |
 |------|-------------|
-| **Run overview** | Current phase, status, blocked state, and run metadata |
-| **Turn timeline** | Chronological list of all turns with status indicators |
-| **Turn detail** | Full turn result, decisions, objections, and verification evidence |
-| **Decision ledger** | Filterable table of all decisions across all turns |
-| **Objection tracker** | All objections with status (raised, resolved, withdrawn) |
-| **Phase graph** | Visual representation of phase transitions and gates |
-| **File diff** | Files changed across turns with inline diff rendering |
+| **Initiative** | Multi-repo coordinator summary: repo runs, pending gate, blocked state, and barrier snapshot |
+| **Cross-Repo** | Coordinator event timeline across linked repos and workstreams |
+| **Timeline** | Repo-local run timeline with active turns, accepted history, and expandable turn-level hook evidence |
+| **Decisions** | Filterable decision ledger for governed turns |
+| **Hooks** | Hook audit log plus persisted hook annotations |
+| **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |
+| **Gates** | Pending phase-transition or completion review with aggregated evidence and exact approval command |
 
-The dashboard is strictly read-only. It watches `.agentxchain/` for filesystem changes and pushes updates over WebSocket in real time.
+The dashboard is strictly read-only. It serves protocol state and operator guidance, but it does not approve gates, mutate state, or execute recovery actions itself. When a human action is required, the UI surfaces the exact CLI command instead:
+
+- `agentxchain approve-transition`
+- `agentxchain approve-completion`
+- `agentxchain multi approve-gate`
+
+For repo-local runs, the Timeline, Decisions, Hooks, Blocked, and Gates views render governed runtime state from `.agentxchain/`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views.
 
 ## Plugin management
 

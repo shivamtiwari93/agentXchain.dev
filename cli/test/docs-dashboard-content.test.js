@@ -1,9 +1,11 @@
 /**
- * Docs content verification — dashboard operator documentation.
+ * Dashboard docs contract verification.
  *
- * These tests read the Docusaurus source files and assert that the dashboard
- * documentation covers all operator-required surfaces per V2_DASHBOARD_SPEC.md
- * and DEC-DASH-SURFACE-001.
+ * The dashboard section on /docs/cli must match the shipped dashboard command
+ * and SPA surface. This test reads the docs plus runtime files directly so
+ * docs drift fails fast in-repo.
+ *
+ * See: DASHBOARD_DOCS_CONTRACT_SPEC.md
  */
 
 import { strict as assert } from 'node:assert';
@@ -14,56 +16,104 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
+
 const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
+const CLI_BIN = readFileSync(join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js'), 'utf8');
+const DASHBOARD_COMMAND = readFileSync(join(REPO_ROOT, 'cli', 'src', 'commands', 'dashboard.js'), 'utf8');
+const BRIDGE_SERVER = readFileSync(join(REPO_ROOT, 'cli', 'src', 'lib', 'dashboard', 'bridge-server.js'), 'utf8');
+const DASHBOARD_APP = readFileSync(join(REPO_ROOT, 'cli', 'dashboard', 'app.js'), 'utf8');
+const DASHBOARD_INDEX = readFileSync(join(REPO_ROOT, 'cli', 'dashboard', 'index.html'), 'utf8');
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 
-describe('Dashboard operator documentation — CLI docs page', () => {
-  it('has a dashboard section', () => {
-    assert.ok(CLI_DOCS.includes('## Dashboard') || CLI_DOCS.includes('### `dashboard`'), 'cli docs must have a dashboard section');
+function extractNavViews(html) {
+  return Array.from(
+    html.matchAll(/<a href="#([^"]+)"[^>]*>([^<]+)<\/a>/g),
+    ([, id, label]) => ({ id, label }),
+  );
+}
+
+function extractViewIds(appSource) {
+  const match = appSource.match(/const VIEWS = \{([\s\S]*?)\n\};/);
+  assert.ok(match, 'app.js must define a VIEWS registry');
+  return Array.from(
+    match[1].matchAll(/(?:'([^']+)'|([a-z][a-z-]*))\s*:/g),
+    ([, quoted, bare]) => quoted || bare,
+  );
+}
+
+describe('Dashboard docs contract — command surface', () => {
+  it('documents the real command and flags', () => {
+    assert.ok(CLI_DOCS.includes('## Dashboard'), 'cli docs must have a dashboard section');
+    assert.ok(CLI_DOCS.includes('agentxchain dashboard [options]'), 'cli docs must show the dashboard command');
+    assert.ok(CLI_DOCS.includes('--port <port>'), 'cli docs must document --port');
+    assert.ok(CLI_DOCS.includes('`3847`'), 'cli docs must document the real default port');
+    assert.ok(CLI_DOCS.includes('--no-open'), 'cli docs must document --no-open');
+    assert.ok(!CLI_DOCS.includes('--host <addr>'), 'cli docs must not advertise unsupported --host');
   });
 
-  it('documents the command syntax', () => {
-    assert.ok(CLI_DOCS.includes('agentxchain dashboard'), 'must show the dashboard command');
-    assert.ok(CLI_DOCS.includes('--port'), 'must document --port option');
-    assert.ok(CLI_DOCS.includes('--no-open'), 'must document --no-open option');
+  it('matches the actual dashboard CLI implementation', () => {
+    assert.ok(CLI_BIN.includes(".command('dashboard')"), 'CLI must register dashboard command');
+    assert.ok(CLI_BIN.includes(".option('--port <port>'"), 'CLI must expose --port');
+    assert.ok(CLI_BIN.includes(".option('--no-open'"), 'CLI must expose --no-open');
+    assert.ok(!CLI_BIN.includes(".option('--host"), 'CLI must not expose a host flag');
+    assert.ok(DASHBOARD_COMMAND.includes('const DEFAULT_PORT = 3847;'), 'dashboard command must default to 3847');
   });
 
-  it('documents localhost-only binding', () => {
-    assert.ok(CLI_DOCS.includes('127.0.0.1'), 'must mention localhost binding');
-  });
-
-  it('documents read-only constraint', () => {
-    assert.ok(
-      CLI_DOCS.includes('read-only') || CLI_DOCS.includes('Read-only'),
-      'must state read-only constraint'
-    );
-  });
-
-  it('documents dashboard views', () => {
-    assert.ok(CLI_DOCS.includes('timeline') || CLI_DOCS.includes('Timeline'), 'must document timeline');
-    assert.ok(CLI_DOCS.includes('ledger') || CLI_DOCS.includes('Ledger'), 'must document ledger');
-    assert.ok(CLI_DOCS.includes('Phase') || CLI_DOCS.includes('phase'), 'must document phase view');
-  });
-
-  it('documents the approval commands operators see', () => {
-    assert.ok(CLI_DOCS.includes('approve-transition'), 'must mention approve-transition');
-    assert.ok(CLI_DOCS.includes('approve-completion'), 'must mention approve-completion');
+  it('documents the local-only read-only bridge contract', () => {
+    assert.ok(CLI_DOCS.includes('read-only'), 'cli docs must state read-only behavior');
+    assert.ok(CLI_DOCS.includes('127.0.0.1'), 'cli docs must state local-only binding');
+    assert.ok(CLI_DOCS.includes('http://localhost:<port>'), 'cli docs must describe the printed local URL');
+    assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
+    assert.ok(BRIDGE_SERVER.includes('Dashboard is read-only in v2.0.'), 'bridge server must reject mutation methods');
   });
 });
 
-describe('Dashboard discoverability — other surfaces', () => {
-  it('cli/README.md mentions dashboard', () => {
-    assert.ok(
-      CLI_README.includes('dashboard'),
-      'cli/README.md must mention the dashboard command'
-    );
+describe('Dashboard docs contract — view surface', () => {
+  const navViews = extractNavViews(DASHBOARD_INDEX);
+  const viewIds = extractViewIds(DASHBOARD_APP);
+
+  it('documents every shipped top-level dashboard view', () => {
+    assert.equal(navViews.length, 7, 'dashboard nav must expose seven top-level views');
+    for (const view of navViews) {
+      assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
+      assert.ok(
+        CLI_DOCS.includes(`**${view.label}**`) || CLI_DOCS.includes(view.label),
+        `cli docs must mention dashboard view "${view.label}"`
+      );
+    }
   });
 
-  it('root README.md mentions dashboard', () => {
-    assert.ok(
-      ROOT_README.includes('dashboard'),
-      'root README.md must mention the dashboard command'
-    );
+  it('documents the coordinator and approval-specific surfaces truthfully', () => {
+    assert.ok(CLI_DOCS.includes('Initiative'), 'cli docs must document coordinator initiative view');
+    assert.ok(CLI_DOCS.includes('Cross-Repo'), 'cli docs must document cross-repo view');
+    assert.ok(CLI_DOCS.includes('approve-transition'), 'cli docs must mention approve-transition');
+    assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention approve-completion');
+    assert.ok(CLI_DOCS.includes('agentxchain multi approve-gate'), 'cli docs must mention coordinator gate approval command');
+  });
+
+  it('does not advertise removed or unshipped dashboard views', () => {
+    const staleViews = [
+      'Run overview',
+      'Objection tracker',
+      'Phase graph',
+      'File diff',
+    ];
+
+    for (const view of staleViews) {
+      assert.ok(!CLI_DOCS.includes(view), `cli docs must not advertise stale dashboard view "${view}"`);
+    }
+  });
+
+  it('describes turn detail as part of timeline, not a separate top-level view', () => {
+    assert.ok(CLI_DOCS.includes('expandable turn-level hook evidence'), 'cli docs must describe timeline drill-down');
+    assert.ok(!CLI_DOCS.includes('| **Turn detail** |'), 'turn detail must not be documented as a separate top-level view');
+  });
+});
+
+describe('Dashboard discoverability — front-door surfaces', () => {
+  it('keeps dashboard discoverable in CLI and root readmes', () => {
+    assert.ok(CLI_README.includes('dashboard'), 'cli/README.md must mention dashboard');
+    assert.ok(ROOT_README.includes('agentxchain dashboard'), 'root README.md must mention dashboard command');
   });
 });
