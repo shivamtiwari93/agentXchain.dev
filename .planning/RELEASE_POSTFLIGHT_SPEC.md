@@ -51,6 +51,8 @@ The script evaluates these checks in order:
 3. Registry exposes `dist.tarball`
 4. Registry exposes checksum metadata (`dist.integrity` or `dist.shasum`)
 5. Install smoke: `npm exec --yes --package <package@version> -- agentxchain --version`
+   - The smoke check must install the exact `dist.tarball` into an isolated temporary prefix and execute the installed binary by explicit path.
+   - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
 
 ---
 
@@ -87,6 +89,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `npm view <pkg@version> version` returns 404 / auth error / empty output | Mark check as `FAIL`, continue |
 | `dist.tarball` missing | Mark check as `FAIL`, continue |
 | `dist.integrity` missing but `dist.shasum` present | Accept `dist.shasum` as fallback checksum metadata |
+| ambient `agentxchain` exists on runner PATH | Ignore it. Install smoke must execute the temp-prefix binary resolved from the published tarball, not the ambient PATH binary |
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
 | registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
@@ -101,6 +104,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 3. The script fails when the registry does not yet serve the version and still evaluates the later checks.
 4. The script fails when the installed CLI reports a mismatched version.
 5. The script retries registry metadata and install smoke checks before failing closed.
+6. The script ignores an older ambient `agentxchain` binary on `PATH` and still proves the published tarball.
 
 ---
 

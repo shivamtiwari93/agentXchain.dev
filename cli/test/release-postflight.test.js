@@ -25,7 +25,17 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
 
   writeFileSync(
     join(cliDir, 'package.json'),
-    JSON.stringify({ name: 'agentxchain', version }, null, 2),
+    JSON.stringify(
+      {
+        name: 'agentxchain',
+        version,
+        bin: {
+          agentxchain: './bin/agentxchain.js',
+        },
+      },
+      null,
+      2,
+    ),
   );
 
   writeExecutable(
@@ -85,23 +95,41 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       '  exit 0',
       'fi',
       '',
-      'if [[ "$1" == "exec" ]]; then',
-      '  exec_counter_file="${FAKE_COUNTER_DIR:?}/exec-count.txt"',
-      '  exec_count=0',
-      '  if [[ -f "${exec_counter_file}" ]]; then',
-      '    exec_count="$(cat "${exec_counter_file}")"',
+      'if [[ "$1" == "install" ]]; then',
+      '  install_counter_file="${FAKE_COUNTER_DIR:?}/install-count.txt"',
+      '  install_count=0',
+      '  if [[ -f "${install_counter_file}" ]]; then',
+      '    install_count="$(cat "${install_counter_file}")"',
       '  fi',
-      '  exec_count=$((exec_count + 1))',
-      '  printf "%s" "${exec_count}" > "${exec_counter_file}"',
-      '  if [[ "${exec_count}" -lt "${FAKE_EXEC_AVAILABLE_AFTER:-1}" ]]; then',
-      '    echo "npm exec failed" >&2',
+      '  install_count=$((install_count + 1))',
+      '  printf "%s" "${install_count}" > "${install_counter_file}"',
+      '  if [[ "${install_count}" -lt "${FAKE_INSTALL_AVAILABLE_AFTER:-1}" ]]; then',
+      '    echo "npm install failed" >&2',
       '    exit 1',
       '  fi',
-      '  if [[ "${FAKE_EXEC_FAIL:-0}" == "1" ]]; then',
-      '    echo "npm exec failed" >&2',
+      '  if [[ "${FAKE_INSTALL_FAIL:-0}" == "1" ]]; then',
+      '    echo "npm install failed" >&2',
       '    exit 1',
       '  fi',
-      '  printf "%s\\n" "${FAKE_EXEC_VERSION:-2.0.1}"',
+      '  prefix=""',
+      '  while [[ $# -gt 0 ]]; do',
+      '    if [[ "$1" == "--prefix" ]]; then',
+      '      prefix="$2"',
+      '      shift 2',
+      '      continue',
+      '    fi',
+      '    shift',
+      '  done',
+      '  if [[ -z "${prefix}" ]]; then',
+      '    echo "missing --prefix" >&2',
+      '    exit 2',
+      '  fi',
+      '  mkdir -p "${prefix}/bin"',
+      '  cat > "${prefix}/bin/agentxchain" <<EOF',
+      '#!/usr/bin/env bash',
+      'printf "%s\\n" "${FAKE_INSTALL_VERSION:-2.0.1}"',
+      'EOF',
+      '  chmod 755 "${prefix}/bin/agentxchain"',
       '  exit 0',
       'fi',
       '',
@@ -187,7 +215,7 @@ describe('release-postflight.sh', () => {
       fixture.cliDir,
       fixture.fakeBinDir,
       ['--target-version', '2.0.1'],
-      { FAKE_REGISTRY_MISSING: '1', FAKE_EXEC_FAIL: '1' },
+      { FAKE_REGISTRY_MISSING: '1', FAKE_INSTALL_FAIL: '1' },
     );
 
     assert.equal(result.status, 1);
@@ -206,7 +234,7 @@ describe('release-postflight.sh', () => {
       fixture.cliDir,
       fixture.fakeBinDir,
       ['--target-version', '2.0.1'],
-      { FAKE_EXEC_VERSION: '2.0.0' },
+      { FAKE_INSTALL_VERSION: '2.0.0' },
     );
 
     assert.equal(result.status, 1);
@@ -225,7 +253,7 @@ describe('release-postflight.sh', () => {
         FAKE_VERSION_AVAILABLE_AFTER: '2',
         FAKE_TARBALL_AVAILABLE_AFTER: '2',
         FAKE_CHECKSUM_AVAILABLE_AFTER: '2',
-        FAKE_EXEC_AVAILABLE_AFTER: '2',
+        FAKE_INSTALL_AVAILABLE_AFTER: '2',
         RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: '3',
         RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: '0',
       },
@@ -237,5 +265,25 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /INFO: registry checksum metadata not ready \(attempt 1\/3\)/);
     assert.match(result.stdout, /INFO: install smoke not ready \(attempt 1\/3\)/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
+  });
+
+  it('ignores an older ambient agentxchain binary on PATH during install smoke', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    writeExecutable(
+      join(fixture.fakeBinDir, 'agentxchain'),
+      ['#!/usr/bin/env bash', 'printf "%s\\n" "0.8.7"'].join('\n'),
+    );
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
+    assert.doesNotMatch(result.stdout, /0\.8\.7/);
   });
 });

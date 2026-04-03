@@ -83,7 +83,7 @@ After `publish-from-tag.sh` succeeds, the workflow must run `scripts/release-pos
 
 - `dist.tarball`
 - checksum metadata
-- install smoke via `npm exec`
+- install smoke by installing the exact published tarball into an isolated temporary prefix and executing the installed binary by explicit path
 
 The workflow may set a higher retry budget than the script default when running on GitHub-hosted runners, because registry install smoke can lag behind metadata visibility even after publish succeeds.
 

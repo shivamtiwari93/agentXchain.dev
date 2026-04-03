@@ -75,6 +75,7 @@ FAIL=0
 TARBALL_URL=""
 REGISTRY_CHECKSUM=""
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
+PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
 
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
@@ -94,6 +95,38 @@ run_and_capture() {
 
 trim_last_line() {
   printf '%s\n' "$1" | awk 'NF { line=$0 } END { gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line }'
+}
+
+run_install_smoke() {
+  if [[ -z "$TARBALL_URL" ]]; then
+    echo "registry tarball metadata unavailable for install smoke" >&2
+    return 1
+  fi
+
+  local smoke_root
+  local bin_path
+  local install_status
+  local version_status
+
+  smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-postflight.XXXXXX")"
+  bin_path="${smoke_root}/bin/${PACKAGE_BIN_NAME}"
+
+  if ! npm install --global --prefix "$smoke_root" "$TARBALL_URL" >/dev/null 2>&1; then
+    install_status=$?
+    rm -rf "$smoke_root"
+    return "$install_status"
+  fi
+
+  if [[ ! -x "$bin_path" ]]; then
+    echo "installed binary missing at ${bin_path}" >&2
+    rm -rf "$smoke_root"
+    return 1
+  fi
+
+  "$bin_path" --version
+  version_status=$?
+  rm -rf "$smoke_root"
+  return "$version_status"
 }
 
 run_with_retry() {
@@ -201,7 +234,7 @@ else
 fi
 
 echo "[5/5] Install smoke"
-if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" npm exec --yes --package "${PACKAGE_NAME}@${TARGET_VERSION}" -- agentxchain --version; then
+if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" run_install_smoke; then
   EXEC_VERSION="$(trim_last_line "$EXEC_OUTPUT")"
   if [[ "$EXEC_VERSION" == "$TARGET_VERSION" ]]; then
     pass "published CLI executes and reports ${TARGET_VERSION}"
