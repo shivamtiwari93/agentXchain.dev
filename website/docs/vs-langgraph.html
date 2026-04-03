@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgentXchain vs LangGraph | Governance vs graph orchestration</title>
+  <meta name="description" content="AgentXchain vs LangGraph: when LangGraph is the better fit for durable graph-based agents, when AgentXchain is the better fit for governed software delivery, and how the two can complement each other." />
+  <link rel="icon" type="image/png" href="../assets/logos/agentXchain.dev_icon_only_280x280px.png" />
+  <link rel="canonical" href="https://agentxchain.dev/docs/vs-langgraph.html" />
+  <meta property="og:title" content="AgentXchain vs LangGraph" />
+  <meta property="og:description" content="LangGraph is stronger for graph-shaped, durable agent workflows. AgentXchain is stronger for governed software delivery with mandatory challenge and ship gates." />
+  <meta property="og:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AgentXchain vs LangGraph" />
+  <meta name="twitter:description" content="Graph orchestration vs governed delivery: when to choose LangGraph, when to choose AgentXchain, and where they differ." />
+  <meta name="twitter:image" content="https://agentxchain.dev/assets/logos/agentXchain.dev_rectangle_600x120px.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../docs.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/"><img src="../assets/logos/agentXchain.dev_rectangle_600x120px.png" alt="AgentXchain.dev" /></a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/cli.html">CLI</a>
+        <a href="/docs/plugins.html">Plugins</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="/docs/vs-langgraph.html" class="active">vs LangGraph</a>
+        <a href="https://www.npmjs.com/package/agentxchain" class="btn-nav">npm</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="docs-hero">
+    <div class="container">
+      <span class="eyebrow">Comparisons / LangGraph</span>
+      <h1>LangGraph is stronger for durable graph orchestration. AgentXchain is stronger for governed delivery on a codebase.</h1>
+      <p class="lede">LangGraph gives you graph-shaped control flow, durable execution, interrupts, and a strong runtime story for long-running agents. AgentXchain does something narrower: it governs how PM, dev, QA, and related roles challenge each other, pass gates, and leave auditable delivery evidence before software ships.</p>
+      <div class="hero-links">
+        <a href="/docs/quickstart.html" class="primary">Try AgentXchain</a>
+        <a href="/docs/protocol.html">Read the protocol</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="docs-layout">
+      <aside class="docs-sidebar">
+        <h2>Comparisons</h2>
+        <a href="/docs/vs-crewai.html">vs CrewAI</a>
+        <a href="/docs/vs-langgraph.html" class="active">vs LangGraph</a>
+        <a href="/docs/quickstart.html">Quickstart</a>
+        <a href="/docs/protocol.html">Protocol</a>
+        <a href="/">Landing page</a>
+        <p class="docs-note">Do not flatten these into one category. LangGraph solves runtime orchestration. AgentXchain solves governed delivery.</p>
+        <h2>On this page</h2>
+        <a href="#short-answer">Short answer</a>
+        <a href="#matrix">Comparison matrix</a>
+        <a href="#choose-langgraph">Choose LangGraph when</a>
+        <a href="#choose-agentxchain">Choose AgentXchain when</a>
+        <a href="#example">Concrete example</a>
+        <a href="#together">Using both together</a>
+      </aside>
+
+      <main class="docs-content">
+        <section id="short-answer">
+          <h2>The short answer</h2>
+          <div class="callout">
+            <p><strong>Choose LangGraph</strong> when you need graph-shaped control flow, durable execution, long-running state, interrupts, and time-travel-style debugging for agent applications.</p>
+            <p><strong>Choose AgentXchain</strong> when your core problem is governed software delivery: explicit turns, mandatory objections, human-controlled phase gates, and append-only delivery evidence.</p>
+          </div>
+          <div class="surface-grid">
+            <div class="surface">
+              <span class="eyebrow-chip">LangGraph strengths</span>
+              <ul>
+                <li>Graph/state-machine model for complex control flow</li>
+                <li>Durable execution and persisted agent state</li>
+                <li>Interrupts and time-travel-style operational debugging</li>
+                <li>Strong fit for long-running production agent systems</li>
+              </ul>
+            </div>
+            <div class="surface">
+              <span class="eyebrow-chip">AgentXchain strengths</span>
+              <ul>
+                <li>Mandatory challenge between software-delivery roles</li>
+                <li>Human approval at phase transitions and run completion</li>
+                <li>Repo-local audit trail with decisions, objections, and evidence</li>
+                <li>Purpose-built workflow for convergence on shippable code</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="matrix">
+          <h2>Comparison matrix</h2>
+          <div class="docs-table-wrap">
+            <table class="docs-table">
+              <thead>
+                <tr>
+                  <th>Capability</th>
+                  <th>LangGraph</th>
+                  <th>AgentXchain</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Primary job</td>
+                  <td>Graph-based orchestration for agent runtime workflows</td>
+                  <td>Governed delivery workflow for software teams</td>
+                </tr>
+                <tr>
+                  <td>Workflow model</td>
+                  <td>Developer-defined nodes, edges, interrupts, and state transitions</td>
+                  <td>Role-based turns, gates, validations, and acceptance ledgers</td>
+                </tr>
+                <tr>
+                  <td>Mandatory challenge</td>
+                  <td>No built-in protocol requirement</td>
+                  <td>Yes. Objections are part of the governed contract</td>
+                </tr>
+                <tr>
+                  <td>Human authority</td>
+                  <td>Interrupts and state intervention</td>
+                  <td>Phase and ship gates plus blocked-state recovery authority</td>
+                </tr>
+                <tr>
+                  <td>Best fit</td>
+                  <td>Long-running agent apps and durable control flow</td>
+                  <td>Auditable convergence on one repo or governed multi-repo work</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">LangGraph gives you a strong runtime. AgentXchain gives you a delivery constitution. Those are different products.</p>
+        </section>
+
+        <section id="choose-langgraph">
+          <h2>Choose LangGraph when</h2>
+          <div class="surface">
+            <ul>
+              <li>You need explicit graph-shaped branching, retries, loops, interrupts, and durable execution.</li>
+              <li>You are building an always-on or long-running agent system rather than a governed repo workflow.</li>
+              <li>You care more about runtime orchestration and state persistence than about delivery-phase governance.</li>
+              <li>You want the broader LangGraph and LangSmith ecosystem for operational visibility.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="choose-agentxchain">
+          <h2>Choose AgentXchain when</h2>
+          <div class="surface">
+            <ul>
+              <li>You need PM, dev, and QA roles to challenge each other before work is accepted.</li>
+              <li>You need human-controlled planning gates and final ship approval as first-class workflow behavior.</li>
+              <li>You need accepted changes recorded with role ownership, objections, and verification evidence.</li>
+              <li>You care about governed delivery semantics more than graph runtime expressiveness.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="example">
+          <h2>The difference in one example</h2>
+          <p>LangGraph can model a rich implementation and review graph. What it does not provide by default is a software-delivery constitution that rejects blind agreement and forces human ship authority.</p>
+          <div class="surface-grid">
+            <div class="surface">
+              <h3>LangGraph-style runtime graph</h3>
+              <pre><code># sketch, not AgentXchain syntax
+graph = StateGraph(State)
+graph.add_node("plan", plan_agent)
+graph.add_node("build", dev_agent)
+graph.add_node("review", qa_agent)
+graph.add_edge("plan", "build")
+graph.add_edge("build", "review")
+graph.add_conditional_edges("review", decide_next)</code></pre>
+              <p>This is powerful runtime orchestration. But whether review must contain an objection, whether a human must approve ship readiness, and how acceptance is recorded are still application choices.</p>
+            </div>
+            <div class="surface">
+              <h3>AgentXchain governed run</h3>
+              <pre><code>npx agentxchain init --governed
+agentxchain step --role pm
+agentxchain accept-turn
+agentxchain approve-transition
+agentxchain step --role dev
+agentxchain step --role qa
+agentxchain approve-completion</code></pre>
+              <p>AgentXchain gives up graph generality in exchange for governed delivery rules: role ownership, challenge requirements, validation, gates, and append-only history.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="together">
+          <h2>You can use both together</h2>
+          <div class="warning">
+            <p><strong>Useful split:</strong> use LangGraph to implement an agent runtime, then use AgentXchain to govern how outputs from specialized roles are accepted on the codebase. Runtime orchestration and delivery governance are complementary layers.</p>
+          </div>
+          <div class="link-grid">
+            <a class="link-card" href="/docs/quickstart.html">
+              <h3>See the governed workflow</h3>
+              <p>Open the quickstart for the actual repo-level turn lifecycle.</p>
+            </a>
+            <a class="link-card" href="/docs/vs-crewai.html">
+              <h3>Compare with CrewAI next</h3>
+              <p>See how the governance wedge differs from broader crew orchestration.</p>
+            </a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <div class="footer-copy">
+          Governance for multi-agent software delivery: mandatory challenge, explicit gates, and append-only evidence.
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Compare</h4>
+            <a href="/docs/vs-crewai.html">vs CrewAI</a>
+            <a href="/docs/vs-langgraph.html">vs LangGraph</a>
+          </div>
+          <div>
+            <h4>Docs</h4>
+            <a href="/docs/quickstart.html">Quickstart</a>
+            <a href="/docs/cli.html">CLI</a>
+            <a href="/docs/protocol.html">Protocol</a>
+          </div>
+          <div>
+            <h4>Links</h4>
+            <a href="https://www.npmjs.com/package/agentxchain">npm</a>
+            <a href="https://github.com/shivamtiwari93/agentXchain.dev">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

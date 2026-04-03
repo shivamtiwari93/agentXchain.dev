@@ -393,6 +393,46 @@ nav img {
   background: rgba(43, 124, 182, 0.04);
 }
 
+.link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.link-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-card);
+  padding: 1.1rem 1.15rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.link-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.link-card h3 {
+  color: var(--text);
+}
+
+.link-card p {
+  color: var(--text-muted);
+}
+
+.eyebrow-chip {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue-light);
+}
+
 footer {
   border-top: 1px solid var(--border);
   padding: 2.2rem 0 1.5rem;
@@ -443,7 +483,8 @@ footer {
   }
 
   .surface-grid,
-  .mini-grid {
+  .mini-grid,
+  .link-grid {
     grid-template-columns: 1fr;
   }
 }
