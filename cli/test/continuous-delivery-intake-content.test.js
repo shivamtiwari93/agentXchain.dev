@@ -36,6 +36,7 @@ describe('Continuous delivery intake docs surface', () => {
       'intake triage',
       'intake approve',
       'intake plan',
+      'intake start',
       'intake status',
       '.agentxchain/intake/',
       '.agentxchain/intake/events/',
@@ -44,6 +45,9 @@ describe('Continuous delivery intake docs surface', () => {
       'dedup_key',
       'approved_by',
       'planning_artifacts',
+      'target_run',
+      'target_turn',
+      'started_at',
       'ci_failure',
       'git_ref_change',
       'schedule',
@@ -52,14 +56,15 @@ describe('Continuous delivery intake docs surface', () => {
     }
   });
 
-  it('documents the shipped S1+S2 state machine and defers only the start bridge', () => {
+  it('documents the shipped S1+S3 state machine and defers later v3 states', () => {
     assert.match(DOC, /Implemented now/);
     assert.match(DOC, /Defined in v3 scope, not exposed yet/);
     assert.match(DOC, /triaged -> approved/);
     assert.match(DOC, /approved -> planned/);
     assert.match(DOC, /planned -> executing/);
-    assert.match(DOC, /There is still no `intake start` command/);
-    assert.doesNotMatch(DOC, /there is no `intake approve` or `intake plan` command yet/i);
+    assert.match(DOC, /awaiting_release_approval/);
+    assert.match(DOC, /Under the current governed-state contract, `paused` is an approval-held state/);
+    assert.doesNotMatch(DOC, /There is still no `intake start` command/);
   });
 
   it('keeps planning specs aligned with the public route, shipped slices, and resolved v3 questions', () => {
@@ -67,7 +72,8 @@ describe('Continuous delivery intake docs surface', () => {
     assert.match(DOC_SPEC, /\/docs\/continuous-delivery-intake/);
     assert.match(V3_SCOPE, /V3-S1 \(shipped\)/);
     assert.match(V3_SCOPE, /V3-S2 \(shipped\)/);
-    assert.match(V3_SCOPE, /V3-S3 \(next\)/);
+    assert.match(V3_SCOPE, /V3-S3 \(shipped\)/);
+    assert.match(V3_SCOPE, /V3-S4 \(next\)/);
     assert.match(V3_SCOPE, /`schedule` is a first-class event source/i);
     assert.match(V3_SCOPE, /append-only child records under `\.agentxchain\/intake\/observations\/`/i);
     assert.match(V3_SCOPE, /fallback template is `generic`/i);

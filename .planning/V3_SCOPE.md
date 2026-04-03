@@ -231,33 +231,57 @@ Trigger events, intents, and observation evidence live in repo files. No hosted 
 - governed-template-backed `.planning/` artifact generation
 - atomic artifact-conflict rejection with `--force` override
 
-### V3-S3 (next): Planned Intent To Governed Run Start
+### V3-S3 (shipped): Planned Intent To Governed Run Start
 
-This is the next slice worth implementing. Anything broader is sloppy because the missing bridge is now obvious: planned work still has no truthful handoff into the governed run engine.
+This slice is now shipped. It closes the obvious gap between backlog preparation and governed execution without inventing a second engine.
 
 The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.md`.
 
-**In scope:**
+**Shipped scope:**
 
 - `agentxchain intake start --intent <id>`
 - `planned -> executing` transition
 - linkage from intake intent to governed `run_id` and first `turn_id`
 - reuse of the existing governed run engine and dispatch bundle machinery
 - deterministic rejection when the project is already busy, completed, blocked, or missing recorded planning artifacts
+- deterministic rejection when the run is paused on approval-hold semantics
 
-**Why this slice next:**
+**Why this slice mattered:**
 
 - It closes the gap between backlog preparation and governed execution.
 - It makes `target_run` real instead of dead schema weight.
 - It advances continuous governed delivery without smuggling in auto-execution from raw signals.
 
-**Explicitly not in slice 3:**
+**Explicitly not in S3:**
 
 - no background daemon that auto-starts intents from CI or schedule signals
 - no multi-intent scheduler
 - no post-completion run recycling
 - no release approval automation
 - no production or incident integrations
+
+### V3-S4 (next): Deterministic Intake Scan
+
+The smaller next slice is `intake scan`, not run recycling.
+
+Run recycling reopens core governed-run identity, lifecycle closure, and protocol invariants. That is not a small follow-up. `intake scan` can stay additive if it does one narrow job well: convert structured source snapshots into repo-native intake events through the existing `record` path.
+
+The implementation contract for this slice lives in `.planning/V3_S4_SCAN_SPEC.md`.
+
+**In scope:**
+
+- `agentxchain intake scan --source <ci_failure|git_ref_change|schedule>`
+- deterministic extraction of candidate signals from file or stdin snapshots
+- reuse of the existing intake event deduplication and intent-creation path
+- structured scan results: scanned, created, deduplicated, rejected
+
+**Explicitly not in S4:**
+
+- no live SaaS polling loop
+- no background daemon
+- no auto-triage, auto-approval, or auto-start
+- no post-release reopen automation
+- no run recycling
 
 ---
 
@@ -278,7 +302,7 @@ The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.
 1. Duplicate event payload for the same external signal: must be deduplicated or linked, not create unbounded duplicate intents.
 2. Intake event missing source-specific evidence: triage fails with a deterministic validation error.
 3. Explicit template override invalid or missing template manifest: triage fails with a deterministic validation error.
-4. Future start slice must reject any attempt to enter `executing` when recorded planning artifacts are missing on disk.
+4. `intake start` must reject any attempt to enter `executing` when recorded planning artifacts are missing on disk.
 5. Observation signal for unknown released intent: creates a new `detected` event, not an orphaned reopen transition.
 
 ---
@@ -293,7 +317,7 @@ The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.
 6. `AT-V3-INTAKE-006`: `intake status --intent <id>` returns the linked source event plus intent history.
 7. `AT-V3-INTAKE-007`: invalid source-specific payload is rejected with a deterministic error.
 8. `AT-V3-INTAKE-008`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
-9. `AT-V3-INTAKE-009`: future `intake start` must set `target_run` and transition `planned -> executing` without waiting for turn completion.
+9. `AT-V3-INTAKE-009`: `intake start` sets `target_run`, `target_turn`, and transitions `planned -> executing` without waiting for turn completion.
 
 ---
 
@@ -302,3 +326,4 @@ The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.
 1. `schedule` is a first-class event source in v3.0. It is valid input to the repo-native intake surface even before `intake scan` exists.
 2. Observation evidence belongs in append-only child records under `.agentxchain/intake/observations/`, not by mutating historical intent records.
 3. The fallback template is `generic`. Fail-closed template selection is rejected for unmapped signals because it would block safe intake without adding governance value.
+4. S3 does not relax the governed paused-state contract. `paused` remains approval-held in current `.dev` scope, so intake start does not resume paused runs.

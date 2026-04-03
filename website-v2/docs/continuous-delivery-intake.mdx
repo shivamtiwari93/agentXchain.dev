@@ -1,6 +1,6 @@
 ---
 title: Continuous Delivery Intake
-description: "Repo-native intake for continuous governed delivery: record signals, triage work, approve intent, generate planning artifacts, and inspect backlog state."
+description: "Repo-native intake for continuous governed delivery: record signals, triage work, approve intent, generate planning artifacts, start governed execution, and inspect backlog state."
 ---
 
 # Continuous Delivery Intake
@@ -11,22 +11,22 @@ This is the v3 entrypoint that exists today. It records signals, creates deliver
 
 ## What ships today
 
-The current CLI surface is five commands:
+The current CLI surface is six commands:
 
 ```bash
 agentxchain intake record
 agentxchain intake triage
 agentxchain intake approve
 agentxchain intake plan
+agentxchain intake start
 agentxchain intake status
 ```
 
 What is intentionally **not** shipped yet:
 
 - `agentxchain intake scan`
-- `agentxchain intake start`
 
-Those belong to later v3 slices. Do not claim those commands exist unless the repo actually ships them.
+`intake scan` is the next additive slice. Do not claim it exists until the repo actually ships it.
 
 ## Artifact layout
 
@@ -258,11 +258,54 @@ Planning behavior is template-aware:
 - `generic` is valid and may generate zero planning artifacts
 - if any target artifact already exists, planning fails atomically unless `--force` is supplied
 
-`planned` means execution-ready. It does **not** mean execution has started.
+`planned` means execution-ready. It does **not** mean execution has started until `intake start` links the intent to a governed run.
+
+## `intake start`
+
+Use `intake start` to bridge one `planned` intent into the existing governed run engine.
+
+```bash
+agentxchain intake start \
+  --intent intent_1712173200000_c3d4 \
+  --role dev \
+  --json
+```
+
+Current start action:
+
+- `planned -> executing`
+
+Success output includes:
+
+- the resolved `run_id`
+- the first assigned `turn_id`
+- the chosen role
+- the dispatch directory for the new governed turn
+
+On success the intent gains:
+
+- `target_run`
+- `target_turn`
+- `started_at`
+
+`intake start` is a governed handoff, not a second execution engine. It reuses the same governed state, turn-assignment, and dispatch-bundle machinery as the rest of the CLI.
+
+### Start constraints
+
+`intake start` rejects deterministically when:
+
+- the intent is not in `planned`
+- any recorded planning artifact is missing on disk
+- another governed turn is already active
+- the run is `blocked`
+- the run is `completed`
+- the run is paused on `pending_phase_transition` or `pending_run_completion`
+
+Do not blur that last rule. Under the current governed-state contract, `paused` is an approval-held state, not a generic resumable idle state for intake.
 
 ## State machine: shipped vs deferred
 
-The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 plus S2.
+The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 through S3.
 
 ### Implemented now
 
@@ -272,15 +315,19 @@ detected -> suppressed
 triaged -> approved
 triaged -> rejected
 approved -> planned
+planned -> executing
 ```
 
 ### Defined in v3 scope, not exposed yet
 
 ```text
-planned -> executing
+executing -> awaiting_release_approval
+awaiting_release_approval -> released
+released -> observing
+observing -> reopened
 ```
 
-That distinction matters. The repo currently stores `requires_human_start: true` and leaves `target_run` as `null` after planning. There is still no `intake start` command, so a planned intent is prepared work, not running work.
+That distinction still matters. The repo continues to store `requires_human_start: true`. Approval and planning prepare work; `intake start` is the explicit human-authorized bridge that turns prepared work into governed execution.
 
 ## `intake status`
 
@@ -316,7 +363,9 @@ Intake is an entrypoint, not a loophole.
 
 - recording an event does not create a governed run
 - approving or planning an intent does not create a governed run
+- `intake start` does create or attach one planned intent to the governed execution boundary
 - `planned` is not the same thing as `executing`
 - the future continuous loop still has to respect explicit approval transitions
+- `intake start` does not auto-triage, auto-approve, or auto-start from raw signals
 
 If you want automatic code-writing execution from repo signals, that is a later governance decision, not a default.

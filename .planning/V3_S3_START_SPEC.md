@@ -1,6 +1,6 @@
 # V3-S3 Spec — Intake Start Bridge
 
-> Standalone implementation spec for the next v3 slice. Covers `agentxchain intake start`, the `planned -> executing` transition, and linkage from a planned intake intent into the existing governed run engine.
+> Standalone implementation spec for the shipped v3 slice that added `agentxchain intake start`, the `planned -> executing` transition, and linkage from a planned intake intent into the existing governed run engine.
 
 ---
 
@@ -92,12 +92,12 @@ planned -> executing
 5. Run bootstrap rules:
    - if governed state is `idle` with no `run_id`, initialize a run via the existing governed-state primitive
    - if governed state is `active` with no active turns, reuse the active run
-   - if governed state is `paused` with no active turns and no pending gate approval, resume the existing run
 6. Busy-run rules:
    - if any active turn already exists, reject start
    - if the run is `blocked`, reject start
    - if the run is `completed`, reject start
-   - if the run is paused on `pending_phase_transition` or `pending_run_completion`, reject start
+   - if the run is `paused`, reject start because paused remains an approval-held state in the current governed schema
+   - if `pending_phase_transition` or `pending_run_completion` is present, reject start
 7. Role selection rules:
    - default to the current phase entry role from governed routing
    - allow `--role` override using the same validation rules as governed `resume`
@@ -117,6 +117,7 @@ S3 must document the current engine truth instead of hiding it:
 - AgentXchain today behaves like a single-run engine per project state file.
 - `intake start` does not solve post-completion run recycling.
 - Starting a new intent after a completed governed run is explicitly out of scope for S3.
+- S3 does not widen the meaning of `paused`. Relaxing the governed schema to support paused-without-pending intake resume is explicitly rejected for this slice.
 
 ---
 
@@ -146,6 +147,7 @@ S3 must document the current engine truth instead of hiding it:
 - `AT-V3S3-007`: `intake start` rejects when governed state is `completed`
 - `AT-V3S3-008`: success output includes `run_id`, `turn_id`, and dispatch directory in JSON mode
 - `AT-V3S3-009`: success appends an intent-history transition from `planned` to `executing` with linkage fields
+- `AT-V3S3-010`: `intake start` rejects a paused run that is awaiting approval instead of pretending paused is intake-resumable
 
 ---
 
