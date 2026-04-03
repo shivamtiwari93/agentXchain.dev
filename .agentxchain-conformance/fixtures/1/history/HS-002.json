@@ -1,0 +1,56 @@
+{
+  "fixture_id": "HS-002",
+  "tier": 1,
+  "surface": "history",
+  "description": "Re-accepting the same turn does not duplicate history",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null,
+      "accepted_sequence": 1
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      }
+    },
+    "history": [
+      {
+        "turn_id": "turn_abc",
+        "run_id": "run_001",
+        "role": "dev",
+        "status": "completed",
+        "summary": "Implemented feature X",
+        "accepted_sequence": 1,
+        "accepted_at": "2026-04-01T12:00:00.000Z"
+      }
+    ]
+  },
+  "input": {
+    "operation": "accept_turn",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "turn_already_accepted",
+    "history_length": 1
+  }
+}

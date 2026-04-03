@@ -1,0 +1,72 @@
+{
+  "fixture_id": "TR-006",
+  "tier": 1,
+  "surface": "turn_result_validation",
+  "description": "review_only role with zero objections rejected at protocol stage",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_review": {
+          "role": "qa",
+          "runtime_id": "local-qa",
+          "assigned_sequence": 2
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "rules": {
+        "challenge_required": true
+      },
+      "roles": {
+        "qa": {
+          "title": "QA Engineer",
+          "mandate": "Verify correctness",
+          "write_authority": "review_only",
+          "runtime": "local-qa"
+        }
+      },
+      "runtimes": {
+        "local-qa": { "type": "local_cli" }
+      },
+      "routing": {
+        "qa": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "dev", "human"],
+          "max_concurrent_turns": 1
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {
+      "turn_result": {
+        "schema_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_review",
+        "role": "qa",
+        "runtime_id": "local-qa",
+        "status": "completed",
+        "summary": "Reviewed implementation, looks good",
+        "decisions": [],
+        "objections": [],
+        "files_changed": [],
+        "verification": { "status": "pass" },
+        "artifact": { "type": "review" },
+        "proposed_next_role": "human"
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "protocol",
+    "error_type": "challenge_requirement_violated",
+    "error_detail": "review_only role must raise at least one objection"
+  }
+}

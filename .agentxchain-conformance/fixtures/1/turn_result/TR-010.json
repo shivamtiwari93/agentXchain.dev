@@ -1,0 +1,70 @@
+{
+  "fixture_id": "TR-010",
+  "tier": 1,
+  "surface": "turn_result_validation",
+  "description": "needs_human status with needs_human_reason passes validation",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "local-dev",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      },
+      "routing": {
+        "implementation": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "human"],
+          "max_concurrent_turns": 1
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {
+      "turn_result": {
+        "schema_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "runtime_id": "local-dev",
+        "status": "needs_human",
+        "needs_human_reason": "Cannot determine correct database migration strategy without production schema access",
+        "summary": "Blocked on migration strategy decision",
+        "decisions": [],
+        "objections": [],
+        "files_changed": [],
+        "verification": { "status": "skipped" },
+        "artifact": { "type": "workspace" },
+        "proposed_next_role": "human"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

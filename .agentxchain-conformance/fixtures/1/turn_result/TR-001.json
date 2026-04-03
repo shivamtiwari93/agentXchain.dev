@@ -1,0 +1,92 @@
+{
+  "fixture_id": "TR-001",
+  "tier": 1,
+  "surface": "turn_result_validation",
+  "description": "Valid turn result passes all 5 stages",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "local-dev",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        },
+        "qa": {
+          "title": "QA",
+          "mandate": "Test features",
+          "write_authority": "review_only",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      },
+      "routing": {
+        "implementation": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "qa", "human"],
+          "max_concurrent_turns": 1
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {
+      "turn_result": {
+        "schema_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "runtime_id": "local-dev",
+        "status": "completed",
+        "summary": "Implemented auth middleware with JWT validation",
+        "decisions": [
+          {
+            "id": "DEC-001",
+            "category": "architecture",
+            "statement": "Chose RS256 over HS256 for key rotation support",
+            "rationale": "RS256 allows key rotation without secret sharing"
+          }
+        ],
+        "objections": [],
+        "files_changed": ["src/middleware/auth.ts", "src/types/auth.ts"],
+        "verification": {
+          "status": "pass",
+          "commands": ["npm test"],
+          "evidence_summary": "All 504 tests pass",
+          "machine_evidence": [
+            { "command": "npm test", "exit_code": 0 }
+          ]
+        },
+        "artifact": {
+          "type": "workspace",
+          "ref": "git:abc123"
+        },
+        "proposed_next_role": "qa"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

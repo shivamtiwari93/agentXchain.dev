@@ -1,0 +1,69 @@
+{
+  "fixture_id": "GS-003",
+  "tier": 1,
+  "surface": "gate_semantics",
+  "description": "Gate with requires_verification_pass passes on pass",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      },
+      "routing": {
+        "implementation": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "human"],
+          "exit_gate": "impl_gate",
+          "max_concurrent_turns": 1
+        },
+        "qa": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "human"],
+          "max_concurrent_turns": 1
+        }
+      },
+      "gates": {
+        "impl_gate": {
+          "requires_files": [],
+          "requires_verification_pass": true,
+          "requires_human_approval": false
+        }
+      }
+    },
+    "turn_result": {
+      "phase_transition_request": "qa",
+      "verification": { "status": "pass" }
+    }
+  },
+  "input": {
+    "operation": "evaluate_phase_exit",
+    "args": {
+      "current_phase": "implementation",
+      "requested_phase": "qa"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "action": "advance",
+    "new_phase": "qa"
+  }
+}

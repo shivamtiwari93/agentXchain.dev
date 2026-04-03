@@ -1,0 +1,53 @@
+{
+  "fixture_id": "HS-003",
+  "tier": 1,
+  "surface": "history",
+  "description": "Orphaned history append without corresponding state advance fails",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null,
+      "accepted_sequence": 0
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      }
+    },
+    "history": []
+  },
+  "input": {
+    "operation": "append_history",
+    "args": {
+      "entry": {
+        "turn_id": "turn_nonexistent",
+        "run_id": "run_001",
+        "role": "dev",
+        "status": "completed",
+        "summary": "Phantom turn"
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "orphaned_history_entry",
+    "history_length": 0,
+    "state_unchanged": true
+  }
+}

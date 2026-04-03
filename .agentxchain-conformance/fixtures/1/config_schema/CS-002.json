@@ -1,0 +1,46 @@
+{
+  "fixture_id": "CS-002",
+  "tier": 1,
+  "surface": "config_schema",
+  "description": "Entry role not in roles map rejected",
+  "type": "reject",
+  "setup": {},
+  "input": {
+    "operation": "validate_config",
+    "args": {
+      "config": {
+        "schema_version": "1.0",
+        "project": {
+          "id": "test-project",
+          "name": "Test Project"
+        },
+        "roles": {
+          "dev": {
+            "title": "Developer",
+            "mandate": "Build features",
+            "write_authority": "authoritative",
+            "runtime": "local-dev"
+          }
+        },
+        "runtimes": {
+          "local-dev": {
+            "type": "local_cli"
+          }
+        },
+        "routing": {
+          "implementation": {
+            "entry_role": "pm",
+            "allowed_next_roles": ["dev", "human"],
+            "max_concurrent_turns": 1
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "undeclared_role_reference",
+    "error_field": "routing.implementation.entry_role",
+    "referenced_role": "pm"
+  }
+}

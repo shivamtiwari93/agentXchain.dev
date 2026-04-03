@@ -1,0 +1,46 @@
+{
+  "fixture_id": "CS-005",
+  "tier": 1,
+  "surface": "config_schema",
+  "description": "Invalid schema_version rejected",
+  "type": "reject",
+  "setup": {},
+  "input": {
+    "operation": "validate_config",
+    "args": {
+      "config": {
+        "schema_version": "2.0",
+        "project": {
+          "id": "test-project",
+          "name": "Test Project"
+        },
+        "roles": {
+          "dev": {
+            "title": "Developer",
+            "mandate": "Build features",
+            "write_authority": "authoritative",
+            "runtime": "local-dev"
+          }
+        },
+        "runtimes": {
+          "local-dev": {
+            "type": "local_cli"
+          }
+        },
+        "routing": {
+          "implementation": {
+            "entry_role": "dev",
+            "allowed_next_roles": ["dev", "human"],
+            "max_concurrent_turns": 1
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "schema_version_invalid",
+    "expected_version": "1.0",
+    "actual_version": "2.0"
+  }
+}

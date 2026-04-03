@@ -1,0 +1,48 @@
+{
+  "fixture_id": "CS-004",
+  "tier": 1,
+  "surface": "config_schema",
+  "description": "Gate referenced by routing but not declared rejected",
+  "type": "reject",
+  "setup": {},
+  "input": {
+    "operation": "validate_config",
+    "args": {
+      "config": {
+        "schema_version": "1.0",
+        "project": {
+          "id": "test-project",
+          "name": "Test Project"
+        },
+        "roles": {
+          "dev": {
+            "title": "Developer",
+            "mandate": "Build features",
+            "write_authority": "authoritative",
+            "runtime": "local-dev"
+          }
+        },
+        "runtimes": {
+          "local-dev": {
+            "type": "local_cli"
+          }
+        },
+        "routing": {
+          "implementation": {
+            "entry_role": "dev",
+            "allowed_next_roles": ["dev", "human"],
+            "exit_gate": "quality_gate",
+            "max_concurrent_turns": 1
+          }
+        },
+        "gates": {}
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "undeclared_gate_reference",
+    "error_field": "routing.implementation.exit_gate",
+    "referenced_gate": "quality_gate"
+  }
+}

@@ -14,23 +14,46 @@ Each fixture is a standalone JSON file under `<tier>/<surface>/`.
 
 These verbs are fixture abstractions, not CLI command names:
 
-- `initialize_run`
-- `assign_turn`
-- `approve_transition`
-- `approve_completion`
-- `resolve_blocked`
-- `transition_state`
+- `initialize_run` — create a new governed run
+- `assign_turn` — assign a turn to a role
+- `accept_turn` — accept a completed turn result into history
+- `append_history` — directly append a history entry (for orphan detection)
+- `approve_transition` — human approves a phase transition gate
+- `approve_completion` — human approves run completion
+- `resolve_blocked` — human resolves a blocked state
+- `transition_state` — generic state transition
+- `validate_turn_result` — run 5-stage turn result validation pipeline
+- `evaluate_phase_exit` — evaluate gate predicates for phase transition
+- `append_decision` — append a decision to the decision ledger
+- `validate_config` — validate a governed config against schema
 
 The adapter is responsible for mapping these operations onto the target implementation.
 
 ## Assertion Objects
 
-The initial corpus uses a minimal matcher vocabulary inside `expected`:
+The corpus uses a minimal matcher vocabulary inside `expected`:
 
-- `{ "assert": "nonempty_string" }`
-- `{ "assert": "id_prefix", "value": "run_" }`
-- `{ "assert": "present" }`
+- `{ "assert": "nonempty_string" }` — value must be a non-empty string
+- `{ "assert": "id_prefix", "value": "run_" }` — string starts with prefix
+- `{ "assert": "present" }` — field must exist (any value)
 
 ## Authoring Status
 
-Fixture authoring has started with Tier 1 state-machine coverage. Remaining Tier 1 surfaces should be completed before validator implementation begins.
+### Tier 1 — Complete (40 fixtures)
+
+| Surface | Count | IDs |
+|---------|-------|-----|
+| State Machine | 12 | SM-001 through SM-012 |
+| Turn Result Validation | 10 | TR-001 through TR-010 |
+| Gate Semantics | 6 | GS-001 through GS-006 |
+| Decision Ledger | 4 | DL-001 through DL-004 |
+| History | 3 | HS-001 through HS-003 |
+| Config Schema | 5 | CS-001 through CS-005 |
+
+### Tier 2 — Pending (8 fixtures)
+
+DM-001 through DM-005, HA-001 through HA-003.
+
+### Tier 3 — Pending (5 fixtures)
+
+CR-001 through CR-005.

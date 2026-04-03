@@ -1,0 +1,45 @@
+{
+  "fixture_id": "CS-001",
+  "tier": 1,
+  "surface": "config_schema",
+  "description": "Minimal valid governed config",
+  "type": "validate",
+  "setup": {},
+  "input": {
+    "operation": "validate_config",
+    "args": {
+      "config": {
+        "schema_version": "1.0",
+        "project": {
+          "id": "test-project",
+          "name": "Test Project"
+        },
+        "roles": {
+          "dev": {
+            "title": "Developer",
+            "mandate": "Build features with tests",
+            "write_authority": "authoritative",
+            "runtime": "local-dev"
+          }
+        },
+        "runtimes": {
+          "local-dev": {
+            "type": "local_cli"
+          }
+        },
+        "routing": {
+          "implementation": {
+            "entry_role": "dev",
+            "allowed_next_roles": ["dev", "human"],
+            "max_concurrent_turns": 1
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

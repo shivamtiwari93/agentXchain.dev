@@ -1,0 +1,71 @@
+{
+  "fixture_id": "TR-009",
+  "tier": 1,
+  "surface": "turn_result_validation",
+  "description": "Mutually exclusive phase_transition and run_completion rejected",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "local-dev",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      },
+      "routing": {
+        "qa": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "human"],
+          "max_concurrent_turns": 1
+        }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {
+      "turn_result": {
+        "schema_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "runtime_id": "local-dev",
+        "status": "completed",
+        "summary": "Wants both transition and completion",
+        "decisions": [],
+        "objections": [],
+        "files_changed": [],
+        "verification": { "status": "pass" },
+        "artifact": { "type": "workspace" },
+        "proposed_next_role": "human",
+        "phase_transition_request": "implementation",
+        "run_completion_request": true
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "protocol",
+    "error_type": "mutually_exclusive_requests",
+    "error_detail": "phase_transition_request and run_completion_request cannot both be present"
+  }
+}

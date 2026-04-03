@@ -1,0 +1,69 @@
+{
+  "fixture_id": "TR-008",
+  "tier": 1,
+  "surface": "turn_result_validation",
+  "description": "Invalid decision ID format rejected at schema stage",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "local-dev",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      }
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {
+      "turn_result": {
+        "schema_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "runtime_id": "local-dev",
+        "status": "completed",
+        "summary": "Made a decision with bad ID",
+        "decisions": [
+          {
+            "id": "DECISION-ONE",
+            "category": "architecture",
+            "statement": "Chose REST over gRPC",
+            "rationale": "Simpler for v1"
+          }
+        ],
+        "objections": [],
+        "files_changed": ["src/api.ts"],
+        "verification": { "status": "pass" },
+        "artifact": { "type": "workspace" },
+        "proposed_next_role": "human"
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "schema",
+    "error_type": "invalid_decision_id_format",
+    "error_detail": "Decision ID must match DEC-NNN pattern"
+  }
+}

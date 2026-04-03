@@ -1,0 +1,45 @@
+{
+  "fixture_id": "DL-001",
+  "tier": 1,
+  "surface": "decision_ledger",
+  "description": "Well-formed decision entry with all required fields",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001"
+    },
+    "ledger": []
+  },
+  "input": {
+    "operation": "append_decision",
+    "args": {
+      "entry": {
+        "id": "DEC-001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "phase": "implementation",
+        "category": "architecture",
+        "statement": "Chose RS256 over HS256 for key rotation support",
+        "rationale": "RS256 allows public key verification without sharing the secret",
+        "objections_against": [],
+        "status": "accepted",
+        "overridden_by": null,
+        "created_at": "2026-04-03T12:00:00.000Z"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "ledger_length": 1,
+    "ledger_last_entry": {
+      "id": "DEC-001",
+      "turn_id": "turn_abc",
+      "role": "dev",
+      "phase": "implementation",
+      "category": "architecture",
+      "status": "accepted"
+    }
+  }
+}

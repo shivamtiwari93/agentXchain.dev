@@ -1,0 +1,38 @@
+{
+  "fixture_id": "DL-003",
+  "tier": 1,
+  "surface": "decision_ledger",
+  "description": "Decision with invalid category rejected",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001"
+    },
+    "ledger": []
+  },
+  "input": {
+    "operation": "append_decision",
+    "args": {
+      "entry": {
+        "id": "DEC-001",
+        "turn_id": "turn_abc",
+        "role": "dev",
+        "phase": "implementation",
+        "category": "vibes",
+        "statement": "Chose the cool option",
+        "rationale": "It felt right",
+        "status": "accepted",
+        "created_at": "2026-04-03T12:00:00.000Z"
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_enum_value",
+    "error_field": "category",
+    "valid_values": ["implementation", "architecture", "scope", "process", "quality", "release"],
+    "ledger_length": 0
+  }
+}

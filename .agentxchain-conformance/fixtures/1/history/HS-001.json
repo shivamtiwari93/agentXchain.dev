@@ -1,0 +1,91 @@
+{
+  "fixture_id": "HS-001",
+  "tier": 1,
+  "surface": "history",
+  "description": "Accepted turn appends one history entry atomically with state update",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "local-dev",
+          "assigned_sequence": 1
+        }
+      },
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null,
+      "accepted_sequence": 0
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Developer",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        },
+        "qa": {
+          "title": "QA",
+          "mandate": "Test features",
+          "write_authority": "review_only",
+          "runtime": "local-dev"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" }
+      },
+      "routing": {
+        "implementation": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "qa", "human"],
+          "max_concurrent_turns": 1
+        }
+      }
+    },
+    "history": [],
+    "turn_result": {
+      "schema_version": "1.0",
+      "run_id": "run_001",
+      "turn_id": "turn_abc",
+      "role": "dev",
+      "runtime_id": "local-dev",
+      "status": "completed",
+      "summary": "Implemented feature X",
+      "decisions": [],
+      "objections": [],
+      "files_changed": ["src/feature.ts"],
+      "verification": { "status": "pass", "commands": ["npm test"], "evidence_summary": "All tests passed" },
+      "artifact": { "type": "workspace" },
+      "proposed_next_role": "qa"
+    }
+  },
+  "input": {
+    "operation": "accept_turn",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "state": {
+      "accepted_sequence": 1,
+      "active_turns": {}
+    },
+    "history_length": 1,
+    "history_last_entry": {
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "dev",
+      "status": "completed",
+      "accepted_sequence": 1,
+      "accepted_at": { "assert": "nonempty_string" }
+    }
+  }
+}
