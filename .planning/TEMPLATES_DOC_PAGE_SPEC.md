@@ -1,21 +1,21 @@
 # Templates Docs Page Spec
 
-> Public docs contract for governed scaffold templates.
+> Public docs contract for governed scaffold templates on the Docusaurus docs surface.
 
 ---
 
 ## Purpose
 
-Expose a first-class `/docs/templates` page so operators can understand the governed template system without piecing it together from README fragments and command help.
+Expose a truthful `/docs/templates` deep-dive so operators can choose, inspect, and mutate governed scaffold intent without reverse-engineering command help or template manifests.
 
-The repo already ships:
+This page must document the real product contract:
 
-- `init --governed --template <id>`
-- `template list`
-- `template set <id>`
-- `status` / `status --json` template visibility
-
-That command surface is real product behavior, not side-detail copy. The docs need a single truthful page for it.
+- templates are scaffold intent, not protocol forks
+- the selected template is stored in the top-level `template` field in `agentxchain.json`
+- `init --governed --template <id>` scaffolds template artifacts and guidance at creation time
+- `template list [--json]` exposes the built-in template surface
+- `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
+- `status` and `status --json` keep template choice visible to operators and automation
 
 ## Interface
 
@@ -25,89 +25,139 @@ That command surface is real product behavior, not side-detail copy. The docs ne
 /docs/templates
 ```
 
-### Files
+### Source Files
 
 ```text
 website-v2/docs/templates.mdx
 website-v2/sidebars.ts
 ```
 
-### Audience
+### Build Artifact
+
+```text
+website-v2/build/docs/templates/index.html
+```
+
+### Implementation Sources Of Truth
+
+```text
+cli/bin/agentxchain.js
+cli/src/commands/init.js
+cli/src/commands/status.js
+cli/src/commands/template-list.js
+cli/src/commands/template-set.js
+cli/src/lib/governed-templates.js
+cli/src/templates/governed/*.json
+```
+
+## Audience
 
 - Operators choosing a governed scaffold for a new repo
-- Teams retrofitting an existing governed repo with `template set`
-- Evaluators checking whether AgentXchain's SDLC templates are real or marketing
+- Teams annotating an existing governed repo with `template set`
+- Evaluators checking whether AgentXchain’s SDLC templates are real product behavior
 
 ## Behavior
 
-### 1. Explain the contract clearly
+### 1. Explain the contract precisely
 
 The page must state early that template choice is:
 
 - scaffold intent
 - recorded in `agentxchain.json`
-- additive guidance and planning structure
+- additive planning structure and prompt guidance
+- visible in status output
 - not hidden runtime magic
 - not a different protocol mode
 
-### 2. Cover all shipped commands
+### 2. Cover the real command surface
 
 The page must document:
 
 - `agentxchain init --governed --template <id>`
 - `agentxchain template list`
+- `agentxchain template list --json`
 - `agentxchain template set <id>`
 - `agentxchain status`
 - `agentxchain status --json`
 
-### 3. Show the built-in templates honestly
+The page must not fabricate unshipped template flags or behaviors such as:
 
-The page must list all built-in template IDs and the planning artifacts they add:
+- `agentxchain template set --force`
+- destructive merge or overwrite semantics
+- automatic template inference from repo contents
+- conflict detection for `template set`
+
+### 3. Bind built-in templates to manifest truth
+
+The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` and the real planning artifact filenames from each governed template manifest:
 
 - `generic`
 - `api-service`
 - `cli-tool`
 - `web-app`
 
-### 4. Document mutation safety
+`generic` must be described as the baseline governed scaffold with no extra project-type files.
 
-The page must explain the actual `template set` semantics:
+### 4. Document mutation safety truthfully
+
+The page must describe the actual `template set` behavior:
 
 - updates the config `template` field
-- creates missing planning artifacts
-- never overwrites existing planning docs
-- appends prompt guidance once
-- appends acceptance hints once
-- switching templates is additive, not destructive
+- creates missing planning artifacts only
+- appends prompt guidance once per role when no `## Project-Type-Specific Guidance` section exists
+- appends acceptance hints once when `acceptance-matrix.md` has no `## Template Guidance` section
+- records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
+- switching from one non-`generic` template to another is additive, not destructive
 
-### 5. Cross-link the operator flow
+The page must describe what `template set` does not do:
+
+- overwrite existing planning docs
+- replace an existing template guidance section
+- delete old template files
+
+### 5. Describe `template list --json` honestly
+
+The page must describe the operator-relevant JSON shape emitted by `template list --json`:
+
+- `id`
+- `display_name`
+- `description`
+- planning artifact filenames
+- roles with prompt overrides
+- acceptance hints
+
+### 6. Cross-link the operator flow
 
 The page must link back to:
 
 - `/docs/quickstart`
 - `/docs/cli`
 
-Quickstart and CLI docs should also link into `/docs/templates` so the surface is discoverable from the main docs flow.
+Quickstart and CLI docs must also link into `/docs/templates`.
 
 ## Error Cases
 
 | Condition | Required docs behavior |
 |---|---|
 | Page implies templates change protocol semantics | Wrong. Templates are scaffold guidance, not a protocol fork. |
-| Page claims `template set` rewrites or merges existing planning docs | Wrong. The command is intentionally additive and conservative. |
-| Page omits `template list` | Incomplete. Operators need a discovery path, not just mutation commands. |
-| Page lists template IDs without their artifact differences | Low-value. The operator still cannot choose honestly. |
+| Page claims `template set` rewrites, merges, or force-overwrites existing planning docs | Wrong. The command is intentionally additive and conservative. |
+| Page fabricates `--force` or conflict-detection behavior for `template set` | Wrong. Those semantics belong elsewhere and are not part of the shipped template mutation surface. |
+| Page lists template IDs without manifest-backed artifact differences | Incomplete. Operators still cannot choose honestly. |
+| Spec points at retired static-site output paths | Wrong. The docs system is Docusaurus and the spec must bind to the live source/build surface. |
 
 ## Acceptance Tests
 
 1. `website-v2/docs/templates.mdx` exists and is wired into `website-v2/sidebars.ts`.
-2. The built public page exists at `website/docs/templates.html`.
-3. The page documents `init --governed --template <id>`, `template list`, and `template set <id>`.
-4. The page lists `generic`, `api-service`, `cli-tool`, and `web-app`.
-5. The page explains that `template set` is additive and non-destructive.
-6. `website-v2/docs/quickstart.mdx` links to `/docs/templates`.
-7. `website-v2/docs/cli.mdx` links to `/docs/templates`.
+2. `website-v2/build/docs/templates/index.html` exists after `website-v2` build.
+3. The page documents `init --governed --template <id>`, `template list`, `template list --json`, and `template set <id>`.
+4. The page documents `status` and `status --json` template visibility.
+5. The page lists `generic`, `api-service`, `cli-tool`, and `web-app`.
+6. The page lists the real planning artifact filenames from governed template manifests.
+7. The page explains additive `template set` semantics and records `template_set` in `.agentxchain/decision-ledger.jsonl`.
+8. The page does not mention `template set --force` or fake conflict-detection semantics.
+9. `website-v2/docs/quickstart.mdx` links to `/docs/templates`.
+10. `website-v2/docs/cli.mdx` links to `/docs/templates`.
 
 ## Open Questions
 
-1. Should the docs later grow a `/templates/<id>` deep-dive surface for each built-in template, or is one comparison table enough until user demand proves otherwise?
+1. Should each built-in template later get its own `/docs/templates/<id>` deep dive, or is one manifest-backed comparison page sufficient until operators need more per-template guidance?
