@@ -1,12 +1,18 @@
 ---
 sidebar_position: 5
 title: Plugins
-description: "Package hook integrations without forking core config."
+description: "Package governed hook integrations without forking core config."
 ---
 
 # Plugins
 
-Plugins let you extend agentxchain with hook integrations — Slack notifications, JSON report generation, custom validations — without modifying core config. Each plugin is a self-contained package with a manifest, hook scripts, and optional configuration schema.
+Plugins package governed hook integrations without forking core config. A plugin is a self-contained bundle with:
+
+- an `agentxchain-plugin.json` manifest
+- hook executables or HTTP endpoints
+- optional plugin configuration validated at install and upgrade time
+
+Installed plugins are copied into `.agentxchain/plugins/`, merged into the governed hook config, and then executed by the same hook runner and tamper protections as operator-defined hooks.
 
 ## Plugin manifest
 
@@ -14,38 +20,41 @@ Every plugin contains an `agentxchain-plugin.json` manifest at its root:
 
 ```json title="agentxchain-plugin.json"
 {
-  "name": "plugin-slack-notify",
-  "version": "1.2.0",
-  "description": "Post turn summaries to Slack on accept/reject",
-  "author": "agentxchain",
-  "license": "MIT",
-  "hooks": [
-    {
-      "event": "turn:accepted",
-      "type": "script",
-      "run": "./hooks/on-accept.sh",
-      "timeout_ms": 10000
-    },
-    {
-      "event": "turn:rejected",
-      "type": "script",
-      "run": "./hooks/on-reject.sh",
-      "timeout_ms": 10000
-    }
-  ],
+  "schema_version": "0.1",
+  "name": "@agentxchain/plugin-slack-notify",
+  "version": "0.1.0",
+  "description": "Posts governed lifecycle notifications to Slack.",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "slack_notify_acceptance",
+        "type": "process",
+        "command": ["node", "./hooks/after-acceptance.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ],
+    "before_gate": [
+      {
+        "name": "slack_notify_gate",
+        "type": "process",
+        "command": ["node", "./hooks/before-gate.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ]
+  },
   "config_schema": {
     "type": "object",
     "properties": {
-      "webhook_url": {
+      "webhook_env": {
         "type": "string",
-        "description": "Slack incoming webhook URL"
+        "default": "AGENTXCHAIN_SLACK_WEBHOOK_URL"
       },
-      "channel": {
-        "type": "string",
-        "default": "#agentxchain"
+      "mention": {
+        "type": "string"
       }
-    },
-    "required": ["webhook_url"]
+    }
   }
 }
 ```
@@ -54,37 +63,49 @@ Every plugin contains an `agentxchain-plugin.json` manifest at its root:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Unique plugin identifier. Must match `^[a-z0-9-]+$`. |
+| `schema_version` | string | Yes | Must be `"0.1"` |
+| `name` | string | Yes | Package-style identifier. Scoped names such as `@agentxchain/plugin-slack-notify` are supported |
 | `version` | string | Yes | Semver version string |
-| `description` | string | Yes | Short description shown in `plugin list` output |
-| `author` | string | No | Author name or organization |
-| `license` | string | No | SPDX license identifier |
-| `hooks` | array | Yes | Array of hook definitions (see below) |
-| `config_schema` | object | No | JSON Schema for plugin-specific configuration |
+| `description` | string | No | Short description shown in `plugin list` output |
+| `hooks` | object | Yes | Map of hook phase to hook definition array |
+| `config_schema` | object | No | JSON Schema used to validate plugin config during install and upgrade |
 
-### Hook definition
+### Hook phases
+
+Plugins register against hook phases, not free-form lifecycle event names:
+
+| Phase | When it fires | Blocking allowed |
+|-------|---------------|------------------|
+| `before_assignment` | Before a turn is assigned to a role | Yes |
+| `after_dispatch` | After a turn is dispatched to an adapter | Yes |
+| `before_validation` | Before a result is validated | Yes |
+| `after_validation` | After validation completes | Yes |
+| `before_acceptance` | Before a turn is accepted | Yes |
+| `after_acceptance` | After acceptance commits | No |
+| `before_gate` | Before human gate approval executes | Yes |
+| `on_escalation` | When the run escalates | No |
+
+### Hook definition fields
+
+All hooks require:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `event` | string | Yes | Hook event name (see events table below) |
-| `type` | string | Yes | `script` or `http` (v2.1+) |
-| `run` | string | Yes (script) | Relative path to the hook script |
-| `url` | string | Yes (http) | URL for HTTP hooks |
-| `timeout_ms` | number | No | Maximum execution time (default: 30000) |
-| `headers` | object | No (http) | HTTP headers with `${VAR}` interpolation |
+| `name` | string | Yes | Unique hook name within its phase. Must match `^[a-z0-9_-]+$` |
+| `type` | string | Yes | `process` or `http` |
+| `timeout_ms` | integer | Yes | Timeout in milliseconds, between `100` and `30000` |
+| `mode` | string | Yes | `blocking` or `advisory`. `after_acceptance` and `on_escalation` cannot be blocking |
+| `env` | object | No | Extra environment variables injected into the hook |
 
-### Hook events
+`process` hooks also require `command`, which must be a non-empty argv array. Relative command tokens such as `./hooks/after-acceptance.js` are rewritten during install so they still resolve from the governed project root.
 
-| Event | Fires when | Payload includes |
-|-------|-----------|-----------------|
-| `turn:dispatched` | A new turn is dispatched to an adapter | Turn ID, role, phase, adapter name |
-| `turn:accepted` | A turn result is accepted | Full turn result, decision summary |
-| `turn:rejected` | A turn result is rejected | Turn ID, rejection reason |
-| `turn:failed` | A turn fails validation or adapter errors | Turn ID, error details |
-| `gate:transition` | A phase transition is approved | From phase, to phase, approver comment |
-| `gate:completion` | Run completion is approved | Final run summary |
-| `run:started` | A new governed run begins | Run ID, template, config summary |
-| `run:completed` | A run finishes (all gates passed) | Full run summary, decision ledger |
+`http` hooks also require:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | HTTP or HTTPS endpoint |
+| `method` | string | Yes | Must be `POST` |
+| `headers` | object | No | Header values support `${VAR}` interpolation from the process environment plus `hook.env` |
 
 ## Installing plugins
 
@@ -93,18 +114,14 @@ Plugins can be installed from three sources:
 ### Local directory
 
 ```bash
-agentxchain plugin install ./my-plugins/slack-notify
+agentxchain plugin install ./plugins/plugin-slack-notify
 ```
 
-Copies the plugin directory to `.agentxchain/plugins/plugin-slack-notify/`.
-
-### Archive (tar.gz or zip)
+### Archive (`.tgz` or `.tar.gz`)
 
 ```bash
-agentxchain plugin install ./downloads/plugin-slack-notify-1.2.0.tar.gz
+agentxchain plugin install ./downloads/plugin-slack-notify-0.1.0.tar.gz
 ```
-
-Extracts the archive and installs to `.agentxchain/plugins/`.
 
 ### npm package
 
@@ -112,7 +129,7 @@ Extracts the archive and installs to `.agentxchain/plugins/`.
 agentxchain plugin install @agentxchain/plugin-slack-notify
 ```
 
-Runs `npm pack` behind the scenes, extracts, and installs. The package must contain `agentxchain-plugin.json` at its root.
+The CLI resolves directories directly and otherwise falls back to `npm pack <spec>` for tarball-based install.
 
 ### Install flags
 
@@ -122,24 +139,53 @@ Runs `npm pack` behind the scenes, extracts, and installs. The package must cont
 | `--config-file <path>` | Read plugin config JSON from a file |
 | `-j, --json` | Output as JSON |
 
-`--config` and `--config-file` are mutually exclusive. If the plugin defines a `config_schema`, pass initial config at install time.
+`--config` and `--config-file` are mutually exclusive.
 
 ### What happens on install
 
-1. **Manifest validation** — The manifest is parsed and validated against the plugin schema. Invalid manifests are rejected.
-2. **Config validation** — If the plugin defines a `config_schema`, the installer checks that required config values are present in `agentxchain.json` under `plugins.<name>.config`.
-3. **Collision protection** — If a plugin with the same name is already installed, the installer rejects. Hook event collisions (two plugins hooking the same event) are allowed but logged as warnings.
-4. **Registration** — The plugin is recorded in `agentxchain.json` under `plugins`.
+1. **Manifest validation**: the manifest is parsed and validated.
+2. **Config validation**: if the plugin declares `config_schema`, the supplied config is validated and stored under `plugins.<name>.config`.
+3. **Duplicate and collision protection**: if the plugin name is already installed, install fails. If any hook name collides with an existing hook name in the same phase, install also fails. There is no force override for install.
+4. **Command path rewriting**: relative process-hook command paths are rewritten to the installed location under `.agentxchain/plugins/...`.
+5. **Registration**: the plugin is recorded in `agentxchain.json` under `plugins` and its hook definitions are merged into the root `hooks` config.
 
 ```json title="agentxchain.json (after install)"
 {
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "slack_notify_acceptance",
+        "type": "process",
+        "command": [
+          "node",
+          ".agentxchain/plugins/agentxchain--plugin-slack-notify--deadbeef/hooks/after-acceptance.js"
+        ],
+        "timeout_ms": 5000,
+        "mode": "advisory",
+        "env": {
+          "AGENTXCHAIN_PLUGIN_NAME": "@agentxchain/plugin-slack-notify",
+          "AGENTXCHAIN_PLUGIN_VERSION": "0.1.0",
+          "AGENTXCHAIN_PLUGIN_CONFIG": "{\"webhook_env\":\"AGENTXCHAIN_SLACK_WEBHOOK_URL\"}"
+        }
+      }
+    ]
+  },
   "plugins": {
-    "plugin-slack-notify": {
-      "version": "1.2.0",
-      "enabled": true,
+    "@agentxchain/plugin-slack-notify": {
+      "schema_version": "0.1",
+      "name": "@agentxchain/plugin-slack-notify",
+      "version": "0.1.0",
+      "install_path": ".agentxchain/plugins/agentxchain--plugin-slack-notify--deadbeef",
+      "source": {
+        "type": "local_path",
+        "spec": "./plugins/plugin-slack-notify"
+      },
+      "hooks": {
+        "after_acceptance": ["slack_notify_acceptance"],
+        "before_gate": ["slack_notify_gate"]
+      },
       "config": {
-        "webhook_url": "https://hooks.slack.com/services/T.../B.../xxx",
-        "channel": "#agentxchain"
+        "webhook_env": "AGENTXCHAIN_SLACK_WEBHOOK_URL"
       }
     }
   }
@@ -156,34 +202,49 @@ agentxchain plugin list
 |------|-------------|
 | `-j, --json` | Output as JSON |
 
-Output:
+Text output:
 
 ```
-Installed plugins:
-  plugin-slack-notify  v1.2.0  2 hooks  enabled
-  plugin-json-report   v1.0.3  1 hook   enabled
+Installed plugins: 1
+  @agentxchain/plugin-slack-notify@0.1.0
+    Path: .agentxchain/plugins/agentxchain--plugin-slack-notify--deadbeef
+    Source: local_path (./plugins/plugin-slack-notify)
+    Present: yes
+    Hooks: after_acceptance: slack_notify_acceptance | before_gate: slack_notify_gate
 ```
 
 With `--json`:
 
 ```json
-[
-  {
-    "name": "plugin-slack-notify",
-    "version": "1.2.0",
-    "hooks": ["turn:accepted", "turn:rejected"],
-    "enabled": true
-  }
-]
+{
+  "plugins": [
+    {
+      "name": "@agentxchain/plugin-slack-notify",
+      "version": "0.1.0",
+      "description": "Posts governed lifecycle notifications to a Slack incoming webhook.",
+      "install_path": ".agentxchain/plugins/agentxchain--plugin-slack-notify--deadbeef",
+      "source": {
+        "type": "local_path",
+        "spec": "./plugins/plugin-slack-notify"
+      },
+      "hooks": {
+        "after_acceptance": ["slack_notify_acceptance"],
+        "before_gate": ["slack_notify_gate"],
+        "on_escalation": ["slack_notify_escalation"]
+      },
+      "installed": true
+    }
+  ]
+}
 ```
 
 ## Upgrading plugins
 
 ```bash
-agentxchain plugin upgrade plugin-slack-notify
+agentxchain plugin upgrade @agentxchain/plugin-slack-notify
 ```
 
-The optional `[source]` positional argument specifies a local directory, archive, or npm package to upgrade from. If omitted, the plugin is upgraded from its original source.
+The optional `[source]` positional argument specifies a local directory, archive, or npm package to upgrade from. If omitted, the plugin is upgraded from its recorded original source.
 
 | Flag | Description |
 |------|-------------|
@@ -191,146 +252,144 @@ The optional `[source]` positional argument specifies a local directory, archive
 | `--config-file <path>` | Read plugin config JSON from a file |
 | `-j, --json` | Output as JSON |
 
-Upgrade performs an **atomic swap**:
+Upgrade performs an atomic swap:
 
-1. The new version is installed to a temporary directory.
-2. The manifest and config schema are validated.
-3. The old plugin directory is renamed to `.agentxchain/plugins/plugin-slack-notify.bak`.
-4. The new directory is moved into place.
-5. If anything fails, the backup is restored.
+1. The replacement source is resolved and validated.
+2. Existing plugin hooks are removed from the in-memory config, then the replacement hooks are merged and validated.
+3. The old install directory is renamed to a rollback path under `.agentxchain/plugins/...rollback-<timestamp>`.
+4. The new directory is moved into place and `agentxchain.json` is committed.
+5. If the config write or swap fails, the previous install is restored.
 
 To upgrade from a specific source:
 
 ```bash
-agentxchain plugin upgrade plugin-slack-notify ./downloads/plugin-slack-notify-1.3.0.tar.gz
+agentxchain plugin upgrade @agentxchain/plugin-slack-notify ./downloads/plugin-slack-notify-0.2.0.tar.gz
 ```
 
 ## Removing plugins
 
 ```bash
-agentxchain plugin remove plugin-slack-notify
+agentxchain plugin remove @agentxchain/plugin-slack-notify
 ```
 
 | Flag | Description |
 |------|-------------|
 | `-j, --json` | Output as JSON |
 
-Removes the plugin directory from `.agentxchain/plugins/` and removes its entry from `agentxchain.json`. Hook registrations are cleaned up. In-flight turns are not affected — hooks only fire on future events.
+Removal deletes the plugin metadata entry, strips only that plugin's recorded hook names from `agentxchain.json`, and removes the installed directory from `.agentxchain/plugins/`.
 
 ## Authoring a plugin
 
-A minimal plugin is a directory with two files:
+A minimal process-hook plugin looks like this:
 
-```
+```text
 my-plugin/
   agentxchain-plugin.json
   hooks/
-    on-accept.sh
+    after-acceptance.js
 ```
 
-### Hook script contract
+### Process hook contract
 
-Hook scripts receive context via environment variables:
+Process hooks receive the full hook payload as JSON on stdin. The runner also injects environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `AGENTXCHAIN_RUN_ID` | Current run ID |
-| `AGENTXCHAIN_TURN_ID` | Turn ID that triggered the event |
-| `AGENTXCHAIN_ROLE` | Role of the turn |
-| `AGENTXCHAIN_PHASE` | Current phase |
-| `AGENTXCHAIN_EVENT` | Event name (e.g., `turn:accepted`) |
-| `AGENTXCHAIN_PAYLOAD_FILE` | Path to a temp JSON file with the full event payload |
-| `AGENTXCHAIN_PLUGIN_CONFIG` | Path to a temp JSON file with the plugin's config values |
+| `AGENTXCHAIN_HOOK_PHASE` | Current hook phase |
+| `AGENTXCHAIN_HOOK_NAME` | Hook name from the manifest |
+| `AGENTXCHAIN_RUN_ID` | Current run ID when available |
+| `AGENTXCHAIN_PROJECT_ROOT` | Governed project root |
+| `AGENTXCHAIN_PLUGIN_NAME` | Plugin manifest name |
+| `AGENTXCHAIN_PLUGIN_VERSION` | Plugin manifest version |
+| `AGENTXCHAIN_PLUGIN_CONFIG` | Validated plugin config as a JSON string when config exists |
 
-Hook scripts must:
-- Exit with code `0` on success.
-- Exit with non-zero on failure (the orchestrator logs the failure but does not block the run).
-- Complete within `timeout_ms` or be killed with `SIGTERM`.
+The hook may print a JSON verdict to stdout:
 
-```bash title="hooks/on-accept.sh"
-#!/usr/bin/env bash
-set -euo pipefail
-
-CONFIG=$(cat "$AGENTXCHAIN_PLUGIN_CONFIG")
-WEBHOOK_URL=$(echo "$CONFIG" | jq -r '.webhook_url')
-CHANNEL=$(echo "$CONFIG" | jq -r '.channel // "#agentxchain"')
-
-PAYLOAD=$(cat "$AGENTXCHAIN_PAYLOAD_FILE")
-SUMMARY=$(echo "$PAYLOAD" | jq -r '.summary')
-ROLE=$(echo "$PAYLOAD" | jq -r '.role')
-
-curl -s -X POST "$WEBHOOK_URL" \
-  -H "Content-Type: application/json" \
-  -d "{\"channel\": \"$CHANNEL\", \"text\": \"Turn accepted ($ROLE): $SUMMARY\"}"
+```json
+{
+  "verdict": "allow",
+  "message": "Slack notification sent",
+  "annotations": [
+    { "key": "slack_channel", "value": "#ops" }
+  ]
+}
 ```
 
-## HTTP hooks (v2.1)
+Valid verdicts are `allow`, `warn`, and `block`. Advisory hooks that return `block` are downgraded to a warning by the orchestrator. `after_acceptance` annotations are written to `.agentxchain/hook-annotations.jsonl`.
 
-Starting in v2.1, hooks can be defined as HTTP calls instead of local scripts. This is useful for serverless functions, external services, or webhook integrations.
+```js title="hooks/after-acceptance.js"
+import { readFileSync } from 'node:fs';
+
+const payload = JSON.parse(readFileSync(0, 'utf8'));
+const pluginConfig = process.env.AGENTXCHAIN_PLUGIN_CONFIG
+  ? JSON.parse(process.env.AGENTXCHAIN_PLUGIN_CONFIG)
+  : {};
+
+process.stdout.write(JSON.stringify({
+  verdict: 'allow',
+  message: `Handled ${payload.hook_phase} for ${process.env.AGENTXCHAIN_PLUGIN_NAME}`,
+  annotations: pluginConfig.mention
+    ? [{ key: 'mention', value: pluginConfig.mention }]
+    : [],
+}));
+```
+
+## HTTP hooks
+
+HTTP hooks use the same phase system and verdict contract as process hooks. They send the JSON hook envelope as the HTTP request body and may return a JSON verdict in the response body.
 
 ### Configuration
 
 ```json
 {
-  "event": "turn:accepted",
+  "name": "notify_webhook",
   "type": "http",
-  "url": "https://my-service.example.com/hooks/turn-accepted",
+  "url": "https://my-service.example.com/hooks/after-acceptance",
   "method": "POST",
-  "headers": {
-    "Authorization": "Bearer ${AGENTXCHAIN_HOOK_TOKEN}",
-    "X-Run-Id": "${run_id}",
-    "Content-Type": "application/json"
+  "timeout_ms": 15000,
+  "mode": "advisory",
+  "env": {
+    "HOOK_TOKEN": "secret-token"
   },
-  "timeout_ms": 15000
+  "headers": {
+    "Authorization": "Bearer ${HOOK_TOKEN}"
+  }
 }
 ```
 
 ### Behavior
 
 - **Method:** `POST` only. Other methods are rejected at manifest validation time.
-- **Body:** The full event payload is sent as JSON in the request body.
-- **Header interpolation:** Header values support `${VAR}` interpolation. Variables are resolved from the process environment first, then from the event context (`run_id`, `turn_id`, `role`, `phase`).
-- **Verdict surface:** HTTP hooks can return a `verdict` in the response body to influence logging:
-
-```json
-{
-  "verdict": "ok",
-  "message": "Slack notification sent to #agentxchain"
-}
-```
-
-| Verdict | Meaning |
-|---------|---------|
-| `ok` | Hook succeeded, message is logged at info level |
-| `warn` | Hook succeeded with warnings, message is logged at warn level |
-| `fail` | Hook failed, message is logged at error level (does not block the run) |
-
-- **Timeout:** If the HTTP call does not complete within `timeout_ms`, it is aborted and logged as a failure.
+- **Body:** the full hook envelope is sent as JSON in the request body.
+- **Header interpolation:** header values support `${VAR}` interpolation from the current process environment plus any strings declared in `hook.env`.
+- **Response handling:** non-2xx responses are treated as hook failures. There is no built-in retry loop.
+- **Verdict surface:** HTTP hooks can return the same verdict JSON as process hooks.
 
 ## Failure modes
 
 | Failure | Impact | Recovery |
 |---------|--------|----------|
-| Hook script exits non-zero | Logged as warning; run continues | Fix the script and the hook will fire on the next event |
-| Hook script times out | Process killed with SIGTERM; logged as warning | Increase `timeout_ms` or optimize the script |
-| HTTP hook returns 4xx | Logged as error; run continues | Fix the endpoint or credentials |
-| HTTP hook returns 5xx | Logged as error; single retry after 2s | If retry also fails, logged and skipped |
-| HTTP hook network error | Logged as error; no retry | Check network connectivity and URL |
+| Process hook exits non-zero | Command fails. Blocking phases stop the workflow; advisory phases are logged and surfaced | Fix the hook and rerun the blocked operator step |
+| Process or HTTP hook times out | Hook is killed with `SIGTERM` and the step fails or warns based on phase and mode | Increase `timeout_ms` or shorten the hook |
+| HTTP hook returns non-2xx | Treated as a hook failure | Fix the endpoint or credentials |
 | Manifest validation fails on install | Install is rejected | Fix the manifest and retry |
-| Config schema validation fails | Install is rejected | Provide required config values in `agentxchain.json` |
-| Plugin directory is corrupted | Plugin is disabled on next orchestrator start | Re-install the plugin |
-| Two plugins hook the same event | Both fire; order is alphabetical by plugin name | Intentional — use for chaining (e.g., notify then report) |
+| Config schema validation fails | Install or upgrade is rejected | Provide config that satisfies `config_schema` |
+| Duplicate plugin name | Install is rejected | Remove or upgrade the existing plugin |
+| Duplicate hook name in the same phase | Install or upgrade is rejected with no partial config mutation | Rename the hook or remove the conflict |
+| Partial install failure after copy but before config write | Staged plugin files are deleted and config remains unchanged | Fix the failing hook path or config issue and retry |
+| Upgrade commit failure | Previous install directory and config are restored | Fix the failure and rerun `plugin upgrade` |
+| Hook tampers with protected orchestrator files | The run fails closed and the protected files are restored | Remove the illegal mutation and rerun the blocked step |
 
 ## Built-in packages
 
-### plugin-slack-notify
+### `@agentxchain/plugin-slack-notify`
 
-Posts turn summaries and gate approvals to a Slack channel via incoming webhook.
+Posts advisory lifecycle notifications to a Slack incoming webhook.
 
-**Events:** `turn:accepted`, `turn:rejected`, `gate:transition`, `gate:completion`
+**Hook phases:** `after_acceptance`, `before_gate`, `on_escalation`
 
 ```bash
-agentxchain plugin install @agentxchain/plugin-slack-notify
+agentxchain plugin install ./plugins/plugin-slack-notify
 ```
 
 **Config:**
@@ -338,25 +397,24 @@ agentxchain plugin install @agentxchain/plugin-slack-notify
 ```json
 {
   "plugins": {
-    "plugin-slack-notify": {
+    "@agentxchain/plugin-slack-notify": {
       "config": {
-        "webhook_url": "https://hooks.slack.com/services/T.../B.../xxx",
-        "channel": "#agentxchain",
-        "mention_on_gate": "@here"
+        "webhook_env": "AGENTXCHAIN_SLACK_WEBHOOK_URL",
+        "mention": "@here"
       }
     }
   }
 }
 ```
 
-### plugin-json-report
+### `@agentxchain/plugin-json-report`
 
-Generates a JSON summary report at the end of each run, written to `.agentxchain/reports/<run_id>.json`.
+Writes structured lifecycle report artifacts into `.agentxchain/reports/`.
 
-**Events:** `run:completed`
+**Hook phases:** `after_acceptance`, `before_gate`, `on_escalation`
 
 ```bash
-agentxchain plugin install @agentxchain/plugin-json-report
+agentxchain plugin install ./plugins/plugin-json-report
 ```
 
 **Config:**
@@ -364,16 +422,13 @@ agentxchain plugin install @agentxchain/plugin-json-report
 ```json
 {
   "plugins": {
-    "plugin-json-report": {
+    "@agentxchain/plugin-json-report": {
       "config": {
-        "output_dir": ".agentxchain/reports",
-        "include_decisions": true,
-        "include_objections": true,
-        "include_file_diffs": false
+        "report_dir": ".agentxchain/reports"
       }
     }
   }
 }
 ```
 
-The report includes run metadata, phase timeline, all decisions, all objections, verification summaries, and cost data (if api_proxy was used).
+The built-in packages live in the repo `plugins/` directory and can be installed from a local path or published tarball/package spec.

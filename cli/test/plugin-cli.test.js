@@ -386,6 +386,27 @@ process.stdout.write(JSON.stringify({ verdict: 'allow' }));
     }
   });
 
+  it('AT-PLUGIN-008: rejects duplicate install and does not expose a hidden --force override', () => {
+    const project = createGovernedProject();
+    const plugin = createPluginSource('@agentxchain/plugin-duplicate-install');
+
+    try {
+      const install = runCli(project, ['plugin', 'install', plugin, '--json']);
+      assert.equal(install.status, 0, install.stderr);
+
+      const duplicate = runCli(project, ['plugin', 'install', plugin]);
+      assert.notEqual(duplicate.status, 0);
+      assert.match(duplicate.stderr, /already installed/);
+
+      const forced = runCli(project, ['plugin', 'install', plugin, '--force']);
+      assert.notEqual(forced.status, 0);
+      assert.match(forced.stderr, /unknown option '--force'/);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(plugin, { recursive: true, force: true });
+    }
+  });
+
   it('AT-V21-005: plugin upgrade rolls back cleanly on commit failure', () => {
     const project = createGovernedProject();
     const v1 = createPluginSource('@agentxchain/plugin-upgrade-rollback', {

@@ -16,8 +16,9 @@ describe('Plugin docs surface', () => {
     it('plugins.mdx documents the manifest format', () => {
       const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /agentxchain-plugin\.json/);
+      assert.match(page, /"schema_version": "0\.1"/);
       assert.match(page, /version/);
-      assert.match(page, /hooks/);
+      assert.match(page, /"hooks": \{/);
     });
 
     it('plugins.mdx documents install, list, upgrade, and remove', () => {
@@ -36,6 +37,43 @@ describe('Plugin docs surface', () => {
     it('plugins.mdx documents path rewriting or failure modes', () => {
       const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /rewrite|rewriting|failure/i);
+    });
+
+    it('plugins.mdx documents shipped hook phases instead of obsolete event names', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /after_acceptance/);
+      assert.match(page, /before_gate/);
+      assert.match(page, /on_escalation/);
+      assert.doesNotMatch(page, /turn:accepted/);
+      assert.doesNotMatch(page, /gate:transition/);
+      assert.doesNotMatch(page, /run:completed/);
+    });
+
+    it('plugins.mdx documents process/http hook definitions, not legacy script fields', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /`process` or `http`/);
+      assert.match(page, /`command`/);
+      assert.match(page, /JSON on stdin|JSON-stdin|JSON stdin/i);
+      assert.doesNotMatch(page, /"hooks": \[/);
+      assert.doesNotMatch(page, /"event":/);
+      assert.doesNotMatch(page, /"run": "\.\/hooks\//);
+      assert.doesNotMatch(page, /`script`/);
+    });
+
+    it('plugins.mdx documents actual plugin list JSON shape and install metadata', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /"plugins": \[/);
+      assert.match(page, /"install_path":/);
+      assert.match(page, /"installed": true/);
+      assert.match(page, /"source": \{/);
+    });
+
+    it('plugins.mdx documents AGENTXCHAIN_PLUGIN_CONFIG as JSON env, not file path', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /AGENTXCHAIN_PLUGIN_CONFIG/);
+      assert.match(page, /JSON string/i);
+      assert.doesNotMatch(page, /AGENTXCHAIN_PAYLOAD_FILE/);
+      assert.doesNotMatch(page, /Path to a temp JSON file/);
     });
   });
 
@@ -94,6 +132,12 @@ describe('Plugin docs surface', () => {
     it('plugins.mdx documents unsafe removal or path validation', () => {
       const page = read('website-v2/docs/plugins.mdx');
       assert.match(page, /remov/i);
+    });
+
+    it('plugins.mdx does not claim unsupported zip archives or retry behavior', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.doesNotMatch(page, /zip/i);
+      assert.doesNotMatch(page, /single retry/i);
     });
   });
 });
