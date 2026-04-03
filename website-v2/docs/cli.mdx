@@ -32,6 +32,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 |---------|-------|-------------|
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
 | `template list` | Setup | Inspect the built-in governed scaffold templates |
+| `template validate` | Setup | Prove the built-in template registry and current project template binding |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
@@ -72,6 +73,14 @@ agentxchain template list [--json]
 ```
 
 Prints the built-in governed templates with their descriptions, planning artifacts, prompt override roles, and acceptance hints. Use this before `template set` when you want the exact built-in surface.
+
+### `template validate`
+
+```bash
+agentxchain template validate [--json]
+```
+
+Runs explicit proof for the template layer. It validates the built-in manifest registry and, when you are inside a project, validates the repo's configured template binding. A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation.
 
 ### `template set`
 
@@ -198,7 +207,7 @@ Validation modes:
 | `turn` | Current staged turn result schema, required fields, objection presence, decision ID uniqueness |
 | `full` | Everything in `kickoff` + `turn`, plus history integrity, decision ledger consistency, phase sequence validity, and state file coherence |
 
-Returns exit code `0` on success, `1` on validation failure with details.
+For governed projects, `validate` also checks template-registry integrity and the current project's configured template binding. Returns exit code `0` on success, `1` on validation failure with details.
 
 ## Protocol conformance
 

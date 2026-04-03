@@ -37,5 +37,6 @@ describe('Template public surface', () => {
     assert.ok(CLI_DOCS.includes('--template <id>') || CLI_DOCS.includes('--template'), 'cli docs must show template-aware init');
     assert.ok(CLI_DOCS.includes('template set'), 'cli docs must mention template set');
     assert.ok(CLI_DOCS.includes('template list'), 'cli docs must mention template list');
+    assert.ok(CLI_DOCS.includes('template validate'), 'cli docs must mention template validate');
   });
 });

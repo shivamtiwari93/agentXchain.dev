@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -143,4 +143,79 @@ export function loadGovernedTemplate(templateId) {
 
 export function loadAllGovernedTemplates() {
   return VALID_GOVERNED_TEMPLATE_IDS.map((templateId) => loadGovernedTemplate(templateId));
+}
+
+export function listGovernedTemplateManifestIds(manifestDir = GOVERNED_TEMPLATES_DIR) {
+  if (!existsSync(manifestDir)) {
+    return [];
+  }
+
+  return readdirSync(manifestDir)
+    .filter((entry) => entry.endsWith('.json'))
+    .map((entry) => entry.slice(0, -'.json'.length))
+    .sort();
+}
+
+export function validateGovernedTemplateRegistry(options = {}) {
+  const manifestDir = options.manifestDir || GOVERNED_TEMPLATES_DIR;
+  const registeredIds = options.registeredIds || [...VALID_GOVERNED_TEMPLATE_IDS];
+  const errors = [];
+  const warnings = [];
+  const manifestIds = listGovernedTemplateManifestIds(manifestDir);
+
+  for (const templateId of registeredIds) {
+    const manifestPath = join(manifestDir, `${templateId}.json`);
+    if (!existsSync(manifestPath)) {
+      errors.push(`Registered template "${templateId}" is missing its manifest file.`);
+      continue;
+    }
+
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    } catch (err) {
+      errors.push(`Template "${templateId}" manifest is invalid JSON: ${err.message}`);
+      continue;
+    }
+
+    const validation = validateGovernedTemplateManifest(manifest, templateId);
+    if (!validation.ok) {
+      errors.push(`Template "${templateId}" manifest is invalid: ${validation.errors.join('; ')}`);
+    }
+  }
+
+  for (const manifestId of manifestIds) {
+    if (!registeredIds.includes(manifestId)) {
+      errors.push(`Manifest "${manifestId}.json" exists on disk but is not registered in VALID_GOVERNED_TEMPLATE_IDS.`);
+    }
+  }
+
+  return {
+    ok: errors.length === 0,
+    registered_ids: registeredIds,
+    manifest_ids: manifestIds,
+    errors,
+    warnings,
+  };
+}
+
+export function validateGovernedProjectTemplate(templateId, source = 'agentxchain.json') {
+  const effectiveTemplateId = templateId || 'generic';
+  const effectiveSource = templateId ? source : 'implicit_default';
+  const errors = [];
+  const warnings = [];
+
+  try {
+    loadGovernedTemplate(effectiveTemplateId);
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  return {
+    ok: errors.length === 0,
+    template: effectiveTemplateId,
+    source: effectiveSource,
+    errors,
+    warnings,
+  };
 }

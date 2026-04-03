@@ -2,6 +2,10 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { validateStagedTurnResult, STAGING_PATH } from './turn-result-validator.js';
 import { getActiveTurn } from './governed-state.js';
+import {
+  validateGovernedProjectTemplate,
+  validateGovernedTemplateRegistry,
+} from './governed-templates.js';
 
 const DEFAULT_REQUIRED_FILES = [
   '.planning/PROJECT.md',
@@ -86,6 +90,14 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const expectedRole = opts.expectedAgent || null;
   const errors = [];
   const warnings = [];
+
+  const templateRegistry = validateGovernedTemplateRegistry();
+  errors.push(...templateRegistry.errors);
+  warnings.push(...templateRegistry.warnings);
+
+  const projectTemplate = validateGovernedProjectTemplate(rawConfig?.template);
+  errors.push(...projectTemplate.errors);
+  warnings.push(...projectTemplate.warnings);
 
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',

@@ -69,6 +69,27 @@ The JSON mode exposes the operator-relevant shape directly:
 - roles with prompt overrides
 - acceptance hints
 
+## Prove the template surface instead of assuming it
+
+Use `template validate` when you need actual proof, not a guess based on docs or remembered scaffold intent:
+
+```bash
+agentxchain template validate
+agentxchain template validate --json
+```
+
+This checks two things:
+
+- the built-in registry is coherent: every registered template manifest exists, parses, and validates
+- the current project template is coherent: the repo's `agentxchain.json` template value resolves under the installed CLI
+
+Important truth:
+
+- if a governed repo omits `template`, validation treats it as implicit `generic`
+- if the repo names a template the installed CLI does not recognize, validation fails
+
+That failure is correct. Silent tolerance here would hide registry drift and turn `validate` into theater.
+
 ## Apply a template to an existing governed repo
 
 The mutation command surface is:

@@ -32,7 +32,7 @@ agentxchain <command> [options]
 | `reject-turn --reason <reason>` | Reject a staged turn result, retry it, or escalate it | Yes |
 | `approve-transition` | Approve a pending phase transition | Yes |
 | `approve-completion` | Approve a pending run completion | Yes |
-| `validate --mode <mode>` | Validate governed project wiring and optionally staged turn result | No |
+| `validate --mode <mode>` | Validate governed project wiring, template binding, and optionally staged turn result | No |
 | `migrate` | Convert a legacy v3 project to governed format | No |
 
 ### Command Signatures
@@ -40,6 +40,7 @@ agentxchain <command> [options]
 ```text
 agentxchain init --governed [--template <id>] [--yes]
 agentxchain status [--json]
+agentxchain template validate [--json]
 agentxchain resume [--role <role>] [--turn <id>]
 agentxchain step [--role <role>] [--resume] [--turn <id>] [--poll <seconds>] [--verbose] [--auto-reject]
 agentxchain accept-turn [--turn <id>] [--resolution <standard|human_merge>]
@@ -96,6 +97,22 @@ Scaffolds a governed project with:
 When `--template` is omitted, the scaffold is identical to the current behavior (implicitly `generic`). Unknown template IDs fail with exit code 1 and list available templates. See [TEMPLATE_INIT_IMPL_SPEC.md](./TEMPLATE_INIT_IMPL_SPEC.md) for the full implementation contract.
 
 It does not start a run. The initial project remains unassigned until `resume` or `step`.
+
+### 1a. `template validate`
+
+```bash
+agentxchain template validate [--json]
+```
+
+Validates the built-in governed template registry and, when run inside a repo, the current project's configured `template` binding.
+
+Implemented behavior:
+
+- verifies every registered built-in template manifest exists and passes manifest schema validation
+- fails if a manifest JSON file exists on disk but is not registered in the built-in allowlist
+- treats a missing project `template` field as implicit `generic`
+- fails if the current project's configured `template` is unknown to the installed CLI
+- supports `--json` for scriptable proof output
 
 ### 2. `status`
 
@@ -253,6 +270,7 @@ Supports three modes:
 
 For governed projects, `validate` checks:
 
+- built-in template registry integrity and current project template binding
 - required governed files exist
 - prompt paths in config exist
 - gate-required files exist

@@ -38,6 +38,8 @@ describe('Templates docs surface', () => {
       'agentxchain init --governed --template <id>',
       'agentxchain template list',
       'agentxchain template list --json',
+      'agentxchain template validate',
+      'agentxchain template validate --json',
       'agentxchain template set <id>',
       'agentxchain status',
       'agentxchain status --json',
@@ -94,6 +96,8 @@ describe('Templates docs surface', () => {
       'planning artifact filenames',
       'roles with prompt overrides',
       'acceptance hints',
+      'built-in registry',
+      'current project template',
     ]) {
       assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
     }
@@ -136,6 +140,7 @@ describe('Templates docs surface', () => {
       'website-v2/docs/templates.mdx',
       'website-v2/build/docs/templates/index.html',
       'template list --json',
+      'template validate --json',
       'template set <id>',
       'status --json',
       'template_set',

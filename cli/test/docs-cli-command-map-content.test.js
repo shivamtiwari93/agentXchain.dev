@@ -66,7 +66,7 @@ describe('CLI command map docs contract', () => {
     ['approve-completion', ['approve-completion']],
     ['dashboard', ['dashboard']],
     ['plugin', ['plugin']],
-    ['template', ['template list', 'template set']],
+    ['template', ['template list', 'template validate', 'template set']],
     ['multi', ['multi']],
     ['intake', ['intake']],
   ]);

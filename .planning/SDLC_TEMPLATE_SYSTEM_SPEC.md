@@ -14,6 +14,7 @@ The template system exists to make governed delivery opinionated where it matter
 - role prompts and acceptance checklists
 - project-shape-specific QA expectations
 - reproducible scaffold layouts that still obey the same protocol
+- explicit operator validation of template-registry integrity and project template binding
 
 ## Interface
 
@@ -65,6 +66,7 @@ Manifest field meanings for v1:
 - `acceptance_hints`: human-readable checklist lines appended to `.planning/acceptance-matrix.md`
 
 The v1 manifest is intentionally narrow. It scaffolds files and guidance. It does **not** introduce machine-enforced template gates.
+It now does support machine-checked registry validation so the CLI can prove the built-in template set is coherent.
 
 ## Behavior
 
@@ -163,12 +165,14 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 - Existing projects without a template remain valid and are treated as `generic`.
 - `migrate` must never guess a template from repo contents in the first release.
 - A future explicit command may annotate an existing project with a chosen template after human confirmation. The intended surface is `agentxchain template set <id>`.
+- Config loading remains tolerant of missing or unknown `template` values, but explicit validation must fail when the installed CLI cannot prove a project's configured template binding.
 
 ## Error Cases
 
 - Unknown template id: initializer fails with a list of supported built-in templates.
 - Partial scaffold write: initializer must clean up or fail before claiming success.
 - Template manifest drift: CLI tests must fail if a declared planning artifact or prompt seed is missing from the packaged files.
+- Orphan template manifest: explicit template validation fails if a `cli/src/templates/governed/*.json` file exists on disk but is not registered.
 - Template overreach: if a template requires framework-specific files that the CLI cannot scaffold honestly, the template is rejected from the built-in set.
 
 ## Acceptance Tests
@@ -179,6 +183,7 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 - AT-SDLC-TEMPLATE-004: unknown template ids fail with a deterministic error message listing valid ids.
 - AT-SDLC-TEMPLATE-005: generated docs mention the selected template so operators and future migrations can inspect scaffold intent.
 - AT-SDLC-TEMPLATE-006: the packaged npm tarball contains every built-in template asset required by its manifest.
+- AT-SDLC-TEMPLATE-007: `agentxchain template validate` proves both the built-in registry and the current project's configured template binding.
 
 ## Open Questions
 

@@ -79,6 +79,7 @@ import {
 } from '../src/commands/plugin.js';
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
+import { templateValidateCommand } from '../src/commands/template-validate.js';
 import {
   multiInitCommand,
   multiStatusCommand,
@@ -335,6 +336,12 @@ templateCmd
   .description('List available governed templates')
   .option('-j, --json', 'Output as JSON')
   .action(templateListCommand);
+
+templateCmd
+  .command('validate')
+  .description('Validate the built-in governed template registry and current project template binding')
+  .option('-j, --json', 'Output as JSON')
+  .action(templateValidateCommand);
 
 const multiCmd = program
   .command('multi')
