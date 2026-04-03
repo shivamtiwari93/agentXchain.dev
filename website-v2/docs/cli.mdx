@@ -43,6 +43,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `migrate` | Migration | Migrate state and config from an older protocol version |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
 | `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
+| `multi` | Multi-repo coordination | Bootstrap, inspect, step, approve, and recover coordinator runs across linked repositories |
 | `dashboard` | Visualization | Launch a local read-only web dashboard |
 
 ## Turn lifecycle commands
@@ -335,6 +336,33 @@ agentxchain plugin <subcommand> [options]
 | `remove <name>` | Remove an installed plugin and its hooks |
 
 See [Plugins](/docs/plugins) for full details on authoring and managing plugins.
+
+## Multi-repo coordinator
+
+### `multi`
+
+```bash
+agentxchain multi <subcommand> [options]
+```
+
+The multi command family orchestrates governed runs across linked repositories. It requires a `coordinator.yaml` configuration at the workspace root that declares the repos, workstreams, and coordination strategy.
+
+| Subcommand | Purpose | Flags |
+|------------|---------|-------|
+| `init` | Bootstrap a coordinator run, link repo runs, and write initial coordinator state | `--json` |
+| `status` | Show coordinator status: super-run state, repo-run snapshots, and barriers | `--json` |
+| `step` | Reconcile repo truth, select the next workstream, and dispatch a coordinator turn | `--json` |
+| `approve-gate` | Approve a pending phase transition or completion gate across the coordinated run | `--json` |
+| `resync` | Detect divergence between coordinator state and repo authority, and rebuild if needed | `--json`, `--dry-run` |
+
+The typical coordinator flow is:
+
+1. `multi init` — reads `coordinator.yaml`, initializes or links repo-level governed runs, and writes coordinator state
+2. `multi step` — selects the next workstream assignment based on priority and readiness, dispatches a coordinator turn, and fires hooks
+3. `multi approve-gate` — when a gate is pending (phase transition or completion), the human approves it through this command
+4. `multi resync` — if coordinator state diverges from repo authority (e.g., after manual intervention in a child repo), resync rebuilds from truth. Use `--dry-run` to detect divergence without modifying state.
+
+The dashboard **Initiative** and **Cross-Repo** views visualize coordinator state. When only coordinator state exists (no repo-local run), the dashboard opens on Initiative first.
 
 ## Common sequences
 
