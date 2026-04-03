@@ -321,6 +321,30 @@ function validateAnnotations(annotations) {
   return valid;
 }
 
+/**
+ * Normalize spawnSync errors for hook processes.
+ *
+ * Some platforms can report an `EPIPE` write error when the child exits
+ * successfully without consuming the JSON stdin envelope. A zero exit status
+ * still represents a successful hook execution in that case, so do not
+ * misclassify it as a hook failure.
+ *
+ * @param {import('child_process').SpawnSyncReturns<Buffer|string>} result
+ * @returns {string|null}
+ */
+export function normalizeHookProcessError(result) {
+  if (!result?.error) return null;
+
+  const errorCode = result.error.code || null;
+  const errorMessage = result.error.message || String(result.error);
+
+  if (result.status === 0 && errorCode === 'EPIPE') {
+    return null;
+  }
+
+  return errorMessage;
+}
+
 // ── Hook Execution ───────────────────────────────────────────────────────────
 
 /**
@@ -358,6 +382,7 @@ function executeHookProcess(root, hookDef, payload) {
   const stdout = result.stdout ? result.stdout.toString('utf8') : '';
   const stderr = result.stderr ? result.stderr.toString('utf8').slice(0, MAX_STDERR_CAPTURE) : '';
   const exitCode = result.status;
+  const processError = normalizeHookProcessError(result);
 
   return {
     timedOut,
@@ -365,7 +390,7 @@ function executeHookProcess(root, hookDef, payload) {
     stderr,
     exitCode,
     durationMs,
-    processError: result.error ? result.error.message : null,
+    processError,
   };
 }
 
