@@ -206,8 +206,8 @@ agentxchain verify protocol [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--tier <tier>` | `1` | Maximum conformance tier to verify: `1`, `2`, or `3` |
-| `--surface <surface>` | all surfaces in tier | Restrict the run to one surface such as `state_machine`, `dispatch_manifest`, or `coordinator` |
+| `--tier <tier>` | `1` | Maximum conformance tier to verify: `1`, `2`, or `3`. Runs all fixtures up to and including the specified tier (e.g. `--tier 2` runs both tier 1 and tier 2 fixtures) |
+| `--surface <surface>` | all surfaces in tier | Restrict the run to one surface such as `state_machine`, `dispatch_manifest`, or `coordinator`. If `capabilities.json` includes a `surfaces` map, the verifier rejects requests for surfaces not explicitly claimed in that map |
 | `--target <path>` | `.` | Root containing `.agentxchain-conformance/capabilities.json` |
 | `--format <format>` | `text` | Output format: `text` or `json` |
 
@@ -223,13 +223,17 @@ agentxchain verify protocol --tier 3 --target .
 agentxchain verify protocol --tier 2 --surface dispatch_manifest --target . --format json
 ```
 
+**Progressive conformance:** Adapters may return `not_implemented` (exit code 3 from the adapter process) for fixtures they do not yet support. The verifier treats `not_implemented` as non-failing — the overall exit code remains `0` if all other fixtures pass. This allows implementations to adopt conformance progressively: pass lower tiers first while marking higher-tier or optional surfaces as not yet ready.
+
 Exit codes:
 
 | Exit code | Meaning |
 |-----------|---------|
-| `0` | All selected fixtures passed |
+| `0` | All selected fixtures passed (including any marked `not_implemented`) |
 | `1` | One or more fixtures failed |
-| `2` | Verifier or adapter error (malformed response, invocation problem, unsupported target) |
+| `2` | Verifier or adapter error (malformed response, invocation problem, unsupported target, or unclaimed surface) |
+
+Valid adapter response statuses: `pass` (exit 0), `fail` (exit 1), `error` (exit 2), `not_implemented` (exit 3).
 
 Use this command in CI if you fork the runner or build an alternative implementation. "Open protocol" without continuous conformance proof is marketing, not governance.
 
