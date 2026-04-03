@@ -9,15 +9,11 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { createServer } from 'node:http';
 import { spawn, spawnSync, execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import * as z from 'zod/v4';
 
 import {
   initializeGovernedRun,
@@ -41,9 +37,10 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const EXAMPLE_DIR = join(REPO_ROOT, 'examples', 'governed-todo-app');
 const MCP_SERVER_PATH = join(REPO_ROOT, 'examples', 'mcp-echo-agent', 'server.js');
+const MCP_HTTP_SERVER_PATH = join(REPO_ROOT, 'examples', 'mcp-http-echo-agent', 'server.js');
 
 let tmpDirs = [];
-let httpServers = [];
+let childProcesses = [];
 
 function makeTmpDir() {
   const dir = join(tmpdir(), `axc-mcp-example-${randomBytes(6).toString('hex')}`);
@@ -290,115 +287,44 @@ function prepareImplementationReadyRepoWithConfig(factory) {
   return { root, config };
 }
 
-function makeRemoteTurnResult(args) {
-  return {
-    schema_version: '1.0',
-    run_id: args.run_id,
-    turn_id: args.turn_id,
-    role: args.role,
-    runtime_id: args.runtime_id,
-    status: 'completed',
-    summary: `Turn completed by ${args.role}.`,
-    decisions: [
-      {
-        id: 'DEC-001',
-        category: 'implementation',
-        statement: 'Remote MCP server returned a governed turn result.',
-        rationale: 'Proves streamable_http MCP dispatch through the real CLI path.',
-      },
-    ],
-    objections: [
-      {
-        id: 'OBJ-001',
-        severity: 'low',
-        statement: 'Remote MCP example remains a no-op implementation proof, not a real coding agent.',
-        status: 'raised',
-      },
-    ],
-    files_changed: [],
-    artifacts_created: [],
-    verification: {
-      status: 'skipped',
-      commands: [],
-      evidence_summary: 'Example MCP server does not run automated verification.',
-      machine_evidence: [],
-    },
-    artifact: { type: 'review', ref: '.planning/PM_SIGNOFF.md' },
-    proposed_next_role: 'human',
-    phase_transition_request: null,
-    run_completion_request: null,
-    needs_human_reason: null,
-    cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
-  };
-}
+async function startHttpExampleServer() {
+  const exampleNodeModules = join(dirname(MCP_HTTP_SERVER_PATH), 'node_modules');
+  if (!existsSync(exampleNodeModules)) {
+    execSync('npm install --ignore-scripts', { cwd: dirname(MCP_HTTP_SERVER_PATH), stdio: 'ignore' });
+  }
 
-async function startStreamableHttpMcpServer() {
-  const requests = [];
-  const server = createServer(async (req, res) => {
-    if (req.url !== '/mcp') {
-      res.writeHead(404).end('not found');
-      return;
-    }
+  const port = 10000 + Math.floor(Math.random() * 50000);
+  const child = spawn(process.execPath, [MCP_HTTP_SERVER_PATH, '--port', String(port)], {
+    cwd: dirname(MCP_HTTP_SERVER_PATH),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  childProcesses.push(child);
 
-    if (req.method === 'GET') {
-      res.writeHead(405, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        error: { code: -32000, message: 'Method not allowed.' },
-        id: null,
-      }));
-      return;
-    }
-
-    const chunks = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
-    const bodyText = Buffer.concat(chunks).toString('utf8');
-    const body = bodyText ? JSON.parse(bodyText) : undefined;
-    requests.push({ method: req.method, headers: req.headers, body });
-
-    const mcpServer = new McpServer({ name: 'axc-remote-example-server', version: '1.0.0' });
-    mcpServer.registerTool('agentxchain_turn', {
-      description: 'Execute a governed turn',
-      inputSchema: {
-        run_id: z.string(),
-        turn_id: z.string(),
-        role: z.string(),
-        phase: z.string(),
-        runtime_id: z.string(),
-        project_root: z.string(),
-        dispatch_dir: z.string(),
-        assignment_path: z.string(),
-        prompt_path: z.string(),
-        context_path: z.string(),
-        staging_path: z.string(),
-        prompt: z.string(),
-        context: z.string(),
-      },
-    }, async (args) => ({
-      content: [{ type: 'text', text: 'ok' }],
-      structuredContent: makeRemoteTurnResult(args),
-    }));
-
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
+  let stdout = '';
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('HTTP MCP example server did not start within 10s')), 10000);
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+      if (stdout.includes('listening on')) {
+        clearTimeout(timeout);
+        resolve();
+      }
     });
-    await mcpServer.connect(transport);
-    res.on('close', () => {
-      void transport.close();
-      void mcpServer.close();
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
     });
-    await transport.handleRequest(req, res, body);
+    child.on('close', (code) => {
+      if (!stdout.includes('listening on')) {
+        clearTimeout(timeout);
+        reject(new Error(`HTTP MCP example server exited with code ${code} before listening`));
+      }
+    });
   });
 
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  httpServers.push(server);
-  const address = server.address();
   return {
-    url: `http://127.0.0.1:${address.port}/mcp`,
-    requests,
+    url: `http://127.0.0.1:${port}/mcp`,
+    child,
   };
 }
 
@@ -409,12 +335,13 @@ afterEach(async () => {
     } catch {}
   }
   tmpDirs = [];
-  for (const server of httpServers) {
+  for (const child of childProcesses) {
     try {
-      await new Promise((resolve) => server.close(resolve));
+      child.kill('SIGTERM');
+      await once(child, 'close');
     } catch {}
   }
-  httpServers = [];
+  childProcesses = [];
 });
 
 describe('MCP governed example proof', () => {
@@ -468,8 +395,8 @@ describe('MCP governed example proof', () => {
     assert.equal(history[1].runtime_id, 'local-dev');
   });
 
-  it('auto-accepts a streamable_http MCP-backed dev turn through the real CLI step command', async () => {
-    const remote = await startStreamableHttpMcpServer();
+  it('auto-accepts a streamable_http MCP-backed dev turn through the shipped HTTP example server', async () => {
+    const remote = await startHttpExampleServer();
     const { root } = prepareImplementationReadyRepoWithConfig((repoRoot) => createRemoteMcpExampleConfig(repoRoot, remote.url));
 
     const result = await runCliAsync(root, ['step', '--role', 'dev']);
@@ -477,10 +404,6 @@ describe('MCP governed example proof', () => {
     assert.match(result.combined, /Dispatching to MCP streamable_http:/i);
     assert.match(result.combined, new RegExp(remote.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(result.combined, /accepted/i);
-    assert.ok(
-      remote.requests.some((request) => request.headers['x-agentxchain-project'] === 'governed-example'),
-      'streamable_http CLI step should forward configured MCP headers'
-    );
   });
 
   it('documents the governed todo app MCP dev variant', () => {

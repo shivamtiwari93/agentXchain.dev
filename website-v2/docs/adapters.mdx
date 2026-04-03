@@ -236,6 +236,10 @@ This slice is **tool-contract based**. AgentXchain does not claim that any arbit
 
 This is synchronous in v1, like `api_proxy`. There is no separate polling phase.
 
+:::note Streamable HTTP Interop
+MCP `streamable_http` POST requests must negotiate both JSON and event-stream responses. If you build or probe a remote MCP server outside the SDK path, send `Accept: application/json, text/event-stream` or expect transport-level rejection from SDK-based servers.
+:::
+
 ### Required tool contract
 
 The MCP server must expose one tool named by `tool_name`. The default is `agentxchain_turn`.

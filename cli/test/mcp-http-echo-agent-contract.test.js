@@ -239,6 +239,19 @@ describe('MCP HTTP echo agent contract', () => {
       assert.ok(docs.includes('`headers`'), 'adapters.mdx must document headers config field');
     });
 
+    it('docs mention the streamable_http Accept header requirement', () => {
+      const docs = readFileSync(DOCS_PATH, 'utf8');
+      const readme = readFileSync(join(EXAMPLE_DIR, 'README.md'), 'utf8');
+      assert.ok(
+        docs.includes('Accept: application/json, text/event-stream'),
+        'adapters.mdx must document the streamable_http Accept header requirement',
+      );
+      assert.ok(
+        readme.includes('Accept: application/json, text/event-stream'),
+        'HTTP echo agent README must document the streamable_http Accept header requirement',
+      );
+    });
+
     it('governed-todo-app README documents the remote MCP wiring', () => {
       const todoReadme = readFileSync(
         join(REPO_ROOT, 'examples', 'governed-todo-app', 'README.md'), 'utf8');

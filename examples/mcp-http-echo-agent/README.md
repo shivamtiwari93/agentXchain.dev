@@ -82,6 +82,7 @@ The only difference is transport: this server receives tool calls over HTTP POST
 ## Server behavior
 
 - **Endpoint:** `POST /mcp` (all other paths return 404)
+- **Accept header:** MCP streamable HTTP clients must send `Accept: application/json, text/event-stream` on POST requests. The SDK client does this automatically; raw `curl` probes need to set it themselves.
 - **Stateless:** Each request creates a fresh MCP server instance. No session persistence.
 - **Headers:** The adapter forwards any `headers` from the runtime config. Use this for auth tokens, project identifiers, or routing.
 - **Graceful shutdown:** Ctrl+C stops the server.
