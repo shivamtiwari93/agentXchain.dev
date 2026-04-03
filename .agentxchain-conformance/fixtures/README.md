@@ -17,7 +17,6 @@ These verbs are fixture abstractions, not CLI command names:
 - `initialize_run` — create a new governed run
 - `assign_turn` — assign a turn to a role
 - `accept_turn` — accept a completed turn result into history
-- `append_history` — directly append a history entry (for orphan detection)
 - `approve_transition` — human approves a phase transition gate
 - `approve_completion` — human approves run completion
 - `resolve_blocked` — human resolves a blocked state
@@ -28,6 +27,11 @@ These verbs are fixture abstractions, not CLI command names:
 - `validate_config` — validate a governed config against schema
 
 The adapter is responsible for mapping these operations onto the target implementation.
+
+## Setup Helpers
+
+- `setup.filesystem` is a map of relative file paths to UTF-8 file contents the adapter must materialize before executing the fixture.
+- Fixture setup is limited to repo-local state, ledger/history files, staged turn results, and text files required for gate predicates.
 
 ## Assertion Objects
 

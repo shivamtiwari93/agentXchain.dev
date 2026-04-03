@@ -1,0 +1,22 @@
+{
+  "implementation": "agentxchain-cli",
+  "version": "2.2.0-dev",
+  "protocol_version": "v6",
+  "adapter": {
+    "protocol": "stdio-fixture-v1",
+    "command": ["node", ".agentxchain-conformance/reference-adapter.js"]
+  },
+  "tiers": [1],
+  "surfaces": {
+    "state_machine": true,
+    "turn_result_validation": true,
+    "gate_semantics": true,
+    "decision_ledger": true,
+    "history": true,
+    "config_schema": true
+  },
+  "metadata": {
+    "name": "AgentXchain Reference CLI",
+    "url": "https://github.com/shivamtiwari93/agentXchain.dev"
+  }
+}

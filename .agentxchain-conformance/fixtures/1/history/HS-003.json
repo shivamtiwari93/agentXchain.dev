@@ -2,7 +2,7 @@
   "fixture_id": "HS-003",
   "tier": 1,
   "surface": "history",
-  "description": "Orphaned history append without corresponding state advance fails",
+  "description": "Accepting a non-active turn fails before history can change",
   "type": "reject",
   "setup": {
     "state": {
@@ -33,20 +33,14 @@
     "history": []
   },
   "input": {
-    "operation": "append_history",
+    "operation": "accept_turn",
     "args": {
-      "entry": {
-        "turn_id": "turn_nonexistent",
-        "run_id": "run_001",
-        "role": "dev",
-        "status": "completed",
-        "summary": "Phantom turn"
-      }
+      "turn_id": "turn_nonexistent"
     }
   },
   "expected": {
     "result": "error",
-    "error_type": "orphaned_history_entry",
+    "error_type": "turn_not_active",
     "history_length": 0,
     "state_unchanged": true
   }

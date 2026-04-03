@@ -148,7 +148,10 @@ Each fixture is a JSON file in `.agentxchain-conformance/fixtures/<tier>/<surfac
   "type": "reject",
   "setup": {
     "state": { ... },
-    "config": { ... }
+    "config": { ... },
+    "filesystem": {
+      ".planning/PM_SIGNOFF.md": "Approved by PM"
+    }
   },
   "input": {
     "operation": "assign",
@@ -161,6 +164,8 @@ Each fixture is a JSON file in `.agentxchain-conformance/fixtures/<tier>/<surfac
   }
 }
 ```
+
+`setup.filesystem` is a fixture-level helper for gate and manifest predicates that depend on file presence. Adapters materialize the declared relative paths in an isolated workspace before running the operation.
 
 Fixture types:
 - **`accept`** — operation succeeds, expected output matches

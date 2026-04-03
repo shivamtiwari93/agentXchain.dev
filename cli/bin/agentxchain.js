@@ -59,6 +59,7 @@ import { generateCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
+import { verifyProtocolCommand } from '../src/commands/verify.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
@@ -207,6 +208,19 @@ program
   .option('--agent <id>', 'Expected agent for last history entry (turn mode)')
   .option('-j, --json', 'Output as JSON')
   .action(validateCommand);
+
+const verifyCmd = program
+  .command('verify')
+  .description('Verify protocol conformance targets');
+
+verifyCmd
+  .command('protocol')
+  .description('Run the protocol conformance fixture suite against a target implementation')
+  .option('--tier <tier>', 'Conformance tier to verify (1, 2, or 3)', '1')
+  .option('--surface <surface>', 'Restrict verification to a single surface')
+  .option('--target <path>', 'Target root containing .agentxchain-conformance/capabilities.json', '.')
+  .option('--format <format>', 'Output format: text or json', 'text')
+  .action(verifyProtocolCommand);
 
 program
   .command('migrate')
