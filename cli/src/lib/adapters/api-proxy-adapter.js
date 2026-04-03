@@ -19,7 +19,7 @@
  *   All error returns include a `classified` ApiProxyError object with
  *   error_class, recovery instructions, and retryable flag.
  *
- * Supported providers: "anthropic" (others can be added behind the same interface)
+ * Supported providers: "anthropic", "openai"
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
@@ -43,6 +43,7 @@ import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 // Provider endpoint registry
 const PROVIDER_ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
+  openai: 'https://api.openai.com/v1/chat/completions',
 };
 
 // Cost rates per million tokens (USD)
@@ -89,6 +90,21 @@ const PROVIDER_ERROR_MAPS = {
       { provider_error_type: 'invalid_request_error', http_status: 400, body_pattern: /context|token.*limit|too.many.tokens/i, error_class: 'context_overflow', retryable: false },
       { provider_error_type: 'invalid_request_error', http_status: 400, error_class: 'invalid_request', retryable: false },
       { provider_error_type: 'api_error', http_status: 500, error_class: 'unknown_api_error', retryable: true },
+    ],
+  },
+  openai: {
+    extractErrorType(body) {
+      return typeof body?.error?.type === 'string' ? body.error.type : null;
+    },
+    extractErrorCode(body) {
+      return typeof body?.error?.code === 'string' ? body.error.code : null;
+    },
+    mappings: [
+      { provider_error_code: 'invalid_api_key', http_status: 401, error_class: 'auth_failure', retryable: false },
+      { provider_error_code: 'model_not_found', http_status: 404, error_class: 'model_not_found', retryable: false },
+      { provider_error_type: 'invalid_request_error', http_status: 400, body_pattern: /context|token.*limit|too.many.tokens/i, error_class: 'context_overflow', retryable: false },
+      { provider_error_type: 'invalid_request_error', http_status: 400, error_class: 'invalid_request', retryable: false },
+      { provider_error_type: 'rate_limit_error', http_status: 429, error_class: 'rate_limited', retryable: true },
     ],
   },
 };
@@ -261,7 +277,8 @@ function classifyProviderHttpError(status, body, provider, model, authEnv) {
   }
 
   for (const mapping of providerMap.mappings) {
-    if (mapping.provider_error_type !== providerErrorType) continue;
+    if (mapping.provider_error_type && mapping.provider_error_type !== providerErrorType) continue;
+    if (mapping.provider_error_code && mapping.provider_error_code !== providerErrorCode) continue;
     if (!httpStatusMatches(mapping.http_status, status)) continue;
     if (mapping.body_pattern && !mapping.body_pattern.test(body)) continue;
     return {
@@ -388,11 +405,20 @@ function emptyUsageTotals() {
   };
 }
 
-function usageFromTelemetry(model, usage) {
+function usageFromTelemetry(provider, model, usage) {
   if (!usage || typeof usage !== 'object') return null;
 
-  const inputTokens = Number.isFinite(usage.input_tokens) ? usage.input_tokens : 0;
-  const outputTokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  if (provider === 'openai') {
+    inputTokens = Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : 0;
+    outputTokens = Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : 0;
+  } else {
+    inputTokens = Number.isFinite(usage.input_tokens) ? usage.input_tokens : 0;
+    outputTokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
+  }
+
   const rates = COST_RATES[model];
   const usd = rates
     ? (inputTokens / 1_000_000) * rates.input_per_1m + (outputTokens / 1_000_000) * rates.output_per_1m
@@ -567,7 +593,7 @@ async function executeApiCall({
   try {
     response = await fetch(endpoint, {
       method: 'POST',
-      headers: buildAnthropicHeaders(apiKey),
+      headers: buildProviderHeaders(provider, apiKey),
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
@@ -636,8 +662,8 @@ async function executeApiCall({
     };
   }
 
-  const usage = usageFromTelemetry(model, responseData.usage);
-  const extraction = extractTurnResult(responseData);
+  const usage = usageFromTelemetry(provider, model, responseData.usage);
+  const extraction = extractTurnResult(responseData, provider);
 
   if (!extraction.ok) {
     return {
@@ -788,7 +814,7 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
     }
   }
 
-  const requestBody = buildAnthropicRequest(promptMd, effectiveContextMd, model, maxOutputTokens);
+  const requestBody = buildProviderRequest(provider, promptMd, effectiveContextMd, model, maxOutputTokens);
 
   // Persist request metadata for auditability
   const dispatchDir = join(root, getDispatchTurnDir(turn.turn_id));
@@ -1007,25 +1033,59 @@ function buildAnthropicRequest(promptMd, contextMd, model, maxOutputTokens) {
   };
 }
 
+function buildOpenAiHeaders(apiKey) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  };
+}
+
+function buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens) {
+  const userContent = contextMd
+    ? `${promptMd}${SEPARATOR}${contextMd}`
+    : promptMd;
+
+  return {
+    model,
+    max_completion_tokens: maxOutputTokens,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'developer', content: SYSTEM_PROMPT },
+      { role: 'user', content: userContent },
+    ],
+  };
+}
+
+function buildProviderHeaders(provider, apiKey) {
+  if (provider === 'openai') {
+    return buildOpenAiHeaders(apiKey);
+  }
+  return buildAnthropicHeaders(apiKey);
+}
+
+function buildProviderRequest(provider, promptMd, contextMd, model, maxOutputTokens) {
+  if (provider === 'openai') {
+    return buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens);
+  }
+  return buildAnthropicRequest(promptMd, contextMd, model, maxOutputTokens);
+}
+
 /**
  * Extract structured turn result JSON from an Anthropic API response.
  * Looks for JSON in the first text content block.
  */
-function extractTurnResult(responseData) {
-  if (!responseData?.content || !Array.isArray(responseData.content)) {
-    return { ok: false, error: 'API response has no content blocks' };
+function extractTurnResultFromText(text) {
+  if (typeof text !== 'string' || !text.trim()) {
+    return {
+      ok: false,
+      error: 'Could not extract structured turn result JSON from API response. The model did not return valid turn result JSON.',
+    };
   }
 
-  const textBlock = responseData.content.find(b => b.type === 'text');
-  if (!textBlock?.text) {
-    return { ok: false, error: 'API response has no text content block' };
-  }
+  const trimmed = text.trim();
 
-  const text = textBlock.text.trim();
-
-  // Try parsing the entire response as JSON first
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(trimmed);
     if (parsed && typeof parsed === 'object' && parsed.schema_version) {
       return { ok: true, turnResult: parsed };
     }
@@ -1033,8 +1093,7 @@ function extractTurnResult(responseData) {
     // Not pure JSON — try extracting from markdown fences
   }
 
-  // Try extracting JSON from markdown code fences
-  const fenceMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
   if (fenceMatch) {
     try {
       const parsed = JSON.parse(fenceMatch[1].trim());
@@ -1046,12 +1105,11 @@ function extractTurnResult(responseData) {
     }
   }
 
-  // Try finding JSON object boundaries
-  const jsonStart = text.indexOf('{');
-  const jsonEnd = text.lastIndexOf('}');
+  const jsonStart = trimmed.indexOf('{');
+  const jsonEnd = trimmed.lastIndexOf('}');
   if (jsonStart >= 0 && jsonEnd > jsonStart) {
     try {
-      const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+      const parsed = JSON.parse(trimmed.slice(jsonStart, jsonEnd + 1));
       if (parsed && typeof parsed === 'object' && parsed.schema_version) {
         return { ok: true, turnResult: parsed };
       }
@@ -1066,6 +1124,39 @@ function extractTurnResult(responseData) {
   };
 }
 
+function extractAnthropicTurnResult(responseData) {
+  if (!responseData?.content || !Array.isArray(responseData.content)) {
+    return { ok: false, error: 'API response has no content blocks' };
+  }
+
+  const textBlock = responseData.content.find(b => b.type === 'text');
+  if (!textBlock?.text) {
+    return { ok: false, error: 'API response has no text content block' };
+  }
+
+  return extractTurnResultFromText(textBlock.text);
+}
+
+function extractOpenAiTurnResult(responseData) {
+  if (!Array.isArray(responseData?.choices) || responseData.choices.length === 0) {
+    return { ok: false, error: 'API response has no choices' };
+  }
+
+  const content = responseData.choices[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) {
+    return { ok: false, error: 'API response has no message content' };
+  }
+
+  return extractTurnResultFromText(content);
+}
+
+function extractTurnResult(responseData, provider = 'anthropic') {
+  if (provider === 'openai') {
+    return extractOpenAiTurnResult(responseData);
+  }
+  return extractAnthropicTurnResult(responseData);
+}
+
 function resolveTargetTurn(state, turnId) {
   if (turnId && state?.active_turns?.[turnId]) {
     return state.active_turns[turnId];
@@ -1073,4 +1164,11 @@ function resolveTargetTurn(state, turnId) {
   return state?.current_turn || Object.values(state?.active_turns || {})[0];
 }
 
-export { extractTurnResult, buildAnthropicRequest, classifyError, classifyHttpError, COST_RATES };
+export {
+  extractTurnResult,
+  buildAnthropicRequest,
+  buildOpenAiRequest,
+  classifyError,
+  classifyHttpError,
+  COST_RATES,
+};

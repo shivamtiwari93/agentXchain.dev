@@ -9,6 +9,7 @@ import {
   dispatchApiProxy,
   extractTurnResult,
   buildAnthropicRequest,
+  buildOpenAiRequest,
   classifyError,
   classifyHttpError,
   COST_RATES,
@@ -250,6 +251,7 @@ function createAndTrack() {
 
 const originalFetch = global.fetch;
 const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
+const originalOpenAiKey = process.env.OPENAI_API_KEY;
 
 afterEach(() => {
   for (const dir of tmpDirs) {
@@ -261,6 +263,11 @@ afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
   } else {
     process.env.ANTHROPIC_API_KEY = originalAnthropicKey;
+  }
+  if (originalOpenAiKey === undefined) {
+    delete process.env.OPENAI_API_KEY;
+  } else {
+    process.env.OPENAI_API_KEY = originalOpenAiKey;
   }
 });
 
@@ -349,6 +356,24 @@ describe('extractTurnResult', () => {
     assert.equal(result.ok, false);
     assert.ok(result.error.includes('Could not extract'));
   });
+
+  it('extracts OpenAI chat completions JSON content', () => {
+    const result = extractTurnResult({
+      choices: [{
+        message: {
+          content: JSON.stringify(validTurnResult),
+        },
+      }],
+    }, 'openai');
+    assert.equal(result.ok, true);
+    assert.equal(result.turnResult.role, 'qa');
+  });
+
+  it('fails when OpenAI response has no choices', () => {
+    const result = extractTurnResult({}, 'openai');
+    assert.equal(result.ok, false);
+    assert.ok(result.error.includes('no choices'));
+  });
 });
 
 // ── Tests: buildAnthropicRequest ───────────────────────────────────────────
@@ -367,6 +392,20 @@ describe('buildAnthropicRequest', () => {
   it('handles empty context', () => {
     const req = buildAnthropicRequest('# Prompt only', '', 'claude-sonnet-4-6', 2048);
     assert.equal(req.messages[0].content, '# Prompt only');
+  });
+});
+
+describe('buildOpenAiRequest', () => {
+  it('builds correct OpenAI chat completions request shape', () => {
+    const req = buildOpenAiRequest('# Prompt', '# Context', 'gpt-4o-mini', 2048);
+    assert.equal(req.model, 'gpt-4o-mini');
+    assert.equal(req.max_completion_tokens, 2048);
+    assert.deepEqual(req.response_format, { type: 'json_object' });
+    assert.equal(req.messages.length, 2);
+    assert.equal(req.messages[0].role, 'developer');
+    assert.equal(req.messages[0].content, SYSTEM_PROMPT);
+    assert.equal(req.messages[1].role, 'user');
+    assert.equal(req.messages[1].content, `# Prompt${SEPARATOR}# Context`);
   });
 });
 
@@ -503,6 +542,27 @@ describe('classifyHttpError', () => {
     assert.equal(err.error_class, 'unknown_api_error');
     assert.equal(err.retryable, true);
   });
+
+  it('classifies OpenAI invalid_api_key as auth_failure', () => {
+    const err = classifyHttpError(401, '{"error":{"type":"invalid_request_error","code":"invalid_api_key","message":"Incorrect API key"}}', 'openai', 'gpt-4o-mini', 'OPENAI_API_KEY');
+    assert.equal(err.error_class, 'auth_failure');
+    assert.equal(err.http_status, 401);
+    assert.equal(err.retryable, false);
+    assert.equal(err.provider_error_code, 'invalid_api_key');
+  });
+
+  it('classifies OpenAI rate limit failures as rate_limited', () => {
+    const err = classifyHttpError(429, '{"error":{"type":"rate_limit_error","message":"Rate limit exceeded"}}', 'openai', 'gpt-4o-mini', 'OPENAI_API_KEY');
+    assert.equal(err.error_class, 'rate_limited');
+    assert.equal(err.retryable, true);
+    assert.equal(err.provider_error_type, 'rate_limit_error');
+  });
+
+  it('classifies OpenAI token limit failures as context_overflow', () => {
+    const err = classifyHttpError(400, '{"error":{"type":"invalid_request_error","message":"This model\\u2019s maximum context length has been exceeded due to token limit"}}', 'openai', 'gpt-4o-mini', 'OPENAI_API_KEY');
+    assert.equal(err.error_class, 'context_overflow');
+    assert.equal(err.retryable, false);
+  });
 });
 
 describe('dispatchApiProxy', () => {
@@ -531,6 +591,87 @@ describe('dispatchApiProxy', () => {
     assert.equal(requestBody.messages[0].content, `${promptMd}${SEPARATOR}${contextMd}`);
     assert.equal(existsSync(join(root, tokenBudgetPath(state))), false);
     assert.equal(existsSync(join(root, effectiveContextPath(state))), false);
+  });
+
+  it('dispatches through OpenAI chat completions and stages the extracted result', async () => {
+    const root = createAndTrack();
+    const state = makeApiState({
+      current_turn: {
+        turn_id: 'turn_test001',
+        assigned_role: 'qa',
+        status: 'running',
+        attempt: 1,
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 600000).toISOString(),
+        runtime_id: 'api-openai',
+      },
+    });
+    const turnResult = {
+      ...makeTurnResult(state),
+      runtime_id: 'api-openai',
+    };
+    const config = makeApiConfig({
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      auth_env: 'OPENAI_API_KEY',
+    });
+    config.roles.qa.runtime_id = 'api-openai';
+    config.runtimes = {
+      'api-openai': {
+        type: 'api_proxy',
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        auth_env: 'OPENAI_API_KEY',
+        max_output_tokens: 1024,
+        timeout_seconds: 5,
+      },
+    };
+
+    setupDispatchBundle(root);
+    process.env.OPENAI_API_KEY = 'openai-test-key';
+
+    let requestUrl;
+    let requestHeaders;
+    let requestBody;
+    global.fetch = async (url, options) => {
+      requestUrl = url;
+      requestHeaders = options.headers;
+      requestBody = JSON.parse(options.body);
+      return makeJsonResponse(200, {
+        choices: [{
+          message: {
+            content: JSON.stringify(turnResult),
+          },
+        }],
+        usage: {
+          prompt_tokens: 900,
+          completion_tokens: 120,
+        },
+      });
+    };
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, true);
+    assert.equal(requestUrl, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(requestHeaders.Authorization, 'Bearer openai-test-key');
+    assert.equal(requestBody.model, 'gpt-4o-mini');
+    assert.equal(requestBody.max_completion_tokens, 1024);
+    assert.deepEqual(requestBody.response_format, { type: 'json_object' });
+    assert.equal(requestBody.messages[0].role, 'developer');
+    assert.equal(requestBody.messages[1].role, 'user');
+    assert.deepEqual(result.usage, {
+      input_tokens: 900,
+      output_tokens: 120,
+      usd: 0,
+    });
+
+    const staged = readJson(join(root, stagingResultPath(state)));
+    assert.equal(staged.runtime_id, 'api-openai');
+    assert.deepEqual(staged.cost, {
+      input_tokens: 900,
+      output_tokens: 120,
+      usd: 0,
+    });
   });
 
   it('writes preflight audit artifacts and sends the effective context when tokenization is enabled', async () => {

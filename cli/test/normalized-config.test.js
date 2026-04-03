@@ -187,6 +187,25 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts OpenAI as a valid api_proxy provider', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          auth_env: 'OPENAI_API_KEY',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
   it('rejects invalid api_proxy retry_policy values', () => {
     const result = validateV4Config({
       schema_version: '1.0',
@@ -371,6 +390,33 @@ describe('validateV4Config', () => {
     assert.ok(
       result.errors.some(e => e.includes('context_window_tokens must be greater than max_output_tokens + preflight_tokenization.safety_margin_tokens'))
     );
+  });
+
+  it('rejects OpenAI preflight tokenization until a provider_local tokenizer exists', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          auth_env: 'OPENAI_API_KEY',
+          max_output_tokens: 4096,
+          context_window_tokens: 128000,
+          preflight_tokenization: {
+            enabled: true,
+            tokenizer: 'provider_local',
+            safety_margin_tokens: 2048,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('provider_local') && e.includes('openai')));
   });
 });
 

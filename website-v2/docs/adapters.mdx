@@ -235,8 +235,9 @@ The api_proxy adapter is currently restricted to **review_only** roles only. Rol
 | Provider | Status |
 |----------|--------|
 | Anthropic | Supported (Claude Opus, Sonnet, Haiku) |
+| OpenAI | Supported for chat-completions-compatible review models (for example `gpt-4o`, `gpt-4o-mini`) |
 
-Only Anthropic is supported in v1. Additional providers may be added behind the same interface in future versions.
+Anthropic and OpenAI are supported in v1. OpenAI support in this slice uses the Chat Completions endpoint with JSON output. Tool use, background execution, and the Responses API are still out of scope for `api_proxy`.
 
 ### Error classification
 
@@ -280,6 +281,8 @@ Retry traces (attempts, delays, outcomes) are persisted as audit artifacts in th
 
 When enabled, the adapter evaluates the token budget before making the API call. If the assembled prompt exceeds the model's context window minus a safety margin, the adapter trims context to fit.
 
+`provider_local` preflight tokenization is currently **Anthropic-only**. OpenAI runtimes may use `api_proxy`, but if they enable `preflight_tokenization`, config validation fails closed because the repo does not yet ship an OpenAI local tokenizer.
+
 ```json title="preflight_tokenization config"
 {
   "preflight_tokenization": {
@@ -309,38 +312,55 @@ The adapter records token usage from provider telemetry:
 }
 ```
 
+`input_tokens` and `output_tokens` are always populated when the provider returns usage telemetry. `usd` is populated when the model exists in AgentXchain's pinned rate table; otherwise it remains `0` instead of inventing pricing.
+
 ### Configuration
 
 ```json title="agentxchain.json (excerpt)"
 {
   "roles": {
     "qa": {
-      "adapter": "api_proxy",
-      "adapter_config": {
-        "provider": "anthropic",
-        "model": "claude-sonnet-4-20250514",
-        "max_tokens": 8192,
-        "temperature": 0.2,
-        "api_key_env": "ANTHROPIC_API_KEY",
-        "timeout_seconds": 120,
-        "retry_policy": {
-          "enabled": true,
-          "max_attempts": 3,
-          "base_delay_ms": 1000,
-          "max_delay_ms": 8000,
-          "backoff_multiplier": 2,
-          "jitter": "full"
-        },
-        "preflight_tokenization": {
-          "enabled": true,
-          "tokenizer": "provider_local",
-          "safety_margin_tokens": 2048
-        }
+      "title": "QA",
+      "mandate": "Challenge correctness and ship readiness.",
+      "write_authority": "review_only",
+      "runtime": "api-qa-openai"
+    }
+  },
+  "runtimes": {
+    "api-qa-openai": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "auth_env": "OPENAI_API_KEY",
+      "max_output_tokens": 4096,
+      "timeout_seconds": 120,
+      "retry_policy": {
+        "enabled": true,
+        "max_attempts": 3,
+        "base_delay_ms": 1000,
+        "max_delay_ms": 8000,
+        "backoff_multiplier": 2,
+        "jitter": "full"
+      }
+    },
+    "api-qa-anthropic": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY",
+      "max_output_tokens": 4096,
+      "timeout_seconds": 120,
+      "preflight_tokenization": {
+        "enabled": true,
+        "tokenizer": "provider_local",
+        "safety_margin_tokens": 2048
       }
     }
   }
 }
 ```
+
+Use an Anthropic runtime when you want local preflight tokenization. Use an OpenAI runtime when you want synchronous review-only dispatch to a chat-completions-compatible OpenAI model.
 
 ## Comparison table
 
@@ -352,6 +372,6 @@ The adapter records token usage from provider telemetry:
 | **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | HTTP request body |
 | **Retry logic** | N/A | Exit code based | Configurable exponential backoff with jitter |
 | **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | HTTP timeout + retry policy |
-| **Cost tracking** | N/A | N/A | Automatic (tokens + USD from provider telemetry) |
+| **Cost tracking** | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
 | **Write authority** | Any | Any | `review_only` only (v1) |
-| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct LLM review calls, batch processing |
+| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct Anthropic or OpenAI review calls |

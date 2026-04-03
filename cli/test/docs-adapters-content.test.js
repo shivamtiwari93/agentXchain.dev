@@ -165,10 +165,13 @@ describe('Adapter docs contract', () => {
       }
     });
 
-    it('docs do NOT claim OpenAI support', () => {
-      // OpenAI is not in PROVIDER_ENDPOINTS
-      assert.doesNotMatch(adapterDocs, /OpenAI.*supported|GPT-4o|GPT-4 Turbo|o1, o3/i,
-        'adapters.mdx must not claim OpenAI support when PROVIDER_ENDPOINTS only has anthropic');
+    it('docs list OpenAI support when PROVIDER_ENDPOINTS includes it', () => {
+      assert.match(apiProxySource, /openai:\s*'https:\/\/api\.openai\.com\/v1\/chat\/completions'/,
+        'api-proxy-adapter.js must register the OpenAI endpoint');
+      assert.match(adapterDocs, /OpenAI.*Supported|Supported.*OpenAI/i,
+        'adapters.mdx must document OpenAI as a supported provider');
+      assert.match(adapterDocs, /chat-completions-compatible/i,
+        'adapters.mdx must scope OpenAI support to chat-completions-compatible models');
     });
 
     it('docs do NOT claim custom/base_url support', () => {
@@ -227,6 +230,13 @@ describe('Adapter docs contract', () => {
     it('docs document preflight tokenization', () => {
       assert.match(adapterDocs, /preflight.*tokenization|token.*budget/i,
         'adapters.mdx must document preflight tokenization');
+    });
+
+    it('docs state the Anthropic-only provider_local boundary', () => {
+      assert.match(normalizedConfigSource, /provider_local.*not supported for provider/,
+        'normalized-config.js must fail closed when provider_local tokenizer is unavailable');
+      assert.match(adapterDocs, /Anthropic-only|OpenAI.*config validation fails closed/i,
+        'adapters.mdx must document that provider_local preflight tokenization is currently Anthropic-only');
     });
   });
 

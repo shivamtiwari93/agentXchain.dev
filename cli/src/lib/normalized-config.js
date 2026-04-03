@@ -13,9 +13,11 @@
  */
 
 import { validateHooksConfig } from './hook-runner.js';
+import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy'];
+const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_PHASES = ['planning', 'implementation', 'qa'];
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
@@ -146,6 +148,12 @@ function validateApiProxyPreflightTokenization(runtimeId, runtime, errors) {
   }
 
   if (preflight.enabled === true) {
+    if (!SUPPORTED_TOKEN_COUNTER_PROVIDERS.includes(runtime.provider)) {
+      errors.push(
+        `Runtime "${runtimeId}": preflight_tokenization tokenizer "provider_local" is not supported for provider "${runtime.provider}". Supported providers: ${SUPPORTED_TOKEN_COUNTER_PROVIDERS.join(', ')}`
+      );
+    }
+
     if (!Number.isInteger(runtime.context_window_tokens) || runtime.context_window_tokens <= 0) {
       errors.push(`Runtime "${runtimeId}": context_window_tokens is required when preflight_tokenization.enabled is true`);
       return;
@@ -239,6 +247,8 @@ export function validateV4Config(data, projectRoot) {
       if (rt.type === 'api_proxy') {
         if (typeof rt.provider !== 'string' || !rt.provider.trim()) {
           errors.push(`Runtime "${id}": api_proxy requires "provider" (e.g. "anthropic", "openai")`);
+        } else if (!VALID_API_PROXY_PROVIDERS.includes(rt.provider)) {
+          errors.push(`Runtime "${id}": api_proxy provider must be one of: ${VALID_API_PROXY_PROVIDERS.join(', ')}`);
         }
         if (typeof rt.model !== 'string' || !rt.model.trim()) {
           errors.push(`Runtime "${id}": api_proxy requires "model" (e.g. "claude-sonnet-4-6")`);
