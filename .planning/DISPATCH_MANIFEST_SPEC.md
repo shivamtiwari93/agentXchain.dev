@@ -65,6 +65,16 @@ Written to `<bundle_dir>/MANIFEST.json` at finalization time.
   - Checks for unexpected files not in manifest
   - Returns `ok: false` with structured errors on any violation
 
+- `hasDispatchManifest(root, turnId)` → `boolean`
+  - Returns whether `<bundle_dir>/MANIFEST.json` exists
+
+- `verifyDispatchManifestForAdapter(root, turnId, options)` → `{ ok, skipped?, manifestPresent?, error?, errors?, manifest? }`
+  - Default adapter policy:
+    - verify automatically when `MANIFEST.json` exists
+    - require a manifest when `verifyManifest: true`
+    - skip verification only when `skipManifestVerification: true`
+  - Returns formatted error text for adapter/operator surfaces
+
 ### Path Helper
 
 **`cli/src/lib/turn-paths.js`:**
@@ -90,7 +100,17 @@ adapter dispatches              — adapter calls verifyDispatchManifest() first
 1. `writeDispatchBundle()` writes ASSIGNMENT.json, PROMPT.md, CONTEXT.md (and optionally COORDINATOR_CONTEXT.json/md for multi-repo).
 2. `after_dispatch` hooks run. They may add files to the bundle directory (supplement files). They MUST NOT modify protected core files (existing tamper detection enforces this).
 3. `finalizeDispatchManifest()` is called. It scans the bundle directory, hashes every file except MANIFEST.json itself, and writes the manifest. **After this point, the bundle is sealed.**
-4. The adapter calls `verifyDispatchManifest()` before reading any bundle file. If verification fails, the adapter refuses to execute.
+4. The adapter verifies finalized bundles before reading any bundle file. If verification fails, the adapter refuses to execute.
+
+### Adapter Consumption Policy
+
+The adapter contract is intentionally narrower than the raw verifier:
+
+- **Default adapter behavior:** if `MANIFEST.json` exists, verify it automatically before reading bundle files.
+- **Governed CLI behavior:** `step` and `resume` pass `verifyManifest: true`, which requires a manifest to exist and verifies it.
+- **Explicit escape hatch:** callers may pass `skipManifestVerification: true` to bypass verification entirely. This is for narrow test or legacy-library use only; silent bypass is not the default.
+
+This resolves the v2.1 trust gap where a finalized bundle could still be consumed unverified simply because a caller forgot the opt-in flag.
 
 ### Supplement Handling
 
@@ -119,7 +139,9 @@ All failures are fatal. Verification fails closed — the adapter MUST NOT proce
 2. If the bundle directory is empty at finalization time, `finalizeDispatchManifest` returns `{ ok: false, error: 'Bundle directory is empty — no files to manifest' }`.
 3. If MANIFEST.json already exists in the bundle directory at finalization time, it is overwritten. Finalization is idempotent — re-finalizing overwrites the previous manifest.
 4. If an adapter encounters a verification failure, it returns `{ ok: false, error: '<structured error>' }` and the CLI surfaces the error and exits non-zero without executing the agent.
-5. If MANIFEST.json is missing at verification time (pre-v2.1 bundles or manual dispatch), the adapter returns a verification failure. There is no graceful degradation — manifests are mandatory once the feature ships.
+5. If MANIFEST.json is missing and `verifyManifest: true` was requested, the adapter returns a verification failure. For legacy/manual callers that do not require a manifest, the adapter may proceed only when no manifest exists.
+6. If a manifest exists but the caller omits verification flags, the adapter still verifies it automatically. Silent bypass of an existing finalized manifest is not allowed.
+7. If a caller passes `skipManifestVerification: true`, the adapter skips verification even when a manifest exists. This is an explicit escape hatch, not the default.
 
 ---
 
@@ -143,6 +165,12 @@ All failures are fatal. Verification fails closed — the adapter MUST NOT proce
 - `AT-V21-MANIFEST-003`: Coordinator context files are included in manifest for multi-repo bundles.
   - Write bundle with COORDINATOR_CONTEXT.json → finalize → assert present in manifest.
 
+- `AT-V21-MANIFEST-004`: Adapters auto-verify a tampered finalized bundle even when the caller does not pass `verifyManifest: true`.
+  - Write bundle → finalize → inject extra file → dispatch via adapter with default options → assert dispatch fails before execution.
+
+- `AT-V21-MANIFEST-005`: `skipManifestVerification: true` bypasses auto-verification for narrow non-governed callers.
+  - Write bundle → finalize → inject extra file → dispatch via adapter with explicit skip flag → assert adapter reaches runtime path.
+
 ---
 
 ## Open Questions
@@ -160,3 +188,5 @@ All failures are fatal. Verification fails closed — the adapter MUST NOT proce
 - `DEC-MANIFEST-003`: Verification fails closed on all error types. There is no warning-only mode.
 - `DEC-MANIFEST-004`: MANIFEST.json is excluded from its own file entries to avoid self-referential hashing.
 - `DEC-MANIFEST-005`: Re-finalization overwrites the previous manifest. Finalization is idempotent.
+- `DEC-MANIFEST-006`: Adapters auto-verify any existing finalized dispatch manifest by default. Silent bypass of an existing manifest is not allowed.
+- `DEC-MANIFEST-007`: `verifyManifest: true` means the manifest is mandatory for governed dispatch. `skipManifestVerification: true` is the explicit non-governed/test escape hatch.

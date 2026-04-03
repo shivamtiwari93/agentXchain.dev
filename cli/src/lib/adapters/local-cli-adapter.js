@@ -28,7 +28,7 @@ import {
   getTurnStagingDir,
   getTurnStagingResultPath,
 } from '../turn-paths.js';
-import { verifyDispatchManifest } from '../dispatch-manifest.js';
+import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 
 /**
  * Launch a local CLI subprocess for a governed turn.
@@ -43,23 +43,23 @@ import { verifyDispatchManifest } from '../dispatch-manifest.js';
  * @param {AbortSignal} [options.signal] - abort signal for cancellation
  * @param {function} [options.onStdout] - callback for stdout lines (for logging)
  * @param {function} [options.onStderr] - callback for stderr lines (for logging)
+ * @param {boolean} [options.verifyManifest] - require MANIFEST.json and verify before execution
+ * @param {boolean} [options.skipManifestVerification] - explicit escape hatch; skip verification even if a manifest exists
  * @returns {Promise<{ ok: boolean, exitCode?: number, timedOut?: boolean, aborted?: boolean, error?: string, logs?: string[] }>}
  */
 export async function dispatchLocalCli(root, state, config, options = {}) {
-  const { signal, onStdout, onStderr, turnId, verifyManifest = false } = options;
+  const { signal, onStdout, onStderr, turnId } = options;
 
   const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
   }
 
-  // Verify dispatch manifest before consuming bundle files (enabled by step command)
-  if (verifyManifest) {
-    const manifestCheck = verifyDispatchManifest(root, turn.turn_id);
-    if (!manifestCheck.ok) {
-      const errorDetail = manifestCheck.errors.map((e) => `${e.type}: ${e.detail}`).join('; ');
-      return { ok: false, error: `Dispatch manifest verification failed: ${errorDetail}` };
-    }
+  // Default policy verifies finalized bundles automatically; step.js still
+  // passes verifyManifest: true to require a manifest on governed dispatch.
+  const manifestCheck = verifyDispatchManifestForAdapter(root, turn.turn_id, options);
+  if (!manifestCheck.ok) {
+    return { ok: false, error: `Dispatch manifest verification failed: ${manifestCheck.error}` };
   }
 
   const runtimeId = turn.runtime_id;

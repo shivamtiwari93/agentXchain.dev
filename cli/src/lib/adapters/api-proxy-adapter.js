@@ -38,7 +38,7 @@ import {
   getTurnStagingDir,
   getTurnStagingResultPath,
 } from '../turn-paths.js';
-import { verifyDispatchManifest } from '../dispatch-manifest.js';
+import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 
 // Provider endpoint registry
 const PROVIDER_ENDPOINTS = {
@@ -677,24 +677,22 @@ function errorReturn(root, turnId, classified, extras = {}) {
  * @param {string} root - project root directory
  * @param {object} state - current governed state
  * @param {object} config - normalized config
- * @param {object} options - { signal?: AbortSignal, onStatus?: (msg: string) => void }
+ * @param {object} options - { signal?: AbortSignal, onStatus?: (msg: string) => void, verifyManifest?: boolean, skipManifestVerification?: boolean }
  * @returns {Promise<{ ok: boolean, error?: string, classified?: ApiProxyError, usage?: object, staged?: boolean }>}
  */
 export async function dispatchApiProxy(root, state, config, options = {}) {
-  const { signal, onStatus, turnId, verifyManifest = false } = options;
+  const { signal, onStatus, turnId } = options;
 
   const turn = resolveTargetTurn(state, turnId);
   if (!turn) {
     return { ok: false, error: 'No active turn in state' };
   }
 
-  // Verify dispatch manifest before consuming bundle files (enabled by step command)
-  if (verifyManifest) {
-    const manifestCheck = verifyDispatchManifest(root, turn.turn_id);
-    if (!manifestCheck.ok) {
-      const errorDetail = manifestCheck.errors.map((e) => `${e.type}: ${e.detail}`).join('; ');
-      return { ok: false, error: `Dispatch manifest verification failed: ${errorDetail}` };
-    }
+  // Default policy verifies finalized bundles automatically; step.js still
+  // passes verifyManifest: true to require a manifest on governed dispatch.
+  const manifestCheck = verifyDispatchManifestForAdapter(root, turn.turn_id, options);
+  if (!manifestCheck.ok) {
+    return { ok: false, error: `Dispatch manifest verification failed: ${manifestCheck.error}` };
   }
 
   const roleId = turn.assigned_role;

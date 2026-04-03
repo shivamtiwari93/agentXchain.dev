@@ -40,7 +40,7 @@ describe('release operations docs', () => {
   });
 
   it('keeps the release brief aligned with the current verified main-branch evidence count', () => {
-    assert.match(brief, /1028 tests \/ 235 suites \/ 0 failures/);
+    assert.match(brief, /1031 tests \/ 235 suites \/ 0 failures/);
     assert.match(brief, /V2_1_RELEASE_NOTES\.md/);
     assert.doesNotMatch(brief, /1025 tests \/ 235 suites \/ 0 failures/);
     assert.doesNotMatch(brief, /1016 tests \/ 233 suites/);

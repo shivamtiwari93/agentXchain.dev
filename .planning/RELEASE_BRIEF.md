@@ -22,7 +22,7 @@ All three features are implementation-complete and tested on `main`.
 ## Release Readiness
 
 - Feature implementation: **complete** (all 3 V2.1 features shipped)
-- Test suite: **1028 tests / 235 suites / 0 failures** (pre-merge count on main)
+- Test suite: **1031 tests / 235 suites / 0 failures** (pre-merge count on main)
 - Protocol: v6 normative spec (`PROTOCOL-v6.md`)
 - Docs: quickstart, adapters, CLI, plugins, protocol pages all published
 - Publish workflow: script-delegated architecture with postflight verification

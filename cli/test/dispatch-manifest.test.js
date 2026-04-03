@@ -323,9 +323,6 @@ describe('dispatch-manifest', () => {
 
   describe('adapter verification integration', () => {
     it('verifyManifest option causes local-cli adapter to fail on tampered bundle', async () => {
-      // This test verifies the adapter-level integration contract:
-      // when verifyManifest is true and the manifest is invalid, the adapter rejects
-
       const { dispatchLocalCli } = await import('../src/lib/adapters/local-cli-adapter.js');
 
       writeBundleFiles(root, turnId, {
@@ -352,6 +349,145 @@ describe('dispatch-manifest', () => {
       assert.equal(result.ok, false);
       assert.match(result.error, /manifest verification failed/i);
       assert.match(result.error, /unexpected_file/);
+    });
+
+    it('AT-V21-MANIFEST-004: local-cli auto-verifies when a finalized manifest exists', async () => {
+      const { dispatchLocalCli } = await import('../src/lib/adapters/local-cli-adapter.js');
+
+      writeBundleFiles(root, turnId, {
+        'ASSIGNMENT.json': '{}',
+        'PROMPT.md': '# Prompt',
+        'CONTEXT.md': '# Context',
+      });
+      finalizeDispatchManifest(root, turnId, identity);
+      writeFileSync(join(root, getDispatchTurnDir(turnId), 'EVIL.txt'), 'injected');
+
+      const state = {
+        run_id: 'run-test-001',
+        current_turn: { turn_id: turnId, assigned_role: 'dev', runtime_id: 'cli', attempt: 1 },
+        active_turns: { [turnId]: { turn_id: turnId, assigned_role: 'dev', runtime_id: 'cli', attempt: 1 } },
+      };
+      const config = {
+        roles: { dev: { title: 'Developer', write_authority: 'authoritative' } },
+        runtimes: { cli: { type: 'local_cli', command: 'echo', args: ['hello'] } },
+      };
+
+      const result = await dispatchLocalCli(root, state, config);
+      assert.equal(result.ok, false);
+      assert.match(result.error, /manifest verification failed/i);
+      assert.match(result.error, /unexpected_file/);
+    });
+
+    it('AT-V21-MANIFEST-005: explicit skipManifestVerification bypasses auto-verification', async () => {
+      const { dispatchLocalCli } = await import('../src/lib/adapters/local-cli-adapter.js');
+
+      writeBundleFiles(root, turnId, {
+        'ASSIGNMENT.json': '{}',
+        'PROMPT.md': '# Prompt',
+        'CONTEXT.md': '# Context',
+      });
+      finalizeDispatchManifest(root, turnId, identity);
+      writeFileSync(join(root, getDispatchTurnDir(turnId), 'EVIL.txt'), 'injected');
+
+      const stagedResult = {
+        schema_version: '1.0',
+        run_id: 'run-test-001',
+        turn_id: turnId,
+        role: 'dev',
+        runtime_id: 'cli',
+        status: 'completed',
+        summary: 'Bypass used for explicit test coverage.',
+        decisions: [],
+        objections: [],
+        files_changed: [],
+        artifacts_created: [],
+        verification: { status: 'pass', commands: [], evidence_summary: 'ok' },
+        artifact: { type: 'workspace', ref: 'git:dirty' },
+        proposed_next_role: 'qa',
+        phase_transition_request: null,
+        run_completion_request: null,
+        needs_human_reason: null,
+        cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+      };
+      const agentScript = [
+        'const fs = require("fs");',
+        'const path = require("path");',
+        `const stagingDir = ${JSON.stringify(join(root, '.agentxchain', 'staging', turnId))};`,
+        'fs.mkdirSync(stagingDir, { recursive: true });',
+        `fs.writeFileSync(path.join(stagingDir, "turn-result.json"), JSON.stringify(${JSON.stringify(stagedResult)}, null, 2));`,
+      ].join('\n');
+
+      const state = {
+        run_id: 'run-test-001',
+        current_turn: { turn_id: turnId, assigned_role: 'dev', runtime_id: 'cli', attempt: 1 },
+        active_turns: { [turnId]: { turn_id: turnId, assigned_role: 'dev', runtime_id: 'cli', attempt: 1 } },
+      };
+      const config = {
+        roles: { dev: { title: 'Developer', write_authority: 'authoritative' } },
+        runtimes: {
+          cli: {
+            type: 'local_cli',
+            command: [process.execPath, '-e', agentScript],
+          },
+        },
+      };
+
+      const result = await dispatchLocalCli(root, state, config, { skipManifestVerification: true });
+      assert.equal(result.ok, true);
+    });
+
+    it('api-proxy auto-verifies when a finalized manifest exists', async () => {
+      const { dispatchApiProxy } = await import('../src/lib/adapters/api-proxy-adapter.js');
+
+      writeBundleFiles(root, turnId, {
+        'PROMPT.md': '# Prompt',
+        'CONTEXT.md': '# Context',
+      });
+      finalizeDispatchManifest(root, turnId, identity);
+      writeFileSync(join(root, getDispatchTurnDir(turnId), 'EVIL.txt'), 'injected');
+
+      const state = {
+        run_id: 'run-test-001',
+        phase: 'qa',
+        current_turn: {
+          turn_id: turnId,
+          assigned_role: 'qa',
+          runtime_id: 'api-qa',
+          attempt: 1,
+          deadline_at: new Date(Date.now() + 600000).toISOString(),
+        },
+        active_turns: { [turnId]: { turn_id: turnId, assigned_role: 'qa', runtime_id: 'api-qa', attempt: 1 } },
+      };
+      const config = {
+        roles: { qa: { title: 'QA', write_authority: 'review_only' } },
+        runtimes: {
+          'api-qa': {
+            type: 'api_proxy',
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-6',
+            auth_env: 'ANTHROPIC_API_KEY',
+          },
+        },
+      };
+
+      const originalFetch = global.fetch;
+      process.env.ANTHROPIC_API_KEY = 'test-key';
+      let calls = 0;
+      global.fetch = async () => {
+        calls += 1;
+        throw new Error('fetch should not run when manifest verification fails');
+      };
+
+      try {
+        const result = await dispatchApiProxy(root, state, config);
+        assert.equal(result.ok, false);
+        assert.match(result.error, /manifest verification failed/i);
+        assert.match(result.error, /unexpected_file/);
+        assert.equal(calls, 0);
+      } finally {
+        global.fetch = originalFetch;
+        delete process.env.ANTHROPIC_API_KEY;
+      }
     });
   });
 });

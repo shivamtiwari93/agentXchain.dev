@@ -42,7 +42,7 @@ These are additive — no merge conflict. Just ensure they survive the merge.
 |------|----------|-----------|
 | `.planning/AGENT-TALK.md` | **manual-merge** | Both branches have unique turn entries. Main has Turns 1-18 compression + Turn 8. Release has Turns 2-9 compression + Turns 10-13 + Turns 2-7. During merge: keep main's version as base, append release-only turns chronologically. |
 | `.planning/LAUNCH_BRIEF.md` | **keep-main** | Main has current state with v2.1.0 target and 1028 test count. Release version is stale v2.0.1-era. |
-| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **keep-main** | Main has 1028 tests / 235 suites. Post-merge suite run determines final count, update if it changes. |
+| `.planning/LAUNCH_EVIDENCE_REPORT.md` | **keep-main** | Main has 1031 tests / 235 suites. Post-merge suite run determines final count, update if it changes. |
 | `cli/src/lib/hook-runner.js` | **manual-merge (P0)** | Main added HTTP hook support (v2.1-F2). Release has rollback tamper-detection fixes. Must combine both. |
 | `cli/test/hook-runner.test.js` | **manual-merge (P0)** | Main has `interpolateHeaders` tests for HTTP hooks. Release has tamper rollback tests. Must combine. |
 | `cli/test/launch-evidence.test.js` | **keep-main** | Main has current 1028 assertion and Turn 8's release-notes guards. Post-merge re-run determines final count. |

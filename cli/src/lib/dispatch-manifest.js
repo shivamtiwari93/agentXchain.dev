@@ -58,6 +58,17 @@ export function finalizeDispatchManifest(root, turnId, identity) {
 }
 
 /**
+ * Return whether a finalized manifest exists for the dispatch bundle.
+ *
+ * @param {string} root
+ * @param {string} turnId
+ * @returns {boolean}
+ */
+export function hasDispatchManifest(root, turnId) {
+  return existsSync(join(root, getDispatchManifestPath(turnId)));
+}
+
+/**
  * Verify a dispatch bundle against its MANIFEST.json.
  *
  * @param {string} root - project root directory
@@ -145,6 +156,59 @@ export function verifyDispatchManifest(root, turnId) {
   }
 
   return { ok: true, manifest };
+}
+
+/**
+ * Verify dispatch bundle integrity according to adapter consumption policy.
+ *
+ * Policy:
+ * - default: verify automatically when MANIFEST.json exists
+ * - verifyManifest: true → manifest is required and verified
+ * - skipManifestVerification: true → explicit escape hatch; skip entirely
+ *
+ * @param {string} root
+ * @param {string} turnId
+ * @param {{ verifyManifest?: boolean, skipManifestVerification?: boolean }} [options]
+ * @returns {{ ok: boolean, skipped?: boolean, manifestPresent?: boolean, error?: string, manifest?: object, errors?: Array<{ type: string, path?: string, detail: string }> }}
+ */
+export function verifyDispatchManifestForAdapter(root, turnId, options = {}) {
+  const requireManifest = options.verifyManifest === true;
+  const skipManifestVerification = options.skipManifestVerification === true;
+
+  if (skipManifestVerification) {
+    return { ok: true, skipped: true, manifestPresent: hasDispatchManifest(root, turnId) };
+  }
+
+  const manifestPresent = hasDispatchManifest(root, turnId);
+  if (!manifestPresent && !requireManifest) {
+    return { ok: true, skipped: true, manifestPresent: false };
+  }
+
+  const manifestCheck = verifyDispatchManifest(root, turnId);
+  if (!manifestCheck.ok) {
+    return {
+      ok: false,
+      manifestPresent,
+      errors: manifestCheck.errors,
+      error: formatDispatchManifestErrors(manifestCheck.errors),
+    };
+  }
+
+  return {
+    ok: true,
+    manifestPresent,
+    manifest: manifestCheck.manifest,
+  };
+}
+
+/**
+ * Format structured manifest errors for CLI/operator display.
+ *
+ * @param {Array<{ type: string, detail: string }>} errors
+ * @returns {string}
+ */
+export function formatDispatchManifestErrors(errors = []) {
+  return errors.map((entry) => `${entry.type}: ${entry.detail}`).join('; ');
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -35,7 +35,7 @@ Status: draft only. Do not publish until `v2.0.1` is published to npm, merged fr
 
 ## Verification Status
 
-- Current pre-merge `main` verification: `1028 tests / 235 suites / 0 failures`
+- Current pre-merge `main` verification: `1031 tests / 235 suites / 0 failures`
 - Final release proof still requires:
   - successful `release/v2.0.1` publish
   - merge-back to `main`
