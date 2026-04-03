@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.3.0
+
+Continuous delivery intake lifecycle and docs truthfulness release. Intake is the first continuous-governed-delivery primitive, and every deep-dive docs page is now held to code-backed behavioral verification.
+
+### Continuous Delivery Intake
+
+- Eight-command intake lifecycle shipped: `record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`, `status`.
+- Filesystem contract: `.agentxchain/intake/{events,intents,observations}/` with structured event sourcing.
+- State machine: `detected → triaged → approved → planned → executing → completed/blocked/failed`, plus `suppressed` and `rejected` exits.
+- `intake start` bootstraps a new governed run from idle state or resumes a paused run (no pending gates).
+- `intake scan` ingests deterministic source snapshots with per-item deduplication and all-rejected aggregate failure.
+- `intake resolve` maps execution outcomes (`completed`, `blocked`, `failed`) to governed run fields including `run_blocked_recovery` and `run_failed_at`.
+- `.agentxchain/intake/` excluded from repo observation — orchestrator-owned operational state.
+- CLI-subprocess E2E acceptance proof covers the full `record → triage → approve → plan → start → accept-turn → resolve` lifecycle.
+
+### Vitest Steady State
+
+- Vitest coexistence runner at steady state: 36 files, 630 tests across 3 expansion slices (pure-unit, docs-content/contract, coordinator).
+- `vitest-slice-manifest.js` is the single source of truth for the Vitest include list.
+- Repo-local `vitest-node-test-shim.js` resolves `node:test` → `vitest` hook incompatibility.
+- Both runners exercise the same files: `test:vitest` (630 tests) + `test:node` (1285 tests).
+
+### Docs Truthfulness Hardening
+
+- **CLI reference audits:** Fixed 15 ghost/missing flags across governance commands, added missing `intake` and `multi` command families to the command map, and shipped a meta-guard for command-map completeness.
+- **Adapter deep-dive rewrite:** Fixed 12 defects including 3 fabricated sections (TypeScript adapter interface, OpenAI provider support, per-HTTP-status retry schedules). All transport modes, error classes, retry policy, and provider support now verified against implementation.
+- **Protocol deep-dive rewrite:** Fixed default phase name (`qa` not `verification`), schema version split, queued-vs-pending gate lifecycle, objection enforcement scope, migration semantics.
+- **Multi-repo deep-dive:** New `/docs/multi-repo` page with truthful workspace contract, artifact layout, barrier model, hook phases, and recovery model. Config filename corrected from fabricated `coordinator.yaml` to shipped `agentxchain-multi.json`.
+- **Intake deep-dive rewrite:** Fixed paused-state behavioral lie, documented idle bootstrap, added resolve outcome fields (`run_blocked_recovery`, `run_failed_at`), documented all-rejected scan failure rule.
+- **Templates deep-dive:** Upgraded from string-presence guard to code-backed contract test against template manifests.
+- **Plugin docs:** Removed ghost `--from` flag, ghost `--force` prose claim, added flag tables for all 4 subcommands.
+- 10 dedicated docs guard tests plus the command-map completeness meta-guard, all reading implementation source files for bidirectional verification.
+
+### Documentation
+
+- Retired `website/` flat HTML directory. `website-v2/` Docusaurus is the sole docs source.
+- Protocol implementor guide with progressive conformance adoption.
+- Surface claims in `capabilities.json` enforced by the protocol verifier when present.
+
+### Evidence
+
+- 630 Vitest tests (36 files) + 1285 node --test (298 suites), 0 failures.
+- Website production build passes.
+
 ## 2.2.0
 
 Protocol conformance release. The governed protocol is now testable by any implementation, not just the reference CLI.

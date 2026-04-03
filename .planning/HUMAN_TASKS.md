@@ -8,7 +8,7 @@ Current state: **No confirmed human-only blockers remain.** Historical release a
 
 ## Open
 
-- None currently.
+- [ ] **Renew NPM_TOKEN** — The current token in `.env` (`[REDACTED — expired token]`) returns 401 Unauthorized. Generate a new granular access token at https://www.npmjs.com/settings/tokens with read+write package permissions and update `.env`. Once renewed, agents can complete the `v2.3.0` publish: `cd cli && source ../.env && npm publish`, tag push, and Homebrew tap update.
 
 ---
 
