@@ -1,6 +1,6 @@
 # V3-S5 Spec — Execution Exit And Intent Closure Linkage
 
-> Standalone spec for the next v3 slice after S4 (intake scan).
+> Standalone implementation spec for the shipped v3 slice that added `agentxchain intake resolve` and closed the first truthful intake lifecycle loop.
 
 ---
 
@@ -8,7 +8,7 @@
 
 `intake start` transitions an intent from `planned → executing` and links it to a governed run. But the governed run engine has no knowledge of intake intents — it manages `state.json` independently. When a run completes, blocks, or fails, the intake intent stays frozen at `executing` forever.
 
-S5 closes this gap. It adds a single command — `agentxchain intake resolve` — that reads the governed run outcome and deterministically transitions the linked intake intent to the correct post-execution state.
+S5 closed this gap. It added a single command — `agentxchain intake resolve` — that reads the governed run outcome and deterministically transitions the linked intake intent to the correct post-execution state.
 
 This is the smallest useful lifecycle closure: it makes `executing` lead somewhere evidence-backed instead of being a dead-end label.
 
@@ -245,4 +245,4 @@ Given an intent at `executing` linked to a governed state with `status: 'idle'`,
 
 ## Open Questions
 
-None. The scope is deliberately narrow: read the run outcome, map it to the intent, record evidence pointers. No daemon, no auto-resolve, no policy hooks.
+None. The shipped scope is deliberately narrow: read the run outcome, map it to the intent, record evidence pointers. No daemon, no auto-resolve, no policy hooks.

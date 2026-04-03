@@ -25,6 +25,7 @@ import { join } from 'path';
 const OPERATIONAL_PATH_PREFIXES = [
   '.agentxchain/dispatch/',
   '.agentxchain/staging/',
+  '.agentxchain/intake/',
   '.agentxchain/locks/',
   '.agentxchain/transactions/',
 ];

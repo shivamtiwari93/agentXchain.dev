@@ -326,6 +326,13 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/staging/provider-response.json'), true);
   });
 
+  it('identifies intake lifecycle paths as operational', () => {
+    assert.equal(isOperationalPath('.agentxchain/intake/events/evt_1234_abcd.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/intake/intents/intent_1234_abcd.json'), true);
+    assert.equal(isOperationalPath('.agentxchain/intake/observations/intent_1234_abcd/'), true);
+    assert.equal(isOperationalPath('.agentxchain/intake/loop-state.json'), true);
+  });
+
   it('identifies orchestrator state files as operational', () => {
     assert.equal(isOperationalPath('.agentxchain/state.json'), true);
     assert.equal(isOperationalPath('.agentxchain/history.jsonl'), true);
@@ -368,6 +375,23 @@ describe('observeChanges — operational path exclusion', () => {
 
     const observation = observeChanges(dir, baseline);
     assert.ok(!observation.files_changed.some(f => f.startsWith('.agentxchain/staging/')), 'staging paths should be excluded');
+  });
+
+  it('excludes intake lifecycle paths from observed changes', () => {
+    const baseline = captureBaseline(dir);
+    mkdirSync(join(dir, '.agentxchain/intake/intents'), { recursive: true });
+    writeFileSync(
+      join(dir, '.agentxchain/intake/intents/intent_1234_abcd.json'),
+      '{"status":"executing"}',
+    );
+    writeFileSync(join(dir, 'actor-file.js'), 'console.log("actor");\n');
+
+    const observation = observeChanges(dir, baseline);
+    assert.ok(observation.files_changed.includes('actor-file.js'), 'actor file should be observed');
+    assert.ok(
+      !observation.files_changed.some(f => f.startsWith('.agentxchain/intake/')),
+      'intake lifecycle paths should be excluded',
+    );
   });
 });
 
