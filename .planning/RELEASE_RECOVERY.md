@@ -19,43 +19,73 @@ Trusted publishing is now configured and validated far enough to prove auth is n
 - clean working tree check passes
 - npm trusted publishing auth does not fail first
 
-The current blocker is a release-blocking test failure.
+What is now proven:
 
-### Current blocking failure
+- npm does **not** currently serve `agentxchain@2.0.0`
+- the public `v2.0.0` tag still points to commit `ae9c166`
+- `main` is 16 commits ahead at `f0a4c44` and includes both release fixes and additional v2.1 feature work
+- re-running the publish workflow against `v2.0.0` checks out the broken tag again; it does **not** publish the fixes sitting on `main`
+
+### Last validated failing publish run
 
 - workflow run: `23931001607`
-- failing suite: `cli/test/hook-runner.test.js`
-- failing test:
-  - `records annotations in hook-annotations.jsonl for after_acceptance (AT-HOOK-005)`
-- assertion location:
-  - `cli/test/hook-runner.test.js:554`
+- tag/ref under test: `v2.0.0`
+- failure mode:
+  - strict preflight reached `npm test`
+  - full suite failed on `cli/test/hook-runner.test.js`
+  - failing test:
+    - `records annotations in hook-annotations.jsonl for after_acceptance (AT-HOOK-005)`
+  - assertion location:
+    - `cli/test/hook-runner.test.js:554`
+
+### Recovery decision
+
+`v2.0.0` should **not** be recovered by force-moving the public tag.
+
+Why:
+
+- the tag is already public on GitHub
+- the tag commit is still the failing payload used by the publish workflow
+- `main` now contains material post-release feature work (dispatch manifests, plugin hardening, HTTP hooks), so retagging `v2.0.0` to `main` would silently change released contents
+
+The clean recovery path is a corrective release from the `v2.0.0` lineage: **`v2.0.1`**.
 
 ---
 
 ## Recovery Goal
 
-Recover the release path cleanly.
+Recover the release path cleanly without rewriting public release history.
 
 Preferred order:
 
-1. fix the release-blocking test failure
-2. rerun publish for `v2.0.0`
-3. verify npm serves `agentxchain@2.0.0`
-4. update Homebrew tap to the real npm tarball
-5. verify install flow
+1. branch from `v2.0.0`
+2. backport only the release-recovery fixes needed for green CI + trusted publishing
+3. bump CLI version to `2.0.1`
+4. tag and publish `v2.0.1`
+5. verify npm serves `agentxchain@2.0.1`
+6. update Homebrew tap to the real npm tarball
+7. verify install flow
 
-If `v2.0.0` becomes inconsistent or unsafe to recover, explicitly recommend `v2.0.1` instead of forcing a broken release path.
+`v2.0.0` is now considered unsafe to salvage in place.
 
 ---
 
 ## Agent-Owned Tasks
 
-- [ ] Reproduce the current publish failure locally
-- [ ] Isolate and fix the failing `hook-runner` test
-- [ ] Re-run full test suite and release preflight
-- [ ] Re-trigger trusted publish for `v2.0.0`
+- [x] Reproduce the current publish failure from workflow evidence
+- [x] Validate that `agentxchain@2.0.0` is absent from npm
+- [x] Validate that `main` fixes are not part of the public `v2.0.0` tag payload
+- [ ] Create a `v2.0.1` recovery branch from `v2.0.0`
+- [ ] Backport the minimal release fixes:
+  - hook test portability / concurrency hardening
+  - benign stdin `EPIPE` handling
+  - trusted publishing workflow + script updates
+  - publish-from-tag test alignment for trusted publishing fallback
+- [ ] Bump CLI version and changelog to `2.0.1`
+- [ ] Re-run full test suite and strict release preflight on the recovery branch
+- [ ] Tag and publish `v2.0.1`
 - [ ] Verify npm package visibility
-- [ ] Update Homebrew tap to `2.0.0`
+- [ ] Update Homebrew tap to `2.0.1`
 - [ ] Verify `brew install` / `agentxchain --version`
 - [ ] Record final release evidence in planning/docs surface
 

@@ -86,14 +86,15 @@ All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key const
 
 ## Release Day Sequence
 
-1. Human: clean workspace, `cd cli && npm version 1.0.0`
-2. Human: `git push && git push --tags`
-3. CI: GitHub Actions publishes to npm, verifies registry
-4. Human: verify `npx agentxchain --version` returns `1.0.0`
-5. Human: update Homebrew tap formula (tarball URL + SHA256)
-6. Human: set GitHub repo description and topics from this brief
-7. Human: post Show HN (`.planning/SHOW_HN_DRAFT.md`)
-8. Human: be in the HN thread for 2 hours
+1. Agent: run strict preflight against the exact release ref in a clean checkout/worktree.
+2. Agent: bump the CLI version with `npm version <target>` only when the target changelog entry and proof surface are already green.
+3. Agent: push the release commit and tag; GitHub Actions publishes to npm and verifies registry visibility.
+4. Agent: verify `npm view agentxchain@<target>` and `npx agentxchain@<target> --version`.
+5. Agent: update the Homebrew tap formula to the published npm tarball URL + SHA256.
+6. Agent: create/update the GitHub release metadata and distribution copy.
+7. Agent: publish the prepared marketing copy to the allowed channels.
+
+If a public tag points to a broken release payload, do not force-move it. Cut the next corrective version instead.
 
 ## Post-Launch Monitoring
 
