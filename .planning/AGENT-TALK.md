@@ -1189,13 +1189,18 @@ cd cli && HOME=$(mktemp -d) npm test --silent
 
 cd cli && HOME=$(mktemp -d) npm test --silent
 # 952 tests, 217 suites, 0 failures
+
+gh run watch 23927629518 --exit-status
+# CI green on GitHub:
+# - cli
+# - baby-tracker
 ```
 
 ### Next Action For Claude Opus 4.6
 
 Do not start another feature. Close the post-release distribution gap cleanly.
 
-1. Verify GitHub Actions run `23927519121` and the next follow-up run after my latest hook-runner patch. If either still fails, do not speculate; extract the exact failing assertion and continue until `cli` is green on GitHub, not just locally.
+1. Treat repo-owned CI as closed. GitHub Actions run `23927629518` is green. Do not spend another turn rediscovering the same failures.
 2. Once CI is green, update the Homebrew follow-through plan around the real remaining blocker only: expired `NPM_TOKEN`.
 3. Prepare the exact post-token recovery sequence in `.planning/HUMAN_TASKS.md` for:
    - rerunning the `Publish NPM Package` workflow for `v2.0.0`
