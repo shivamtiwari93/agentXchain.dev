@@ -641,7 +641,152 @@ function resolveIntakeRole(roleOverride, state, config) {
 }
 
 // ---------------------------------------------------------------------------
+// Scan — deterministic source-snapshot ingestion (V3-S4)
+// ---------------------------------------------------------------------------
+
+const SCAN_SOURCES = ['ci_failure', 'git_ref_change', 'schedule'];
+
+function validateSnapshotItem(item) {
+  const errors = [];
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return { valid: false, errors: ['item must be a JSON object'] };
+  }
+  if (!item.signal || typeof item.signal !== 'object' || Array.isArray(item.signal) || Object.keys(item.signal).length === 0) {
+    errors.push('signal must be a non-empty object');
+  }
+  if (!Array.isArray(item.evidence) || item.evidence.length === 0) {
+    errors.push('evidence must be a non-empty array');
+  } else {
+    for (const e of item.evidence) {
+      if (!e || typeof e !== 'object') {
+        errors.push('each evidence entry must be an object');
+      } else {
+        if (!['url', 'file', 'text'].includes(e.type)) {
+          errors.push(`evidence type must be one of: url, file, text (got "${e.type}")`);
+        }
+        if (typeof e.value !== 'string' || !e.value.trim()) {
+          errors.push('evidence value must be a non-empty string');
+        }
+      }
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function scanSource(root, source, snapshot) {
+  // Validate source
+  if (!SCAN_SOURCES.includes(source)) {
+    return {
+      ok: false,
+      error: `unknown scan source: "${source}". Supported: ${SCAN_SOURCES.join(', ')}`,
+      exitCode: 1,
+    };
+  }
+
+  // Validate snapshot structure
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    return { ok: false, error: 'snapshot must be a JSON object', exitCode: 1 };
+  }
+
+  if (snapshot.source !== source) {
+    return {
+      ok: false,
+      error: `source mismatch: CLI flag "${source}" but snapshot declares "${snapshot.source}"`,
+      exitCode: 1,
+    };
+  }
+
+  if (!Array.isArray(snapshot.items) || snapshot.items.length === 0) {
+    return { ok: false, error: 'snapshot must contain a non-empty items array', exitCode: 1 };
+  }
+
+  const results = [];
+  let created = 0;
+  let deduplicated = 0;
+  let rejected = 0;
+
+  for (let i = 0; i < snapshot.items.length; i++) {
+    const item = snapshot.items[i];
+
+    // Validate item structure
+    const validation = validateSnapshotItem(item);
+    if (!validation.valid) {
+      results.push({
+        status: 'rejected',
+        index: i,
+        error: validation.errors.join('; '),
+      });
+      rejected++;
+      continue;
+    }
+
+    // Build recordEvent payload from snapshot item
+    const payload = {
+      source,
+      signal: item.signal,
+      evidence: item.evidence,
+      category: item.category || undefined,
+      repo: item.repo || undefined,
+      ref: item.ref || undefined,
+    };
+
+    const recordResult = recordEvent(root, payload);
+    if (!recordResult.ok) {
+      results.push({
+        status: 'rejected',
+        index: i,
+        error: recordResult.error,
+      });
+      rejected++;
+      continue;
+    }
+
+    if (recordResult.deduplicated) {
+      results.push({
+        status: 'deduplicated',
+        event_id: recordResult.event.event_id,
+        intent_id: recordResult.intent?.intent_id || null,
+      });
+      deduplicated++;
+    } else {
+      results.push({
+        status: 'created',
+        event_id: recordResult.event.event_id,
+        intent_id: recordResult.intent?.intent_id || null,
+      });
+      created++;
+    }
+  }
+
+  // If every item was rejected, fail
+  if (created === 0 && deduplicated === 0) {
+    return {
+      ok: false,
+      error: 'all scanned items were rejected',
+      source,
+      scanned: snapshot.items.length,
+      created,
+      deduplicated,
+      rejected,
+      results,
+      exitCode: 1,
+    };
+  }
+
+  return {
+    ok: true,
+    source,
+    scanned: snapshot.items.length,
+    created,
+    deduplicated,
+    rejected,
+    results,
+    exitCode: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Exports for testing
 // ---------------------------------------------------------------------------
 
-export { VALID_SOURCES, VALID_PRIORITIES, VALID_TRANSITIONS, S1_STATES, TERMINAL_STATES };
+export { VALID_SOURCES, VALID_PRIORITIES, VALID_TRANSITIONS, S1_STATES, TERMINAL_STATES, SCAN_SOURCES };

@@ -91,6 +91,7 @@ import { intakeTriageCommand } from '../src/commands/intake-triage.js';
 import { intakeApproveCommand } from '../src/commands/intake-approve.js';
 import { intakePlanCommand } from '../src/commands/intake-plan.js';
 import { intakeStartCommand } from '../src/commands/intake-start.js';
+import { intakeScanCommand } from '../src/commands/intake-scan.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -426,6 +427,15 @@ intakeCmd
   .option('--role <role>', 'Override the default entry role for the governed phase')
   .option('-j, --json', 'Output as JSON')
   .action(intakeStartCommand);
+
+intakeCmd
+  .command('scan')
+  .description('Scan a structured source snapshot into intake events')
+  .requiredOption('--source <id>', 'Source type: ci_failure, git_ref_change, schedule')
+  .option('--file <path>', 'Path to snapshot JSON file')
+  .option('--stdin', 'Read snapshot from stdin')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeScanCommand);
 
 intakeCmd
   .command('status')
