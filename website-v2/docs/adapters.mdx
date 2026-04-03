@@ -116,7 +116,7 @@ The adapter must write a valid turn result to `.agentxchain/staging/<turn_id>/tu
 }
 ```
 
-**Required fields:** All fields shown above are required. The `objections` array must contain at least one entry — blind agreement is a protocol violation.
+**Required fields:** All fields shown above are required. The `objections` array is required and must be a valid array. For `review_only` roles, the protocol enforces a challenge requirement: at least one objection must be raised. Other roles may submit an empty objections array.
 
 ## manual adapter
 
@@ -161,16 +161,18 @@ The local_cli adapter spawns a local subprocess — typically an AI coding agent
 2. The adapter spawns the configured command as a child process.
 3. The prompt is delivered via one of three **prompt transport modes**.
 4. The adapter waits for the subprocess to exit.
-5. On exit code `0`, the adapter collects the staged result.
-6. On timeout, the adapter sends `SIGTERM`, waits 5 seconds, then `SIGKILL`.
+5. On exit, if a valid staged result file exists, the adapter collects it (regardless of exit code).
+6. On timeout, the adapter sends `SIGTERM`, waits **10 seconds**, then `SIGKILL`.
 
 ### Prompt transport modes
 
 | Mode | How the prompt reaches the agent | Best for |
 |------|----------------------------------|----------|
-| `stdin` | Prompt is piped to the process's standard input | Claude Code (`--print` mode), simple scripts |
-| `file` | Prompt is written to a temp file; path passed as an argument | Agents that read from file paths |
-| `arg` | Prompt is passed as a CLI argument | Short prompts, simple tools |
+| `argv` | `{prompt}` placeholders in command/args are replaced with the full prompt text | Simple tools that accept prompt as a CLI argument |
+| `stdin` | Prompt is piped to the process's standard input | Claude Code (`--print` mode), streaming tools |
+| `dispatch_bundle_only` | No prompt delivery; the subprocess reads `PROMPT.md` and `CONTEXT.md` from disk | Agents that manage their own file I/O |
+
+If `prompt_transport` is not set explicitly, the adapter infers the mode: if `{prompt}` appears in the command or args, it uses `argv`; otherwise it defaults to `dispatch_bundle_only`.
 
 ### Configuration
 
@@ -197,11 +199,13 @@ The local_cli adapter spawns a local subprocess — typically an AI coding agent
 
 | Event | Action |
 |-------|--------|
-| Subprocess exits with code `0` | Collect staged result |
-| Subprocess exits with non-zero code | Mark turn as `failed`, retain for inspection |
-| Timeout reached | Send `SIGTERM` to process group |
-| 5 seconds after `SIGTERM` | Send `SIGKILL` to process group |
-| `SIGKILL` sent | Mark turn as `failed` with reason `timeout` |
+| Subprocess exits with staged result present | Collect staged result (success) |
+| Subprocess exits without staged result | Mark turn as `failed` with exit code |
+| Timeout reached | Send `SIGTERM` to process |
+| 10 seconds after `SIGTERM` | Send `SIGKILL` to process |
+| `SIGKILL` sent without staged result | Mark turn as `failed` with reason `timeout` |
+
+Default timeout when no turn deadline is set: **20 minutes** (1,200,000 ms).
 
 ### When to use
 
@@ -213,38 +217,84 @@ The local_cli adapter spawns a local subprocess — typically an AI coding agent
 
 The api_proxy adapter calls an LLM API directly, handles retries, tracks token usage, and writes the staged result on behalf of the model.
 
+:::info v1 restriction
+The api_proxy adapter is currently restricted to **review_only** roles only. Roles with `authoritative` or `proposed` write authority cannot bind to api_proxy runtimes. This is a v1 safety constraint — the adapter does not support tool use, patch application, or repo writes.
+:::
+
 ### How it works
 
 1. The orchestrator writes the dispatch bundle.
 2. The adapter assembles a prompt from `PROMPT.md` and `CONTEXT.md`.
-3. The adapter calls the configured LLM API with retry logic.
-4. On success, the adapter parses the model's response into a turn result and stages it.
-5. Token usage and cost are recorded in the turn metadata.
+3. If preflight tokenization is enabled, the adapter evaluates the token budget and trims context to fit the model's context window.
+4. The adapter calls the configured LLM API with retry logic.
+5. On success, the adapter parses the model's response into a turn result and stages it.
+6. Token usage and cost are recorded in the turn metadata.
 
-### Retry logic
+### Supported providers
 
-| Condition | Behavior |
-|-----------|----------|
-| HTTP 429 (rate limit) | Exponential backoff: 1s, 2s, 4s, 8s, 16s (max 5 retries) |
-| HTTP 500/502/503 (server error) | Exponential backoff: 2s, 4s, 8s (max 3 retries) |
-| HTTP 400 (bad request) | No retry — fail immediately with error details |
-| HTTP 401/403 (auth error) | No retry — fail immediately, prompt for key check |
-| Network timeout | Retry once after 5s, then fail |
-| Malformed JSON response | Retry once, then fail with parse error |
+| Provider | Status |
+|----------|--------|
+| Anthropic | Supported (Claude Opus, Sonnet, Haiku) |
+
+Only Anthropic is supported in v1. Additional providers may be added behind the same interface in future versions.
 
 ### Error classification
 
-The adapter classifies errors into three categories:
+The adapter classifies every error into a named error class with a `retryable` flag:
 
-| Category | Examples | Retryable |
-|----------|----------|-----------|
-| `transient` | Rate limits, server errors, network timeouts | Yes |
-| `permanent` | Auth failures, bad requests, invalid model | No |
-| `parse` | Model returned invalid JSON, missing required fields | Once |
+| Error class | Trigger | Retryable |
+|-------------|---------|-----------|
+| `auth_failure` | HTTP 401, 403 | No |
+| `model_not_found` | HTTP 404 | No |
+| `invalid_request` | HTTP 400 (non-context) | No |
+| `context_overflow` | HTTP 400 with context/token keywords | No |
+| `rate_limited` | HTTP 429 (transient) | Yes |
+| `rate_limited` | HTTP 429 with spend/budget limit | No |
+| `provider_overloaded` | HTTP 529 | Yes |
+| `network_failure` | Connection error | Yes |
+| `timeout` | Request timeout | Yes |
+| `response_parse_failure` | Malformed JSON response | Yes |
+| `turn_result_extraction_failure` | Valid JSON but no extractable turn result | Yes |
+| `unknown_api_error` | HTTP 500 or unclassified | Yes |
+
+Each classified error includes `error_class`, `message`, `recovery` instructions, `retryable` flag, `http_status`, and `raw_detail` for auditability.
+
+### Retry policy
+
+Retry behavior is configured via a `retry_policy` object in the runtime config. The retry policy applies uniformly to all retryable error classes — there is no per-HTTP-status retry schedule.
+
+Default policy (when `retry_policy.enabled: true` with no overrides):
+
+| Field | Default |
+|-------|---------|
+| `max_attempts` | 3 |
+| `base_delay_ms` | 1000 |
+| `max_delay_ms` | 8000 |
+| `backoff_multiplier` | 2 |
+| `jitter` | `"full"` (randomized delay up to computed backoff) |
+| `retry_on` | All retryable error classes |
+
+Retry traces (attempts, delays, outcomes) are persisted as audit artifacts in the staging directory.
+
+### Preflight tokenization
+
+When enabled, the adapter evaluates the token budget before making the API call. If the assembled prompt exceeds the model's context window minus a safety margin, the adapter trims context to fit.
+
+```json title="preflight_tokenization config"
+{
+  "preflight_tokenization": {
+    "enabled": true,
+    "tokenizer": "provider_local",
+    "safety_margin_tokens": 2048
+  }
+}
+```
+
+Preflight artifacts (effective context, token budget report) are persisted in the dispatch directory.
 
 ### Token usage and cost tracking
 
-The adapter records token usage in the turn result metadata:
+The adapter records token usage from provider telemetry:
 
 ```json
 {
@@ -253,21 +303,11 @@ The adapter records token usage in the turn result metadata:
     "provider": "anthropic",
     "input_tokens": 12450,
     "output_tokens": 3820,
-    "total_tokens": 16270,
-    "cost_usd": 0.0731,
-    "latency_ms": 8420,
+    "cost_usd": 0.073,
     "retries": 0
   }
 }
 ```
-
-### Supported models
-
-| Provider | Models | Notes |
-|----------|--------|-------|
-| Anthropic | Claude Opus, Sonnet, Haiku (4.x, 3.5) | Native support, recommended |
-| OpenAI | GPT-4o, GPT-4 Turbo, o1, o3 | Via OpenAI-compatible endpoint |
-| Custom | Any OpenAI-compatible API | Set `base_url` in config |
 
 ### Configuration
 
@@ -282,66 +322,21 @@ The adapter records token usage in the turn result metadata:
         "max_tokens": 8192,
         "temperature": 0.2,
         "api_key_env": "ANTHROPIC_API_KEY",
-        "timeout_ms": 120000,
-        "max_retries": 5
+        "timeout_seconds": 120,
+        "retry_policy": {
+          "enabled": true,
+          "max_attempts": 3,
+          "base_delay_ms": 1000,
+          "max_delay_ms": 8000,
+          "backoff_multiplier": 2,
+          "jitter": "full"
+        },
+        "preflight_tokenization": {
+          "enabled": true,
+          "tokenizer": "provider_local",
+          "safety_margin_tokens": 2048
+        }
       }
-    }
-  }
-}
-```
-
-## Implementing a new adapter
-
-A custom adapter is roughly 200 lines of code. It must implement the `Adapter` interface:
-
-```typescript title="my-adapter.ts"
-import { Adapter, DispatchBundle, TurnResult } from "agentxchain";
-
-export class MyAdapter implements Adapter {
-  name = "my_adapter";
-
-  /**
-   * Phase 1: Dispatch
-   * Write any adapter-specific files or set up the environment.
-   * The dispatch bundle is already on disk at this point.
-   */
-  async dispatch(bundle: DispatchBundle): Promise<void> {
-    // Prepare your adapter's runtime environment
-  }
-
-  /**
-   * Phase 2: Wait
-   * Block until the work is done or timeout is reached.
-   * Return the raw result data.
-   */
-  async wait(
-    turnId: string,
-    timeoutMs: number
-  ): Promise<{ status: "completed" | "failed"; data: unknown }> {
-    // Poll, wait for subprocess, or await HTTP response
-  }
-
-  /**
-   * Phase 3: Collect
-   * Transform the raw result into a valid TurnResult.
-   * The orchestrator will validate the schema after this.
-   */
-  async collect(
-    turnId: string,
-    rawData: unknown
-  ): Promise<TurnResult> {
-    // Parse and return a protocol-compliant turn result
-  }
-}
-```
-
-Register the adapter in `agentxchain.json`:
-
-```json
-{
-  "adapters": {
-    "my_adapter": {
-      "module": "./adapters/my-adapter.js"
     }
   }
 }
@@ -354,9 +349,9 @@ Register the adapter in `agentxchain.json`:
 | **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — API call runs autonomously |
 | **Latency** | Minutes (human speed) | Seconds to minutes | Seconds |
 | **Cost** | Human time | Tool license + compute | API tokens |
-| **Prompt transport** | N/A (human reads files) | stdin, file, or arg | HTTP request body |
-| **Retry logic** | N/A | Exit code based | Exponential backoff |
-| **Timeout handling** | Configurable poll timeout | SIGTERM then SIGKILL | HTTP timeout + retry |
-| **Cost tracking** | N/A | N/A | Automatic (tokens + USD) |
-| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct LLM calls, batch processing |
-| **Lines to implement** | Built-in | Built-in | Built-in |
+| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | HTTP request body |
+| **Retry logic** | N/A | Exit code based | Configurable exponential backoff with jitter |
+| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | HTTP timeout + retry policy |
+| **Cost tracking** | N/A | N/A | Automatic (tokens + USD from provider telemetry) |
+| **Write authority** | Any | Any | `review_only` only (v1) |
+| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Direct LLM review calls, batch processing |
