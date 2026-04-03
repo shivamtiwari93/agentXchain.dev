@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.4.0
+
+MCP runtime adapter, template validation layer, and library template. First governed connector beyond local_cli and api_proxy.
+
+### MCP Runtime Adapter
+
+- New `mcp` runtime type for governed turns over Model Context Protocol stdio transport.
+- Single-tool dispatch: agent receives all 13 governed arguments via `agentxchain_turn` tool call, returns a turn result via `structuredContent` or JSON text.
+- SDK wrapper unwrapping: nested `@modelcontextprotocol/sdk` `TextContent.text` envelopes are extracted automatically.
+- Configurable tool name, command, args, environment, working directory, and timeout (default 20 minutes).
+- Provider-agnostic: any MCP-compatible server can serve governed turns regardless of the underlying model.
+- Reference implementation: `examples/mcp-echo-agent/` with validator-clean no-op payloads.
+- Governed proof: MCP adapter → turn result validation → CLI `step` auto-accept demonstrated end-to-end in the `governed-todo-app` example.
+
+### Template Validation
+
+- New `agentxchain template validate [--json]` command for operator-facing template contract proof.
+- Registry validation: every registered template ID must have a manifest, every manifest must be registered.
+- Project binding validation: configured template must exist in the registry.
+- Planning artifact completeness: validates that all `planning_artifacts[].filename` entries exist on disk.
+- Acceptance hint completion: checks `.planning/acceptance-matrix.md` for `- [x]` completion status (warning-level, not blocking).
+- `agentxchain validate` also surfaces template contract results.
+
+### Library Template
+
+- New `library` governed template for reusable package projects alongside `generic`, `api-service`, `cli-tool`, and `web-app`.
+- Planning artifacts: `public-api.md`, `compatibility-policy.md`, `release-adoption.md`.
+- Prompt guidance biases PM/dev/QA toward exported-surface stability, compatibility promises, and consumer install/import proof.
+
+### Docs Hardening (continued)
+
+- Adapter docs updated with MCP runtime contract, tool argument table, config fields, and example linkage.
+- Plugin docs contract spec fixed for stale references.
+- Template docs now code-backed against template manifests for all 5 template IDs.
+
+### Evidence
+
+- 648 Vitest tests (36 files) + 1364 node --test (310 suites), 0 failures.
+- Website production build passes.
+- Removed `.DS_Store` and `cli/node_modules/.package-lock.json` from git tracking (both covered by `.gitignore`).
+
 ## 2.3.0
 
 Continuous delivery intake lifecycle and docs truthfulness release. Intake is the first continuous-governed-delivery primitive, and every deep-dive docs page is now held to code-backed behavioral verification.
