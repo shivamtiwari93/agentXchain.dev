@@ -93,6 +93,49 @@ agentxchain step --role dev
 
 That path exercises the real MCP adapter against the governed todo app. The shipped echo server returns a validator-clean no-op result, so `step` can auto-accept the turn without modifying product files.
 
+## Remote MCP Dev Variant (streamable HTTP)
+
+For remote agents, start the [HTTP echo server](../mcp-http-echo-agent/) and point the dev runtime at it:
+
+```bash
+# In one terminal — start the remote MCP server
+cd examples/mcp-http-echo-agent
+npm install
+node server.js  # listens on http://127.0.0.1:8787/mcp
+```
+
+```json
+{
+  "roles": {
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement approved work safely and verify behavior.",
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
+    }
+  },
+  "runtimes": {
+    "local-dev": {
+      "type": "mcp",
+      "transport": "streamable_http",
+      "url": "http://127.0.0.1:8787/mcp",
+      "tool_name": "agentxchain_turn",
+      "headers": {
+        "x-agentxchain-project": "governed-todo-app"
+      }
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+agentxchain step --role dev
+```
+
+This exercises the same governed tool contract over HTTP instead of stdio. Use this pattern when your agent runs as a remote service.
+
 ## Project Structure
 
 ```

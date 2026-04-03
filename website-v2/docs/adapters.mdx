@@ -339,9 +339,18 @@ The default timeout for MCP dispatch is **20 minutes** (1,200,000 ms). If the tu
 
 For `streamable_http`, the runtime stays synchronous from AgentXchain's point of view: `tools/list`, `tools/call`, stage result, validate, accept. If the server returns `405` on `GET`, the MCP SDK still proceeds over POST request flow. AgentXchain does not require SSE support in this slice.
 
-### Example server
+### Example servers
 
-A reference MCP server is available at [`examples/mcp-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent). It implements the full `agentxchain_turn` tool contract and returns a validator-clean no-op governed turn result. For a real governed-project wiring path, see the MCP dev variant in [`examples/governed-todo-app/README.md`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app#mcp-dev-variant). Use the echo server as a starting point for building your own governed MCP agent.
+Two reference MCP servers are shipped:
+
+| Example | Transport | Use case |
+|---------|-----------|----------|
+| [`examples/mcp-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent) | `stdio` | Local agents on the same machine |
+| [`examples/mcp-http-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-http-echo-agent) | `streamable_http` | Remote agents, hosted services, containers |
+
+Both implement the full `agentxchain_turn` tool contract and return a validator-clean no-op governed turn result. The only difference is transport: stdio is spawned per-turn by the adapter; HTTP is a long-running server you start independently.
+
+For a real governed-project wiring path showing both transports, see the [governed-todo-app example](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app#mcp-dev-variant). Use either echo server as a starting point for building your own governed MCP agent.
 
 ### When to use
 
