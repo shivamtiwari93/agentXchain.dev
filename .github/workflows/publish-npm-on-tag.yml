@@ -12,7 +12,6 @@ on:
         type: string
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -31,14 +30,21 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
           cache: npm
           cache-dependency-path: cli/package-lock.json
 
-      - name: Publish to npm via trusted publishing
+      - name: Install CLI dependencies
         working-directory: cli
+        run: npm ci
+
+      - name: Publish to npm
+        working-directory: cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -61,7 +67,7 @@ jobs:
           echo "Running strict release preflight..."
           bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
 
-          echo "Running npm publish via trusted publishing..."
+          echo "Running npm publish with NPM_TOKEN..."
           npm publish --access public
 
           echo "Verifying registry visibility..."
