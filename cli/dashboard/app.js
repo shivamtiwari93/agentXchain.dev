@@ -14,7 +14,7 @@ import { render as renderInitiative } from './components/initiative.js';
 import { render as renderCrossRepo } from './components/cross-repo.js';
 
 const VIEWS = {
-  timeline: { fetch: ['state', 'history'], render: renderTimeline },
+  timeline: { fetch: ['state', 'history', 'audit', 'annotations'], render: renderTimeline },
   ledger: { fetch: ['ledger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
@@ -40,6 +40,14 @@ const viewState = {
   ledger: {
     agent: 'all',
     query: '',
+    phase: 'all',
+    dateFrom: '',
+    dateTo: '',
+  },
+  hooks: {
+    phase: 'all',
+    verdict: 'all',
+    hookName: 'all',
   },
 };
 
@@ -96,6 +104,12 @@ function buildRenderData(viewName, data) {
     return {
       ...data,
       filter: viewState.ledger,
+    };
+  }
+  if (viewName === 'hooks') {
+    return {
+      ...data,
+      filter: viewState.hooks,
     };
   }
   return data;
@@ -183,25 +197,71 @@ window.addEventListener('hashchange', () => {
 });
 
 document.addEventListener('input', (event) => {
-  if (currentView() !== 'ledger' || !activeViewData) {
-    return;
-  }
+  const view = currentView();
+  if (!activeViewData) return;
 
-  if (event.target?.dataset?.viewControl === 'ledger-query') {
-    viewState.ledger.query = event.target.value;
-    renderView('ledger', activeViewData);
+  const control = event.target?.dataset?.viewControl;
+  if (!control) return;
+
+  if (view === 'ledger') {
+    if (control === 'ledger-query') {
+      viewState.ledger.query = event.target.value;
+      renderView('ledger', activeViewData);
+    } else if (control === 'ledger-date-from') {
+      viewState.ledger.dateFrom = event.target.value;
+      renderView('ledger', activeViewData);
+    } else if (control === 'ledger-date-to') {
+      viewState.ledger.dateTo = event.target.value;
+      renderView('ledger', activeViewData);
+    }
   }
 });
 
 document.addEventListener('change', (event) => {
-  if (currentView() !== 'ledger' || !activeViewData) {
-    return;
+  const view = currentView();
+  if (!activeViewData) return;
+
+  const control = event.target?.dataset?.viewControl;
+  if (!control) return;
+
+  if (view === 'ledger') {
+    if (control === 'ledger-agent') {
+      viewState.ledger.agent = event.target.value;
+      renderView('ledger', activeViewData);
+    } else if (control === 'ledger-phase') {
+      viewState.ledger.phase = event.target.value;
+      renderView('ledger', activeViewData);
+    } else if (control === 'ledger-date-from') {
+      viewState.ledger.dateFrom = event.target.value;
+      renderView('ledger', activeViewData);
+    } else if (control === 'ledger-date-to') {
+      viewState.ledger.dateTo = event.target.value;
+      renderView('ledger', activeViewData);
+    }
   }
 
-  if (event.target?.dataset?.viewControl === 'ledger-agent') {
-    viewState.ledger.agent = event.target.value;
-    renderView('ledger', activeViewData);
+  if (view === 'hooks') {
+    if (control === 'hooks-phase') {
+      viewState.hooks.phase = event.target.value;
+      renderView('hooks', activeViewData);
+    } else if (control === 'hooks-verdict') {
+      viewState.hooks.verdict = event.target.value;
+      renderView('hooks', activeViewData);
+    } else if (control === 'hooks-hookname') {
+      viewState.hooks.hookName = event.target.value;
+      renderView('hooks', activeViewData);
+    }
   }
+});
+
+// ── Turn expand toggle ──────────────────────────────────────────────────
+
+document.addEventListener('click', (event) => {
+  const turnCard = event.target.closest('[data-turn-expand]');
+  if (!turnCard) return;
+  // Don't toggle if clicking inside the detail panel itself
+  if (event.target.closest('.turn-detail-panel')) return;
+  turnCard.toggleAttribute('data-expanded');
 });
 
 // ── Copy to clipboard ────────────────────────────────────────────────────

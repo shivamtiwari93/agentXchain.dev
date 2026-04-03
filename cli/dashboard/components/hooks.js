@@ -45,7 +45,52 @@ function verdictBadge(verdict) {
   return `<span class="badge" style="color:${color};border-color:${color}">${esc(verdict)}</span>`;
 }
 
-export function render({ audit, annotations }) {
+export function filterAudit(audit, filters = {}) {
+  if (!Array.isArray(audit)) return [];
+
+  const phase = String(filters.phase || 'all').trim().toLowerCase();
+  const verdict = String(filters.verdict || 'all').trim().toLowerCase();
+  const hookName = String(filters.hookName || 'all').trim().toLowerCase();
+
+  return audit.filter((entry) => {
+    if (phase !== 'all') {
+      const entryPhase = String(getHookPhase(entry)).trim().toLowerCase();
+      if (entryPhase !== phase) return false;
+    }
+
+    if (verdict !== 'all') {
+      const entryVerdict = String(entry.verdict || '').trim().toLowerCase();
+      if (entryVerdict !== verdict) return false;
+    }
+
+    if (hookName !== 'all') {
+      const entryHookName = String(getHookName(entry)).trim().toLowerCase();
+      if (entryHookName !== hookName) return false;
+    }
+
+    return true;
+  });
+}
+
+function collectHookPhases(audit) {
+  const unique = new Set();
+  for (const entry of audit) {
+    const phase = getHookPhase(entry);
+    if (phase) unique.add(phase);
+  }
+  return Array.from(unique).sort();
+}
+
+function collectHookNames(audit) {
+  const unique = new Set();
+  for (const entry of audit) {
+    const name = getHookName(entry);
+    if (name) unique.add(name);
+  }
+  return Array.from(unique).sort();
+}
+
+export function render({ audit, annotations, filter = {} }) {
   const hasAudit = Array.isArray(audit) && audit.length > 0;
   const hasAnnotations = Array.isArray(annotations) && annotations.length > 0;
 
@@ -56,13 +101,45 @@ export function render({ audit, annotations }) {
   let html = `<div class="hooks-view">`;
 
   if (hasAudit) {
+    const filtered = filterAudit(audit, filter);
+    const phases = collectHookPhases(audit);
+    const hookNames = collectHookNames(audit);
+    const selectedPhase = filter.phase || 'all';
+    const selectedVerdict = filter.verdict || 'all';
+    const selectedHookName = filter.hookName || 'all';
+
     html += `<div class="section"><h3>Hook Audit Log</h3>
-      <p class="section-subtitle">${audit.length} hook execution${audit.length !== 1 ? 's' : ''}</p>
+      <p class="section-subtitle">${filtered.length} of ${audit.length} hook execution${audit.length !== 1 ? 's' : ''}</p>
+      <div class="filter-bar">
+        <label class="filter-control">
+          <span>Phase</span>
+          <select data-view-control="hooks-phase">
+            <option value="all"${selectedPhase === 'all' ? ' selected' : ''}>All phases</option>
+            ${phases.map((p) => `<option value="${esc(p)}"${selectedPhase === p ? ' selected' : ''}>${esc(p)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="filter-control">
+          <span>Verdict</span>
+          <select data-view-control="hooks-verdict">
+            <option value="all"${selectedVerdict === 'all' ? ' selected' : ''}>All verdicts</option>
+            <option value="allow"${selectedVerdict === 'allow' ? ' selected' : ''}>allow</option>
+            <option value="warn"${selectedVerdict === 'warn' ? ' selected' : ''}>warn</option>
+            <option value="block"${selectedVerdict === 'block' ? ' selected' : ''}>block</option>
+          </select>
+        </label>
+        <label class="filter-control">
+          <span>Hook</span>
+          <select data-view-control="hooks-hookname">
+            <option value="all"${selectedHookName === 'all' ? ' selected' : ''}>All hooks</option>
+            ${hookNames.map((n) => `<option value="${esc(n)}"${selectedHookName === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
       <table class="data-table">
         <thead><tr><th>Time</th><th>Phase</th><th>Hook</th><th>Verdict</th><th>Action</th><th>Duration</th></tr></thead>
         <tbody>`;
 
-    for (const entry of audit) {
+    for (const entry of filtered) {
       const duration = entry.duration_ms != null ? `${entry.duration_ms}ms` : '-';
       const action = entry.orchestrator_action || entry.action || 'continued';
       html += `<tr>

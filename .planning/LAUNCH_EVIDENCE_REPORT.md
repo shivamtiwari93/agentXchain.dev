@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-02
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 988 tests, 0 failures across 230 suites
+- **Result**: 1016 tests, 0 failures across 233 suites
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -27,6 +27,7 @@
   - Plugin docs surface: published HTML, CLI reference integration, nav consistency, planning-spec alignment, rollback/failure-mode documentation
   - Dispatch manifest integrity: finalize/verify, tamper detection (unexpected file, digest mismatch, missing file, size mismatch), supplement inclusion, adapter verification integration
   - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation, non-2xx failure handling, annotation recording, audit trail with transport field
+  - Dashboard evidence drill-down: turn detail panels with hook annotations/audit, decision ledger filters (phase, date range, objection), hook audit filters (phase, verdict, hook name)
   - Context compressor, token counter, token budget
   - Release preflight and publish scripts
   - Competitive positioning and documentation content assertions

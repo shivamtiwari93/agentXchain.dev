@@ -81,7 +81,58 @@ function roleBadge(role) {
   return `<span class="badge" style="color:${color};border-color:${color}">${esc(role)}</span>`;
 }
 
-export function render({ state, history }) {
+function renderTurnDetailPanel(turnId, annotations, audit) {
+  const turnAnnotations = Array.isArray(annotations)
+    ? annotations.filter((a) => a.turn_id === turnId)
+    : [];
+  const turnAudit = Array.isArray(audit)
+    ? audit.filter((a) => a.turn_id === turnId)
+    : [];
+
+  if (turnAnnotations.length === 0 && turnAudit.length === 0) {
+    return `<div class="turn-detail-panel"><p class="turn-detail">No hook evidence for this turn.</p></div>`;
+  }
+
+  let html = `<div class="turn-detail-panel">`;
+
+  if (turnAudit.length > 0) {
+    html += `<div class="turn-detail"><span class="detail-label">Hook Audit (${turnAudit.length}):</span>
+      <table class="data-table">
+        <thead><tr><th>Phase</th><th>Hook</th><th>Verdict</th></tr></thead>
+        <tbody>`;
+    for (const entry of turnAudit) {
+      const phase = entry.hook_phase || entry.phase || '';
+      const hook = entry.hook_name || entry.hook || entry.name || '';
+      html += `<tr>
+        <td class="mono">${esc(phase)}</td>
+        <td>${esc(hook)}</td>
+        <td>${esc(entry.verdict || '')}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  }
+
+  if (turnAnnotations.length > 0) {
+    html += `<div class="turn-detail"><span class="detail-label">Annotations (${turnAnnotations.length}):</span><ul>`;
+    for (const ann of turnAnnotations) {
+      const hookName = ann.hook_name || ann.hook || ann.name || '';
+      if (Array.isArray(ann.annotations)) {
+        for (const a of ann.annotations) {
+          html += `<li>${esc(hookName)}: ${esc(a.key || '')} = ${esc(a.value || '')}</li>`;
+        }
+      } else {
+        const text = ann.annotation || ann.message || '';
+        html += `<li>${esc(hookName)}: ${esc(text)}</li>`;
+      }
+    }
+    html += `</ul></div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+export function render({ state, history, annotations, audit }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -129,7 +180,7 @@ export function render({ state, history }) {
         || entry.verification?.evidence_summary
         || null;
 
-      html += `<div class="turn-card">
+      html += `<div class="turn-card" data-turn-expand="${esc(entry.turn_id)}">
         <div class="turn-header">
           ${roleBadge(getRole(entry))}
           <span class="mono">${esc(entry.turn_id)}</span>
@@ -158,6 +209,8 @@ export function render({ state, history }) {
       if (verificationSummary) {
         html += `<div class="turn-detail"><span class="detail-label">Verification:</span> ${esc(verificationSummary)}</div>`;
       }
+
+      html += renderTurnDetailPanel(entry.turn_id, annotations, audit);
 
       html += `</div>`;
     }

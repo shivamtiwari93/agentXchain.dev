@@ -120,7 +120,7 @@ The v2.1 surface touches four operator-facing areas:
 
 ### V2.1-F3: Dashboard Evidence Drill-Down
 
-**Status:** Defined, not implemented.
+**Status:** Implemented and tested. 28 tests across 3 suites (AT-V21-007, AT-V21-008). Spec: `V2_1_DASHBOARD_DRILLDOWN_SPEC.md`.
 
 **Scope:**
 - Turn detail panels surface:

@@ -290,6 +290,38 @@
     .gate-evidence h4 { font-size: 13px; color: var(--text-dim); margin-bottom: 4px; }
     .gate-evidence ul { list-style: none; padding: 0; }
     .gate-evidence li { padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+
+    /* Turn detail drill-down panel */
+    .turn-card[data-turn-expand] { cursor: pointer; }
+    .turn-detail-panel {
+      display: none;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .turn-card[data-expanded] .turn-detail-panel {
+      display: block;
+    }
+    .turn-card[data-expanded] {
+      border-color: var(--accent);
+    }
+
+    /* Objection badge */
+    .objection-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      margin-left: 6px;
+      border: 1px solid var(--red);
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>

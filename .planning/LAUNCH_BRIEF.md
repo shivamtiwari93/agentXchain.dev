@@ -78,7 +78,7 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses floor-hundred format: "900+" (currently 988)
+- Test count uses floor-hundred format: "1000+" (currently 1016)
 - Do not claim "full live end-to-end proof" — `local_cli` was not completed live (E2)
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
