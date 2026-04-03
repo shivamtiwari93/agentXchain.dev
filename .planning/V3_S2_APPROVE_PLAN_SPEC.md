@@ -195,6 +195,7 @@ Planning artifact generation reuses the existing `governed-templates.js` system:
 - `manifest.planning_artifacts` defines what to generate
 - `content_template` is the file content with `{{project_name}}` substitution
 - `generic` template has zero `planning_artifacts` — `intake plan` on a `generic`-templated intent succeeds immediately with no artifacts generated (this is correct, not an error)
+- `library` template generates `public-api.md`, `compatibility-policy.md`, and `release-adoption.md`
 
 No second template system is introduced. No new template schema is required.
 

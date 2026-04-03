@@ -197,7 +197,7 @@ The intake loop may create events and intents automatically. It may not start co
 
 ### 2. Intent Creation Is Template-Aware
 
-When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `web-app`). For unmapped signals, the safe fallback is `generic`. Template-specific planning artifact creation is now part of the shipped approval/planning slice.
+When an event becomes an intent, the system must select a template (`generic`, `cli-tool`, `api-service`, `library`, `web-app`). For unmapped signals, the safe fallback is `generic`. Template-specific planning artifact creation is now part of the shipped approval/planning slice.
 
 ### 3. Runs Remain The Execution Boundary
 

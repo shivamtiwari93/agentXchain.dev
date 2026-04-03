@@ -1,0 +1,31 @@
+{
+  "id": "library",
+  "display_name": "Library",
+  "description": "Governed scaffold for reusable packages with public-API, compatibility, and adoption planning.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [
+    {
+      "filename": "public-api.md",
+      "content_template": "# Public API — {{project_name}}\n\n## Supported Entrypoints\n- Package name:\n- Import / require paths:\n- Stable vs experimental exports:\n\n## Consumer-Facing Surface\n| Export / command | Consumer use case | Stability | Notes |\n|------------------|-------------------|-----------|-------|\n| | | | |\n\n## Breaking-Change Triggers\n- What counts as breaking:\n- What can ship behind deprecation first:\n- What must stay internal:\n"
+    },
+    {
+      "filename": "compatibility-policy.md",
+      "content_template": "# Compatibility Policy — {{project_name}}\n\n## Versioning Contract\n- Semver policy:\n- Supported runtime versions:\n- Supported platforms / environments:\n\n## Deprecation And Migration\n| Surface | Deprecation path | Migration guidance | Removal target |\n|---------|------------------|--------------------|----------------|\n| | | | |\n\n## Compatibility Risks\n- Dependency upgrade hazards:\n- Packaging / module-format risks:\n- Consumer breakage watchpoints:\n"
+    },
+    {
+      "filename": "release-adoption.md",
+      "content_template": "# Release And Adoption — {{project_name}}\n\n## Consumer Smoke Proof\n- Install command:\n- Import / usage smoke check:\n- Example consumer environment:\n\n## Release Notes Inputs\n- User-visible changes:\n- Upgrade steps:\n- Rollback or pinning advice:\n\n## Adoption Risks\n- Migration blockers:\n- Documentation gaps:\n- Support expectations after release:\n"
+    }
+  ],
+  "prompt_overrides": {
+    "pm": "Define the exported surface, compatibility promise, and consumer upgrade expectations before the team treats the package as ready to ship.",
+    "dev": "Treat exported entrypoints, backward compatibility, and package-consumer install or import paths as product behavior, not release polish.",
+    "qa": "Verify public API stability, install/import smoke, migration notes, and compatibility risks across supported runtimes before sign-off."
+  },
+  "acceptance_hints": [
+    "Public API surface reviewed and intentionally versioned",
+    "Compatibility or migration expectations documented for consumers",
+    "Install/import or package-consumer smoke path verified"
+  ]
+}

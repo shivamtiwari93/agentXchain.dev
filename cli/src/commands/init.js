@@ -483,6 +483,7 @@ async function initGoverned(opts) {
     console.error('    generic       Default governed scaffold');
     console.error('    api-service   Governed scaffold for a backend service');
     console.error('    cli-tool      Governed scaffold for a CLI tool');
+    console.error('    library       Governed scaffold for a reusable package');
     console.error('    web-app       Governed scaffold for a web application');
     process.exit(1);
   }

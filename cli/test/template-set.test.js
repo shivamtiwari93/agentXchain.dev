@@ -97,6 +97,18 @@ describe('template set — planning artifacts creation', () => {
     assert.ok(content.includes('Test Project'), 'project name should be interpolated');
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('AT-002b: creates all library planning artifacts when library template is selected', () => {
+    const dir = makeGovernedProject();
+    const result = run(['template', 'set', 'library', '--yes'], dir);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(existsSync(join(dir, '.planning', 'public-api.md')));
+    assert.ok(existsSync(join(dir, '.planning', 'compatibility-policy.md')));
+    assert.ok(existsSync(join(dir, '.planning', 'release-adoption.md')));
+    const content = readFileSync(join(dir, '.planning', 'public-api.md'), 'utf8');
+    assert.ok(content.includes('Test Project'), 'project name should be interpolated');
+    rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 // ── AT-TEMPLATE-SET-003: Skips existing artifacts ───────────────────────────
@@ -394,6 +406,7 @@ describe('template list', () => {
     assert.ok(result.stdout.includes('generic'));
     assert.ok(result.stdout.includes('api-service'));
     assert.ok(result.stdout.includes('cli-tool'));
+    assert.ok(result.stdout.includes('library'));
     assert.ok(result.stdout.includes('web-app'));
   });
 
@@ -402,11 +415,12 @@ describe('template list', () => {
     assert.equal(result.status, 0, result.stderr);
     const templates = JSON.parse(result.stdout);
     assert.ok(Array.isArray(templates));
-    assert.equal(templates.length, 4);
+    assert.equal(templates.length, 5);
     const ids = templates.map(t => t.id);
     assert.ok(ids.includes('generic'));
     assert.ok(ids.includes('api-service'));
     assert.ok(ids.includes('cli-tool'));
+    assert.ok(ids.includes('library'));
     assert.ok(ids.includes('web-app'));
     // Check structure
     const apiService = templates.find(t => t.id === 'api-service');

@@ -30,6 +30,7 @@ Supported template ids for the first release of this system:
 - `generic` — current baseline scaffold; default for backward compatibility
 - `api-service`
 - `cli-tool`
+- `library`
 - `web-app`
 
 Non-goals for v1 of the template system:
@@ -100,6 +101,12 @@ Each template adds or customizes the human-readable planning files under `.plann
 - `platform-support.md`
 - `distribution-checklist.md`
 
+`library` adds:
+
+- `public-api.md`
+- `compatibility-policy.md`
+- `release-adoption.md`
+
 `web-app` adds:
 
 - `user-flows.md`
@@ -116,6 +123,7 @@ Examples:
 
 - `api-service` QA prompt seed emphasizes API contract conformance, error handling, and migration risk
 - `cli-tool` QA prompt seed emphasizes command UX, help text, install flow, and shell compatibility
+- `library` QA prompt seed emphasizes public API stability, install/import smoke, and upgrade-path clarity
 - `web-app` QA prompt seed emphasizes user flow integrity, responsive behavior, and accessibility smoke checks
 
 The template system must not introduce role-specific protocol forks. A `qa` turn still returns the same governed turn-result schema regardless of template.
@@ -135,6 +143,12 @@ Each template defines the minimum evidence expected before a run can credibly re
 - command help audited
 - install or invocation path checked
 - failure-mode UX reviewed
+
+`library` minimums:
+
+- public API surface reviewed
+- compatibility or migration expectations documented
+- install/import or package-consumer smoke path checked
 
 `web-app` minimums:
 
@@ -169,4 +183,4 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 ## Open Questions
 
 1. Which parts of template guidance should become machine-enforced gates versus staying as prompt-and-doc scaffolding?
-2. Do we need a `library` template in the first non-generic wave, or is `api-service` plus `cli-tool` enough to prove the system?
+2. Resolved: a first-party `library` template is part of the built-in wave because OSS packages are a common governed delivery shape and do not fit cleanly into `api-service` or `cli-tool`.

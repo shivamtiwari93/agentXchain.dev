@@ -83,6 +83,7 @@ Built-in governed templates:
 - `generic`: baseline governed scaffold
 - `api-service`: adds API contract, operational readiness, and error-budget planning files
 - `cli-tool`: adds command-surface, platform-support, and distribution planning files
+- `library`: adds public-API, compatibility-policy, and release-adoption planning files
 - `web-app`: adds user-flow, UI acceptance, and browser-support planning files
 
 `step` writes a turn-scoped dispatch bundle under `.agentxchain/dispatch/turns/<turn_id>/` and tells you where the staged result must be written. For manual turns, fill in `.agentxchain/staging/<turn_id>/turn-result.json`, then accept the turn:

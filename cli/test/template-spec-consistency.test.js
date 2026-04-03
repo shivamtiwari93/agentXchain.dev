@@ -15,7 +15,7 @@ const CLI_SPEC = readFileSync(join(PLANNING, 'CLI_SPEC.md'), 'utf8');
 const ROADMAP = readFileSync(join(PLANNING, 'POST_V1_ROADMAP.md'), 'utf8');
 
 // Canonical template IDs defined in the implementation spec
-const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'web-app'];
+const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app'];
 
 describe('Template spec consistency', () => {
 
@@ -134,6 +134,7 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
 
   const API_SERVICE_ARTIFACTS = ['api-contract.md', 'operational-readiness.md', 'error-budget.md'];
   const CLI_TOOL_ARTIFACTS = ['command-surface.md', 'platform-support.md', 'distribution-checklist.md'];
+  const LIBRARY_ARTIFACTS = ['public-api.md', 'compatibility-policy.md', 'release-adoption.md'];
   const WEB_APP_ARTIFACTS = ['user-flows.md', 'ui-acceptance.md', 'browser-support.md'];
 
   for (const artifact of API_SERVICE_ARTIFACTS) {
@@ -144,6 +145,12 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
 
   for (const artifact of CLI_TOOL_ARTIFACTS) {
     it(`cli-tool planning artifact "${artifact}" is mentioned in SDLC spec`, () => {
+      assert.ok(SDLC_SPEC.includes(artifact), `SDLC spec must mention ${artifact}`);
+    });
+  }
+
+  for (const artifact of LIBRARY_ARTIFACTS) {
+    it(`library planning artifact "${artifact}" is mentioned in SDLC spec`, () => {
       assert.ok(SDLC_SPEC.includes(artifact), `SDLC spec must mention ${artifact}`);
     });
   }
@@ -159,6 +166,15 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
       assert.ok(
         TEMPLATE_INIT_SPEC.includes(artifact),
         `Implementation spec AT-TEMPLATE-INIT-002 must verify ${artifact}`
+      );
+    }
+  });
+
+  it('implementation spec mentions library artifacts in AT-TEMPLATE-INIT-002b', () => {
+    for (const artifact of LIBRARY_ARTIFACTS) {
+      assert.ok(
+        TEMPLATE_INIT_SPEC.includes(artifact),
+        `Implementation spec AT-TEMPLATE-INIT-002b must verify ${artifact}`
       );
     }
   });

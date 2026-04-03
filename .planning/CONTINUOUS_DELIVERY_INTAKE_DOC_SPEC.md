@@ -47,6 +47,7 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - `intake plan` loads the governed template manifest for `intent.template`
    - planning fails atomically on artifact conflicts unless `--force` is supplied
    - `generic` is valid even when it yields zero planning artifacts
+   - `library` is a valid governed template and must be documented anywhere the page enumerates built-in template options
 8. Document the start bridge contract:
    - `intake start` transitions `planned -> executing`
    - success records `target_run`, `target_turn`, and `started_at`

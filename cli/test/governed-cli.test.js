@@ -259,6 +259,31 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed --template library writes library scaffold artifacts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-library-template-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, ['init', '--governed', '--template', 'library', '-y']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Template:\s+library/);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.template, 'library');
+      assert.ok(existsSync(join(projectDir, '.planning', 'public-api.md')));
+      assert.ok(existsSync(join(projectDir, '.planning', 'compatibility-policy.md')));
+      assert.ok(existsSync(join(projectDir, '.planning', 'release-adoption.md')));
+
+      const qaPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'qa.md'), 'utf8');
+      assert.match(qaPrompt, /Project-Type-Specific Guidance/);
+
+      const acceptanceMatrix = readFileSync(join(projectDir, '.planning', 'acceptance-matrix.md'), 'utf8');
+      assert.match(acceptanceMatrix, /Template Guidance/);
+      assert.match(acceptanceMatrix, /Install\/import or package-consumer smoke path verified/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed rejects unknown templates before writing files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-template-'));
     const projectDir = join(dir, 'my-agentxchain-project');

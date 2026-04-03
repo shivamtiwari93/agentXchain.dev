@@ -22,6 +22,7 @@ This is the contract:
 | `generic` | Baseline governed scaffold | No extra project-type files |
 | `api-service` | Backend services and APIs | `api-contract.md`, `operational-readiness.md`, `error-budget.md` |
 | `cli-tool` | Command-line tools and packaged CLIs | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` |
+| `library` | Reusable packages and shared modules | `public-api.md`, `compatibility-policy.md`, `release-adoption.md` |
 | `web-app` | Product UIs and browser-facing apps | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` |
 
 If you cannot justify one of the specialized templates honestly, stay on `generic`. The point is clearer planning, not decorative metadata.
@@ -126,6 +127,8 @@ That makes scaffold intent visible to operators, scripts, and future migration l
 Use `api-service` when the repo's risk is mostly API contract and operability.
 
 Use `cli-tool` when the repo's risk is command surface, install path, and distribution quality.
+
+Use `library` when the repo's risk is public API stability, compatibility guarantees, and consumer adoption.
 
 Use `web-app` when the repo's risk is user flow, browser behavior, and UI acceptance proof.
 

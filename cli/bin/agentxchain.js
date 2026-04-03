@@ -110,7 +110,7 @@ program
   .description('Create a new AgentXchain project folder')
   .option('-y, --yes', 'Skip prompts, use defaults')
   .option('--governed', 'Create a governed project (orchestrator-owned state)')
-  .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, web-app')
+  .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, library, web-app')
   .option('--schema-version <version>', 'Schema version (3 for legacy, or use --governed for current)')
   .action(initCommand);
 
@@ -394,7 +394,7 @@ intakeCmd
   .description('Triage a detected intent — set priority, template, charter, and acceptance')
   .requiredOption('--intent <id>', 'Intent ID to triage')
   .option('--priority <level>', 'Priority level (p0, p1, p2, p3)')
-  .option('--template <id>', 'Governed template (generic, api-service, cli-tool, web-app)')
+  .option('--template <id>', 'Governed template (generic, api-service, cli-tool, library, web-app)')
   .option('--charter <text>', 'Delivery charter text')
   .option('--acceptance <text>', 'Comma-separated acceptance criteria')
   .option('--suppress', 'Suppress the intent instead of triaging')

@@ -15,7 +15,7 @@ function loadManifest(templateId) {
   return JSON.parse(read(`cli/src/templates/governed/${templateId}.json`));
 }
 
-const TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'web-app'];
+const TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app'];
 const TEMPLATES_SPEC = read('.planning/TEMPLATES_DOC_PAGE_SPEC.md');
 const TEMPLATES_DOC_SOURCE = read('website-v2/docs/templates.mdx');
 const QUICKSTART_DOC_SOURCE = read('website-v2/docs/quickstart.mdx');

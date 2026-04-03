@@ -532,6 +532,11 @@ describe('normalizeV4 — template read path', () => {
     assert.equal(normalized.template, 'cli-tool');
   });
 
+  it('preserves library template value', () => {
+    const normalized = normalizeV4({ ...minimalV4, template: 'library' });
+    assert.equal(normalized.template, 'library');
+  });
+
   it('old v4 fixture without template normalizes to generic', () => {
     const fixture = loadFixture('config-v4-governed.json');
     // The fixture does not have a template field

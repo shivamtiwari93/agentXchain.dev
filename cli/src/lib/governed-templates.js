@@ -9,6 +9,7 @@ export const VALID_GOVERNED_TEMPLATE_IDS = Object.freeze([
   'generic',
   'api-service',
   'cli-tool',
+  'library',
   'web-app',
 ]);
 

@@ -314,6 +314,31 @@ describe('intake plan', () => {
     assert.ok(out.intent.planning_artifacts.includes('.planning/error-budget.md'));
   });
 
+  it('generates planning artifacts from library template', () => {
+    const intentId = recordTriageAndApprove(dir, 'library');
+
+    const result = runCli([
+      'intake', 'plan',
+      '--intent', intentId,
+      '--project-name', 'LibraryProject',
+      '--json',
+    ], dir);
+
+    assert.equal(result.status, 0);
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.ok, true);
+    assert.equal(out.intent.status, 'planned');
+    assert.equal(out.artifacts_generated.length, 3);
+    assert.ok(out.intent.planning_artifacts.includes('.planning/public-api.md'));
+    assert.ok(out.intent.planning_artifacts.includes('.planning/compatibility-policy.md'));
+    assert.ok(out.intent.planning_artifacts.includes('.planning/release-adoption.md'));
+    assert.ok(existsSync(join(dir, '.planning', 'public-api.md')));
+    assert.ok(existsSync(join(dir, '.planning', 'compatibility-policy.md')));
+    assert.ok(existsSync(join(dir, '.planning', 'release-adoption.md')));
+    const content = readFileSync(join(dir, '.planning', 'public-api.md'), 'utf8');
+    assert.ok(content.includes('LibraryProject'));
+  });
+
   // AT-V3S2-011 (plan JSON)
   it('returns structured JSON output with artifact lists', () => {
     const intentId = recordTriageAndApprove(dir, 'web-app');

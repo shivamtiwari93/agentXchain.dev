@@ -19,7 +19,7 @@ describe('Template public surface', () => {
   });
 
   it('lists all built-in template ids in both READMEs', () => {
-    for (const templateId of ['generic', 'api-service', 'cli-tool', 'web-app']) {
+    for (const templateId of ['generic', 'api-service', 'cli-tool', 'library', 'web-app']) {
       assert.ok(ROOT_README.includes(templateId), `root README must mention ${templateId}`);
       assert.ok(CLI_README.includes(templateId), `cli README must mention ${templateId}`);
     }
@@ -29,6 +29,7 @@ describe('Template public surface', () => {
     assert.ok(QUICKSTART_DOCS.includes('--template'), 'quickstart docs must mention --template');
     assert.ok(QUICKSTART_DOCS.includes('api-service'), 'quickstart docs must mention api-service');
     assert.ok(QUICKSTART_DOCS.includes('cli-tool'), 'quickstart docs must mention cli-tool');
+    assert.ok(QUICKSTART_DOCS.includes('library'), 'quickstart docs must mention library');
     assert.ok(QUICKSTART_DOCS.includes('web-app'), 'quickstart docs must mention web-app');
   });
 

@@ -94,6 +94,7 @@ The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` an
 - `generic`
 - `api-service`
 - `cli-tool`
+- `library`
 - `web-app`
 
 `generic` must be described as the baseline governed scaffold with no extra project-type files.
@@ -151,7 +152,7 @@ Quickstart and CLI docs must also link into `/docs/templates`.
 2. `website-v2/build/docs/templates/index.html` exists after `website-v2` build.
 3. The page documents `init --governed --template <id>`, `template list`, `template list --json`, and `template set <id>`.
 4. The page documents `status` and `status --json` template visibility.
-5. The page lists `generic`, `api-service`, `cli-tool`, and `web-app`.
+5. The page lists `generic`, `api-service`, `cli-tool`, `library`, and `web-app`.
 6. The page lists the real planning artifact filenames from governed template manifests.
 7. The page explains additive `template set` semantics and records `template_set` in `.agentxchain/decision-ledger.jsonl`.
 8. The page does not mention `template set --force` or fake conflict-detection semantics.
