@@ -35,7 +35,7 @@
     }
   },
   "input": {
-    "operation": "finalize_then_inject_and_verify",
+    "operation": "verify_dispatch_manifest",
     "args": {
       "turn_id": "turn_abc"
     }

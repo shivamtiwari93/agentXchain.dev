@@ -419,6 +419,43 @@ function performAcceptTurnOperation(root, fixture, normalizedConfig) {
   };
 }
 
+function finalizeManifestForFixture(root, turnId) {
+  const state = readJson(join(root, '.agentxchain', 'state.json'));
+  const activeTurn = state.active_turns?.[turnId];
+  const identity = {
+    run_id: state.run_id || 'run_001',
+    role: activeTurn?.assigned_role || activeTurn?.role || 'dev',
+  };
+  const finalized = finalizeDispatchManifest(root, turnId, identity);
+  if (!finalized.ok) {
+    return {
+      ok: false,
+      actual: { result: 'error', error_type: 'finalization_failed', error: finalized.error },
+    };
+  }
+  return { ok: true };
+}
+
+function applyManifestFixtureMutations(root, fixture, turnId) {
+  const bundleDir = join(root, getDispatchTurnDir(turnId));
+
+  for (const [fileName, content] of Object.entries(fixture.setup.post_finalize_inject?.[turnId] || {})) {
+    writeFileSync(join(bundleDir, fileName), content);
+  }
+
+  for (const [fileName, content] of Object.entries(fixture.setup.post_finalize_tamper?.[turnId] || {})) {
+    writeFileSync(join(bundleDir, fileName), content);
+  }
+
+  for (const fileName of fixture.setup.post_finalize_delete?.[turnId] || []) {
+    try {
+      unlinkSync(join(bundleDir, fileName));
+    } catch {
+      // Missing files are surfaced by manifest verification, not fixture setup.
+    }
+  }
+}
+
 function executeFixtureOperation(workspace, fixture) {
   const { root, fixtureConfig, configErrors } = workspace;
   const operation = fixture.input.operation;
@@ -592,18 +629,13 @@ function executeFixtureOperation(workspace, fixture) {
 
     // ── Tier 2: Dispatch Manifest ────────────────────────────────────────
 
-    case 'finalize_and_verify_manifest': {
+    case 'verify_dispatch_manifest': {
       const turnId = fixture.input.args.turn_id;
-      const state = readJson(join(root, '.agentxchain', 'state.json'));
-      const activeTurn = state.active_turns?.[turnId];
-      const identity = {
-        run_id: state.run_id || 'run_001',
-        role: activeTurn?.assigned_role || 'dev',
-      };
-      const fin = finalizeDispatchManifest(root, turnId, identity);
-      if (!fin.ok) {
-        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      const finalization = finalizeManifestForFixture(root, turnId);
+      if (!finalization.ok) {
+        return finalization.actual;
       }
+      applyManifestFixtureMutations(root, fixture, turnId);
       const ver = verifyDispatchManifest(root, turnId);
       if (!ver.ok) {
         return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
@@ -616,80 +648,11 @@ function executeFixtureOperation(workspace, fixture) {
       };
     }
 
-    case 'finalize_then_inject_and_verify': {
+    case 'inspect_dispatch_manifest': {
       const turnId = fixture.input.args.turn_id;
-      const state = readJson(join(root, '.agentxchain', 'state.json'));
-      const activeTurn = state.active_turns?.[turnId];
-      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
-      const fin = finalizeDispatchManifest(root, turnId, identity);
-      if (!fin.ok) {
-        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
-      }
-      // Inject unexpected files after finalization
-      const injections = fixture.setup.post_finalize_inject?.[turnId] || {};
-      const bundleDir = join(root, getDispatchTurnDir(turnId));
-      for (const [fileName, content] of Object.entries(injections)) {
-        writeFileSync(join(bundleDir, fileName), content);
-      }
-      const ver = verifyDispatchManifest(root, turnId);
-      if (!ver.ok) {
-        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
-      }
-      return { result: 'success', manifest_valid: true, verification_errors: [] };
-    }
-
-    case 'finalize_then_tamper_and_verify': {
-      const turnId = fixture.input.args.turn_id;
-      const state = readJson(join(root, '.agentxchain', 'state.json'));
-      const activeTurn = state.active_turns?.[turnId];
-      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
-      const fin = finalizeDispatchManifest(root, turnId, identity);
-      if (!fin.ok) {
-        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
-      }
-      // Tamper with files after finalization
-      const tampers = fixture.setup.post_finalize_tamper?.[turnId] || {};
-      const bundleDir = join(root, getDispatchTurnDir(turnId));
-      for (const [fileName, content] of Object.entries(tampers)) {
-        writeFileSync(join(bundleDir, fileName), content);
-      }
-      const ver = verifyDispatchManifest(root, turnId);
-      if (!ver.ok) {
-        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
-      }
-      return { result: 'success', manifest_valid: true, verification_errors: [] };
-    }
-
-    case 'finalize_then_delete_and_verify': {
-      const turnId = fixture.input.args.turn_id;
-      const state = readJson(join(root, '.agentxchain', 'state.json'));
-      const activeTurn = state.active_turns?.[turnId];
-      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
-      const fin = finalizeDispatchManifest(root, turnId, identity);
-      if (!fin.ok) {
-        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
-      }
-      // Delete files after finalization
-      const deletions = fixture.setup.post_finalize_delete?.[turnId] || [];
-      const bundleDir = join(root, getDispatchTurnDir(turnId));
-      for (const fileName of deletions) {
-        try { unlinkSync(join(bundleDir, fileName)); } catch { /* already absent */ }
-      }
-      const ver = verifyDispatchManifest(root, turnId);
-      if (!ver.ok) {
-        return { result: 'error', error_type: ver.errors[0]?.type || 'verification_failed', verification_errors: ver.errors };
-      }
-      return { result: 'success', manifest_valid: true, verification_errors: [] };
-    }
-
-    case 'finalize_and_check_self_exclusion': {
-      const turnId = fixture.input.args.turn_id;
-      const state = readJson(join(root, '.agentxchain', 'state.json'));
-      const activeTurn = state.active_turns?.[turnId];
-      const identity = { run_id: state.run_id || 'run_001', role: activeTurn?.assigned_role || 'dev' };
-      const fin = finalizeDispatchManifest(root, turnId, identity);
-      if (!fin.ok) {
-        return { result: 'error', error_type: 'finalization_failed', error: fin.error };
+      const finalization = finalizeManifestForFixture(root, turnId);
+      if (!finalization.ok) {
+        return finalization.actual;
       }
       const ver = verifyDispatchManifest(root, turnId);
       const manifest = ver.manifest || readJson(join(root, getDispatchTurnDir(turnId), 'MANIFEST.json'));

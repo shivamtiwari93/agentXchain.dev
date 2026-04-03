@@ -25,11 +25,8 @@ These verbs are fixture abstractions, not CLI command names:
 - `evaluate_phase_exit` — evaluate gate predicates for phase transition
 - `append_decision` — append a decision to the decision ledger
 - `validate_config` — validate a governed config against schema
-- `finalize_and_verify_manifest` — finalize dispatch bundle and verify integrity
-- `finalize_then_inject_and_verify` — finalize, inject unexpected file, verify fails
-- `finalize_then_tamper_and_verify` — finalize, tamper content, verify digest mismatch
-- `finalize_then_delete_and_verify` — finalize, delete declared file, verify missing
-- `finalize_and_check_self_exclusion` — finalize and verify MANIFEST.json excludes itself
+- `verify_dispatch_manifest` — finalize a dispatch bundle, apply declared post-finalize mutations, and verify integrity
+- `inspect_dispatch_manifest` — finalize a dispatch bundle and inspect manifest contents for structural invariants
 - `run_hooks` — execute hook phase and return audit entry
 
 The adapter is responsible for mapping these operations onto the target implementation.
@@ -41,6 +38,7 @@ The adapter is responsible for mapping these operations onto the target implemen
 - `setup.post_finalize_inject` is a map of `{ turn_id: { filename: content } }` to inject unexpected files after manifest finalization.
 - `setup.post_finalize_tamper` is a map of `{ turn_id: { filename: content } }` to overwrite files after manifest finalization.
 - `setup.post_finalize_delete` is a map of `{ turn_id: [filenames] }` to delete files after manifest finalization.
+- Manifest mutations are fixture data, not separate operations. Adapters own the finalize → mutate → verify sequence behind `verify_dispatch_manifest`.
 - Fixture setup is limited to repo-local state, ledger/history files, staged turn results, dispatch bundles, and text files required for gate predicates.
 
 ## Assertion Objects

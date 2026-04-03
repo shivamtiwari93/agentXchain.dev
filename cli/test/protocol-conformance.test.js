@@ -28,6 +28,41 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.results.tier_1.fixtures_passed, 40);
   });
 
+  it('passes Tier 2 self-validation against the reference adapter', () => {
+    const result = runCli(['verify', 'protocol', '--tier', '2', '--target', '.', '--format', 'json']);
+    assert.equal(result.status, 0, result.stderr);
+
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.overall, 'pass');
+    assert.equal(report.results.tier_1.fixtures_run, 40);
+    assert.equal(report.results.tier_1.fixtures_passed, 40);
+    assert.equal(report.results.tier_2.fixtures_run, 8);
+    assert.equal(report.results.tier_2.fixtures_passed, 8);
+  });
+
+  it('supports Tier 2 surface filtering for dispatch manifest fixtures', () => {
+    const result = runCli([
+      'verify',
+      'protocol',
+      '--tier',
+      '2',
+      '--surface',
+      'dispatch_manifest',
+      '--target',
+      '.',
+      '--format',
+      'json',
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.overall, 'pass');
+    assert.equal(report.results.tier_1.fixtures_run, 0);
+    assert.equal(report.results.tier_2.fixtures_run, 5);
+    assert.equal(report.results.tier_2.fixtures_passed, 5);
+    assert.deepEqual(Object.keys(report.results.tier_2.surfaces), ['dispatch_manifest']);
+  });
+
   it('surfaces fixture failures as exit code 1', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-fail-'));
     try {

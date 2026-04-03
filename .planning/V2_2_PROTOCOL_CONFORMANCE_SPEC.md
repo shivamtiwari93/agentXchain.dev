@@ -319,6 +319,51 @@ The adapter command is resolved relative to the target root when a relative path
 2. Return a result JSON on stdout with `{ "status": "pass" | "fail" | "error", "actual": {...}, "message": "..." }`
 3. Exit 0 on pass, 1 on fail, 2 on error
 
+### Tier 2 Adapter Contract Clarification
+
+Dispatch-manifest fixtures do **not** get separate adapter verbs for each mutation type. That was weak design because it forced every implementation to mirror the reference test choreography instead of proving the invariant.
+
+The Tier 2 manifest surface uses:
+- `verify_dispatch_manifest` — adapter finalizes the dispatch bundle, applies any declared `setup.post_finalize_*` mutations, then verifies the manifest
+- `inspect_dispatch_manifest` — adapter finalizes the dispatch bundle and returns manifest-derived facts needed by the fixture
+
+Mutation intent lives in fixture setup:
+- `setup.dispatch_bundle`
+- `setup.post_finalize_inject`
+- `setup.post_finalize_tamper`
+- `setup.post_finalize_delete`
+
+This keeps the fixture contract protocol-facing: fixtures describe bundle state and expected verification outcomes, while the adapter owns the local testing sequence.
+
+### Tier 3 Execution Model
+
+Tier 3 fixtures use a multi-workspace setup. The adapter must materialize an isolated coordinator workspace plus one or more governed repo roots before executing the fixture. The fixture setup contract is:
+
+```json
+{
+  "setup": {
+    "coordinator_config": { "...": "agentxchain-multi.json contents" },
+    "repos": {
+      "api": {
+        "path": "./repos/api",
+        "config": { "...": "agentxchain.json contents" },
+        "state": { "...": "repo-local .agentxchain/state.json contents" },
+        "history": [ { "...": "repo-local accepted turns if needed" } ],
+        "files": {
+          "src/index.ts": "export const api = true;"
+        }
+      }
+    }
+  }
+}
+```
+
+Rules:
+- `repos.<id>.path` is the repo path referenced by `agentxchain-multi.json`; it is resolved relative to the isolated coordinator workspace.
+- Tier 3 adapters must materialize repo-local `agentxchain.json` and `.agentxchain/state.json` exactly as declared.
+- Cross-repo checks must resolve file paths against those materialized repo roots, not against the adapter process cwd.
+- The coordinator remains forbidden from mutating repo-local `.agentxchain/` state during projection and gate evaluation; fixtures may assert this invariant directly.
+
 This adapter model means the validator does not need to know how to invoke the implementation — it only needs to feed fixtures and read results. The implementation provides the bridge.
 
 ### Capabilities Declaration
