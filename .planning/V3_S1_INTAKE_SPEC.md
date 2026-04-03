@@ -109,7 +109,9 @@ triaged  -> rejected    (terminal)
 
 ### States Deferred Beyond S1
 
-`approved`, `planned`, `executing`, `awaiting_release_approval`, `released`, `observing`, `closed`, `blocked`, `reopened` — defined in `V3_SCOPE.md` but not implemented in this slice. Transitions into these states require a later intake approval/planning command surface.
+**Shipped in later slices:** `approved`, `planned` (S2), `executing` (S3), `blocked`, `completed`, `failed` (S5), plus `blocked → approved` re-approval (S5).
+
+**Still deferred:** `awaiting_release_approval`, `released`, `observing`, `reopened` — defined in `V3_SCOPE.md` as later-v3 direction.
 
 ---
 
