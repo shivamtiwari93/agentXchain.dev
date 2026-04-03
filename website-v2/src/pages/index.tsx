@@ -1,14 +1,16 @@
 import React from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 function Hero() {
+  const logoSrc = useBaseUrl('/img/agentXchain.dev_square_250x250px.png');
   return (
     <section className="hero-section">
       <div className="container">
         <img
-          src="/img/agentXchain.dev_square_250x250px.png"
-          alt=""
+          src={logoSrc}
+          alt="AgentXchain"
           width={80}
           height={80}
           style={{ borderRadius: 18, marginBottom: '1.5rem' }}
@@ -270,6 +272,14 @@ function PlatformSplit() {
 }
 
 function Comparison() {
+  const rows = [
+    ['Layer', 'Agent ↔ tools & data', 'Agent ↔ agent over network', 'Governance over shared work'],
+    ['Model', 'One agent, many tools', 'Many agents, messages', 'Adversarial collaboration, turns'],
+    ['Authority', 'Single agent decides', 'Delegation / RPC', 'Constitutional human sovereignty'],
+    ['Audit trail', 'Tool call logs', 'Message history', 'Structured decisions + objections'],
+    ['Best for', 'Agent uses tools', 'Agent calls another agent', 'AI team ships governed software'],
+  ];
+
   return (
     <section style={{ padding: '5rem 0' }}>
       <div className="container">
@@ -278,29 +288,23 @@ function Comparison() {
         <p className="section-subtitle">
           Three protocols for three different problems. They're complementary.
         </p>
-        <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--ifm-color-emphasis-300)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', minWidth: 620 }}>
+        <div className="comparison-table-wrap">
+          <table className="comparison-table">
             <thead>
               <tr>
-                <th style={{ padding: '0.85rem 1.1rem', background: 'var(--ifm-card-background-color)', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--ifm-color-emphasis-300)' }}></th>
-                <th style={{ padding: '0.85rem 1.1rem', background: 'var(--ifm-card-background-color)', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--ifm-color-emphasis-300)' }}>MCP</th>
-                <th style={{ padding: '0.85rem 1.1rem', background: 'var(--ifm-card-background-color)', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid var(--ifm-color-emphasis-300)' }}>A2A (Google)</th>
-                <th style={{ padding: '0.85rem 1.1rem', background: 'rgba(43,124,182,0.08)', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--axc-blue-light)', borderBottom: '1px solid var(--ifm-color-emphasis-300)' }}>AgentXchain</th>
+                <th></th>
+                <th>MCP</th>
+                <th>A2A (Google)</th>
+                <th className="highlight-col">AgentXchain</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                ['Layer', 'Agent ↔ tools & data', 'Agent ↔ agent over network', 'Governance over shared work'],
-                ['Model', 'One agent, many tools', 'Many agents, messages', 'Adversarial collaboration, turns'],
-                ['Authority', 'Single agent decides', 'Delegation / RPC', 'Constitutional human sovereignty'],
-                ['Audit trail', 'Tool call logs', 'Message history', 'Structured decisions + objections'],
-                ['Best for', 'Agent uses tools', 'Agent calls another agent', 'AI team ships governed software'],
-              ].map(([label, mcp, a2a, axc]) => (
+              {rows.map(([label, mcp, a2a, axc]) => (
                 <tr key={label}>
-                  <td style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)', fontWeight: 600 }}>{label}</td>
-                  <td style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)', color: 'var(--ifm-font-color-secondary)' }}>{mcp}</td>
-                  <td style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)', color: 'var(--ifm-font-color-secondary)' }}>{a2a}</td>
-                  <td style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--ifm-color-emphasis-300)', fontWeight: 600, background: 'rgba(43,124,182,0.06)' }}>{axc}</td>
+                  <td className="row-label">{label}</td>
+                  <td>{mcp}</td>
+                  <td>{a2a}</td>
+                  <td className="highlight-col">{axc}</td>
                 </tr>
               ))}
             </tbody>
@@ -351,12 +355,13 @@ function Outcomes() {
 }
 
 function CTA() {
+  const iconSrc = useBaseUrl('/img/agentXchain.dev_icon_only_280x280px.png');
   return (
     <section style={{ borderTop: '1px solid var(--ifm-color-emphasis-300)', textAlign: 'center', padding: '5rem 0' }}>
       <div className="container">
         <img
-          src="/img/agentXchain.dev_icon_only_280x280px.png"
-          alt=""
+          src={iconSrc}
+          alt="AgentXchain"
           width={64}
           height={64}
           style={{ marginBottom: '1.25rem' }}
