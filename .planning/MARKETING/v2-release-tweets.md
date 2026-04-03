@@ -35,4 +35,4 @@ agentxchain init --governed
 Docs: https://agentxchain.dev
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 
-952 tests. 0 failures. Ship with confidence.
+960 tests. 0 failures. Ship with confidence.

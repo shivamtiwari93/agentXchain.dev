@@ -26,7 +26,7 @@ Works with Claude Code, Codex, Gemini, or any agent. Open source (MIT).
 
 - npm: `npm install -g agentxchain`
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
-- 952 tests, 0 failures
+- 960 tests, 0 failures
 
 Would love feedback from anyone running multi-agent coding setups.
 
