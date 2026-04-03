@@ -42,7 +42,7 @@ bash scripts/publish-from-tag.sh v1.0.0
 NPM_TOKEN                         # optional; when absent, publish uses trusted publishing (OIDC)
 NPM_VIEW_RETRY_ATTEMPTS           # optional, default 12
 NPM_VIEW_RETRY_DELAY_SECONDS      # optional, default 5
-RELEASE_POSTFLIGHT_RETRY_ATTEMPTS # optional, default 6
+RELEASE_POSTFLIGHT_RETRY_ATTEMPTS # optional, default 12
 RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
 ```
 
@@ -82,6 +82,8 @@ After `publish-from-tag.sh` succeeds, the workflow must run `scripts/release-pos
 - `dist.tarball`
 - checksum metadata
 - install smoke via `npm exec`
+
+The workflow may set a higher retry budget than the script default when running on GitHub-hosted runners, because registry install smoke can lag behind metadata visibility even after publish succeeds.
 
 ### 5. Failure Semantics
 

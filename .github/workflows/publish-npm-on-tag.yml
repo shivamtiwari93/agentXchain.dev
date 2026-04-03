@@ -46,4 +46,7 @@ jobs:
       - name: Verify published artifact
         working-directory: cli
         shell: bash
+        env:
+          RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: 18
+          RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: 10
         run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"

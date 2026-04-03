@@ -25,7 +25,7 @@ cd cli && npm run postflight:release
 ### Optional Environment
 
 ```text
-RELEASE_POSTFLIGHT_RETRY_ATTEMPTS      # optional, default 6
+RELEASE_POSTFLIGHT_RETRY_ATTEMPTS      # optional, default 12
 RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
 ```
 
@@ -90,6 +90,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
 | registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
+| registry install smoke lags metadata on CI runners | Keep the workflow fail-closed, but allow a higher CI retry budget via environment instead of assuming the local default is sufficient |
 
 ---
 

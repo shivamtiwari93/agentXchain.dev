@@ -54,6 +54,7 @@ describe('release operations docs', () => {
   it('documents and automates postflight as part of the publish workflow', () => {
     assert.match(workflow, /Publish tagged release/);
     assert.match(workflow, /Verify published artifact/);
+    assert.match(workflow, /RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: 18/);
     assert.match(workflow, /bash scripts\/release-postflight\.sh --target-version "\$\{RELEASE_TAG#v\}"/);
     assert.match(workflowSpec, /workflow must run `scripts\/release-postflight\.sh --target-version <semver>`/);
     assert.match(postflightSpec, /RELEASE_POSTFLIGHT_RETRY_ATTEMPTS/);
