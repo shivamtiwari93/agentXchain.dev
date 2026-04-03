@@ -1,4 +1,4 @@
-# Release Preflight Spec — v1
+# Release Preflight Spec
 
 > Contract for the local release-readiness script at `cli/scripts/release-preflight.sh`.
 
@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Define the local, automatable checks that must run before cutting the governed `1.0.0` release. The script is not the release checklist itself; it is the operator shortcut for the subset of release criteria that can be verified from the CLI workspace without external credentials or GitHub/npm control-plane access.
+Define the local, automatable checks that must run before cutting a governed release. The script is not the release checklist itself; it is the operator shortcut for the subset of release criteria that can be verified from the CLI workspace without external credentials or GitHub/npm control-plane access.
 
 This spec exists because the preflight script is release tooling and must follow the same spec-first discipline as the rest of the project.
 
@@ -19,8 +19,12 @@ This spec exists because the preflight script is release tooling and must follow
 ```text
 bash cli/scripts/release-preflight.sh
 bash cli/scripts/release-preflight.sh --strict
+bash cli/scripts/release-preflight.sh --target-version 2.0.1
+bash cli/scripts/release-preflight.sh --target-version 2.0.1 --strict
 cd cli && bash scripts/release-preflight.sh
 cd cli && bash scripts/release-preflight.sh --strict
+cd cli && bash scripts/release-preflight.sh --target-version 2.0.1
+cd cli && bash scripts/release-preflight.sh --target-version 2.0.1 --strict
 cd cli && npm run preflight:release
 cd cli && npm run preflight:release:strict
 ```
@@ -43,6 +47,7 @@ The script supports two modes:
 
 - default mode: rehearsal and pre-bump validation
 - `--strict`: post-bump release-cut validation
+- `--target-version <semver>`: sets the version used by the CHANGELOG and package-version checks
 
 ### Check Set
 
@@ -51,8 +56,8 @@ The script MUST evaluate these checks in order:
 1. Git working tree cleanliness
 2. `npm ci --ignore-scripts`
 3. `npm test`
-4. `CHANGELOG.md` contains a `## 1.0.0` heading
-5. `package.json` version equals `1.0.0`
+4. `CHANGELOG.md` contains a `## <target-version>` heading
+5. `package.json` version equals `<target-version>`
 6. `npm pack --dry-run`
 
 ---
@@ -72,16 +77,16 @@ Those remain governed by `V1_RELEASE_CHECKLIST.md`, `HUMAN_TASKS.md`, and the do
 
 ### 2. Severity Rules
 
-- `npm ci`, `npm test`, missing `CHANGELOG` entry, and failed `npm pack --dry-run` are hard failures
+- `npm ci`, `npm test`, missing target `CHANGELOG` entry, and failed `npm pack --dry-run` are hard failures
 - dirty git state is a warning, not a hard failure
-- `package.json` not yet at `1.0.0` is a warning, not a hard failure
+- `package.json` not yet at the target version is a warning, not a hard failure
 
 In `--strict` mode:
 
 - dirty git state becomes a hard failure
-- `package.json !== "1.0.0"` becomes a hard failure
+- `package.json !== <target-version>` becomes a hard failure
 
-The intended operator flow is: run default preflight before `npm version 1.0.0`, then run strict preflight after the version bump and before pushing the release tag that triggers publish automation.
+The intended operator flow is: run default preflight before `npm version <version>`, then run strict preflight after the version bump and before pushing the release tag that triggers publish automation.
 
 ### 3. Failure Reporting
 
@@ -105,9 +110,9 @@ When a hard check fails, the script SHOULD print a short tail of the failing com
 | `git diff --quiet HEAD` fails because repo is missing or detached strangely | Surface as warning if cleanliness cannot be established |
 | `npm ci --ignore-scripts` exits non-zero | Mark check as `FAIL`, print tail output, continue |
 | `npm test` exits non-zero | Mark check as `FAIL`, print tail output, continue |
-| `CHANGELOG.md` missing or lacks `## 1.0.0` | Mark check as `FAIL`, continue |
-| `package.json` version is not `1.0.0` | Mark check as `WARN`, continue |
-| `package.json` version is not `1.0.0` in `--strict` mode | Mark check as `FAIL`, continue |
+| `CHANGELOG.md` missing or lacks `## <target-version>` | Mark check as `FAIL`, continue |
+| `package.json` version is not `<target-version>` | Mark check as `WARN`, continue |
+| `package.json` version is not `<target-version>` in `--strict` mode | Mark check as `FAIL`, continue |
 | `npm pack --dry-run` exits non-zero | Mark check as `FAIL`, print tail output, continue |
 | Working tree is dirty in `--strict` mode | Mark check as `FAIL`, continue |
 
@@ -120,11 +125,11 @@ When a hard check fails, the script SHOULD print a short tail of the failing com
 3. If the working tree has uncommitted files but all hard checks pass, the script exits `0` and reports at least one warning.
 4. If `npm test` fails, the script still completes checks 4-6 and exits `1`.
 5. If `npm pack --dry-run` fails, the script exits `1` and does not incorrectly report that check as passed.
-6. If `CHANGELOG.md` lacks `## 1.0.0`, the script exits `1`.
-7. If `package.json` remains below `1.0.0`, the script reports a warning rather than a failure.
+6. If `CHANGELOG.md` lacks `## <target-version>`, the script exits `1`.
+7. If `package.json` remains below the target version, the script reports a warning rather than a failure.
 8. If the working tree is dirty in `--strict` mode, the script exits `1`.
-9. If `package.json !== "1.0.0"` in `--strict` mode, the script exits `1`.
-10. If the working tree is clean and `package.json === "1.0.0"` in `--strict` mode, the script exits `0` with no warnings from those checks.
+9. If `package.json !== <target-version>` in `--strict` mode, the script exits `1`.
+10. If the working tree is clean and `package.json === <target-version>` in `--strict` mode, the script exits `0` with no warnings from those checks.
 
 ---
 

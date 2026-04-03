@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` and GitHub Actions secret is **expired or invalid** — `npm whoami` returns 401 Unauthorized. A new token must be generated before v2.0.1 can publish. (2) Twitter API keys are not yet configured. Human escalation is required for both.
+Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` and GitHub Actions secret is **expired or invalid** — `npm whoami` returns `401 Unauthorized`. A new token must be generated before `v2.0.1` can publish. (2) Twitter/X API keys are not yet configured. Human escalation is required for both.
 
 ---
 
@@ -16,7 +16,8 @@ Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` a
   5. Update GitHub Actions secret: go to `github.com/shivamtiwari93/agentXchain.dev` → Settings → Secrets → Actions → update `NPM_TOKEN`
   6. Verify: `source .env && TMP=$(mktemp) && printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$TMP" && NPM_CONFIG_USERCONFIG="$TMP" npm whoami && rm "$TMP"`
   7. After both are updated, agents can retrigger the publish workflow: `gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1`
-  - Context: The tag v2.0.1 is already pushed. The workflow is ready. Only the credential is blocking npm publish.
+  8. After the workflow reports success, agents will run: `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1`
+  - Context: The tag `v2.0.1` is already pushed. The workflow is ready. Only the credential is blocking npm publish.
 
 - [ ] Add Twitter/X API credentials to `.env` (Priority: P0) — Status: **pending human action**. Agents cannot post tweets until these are set.
   1. Go to [developer.x.com](https://developer.x.com) and sign in with the @agentxchain account
@@ -35,11 +36,13 @@ Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` a
 
 ## P0 — Delegated Release Execution
 
-- [~] Prepare a clean release workspace before the cut (Priority: P0) — Delegated to AI agents. Context: the canonical `cd cli && npm version 1.0.0` step is expected to create the release commit and tag. A dirty working tree risks pulling unrelated changes into the release or causing the version step to fail. Human escalation only if the agents cannot reconcile the workspace safely.
+- [x] Prepare a clean release workspace before the cut (Priority: P0) — Completed by AI agents. Context: the corrective `v2.0.1` tag exists and points at the fixed publish commit.
 
-- [~] Run `cd cli && npm version 1.0.0` from the clean workspace (Priority: P0) — Delegated to AI agents. Context: this is the canonical v1 version-bump step. In the current npm configuration (`git-tag-version = true`), it creates the release commit and git tag `v1.0.0`. This establishes the immutable release identity that the publish workflow requires.
+- [x] Run `cd cli && npm version 2.0.1` from the clean workspace (Priority: P0) — Completed by AI agents during the corrective cut. Context: this created the release identity used by the current `v2.0.1` tag.
 
-- [~] Push tag `v1.0.0` to GitHub to trigger automated publish (Priority: P0) — Delegated to AI agents. Context: `git push origin v1.0.0` triggers `.github/workflows/publish-npm-on-tag.yml`, which calls `scripts/publish-from-tag.sh`. The workflow enforces version/tag match, runs strict preflight, publishes via temporary `.npmrc`, and polls the registry for visibility. `NPM_TOKEN` prerequisite is now satisfied in GitHub Actions. Manual fallback if workflow fails: `cd cli && NPM_TOKEN=<token> bash scripts/publish-from-tag.sh v1.0.0`.
+- [x] Push tag `v2.0.1` to GitHub to trigger automated publish (Priority: P0) — Completed by AI agents. Context: the publish workflow ran and proved the remaining blocker is credentials, not tag/workflow shape.
+
+- [~] Retrigger `publish-npm-on-tag.yml` for `v2.0.1` after the new `NPM_TOKEN` is configured (Priority: P0) — Delegated to AI agents. Context: agents will rerun the workflow, verify registry truth with `release-postflight.sh`, then proceed to GitHub release and Homebrew update.
 
 - [x] Set `ANTHROPIC_API_KEY` environment variable for live API dogfood run (Priority: P0) — Status: configured in repo-local `.env` and validated with a successful minimal Anthropic Messages API call. Context: this clears the credential prerequisite for Scenario C, but does **not** complete the live governed dogfood run itself.
 
@@ -47,9 +50,11 @@ Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` a
 
 ## P1 — Delegated Follow-Through
 
-- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.0` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after the publish workflow succeeds.
+- [~] Update the Homebrew tap formula to the published `agentxchain@2.0.1` tarball URL and SHA256, then verify the install flow (Priority: P1) — Delegated to AI agents. Context: Homebrew distribution depends on the real published tarball, so this becomes actionable immediately after publish succeeds and `release-postflight.sh` passes.
 
-- [~] Execute Scenario D escalation dogfood from `.planning/SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md` after `agentxchain@2.0.0` is released (Priority: P1) — Delegated to AI agents for execution planning and evidence collection. Context: this is post-release validation, not a release blocker. Human escalation is only required if the agents determine a true operator-only decision is necessary to preserve the fidelity of the escalation-path evidence.
+- [~] Create and publish the GitHub release for `v2.0.1` after npm postflight passes (Priority: P1) — Delegated to AI agents. Context: do not publish GitHub release notes until registry truth is verified; a release page pointing at an unpublished package is the same governance failure in a different costume.
+
+- [~] Execute Scenario D escalation dogfood from `.planning/SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md` after `agentxchain@2.0.1` is released (Priority: P1) — Delegated to AI agents for execution planning and evidence collection. Context: this is post-release validation, not a release blocker. Human escalation is only required if the agents determine a true operator-only decision is necessary to preserve the fidelity of the escalation-path evidence.
 
 - [x] Verify `claude` CLI is installed and authenticated for `local_cli` dogfood (Priority: P1, downgraded from P0 per DEC-LOCAL-CLI-001) — Status: verified on the release machine. `claude` resolves at `/usr/local/bin/claude`, `claude --version` returned `2.1.87 (Claude Code)`, and a live `claude --print "Reply with the single word ok."` call returned `ok`. Context: this clears the operator prerequisite for `local_cli` dogfood but does **not** complete the governed live run itself.
 
@@ -69,4 +74,4 @@ Current state: **two credential issues remain.** (1) The `NPM_TOKEN` in `.env` a
 
 - [x] Decide whether `approve-transition` and `approve-completion` should stay strict or become idempotent (Priority: P2) — Status: **closed by agent concurrence (DEC-APPROVAL-001)**. Both agents verified the code (`approvePhaseTransition()` and `approveRunCompletion()` in `governed-state.js`). Strict behavior is correct for v1: no pending request = failure. No request identifier exists, so idempotent success would unsafely collapse "already approved" and "nothing pending" into one response. Idempotency may be revisited post-v1 if a request_id is added.
 
-- [x] Set up Homebrew tap for macOS distribution (Priority: P2) — Status: complete. Tap repo created at `shivamtiwari93/homebrew-agentxchain`, formula published, and installation flow verified with `brew tap shivamtiwari93/agentxchain` plus `brew install --dry-run shivamtiwari93/agentxchain/agentxchain`. Current packaging model uses the published npm package `agentxchain@0.8.8`; when `2.0.0` is published, the tap formula only needs its npm tarball URL and SHA256 updated.
+- [x] Set up Homebrew tap for macOS distribution (Priority: P2) — Status: complete. Tap repo created at `shivamtiwari93/homebrew-agentxchain`, formula published, and installation flow verified with `brew tap shivamtiwari93/agentxchain` plus `brew install --dry-run shivamtiwari93/agentxchain/agentxchain`. Current packaging model uses the published npm package `agentxchain@0.8.8`; when `2.0.1` is published, the tap formula only needs its npm tarball URL and SHA256 updated.

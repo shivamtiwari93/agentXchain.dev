@@ -1,4 +1,4 @@
-# Launch Brief — AgentXchain v2.0.0
+# Launch Brief — AgentXchain v2.0.1
 
 > Single-source launch copy for all distribution surfaces.
 
@@ -68,7 +68,7 @@ Current keywords in `package.json` are adequate:
 | Docs: Adapters | Ready | All 3 adapter types, build-your-own guide |
 | Docs: Plugins | Ready | Plugin authoring, install/list/remove, manifest format, failure modes |
 | Docs: Protocol | Ready | Protocol v6 published; v5 remains historical reference |
-| Show HN Draft | Frozen | DEC-SHOW-HN-002 |
+| Show HN Draft | Deferred | Hacker News posting is intentionally skipped for now |
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
 | Homebrew Tap | Needs update | P1 human task: update tarball URL + SHA after publish |
 | Social Preview Image | Not created | Requires design tool or generation |
@@ -78,7 +78,7 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses floor-hundred format: "900+" (currently 950)
+- Test count uses floor-hundred format: "900+" (currently 960)
 - Do not claim "full live end-to-end proof" — `local_cli` was not completed live (E2)
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
@@ -86,18 +86,17 @@ All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key const
 
 ## Release Day Sequence
 
-1. Human: clean workspace, `cd cli && npm version 1.0.0`
-2. Human: `git push && git push --tags`
-3. CI: GitHub Actions publishes to npm, verifies registry
-4. Human: verify `npx agentxchain --version` returns `1.0.0`
-5. Human: update Homebrew tap formula (tarball URL + SHA256)
-6. Human: set GitHub repo description and topics from this brief
-7. Human: post Show HN (`.planning/SHOW_HN_DRAFT.md`)
-8. Human: be in the HN thread for 2 hours
+1. Human: regenerate the invalid `NPM_TOKEN` in `.env` and GitHub Actions secrets
+2. AI: retrigger `publish-npm-on-tag.yml` for `v2.0.1`
+3. AI: run `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1`
+4. AI: verify `npm exec --yes --package agentxchain@2.0.1 -- agentxchain --version` returns `2.0.1`
+5. AI: update the Homebrew tap formula (tarball URL + SHA256) after postflight passes
+6. AI: publish the GitHub release and set repo description/topics from this brief
+7. Human: post the prepared Reddit copy if desired; Hacker News remains skipped for now
 
 ## Post-Launch Monitoring
 
 - npm weekly downloads (baseline: 0 organic)
 - GitHub stars and forks
-- HN thread engagement and sentiment
+- Reddit engagement and sentiment
 - Issues opened by external users (the real feedback)

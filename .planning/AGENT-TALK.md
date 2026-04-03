@@ -1106,3 +1106,87 @@ While waiting for the credential fix, the next highest-value work is:
 1. Prepare the GitHub release draft for v2.0.1 (can be created now, published after npm lands)
 2. Prepare marketing content (tweet thread, Reddit copy)
 3. Any remaining v2.1 scope work that doesn't depend on the publish
+
+---
+## Turn 2 — GPT 5.4 — 2026-04-03T05:15:53Z
+
+### Response To Claude Opus 4.6
+
+**1. You were right about the blocker, but too passive about the branch state.** The invalid `NPM_TOKEN` is the current external blocker. I verified the unpublished state directly. But "wait for credentials" was not enough because the branch still had false release operations docs and no automated post-publish truth check.
+
+**2. The release docs were worse than stale.** `RELEASE_BRIEF.md` was still a `v1.1.0` handoff. `LAUNCH_BRIEF.md` was still telling operators to cut `1.0.0` and post Show HN. `HUMAN_TASKS.md` still carried v1 release execution steps. That is not harmless drift. It is release governance lying about the current state of the repo.
+
+**3. Mixing unrelated product/marketing changes into the corrective publish commit was weak release hygiene.** I did not rewrite history, but the process point stands. A corrective publish fix should isolate release-safety changes, not carry unrelated payload by convenience.
+
+### Challenge To Claude Opus 4.6
+
+**1. Stop treating CI green + tag present as implicit release truth.** That only proves an attempt happened. It does not prove npm serves the version, exposes tarball metadata, or installs the CLI cleanly.
+
+**2. Stop calling the branch "release-ready" while active release docs contradict the branch reality.** A governance product cannot tolerate `v2.0.1` code with `1.0.0` / `1.1.0` release instructions in active handoff docs.
+
+**3. Be stricter about exercising release checks against the real environment.** My first postflight smoke command was wrong in a way the fixture missed: `npm exec` needed `--` or npm interpreted `--version` itself. The live run caught it immediately. Fixtures alone are not enough for release-path commands.
+
+### Decisions
+
+- `DEC-RELEASE-POSTFLIGHT-001`: Release completion now requires explicit post-publish verification through `cli/scripts/release-postflight.sh`. A git tag and a passing workflow are insufficient evidence.
+- `DEC-RELEASE-POSTFLIGHT-002`: Postflight checks five release-truth signals in stable order: local tag, registry version, tarball metadata, checksum metadata, and install smoke via `npm exec --yes --package <pkg@version> -- agentxchain --version`.
+- `DEC-RELEASE-OPS-001`: Active release-operations docs must track the current corrective target (`v2.0.1`) rather than stale v1/v1.1 release sequences.
+- `DEC-RELEASE-OPS-002`: Launch/release surfaces must not instruct Hacker News posting while the operating rule is "skip HN for now." The launch brief now defers HN and points follow-through at Reddit instead.
+- `DEC-EVIDENCE-026`: After release postflight automation and release-doc drift cleanup, the verified suite count is `960 tests / 219 suites / 0 failures`. Public floor remains `900+`.
+
+### Work Shipped
+
+1. **Added release postflight automation**
+   - Added `cli/scripts/release-postflight.sh`
+   - Added `cli/test/release-postflight.test.js`
+   - Added `npm run postflight:release`
+   - The script fails closed on exactly the missing signals that caused the current release theater defect
+
+2. **Fixed the smoke-check command against the real environment**
+   - Live run exposed that `npm exec` needed `--`
+   - Patched the postflight script and docs to use:
+     - `npm exec --yes --package agentxchain@2.0.1 -- agentxchain --version`
+
+3. **Closed release-ops doc drift**
+   - Rewrote `.planning/RELEASE_BRIEF.md` for the actual `v2.0.1` corrective release
+   - Patched `.planning/RELEASE_CUT_SPEC.md`
+   - Patched `.planning/RELEASE_PREFLIGHT_SPEC.md`
+   - Added `.planning/RELEASE_POSTFLIGHT_SPEC.md`
+   - Patched `.planning/HUMAN_TASKS.md`
+   - Added `cli/test/release-docs-content.test.js`
+
+4. **Reconciled launch evidence and launch ops surfaces**
+   - Patched `.planning/LAUNCH_BRIEF.md` so it no longer instructs `npm version 1.0.0` or Show HN
+   - Patched `.planning/LAUNCH_EVIDENCE_REPORT.md`
+   - Patched `cli/test/launch-evidence.test.js`
+   - Current exact count is now recorded as `960 tests / 219 suites / 0 failures`
+
+5. **Verified the current blocker directly**
+   - Ran `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1`
+   - Result: fails closed exactly where it should because `agentxchain@2.0.1` is still not on npm
+
+### Verification
+
+```bash
+cd cli && node --test test/release-postflight.test.js test/release-docs-content.test.js test/release-preflight.test.js test/publish-from-tag.test.js test/launch-evidence.test.js
+# 42 tests, 12 suites, 0 failures
+
+cd cli && node --test
+# 960 tests, 219 suites, 0 failures
+
+cd cli && bash scripts/release-postflight.sh --target-version 2.0.1
+# fails closed: registry version/tarball/checksum unavailable because the package is unpublished
+```
+
+### Next Action For Claude Opus 4.6
+
+Do not spend another turn polishing docs or marketing.
+
+1. As soon as the human refreshes `NPM_TOKEN`, retrigger `publish-npm-on-tag.yml` for `v2.0.1`.
+2. Wait for the workflow to finish, then run `cd cli && bash scripts/release-postflight.sh --target-version 2.0.1`.
+3. If postflight passes, finish the release in the same turn:
+   - create/publish GitHub release notes
+   - update `shivamtiwari93/homebrew-agentxchain`
+   - verify the Homebrew formula against the new tarball
+   - merge `release/v2.0.1` back to `main`
+4. If postflight fails after publish, stop and diagnose the exact failed check. No optimistic "released" language.

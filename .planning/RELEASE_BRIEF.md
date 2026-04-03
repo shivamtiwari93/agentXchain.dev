@@ -1,109 +1,69 @@
-# Release Brief — AgentXchain Governed CLI v1.1.0
+# Release Brief — AgentXchain v2.0.1
 
-Purpose: give Shivam a single handoff document for the v1.1.0 release cut.
+Purpose: give the release branch a truthful handoff document for the corrective `v2.0.1` publish.
 
 ## Current Status
 
-**The product and protocol work for v1.1.0 are implemented and test-backed, but this brief is still future-facing. The immediate public release track remains `1.0.0` until that cut is complete and the operator intentionally starts a `1.1.0` release candidate cycle.**
+`v2.0.1` is the active release identity on this branch.
 
-- Normative v1.1 spec: **complete** (`SPEC-GOVERNED-v5.md`)
-- Frozen v1.1 release gate: **complete** (`V1_1_RELEASE_CHECKLIST.md`)
-- Governed CLI surface spec: **complete** (`.planning/CLI_SPEC.md`)
-- README upgrade and operator guidance: **complete**
-- `cli/CHANGELOG.md` `1.1.0` delta entry: **complete**
-- Remaining autonomous release-prep gap before a real `1.1.0` cut: **none**
-- Remaining human work for today: **the active release path is still the `1.0.0` cut in `.planning/HUMAN_TASKS.md`**
+- `cli/package.json`: `2.0.1`
+- Git tag: `v2.0.1` exists and is already pushed
+- Publish workflow shape: fixed
+- Remaining blocker: `NPM_TOKEN` is invalid/expired (`npm whoami` returns `401 Unauthorized`)
+- Release is **not complete** until npm registry truth is verified after a successful rerun
 
-## What v1.1.0 Ships
+## What v2.0.1 Is
 
-v1.1.0 graduates exactly five already-implemented features:
+`v2.0.1` is a corrective release for the v2 line. It does not redefine the v2 surface. It fixes release execution so the already-built v2 product can actually be published and verified.
 
-1. Parallel governed turns
-2. `api_proxy` auto-retry with backoff
-3. Preemptive tokenization
-4. Anthropic-specific provider error mapping
-5. Persistent blocked state
+Primary corrective scope:
 
-Compatibility contract:
+1. Publish workflow reliability and trusted-publishing fallback handling
+2. CI portability fixes for publish tests
+3. Release-governance hardening so tags and prose are not treated as shipment without registry proof
 
-- v1.0 sequential behavior remains the default
-- `max_concurrent_turns = 1` preserves the single-turn flow
-- retry and preflight remain opt-in
-- provider mapping and blocked-state visibility are automatic improvements
-- v1.1 reads and migrates v1.0 state, but v1.0 does not read v1.1 state
+Functional v2 surface already present in `2.0.0`:
 
-## Release Readiness Snapshot
+1. Multi-repo coordinator governance
+2. Local dashboard multi-repo integration
+3. Plugin system phase 1 plus built-in plugins
+4. Protocol v6 and docs alignment
 
-From the current planning state:
+## Canonical Recovery Sequence
 
-- Feature implementation: **complete**
-- Automated acceptance matrix: **mapped and green**
-- `1.1.0` human handoff sequencing: **defined** (`V1_1_RELEASE_HANDOFF_SPEC.md`)
-- Normative/operator docs:
-  - `SPEC-GOVERNED-v5.md`: done
-  - `.planning/CLI_SPEC.md`: done
-  - `README.md`: done
-  - `.planning/RELEASE_BRIEF.md`: reconciled
-  - `cli/CHANGELOG.md`: done
-- Release-preflight retargeting for `1.1.0`: **complete** (`--target-version <semver>`)
-- Human-gated release execution for `1.1.0`: **future**, not the active release-day path yet
-
-## Canonical Release Sequence
-
-Do **not** use this sequence as the active public-release checklist until the `1.0.0` release is complete and the operator intentionally starts a `1.1.0` release candidate cycle.
+Because the tag already exists, this is **not** a fresh `npm version` cut. The required sequence is:
 
 ```bash
+# 1. Human updates the invalid token in .env and GitHub Actions secrets
+
+# 2. Agent retriggers publish on the existing tag
+gh workflow run publish-npm-on-tag.yml -f tag=v2.0.1
+
+# 3. Agent waits for the workflow to pass
+gh run watch
+
+# 4. Agent verifies registry truth after workflow success
 cd cli
+bash scripts/release-postflight.sh --target-version 2.0.1
 
-# 1. Confirm the release candidate workspace is clean
-git status --short
-
-# 2. Re-run the full test baseline from the clean workspace
-npm test
-
-# 3. Re-run release preflight against the target release
-bash scripts/release-preflight.sh --target-version 1.1.0
-
-# 4. From the clean tree, cut the version/tag (creates release commit + v1.1.0 tag)
-npm version 1.1.0
-
-# 5. Re-run strict preflight after the bump
-bash scripts/release-preflight.sh --target-version 1.1.0 --strict
-
-# 6. Push the tag to trigger automated publish
-git push origin v1.1.0
-# This triggers .github/workflows/publish-npm-on-tag.yml which:
-#   - Checks out the tag ref (not branch head)
-#   - Runs npm ci in cli/
-#   - Calls scripts/publish-from-tag.sh
-#   - Enforces package.json.version === tag semver
-#   - Runs strict preflight before publish
-#   - Publishes via temporary .npmrc (no token on CLI)
-#   - Polls npm view until the registry serves the version
-
-# 7. Verify the registry serves the published artifact (workflow does this;
-#    manual fallback if workflow fails)
-npm view agentxchain@1.1.0 version
-
-# 8. Update Homebrew tap with the published tarball URL + SHA256
+# 5. Agent updates follow-through surfaces only after postflight passes
+#    - GitHub release
+#    - Homebrew tap formula
+#    - final release announcement
 ```
 
-Note: `npm version 1.1.0` remains the canonical version-bump, release-commit, and tag step while `git-tag-version = true`. The push-to-publish contract is: human owns the version identity (`npm version`); CI owns the publish execution (`publish-npm-on-tag.yml`). See DEC-RELEASE-AUTO-001.
+## Completion Criteria
 
-## Non-Gating Validation Track
+Do not call `v2.0.1` released until all of these are true:
 
-Scenario D live escalation dogfood remains valuable, but it is **not** a hard v1.1 release gate. Product correctness is already covered by automated specs and tests; Scenario D is post-release operator-validation evidence.
+1. GitHub Actions publish workflow succeeds for tag `v2.0.1`
+2. `bash scripts/release-postflight.sh --target-version 2.0.1` passes
+3. `npm view agentxchain@2.0.1 version` returns `2.0.1`
+4. `npm exec --yes --package agentxchain@2.0.1 -- agentxchain --version` returns `2.0.1`
+5. Homebrew tap points at the published `2.0.1` tarball and SHA256
+6. GitHub release notes are published against the real artifact, not ahead of it
 
-## Where To Look
+## Notes
 
-| Artifact | Purpose |
-|----------|---------|
-| [`SPEC-GOVERNED-v5.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/SPEC-GOVERNED-v5.md) | Normative v1.1 product spec |
-| [`V1_1_RELEASE_SCOPE_SPEC.md`](V1_1_RELEASE_SCOPE_SPEC.md) | Frozen v1.1 scope |
-| [`V1_1_RELEASE_CHECKLIST.md`](V1_1_RELEASE_CHECKLIST.md) | Acceptance gate |
-| [`V1_1_RELEASE_HANDOFF_SPEC.md`](V1_1_RELEASE_HANDOFF_SPEC.md) | Sequencing rule for when the v1.1 handoff becomes actionable |
-| [`HUMAN_TASKS.md`](HUMAN_TASKS.md) | Human-only tasks, including release execution |
-| [`cli/CHANGELOG.md`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/CHANGELOG.md) | Completed v1.1 delta entry |
-| [`cli/scripts/release-preflight.sh`](/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev/cli/scripts/release-preflight.sh) | One-command release check |
-| [`SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md`](SCENARIO_D_ESCALATION_DOGFOOD_SPEC.md) | Non-gating live validation track |
-| [`vision-discussion.md`](vision-discussion.md) | Full collaboration record |
+- `LAUNCH_BRIEF.md` is the public-facing copy source. This document is the release-operations handoff.
+- The previous `RELEASE_BRIEF.md` content was stale `1.1.0` prose. That was a defect. Release docs are part of the governed product, not optional cleanup.
