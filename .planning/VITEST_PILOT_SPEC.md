@@ -21,7 +21,7 @@ A test file is eligible for the Vitest pilot if ALL of the following are true:
 2. **No `child_process` imports** — no `spawnSync`, `execSync`, `spawn`
 3. **No `node:path` join/resolve for temp dirs** — no temporary directory creation
 4. **No `before`/`after` hooks that create/destroy filesystem state**
-5. **Imports only from `../src/lib/` or `../src/`** — no dashboard HTML imports, no bin/ imports
+5. **Imports only from repo-local pure modules under `../src/` or `../dashboard/`** — no bin/ imports, no CLI subprocess harnesses
 
 ### Eligible Files (7)
 
@@ -83,6 +83,8 @@ This means: **zero file moves, zero import changes, both runners exercise the sa
 }
 ```
 
+`DEC-VITEST-006`: during the pilot and the next expansion decision, the migrated files stay in both runners. Excluding Vitest-covered files from `node --test` is deferred until a later slice explicitly widens the pilot and proves the reduced redundancy is still safe.
+
 ### vitest.config.js
 
 ```js
@@ -138,7 +140,7 @@ The existing `assert` usage (`node:assert/strict`) works under Vitest since it r
 
 ## Error Cases
 
-- If a pilot file gains `node:fs` or `child_process` imports, it must be removed from the Vitest include list
+- If a pilot file gains `node:fs` or `child_process` imports, or stops being a pure `../src/` / `../dashboard/` module consumer, it must be removed from the Vitest include list
 - If Vitest shim for `node:test` breaks on a future Node.js version, the file stays on `node --test` only
 - If the two runners disagree on a test result, the `node --test` result is authoritative during the pilot
 

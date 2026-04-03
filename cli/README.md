@@ -26,6 +26,22 @@ Or run without installing:
 npx agentxchain init --governed -y
 ```
 
+## Testing
+
+The CLI currently uses two runners on purpose: a narrow Vitest pilot for fast pure-unit feedback and `node --test` for the full suite.
+
+```bash
+npm run test:vitest
+npm run test:node
+npm test
+```
+
+- `npm run test:vitest`: 7 pilot files under Vitest
+- `npm run test:node`: full integration, subprocess, and E2E suite
+- `npm test`: both runners in sequence; this is the CI requirement today
+
+The pilot keeps the same 7 files in both runners until a later slice explicitly decides how to reduce redundant execution. For watch mode, run `npx vitest`.
+
 ## Quick Start
 
 ### Governed workflow
