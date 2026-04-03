@@ -38,7 +38,28 @@ jobs:
           cache: npm
           cache-dependency-path: cli/package-lock.json
 
+      - name: Detect existing npm publication
+        id: registry
+        working-directory: cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          PUBLISHED_VERSION="$(npm view "agentxchain@${RELEASE_TAG#v}" version 2>/dev/null || true)"
+          if [[ "${PUBLISHED_VERSION}" == "${RELEASE_TAG#v}" ]]; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Registry already serves agentxchain@${RELEASE_TAG#v}; skipping npm publish on rerun."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Re-verify tagged release before postflight
+        if: steps.registry.outputs.already_published == 'true'
+        working-directory: cli
+        shell: bash
+        run: bash scripts/release-preflight.sh --strict --target-version "${RELEASE_TAG#v}"
+
       - name: Publish tagged release
+        if: steps.registry.outputs.already_published != 'true'
         working-directory: cli
         shell: bash
         run: bash scripts/publish-from-tag.sh "${RELEASE_TAG}"
