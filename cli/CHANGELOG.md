@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.2.0
+
+Protocol conformance release. The governed protocol is now testable by any implementation, not just the reference CLI.
+
+### Protocol Conformance Kit
+
+- `agentxchain verify protocol` validates any implementation against the canonical protocol spec via a portable fixture corpus.
+- 53 golden I/O fixtures across 3 tiers: Tier 1 (core constitutional — state machine, turn result validation, gate semantics, decision ledger, history, config schema), Tier 2 (trust hardening — dispatch manifest integrity, hook audit), Tier 3 (multi-repo coordination).
+- Adapter bridge model (`stdio-fixture-v1`): implementations provide a single adapter command declared in `capabilities.json`. The validator feeds fixture JSON on stdin, receives result JSON on stdout. Implementation-agnostic by design.
+- Conformance report with per-tier and per-surface pass/fail/error breakdown in JSON or text format.
+- Exit semantics: `0` = pass, `1` = fixture failure, `2` = execution/config/adapter error.
+- Reference adapter included: the CLI self-validates all 53 fixtures as part of CI.
+
+### Conformance CI Enforcement
+
+- CI now runs `agentxchain verify protocol --tier 3` on every PR. Protocol conformance cannot regress silently.
+
+### Documentation
+
+- `verify protocol` documented in CLI reference, quickstart, and README.
+- Conformance fixture format, adapter contract, and capabilities schema documented in the conformance corpus README.
+
+### Website
+
+- Migrated docs from hand-written static HTML to Docusaurus with MDX, dark mode, and sidebar navigation.
+- Deployed to GCS with two-tier cache strategy: hashed assets (1yr immutable), HTML (5min browser / 1min CDN edge).
+- Landing page updated with long-horizon coding, lights-out software factories, and explicit .dev/.ai platform split framing.
+- VISION.md updated to match website content.
+
 ## 2.1.1
 
 Patch release to fix the npm publication path for the `2.1.x` line.

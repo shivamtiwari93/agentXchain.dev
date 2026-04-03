@@ -13,7 +13,7 @@ function Hero() {
           height={80}
           style={{ borderRadius: 18, marginBottom: '1.5rem' }}
         />
-        <div className="hero-badge">Open source &middot; MIT &middot; v2.1.1</div>
+        <div className="hero-badge">Open source &middot; MIT &middot; v2.2.0</div>
         <h1>
           <span className="text-green">Governed</span> multi-agent{' '}
           <span className="text-blue">software delivery</span>
@@ -73,8 +73,8 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">1,038</div>
-        <div className="stat-label">Tests passing</div>
+        <div className="stat-number">53</div>
+        <div className="stat-label">Conformance fixtures</div>
       </div>
       <div>
         <div className="stat-number">3</div>
@@ -179,7 +179,10 @@ function Architecture() {
         <p className="section-subtitle" style={{ marginTop: '1.5rem', marginBottom: 0 }}>
           Governed workflows sit on top of these layers: planning, implementation,
           QA, escalation, release, multi-repo coordination, plugins, dashboards,
-          and organizational integrations.
+          and organizational integrations. The{' '}
+          <Link to="/docs/cli#verify-protocol">protocol conformance kit</Link>{' '}
+          lets any implementation prove constitutional compliance against 53
+          golden fixtures — run <code>agentxchain verify protocol</code> to test yours.
         </p>
       </div>
     </section>
@@ -250,51 +253,17 @@ function HowItWorks() {
 function PlatformSplit() {
   return (
     <section className="section-alt">
-      <div className="container">
-        <span className="section-label text-green">Platform</span>
-        <h2>Two surfaces, one protocol</h2>
+      <div className="container" style={{ textAlign: 'center', maxWidth: 640 }}>
+        <span className="section-label text-green">Cloud</span>
+        <h2>Don't want to self-host?</h2>
         <p className="section-subtitle">
-          Open-core model: the protocol is free forever. The cloud captures value
-          from organizations that want managed infrastructure.
+          Everything on this page is open source and MIT licensed.
+          If you want managed orchestration, persistent history, team dashboards,
+          and compliance reporting without running your own infrastructure —
         </p>
-        <div className="platform-grid">
-          <div className="platform-card" style={{ borderLeftColor: 'var(--axc-green)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
-            <h3>
-              <span className="text-green">agentxchain.dev</span> — Open Source
-            </h3>
-            <p style={{ color: 'var(--ifm-font-color-secondary)', marginBottom: '1rem' }}>
-              MIT licensed. Free forever.
-            </p>
-            <ul>
-              <li>Protocol specification (v6)</li>
-              <li>CLI runner</li>
-              <li>Connector layer (manual, local_cli, api_proxy)</li>
-              <li>Plugin system and hook lifecycle</li>
-              <li>Governed workflows and release evidence</li>
-              <li>Multi-repo coordinator</li>
-              <li>Local dashboard</li>
-              <li>Protocol conformance kit</li>
-            </ul>
-          </div>
-          <div className="platform-card" style={{ borderLeftColor: 'var(--axc-blue)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
-            <h3>
-              <span className="text-blue">agentxchain.ai</span> — Cloud
-            </h3>
-            <p style={{ color: 'var(--ifm-font-color-secondary)', marginBottom: '1rem' }}>
-              Managed infrastructure for teams.
-            </p>
-            <ul>
-              <li>Hosted orchestration</li>
-              <li>Persistent run history</li>
-              <li>Team dashboards</li>
-              <li>Managed connector fleet</li>
-              <li>Hosted integrations and workflow automation</li>
-              <li>Compliance reporting</li>
-              <li>Usage-based billing</li>
-              <li>Enterprise audit trails</li>
-            </ul>
-          </div>
-        </div>
+        <Link className="btn-secondary" to="https://agentxchain.ai">
+          Check out agentxchain.ai &rarr;
+        </Link>
       </div>
     </section>
   );
