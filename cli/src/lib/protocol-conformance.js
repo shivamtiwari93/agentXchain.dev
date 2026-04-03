@@ -212,6 +212,17 @@ export function verifyProtocolConformance({
 
   const resolvedTargetRoot = resolve(targetRoot);
   const capabilities = loadCapabilities(resolvedTargetRoot);
+
+  // Enforce surface claims when capabilities.surfaces exists and --surface is requested
+  if (surface && capabilities.surfaces && typeof capabilities.surfaces === 'object') {
+    if (!capabilities.surfaces[surface]) {
+      throw new Error(
+        `Surface "${surface}" is not claimed in capabilities.json. ` +
+        `Claimed surfaces: ${Object.keys(capabilities.surfaces).join(', ')}`
+      );
+    }
+  }
+
   const fixtureEntries = selectFixtureFiles(fixtureRoot, requestedTier, surface);
   const claimedTiers = new Set(capabilities.tiers);
   const report = {

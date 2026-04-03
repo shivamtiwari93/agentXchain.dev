@@ -192,6 +192,99 @@ describe('protocol conformance verifier', () => {
     }
   });
 
+  it('rejects unclaimed surface when capabilities.surfaces exists', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-unclaimed-'));
+    try {
+      mkdirSync(join(dir, '.agentxchain-conformance'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({
+        implementation: 'surface-test',
+        protocol_version: 'v6',
+        adapter: {
+          protocol: 'stdio-fixture-v1',
+          command: ['node', '-e', 'process.exit(0)'],
+        },
+        tiers: [1],
+        surfaces: { state_machine: true },
+      }, null, 2));
+
+      const result = runCli([
+        'verify', 'protocol', '--tier', '1',
+        '--surface', 'dispatch_manifest',
+        '--target', dir, '--format', 'json',
+      ]);
+      assert.equal(result.status, 2, `Expected exit 2 but got ${result.status}`);
+
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'error');
+      assert.ok(report.message.includes('not claimed'), `Expected "not claimed" in message: ${report.message}`);
+      assert.ok(report.message.includes('dispatch_manifest'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('allows claimed surface when capabilities.surfaces exists', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-claimed-'));
+    try {
+      mkdirSync(join(dir, '.agentxchain-conformance'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({
+        implementation: 'surface-test',
+        protocol_version: 'v6',
+        adapter: {
+          protocol: 'stdio-fixture-v1',
+          command: ['node', '.agentxchain-conformance/pass-adapter.js'],
+        },
+        tiers: [1],
+        surfaces: { state_machine: true },
+      }, null, 2));
+      writeFileSync(join(dir, '.agentxchain-conformance', 'pass-adapter.js'),
+        `process.stdin.resume();process.stdin.on('data',()=>{});process.stdin.on('end',()=>{process.stdout.write(JSON.stringify({status:'pass',message:'ok'})+'\\n');process.exit(0);});`);
+
+      const result = runCli([
+        'verify', 'protocol', '--tier', '1',
+        '--surface', 'state_machine',
+        '--target', dir, '--format', 'json',
+      ]);
+      assert.equal(result.status, 0, `Expected exit 0 but got ${result.status}: ${result.stderr}`);
+
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('skips surface enforcement when capabilities.surfaces is absent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-nosurfaces-'));
+    try {
+      mkdirSync(join(dir, '.agentxchain-conformance'), { recursive: true });
+      writeFileSync(join(dir, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({
+        implementation: 'no-surfaces-target',
+        protocol_version: 'v6',
+        adapter: {
+          protocol: 'stdio-fixture-v1',
+          command: ['node', '.agentxchain-conformance/pass-adapter.js'],
+        },
+        tiers: [1],
+      }, null, 2));
+      writeFileSync(join(dir, '.agentxchain-conformance', 'pass-adapter.js'),
+        `process.stdin.resume();process.stdin.on('data',()=>{});process.stdin.on('end',()=>{process.stdout.write(JSON.stringify({status:'pass',message:'ok'})+'\\n');process.exit(0);});`);
+
+      // Request a surface that is NOT declared — should still work because surfaces map is absent
+      const result = runCli([
+        'verify', 'protocol', '--tier', '1',
+        '--surface', 'state_machine',
+        '--target', dir, '--format', 'json',
+      ]);
+      assert.equal(result.status, 0, `Expected exit 0 but got ${result.status}: ${result.stderr}`);
+
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('surfaces malformed adapter responses as exit code 2', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-conformance-error-'));
     try {

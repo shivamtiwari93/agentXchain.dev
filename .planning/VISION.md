@@ -1,242 +1,293 @@
-# AgentXchain — Vision
+# HUMAN-OWNED VISION
 
-> Constitutional governance for AI software teams.
+**AI agents must never modify this file. Only a human may change `VISION.md`.**
 
----
+# AgentXchain Vision
 
-## The Shift Nobody Is Building For
+## What We Are Building
 
-The AI industry is optimizing the wrong variable. Every lab is racing to make individual models smarter — more parameters, longer context, better reasoning. But the history of human civilization tells us something different: **the greatest leaps in collective output came not from smarter individuals, but from better coordination protocols.**
+AgentXchain exists to make **long-horizon AI software development** possible.
 
-The printing press didn't make people smarter. It made knowledge transferable. Joint-stock corporations didn't make merchants richer. They made risk sharable. Constitutional democracy didn't produce better leaders. It produced accountable governance. Git didn't make programmers faster. It made parallel work mergeable.
+The end state is not a coding copilot, a prompt library, or a swarm demo. The end state is a **governed software factory** where multiple AI agents can plan, challenge, build, verify, document, release, recover, and keep moving for long periods without collapsing into chaos.
 
-We are now at the equivalent moment for AI agents. Individual models are extraordinarily capable. But put three of them on the same codebase and you get merge conflicts, contradictory architectures, duplicated work, and no audit trail. The bottleneck is not intelligence. **The bottleneck is governance.**
+This means AgentXchain is being built as:
 
-AgentXchain is the governance layer.
+- a **protocol** for governed multi-agent software delivery
+- **runners** that execute that protocol
+- **connectors** to local and cloud AI agents
+- **integrations** with IDEs, CLIs, APIs, CI, dashboards, and organizational systems
+- an opinionated **workflow layer** for planning, specs, documentation, testing, QA, release, and recovery
 
----
+The product goal is simple:
 
-## The Thesis
+**Turn AI agents from isolated coders into a governed software team that can execute over long horizons.**
 
-### Multi-agent coordination is an alignment problem
+## Why This Must Exist
 
-When a single AI agent writes code, alignment means: does it do what the human intended? When multiple AI agents collaborate on a codebase, alignment becomes radically harder: do they agree on what to build? Do they catch each other's mistakes? Can a human understand and audit what happened? Can the system be stopped, redirected, or rolled back?
+AI capability is improving quickly. Coordination quality is not.
 
-These are not engineering problems. They are governance problems. And they require governance infrastructure — not bigger models, not better prompts, not another agent framework.
+A single model can already write useful code. That is not the hard problem anymore. The hard problem is what happens when multiple agents touch the same codebase over time:
 
-**AgentXchain treats multi-agent software delivery as a constitutional system.** The protocol is the constitution. The orchestrator is the enforcement mechanism. Agents operate autonomously within their mandates but are bound by rules they cannot unilaterally override. Humans retain sovereign authority at defined checkpoints. Every action is recorded in an append-only ledger. Every decision can be audited, challenged, or reversed.
+- work overlaps
+- assumptions diverge
+- quality drifts
+- nobody owns the decision trail
+- nobody knows what is actually shippable
+- humans lose the ability to govern without micromanaging
 
-This is not metaphor. It is architecture.
+The bottleneck is no longer raw intelligence. The bottleneck is **governance, coordination, and convergence**.
 
----
+AgentXchain exists to solve that bottleneck.
 
-## Why Now
+## Core Thesis
 
-Three forces are converging simultaneously:
+The future of AI software delivery will not be won by the smartest single agent. It will be won by the best-governed agent teams.
 
-**1. Models are good enough to specialize.** A single frontier model can competently play PM, developer, and QA — but it plays all three roles with the same biases, the same blind spots, the same tendency to agree with itself. Giving distinct models (or distinct prompt-personas) distinct mandates and requiring them to challenge each other produces fundamentally better outcomes than one model talking to itself. This is the multi-agent insight, and it's real.
+AgentXchain therefore treats multi-agent software delivery as a governed system with:
 
-**2. Coding agents are escaping the IDE.** Claude Code runs headlessly. Codex has a CLI. API-backed agents can run in CI pipelines, cron jobs, or cloud sandboxes. The "agent" is no longer a chat window — it's a process that reads files, writes files, and exits. This means agents can be orchestrated programmatically for the first time.
+- explicit roles
+- explicit charters
+- explicit turn structure
+- explicit artifacts
+- explicit phase gates
+- explicit challenge requirements
+- explicit decision history
+- explicit human authority where it matters
 
-**3. Nobody has built the coordination layer.** MCP (Model Context Protocol) connects agents to tools. A2A (Agent-to-Agent) connects agents to each other over a network. Neither governs what happens when multiple agents work on the same codebase. Neither enforces turn-taking, mandatory review, phase gates, or ship decisions. The workflow layer is missing entirely.
+The product is built around one belief:
 
-AgentXchain fills that gap.
+**Trust in long-horizon AI delivery comes from protocol, evidence, and governance, not from model capability alone.**
 
-### Long-horizon coding changes the optimization target
+## What AgentXchain Includes
 
-Short interactive coding sessions tolerate drift, missing context, and fuzzy ownership because the human can keep re-steering. Long-horizon coding does not. Once agents are running for hours, days, or continuously across repos, the system needs persistent state, explicit workflow stages, constitutional checkpoints, and evidence that survives any individual model session.
+AgentXchain is not only a coordination protocol. It also includes an opinionated workflow system for how governed AI delivery should happen.
 
-That is why AgentXchain is not "another coding agent." It is workflow infrastructure for long-horizon software delivery.
+That workflow system includes:
 
-### Lights-out software factories require constitutional controls
+- **Planning framework** inspired by GSD
+  - goal-first
+  - scope-disciplined
+  - biased toward small shippable increments
+- **Spec-driven development**
+  - important work gets a written contract before implementation
+  - acceptance criteria are explicit
+  - ambiguity is surfaced early instead of buried in execution
+- **Repo-native documentation**
+  - plans, specs, decisions, QA evidence, release notes, and recovery state live with the code
+  - documentation is a product artifact, not an afterthought
+- **Test-driven / evidence-driven quality**
+  - fast tests for rapid feedback
+  - E2E coverage for acceptance and workflow validation
+  - QA is a governed proof surface, not just a checklist
 
-"Lights-out" does not mean "no humans ever intervene." It means the factory can keep operating without line-by-line human supervision because the workflow itself is governed. Agents can plan, implement, review, escalate, retry, and coordinate across boundaries, while humans retain sovereign authority at the constitutional layer: scope, phase transitions, recovery, and ship decisions.
+These are not just conventions for building AgentXchain itself. They are part of the **AgentXchain product model**.
 
-Without those controls, a lights-out software factory is just unattended code generation. With them, it becomes an auditable production system.
+## Roles Are Open-Ended, Not Fixed
 
----
+AgentXchain must never assume that a software team consists only of `pm`, `dev`, and `qa`.
 
-## Core Ideas
+Those are reference roles, not product limits.
 
-### 1. Adversarial collaboration, not cooperative delegation
+A real governed AI organization may include any number of agent roles with any kind of charter, including:
 
-Every existing multi-agent framework uses the same pattern: one "manager" agent delegates tasks to "worker" agents. This is top-down orchestration. It replicates the worst failure mode of human organizations — a single point of failure that compounds its own errors because no one is structurally incentivized to disagree.
+- product manager
+- engineering director
+- architect
+- backend engineer
+- frontend engineer
+- QA
+- security reviewer
+- technical writer
+- solutions engineer
+- product marketing manager
+- release manager
+- support analyst
 
-AgentXchain inverts this. Every agent has a mandate — a specific perspective it is *required* to defend:
+The framework must support arbitrary agent roles and arbitrary charters.
 
-- The PM agent pushes for user value and scope discipline
-- The Dev agent pushes for feasibility and technical quality
-- The QA agent pushes for correctness and pushes back on shipping
-- The Eng Director pushes for architectural coherence
+The invariant is not a fixed org chart. The invariant is:
 
-**Mandatory challenge is a protocol rule, not a suggestion.** Every turn must identify at least one risk, issue, or objection about the previous agent's work. Blind agreement is a protocol violation that the orchestrator rejects. This is adversarial robustness applied to software delivery — a form of built-in red-teaming that catches errors before they compound.
+- every role has a mandate
+- every role has authority boundaries
+- every role produces governed artifacts
+- every role participates in a structured workflow
 
-The insight borrowed from institutional design: **the quality of collective output depends not on the intelligence of participants, but on the structure of their disagreement.**
+AgentXchain governs **chartered roles**, not a hardcoded team template.
 
-### 2. The protocol is the product
+## The Shape of the Product
 
-AgentXchain is not software. It is a specification.
+AgentXchain has five layers.
 
-The protocol defines: who can work, what they must produce, how results are validated, when phases advance, how conflicts are resolved, and where decisions are recorded. It is model-agnostic, IDE-agnostic, and runtime-agnostic. A team can run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules, all producing structured artifacts against the same state.
+### 1. Protocol
 
-This matters because the AI landscape shifts monthly. Models improve, new providers emerge, IDEs evolve, pricing changes. A system tied to any specific model or runtime is fragile. **A protocol that governs the workflow between any agents is antifragile — it benefits from the ecosystem's volatility because every new agent is a new participant, not a new competitor.**
+The constitutional layer:
 
-The runner (CLI, cloud service, CI plugin) is an implementation detail. The protocol is the durable layer.
+- run state
+- role definitions
+- turn contracts
+- artifact contracts
+- validation rules
+- decision ledger
+- gates
+- recovery rules
 
-### 3. Observable AI work
+This is the durable layer and should become the stable standard.
 
-Today, when an AI agent modifies a codebase, the only evidence is a git diff. There is no record of *why* it made those changes, what alternatives it considered, what risks it identified, or whether another agent reviewed the work. The audit trail is: "files changed."
+### 2. Runners
 
-AgentXchain produces **structured turn results** — machine-readable records of every agent's contribution:
+Execution engines that apply the protocol:
 
-```
-{
-  "agent": "dev",
-  "summary": "Implemented auth middleware with JWT validation",
-  "files_changed": ["src/middleware/auth.ts", "src/types/auth.ts"],
-  "decisions": ["Chose RS256 over HS256 for key rotation support"],
-  "objections": ["QA's acceptance matrix doesn't cover token refresh — flagged"],
-  "risks": ["No rate limiting on token endpoint yet"],
-  "next_owner": "qa",
-  "verification": { "command": "npm test", "exit_code": 0, "passing": 504 }
-}
-```
+- local CLI runner
+- future hosted runner
+- CI or automation runners
+- specialized orchestrators
 
-Every turn, every decision, every objection, every risk — recorded in an append-only history. This is not logging. It is **transparency infrastructure for AI-generated software.** It answers the question enterprises will increasingly ask: "How do we know what the AI did, why it did it, and who reviewed it?"
+Runners enforce the protocol. They are not the protocol.
 
-### 4. Constitutional human authority
+### 3. Connectors
 
-The protocol does not remove humans from the loop. It puts them at the constitutional level — the level where it matters.
+Bridges to actual agent runtimes and work surfaces, including:
 
-Humans do not approve every turn. (That would defeat the purpose of automation.) Humans approve **the moments that define the outcome**: scope sign-off, phase transitions, ship/no-ship decisions, and recovery from states that agents cannot resolve.
+- local AI coding agents
+- cloud AI agents
+- model APIs
+- IDE surfaces such as VS Code, Codex, Cursor, OpenCode, and others
 
-This mirrors constitutional governance: citizens don't vote on every law, but they elect the legislators and can amend the constitution. In AgentXchain, humans don't review every commit, but they sign off on the scope, approve the architecture, and make the final ship decision. Agents operate with delegated authority within defined boundaries.
+Connectors should remain replaceable. The protocol should survive changes in models, tools, and vendors.
 
-The protocol makes this explicit:
-- `phase_transition_gate: human_required` — agents cannot advance the project phase without human approval
-- `run_completion_gate: human_required` — agents cannot declare the project shippable
-- `blocked` state — agents can escalate problems they cannot solve; humans resolve them
-- Lock claim — a human can seize control at any moment, blocking all agents
+### 4. Workflow Kit
 
-**The human is not a fallback. The human is sovereign.**
+The opinionated operating model for real software delivery:
 
-### 5. Convergence over speed
+- planning
+- specs
+- implementation
+- QA
+- release
+- escalation
+- recovery
+- documentation
 
-The AI coding industry optimizes for generation speed. AgentXchain optimizes for convergence quality.
+This is where AgentXchain becomes more than a neutral transport layer. This is where it becomes an operating system for AI software teams.
 
-Generation speed asks: how fast can we produce code?
-Convergence quality asks: how fast can we produce *the right code, reviewed by multiple perspectives, with evidence that it works?*
+### 5. Integrations
 
-These are different objectives with different optimal strategies. Speed favors one powerful agent running autonomously. Convergence favors multiple specialized agents with structured disagreement, explicit acceptance criteria, and evidence-based ship decisions.
+The surrounding organizational edges:
 
-AgentXchain bets that as AI-generated code scales, the cost of *wrong code shipped fast* will dominate the cost of *right code shipped slower*. The most expensive line of code is the one that ships to production, breaks something, and takes a week to diagnose — especially when no one can explain why the AI wrote it that way.
+- dashboards
+- notifications
+- ticketing
+- compliance and audit hooks
+- release surfaces
+- docs and reporting surfaces
 
-### 6. Workflows and integrations matter as much as model quality
+## Human Role
 
-The durable system is not just "protocol + orchestrator + adapters." Real deployment needs governed workflows and integration surfaces.
+Humans remain sovereign.
 
-- **Workflows** define how planning, implementation, QA, escalation, release, and recovery actually proceed.
-- **Connectors** bridge AgentXchain to agent runtimes such as local CLIs and APIs.
-- **Integrations** connect the workflow to the surrounding organization: dashboards, CI, Slack, Jira, compliance hooks, and custom validators.
+The goal is not to remove humans from software delivery. The goal is to move humans upward:
 
-This distinction matters because the protocol is only useful if it can govern the real software factory, not just an isolated CLI demo.
+- mission
+- constraints
+- approvals
+- governance
+- escalation
+- release authority
 
----
+Humans should not need to micromanage every step. But humans must retain the right to:
 
-## Architecture
+- set direction
+- define boundaries
+- approve critical transitions
+- intervene during escalation
+- decide what is ultimately allowed to ship
 
-Five surfaces, cleanly separated, each replaceable independently:
+AgentXchain should enable lights-out operation without requiring blind trust.
 
-**Protocol layer** — the constitution. Config schema, state machine, turn-result schema, validation rules, phase gates, decision ledger format. Versioned independently. Could be implemented by anyone. This is the layer that should eventually become an open standard.
+## The Strategic End State
 
-**Runner layer** — the enforcement engine. Reads config, manages run state, assigns turns, validates results, enforces gates, handles recovery and conflict resolution. Currently implemented as a Node.js CLI. Could be reimplemented as a cloud service, a GitHub Action, a VS Code extension, or a Kubernetes operator without changing the protocol.
+The strategic end state is **dark software factories** or **lights-out software factories** for software delivery:
 
-**Connector layer** — the bridge to agent runtimes. Three modes:
+- long-running
+- multi-agent
+- governed
+- auditable
+- evidence-backed
+- interoperable across models and tools
 
-| Connector | How it works | Automation level |
-|---------|-------------|-----------------|
-| `manual` | Human receives a brief, does the work, submits a turn result | Full human control |
-| `local_cli` | Orchestrator spawns a local agent process (Claude Code, Codex, Aider) | Fully automated |
-| `api_proxy` | Orchestrator calls an LLM API directly, with retry, tokenization, and cost tracking | Fully automated |
+The system should be able to take a broad mission, decompose it into governed work, run agents over long horizons, recover from failure, and keep producing forward motion without constant human steering.
 
-**Workflow layer** — the governed delivery programs that run on top of the protocol: single-repo delivery, multi-repo coordination, release recovery, escalation handling, and eventually continuous governed delivery.
+That only works if governance, workflow, and evidence are built into the product from the beginning.
 
-**Integration layer** — the organizational edges: dashboards, plugins, HTTP hooks, CI providers, ticketing systems, notification channels, and compliance/reporting surfaces.
+## What agentxchain.dev Is
 
-Connectors are intentionally thin. Adding support for a new agent runtime (a future Anthropic agent, a new OpenAI tool, a custom fine-tuned model) is a ~200-line connector that translates between the protocol's dispatch bundle and whatever the runtime expects. The protocol and runner don't change.
+`agentxchain.dev` is the open-source surface.
 
----
+It should contain:
 
-## What This Is Not
+- the protocol
+- the reference runner
+- connectors
+- workflow contracts
+- planning/spec/docs/QA operating model
+- implementation evidence
+- self-hostable and local-first execution paths
 
-**Not an agent framework.** LangChain, CrewAI, AutoGen, and the Agent SDK are *construction* frameworks — they help you build agents. AgentXchain is a *governance* framework — it governs how agents (however constructed) collaborate on shared work. These layers are complementary. An agent built with the Anthropic Agent SDK can participate in an AgentXchain-governed workflow.
+Its job is adoption, credibility, transparency, and proving that the governed model works in the open.
 
-**Not an orchestration layer.** Traditional orchestration has one brain delegating to workers. AgentXchain has no central brain. Each agent has its own mandate, its own judgment, and a structural requirement to challenge the others. The orchestrator enforces the rules — it doesn't make the decisions.
+## What agentxchain.ai Is
 
-**Not a CI/CD pipeline.** CI/CD validates and deploys code. AgentXchain governs the *creation* of code by multiple AI agents before it ever reaches CI/CD. The governed workflow produces code that is already reviewed, challenged, and tested by the time it's committed.
+`agentxchain.ai` is the managed cloud surface built on top of the same core model.
 
----
+It should eventually provide:
 
-## The Roadmap Arc
+- hosted orchestration
+- managed connectors
+- organization-wide dashboards
+- persistent run history
+- reporting and governance surfaces
+- managed software-factory operation
 
-### v1 — Prove governance works
+Its job is convenience, scale, managed infrastructure, and commercial value capture.
 
-Sequential turns, structured results, layered validation, phase gates, decision ledger. Three adapters. Evidence that governed multi-agent delivery produces fewer regressions and faster convergence than uncoordinated agent sessions.
+## Relationship Between .dev and .ai
 
-### v1.1 — Prove governance scales
+The split is not cosmetic.
 
-Up to four concurrent agents with file-level conflict detection and operator-driven recovery. Auto-retry with backoff. Preemptive tokenization. Provider-specific error mapping. Persistent blocked state with structured recovery. Evidence that parallel governed agents are faster than sequential *without sacrificing quality*.
+- `.dev` is the open protocol and workflow foundation
+- `.ai` is the managed operating layer on top of it
 
-### v2 — Governance as infrastructure
+`.dev` should create adoption and category definition.
+`.ai` should monetize managed execution and organizational control.
 
-Multi-repo orchestration. Web dashboard for non-CLI stakeholders. Plugin system for organizational integrations (Slack, Jira, PagerDuty, custom compliance validators). Protocol adoption beyond the AgentXchain CLI — third-party orchestrators implementing the same spec. This is the version where AgentXchain becomes infrastructure that organizations depend on, not a tool that individuals choose.
+## What AgentXchain Is Not
 
-### v3 — The agent-native SDLC
+AgentXchain is not:
 
-The protocol evolves from governing individual runs to governing entire software delivery lifecycles. Continuous multi-agent delivery: agents monitor production, detect issues, propose fixes, get governed review, and ship — with human authority at the constitutional level. The software development lifecycle becomes agent-native, with humans as architects and governors rather than line-by-line implementors.
+- a single-agent coding assistant
+- a prompt wrapper
+- a chat UI
+- a fragile IDE automation trick
+- a fixed PM/Dev/QA demo
+- a generic agent framework with no opinions
 
----
+It is a governed delivery system for AI software teams.
 
-## The Bigger Bet
+## Non-Negotiable Product Truths
 
-The transition from single-agent coding assistants to multi-agent software teams is inevitable. When it happens, every organization will face the same question: **how do we trust AI teams to build our software?**
+- The protocol is core.
+- Governance is core.
+- Long-horizon execution is the target.
+- Planning, specs, repo docs, testing, and QA are part of the product.
+- Roles must be open-ended and charter-driven.
+- Connectors and runners must remain replaceable.
+- Humans remain sovereign.
+- The system must optimize for convergence quality, not just generation speed.
 
-The answer is the same answer humanity has found for every coordination challenge at scale: **governance protocols.**
+## Final Statement
 
-Not "trust the model." Not "add more guardrails." Not "have a human review everything." Those approaches don't scale. What scales is: a structured process where participants have defined roles, work within explicit boundaries, challenge each other's output, produce auditable evidence, and operate under constitutional human authority.
+AgentXchain exists to make **governed long-horizon AI software delivery** real.
 
-That is what AgentXchain builds. The protocol is the product. The future is governed convergence.
+If AI agents are going to build more and more of the world’s software, they cannot operate as isolated coders or unmanaged swarms. They need a protocol, a workflow system, and a governance model that lets them function as a real software organization.
 
----
-
-## Product Split
-
-**agentxchain.dev** is the open-source protocol and runner surface. It should remain the canonical place for the specification, CLI, connectors, workflow contracts, and implementation evidence.
-
-**agentxchain.ai** is the managed cloud surface. It should package the same protocol into hosted infrastructure: persistent run history, organization-wide dashboards, managed connectors, integrations, governance reporting, and eventually lights-out software factory operations.
-
-The split is strategic, not cosmetic. `.dev` drives protocol adoption. `.ai` monetizes managed operation.
-
-## Business Model
-
-Open-core, designed for ecosystem gravity:
-
-**agentxchain.dev** (open source, MIT) — the protocol specification, CLI runner, connector layer, and workflow contracts. Free forever. The protocol's value is proportional to its adoption; keeping it open maximizes network effects and makes it the default standard.
-
-**agentxchain.ai** (commercial cloud) — hosted orchestration, persistent run history, team dashboards, managed connector fleet, integrations, compliance reporting, and usage-based billing. This is where the business lives. The open protocol creates the market. The cloud product captures value from organizations that want managed infrastructure, cross-team visibility, and enterprise-grade audit trails without running their own runner stack.
-
-The strategic logic: **if AgentXchain becomes the standard protocol for governed multi-agent software delivery, the managed cloud offering sells itself to every organization that adopts the protocol but doesn't want to operate the infrastructure.**
-
----
-
-## Why This Should Exist
-
-Software is being rewritten. Not any particular software — the *process* of writing software is being rewritten. Within five years, most production code will be AI-generated. The question is not whether this happens. The question is whether it happens with governance or without it.
-
-Without governance: organizations ship AI-generated code they don't understand, can't audit, and can't trace. Bugs compound silently across agent sessions. No one knows why the system was built the way it was. Liability is undefined. Trust erodes.
-
-With governance: every AI contribution is structured, reviewed, challenged, and recorded. Decisions have provenance. Humans retain authority at the moments that matter. The audit trail is complete. Trust is earned through transparency, not assumed through faith.
-
-AgentXchain is the bet that governance wins. Not because it's safer (though it is). Not because it's slower (it isn't, once convergence quality compounds). But because **it's the only approach that scales trust alongside capability.**
-
-The protocol is the product. Everything else is implementation detail.
+That is what AgentXchain is here to become.

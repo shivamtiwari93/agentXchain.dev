@@ -77,15 +77,20 @@ Fields that matter today:
 | `adapter.command` | Yes | Non-empty command array passed to `spawnSync()` |
 | `tiers` | Yes | Non-empty array containing only `1`, `2`, or `3` |
 
-Fields that are currently informative rather than hard-enforced:
+Fields that affect verifier behavior when present:
 
-| Field | Current role |
+| Field | Role |
+| --- | --- |
+| `surfaces` | When present, the verifier enforces surface claims: `--surface X` will fail fast if `surfaces.X` is not declared. When absent, surface filtering works without enforcement for backward compatibility. |
+
+Fields that are informative only:
+
+| Field | Role |
 | --- | --- |
 | `version` | Human-readable implementation version |
-| `surfaces` | Capability metadata for humans/tooling. The verifier does not yet reject a target for missing per-surface declarations. |
 | `metadata` | Display metadata only |
 
-Do not overstate what the verifier checks. Today it hard-requires tiers plus the adapter contract. Surface claims are useful metadata, not yet a strict gate.
+**Surface enforcement rule:** If your `capabilities.json` includes a `surfaces` map, any `--surface` request for an undeclared surface exits with code 2 and a clear error naming the unclaimed surface plus listing claimed ones. If you omit the `surfaces` map entirely, surface filtering still works but without claim enforcement — this preserves backward compatibility for implementations that predate surface declarations.
 
 ## Writing a `stdio-fixture-v1` adapter
 
