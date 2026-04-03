@@ -86,6 +86,9 @@ import {
   multiApproveGateCommand,
   multiResyncCommand,
 } from '../src/commands/multi.js';
+import { intakeRecordCommand } from '../src/commands/intake-record.js';
+import { intakeTriageCommand } from '../src/commands/intake-triage.js';
+import { intakeStatusCommand } from '../src/commands/intake-status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -362,5 +365,44 @@ multiCmd
   .option('-j, --json', 'Output as JSON')
   .option('--dry-run', 'Detect divergence without resyncing')
   .action(multiResyncCommand);
+
+// --- Intake (v3) -----------------------------------------------------------
+
+const intakeCmd = program
+  .command('intake')
+  .description('Continuous governed delivery intake — record signals, triage intents, view status');
+
+intakeCmd
+  .command('record')
+  .description('Record a delivery trigger event and create a detected intent')
+  .option('--file <path>', 'Read event payload from a JSON file')
+  .option('--stdin', 'Read event payload from stdin')
+  .option('--source <source>', 'Inline event source (manual, ci_failure, git_ref_change, schedule)')
+  .option('--signal <json>', 'Inline signal object (JSON string, requires --source)')
+  .option('--evidence <json>', 'Inline evidence entry (JSON string, requires --source)')
+  .option('--category <category>', 'Optional event category override')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeRecordCommand);
+
+intakeCmd
+  .command('triage')
+  .description('Triage a detected intent — set priority, template, charter, and acceptance')
+  .requiredOption('--intent <id>', 'Intent ID to triage')
+  .option('--priority <level>', 'Priority level (p0, p1, p2, p3)')
+  .option('--template <id>', 'Governed template (generic, api-service, cli-tool, web-app)')
+  .option('--charter <text>', 'Delivery charter text')
+  .option('--acceptance <text>', 'Comma-separated acceptance criteria')
+  .option('--suppress', 'Suppress the intent instead of triaging')
+  .option('--reject', 'Reject a triaged intent')
+  .option('--reason <text>', 'Reason for suppress or reject')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeTriageCommand);
+
+intakeCmd
+  .command('status')
+  .description('Show current intake state — events, intents, and aggregate counts')
+  .option('--intent <id>', 'Show detail for a specific intent')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeStatusCommand);
 
 program.parse();

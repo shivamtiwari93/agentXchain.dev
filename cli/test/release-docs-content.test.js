@@ -47,7 +47,7 @@ describe('release operations docs', () => {
   });
 
   it('keeps GitHub release and Homebrew follow-through gated on registry truth', () => {
-    assert.match(humanTasks, /after npm postflight passes/);
+    assert.match(humanTasks, /No confirmed human-only blockers remain/);
     assert.match(brief, /GitHub release notes are published against the real artifact/);
   });
 
