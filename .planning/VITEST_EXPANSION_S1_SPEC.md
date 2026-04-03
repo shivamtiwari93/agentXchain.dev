@@ -1,6 +1,6 @@
 # Vitest Expansion Slice 1 — File-I/O Integration Tests
 
-> Status: **shipped**
+> Status: **shipped** — followed by Slice 2 (VITEST_EXPANSION_S2_SPEC.md)
 > Depends on: VITEST_PILOT_SPEC.md (shipped, 7 files, 146 tests)
 
 ---

@@ -14,9 +14,11 @@ const CLI_README = read('cli/README.md');
 const PACKAGE_JSON = JSON.parse(read('cli/package.json'));
 const VITEST_CONFIG = read('cli/vitest.config.js');
 const VITEST_SPEC = read('.planning/VITEST_PILOT_SPEC.md');
-const VITEST_EXPANSION_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
+const VITEST_EXPANSION_S1_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
+const VITEST_EXPANSION_S2_SPEC = read('.planning/VITEST_EXPANSION_S2_SPEC.md');
 
 const VITEST_INCLUDED_FILES = [
+  // ── Pilot + Slice 1 (19 files) ──
   'test/token-counter.test.js',
   'test/token-budget.test.js',
   'test/context-compressor.test.js',
@@ -36,6 +38,18 @@ const VITEST_INCLUDED_FILES = [
   'test/schema.test.js',
   'test/safe-write.test.js',
   'test/turn-result-validator.test.js',
+  // ── Slice 2 (11 files, docs-content & read-only contract) ──
+  'test/openai-positioning-content.test.js',
+  'test/template-surface-content.test.js',
+  'test/docs-dashboard-content.test.js',
+  'test/plugin-docs-content.test.js',
+  'test/why-page-content.test.js',
+  'test/protocol-docs-content.test.js',
+  'test/protocol-implementor-guide-content.test.js',
+  'test/release-docs-content.test.js',
+  'test/continuous-delivery-intake-content.test.js',
+  'test/vitest-pilot-content.test.js',
+  'test/protocol-conformance-docs.test.js',
 ];
 
 describe('Vitest coverage contract', () => {
@@ -63,13 +77,15 @@ describe('Vitest coverage contract', () => {
     }
   });
 
-  it('keeps the shipped specs aligned with dashboard-module eligibility and slice-1 coexistence', () => {
+  it('keeps the shipped specs aligned with dashboard-module eligibility and slice coexistence', () => {
     assert.match(VITEST_SPEC, /\.\.\/dashboard\//);
     assert.match(VITEST_SPEC, /both runners exercise the same files/i);
     assert.match(VITEST_SPEC, /DEC-VITEST-006/);
-    assert.match(VITEST_EXPANSION_SPEC, /Status:\s+\*\*shipped\*\*/);
-    assert.match(VITEST_EXPANSION_SPEC, /fileParallelism:\s*false/);
-    assert.match(VITEST_EXPANSION_SPEC, /Duplicate execution:\s+YES/i);
+    assert.match(VITEST_EXPANSION_S1_SPEC, /Status:\s+\*\*shipped\*\*/);
+    assert.match(VITEST_EXPANSION_S1_SPEC, /fileParallelism:\s*false/);
+    assert.match(VITEST_EXPANSION_S1_SPEC, /Duplicate execution:\s+YES/i);
+    assert.match(VITEST_EXPANSION_S2_SPEC, /read-only/i);
+    assert.match(VITEST_EXPANSION_S2_SPEC, /Duplicate execution:\s+YES/i);
   });
 
   it('keeps child_process out of every Vitest-included file', () => {
