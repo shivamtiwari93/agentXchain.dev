@@ -379,7 +379,7 @@ See [Plugins](/docs/plugins) for full details on authoring and managing plugins.
 agentxchain multi <subcommand> [options]
 ```
 
-The multi command family orchestrates governed runs across linked repositories. It requires a `coordinator.yaml` configuration at the workspace root that declares the repos, workstreams, and coordination strategy.
+The multi command family orchestrates governed runs across linked repositories. It requires an `agentxchain-multi.json` configuration at the workspace root that declares the repos, workstreams, routing, and coordination gates. See [Multi-Repo Coordination](/docs/multi-repo) for the full config contract and coordinator artifact layout.
 
 | Subcommand | Purpose | Flags |
 |------------|---------|-------|
@@ -391,10 +391,10 @@ The multi command family orchestrates governed runs across linked repositories. 
 
 The typical coordinator flow is:
 
-1. `multi init` — reads `coordinator.yaml`, initializes or links repo-level governed runs, and writes coordinator state
-2. `multi step` — selects the next workstream assignment based on priority and readiness, dispatches a coordinator turn, and fires hooks
+1. `multi init` — reads `agentxchain-multi.json`, initializes or links repo-level governed runs, and writes coordinator state
+2. `multi step` — checks for divergence first, auto-resyncs from repo authority when safe, then selects the next workstream assignment, dispatches a coordinator turn, and fires hooks
 3. `multi approve-gate` — when a gate is pending (phase transition or completion), the human approves it through this command
-4. `multi resync` — if coordinator state diverges from repo authority (e.g., after manual intervention in a child repo), resync rebuilds from truth. Use `--dry-run` to detect divergence without modifying state.
+4. `multi resync` — explicit operator recovery path when coordinator state diverges from repo authority. Use `--dry-run` to detect divergence without modifying state.
 
 The dashboard **Initiative** and **Cross-Repo** views visualize coordinator state. When only coordinator state exists (no repo-local run), the dashboard opens on Initiative first.
 

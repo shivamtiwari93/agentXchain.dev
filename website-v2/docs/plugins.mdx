@@ -128,7 +128,7 @@ Runs `npm pack` behind the scenes, extracts, and installs. The package must cont
 
 1. **Manifest validation** — The manifest is parsed and validated against the plugin schema. Invalid manifests are rejected.
 2. **Config validation** — If the plugin defines a `config_schema`, the installer checks that required config values are present in `agentxchain.json` under `plugins.<name>.config`.
-3. **Collision protection** — If a plugin with the same name is already installed, the installer rejects unless `--force` is passed. Hook event collisions (two plugins hooking the same event) are allowed but logged as warnings.
+3. **Collision protection** — If a plugin with the same name is already installed, the installer rejects. Hook event collisions (two plugins hooking the same event) are allowed but logged as warnings.
 4. **Registration** — The plugin is recorded in `agentxchain.json` under `plugins`.
 
 ```json title="agentxchain.json (after install)"

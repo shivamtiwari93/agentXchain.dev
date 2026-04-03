@@ -118,13 +118,8 @@ describe('Plugin CLI docs contract', () => {
   });
 
   describe('ghost flag rejection', () => {
-    it('plugins.mdx does not document --force (not in CLI registration)', () => {
-      // --force is mentioned in prose ("unless --force is passed") but is not a registered flag
-      // This checks the actual command examples and flag tables don't show --force as a real flag
-      const flagTables = pluginsDocs.match(/\| Flag \|[\s\S]*?\n\n/g) || [];
-      for (const table of flagTables) {
-        assert.doesNotMatch(table, /--force/);
-      }
+    it('plugins.mdx does not document --force anywhere because the CLI does not ship it', () => {
+      assert.doesNotMatch(pluginsDocs, /--force/);
     });
 
     it('cli.mdx does not document --from flag', () => {

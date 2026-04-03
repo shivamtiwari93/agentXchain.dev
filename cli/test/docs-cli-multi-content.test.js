@@ -103,13 +103,18 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /--dry-run/);
   });
 
-  it('references coordinator.yaml as the config prerequisite', () => {
-    assert.match(multiSection, /coordinator\.yaml/);
+  it('references agentxchain-multi.json as the config prerequisite', () => {
+    assert.match(multiSection, /agentxchain-multi\.json/);
   });
 
   it('links to the dashboard Initiative and Cross-Repo views', () => {
     assert.match(multiSection, /Initiative/);
     assert.match(multiSection, /Cross-Repo/);
+  });
+
+  it('links to the dedicated multi-repo docs page and documents step auto-resync', () => {
+    assert.match(multiSection, /\/docs\/multi-repo/);
+    assert.match(multiSection, /auto-resync|resyncs from repo authority/i);
   });
 });
 

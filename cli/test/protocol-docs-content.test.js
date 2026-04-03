@@ -42,6 +42,8 @@ describe('Protocol docs content', () => {
       'barrier',
       'cross-repo',
       'coordinator',
+      'multi approve-gate',
+      '/docs/multi-repo',
     ]) {
       assert.ok(PROTOCOL_DOCS_MDX.toLowerCase().includes(term.toLowerCase()), `protocol docs must mention ${term}`);
     }

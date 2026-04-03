@@ -1,0 +1,161 @@
+---
+sidebar_position: 2
+title: Multi-Repo Coordination
+description: "Run one governed initiative across multiple repositories with coordinator state, barriers, and cross-repo context."
+---
+
+# Multi-Repo Coordination
+
+Multi-repo coordination is the governed layer for work that spans more than one repository. It gives you one coordinator workspace, one `super_run_id`, coordinator-specific hooks and barriers, and repo-local execution that still treats each child repo's `.agentxchain/` state as the source of truth.
+
+If you only need one repository, stay on the normal governed lifecycle. Reach for `multi` when one change needs ordered work across repos, shared gates, or barrier-aware coordination.
+
+## Workspace Contract
+
+The coordinator workspace is a directory with an `agentxchain-multi.json` file at its root plus checked-out governed repos underneath it.
+
+```json title="agentxchain-multi.json"
+{
+  "schema_version": "0.1",
+  "project": {
+    "id": "agent-platform",
+    "name": "Agent Platform Rollout"
+  },
+  "repos": {
+    "web": {
+      "path": "./repos/web",
+      "default_branch": "main",
+      "required": true
+    },
+    "cli": {
+      "path": "./repos/cli",
+      "default_branch": "main",
+      "required": true
+    }
+  },
+  "workstreams": {
+    "protocol_doc_sync": {
+      "phase": "implementation",
+      "repos": ["web", "cli"],
+      "entry_repo": "cli",
+      "depends_on": [],
+      "completion_barrier": "all_repos_accepted"
+    }
+  },
+  "routing": {
+    "implementation": {
+      "entry_workstream": "protocol_doc_sync"
+    }
+  },
+  "gates": {
+    "initiative_ship": {
+      "requires_human_approval": true,
+      "requires_repos": ["web", "cli"]
+    }
+  }
+}
+```
+
+The shipped coordinator state lives under `.agentxchain/multirepo/`, not in a separate `.coordinator/` tree:
+
+```text
+workspace/
+  agentxchain-multi.json
+  .agentxchain/
+    multirepo/
+      state.json
+      history.jsonl
+      decision-ledger.jsonl
+      barriers.json
+      barrier-ledger.jsonl
+      hook-audit.jsonl
+      hook-annotations.jsonl
+      context/
+        <context_ref>/
+          COORDINATOR_CONTEXT.json
+          COORDINATOR_CONTEXT.md
+  repos/
+    web/
+      agentxchain.json
+      .agentxchain/
+        state.json
+    cli/
+      agentxchain.json
+      .agentxchain/
+        state.json
+```
+
+## Command Lifecycle
+
+The coordinator loop is explicit. The coordinator never auto-runs child repos behind your back.
+
+1. `agentxchain multi init`
+   - Loads `agentxchain-multi.json`
+   - Links existing active child runs or initializes idle governed repos
+   - Writes `.agentxchain/multirepo/state.json` and barrier snapshots
+2. `agentxchain multi step`
+   - Detects divergence first
+   - Auto-resyncs from repo authority when the drift is safe to repair
+   - Selects the next assignable workstream and repo
+   - Writes the child repo dispatch bundle with `COORDINATOR_CONTEXT.json` and `COORDINATOR_CONTEXT.md`
+3. Inside the selected child repo, complete the repo-local turn normally
+   - `agentxchain accept-turn`
+   - The repo-local history is authoritative; the coordinator projects from that accepted result
+4. Run `agentxchain multi step` again
+   - Projects repo-local acceptance into coordinator history
+   - Updates barrier state
+   - Either dispatches the next repo assignment or requests a coordinator gate
+5. When a gate is pending, run `agentxchain multi approve-gate`
+   - Approves a phase-transition or completion gate for the coordinated initiative
+6. When you want an explicit recovery check, run `agentxchain multi resync --dry-run`
+   - Shows divergence without mutating state
+   - Follow with `agentxchain multi resync` to rebuild coordinator state from repo truth
+
+## Barrier Types
+
+The shipped coordinator supports four completion-barrier modes:
+
+| Barrier type | Meaning |
+|--------------|---------|
+| `all_repos_accepted` | The workstream completes only after every repo listed in the workstream has an accepted projection |
+| `ordered_repo_sequence` | Downstream repos stay blocked until upstream acceptance order is satisfied |
+| `interface_alignment` | Cross-repo contract alignment barrier used to hold dispatch until interface coordination is satisfied |
+| `shared_human_gate` | Never auto-satisfies from repo acceptances; requires human approval through `multi approve-gate` |
+
+Barrier transitions are tracked in `.agentxchain/multirepo/barriers.json` and audited in `.agentxchain/multirepo/barrier-ledger.jsonl`.
+
+## Cross-Repo Context
+
+Every coordinator dispatch generates cross-repo context for the selected child repo:
+
+- `COORDINATOR_CONTEXT.json`
+- `COORDINATOR_CONTEXT.md`
+
+Those artifacts summarize:
+
+- upstream acceptance projections from related workstreams
+- active non-satisfied barriers relevant to the target repo
+- required follow-ups derived from dependencies and barrier notes
+
+The generated context is also stored under `.agentxchain/multirepo/context/<context_ref>/` so the coordinator can audit and invalidate stale context when upstream repos accept new work.
+
+## Coordinator Hooks
+
+Coordinator hooks are defined in `agentxchain-multi.json` and are separate from repo-local hook phases.
+
+| Hook phase | Behavior |
+|------------|----------|
+| `before_assignment` | Blocking hook before the coordinator dispatches the next repo assignment |
+| `after_acceptance` | Advisory hook after a child repo acceptance is projected into coordinator history |
+| `before_gate` | Blocking hook before the coordinator finalizes a phase or completion gate |
+| `on_escalation` | Advisory hook when the coordinator enters a blocked state |
+
+Coordinator hooks protect `.agentxchain/multirepo/` files and repo-local protected files. They are not allowed to mutate child repo state, child repo history, or dispatch bundles.
+
+## Dashboard And Recovery
+
+The local dashboard exposes coordinator state through the **Initiative** and **Cross-Repo** views, with gate and blocked panels reading from the same `.agentxchain/multirepo/` artifacts.
+
+Recovery follows one hard rule: repo-local governed state is authoritative. The coordinator is a derived control plane, not the source of truth. If someone accepts or rejects a turn directly in a child repo, `multi step` will detect that divergence and auto-resync when safe; otherwise `multi resync` rebuilds or blocks explicitly instead of guessing.
+
+For the command-level reference, see [CLI Reference](/docs/cli). For the protocol overview, see [Protocol](/docs/protocol).

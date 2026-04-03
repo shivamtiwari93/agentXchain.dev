@@ -45,6 +45,7 @@ Ship AgentXchain.dev on a mature OSS docs stack that can serve the current publi
 - `/docs/protocol`
 - `/docs/protocol-implementor-guide`
 - `/docs/continuous-delivery-intake`
+- `/docs/multi-repo`
 - `/docs/protocol-v6`
 - `/docs/adapters`
 - `/docs/plugins`

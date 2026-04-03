@@ -41,11 +41,15 @@ The plugin section in `cli.mdx` (lines 325-340) has NO flag tables. Only a subco
 
 `cli/test/plugin-docs-content.test.js` checks string presence only. It does not validate flags, flag-to-code alignment, or positional parameter signatures.
 
+### 5. Ghost prose feature: `--force` in `plugins.mdx`
+
+`cli/src/commands/plugin.js` and `cli/src/lib/plugins.js` do not accept or honor a `force` option for `plugin install`. The prose sentence "rejects unless `--force` is passed" was therefore a ghost feature, not just an undocumented flag.
+
 ## Fixes Applied
 
 1. **`cli.mdx`**: Added flag tables to the plugin section for all 4 subcommands
-2. **`plugins.mdx`**: Fixed `--from` ghost flag to positional `[source]` syntax; documented `--config`, `--config-file`, `--json` flags where applicable
-3. **Guard test**: Added `cli/test/docs-cli-plugin-content.test.js` with bidirectional flag alignment and ghost-flag rejection
+2. **`plugins.mdx`**: Fixed `--from` ghost flag to positional `[source]` syntax; removed the ghost `--force` prose claim; documented `--config`, `--config-file`, `--json` flags where applicable
+3. **Guard test**: Added `cli/test/docs-cli-plugin-content.test.js` with bidirectional flag alignment and ghost-feature rejection
 
 ## Acceptance Tests
 
@@ -55,3 +59,4 @@ The plugin section in `cli.mdx` (lines 325-340) has NO flag tables. Only a subco
 - AT-PL-004: `plugins.mdx` documents `--json` for `list` and `remove`
 - AT-PL-005: Guard reads `agentxchain.js` directly for flag extraction and bidirectional alignment
 - AT-PL-006: `upgrade` source parameter is documented as positional `[source]`, not `--from`
+- AT-PL-007: `plugins.mdx` does not claim `--force` exists unless the CLI actually registers it

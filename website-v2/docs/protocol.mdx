@@ -64,197 +64,36 @@ Custom phases can be defined in `agentxchain.json`. The protocol enforces that e
 
 ## Coordinator initiative
 
-The coordinator initiative extends governed runs across multiple repositories. A coordinator manages a **super run** that links individual repo runs through shared barriers and gates.
+The coordinator initiative extends governed runs across multiple repositories. A coordinator manages a `super_run_id` that links repo-level runs through workstreams, barriers, and cross-repo gates.
 
 ### Core concepts
 
 | Concept | Description |
 |---------|-------------|
-| `super_run_id` | A unique ID that links all repo-level runs in a coordinated initiative |
-| **Workstream** | A single repo-level governed run, identified by repo name and run ID |
-| **Barrier** | A synchronization point where all workstreams must reach a given phase before any can proceed |
-| **Cross-repo gate** | A human approval that applies to the super run, not just one workstream |
-| **Coordinator hooks** | Lifecycle hooks that fire at the super-run level |
+| `super_run_id` | Initiative-wide run identifier linking child repo runs |
+| **Workstream** | Ordered cross-repo delivery slice with a declared phase, repo set, entry repo, and barrier type |
+| **Barrier** | Cross-repo coordination state tracked in `.agentxchain/multirepo/barriers.json` |
+| **Cross-repo gate** | Human approval at the coordinator level, approved with `agentxchain multi approve-gate` |
+| **Coordinator hooks** | Super-run hooks: `before_assignment`, `after_acceptance`, `before_gate`, `on_escalation` |
 
-### How it works
+### Shipped contract
 
-1. A human creates a coordinator config (`agentxchain-multi.json`) that defines workstreams and barriers.
-2. Each workstream is initialized as an independent governed run with a shared `super_run_id`.
-3. When a workstream reaches a barrier phase, it enters `blocked:barrier` state.
-4. The coordinator polls all workstreams. When all have reached the barrier, the coordinator fires a cross-repo gate.
-5. The human approves the cross-repo gate, and all workstreams are unblocked simultaneously.
+The current coordinator surface is repo-native and local-first:
 
-```
-Workstream A:  init → pm → [barrier: planning] ─────────────┐
-Workstream B:  init → pm → [barrier: planning] ──────┐      │
-Workstream C:  init → pm → [barrier: planning] ──┐   │      │
-                                                  ▼   ▼      ▼
-                                          Cross-repo gate (human)
-                                                  │   │      │
-                                                  ▼   ▼      ▼
-Workstream A:  ──────────────────── dev → qa → [barrier: verification]
-Workstream B:  ──────────── dev → qa → [barrier: verification]
-Workstream C:  ──── dev → qa → [barrier: verification]
-```
+- Config file: `agentxchain-multi.json`
+- Coordinator state root: `.agentxchain/multirepo/`
+- Dispatch context artifacts: `COORDINATOR_CONTEXT.json` and `COORDINATOR_CONTEXT.md`
+- Recovery rule: repo-local `.agentxchain/` state is authoritative; coordinator state is derived and can be rebuilt from repo truth
 
-## Coordinator config
+### Operator loop
 
-The coordinator config lives at the initiative root (not inside any single repo):
+1. `agentxchain multi init` loads `agentxchain-multi.json` and links or initializes child governed runs.
+2. `agentxchain multi step` detects divergence, auto-resyncs when safe, then dispatches the next repo-local assignment.
+3. The selected child repo completes its normal governed turn lifecycle.
+4. A later `agentxchain multi step` projects the accepted child result, updates barriers, and either dispatches again or requests a gate.
+5. `agentxchain multi approve-gate` clears pending coordinator phase or completion gates.
 
-```json title="agentxchain-multi.json"
-{
-  "schema_version": "1.0",
-  "super_run_id": "super_run_abc123",
-  "description": "Q2 platform migration across three services",
-  "workstreams": [
-    {
-      "name": "auth-service",
-      "repo": "git@github.com:org/auth-service.git",
-      "branch": "feature/q2-migration",
-      "config_path": "agentxchain.json"
-    },
-    {
-      "name": "api-gateway",
-      "repo": "git@github.com:org/api-gateway.git",
-      "branch": "feature/q2-migration",
-      "config_path": "agentxchain.json"
-    },
-    {
-      "name": "web-client",
-      "repo": "git@github.com:org/web-client.git",
-      "branch": "feature/q2-migration",
-      "config_path": "agentxchain.json"
-    }
-  ],
-  "barriers": [
-    {
-      "name": "planning-sync",
-      "phase": "planning",
-      "description": "All workstreams must complete planning before any begins implementation"
-    },
-    {
-      "name": "verification-sync",
-      "phase": "verification",
-      "description": "All workstreams must complete implementation before final verification"
-    }
-  ],
-  "hooks": {
-    "on_barrier_reached": "./coordinator-hooks/barrier-reached.sh",
-    "on_barrier_approved": "./coordinator-hooks/barrier-approved.sh",
-    "on_super_run_completed": "./coordinator-hooks/completed.sh",
-    "on_workstream_failed": "./coordinator-hooks/workstream-failed.sh"
-  },
-  "context_generation": {
-    "enabled": true,
-    "output_dir": ".coordinator/context/",
-    "include_decisions": true,
-    "include_objections": true,
-    "include_file_summaries": true
-  }
-}
-```
-
-## Gates and resync
-
-The coordinator enforces three invariants at every barrier:
-
-### Invariant 1: Barrier completeness
-
-All workstreams must reach the barrier phase before any can proceed past it. A single lagging workstream blocks all others. This prevents one repo from advancing to implementation while another is still in planning.
-
-### Invariant 2: Cross-repo gate approval
-
-When all workstreams reach a barrier, the coordinator creates a cross-repo gate. A human must approve it. The approval applies to the super run — individual workstream approvals are not sufficient to cross a barrier.
-
-```bash
-agentxchain coordinator approve-barrier --barrier planning-sync
-```
-
-### Invariant 3: State coherence after resync
-
-After a barrier is approved, the coordinator resyncs all workstreams:
-
-1. Each workstream's `state.json` is updated with the barrier approval timestamp.
-2. Cross-repo context is regenerated (see below).
-3. Each workstream transitions to the next phase simultaneously.
-4. The coordinator records the resync in its own ledger.
-
-If any workstream fails to resync (e.g., corrupt state file), the coordinator enters `blocked:resync_failed` and requires manual intervention.
-
-## Cross-repo context generation
-
-When context generation is enabled, the coordinator assembles a cross-repo context document for each workstream before each phase. This gives each agent visibility into what the other workstreams decided.
-
-The context document is written to each workstream's dispatch bundle as an additional file:
-
-```
-.agentxchain/dispatch/turns/<turn_id>/
-  ASSIGNMENT.json
-  PROMPT.md
-  CONTEXT.md
-  CROSS_REPO_CONTEXT.md    ← generated by coordinator
-```
-
-### What it contains
-
-| Section | Content |
-|---------|---------|
-| **Workstream summary** | Name, repo, current phase, last accepted turn summary for each workstream |
-| **Decisions** | All decisions from all workstreams, grouped by category |
-| **Open objections** | All unresolved objections from all workstreams |
-| **File summaries** | High-level summary of files changed in each workstream (not full diffs) |
-| **Barrier history** | Record of all barrier approvals with timestamps and comments |
-
-This allows a dev agent in `auth-service` to know that `api-gateway` decided to use JWT tokens, and a QA agent in `web-client` to know that `api-gateway` has an open objection about rate limiting.
-
-## Coordinator hooks
-
-The coordinator fires hooks at four phases of the super-run lifecycle:
-
-| Hook | Fires when | Payload |
-|------|-----------|---------|
-| `on_barrier_reached` | All workstreams have reached a barrier | Barrier name, workstream statuses, phase |
-| `on_barrier_approved` | A human approves a cross-repo gate | Barrier name, approver comment, timestamp |
-| `on_super_run_completed` | All workstreams complete and the final gate is approved | Full super-run summary, all decisions, all objections |
-| `on_workstream_failed` | A workstream enters a failed state | Workstream name, error details, affected barrier |
-
-Coordinator hooks follow the same contract as plugin hooks: they receive context via environment variables and a payload JSON file, must exit with code `0` on success, and are killed on timeout.
-
-## File layout
-
-A coordinated initiative has this layout on disk:
-
-```
-initiative-root/
-  agentxchain-multi.json                    # Coordinator config
-  .coordinator/
-    state.json                               # Coordinator state (barriers, workstream refs)
-    ledger.jsonl                             # Coordinator decision ledger
-    context/                                 # Generated cross-repo context documents
-      auth-service/CROSS_REPO_CONTEXT.md
-      api-gateway/CROSS_REPO_CONTEXT.md
-      web-client/CROSS_REPO_CONTEXT.md
-  coordinator-hooks/                         # Coordinator hook scripts
-    barrier-reached.sh
-    barrier-approved.sh
-    completed.sh
-    workstream-failed.sh
-  auth-service/                              # Cloned repo (workstream)
-    agentxchain.json
-    .agentxchain/
-      state.json                             # Has super_run_id field
-      ...
-  api-gateway/                               # Cloned repo (workstream)
-    agentxchain.json
-    .agentxchain/
-      state.json
-      ...
-  web-client/                                # Cloned repo (workstream)
-    agentxchain.json
-    .agentxchain/
-      state.json
-      ...
-```
+See [Multi-Repo Coordination](/docs/multi-repo) for the actual config schema, barrier types, hook phases, context files, dashboard views, and recovery flow. This protocol page stays at the constitutional layer; the deep-dive page carries the implementation-facing operator contract.
 
 ## Compatibility
 

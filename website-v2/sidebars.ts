@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
       label: 'Continuous Delivery',
       items: [
         'continuous-delivery-intake',
+        'multi-repo',
       ],
     },
     'adapters',

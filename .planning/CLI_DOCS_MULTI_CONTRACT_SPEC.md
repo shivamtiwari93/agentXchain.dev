@@ -29,7 +29,7 @@ This is the same defect class as the intake omission (DEC-CLI-INTAKE-001): a shi
 
 ## Key Behavioral Contracts (from `cli/src/commands/multi.js`)
 
-1. **`multi init`**: requires `coordinator.yaml` (or equivalent) — fails with config errors if absent
+1. **`multi init`**: requires `agentxchain-multi.json` at the workspace root — fails with config errors if absent
 2. **`multi status`**: requires prior `multi init` — fails if no coordinator state exists
 3. **`multi step`**: reconcile-then-dispatch — detects divergence, resyncs if needed, selects next workstream, dispatches coordinator turn, fires hooks
 4. **`multi approve-gate`**: gate evaluation before approval — evaluates phase or completion gates, fires gate hooks
@@ -50,5 +50,6 @@ This is the same defect class as the intake omission (DEC-CLI-INTAKE-001): a shi
 - AT-MC-002: `cli.mdx` contains a dedicated `### multi` section
 - AT-MC-003: all 5 subcommands from `agentxchain.js` are documented in the section
 - AT-MC-004: bidirectional flag alignment — every docs flag exists in CLI, every CLI flag is documented
-- AT-MC-005: the section references `coordinator.yaml` as the config prerequisite
-- AT-MC-006: `resync` `--dry-run` flag is documented
+- AT-MC-005: the section references `agentxchain-multi.json` as the config prerequisite
+- AT-MC-006: the section links to `/docs/multi-repo` for the full coordinator contract and notes that `multi step` auto-resyncs on safe divergence
+- AT-MC-007: `resync` `--dry-run` flag is documented
