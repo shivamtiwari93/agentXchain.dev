@@ -114,6 +114,9 @@ function runPublish(cliDir, fakeBinDir, stateDir, args = [], envOverrides = {}) 
       ...process.env,
       PATH: `${fakeBinDir}:${process.env.PATH}`,
       FAKE_STATE_DIR: stateDir,
+      NPM_TOKEN: '',
+      NODE_AUTH_TOKEN: '',
+      NPM_CONFIG_USERCONFIG: '',
       ...envOverrides,
     },
   });

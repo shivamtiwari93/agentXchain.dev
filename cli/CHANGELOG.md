@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1
+
+Patch release to fix the npm publication path for the `2.1.x` line.
+
+- Configure the GitHub Actions publish workflow with the npm registry URL required for trusted publishing.
+- Make `publish-from-tag` tests hermetic under GitHub Actions so `setup-node` auth environment does not cause false failures during release preflight.
+
 ## 2.1.0
 
 Trust-hardening and operator-visibility release on top of the v2 governed coordination base.
