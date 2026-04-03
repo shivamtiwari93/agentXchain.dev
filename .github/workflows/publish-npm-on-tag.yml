@@ -64,8 +64,21 @@ jobs:
           fi
 
           echo "Publishing ${PACKAGE_NAME}@${RELEASE_VERSION} from ${RELEASE_TAG}"
+
+          # setup-node creates .npmrc at repo root for registry auth.
+          # Move it out before preflight so strict git-status passes, then restore for publish.
+          NPMRC_BAK="${RUNNER_TEMP}/.npmrc.bak"
+          if [[ -f "${GITHUB_WORKSPACE}/.npmrc" ]]; then
+            mv "${GITHUB_WORKSPACE}/.npmrc" "$NPMRC_BAK"
+          fi
+
           echo "Running strict release preflight..."
           bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
+
+          # Restore .npmrc for npm publish auth
+          if [[ -f "$NPMRC_BAK" ]]; then
+            mv "$NPMRC_BAK" "${GITHUB_WORKSPACE}/.npmrc"
+          fi
 
           echo "Running npm publish with NPM_TOKEN..."
           npm publish --access public
