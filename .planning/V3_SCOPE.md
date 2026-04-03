@@ -105,7 +105,7 @@ The first v3 command family:
 - `agentxchain intake approve --intent <id>`
 - `agentxchain intake plan --intent <id>`
 - `agentxchain intake status [--json]`
-- `agentxchain intake scan --source <manual|ci|git|schedule>`
+- `agentxchain intake scan --source <ci_failure|git_ref_change|schedule>`
 - `agentxchain intake start --intent <id>`
 
 These commands create and govern intake artifacts. They do not bypass the existing run engine.
@@ -260,20 +260,22 @@ The implementation contract for this slice lives in `.planning/V3_S3_START_SPEC.
 - no release approval automation
 - no production or incident integrations
 
-### V3-S4 (next): Deterministic Intake Scan
+### V3-S4 (shipped): Deterministic Intake Scan
 
-The smaller next slice is `intake scan`, not run recycling.
+The smaller additive slice was `intake scan`, not run recycling.
 
-Run recycling reopens core governed-run identity, lifecycle closure, and protocol invariants. That is not a small follow-up. `intake scan` can stay additive if it does one narrow job well: convert structured source snapshots into repo-native intake events through the existing `record` path.
+Run recycling still reopens core governed-run identity, lifecycle closure, and protocol invariants. S4 stayed additive by doing one narrow job well: convert structured source snapshots into repo-native intake events through the existing `record` path.
 
 The implementation contract for this slice lives in `.planning/V3_S4_SCAN_SPEC.md`.
 
-**In scope:**
+**Shipped scope:**
 
 - `agentxchain intake scan --source <ci_failure|git_ref_change|schedule>`
 - deterministic extraction of candidate signals from file or stdin snapshots
 - reuse of the existing intake event deduplication and intent-creation path
 - structured scan results: scanned, created, deduplicated, rejected
+- explicit exclusion of `manual`, which remains on `intake record`
+- deterministic rejection for empty `items` arrays instead of fake no-op success
 
 **Explicitly not in S4:**
 
@@ -282,6 +284,35 @@ The implementation contract for this slice lives in `.planning/V3_S4_SCAN_SPEC.m
 - no auto-triage, auto-approval, or auto-start
 - no post-release reopen automation
 - no run recycling
+
+### After S4: Recommended Direction
+
+The v3 intake surface is feature-complete for now. More ingestion mechanics are not the highest-value move.
+
+The next useful v3 boundary is not live polling, auto-triage, auto-start, or run recycling. Those widen authority or lifecycle complexity before the repo can truthfully close the loop after `executing`.
+
+The smaller next product slice should be:
+
+### V3-S5 (next): Execution Exit And Intent Closure Linkage
+
+Purpose:
+
+- connect governed run outcomes back into intake intent state truth
+- make `executing` lead somewhere evidence-backed instead of becoming a dead-end label
+- prepare later release and observation work without inventing a daemon or reopening run identity
+
+Candidate scope:
+
+- deterministic linkage from governed run completion or blocked outcomes into intake intent updates
+- additive intent outcome fields that reference final run evidence instead of copying it
+- repo-native observation record scaffolding under `.agentxchain/intake/observations/`
+
+Explicitly not in V3-S5:
+
+- no post-completion run recycling
+- no background polling loop
+- no policy-driven auto-triage or auto-start
+- no hosted control plane
 
 ---
 
@@ -318,12 +349,13 @@ The implementation contract for this slice lives in `.planning/V3_S4_SCAN_SPEC.m
 7. `AT-V3-INTAKE-007`: invalid source-specific payload is rejected with a deterministic error.
 8. `AT-V3-INTAKE-008`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
 9. `AT-V3-INTAKE-009`: `intake start` sets `target_run`, `target_turn`, and transitions `planned -> executing` without waiting for turn completion.
+10. `AT-V3-INTAKE-010`: `intake scan` records valid snapshot items through the existing deduplicating `record` path, excludes `manual`, and rejects empty `items` arrays.
 
 ---
 
 ## Resolved Questions
 
-1. `schedule` is a first-class event source in v3.0. It is valid input to the repo-native intake surface even before `intake scan` exists.
+1. `schedule` is a first-class event source in v3.0. It is valid input to the repo-native intake surface and to `intake scan`.
 2. Observation evidence belongs in append-only child records under `.agentxchain/intake/observations/`, not by mutating historical intent records.
 3. The fallback template is `generic`. Fail-closed template selection is rejected for unmapped signals because it would block safe intake without adding governance value.
 4. S3 does not relax the governed paused-state contract. `paused` remains approval-held in current `.dev` scope, so intake start does not resume paused runs.

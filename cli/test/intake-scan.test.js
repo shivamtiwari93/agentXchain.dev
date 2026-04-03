@@ -265,6 +265,22 @@ describe('intake scan', () => {
     assert.equal(out.ok, false);
   });
 
+  // Edge: empty items array
+  it('fails when the snapshot items array is empty', () => {
+    const snapshot = makeSnapshot('ci_failure', []);
+    const snapshotPath = join(dir, 'snapshot-empty.json');
+    writeFileSync(snapshotPath, JSON.stringify(snapshot));
+
+    const result = runCli([
+      'intake', 'scan', '--source', 'ci_failure', '--file', snapshotPath, '--json',
+    ], dir);
+
+    assert.equal(result.status, 1);
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.ok, false);
+    assert.ok(out.error.includes('non-empty items array'));
+  });
+
   // Edge: all items rejected exits 1
   it('exits 1 when all items are rejected', () => {
     const snapshot = makeSnapshot('ci_failure', [

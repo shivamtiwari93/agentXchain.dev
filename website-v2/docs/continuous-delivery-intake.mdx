@@ -1,6 +1,6 @@
 ---
 title: Continuous Delivery Intake
-description: "Repo-native intake for continuous governed delivery: record signals, triage work, approve intent, generate planning artifacts, start governed execution, and inspect backlog state."
+description: "Repo-native intake for continuous governed delivery: record and scan signals, triage work, approve intent, generate planning artifacts, start governed execution, and inspect backlog state."
 ---
 
 # Continuous Delivery Intake
@@ -11,7 +11,7 @@ This is the v3 entrypoint that exists today. It records signals, creates deliver
 
 ## What ships today
 
-The current CLI surface is six commands:
+The current CLI surface is seven commands:
 
 ```bash
 agentxchain intake record
@@ -19,14 +19,9 @@ agentxchain intake triage
 agentxchain intake approve
 agentxchain intake plan
 agentxchain intake start
+agentxchain intake scan
 agentxchain intake status
 ```
-
-What is intentionally **not** shipped yet:
-
-- `agentxchain intake scan`
-
-`intake scan` is the next additive slice. Do not claim it exists until the repo actually ships it.
 
 ## Artifact layout
 
@@ -75,6 +70,8 @@ Supported sources today:
 - `ci_failure`
 - `git_ref_change`
 - `schedule`
+
+`manual` is valid for `intake record`. It is intentionally excluded from `intake scan`.
 
 ### Event schema
 
@@ -303,6 +300,110 @@ On success the intent gains:
 
 Do not blur that last rule. Under the current governed-state contract, `paused` is an approval-held state, not a generic resumable idle state for intake.
 
+## `intake scan`
+
+Use `intake scan` to ingest a deterministic source snapshot through the existing `recordEvent()` path.
+
+```bash
+agentxchain intake scan \
+  --source ci_failure \
+  --file ./ci-failures.snapshot.json \
+  --json
+
+cat release-checks.snapshot.json | \
+  agentxchain intake scan --source schedule --stdin --json
+```
+
+Supported scan sources:
+
+- `ci_failure`
+- `git_ref_change`
+- `schedule`
+
+`manual` is excluded on purpose. Manual one-off intake already has `agentxchain intake record`, and `scan` is not a generic batch wrapper for every source type.
+
+### Snapshot contract
+
+`intake scan` consumes one source-specific snapshot object:
+
+```json
+{
+  "source": "ci_failure",
+  "captured_at": "2026-04-03T23:00:00Z",
+  "items": [
+    {
+      "signal": {
+        "workflow": "publish-npm-on-tag",
+        "run_id": "23944719936",
+        "status": "failed"
+      },
+      "evidence": [
+        {
+          "type": "url",
+          "value": "https://github.com/shivamtiwari93/agentXchain.dev/actions/runs/23944719936"
+        }
+      ],
+      "category": "delivery_regression"
+    }
+  ]
+}
+```
+
+Contract notes:
+
+- `items` must be a non-empty array
+- each item must include a non-empty `signal` object and non-empty `evidence` array
+- `category`, `repo`, and `ref` are optional passthrough fields
+- `captured_at` is informational metadata in S4; it is accepted but not validated or stored
+- `--source` must match `snapshot.source`
+
+### Scan result semantics
+
+Each snapshot item produces one deterministic result:
+
+- `created`: a new event and linked `detected` intent were written
+- `deduplicated`: the signal already existed and the existing event/intent were returned
+- `rejected`: the item failed validation and was not recorded
+
+Machine-readable output includes aggregate counts plus per-item results:
+
+```json
+{
+  "ok": true,
+  "source": "ci_failure",
+  "scanned": 2,
+  "created": 1,
+  "deduplicated": 1,
+  "rejected": 0,
+  "results": [
+    {
+      "status": "created",
+      "event_id": "evt_1712273200000_a1b2",
+      "intent_id": "intent_1712273200100_c3d4"
+    },
+    {
+      "status": "deduplicated",
+      "event_id": "evt_1712273199000_e5f6",
+      "intent_id": "intent_1712273199100_a7b8"
+    }
+  ]
+}
+```
+
+### Scan failure rules
+
+`intake scan` rejects deterministically when:
+
+- `--source` is not one of `ci_failure`, `git_ref_change`, `schedule`
+- neither `--file` nor `--stdin` is supplied
+- both `--file` and `--stdin` are supplied
+- the snapshot file cannot be read
+- the snapshot JSON is invalid
+- `snapshot.source` disagrees with `--source`
+- `items` is missing or empty
+
+Mixed snapshots are processed per item. One bad item does not roll back valid siblings.
+
 ## State machine: shipped vs deferred
 
 The broader v3 direction defines a larger intake lifecycle. The shipped CLI surface now covers S1 through S3.
@@ -318,7 +419,7 @@ approved -> planned
 planned -> executing
 ```
 
-### Defined in v3 scope, not exposed yet
+### Deferred beyond the shipped intake surface
 
 ```text
 executing -> awaiting_release_approval
@@ -327,7 +428,7 @@ released -> observing
 observing -> reopened
 ```
 
-That distinction still matters. The repo continues to store `requires_human_start: true`. Approval and planning prepare work; `intake start` is the explicit human-authorized bridge that turns prepared work into governed execution.
+That distinction still matters. The repo continues to store `requires_human_start: true`. Approval and planning prepare work; `intake start` is the explicit human-authorized bridge that turns prepared work into governed execution. `intake scan` only widens ingestion. It does not widen execution authority.
 
 ## `intake status`
 
@@ -363,9 +464,10 @@ Intake is an entrypoint, not a loophole.
 
 - recording an event does not create a governed run
 - approving or planning an intent does not create a governed run
+- scanning a snapshot does not triage, approve, plan, or start anything
 - `intake start` does create or attach one planned intent to the governed execution boundary
 - `planned` is not the same thing as `executing`
 - the future continuous loop still has to respect explicit approval transitions
-- `intake start` does not auto-triage, auto-approve, or auto-start from raw signals
+- neither `intake scan` nor `intake start` auto-triages, auto-approves, or auto-starts from raw signals
 
 If you want automatic code-writing execution from repo signals, that is a later governance decision, not a default.

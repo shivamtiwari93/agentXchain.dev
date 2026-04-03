@@ -1,6 +1,6 @@
 # V3-S4 Spec — Deterministic Intake Scan
 
-> Standalone implementation spec for the next v3 slice. Covers `agentxchain intake scan` as an additive source-scanning command that converts structured source snapshots into repo-native intake events through the existing intake pipeline.
+> Standalone implementation spec for the shipped v3 slice that added `agentxchain intake scan` as an additive source-scanning command that converts structured source snapshots into repo-native intake events through the existing intake pipeline.
 
 ---
 
@@ -8,7 +8,7 @@
 
 S1 through S3 already cover repo-native signal recording, governed triage, approval, planning, and explicit execution start.
 
-The next smaller slice is not run recycling. It is deterministic source scanning.
+S4 added the smaller additive slice: deterministic source scanning.
 
 `intake scan` should let operators or automation feed structured snapshots from supported sources into the existing intake pipeline without inventing a hosted daemon, without live API dependencies, and without bypassing governance.
 
@@ -96,19 +96,20 @@ The command does not define a live polling contract. It only consumes explicit s
    - `signal` as a non-empty object
    - `evidence` as a non-empty array compatible with `recordEvent()`
    - optional `category`, `repo`, and `ref`
-5. For each valid item, `intake scan` must reuse the existing `recordEvent()` path. It must not reimplement deduplication or intent creation.
-6. Scan is additive only:
+5. `captured_at` is accepted as informational metadata only. S4 does not validate it and does not persist it into intake artifacts.
+6. For each valid item, `intake scan` must reuse the existing `recordEvent()` path. It must not reimplement deduplication or intent creation.
+7. Scan is additive only:
    - create events and linked `detected` intents when the signal is new
    - return `deduplicated` when the signal already exists
    - do not triage, approve, plan, or start execution
-7. Scan processing is per-item deterministic:
+8. Scan processing is per-item deterministic:
    - one bad item must not corrupt or roll back previously recorded good items
    - rejected items are reported in the result set with their validation error
-8. Supported source semantics for S4:
+9. Supported source semantics for S4:
    - `ci_failure`: snapshot describes failed workflow or job signals
    - `git_ref_change`: snapshot describes new tags, release branches, or protected-branch divergence
    - `schedule`: snapshot describes timed checks such as stale release evidence or unresolved blocked runs
-9. `manual` is intentionally out of scope for `scan`. Manual input already has `intake record`.
+10. `manual` is intentionally out of scope for `scan`. Manual input already has `intake record`.
 
 ---
 
@@ -121,8 +122,9 @@ The command does not define a live polling contract. It only consumes explicit s
 5. **Unreadable snapshot file**: exit 2 with the file path
 6. **Invalid JSON snapshot**: exit 1 with the parse error
 7. **Source mismatch**: exit 1 when `--source` and `snapshot.source` disagree
-8. **Malformed snapshot item**: report the item as `rejected` with a deterministic validation error
-9. **Zero valid items**: exit 1 only when every scanned item is rejected
+8. **Empty `items` array**: exit 1 because an empty scan has no meaningful intake result
+9. **Malformed snapshot item**: report the item as `rejected` with a deterministic validation error
+10. **Zero valid items**: exit 1 only when every scanned item is rejected
 
 ---
 
@@ -135,6 +137,7 @@ The command does not define a live polling contract. It only consumes explicit s
 - `AT-V3S4-005`: source mismatch between CLI flag and snapshot body fails deterministically
 - `AT-V3S4-006`: `manual` is rejected as a scan source because `record` already covers manual ingestion
 - `AT-V3S4-007`: `intake scan` never transitions intents past `detected`
+- `AT-V3S4-008`: `intake scan` rejects an empty `items` array with exit 1 instead of treating it as a no-op success
 
 ---
 
