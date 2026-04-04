@@ -59,7 +59,7 @@ import { generateCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
-import { verifyProtocolCommand } from '../src/commands/verify.js';
+import { verifyExportCommand, verifyProtocolCommand } from '../src/commands/verify.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
@@ -238,6 +238,13 @@ verifyCmd
   .option('--target <path>', 'Target root containing .agentxchain-conformance/capabilities.json', '.')
   .option('--format <format>', 'Output format: text or json', 'text')
   .action(verifyProtocolCommand);
+
+verifyCmd
+  .command('export')
+  .description('Verify an AgentXchain export artifact against its embedded file bytes and summaries')
+  .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
+  .option('--format <format>', 'Output format: text or json', 'text')
+  .action(verifyExportCommand);
 
 program
   .command('migrate')

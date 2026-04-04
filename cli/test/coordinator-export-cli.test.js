@@ -195,7 +195,7 @@ describe('coordinator export CLI', () => {
 
       const exported = JSON.parse(result.stdout);
       assert.equal(exported.export_kind, 'agentxchain_coordinator_export');
-      assert.equal(exported.schema_version, '0.1');
+      assert.equal(exported.schema_version, '0.2');
       assert.equal(exported.coordinator.project_id, 'coord-test');
       assert.equal(exported.coordinator.project_name, 'Coordinator Test');
       assert.equal(exported.coordinator.repo_count, 2);
@@ -243,6 +243,7 @@ describe('coordinator export CLI', () => {
       for (const [, file] of Object.entries(exported.files)) {
         assert.ok(file.sha256, 'every file must have a sha256 hash');
         assert.ok(typeof file.bytes === 'number', 'every file must have a byte count');
+        assert.ok(file.content_base64, 'every file must include raw bytes for verification');
       }
     } finally {
       rmSync(root, { recursive: true, force: true });

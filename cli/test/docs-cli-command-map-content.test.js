@@ -57,7 +57,7 @@ describe('CLI command map docs contract', () => {
     ['status', ['status']],
     ['export', ['export']],
     ['validate', ['validate']],
-    ['verify', ['verify protocol']],
+    ['verify', ['verify protocol', 'verify export']],
     ['migrate', ['migrate']],
     ['resume', ['resume']],
     ['accept-turn', ['accept-turn']],
@@ -116,6 +116,7 @@ describe('CLI command map docs contract', () => {
 
   it('documents verify as verify protocol rather than the ambiguous parent command', () => {
     assert.ok(commandMapRows.includes('verify protocol'));
+    assert.ok(commandMapRows.includes('verify export'));
     assert.ok(!commandMapRows.includes('verify'));
   });
 

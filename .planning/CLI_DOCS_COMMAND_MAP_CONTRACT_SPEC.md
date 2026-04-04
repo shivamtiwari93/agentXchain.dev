@@ -14,7 +14,7 @@ The `/docs/cli` command map is **not** a dump of every top-level binary command.
 
 Included in the command map:
 
-- Core governed flow: `init`, `status`, `export`, `resume`, `step`, `accept-turn`, `reject-turn`, `approve-transition`, `approve-completion`, `validate`, `verify protocol`, `migrate`
+- Core governed flow: `init`, `status`, `export`, `resume`, `step`, `accept-turn`, `reject-turn`, `approve-transition`, `approve-completion`, `validate`, `verify protocol`, `verify export`, `migrate`
 - Governed-adjacent extensions: `template list`, `template validate`, `template set`, `plugin`, `intake`, `multi`, `dashboard`
 
 Explicitly excluded from the command map as legacy compatibility commands:
@@ -37,9 +37,9 @@ Explicitly excluded from the command map as legacy compatibility commands:
 
 1. `website-v2/docs/cli.mdx` must contain a short compatibility note stating that legacy v3 local-orchestration commands remain in the binary but are out of scope for the governed reference.
 2. Every governed-scope command family listed above must appear in the command map table using its public docs shape:
-   - top-level rows for `init`, `status`, `export`, `resume`, `step`, `accept-turn`, `reject-turn`, `approve-transition`, `approve-completion`, `validate`, `verify protocol`, `migrate`, `plugin`, `intake`, `multi`, and `dashboard`
+   - top-level rows for `init`, `status`, `export`, `resume`, `step`, `accept-turn`, `reject-turn`, `approve-transition`, `approve-completion`, `validate`, `verify protocol`, `verify export`, `migrate`, `plugin`, `intake`, `multi`, and `dashboard`
    - subcommand rows for `template list`, `template validate`, and `template set`
-3. `verify` is documented in the command map as `verify protocol`, not as the ambiguous parent `verify`.
+3. `verify` is documented in the command map as concrete subcommand rows (`verify protocol`, `verify export`), not as the ambiguous parent `verify`.
 4. Legacy compatibility commands must not appear as command-map rows.
 5. The guard must derive the current CLI command registration from `cli/bin/agentxchain.js`, not from a second hand-maintained list hidden in docs tests.
 
@@ -47,6 +47,6 @@ Explicitly excluded from the command map as legacy compatibility commands:
 
 - AT-CMAP-001: `cli/test/docs-cli-command-map-content.test.js` extracts top-level command registrations from `cli/bin/agentxchain.js`
 - AT-CMAP-002: Every governed-scope command family has a corresponding command-map row in `website-v2/docs/cli.mdx`
-- AT-CMAP-003: `verify protocol` is documented as the concrete map row for protocol conformance
+- AT-CMAP-003: `verify` is documented via concrete subcommand rows (`verify protocol`, `verify export`)
 - AT-CMAP-004: Legacy compatibility commands are absent from the command map
 - AT-CMAP-005: `website-v2/docs/cli.mdx` includes an explicit legacy compatibility note

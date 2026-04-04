@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { resolve } from 'node:path';
+import { loadExportArtifact, verifyExportArtifact } from '../lib/export-verifier.js';
 import { verifyProtocolConformance } from '../lib/protocol-conformance.js';
 
 export async function verifyProtocolCommand(opts) {
@@ -33,6 +34,38 @@ export async function verifyProtocolCommand(opts) {
   }
 
   process.exit(result.exitCode);
+}
+
+export async function verifyExportCommand(opts) {
+  const format = opts.format || 'text';
+  const loaded = loadExportArtifact(opts.input || '-', process.cwd());
+
+  if (!loaded.ok) {
+    if (format === 'json') {
+      console.log(JSON.stringify({
+        overall: 'error',
+        input: loaded.input,
+        message: loaded.error,
+      }, null, 2));
+    } else {
+      console.log(chalk.red(`Export verification failed: ${loaded.error}`));
+    }
+    process.exit(2);
+  }
+
+  const result = verifyExportArtifact(loaded.artifact);
+  const report = {
+    ...result.report,
+    input: loaded.input,
+  };
+
+  if (format === 'json') {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printExportReport(report);
+  }
+
+  process.exit(result.ok ? 0 : 1);
 }
 
 function printProtocolReport(report) {
@@ -70,6 +103,33 @@ function printProtocolReport(report) {
     for (const error of tier.errors || []) {
       console.log(chalk.red(`    ✗ ${error.fixture_id}: ${error.message}`));
     }
+  }
+
+  console.log('');
+}
+
+function printExportReport(report) {
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Export Verification'));
+  console.log(chalk.dim('  ' + '─'.repeat(43)));
+  console.log(chalk.dim(`  Input: ${report.input}`));
+  console.log(chalk.dim(`  Export kind: ${report.export_kind || 'unknown'}`));
+  console.log(chalk.dim(`  Schema: ${report.schema_version || 'unknown'}`));
+  console.log('');
+
+  const overallLabel = report.overall === 'pass'
+    ? chalk.green('PASS')
+    : report.overall === 'fail'
+      ? chalk.red('FAIL')
+      : chalk.red('ERROR');
+  console.log(`  Overall: ${overallLabel}`);
+  console.log(chalk.dim(`  Files verified: ${report.file_count}`));
+  if (report.repo_count) {
+    console.log(chalk.dim(`  Embedded repos: ${report.repo_count}`));
+  }
+
+  for (const error of report.errors || []) {
+    console.log(chalk.red(`    ✗ ${error}`));
   }
 
   console.log('');

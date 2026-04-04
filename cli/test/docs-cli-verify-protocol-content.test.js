@@ -45,7 +45,7 @@ describe('verify protocol docs — flag alignment', () => {
   it('no ghost flags in docs that are not in CLI registration', () => {
     // Extract flags from the docs verify protocol section
     const verifyDocStart = CLI_DOCS.indexOf('### `verify protocol`');
-    const verifyDocEnd = CLI_DOCS.indexOf('## Migration');
+    const verifyDocEnd = CLI_DOCS.indexOf('## Export verification');
     const verifyDocSection = CLI_DOCS.slice(verifyDocStart, verifyDocEnd);
 
     // Every --flag in the table should be in the CLI entry

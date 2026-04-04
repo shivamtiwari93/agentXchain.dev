@@ -44,6 +44,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
 | `validate` | Validation | Validate config, state, or full run integrity |
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
+| `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
 | `plugin` | Plugin management | Install, list, upgrade, or remove hook plugins |
 | `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
@@ -115,6 +116,8 @@ agentxchain export [--format json] [--output <path>]
 | `--output <path>` | stdout | Write the export artifact to a file instead of stdout |
 
 Exports the repo-native audit surface into one JSON artifact. When run from a **governed project** (`agentxchain.json`), the export includes config, governed state, history, decision ledger, dispatch bundles, staging artifacts, hook audit surfaces, and intake artifacts when present. When run from a **coordinator workspace** (`agentxchain-multi.json`), the export includes coordinator state, barriers, history, decision ledger, and recursively embeds the full governed export of each child repo under the `repos` key. If a child repo export fails, the coordinator export still succeeds with the failure recorded per-repo. Governed projects take detection priority over coordinator workspaces. Without `--output`, the JSON is printed to stdout by default.
+
+Each exported file entry includes parsed `data` plus `content_base64`, the original raw file bytes encoded for transport. That is what lets `agentxchain verify export` recompute `bytes` and `sha256` instead of trusting the artifact's own summary blindly.
 
 ### `resume`
 
@@ -263,6 +266,46 @@ Exit codes:
 Valid adapter response statuses: `pass` (exit 0), `fail` (exit 1), `error` (exit 2), `not_implemented` (exit 3).
 
 Use this command in CI if you fork the runner or build an alternative implementation. "Open protocol" without continuous conformance proof is marketing, not governance.
+
+## Export verification
+
+### `verify export`
+
+```bash
+agentxchain verify export [--input <path>|-] [--format text|json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input <path>` | `-` | Read the export JSON from a file, or pass `-` to read from stdin |
+| `--format <format>` | `text` | Output format: `text` or `json` |
+
+`verify export` proves that an audit artifact still matches itself after it has been written, copied, uploaded, or attached somewhere else. It supports both `agentxchain_run_export` and `agentxchain_coordinator_export`.
+
+The verifier does three things:
+
+1. Decodes each file entry's `content_base64`
+2. Recomputes `bytes` and `sha256`
+3. Checks that the decoded content matches the exported `data` and that run/coordinator summary fields still match the exported file set
+
+Typical use:
+
+```bash
+# verify a saved artifact
+agentxchain export --output artifacts/run-export.json
+agentxchain verify export --input artifacts/run-export.json
+
+# verify a pipeline artifact without touching disk
+agentxchain export | agentxchain verify export
+```
+
+Exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Export artifact verification passed |
+| `1` | Export artifact parsed but failed integrity or structural verification |
+| `2` | Command or input error |
 
 ## Migration
 

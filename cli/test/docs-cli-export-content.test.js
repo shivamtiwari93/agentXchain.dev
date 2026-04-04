@@ -34,6 +34,11 @@ describe('Export CLI docs contract', () => {
     assert.match(CLI_DOCS, /stdout by default/i);
   });
 
+  it('documents the raw-byte integrity contract truthfully', () => {
+    assert.match(CLI_DOCS, /content_base64/);
+    assert.match(CLI_DOCS, /verify export/i);
+  });
+
   it('documents both governed project and coordinator workspace export', () => {
     assert.match(CLI_DOCS, /governed project/i);
     assert.match(CLI_DOCS, /coordinator workspace/i);
@@ -55,6 +60,10 @@ describe('Export library contract', () => {
   it('exports both buildRunExport and buildCoordinatorExport', () => {
     assert.match(EXPORT_LIB, /export function buildRunExport/);
     assert.match(EXPORT_LIB, /export function buildCoordinatorExport/);
+  });
+
+  it('stores original file bytes for self-verification', () => {
+    assert.match(EXPORT_LIB, /content_base64/);
   });
 
   it('coordinator export includes the correct file roots', () => {
@@ -99,6 +108,7 @@ describe('Run export spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-EXPORT-001/);
     assert.match(SPEC, /AT-EXPORT-008/);
+    assert.match(SPEC, /content_base64/);
   });
 });
 
@@ -108,5 +118,6 @@ describe('Coordinator export spec alignment', () => {
     assert.match(COORD_SPEC, /AT-COORD-EXPORT-008/);
     assert.match(COORD_SPEC, /agentxchain_coordinator_export/);
     assert.match(COORD_SPEC, /recursively/i);
+    assert.match(COORD_SPEC, /content_base64/);
   });
 });

@@ -6,6 +6,8 @@ import { loadProjectContext, loadProjectState } from './config.js';
 import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
 import { loadCoordinatorState } from './coordinator-state.js';
 
+const EXPORT_SCHEMA_VERSION = '0.2';
+
 const COORDINATOR_INCLUDED_ROOTS = [
   'agentxchain-multi.json',
   '.agentxchain/multirepo/state.json',
@@ -104,6 +106,7 @@ function parseFile(root, relPath) {
     format,
     bytes: buffer.byteLength,
     sha256: sha256(buffer),
+    content_base64: buffer.toString('base64'),
     data,
   };
 }
@@ -149,7 +152,7 @@ export function buildRunExport(startDir = process.cwd()) {
   return {
     ok: true,
     export: {
-      schema_version: '0.1',
+      schema_version: EXPORT_SCHEMA_VERSION,
       export_kind: 'agentxchain_run_export',
       exported_at: new Date().toISOString(),
       project_root: relative(process.cwd(), root) || '.',
@@ -270,7 +273,7 @@ export function buildCoordinatorExport(startDir = process.cwd()) {
   return {
     ok: true,
     export: {
-      schema_version: '0.1',
+      schema_version: EXPORT_SCHEMA_VERSION,
       export_kind: 'agentxchain_coordinator_export',
       exported_at: new Date().toISOString(),
       workspace_root: relative(process.cwd(), workspaceRoot) || '.',

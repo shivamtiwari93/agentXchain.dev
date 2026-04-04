@@ -78,7 +78,10 @@ Each included file entry contains:
 - `format`: `json`, `jsonl`, or `text`
 - `bytes`
 - `sha256`
+- `content_base64`
 - `data`
+
+`content_base64` stores the original file bytes so the artifact can re-derive its own digests. Without that, `sha256` is just commentary.
 
 ### Included paths
 
@@ -111,6 +114,7 @@ Do not include:
 - Directory traversal order is stable
 - JSON output is pretty-printed
 - Missing optional paths are silently skipped
+- Original file bytes are preserved in `content_base64` for every entry
 
 ### Output behavior
 

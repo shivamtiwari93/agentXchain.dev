@@ -175,6 +175,7 @@ describe('export CLI', () => {
       assert.equal(result.status, 0, result.stderr);
 
       const exported = JSON.parse(result.stdout);
+      assert.equal(exported.schema_version, '0.2');
       assert.equal(exported.export_kind, 'agentxchain_run_export');
       assert.equal(exported.project.id, 'export-test');
       assert.equal(exported.summary.run_id, 'run_export_001');
@@ -182,6 +183,7 @@ describe('export CLI', () => {
       assert.deepEqual(exported.summary.retained_turn_ids, ['turn_000']);
 
       assert.equal(exported.files['agentxchain.json'].format, 'json');
+      assert.ok(exported.files['agentxchain.json'].content_base64);
       assert.equal(exported.files['.agentxchain/history.jsonl'].format, 'jsonl');
       assert.equal(exported.files['.agentxchain/hook-audit.jsonl'].data[0].phase, 'after_dispatch');
       assert.equal(

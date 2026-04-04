@@ -1,6 +1,6 @@
 # Coordinator Workspace Export Spec
 
-**Status**: Active
+**Status**: shipped
 **Depends on**: `RUN_EXPORT_SPEC.md` (governed project export, shipped in Turn 12)
 
 ## Purpose
@@ -26,7 +26,7 @@ Detection order:
 
 ```json
 {
-  "schema_version": "0.1",
+  "schema_version": "0.2",
   "export_kind": "agentxchain_coordinator_export",
   "exported_at": "<ISO timestamp>",
   "workspace_root": ".",
@@ -47,7 +47,7 @@ Detection order:
     "decision_entries": 2
   },
   "files": {
-    "agentxchain-multi.json": { "format": "json", "bytes": N, "sha256": "...", "data": {...} },
+    "agentxchain-multi.json": { "format": "json", "bytes": N, "sha256": "...", "content_base64": "...", "data": {...} },
     ".agentxchain/multirepo/state.json": { ... },
     ".agentxchain/multirepo/history.jsonl": { ... },
     ".agentxchain/multirepo/barriers.json": { ... },
@@ -93,6 +93,8 @@ The coordinator export includes these files from the workspace root:
 - `.agentxchain/multirepo/barrier-ledger.jsonl`
 
 Files that do not exist are simply omitted (coordinator may be pre-init).
+
+Every included file entry preserves the original bytes in `content_base64` so the export artifact is self-verifying.
 
 ## Failure Semantics
 
