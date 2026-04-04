@@ -170,4 +170,28 @@ Each successful child repo entry then embeds the full governed run export for th
 - coordinator-export summary fields against exported multirepo state and barriers
 - recursive verification of each nested child export when `repos.<repo_id>.ok === true`
 
+### Verification Report Shape (`--format json`)
+
+When verification completes (exit code `0` or `1`), the JSON report has this shape:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `overall` | `"pass"` or `"fail"` | `"pass"` when `errors` is empty, `"fail"` otherwise |
+| `schema_version` | `string` or `null` | Schema version from the artifact, or `null` if missing |
+| `export_kind` | `string` or `null` | Export kind from the artifact, or `null` if missing |
+| `file_count` | `number` | Count of keys in the artifact `files` map |
+| `repo_count` | `number` | Count of keys in `repos` (coordinator exports), or `0` for run exports |
+| `errors` | `string[]` | Structured error strings, each formatted as `"<path>: <message>"` |
+| `input` | `string` | Resolved file path or `"stdin"` |
+
+### Command Error Shape (exit code `2`)
+
+When the input cannot be read or is not valid JSON, the report has a different shape:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `overall` | `"error"` | Always `"error"` for command-level failures |
+| `input` | `string` | Resolved file path or `"stdin"` |
+| `message` | `string` | Human-readable error description |
+
 If you need CLI usage and exit codes, see the [`verify export` command reference](./cli#verify-export). If you need the constitutional boundary, go back to [Protocol Reference v6](./protocol-reference).

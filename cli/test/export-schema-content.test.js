@@ -344,6 +344,99 @@ describe('run export schema docs contract', () => {
   });
 });
 
+describe('verification report shape docs contract', () => {
+  it('AT-VER-REPORT-001: documents all verification report fields', () => {
+    const root = createGovernedProject();
+    try {
+      const result = buildRunExport(root);
+      assert.equal(result.ok, true, result.error);
+      const verification = verifyExportArtifact(result.export);
+      const reportKeys = Object.keys(verification.report);
+
+      for (const key of reportKeys) {
+        assert.match(
+          EXPORT_DOCS,
+          new RegExp('`' + escapeRegex(key) + '`'),
+          `expected export-schema.mdx to document verification report field \`${key}\``,
+        );
+      }
+
+      assert.match(EXPORT_DOCS, /`"pass"`/);
+      assert.match(EXPORT_DOCS, /`"fail"`/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VER-REPORT-002: documents the command-error report shape', () => {
+    assert.match(EXPORT_DOCS, /`"error"`/);
+    assert.match(EXPORT_DOCS, /`message`/);
+    assert.match(EXPORT_DOCS, /Command Error Shape/);
+    assert.match(EXPORT_DOCS, /exit code `2`/i);
+  });
+
+  it('AT-VER-REPORT-003: report fields match actual verifier output from source', () => {
+    const verifierSource = readFileSync(
+      join(__dirname, '..', 'src', 'lib', 'export-verifier.js'),
+      'utf8',
+    );
+    const commandSource = readFileSync(
+      join(__dirname, '..', 'src', 'commands', 'verify.js'),
+      'utf8',
+    );
+
+    assert.match(verifierSource, /overall:/);
+    assert.match(verifierSource, /schema_version:/);
+    assert.match(verifierSource, /export_kind:/);
+    assert.match(verifierSource, /file_count:/);
+    assert.match(verifierSource, /repo_count:/);
+    assert.match(verifierSource, /errors/);
+
+    assert.match(commandSource, /overall: 'error'/);
+    assert.match(commandSource, /input: loaded\.input/);
+    assert.match(commandSource, /message: loaded\.error/);
+  });
+
+  it('AT-VER-REPORT-004: real export verification report keys match documented set', () => {
+    const root = createGovernedProject();
+    try {
+      const result = buildRunExport(root);
+      assert.equal(result.ok, true, result.error);
+      const verification = verifyExportArtifact(result.export);
+
+      const expectedKeys = ['overall', 'schema_version', 'export_kind', 'file_count', 'repo_count', 'errors'];
+      for (const key of expectedKeys) {
+        assert.ok(
+          key in verification.report,
+          `expected verifier report to contain \`${key}\``,
+        );
+      }
+
+      assert.equal(verification.report.overall, 'pass');
+      assert.equal(verification.report.schema_version, '0.2');
+      assert.equal(verification.report.export_kind, 'agentxchain_run_export');
+      assert.ok(Array.isArray(verification.report.errors));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VER-REPORT-005: coordinator verification report includes repo_count', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      const result = buildCoordinatorExport(root);
+      assert.equal(result.ok, true, result.error);
+      const verification = verifyExportArtifact(result.export);
+
+      assert.equal(verification.report.overall, 'pass');
+      assert.equal(verification.report.export_kind, 'agentxchain_coordinator_export');
+      assert.ok(verification.report.repo_count >= 1, 'coordinator export must have repo_count >= 1');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('coordinator export schema docs contract', () => {
   it('AT-EXPORT-REF-004: documents the actual coordinator export keys and nested repo contract', () => {
     const root = createCoordinatorWorkspace();
