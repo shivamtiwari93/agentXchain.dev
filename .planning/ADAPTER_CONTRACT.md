@@ -159,7 +159,7 @@ Alternative config (command + args separated):
 - Reads `PROMPT.md` + `CONTEXT.md` from the dispatch bundle
 - Resolves provider, model, and API key from runtime config
 - Validates API key is present in environment
-- Builds provider-specific request (currently Anthropic only)
+- Builds provider-specific request (Anthropic and OpenAI supported; when `base_url` is set, overrides the default provider endpoint while preserving provider-specific request formatting)
 - Persists request metadata to `.agentxchain/dispatch/turns/<turn_id>/API_REQUEST.json` (excluding the API key)
 - Sends the HTTP request
 

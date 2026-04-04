@@ -125,9 +125,9 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 
 ## What Is Cut Entirely (No Version Planned)
 
-### CUT-1: OpenAI / Google Provider Adapters
+### ~~CUT-1: OpenAI / Google Provider Adapters~~ (SUPERSEDED)
 
-**Why cut:** The protocol is model-agnostic. The `api_proxy` adapter currently supports Anthropic. Adding OpenAI/Google providers adds maintenance burden with minimal governance value. Users who want non-Anthropic models use `local_cli` adapter with any agent runtime. Community contributions welcome; not on our roadmap.
+**Status:** OpenAI provider support shipped post-v2 (`DEC-APIPROXY-OPENAI-001`+). The api_proxy adapter now supports both Anthropic and OpenAI provider families. Google providers remain unplanned. `base_url` override is available for both providers (`DEC-APIPROXY-BASE-URL-001`–`004`). The original cut decision `DEC-V2-SCOPE-006` is partially superseded for OpenAI.
 
 ### CUT-2: Visual Workflow Builder / GUI Config Editor
 
@@ -166,5 +166,5 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 - `DEC-V2-SCOPE-003`: Directory-level new-file tamper detection is v2.1 (content-addressed manifests). v2.0 ships warning-based detection.
 - `DEC-V2-SCOPE-004`: Context invalidation payloads in `after_acceptance` hooks are v2 scope. They are informational signals for external consumers, not coordinator-internal state.
 - `DEC-V2-SCOPE-005`: Plugin system ships as thin wrapper over hooks. No marketplace, no isolation beyond filesystem tamper detection.
-- `DEC-V2-SCOPE-006`: OpenAI/Google provider adapters, visual workflow builder, public template marketplace, real-time streaming dashboard, and automatic cross-repo rollback are cut from all versions. Community contributions welcome for provider adapters.
+- `DEC-V2-SCOPE-006`: ~~OpenAI/~~Google provider adapters, visual workflow builder, public template marketplace, real-time streaming dashboard, and automatic cross-repo rollback are cut from all versions. OpenAI provider adapter shipped post-v2 (see CUT-1 supersession above). Community contributions welcome for remaining provider adapters.
 - `DEC-V2-SCOPE-007`: Protocol spec v6 is published alongside v2.0.0 as the constitutional document for multi-repo governance.

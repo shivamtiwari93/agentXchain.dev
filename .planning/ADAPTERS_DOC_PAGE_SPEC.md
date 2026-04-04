@@ -40,7 +40,7 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's three
 - When to use: automated dev turns with local coding agents
 
 ### 5. API Proxy Adapter
-- How it works: HTTP call to model provider (Anthropic v1)
+- How it works: HTTP call to model provider (supports Anthropic and OpenAI; `base_url` override available)
 - Write authority restriction: review_only roles only in v1
 - Retry logic: exponential backoff with jitter
 - Preflight tokenization: prevents wasted API calls

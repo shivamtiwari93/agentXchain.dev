@@ -97,9 +97,9 @@ v1.1 freezes the tokenizer strategy as:
 
 - `provider_local` only
 
-This means the token counter must track the provider request format actually used by `api_proxy`. For the current Anthropic-only runtime surface, the implementation must use an Anthropic-specific local tokenizer path. A generic `tiktoken`-style fallback is explicitly rejected for the default guardrail because the overflow check must be provider-aligned, not merely heuristic.
+This means the token counter must track the provider request format actually used by `api_proxy`. For Anthropic runtimes, the implementation uses an Anthropic-specific local tokenizer path. For OpenAI runtimes, `provider_local` preflight tokenization is not supported — config validation rejects the combination at startup (`DEC-APIPROXY-OPENAI-PROVIDER-SPEC`). This asymmetry is intentional: OpenAI does not publish an official local tokenizer, and a heuristic fallback is explicitly rejected because the overflow check must be provider-aligned, not merely approximate.
 
-Current implementation direction for Anthropic: use the official `@anthropic-ai/tokenizer` package behind a small AgentXchain wrapper. The exact package version is pinned in `cli/package.json` so fresh installs do not silently drift the guardrail behavior.
+Implementation for Anthropic: uses the official `@anthropic-ai/tokenizer` package behind a small AgentXchain wrapper. The exact package version is pinned in `cli/package.json` so fresh installs do not silently drift the guardrail behavior.
 
 ### Audit Artifacts
 
