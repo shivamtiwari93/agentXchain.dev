@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.9.0
+
+Runner layer: declared interface, ergonomic improvements, second-runner proof, public docs, and authenticated dashboard gate approvals. The protocol's runner-independence claim is now backed by a real second runner that imports the library boundary with zero CLI shell-out.
+
+### Runner Interface (v0.2)
+
+- New declared runner contract module (`runner-interface.js`) re-exports protocol-normative operations for any governed execution consumer: CLI, CI, hosted, or programmatic.
+- Interface includes lifecycle operations (init, assign, accept, reject, approve gates, escalate, reactivate), dispatch/staging support, hooks, notifications, concurrency locks, and config utilities.
+- `getTurnStagingResultPath` exported so runners can stage turn results without importing internal modules directly. Added in v0.2 after boundary leak was identified.
+- Interface version `0.2` — incremented per the versioning rule when surface-expanding operations are added.
+- New docs page: `/docs/runner-interface` with code-backed guard, cross-linked from CLI, quickstart, and protocol docs.
+
+### Assign Turn Ergonomics
+
+- `assignGovernedTurn()` success now returns the assigned `turn` at top level (`{ ok, state, turn }`), eliminating the need for consumers to recover the turn from `state.active_turns`.
+- Failed assignments do not fabricate a `turn: null` — absence means failure.
+- Real consumer updated: `coordinator-dispatch.js` uses `assignResult.turn` directly.
+
+### CI Runner Proof
+
+- New `examples/ci-runner-proof/run-one-turn.mjs` — standalone second runner that imports only `runner-interface.js` and executes one governed turn (init → assign → stage → accept) with artifact validation.
+- Proof validates post-acceptance artifacts: `state.json` (SHA256 + structure), `history.jsonl` (entry count + fields), `decision-ledger.jsonl` (entry count).
+- Dedicated GitHub Actions workflow (`ci-runner-proof.yml`) runs the proof on every push to main and on PRs.
+- 13-test contract guard enforces: no `child_process` import, no CLI binary references, no `turn-paths.js` direct import, runner-interface.js import present, script exit 0 with valid JSON.
+
+### Dashboard Gate Approvals
+
+- Dashboard is no longer read-only. Operators can now approve pending phase transitions and run completions directly from the dashboard UI.
+- `POST /api/actions/approve-gate` with per-process token auth via `X-AgentXchain-Token` (timing-safe comparison).
+- `GET /api/session` delivers the local auth token.
+- WebSocket remains strictly read-only — mutations are HTTP-only.
+- Blocked-state recovery stays CLI-only. Gate approval and recovery are categorically different authority models.
+
+### Evidence
+
+- 659 Vitest tests (36 files) + 1621 node --test (366 suites), 0 failures.
+- CI runner proof passes with runner interface v0.2.
+- Website production build passes.
+
 ## 2.8.0
 
 Governance reporting and protocol surface hardening. Operators can now generate human-readable governance reports from export artifacts, and the protocol reference boundary is formally documented with normative/non-normative separation.
