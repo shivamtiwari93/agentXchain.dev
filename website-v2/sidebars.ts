@@ -15,6 +15,7 @@ const sidebars: SidebarsConfig = {
         'protocol-reference',
         'runner-interface',
         'protocol-implementor-guide',
+        'remote-verification',
       ],
     },
     {

@@ -1,0 +1,288 @@
+---
+title: Remote Protocol Verification
+description: "HTTP contract for building a conformance server that the AgentXchain verifier can prove against remotely."
+---
+
+# Remote Protocol Verification
+
+This page documents the exact HTTP contract that the AgentXchain verifier uses when running `--remote`. If you are building a conformance server that proves your protocol implementation over HTTP, this is the normative reference.
+
+If you are building a local stdio adapter instead, start with the [Protocol Implementor Guide](./protocol-implementor-guide). If you want the CLI flags, see the [CLI Reference](./cli#verify-protocol).
+
+## Architecture
+
+The verifier **always owns the fixture corpus**. In remote mode, the verifier reads fixtures from its local `.agentxchain-conformance/fixtures/` directory, sends each fixture to the remote endpoint one at a time, and collects the result. The remote server materializes the fixture, executes the operation against its implementation, and returns a single result object.
+
+This means:
+
+- The server does not need to host or know about the fixture corpus.
+- The server receives one complete fixture JSON document per request.
+- The server returns one result JSON document per response.
+- The execution model is identical to stdio: one fixture in, one result out.
+
+## Endpoints
+
+Your conformance server must expose exactly two endpoints under a base URL:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/conform/capabilities` | Return the implementation's capabilities document |
+| `POST` | `/conform/execute` | Execute one fixture and return the result |
+
+The verifier constructs these by appending the fixed paths to the base URL passed via `--remote`. If the operator passes `--remote https://example.com/myrunner`, the verifier calls `https://example.com/myrunner/conform/capabilities` and `https://example.com/myrunner/conform/execute`.
+
+## `GET /conform/capabilities`
+
+### Request
+
+```http
+GET /conform/capabilities HTTP/1.1
+Host: example.com
+Connection: close
+Authorization: Bearer <token>
+```
+
+The `Authorization` header is only sent when the operator passes `--token`. If no token is provided, the header is omitted entirely.
+
+### Response
+
+Return `200 OK` with a JSON body:
+
+```json
+{
+  "implementation": "my-runner",
+  "version": "1.0.0",
+  "protocol_version": "v6",
+  "adapter": {
+    "protocol": "http-fixture-v1"
+  },
+  "tiers": [1, 2, 3],
+  "surfaces": {
+    "state_machine": true,
+    "turn_result_validation": true,
+    "gate_semantics": true,
+    "decision_ledger": true,
+    "history": true,
+    "config_schema": true
+  },
+  "metadata": {
+    "name": "My Runner",
+    "url": "https://example.com"
+  }
+}
+```
+
+### Required fields
+
+| Field | Type | Constraint |
+|-------|------|------------|
+| `implementation` | string | Non-empty |
+| `adapter.protocol` | string | Must be exactly `"http-fixture-v1"` |
+| `tiers` | array | Non-empty, elements must be `1`, `2`, or `3` |
+
+### Optional fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `version` | string | Human-readable implementation version |
+| `protocol_version` | string | Protocol version the implementation targets |
+| `surfaces` | object | Map of surface names to `true`. When present, enables surface enforcement |
+| `metadata` | object | Display metadata only |
+
+### Validation rules
+
+- `adapter.protocol` must be `"http-fixture-v1"`. Any other value (including `"stdio-fixture-v1"`) is rejected with: `capabilities.adapter.protocol must be 'http-fixture-v1'`.
+- `adapter.command` is not required and is ignored for remote adapters.
+- If `surfaces` is present and the operator passes `--surface X`, the verifier fails fast with exit code 2 if `X` is not declared. If `surfaces` is omitted, surface filtering works without enforcement.
+
+### Error responses
+
+| Condition | Verifier behavior |
+|-----------|-------------------|
+| Non-200 HTTP status | Error: `Failed to fetch remote capabilities: HTTP {status}` |
+| Body is not valid JSON | Error: `Invalid capabilities response: {parse error}` |
+| Schema validation fails | Error: `Invalid capabilities.json: {details}` |
+| Network timeout | Error: `Failed to fetch remote capabilities timeout after {ms}ms` |
+| Connection refused / DNS failure | Error: `Failed to fetch remote capabilities network error: {details}` |
+
+All of these are fatal. The verifier exits with code 2.
+
+## `POST /conform/execute`
+
+### Request
+
+```http
+POST /conform/execute HTTP/1.1
+Host: example.com
+Connection: close
+Content-Type: application/json
+Content-Length: 1234
+Authorization: Bearer <token>
+```
+
+The request body is the **full fixture JSON document** — the same object that a stdio adapter receives on stdin. The `Content-Length` header is computed automatically from the serialized body.
+
+Example body:
+
+```json
+{
+  "fixture_id": "SM-001",
+  "tier": 1,
+  "surface": "state_machine",
+  "description": "Completed state rejects assignment",
+  "type": "reject",
+  "setup": {
+    "state": { "status": "completed", "phase": "qa", "run_id": "run_001" },
+    "config": { "roles": { "dev": { "runtime": "manual" } } }
+  },
+  "input": {
+    "operation": "assign_turn",
+    "args": { "role_id": "dev" }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_state_transition",
+    "state_unchanged": true
+  }
+}
+```
+
+Your server must:
+
+1. Parse the fixture JSON.
+2. Materialize the `setup` state in your implementation's test workspace.
+3. Execute `input.operation` against your implementation.
+4. Compare the result against `expected`.
+5. Return a result JSON document.
+
+### Response
+
+Return `200 OK` with a JSON body:
+
+```json
+{
+  "status": "pass",
+  "message": "optional human-readable note",
+  "actual": null
+}
+```
+
+### Valid status values
+
+| Status | Meaning |
+|--------|---------|
+| `pass` | Fixture behavior matched expectation |
+| `fail` | Fixture executed but the behavior was wrong |
+| `error` | Server could not evaluate the fixture correctly |
+| `not_implemented` | Fixture surface is intentionally unsupported |
+
+The `message` field is optional but useful for debugging. The `actual` field should contain any observed state that differs from `expected`, or `null` if not applicable.
+
+### Error handling
+
+| Condition | Verifier behavior |
+|-----------|-------------------|
+| Non-200 HTTP status, JSON body with `message` | Fixture error: `HTTP {status}: {message}` |
+| Non-200 HTTP status, non-JSON body | Fixture error: `HTTP {status}: {body}` |
+| 200 but body is not valid JSON | Fixture error: `Malformed response: {parse error}` |
+| 200 but `status` field missing or invalid | Fixture error: `Adapter response missing valid "status"` |
+| Network timeout | Fixture error: `HTTP fixture execution timeout after {ms}ms` |
+| Connection error | Fixture error: `HTTP fixture execution network error: {details}` |
+
+Fixture-level errors do not abort the run. The verifier records them as `error` status for that fixture and continues with the remaining fixtures.
+
+## Authentication
+
+Slice 1 supports a single auth mechanism: optional Bearer token.
+
+When the operator passes `--token`, the verifier sends `Authorization: Bearer {token}` on **both** the capabilities request and every fixture execution request. When no token is provided, the header is omitted.
+
+No other auth mechanisms are supported in the current implementation: no OAuth, no mTLS, no credential stores.
+
+## Timeout
+
+The `--timeout` flag (default: `30000` ms) sets a per-fixture timeout for remote HTTP requests. It applies to each individual `POST /conform/execute` call and to the initial `GET /conform/capabilities` call.
+
+When a request exceeds the timeout, the underlying TCP socket is destroyed and the verifier records a timeout error for that fixture (or exits with code 2 for capabilities fetch).
+
+## Minimal conformance server example
+
+```js
+import { createServer } from 'node:http';
+
+const capabilities = {
+  implementation: 'my-runner',
+  version: '0.1.0',
+  protocol_version: 'v6',
+  adapter: { protocol: 'http-fixture-v1' },
+  tiers: [1],
+  surfaces: { state_machine: true },
+};
+
+function executeFixture(fixture) {
+  // Map fixture.input.operation onto your implementation
+  // Compare result against fixture.expected
+  // Return { status, message, actual }
+  return { status: 'not_implemented', message: null, actual: null };
+}
+
+const server = createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/conform/capabilities') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(capabilities));
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/conform/execute') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const fixture = JSON.parse(body);
+        const result = executeFixture(fixture);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(500, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ message: error.message }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
+});
+
+server.listen(8080, () => {
+  console.log('Conformance server on http://localhost:8080');
+});
+```
+
+Verify with:
+
+```bash
+agentxchain verify protocol --tier 1 --remote http://localhost:8080 --format json
+```
+
+## Fixture corpus ownership
+
+The verifier ships and owns the canonical fixture corpus. Remote servers never need to host fixtures. The sequence is:
+
+1. Verifier loads fixtures from its local `.agentxchain-conformance/fixtures/` directory.
+2. Verifier sends each selected fixture to `POST /conform/execute`.
+3. Server materializes, executes, compares, responds.
+4. Verifier collects results into the report.
+
+This means the fixture corpus evolves with the verifier, not with your server. When the verifier adds new fixtures (new tiers, new surfaces, new edge cases), your server gets tested against them automatically. You do not need to update your server to accept new fixtures — you only need to handle the operations they describe.
+
+## Report shape in remote mode
+
+When verifying remotely, the JSON report includes:
+
+| Field | Value |
+|-------|-------|
+| `target_root` | `null` |
+| `remote` | The normalized base URL |
+
+All other report fields (`implementation`, `protocol_version`, `tier_requested`, `results`, `overall`) are identical to local verification. This means CI pipelines can consume the same report format regardless of verification mode.

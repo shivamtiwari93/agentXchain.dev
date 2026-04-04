@@ -43,7 +43,7 @@ Remote mode:
 - `POST /conform/execute`
 - `adapter.protocol: "http-fixture-v1"`
 
-The verifier still owns the canonical local fixture corpus in remote mode. The remote endpoint receives one full fixture JSON document per POST and returns the same `{status, message, actual}` payload that a local stdio adapter would have emitted.
+The verifier still owns the canonical local fixture corpus in remote mode. The remote endpoint receives one full fixture JSON document per POST and returns the same `{status, message, actual}` payload that a local stdio adapter would have emitted. For the full HTTP request/response contract, see [Remote Protocol Verification](./remote-verification).
 
 ## Writing `capabilities.json`
 
