@@ -1,6 +1,6 @@
 # V1.1 Release Checklist — AgentXchain
 
-> Gap analysis: what must be true before a credible `1.1.0` release cut can begin.
+> **SUPERSEDED.** This was the v1.1.0 release gate. v1.1.0 was never published to npm — the project shipped 0.8.x then jumped to 2.1.1. The unchecked release-infrastructure and human-gated items were never executed. Preserved for historical decision context on release-gate design.
 
 ---
 

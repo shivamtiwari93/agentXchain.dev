@@ -1,6 +1,6 @@
 # V2.1 Release Notes Spec — AgentXchain
 
-> Contract for the operator-facing `v2.1.0` release artifacts on `main`.
+> **SUPERSEDED.** This was the contract for v2.1.0 release artifacts. v2.1.0 was never published — the project shipped v2.1.1 as the first post-0.8.x npm release, then continued through v2.10.0. The release-notes draft and CHANGELOG entries described here were absorbed into later releases. Preserved for historical context.
 
 ---
 

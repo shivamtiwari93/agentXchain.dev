@@ -1,6 +1,8 @@
 # Release Cut Spec — v1
 
-> Contract for the human-operated release-day sequence that turns the release-ready governed CLI into the public `1.0.0` artifact.
+> **SUPERSEDED.** This spec was the v1.0.0 release-day contract. v1.0.0 was never published to npm (project shipped 0.8.x then jumped to 2.1.1). The general release-cut pattern (clean workspace → preflight → version bump → strict preflight → tag push → workflow → homebrew) remains valid and is now the implicit contract in `HUMAN_TASKS.md` and the `publish-npm-on-tag.yml` workflow. Preserved for historical decision context (`DEC-RELEASE-*` series).
+
+> ~~Contract for the human-operated release-day sequence that turns the release-ready governed CLI into the public `1.0.0` artifact.~~
 
 ---
 

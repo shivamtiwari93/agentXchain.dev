@@ -1,6 +1,6 @@
 # Release Preflight Spec — v1
 
-> Contract for the local release-readiness script at `cli/scripts/release-preflight.sh`.
+> **SUPERSEDED** by `RELEASE_PREFLIGHT_VNEXT_SPEC.md`. This was the v1 preflight contract hardcoded for 1.0.0. The script now supports `--target-version` parameterization. Preserved for historical context on the original preflight design.
 
 ---
 

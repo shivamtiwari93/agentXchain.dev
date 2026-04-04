@@ -1,6 +1,6 @@
 # V1.1 Release Scope Spec — AgentXchain
 
-> Defines which in-tree features graduate to the v1.1 release contract, their activation semantics, and acceptance criteria.
+> **SUPERSEDED.** This defined the v1.1.0 graduating features. v1.1.0 was never published as a separate release — these features shipped as part of the 2.x series starting at v2.1.1. The activation semantics and acceptance criteria documented here remain accurate descriptions of the shipped behavior. Preserved for historical feature-scope context.
 
 ---
 

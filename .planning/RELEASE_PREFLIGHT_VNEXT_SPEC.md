@@ -37,7 +37,7 @@ cd cli && npm run preflight:release:strict
 ### Flag Behavior
 
 ```text
---target-version <semver>   Target release version. Defaults to "1.0.0" when omitted.
+--target-version <semver>   Target release version. Defaults to "2.0.0" when omitted.
 --strict                    Post-bump validation mode (unchanged from v1 spec).
 ```
 
@@ -70,9 +70,7 @@ The script prints:
 
 ### 1. Default Version
 
-When `--target-version` is omitted, the script defaults to `1.0.0`. This preserves exact backward compatibility: any existing operator workflow or CI job that invokes `release-preflight.sh` without the new flag sees identical behavior.
-
-This default is intentionally **not** read from `package.json`. Auto-reading the current package version would silently remove the existing pre-bump mismatch signal, which is one of the main reasons the default-mode preflight is useful before `npm version 1.0.0`.
+When `--target-version` is omitted, the script defaults to `2.0.0` (the original default when the script was last updated). The default is intentionally **not** read from `package.json` — auto-reading the current package version would silently remove the pre-bump mismatch signal. In practice, every release cut should pass `--target-version` explicitly; the default is a fallback, not a recommendation.
 
 ### 2. Check Set (unchanged order, parameterized values)
 
@@ -107,17 +105,7 @@ to:
 AgentXchain v<target-version> Release Preflight
 ```
 
-When the target version is `1.0.0`, the script keeps the existing human-tasks line exactly:
-
-```
-Human-gated release items remain in .planning/V1_RELEASE_CHECKLIST.md.
-```
-
-For `1.1.0` and above, the line becomes:
-
-```
-Human-gated release items remain in .planning/V1_RELEASE_CHECKLIST.md (v1.0) or .planning/V1_1_RELEASE_CHECKLIST.md (v1.1+).
-```
+The banner references `HUMAN_TASKS.md` for any remaining human-gated release items. The v1-specific checklist references (`V1_RELEASE_CHECKLIST.md`, `V1_1_RELEASE_CHECKLIST.md`) are superseded; see the `SUPERSEDED` headers in those files.
 
 ### 5. npm Script Aliases
 
@@ -128,7 +116,7 @@ The existing `package.json` scripts remain unchanged for the `1.0.0` path:
 "preflight:release:strict": "bash scripts/release-preflight.sh --strict"
 ```
 
-No new npm scripts are added. The `--target-version` flag is passed directly by the operator or by future CI configuration. Adding version-specific npm aliases (e.g., `preflight:release:1.1`) is deferred — the flag is sufficient.
+No new npm scripts are added. The `--target-version` flag is passed directly by the operator or by CI configuration. Adding version-specific npm aliases is deferred — the flag is sufficient.
 
 ### 6. Scope Exclusions
 
@@ -163,8 +151,8 @@ All v1 error cases from `RELEASE_PREFLIGHT_SPEC.md` remain unchanged.
 
 ### Backward Compatibility
 
-1. Running `bash cli/scripts/release-preflight.sh` with no flags produces output identical to the current v1 script (banner says `v1.0.0`, checks for `## 1.0.0`, compares package version to `1.0.0`).
-2. Running `bash cli/scripts/release-preflight.sh --strict` behaves identically to the current strict mode.
+1. Running `bash cli/scripts/release-preflight.sh` with no flags uses the hardcoded default version (`2.0.0`) for banner, CHANGELOG heading, and package version checks.
+2. Running `bash cli/scripts/release-preflight.sh --strict` applies strict mode against the default version.
 3. Existing `npm run preflight:release` and `npm run preflight:release:strict` work unchanged.
 
 ### Version Parameterization
@@ -195,7 +183,7 @@ The change is minimal. The script gains ~15 lines:
 
 ```bash
 # Defaults
-TARGET_VERSION="1.0.0"
+TARGET_VERSION="2.0.0"
 
 # Parse flags
 while [[ $# -gt 0 ]]; do

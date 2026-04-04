@@ -1,6 +1,8 @@
 # Release Brief — AgentXchain v2.1.0
 
-`v2.1.0` is the active release identity on `main`. It is the next release after the corrective `v2.0.1` publish completes from `release/v2.0.1`.
+> **SUPERSEDED.** This brief was written for v2.1.0 when it was the planned next release after v2.0.1. Neither v2.0.0, v2.0.1, nor v2.1.0 were ever published to npm. The project shipped v2.1.1 as the first post-0.8.x release and is now at v2.10.0. The release sequence described here is no longer actionable. Preserved for historical context.
+
+~~`v2.1.0` is the active release identity on `main`. It is the next release after the corrective `v2.0.1` publish completes from `release/v2.0.1`.~~
 
 ## Pre-Conditions
 

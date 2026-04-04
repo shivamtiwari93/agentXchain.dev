@@ -1,6 +1,6 @@
 # V1.1 Release Handoff Spec — AgentXchain
 
-> Sequencing contract for the future human-operated `1.1.0` cut, with explicit separation from the still-active `1.0.0` release path.
+> **SUPERSEDED.** This spec sequenced v1.1.0 after v1.0.0. Neither version was ever published to npm. The project shipped 0.8.x then jumped to 2.1.1+. Preserved for historical decision context on release-track separation.
 
 ---
 

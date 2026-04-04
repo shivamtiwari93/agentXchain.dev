@@ -1,6 +1,8 @@
 # AgentXchain v2.1.0 Release Notes Draft
 
-Status: draft only. Do not publish until `v2.0.1` is published to npm, merged from `release/v2.0.1` into `main`, and the merged `main` suite is green.
+> **SUPERSEDED.** This draft was never published. v2.1.0 was never released to npm — the project shipped v2.1.1 directly, then continued through v2.10.0. The v2.0.1 precondition was never met. Preserved for historical context.
+
+~~Status: draft only. Do not publish until `v2.0.1` is published to npm, merged from `release/v2.0.1` into `main`, and the merged `main` suite is green.~~
 
 ## Release Theme
 

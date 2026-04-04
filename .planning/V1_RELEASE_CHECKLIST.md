@@ -1,6 +1,6 @@
 # V1.0 Release Checklist — AgentXchain Governed CLI
 
-> Gap analysis: what separates v0.9.0 (current) from a credible v1.0.0 release.
+> **SUPERSEDED.** This was the v1.0.0 gap analysis from v0.9.0. v1.0.0 was never published to npm — the project shipped 0.8.x then jumped to 2.1.1. The unchecked release-day items (workspace prep, version bump, tag push, Homebrew update) were never executed for v1.0.0 and are not actionable. Preserved for historical feature-readiness context.
 
 ---
 

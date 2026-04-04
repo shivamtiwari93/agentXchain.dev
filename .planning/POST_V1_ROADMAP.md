@@ -1,6 +1,6 @@
 # Post-v1 Roadmap — AgentXchain
 
-> Draft priorities after the governed `1.0.0` public release.
+> **SUPERSEDED.** This was the post-v1.0.0 roadmap. v1.0.0 was never published — the project jumped from 0.8.x to the 2.x series. The features listed here (parallel turns, retry, tokenization, etc.) shipped as part of 2.1.1+. Preserved for historical planning context.
 
 ---
 

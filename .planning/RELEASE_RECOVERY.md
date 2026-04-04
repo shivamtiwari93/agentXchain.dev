@@ -1,6 +1,6 @@
 # Release Recovery — AgentXchain
 
-> Agent-owned execution tracker for recovering the `v2.0.0` release path.
+> **SUPERSEDED.** This tracked the v2.0.0 → v2.0.1 recovery path. Neither v2.0.0 nor v2.0.1 were ever published to npm. The project recovered by shipping v2.1.1 directly, skipping both versions. The unchecked agent tasks (create v2.0.1 branch, backport, publish) were never executed. Preserved for historical context on release-recovery decision-making.
 
 This file is intentionally separate from `HUMAN_TASKS.md`.
 
