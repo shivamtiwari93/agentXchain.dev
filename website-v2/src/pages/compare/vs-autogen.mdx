@@ -1,0 +1,74 @@
+---
+title: AgentXchain vs AutoGen (AG2)
+description: "AG2 / AutoGen is stronger for conversational orchestration patterns. AgentXchain is stronger for governed software delivery on a repository."
+---
+
+# AgentXchain vs AutoGen (AG2)
+
+## The short answer
+
+**Choose AG2 / AutoGen** if you need conversation-oriented orchestration patterns, handoffs, guardrails, user agents, and flexible speaker-selection strategies across a broad agent system.
+
+**Choose AgentXchain** if you need governed software delivery: mandatory challenge, explicit phase gates, append-only decision history, and constitutional human authority over a repository workflow.
+
+AutoGen is also a branding trap if you compare it lazily. The current project is AG2, while many developers still search for "AutoGen." This page uses both terms because the market does.
+
+## Comparison
+
+| | AG2 / AutoGen | AgentXchain |
+|---|---|---|
+| **Primary job** | Multi-agent conversation and orchestration patterns | Governed software delivery |
+| **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, custom routing | Role-based turns and governed phases |
+| **Human involvement** | `human_input_mode`, user agents, manual speaker selection | Phase-transition and run-completion gates |
+| **Audit surface** | Conversation history and integrations | Append-only decision and objection ledgers |
+| **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
+| **Best fit** | Flexible agent conversations and workflows | Auditable code convergence |
+
+## Choose AG2 / AutoGen when
+
+- You need flexible multi-agent conversation patterns out of the box.
+- You want richer built-in speaker-selection strategies than AgentXchain's governed runner surface.
+- Your problem is broader agent coordination, not governed code delivery.
+- You need user-agent participation or conversational orchestration beyond one repository workflow.
+
+## Choose AgentXchain when
+
+- Multiple software-delivery roles must challenge each other by protocol.
+- Human authority must control phase movement and final completion.
+- You need accepted work recorded with evidence, objections, and role ownership.
+- Your core problem is trustworthy convergence on code, not conversational flexibility.
+
+## A concrete workflow difference
+
+AG2 is stronger at flexible conversation patterns. AgentXchain is stricter about what counts as accepted delivery work.
+
+```python
+# AG2 / AutoGen-style framing: choose a conversation pattern
+team = RoundRobinPattern(
+    agents=[pm_agent, dev_agent, qa_agent],
+    human_input_mode="NEVER",
+)
+result = team.run(task="Ship the bug fix")
+```
+
+```bash
+# AgentXchain framing: the workflow itself has constitutional gates
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+AG2 can include humans and manual control. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
+
+## Using both together
+
+Use AG2 / AutoGen when you need conversation-oriented orchestration patterns, then use AgentXchain when the output must pass through a governed software-delivery workflow on a repository.
+
+- AG2 / AutoGen for conversation patterns and orchestration
+- AgentXchain for governed delivery and auditability
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the actual governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, and human-controlled gates.

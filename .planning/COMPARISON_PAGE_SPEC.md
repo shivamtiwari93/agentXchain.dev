@@ -1,95 +1,91 @@
 # Comparison Page Spec
 
-> Public website spec for targeted SEO comparison pages.
-> Scope: `website/docs/vs-crewai.html`, `website/docs/vs-langgraph.html`, and `website/docs/vs-openai-agents-sdk.html`
+**Status:** Shipped and expanded on 2026-04-04
 
----
+Public website spec for targeted comparison pages under the Docusaurus surface.
 
 ## Purpose
 
-Ship dedicated comparison pages that explain where AgentXchain fits relative to adjacent agent frameworks without drifting into lazy "we win everything" marketing.
+Ship honest comparison pages that explain where AgentXchain fits relative to adjacent agent frameworks without collapsing into lazy "we beat everyone" marketing.
 
 These pages exist because:
 
-- the landing-page comparison table is too shallow to rank or convert for `agentxchain vs <framework>` searches
-- the repo already has verified positioning language in `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
-- public copy must make the governance wedge concrete with examples, not slogans
+- the homepage positioning table is intentionally shallow and not enough for `agentxchain vs <framework>` searches
+- the repo already has verified positioning truth in `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
+- public comparison copy must be code-backed and drift-resistant, not an orphaned marketing artifact
 
 ## Interface
 
 ### Routes
 
-- `/docs/vs-crewai.html`
-- `/docs/vs-langgraph.html`
-- `/docs/vs-openai-agents-sdk.html`
+- `/compare/vs-crewai`
+- `/compare/vs-langgraph`
+- `/compare/vs-openai-agents-sdk`
+- `/compare/vs-autogen`
 
 ### Inputs
 
-- public positioning already approved in `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
-- existing static docs shell in `website/docs/*.html`
-- current landing-page comparison table in `website/index.html`
+- `.planning/COMPETITIVE_POSITIONING_MATRIX.md`
+- `website-v2/src/pages/index.tsx`
+- `website-v2/docusaurus.config.ts`
 
 ### Outputs
 
-- three standalone HTML pages under `website/docs/`
-- homepage links pointing to all comparison pages from the comparison section and footer
+- four standalone MDX pages under `website-v2/src/pages/compare/`
+- homepage comparison CTA links to all four pages
+- navbar and footer links to all four pages
+- a code-backed contract test guarding route presence, honest positioning, and internal docs linkage
 
 ## Behavior
 
 Each comparison page must:
 
 1. State the honest top-line verdict quickly.
-2. Explain where the competitor is stronger today.
+2. Explicitly say where the competitor is stronger today.
 3. Explain where AgentXchain is narrower and better suited.
-4. Show one concrete workflow/code example that makes the governance gap legible.
+4. Include at least one concrete example block that makes the governance gap legible.
 5. Explain complementarity when that is the correct framing.
-6. Link back into AgentXchain docs and protocol pages so readers can verify claims.
+6. Link into `/docs/quickstart` and `/docs/protocol` so readers can verify claims.
 
 ### Page Structure
 
-Each page should include:
+Each page must include:
 
-- SEO-aware title and meta description with the framework name
-- hero section with concise verdict
-- "short answer" section
-- comparison matrix focused on governance, not generic orchestration
-- "choose X when..." guidance for both tools
-- concrete example snippet
-- direct CTA into AgentXchain quickstart/protocol
+- title and description frontmatter with the framework name
+- `## The short answer`
+- `## Comparison`
+- `## Choose ... when`
+- `## A concrete workflow difference`
+- `## Using both together`
+- at least one fenced code block
+- explicit docs CTA links
 
 ### Content Constraints
 
 - Do not claim competitors lack human review or observability outright.
-- Do not claim AgentXchain replaces CrewAI, LangGraph, or the OpenAI Agents SDK.
+- Do not claim AgentXchain replaces CrewAI, LangGraph, AG2 / AutoGen, or the OpenAI Agents SDK.
 - Do not present AgentXchain as the strongest general orchestration framework.
-- Do explicitly say each competitor is stronger in their own category.
+- Do explicitly say each competitor is stronger in its own category.
+- AutoGen copy must acknowledge current AG2 branding so the page is not historically stale on arrival.
 
 ## Error Cases
 
 - If a page says AgentXchain is better at generic orchestration, the page is wrong.
 - If a page hides competitor strengths, the page is dishonest.
-- If a page duplicates the landing-page table without a concrete example, it is low-value SEO filler.
-- If the pages are not linked from the homepage, they are discoverability theater.
+- If a page has no concrete example block, it is low-value SEO filler.
+- If homepage, navbar, or footer links drift from the shipped routes, discoverability is broken.
+- If the spec still points at retired `website/docs/*.html`, the spec is stale and untrustworthy.
 
 ## Acceptance Tests
 
-1. `website/docs/vs-crewai.html` exists with:
-   - canonical URL
-   - references to both CrewAI strengths and AgentXchain strengths
-   - at least one concrete code/example block
-2. `website/docs/vs-langgraph.html` exists with:
-   - canonical URL
-   - references to both LangGraph strengths and AgentXchain strengths
-   - at least one concrete code/example block
-3. `website/docs/vs-openai-agents-sdk.html` exists with:
-   - canonical URL
-   - references to both OpenAI Agents SDK strengths and AgentXchain strengths
-   - at least one concrete code/example block
-4. `website/index.html` links to all comparison pages from the comparison surface.
-5. `website/index.html` footer links to all comparison pages.
-6. Public claims remain consistent with `.planning/COMPETITIVE_POSITIONING_MATRIX.md`.
+- `AT-COMP-001`: `website-v2/src/pages/compare/vs-crewai.mdx` exists and includes honest CrewAI strengths, AgentXchain strengths, a code block, and docs links.
+- `AT-COMP-002`: `website-v2/src/pages/compare/vs-langgraph.mdx` exists and includes honest LangGraph strengths, AgentXchain strengths, a code block, and docs links.
+- `AT-COMP-003`: `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx` exists and includes honest Agents SDK strengths, AgentXchain strengths, a code block, and docs links.
+- `AT-COMP-004`: `website-v2/src/pages/compare/vs-autogen.mdx` exists and includes honest AG2 / AutoGen strengths, AgentXchain strengths, a code block, and docs links.
+- `AT-COMP-005`: `website-v2/src/pages/index.tsx` links to all four comparison pages from the comparison surface.
+- `AT-COMP-006`: `website-v2/docusaurus.config.ts` navbar and footer link to all four comparison pages.
+- `AT-COMP-007`: Public claims remain consistent with `.planning/COMPETITIVE_POSITIONING_MATRIX.md`.
 
 ## Open Questions
 
-1. ~~Should we add a third page for `vs-openai-agents-sdk.html` after these two ship?~~ **Resolved: Yes, shipped in Turn 17.**
-2. Should we create a comparison index page now that there are 3 dedicated comparisons?
+- Should the site later ship a `/compare` index page once the comparison surface grows beyond four pages?

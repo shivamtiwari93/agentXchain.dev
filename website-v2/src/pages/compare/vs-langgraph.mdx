@@ -1,47 +1,75 @@
 ---
 title: AgentXchain vs LangGraph
-description: "LangGraph is stronger for durable graph orchestration. AgentXchain is stronger for governed delivery on a codebase."
+description: "LangGraph is stronger for durable graph orchestration. AgentXchain is stronger for governed software delivery on a codebase."
 ---
 
 # AgentXchain vs LangGraph
 
 ## The short answer
 
-**Choose LangGraph** if you need explicit graph control flow, durable execution, interrupts, time-travel debugging, and long-running agent systems.
+**Choose LangGraph** if you need graph-shaped control flow, durable execution, interrupts, time-travel debugging, and long-running agent systems outside a narrow software-delivery workflow.
 
-**Choose AgentXchain** if you need PM/dev/QA challenge dynamics, human-controlled phase gates, repo-local audit trails, and governed code convergence.
+**Choose AgentXchain** if you need structured disagreement, human-gated phase transitions, repo-local audit trails, and governed convergence on shippable code.
 
-They operate at different layers.
+They operate at different layers. LangGraph is stronger for runtime orchestration. AgentXchain is stronger for delivery governance.
 
 ## Comparison
 
 | | LangGraph | AgentXchain |
 |---|---|---|
-| **Primary job** | Graph orchestration | Governed delivery |
-| **Workflow model** | Developer-defined nodes/edges | Role-based turns + gates |
-| **Mandatory challenge** | No | Yes — protocol-enforced |
-| **Human authority** | Interrupts / intervention | Phase + ship gates + recovery |
-| **Audit surface** | Persisted state + LangSmith | Append-only decision ledgers |
+| **Primary job** | Graph/state-machine orchestration | Governed software delivery |
+| **Control flow** | Developer-defined nodes and edges | Role-based turns and protocol gates |
+| **Human authority** | Interrupts and state intervention | Explicit phase and completion approvals |
+| **Observability** | Durable state plus LangSmith | Append-only local delivery ledgers |
+| **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Long-running agent apps | Auditable code convergence |
 
 ## Choose LangGraph when
 
-- Need explicit graph branching, retries, loops, interrupts, durable execution
-- Building an always-on or long-running agent system, not a governed repo workflow
-- Care more about runtime orchestration and state than delivery governance
-- Want the broader LangGraph / LangSmith ecosystem
+- You need branching graphs, loops, retries, interrupts, and durable long-running execution.
+- You care more about runtime orchestration than about repo-level delivery governance.
+- You want the broader LangGraph and LangSmith ecosystem.
+- Your system is an always-on agent application, not a governed software team workflow.
 
 ## Choose AgentXchain when
 
-- PM, dev, QA must challenge each other (structural enforcement)
-- Need human-controlled planning gates and final ship approval
-- Need accepted changes recorded with role ownership, objections, and evidence
-- Care about governed delivery over graph expressiveness
+- Agents in different roles must challenge each other before work is accepted.
+- Human approval must control phase movement and ship decisions explicitly.
+- You need a local audit trail for turns, objections, and accepted delivery evidence.
+- You want protocol-backed convergence on one repository, not just graph flexibility.
 
-## The difference
+## A concrete workflow difference
 
-LangGraph provides powerful runtime orchestration. AgentXchain provides delivery governance. LangGraph doesn't structurally prevent blind agreement between agents. AgentXchain rejects it as a protocol violation.
+LangGraph lets you define runtime control flow directly. AgentXchain fixes the software-delivery constitution first, then routes turns through it.
+
+```python
+# LangGraph-style framing: define graph nodes and edges
+graph.add_node("plan", plan_agent)
+graph.add_node("implement", dev_agent)
+graph.add_node("verify", qa_agent)
+graph.add_edge("plan", "implement")
+graph.add_edge("implement", "verify")
+graph.add_edge("verify", END)
+```
+
+```bash
+# AgentXchain framing: the phase model and authority are first-class
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+LangGraph can absolutely support human interrupts. What it does not provide by default is a delivery constitution that forces disagreement, role ownership, and ship-gate evidence.
 
 ## Using both together
 
-A useful split: LangGraph for agent runtime orchestration, AgentXchain for governed codebase delivery. Runtime orchestration and delivery governance are complementary.
+Use LangGraph to orchestrate long-running agent behavior, and use AgentXchain when that behavior needs to converge on governed software delivery for a repository.
+
+- LangGraph for runtime state machines
+- AgentXchain for governed repository workflow
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the operator loop.
+- Read the [Protocol](/docs/protocol) for turns, gates, objections, and decision history.

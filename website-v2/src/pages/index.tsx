@@ -313,6 +313,7 @@ function Comparison() {
           <Link className="btn-secondary" to="/compare/vs-crewai">vs CrewAI</Link>
           <Link className="btn-secondary" to="/compare/vs-langgraph">vs LangGraph</Link>
           <Link className="btn-secondary" to="/compare/vs-openai-agents-sdk">vs OpenAI Agents SDK</Link>
+          <Link className="btn-secondary" to="/compare/vs-autogen">vs AutoGen</Link>
         </div>
       </div>
     </section>

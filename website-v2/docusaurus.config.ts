@@ -95,6 +95,7 @@ const config: Config = {
             {to: '/compare/vs-crewai', label: 'vs CrewAI'},
             {to: '/compare/vs-langgraph', label: 'vs LangGraph'},
             {to: '/compare/vs-openai-agents-sdk', label: 'vs OpenAI Agents SDK'},
+            {to: '/compare/vs-autogen', label: 'vs AutoGen'},
           ],
         },
         {
@@ -130,6 +131,7 @@ const config: Config = {
             {label: 'vs CrewAI', to: '/compare/vs-crewai'},
             {label: 'vs LangGraph', to: '/compare/vs-langgraph'},
             {label: 'vs OpenAI Agents SDK', to: '/compare/vs-openai-agents-sdk'},
+            {label: 'vs AutoGen', to: '/compare/vs-autogen'},
           ],
         },
         {

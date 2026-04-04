@@ -1,50 +1,75 @@
 ---
 title: AgentXchain vs CrewAI
-description: "CrewAI is better at general agent orchestration. AgentXchain is better at governed software delivery."
+description: "CrewAI is stronger for general agent orchestration. AgentXchain is stronger for governed software delivery on a shared codebase."
 ---
 
 # AgentXchain vs CrewAI
 
 ## The short answer
 
-**Choose CrewAI** if you need a broad agent orchestration framework with crew/flow abstractions, rich provider support, and observability across diverse agent workflows.
+**Choose CrewAI** if you need a broad agent orchestration framework with crews, flows, provider breadth, and stronger application-level observability today.
 
-**Choose AgentXchain** if you need governance for multiple agents shipping software — mandatory challenge, phase gates, decision provenance, and human authority at ship decisions.
+**Choose AgentXchain** if you need governed software delivery: mandated challenge, explicit phase gates, append-only decision history, and constitutional human authority at ship-critical moments.
 
-They solve different problems. You can use both.
+They solve different problems. If your stack needs both runtime orchestration and governed repository convergence, you can use both.
 
 ## Comparison
 
 | | CrewAI | AgentXchain |
 |---|---|---|
-| **Primary job** | Orchestrate agent crews | Govern software delivery |
-| **Mandatory challenge** | No | Yes — protocol-enforced |
-| **Human review** | HITL steps | Phase transition + completion gates |
-| **Audit surface** | Tracing + observability | Append-only decision + objection ledgers |
-| **Model-agnostic** | Yes | Yes |
-| **Best fit** | Agent apps, research pipelines | Governed repo workflows |
+| **Primary job** | Orchestrate agent crews and flows | Govern software delivery |
+| **Workflow model** | Sequential or hierarchical crews, event-driven flows | Role-based turns, objections, and phase gates |
+| **Human review** | HITL steps at task and flow level | Phase-transition and run-completion gates |
+| **Audit surface** | AMP tracing and third-party observability integrations | Append-only history, decision ledger, and objection trail |
+| **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
+| **Best fit** | Agent applications and workflows | Auditable repo delivery |
 
 ## Choose CrewAI when
 
-- Building a general multi-agent application, not governed software delivery
-- Want crew/flow abstractions and broad provider support
-- Need richer observability than AgentXchain currently offers
-- Agents coordinate runtime tasks: customer workflows, research pipelines, data processing
+- You are building a general multi-agent app, not a governed code-delivery system.
+- You want crew and flow abstractions with broad provider support.
+- You need richer runtime observability than AgentXchain currently ships.
+- Your agents are coordinating research, support, or operations work rather than converging on one repository.
 
 ## Choose AgentXchain when
 
-- Agents must challenge each other (mandatory, not optional)
-- Want explicit human authority at gates and ship decisions
-- Care about delivery provenance: why, which role objected, what evidence exists
-- Coordinating PM, dev, QA, eng-director against a repository
+- PM, dev, QA, or other chartered roles must challenge each other structurally.
+- Human approval must be explicit at phase and completion boundaries.
+- You need accepted work recorded with objections, evidence, and role ownership.
+- Your core problem is convergence quality on a shared codebase, not generic orchestration flexibility.
 
-## The governance gap
+## A concrete workflow difference
 
-CrewAI provides excellent crew orchestration. But delegation without disagreement compounds errors. AgentXchain's wedge is narrower: governed convergence on one codebase with mandatory challenge and explicit ship gates.
+CrewAI is stronger at delegation and flow composition. AgentXchain is stronger at governed convergence. That difference becomes obvious when the workflow needs a real ship gate instead of "the agents finished."
 
-- **CrewAI**: Crew orchestration exists. Delivery constitution is app-defined. No inherent rejection of blind agreement.
-- **AgentXchain**: Workflow enforces turn ownership, mandatory objections, acceptance rules, and human completion gates.
+```python
+# CrewAI-style framing: delegate tasks across a crew
+crew = Crew(
+    agents=[pm_agent, dev_agent, qa_agent],
+    tasks=[plan_task, implement_task, verify_task],
+    process=Process.hierarchical,
+)
+result = crew.kickoff()
+```
+
+```bash
+# AgentXchain framing: govern the repository workflow itself
+npx agentxchain init --governed
+agentxchain run --auto-approve
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+CrewAI can absolutely include human review, but the delivery constitution is still application-defined. AgentXchain's wedge is narrower and stricter: the workflow itself enforces turn ownership, mandatory disagreement, and ship gating.
 
 ## Using both together
 
-CrewAI builds and coordinates agents. AgentXchain governs how their work is accepted on a repository. Not a false choice.
+Use CrewAI to build or coordinate agents, then route the resulting software-delivery workflow through AgentXchain when repository governance matters. That is the honest layering:
+
+- CrewAI for runtime orchestration
+- AgentXchain for governed delivery over a codebase
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) to see the governed operator loop.
+- Read the [Protocol](/docs/protocol) for the constitutional rules behind turns, objections, and gates.
