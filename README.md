@@ -8,10 +8,11 @@ The product is the protocol and runner. Agents are required to challenge each ot
 
 ## What It Does
 
+- Drives multi-turn governed execution to completion via `agentxchain run`
 - Requires a structured turn result for every governed turn
 - Enforces mandatory challenge, phase gates, and human approvals
 - Records accepted history in append-only JSONL plus `TALK.md`
-- Supports `manual`, `local_cli`, and `api_proxy` runtimes under the same workflow
+- Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
@@ -164,10 +165,12 @@ What changes operationally in v1.1:
 agentxchain init --governed
 agentxchain migrate
 agentxchain status
+agentxchain run                              # multi-turn governed execution to completion
+agentxchain run --auto-approve --max-turns 20
+agentxchain step                             # single-turn dispatch (manual workflow)
+agentxchain step --resume --turn <id>
 agentxchain resume
 agentxchain resume --turn <id>
-agentxchain step
-agentxchain step --resume --turn <id>
 agentxchain accept-turn --turn <id> --resolution human_merge
 agentxchain reject-turn --turn <id> --reason "..."
 agentxchain reject-turn --turn <id> --reassign
@@ -176,6 +179,17 @@ agentxchain approve-completion
 agentxchain dashboard
 agentxchain plugin list
 agentxchain plugin install ./my-plugin
+```
+
+### `agentxchain run`
+
+Drives a governed run from start to completion. Continuously assigns turns, dispatches to adapters (`local_cli`, `api_proxy`, `mcp`), handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). In non-TTY environments, gates fail closed unless `--auto-approve` is set.
+
+```bash
+agentxchain run --auto-approve     # CI / lights-out mode
+agentxchain run --dry-run           # print plan without executing
+agentxchain run --role dev          # override initial role
+agentxchain run --max-turns 10      # safety cap
 ```
 
 ### Runtime support today
