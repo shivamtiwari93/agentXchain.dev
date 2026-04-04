@@ -177,6 +177,8 @@ agentxchain reject-turn --turn <id> --reassign
 agentxchain approve-transition
 agentxchain approve-completion
 agentxchain dashboard
+agentxchain template validate                  # prove scaffold + workflow-kit contract
+agentxchain template validate --json            # machine-readable proof with workflow_kit block
 agentxchain plugin list
 agentxchain plugin install ./my-plugin
 ```

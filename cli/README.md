@@ -109,6 +109,7 @@ agentxchain step
 | `approve-transition` | Approve a pending human-gated phase transition |
 | `approve-completion` | Approve a pending human-gated run completion |
 | `validate` | Validate governed kickoff wiring, a staged turn, or both |
+| `template validate` | Prove the template registry, workflow-kit scaffold contract, and planning artifact completeness (`--json` exposes a `workflow_kit` block) |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
 | `plugin install|list|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |

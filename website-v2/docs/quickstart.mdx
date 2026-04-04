@@ -40,6 +40,16 @@ This creates the scaffold:
 
 If you already know the repo shape, initialize with a built-in template such as `api-service`, `cli-tool`, `library`, or `web-app`. The template adds project-type planning artifacts and records scaffold intent in `agentxchain.json`. See [Templates](/docs/templates).
 
+### Prove the scaffold before you run it
+
+After initialization, validate that the governed scaffold contract is intact:
+
+```bash
+agentxchain template validate
+```
+
+This proves five things: the built-in template registry is coherent, the project template resolves, the core workflow-kit files exist with their structural markers (`Approved:`, `## Phases`, `| Req # |`, `## Verdict:`), template-required planning artifacts are present, and acceptance hints are tracked. Use `--json` for machine-readable output — the `workflow_kit` block distinguishes scaffold-layer failures from template-layer failures. See [Templates — Prove the template surface](/docs/templates#prove-the-template-surface-instead-of-assuming-it) for details.
+
 ## Automated path: use `agentxchain run`
 
 ### 1. Initialize
