@@ -45,7 +45,7 @@ These operations are not the lifecycle itself, but real runners need them:
 
 | Export | Purpose |
 | --- | --- |
-| `writeDispatchBundle(root, config, assignment, state)` | Write repo-native dispatch artifacts |
+| `writeDispatchBundle(root, state, config, opts?)` | Write repo-native dispatch artifacts for an active turn |
 | `getTurnStagingResultPath(turnId)` | Return the canonical `.agentxchain/staging/<turn_id>/turn-result.json` path |
 | `runHooks(root, hooksConfig, phase, payload, opts?)` | Execute hook phases |
 | `emitNotifications(root, config, state, event, payload?, turn?)` | Emit notification events |
@@ -57,6 +57,8 @@ These operations are not the lifecycle itself, but real runners need them:
 | `getMaxConcurrentTurns(config)` | Read the configured concurrency limit |
 
 `getTurnStagingResultPath()` is in the declared boundary on purpose. If a runner must stage a turn result for `acceptTurn()`, it should not import `turn-paths.js` directly just to discover the canonical path.
+
+`acceptTurn()` is destructive for transient turn artifacts. After the acceptance journal commits, AgentXchain removes the accepted turn's `.agentxchain/dispatch/turns/<turn_id>/` bundle and `.agentxchain/staging/<turn_id>/` directory. Runners that need those files for auditing or upload must inspect or copy them before acceptance.
 
 ## Canonical runner loop
 

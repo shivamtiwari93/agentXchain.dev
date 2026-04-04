@@ -17,6 +17,7 @@ const QUICKSTART_DOCS = read('website-v2/docs/quickstart.mdx');
 const PROTOCOL_DOCS = read('website-v2/docs/protocol.mdx');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const PAGE_SPEC = read('.planning/RUNNER_INTERFACE_DOC_PAGE_SPEC.md');
+const RUNNER_INTERFACE_SPEC = read('.planning/RUNNER_INTERFACE_SPEC.md');
 const RUNNER_INTERFACE = read('cli/src/lib/runner-interface.js');
 
 describe('Runner interface docs surface', () => {
@@ -71,5 +72,41 @@ describe('Runner interface docs surface', () => {
     assert.match(CLI_DOCS, /\/docs\/runner-interface/);
     assert.match(QUICKSTART_DOCS, /\/docs\/runner-interface/);
     assert.match(PROTOCOL_DOCS, /\/docs\/runner-interface/);
+  });
+
+  it('AT-RID-005: docs and specs use the real dispatch signature and cleanup semantics', () => {
+    for (const doc of [PAGE, PAGE_SPEC, RUNNER_INTERFACE_SPEC]) {
+      assert.match(
+        doc,
+        /writeDispatchBundle\(root, state, config, opts\?\)/,
+        'writeDispatchBundle signature must match the shipped API',
+      );
+    }
+
+    assert.match(
+      PAGE,
+      /`acceptTurn\(\)` is destructive for transient turn artifacts\./,
+      'public docs must warn that acceptTurn removes transient turn artifacts',
+    );
+    assert.match(
+      PAGE_SPEC,
+      /acceptTurn\(\).*dispatch and staging directories after commit/,
+      'page spec must require the cleanup note',
+    );
+    assert.match(
+      RUNNER_INTERFACE_SPEC,
+      /\.agentxchain\/dispatch\/turns\/<turn_id>\//,
+      'runner interface spec must use the real dispatch bundle path',
+    );
+    assert.match(
+      RUNNER_INTERFACE_SPEC,
+      /\.agentxchain\/staging\/<turn_id>\/turn-result\.json/,
+      'runner interface spec must use the real staging path',
+    );
+    assert.match(
+      RUNNER_INTERFACE_SPEC,
+      /removes both `\.agentxchain\/dispatch\/turns\/<turn_id>\/` and `\.agentxchain\/staging\/<turn_id>\/`/,
+      'runner interface spec must describe acceptTurn cleanup semantics',
+    );
   });
 });

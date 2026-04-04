@@ -16,10 +16,11 @@ Publish a public-facing `/docs/runner-interface` page so third-party runner auth
 1. State that the CLI is the primary shipped runner, but not the only possible runner.
 2. Document the current interface version and that operations are versioned.
 3. Document the lifecycle operations exported by `cli/src/lib/runner-interface.js`.
-4. Document the support operations exported by `cli/src/lib/runner-interface.js`, including `getTurnStagingResultPath`.
+4. Document the support operations exported by `cli/src/lib/runner-interface.js`, including the real `writeDispatchBundle(root, state, config, opts?)` signature and `getTurnStagingResultPath`.
 5. Show the canonical runner loop: `loadContext/loadState -> initRun/reactivateRun -> assignTurn -> writeDispatchBundle or runner dispatch -> stage result -> acceptTurn/rejectTurn`.
 6. Link to the CI proof example at `examples/ci-runner-proof/run-one-turn.mjs`.
-7. Explain what is intentionally outside the runner interface: CLI parsing/output, dashboard, intake, export/report, adapter dispatch strategy.
+7. Explain that `acceptTurn()` removes the accepted turn's dispatch and staging directories after commit, so runners must inspect or archive those artifacts before acceptance if they need them.
+8. Explain what is intentionally outside the runner interface: CLI parsing/output, dashboard, intake, export/report, adapter dispatch strategy.
 
 ## Cross-Link Contract
 
@@ -34,3 +35,4 @@ Publish a public-facing `/docs/runner-interface` page so third-party runner auth
 - `AT-RID-002`: page documents the real runner-interface exports, including `RUNNER_INTERFACE_VERSION` and `getTurnStagingResultPath`
 - `AT-RID-003`: page links to the CI runner proof example
 - `AT-RID-004`: CLI, quickstart, and protocol docs link to `/docs/runner-interface`
+- `AT-RID-005`: page/spec document the real `writeDispatchBundle(root, state, config, opts?)` signature and `acceptTurn()` cleanup semantics

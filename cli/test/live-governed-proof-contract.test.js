@@ -100,14 +100,14 @@ describe('live-governed-proof contract', () => {
 
   describe('spec alignment', () => {
     const specPath = join(REPO_ROOT, '.planning', 'LIVE_GOVERNED_API_PROXY_EXAMPLE_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    const source = readFileSync(PROOF_SCRIPT, 'utf8');
 
     it('spec exists', () => {
-      const spec = readFileSync(specPath, 'utf8');
       assert.ok(spec.includes('Live Governed API Proxy Example'), 'Spec title should match');
     });
 
     it('script validates all artifacts listed in spec', () => {
-      const source = readFileSync(PROOF_SCRIPT, 'utf8');
       // Spec requires: state.json, history.jsonl, decision-ledger.jsonl, PROMPT.md, CONTEXT.md, ASSIGNMENT.json, API_REQUEST.json, turn-result.json
       const requiredArtifacts = [
         'state.json',
@@ -125,6 +125,31 @@ describe('live-governed-proof contract', () => {
           `Script must validate artifact: ${artifact}`,
         );
       }
+    });
+
+    it('documents and implements two-phase validation around acceptTurn cleanup', () => {
+      assert.match(
+        spec,
+        /Validate pre-acceptance artifacts\./,
+        'spec must describe pre-acceptance validation',
+      );
+      assert.match(
+        spec,
+        /acceptTurn cleans up both dirs after commit/,
+        'spec must document cleanup timing explicitly',
+      );
+      assert.match(
+        spec,
+        /dispatch and staging directories are removed while `state\.json`, `history\.jsonl`, and `decision-ledger\.jsonl` remain valid/,
+        'spec must describe post-acceptance cleanup truthfully',
+      );
+      assert.match(source, /validatePreAcceptanceArtifacts/, 'script must validate artifacts before acceptance');
+      assert.match(source, /validatePostAcceptanceArtifacts/, 'script must validate retained artifacts after acceptance');
+      assert.match(
+        source,
+        /acceptTurn cleans up both dirs after commit/,
+        'script must encode the cleanup reason for two-phase validation',
+      );
     });
   });
 });

@@ -46,15 +46,14 @@ If the required env var is not set, the script exits with code 0 and a skip mess
    - Staging: `turn-result.json` exists under `.agentxchain/staging/{turn_id}/`
    - Turn result: `schema_version`, `run_id`, `turn_id`, `role`, `status`, `decisions` fields present
 8. **Accept turn.** Call `acceptTurn(root, config)` — validates and accepts the staged result.
-9. **Validate post-acceptance artifacts.** Assert governed ledger artifacts exist:
+9. **Validate post-acceptance artifacts.** Assert governed ledger artifacts exist and transient turn artifacts are cleaned up:
    - `state.json`: has `run_id`, `status`, `schema_version`
    - `history.jsonl`: ≥1 entry with `turn_id` and `role`
    - `decision-ledger.jsonl`: ≥1 entry
-   - Dispatch audit: `PROMPT.md`, `CONTEXT.md`, `ASSIGNMENT.json`, `API_REQUEST.json` exist under `.agentxchain/dispatch/turns/{turn_id}/`
-   - Staging: `turn-result.json` exists under `.agentxchain/staging/{turn_id}/`
-   - Turn result: `schema_version`, `run_id`, `turn_id`, `role`, `status`, `decisions` fields present
-9. **Report.** Print structured proof result (pass/fail, artifacts, usage, cost).
-10. **Cleanup.** Remove temp directory.
+   - Dispatch audit dir for the accepted turn no longer exists under `.agentxchain/dispatch/turns/{turn_id}/`
+   - Staging dir for the accepted turn no longer exists under `.agentxchain/staging/{turn_id}/`
+10. **Report.** Print structured proof result (pass/fail, artifacts, usage, cost).
+11. **Cleanup.** Remove temp directory.
 
 ## Error Cases
 
@@ -68,8 +67,9 @@ If the required env var is not set, the script exits with code 0 and a skip mess
 
 1. With `ANTHROPIC_API_KEY` set: script exits 0, JSON output contains `result: "pass"`, `provider: "anthropic"`, `usage.input_tokens > 0`, `usage.output_tokens > 0`, and all artifact validations pass.
 2. Without any API key: script exits 0, JSON output contains `result: "skip"`.
-3. Dispatch audit artifacts (`API_REQUEST.json`, `PROMPT.md`, `CONTEXT.md`, `ASSIGNMENT.json`) exist and are parseable after a successful run.
-4. Turn result staged by the real model contains `schema_version`, `run_id`, `turn_id`, `role`, `decisions` (the model follows the governed prompt contract).
+3. Dispatch audit artifacts (`API_REQUEST.json`, `PROMPT.md`, `CONTEXT.md`, `ASSIGNMENT.json`) exist and are parseable before acceptance.
+4. After acceptance, the accepted turn's dispatch and staging directories are removed while `state.json`, `history.jsonl`, and `decision-ledger.jsonl` remain valid.
+5. Turn result staged by the real model contains `schema_version`, `run_id`, `turn_id`, `role`, `decisions` (the model follows the governed prompt contract).
 
 ## Boundary Rules
 

@@ -34,7 +34,7 @@ A runner is any process that orchestrates governed turns by calling these operat
 
 | Operation | Library Function | Description |
 |---|---|---|
-| `writeDispatchBundle(root, config, assignment, state)` | `writeDispatchBundle()` | Write dispatch artifacts for agent |
+| `writeDispatchBundle(root, state, config, opts?)` | `writeDispatchBundle()` | Write dispatch artifacts for an active turn |
 | `getTurnStagingResultPath(turnId)` | `getTurnStagingResultPath()` | Return the canonical staged turn-result path for a turn |
 | `runHooks(root, hooksConfig, phase, payload, opts?)` | `runHooks()` | Execute lifecycle hooks |
 | `emitNotifications(root, config, state, event, payload?, turn?)` | `emitNotifications()` | Emit lifecycle notifications |
@@ -74,6 +74,8 @@ loadContext → loadState →
 
 This is the same sequence `step.js` implements. The protocol does not require this exact flow — it requires that the state machine transitions are valid. But this is the canonical happy-path sequence.
 
+`acceptTurn()` consumes transient turn artifacts. Once the acceptance journal is committed, AgentXchain removes both `.agentxchain/dispatch/turns/<turn_id>/` and `.agentxchain/staging/<turn_id>/`. Runner authors who need those files for upload, audit, or debugging must inspect or archive them before acceptance.
+
 ## Shared State Contract
 
 All runners share state via the filesystem:
@@ -84,8 +86,8 @@ All runners share state via the filesystem:
 | State | `.agentxchain/state.json` | Runner (via governed-state.js) |
 | History | `.agentxchain/history.jsonl` | Runner (via governed-state.js) |
 | Decision Ledger | `.agentxchain/decision-ledger.jsonl` | Runner (via governed-state.js) |
-| Dispatch Bundle | `.agentxchain/dispatch/turn-<id>/` | Runner (via dispatch-bundle.js) |
-| Staging | `.agentxchain/staging/turn-result.json` | Agent |
+| Dispatch Bundle | `.agentxchain/dispatch/turns/<turn_id>/` | Runner (via dispatch-bundle.js) |
+| Staging | `.agentxchain/staging/<turn_id>/turn-result.json` | Agent |
 | Locks | `.agentxchain/locks/accept-turn.lock` | Runner (via governed-state.js) |
 
 ## Concurrency
