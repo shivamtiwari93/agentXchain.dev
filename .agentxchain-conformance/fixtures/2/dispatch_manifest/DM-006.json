@@ -1,0 +1,57 @@
+{
+  "fixture_id": "DM-006",
+  "tier": 2,
+  "surface": "dispatch_manifest",
+  "description": "Size mismatch after content replacement with different-length data fails verification",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      }
+    },
+    "dispatch_bundle": {
+      "turn_abc": {
+        "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
+        "PROMPT.md": "Short."
+      }
+    },
+    "post_finalize_tamper": {
+      "turn_abc": {
+        "PROMPT.md": "This replacement content is deliberately much longer than the original six-byte string to guarantee a size mismatch."
+      }
+    }
+  },
+  "input": {
+    "operation": "verify_dispatch_manifest",
+    "args": {
+      "turn_id": "turn_abc"
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "size_mismatch",
+    "verification_errors": [
+      {
+        "type": "size_mismatch",
+        "detail": { "assert": "nonempty_string" }
+      },
+      {
+        "type": "digest_mismatch",
+        "detail": { "assert": "nonempty_string" }
+      }
+    ]
+  }
+}

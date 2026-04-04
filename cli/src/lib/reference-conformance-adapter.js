@@ -520,6 +520,14 @@ function applyManifestFixtureMutations(root, fixture, turnId) {
       // Missing files are surfaced by manifest verification, not fixture setup.
     }
   }
+
+  if (fixture.setup.post_finalize_delete_manifest) {
+    try {
+      unlinkSync(join(bundleDir, 'MANIFEST.json'));
+    } catch {
+      // Missing manifest is surfaced by manifest verification, not fixture setup.
+    }
+  }
 }
 
 function executeFixtureOperation(workspace, fixture) {

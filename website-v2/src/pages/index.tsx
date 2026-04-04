@@ -74,7 +74,7 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">53</div>
+        <div className="stat-number">56</div>
         <div className="stat-label">Conformance fixtures</div>
       </div>
       <div>
