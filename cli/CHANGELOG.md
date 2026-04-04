@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.7.0
+
+Governed lifecycle integrations. Operators can now receive real-time notifications on governed lifecycle events, raise first-class escalations, and reference a complete operator recovery map — closing the workflow-kit and beginning the integration layer.
+
+### Governed Notification Contract
+
+- New top-level governed config surface: `notifications.webhooks`. Notifications are orchestrator-emitted lifecycle events, not hook side effects.
+- Webhook transport delivers JSON payloads on governed transitions: `run_blocked`, `operator_escalation_raised`, `escalation_resolved`, `phase_transition_pending`, `run_completion_pending`, `run_completed`.
+- Delivery is best-effort and never blocks governed execution.
+- All delivery attempts are recorded in `.agentxchain/notification-audit.jsonl` — included in `agentxchain export` and verified by `agentxchain verify export`.
+- New docs page: `/docs/notifications`.
+
+### Operator Escalation Surface
+
+- New `agentxchain escalate` command for operator-raised escalations with structured metadata.
+- Escalation persists `blocked_on = escalation:operator:*` with `typed_reason = operator_escalation`, distinct from retry-exhaustion blocks.
+- `resume` now truthfully recovers blocked governed runs: retained blocked turns are re-dispatched, run-level blocks are reactivated.
+- Escalation raise and resolution are recorded in `.agentxchain/decision-ledger.jsonl` as `operator_escalated` and `escalation_resolved` decisions.
+
+### Recovery Surface Closure
+
+- Formal recovery analysis confirmed all 9 `typed_reason` values have explicit recovery paths through existing commands (`step`, `resume`, `approve-transition`, `approve-completion`, `escalate`).
+- A dedicated `agentxchain recover` command was explicitly rejected: no unrecoverable states exist, and a catch-all command would duplicate logic that drifts.
+- New docs page: `/docs/recovery` with the complete operator recovery map, backed by code-guard tests reading `blocked-state.js` and `governed-state.js`.
+
+### Evidence
+
+- 654 Vitest tests (36 files) + 1480 node --test (340 suites), 0 failures.
+- Website production build passes.
+
 ## 2.6.0
 
 Auditable export artifacts. Governed runs and coordinator workspaces can now be exported as self-verifiable JSON artifacts with embedded content, integrity hashes, and an independent verification command.
