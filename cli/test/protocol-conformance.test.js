@@ -36,8 +36,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 13);
-    assert.equal(report.results.tier_2.fixtures_passed, 13);
+    assert.equal(report.results.tier_2.fixtures_run, 15);
+    assert.equal(report.results.tier_2.fixtures_passed, 15);
   });
 
   it('supports Tier 2 surface filtering for dispatch manifest fixtures', () => {
@@ -71,8 +71,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 13);
-    assert.equal(report.results.tier_2.fixtures_passed, 13);
+    assert.equal(report.results.tier_2.fixtures_run, 15);
+    assert.equal(report.results.tier_2.fixtures_passed, 15);
     assert.equal(report.results.tier_3.fixtures_run, 5);
     assert.equal(report.results.tier_3.fixtures_passed, 5);
   });

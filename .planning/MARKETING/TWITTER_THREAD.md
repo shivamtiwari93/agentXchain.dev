@@ -36,7 +36,7 @@ What's shipped:
 - Continuous delivery intake: automated trigger detection → triage → approve → plan → execute → resolve
 - Local browser dashboard with real-time WebSocket updates
 - Plugin system: Slack, JSON reporting, custom compliance hooks
-- 58 conformance fixtures for third-party implementations
+- 60 conformance fixtures for third-party implementations
 - Protocol v6 spec published
 
 **Tweet 4 (the insight):**
