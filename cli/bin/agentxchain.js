@@ -65,6 +65,7 @@ import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
 import { migrateCommand } from '../src/commands/migrate.js';
 import { resumeCommand } from '../src/commands/resume.js';
+import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
 import { stepCommand } from '../src/commands/step.js';
@@ -259,6 +260,15 @@ program
   .option('--role <role>', 'Override the target role (default: phase entry role)')
   .option('--turn <id>', 'Target a specific retained turn when multiple exist')
   .action(resumeCommand);
+
+program
+  .command('escalate')
+  .description('Raise an operator escalation and block the governed run intentionally')
+  .requiredOption('--reason <reason>', 'Operator escalation summary')
+  .option('--detail <detail>', 'Longer escalation detail for status and ledger surfaces')
+  .option('--action <action>', 'Override the default recovery action string')
+  .option('--turn <id>', 'Target a specific active turn when multiple turns exist')
+  .action(escalateCommand);
 
 program
   .command('accept-turn')

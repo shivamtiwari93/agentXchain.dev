@@ -65,12 +65,16 @@ export function deriveRecoveryDescriptor(state) {
   }
 
   if (state.blocked_on.startsWith('escalation:')) {
+    const isOperatorEscalation = state.blocked_on.startsWith('escalation:operator:') || state.escalation?.source === 'operator';
+    const recoveryAction = turnRetained
+      ? 'Resolve the escalation, then run agentxchain step --resume'
+      : 'Resolve the escalation, then run agentxchain step';
     return {
-      typed_reason: 'retries_exhausted',
+      typed_reason: isOperatorEscalation ? 'operator_escalation' : 'retries_exhausted',
       owner: 'human',
-      recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+      recovery_action: recoveryAction,
       turn_retained: turnRetained,
-      detail: state.blocked_on,
+      detail: state.escalation?.detail || state.escalation?.reason || state.blocked_on,
     };
   }
 

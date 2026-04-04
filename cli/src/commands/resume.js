@@ -24,6 +24,7 @@ import {
   markRunBlocked,
   getActiveTurns,
   getActiveTurnCount,
+  reactivateGovernedRun,
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { writeDispatchBundle, getDispatchTurnDir, getTurnStagingResultPath } from '../lib/dispatch-bundle.js';
@@ -154,6 +155,62 @@ export async function resumeCommand(opts) {
     }
   }
 
+  if (state.status === 'blocked' && activeCount > 0) {
+    let retainedTurn = null;
+    if (opts.turn) {
+      retainedTurn = activeTurns[opts.turn];
+      if (!retainedTurn) {
+        console.log(chalk.red(`No active turn found for --turn ${opts.turn}`));
+        process.exit(1);
+      }
+    } else if (activeCount > 1) {
+      console.log(chalk.red('Multiple retained turns exist. Use --turn <id> to specify which to re-dispatch.'));
+      for (const turn of Object.values(activeTurns)) {
+        console.log(`  ${chalk.yellow('●')} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${turn.status})`);
+      }
+      console.log('');
+      console.log(chalk.dim('Example: agentxchain resume --turn <turn_id>'));
+      process.exit(1);
+    } else {
+      retainedTurn = Object.values(activeTurns)[0];
+    }
+
+    if (retainedTurn.status === 'conflicted') {
+      console.log(chalk.red(`Turn ${retainedTurn.turn_id} is conflicted. Resolve the conflict before resuming.`));
+      process.exit(1);
+    }
+
+    console.log(chalk.yellow(`Re-dispatching blocked turn: ${retainedTurn.turn_id}`));
+    console.log(`  Role:    ${retainedTurn.assigned_role}`);
+    console.log(`  Attempt: ${retainedTurn.attempt}`);
+    console.log('');
+
+    const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn' });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+      process.exit(1);
+    }
+    state = reactivated.state;
+
+    const bundleResult = writeDispatchBundle(root, state, config, { turnId: retainedTurn.turn_id });
+    if (!bundleResult.ok) {
+      console.log(chalk.red(`Failed to write dispatch bundle: ${bundleResult.error}`));
+      process.exit(1);
+    }
+    printDispatchBundleWarnings(bundleResult);
+
+    const hooksConfig = config.hooks || {};
+    if (hooksConfig.after_dispatch?.length > 0) {
+      const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, retainedTurn);
+      if (!afterDispatchResult.ok) {
+        process.exit(1);
+      }
+    }
+
+    printDispatchSummary(state, config, retainedTurn);
+    return;
+  }
+
   // §47: idle + no run_id → initialize new run
   if (state.status === 'idle' && !state.run_id) {
     const initResult = initializeGovernedRun(root, config);
@@ -166,9 +223,21 @@ export async function resumeCommand(opts) {
   }
 
   // §47: paused + run_id exists → resume same run
+  if (state.status === 'blocked' && state.run_id) {
+    const reactivated = reactivateGovernedRun(root, state, { via: 'resume' });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+      process.exit(1);
+    }
+    state = reactivated.state;
+    console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
+  }
+
+  // §47: paused + run_id exists → resume same run
   if (state.status === 'paused' && state.run_id) {
     state.status = 'active';
     state.blocked_on = null;
+    state.blocked_reason = null;
     state.escalation = null;
     safeWriteJson(statePath, state);
     console.log(chalk.green(`Resumed governed run: ${state.run_id}`));

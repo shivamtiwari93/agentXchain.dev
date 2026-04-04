@@ -22,6 +22,7 @@ type RecoveryDescriptor = {
     | "pending_phase_transition"
     | "pending_run_completion"
     | "needs_human"
+    | "operator_escalation"
     | "retries_exhausted"
     | "active_turn_exists"
     | "clean_baseline_violation"
@@ -69,6 +70,7 @@ Mappings:
 | `pending_phase_transition` | `pending_phase_transition` | `human` | `agentxchain approve-transition` | `false` |
 | `pending_run_completion` | `pending_run_completion` | `human` | `agentxchain approve-completion` | `false` |
 | `blocked_on = human:*` | `needs_human` | `human` | `Resolve the stated issue, then run agentxchain step --resume` | `false` when `current_turn` is null, otherwise `true` |
+| `blocked_on = escalation:operator:*` | `operator_escalation` | `human` | `Resolve the escalation, then run agentxchain step` or `agentxchain step --resume` depending on retained turn | `true` when a turn is retained, otherwise `false` |
 | `blocked_on = escalation:*` | `retries_exhausted` | `human` | `Resolve the escalation, then run agentxchain step --resume` | `true` if `current_turn` is still present |
 | `blocked_on = dispatch:*` | `dispatch_error` | `human` | `Resolve the dispatch issue, then run agentxchain step --resume` | `true` |
 
@@ -132,11 +134,12 @@ Rationale: with no command argument identifying the prior approval request, the 
 2. `status` with `pending_run_completion` shows `agentxchain approve-completion` as the recovery action.
 3. `status` with `blocked_on = "human:scope clarification needed"` shows `typed_reason = needs_human` and `agentxchain step --resume`.
 4. `status` with `blocked_on = "escalation:retries-exhausted:dev"` shows `typed_reason = retries_exhausted` and `agentxchain step --resume`.
-5. `step` with an already assigned turn suggests `agentxchain step --resume`.
-6. `step` on a dirty authoritative tree tells the operator to commit or stash before retrying.
-7. `step` with missing `auth_env` on an `api_proxy` runtime names the missing environment variable and suggests `agentxchain step --resume`.
-8. `accept-turn` with an invalid staged result prints both the failed validation stage and the recovery commands.
-9. `status` with `blocked_on = "dispatch:auth_failure"` shows `typed_reason = dispatch_error` and `agentxchain step --resume`.
+5. `status` with `blocked_on = "escalation:operator:scope-contradiction"` shows `typed_reason = operator_escalation`.
+6. `step` with an already assigned turn suggests `agentxchain step --resume`.
+7. `step` on a dirty authoritative tree tells the operator to commit or stash before retrying.
+8. `step` with missing `auth_env` on an `api_proxy` runtime names the missing environment variable and suggests `agentxchain step --resume`.
+9. `accept-turn` with an invalid staged result prints both the failed validation stage and the recovery commands.
+10. `status` with `blocked_on = "dispatch:auth_failure"` shows `typed_reason = dispatch_error` and `agentxchain step --resume`.
 
 ---
 

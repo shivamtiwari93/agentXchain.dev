@@ -106,7 +106,17 @@ Fields:
 
 > **Implementation note (DEC-BLOCKED-002):** The v1 implementation preserves `current_turn` in failed state when retries are exhausted. The run is paused with `blocked_on = "escalation:retries-exhausted:{role}"`. Recovery is via `agentxchain step`, which re-dispatches the preserved turn. Direct role reassignment to `eng_director` is a future policy option, not a current implementation truth.
 
-### 8. Missing API Credential
+### 8. Operator-Raised Escalation
+
+| Field | Value |
+|-------|-------|
+| Typed Reason | `operator_escalation` |
+| Trigger | `agentxchain escalate --reason "..."` on an active governed run |
+| Owner | `human` |
+| Recovery | `Resolve the escalation, then run agentxchain step` or `agentxchain step --resume` depending on whether a turn is retained |
+| Turn Retained | Depends on whether the escalation targets an active turn |
+
+### 9. Missing API Credential
 
 | Field | Value |
 |-------|-------|
@@ -116,7 +126,7 @@ Fields:
 | Recovery | `export {AUTH_ENV_VAR}=... && agentxchain step --resume` or complete the turn manually |
 | Turn Retained | Yes (turn assigned, dispatch failed) |
 
-### 9. Local CLI Subprocess Failure
+### 10. Local CLI Subprocess Failure
 
 | Field | Value |
 |-------|-------|
@@ -126,7 +136,7 @@ Fields:
 | Recovery | Check subprocess output, fix the issue, then either stage `turn-result.json` manually and run `agentxchain accept-turn`, or `agentxchain reject-turn --reason "..."` |
 | Turn Retained | Yes (turn assigned, subprocess failure is not turn rejection) |
 
-### 10. Active Turn Already Assigned
+### 11. Active Turn Already Assigned
 
 | Field | Value |
 |-------|-------|
@@ -160,9 +170,10 @@ Fields:
 | T2 | Pending phase transition → `status` | Status shows recovery command `approve-transition` |
 | T3 | Validation failure on `accept-turn` | Error includes both the violated invariant AND the recovery path |
 | T4 | `reject-turn` at max retries | Output includes escalation path |
-| T5 | `step` with active turn | Error includes `--resume` suggestion |
-| T6 | Missing API key for `api_proxy` dispatch | Error names the specific env var to set |
-| T7 | `needs_human` turn accepted | `status` shows the blocker reason and recovery path |
+| T5 | `escalate --reason "..."` | Output includes `operator_escalation` recovery details |
+| T6 | `step` with active turn | Error includes `--resume` suggestion |
+| T7 | Missing API key for `api_proxy` dispatch | Error names the specific env var to set |
+| T8 | `needs_human` turn accepted | `status` shows the blocker reason and recovery path |
 
 ---
 

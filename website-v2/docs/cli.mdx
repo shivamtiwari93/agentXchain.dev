@@ -37,6 +37,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
+| `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
@@ -128,9 +129,26 @@ agentxchain resume [options]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--role <role>` | (phase entry role) | Override the target role for the next assignment or re-dispatch |
-| `--turn <id>` | (selected retained turn) | Target a specific retained turn when multiple failed or retrying turns exist |
+| `--turn <id>` | (selected retained turn) | Target a specific retained turn when multiple blocked, failed, or retrying turns exist |
 
-Initializes or resumes a governed run and then assigns or re-dispatches one turn without waiting for completion. Use it when you want a fresh dispatch bundle now, or when a retained `failed` / `retrying` turn should be re-dispatched without running the rest of the lifecycle in the same command. If a turn is already active and you need to continue waiting on it, use `agentxchain step --resume` instead.
+Initializes or resumes a governed run and then assigns or re-dispatches one turn without waiting for completion. Use it when you want a fresh dispatch bundle now, or when a retained turn must be re-dispatched after a `failed`, `retrying`, or operator-escalated blocked state. If a turn is already active and you need to continue waiting on it, use `agentxchain step --resume` instead.
+
+### `escalate`
+
+```bash
+agentxchain escalate --reason <reason> [--detail <detail>] [--action <action>] [--turn <id>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--reason <reason>` | required | Operator escalation summary persisted to state and the decision ledger |
+| `--detail <detail>` | reason text | Longer escalation detail surfaced in `status` and recovery metadata |
+| `--action <action>` | derived | Override the default recovery action string |
+| `--turn <id>` | (auto when one active turn) | Target a specific active turn when multiple turns exist |
+
+Raises an operator-controlled escalation and moves the run to `status = blocked`. This command is active-run-only. If exactly one active turn exists, that turn is retained automatically and the default recovery action becomes `agentxchain step --resume`. If no turn is active, the escalation blocks the run at the run level and the default recovery action becomes `agentxchain step`. If multiple active turns exist, `--turn` is required so the operator is explicit about which turn the escalation is retaining.
+
+The escalation is recorded in both `.agentxchain/state.json` and `.agentxchain/decision-ledger.jsonl` with `decision = "operator_escalated"`. When `step` or `resume` clears the blocked escalation, the ledger records `decision = "escalation_resolved"`.
 
 ### `step`
 

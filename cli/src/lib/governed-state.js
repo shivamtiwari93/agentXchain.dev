@@ -555,6 +555,22 @@ function buildBlockedReason({ category, recovery, turnId, blockedAt = new Date()
   };
 }
 
+function slugifyEscalationReason(reason) {
+  if (typeof reason !== 'string') {
+    return 'operator';
+  }
+  const slug = reason
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'operator';
+}
+
+function isOperatorEscalationBlockedOn(blockedOn) {
+  return typeof blockedOn === 'string' && blockedOn.startsWith('escalation:operator:');
+}
+
 function canApprovePendingGate(state) {
   return state?.status === 'paused' || state?.status === 'blocked';
 }
@@ -694,14 +710,18 @@ function inferBlockedReasonFromState(state) {
   }
 
   if (state.blocked_on.startsWith('escalation:')) {
+    const isOperatorEscalation = isOperatorEscalationBlockedOn(state.blocked_on) || state.escalation?.source === 'operator';
+    const recoveryAction = turnRetained
+      ? 'Resolve the escalation, then run agentxchain step --resume'
+      : 'Resolve the escalation, then run agentxchain step';
     return buildBlockedReason({
-      category: 'retries_exhausted',
+      category: isOperatorEscalation ? 'operator_escalation' : 'retries_exhausted',
       recovery: {
-        typed_reason: 'retries_exhausted',
+        typed_reason: isOperatorEscalation ? 'operator_escalation' : 'retries_exhausted',
         owner: 'human',
-        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        recovery_action: recoveryAction,
         turn_retained: turnRetained,
-        detail: state.blocked_on,
+        detail: state.escalation?.detail || state.escalation?.reason || state.blocked_on,
       },
       turnId: activeTurn?.turn_id ?? null,
     });
@@ -835,6 +855,126 @@ export function markRunBlocked(root, details) {
   }
 
   return { ok: true, state: updatedState };
+}
+
+export function raiseOperatorEscalation(root, config, details) {
+  const state = readState(root);
+  if (!state) {
+    return { ok: false, error: 'No governed state.json found' };
+  }
+
+  const reason = typeof details.reason === 'string' ? details.reason.trim() : '';
+  if (!reason) {
+    return { ok: false, error: 'Escalation reason is required.' };
+  }
+
+  if (state.status !== 'active') {
+    return { ok: false, error: `Cannot escalate run: status is "${state.status}", expected "active"` };
+  }
+
+  const activeTurns = getActiveTurns(state);
+  let targetTurn = null;
+  if (details.turnId) {
+    targetTurn = activeTurns[details.turnId] || null;
+    if (!targetTurn) {
+      return { ok: false, error: `No active turn found for --turn ${details.turnId}` };
+    }
+  } else {
+    const turns = Object.values(activeTurns);
+    if (turns.length > 1) {
+      return { ok: false, error: 'Multiple active turns exist. Use --turn <id> to target the escalation.' };
+    }
+    targetTurn = turns[0] || null;
+  }
+
+  const turnRetained = Boolean(targetTurn);
+  const recoveryAction = details.action
+    || (turnRetained
+      ? 'Resolve the escalation, then run agentxchain step --resume'
+      : 'Resolve the escalation, then run agentxchain step');
+  const detail = typeof details.detail === 'string' && details.detail.trim()
+    ? details.detail.trim()
+    : reason;
+  const blockedOn = `escalation:operator:${slugifyEscalationReason(reason)}`;
+  const escalatedAt = new Date().toISOString();
+
+  const escalation = {
+    source: 'operator',
+    raised_by: 'human',
+    from_role: targetTurn?.assigned_role || null,
+    from_turn_id: targetTurn?.turn_id || null,
+    reason,
+    detail,
+    recovery_action: recoveryAction,
+    escalated_at: escalatedAt,
+  };
+
+  const blocked = markRunBlocked(root, {
+    blockedOn,
+    category: 'operator_escalation',
+    recovery: {
+      typed_reason: 'operator_escalation',
+      owner: 'human',
+      recovery_action: recoveryAction,
+      turn_retained: turnRetained,
+      detail,
+    },
+    turnId: targetTurn?.turn_id || null,
+    escalation,
+    hooksConfig: config?.hooks || {},
+  });
+  if (!blocked.ok) {
+    return blocked;
+  }
+
+  appendJsonl(root, LEDGER_PATH, {
+    timestamp: escalatedAt,
+    decision: 'operator_escalated',
+    run_id: blocked.state.run_id,
+    phase: blocked.state.phase,
+    blocked_on: blockedOn,
+    escalation,
+  });
+
+  return {
+    ok: true,
+    state: attachLegacyCurrentTurnAlias(blocked.state),
+    escalation,
+  };
+}
+
+export function reactivateGovernedRun(root, state, details = {}) {
+  if (!state || typeof state !== 'object') {
+    return { ok: false, error: 'State is required.' };
+  }
+
+  const now = new Date().toISOString();
+  const wasEscalation = state.status === 'blocked' && typeof state.blocked_on === 'string' && state.blocked_on.startsWith('escalation:');
+  const nextState = {
+    ...state,
+    status: 'active',
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+  };
+
+  writeState(root, nextState);
+
+  if (wasEscalation) {
+    appendJsonl(root, LEDGER_PATH, {
+      timestamp: now,
+      decision: 'escalation_resolved',
+      run_id: state.run_id,
+      phase: state.phase,
+      resolved_via: details.via || 'unknown',
+      blocked_on: state.blocked_on,
+      escalation: state.escalation || null,
+      turn_id: state.escalation?.from_turn_id ?? getActiveTurn(state)?.turn_id ?? null,
+      role: state.escalation?.from_role ?? getActiveTurn(state)?.assigned_role ?? null,
+    });
+  }
+
+  return { ok: true, state: attachLegacyCurrentTurnAlias(nextState) };
 }
 
 // ── Core Operations ──────────────────────────────────────────────────────────
@@ -2136,4 +2276,10 @@ function deriveNextRecommendedRole(turnResult, state, config) {
   return routing?.entry_role || null;
 }
 
-export { STATE_PATH, HISTORY_PATH, LEDGER_PATH, STAGING_PATH, TALK_PATH };
+export {
+  STATE_PATH,
+  HISTORY_PATH,
+  LEDGER_PATH,
+  STAGING_PATH,
+  TALK_PATH,
+};

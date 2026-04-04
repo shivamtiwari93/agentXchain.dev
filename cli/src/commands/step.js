@@ -32,6 +32,7 @@ import {
   markRunBlocked,
   getActiveTurnCount,
   getActiveTurns,
+  reactivateGovernedRun,
   STATE_PATH,
 } from '../lib/governed-state.js';
 import { getMaxConcurrentTurns } from '../lib/normalized-config.js';
@@ -203,8 +204,12 @@ export async function stepCommand(opts) {
       }
 
       console.log(chalk.yellow(`Re-dispatching blocked turn: ${targetTurn.turn_id}`));
-      state = clearBlockedState(state);
-      safeWriteJson(join(root, STATE_PATH), state);
+      const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume' });
+      if (!reactivated.ok) {
+        console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+        process.exit(1);
+      }
+      state = reactivated.state;
       skipAssignment = true;
 
       const bundleResult = writeDispatchBundle(root, state, config);
@@ -251,8 +256,12 @@ export async function stepCommand(opts) {
 
     // paused → resume
     if (!skipAssignment && state.status === 'blocked' && state.run_id) {
-      state = clearBlockedState(state);
-      safeWriteJson(join(root, STATE_PATH), state);
+      const reactivated = reactivateGovernedRun(root, state, { via: 'step' });
+      if (!reactivated.ok) {
+        console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
+        process.exit(1);
+      }
+      state = reactivated.state;
       console.log(chalk.green(`Resumed blocked run: ${state.run_id}`));
     }
 
@@ -858,16 +867,6 @@ function resolveTargetRole(opts, state, config) {
 
   console.log(chalk.red('No roles defined in config.'));
   return null;
-}
-
-function clearBlockedState(state) {
-  return {
-    ...state,
-    status: 'active',
-    blocked_on: null,
-    blocked_reason: null,
-    escalation: null,
-  };
 }
 
 function printRecoverySummary(state, heading) {

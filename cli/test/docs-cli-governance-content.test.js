@@ -36,7 +36,7 @@ function extractBinFlags(commandName) {
   if (!actionMatch) return [];
   const block = bin.slice(start, start + actionMatch.index);
   const flags = [];
-  const optionRe = /\.option\(\s*'([^']+)'/g;
+  const optionRe = /\.(?:option|requiredOption)\(\s*'([^']+)'/g;
   let m;
   while ((m = optionRe.exec(block)) !== null) {
     // Extract the long flag (e.g., from '-j, --json' get '--json')
@@ -93,6 +93,7 @@ function extractDocsFlags(commandName) {
 // Commands to audit — governance, turn lifecycle, approval, migration, validation
 const GOVERNED_COMMANDS = [
   'resume',
+  'escalate',
   'step',
   'accept-turn',
   'reject-turn',
