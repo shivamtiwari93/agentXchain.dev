@@ -1,0 +1,65 @@
+{
+  "fixture_id": "HA-012",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Advisory hook process failure records warned_failure without blocking",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_assignment": [
+          {
+            "name": "failing_advisory",
+            "type": "process",
+            "command": ["node", "-e", "process.exit(1)"],
+            "timeout_ms": 5000,
+            "mode": "advisory"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_assignment",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": true,
+    "blocked": false,
+    "audit_entry": {
+      "hook_phase": "before_assignment",
+      "hook_name": "failing_advisory",
+      "transport": "process",
+      "run_id": "run_001",
+      "verdict": "warn",
+      "exit_code": 1,
+      "timed_out": false,
+      "orchestrator_action": "warned_failure",
+      "timestamp": { "assert": "nonempty_string" },
+      "duration_ms": { "assert": "present" }
+    }
+  }
+}

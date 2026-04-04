@@ -1,0 +1,64 @@
+{
+  "fixture_id": "HA-011",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Advisory hook timeout records warned_timeout without blocking",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_assignment": [
+          {
+            "name": "timeout_advisory",
+            "type": "process",
+            "command": ["node", "-e", "setTimeout(() => {}, 10000)"],
+            "timeout_ms": 100,
+            "mode": "advisory"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_assignment",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": true,
+    "blocked": false,
+    "audit_entry": {
+      "hook_phase": "before_assignment",
+      "hook_name": "timeout_advisory",
+      "transport": "process",
+      "run_id": "run_001",
+      "verdict": "warn",
+      "timed_out": true,
+      "orchestrator_action": "warned_timeout",
+      "timestamp": { "assert": "nonempty_string" },
+      "duration_ms": { "assert": "present" }
+    }
+  }
+}

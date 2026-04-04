@@ -1,0 +1,64 @@
+{
+  "fixture_id": "HA-010",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Blocking hook timeout records blocked_timeout and blocks the phase",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_assignment": [
+          {
+            "name": "timeout_gate",
+            "type": "process",
+            "command": ["node", "-e", "setTimeout(() => {}, 10000)"],
+            "timeout_ms": 100,
+            "mode": "blocking"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_assignment",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": false,
+    "blocked": true,
+    "audit_entry": {
+      "hook_phase": "before_assignment",
+      "hook_name": "timeout_gate",
+      "transport": "process",
+      "run_id": "run_001",
+      "verdict": "block",
+      "timed_out": true,
+      "orchestrator_action": "blocked_timeout",
+      "timestamp": { "assert": "nonempty_string" },
+      "duration_ms": { "assert": "present" }
+    }
+  }
+}
