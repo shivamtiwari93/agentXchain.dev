@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.6.0
+
+Auditable export artifacts. Governed runs and coordinator workspaces can now be exported as self-verifiable JSON artifacts with embedded content, integrity hashes, and an independent verification command.
+
+### Governed Run Export
+
+- New `agentxchain export` command produces a deterministic JSON snapshot of all governed audit artifacts: config, state, history, decision ledger, hook audit/annotations, dispatch artifacts, staging artifacts, acceptance transaction journals, and intake artifacts.
+- Each file entry includes `content_base64`, `bytes`, and `sha256` so the artifact is independently re-derivable without access to the original repo.
+- Export schema version `0.2`. Output to stdout by default or to a file via `--output <path>`.
+- Legacy (non-governed) projects and unsupported formats fail closed.
+
+### Coordinator Workspace Export
+
+- `agentxchain export` from an `agentxchain-multi.json` root produces `export_kind: "agentxchain_coordinator_export"` with recursively embedded child repo governed exports.
+- Detection order: governed project first, coordinator workspace second.
+- Child repo export failures do not fail the coordinator export — each child entry has `ok: boolean` with error details when false.
+- Pre-init coordinator workspaces (no `.agentxchain/multirepo/`) export successfully with null summary fields.
+- Coordinator-level files: config, state, barriers, history, decision ledger, barrier ledger.
+
+### Export Verification
+
+- New `agentxchain verify export <file>` command validates export artifact integrity.
+- Verifies JSON structure, schema version, file entry completeness, `content_base64` → `sha256` re-derivation, and `bytes` consistency.
+- Coordinator verification recurses into child repo exports.
+- Exit codes: `0` pass, `1` integrity/structure fail, `2` input/command error.
+
+### Evidence
+
+- 652 Vitest tests (36 files) + 1437 node --test (327 suites), 0 failures.
+- Website production build passes.
+
 ## 2.5.0
 
 Remote MCP transport. Governed agents can now run over network via streamable HTTP, completing the MCP connector story for both local and remote deployment.
