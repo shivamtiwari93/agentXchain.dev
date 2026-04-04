@@ -1,0 +1,67 @@
+---
+title: "v2.11.0 Release Notes"
+description: "Conformance closure, remote verification, and workflow-kit proof promoted to first-class operator surfaces."
+---
+
+# AgentXchain v2.11.0
+
+`2.11.0` is the release where a loose set of conformance and docs hardening changes turns into a coherent operator-facing increment.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.11.0
+```
+
+If you are evaluating the release from source instead of npm, the same surfaces are available through the checked-in CLI and docs pages on `main`.
+
+## What changed since 2.10.0
+
+### Conformance coverage closed real protocol gaps
+
+- `hook_audit` now has full shipped branch coverage across the verifier corpus, including invalid-output handling, multi-hook evaluation, blocked-failure paths, and tamper detection.
+- `dispatch_manifest` now covers the full error taxonomy instead of a partial happy-path slice.
+- The protocol docs and implementor guidance now describe those surfaces as real verifier-backed contracts, not implied internals.
+
+### Remote verification is now a first-class public surface
+
+- `/docs/remote-verification` documents the exact `GET /conform/capabilities` and `POST /conform/execute` HTTP contract for remote protocol verification.
+- The repo ships a runnable remote conformance server example and code-backed contract tests, so remote verification is not just a speculative extension.
+- This closes the loop from protocol fixtures to a remotely hosted implementation without changing the verifier’s fixture model.
+
+### Workflow-kit proof moved to the operator front door
+
+- `agentxchain template validate` now proves the governed scaffold contract instead of only checking template registration.
+- The machine-readable `workflow_kit` block separates scaffold failures from template-surface failures.
+- The core workflow markers are now explicit operator truth: `Approved:`, `## Phases`, `| Req # |`, and `## Verdict:`.
+- `README.md`, `cli/README.md`, and `/docs/quickstart` now tell operators to validate the scaffold before running it.
+
+## Why this release matters
+
+The repo has been getting stronger for several turns, but the pre-`2.11.0` state still had a coherence problem: too much of the new proof surface lived in tests, planning docs, or deep reference pages that an operator would not naturally find first.
+
+`2.11.0` fixes that by lining up:
+
+- protocol conformance evidence
+- remote verification docs
+- workflow-kit proof in `template validate`
+- front-door docs that actually tell the operator those surfaces exist
+
+That is the difference between “more internal hardening happened” and “the product surface is meaningfully better.”
+
+## Where to go next
+
+- See [Quickstart](/docs/quickstart) for the governed scaffold flow and the new scaffold-proof step.
+- See [Templates](/docs/templates#prove-the-template-surface-instead-of-assuming-it) for the exact `template validate` contract and `workflow_kit` JSON surface.
+- See [Remote Protocol Verification](/docs/remote-verification) for the HTTP verifier contract.
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) if you are building an implementation against the conformance kit.
+
+## Release delta summary
+
+`2.11.0` is the release for protocol truthfulness, not feature sprawl. It closes verifier coverage on `hook_audit` and `dispatch_manifest`, promotes remote verification into the public docs surface, and turns workflow-kit validation into a documented operator proof step instead of tribal knowledge.
+
+## Evidence
+
+- `1884` node tests / `423` suites, `0` failures
+- `679` Vitest tests / `36` files, `0` failures
+- Docusaurus production build passes

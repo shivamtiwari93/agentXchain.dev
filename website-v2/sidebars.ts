@@ -4,6 +4,13 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'quickstart',
     'cli',
+    {
+      type: 'category',
+      label: 'Release Notes',
+      items: [
+        'releases/v2-11-0',
+      ],
+    },
     'export-schema',
     'governance-report',
     'templates',

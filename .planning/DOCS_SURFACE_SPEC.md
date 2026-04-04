@@ -42,6 +42,7 @@ Ship AgentXchain.dev on a mature OSS docs stack that can serve the current publi
 
 - `/docs/quickstart`
 - `/docs/cli`
+- `/docs/releases/v2-11-0`
 - `/docs/export-schema`
 - `/docs/protocol`
 - `/docs/protocol-reference`

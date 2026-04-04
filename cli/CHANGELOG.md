@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.11.0
+
+Protocol conformance closure and workflow-kit proof surfaced honestly. This release closes the remaining shipped verifier gaps around `hook_audit` and `dispatch_manifest`, promotes remote verification into a first-class public docs contract, and turns `template validate` into an explicit operator proof for the governed scaffold.
+
+### Conformance Closure
+
+- `hook_audit` verifier coverage now spans the full shipped branch set, including invalid-output handling, multi-hook execution, blocked-failure paths, and tamper detection.
+- `dispatch_manifest` now covers the full shipped error taxonomy instead of a partial subset.
+- `hook_ok` response semantics are documented and held by code-backed docs guards, so hook success is not left as an implied convention.
+
+### Remote Verification Surface
+
+- New public docs page: `/docs/remote-verification`.
+- The HTTP conformance path is now documented from protocol contract through runnable example server and docs/content guard coverage.
+- Remote verification is treated as the same fixture-driven verifier model as local stdio, not as a second conformance system.
+
+### Workflow-Kit Proof
+
+- `agentxchain template validate` now proves the governed workflow kit, not just the template registry.
+- `--json` exposes a `workflow_kit` block so automation can distinguish scaffold failures from template-surface failures.
+- The four required workflow markers are now part of the explicit operator-facing contract: `Approved:`, `## Phases`, `| Req # |`, and `## Verdict:`.
+- `README.md`, `cli/README.md`, and `/docs/quickstart` now document `template validate` as a front-door proof step.
+
+### Evidence
+
+- 1884 node --test tests / 423 suites, 0 failures.
+- 679 Vitest tests / 36 files, 0 failures.
+- Website production build passes.
+
 ## 2.10.0
 
 First real-model evidence: AgentXchain now has a live governed proof that dispatches to a real LLM via the api_proxy adapter, validates all protocol artifacts, and demonstrates governed retry on schema non-conformance.

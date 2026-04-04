@@ -13,7 +13,7 @@ function Hero() {
           alt="AgentXchain"
           className="hero-logo"
         />
-        <div className="hero-badge">Open source &middot; MIT &middot; v2.10.0</div>
+        <div className="hero-badge">Open source &middot; MIT &middot; v2.11.0</div>
         <h1>
           <span className="text-green">Governed</span> multi-agent{' '}
           <span className="text-blue">software delivery</span>

@@ -1,0 +1,56 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
+
+const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
+
+const RELEASE_PAGE_PATH = 'website-v2/docs/releases/v2-11-0.mdx';
+const RELEASE_PAGE = read(RELEASE_PAGE_PATH);
+const SIDEBARS = read('website-v2/sidebars.ts');
+const CHANGELOG = read('cli/CHANGELOG.md');
+const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
+const RELEASE_NOTES_SPEC = read('.planning/V2_11_RELEASE_NOTES_DOC_SPEC.md');
+
+describe('v2.11.0 release notes docs surface', () => {
+  it('ships the public docs page and planning spec', () => {
+    assert.ok(existsSync(join(REPO_ROOT, RELEASE_PAGE_PATH)), 'release notes page must exist');
+    assert.ok(
+      existsSync(join(REPO_ROOT, '.planning/V2_11_RELEASE_NOTES_DOC_SPEC.md')),
+      'release notes spec must exist'
+    );
+  });
+
+  it('links the release notes from the docs sidebar', () => {
+    assert.match(SIDEBARS, /label:\s*'Release Notes'/);
+    assert.match(SIDEBARS, /'releases\/v2-11-0'/);
+  });
+
+  it('keeps the docs surface spec aligned with the public route', () => {
+    assert.match(DOCS_SURFACE_SPEC, /\/docs\/releases\/v2-11-0/);
+    assert.match(RELEASE_NOTES_SPEC, /\/docs\/releases\/v2-11-0/);
+  });
+
+  it('keeps the release page and changelog on the same version', () => {
+    assert.match(CHANGELOG, /^## 2\.11\.0$/m);
+    assert.match(RELEASE_PAGE, /# AgentXchain v2\.11\.0/);
+    assert.match(RELEASE_PAGE, /since 2\.10\.0/);
+  });
+
+  it('documents the actual operator-facing delta', () => {
+    for (const term of [
+      'hook_audit',
+      'dispatch_manifest',
+      'remote-verification',
+      'template validate',
+      'workflow_kit',
+      'npm install -g agentxchain@2.11.0',
+    ]) {
+      assert.ok(RELEASE_PAGE.includes(term), `release notes page must mention ${term}`);
+    }
+  });
+});
