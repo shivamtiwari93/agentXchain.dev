@@ -1,7 +1,21 @@
-import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
-import { buildRunExport } from '../lib/export.js';
+import { buildRunExport, buildCoordinatorExport } from '../lib/export.js';
+import { COORDINATOR_CONFIG_FILE } from '../lib/coordinator-config.js';
 import { safeWriteJson } from '../lib/safe-write.js';
+
+function detectExportKind(cwd) {
+  // Governed project takes priority (agentxchain.json)
+  if (existsSync(join(cwd, 'agentxchain.json'))) {
+    return 'governed';
+  }
+  // Coordinator workspace (agentxchain-multi.json)
+  if (existsSync(join(cwd, COORDINATOR_CONFIG_FILE))) {
+    return 'coordinator';
+  }
+  return null;
+}
 
 export async function exportCommand(options) {
   const format = options.format || 'json';
@@ -11,9 +25,21 @@ export async function exportCommand(options) {
     return;
   }
 
+  const cwd = process.cwd();
+  const kind = detectExportKind(cwd);
+
   let result;
   try {
-    result = buildRunExport(process.cwd());
+    if (kind === 'governed') {
+      result = buildRunExport(cwd);
+    } else if (kind === 'coordinator') {
+      result = buildCoordinatorExport(cwd);
+    } else {
+      result = {
+        ok: false,
+        error: 'No governed project or coordinator workspace found. Run this inside an AgentXchain governed project or coordinator workspace.',
+      };
+    }
   } catch (error) {
     console.error(error.message || String(error));
     process.exitCode = 1;
@@ -27,9 +53,9 @@ export async function exportCommand(options) {
   }
 
   if (options.output) {
-    const outputPath = resolve(process.cwd(), options.output);
+    const outputPath = resolve(cwd, options.output);
     safeWriteJson(outputPath, result.export);
-    console.log(`Exported governed run audit to ${options.output}`);
+    console.log(`Exported ${kind === 'coordinator' ? 'coordinator workspace' : 'governed run'} audit to ${options.output}`);
     return;
   }
 

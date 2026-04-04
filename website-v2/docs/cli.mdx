@@ -35,7 +35,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template validate` | Setup | Prove template registry, project binding, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
-| `export` | Inspection | Emit a single JSON audit artifact for the current governed run |
+| `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
@@ -114,7 +114,7 @@ agentxchain export [--format json] [--output <path>]
 | `--format <format>` | `json` | Export format. Only `json` is supported in this slice |
 | `--output <path>` | stdout | Write the export artifact to a file instead of stdout |
 
-Governed projects only. `export` snapshots the repo-native audit surface into one JSON artifact so operators can move or attach run evidence without scraping `.agentxchain/` by hand. The export includes config, governed state, history, decision ledger, dispatch bundles, staging artifacts, hook audit surfaces, and intake artifacts when present. If `.agentxchain/multirepo/` exists under the same governed root, those coordinator files are included too. Without `--output`, the JSON is printed to stdout by default.
+Exports the repo-native audit surface into one JSON artifact. When run from a **governed project** (`agentxchain.json`), the export includes config, governed state, history, decision ledger, dispatch bundles, staging artifacts, hook audit surfaces, and intake artifacts when present. When run from a **coordinator workspace** (`agentxchain-multi.json`), the export includes coordinator state, barriers, history, decision ledger, and recursively embeds the full governed export of each child repo under the `repos` key. If a child repo export fails, the coordinator export still succeeds with the failure recorded per-repo. Governed projects take detection priority over coordinator workspaces. Without `--output`, the JSON is printed to stdout by default.
 
 ### `resume`
 

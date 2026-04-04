@@ -11,7 +11,10 @@ const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
 
 const CLI_DOCS = read('website-v2/docs/cli.mdx');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
+const EXPORT_LIB = read('cli/src/lib/export.js');
+const EXPORT_CMD = read('cli/src/commands/export.js');
 const SPEC = read('.planning/RUN_EXPORT_SPEC.md');
+const COORD_SPEC = read('.planning/COORDINATOR_EXPORT_SPEC.md');
 
 describe('Export CLI docs contract', () => {
   it('registers export with --format and --output in the CLI entrypoint', () => {
@@ -22,16 +25,72 @@ describe('Export CLI docs contract', () => {
   });
 
   it('documents export in the command map and dedicated section', () => {
-    assert.match(CLI_DOCS, /\| `export` \| Inspection \| Emit a single JSON audit artifact for the current governed run \|/);
+    assert.match(CLI_DOCS, /\| `export` \| Inspection \|/);
     assert.match(CLI_DOCS, /### `export`/);
   });
 
-  it('documents the flag contract and scope boundary truthfully', () => {
+  it('documents the flag contract truthfully', () => {
     assert.match(CLI_DOCS, /agentxchain export \[--format json\] \[--output <path>\]/);
-    assert.match(CLI_DOCS, /Only `json` is supported in this slice/);
-    assert.match(CLI_DOCS, /Governed projects only/i);
     assert.match(CLI_DOCS, /stdout by default/i);
-    assert.match(CLI_DOCS, /dispatch bundles, staging artifacts, hook audit/i);
+  });
+
+  it('documents both governed project and coordinator workspace export', () => {
+    assert.match(CLI_DOCS, /governed project/i);
+    assert.match(CLI_DOCS, /coordinator workspace/i);
+    assert.match(CLI_DOCS, /agentxchain-multi\.json/);
+    assert.match(CLI_DOCS, /recursively embeds/i);
+    assert.match(CLI_DOCS, /child repo/i);
+  });
+
+  it('documents detection priority: governed project over coordinator workspace', () => {
+    assert.match(CLI_DOCS, /governed projects take detection priority/i);
+  });
+
+  it('documents child repo failure semantics', () => {
+    assert.match(CLI_DOCS, /child repo export fails.*coordinator export still succeeds/i);
+  });
+});
+
+describe('Export library contract', () => {
+  it('exports both buildRunExport and buildCoordinatorExport', () => {
+    assert.match(EXPORT_LIB, /export function buildRunExport/);
+    assert.match(EXPORT_LIB, /export function buildCoordinatorExport/);
+  });
+
+  it('coordinator export includes the correct file roots', () => {
+    assert.match(EXPORT_LIB, /agentxchain-multi\.json/);
+    assert.match(EXPORT_LIB, /\.agentxchain\/multirepo\/state\.json/);
+    assert.match(EXPORT_LIB, /\.agentxchain\/multirepo\/history\.jsonl/);
+    assert.match(EXPORT_LIB, /\.agentxchain\/multirepo\/barriers\.json/);
+    assert.match(EXPORT_LIB, /\.agentxchain\/multirepo\/decision-ledger\.jsonl/);
+    assert.match(EXPORT_LIB, /\.agentxchain\/multirepo\/barrier-ledger\.jsonl/);
+  });
+
+  it('coordinator export kind is agentxchain_coordinator_export', () => {
+    assert.match(EXPORT_LIB, /agentxchain_coordinator_export/);
+  });
+
+  it('coordinator export calls buildRunExport for each child repo', () => {
+    assert.match(EXPORT_LIB, /buildRunExport\(resolvedPath\)/);
+  });
+});
+
+describe('Export command detection', () => {
+  it('detects governed projects by agentxchain.json', () => {
+    assert.match(EXPORT_CMD, /agentxchain\.json/);
+  });
+
+  it('detects coordinator workspaces by COORDINATOR_CONFIG_FILE', () => {
+    assert.match(EXPORT_CMD, /COORDINATOR_CONFIG_FILE/);
+  });
+
+  it('governed detection takes priority over coordinator', () => {
+    // The detectExportKind function checks agentxchain.json first
+    const funcBody = EXPORT_CMD.match(/function detectExportKind[\s\S]*?return null/);
+    assert.ok(funcBody, 'detectExportKind function found');
+    const governedIndex = funcBody[0].indexOf('agentxchain.json');
+    const coordIndex = funcBody[0].indexOf('COORDINATOR_CONFIG_FILE');
+    assert.ok(governedIndex < coordIndex, 'governed check must come before coordinator check');
   });
 });
 
@@ -40,6 +99,14 @@ describe('Run export spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-EXPORT-001/);
     assert.match(SPEC, /AT-EXPORT-008/);
-    assert.match(SPEC, /Governed projects only/);
+  });
+});
+
+describe('Coordinator export spec alignment', () => {
+  it('ships a standalone coordinator export spec with acceptance tests', () => {
+    assert.match(COORD_SPEC, /AT-COORD-EXPORT-001/);
+    assert.match(COORD_SPEC, /AT-COORD-EXPORT-008/);
+    assert.match(COORD_SPEC, /agentxchain_coordinator_export/);
+    assert.match(COORD_SPEC, /recursively/i);
   });
 });

@@ -1,8 +1,19 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import { loadProjectContext, loadProjectState } from './config.js';
+import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
+import { loadCoordinatorState } from './coordinator-state.js';
+
+const COORDINATOR_INCLUDED_ROOTS = [
+  'agentxchain-multi.json',
+  '.agentxchain/multirepo/state.json',
+  '.agentxchain/multirepo/history.jsonl',
+  '.agentxchain/multirepo/barriers.json',
+  '.agentxchain/multirepo/decision-ledger.jsonl',
+  '.agentxchain/multirepo/barrier-ledger.jsonl',
+];
 
 const INCLUDED_ROOTS = [
   'agentxchain.json',
@@ -166,6 +177,124 @@ export function buildRunExport(startDir = process.cwd()) {
       files,
       config: rawConfig,
       state,
+    },
+  };
+}
+
+export function buildCoordinatorExport(startDir = process.cwd()) {
+  const workspaceRoot = resolve(startDir);
+  const configPath = join(workspaceRoot, COORDINATOR_CONFIG_FILE);
+
+  if (!existsSync(configPath)) {
+    return {
+      ok: false,
+      error: `No ${COORDINATOR_CONFIG_FILE} found at ${workspaceRoot}.`,
+    };
+  }
+
+  let rawConfig;
+  try {
+    rawConfig = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Invalid JSON in ${COORDINATOR_CONFIG_FILE}: ${err.message}`,
+    };
+  }
+
+  const configResult = loadCoordinatorConfig(workspaceRoot);
+  const normalizedConfig = configResult.ok ? configResult.config : null;
+
+  // Collect coordinator-level files
+  const collectedPaths = [...new Set(
+    COORDINATOR_INCLUDED_ROOTS.flatMap((relPath) => collectPaths(workspaceRoot, relPath)),
+  )].sort((a, b) => a.localeCompare(b, 'en'));
+
+  const files = {};
+  for (const relPath of collectedPaths) {
+    files[relPath] = parseFile(workspaceRoot, relPath);
+  }
+
+  // Load coordinator state for summary
+  const coordState = loadCoordinatorState(workspaceRoot);
+
+  // Build repo run statuses from coordinator state
+  const repoRunStatuses = {};
+  if (coordState?.repo_runs) {
+    for (const [repoId, repoRun] of Object.entries(coordState.repo_runs)) {
+      repoRunStatuses[repoId] = repoRun.status || 'unknown';
+    }
+  }
+
+  // Count barriers from barriers.json
+  let barrierCount = 0;
+  const barriersKey = '.agentxchain/multirepo/barriers.json';
+  if (files[barriersKey]?.format === 'json' && files[barriersKey]?.data) {
+    barrierCount = Object.keys(files[barriersKey].data).length;
+  }
+
+  // Determine repos from config
+  const repos = {};
+  const repoEntries = rawConfig.repos && typeof rawConfig.repos === 'object'
+    ? Object.entries(rawConfig.repos)
+    : [];
+
+  for (const [repoId, repoDef] of repoEntries) {
+    const repoPath = repoDef?.path || '';
+    const resolvedPath = resolve(workspaceRoot, repoPath);
+
+    try {
+      const childExport = buildRunExport(resolvedPath);
+      if (childExport.ok) {
+        repos[repoId] = {
+          ok: true,
+          path: repoPath,
+          export: childExport.export,
+        };
+      } else {
+        repos[repoId] = {
+          ok: false,
+          path: repoPath,
+          error: childExport.error,
+        };
+      }
+    } catch (err) {
+      repos[repoId] = {
+        ok: false,
+        path: repoPath,
+        error: err.message || String(err),
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    export: {
+      schema_version: '0.1',
+      export_kind: 'agentxchain_coordinator_export',
+      exported_at: new Date().toISOString(),
+      workspace_root: relative(process.cwd(), workspaceRoot) || '.',
+      coordinator: {
+        project_id: rawConfig.project?.id || null,
+        project_name: rawConfig.project?.name || null,
+        schema_version: rawConfig.schema_version || null,
+        repo_count: repoEntries.length,
+        workstream_count: rawConfig.workstreams
+          ? Object.keys(rawConfig.workstreams).length
+          : 0,
+      },
+      summary: {
+        super_run_id: coordState?.super_run_id || null,
+        status: coordState?.status || null,
+        phase: coordState?.phase || null,
+        repo_run_statuses: repoRunStatuses,
+        barrier_count: barrierCount,
+        history_entries: countJsonl(files, '.agentxchain/multirepo/history.jsonl'),
+        decision_entries: countJsonl(files, '.agentxchain/multirepo/decision-ledger.jsonl'),
+      },
+      files,
+      config: rawConfig,
+      repos,
     },
   };
 }
