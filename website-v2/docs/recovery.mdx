@@ -1,0 +1,127 @@
+---
+title: Recovery
+description: "Complete operator recovery guide for every blocked and failed state in governed runs."
+---
+
+# Recovery
+
+Every governed run can encounter blocked or failed states. AgentXchain ensures that every such state has an explicit recovery path — no state is terminal without an operator escape route.
+
+## How Recovery Works
+
+When a governed run enters a blocked state, the orchestrator persists a **recovery descriptor** containing:
+
+- **typed_reason** — what category of block occurred
+- **owner** — who is responsible for resolution (always `human` for operator-facing blocks)
+- **recovery_action** — the exact command or action to take
+- **turn_retained** — whether the blocked turn is still assigned and can be resumed
+
+The `agentxchain status` command always displays the current recovery action when a run is blocked.
+
+## Recovery Map
+
+### Approval Gates
+
+| State | Cause | Recovery |
+|---|---|---|
+| `pending_phase_transition` | Phase gate requires human approval | `agentxchain approve-transition` |
+| `pending_run_completion` | Run completion gate requires human approval | `agentxchain approve-completion` |
+
+These are governance-mandated pauses, not failures. The run resumes automatically after approval.
+
+### Dispatch Failures
+
+| State | Cause | Recovery |
+|---|---|---|
+| `dispatch_error` | Adapter dispatch failed (API error, MCP transport failure, local CLI crash) | Fix the issue, then `agentxchain step --resume` |
+
+The failed turn is retained. `step --resume` re-dispatches the same turn to the same role without re-assignment.
+
+### Escalations
+
+| State | Cause | Recovery |
+|---|---|---|
+| `operator_escalation` | Operator raised via `agentxchain escalate` | Resolve the issue, then `agentxchain step` or `step --resume` |
+| `retries_exhausted` | Max retries hit on a role turn | `agentxchain step --resume` (turn preserved) |
+
+Operator escalations record `decision = "operator_escalated"` in the decision ledger. Resolution records `decision = "escalation_resolved"`.
+
+### Agent Requests
+
+| State | Cause | Recovery |
+|---|---|---|
+| `needs_human` | Agent returned `blocked_on: "human:..."` requesting human intervention | Resolve the stated issue, then `agentxchain step --resume` |
+
+The agent specifies what it needs after the `human:` prefix. The operator resolves the external issue and resumes.
+
+### Hook Failures
+
+| State | Cause | Recovery |
+|---|---|---|
+| `hook_block` | Lifecycle hook failed without tampering | Fix the hook, then `agentxchain step --resume` or `agentxchain resume --role` |
+| `hook_tamper` | Hook detected unauthorized file changes | Fix tampering, then `agentxchain step --resume` |
+
+Hook blocks during assignment require `resume --role` to re-assign. Hook blocks during dispatch or validation require `step --resume`.
+
+### Turn Conflicts
+
+| State | Cause | Recovery |
+|---|---|---|
+| `conflict_loop` | Repeated conflicting changes across turns | `agentxchain reject-turn --reassign` or `agentxchain accept-turn --resolution human_merge` |
+
+| Condition | Recovery |
+|---|---|
+| Conflicted turn (overlapping agent changes) | `agentxchain reject-turn --reassign` or `agentxchain accept-turn --resolution human_merge` |
+| Validation failure (retryable) | `agentxchain reject-turn` then `agentxchain step` |
+| Validation failure (non-retryable) | Manual fix, then `agentxchain accept-turn` |
+
+### Other States
+
+| Condition | Recovery |
+|---|---|
+| Dirty authoritative tree | `git commit` or `git stash`, then `agentxchain step` |
+| Unknown block | Inspect `.agentxchain/state.json`, resolve manually, then `agentxchain step` |
+
+## Command Reference
+
+The recovery surface uses these existing commands — no dedicated `recover` command is needed because every blocked state maps to a specific, targeted command:
+
+| Command | Recovery Role |
+|---|---|
+| `step --resume` | Resume a blocked turn (dispatch failure, escalation, hook block, agent request) |
+| `resume --role` | Re-assign a turn after cleared block or hook failure during assignment |
+| `approve-transition` | Approve a phase gate |
+| `approve-completion` | Approve run completion |
+| `reject-turn` | Reject a failed turn and trigger retry or reassignment |
+| `accept-turn` | Manually accept a turn after validation failure and manual fix |
+| `escalate` | Raise an operator escalation on an active or blocked turn |
+| `status` | View current blocked state and recovery action |
+
+## Recovery Descriptor Contract
+
+The `deriveRecoveryDescriptor()` function in `blocked-state.js` is the canonical map from governed state to recovery action. Every blocked state MUST be registered in this function. The typed reasons are:
+
+- `pending_run_completion`
+- `pending_phase_transition`
+- `needs_human`
+- `dispatch_error`
+- `operator_escalation`
+- `retries_exhausted`
+- `hook_block`
+- `hook_tamper`
+- `conflict_loop`
+- `unknown_block`
+
+The `unknown_block` fallback ensures that even unrecognized `blocked_on` values produce a recovery action (manual inspection).
+
+## Auditable Recovery
+
+Every recovery action is recorded in the decision ledger (`.agentxchain/decision-ledger.jsonl`):
+
+- Escalation raised: `decision = "operator_escalated"`
+- Escalation resolved: `decision = "escalation_resolved"`
+- Run reactivated: `decision = "escalation_resolved"` with `via` field
+- Phase approved: `decision = "phase_transition_approved"`
+- Run completed: `decision = "run_completion_approved"`
+
+This ensures that recovery actions are part of the governed audit trail, not silent state mutations.
