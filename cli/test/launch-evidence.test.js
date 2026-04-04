@@ -1,10 +1,23 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
+
+function countFixtures(dir) {
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += countFixtures(fullPath);
+    } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      total += 1;
+    }
+  }
+  return total;
+}
 
 describe('Launch evidence report', () => {
   const report = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
@@ -109,6 +122,32 @@ describe('Website badge version matches package.json', () => {
     assert.ok(badgeMatch, 'hero badge should contain a version like vX.Y.Z');
     assert.equal(badgeMatch[1], pkg.version,
       `Website badge shows v${badgeMatch[1]} but package.json is ${pkg.version} — update the badge in website-v2/src/pages/index.tsx`);
+  });
+});
+
+describe('Conformance count surfaces stay aligned', () => {
+  const fixtureRoot = resolve(ROOT, '.agentxchain-conformance', 'fixtures');
+  const totalFixtures = countFixtures(fixtureRoot);
+  const homepage = read('website-v2/src/pages/index.tsx');
+  const guide = read('website-v2/docs/protocol-implementor-guide.mdx');
+  const redditDrafts = read('.planning/MARKETING/REDDIT_POSTS.md');
+  const twitterThread = read('.planning/MARKETING/TWITTER_THREAD.md');
+
+  it('homepage stat and architecture copy match the real fixture corpus size', () => {
+    assert.equal(totalFixtures, 58, 'update this guard when the shipped corpus size changes intentionally');
+    assert.match(homepage, new RegExp(`stat-number\">${totalFixtures}`));
+    assert.match(homepage, new RegExp(`${totalFixtures}\\s+golden fixtures`));
+  });
+
+  it('implementor guide tier counts match the shipped corpus', () => {
+    assert.match(guide, /\| `1` \| Core constitutional behavior .* \| `40` \|/);
+    assert.match(guide, /\| `2` \| Trust-hardening behavior .* \| `13` \|/);
+    assert.match(guide, /\| `3` \| Multi-repo coordination .* \| `5` \|/);
+  });
+
+  it('marketing drafts use the current corpus size', () => {
+    assert.match(redditDrafts, /\b58 conformance fixtures\b/);
+    assert.match(twitterThread, /\b58 conformance fixtures\b/);
   });
 });
 

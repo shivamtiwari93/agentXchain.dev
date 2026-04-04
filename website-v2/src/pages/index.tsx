@@ -74,7 +74,7 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">56</div>
+        <div className="stat-number">58</div>
         <div className="stat-label">Conformance fixtures</div>
       </div>
       <div>
@@ -182,7 +182,7 @@ function Architecture() {
           QA, escalation, release, multi-repo coordination, plugins, dashboards,
           and organizational integrations. The{' '}
           <Link to="/docs/cli#verify-protocol">protocol conformance kit</Link>{' '}
-          lets any implementation prove constitutional compliance against 53
+          lets any implementation prove constitutional compliance against 58
           golden fixtures — run <code>agentxchain verify protocol</code> to test yours.
         </p>
       </div>

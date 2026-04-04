@@ -283,6 +283,33 @@ function isAssertionObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) && typeof value.assert === 'string';
 }
 
+function matchUnorderedArray(expectedItems, actual) {
+  if (!Array.isArray(expectedItems) || !Array.isArray(actual) || expectedItems.length !== actual.length) {
+    return false;
+  }
+
+  const used = new Set();
+
+  for (const expectedItem of expectedItems) {
+    let matchedIndex = -1;
+    for (let index = 0; index < actual.length; index += 1) {
+      if (used.has(index)) continue;
+      if (matchExpected(expectedItem, actual[index])) {
+        matchedIndex = index;
+        break;
+      }
+    }
+
+    if (matchedIndex === -1) {
+      return false;
+    }
+
+    used.add(matchedIndex);
+  }
+
+  return true;
+}
+
 function matchExpected(expected, actual) {
   if (isAssertionObject(expected)) {
     if (expected.assert === 'nonempty_string') {
@@ -293,6 +320,9 @@ function matchExpected(expected, actual) {
     }
     if (expected.assert === 'present') {
       return actual !== undefined;
+    }
+    if (expected.assert === 'unordered_array') {
+      return matchUnorderedArray(expected.items, actual);
     }
     return false;
   }
@@ -527,6 +557,14 @@ function applyManifestFixtureMutations(root, fixture, turnId) {
     } catch {
       // Missing manifest is surfaced by manifest verification, not fixture setup.
     }
+  }
+
+  const corruptedManifest = fixture.setup.post_finalize_corrupt_manifest?.[turnId];
+  if (corruptedManifest !== undefined) {
+    const nextManifestContent = typeof corruptedManifest === 'string'
+      ? corruptedManifest
+      : JSON.stringify(corruptedManifest, null, 2);
+    writeFileSync(join(bundleDir, 'MANIFEST.json'), nextManifestContent);
   }
 }
 

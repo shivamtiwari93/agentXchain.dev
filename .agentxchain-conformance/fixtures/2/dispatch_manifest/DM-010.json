@@ -1,8 +1,8 @@
 {
-  "fixture_id": "DM-006",
+  "fixture_id": "DM-010",
   "tier": 2,
   "surface": "dispatch_manifest",
-  "description": "Size mismatch after content replacement with different-length data fails verification",
+  "description": "Manifest missing required fields fails verification with invalid_manifest",
   "type": "reject",
   "setup": {
     "state": {
@@ -25,12 +25,15 @@
     "dispatch_bundle": {
       "turn_abc": {
         "ASSIGNMENT.json": "{\"run_id\":\"run_001\",\"turn_id\":\"turn_abc\",\"role\":\"dev\"}",
-        "PROMPT.md": "Short."
+        "PROMPT.md": "# Task"
       }
     },
-    "post_finalize_tamper": {
+    "post_finalize_corrupt_manifest": {
       "turn_abc": {
-        "PROMPT.md": "This replacement content is deliberately much longer than the original six-byte string to guarantee a size mismatch."
+        "manifest_version": "1.0",
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
       }
     }
   },
@@ -42,18 +45,12 @@
   },
   "expected": {
     "result": "error",
-    "verification_errors": {
-      "assert": "unordered_array",
-      "items": [
-        {
-          "type": "size_mismatch",
-          "detail": { "assert": "nonempty_string" }
-        },
-        {
-          "type": "digest_mismatch",
-          "detail": { "assert": "nonempty_string" }
-        }
-      ]
-    }
+    "error_type": "invalid_manifest",
+    "verification_errors": [
+      {
+        "type": "invalid_manifest",
+        "detail": { "assert": "nonempty_string" }
+      }
+    ]
   }
 }

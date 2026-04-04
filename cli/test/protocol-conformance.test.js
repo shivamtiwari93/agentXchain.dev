@@ -36,8 +36,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 11);
-    assert.equal(report.results.tier_2.fixtures_passed, 11);
+    assert.equal(report.results.tier_2.fixtures_run, 13);
+    assert.equal(report.results.tier_2.fixtures_passed, 13);
   });
 
   it('supports Tier 2 surface filtering for dispatch manifest fixtures', () => {
@@ -58,8 +58,8 @@ describe('protocol conformance verifier', () => {
     const report = JSON.parse(result.stdout);
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 0);
-    assert.equal(report.results.tier_2.fixtures_run, 8);
-    assert.equal(report.results.tier_2.fixtures_passed, 8);
+    assert.equal(report.results.tier_2.fixtures_run, 10);
+    assert.equal(report.results.tier_2.fixtures_passed, 10);
     assert.deepEqual(Object.keys(report.results.tier_2.surfaces), ['dispatch_manifest']);
   });
 
@@ -71,8 +71,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 11);
-    assert.equal(report.results.tier_2.fixtures_passed, 11);
+    assert.equal(report.results.tier_2.fixtures_run, 13);
+    assert.equal(report.results.tier_2.fixtures_passed, 13);
     assert.equal(report.results.tier_3.fixtures_run, 5);
     assert.equal(report.results.tier_3.fixtures_passed, 5);
   });

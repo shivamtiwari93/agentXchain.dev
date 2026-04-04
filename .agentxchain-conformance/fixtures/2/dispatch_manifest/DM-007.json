@@ -46,15 +46,18 @@
   },
   "expected": {
     "result": "error",
-    "verification_errors": [
-      {
-        "type": "missing_file",
-        "detail": { "assert": "nonempty_string" }
-      },
-      {
-        "type": "unexpected_file",
-        "detail": { "assert": "nonempty_string" }
-      }
-    ]
+    "verification_errors": {
+      "assert": "unordered_array",
+      "items": [
+        {
+          "type": "missing_file",
+          "detail": { "assert": "nonempty_string" }
+        },
+        {
+          "type": "unexpected_file",
+          "detail": { "assert": "nonempty_string" }
+        }
+      ]
+    }
   }
 }
