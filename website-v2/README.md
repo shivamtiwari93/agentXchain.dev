@@ -28,17 +28,30 @@ Build output is written to `website-v2/build/`.
 
 ## Deployment
 
-Primary deployment target is GCS via the shared helper:
+Canonical production deploy is the GitHub Actions workflow:
 
 ```bash
-cd /Users/shivamtiwari.highlevel/VS Code/1008apps
-bash deploy-websites.sh
+.github/workflows/deploy-gcs.yml
 ```
 
-The deploy path assumes:
+It deploys `website-v2/build/` to the `agentxchain.dev` GCS bucket and is triggered by:
+
+- pushes to `main` that change `website-v2/**`
+- manual `workflow_dispatch`
+
+The GCS workflow enforces:
 
 - hashed assets under `build/assets/` get immutable long-cache headers
 - HTML and other mutable files get short-cache headers
 - `agentxchain.dev` is the canonical bucket
 
-GitHub Pages remains a fallback mirror through `.github/workflows/deploy-pages.yml`.
+GitHub Pages remains a mirror through:
+
+```bash
+.github/workflows/deploy-pages.yml
+```
+
+It builds the same `website-v2/build/` output and supports the same two trigger modes:
+
+- pushes to `main` that change `website-v2/**`
+- manual `workflow_dispatch`
