@@ -1257,7 +1257,8 @@ export function assignGovernedTurn(root, config, roleId) {
   };
 
   writeState(root, updatedState);
-  const result = { ok: true, state: attachLegacyCurrentTurnAlias(updatedState) };
+  const assignedTurn = updatedState.active_turns[turnId];
+  const result = { ok: true, state: attachLegacyCurrentTurnAlias(updatedState), turn: assignedTurn };
   if (warnings.length > 0) {
     result.warnings = warnings;
   }

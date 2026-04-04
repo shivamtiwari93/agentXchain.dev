@@ -142,12 +142,6 @@ function makeTurnResult(runId, turn) {
   };
 }
 
-/** Extract the most-recently-assigned turn from an assignTurn result. */
-function extractTurn(assignResult) {
-  const turns = Object.values(getActiveTurns(assignResult.state));
-  return turns[turns.length - 1];
-}
-
 function stageTurnResult(root, runId, turn) {
   const result = makeTurnResult(runId, turn);
   const relPath = getTurnStagingResultPath(turn.turn_id);
@@ -214,13 +208,15 @@ describe('Runner interface: programmatic context loading', () => {
 
     const result = assignTurn(root, config, 'pm');
     assert.ok(result.ok, `assignTurn should succeed: ${result.error}`);
+    assert.ok(result.turn, 'assignTurn should return the assigned turn');
 
     const turns = getActiveTurns(result.state);
     const turnList = Object.values(turns);
     assert.equal(turnList.length, 1);
-    assert.ok(turnList[0].turn_id, 'turn_id should be assigned');
-    assert.equal(turnList[0].assigned_role, 'pm');
-    assert.equal(turnList[0].runtime_id, 'manual-pm');
+    assert.ok(result.turn.turn_id, 'turn_id should be assigned');
+    assert.equal(result.turn.assigned_role, 'pm');
+    assert.equal(result.turn.runtime_id, 'manual-pm');
+    assert.equal(turnList[0].turn_id, result.turn.turn_id);
   });
 });
 
@@ -251,7 +247,7 @@ describe('Runner interface: state machine transitions', () => {
     assert.equal(getActiveTurnCount(state), 1);
 
     // Stage a turn result
-    const turn = extractTurn(assignResult);
+    const turn = assignResult.turn;
     stageTurnResult(root, initResult.state.run_id, turn);
 
     // Accept
@@ -273,7 +269,7 @@ describe('Runner interface: state machine transitions', () => {
     const assignResult = assignTurn(root, config, 'pm');
     assert.ok(assignResult.ok);
 
-    const turn = extractTurn(assignResult);
+    const turn = assignResult.turn;
     stageTurnResult(root, initResult.state.run_id, turn);
 
     // Create a validation failure to use with reject
@@ -343,7 +339,7 @@ describe('Runner interface: complete governed turn lifecycle', () => {
     // 2. Assign turn to PM
     const assign = assignTurn(root, config, 'pm');
     assert.ok(assign.ok, `assignTurn should succeed: ${assign.error}`);
-    const turn = extractTurn(assign);
+    const turn = assign.turn;
     assert.ok(turn.turn_id);
     assert.equal(turn.assigned_role, 'pm');
 
@@ -375,7 +371,7 @@ describe('Runner interface: complete governed turn lifecycle', () => {
     assert.ok(run.ok);
     const assign = assignTurn(root, config, 'pm');
     assert.ok(assign.ok);
-    stageTurnResult(root, run.state.run_id, extractTurn(assign));
+    stageTurnResult(root, run.state.run_id, assign.turn);
     const accepted = acceptTurn(root, config);
     assert.ok(accepted.ok, `acceptTurn should succeed: ${accepted.error}`);
 
@@ -442,14 +438,14 @@ describe('Runner interface: multi-turn lifecycle', () => {
     // Turn 1: PM
     const assign1 = assignTurn(root, config, 'pm');
     assert.ok(assign1.ok, `first assign should succeed: ${assign1.error}`);
-    stageTurnResult(root, run.state.run_id, extractTurn(assign1));
+    stageTurnResult(root, run.state.run_id, assign1.turn);
     const accept1 = acceptTurn(root, config);
     assert.ok(accept1.ok, `first accept should succeed: ${accept1.error}`);
 
     // Turn 2: Dev
     const assign2 = assignTurn(root, config, 'dev');
     assert.ok(assign2.ok, `second assign should succeed: ${assign2.error}`);
-    stageTurnResult(root, run.state.run_id, extractTurn(assign2));
+    stageTurnResult(root, run.state.run_id, assign2.turn);
     const accept2 = acceptTurn(root, config);
     assert.ok(accept2.ok, `second accept should succeed: ${accept2.error}`);
 

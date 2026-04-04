@@ -238,7 +238,7 @@ export function dispatchCoordinatorTurn(workspacePath, state, config, assignment
     return { ok: false, error: bundleResult.error };
   }
 
-  const turn = assignResult.state.current_turn;
+  const turn = assignResult.turn;
   const contextResult = generateCrossRepoContext(
     workspacePath,
     state,

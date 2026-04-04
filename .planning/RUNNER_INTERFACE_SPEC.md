@@ -50,6 +50,12 @@ Adapter dispatch is the one operation that is runner-specific, not protocol-norm
 
 The adapter contract is already specified in `ADAPTER_CONTRACT.md`. Runners choose which adapters to support.
 
+## Result Ergonomics
+
+- `assignTurn()` success returns the assigned `turn` at the top level in addition to `state`
+- This is deliberate runner ergonomics, not a cosmetic alias: non-CLI consumers should not need to rediscover the newly assigned turn by traversing `state.active_turns`
+- Failure results do not fabricate `turn: null`; unchanged failure semantics are clearer
+
 ## Valid Turn Sequence
 
 A runner must execute turns in this sequence:

@@ -302,8 +302,11 @@ describe('assignGovernedTurn', () => {
   it('assigns a turn to a valid role', () => {
     const result = assignGovernedTurn(dir, config, 'pm');
     assert.ok(result.ok);
+    assert.ok(result.turn);
     assert.ok(result.state.current_turn);
+    assert.equal(result.turn.turn_id, result.state.current_turn.turn_id);
     assert.equal(result.state.current_turn.assigned_role, 'pm');
+    assert.equal(result.turn.assigned_role, 'pm');
     assert.ok(result.state.current_turn.turn_id.startsWith('turn_'));
     assert.equal(result.state.current_turn.attempt, 1);
   });
@@ -319,6 +322,7 @@ describe('assignGovernedTurn', () => {
     const result = assignGovernedTurn(dir, config, 'nonexistent');
     assert.ok(!result.ok);
     assert.ok(result.error.includes('Unknown role'));
+    assert.equal(Object.prototype.hasOwnProperty.call(result, 'turn'), false);
   });
 
   it('falls back to raw governed role.runtime when runtime_id is absent', () => {
