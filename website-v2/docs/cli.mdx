@@ -42,6 +42,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
+| `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -188,6 +189,22 @@ agentxchain step [options]
 | `--auto-reject` | `false` | Auto-reject and retry on validation failure |
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
+
+### `run`
+
+```bash
+agentxchain run [options]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--role <role>` | (config-driven) | Override the initial role for the first turn only |
+| `--max-turns <n>` | `50` | Maximum turns before stopping |
+| `--auto-approve` | `false` | Auto-approve all gates (non-interactive mode) |
+| `--verbose` | `false` | Stream adapter subprocess output |
+| `--dry-run` | `false` | Print dispatch plan without executing |
+
+Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed.
 
 ### `accept-turn`
 

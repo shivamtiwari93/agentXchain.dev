@@ -69,6 +69,7 @@ import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
 import { stepCommand } from '../src/commands/step.js';
+import { runCommand } from '../src/commands/run.js';
 import { approveTransitionCommand } from '../src/commands/approve-transition.js';
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
@@ -303,6 +304,16 @@ program
   .option('--verbose', 'Stream local_cli subprocess output while the turn is running')
   .option('--auto-reject', 'Auto-reject and retry on validation failure')
   .action(stepCommand);
+
+program
+  .command('run')
+  .description('Drive a governed run to completion: multi-turn execution with gate prompting')
+  .option('--role <role>', 'Override the initial role (default: config-driven selection)')
+  .option('--max-turns <n>', 'Maximum turns before stopping (default: 50)', parseInt)
+  .option('--auto-approve', 'Auto-approve all gates (non-interactive mode)')
+  .option('--verbose', 'Stream adapter subprocess output')
+  .option('--dry-run', 'Print what would be dispatched without executing')
+  .action(runCommand);
 
 program
   .command('approve-transition')
