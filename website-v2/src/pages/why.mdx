@@ -77,7 +77,7 @@ Humans don't approve every turn (that defeats automation). Humans approve the **
 The protocol survives model churn. Run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules. Three adapter modes:
 
 - `manual` — human reads dispatch, stages result
-- `local_cli` — spawns Claude Code, Codex, Aider
+- `local_cli` — spawns a local coding CLI (Claude Code by default; any tool via `--dev-command`)
 - `api_proxy` — direct LLM API with retry and cost tracking
 
 ## What this is NOT

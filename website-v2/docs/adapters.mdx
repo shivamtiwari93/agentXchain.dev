@@ -153,7 +153,7 @@ The manual adapter is designed for human-in-the-loop workflows where a person re
 
 ## local_cli adapter
 
-The local_cli adapter spawns a local subprocess — typically an AI coding agent like Claude Code, Codex CLI, or Aider — and feeds it the dispatch bundle.
+The local_cli adapter spawns a local subprocess and feeds it the dispatch bundle. The default scaffold targets Claude Code (`claude --print` with `stdin` prompt transport). Any local CLI tool that can accept a prompt and produce a valid turn result works — configure it at scaffold time with `--dev-command` and `--dev-prompt-transport` instead of hand-editing JSON afterward.
 
 ### How it works
 
@@ -207,11 +207,66 @@ If `prompt_transport` is not set explicitly, the adapter infers the mode: if `{p
 
 Default timeout when no turn deadline is set: **20 minutes** (1,200,000 ms).
 
+### Non-default local CLI examples
+
+The scaffold ships with Claude Code as the default, but `--dev-command` and `--dev-prompt-transport` let you target any local tool at scaffold time.
+
+**Tool that accepts prompt as a CLI argument:**
+
+```bash
+agentxchain init --governed --dev-command my-agent run {prompt} -y
+```
+
+This scaffolds `prompt_transport: "argv"` and replaces `{prompt}` with the full prompt text at dispatch time. The generated runtime:
+
+```json
+{
+  "type": "local_cli",
+  "command": ["my-agent", "run", "{prompt}"],
+  "cwd": ".",
+  "prompt_transport": "argv"
+}
+```
+
+**Tool that reads dispatch files directly (no prompt piping):**
+
+```bash
+agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+```
+
+The agent script receives no prompt on stdin or argv — it reads `PROMPT.md` and `CONTEXT.md` from the dispatch directory itself. The generated runtime:
+
+```json
+{
+  "type": "local_cli",
+  "command": ["./scripts/dev-agent.sh"],
+  "cwd": ".",
+  "prompt_transport": "dispatch_bundle_only"
+}
+```
+
+**Tool that reads prompt from stdin (like the Claude default):**
+
+```bash
+agentxchain init --governed --dev-command codex --quiet --dev-prompt-transport stdin -y
+```
+
+```json
+{
+  "type": "local_cli",
+  "command": ["codex", "--quiet"],
+  "cwd": ".",
+  "prompt_transport": "stdin"
+}
+```
+
+If you supply `--dev-command` without `{prompt}` and without `--dev-prompt-transport`, init rejects the scaffold. This is intentional — ambiguous prompt delivery is worse than a clear error.
+
 ### When to use
 
-- Dev turns with Claude Code, Codex CLI, or Aider
+- Dev turns with Claude Code (verified default) or any local coding CLI configured via `--dev-command`
 - QA turns with automated test runners
-- Any turn where a local tool can produce a valid turn result
+- Any turn where a local tool can accept a prompt and produce a valid turn result
 
 ## mcp adapter
 
@@ -552,4 +607,4 @@ If you need to hit a mock or proxy endpoint, add `base_url` to the runtime block
 | **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy |
 | **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
 | **Write authority** | Any | Any | Any | `review_only` only (v1) |
-| **Best for** | PM review, human QA, approvals | Claude Code, Codex, Aider | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls |
+| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls |

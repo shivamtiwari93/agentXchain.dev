@@ -172,7 +172,7 @@ function Architecture() {
             </h3>
             <p>
               The bridge to agent runtimes. Three modes: <code>manual</code> (human),{' '}
-              <code>local_cli</code> (Claude Code, Codex, Aider), <code>api_proxy</code>{' '}
+              <code>local_cli</code> (Claude Code by default, any CLI via <code>--dev-command</code>), <code>api_proxy</code>{' '}
               (direct LLM API). ~200 lines to add a new connector.
             </p>
           </div>

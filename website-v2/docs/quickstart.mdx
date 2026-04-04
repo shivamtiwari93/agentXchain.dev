@@ -237,7 +237,7 @@ This exercises the shipped fixture corpus across the state machine, turn-result 
 | Adapter | How it works | Automation |
 |---------|-------------|------------|
 | `manual` | Human reads dispatch, does work, stages result | Full human control |
-| `local_cli` | Orchestrator spawns local agent (Claude Code, Codex, Aider) | Fully automated |
+| `local_cli` | Orchestrator spawns local coding CLI (Claude Code by default; any tool via `--dev-command`) | Fully automated |
 | `mcp` | Orchestrator calls a local MCP stdio server tool that returns a governed turn result | Fully automated |
 | `api_proxy` | Orchestrator calls LLM API directly with retry and cost tracking | Fully automated |
 

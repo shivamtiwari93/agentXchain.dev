@@ -40,4 +40,36 @@ describe('governed init local runtime docs contract', () => {
     assert.match(rootReadme, /--dev-command/, 'root README must mention --dev-command');
     assert.match(cliReadme, /--dev-command/, 'CLI README must mention --dev-command');
   });
+
+  // --- Overclaiming guards (DEC-DOCS-OVERCLAIM-001) ---
+
+  const adaptersDocs = read('website-v2/docs/adapters.mdx');
+  const whyPage = read('website-v2/src/pages/why.mdx');
+
+  it('adapters page does not claim equal first-class support for Codex or Aider', () => {
+    // The comparison table and "Best for" row should not list bare "Codex, Aider" as peers
+    assert.doesNotMatch(adaptersDocs, /Best for.*Codex, Aider/,
+      'adapters comparison table must not list Codex and Aider as equal peers to Claude');
+  });
+
+  it('adapters page positions Claude as verified default in local_cli section', () => {
+    assert.match(adaptersDocs, /Claude Code.*default|default.*Claude Code/i,
+      'adapters local_cli section must identify Claude Code as the verified default');
+  });
+
+  it('adapters page documents non-default local CLI examples', () => {
+    assert.match(adaptersDocs, /Non-default local CLI examples/,
+      'adapters page must include the non-default local CLI examples section');
+    assert.match(adaptersDocs, /dispatch_bundle_only/,
+      'adapters page must show dispatch_bundle_only example');
+    assert.match(adaptersDocs, /my-agent run \{prompt\}/,
+      'adapters page must show argv example with {prompt} placeholder');
+  });
+
+  it('why page does not overclaim adapter support', () => {
+    assert.doesNotMatch(whyPage, /spawns Claude Code, Codex, Aider/,
+      'why page must not list Claude Code, Codex, Aider as equal peers');
+    assert.match(whyPage, /--dev-command/,
+      'why page must reference --dev-command for non-default tools');
+  });
 });
