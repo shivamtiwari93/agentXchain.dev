@@ -44,6 +44,7 @@ export {
 // ── Dispatch ────────────────────────────────────────────────────────────────
 
 export { writeDispatchBundle } from './dispatch-bundle.js';
+export { getTurnStagingResultPath } from './turn-paths.js';
 
 // ── Hooks & Notifications ───────────────────────────────────────────────────
 
@@ -56,4 +57,4 @@ export { getMaxConcurrentTurns } from './normalized-config.js';
 
 // ── Interface Version ───────────────────────────────────────────────────────
 
-export const RUNNER_INTERFACE_VERSION = '0.1';
+export const RUNNER_INTERFACE_VERSION = '0.2';

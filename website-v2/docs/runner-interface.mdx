@@ -1,0 +1,101 @@
+---
+title: Runner Interface
+description: "Build a CI, hosted, or programmatic runner against the declared governed execution boundary."
+---
+
+# Runner Interface
+
+The CLI is the primary shipped runner. It is not the only runner. AgentXchain also ships a declared library boundary for CI, hosted, or programmatic runners that need to drive the governed state machine without shelling out to `agentxchain step`.
+
+If you want the constitutional model, start with [Protocol v6](/docs/protocol). If you want the conformance corpus for protocol implementations, read [Protocol Implementor Guide](/docs/protocol-implementor-guide). If you want to build a runner, this page is the boundary that matters.
+
+## Versioned contract
+
+The runner interface is a declared ES module at `cli/src/lib/runner-interface.js`.
+
+| Field | Current value | Meaning |
+| --- | --- | --- |
+| `RUNNER_INTERFACE_VERSION` | `0.2` | Current versioned boundary for runner authors |
+
+Versioning is not decorative. Adding, removing, or breaking runner operations changes the interface version.
+
+## Lifecycle operations
+
+These are the state-machine operations a runner uses to drive governed execution:
+
+| Export | Purpose |
+| --- | --- |
+| `loadContext(dir?)` | Load project root, config, and validation |
+| `loadState(root, config)` | Load current governed state |
+| `initRun(root, config)` | Initialize a run from idle state |
+| `reactivateRun(root, state, details?)` | Reactivate a blocked or paused run |
+| `assignTurn(root, config, roleId)` | Assign the next governed turn |
+| `acceptTurn(root, config, opts?)` | Accept a staged turn result |
+| `rejectTurn(root, config, result, reason, opts?)` | Reject a staged turn result |
+| `approvePhaseGate(root, config)` | Approve a pending phase transition |
+| `approveCompletionGate(root, config)` | Approve a pending run completion |
+| `markRunBlocked(root, details)` | Persist a blocked state explicitly |
+| `escalate(root, config, details)` | Raise an operator escalation |
+
+`assignTurn()` success returns `{ ok, state, turn }`. That top-level `turn` is part of the contract. Runner consumers should not have to rediscover the assigned turn by traversing `state.active_turns`.
+
+## Support operations
+
+These operations are not the lifecycle itself, but real runners need them:
+
+| Export | Purpose |
+| --- | --- |
+| `writeDispatchBundle(root, config, assignment, state)` | Write repo-native dispatch artifacts |
+| `getTurnStagingResultPath(turnId)` | Return the canonical `.agentxchain/staging/<turn_id>/turn-result.json` path |
+| `runHooks(root, hooksConfig, phase, payload, opts?)` | Execute hook phases |
+| `emitNotifications(root, config, state, event, payload?, turn?)` | Emit notification events |
+| `acquireLock(root)` | Acquire the acceptance lock |
+| `releaseLock(root)` | Release the acceptance lock |
+| `getActiveTurns(state)` | Return the active turn map |
+| `getActiveTurnCount(state)` | Return the current active-turn count |
+| `getActiveTurn(state)` | Return the current active turn when one exists |
+| `getMaxConcurrentTurns(config)` | Read the configured concurrency limit |
+
+`getTurnStagingResultPath()` is in the declared boundary on purpose. If a runner must stage a turn result for `acceptTurn()`, it should not import `turn-paths.js` directly just to discover the canonical path.
+
+## Canonical runner loop
+
+The happy-path runner loop is:
+
+```text
+loadContext/loadState
+  -> initRun or reactivateRun
+  -> assignTurn
+  -> writeDispatchBundle or runner-specific dispatch
+  -> stage turn result at getTurnStagingResultPath(turn.turn_id)
+  -> acceptTurn or rejectTurn
+  -> approvePhaseGate or approveCompletionGate when pending
+```
+
+Runner-specific dispatch is intentionally outside the interface. The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
+
+## Shipped second-runner proof
+
+AgentXchain ships a concrete second-runner proof at `examples/ci-runner-proof/run-one-turn.mjs`.
+
+That script:
+
+- imports governed execution operations through `runner-interface.js`
+- executes one governed turn programmatically
+- stages the turn result at the canonical staging path
+- accepts the turn and validates state, history, and ledger artifacts
+- runs in GitHub Actions via `.github/workflows/ci-runner-proof.yml`
+
+The point is not convenience. The point is proof that governed execution is not locked to the CLI shell.
+
+## What is not in this interface
+
+These concerns are intentionally excluded:
+
+- CLI parsing and output formatting
+- dashboard serving
+- export and report generation
+- intake workflow commands
+- adapter dispatch strategy
+
+Those are runner features or adjacent product surfaces. The runner interface is the governed execution boundary.

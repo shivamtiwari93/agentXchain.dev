@@ -32,10 +32,9 @@ import {
   acquireLock,
   releaseLock,
   getMaxConcurrentTurns,
+  getTurnStagingResultPath,
   RUNNER_INTERFACE_VERSION,
 } from '../src/lib/runner-interface.js';
-
-import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 
 // ── Test Helpers ────────────────────────────────────────────────────────────
 

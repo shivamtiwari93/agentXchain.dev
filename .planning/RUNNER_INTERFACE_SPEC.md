@@ -35,6 +35,7 @@ A runner is any process that orchestrates governed turns by calling these operat
 | Operation | Library Function | Description |
 |---|---|---|
 | `writeDispatchBundle(root, config, assignment, state)` | `writeDispatchBundle()` | Write dispatch artifacts for agent |
+| `getTurnStagingResultPath(turnId)` | `getTurnStagingResultPath()` | Return the canonical staged turn-result path for a turn |
 | `runHooks(root, hooksConfig, phase, payload, opts?)` | `runHooks()` | Execute lifecycle hooks |
 | `emitNotifications(root, config, state, event, payload?, turn?)` | `emitNotifications()` | Emit lifecycle notifications |
 | `acquireLock(root)` | `acquireAcceptanceLock()` | Acquire acceptance lock |
@@ -55,6 +56,7 @@ The adapter contract is already specified in `ADAPTER_CONTRACT.md`. Runners choo
 - `assignTurn()` success returns the assigned `turn` at the top level in addition to `state`
 - This is deliberate runner ergonomics, not a cosmetic alias: non-CLI consumers should not need to rediscover the newly assigned turn by traversing `state.active_turns`
 - Failure results do not fabricate `turn: null`; unchanged failure semantics are clearer
+- The canonical staged turn-result path is part of the declared interface. Runner authors should not import `turn-paths.js` directly just to discover where `acceptTurn()` expects the staged artifact to exist.
 
 ## Valid Turn Sequence
 
@@ -111,6 +113,7 @@ These are runner features, not protocol operations. A CI runner does not need a 
 - `AT-RUNNER-003`: `acquireAcceptanceLock` prevents concurrent acceptance
 - `AT-RUNNER-004`: A programmatic runner can execute a complete governed turn lifecycle (init → assign → accept) and produce the same artifacts as `agentxchain step`
 - `AT-RUNNER-005`: The runner interface exports are stable and documented
+- Current declared interface version: `0.2`
 
 ## Open Questions
 

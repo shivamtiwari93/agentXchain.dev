@@ -8,6 +8,8 @@ description: "The governed command surface — scaffold, run, approve, inspect, 
 
 The `agentxchain` CLI is the primary interface for governed multi-agent runs. Every command operates on the repo-local `.agentxchain/` directory and respects the constitutional invariants defined by the protocol.
 
+The CLI is the primary shipped runner, not the only possible runner. If you are building CI or hosted execution against the declared library boundary instead of shelling out to commands, use [Runner Interface](/docs/runner-interface).
+
 Legacy v3 local-orchestration commands such as `start`, `kickoff`, `watch`, `claim`, `release`, and `doctor` remain in the binary for compatibility. This page is intentionally scoped to the governed surface and the governed-adjacent command families that extend it: templates, plugins, intake, multi-repo coordination, and the local operator dashboard.
 
 ## The two commands people confuse

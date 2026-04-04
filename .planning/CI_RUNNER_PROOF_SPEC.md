@@ -17,7 +17,7 @@ The runner interface (`runner-interface.js`) is declared and tested programmatic
 A standalone Node.js script (`examples/ci-runner-proof/run-one-turn.mjs`) that:
 
 1. Scaffolds a governed project in a temp directory (config, state, history, ledger, TALK.md)
-2. Imports only from `runner-interface.js` — no CLI commands, no Commander.js, no chalk
+2. Imports governed execution operations through `runner-interface.js` — no CLI commands, no Commander.js, no chalk, and no direct imports from internal library helpers outside the declared boundary
 3. Executes exactly one governed turn: `initRun → assignTurn → [stage result] → acceptTurn`
 4. Writes a structured JSON proof report to stdout with artifact checksums
 5. Exits 0 on success, 1 on failure
@@ -44,7 +44,7 @@ node examples/ci-runner-proof/run-one-turn.mjs [--json]
 
 **Stdout (default):**
 ```
-CI Runner Proof — AgentXchain runner-interface v0.1
+CI Runner Proof — AgentXchain runner-interface v0.2
   Project: ci-runner-proof
   Init:    ok (run_id: <id>)
   Assign:  ok (turn_id: <id>, role: pm)
@@ -60,7 +60,7 @@ CI Runner Proof — AgentXchain runner-interface v0.1
 ```json
 {
   "runner": "ci-runner-proof",
-  "runner_interface_version": "0.1",
+  "runner_interface_version": "0.2",
   "result": "pass",
   "run_id": "...",
   "turn_id": "...",
@@ -81,7 +81,8 @@ CI Runner Proof — AgentXchain runner-interface v0.1
 
 3. **Artifact validation**: After acceptance, reads back `state.json`, `history.jsonl`, and `decision-ledger.jsonl`. Validates structure, computes SHA256 of state file, counts history/ledger entries.
 
-4. **No CLI dependency**: The script must not import, require, spawn, or exec any CLI command (`agentxchain`, `bin/agentxchain.js`). This is enforced by the contract test.
+4. **No CLI dependency**: The script must not import, require, spawn, or exec any CLI command (`agentxchain`, `bin/agentxchain.js`).
+5. **No boundary cheating**: The script must not reach into `turn-paths.js` or other internal modules for governed execution helpers that belong in the declared runner interface. This is enforced by the contract test.
 
 ## Guard Test
 
@@ -89,13 +90,14 @@ CI Runner Proof — AgentXchain runner-interface v0.1
 
 1. **No CLI shell-out**: The proof script source must not contain `exec`, `spawn`, `execFile`, `execSync`, `spawnSync`, `child_process`, `agentxchain step`, `agentxchain.js`, or `bin/agentxchain`.
 2. **Runner interface import**: The script must import from `runner-interface.js`.
-3. **Script execution**: Running the script produces exit code 0 and valid JSON output (with `--json`).
-4. **Artifact parity**: The JSON output confirms state, history, and ledger are all valid.
+3. **No internal path helper import**: The script must not import `turn-paths.js` directly.
+4. **Script execution**: Running the script produces exit code 0 and valid JSON output (with `--json`).
+5. **Artifact parity**: The JSON output confirms state, history, and ledger are all valid.
 
 ## Acceptance Tests
 
 - `AT-CI-RUNNER-001`: The proof script executes successfully (exit 0) and produces valid output
-- `AT-CI-RUNNER-002`: The proof script imports only from runner-interface.js, not CLI commands
+- `AT-CI-RUNNER-002`: The proof script imports governed execution operations through runner-interface.js, not CLI commands or direct internal path helpers
 - `AT-CI-RUNNER-003`: Artifacts produced match the same structure as CLI-produced artifacts
 - `AT-CI-RUNNER-004`: The GitHub Actions workflow runs the proof script and succeeds
 - `AT-CI-RUNNER-005`: The contract test guards against regression to CLI shell-out

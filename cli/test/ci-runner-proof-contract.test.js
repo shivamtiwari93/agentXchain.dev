@@ -3,7 +3,7 @@
  *
  * Guards that the CI runner proof script:
  *   1. Does NOT shell out to CLI commands (exec, spawn, agentxchain)
- *   2. DOES import from runner-interface.js
+ *   2. DOES import governed execution operations from runner-interface.js
  *   3. Actually executes and produces valid output
  *   4. Is wired into a GitHub Actions workflow
  *
@@ -50,6 +50,13 @@ describe('CI runner proof: no CLI shell-out', () => {
     assert.ok(
       !/agentxchain\.js\b/.test(source.replace(/agentxchain\.json/g, '')),
       'proof script must not reference agentxchain.js binary',
+    );
+  });
+
+  it('AT-CI-RUNNER-005c: does not import turn-paths.js directly', () => {
+    assert.ok(
+      !source.includes('turn-paths.js'),
+      'proof script must not import turn-paths.js directly',
     );
   });
 });

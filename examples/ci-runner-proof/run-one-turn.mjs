@@ -28,12 +28,9 @@ const {
   initRun,
   assignTurn,
   acceptTurn,
+  getTurnStagingResultPath,
   RUNNER_INTERFACE_VERSION,
 } = await import(join(cliRoot, 'src', 'lib', 'runner-interface.js'));
-
-const { getTurnStagingResultPath } = await import(
-  join(cliRoot, 'src', 'lib', 'turn-paths.js')
-);
 
 // ── Config ──────────────────────────────────────────────────────────────────
 

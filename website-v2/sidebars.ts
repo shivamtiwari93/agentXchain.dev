@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'protocol',
         'protocol-reference',
+        'runner-interface',
         'protocol-implementor-guide',
       ],
     },
