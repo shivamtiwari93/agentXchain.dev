@@ -762,7 +762,7 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
     return errorReturn(root, turn.turn_id, classified);
   }
 
-  const endpoint = PROVIDER_ENDPOINTS[provider];
+  const endpoint = runtime.base_url || PROVIDER_ENDPOINTS[provider];
   if (!endpoint) {
     const classified = classifyError(
       'unsupported_provider',
