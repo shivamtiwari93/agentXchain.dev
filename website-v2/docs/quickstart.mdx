@@ -1,20 +1,27 @@
 ---
 sidebar_position: 1
 title: Quickstart
-description: "Run a governed PM → dev → QA flow in five minutes."
+description: "Run an automated governed flow with agentxchain run, or use step for the shipped mixed-mode scaffold."
 ---
 
-# Run a governed PM → dev → QA flow
+# Run a governed flow without lying to yourself
 
-This page documents the workflow that exists today. Governed mode is staged and gate-driven: `step` creates a turn, the role produces a structured result, the orchestrator validates it, and a human approves phase changes and final ship decisions.
+Governed mode is staged and gate-driven. `agentxchain run` is the primary automated workflow, but the scaffold created by `init --governed -y` is mixed-mode by default:
+
+- `pm` uses `manual-pm`
+- `dev` uses `local-dev`
+- `qa` uses `api-qa`
+
+That means the default scaffold is **not** immediately runnable with `agentxchain run`. If a role is still bound to the `manual` adapter, use `step` for that path or rebind the role to a non-manual runtime first.
 
 ## Before you start
 
 - **Node.js 18.17+** (or 20.5+)
 - **git** (governed scaffold expects a repo)
 - `npx agentxchain` or `npm install -g agentxchain`
+- A working local coding CLI for the default `local-dev` runtime, or a config change to point `local-dev.command` at your installed tool
+- An API key for any `api_proxy` review role you plan to use, such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
 - Scaffold intent via `--template` or defaults to `pm → dev → qa`
-- QA runtime: manual, local_cli, or api_proxy
 
 ## What governed mode creates
 
@@ -33,7 +40,7 @@ This creates the scaffold:
 
 If you already know the repo shape, initialize with a built-in template such as `api-service`, `cli-tool`, `library`, or `web-app`. The template adds project-type planning artifacts and records scaffold intent in `agentxchain.json`. See [Templates](/docs/templates).
 
-## Five-minute walkthrough
+## Automated path: use `agentxchain run`
 
 ### 1. Initialize
 
@@ -43,17 +50,73 @@ cd my-agentxchain-project
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 
-### 2. Assign the PM turn
+### 2. Make the scaffold runnable
+
+The shipped scaffold defaults to `manual-pm`, so `agentxchain run` will stop immediately unless you rebind the PM role to a non-manual runtime. The smallest honest change is to point `pm` at an `api_proxy` runtime and keep `qa` on `api-qa`.
+
+Minimal example:
+
+```json title="agentxchain.json"
+{
+  "roles": {
+    "pm": {
+      "runtime": "api-pm"
+    }
+  },
+  "runtimes": {
+    "api-pm": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    }
+  }
+}
+```
+
+If you use Codex CLI, Aider, or another local tool instead of the scaffolded `claude` command, update `runtimes.local-dev.command` before you run anything. See [Adapters](/docs/adapters) for the runtime contract.
+
+### 3. Run the governed flow
+
+```bash
+agentxchain run --auto-approve --max-turns 10
+```
+
+Use `--auto-approve` for non-interactive execution and CI. Without it, gate pauses still fail closed outside a TTY.
+
+### 4. Inspect the result
+
+```bash
+agentxchain status
+```
+
+`run` keeps assigning turns, dispatching to adapters, validating staged results, and handling gates until the run reaches a terminal state:
+
+- `completed`
+- `blocked`
+- `max_turns_reached`
+
+If you want to preview the execution plan without dispatching, use:
+
+```bash
+agentxchain run --dry-run
+```
+
+## Manual path: keep the shipped mixed-mode scaffold
+
+If you keep `pm` on `manual-pm`, use `step` for the planning turn and let the orchestrator stop where the human work actually happens.
+
+### 1. Assign the PM turn
 
 ```bash
 agentxchain step --role pm
 ```
 
-The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/` and waits for a staged result.
+The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/` and waits for a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`.
 
-### 3. Create PM artifacts and stage the turn result
+### 2. Create PM artifacts and stage the turn result
 
-Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then stage a turn result:
+Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then fill the staged turn result. Copy the exact template from the dispatch bundle instead of inventing fields. The minimum truthful shape still looks like this:
 
 ```json
 {
@@ -98,7 +161,13 @@ Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then stage a turn resu
 }
 ```
 
-### 4. Accept and approve the gate
+Optional validation before acceptance:
+
+```bash
+agentxchain validate --mode turn
+```
+
+### 3. Accept and approve the gate
 
 ```bash
 agentxchain accept-turn
@@ -107,22 +176,15 @@ agentxchain approve-transition
 
 The phase advances from `planning` to `implementation`.
 
-### 5. Run the dev turn
+### 4. Continue with dev and QA
 
 ```bash
 agentxchain step --role dev
-```
-
-The dev agent receives context from the PM's accepted turn, implements the work, and stages a result.
-
-### 6. Run QA and complete
-
-```bash
 agentxchain step --role qa
 agentxchain approve-completion
 ```
 
-QA must challenge the dev's work (mandatory objection). After QA acceptance, the human approves run completion.
+QA must challenge the dev's work. Blind agreement is a protocol violation.
 
 ## Verify the protocol surface
 
@@ -145,7 +207,9 @@ This exercises the shipped fixture corpus across the state machine, turn-result 
 
 ## Common mistakes
 
-- **Don't confuse `init` with `step`.** `init` creates the scaffold. `step` runs a turn.
+- **Don't treat `run` as zero-config on the default scaffold.** `pm` defaults to `manual-pm`; rebind that role or use `step`.
+- **Don't confuse `run` with `step`.** `run` drives a multi-turn automated flow. `step` runs one governed turn and is the right tool for manual roles.
+- **Don't confuse `init` with execution.** `init` creates the scaffold. `run` and `step` execute it.
 - **Don't edit `state.json` manually.** The orchestrator owns it.
 - **Don't skip gates.** `approve-transition` and `approve-completion` are constitutional — they exist so humans stay in control.
 - **Turn results must have `objections`.** Blind agreement is a protocol violation.
