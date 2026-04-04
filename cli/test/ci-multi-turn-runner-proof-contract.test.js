@@ -5,7 +5,7 @@
  *   1. no CLI shell-out
  *   2. imports only through runner-interface.js for governed execution
  *   3. executes a 3-turn lifecycle to completion
- *   4. proves gate approvals and dispatch cleanup
+ *   4. proves rejection retry, gate approvals, and dispatch cleanup
  *   5. is wired into CI
  */
 
@@ -59,7 +59,7 @@ describe('CI multi-turn runner proof: runner interface boundary', () => {
   });
 
   it('AT-CI-MULTI-004a: imports lifecycle and gate operations', () => {
-    for (const symbol of ['initRun', 'loadState', 'assignTurn', 'writeDispatchBundle', 'getTurnStagingResultPath', 'acceptTurn', 'approvePhaseGate', 'approveCompletionGate']) {
+    for (const symbol of ['initRun', 'loadState', 'assignTurn', 'writeDispatchBundle', 'getTurnStagingResultPath', 'acceptTurn', 'rejectTurn', 'approvePhaseGate', 'approveCompletionGate']) {
       assert.ok(source.includes(symbol), `proof script must import ${symbol}`);
     }
   });
@@ -93,7 +93,24 @@ describe('CI multi-turn runner proof: execution', () => {
     assert.deepEqual(json.artifacts.history.roles, ['pm', 'dev', 'qa']);
   });
 
-  it('AT-CI-MULTI-005: proves dispatch bundle existence before acceptance and cleanup after', () => {
+  it('AT-CI-MULTI-005: proves one rejection retries on the same turn id', () => {
+    const result = execFileSync('node', [PROOF_SCRIPT, '--json'], {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    const json = JSON.parse(result);
+
+    assert.equal(json.rejections.length, 1);
+    assert.equal(json.rejections[0].role, 'dev');
+    assert.equal(json.rejections[0].first_attempt, 1);
+    assert.equal(json.rejections[0].retry_attempt, 2);
+    assert.equal(json.rejections[0].retry_status, 'retrying');
+    assert.equal(json.rejections[0].same_turn_id_retained, true);
+    assert.equal(json.rejections[0].post_reject_staging_removed, true);
+    assert.equal(json.rejections[0].rejected_artifact_preserved, true);
+  });
+
+  it('AT-CI-MULTI-006: proves dispatch bundle existence before acceptance and cleanup after', () => {
     const result = execFileSync('node', [PROOF_SCRIPT, '--json'], {
       encoding: 'utf8',
       timeout: 30_000,
@@ -115,22 +132,23 @@ describe('CI multi-turn runner proof: execution', () => {
     });
     assert.ok(result.includes('PASS'));
     assert.ok(result.includes('pm -> dev -> qa'));
+    assert.ok(result.includes('1 rejection retried'));
     assert.ok(result.includes('completed governed lifecycle'));
   });
 });
 
 describe('CI multi-turn runner proof: workflow', () => {
-  it('AT-CI-MULTI-006a: workflow exists', () => {
+  it('AT-CI-MULTI-007a: workflow exists', () => {
     assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof workflow must exist');
   });
 
-  it('AT-CI-MULTI-006b: workflow runs the new proof script', () => {
+  it('AT-CI-MULTI-007b: workflow runs the new proof script', () => {
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(workflow.includes('run-to-completion.mjs'), 'workflow must run the multi-turn proof');
     assert.ok(workflow.includes('run-one-turn.mjs'), 'workflow must retain the single-turn proof');
   });
 
-  it('AT-CI-MULTI-006c: workflow still targets main push and pull_request', () => {
+  it('AT-CI-MULTI-007c: workflow still targets main push and pull_request', () => {
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(workflow.includes('push'), 'workflow triggers on push');
     assert.ok(workflow.includes('pull_request'), 'workflow triggers on pull_request');

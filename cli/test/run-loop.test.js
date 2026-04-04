@@ -376,6 +376,36 @@ describe('run-loop', () => {
     });
   });
 
+  describe('onEvent callback failures are advisory', () => {
+    let root, config, result;
+
+    before(async () => {
+      root = makeTempRoot();
+      config = makeConfig();
+      scaffoldProject(root, config);
+      const cbs = makeStandardCallbacks(root);
+      cbs.onEvent = () => {
+        throw new Error('observer failed');
+      };
+      result = await runLoop(root, config, cbs);
+    });
+
+    after(() => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
+
+    it('still completes the governed lifecycle', () => {
+      assert.equal(result.ok, true);
+      assert.equal(result.stop_reason, 'completed');
+      assert.equal(result.turns_executed, 3);
+    });
+
+    it('records observer errors instead of throwing', () => {
+      assert.ok(
+        result.errors.some((entry) => entry.includes('onEvent threw')),
+        'runLoop must record onEvent callback failures',
+      );
+    });
+  });
+
   // AT-RUNLOOP-002: gate_held on phase transition
   describe('gate_held on phase transition', () => {
     let root, config, result;

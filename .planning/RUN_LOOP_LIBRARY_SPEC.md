@@ -171,6 +171,7 @@ export async function runLoop(root, config, callbacks)
 - `AT-RUNLOOP-010`: `runLoop` imports only from `runner-interface.js` (boundary purity guard).
 - `AT-RUNLOOP-011`: `runLoop` initializes an idle run automatically.
 - `AT-RUNLOOP-012`: `runLoop` contains no `process.exit`, no `console.log`, no `child_process`.
+- `AT-RUNLOOP-013`: `onEvent` callback failures are advisory only: the loop records the observer error and continues.
 
 ## Open Questions
 

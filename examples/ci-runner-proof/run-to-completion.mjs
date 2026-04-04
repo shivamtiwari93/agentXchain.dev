@@ -12,7 +12,7 @@
  *   1 — any step failed
  */
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes, createHash } from 'crypto';
@@ -28,6 +28,7 @@ const {
   writeDispatchBundle,
   getTurnStagingResultPath,
   acceptTurn,
+  rejectTurn,
   approvePhaseGate,
   approveCompletionGate,
   RUNNER_INTERFACE_VERSION,
@@ -221,6 +222,14 @@ function validateDispatchBundle(bundlePath) {
   };
 }
 
+function listRejectedArtifacts(root, turnId) {
+  const rejectedDir = join(root, '.agentxchain', 'dispatch', 'rejected');
+  if (!existsSync(rejectedDir)) return [];
+  return readdirSync(rejectedDir)
+    .filter((name) => name.startsWith(`${turnId}-attempt-`))
+    .sort();
+}
+
 function validateArtifacts(root) {
   const statePath = join(root, '.agentxchain/state.json');
   const historyPath = join(root, '.agentxchain/history.jsonl');
@@ -261,6 +270,7 @@ async function main() {
   const errors = [];
   const dispatchBundles = [];
   const roles = [];
+  const rejections = [];
   let phaseTransitionApprovals = 0;
   let completionApprovals = 0;
   let runId = null;
@@ -272,7 +282,7 @@ async function main() {
     const initResult = initRun(root, config);
     if (!initResult.ok) {
       errors.push(`initRun failed: ${initResult.error}`);
-      return report(root, { errors, runId, dispatchBundles, roles, phaseTransitionApprovals, completionApprovals });
+      return report(root, { errors, runId, dispatchBundles, roles, rejections, phaseTransitionApprovals, completionApprovals });
     }
     runId = initResult.state.run_id;
 
@@ -312,12 +322,22 @@ async function main() {
       roles,
     });
 
-    await executeTurn({
+    await executeTurnWithRetry({
       root,
       config,
       roleId: 'dev',
       prepare: () => ensureFiles(root, {
         'src/proof-output.js': 'export const runnerProof = true;\n',
+      }),
+      buildRejectedResult: ({ turn }) => ({
+        schema_version: '1.0',
+        run_id: runId,
+        turn_id: turn.turn_id,
+        role: turn.assigned_role,
+        runtime_id: turn.runtime_id,
+        status: 'invalid',
+        summary: 'Dev first attempt intentionally rejected to prove retry semantics.',
+        validation_errors: ['Simulated rejection for primitive runner proof'],
       }),
       buildTurnResult: ({ turn }) => makeTurnResult({
         runId,
@@ -338,6 +358,7 @@ async function main() {
       errors,
       dispatchBundles,
       roles,
+      rejections,
     });
 
     await executeTurn({
@@ -387,6 +408,7 @@ async function main() {
       runId,
       dispatchBundles,
       roles,
+      rejections,
       phaseTransitionApprovals,
       completionApprovals,
       artifacts,
@@ -394,7 +416,7 @@ async function main() {
     });
   } catch (err) {
     errors.push(`Unexpected error: ${err.message}`);
-    return report(root, { errors, runId, dispatchBundles, roles, phaseTransitionApprovals, completionApprovals });
+    return report(root, { errors, runId, dispatchBundles, roles, rejections, phaseTransitionApprovals, completionApprovals });
   }
 }
 
@@ -408,7 +430,6 @@ async function executeTurn({ root, config, roleId, prepare, buildTurnResult, aft
   }
 
   const turn = assignResult.turn;
-  roles.push(roleId);
 
   const bundleResult = writeDispatchBundle(root, assignResult.state, config);
   if (!bundleResult.ok) {
@@ -450,6 +471,139 @@ async function executeTurn({ root, config, roleId, prepare, buildTurnResult, aft
     return;
   }
 
+  roles.push(roleId);
+  afterAccept();
+}
+
+async function executeTurnWithRetry({
+  root,
+  config,
+  roleId,
+  prepare,
+  buildRejectedResult,
+  buildTurnResult,
+  afterAccept,
+  errors,
+  dispatchBundles,
+  roles,
+  rejections,
+}) {
+  if (errors.length > 0) return;
+
+  const assignResult = assignTurn(root, config, roleId);
+  if (!assignResult.ok) {
+    errors.push(`assignTurn(${roleId}) failed: ${assignResult.error}`);
+    return;
+  }
+
+  const turn = assignResult.turn;
+  const firstAttempt = turn.attempt || 1;
+
+  const firstBundle = writeDispatchBundle(root, assignResult.state, config);
+  if (!firstBundle.ok) {
+    errors.push(`writeDispatchBundle(${roleId}, attempt 1) failed: ${firstBundle.error}`);
+    return;
+  }
+
+  const firstBundleCheck = validateDispatchBundle(firstBundle.bundlePath);
+  if (!firstBundleCheck.ok) {
+    errors.push(`dispatch bundle for ${roleId} attempt 1 missing files: ${firstBundleCheck.missing.join(', ')}`);
+    return;
+  }
+
+  const rejectedStage = stageTurnResult(root, turn.turn_id, buildRejectedResult({ turn }));
+  const rejectResult = rejectTurn(
+    root,
+    config,
+    { stage: 'dispatch', errors: ['Simulated rejection for primitive runner proof'] },
+    'Simulated rejection for primitive runner proof',
+  );
+  if (!rejectResult.ok) {
+    errors.push(`rejectTurn(${roleId}) failed: ${rejectResult.error}`);
+    return;
+  }
+
+  const retryState = loadState(root, config);
+  const retryTurn = retryState?.active_turns?.[turn.turn_id];
+  const rejectedArtifacts = listRejectedArtifacts(root, turn.turn_id);
+
+  rejections.push({
+    role: roleId,
+    turn_id: turn.turn_id,
+    first_attempt: firstAttempt,
+    retry_attempt: retryTurn?.attempt ?? null,
+    retry_status: retryTurn?.status ?? null,
+    same_turn_id_retained: Boolean(retryTurn?.turn_id === turn.turn_id),
+    pre_reject_bundle_exists: true,
+    post_reject_staging_removed: !existsSync(rejectedStage.absPath),
+    rejected_artifact_count: rejectedArtifacts.length,
+    rejected_artifact_preserved: rejectedArtifacts.length > 0,
+  });
+
+  const rejection = rejections[rejections.length - 1];
+  if (!rejection.post_reject_staging_removed) {
+    errors.push(`staging artifact for ${roleId} still exists after rejection`);
+    return;
+  }
+  if (!rejection.same_turn_id_retained) {
+    errors.push(`retry for ${roleId} did not retain the same turn_id`);
+    return;
+  }
+  if (rejection.retry_status !== 'retrying') {
+    errors.push(`retry for ${roleId} did not enter retrying status`);
+    return;
+  }
+  if (rejection.retry_attempt !== firstAttempt + 1) {
+    errors.push(`retry for ${roleId} did not increment attempt`);
+    return;
+  }
+  if (!rejection.rejected_artifact_preserved) {
+    errors.push(`rejected artifact for ${roleId} was not preserved`);
+    return;
+  }
+
+  prepare();
+
+  const retryBundle = writeDispatchBundle(root, retryState, config);
+  if (!retryBundle.ok) {
+    errors.push(`writeDispatchBundle(${roleId}, retry) failed: ${retryBundle.error}`);
+    return;
+  }
+
+  const retryBundleCheck = validateDispatchBundle(retryBundle.bundlePath);
+  if (!retryBundleCheck.ok) {
+    errors.push(`dispatch bundle for ${roleId} retry missing files: ${retryBundleCheck.missing.join(', ')}`);
+    return;
+  }
+
+  const staged = stageTurnResult(root, retryTurn.turn_id, buildTurnResult({ turn: retryTurn }));
+  const acceptResult = acceptTurn(root, config);
+  if (!acceptResult.ok) {
+    errors.push(`acceptTurn(${roleId}) failed: ${acceptResult.error}`);
+    return;
+  }
+
+  dispatchBundles.push({
+    turn_id: retryTurn.turn_id,
+    role: roleId,
+    attempt: retryTurn.attempt,
+    pre_accept_bundle_exists: true,
+    bundle_path: retryBundle.bundlePath,
+    staging_path: staged.relPath,
+    post_accept_bundle_removed: !existsSync(retryBundle.bundlePath),
+    post_accept_staging_removed: !existsSync(staged.absPath),
+  });
+
+  if (!dispatchBundles[dispatchBundles.length - 1].post_accept_bundle_removed) {
+    errors.push(`dispatch bundle for ${roleId} still exists after retry acceptance`);
+    return;
+  }
+  if (!dispatchBundles[dispatchBundles.length - 1].post_accept_staging_removed) {
+    errors.push(`staging artifact for ${roleId} still exists after retry acceptance`);
+    return;
+  }
+
+  roles.push(roleId);
   afterAccept();
 }
 
@@ -458,6 +612,7 @@ function report(root, {
   runId,
   dispatchBundles,
   roles,
+  rejections = [],
   phaseTransitionApprovals,
   completionApprovals,
   artifacts = null,
@@ -477,6 +632,7 @@ function report(root, {
       run_id: runId,
       turns_executed: roles.length,
       roles,
+      rejections,
       phase_transition_approvals: phaseTransitionApprovals,
       completion_approvals: completionApprovals,
       final_status: finalState?.status || null,
@@ -489,6 +645,7 @@ function report(root, {
     console.log(`CI Multi-Turn Runner Proof — AgentXchain runner-interface v${RUNNER_INTERFACE_VERSION}`);
     console.log(`  Run:     ${runId}`);
     console.log(`  Roles:   ${roles.join(' -> ')}`);
+    console.log(`  Retry:   ${rejections.length} rejection retried on same turn_id`);
     console.log(`  Gates:   phase approvals=${phaseTransitionApprovals}, completion approvals=${completionApprovals}`);
     console.log(`  Result:  PASS — completed governed lifecycle without CLI shell-out`);
   } else {

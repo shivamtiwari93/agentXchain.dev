@@ -4,7 +4,7 @@
 
 Prove that the declared runner interface can drive a complete governed lifecycle across multiple turns, gate pauses, and gate approvals without CLI shell-out or operator re-entry between turns.
 
-This is the first honest continuous-execution proof for the runner layer. It is intentionally runner-level, not a new CLI command.
+This is the first honest continuous-execution proof for the runner layer. It is intentionally runner-level, not a new CLI command, and it remains the primitive proof even after `runLoop` exists.
 
 ## Problem Statement
 
@@ -31,8 +31,10 @@ Shipping `agentxchain run` before this proof would be lazy. The current `step` c
 - One human-approved phase gate (`planning_signoff`)
 - One automatic phase advance (`implementation_complete`)
 - One human-approved run completion gate (`qa_ship_verdict`)
+- One rejected implementation attempt followed by a successful retry on the same `turn_id`
 - Dispatch bundle generation for every assigned turn
 - Pre-accept bundle existence checks and post-accept cleanup checks
+- Retry-state inspection after rejection
 - JSON and text proof reports
 - A contract test guarding boundary purity and output shape
 - GitHub Actions workflow execution
@@ -44,7 +46,6 @@ Shipping `agentxchain run` before this proof would be lazy. The current `step` c
 - Looping until arbitrary stop conditions
 - Parallel turns
 - Hook and notification execution proof
-- Retry / rejection / conflict recovery
 - Multi-repo orchestration
 
 ## Interface
@@ -68,6 +69,7 @@ The script must import only through `cli/src/lib/runner-interface.js` for govern
 - `writeDispatchBundle`
 - `getTurnStagingResultPath`
 - `acceptTurn`
+- `rejectTurn`
 - `approvePhaseGate`
 - `approveCompletionGate`
 - `RUNNER_INTERFACE_VERSION`
@@ -94,6 +96,10 @@ It must not import CLI commands, `turn-paths.js`, `governed-state.js`, or `child
    - `approvePhaseGate`
    - assign `dev`
    - `writeDispatchBundle`
+   - stage an invalid dev result or equivalent rejection input
+   - `rejectTurn`
+   - verify the same `turn_id` remains active with `status === "retrying"` and incremented `attempt`
+   - `writeDispatchBundle` again for that retained turn
    - stage valid dev result with `phase_transition_request: "qa"`
    - `acceptTurn`
    - verify state auto-advanced to `qa`
@@ -111,7 +117,12 @@ It must not import CLI commands, `turn-paths.js`, `governed-state.js`, or `child
    - verify the dispatch bundle directory is removed after acceptance
    - verify the turn-scoped staging directory is removed after acceptance
 
-4. Validate final artifacts:
+4. For the rejected implementation attempt:
+   - verify rejection preserves a rejected artifact under `.agentxchain/dispatch/rejected/`
+   - verify retry reuses the original `turn_id`
+   - verify the retained turn exposes `status: "retrying"` before the successful acceptance
+
+5. Validate final artifacts:
    - `.agentxchain/state.json`
    - `.agentxchain/history.jsonl`
    - `.agentxchain/decision-ledger.jsonl`
@@ -128,6 +139,7 @@ Must include at least:
 - `result`
 - `turns_executed`
 - `roles`
+- `rejections`
 - `phase_transition_approvals`
 - `completion_approvals`
 - `dispatch_bundles`
@@ -155,6 +167,7 @@ Must clearly state:
 7. the script executes successfully in JSON and text modes
 8. JSON output proves:
    - 3 turns executed
+   - 1 rejection followed by retry on the same `turn_id`
    - 1 phase gate approval
    - 1 completion approval
    - final status is `completed`
@@ -167,10 +180,11 @@ Must clearly state:
 - `AT-CI-MULTI-002`: script imports only from `runner-interface.js` for governed execution
 - `AT-CI-MULTI-003`: script executes three governed turns to `completed`
 - `AT-CI-MULTI-004`: script proves pause/approve behavior for both phase and completion gates
-- `AT-CI-MULTI-005`: script proves dispatch bundle pre-accept existence and post-accept cleanup for all turns
-- `AT-CI-MULTI-006`: workflow runs the script on push to `main` and on pull requests
+- `AT-CI-MULTI-005`: script proves one rejected implementation attempt retries on the same `turn_id` with `status: "retrying"` before success
+- `AT-CI-MULTI-006`: script proves dispatch bundle pre-accept existence and post-accept cleanup for all accepted turns
+- `AT-CI-MULTI-007`: workflow runs the script on push to `main` and on pull requests
 
 ## Open Questions
 
-- Whether the next runner proof should exercise rejection/retry instead of expanding turn count further
-- Whether a future CLI `run` command should compose a dedicated runner library rather than `step`
+- Whether CI should add a separate `runLoop` composition proof in addition to this primitive proof
+- Whether a future CLI `run` command should compose the run-loop library rather than `step`

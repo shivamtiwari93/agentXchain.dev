@@ -43,12 +43,18 @@ const DEFAULT_MAX_TURNS = 50;
  */
 export async function runLoop(root, config, callbacks, options = {}) {
   const maxTurns = options.maxTurns ?? config.run_loop?.max_turns ?? DEFAULT_MAX_TURNS;
-  const emit = callbacks.onEvent || noop;
-
   let turnsExecuted = 0;
   const turnHistory = [];
   let gatesApproved = 0;
   const errors = [];
+  const emit = (event) => {
+    if (!callbacks.onEvent) return;
+    try {
+      callbacks.onEvent(event);
+    } catch (err) {
+      errors.push(`onEvent threw for ${event?.type || 'unknown'}: ${err.message}`);
+    }
+  };
 
   // ── Initialize if idle ──────────────────────────────────────────────────
   let state = loadState(root, config);

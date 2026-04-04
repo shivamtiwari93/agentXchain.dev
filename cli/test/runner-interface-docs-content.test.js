@@ -65,7 +65,10 @@ describe('Runner interface docs surface', () => {
 
   it('AT-RID-003: links to the shipped CI runner proof', () => {
     assert.match(PAGE, /examples\/ci-runner-proof\/run-one-turn\.mjs/);
+    assert.match(PAGE, /examples\/ci-runner-proof\/run-to-completion\.mjs/);
     assert.match(PAGE, /\.github\/workflows\/ci-runner-proof\.yml/);
+    assert.match(PAGE, /runLoop/);
+    assert.match(PAGE, /does not replace these primitive proofs/);
   });
 
   it('AT-RID-004: CLI, quickstart, and protocol docs link to the runner page', () => {

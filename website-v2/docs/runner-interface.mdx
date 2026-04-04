@@ -76,19 +76,24 @@ loadContext/loadState
 
 Runner-specific dispatch is intentionally outside the interface. The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
 
-## Shipped second-runner proof
+## Shipped runner proofs
 
-AgentXchain ships a concrete second-runner proof at `examples/ci-runner-proof/run-one-turn.mjs`.
+AgentXchain ships concrete second-runner proofs:
 
-That script:
+- `examples/ci-runner-proof/run-one-turn.mjs` proves the primitive single-turn boundary
+- `examples/ci-runner-proof/run-to-completion.mjs` proves multi-turn lifecycle control, gate approvals, and retry on the same `turn_id` after rejection
 
-- imports governed execution operations through `runner-interface.js`
-- executes one governed turn programmatically
-- stages the turn result at the canonical staging path
-- accepts the turn and validates state, history, and ledger artifacts
-- runs in GitHub Actions via `.github/workflows/ci-runner-proof.yml`
+Those scripts:
+
+- import governed execution operations through `runner-interface.js`
+- execute governed turns programmatically without shelling out to `agentxchain`
+- stage turn results at the canonical staging path
+- validate state-machine artifacts and cleanup behavior
+- run in GitHub Actions via `.github/workflows/ci-runner-proof.yml`
 
 The point is not convenience. The point is proof that governed execution is not locked to the CLI shell.
+
+`runLoop` is the higher-level composition library for continuous execution. It does not replace these primitive proofs. The primitive examples prove the runner-interface operations themselves. `runLoop` composes those operations into reusable control flow.
 
 ## What is not in this interface
 
