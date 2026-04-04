@@ -10,10 +10,10 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's three
 
 ## Interface
 
-- **URL**: `https://agentxchain.dev/docs/adapters`
-- **File**: `website/docs/adapters.html`
-- **Stylesheet**: `website/docs.css` (shared with quickstart)
-- **Nav/sidebar**: Cross-linked with quickstart and landing page
+- **URL**: `https://agentxchain.dev/docs/adapters/`
+- **File**: `website-v2/docs/adapters.mdx` (Docusaurus source)
+- **Stylesheet**: `website-v2/src/css/custom.css` (Docusaurus theme)
+- **Nav/sidebar**: Wired via `website-v2/sidebars.ts`, cross-linked with quickstart and landing page
 
 ## Page Structure
 

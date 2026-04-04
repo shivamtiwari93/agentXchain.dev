@@ -97,9 +97,10 @@ describe('Plugin docs surface', () => {
       assert.match(spec, /\/docs\/plugins/);
     });
 
-    it('STATIC_DOCS_ROUTING_SPEC.md lists plugins', () => {
+    it('STATIC_DOCS_ROUTING_SPEC.md is superseded and references Docusaurus', () => {
       const spec = read('.planning/STATIC_DOCS_ROUTING_SPEC.md');
-      assert.match(spec, /plugins/);
+      assert.match(spec, /SUPERSEDED/);
+      assert.match(spec, /Docusaurus/);
     });
 
     it('LAUNCH_BRIEF.md lists plugin docs', () => {

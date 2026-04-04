@@ -154,5 +154,5 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 ## Audit
 
 - **Test count verified**: 2026-04-03, 1033 tests / 0 failures across 235 suites (`1000+` launch-copy floor)
-- **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html — no disallowed claims found
+- **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

@@ -22,7 +22,7 @@ The output is a single Markdown file at `.planning/LAUNCH_EVIDENCE_REPORT.md` wi
 - The artifact is internal. It does not ship to npm or the website.
 - Every claim in sections 2 and 3 must cite a specific evidence source from section 1.
 - The artifact is updated whenever new live evidence is collected.
-- Launch surfaces (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html) must not make claims that appear in section 3.
+- Launch surfaces (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, `website-v2/src/pages/index.tsx`, `website-v2/src/pages/why.mdx`) must not make claims that appear in section 3.
 
 ## Evidence Sources
 
@@ -40,7 +40,7 @@ The following evidence sources exist as of 2026-04-02:
 
 - AT-EVIDENCE-001: The report exists and contains all four sections.
 - AT-EVIDENCE-002: Every "Allowed claim" cites at least one evidence source.
-- AT-EVIDENCE-003: No launch-facing file (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website/index.html, website/why.html) contains language that matches a disallowed claim.
+- AT-EVIDENCE-003: No launch-facing file (SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, `website-v2/src/pages/index.tsx`, `website-v2/src/pages/why.mdx`) contains language that matches a disallowed claim.
 - AT-EVIDENCE-004: The test count floor in the report matches the current test suite.
 
 ## Open Questions

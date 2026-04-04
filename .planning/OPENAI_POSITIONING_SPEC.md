@@ -71,7 +71,7 @@ Automated content checks must fail if:
 1. `.planning/COMPETITIVE_POSITIONING_MATRIX.md` contains an `OpenAI Agents SDK` row and no current-system comparison row for `OpenAI Swarm`.
 2. The matrix's OpenAI row documents orchestration/handoffs, human-in-the-loop, tracing, and non-OpenAI provider support only where officially documented.
 3. `README.md` names `OpenAI Agents SDK` rather than `OpenAI Swarm` in its adjacent-systems positioning sentence.
-4. `cli/test/openai-positioning-content.test.js` fails if `README.md`, `website/index.html`, `website/why.html`, or `.planning/SHOW_HN_DRAFT.md` reintroduce `OpenAI Swarm`.
+4. `cli/test/openai-positioning-content.test.js` fails if `README.md`, `website-v2/src/pages/index.tsx`, `website-v2/src/pages/why.mdx`, or `.planning/SHOW_HN_DRAFT.md` reintroduce `OpenAI Swarm`.
 5. `cli/test/openai-positioning-content.test.js` verifies that the matrix includes the `OpenAI Agents SDK` row and keeps Swarm only as a deprecation/source note.
 
 ## Open Questions

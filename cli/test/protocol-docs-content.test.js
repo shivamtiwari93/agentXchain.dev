@@ -151,7 +151,7 @@ describe('Protocol planning specs stay aligned', () => {
     assert.match(CLI_DOC_SPEC, /\/docs\/protocol/);
     assert.doesNotMatch(PROTOCOL_SPEC, /website\/docs\/protocol\.html/);
     assert.doesNotMatch(CLI_DOC_SPEC, /SPEC-GOVERNED-v5\.md on GitHub until a local protocol page exists/);
-    assert.match(V2_SCOPE, /protocol-v6\.html/);
+    assert.match(V2_SCOPE, /protocol\.mdx/);
   });
 });
 

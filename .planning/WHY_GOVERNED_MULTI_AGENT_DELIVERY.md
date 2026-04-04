@@ -1,6 +1,6 @@
 # Why Governed Multi-Agent Delivery
 
-> Companion essay to the Show HN launch. Publicly published at `website/why.html`.
+> Companion essay to the Show HN launch. Publicly published at `https://agentxchain.dev/why/` (source: `website-v2/src/pages/why.mdx`).
 
 ---
 

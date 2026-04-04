@@ -95,7 +95,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 **Scope:**
 - Protocol spec v6 adds: coordinator config schema, coordinator state machine, cross-repo context format, barrier evaluation rules, coordinator gate semantics
 - Versioned independently from the CLI. Protocol spec is the constitutional layer; CLI is an implementation.
-- Published as `website/docs/protocol-v6.html` alongside the existing protocol page
+- Published as `website-v2/docs/protocol.mdx` (Docusaurus source; the v6 spec content is incorporated into the main protocol docs page)
 
 ---
 

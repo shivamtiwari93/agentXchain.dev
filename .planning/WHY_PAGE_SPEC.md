@@ -18,9 +18,9 @@ This page is a launch asset, not a product manual. It should help a skeptical re
 
 ## Interface
 
-- Public URL: `website/why.html`
+- Public URL: `https://agentxchain.dev/why/` (source: `website-v2/src/pages/why.mdx`)
 - Discoverability surfaces:
-  - `website/index.html` nav/footer
+  - `website-v2/src/pages/index.tsx` nav/footer
   - `README.md`
   - `cli/README.md`
   - `.planning/LAUNCH_BRIEF.md`
@@ -50,12 +50,12 @@ The page MUST NOT:
 
 - If the public page drifts from the planning essay, the planning essay must be updated in the same change or explicitly narrowed to “source notes” only.
 - If the page claims comparisons against other tools, those claims must stay aligned with the competitive positioning matrix and avoid pretending AgentXchain wins adjacent categories it does not target.
-- If a discoverability surface links to the page, the link must use the real deployed path `why.html`, not a future route that does not exist yet.
+- If a discoverability surface links to the page, the link must use the real deployed path `/why/` (Docusaurus clean URL), not a bare `why.html` or a future route that does not exist yet.
 
 ## Acceptance Tests
 
 ### AT-WHY-001: Public page exists and is linkable
-Given the website files are read directly from the repo, when `website/why.html` is inspected, then it contains a title, canonical URL, and at least one link each to quickstart and protocol docs.
+Given the website files are read directly from the repo, when `website-v2/src/pages/why.mdx` is inspected, then it contains a title and at least one link each to quickstart and protocol docs.
 
 ### AT-WHY-002: Mechanism-first thesis is present
 Given the public page content, when a reader scans the page, then it explicitly covers the governance bottleneck, the manager-worker critique, mandatory challenge, and human gate authority.
@@ -64,7 +64,7 @@ Given the public page content, when a reader scans the page, then it explicitly 
 Given the public page content, when the runtime section renders, then it names `manual`, `local_cli`, and `api_proxy`.
 
 ### AT-WHY-004: Discoverability surfaces expose the page
-Given the homepage and READMEs, when they are inspected, then each contains a link to `why.html`.
+Given the homepage and READMEs, when they are inspected, then each contains a link to the `/why/` page.
 
 ### AT-WHY-005: Launch brief reflects reality
 Given `.planning/LAUNCH_BRIEF.md`, when the launch surfaces table is inspected, then the long-form post is marked published/ready rather than “not written.”
@@ -72,4 +72,4 @@ Given `.planning/LAUNCH_BRIEF.md`, when the launch surfaces table is inspected, 
 ## Open Questions
 
 - Should a later launch pass also add the essay to the docs-page top nav, or is homepage/README discoverability sufficient for v1.0?
-- Should the eventual hosted blog keep `why.html` as a permanent canonical page, or redirect it to a future `/blog/...` route after the site supports richer publishing?
+- Should the eventual hosted blog keep `/why/` as a permanent canonical page, or redirect it to a future `/blog/...` route after the site supports richer publishing?
