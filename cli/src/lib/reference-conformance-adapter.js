@@ -803,6 +803,7 @@ function executeFixtureOperation(workspace, fixture) {
         hook_ok: hookResult.ok,
         blocked: hookResult.blocked || false,
         audit_entry: auditEntry,
+        audit_entries: hookResult.results || [],
       };
     }
 

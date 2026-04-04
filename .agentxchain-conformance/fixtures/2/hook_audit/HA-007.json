@@ -1,0 +1,85 @@
+{
+  "fixture_id": "HA-007",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Blocking hook short-circuits later hooks and records skipped audit entries",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_acceptance": [
+          {
+            "name": "compliance_gate",
+            "type": "process",
+            "command": ["node", "-e", "console.log(JSON.stringify({verdict:'block',message:'Compliance review required'}))"],
+            "timeout_ms": 5000,
+            "mode": "blocking"
+          },
+          {
+            "name": "post_block_should_skip",
+            "type": "process",
+            "command": ["node", "-e", "console.log(JSON.stringify({verdict:'allow'}))"],
+            "timeout_ms": 5000,
+            "mode": "blocking"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_acceptance",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": false,
+    "blocked": true,
+    "audit_entries": [
+      {
+        "hook_phase": "before_acceptance",
+        "hook_name": "compliance_gate",
+        "transport": "process",
+        "run_id": "run_001",
+        "verdict": "block",
+        "exit_code": 0,
+        "timed_out": false,
+        "orchestrator_action": "blocked",
+        "timestamp": { "assert": "nonempty_string" },
+        "duration_ms": { "assert": "present" }
+      },
+      {
+        "hook_phase": "before_acceptance",
+        "hook_name": "post_block_should_skip",
+        "run_id": "run_001",
+        "verdict": null,
+        "exit_code": null,
+        "timed_out": false,
+        "orchestrator_action": "skipped",
+        "timestamp": { "assert": "nonempty_string" },
+        "duration_ms": 0
+      }
+    ]
+  }
+}

@@ -36,8 +36,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 15);
-    assert.equal(report.results.tier_2.fixtures_passed, 15);
+    assert.equal(report.results.tier_2.fixtures_run, 17);
+    assert.equal(report.results.tier_2.fixtures_passed, 17);
   });
 
   it('supports Tier 2 surface filtering for dispatch manifest fixtures', () => {
@@ -63,6 +63,29 @@ describe('protocol conformance verifier', () => {
     assert.deepEqual(Object.keys(report.results.tier_2.surfaces), ['dispatch_manifest']);
   });
 
+  it('supports Tier 2 surface filtering for hook audit fixtures', () => {
+    const result = runCli([
+      'verify',
+      'protocol',
+      '--tier',
+      '2',
+      '--surface',
+      'hook_audit',
+      '--target',
+      '.',
+      '--format',
+      'json',
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.overall, 'pass');
+    assert.equal(report.results.tier_1.fixtures_run, 0);
+    assert.equal(report.results.tier_2.fixtures_run, 7);
+    assert.equal(report.results.tier_2.fixtures_passed, 7);
+    assert.deepEqual(Object.keys(report.results.tier_2.surfaces), ['hook_audit']);
+  });
+
   it('passes Tier 3 self-validation against the reference adapter', () => {
     const result = runCli(['verify', 'protocol', '--tier', '3', '--target', '.', '--format', 'json']);
     assert.equal(result.status, 0, result.stderr);
@@ -71,8 +94,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 40);
     assert.equal(report.results.tier_1.fixtures_passed, 40);
-    assert.equal(report.results.tier_2.fixtures_run, 15);
-    assert.equal(report.results.tier_2.fixtures_passed, 15);
+    assert.equal(report.results.tier_2.fixtures_run, 17);
+    assert.equal(report.results.tier_2.fixtures_passed, 17);
     assert.equal(report.results.tier_3.fixtures_run, 5);
     assert.equal(report.results.tier_3.fixtures_passed, 5);
   });
