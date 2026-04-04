@@ -12,7 +12,7 @@ Prove that `agentxchain run` correctly dispatches `review_only` roles through th
 
 ## Approach
 
-1. **`base_url` runtime field**: The api_proxy adapter now supports an optional `base_url` field on the runtime config. When present, it overrides the hardcoded `PROVIDER_ENDPOINTS[provider]`. This is a legitimate product feature (custom endpoints, Azure OpenAI, self-hosted models) and also enables clean integration testing.
+1. **`base_url` runtime field**: The api_proxy adapter now supports an optional `base_url` field on the runtime config. When present, it overrides the hardcoded `PROVIDER_ENDPOINTS[provider]`. This is an endpoint override for already-supported provider families, not a new provider-registration mechanism. `provider` still determines request formatting, auth headers, and error classification. `base_url` must be an absolute `http` or `https` URL.
 
 2. **Mock HTTP server**: Tests spin up a local HTTP server (Node `createServer`) that mimics the Anthropic Messages API response format. The mock extracts `run_id`, `turn_id`, `role`, and `runtime_id` from the dispatch prompt to build schema-valid turn results.
 
@@ -34,7 +34,7 @@ Prove that `agentxchain run` correctly dispatches `review_only` roles through th
 }
 ```
 
-When `base_url` is set, the adapter uses it directly instead of `PROVIDER_ENDPOINTS[provider]`. The `provider` field is still required for request formatting and error classification.
+When `base_url` is set, the adapter uses it directly instead of `PROVIDER_ENDPOINTS[provider]`. The `provider` field is still required for request formatting and error classification. `base_url` must remain within an existing supported provider family (for example Anthropic-compatible or OpenAI chat-completions-compatible endpoints), not an arbitrary custom protocol.
 
 ## Acceptance Tests
 
@@ -43,6 +43,8 @@ When `base_url` is set, the adapter uses it directly instead of `PROVIDER_ENDPOI
 | AT-RUN-APIPROXY-INT-001 | Full lifecycle with mixed local_cli + api_proxy | Run completes (exit 0), mock server receives >= 1 request with proper auth headers, state shows completed/gate_held |
 | AT-RUN-APIPROXY-INT-002 | Correct Anthropic request format | Request body has model, messages array, max_tokens; user message present |
 | AT-RUN-APIPROXY-INT-003 | Missing credentials → graceful failure | Process exits cleanly, no requests reach server, output mentions missing credential |
+| AT-RUN-APIPROXY-INT-004 | `base_url` uses override endpoint without changing provider request shape | Request is sent to `base_url`, Anthropic/OpenAI payload shape remains provider-correct |
+| AT-RUN-APIPROXY-INT-005 | Invalid `base_url` fails config validation | Non-string, non-URL, and non-http(s) values are rejected before dispatch |
 
 ## Decisions
 

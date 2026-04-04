@@ -208,9 +208,18 @@ describe('Adapter docs contract', () => {
         'adapters.mdx must scope OpenAI support to chat-completions-compatible models');
     });
 
-    it('docs do NOT claim custom/base_url support', () => {
-      assert.doesNotMatch(adapterDocs, /base_url|Any OpenAI-compatible API/i,
-        'adapters.mdx must not claim custom base_url provider support');
+    it('docs document base_url as an endpoint override for supported providers only', () => {
+      assert.match(adapterDocs, /`base_url`/,
+        'adapters.mdx must document the optional base_url runtime field');
+      assert.match(adapterDocs, /override.*endpoint|endpoint override/i,
+        'adapters.mdx must explain that base_url overrides the default provider endpoint');
+      assert.match(adapterDocs, /provider.*still determines.*request format|existing provider families only/i,
+        'adapters.mdx must scope base_url to supported provider families, not arbitrary providers');
+    });
+
+    it('docs do NOT claim arbitrary custom provider support', () => {
+      assert.doesNotMatch(adapterDocs, /Any OpenAI-compatible API|custom provider support|unsupported provider families/i,
+        'adapters.mdx must not claim arbitrary custom provider support');
     });
   });
 

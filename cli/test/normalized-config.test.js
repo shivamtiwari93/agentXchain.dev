@@ -206,6 +206,26 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts a valid api_proxy base_url override', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          auth_env: 'OPENAI_API_KEY',
+          base_url: 'http://127.0.0.1:4318/v1/chat/completions',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
   it('accepts a valid notifications.webhooks block', () => {
     const result = validateV4Config({
       schema_version: '1.0',
@@ -876,5 +896,23 @@ describe('validateV4Config — api_proxy validation', () => {
     const result = validateV4Config(baseConfig({}, { write_authority: 'proposed' }));
     assert.equal(result.ok, false);
     assert.ok(result.errors.some(e => e.includes('v1 api_proxy only supports review_only')));
+  });
+
+  it('rejects non-string api_proxy base_url', () => {
+    const result = validateV4Config(baseConfig({ base_url: 42 }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('base_url must be a non-empty string')));
+  });
+
+  it('rejects invalid api_proxy base_url', () => {
+    const result = validateV4Config(baseConfig({ base_url: 'not-a-url' }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('base_url must be a valid absolute URL')));
+  });
+
+  it('rejects api_proxy base_url with unsupported protocol', () => {
+    const result = validateV4Config(baseConfig({ base_url: 'file:///tmp/mock-provider' }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('base_url must use http or https')));
   });
 });

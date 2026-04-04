@@ -50,12 +50,11 @@ Source: `api-proxy-adapter.js:66-71`
 
 Source: `api-proxy-adapter.js:55-63`
 
-### D5 — Supported providers table is fabricated
+### D5 — Supported provider and endpoint-override surface drifted
 
-**Docs claim:** Anthropic (native), OpenAI (via compatible endpoint), Custom (any OpenAI-compatible API)
-**Code truth:** Only `anthropic` exists in `PROVIDER_ENDPOINTS`. No OpenAI support, no custom provider support, no `base_url` config field.
+**Current code truth:** `PROVIDER_ENDPOINTS` includes `anthropic` and `openai`. The runtime may also include an optional `base_url` endpoint override, but only within those supported provider families. `provider` still determines request formatting, auth headers, and error classification. Arbitrary custom providers are not supported.
 
-Source: `api-proxy-adapter.js:44-46`
+Source: `api-proxy-adapter.js:44-47`, `api-proxy-adapter.js:765`, `normalized-config.js`
 
 ### D6 — Custom adapter interface is fabricated
 
@@ -113,6 +112,8 @@ Source: `local-cli-adapter.js:89-91`
 9. api_proxy `review_only` restriction is documented
 10. Preflight tokenization is documented
 11. Comparison table prompt transport values match implementation
+12. `base_url` is documented as an optional endpoint override for supported providers only
+13. Docs do not claim `base_url` creates arbitrary custom provider support
 
 ---
 

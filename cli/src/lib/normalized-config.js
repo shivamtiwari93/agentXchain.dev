@@ -344,6 +344,20 @@ export function validateV4Config(data, projectRoot) {
         if (typeof rt.auth_env !== 'string' || !rt.auth_env.trim()) {
           errors.push(`Runtime "${id}": api_proxy requires "auth_env" (environment variable name for API key)`);
         }
+        if ('base_url' in rt) {
+          if (typeof rt.base_url !== 'string' || !rt.base_url.trim()) {
+            errors.push(`Runtime "${id}": api_proxy base_url must be a non-empty string when provided`);
+          } else {
+            try {
+              const parsed = new URL(rt.base_url);
+              if (!['http:', 'https:'].includes(parsed.protocol)) {
+                errors.push(`Runtime "${id}": api_proxy base_url must use http or https`);
+              }
+            } catch {
+              errors.push(`Runtime "${id}": api_proxy base_url must be a valid absolute URL`);
+            }
+          }
+        }
         if ('retry_policy' in rt) {
           validateApiProxyRetryPolicy(id, rt.retry_policy, errors);
         }

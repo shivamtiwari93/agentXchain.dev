@@ -674,6 +674,35 @@ describe('dispatchApiProxy', () => {
     });
   });
 
+  it('uses runtime.base_url as the fetch target while preserving provider-specific request formatting', async () => {
+    const root = createAndTrack();
+    const state = makeApiState();
+    const turnResult = makeTurnResult(state);
+    const config = makeApiConfig({
+      base_url: 'http://127.0.0.1:4010/v1/messages',
+    });
+    setupDispatchBundle(root);
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+
+    let requestUrl;
+    let requestBody;
+    global.fetch = async (url, options) => {
+      requestUrl = url;
+      requestBody = JSON.parse(options.body);
+      return makeJsonResponse(200, {
+        content: [{ type: 'text', text: JSON.stringify(turnResult) }],
+        usage: { input_tokens: 100, output_tokens: 25 },
+      });
+    };
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, true);
+    assert.equal(requestUrl, 'http://127.0.0.1:4010/v1/messages');
+    assert.equal(requestBody.model, 'claude-sonnet-4-6');
+    assert.equal(requestBody.system, SYSTEM_PROMPT);
+    assert.equal(requestBody.messages[0].role, 'user');
+  });
+
   it('writes preflight audit artifacts and sends the effective context when tokenization is enabled', async () => {
     const root = createAndTrack();
     const state = makeApiState();

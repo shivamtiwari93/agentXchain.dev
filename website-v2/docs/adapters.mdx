@@ -389,6 +389,22 @@ The api_proxy adapter is currently restricted to **review_only** roles only. Rol
 
 Anthropic and OpenAI are supported in v1. OpenAI support in this slice uses the Chat Completions endpoint with JSON output. Tool use, background execution, and the Responses API are still out of scope for `api_proxy`.
 
+### Custom endpoint override
+
+For supported providers, you may override the default API endpoint with an optional `base_url` field on the runtime:
+
+```json title="api_proxy endpoint override"
+{
+  "type": "api_proxy",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "auth_env": "OPENAI_API_KEY",
+  "base_url": "http://127.0.0.1:4010/v1/chat/completions"
+}
+```
+
+Use this for local mocks, enterprise gateways, Azure-style front doors, or self-hosted deployments that speak the same provider-family request/response contract. This is an endpoint override, not a new provider type: `provider` still determines request format, auth headers, and error classification, and `base_url` stays within existing provider families only. `base_url`, when present, must be an absolute `http` or `https` URL.
+
 ### Error classification
 
 The adapter classifies every error into a named error class with a `retryable` flag:
@@ -521,6 +537,8 @@ The adapter records token usage from provider telemetry:
 ```
 
 Use an Anthropic runtime when you want local preflight tokenization. Use an OpenAI runtime when you want synchronous review-only dispatch to a chat-completions-compatible OpenAI model.
+
+If you need to hit a mock or proxy endpoint, add `base_url` to the runtime block. Keep the `provider` field aligned with the endpoint contract you expect the adapter to speak.
 
 ## Comparison table
 
