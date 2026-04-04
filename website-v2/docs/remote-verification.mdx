@@ -205,58 +205,34 @@ The `--timeout` flag (default: `30000` ms) sets a per-fixture timeout for remote
 
 When a request exceeds the timeout, the underlying TCP socket is destroyed and the verifier records a timeout error for that fixture (or exits with code 2 for capabilities fetch).
 
-## Minimal conformance server example
+## Runnable example
 
-```js
-import { createServer } from 'node:http';
+The canonical runnable example lives at [`examples/remote-conformance-server/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/remote-conformance-server).
 
-const capabilities = {
-  implementation: 'my-runner',
-  version: '0.1.0',
-  protocol_version: 'v6',
-  adapter: { protocol: 'http-fixture-v1' },
-  tiers: [1],
-  surfaces: { state_machine: true },
-};
+That example is stronger than an inline snippet because it:
 
-function executeFixture(fixture) {
-  // Map fixture.input.operation onto your implementation
-  // Compare result against fixture.expected
-  // Return { status, message, actual }
-  return { status: 'not_implemented', message: null, actual: null };
-}
+- wraps the shipped reference fixture engine
+- exposes the exact `/conform/capabilities` and `/conform/execute` contract
+- is covered by a contract test that runs real remote verification against it
 
-const server = createServer((req, res) => {
-  if (req.method === 'GET' && req.url === '/conform/capabilities') {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(capabilities));
-    return;
-  }
+Start it locally:
 
-  if (req.method === 'POST' && req.url === '/conform/execute') {
-    let body = '';
-    req.on('data', (chunk) => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const fixture = JSON.parse(body);
-        const result = executeFixture(fixture);
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (error) {
-        res.writeHead(500, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ message: error.message }));
-      }
-    });
-    return;
-  }
+```bash
+cd examples/remote-conformance-server
+node server.js
+```
 
-  res.writeHead(404);
-  res.end();
-});
+Verify against it:
 
-server.listen(8080, () => {
-  console.log('Conformance server on http://localhost:8080');
-});
+```bash
+agentxchain verify protocol --tier 1 --remote http://127.0.0.1:8788 --format json
+```
+
+Optional Bearer auth:
+
+```bash
+CONFORMANCE_TOKEN=secret123 node server.js
+agentxchain verify protocol --tier 1 --remote http://127.0.0.1:8788 --token secret123 --format json
 ```
 
 Verify with:

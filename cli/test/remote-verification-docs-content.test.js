@@ -34,6 +34,14 @@ describe('Remote verification docs — page exists and is wired', () => {
       'implementor guide must link to remote-verification'
     );
   });
+
+  it('links to the runnable remote conformance server example', () => {
+    assert.match(
+      DOCS_PAGE,
+      /examples\/remote-conformance-server/,
+      'docs must link to the runnable remote conformance server example'
+    );
+  });
 });
 
 describe('Remote verification docs — HTTP contract alignment with implementation', () => {
@@ -114,6 +122,14 @@ describe('Remote verification docs — HTTP contract alignment with implementati
     assert.ok(timeoutDefault, 'CLI must register --timeout with a default');
     assert.match(DOCS_PAGE, new RegExp(timeoutDefault[1]),
       `docs must mention the default timeout ${timeoutDefault[1]}`);
+  });
+
+  it('documents a concrete verify protocol --remote command', () => {
+    assert.match(
+      DOCS_PAGE,
+      /agentxchain verify protocol --tier 1 --remote http:\/\/127\.0\.0\.1:8788 --format json/,
+      'docs must include a concrete remote verification command'
+    );
   });
 
   it('documents malformed response handling', () => {
