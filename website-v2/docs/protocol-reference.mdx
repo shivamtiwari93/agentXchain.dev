@@ -1,0 +1,107 @@
+---
+title: Protocol Reference v6
+description: "Current normative boundary for AgentXchain protocol v6."
+---
+
+# Protocol Reference v6
+
+This is the current normative boundary for AgentXchain protocol v6. It exists because the repo already had two adjacent but different surfaces:
+
+- [Protocol v6](./protocol) explains the constitutional model.
+- [Protocol Implementor Guide](./protocol-implementor-guide) explains how to prove conformance.
+
+Neither one was clean enough to answer the narrower question: what is actually part of protocol v6 right now, and what is merely a reference-runner or integration detail?
+
+The canonical versioned repo-native source is [`PROTOCOL-v6.md`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v6.md).
+
+## Versioning Model
+
+Do not flatten these into one number:
+
+| Axis | Current value | Meaning |
+| --- | --- | --- |
+| Protocol version | `v6` | Constitutional contract |
+| Governed config schema | `1.0` | `agentxchain.json` governed config shape |
+| Turn result schema | `1.0` | staged result payload contract |
+| Governed state schema | `1.1` | `.agentxchain/state.json` shape |
+| Coordinator config/state/context schema | `0.1` | multi-repo config and coordinator artifacts |
+| Conformance tiers | `1`, `2`, `3` | executable proof packaging, not protocol versions |
+
+If someone says "AgentXchain is on schema 1.1" or "Tier 3 means protocol v3," that is wrong.
+
+## Normative Repo-Local Contract
+
+These repo-local concepts are protocol v6, not UI sugar:
+
+### Governed run statuses
+
+- `idle`
+- `active`
+- `paused`
+- `blocked`
+- `completed`
+- `failed`
+
+### Write authorities
+
+- `authoritative`
+- `proposed`
+- `review_only`
+
+### Artifact and lifecycle rules
+
+- Governed config is repo-native in `agentxchain.json`.
+- Accepted turn history is append-only in `.agentxchain/history.jsonl`.
+- Accepted decisions and selected governance events are append-only in `.agentxchain/decision-ledger.jsonl`.
+- Turn dispatch is turn-scoped under `.agentxchain/dispatch/turns/<turn_id>/`.
+- Staged results are turn-scoped under `.agentxchain/staging/<turn_id>/turn-result.json`.
+- Gate requests are queued first and only become human-approvable when they materialize as `pending_phase_transition` or `pending_run_completion`.
+- `review_only` turns must raise at least one objection. That is a protocol rule, not a documentation preference.
+
+## Normative Coordinator Contract
+
+These multi-repo concepts are part of protocol v6:
+
+- `super_run_id`
+- workstreams
+- `acceptance_projection`
+- `COORDINATOR_CONTEXT.json`
+- coordinator `pending_gate`
+
+Current barrier types are:
+
+- `all_repos_accepted`
+- `interface_alignment`
+- `ordered_repo_sequence`
+- `shared_human_gate`
+
+The coordinator is not allowed to invent repo-local truth. Repo-local accepted history remains authoritative. Coordinator projections, barriers, and gates are derived from repo-local state, not the other way around.
+
+## Current Executable Proof Set
+
+Protocol v6 is currently proven by the shipped conformance corpus under `.agentxchain-conformance/fixtures/`.
+
+Current surfaces:
+
+- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`
+- Tier 2: `dispatch_manifest`, `hook_audit`
+- Tier 3: `coordinator`
+
+That list is the current executable proof set. It is not a claim that every shipped product feature is part of protocol v6.
+
+## Not Normative In v6
+
+These are real product surfaces, but they are not part of protocol v6 conformance today:
+
+- CLI command names such as `step`, `resume`, or `multi approve-gate`
+- dashboard ports, view names, and browser UX
+- provider-specific adapter behavior such as Anthropic or OpenAI request wiring
+- `notifications.webhooks` delivery behavior and event transport
+
+Those surfaces matter, but treating them as constitutional truth before they are promoted into the conformance boundary would be sloppy.
+
+## How To Read The Docs Stack
+
+- Start with [Protocol v6](./protocol) for the constitutional overview.
+- Use this page when you need the current normative boundary.
+- Use [Protocol Implementor Guide](./protocol-implementor-guide) when you are building or validating another runner.

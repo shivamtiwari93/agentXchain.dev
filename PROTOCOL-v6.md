@@ -1,8 +1,54 @@
 # AgentXchain Protocol v6
 
-Normative reference for AgentXchain v2 multi-repo governance.
+Versioned repo-native reference for the AgentXchain v6 protocol.
 
 This document supersedes `SPEC-GOVERNED-v5.md` as the current constitutional reference. `SPEC-GOVERNED-v5.md` remains the historical v1.1 single-repo reference. `SPEC-GOVERNED-v4.md` remains the frozen v1.0 reference.
+
+## 0. Specification Status And Boundaries
+
+This file is the current versioned protocol reference for v6. It is not the only protocol surface:
+
+- `/docs/protocol` is the constitutional overview for operators and evaluators.
+- `/docs/protocol-reference` is the public reference summary and boundary page.
+- `/docs/protocol-implementor-guide` is the executable adoption contract for third-party runners.
+
+Three version axes matter and MUST NOT be collapsed:
+
+- Protocol version: `v6`
+- Artifact schema versions:
+  - governed config: `1.0`
+  - turn result: `1.0`
+  - governed state: `1.1`
+  - coordinator config/state/context: `0.1`
+- Conformance tiers: `1`, `2`, and `3`
+
+The protocol is the constitutional contract. The following are reference-runner or integration details unless a future protocol revision or conformance tier explicitly promotes them:
+
+- CLI command names
+- dashboard ports and view names
+- provider-specific adapter behavior
+- notification webhooks and delivery semantics
+
+## 0.1 What Is Normative In v6
+
+The current normative v6 contract includes:
+
+- repo-native governed artifacts and state transitions
+- governed run statuses and write-authority boundaries
+- queued-versus-pending gate lifecycle
+- append-only accepted history and decision-ledger behavior
+- coordinator entities such as `super_run_id`, workstreams, barriers, acceptance projections, and cross-repo context artifacts
+- the current conformance surfaces exercised by `.agentxchain-conformance/fixtures/`
+
+## 0.2 Current Executable Proof Surface
+
+The current conformance corpus covers these surfaces:
+
+- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`
+- Tier 2: `dispatch_manifest`, `hook_audit`
+- Tier 3: `coordinator`
+
+That executable proof set is narrower than the entire product surface. Do not treat unconformed features as constitutional truth just because the reference CLI ships them.
 
 ## 1. Scope
 
@@ -32,7 +78,24 @@ Repo-local semantics from v5 remain in force:
 - `.agentxchain/dispatch/turns/<turn_id>/` is the turn-scoped dispatch bundle root.
 - `.agentxchain/staging/<turn_id>/turn-result.json` is the staged turn-result path.
 
-Repo-local commands remain:
+Governed run statuses are:
+
+- `idle`
+- `active`
+- `paused`
+- `blocked`
+- `completed`
+- `failed`
+
+Write authorities are:
+
+- `authoritative`
+- `proposed`
+- `review_only`
+
+Reference CLI operator surface:
+
+These are the current reference-runner commands. Other runners may expose different operator commands as long as they preserve the same artifact, validation, and state-transition contract.
 
 - `agentxchain step`
 - `agentxchain accept-turn`
@@ -53,7 +116,9 @@ The coordinator introduces these entities:
 - `barrier`: coordinator-level completion predicate for a workstream.
 - `pending_gate`: phase-transition or initiative-completion approval requested by the coordinator.
 
-The coordinator command surface is:
+Reference CLI coordinator surface:
+
+These are the current reference-runner commands. They are not the only valid coordinator interface.
 
 - `agentxchain multi init`
 - `agentxchain multi status`

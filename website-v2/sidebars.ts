@@ -10,6 +10,7 @@ const sidebars: SidebarsConfig = {
       label: 'Protocol',
       items: [
         'protocol',
+        'protocol-reference',
         'protocol-implementor-guide',
       ],
     },
