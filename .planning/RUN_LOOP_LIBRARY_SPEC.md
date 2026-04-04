@@ -35,8 +35,13 @@ export async function runLoop(root, config, callbacks)
  * @typedef {Object} RunLoopCallbacks
  *
  * @property {(state: object, config: object) => string | null} selectRole
- *   Called before each turn. Return a role ID to assign, or null to signal
+ *   Called before each NEW turn. Return a role ID to assign, or null to signal
  *   that the caller wants to stop (yields stop reason 'caller_stopped').
+ *   NOTE: selectRole is NOT called for retry dispatches. When a turn is
+ *   rejected and the active turn enters 'retrying' status, the run loop
+ *   re-dispatches the existing turn directly without calling selectRole.
+ *   This means dispatch may be called more times than selectRole if
+ *   rejections occur.
  *
  * @property {(context: DispatchContext) => Promise<TurnResultOrReject>} dispatch
  *   Called after turn assignment and dispatch bundle generation.
@@ -127,7 +132,8 @@ export async function runLoop(root, config, callbacks)
         - If accept failed → return stop_reason: 'blocked'
       - If accept: false → call rejectTurn(root, config, ...)
         - If retries exhausted → return stop_reason: 'reject_exhausted'
-        - Otherwise → continue loop (retry with same role)
+        - Otherwise → continue loop (the active turn has status 'retrying';
+          step (e) detects it and re-dispatches without calling selectRole)
    j. Emit onEvent, increment counters
    k. Continue loop
 ```

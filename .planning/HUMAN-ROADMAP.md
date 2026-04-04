@@ -54,6 +54,40 @@ Current focus: website/docs/product-surface correction
   - `deploy-websites.sh` upgraded with two-tier cache: hashed assets (1yr immutable), HTML (5min/1min). Post-sync metadata enforcement. Bash 3 compatibility fix. `DEC-GCS-DEPLOY-001`–`004`.
   - Deployed and verified: all assets live with correct `Cache-Control` headers.
 
+- [x] Add Google Analytics (GA4) to the website and all pages including docs
+  - **Tracking ID:** `G-1Z8RV9X341`
+  - **How to implement (Docusaurus native plugin):**
+    1. In `website-v2/docusaurus.config.ts`, add `gtag` to the `preset-classic` config:
+       ```ts
+       presets: [
+         [
+           'classic',
+           {
+             gtag: {
+               trackingID: 'G-1Z8RV9X341',
+               anonymizeIP: true,
+             },
+             // ... existing docs, blog, theme options
+           },
+         ],
+       ],
+       ```
+       `@docusaurus/plugin-google-gtag` is bundled with `preset-classic` — no `npm install` needed.
+    2. This automatically injects the gtag.js snippet into every page (landing, docs, comparison pages, `/why`, etc.) including client-side navigations.
+    3. Verify locally: run `npm start`, open browser DevTools → Network tab, confirm requests to `https://www.googletagmanager.com/gtag/js?id=G-1Z8RV9X341`.
+    4. After merge, redeploy via `deploy-websites.sh` and verify in Google Analytics Real-Time dashboard that pageviews are registering.
+  - **Raw script (for reference only — use the Docusaurus plugin above, not manual injection):**
+    ```html
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1Z8RV9X341"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-1Z8RV9X341');
+    </script>
+    ```
+
 ## Completion Log
 
 - **2026-04-03**: All 7 priority queue items completed across Turns 21–4 (Claude Opus 4.6 + GPT 5.4). Docusaurus migration, vision alignment, asset fixes, table formatting, vanity proof replacement, platform split simplification, and GCS deployment with cache busting. v2.2.0 release-ready.

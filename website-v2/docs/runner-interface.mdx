@@ -78,14 +78,17 @@ Runner-specific dispatch is intentionally outside the interface. The CLI can use
 
 ## Shipped runner proofs
 
-AgentXchain ships concrete second-runner proofs:
+AgentXchain ships three runner proof tiers, each defending a different failure boundary:
 
-- `examples/ci-runner-proof/run-one-turn.mjs` proves the primitive single-turn boundary
-- `examples/ci-runner-proof/run-to-completion.mjs` proves multi-turn lifecycle control, gate approvals, and retry on the same `turn_id` after rejection
+| Tier | Script | What it proves |
+| --- | --- | --- |
+| **1. Single-turn primitive** | `examples/ci-runner-proof/run-one-turn.mjs` | A single governed turn can be assigned, dispatched, staged, and accepted through the raw runner-interface operations. |
+| **2. Multi-turn primitive** | `examples/ci-runner-proof/run-to-completion.mjs` | A full governed lifecycle (pm → dev → qa) can be driven through the raw runner-interface, including gate approvals, rejection, and retry on the same `turn_id`. |
+| **3. Run-loop composition** | `examples/ci-runner-proof/run-with-run-loop.mjs` | The `runLoop` library composes runner-interface operations into reusable continuous execution — gate pauses, rejection/retry, and typed stop reasons — without re-implementing lifecycle logic. |
 
-Those scripts:
+All three proofs:
 
-- import governed execution operations through `runner-interface.js`
+- import governed execution operations only through `runner-interface.js` (Tiers 1–2) or `run-loop.js` which itself only imports from `runner-interface.js` (Tier 3)
 - execute governed turns programmatically without shelling out to `agentxchain`
 - stage turn results at the canonical staging path
 - validate state-machine artifacts and cleanup behavior
@@ -93,7 +96,7 @@ Those scripts:
 
 The point is not convenience. The point is proof that governed execution is not locked to the CLI shell.
 
-`runLoop` is the higher-level composition library for continuous execution. It does not replace these primitive proofs. The primitive examples prove the runner-interface operations themselves. `runLoop` composes those operations into reusable control flow.
+Tiers 1–2 validate the primitive operations. Tier 3 validates that `runLoop` composes them correctly. Neither layer replaces the other — they are complementary proof boundaries.
 
 ## What is not in this interface
 
