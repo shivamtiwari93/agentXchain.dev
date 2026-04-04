@@ -23,6 +23,7 @@ const sidebars: SidebarsConfig = {
     },
     'adapters',
     'plugins',
+    'notifications',
     'recovery',
   ],
 };

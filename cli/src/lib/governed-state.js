@@ -34,6 +34,7 @@ import {
 import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
+import { emitNotifications } from './notification-runner.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,29 @@ const GOVERNED_SCHEMA_VERSION = '1.1';
 
 function generateId(prefix) {
   return `${prefix}_${randomBytes(8).toString('hex')}`;
+}
+
+function emitBlockedNotification(root, config, state, details = {}, turn = null) {
+  if (!config?.notifications?.webhooks?.length) {
+    return;
+  }
+
+  const recovery = state?.blocked_reason?.recovery || details.recovery || null;
+  emitNotifications(root, config, state, 'run_blocked', {
+    category: state?.blocked_reason?.category || details.category || 'unknown_block',
+    blocked_on: state?.blocked_on || details.blockedOn || null,
+    typed_reason: recovery?.typed_reason || null,
+    owner: recovery?.owner || null,
+    recovery_action: recovery?.recovery_action || null,
+    detail: recovery?.detail || null,
+  }, turn);
+}
+
+function emitPendingLifecycleNotification(root, config, state, eventType, payload, turn = null) {
+  if (!config?.notifications?.webhooks?.length) {
+    return;
+  }
+  emitNotifications(root, config, state, eventType, payload, turn);
 }
 
 function normalizeActiveTurns(activeTurns) {
@@ -615,7 +639,7 @@ function deriveHookRecovery(state, { phase, hookName, detail, errorCode, turnId,
   };
 }
 
-function blockRunForHookIssue(root, state, { phase, turnId, hookName, detail, errorCode, turnRetained }) {
+function blockRunForHookIssue(root, state, { phase, turnId, hookName, detail, errorCode, turnRetained, notificationConfig }) {
   const blockedAt = new Date().toISOString();
   const typedReason = errorCode?.includes('_tamper') ? 'hook_tamper' : 'hook_block';
   const recovery = deriveHookRecovery(state, {
@@ -638,6 +662,11 @@ function blockRunForHookIssue(root, state, { phase, turnId, hookName, detail, er
     }),
   };
   writeState(root, blockedState);
+  emitBlockedNotification(root, notificationConfig, blockedState, {
+    category: typedReason,
+    blockedOn: blockedState.blocked_on,
+    recovery,
+  }, turnId ? getActiveTurns(blockedState)[turnId] || null : null);
   return attachLegacyCurrentTurnAlias(blockedState);
 }
 
@@ -839,6 +868,12 @@ export function markRunBlocked(root, details) {
 
   writeState(root, updatedState);
 
+  emitBlockedNotification(root, details.notificationConfig, updatedState, {
+    category: details.category,
+    blockedOn: details.blockedOn,
+    recovery: details.recovery,
+  }, turnId ? getActiveTurns(updatedState)[turnId] || null : null);
+
   // Fire on_escalation hooks (advisory-only) after blocked state is persisted.
   // Only fire for non-hook-caused blocks to prevent circular invocations.
   if (details.hooksConfig?.on_escalation?.length > 0) {
@@ -922,6 +957,7 @@ export function raiseOperatorEscalation(root, config, details) {
     turnId: targetTurn?.turn_id || null,
     escalation,
     hooksConfig: config?.hooks || {},
+    notificationConfig: config,
   });
   if (!blocked.ok) {
     return blocked;
@@ -935,6 +971,14 @@ export function raiseOperatorEscalation(root, config, details) {
     blocked_on: blockedOn,
     escalation,
   });
+
+  emitPendingLifecycleNotification(root, config, blocked.state, 'operator_escalation_raised', {
+    source: 'operator',
+    blocked_on: blockedOn,
+    reason,
+    detail,
+    recovery_action: recoveryAction,
+  }, targetTurn);
 
   return {
     ok: true,
@@ -972,6 +1016,12 @@ export function reactivateGovernedRun(root, state, details = {}) {
       turn_id: state.escalation?.from_turn_id ?? getActiveTurn(state)?.turn_id ?? null,
       role: state.escalation?.from_role ?? getActiveTurn(state)?.assigned_role ?? null,
     });
+
+    emitPendingLifecycleNotification(details.root || root, details.notificationConfig, nextState, 'escalation_resolved', {
+      blocked_on: state.blocked_on,
+      resolved_via: details.via || 'unknown',
+      previous_escalation: state.escalation || null,
+    }, state.escalation?.from_turn_id ? getActiveTurns(state)[state.escalation.from_turn_id] || getActiveTurn(state) : getActiveTurn(state));
   }
 
   return { ok: true, state: attachLegacyCurrentTurnAlias(nextState) };
@@ -1154,6 +1204,7 @@ export function assignGovernedTurn(root, config, roleId) {
           detail,
           errorCode: beforeAssignmentHooks.tamper.error_code,
           turnRetained: activeCount > 0,
+          notificationConfig: config,
         });
         return {
           ok: false,
@@ -1380,6 +1431,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         detail,
         errorCode: beforeValidationHooks.tamper?.error_code || 'hook_blocked',
         turnRetained: true,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -1421,6 +1473,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         detail,
         errorCode: afterValidationHooks.tamper?.error_code || 'hook_blocked',
         turnRetained: true,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -1566,6 +1619,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         detail,
         errorCode: beforeAcceptanceHooks.tamper?.error_code || 'hook_blocked',
         turnRetained: true,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -1838,6 +1892,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         detail,
         errorCode: hookResults.tamper?.error_code || 'hook_post_commit_error',
         turnRetained: Object.keys(getActiveTurns(updatedState)).length > 0,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -1851,6 +1906,39 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         hookResults,
       };
     }
+  }
+
+  if (updatedState.status === 'blocked') {
+    emitBlockedNotification(root, config, updatedState, {
+      category: updatedState.blocked_reason?.category || 'needs_human',
+      blockedOn: updatedState.blocked_on,
+      recovery: updatedState.blocked_reason?.recovery || null,
+    }, currentTurn);
+  }
+
+  if (updatedState.pending_phase_transition) {
+    emitPendingLifecycleNotification(root, config, updatedState, 'phase_transition_pending', {
+      from: updatedState.pending_phase_transition.from,
+      to: updatedState.pending_phase_transition.to,
+      gate: updatedState.pending_phase_transition.gate,
+      requested_by_turn: updatedState.pending_phase_transition.requested_by_turn,
+    }, currentTurn);
+  }
+
+  if (updatedState.pending_run_completion) {
+    emitPendingLifecycleNotification(root, config, updatedState, 'run_completion_pending', {
+      gate: updatedState.pending_run_completion.gate,
+      requested_by_turn: updatedState.pending_run_completion.requested_by_turn,
+      requested_at: updatedState.pending_run_completion.requested_at,
+    }, currentTurn);
+  }
+
+  if (updatedState.status === 'completed') {
+    emitPendingLifecycleNotification(root, config, updatedState, 'run_completed', {
+      completed_at: updatedState.completed_at || now,
+      completed_via: completionResult?.action === 'complete' ? 'accept_turn' : 'accept_turn_direct',
+      requested_by_turn: completionResult?.requested_by_turn || turnResult.turn_id,
+    }, currentTurn);
   }
 
   return {
@@ -2038,6 +2126,12 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
 
   writeState(root, updatedState);
 
+  emitBlockedNotification(root, config, updatedState, {
+    category: 'retries_exhausted',
+    blockedOn: updatedState.blocked_on,
+    recovery: updatedState.blocked_reason?.recovery || null,
+  }, updatedState.active_turns[currentTurn.turn_id]);
+
   // Fire on_escalation hooks (advisory-only) after blocked state is persisted.
   const hooksConfig = config?.hooks || {};
   if (hooksConfig.on_escalation?.length > 0) {
@@ -2117,6 +2211,7 @@ export function approvePhaseTransition(root, config) {
         detail,
         errorCode: gateHooks.tamper?.error_code || 'hook_blocked',
         turnRetained: false,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -2207,6 +2302,7 @@ export function approveRunCompletion(root, config) {
         detail,
         errorCode: gateHooks.tamper?.error_code || 'hook_blocked',
         turnRetained: false,
+        notificationConfig: config,
       });
       return {
         ok: false,
@@ -2232,6 +2328,13 @@ export function approveRunCompletion(root, config) {
   };
 
   writeState(root, updatedState);
+
+  emitPendingLifecycleNotification(root, config, updatedState, 'run_completed', {
+    completed_at: updatedState.completed_at,
+    completed_via: 'approve_run_completion',
+    gate: completion.gate,
+    requested_by_turn: completion.requested_by_turn || null,
+  }, completion.requested_by_turn ? getActiveTurns(state)[completion.requested_by_turn] || null : null);
 
   return {
     ok: true,

@@ -185,7 +185,7 @@ export async function resumeCommand(opts) {
     console.log(`  Attempt: ${retainedTurn.attempt}`);
     console.log('');
 
-    const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn' });
+    const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn', notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
       process.exit(1);
@@ -201,7 +201,7 @@ export async function resumeCommand(opts) {
 
     const hooksConfig = config.hooks || {};
     if (hooksConfig.after_dispatch?.length > 0) {
-      const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, retainedTurn);
+      const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, retainedTurn, config);
       if (!afterDispatchResult.ok) {
         process.exit(1);
       }
@@ -224,7 +224,7 @@ export async function resumeCommand(opts) {
 
   // §47: paused + run_id exists → resume same run
   if (state.status === 'blocked' && state.run_id) {
-    const reactivated = reactivateGovernedRun(root, state, { via: 'resume' });
+    const reactivated = reactivateGovernedRun(root, state, { via: 'resume', notificationConfig: config });
     if (!reactivated.ok) {
       console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
       process.exit(1);
@@ -272,7 +272,7 @@ export async function resumeCommand(opts) {
   const hooksConfig = config.hooks || {};
   const turn = state.current_turn;
   if (hooksConfig.after_dispatch?.length > 0) {
-    const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, turn);
+    const afterDispatchResult = runAfterDispatchHooks(root, hooksConfig, state, turn, config);
     if (!afterDispatchResult.ok) {
       process.exit(1);
     }
@@ -328,7 +328,7 @@ function resolveTargetRole(opts, state, config) {
   return null;
 }
 
-function runAfterDispatchHooks(root, hooksConfig, state, turn) {
+function runAfterDispatchHooks(root, hooksConfig, state, turn, config) {
   const turnId = turn.turn_id;
   const roleId = turn.assigned_role;
 
@@ -369,6 +369,7 @@ function runAfterDispatchHooks(root, hooksConfig, state, turn) {
         detail,
       },
       turnId,
+      notificationConfig: config,
     });
 
     printDispatchHookFailure({

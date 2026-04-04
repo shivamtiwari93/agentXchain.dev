@@ -13,6 +13,7 @@
  */
 
 import { validateHooksConfig } from './hook-runner.js';
+import { validateNotificationsConfig } from './notification-runner.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
@@ -425,6 +426,12 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...hookValidation.errors);
   }
 
+  // Notifications (optional but validated if present)
+  if (data.notifications) {
+    const notificationValidation = validateNotificationsConfig(data.notifications);
+    errors.push(...notificationValidation.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -467,6 +474,7 @@ export function normalizeV3(raw) {
     routing: buildLegacyRouting(Object.keys(agents)),
     gates: {},
     hooks: {},
+    notifications: {},
     budget: null,
     retention: {
       talk_strategy: 'append_only',
@@ -526,6 +534,7 @@ export function normalizeV4(raw) {
     routing: raw.routing || {},
     gates: raw.gates || {},
     hooks: raw.hooks || {},
+    notifications: raw.notifications || {},
     budget: raw.budget || null,
     retention: raw.retention || {
       talk_strategy: 'append_only',

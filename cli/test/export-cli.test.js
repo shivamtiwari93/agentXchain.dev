@@ -117,6 +117,9 @@ function createGovernedProject() {
   writeJsonl(join(root, '.agentxchain', 'hook-annotations.jsonl'), [
     { turn_id: 'turn_001', annotations: { note: 'captured' } },
   ]);
+  writeJsonl(join(root, '.agentxchain', 'notification-audit.jsonl'), [
+    { event_type: 'run_blocked', notification_name: 'ops_webhook', delivered: true },
+  ]);
 
   writeFileSync(
     join(root, '.agentxchain', 'dispatch', 'turns', 'turn_001', 'PROMPT.md'),
@@ -204,6 +207,11 @@ describe('export CLI', () => {
       );
       assert.equal(exported.summary.intake_present, true);
       assert.equal(exported.summary.coordinator_present, true);
+      assert.equal(exported.summary.notification_audit_entries, 1);
+      assert.equal(
+        exported.files['.agentxchain/notification-audit.jsonl'].data[0].event_type,
+        'run_blocked',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

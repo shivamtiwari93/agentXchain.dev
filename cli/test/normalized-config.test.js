@@ -206,6 +206,61 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts a valid notifications.webhooks block', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: {
+        'manual-dev': { type: 'manual' },
+      },
+      notifications: {
+        webhooks: [
+          {
+            name: 'ops_webhook',
+            url: 'https://example.com/agentxchain',
+            events: ['run_blocked', 'run_completed'],
+            timeout_ms: 5000,
+            headers: {
+              Authorization: 'Bearer ${TEST_NOTIFICATION_TOKEN}',
+            },
+            env: {
+              TEST_NOTIFICATION_TOKEN: 'secret-token',
+            },
+          },
+        ],
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects unknown notification events', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'manual-dev' },
+      },
+      runtimes: {
+        'manual-dev': { type: 'manual' },
+      },
+      notifications: {
+        webhooks: [
+          {
+            name: 'ops_webhook',
+            url: 'https://example.com/agentxchain',
+            events: ['run_blocked', 'imaginary_event'],
+            timeout_ms: 5000,
+          },
+        ],
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('unknown event "imaginary_event"')));
+  });
+
   it('accepts a valid mcp runtime config', () => {
     const result = validateV4Config({
       schema_version: '1.0',

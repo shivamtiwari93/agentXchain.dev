@@ -204,7 +204,7 @@ export async function stepCommand(opts) {
       }
 
       console.log(chalk.yellow(`Re-dispatching blocked turn: ${targetTurn.turn_id}`));
-      const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume' });
+      const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume', notificationConfig: config });
       if (!reactivated.ok) {
         console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
         process.exit(1);
@@ -256,7 +256,7 @@ export async function stepCommand(opts) {
 
     // paused → resume
     if (!skipAssignment && state.status === 'blocked' && state.run_id) {
-      const reactivated = reactivateGovernedRun(root, state, { via: 'step' });
+      const reactivated = reactivateGovernedRun(root, state, { via: 'step', notificationConfig: config });
       if (!reactivated.ok) {
         console.log(chalk.red(`Failed to reactivate blocked run: ${reactivated.error}`));
         process.exit(1);
@@ -341,6 +341,7 @@ export async function stepCommand(opts) {
         hookResults: afterDispatchHooks,
         phase: 'after_dispatch',
         defaultDetail: `after_dispatch hook blocked dispatch for turn ${turn.turn_id}`,
+        config,
       });
       printLifecycleHookFailure('Dispatch Blocked By Hook', blocked.result, {
         turnId: turn.turn_id,
@@ -391,6 +392,7 @@ export async function stepCommand(opts) {
         },
         turnId: turn.turn_id,
         hooksConfig,
+        notificationConfig: config,
       });
       if (blocked.ok) {
         state = blocked.state;
@@ -471,6 +473,7 @@ export async function stepCommand(opts) {
         },
         turnId: turn.turn_id,
         hooksConfig,
+        notificationConfig: config,
       });
       if (blocked.ok) {
         state = blocked.state;
@@ -539,6 +542,7 @@ export async function stepCommand(opts) {
         },
         turnId: turn.turn_id,
         hooksConfig,
+        notificationConfig: config,
       });
       if (blocked.ok) {
         state = blocked.state;
@@ -565,6 +569,7 @@ export async function stepCommand(opts) {
         },
         turnId: turn.turn_id,
         hooksConfig,
+        notificationConfig: config,
       });
       if (blocked.ok) {
         state = blocked.state;
@@ -652,6 +657,7 @@ export async function stepCommand(opts) {
         hookResults: beforeValidationHooks,
         phase: 'before_validation',
         defaultDetail: `before_validation hook blocked validation for turn ${turn.turn_id}`,
+        config,
       });
       printLifecycleHookFailure('Validation Blocked By Hook', blocked.result, {
         turnId: turn.turn_id,
@@ -683,6 +689,7 @@ export async function stepCommand(opts) {
         hookResults: afterValidationHooks,
         phase: 'after_validation',
         defaultDetail: `after_validation hook blocked acceptance for turn ${turn.turn_id}`,
+        config,
       });
       printLifecycleHookFailure('Validation Blocked By Hook', blocked.result, {
         turnId: turn.turn_id,
@@ -767,7 +774,7 @@ function loadHookStagedTurn(root, stagingRel) {
   }
 }
 
-function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail }) {
+function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail, config }) {
   const hookName = hookResults.blocker?.hook_name
     || hookResults.results?.find((entry) => entry.hook_name)?.hook_name
     || 'unknown';
@@ -786,6 +793,7 @@ function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail }
       detail,
     },
     turnId: turn.turn_id,
+    notificationConfig: config,
   });
 
   return {

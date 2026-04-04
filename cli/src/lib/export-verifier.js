@@ -187,6 +187,7 @@ function verifyRunExport(artifact, errors) {
   const expectedHistoryEntries = countJsonl(artifact.files, '.agentxchain/history.jsonl');
   const expectedDecisionEntries = countJsonl(artifact.files, '.agentxchain/decision-ledger.jsonl');
   const expectedHookAuditEntries = countJsonl(artifact.files, '.agentxchain/hook-audit.jsonl');
+  const expectedNotificationAuditEntries = countJsonl(artifact.files, '.agentxchain/notification-audit.jsonl');
   const expectedDispatchFiles = countDirectoryFiles(artifact.files, '.agentxchain/dispatch');
   const expectedStagingFiles = countDirectoryFiles(artifact.files, '.agentxchain/staging');
   const expectedIntakePresent = Object.keys(artifact.files).some((path) => path.startsWith('.agentxchain/intake/'));
@@ -200,6 +201,9 @@ function verifyRunExport(artifact, errors) {
   }
   if (artifact.summary.hook_audit_entries !== expectedHookAuditEntries) {
     addError(errors, 'summary.hook_audit_entries', 'must match .agentxchain/hook-audit.jsonl entry count');
+  }
+  if (artifact.summary.notification_audit_entries !== expectedNotificationAuditEntries) {
+    addError(errors, 'summary.notification_audit_entries', 'must match .agentxchain/notification-audit.jsonl entry count');
   }
   if (artifact.summary.dispatch_artifact_files !== expectedDispatchFiles) {
     addError(errors, 'summary.dispatch_artifact_files', 'must match .agentxchain/dispatch file count');

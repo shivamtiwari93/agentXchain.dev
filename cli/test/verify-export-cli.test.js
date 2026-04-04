@@ -107,6 +107,9 @@ function createGovernedProject() {
   writeJsonl(join(root, '.agentxchain', 'hook-annotations.jsonl'), [
     { turn_id: 'turn_001', annotations: { note: 'captured' } },
   ]);
+  writeJsonl(join(root, '.agentxchain', 'notification-audit.jsonl'), [
+    { event_type: 'run_blocked', notification_name: 'ops_webhook', delivered: true },
+  ]);
   writeJsonl(join(root, '.agentxchain', 'intake', 'events', 'events.jsonl'), [
     { event_id: 'evt_001', category: 'schedule' },
   ]);

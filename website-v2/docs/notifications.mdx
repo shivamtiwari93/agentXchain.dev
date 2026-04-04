@@ -1,0 +1,136 @@
+---
+title: Notifications
+description: First-class governed notification events for external observability systems.
+---
+
+# Notifications
+
+AgentXchain now ships a first-class notification contract for governed lifecycle events. This is **not** another hook phase and it is **not** a Slack-specific integration. It is a stable event boundary that webhook relays, chat bridges, ticket routers, and audit collectors can consume.
+
+## Scope
+
+This slice is deliberately narrow:
+
+- top-level governed config: `notifications`
+- one transport: `webhook`
+- one evidence file: `.agentxchain/notification-audit.jsonl`
+- only shipped lifecycle events, not aspirational ones
+
+Delivery is **best-effort**. Notification failures are audited, but they do not block `step`, `resume`, `accept-turn`, `approve-completion`, or any other governed command.
+
+## Config
+
+```json
+{
+  "notifications": {
+    "webhooks": [
+      {
+        "name": "ops_webhook",
+        "url": "https://ops.example.com/agentxchain/events",
+        "events": [
+          "run_blocked",
+          "operator_escalation_raised",
+          "escalation_resolved",
+          "phase_transition_pending",
+          "run_completion_pending",
+          "run_completed"
+        ],
+        "timeout_ms": 5000,
+        "headers": {
+          "Authorization": "Bearer ${OPS_WEBHOOK_TOKEN}"
+        }
+      }
+    ]
+  }
+}
+```
+
+## Event Types
+
+The shipped event set is intentionally small and code-backed:
+
+- `run_blocked`
+- `operator_escalation_raised`
+- `escalation_resolved`
+- `phase_transition_pending`
+- `run_completion_pending`
+- `run_completed`
+
+`run_failed` is **not** documented here because the current governed runner does not expose a first-class persistent run-failed operator surface yet. Do not build consumers against undocumented event names.
+
+## Payload
+
+Each webhook receives one JSON object:
+
+```json
+{
+  "schema_version": "0.1",
+  "event_id": "notif_abc123",
+  "event_type": "run_blocked",
+  "emitted_at": "2026-04-04T02:00:00.000Z",
+  "project": {
+    "id": "agentxchain-dev",
+    "name": "AgentXchain.dev",
+    "root": "/abs/path/to/repo"
+  },
+  "run": {
+    "run_id": "run_123",
+    "status": "blocked",
+    "phase": "implementation"
+  },
+  "turn": {
+    "turn_id": "turn_456",
+    "role_id": "dev",
+    "attempt": 2,
+    "assigned_sequence": 7
+  },
+  "payload": {
+    "category": "dispatch_error",
+    "blocked_on": "dispatch:api_proxy_failure",
+    "typed_reason": "dispatch_error",
+    "recovery_action": "Resolve the dispatch issue, then run agentxchain step --resume"
+  }
+}
+```
+
+Top-level fields:
+
+- `schema_version`
+- `event_id`
+- `event_type`
+- `emitted_at`
+- `project`
+- `run`
+- `turn`
+- `payload`
+
+`turn` is `null` when the event is run-scoped and no retained or targeted turn exists.
+
+## Audit Evidence
+
+Every delivery attempt appends one JSON line to `.agentxchain/notification-audit.jsonl`.
+
+Recorded fields include:
+
+- `event_id`
+- `event_type`
+- `notification_name`
+- `transport`
+- `delivered`
+- `status_code`
+- `timed_out`
+- `duration_ms`
+- `message`
+
+This audit file is included in `agentxchain export` and counted in export summary as `notification_audit_entries`. `agentxchain verify export` validates that count against the exported `.agentxchain/notification-audit.jsonl` content.
+
+## Relationship To Hooks
+
+Hooks remain the extensibility surface for policy and custom side effects. Notifications are different:
+
+- hooks are tied to internal lifecycle phases such as `before_validation` and `after_acceptance`
+- notifications are tied to durable governed events such as `run_blocked` and `run_completed`
+- hooks can be blocking or advisory depending on phase
+- notifications are always advisory and best-effort
+
+If you want Slack, email, or ticketing delivery, build that on top of this webhook contract instead of hard-coding transport-specific assumptions into governed state transitions.
