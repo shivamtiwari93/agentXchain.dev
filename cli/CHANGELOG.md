@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.8.0
+
+Governance reporting and protocol surface hardening. Operators can now generate human-readable governance reports from export artifacts, and the protocol reference boundary is formally documented with normative/non-normative separation.
+
+### Governance Report Command
+
+- New `agentxchain report` command produces governance summaries from verified export artifacts.
+- Three output formats: `text` (terminal), `json` (automation), `markdown` (PRs, releases, audit records).
+- Reports verify the export artifact first and fail closed — invalid artifacts never produce success summaries.
+- Governed run reports summarize project identity, run status/phase, blocked state, turn counts, budget utilization, and evidence counts.
+- Coordinator workspace reports summarize workspace identity, repo/workstream/barrier counts, repo status histogram, and per-repo export health.
+- Report contract version `0.1` with stable `subject.kind` discrimination (`governed_run` / `coordinator_workspace`).
+- New docs page: `/docs/governance-report`.
+
+### Protocol Reference Boundary
+
+- Formalized the normative/non-normative boundary for protocol v6.
+- `PROTOCOL-v6.md` is the canonical normative reference. CLI command names, dashboard UX, provider adapters, and notifications are explicitly non-normative.
+- New docs page: `/docs/protocol-reference` with code-backed guard tests reading source constants.
+
+### Conformance Naming Canonicalization
+
+- Fixed the sole naming mismatch in conformance fixtures: `turn_result` renamed to `turn_result_validation` across all 53 fixtures, 9 surfaces, 3 tiers.
+- 71-test guard enforces fixture-to-source naming alignment.
+
+### Export Schema Reference
+
+- New docs page: `/docs/export-schema` documenting the export artifact schema (v0.2), both export kinds, file-entry integrity fields, and nested coordinator contract.
+- `verify export --format json` report shape now documented: success/failure fields and command-error shape.
+- Code-backed guard builds real exports and verifies docs mention actual output keys.
+
+### Evidence
+
+- 654 Vitest tests (36 files) + 1586 node --test (354 suites), 0 failures.
+- Website production build passes.
+
 ## 2.7.0
 
 Governed lifecycle integrations. Operators can now receive real-time notifications on governed lifecycle events, raise first-class escalations, and reference a complete operator recovery map — closing the workflow-kit and beginning the integration layer.
