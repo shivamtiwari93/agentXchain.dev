@@ -427,6 +427,16 @@ Default policy (when `retry_policy.enabled: true` with no overrides):
 
 Retry traces (attempts, delays, outcomes) are persisted as audit artifacts in the staging directory.
 
+### Model tier and retry budget
+
+Not all models produce schema-conformant turn results on every attempt. Cheaper or smaller models may require governed retries for valid output. In live testing, `claude-haiku-4-5-20251001` required 2–3 attempts to produce a valid governed turn result due to schema violations such as invalid `proposed_next_role` values and malformed `artifacts_created` arrays. Larger models (`claude-sonnet-4-6`, `claude-opus-4-6`) produce conformant results more reliably on the first attempt.
+
+**Budget implication:** When using the `api_proxy` adapter with cheaper models, plan for retry overhead. A `max_attempts: 3` policy means worst-case API spend is 3× the single-call cost. For `claude-haiku-4-5-20251001` at ~$0.004 per governed turn, worst-case is ~$0.012. For `claude-opus-4-6` at ~$0.90 per turn, worst-case is ~$2.70. Choose your model tier based on both quality requirements and retry budget tolerance.
+
+:::tip
+The governed retry mechanism (`rejectTurn` → re-dispatch) is part of the protocol, not a workaround. It is designed to handle exactly this kind of model-level schema non-conformance. The retry policy, error classification, and audit trail work together to ensure that retry overhead is visible and auditable.
+:::
+
 ### Preflight tokenization
 
 When enabled, the adapter evaluates the token budget before making the API call. If the assembled prompt exceeds the model's context window minus a safety margin, the adapter trims context to fit.

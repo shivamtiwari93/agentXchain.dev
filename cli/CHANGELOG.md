@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.10.0
+
+First real-model evidence: AgentXchain now has a live governed proof that dispatches to a real LLM via the api_proxy adapter, validates all protocol artifacts, and demonstrates governed retry on schema non-conformance.
+
+### Live Governed Proof
+
+- New `examples/live-governed-proof/run-live-turn.mjs` — standalone script that scaffolds a governed project, dispatches a review-only turn to a real Anthropic API endpoint, and validates the full artifact trail.
+- Gated behind `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` env vars — exits 0 (skip) with no credentials, so CI stays deterministic.
+- Uses governed retry (`rejectTurn` → re-dispatch) to handle real model schema violations, demonstrating protocol rejection/retry machinery on live model output.
+- Two-phase artifact validation: dispatch/staging validated before acceptance (since `acceptTurn` cleans up those directories), state/history/ledger validated after.
+- Contract test enforces boundary rules: imports only from `runner-interface.js` and `api-proxy-adapter.js`, no internal modules, no CLI shell-out.
+
+### Homebrew Mirror Drift Guard
+
+- `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` now track the current release version, enforced by `homebrew-mirror-contract.test.js`.
+- Fixed stale mirror that claimed v2.1.1 while the canonical tap served v2.9.0.
+
+### Runner/Live-Proof Contract Corrections
+
+- Fixed `writeDispatchBundle` signature drift in public runner docs and planning specs.
+- Documented `acceptTurn()` cleanup behavior: dispatch and staging directories are removed after commit.
+- Live-proof spec corrected to reflect two-phase validation (pre-accept dispatch/staging, post-accept state/history/ledger).
+
+### Model Tier Retry Budget Warning
+
+- New `adapters.mdx` section documenting that cheaper models may require governed retries for schema-conformant output, with concrete cost implications per model tier.
+- Code-backed guard reads `COST_RATES` from `api-proxy-adapter.js` and enforces that all documented models exist in the pricing table.
+
+### Evidence
+
+- 659 Vitest tests (36 files) + 1640 node --test (372 suites), 0 failures.
+- Live governed proof verified against real Anthropic API.
+- Website production build passes.
+
 ## 2.9.0
 
 Runner layer: declared interface, ergonomic improvements, second-runner proof, public docs, and authenticated dashboard gate approvals. The protocol's runner-independence claim is now backed by a real second runner that imports the library boundary with zero CLI shell-out.

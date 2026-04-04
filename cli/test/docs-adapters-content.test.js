@@ -153,6 +153,39 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('api_proxy model tier and retry budget warning', () => {
+    it('docs contain a model-tier retry warning section', () => {
+      assert.match(adapterDocs, /### Model tier and retry budget/,
+        'adapters.mdx must have a "Model tier and retry budget" section');
+    });
+
+    it('docs reference real models from the COST_RATES table', () => {
+      const costRatesMatch = apiProxySource.match(/COST_RATES\s*=\s*\{([\s\S]*?)\n\}/);
+      assert.ok(costRatesMatch, 'COST_RATES found in api-proxy-adapter.js');
+      const modelIds = costRatesMatch[1].match(/'([^']+)':/g).map(s => s.replace(/[':]/g, ''));
+      for (const modelId of modelIds) {
+        assert.match(adapterDocs, new RegExp(`\`${modelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``),
+          `adapters.mdx model-tier section must reference real model "${modelId}" from COST_RATES`);
+      }
+    });
+
+    it('docs warn about retry overhead for cheaper models', () => {
+      assert.match(adapterDocs, /retry.*overhead|worst-case.*cost|retry budget/i,
+        'adapters.mdx must warn about retry budget impact for cheaper models');
+    });
+
+    it('docs reference the governed retry mechanism (rejectTurn)', () => {
+      assert.match(adapterDocs, /rejectTurn.*re-dispatch|governed retry/i,
+        'adapters.mdx must explain that governed retry (rejectTurn → re-dispatch) handles schema non-conformance');
+    });
+
+    it('docs do NOT claim a specific fixed failure rate', () => {
+      // We should NOT hardcode "50% failure rate" — the actual rate varies
+      assert.doesNotMatch(adapterDocs, /\d+% failure rate/,
+        'adapters.mdx must not claim a fixed failure rate percentage');
+    });
+  });
+
   describe('api_proxy supported providers', () => {
     it('PROVIDER_ENDPOINTS keys match docs', () => {
       const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\}/);
