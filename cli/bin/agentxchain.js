@@ -73,6 +73,7 @@ import { approveTransitionCommand } from '../src/commands/approve-transition.js'
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
 import { exportCommand } from '../src/commands/export.js';
+import { reportCommand } from '../src/commands/report.js';
 import {
   pluginInstallCommand,
   pluginListCommand,
@@ -129,6 +130,13 @@ program
   .option('--format <format>', 'Export format (json)', 'json')
   .option('--output <path>', 'Write the export artifact to a file instead of stdout')
   .action(exportCommand);
+
+program
+  .command('report')
+  .description('Render a human-readable governance summary from an export artifact')
+  .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
+  .option('--format <format>', 'Output format: text, json, or markdown', 'text')
+  .action(reportCommand);
 
 program
   .command('start')

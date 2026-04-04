@@ -1,0 +1,160 @@
+---
+title: Governance Report Reference
+description: "Operator contract for agentxchain report."
+---
+
+# Governance Report Reference
+
+This page documents the stable operator-facing contract for `agentxchain report`.
+
+This is **not** protocol v6. It is a derived reporting surface built on top of verified export artifacts. For the artifact contract itself, see [Export Schema Reference](./export-schema). For the constitutional boundary, see [Protocol Reference v6](./protocol-reference).
+
+## CLI Surface
+
+```bash
+agentxchain report [--input <path>|-] [--format text|json|markdown]
+```
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--input <path>` | `-` | Read an export artifact from a file, or `-` for stdin |
+| `--format <format>` | `text` | Output `text`, `json`, or `markdown` |
+
+`report` verifies the export artifact first. It does not read live repo state directly. If the artifact fails verification, the command fails closed and returns verifier-backed errors instead of a success summary.
+
+## Exit Codes
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Export artifact verified and report rendered successfully |
+| `1` | Export artifact was readable JSON but failed self-verification |
+| `2` | Command or input error |
+
+## Success JSON Shape
+
+When `--format json` succeeds, the command emits:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `report_version` | `string` | Current report contract version. Today: `0.1` |
+| `overall` | `"pass"` | Always `"pass"` on successful report generation |
+| `generated_at` | `string` | ISO timestamp for report generation |
+| `input` | `string` | Resolved file path or `"stdin"` |
+| `export_kind` | `string` | `agentxchain_run_export` or `agentxchain_coordinator_export` |
+| `verification` | `object` | Embedded `verify export` report proving the artifact passed validation |
+| `subject` | `object` | Human-oriented derived summary for the verified artifact |
+
+### `verification`
+
+The embedded verification object mirrors the successful `verify export --format json` shape:
+
+- `overall`
+- `schema_version`
+- `export_kind`
+- `file_count`
+- `repo_count`
+- `errors`
+
+On successful reports, `verification.overall` is always `pass` and `errors` is empty.
+
+## `subject.kind = governed_run`
+
+Run-export reports carry:
+
+| Key | Meaning |
+| --- | --- |
+| `subject.project` | Project identity, template, protocol mode, and governed config schema version |
+| `subject.run.run_id` | Current run id or `null` |
+| `subject.run.status` | Current run status |
+| `subject.run.phase` | Current run phase |
+| `subject.run.blocked_on` | Exported blocked-state string or `null` |
+| `subject.run.blocked_reason` | Exported structured blocked-reason object or `null` |
+| `subject.run.active_turn_count` | Count of active turns |
+| `subject.run.retained_turn_count` | Count of retained turns |
+| `subject.run.active_turn_ids` | Active turn ids |
+| `subject.run.retained_turn_ids` | Retained turn ids |
+| `subject.run.active_roles` | Sorted active role ids |
+| `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
+| `subject.artifacts` | Export-derived evidence counts and intake/coordinator presence flags |
+
+`subject.artifacts` includes:
+
+- `history_entries`
+- `decision_entries`
+- `hook_audit_entries`
+- `notification_audit_entries`
+- `dispatch_artifact_files`
+- `staging_artifact_files`
+- `intake_present`
+- `coordinator_present`
+
+## `subject.kind = coordinator_workspace`
+
+Coordinator-export reports carry:
+
+| Key | Meaning |
+| --- | --- |
+| `subject.coordinator` | Coordinator identity, schema version, repo count, workstream count |
+| `subject.run.super_run_id` | Current coordinator run id or `null` |
+| `subject.run.status` | Current coordinator status |
+| `subject.run.phase` | Current coordinator phase |
+| `subject.run.barrier_count` | Number of coordinator barriers |
+| `subject.run.repo_status_counts` | Status histogram derived from coordinator state |
+| `subject.run.repo_ok_count` | Number of child repo exports that verified cleanly |
+| `subject.run.repo_error_count` | Number of child repo exports that failed |
+| `subject.repos` | Per-repo summary rows for paste-friendly reporting |
+| `subject.artifacts` | Coordinator history and decision counts |
+
+Each `subject.repos[]` row includes:
+
+- `repo_id`
+- `path`
+- `ok`
+- `status`
+- `run_id`
+- `phase`
+- `project_id`
+- `project_name`
+- `error`
+
+## Human-Readable Formats
+
+### `text`
+
+Plain-text output is intended for terminal inspection. It includes:
+
+- verification status
+- project/workspace identity
+- run/coordinator status and phase
+- turn or repo counts
+- artifact evidence counts
+- blocked-state or barrier information when present
+
+### `markdown`
+
+`markdown` exists for copy-paste into pull requests, release notes, tickets, or audit records without manual reformatting. It uses the same verified report data as `json`, but renders it as a compact heading plus flat bullet summary.
+
+## Failure Shapes
+
+### Verification failure (`exit 1`)
+
+When the input is valid JSON but the artifact fails self-verification:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `overall` | `"fail"` | Report generation refused because the artifact is invalid |
+| `input` | `string` | Resolved file path or `"stdin"` |
+| `message` | `string` | Human-readable refusal message |
+| `verification` | `object` | Embedded verifier report with `errors` explaining the mismatch |
+
+### Command or input error (`exit 2`)
+
+When the file cannot be read or the JSON cannot be parsed:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `overall` | `"error"` | Command-level failure |
+| `input` | `string` | Resolved file path or `"stdin"` |
+| `message` | `string` | Human-readable error description |
+
+If you need artifact integrity proof, use [`verify export`](./cli#verify-export). If you need the raw artifact schema, use [Export Schema Reference](./export-schema).

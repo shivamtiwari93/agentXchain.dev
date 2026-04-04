@@ -5,6 +5,7 @@ const sidebars: SidebarsConfig = {
     'quickstart',
     'cli',
     'export-schema',
+    'governance-report',
     'templates',
     {
       type: 'category',

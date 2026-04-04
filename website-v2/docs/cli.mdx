@@ -36,6 +36,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
+| `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
@@ -121,6 +122,23 @@ Exports the repo-native audit surface into one JSON artifact. When run from a **
 Each exported file entry includes parsed `data` plus `content_base64`, the original raw file bytes encoded for transport. That is what lets `agentxchain verify export` recompute `bytes` and `sha256` instead of trusting the artifact's own summary blindly.
 
 For the actual JSON field contract, use [Export Schema Reference](/docs/export-schema) instead of reverse-engineering `export.js`.
+
+### `report`
+
+```bash
+agentxchain report [--input <path>|-] [--format text|json|markdown]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input <path>` | `-` | Read the export artifact from a file, or pass `-` to read from stdin |
+| `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
+
+`report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, and per-repo export health.
+
+Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact.
+
+For the stable report output contract, use [Governance Report Reference](/docs/governance-report). For the raw artifact schema, use [Export Schema Reference](/docs/export-schema).
 
 ### `resume`
 
