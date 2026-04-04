@@ -7,6 +7,7 @@ import {
   validateGovernedTemplateRegistry,
   validateProjectPlanningArtifacts,
   validateAcceptanceHintCompletion,
+  validateGovernedWorkflowKit,
 } from './governed-templates.js';
 
 const DEFAULT_REQUIRED_FILES = [
@@ -110,6 +111,10 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const acceptanceHints = validateAcceptanceHintCompletion(root, rawConfig?.template);
   warnings.push(...acceptanceHints.warnings);
 
+  const workflowKit = validateGovernedWorkflowKit(root, config);
+  errors.push(...workflowKit.errors);
+  warnings.push(...workflowKit.warnings);
+
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',
     config.files?.history || '.agentxchain/history.jsonl',
@@ -129,14 +134,6 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
     }
     if (!existsSync(join(root, rel))) {
       errors.push(`Missing prompt file for role "${roleId}": ${rel}`);
-    }
-  }
-
-  for (const [gateId, gate] of Object.entries(config.gates || {})) {
-    for (const rel of gate.requires_files || []) {
-      if (!existsSync(join(root, rel))) {
-        errors.push(`Gate "${gateId}" requires missing file: ${rel}`);
-      }
     }
   }
 

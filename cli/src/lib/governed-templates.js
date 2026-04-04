@@ -248,6 +248,42 @@ export function validateProjectPlanningArtifacts(root, templateId) {
 }
 
 const TEMPLATE_GUIDANCE_HEADER = '## Template Guidance';
+const GOVERNED_WORKFLOW_KIT_BASE_FILES = Object.freeze([
+  '.planning/PM_SIGNOFF.md',
+  '.planning/ROADMAP.md',
+  '.planning/acceptance-matrix.md',
+  '.planning/ship-verdict.md',
+]);
+const GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS = Object.freeze([
+  {
+    id: 'pm_signoff_approved_field',
+    file: '.planning/PM_SIGNOFF.md',
+    pattern: /^Approved\s*:/im,
+    description: 'PM signoff declares an Approved field',
+  },
+  {
+    id: 'roadmap_phases_section',
+    file: '.planning/ROADMAP.md',
+    pattern: /^##\s+Phases\b/im,
+    description: 'Roadmap defines a ## Phases section',
+  },
+  {
+    id: 'acceptance_matrix_table_header',
+    file: '.planning/acceptance-matrix.md',
+    pattern: /^\|\s*Req\s*#\s*\|/im,
+    description: 'Acceptance matrix includes the requirement table header',
+  },
+  {
+    id: 'ship_verdict_heading',
+    file: '.planning/ship-verdict.md',
+    pattern: /^##\s+Verdict\s*:/im,
+    description: 'Ship verdict declares a verdict heading',
+  },
+]);
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === 'string' && value.trim()))];
+}
 
 export function validateAcceptanceHintCompletion(root, templateId) {
   const effectiveTemplateId = templateId || 'generic';
@@ -353,6 +389,64 @@ export function validateAcceptanceHintCompletion(root, templateId) {
     missing_file: false,
     missing_section: false,
     unchecked_hints: uncheckedHints,
+    errors,
+    warnings,
+  };
+}
+
+export function validateGovernedWorkflowKit(root, config = {}) {
+  const errors = [];
+  const warnings = [];
+  const gateRequiredFiles = uniqueStrings(
+    Object.values(config?.gates || {}).flatMap((gate) => Array.isArray(gate?.requires_files) ? gate.requires_files : [])
+  );
+  const requiredFiles = uniqueStrings([...GOVERNED_WORKFLOW_KIT_BASE_FILES, ...gateRequiredFiles]);
+  const present = [];
+  const missing = [];
+
+  for (const relPath of requiredFiles) {
+    if (existsSync(join(root, relPath))) {
+      present.push(relPath);
+    } else {
+      missing.push(relPath);
+      errors.push(`Workflow kit requires "${relPath}" but it is missing.`);
+    }
+  }
+
+  const structuralChecks = GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS.map((check) => {
+    const absPath = join(root, check.file);
+    if (!existsSync(absPath)) {
+      return {
+        id: check.id,
+        file: check.file,
+        ok: false,
+        skipped: true,
+        description: check.description,
+      };
+    }
+
+    const content = readFileSync(absPath, 'utf8');
+    const ok = check.pattern.test(content);
+    if (!ok) {
+      errors.push(`Workflow kit file "${check.file}" must preserve its structural marker: ${check.description}.`);
+    }
+
+    return {
+      id: check.id,
+      file: check.file,
+      ok,
+      skipped: false,
+      description: check.description,
+    };
+  });
+
+  return {
+    ok: errors.length === 0,
+    required_files: requiredFiles,
+    gate_required_files: gateRequiredFiles,
+    present,
+    missing,
+    structural_checks: structuralChecks,
     errors,
     warnings,
   };

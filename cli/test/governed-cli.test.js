@@ -120,10 +120,10 @@ function createGovernedProject() {
   writeFileSync(join(dir, '.agentxchain', 'prompts', 'pm.md'), '# pm\n');
   writeFileSync(join(dir, '.agentxchain', 'prompts', 'dev.md'), '# dev\n');
   writeFileSync(join(dir, '.agentxchain', 'prompts', 'qa.md'), '# qa\n');
-  writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
-  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# roadmap\n');
-  writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# acceptance\n');
-  writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# ship verdict\n');
+  writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
+  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Implementation | Build approved work | In progress |\n');
+  writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | Pending | — | Pending |\n');
+  writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: PENDING\n');
 
   return dir;
 }

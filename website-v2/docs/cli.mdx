@@ -34,7 +34,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 |---------|-------|-------------|
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
 | `template list` | Setup | Inspect the built-in governed scaffold templates |
-| `template validate` | Setup | Prove template registry, project binding, planning artifact completeness, and acceptance hint completion |
+| `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
@@ -87,7 +87,18 @@ Prints the built-in governed templates with their descriptions, planning artifac
 agentxchain template validate [--json]
 ```
 
-Runs explicit proof for the template layer. It validates the built-in manifest registry, the repo's configured template binding, planning artifact completeness against the template's required artifact set, and acceptance hint completion in `acceptance-matrix.md`. A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation. Missing planning artifacts are errors. Unchecked acceptance hints are warnings — QA-layer signal, not hard gates.
+Runs explicit proof for the template and workflow kit layer. It validates the built-in manifest registry, the repo's configured template binding, the governed workflow kit scaffold, planning artifact completeness against the template's required artifact set, and acceptance hint completion in `acceptance-matrix.md`.
+
+The workflow kit proof is deliberate, not cosmetic. It checks that the scaffold-owned planning files still exist and still expose the minimum structural markers the operator surface depends on:
+
+- `.planning/PM_SIGNOFF.md` includes `Approved:`
+- `.planning/ROADMAP.md` includes `## Phases`
+- `.planning/acceptance-matrix.md` includes the `| Req # |` table header
+- `.planning/ship-verdict.md` includes `## Verdict:`
+
+In JSON mode, that proof is exposed under the `workflow_kit` key so automation can distinguish core scaffold failures from template-specific planning-artifact failures and acceptance-hint warnings.
+
+A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation. Missing workflow-kit files, missing workflow-kit markers, and missing planning artifacts are errors. Unchecked acceptance hints are warnings — QA-layer signal, not hard gates.
 
 ### `template set`
 

@@ -2,6 +2,8 @@
 
 > Public docs contract for governed scaffold templates on the Docusaurus docs surface.
 
+Related specs: [TEMPLATE_VALIDATE_SPEC.md](./TEMPLATE_VALIDATE_SPEC.md), [WORKFLOW_KIT_VALIDATE_SPEC.md](./WORKFLOW_KIT_VALIDATE_SPEC.md)
+
 ---
 
 ## Purpose
@@ -14,7 +16,7 @@ This page must document the real product contract:
 - the selected template is stored in the top-level `template` field in `agentxchain.json`
 - `init --governed --template <id>` scaffolds template artifacts and guidance at creation time
 - `template list [--json]` exposes the built-in template surface
-- `template validate [--json]` proves the built-in registry and current project template binding
+- `template validate [--json]` proves the built-in registry, current project template binding, and governed workflow-kit scaffold
 - `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
 - `status` and `status --json` keep template choice visible to operators and automation
 
@@ -137,8 +139,14 @@ The page must describe the operator-relevant proof surface emitted by `template 
 
 - built-in registry validation
 - current project template validation when `agentxchain.json` is present
+- `workflow_kit` JSON output for core scaffold proof
 - implicit `generic` behavior when a governed repo omits the `template` field
 - failure when the configured project template is unknown to the installed CLI
+- failure when the core workflow-kit scaffold loses its minimum structural markers:
+  - `Approved:`
+  - `## Phases`
+  - `| Req # |`
+  - `## Verdict:`
 
 ### 7. Cross-link the operator flow
 

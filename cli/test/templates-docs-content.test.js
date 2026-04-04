@@ -93,6 +93,7 @@ describe('Templates docs surface', () => {
     for (const term of [
       'display_name',
       'description',
+      'workflow_kit',
       'planning artifact filenames',
       'roles with prompt overrides',
       'acceptance hints',
@@ -141,6 +142,8 @@ describe('Templates docs surface', () => {
       'website-v2/build/docs/templates/index.html',
       'template list --json',
       'template validate --json',
+      'WORKFLOW_KIT_VALIDATE_SPEC.md',
+      'workflow_kit',
       'template set <id>',
       'status --json',
       'template_set',
@@ -168,5 +171,19 @@ describe('Templates docs surface', () => {
   it('is wired into the operator docs flow from quickstart and CLI docs', () => {
     assert.ok(QUICKSTART_DOC_SOURCE.includes('/docs/templates'), 'quickstart docs must link to /docs/templates');
     assert.ok(CLI_DOC_SOURCE.includes('/docs/templates'), 'cli docs must link to /docs/templates');
+  });
+
+  it('documents workflow-kit proof as part of template validation', () => {
+    for (const term of [
+      'workflow kit',
+      'Approved:',
+      '## Phases',
+      '| Req # |',
+      '## Verdict:',
+      'workflow_kit',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
+      assert.ok(CLI_DOC_SOURCE.includes(term), `cli docs must mention ${term}`);
+    }
   });
 });

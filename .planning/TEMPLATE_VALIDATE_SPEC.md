@@ -18,6 +18,8 @@ Today, built-in templates are only validated indirectly when a code path happens
 
 This spec adds that proof surface without turning templates into a new runtime subsystem.
 
+The command now also exposes the shipped governed workflow-kit scaffold via the `workflow_kit` block defined in [WORKFLOW_KIT_VALIDATE_SPEC.md](./WORKFLOW_KIT_VALIDATE_SPEC.md). That extension exists because template proof without workflow-kit proof is incomplete.
+
 ## Interface
 
 ### CLI Surface
@@ -56,6 +58,31 @@ JSON mode prints:
     "errors": [],
     "warnings": []
   },
+  "workflow_kit": {
+    "ok": true,
+    "required_files": [
+      ".planning/PM_SIGNOFF.md",
+      ".planning/ROADMAP.md",
+      ".planning/acceptance-matrix.md",
+      ".planning/ship-verdict.md"
+    ],
+    "gate_required_files": [
+      ".planning/PM_SIGNOFF.md",
+      ".planning/ROADMAP.md",
+      ".planning/acceptance-matrix.md",
+      ".planning/ship-verdict.md"
+    ],
+    "present": [
+      ".planning/PM_SIGNOFF.md",
+      ".planning/ROADMAP.md",
+      ".planning/acceptance-matrix.md",
+      ".planning/ship-verdict.md"
+    ],
+    "missing": [],
+    "structural_checks": [],
+    "errors": [],
+    "warnings": []
+  },
   "errors": [],
   "warnings": []
 }
@@ -68,6 +95,7 @@ Field expectations:
 - `project.present`: `true` when `agentxchain.json` exists in the working directory
 - `project.template`: configured template or implicit `generic`
 - `project.source`: `"agentxchain.json"` when explicitly set, `"implicit_default"` when absent, `null` when no project exists
+- `workflow_kit`: `null` when no governed project exists, otherwise the explicit workflow-kit proof block
 
 ## Behavior
 
@@ -106,6 +134,7 @@ That means governed validation now fails when:
 
 - the built-in template registry is broken in the installed CLI
 - the current project's configured template is unknown to the installed CLI
+- the workflow-kit scaffold is missing required files or structural markers
 
 Legacy projects are unchanged.
 
@@ -117,6 +146,7 @@ This command does not:
 - infer a template from repo contents
 - validate npm tarball contents directly
 - introduce template-specific runtime gates
+- semantically approve roadmap, signoff, QA, or ship-verdict contents beyond the narrow workflow-kit markers
 
 ## Error Cases
 

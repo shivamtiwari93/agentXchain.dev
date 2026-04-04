@@ -17,7 +17,9 @@ import {
   validateGovernedTemplateRegistry,
   validateProjectPlanningArtifacts,
   validateAcceptanceHintCompletion,
+  validateGovernedWorkflowKit,
 } from '../src/lib/governed-templates.js';
+import { loadNormalizedConfig } from '../src/lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -46,6 +48,13 @@ function initGovernedProject(templateId = 'generic') {
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+function loadGovernedConfig(projectDir) {
+  const rawConfig = readJson(join(projectDir, 'agentxchain.json'));
+  const normalized = loadNormalizedConfig(rawConfig, projectDir);
+  assert.equal(normalized.ok, true, normalized.errors?.join('\n'));
+  return normalized.normalized;
 }
 
 describe('template validate command', () => {
@@ -253,6 +262,96 @@ describe('planning artifact completeness validation', () => {
 
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.planning_artifacts, null);
+  });
+});
+
+describe('workflow kit validation', () => {
+  it('AT-WORKFLOW-KIT-001: fresh governed init passes workflow kit validation', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      const config = loadGovernedConfig(projectDir);
+      const result = validateGovernedWorkflowKit(projectDir, config);
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.required_files, [
+        '.planning/PM_SIGNOFF.md',
+        '.planning/ROADMAP.md',
+        '.planning/acceptance-matrix.md',
+        '.planning/ship-verdict.md',
+      ]);
+      assert.deepEqual(result.gate_required_files, [
+        '.planning/PM_SIGNOFF.md',
+        '.planning/ROADMAP.md',
+        '.planning/acceptance-matrix.md',
+        '.planning/ship-verdict.md',
+      ]);
+      assert.equal(result.present.length, 4);
+      assert.deepEqual(result.missing, []);
+      assert.equal(result.structural_checks.every((check) => check.ok), true);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-WORKFLOW-KIT-002: missing ship-verdict fails template validate json', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      rmSync(join(projectDir, '.planning', 'ship-verdict.md'));
+
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 1);
+
+      const payload = JSON.parse(result.stdout);
+      assert.ok(payload.workflow_kit, 'workflow_kit key must be present');
+      assert.equal(payload.workflow_kit.ok, false);
+      assert.deepEqual(payload.workflow_kit.missing, ['.planning/ship-verdict.md']);
+      assert.ok(payload.errors.some((error) => error.includes('.planning/ship-verdict.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-WORKFLOW-KIT-003: missing Approved field fails workflow kit structural check', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      writeFileSync(
+        join(projectDir, '.planning', 'PM_SIGNOFF.md'),
+        '# PM Signoff\n\nThis file no longer declares approval.\n'
+      );
+
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 1);
+
+      const payload = JSON.parse(result.stdout);
+      const approvedFieldCheck = payload.workflow_kit.structural_checks.find(
+        (check) => check.id === 'pm_signoff_approved_field'
+      );
+      assert.ok(approvedFieldCheck, 'pm_signoff_approved_field check must be present');
+      assert.equal(approvedFieldCheck.ok, false);
+      assert.ok(payload.errors.some((error) => error.includes('PM_SIGNOFF.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-WORKFLOW-KIT-004: governed validate reuses workflow kit validation errors', () => {
+    const { tempRoot, projectDir } = initGovernedProject('library');
+    try {
+      writeFileSync(
+        join(projectDir, '.planning', 'ROADMAP.md'),
+        '# Roadmap\n\nThis file lost the phases section.\n'
+      );
+
+      const result = runCli(projectDir, ['validate', '--json']);
+      assert.equal(result.status, 1);
+
+      const payload = JSON.parse(result.stdout);
+      assert.ok(
+        payload.errors.some((error) => error.includes('ROADMAP.md') && error.includes('structural marker')),
+        'governed validate must surface workflow kit structural errors'
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 
