@@ -51,6 +51,23 @@
       background: var(--green);
     }
     .status-dot.disconnected { background: var(--red); }
+    .action-banner {
+      display: none;
+      padding: 10px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      background: rgba(99, 102, 241, 0.08);
+      color: var(--text);
+    }
+    .action-banner.visible { display: block; }
+    .action-banner.success {
+      background: rgba(34, 197, 94, 0.08);
+      color: var(--green);
+    }
+    .action-banner.error {
+      background: rgba(239, 68, 68, 0.08);
+      color: var(--red);
+    }
     nav {
       display: flex;
       gap: 0;
@@ -251,6 +268,29 @@
       margin-bottom: 16px;
     }
     .gate-card h3 { font-size: 14px; margin-bottom: 12px; }
+    .gate-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .gate-button {
+      background: rgba(99, 102, 241, 0.14);
+      color: var(--text);
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    .gate-button:hover { background: rgba(99, 102, 241, 0.22); }
+    .gate-button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
     .gate-action { margin-top: 12px; }
     .gate-action p { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
     .initiative-grid {
@@ -332,6 +372,7 @@
       <span id="ws-label">Connecting...</span>
     </div>
   </header>
+  <div class="action-banner" id="action-banner"></div>
   <nav>
     <a href="#initiative">Initiative</a>
     <a href="#cross-repo">Cross-Repo</a>

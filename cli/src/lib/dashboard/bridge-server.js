@@ -1,20 +1,22 @@
 /**
- * Dashboard bridge server — read-only HTTP + WebSocket server.
+ * Dashboard bridge server — local HTTP + WebSocket server.
  *
- * Serves dashboard static assets, exposes read-only API endpoints for
- * .agentxchain/ state files, and pushes WebSocket invalidation events
- * when watched files change.
+ * Serves dashboard static assets, exposes state API endpoints for
+ * .agentxchain/ files, supports a narrow local gate-approval mutation,
+ * and pushes WebSocket invalidation events when watched files change.
  *
- * Security: binds to 127.0.0.1 only. No write RPC. No mutation endpoints.
+ * Security: binds to 127.0.0.1 only. WebSocket remains read-only.
+ * HTTP mutation is limited to authenticated approve-gate requests.
  * See: DEC-DASH-002, DEC-DASH-003, AT-DASH-007, AT-DASH-008.
  */
 
 import { createServer } from 'http';
-import { createHash } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
 import { join, extname, resolve, sep } from 'path';
 import { readResource } from './state-reader.js';
 import { FileWatcher } from './file-watcher.js';
+import { approvePendingDashboardGate } from './actions.js';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -133,6 +135,55 @@ function sendWsError(socket, error) {
   }));
 }
 
+function writeJson(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    ...extraHeaders,
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 32 * 1024) {
+        reject(new Error('Request body too large.'));
+        try { req.destroy(); } catch {}
+      }
+    });
+    req.on('end', () => {
+      if (!body.trim()) {
+        resolve({});
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        reject(new Error('Request body must be valid JSON.'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function tokenMatches(expectedToken, receivedToken) {
+  if (typeof receivedToken !== 'string') {
+    return false;
+  }
+
+  const expected = Buffer.from(expectedToken, 'utf8');
+  const received = Buffer.from(receivedToken, 'utf8');
+  if (expected.length !== received.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expected, received);
+}
+
 function resolveDashboardAssetPath(dashboardDir, pathname) {
   let decodedPath;
   try {
@@ -159,6 +210,7 @@ function resolveDashboardAssetPath(dashboardDir, pathname) {
 export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }) {
   const wsClients = new Set();
   const watcher = new FileWatcher(agentxchainDir);
+  const mutationToken = randomBytes(24).toString('hex');
 
   // Broadcast invalidation events to all connected WebSocket clients
   watcher.on('invalidate', ({ resource }) => {
@@ -168,30 +220,65 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
     }
   });
 
-  const server = createServer((req, res) => {
-    // Block all mutation methods (AT-DASH-008)
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405, { 'Content-Type': 'application/json', 'Allow': 'GET, HEAD' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Dashboard is read-only in v2.0.' }));
+  const server = createServer(async (req, res) => {
+    const method = req.method || 'GET';
+    const isApproveGateRequest = method === 'POST' && req.url && new URL(req.url, `http://${req.headers.host}`).pathname === '/api/actions/approve-gate';
+
+    if (method !== 'GET' && method !== 'HEAD' && !isApproveGateRequest) {
+      writeJson(
+        res,
+        405,
+        { error: 'Method not allowed. Dashboard mutations are limited to approve-gate.' },
+        { Allow: 'GET, HEAD, POST' }
+      );
       return;
     }
 
     const url = new URL(req.url, `http://${req.headers.host}`);
     const pathname = url.pathname;
 
+    if (pathname === '/api/session') {
+      writeJson(res, 200, {
+        session_version: '1',
+        mutation_token: mutationToken,
+        capabilities: {
+          approve_gate: true,
+        },
+      });
+      return;
+    }
+
+    if (pathname === '/api/actions/approve-gate') {
+      if (method !== 'POST') {
+        writeJson(res, 405, { ok: false, code: 'method_not_allowed', error: 'Use POST for dashboard actions.' }, { Allow: 'POST' });
+        return;
+      }
+
+      if (!tokenMatches(mutationToken, req.headers['x-agentxchain-token'])) {
+        writeJson(res, 403, { ok: false, code: 'invalid_token', error: 'Valid X-AgentXchain-Token is required.' });
+        return;
+      }
+
+      try {
+        await readJsonBody(req);
+      } catch (error) {
+        writeJson(res, 400, { ok: false, code: 'invalid_json', error: error.message });
+        return;
+      }
+
+      const result = approvePendingDashboardGate(agentxchainDir);
+      writeJson(res, result.status, result.body);
+      return;
+    }
+
     // API routes
     if (pathname.startsWith('/api/')) {
       const result = readResource(agentxchainDir, pathname);
       if (!result) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Resource not found' }));
+        writeJson(res, 404, { error: 'Resource not found' });
         return;
       }
-      res.writeHead(200, {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache',
-      });
-      res.end(JSON.stringify(result.data));
+      writeJson(res, 200, result.data);
       return;
     }
 
@@ -253,7 +340,7 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
       } else if (frame.opcode === 0x01) {
         sendWsError(
           ws,
-          'Dashboard is read-only in v2.0. WebSocket commands and mutations are not supported.'
+          'Dashboard WebSocket is read-only. Use the authenticated HTTP approve-gate action instead.'
         );
       }
     });

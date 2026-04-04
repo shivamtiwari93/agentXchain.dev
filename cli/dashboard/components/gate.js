@@ -2,7 +2,7 @@
  * Gate Review view — renders pending phase transitions and run completion gates.
  *
  * Pure render function: takes data, returns HTML string. Testable in Node.js.
- * Per DEC-DASH-002: read-only. Shows the exact CLI command to approve, no buttons.
+ * Shows a narrow local approve action plus the exact CLI fallback command.
  */
 
 function esc(str) {
@@ -112,6 +112,17 @@ function renderList(title, items, formatter = (item) => item) {
     <p><strong>${esc(title)}:</strong></p>
     <ul>${rows}</ul>
   </div>`;
+}
+
+function renderApproveControls({ buttonLabel, cliCommand }) {
+  return `
+      <div class="gate-controls">
+        <button class="gate-button" type="button" data-dashboard-action="approve-gate" data-action-label="${esc(buttonLabel)}">${esc(buttonLabel)}</button>
+      </div>
+      <div class="gate-action">
+        <p>CLI fallback:</p>
+        <pre class="recovery-command mono" data-copy="${esc(cliCommand)}">${esc(cliCommand)}</pre>
+      </div>`;
 }
 
 export { findPostGateTurns, aggregateEvidence };
@@ -254,12 +265,11 @@ export function render({
         )).join('')}</ul></div>`;
       }
     }
-    html += `
-      <div class="gate-action">
-        <p>Approve with:</p>
-        <pre class="recovery-command mono" data-copy="${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition'}">${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition'}</pre>
-      </div>
-    </div>`;
+    html += renderApproveControls({
+      buttonLabel: isCoordinator ? 'Approve Coordinator Gate' : 'Approve Transition',
+      cliCommand: isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-transition',
+    });
+    html += `</div>`;
   }
 
   if (pendingCompletion) {
@@ -298,12 +308,11 @@ export function render({
     if (evidence.files.length > 0) {
       html += `<div class="gate-support"><p><strong>Files Changed:</strong></p><ul>${evidence.files.map(f => `<li class="mono">${esc(f)}</li>`).join('')}</ul></div>`;
     }
-    html += `
-      <div class="gate-action">
-        <p>Approve with:</p>
-        <pre class="recovery-command mono" data-copy="${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-completion'}">${isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-completion'}</pre>
-      </div>
-    </div>`;
+    html += renderApproveControls({
+      buttonLabel: isCoordinator ? 'Approve Coordinator Gate' : 'Approve Completion',
+      cliCommand: isCoordinator ? 'agentxchain multi approve-gate' : 'agentxchain approve-completion',
+    });
+    html += `</div>`;
   }
 
   html += `</div>`;

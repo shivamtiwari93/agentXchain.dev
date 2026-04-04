@@ -452,7 +452,7 @@ describe('Gate View', () => {
     assert.ok(html.includes('agentxchain status'));
   });
 
-  it('renders phase transition gate with from/to and CLI command', () => {
+  it('renders phase transition gate with approve button and CLI fallback', () => {
     const html = renderGate({
       state: {
         status: 'paused',
@@ -480,10 +480,12 @@ describe('Gate View', () => {
     assert.ok(html.includes('plan-exit'));
     assert.ok(html.includes('All planning criteria met'));
     assert.ok(html.includes('One objection remains'));
+    assert.ok(html.includes('data-dashboard-action="approve-gate"'));
+    assert.ok(html.includes('Approve Transition'));
     assert.ok(html.includes('agentxchain approve-transition'));
   });
 
-  it('renders run completion gate with CLI command', () => {
+  it('renders run completion gate with approve button and CLI fallback', () => {
     const html = renderGate({
       state: {
         status: 'paused',
@@ -505,6 +507,7 @@ describe('Gate View', () => {
     assert.ok(html.includes('ship-approval'));
     assert.ok(html.includes('All tests passing'));
     assert.ok(html.includes('turn_002'));
+    assert.ok(html.includes('Approve Completion'));
     assert.ok(html.includes('agentxchain approve-completion'));
   });
 
@@ -609,6 +612,7 @@ describe('Gate View', () => {
     assert.ok(html.includes('API integration accepted'));
     assert.ok(html.includes('Promote shared schema'));
     assert.ok(html.includes('backend_completion'));
+    assert.ok(html.includes('Approve Coordinator Gate'));
     assert.ok(html.includes('agentxchain multi approve-gate'));
   });
 });

@@ -76,9 +76,9 @@ function createMaskedTextFrame(text) {
   return Buffer.concat([header, mask, maskedPayload]);
 }
 
-function httpRequest(port, path, method = 'GET') {
+function httpRequest(port, path, { method = 'GET', headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(`http://127.0.0.1:${port}${path}`, { method }, (res) => {
+    const req = http.request(`http://127.0.0.1:${port}${path}`, { method, headers }, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body }));
@@ -88,7 +88,7 @@ function httpRequest(port, path, method = 'GET') {
       req.destroy();
       reject(new Error(`timeout for ${method} ${path}`));
     });
-    req.end();
+    req.end(body);
   });
 }
 
@@ -380,6 +380,7 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(html.includes('QA needs refresh coverage'));
     assert.ok(html.includes('Manual token expiry testing still needed'));
     assert.ok(html.includes('2 turns'));
+    assert.ok(html.includes('data-dashboard-action="approve-gate"'));
     assert.ok(html.includes('agentxchain approve-transition'));
     assert.ok(!html.includes('Defined auth middleware scope and requested development'));
   });
@@ -426,10 +427,41 @@ describe('Dashboard E2E acceptance', () => {
     assert.equal(address.address, '127.0.0.1');
   });
 
-  it('AT-DASH-008 rejects mutation requests on the bridge', async () => {
-    const res = await httpRequest(port, '/api/state', 'POST');
-    assert.equal(res.status, 405);
-    assert.match(res.body, /read-only/i);
+  it('AT-DASH-ACT-001 approves a pending repo gate through the authenticated bridge action', async () => {
+    writeFixture(agentxchainDir, gateState());
+    const sessionRes = await httpRequest(port, '/api/session');
+    assert.equal(sessionRes.status, 200);
+    const session = JSON.parse(sessionRes.body);
+
+    const res = await httpRequest(port, '/api/actions/approve-gate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-AgentXchain-Token': session.mutation_token,
+      },
+      body: '{}',
+    });
+
+    assert.equal(res.status, 200);
+    const payload = JSON.parse(res.body);
+    assert.equal(payload.ok, true);
+    assert.equal(payload.scope, 'repo');
+    assert.equal(payload.gate_type, 'phase_transition');
+
+    const state = await getJson(port, '/api/state');
+    assert.equal(state.pending_phase_transition, null);
+    assert.equal(state.phase, 'qa');
+    assert.equal(state.status, 'active');
+  });
+
+  it('AT-DASH-ACT-002 rejects action requests without the session token and keeps websocket read-only', async () => {
+    const res = await httpRequest(port, '/api/actions/approve-gate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(res.status, 403);
+    assert.match(res.body, /invalid_token/i);
 
     const wsMessage = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('No WebSocket rejection within timeout')), 1000);
@@ -474,6 +506,7 @@ describe('Dashboard E2E acceptance', () => {
 
     assert.equal(wsMessage.type, 'error');
     assert.match(wsMessage.error, /read-only/i);
+    assert.match(wsMessage.error, /approve-gate/i);
   });
 
   it('AT-DASH-MR-001 renders coordinator initiative and cross-repo timeline from multirepo files', async () => {

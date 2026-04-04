@@ -1,8 +1,8 @@
 /**
  * CLI command: agentxchain dashboard
  *
- * Starts the read-only dashboard bridge server and opens a browser.
- * See: V2_DASHBOARD_SPEC.md, DEC-DASH-002 (read-only in v2.0).
+ * Starts the local dashboard bridge server and opens a browser.
+ * The dashboard remains mostly observational, but can approve pending gates.
  */
 
 import { existsSync } from 'fs';

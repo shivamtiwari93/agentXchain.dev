@@ -9,7 +9,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { createHash, randomBytes } from 'crypto';
@@ -37,17 +37,106 @@ function httpGet(port, path) {
   });
 }
 
-function httpRequest(port, path, method) {
+function httpRequest(port, path, { method = 'GET', headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request(`http://127.0.0.1:${port}${path}`, { method }, (res) => {
+    const req = http.request(`http://127.0.0.1:${port}${path}`, { method, headers }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
     });
     req.on('error', reject);
     req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
-    req.end();
+    req.end(body);
   });
+}
+
+function writeJson(path, value) {
+  writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+}
+
+function writeGovernedRepo(root, projectId) {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: projectId, name: projectId, default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+    },
+    gates: {},
+  });
+
+  writeJson(join(root, '.agentxchain/state.json'), {
+    schema_version: '1.1',
+    project_id: projectId,
+    run_id: null,
+    status: 'idle',
+    phase: 'implementation',
+    active_turns: {},
+    turn_sequence: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    blocked_on: null,
+    blocked_reason: null,
+    next_recommended_role: null,
+  });
+}
+
+function buildCoordinatorConfig() {
+  return {
+    schema_version: '0.1',
+    project: { id: 'test-project', name: 'Test Project' },
+    repos: {
+      web: { path: './repos/web', default_branch: 'main', required: true },
+      api: { path: './repos/api', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      implementation_build: {
+        phase: 'implementation',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+      qa_release: {
+        phase: 'qa',
+        repos: ['api', 'web'],
+        entry_repo: 'web',
+        depends_on: ['implementation_build'],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'implementation_build' },
+      qa: { entry_workstream: 'qa_release' },
+    },
+    gates: {
+      initiative_ship: {
+        requires_human_approval: true,
+        requires_repos: ['api', 'web'],
+      },
+    },
+  };
 }
 
 function createTestFixture() {
@@ -55,18 +144,56 @@ function createTestFixture() {
   const axcDir = join(root, '.agentxchain');
   const multiDir = join(axcDir, 'multirepo');
   const dashDir = join(root, 'dashboard');
+  const reposDir = join(root, 'repos');
   mkdirSync(axcDir, { recursive: true });
   mkdirSync(multiDir, { recursive: true });
   mkdirSync(dashDir, { recursive: true });
+  mkdirSync(reposDir, { recursive: true });
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: 'dashboard-root', name: 'Dashboard Root', default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      qa: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+    },
+    gates: {},
+  });
+  writeJson(join(root, 'agentxchain-multi.json'), buildCoordinatorConfig());
+
+  writeGovernedRepo(join(reposDir, 'api'), 'api');
+  writeGovernedRepo(join(reposDir, 'web'), 'web');
 
   // State file
-  writeFileSync(join(axcDir, 'state.json'), JSON.stringify({
+  writeJson(join(axcDir, 'state.json'), {
     schema_version: '1.1',
     run_id: 'run_test_001',
     status: 'running',
     phase: 'development',
     turns: [{ turn_id: 'turn_001', role: 'pm', status: 'accepted' }],
-  }));
+  });
 
   // History
   writeFileSync(join(axcDir, 'history.jsonl'),
@@ -89,7 +216,7 @@ function createTestFixture() {
     JSON.stringify({ phase: 'after_acceptance', annotation: 'SAST clean' }) + '\n'
   );
 
-  writeFileSync(join(multiDir, 'state.json'), JSON.stringify({
+  writeJson(join(multiDir, 'state.json'), {
     super_run_id: 'srun_test_001',
     status: 'paused',
     phase: 'integration',
@@ -102,14 +229,14 @@ function createTestFixture() {
     },
     repo_runs: {
       api: { run_id: 'run_api_001', status: 'linked', phase: 'integration' },
-      web: { run_id: 'run_web_001', status: 'initialized', phase: 'integration' },
-    },
-  }));
+        web: { run_id: 'run_web_001', status: 'initialized', phase: 'integration' },
+      },
+  });
   writeFileSync(join(multiDir, 'history.jsonl'),
     JSON.stringify({ type: 'turn_dispatched', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001' }) + '\n' +
     JSON.stringify({ type: 'acceptance_projection', repo_id: 'api', workstream_id: 'backend', summary: 'API accepted', repo_turn_id: 'turn_api_001' }) + '\n'
   );
-  writeFileSync(join(multiDir, 'barriers.json'), JSON.stringify({
+  writeJson(join(multiDir, 'barriers.json'), {
     backend_completion: {
       workstream_id: 'backend',
       type: 'all_repos_accepted',
@@ -117,7 +244,7 @@ function createTestFixture() {
       required_repos: ['api', 'web'],
       satisfied_repos: ['api'],
     },
-  }));
+  });
   writeFileSync(join(multiDir, 'barrier-ledger.jsonl'),
     JSON.stringify({ type: 'barrier_transition', barrier_id: 'backend_completion', previous_status: 'pending', new_status: 'partially_satisfied' }) + '\n'
   );
@@ -129,7 +256,7 @@ function createTestFixture() {
   writeFileSync(join(dashDir, 'index.html'), '<html><body>Dashboard</body></html>');
   writeFileSync(join(dashDir, 'app.js'), 'console.log("dashboard")');
 
-  return { root, axcDir, multiDir, dashDir };
+  return { root, axcDir, multiDir, dashDir, reposDir };
 }
 
 function expectedWebSocketAccept(key) {
@@ -296,17 +423,172 @@ describe('Dashboard Bridge Server', () => {
     });
   });
 
-  // ── Security: read-only (AT-DASH-008) ──
+  // ── Dashboard actions ──
 
-  describe('Read-only enforcement (AT-DASH-008)', () => {
-    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
-      it(`${method} requests return 405`, async () => {
-        const res = await httpRequest(port, '/api/state', method);
+  describe('Dashboard action contract', () => {
+    it('GET /api/session returns mutation token and approve capability', async () => {
+      const res = await httpGet(port, '/api/session');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.session_version, '1');
+      assert.equal(typeof data.mutation_token, 'string');
+      assert.ok(data.mutation_token.length > 20);
+      assert.equal(data.capabilities.approve_gate, true);
+    });
+
+    it('POST /api/actions/approve-gate rejects requests without the session token', async () => {
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(res.status, 403);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'invalid_token');
+    });
+
+    it('POST /api/actions/approve-gate approves a repo-local pending transition before any coordinator gate', async () => {
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'dashboard-root',
+        run_id: 'run_test_001',
+        status: 'paused',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 1,
+        accepted_count: 1,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        pending_phase_transition: {
+          from: 'implementation',
+          to: 'qa',
+          gate: 'implementation_complete',
+          requested_by_turn: 'turn_001',
+        },
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'repo');
+      assert.equal(data.gate_type, 'phase_transition');
+      assert.match(data.message, /implementation -> qa/i);
+
+      const updated = JSON.parse(readFileSync(join(fixture.axcDir, 'state.json'), 'utf8'));
+      assert.equal(updated.phase, 'qa');
+      assert.equal(updated.status, 'active');
+      assert.equal(updated.pending_phase_transition, null);
+    });
+
+    it('POST /api/actions/approve-gate approves a coordinator pending gate when no repo gate exists', async () => {
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        run_id: 'run_test_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {},
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'paused',
+        phase: 'implementation',
+        pending_gate: {
+          gate_type: 'phase_transition',
+          gate: 'phase_transition:implementation->qa',
+          from: 'implementation',
+          to: 'qa',
+          required_repos: ['api', 'web'],
+        },
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+        },
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'coordinator');
+      assert.equal(data.gate_type, 'phase_transition');
+      assert.match(data.message, /implementation -> qa/i);
+
+      const updated = JSON.parse(readFileSync(join(fixture.multiDir, 'state.json'), 'utf8'));
+      assert.equal(updated.phase, 'qa');
+      assert.equal(updated.status, 'active');
+      assert.equal(updated.pending_gate, null);
+    });
+
+    it('POST /api/actions/approve-gate returns 409 when no repo or coordinator gate exists', async () => {
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        run_id: 'run_test_001',
+        status: 'running',
+        phase: 'implementation',
+        active_turns: {},
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {},
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 409);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'no_pending_gate');
+    });
+  });
+
+  // ── Security: limited mutation surface ──
+
+  describe('Mutation boundary enforcement', () => {
+    for (const method of ['PUT', 'DELETE', 'PATCH']) {
+      it(`${method} requests to state API return 405`, async () => {
+        const res = await httpRequest(port, '/api/state', { method });
         assert.equal(res.status, 405);
         const data = JSON.parse(res.body);
-        assert.ok(data.error.includes('read-only'));
+        assert.match(data.error, /approve-gate/i);
       });
     }
+
+    it('GET /api/actions/approve-gate returns 405', async () => {
+      const res = await httpRequest(port, '/api/actions/approve-gate', { method: 'GET' });
+      assert.equal(res.status, 405);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'method_not_allowed');
+    });
   });
 
   // ── Security: localhost-only (AT-DASH-007) ──
@@ -651,7 +933,7 @@ describe('WebSocket invalidation', () => {
     assert.equal(event.resource, '/api/coordinator/state');
   });
 
-  it('rejects websocket command messages because the bridge is read-only', async () => {
+  it('rejects websocket command messages because websocket remains read-only', async () => {
     const message = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('No WS error message within 5s')), 5000);
       const key = randomBytes(16).toString('base64');
@@ -701,6 +983,6 @@ describe('WebSocket invalidation', () => {
 
     assert.equal(message.type, 'error');
     assert.match(message.error, /read-only/i);
-    assert.match(message.error, /not supported/i);
+    assert.match(message.error, /approve-gate/i);
   });
 });

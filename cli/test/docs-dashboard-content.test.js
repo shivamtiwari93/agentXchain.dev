@@ -60,12 +60,16 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(DASHBOARD_COMMAND.includes('const DEFAULT_PORT = 3847;'), 'dashboard command must default to 3847');
   });
 
-  it('documents the local-only read-only bridge contract', () => {
-    assert.ok(CLI_DOCS.includes('read-only'), 'cli docs must state read-only behavior');
+  it('documents the local-only gate-approval bridge contract', () => {
     assert.ok(CLI_DOCS.includes('127.0.0.1'), 'cli docs must state local-only binding');
     assert.ok(CLI_DOCS.includes('http://localhost:<port>'), 'cli docs must describe the printed local URL');
+    assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention repo completion approval');
+    assert.ok(CLI_DOCS.includes('X-AgentXchain-Token'), 'cli docs must document the local mutation token boundary');
+    assert.ok(CLI_DOCS.includes('step --resume'), 'cli docs must document that blocked recovery remains CLI-only');
     assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
-    assert.ok(BRIDGE_SERVER.includes('Dashboard is read-only in v2.0.'), 'bridge server must reject mutation methods');
+    assert.ok(BRIDGE_SERVER.includes('/api/actions/approve-gate'), 'bridge server must expose the approve-gate endpoint');
+    assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
+    assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
   });
 });
 
@@ -90,6 +94,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve-transition'), 'cli docs must mention approve-transition');
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention approve-completion');
     assert.ok(CLI_DOCS.includes('agentxchain multi approve-gate'), 'cli docs must mention coordinator gate approval command');
+    assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {

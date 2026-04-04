@@ -53,6 +53,8 @@ const viewState = {
 
 let activeViewName = null;
 let activeViewData = null;
+let dashboardSession = null;
+let actionInFlight = false;
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -75,6 +77,15 @@ async function fetchData(keys) {
     }
   }));
   return results;
+}
+
+async function loadSession() {
+  try {
+    const res = await fetch('/api/session');
+    dashboardSession = res.ok ? await res.json() : null;
+  } catch {
+    dashboardSession = null;
+  }
 }
 
 function currentView() {
@@ -124,6 +135,20 @@ function renderView(viewName, data) {
   }
 
   container.innerHTML = view.render(buildRenderData(viewName, data));
+}
+
+function setActionBanner(message, tone = 'info') {
+  const banner = document.getElementById('action-banner');
+  if (!banner) return;
+
+  if (!message) {
+    banner.textContent = '';
+    banner.className = 'action-banner';
+    return;
+  }
+
+  banner.textContent = message;
+  banner.className = `action-banner visible ${tone === 'error' ? 'error' : tone === 'success' ? 'success' : ''}`.trim();
 }
 
 async function loadView(viewName, { refresh = true } = {}) {
@@ -264,6 +289,55 @@ document.addEventListener('click', (event) => {
   turnCard.toggleAttribute('data-expanded');
 });
 
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-dashboard-action="approve-gate"]');
+  if (!button) return;
+
+  event.preventDefault();
+  if (actionInFlight) return;
+
+  if (!dashboardSession?.mutation_token) {
+    setActionBanner('Dashboard action token unavailable. Reload the page and try again.', 'error');
+    return;
+  }
+
+  const originalLabel = button.textContent;
+  const pendingLabel = button.dataset.actionLabel || 'Approve Gate';
+  actionInFlight = true;
+  button.disabled = true;
+  button.textContent = `${pendingLabel}...`;
+  setActionBanner('Submitting gate approval...', 'info');
+
+  try {
+    const res = await fetch('/api/actions/approve-gate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-AgentXchain-Token': dashboardSession.mutation_token,
+      },
+      body: JSON.stringify({}),
+    });
+    const payload = await res.json().catch(() => ({
+      ok: false,
+      error: `Dashboard action failed with HTTP ${res.status}.`,
+    }));
+
+    if (!res.ok || payload.ok === false) {
+      setActionBanner(payload.error || `Dashboard action failed with HTTP ${res.status}.`, 'error');
+      return;
+    }
+
+    setActionBanner(payload.message || 'Gate approved.', 'success');
+    await loadView(currentView());
+  } catch (error) {
+    setActionBanner(error?.message || 'Dashboard action failed.', 'error');
+  } finally {
+    actionInFlight = false;
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
+});
+
 // ── Copy to clipboard ────────────────────────────────────────────────────
 
 document.addEventListener('click', (event) => {
@@ -299,7 +373,7 @@ function fallbackSelect(el) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
-pickInitialView().finally(() => {
+Promise.all([pickInitialView(), loadSession()]).finally(() => {
   updateNav();
   connect();
 });

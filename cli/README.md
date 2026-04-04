@@ -110,7 +110,7 @@ agentxchain step
 | `approve-completion` | Approve a pending human-gated run completion |
 | `validate` | Validate governed kickoff wiring, a staged turn, or both |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
-| `dashboard` | Open the read-only governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives |
+| `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
 | `plugin install|list|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
 
 ### Shared utilities
