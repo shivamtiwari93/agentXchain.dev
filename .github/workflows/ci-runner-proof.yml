@@ -22,3 +22,7 @@ jobs:
         run: node examples/ci-runner-proof/run-one-turn.mjs
       - name: Run CI runner proof (JSON)
         run: node examples/ci-runner-proof/run-one-turn.mjs --json
+      - name: Run CI multi-turn runner proof (text)
+        run: node examples/ci-runner-proof/run-to-completion.mjs
+      - name: Run CI multi-turn runner proof (JSON)
+        run: node examples/ci-runner-proof/run-to-completion.mjs --json
