@@ -100,6 +100,13 @@ fi
 
 # 3. Tests
 echo "[3/6] Test suite"
+# Install MCP example deps — tests start example servers as subprocesses
+for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../examples/mcp-http-echo-agent"; do
+  if [[ -f "${example_dir}/package.json" && ! -d "${example_dir}/node_modules" ]]; then
+    echo "  Installing deps for $(basename "$example_dir")..."
+    (cd "$example_dir" && env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm install --ignore-scripts --userconfig /dev/null 2>&1) || true
+  fi
+done
 if run_and_capture TEST_OUTPUT npm test; then
   TEST_STATUS=0
 else

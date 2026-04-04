@@ -21,6 +21,13 @@ jobs:
           cache: npm
           cache-dependency-path: cli/package-lock.json
       - run: npm ci
+      - name: Install MCP example deps
+        run: |
+          for dir in ../examples/mcp-echo-agent ../examples/mcp-http-echo-agent; do
+            if [ -f "$dir/package.json" ]; then
+              (cd "$dir" && npm install --ignore-scripts --userconfig /dev/null)
+            fi
+          done
       - run: npm test
       - run: node bin/agentxchain.js verify protocol --tier 3 --target ..
 

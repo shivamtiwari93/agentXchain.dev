@@ -157,11 +157,20 @@ describe('MCP HTTP echo agent contract', () => {
       const nodeModulesPath = join(EXAMPLE_DIR, 'node_modules');
       if (!existsSync(nodeModulesPath)) {
         const { execSync } = await import('child_process');
-        execSync('npm install --ignore-scripts --userconfig /dev/null', {
-          cwd: EXAMPLE_DIR,
-          stdio: 'pipe',
-          env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
-        });
+        try {
+          execSync('npm install --ignore-scripts --userconfig /dev/null', {
+            cwd: EXAMPLE_DIR,
+            stdio: 'pipe',
+            env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
+          });
+        } catch {
+          // Retry once — npm can fail with ENOTEMPTY on concurrent cache ops
+          execSync('npm install --ignore-scripts --userconfig /dev/null --force', {
+            cwd: EXAMPLE_DIR,
+            stdio: 'pipe',
+            env: { ...process.env, NODE_AUTH_TOKEN: undefined, NPM_CONFIG_USERCONFIG: undefined },
+          });
+        }
       }
 
       // Start the server on a random port
