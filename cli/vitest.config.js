@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 import {
   VITEST_FILE_PARALLELISM,
   VITEST_INCLUDED_FILES,
-} from './test/vitest-slice-manifest.js';
+} from './test-support/vitest-slice-manifest.js';
 
 export default defineConfig({
   resolve: {
@@ -12,7 +12,7 @@ export default defineConfig({
       // Under `node --test`, the real node:test module is used.
       // Under vitest, the shim maps describe/it plus before/after semantics correctly.
       'node:test': fileURLToPath(
-        new URL('./test/vitest-node-test-shim.js', import.meta.url),
+        new URL('./test-support/vitest-node-test-shim.js', import.meta.url),
       ),
     },
   },

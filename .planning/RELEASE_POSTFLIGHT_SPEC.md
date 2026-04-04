@@ -19,7 +19,7 @@ This exists because the repo already hit the exact failure mode this script guar
 ```bash
 cd cli && bash scripts/release-postflight.sh --target-version 2.0.1
 cd cli && bash scripts/release-postflight.sh --target-version 2.0.1 --tag v2.0.1
-cd cli && npm run postflight:release
+cd cli && npm run postflight:release -- --target-version 2.0.1
 ```
 
 ### Optional Environment

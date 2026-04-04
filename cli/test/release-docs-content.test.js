@@ -7,6 +7,20 @@ const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 
 describe('release planning surface classification', () => {
+  it('RELEASE_PLAYBOOK.md is the single current release-cut playbook', () => {
+    const playbook = read('.planning/RELEASE_PLAYBOOK.md');
+    assert.doesNotMatch(playbook, /\*\*SUPERSEDED/i, 'release playbook must be current');
+    assert.match(playbook, /publish-npm-on-tag\.yml/, 'playbook must reference canonical publish workflow');
+    assert.match(playbook, /npm run preflight:release -- --target-version <semver>/,
+      'playbook must require explicit target-version preflight');
+    assert.match(playbook, /npm run preflight:release:strict -- --target-version <semver>/,
+      'playbook must require strict preflight');
+    assert.match(playbook, /npm version <semver>/, 'playbook must use npm version to create release identity');
+    assert.match(playbook, /npm run postflight:release -- --target-version <semver>/,
+      'playbook must require postflight verification');
+    assert.match(playbook, /Homebrew/i, 'playbook must include Homebrew update sequencing');
+  });
+
   // -- Current contracts: these must NOT be marked SUPERSEDED --
 
   it('RELEASE_PREFLIGHT_VNEXT_SPEC.md is a current contract', () => {
@@ -14,6 +28,8 @@ describe('release planning surface classification', () => {
     assert.doesNotMatch(spec, /\*\*SUPERSEDED/i, 'preflight vnext spec must not be superseded');
     assert.match(spec, /--target-version/, 'must document --target-version flag');
     assert.match(spec, /--strict/, 'must document --strict flag');
+    assert.match(spec, /explicit `2\.0\.0`/, 'must state the actual fallback default');
+    assert.doesNotMatch(spec, /explicit `1\.0\.0`/, 'must not carry stale v1 default text');
   });
 
   it('RELEASE_POSTFLIGHT_SPEC.md is a current contract', () => {
@@ -22,6 +38,8 @@ describe('release planning surface classification', () => {
     assert.match(spec, /--target-version/, 'must document --target-version flag');
     assert.match(spec, /Install smoke/, 'must document install smoke check');
     assert.match(spec, /isolated/, 'must require isolated install, not ambient PATH');
+    assert.match(spec, /npm run postflight:release -- --target-version 2\.0\.1/,
+      'must document the actual npm script entrypoint');
   });
 
   // -- Superseded specs: these MUST be marked SUPERSEDED --
@@ -76,5 +94,10 @@ describe('release planning surface classification', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(workflow, /release-postflight\.sh/);
     assert.match(workflow, /RELEASE_POSTFLIGHT_RETRY_ATTEMPTS/);
+  });
+
+  it('cli package exposes the documented postflight script alias', () => {
+    const pkg = JSON.parse(read('cli/package.json'));
+    assert.equal(pkg.scripts['postflight:release'], 'bash scripts/release-postflight.sh');
   });
 });

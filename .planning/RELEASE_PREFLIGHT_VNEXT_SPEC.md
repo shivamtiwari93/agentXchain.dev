@@ -6,12 +6,12 @@
 
 ## Purpose
 
-The original `release-preflight.sh` was hardcoded for the `1.0.0` release: it checked for `## 1.0.0` in the changelog, validated `package.json === "1.0.0"`, and printed `v1.0.0` in its banner. This spec freezes the replacement contract so the same script can serve `1.0.0`, `1.1.0`, and future cuts without duplicating the file or requiring manual find-and-replace edits that introduce drift risk.
+The original `release-preflight.sh` was hardcoded for a single historical release target. This spec freezes the replacement contract so the same script can serve the current package line and future cuts without per-version forks or manual find-and-replace edits that introduce drift.
 
 This spec defines the version-parameterization contract so that:
 
-1. The existing `1.0.0` flow continues unchanged when no flag is passed.
-2. The `1.1.0` cut (and all future cuts) can reuse the same script with a `--target-version` flag.
+1. The script has a stable fallback default (`2.0.0`) when no flag is passed.
+2. Any real release cut can and should reuse the same script with `--target-version <semver>`.
 3. The script remains a local preflight tool — it does not gain release-execution, publish, or registry responsibilities.
 
 ---
@@ -21,15 +21,15 @@ This spec defines the version-parameterization contract so that:
 ### Entry Points
 
 ```text
-# Current v1.0.0 flow (backward-compatible, no change required)
+# Fallback default flow (not recommended for actual release cuts)
 bash cli/scripts/release-preflight.sh
 bash cli/scripts/release-preflight.sh --strict
 
-# Future v1.1.0 flow
-bash cli/scripts/release-preflight.sh --target-version 1.1.0
-bash cli/scripts/release-preflight.sh --target-version 1.1.0 --strict
+# Actual release cut
+bash cli/scripts/release-preflight.sh --target-version 2.10.1
+bash cli/scripts/release-preflight.sh --target-version 2.10.1 --strict
 
-# npm scripts (current aliases, unchanged)
+# npm scripts
 cd cli && npm run preflight:release
 cd cli && npm run preflight:release:strict
 ```
@@ -47,10 +47,10 @@ Flags may appear in any order. `--target-version` requires exactly one argument 
 
 The target version determines exactly two parameterized values:
 
-| Parameter | Derived from `--target-version` | Example for `1.1.0` |
+| Parameter | Derived from `--target-version` | Example for `2.10.1` |
 |---|---|---|
-| `CHANGELOG_HEADING` | `## <target-version>` | `## 1.1.0` |
-| `EXPECTED_PKG_VERSION` | `<target-version>` | `1.1.0` |
+| `CHANGELOG_HEADING` | `## <target-version>` | `## 2.10.1` |
+| `EXPECTED_PKG_VERSION` | `<target-version>` | `2.10.1` |
 
 Everything else — git cleanliness, `npm ci`, `npm test`, `npm pack --dry-run` — is version-independent and unchanged.
 
@@ -157,10 +157,10 @@ All v1 error cases from `RELEASE_PREFLIGHT_SPEC.md` remain unchanged.
 
 ### Version Parameterization
 
-4. Running `--target-version 1.1.0` prints `AgentXchain v1.1.0 Release Preflight` in the banner.
-5. Running `--target-version 1.1.0` checks for `## 1.1.0` in CHANGELOG.md (not `## 1.0.0`).
-6. Running `--target-version 1.1.0` compares `package.json` version against `1.1.0`.
-7. Running `--target-version 1.1.0 --strict` enforces strict mode against the `1.1.0` expectations.
+4. Running `--target-version 2.10.1` prints `AgentXchain v2.10.1 Release Preflight` in the banner.
+5. Running `--target-version 2.10.1` checks for `## 2.10.1` in CHANGELOG.md.
+6. Running `--target-version 2.10.1` compares `package.json` version against `2.10.1`.
+7. Running `--target-version 2.10.1 --strict` enforces strict mode against the `2.10.1` expectations.
 8. Running `--target-version 2.0.0` works for any future valid semver without script changes.
 
 ### Error Handling
@@ -220,4 +220,4 @@ Then replace the two hardcoded references:
 
 ## Open Questions
 
-None for this slice. The default remains an explicit `1.0.0`, and `--dry-run` is intentionally deferred out of scope.
+None for this slice. The default remains an explicit `2.0.0`, and `--dry-run` is intentionally deferred out of scope.

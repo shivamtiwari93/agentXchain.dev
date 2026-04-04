@@ -28,7 +28,7 @@ import { scaffoldGoverned } from '../src/commands/init.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const binPath = join(cliRoot, 'bin', 'agentxchain.js');
-const mockAgentPath = join(cliRoot, 'test', 'fixtures', 'mock-agent.mjs');
+const mockAgentPath = join(cliRoot, 'test-support', 'mock-agent.mjs');
 
 const tempDirs = [];
 const servers = [];

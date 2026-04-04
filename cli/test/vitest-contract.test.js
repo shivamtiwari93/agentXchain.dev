@@ -7,7 +7,7 @@ import {
   VITEST_FILE_COUNT,
   VITEST_INCLUDED_FILES,
   VITEST_FILE_PARALLELISM,
-} from './vitest-slice-manifest.js';
+} from '../test-support/vitest-slice-manifest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
@@ -18,7 +18,7 @@ const ROOT_README = read('README.md');
 const CLI_README = read('cli/README.md');
 const PACKAGE_JSON = JSON.parse(read('cli/package.json'));
 const VITEST_CONFIG = read('cli/vitest.config.js');
-const VITEST_MANIFEST = read('cli/test/vitest-slice-manifest.js');
+const VITEST_MANIFEST = read('cli/test-support/vitest-slice-manifest.js');
 const VITEST_SPEC = read('.planning/VITEST_PILOT_SPEC.md');
 const VITEST_EXPANSION_S1_SPEC = read('.planning/VITEST_EXPANSION_S1_SPEC.md');
 const VITEST_EXPANSION_S2_SPEC = read('.planning/VITEST_EXPANSION_S2_SPEC.md');
@@ -46,7 +46,7 @@ describe('Vitest coverage contract', () => {
 
   it('guards the node:test alias, serial file execution, and explicit include list', () => {
     assert.match(VITEST_CONFIG, /vitest-node-test-shim\.js/);
-    assert.match(VITEST_CONFIG, /from '\.\/test\/vitest-slice-manifest\.js'/);
+    assert.match(VITEST_CONFIG, /from '\.\/test-support\/vitest-slice-manifest\.js'/);
     assert.match(VITEST_CONFIG, /include:\s*VITEST_INCLUDED_FILES/);
     assert.match(VITEST_CONFIG, /fileParallelism:\s*VITEST_FILE_PARALLELISM/);
     assert.equal(VITEST_FILE_PARALLELISM, false);
