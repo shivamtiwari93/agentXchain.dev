@@ -50,6 +50,32 @@ agentxchain template validate
 
 This proves five things: the built-in template registry is coherent, the project template resolves, the core workflow-kit files exist with their structural markers (`Approved:`, `## Phases`, `| Req # |`, `## Verdict:`), template-required planning artifacts are present, and acceptance hints are tracked. Use `--json` for machine-readable output — the `workflow_kit` block distinguishes scaffold-layer failures from template-layer failures. See [Templates — Prove the template surface](/docs/templates#prove-the-template-surface-instead-of-assuming-it) for details.
 
+### Override the local dev runtime during scaffold
+
+The shipped default dev runtime is:
+
+```json
+{
+  "type": "local_cli",
+  "command": ["claude", "--print"],
+  "prompt_transport": "stdin"
+}
+```
+
+If your local coding agent needs a different launch command, set it during `init` instead of hand-editing the scaffold afterward:
+
+```bash
+agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+```
+
+If your tool expects prompt text on the command line, include `{prompt}` directly in `--dev-command` and AgentXchain will lock the scaffold to `argv` delivery:
+
+```bash
+agentxchain init --governed --dev-command my-agent run {prompt} -y
+```
+
+Do not mix these modes casually. `argv` requires `{prompt}`. `stdin` and `dispatch_bundle_only` must not include `{prompt}`. Init fails closed if the prompt-delivery contract is ambiguous.
+
 ## Automated path: use `agentxchain run`
 
 ### 1. Initialize
@@ -84,7 +110,7 @@ Minimal example:
 }
 ```
 
-If you use Codex CLI, Aider, or another local tool instead of the scaffolded `claude` command, update `runtimes.local-dev.command` before you run anything. See [Adapters](/docs/adapters) for the runtime contract.
+If you use another local tool instead of the scaffolded `claude --print` command, prefer setting it during `init` with `--dev-command` and `--dev-prompt-transport`. Editing `runtimes.local-dev` afterward still works, but the point is to scaffold a truthful runtime contract up front. See [Adapters](/docs/adapters) for the runtime contract.
 
 ### 3. Run the governed flow
 

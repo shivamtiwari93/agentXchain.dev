@@ -1,5 +1,15 @@
 # Dispatch Manifest Tier 2 Fixture Expansion Spec
 
+> IMPLEMENTED 2026-04-04 in Turns 21-22. Retained as historical scope record.
+
+## Status
+
+This expansion is complete and the original target counts are stale.
+
+- `DM-006` through `DM-010` shipped
+- `dispatch_manifest` error coverage is complete for the shipped verifier surface
+- public docs and guards now reflect the current surface instead of the original 5→8 slice
+
 ## Purpose
 
 Expand the `dispatch_manifest` conformance surface from 5 fixtures to 8, closing three verified coverage gaps in the verification error taxonomy.

@@ -1,5 +1,16 @@
 # Hook Audit Tier 2 Expansion Spec
 
+> IMPLEMENTED 2026-04-04 in Turns 23-27. Retained as historical scope record.
+
+## Status
+
+This expansion is complete and the original fixture counts are stale.
+
+- `HA-004` through `HA-013` shipped
+- `hook_audit` now covers all 13 `orchestrator_action` branches
+- the response contract is documented in `protocol-implementor-guide.mdx`
+- current total fixture count is higher than the original forecast in this spec
+
 ## Purpose
 
 Close the two highest-priority coverage gaps in the `hook_audit` conformance surface.
@@ -80,7 +91,9 @@ A process hook modifies `.agentxchain/state.json` (a protected file). The orches
 
 - Multi-hook scenarios (blocking + skipped) require extending the reference adapter to return all results, not just `results[0]`. Deferred to a later turn.
 
-## Fixture Counts After
+## Historical Forecast
+
+The original fixture-count forecast below is preserved for audit history only and is no longer current:
 
 - Tier 2: 15 (10 DM + 5 HA)
 - Total: 60 (40 T1 + 15 T2 + 5 T3)

@@ -230,6 +230,85 @@ describe('governed CLI support', () => {
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /agentxchain step/);
       assert.doesNotMatch(result.stdout, /agentxchain start/);
+
+      const config = JSON.parse(readFileSync(join(dir, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
+      assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '--print']);
+      assert.equal(config.runtimes['local-dev'].prompt_transport, 'stdin');
+      assert.match(result.stdout, /Dev runtime:\s+claude --print\s+\(stdin\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed accepts a custom local dev command and prompt transport', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-custom-runtime-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--dev-command', './scripts/dev-agent.sh',
+        '--dev-prompt-transport', 'dispatch_bundle_only',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.deepEqual(config.runtimes['local-dev'].command, ['./scripts/dev-agent.sh']);
+      assert.equal(config.runtimes['local-dev'].prompt_transport, 'dispatch_bundle_only');
+      assert.match(result.stdout, /Dev runtime:\s+\.\/scripts\/dev-agent\.sh\s+\(dispatch_bundle_only\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed infers argv transport when custom command includes {prompt}', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-argv-runtime-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--dev-command', 'my-agent', 'run', '{prompt}',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.deepEqual(config.runtimes['local-dev'].command, ['my-agent', 'run', '{prompt}']);
+      assert.equal(config.runtimes['local-dev'].prompt_transport, 'argv');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed rejects a custom command without prompt delivery', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-runtime-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, ['init', '--governed', '--dev-command', 'my-agent', '-y']);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /must either include \{prompt\} or set --dev-prompt-transport explicitly/i);
+      assert.ok(!existsSync(projectDir));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed rejects argv mode when the command does not include {prompt}', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-argv-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--dev-command', 'my-agent',
+        '--dev-prompt-transport', 'argv',
+        '-y',
+      ]);
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /argv requires \{prompt\}/i);
+      assert.ok(!existsSync(projectDir));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

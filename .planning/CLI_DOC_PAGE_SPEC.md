@@ -66,6 +66,7 @@ It must also explain that:
 
 - `accept-turn` and `reject-turn` operate on staged turn results
 - `approve-transition` and `approve-completion` are explicit human gates
+- governed `init` exposes scaffold-time `local-dev` runtime controls via `--dev-command` and `--dev-prompt-transport`
 
 ### 3. Recovery-oriented reference
 
@@ -112,6 +113,7 @@ The page must link to:
 6. The page does not describe legacy lock-based workflow as the primary command path and explicitly marks it as compatibility scope.
 7. The page documents `agentxchain verify protocol` with tier, surface, target, and JSON-report semantics.
 8. The command map includes every governed and governed-adjacent command family registered in `cli/bin/agentxchain.js`.
+9. The `init` section documents the scaffold-time `local-dev` runtime override flags and the `{prompt}` / prompt-transport contract.
 
 ## Open Questions
 

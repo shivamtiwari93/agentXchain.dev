@@ -6,6 +6,7 @@ import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
 import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS } from '../lib/governed-templates.js';
+import { VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = join(__dirname, '../templates');
@@ -93,9 +94,16 @@ const GOVERNED_ROLES = {
   }
 };
 
+const DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME = Object.freeze({
+  type: 'local_cli',
+  command: ['claude', '--print'],
+  cwd: '.',
+  prompt_transport: 'stdin',
+});
+
 const GOVERNED_RUNTIMES = {
   'manual-pm': { type: 'manual' },
-  'local-dev': { type: 'local_cli', command: ['claude', '--print', '-p', '{prompt}'], cwd: '.', prompt_transport: 'argv' },
+  'local-dev': DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME,
   'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
   'manual-director': { type: 'manual' }
 };
@@ -353,8 +361,71 @@ ${role.write_authority === 'authoritative'
 `;
 }
 
-export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic') {
+function commandHasPromptPlaceholder(parts = []) {
+  return parts.some((part) => typeof part === 'string' && part.includes('{prompt}'));
+}
+
+function resolveGovernedLocalDevRuntime(opts = {}) {
+  const customCommand = Array.isArray(opts.devCommand)
+    ? opts.devCommand.map((part) => String(part).trim()).filter(Boolean)
+    : null;
+  const explicitTransport = typeof opts.devPromptTransport === 'string' && opts.devPromptTransport.trim()
+    ? opts.devPromptTransport.trim()
+    : null;
+
+  if (explicitTransport && !VALID_PROMPT_TRANSPORTS.includes(explicitTransport)) {
+    throw new Error(`Unknown --dev-prompt-transport "${explicitTransport}". Valid values: ${VALID_PROMPT_TRANSPORTS.join(', ')}`);
+  }
+
+  if (!customCommand?.length) {
+    const command = [...DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME.command];
+    if (explicitTransport === 'argv') {
+      throw new Error('Default local dev command does not include {prompt}. Use --dev-command ... {prompt} for argv mode.');
+    }
+    return {
+      runtime: {
+        ...DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME,
+        command,
+        prompt_transport: explicitTransport || DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME.prompt_transport,
+      },
+    };
+  }
+
+  const hasPlaceholder = commandHasPromptPlaceholder(customCommand);
+
+  if (!explicitTransport && !hasPlaceholder) {
+    throw new Error('Custom --dev-command must either include {prompt} or set --dev-prompt-transport explicitly.');
+  }
+
+  if (explicitTransport === 'argv' && !hasPlaceholder) {
+    throw new Error('--dev-prompt-transport argv requires {prompt} in --dev-command.');
+  }
+
+  if (explicitTransport && explicitTransport !== 'argv' && hasPlaceholder) {
+    throw new Error(`--dev-prompt-transport ${explicitTransport} must not be combined with {prompt} in --dev-command.`);
+  }
+
+  return {
+    runtime: {
+      type: 'local_cli',
+      command: customCommand,
+      cwd: '.',
+      prompt_transport: explicitTransport || 'argv',
+    },
+  };
+}
+
+function formatGovernedRuntimeCommand(runtime) {
+  return Array.isArray(runtime?.command) ? runtime.command.join(' ') : String(runtime?.command || '');
+}
+
+export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}) {
   const template = loadGovernedTemplate(templateId);
+  const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
+  const runtimes = {
+    ...GOVERNED_RUNTIMES,
+    'local-dev': localDevRuntime,
+  };
   const config = {
     schema_version: '1.0',
     template: template.id,
@@ -364,7 +435,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       default_branch: 'main'
     },
     roles: GOVERNED_ROLES,
-    runtimes: GOVERNED_RUNTIMES,
+    runtimes,
     routing: GOVERNED_ROUTING,
     gates: GOVERNED_GATES,
     budget: {
@@ -512,6 +583,14 @@ async function initGoverned(opts) {
 
   const dir = resolve(process.cwd(), folderName);
   const projectId = slugify(projectName);
+  let localDevRuntime;
+
+  try {
+    ({ runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(opts));
+  } catch (err) {
+    console.error(chalk.red(`  Error: ${err.message}`));
+    process.exit(1);
+  }
 
   if (existsSync(dir) && existsSync(join(dir, CONFIG_FILE))) {
     if (!opts.yes) {
@@ -530,7 +609,7 @@ async function initGoverned(opts) {
 
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  scaffoldGoverned(dir, projectName, projectId, templateId);
+  scaffoldGoverned(dir, projectName, projectId, templateId, opts);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(folderName)}/`));
@@ -549,6 +628,7 @@ async function initGoverned(opts) {
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);
   console.log(`  ${chalk.dim('Template:')} ${templateId}`);
+  console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);

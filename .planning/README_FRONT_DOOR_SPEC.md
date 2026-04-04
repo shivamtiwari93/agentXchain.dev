@@ -31,6 +31,7 @@ The front-door docs must:
    - `approve-completion`
 5. Preserve legacy IDE-window coordination as compatibility mode, but not as the primary product story.
 6. Link to the public docs surface on `agentxchain.dev`.
+7. Mention the scaffold-time local dev override path (`--dev-command`, `--dev-prompt-transport`) when describing governed setup.
 
 ## Error Cases
 

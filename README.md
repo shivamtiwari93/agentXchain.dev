@@ -75,6 +75,12 @@ agentxchain status
 agentxchain step --role pm
 ```
 
+The default governed dev runtime is `claude --print` with stdin prompt delivery. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
+
+```bash
+npx agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+```
+
 If you want scaffold intent captured up front, choose a governed template:
 
 ```bash
@@ -102,7 +108,7 @@ agentxchain step --role qa
 agentxchain approve-completion
 ```
 
-Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step.
+Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you use a custom local coding CLI, either include `{prompt}` in `--dev-command` for argv delivery or set `--dev-prompt-transport` explicitly at init time.
 
 The governed flow is always: assign, stage a structured result, accept or reject, then satisfy any human gate before the next phase can advance.
 

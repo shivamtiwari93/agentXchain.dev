@@ -61,12 +61,14 @@ The page must show the real governed scaffold:
 The page must walk through:
 
 1. `npx agentxchain init --governed`
-2. showing that the default scaffold is mixed-mode and not immediately runnable via `agentxchain run`
-3. changing `pm` from `manual-pm` to a non-manual runtime, or explicitly telling the operator to keep the manual path instead
-4. calling `agentxchain run`
-5. documenting `--auto-approve` for non-interactive execution
-6. documenting `--max-turns` as a safety cap
-7. calling `agentxchain status` after the run
+2. documenting the default `local-dev` scaffold contract as `claude --print` with stdin prompt delivery
+3. documenting the scaffold-time override path via `--dev-command` and `--dev-prompt-transport`
+4. showing that the default scaffold is mixed-mode and not immediately runnable via `agentxchain run`
+5. changing `pm` from `manual-pm` to a non-manual runtime, or explicitly telling the operator to keep the manual path instead
+6. calling `agentxchain run`
+7. documenting `--auto-approve` for non-interactive execution
+8. documenting `--max-turns` as a safety cap
+9. calling `agentxchain status` after the run
 
 ### 4. Manual fallback walkthrough
 
@@ -120,8 +122,9 @@ The page must include a short troubleshooting section covering:
 4. The page documents `agentxchain run` as the primary automated workflow.
 5. The page documents `agentxchain step --role pm` as the manual fallback for the shipped default scaffold.
 6. The page explicitly states that the default scaffold is mixed-mode (`manual-pm`, `local-dev`, `api-qa`) and that `run` needs non-manual runtimes for active roles.
-7. The walkthrough includes both `accept-turn` and human approval commands.
-8. The page does not mention legacy-first artifacts such as `PROJECT.md`, `REQUIREMENTS.md`, or `qa/`.
+7. The page documents the default `local-dev` command and the scaffold-time override path via `--dev-command` / `--dev-prompt-transport`.
+8. The walkthrough includes both `accept-turn` and human approval commands.
+9. The page does not mention legacy-first artifacts such as `PROJECT.md`, `REQUIREMENTS.md`, or `qa/`.
 
 ## Open Questions
 

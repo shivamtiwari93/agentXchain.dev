@@ -61,17 +61,35 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 ### `init`
 
 ```bash
-agentxchain init --governed [--template <id>] [options]
+agentxchain init --governed [--template <id>] [--dev-command <parts...>] [--dev-prompt-transport <mode>] [options]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--governed` | `false` | Create the governed scaffold with protocol-owned state and prompts |
 | `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app` |
+| `--dev-command <parts...>` | `claude --print` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
+| `--dev-prompt-transport <mode>` | `stdin` | Prompt delivery for the scaffolded `local-dev` runtime: `argv`, `stdin`, or `dispatch_bundle_only` |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
 | `--schema-version <version>` | governed default | Force a specific schema path when needed |
 
-Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. In governed mode, the scaffold also includes the decision ledger, dispatch directories, and gate configuration. Non-`generic` templates add project-type-specific planning artifacts and prompt guidance. See [Templates](/docs/templates) for the full template contract instead of guessing from command help.
+Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. In governed mode, the scaffold also includes the decision ledger, dispatch directories, and gate configuration. Non-`generic` templates add project-type-specific planning artifacts and prompt guidance. The default `local-dev` runtime is a real local CLI contract, not a placeholder: `["claude", "--print"]` with `prompt_transport: "stdin"`.
+
+If you override the dev runtime at scaffold time:
+
+- `argv` mode requires `{prompt}` to appear in `--dev-command`
+- `stdin` and `dispatch_bundle_only` must not include `{prompt}`
+- a custom `--dev-command` without either `{prompt}` or an explicit `--dev-prompt-transport` is rejected before files are written
+
+Examples:
+
+```bash
+agentxchain init --governed -y
+agentxchain init --governed --dev-command my-agent run {prompt} -y
+agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+```
+
+See [Templates](/docs/templates) for the full scaffold contract instead of guessing from command help.
 
 ### `template list`
 
