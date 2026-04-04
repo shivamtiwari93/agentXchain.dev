@@ -342,6 +342,43 @@ Dispatch-bundle finalization and integrity verification. This is the hardening l
 
 Execution and audit recording for lifecycle hooks. The important contract is not just "hooks run" but "their effects are observable and attributable."
 
+Your adapter's `run_hooks` operation must return this shape:
+
+```json
+{
+  "result": "success",
+  "hook_ok": boolean,
+  "blocked": boolean,
+  "audit_entry": { ... } | null,
+  "audit_entries": [ ... ]
+}
+```
+
+**`hook_ok`** means "can the governed pipeline proceed past this hook phase?" — not "did the hook succeed." Advisory hooks that fail, time out, or produce garbage still return `hook_ok: true` because advisory failures degrade to warnings without halting the pipeline. `hook_ok: false` means a blocking condition was encountered: either a blocking hook blocked or a protected file was tampered with.
+
+**`blocked`** is `true` only when a blocking hook returned a block verdict (explicit, fail-closed, timeout, or invalid output). Tamper detection sets `hook_ok: false` but `blocked: false` — it is a different halt mechanism.
+
+**`audit_entries`** is the ordered list of all hook execution results. Each entry includes `orchestrator_action`, the precise 13-value enum describing what happened:
+
+| `orchestrator_action` | `hook_ok` | `blocked` | Meaning |
+|---|---|---|---|
+| `continued` | `true` | `false` | Hook returned `verdict: "allow"` |
+| `warned` | `true` | `false` | Hook returned `verdict: "warn"` |
+| `downgraded_block_to_warn` | `true` | `false` | Advisory hook returned block, downgraded to warn |
+| `warned_failure` | `true` | `false` | Advisory hook exited non-zero |
+| `warned_timeout` | `true` | `false` | Advisory hook exceeded `timeout_ms` |
+| `warned_invalid_output` | `true` | `false` | Advisory hook produced unparseable stdout |
+| `blocked` | `false` | `true` | Blocking hook returned `verdict: "block"` |
+| `blocked_failure` | `false` | `true` | Blocking hook exited non-zero (fail-closed) |
+| `blocked_timeout` | `false` | `true` | Blocking hook exceeded `timeout_ms` (fail-closed) |
+| `blocked_invalid_output` | `false` | `true` | Blocking hook produced unparseable stdout (fail-closed) |
+| `aborted_tamper` | `false` | `false` | Hook modified a SHA-256 protected file |
+| `skipped` | N/A | N/A | Prior blocking hook blocked; remaining hooks were not executed |
+
+`skipped` entries appear in `audit_entries` (not as the primary `audit_entry`) with `verdict: null`, `exit_code: null`, `duration_ms: 0`, and no `transport` field.
+
+The disambiguation signal for operators and dashboards is `orchestrator_action`, not `hook_ok`. Use `hook_ok` for flow control (proceed or halt). Use `orchestrator_action` for precise diagnosis.
+
 ### `coordinator`
 
 Multi-repo coordination: coordinator config validation, acceptance projection, workstream state, and barrier semantics. Tier 3 starts here because cross-repo governance is where weak protocol claims usually collapse.
