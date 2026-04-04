@@ -1,5 +1,7 @@
 # Remote Protocol Verification — Slice 1 Spec
 
+**Status:** Shipped
+
 > Extends `agentxchain verify protocol` to verify implementations that are not on the local filesystem.
 
 ---
@@ -66,22 +68,23 @@ The local verifier is responsible for:
 ### CLI Surface
 
 ```bash
-# Existing (unchanged):
-agentxchain verify protocol [targetRoot] [--tier N] [--surface S] [--json]
+# Existing local mode:
+agentxchain verify protocol --target <path> [--tier N] [--surface S] [--format json]
 
-# New:
-agentxchain verify protocol --remote <base-url> [--tier N] [--surface S] [--json] [--token <bearer-token>] [--timeout <ms>]
+# New remote mode:
+agentxchain verify protocol --remote <base-url> [--tier N] [--surface S] [--format json] [--token <bearer-token>] [--timeout <ms>]
 ```
 
 **New flags:**
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--remote <url>` | string | — | Base URL of the HTTP conformance endpoint. Mutually exclusive with positional `targetRoot`. |
+| `--remote <url>` | string | — | Base URL of the HTTP conformance endpoint. Mutually exclusive with `--target`. |
 | `--token <token>` | string | — | Bearer token sent as `Authorization: Bearer <token>`. Optional. |
 | `--timeout <ms>` | number | 30000 | Per-fixture HTTP timeout in milliseconds. |
 
-**Mutual exclusion:** `--remote` and positional `targetRoot` cannot both be specified. If neither is specified, `targetRoot` defaults to `.` (current behavior).
+**Mutual exclusion:** `--remote` and `--target` cannot both be specified.
+**Remote-only flags:** `--token` and `--timeout` are rejected unless `--remote` is also specified.
 
 ### Library Surface
 
@@ -106,7 +109,7 @@ verifyProtocolConformance({
 })
 ```
 
-Exactly one of `targetRoot` or `remote` must be provided. Providing both or neither is an error.
+Exactly one of `targetRoot` or `remote` must be provided to the library. The CLI still defaults local mode to `--target .`.
 
 ---
 
@@ -122,7 +125,7 @@ When `--remote` is specified:
 4. Validate with the **same** schema as local `capabilities.json`, with one change:
    - `adapter.protocol` must be `"http-fixture-v1"` (not `"stdio-fixture-v1"`)
    - `adapter.command` is **not required** (it is meaningless for HTTP transport)
-   - Instead, `adapter.endpoint` is **optional** — if present, it overrides the base URL for fixture execution. If absent, `<base-url>/conform/execute` is used.
+   - There is no `adapter.endpoint` override in Slice 1. The execute path is fixed at `<base-url>/conform/execute`
 
 **Remote capabilities.json example:**
 ```json
@@ -205,7 +208,7 @@ This is a critical design choice: the verifier owns truth. The implementation un
 | Condition | Behavior |
 |-----------|----------|
 | Both `targetRoot` and `--remote` specified | Exit 2, error: "Cannot specify both targetRoot and --remote" |
-| Neither `targetRoot` nor `--remote` specified | Default to `targetRoot: "."` (existing behavior) |
+| Neither `targetRoot` nor `--remote` specified | CLI defaults local mode to `--target .`; library rejects missing target mode |
 | `GET /conform/capabilities` returns non-200 | Exit 2, error: "Failed to fetch remote capabilities: HTTP <status>" |
 | `GET /conform/capabilities` returns invalid JSON | Exit 2, error: "Invalid capabilities response: <parse error>" |
 | Capabilities missing required fields | Exit 2, error: same validation as local mode |
@@ -214,7 +217,7 @@ This is a critical design choice: the verifier owns truth. The implementation un
 | `POST /conform/execute` timeout | Fixture result: `error`, message: "HTTP timeout after <ms>ms" |
 | `POST /conform/execute` returns non-JSON | Fixture result: `error`, message: "Malformed response: <details>" |
 | `POST /conform/execute` response missing `status` | Fixture result: `error`, message: "Missing status in adapter response" |
-| Bearer token provided without `--remote` | Warning printed, token ignored (local mode has no use for it) |
+| `--token` or `--timeout` provided without `--remote` | Exit 2, explicit flag error. Silent ignore is rejected. |
 
 ---
 
@@ -228,23 +231,21 @@ This is a critical design choice: the verifier owns truth. The implementation un
    - `verifyProtocolConformance()` becomes `async` and dispatches to local or remote paths based on options
    - `executeRemoteFixture` uses `fetch()` (Node 18+ built-in) with `AbortSignal.timeout()`
 
-2. **`cli/src/commands/verify.js`** — Add `--remote`, `--token`, `--timeout` flags. Validate mutual exclusion.
+2. **`cli/src/commands/verify.js`** — Add `--remote`, `--token`, `--timeout` flags. Validate mutual exclusion and reject remote-only flags in local mode.
 
 3. **`cli/test/protocol-conformance-remote.test.js`** — New test file:
    - Mock HTTP server (Node `http.createServer`) serving capabilities and fixture execution
    - Tests for all error cases above
    - Test that fixture results match local execution for the same adapter logic
 
-4. **`.agentxchain-conformance/reference-http-adapter/`** — Reference implementation:
-   - Simple Node HTTP server that reads the same `reference-adapter.js` logic
-   - Serves `GET /conform/capabilities` and `POST /conform/execute`
-   - Used for self-verification: `agentxchain verify protocol --remote http://localhost:PORT`
+4. **`website-v2/docs/cli.mdx` + `website-v2/docs/protocol-implementor-guide.mdx`** — Public docs updated with the remote HTTP contract, flags, and endpoint shape.
 
 ### Files NOT modified:
 
 - Fixture corpus — unchanged
 - Report validation — unchanged (additive `remote` field only)
 - `stdio-fixture-v1` path — zero changes to existing local execution
+- Published npm package contents — no dev-only reference HTTP server added in Slice 1
 
 ---
 

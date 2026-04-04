@@ -33,6 +33,7 @@ describe('Protocol implementor guide surface', () => {
     for (const term of [
       'capabilities.json',
       'stdio-fixture-v1',
+      'http-fixture-v1',
       'verify protocol',
       'not_implemented',
       'state_machine',

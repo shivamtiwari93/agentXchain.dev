@@ -246,6 +246,9 @@ verifyCmd
   .option('--tier <tier>', 'Conformance tier to verify (1, 2, or 3)', '1')
   .option('--surface <surface>', 'Restrict verification to a single surface')
   .option('--target <path>', 'Target root containing .agentxchain-conformance/capabilities.json', '.')
+  .option('--remote <url>', 'Remote HTTP conformance endpoint base URL')
+  .option('--token <token>', 'Bearer token for remote HTTP conformance endpoint')
+  .option('--timeout <ms>', 'Per-fixture remote HTTP timeout in milliseconds', '30000')
   .option('--format <format>', 'Output format: text or json', 'text')
   .action(verifyProtocolCommand);
 

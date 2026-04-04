@@ -25,7 +25,9 @@ The verifier selects every fixture up to the requested tier. `--tier 2` runs Tie
 
 ## Required repo contract
 
-Your implementation target must expose a repo-local conformance directory:
+Your implementation target can expose either a repo-local conformance directory or a remote HTTP conformance endpoint.
+
+Local mode:
 
 ```text
 .agentxchain-conformance/
@@ -35,6 +37,14 @@ Your implementation target must expose a repo-local conformance directory:
 
 `capabilities.json` tells the verifier what implementation it is testing and how to invoke your adapter.
 
+Remote mode:
+
+- `GET /conform/capabilities`
+- `POST /conform/execute`
+- `adapter.protocol: "http-fixture-v1"`
+
+The verifier still owns the canonical local fixture corpus in remote mode. The remote endpoint receives one full fixture JSON document per POST and returns the same `{status, message, actual}` payload that a local stdio adapter would have emitted.
+
 ## Writing `capabilities.json`
 
 This is the reference CLI's current file:
@@ -42,7 +52,7 @@ This is the reference CLI's current file:
 ```json
 {
   "implementation": "agentxchain-cli",
-  "version": "2.2.0-dev",
+  "version": "2.10.0",
   "protocol_version": "v6",
   "adapter": {
     "protocol": "stdio-fixture-v1",
@@ -76,6 +86,8 @@ Fields that matter today:
 | `adapter.protocol` | Yes | Must be exactly `stdio-fixture-v1` |
 | `adapter.command` | Yes | Non-empty command array passed to `spawnSync()` |
 | `tiers` | Yes | Non-empty array containing only `1`, `2`, or `3` |
+
+For remote HTTP verification, the capabilities document is fetched from `GET /conform/capabilities` and `adapter.protocol` must instead be `http-fixture-v1`. In that mode there is no `adapter.command`; the verifier posts fixtures to `POST /conform/execute`.
 
 Fields that affect verifier behavior when present:
 
@@ -183,6 +195,9 @@ agentxchain verify protocol --tier 2 --surface dispatch_manifest --target .
 
 # Emit JSON for CI or a reporting pipeline
 agentxchain verify protocol --tier 3 --target . --format json
+
+# Verify a remote implementation over HTTP
+agentxchain verify protocol --tier 1 --remote https://example.com/agentxchain --format json
 ```
 
 Command options:
@@ -192,6 +207,9 @@ Command options:
 | `--tier &lt;1|2|3&gt;` | Maximum tier to include |
 | `--surface &lt;name&gt;` | Restrict execution to one surface |
 | `--target &lt;path&gt;` | Root containing `.agentxchain-conformance/capabilities.json` |
+| `--remote &lt;url&gt;` | Remote HTTP conformance endpoint base URL |
+| `--token &lt;token&gt;` | Bearer token for remote verification |
+| `--timeout &lt;ms&gt;` | Per-fixture remote HTTP timeout in milliseconds |
 | `--format &lt;text|json&gt;` | Human-readable or machine-readable report |
 
 ### Do not confuse verifier exit codes with adapter exit codes

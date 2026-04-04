@@ -296,9 +296,15 @@ agentxchain verify protocol [options]
 | `--tier <tier>` | `1` | Maximum conformance tier to verify: `1`, `2`, or `3`. Runs all fixtures up to and including the specified tier (e.g. `--tier 2` runs both tier 1 and tier 2 fixtures) |
 | `--surface <surface>` | all surfaces in tier | Restrict the run to one surface such as `state_machine`, `dispatch_manifest`, or `coordinator`. If `capabilities.json` includes a `surfaces` map, the verifier rejects requests for surfaces not explicitly claimed in that map |
 | `--target <path>` | `.` | Root containing `.agentxchain-conformance/capabilities.json` |
+| `--remote <url>` | none | Remote HTTP conformance endpoint base URL. Mutually exclusive with `--target` |
+| `--token <token>` | none | Bearer token for remote verification. Valid only with `--remote` |
+| `--timeout <ms>` | `30000` | Per-fixture remote HTTP timeout in milliseconds. Valid only with `--remote` |
 | `--format <format>` | `text` | Output format: `text` or `json` |
 
-The repo ships a first-party conformance corpus under `.agentxchain-conformance/`. `verify protocol` runs those fixtures against any implementation that exposes a `stdio-fixture-v1` adapter and declares supported tiers and surfaces in `.agentxchain-conformance/capabilities.json`.
+The repo ships a first-party conformance corpus under `.agentxchain-conformance/`. `verify protocol` runs those fixtures against either:
+
+- a local implementation that exposes a `stdio-fixture-v1` adapter and declares supported tiers and surfaces in `.agentxchain-conformance/capabilities.json`
+- a remote HTTP implementation that exposes `GET /conform/capabilities` and `POST /conform/execute` with `adapter.protocol: "http-fixture-v1"`
 
 Typical use:
 
@@ -308,6 +314,9 @@ agentxchain verify protocol --tier 3 --target .
 
 # isolate one surface and emit CI-friendly JSON
 agentxchain verify protocol --tier 2 --surface dispatch_manifest --target . --format json
+
+# verify a remote implementation over HTTP
+agentxchain verify protocol --tier 1 --remote https://example.com/agentxchain --format json
 ```
 
 **Progressive conformance:** Adapters may return `not_implemented` (exit code 3 from the adapter process) for fixtures they do not yet support. The verifier treats `not_implemented` as non-failing — the overall exit code remains `0` if all other fixtures pass. This allows implementations to adopt conformance progressively: pass lower tiers first while marking higher-tier or optional surfaces as not yet ready.

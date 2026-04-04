@@ -15,7 +15,7 @@ const CONFORMANCE_ENGINE = read('cli/src/lib/protocol-conformance.js');
 const SPEC = read('.planning/CLI_DOCS_VERIFY_PROTOCOL_CONTRACT_SPEC.md');
 
 describe('verify protocol docs — flag alignment', () => {
-  const VERIFY_FLAGS = ['--tier', '--surface', '--target', '--format'];
+  const VERIFY_FLAGS = ['--tier', '--surface', '--target', '--remote', '--token', '--timeout', '--format'];
 
   it('every documented flag exists in the CLI registration', () => {
     for (const flag of VERIFY_FLAGS) {
@@ -93,6 +93,13 @@ describe('verify protocol docs — behavioral semantics', () => {
         `Docs must mention adapter status \`${status}\``);
     }
   });
+
+  it('documents the remote HTTP adapter path', () => {
+    assert.match(CLI_DOCS, /http-fixture-v1/,
+      'Docs must mention http-fixture-v1 for remote verification');
+    assert.match(CLI_DOCS, /--remote/,
+      'Docs must mention the remote verification mode');
+  });
 });
 
 describe('verify protocol docs — implementation alignment', () => {
@@ -118,6 +125,13 @@ describe('verify protocol docs — implementation alignment', () => {
       'Engine must reference capabilities.surfaces for enforcement');
     assert.match(CONFORMANCE_ENGINE, /is not claimed in capabilities\.json/,
       'Engine must throw for unclaimed surfaces');
+  });
+
+  it('engine supports remote HTTP fixtures', () => {
+    assert.match(CONFORMANCE_ENGINE, /http-fixture-v1/,
+      'Engine must validate http-fixture-v1 for remote verification');
+    assert.match(CONFORMANCE_ENGINE, /executeRemoteFixture/,
+      'Engine must implement remote fixture execution');
   });
 
   it('exit code mapping matches documented table', () => {

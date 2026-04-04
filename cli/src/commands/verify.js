@@ -3,27 +3,42 @@ import { resolve } from 'node:path';
 import { loadExportArtifact, verifyExportArtifact } from '../lib/export-verifier.js';
 import { verifyProtocolConformance } from '../lib/protocol-conformance.js';
 
-export async function verifyProtocolCommand(opts) {
-  const target = opts.target ? resolve(opts.target) : process.cwd();
+export async function verifyProtocolCommand(opts, command) {
   const requestedTier = Number.parseInt(String(opts.tier || '1'), 10);
+  const timeout = Number.parseInt(String(opts.timeout || '30000'), 10);
   const format = opts.format || 'text';
+  const targetSource = command?.getOptionValueSource?.('target');
+  const timeoutSource = command?.getOptionValueSource?.('timeout');
+  const hasExplicitTarget = targetSource && targetSource !== 'default';
+  const remote = opts.remote || null;
+
+  if (remote && hasExplicitTarget) {
+    emitProtocolVerifyError(format, 'Cannot specify both --target and --remote');
+    process.exit(2);
+  }
+
+  if (!remote && opts.token) {
+    emitProtocolVerifyError(format, 'Cannot specify --token without --remote');
+    process.exit(2);
+  }
+
+  if (!remote && timeoutSource && timeoutSource !== 'default') {
+    emitProtocolVerifyError(format, 'Cannot specify --timeout without --remote');
+    process.exit(2);
+  }
 
   let result;
   try {
-    result = verifyProtocolConformance({
-      targetRoot: target,
+    result = await verifyProtocolConformance({
+      targetRoot: remote ? null : resolve(opts.target || process.cwd()),
+      remote,
+      token: opts.token || null,
+      timeout,
       requestedTier,
       surface: opts.surface || null,
     });
   } catch (error) {
-    if (format === 'json') {
-      console.log(JSON.stringify({
-        overall: 'error',
-        message: error.message,
-      }, null, 2));
-    } else {
-      console.log(chalk.red(`Protocol verification failed: ${error.message}`));
-    }
+    emitProtocolVerifyError(format, error.message);
     process.exit(2);
   }
 
@@ -34,6 +49,18 @@ export async function verifyProtocolCommand(opts) {
   }
 
   process.exit(result.exitCode);
+}
+
+function emitProtocolVerifyError(format, message) {
+  if (format === 'json') {
+    console.log(JSON.stringify({
+      overall: 'error',
+      message,
+    }, null, 2));
+    return;
+  }
+
+  console.log(chalk.red(`Protocol verification failed: ${message}`));
 }
 
 export async function verifyExportCommand(opts) {
@@ -72,7 +99,8 @@ function printProtocolReport(report) {
   console.log('');
   console.log(chalk.bold('  AgentXchain Protocol Conformance'));
   console.log(chalk.dim('  ' + '─'.repeat(44)));
-  console.log(chalk.dim(`  Target: ${report.target_root}`));
+  const targetLabel = report.remote || report.target_root;
+  console.log(chalk.dim(`  Target: ${targetLabel}`));
   console.log(chalk.dim(`  Implementation: ${report.implementation}`));
   console.log(chalk.dim(`  Tier requested: ${report.tier_requested}`));
   console.log('');

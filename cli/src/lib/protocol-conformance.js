@@ -1,10 +1,13 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_FIXTURE_ROOT = resolve(__dirname, '..', '..', '..', '.agentxchain-conformance', 'fixtures');
+const DEFAULT_REMOTE_TIMEOUT_MS = 30_000;
 const VALID_RESPONSE_STATUSES = new Set(['pass', 'fail', 'error', 'not_implemented']);
 const VALID_TIERS = new Set([1, 2, 3]);
 
@@ -56,13 +59,7 @@ function validateFixtureShape(fixture, filePath) {
   return errors;
 }
 
-function loadCapabilities(targetRoot) {
-  const capabilitiesPath = join(targetRoot, '.agentxchain-conformance', 'capabilities.json');
-  if (!existsSync(capabilitiesPath)) {
-    throw new Error(`Missing capabilities file at ${capabilitiesPath}`);
-  }
-
-  const capabilities = readJsonFile(capabilitiesPath);
+function validateCapabilities(capabilities, { remote = false } = {}) {
   const errors = [];
 
   if (typeof capabilities.implementation !== 'string' || !capabilities.implementation.trim()) {
@@ -80,19 +77,109 @@ function loadCapabilities(targetRoot) {
   if (!capabilities.adapter || typeof capabilities.adapter !== 'object' || Array.isArray(capabilities.adapter)) {
     errors.push('capabilities.adapter must be an object');
   } else {
-    if (capabilities.adapter.protocol !== 'stdio-fixture-v1') {
-      errors.push('capabilities.adapter.protocol must be "stdio-fixture-v1"');
+    const expectedProtocol = remote ? 'http-fixture-v1' : 'stdio-fixture-v1';
+    if (capabilities.adapter.protocol !== expectedProtocol) {
+      errors.push(`capabilities.adapter.protocol must be "${expectedProtocol}"`);
     }
-    if (!Array.isArray(capabilities.adapter.command) || capabilities.adapter.command.length === 0) {
+    if (!remote && (!Array.isArray(capabilities.adapter.command) || capabilities.adapter.command.length === 0)) {
       errors.push('capabilities.adapter.command must be a non-empty array');
     }
   }
 
+  return errors;
+}
+
+function loadLocalCapabilities(targetRoot) {
+  const capabilitiesPath = join(targetRoot, '.agentxchain-conformance', 'capabilities.json');
+  if (!existsSync(capabilitiesPath)) {
+    throw new Error(`Missing capabilities file at ${capabilitiesPath}`);
+  }
+
+  const capabilities = readJsonFile(capabilitiesPath);
+  const errors = validateCapabilities(capabilities);
   if (errors.length > 0) {
     throw new Error(`Invalid capabilities.json: ${errors.join('; ')}`);
   }
 
   return capabilities;
+}
+
+function normalizeRemoteBase(remote) {
+  let url;
+  try {
+    url = new URL(remote);
+  } catch (error) {
+    throw new Error(`Invalid remote URL "${remote}": ${error.message}`);
+  }
+
+  const normalized = url.toString();
+  return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+}
+
+function buildRemoteUrl(remoteBase, path) {
+  return new URL(path.replace(/^\//, ''), `${remoteBase}/`).toString();
+}
+
+function buildRemoteHeaders(token, extraHeaders = {}) {
+  return {
+    ...extraHeaders,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function isTimeoutError(error) {
+  return error?.name === 'TimeoutError'
+    || error?.name === 'AbortError'
+    || error?.cause?.name === 'TimeoutError'
+    || error?.cause?.name === 'AbortError';
+}
+
+function formatRemoteFetchError(error, timeout, prefix) {
+  if (isTimeoutError(error)) {
+    return `${prefix} timeout after ${timeout}ms`;
+  }
+  return `${prefix} network error: ${error.message}`;
+}
+
+async function loadRemoteCapabilities(remote, token, timeout) {
+  const remoteBase = normalizeRemoteBase(remote);
+  const capabilitiesUrl = buildRemoteUrl(remoteBase, '/conform/capabilities');
+
+  try {
+    const response = await requestRemote(capabilitiesUrl, {
+      headers: buildRemoteHeaders(token),
+      timeout,
+    });
+
+    if (response.statusCode !== 200) {
+      throw new Error(`Failed to fetch remote capabilities: HTTP ${response.statusCode}`);
+    }
+
+    let capabilities;
+    try {
+      capabilities = JSON.parse(response.body);
+    } catch (error) {
+      throw new Error(`Invalid capabilities response: ${error.message}`);
+    }
+
+    const errors = validateCapabilities(capabilities, { remote: true });
+    if (errors.length > 0) {
+      throw new Error(`Invalid capabilities.json: ${errors.join('; ')}`);
+    }
+
+    return {
+      capabilities,
+      remoteBase,
+      executeUrl: buildRemoteUrl(remoteBase, '/conform/execute'),
+    };
+  } catch (error) {
+    if (error.message.startsWith('Failed to fetch remote capabilities:')
+      || error.message.startsWith('Invalid capabilities response:')
+      || error.message.startsWith('Invalid capabilities.json:')) {
+      throw error;
+    }
+    throw new Error(formatRemoteFetchError(error, timeout, 'Failed to fetch remote capabilities'));
+  }
 }
 
 function selectFixtureFiles(fixtureRoot, requestedTier, surface) {
@@ -135,7 +222,7 @@ function ensureSurfaceSummary(tierSummary, surface) {
   return tierSummary.surfaces[surface];
 }
 
-function executeFixture(targetRoot, adapterCommand, fixture) {
+function executeLocalFixture(targetRoot, adapterCommand, fixture) {
   const [executable, ...args] = adapterCommand;
   const result = spawnSync(executable, args, {
     cwd: targetRoot,
@@ -196,12 +283,128 @@ function executeFixture(targetRoot, adapterCommand, fixture) {
   return parsed;
 }
 
+async function executeRemoteFixture(executeUrl, token, timeout, fixture) {
+  let response;
+  try {
+    response = await requestRemote(executeUrl, {
+      method: 'POST',
+      headers: buildRemoteHeaders(token, {
+        'content-type': 'application/json',
+      }),
+      body: JSON.stringify(fixture),
+      timeout,
+    });
+  } catch (error) {
+    return {
+      status: 'error',
+      message: formatRemoteFetchError(error, timeout, 'HTTP fixture execution'),
+      actual: null,
+    };
+  }
+
+  const rawBody = response.body;
+
+  if (response.statusCode !== 200) {
+    let actual = null;
+    let message = rawBody.trim() || `HTTP ${response.statusCode}`;
+
+    if (rawBody.trim()) {
+      try {
+        const parsed = JSON.parse(rawBody);
+        actual = parsed;
+        if (typeof parsed.message === 'string' && parsed.message.trim()) {
+          message = parsed.message.trim();
+        }
+      } catch {
+        actual = { body: rawBody };
+      }
+    }
+
+    return {
+      status: 'error',
+      message: `HTTP ${response.statusCode}: ${message}`,
+      actual,
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(rawBody.trim() || '{}');
+  } catch (error) {
+    return {
+      status: 'error',
+      message: `Malformed response: ${error.message}`,
+      actual: {
+        body: rawBody,
+      },
+    };
+  }
+
+  if (!VALID_RESPONSE_STATUSES.has(parsed.status)) {
+    return {
+      status: 'error',
+      message: 'Adapter response missing valid "status"',
+      actual: parsed,
+    };
+  }
+
+  return parsed;
+}
+
+function requestRemote(urlString, { method = 'GET', headers = {}, body = null, timeout }) {
+  const url = new URL(urlString);
+  const requestImpl = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const requestHeaders = {
+    connection: 'close',
+    ...headers,
+  };
+
+  if (body != null && requestHeaders['content-length'] == null && requestHeaders['Content-Length'] == null) {
+    requestHeaders['content-length'] = Buffer.byteLength(body);
+  }
+
+  return new Promise((resolveRequest, rejectRequest) => {
+    const req = requestImpl(url, {
+      method,
+      headers: requestHeaders,
+    }, (res) => {
+      let responseBody = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      res.on('end', () => {
+        resolveRequest({
+          statusCode: res.statusCode ?? 0,
+          body: responseBody,
+        });
+      });
+    });
+
+    req.on('error', rejectRequest);
+    req.setTimeout(timeout, () => {
+      const error = new Error(`timeout after ${timeout}ms`);
+      error.name = 'TimeoutError';
+      req.destroy(error);
+    });
+
+    if (body) {
+      req.write(body);
+    }
+
+    req.end();
+  });
+}
+
 export function getDefaultFixtureRoot() {
   return DEFAULT_FIXTURE_ROOT;
 }
 
-export function verifyProtocolConformance({
+export async function verifyProtocolConformance({
   targetRoot,
+  remote = null,
+  token = null,
+  timeout = DEFAULT_REMOTE_TIMEOUT_MS,
   requestedTier = 1,
   surface = null,
   fixtureRoot = DEFAULT_FIXTURE_ROOT,
@@ -209,9 +412,18 @@ export function verifyProtocolConformance({
   if (!Number.isInteger(requestedTier) || !VALID_TIERS.has(requestedTier)) {
     throw new Error(`Tier must be 1, 2, or 3. Received "${requestedTier}"`);
   }
+  if (!Number.isInteger(timeout) || timeout <= 0) {
+    throw new Error(`Timeout must be a positive integer number of milliseconds. Received "${timeout}"`);
+  }
+  if (!!targetRoot === !!remote) {
+    throw new Error('Specify exactly one of targetRoot or remote');
+  }
 
-  const resolvedTargetRoot = resolve(targetRoot);
-  const capabilities = loadCapabilities(resolvedTargetRoot);
+  const resolvedTargetRoot = targetRoot ? resolve(targetRoot) : null;
+  const remoteTarget = remote ? normalizeRemoteBase(remote) : null;
+  const localCapabilities = resolvedTargetRoot ? loadLocalCapabilities(resolvedTargetRoot) : null;
+  const remoteCapabilities = remoteTarget ? await loadRemoteCapabilities(remoteTarget, token, timeout) : null;
+  const capabilities = localCapabilities || remoteCapabilities.capabilities;
 
   // Enforce surface claims when capabilities.surfaces exists and --surface is requested
   if (surface && capabilities.surfaces && typeof capabilities.surfaces === 'object') {
@@ -231,6 +443,7 @@ export function verifyProtocolConformance({
     tier_requested: requestedTier,
     timestamp: new Date().toISOString(),
     target_root: resolvedTargetRoot,
+    remote: remoteTarget,
     fixture_root: fixtureRoot,
     results: {},
     overall: 'pass',
@@ -253,7 +466,9 @@ export function verifyProtocolConformance({
     }
 
     const surfaceSummary = ensureSurfaceSummary(tierSummary, fixture.surface);
-    const adapterResult = executeFixture(resolvedTargetRoot, capabilities.adapter.command, fixture);
+    const adapterResult = resolvedTargetRoot
+      ? executeLocalFixture(resolvedTargetRoot, capabilities.adapter.command, fixture)
+      : await executeRemoteFixture(remoteCapabilities.executeUrl, token, timeout, fixture);
 
     tierSummary.fixtures_run += 1;
 
