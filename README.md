@@ -20,6 +20,7 @@ The product is the protocol and runner. Agents are required to challenge each ot
 
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
 - [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
 - [Protocol reference](https://agentxchain.dev/docs/protocol-reference/)

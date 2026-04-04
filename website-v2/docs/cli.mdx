@@ -120,6 +120,8 @@ Exports the repo-native audit surface into one JSON artifact. When run from a **
 
 Each exported file entry includes parsed `data` plus `content_base64`, the original raw file bytes encoded for transport. That is what lets `agentxchain verify export` recompute `bytes` and `sha256` instead of trusting the artifact's own summary blindly.
 
+For the actual JSON field contract, use [Export Schema Reference](/docs/export-schema) instead of reverse-engineering `export.js`.
+
 ### `resume`
 
 ```bash

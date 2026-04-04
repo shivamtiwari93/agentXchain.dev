@@ -1,0 +1,173 @@
+---
+title: Export Schema Reference
+description: "Machine contract for agentxchain export and agentxchain verify export."
+---
+
+# Export Schema Reference
+
+This page documents the stable machine contract produced by `agentxchain export` and checked by `agentxchain verify export`.
+
+This is **not** protocol v6 conformance. Export artifacts are an operator-facing audit and automation surface. They matter, but they are not part of the current protocol-v6 proof set. For the constitutional boundary, see [Protocol Reference v6](./protocol-reference).
+
+## Version And Kinds
+
+Current export artifact schema:
+
+| Field | Value |
+| --- | --- |
+| `schema_version` | `0.2` |
+| Run artifact `export_kind` | `agentxchain_run_export` |
+| Coordinator artifact `export_kind` | `agentxchain_coordinator_export` |
+
+## File Entry Contract
+
+Every entry under `files` is keyed by its repo-relative path and carries the same shape:
+
+| Field | Meaning |
+| --- | --- |
+| `format` | Parsed view type: `json`, `jsonl`, or `text` |
+| `bytes` | Original file byte length |
+| `sha256` | SHA-256 digest of the original file bytes |
+| `content_base64` | Original raw bytes, base64-encoded |
+| `data` | Parsed JSON/JSONL value or raw UTF-8 text |
+
+`content_base64` is the important part. `verify export` decodes it, re-derives `bytes`, re-derives `sha256`, and then proves that `data` still matches the decoded JSON, JSONL, or text payload. Without `content_base64`, the digest fields would just be self-reported metadata.
+
+## Run Export Shape
+
+`agentxchain export` produces this top-level shape when run from a governed project:
+
+| Key | Meaning |
+| --- | --- |
+| `schema_version` | Export artifact schema version |
+| `export_kind` | Always `agentxchain_run_export` for this shape |
+| `exported_at` | ISO timestamp for artifact creation |
+| `project_root` | Relative path from the current working directory to the governed project root |
+| `project` | Project identity and normalized governed metadata |
+| `summary` | Derived run summary for quick inspection |
+| `files` | Repo-native audit files keyed by relative path |
+| `config` | Raw `agentxchain.json` content |
+| `state` | Parsed `.agentxchain/state.json` content |
+
+### `project`
+
+| Field | Meaning |
+| --- | --- |
+| `id` | `config.project.id` |
+| `name` | `config.project.name` |
+| `template` | Configured template or implicit `generic` |
+| `protocol_mode` | Exported run protocol mode |
+| `schema_version` | Governed config schema version |
+
+### `summary`
+
+| Field | Meaning |
+| --- | --- |
+| `run_id` | Current governed run id or `null` |
+| `status` | Current run status or `null` |
+| `phase` | Current phase or `null` |
+| `active_turn_ids` | Sorted keys from `state.active_turns` |
+| `retained_turn_ids` | Sorted keys from `state.retained_turns` |
+| `history_entries` | Count of `.agentxchain/history.jsonl` records |
+| `decision_entries` | Count of `.agentxchain/decision-ledger.jsonl` records |
+| `hook_audit_entries` | Count of `.agentxchain/hook-audit.jsonl` records |
+| `notification_audit_entries` | Count of `.agentxchain/notification-audit.jsonl` records |
+| `dispatch_artifact_files` | Number of files under `.agentxchain/dispatch/` |
+| `staging_artifact_files` | Number of files under `.agentxchain/staging/` |
+| `intake_present` | Whether any `.agentxchain/intake/` file exists |
+| `coordinator_present` | Whether any `.agentxchain/multirepo/` file exists inside the governed repo |
+
+### Included governed roots
+
+When present, the run export collects:
+
+- `agentxchain.json`
+- `.agentxchain/state.json`
+- `.agentxchain/history.jsonl`
+- `.agentxchain/decision-ledger.jsonl`
+- `.agentxchain/hook-audit.jsonl`
+- `.agentxchain/hook-annotations.jsonl`
+- `.agentxchain/notification-audit.jsonl`
+- `.agentxchain/dispatch/**`
+- `.agentxchain/staging/**`
+- `.agentxchain/transactions/accept/**`
+- `.agentxchain/intake/**`
+- `.agentxchain/multirepo/**`
+
+Missing optional roots are skipped. The exporter snapshots repo-native audit evidence; it does not sweep arbitrary source files into the artifact.
+
+## Coordinator Export Shape
+
+When run from a coordinator workspace rooted by `agentxchain-multi.json`, the exporter emits:
+
+| Key | Meaning |
+| --- | --- |
+| `schema_version` | Export artifact schema version |
+| `export_kind` | Always `agentxchain_coordinator_export` for this shape |
+| `exported_at` | ISO timestamp for artifact creation |
+| `workspace_root` | Relative path from the current working directory to the coordinator root |
+| `coordinator` | Coordinator project metadata |
+| `summary` | Derived coordinator summary |
+| `files` | Coordinator-level audit files keyed by relative path |
+| `config` | Raw `agentxchain-multi.json` content |
+| `repos` | Per-repo export status and nested governed exports |
+
+### `coordinator`
+
+| Field | Meaning |
+| --- | --- |
+| `project_id` | `config.project.id` or `null` |
+| `project_name` | `config.project.name` or `null` |
+| `schema_version` | Coordinator config schema version |
+| `repo_count` | Number of entries in `config.repos` |
+| `workstream_count` | Number of entries in `config.workstreams` |
+
+### `summary`
+
+| Field | Meaning |
+| --- | --- |
+| `super_run_id` | Current coordinator run id or `null` |
+| `status` | Current coordinator status or `null` |
+| `phase` | Current coordinator phase or `null` |
+| `repo_run_statuses` | Repo status map derived from `.agentxchain/multirepo/state.json` |
+| `barrier_count` | Number of barrier objects in `.agentxchain/multirepo/barriers.json` |
+| `history_entries` | Count of `.agentxchain/multirepo/history.jsonl` records |
+| `decision_entries` | Count of `.agentxchain/multirepo/decision-ledger.jsonl` records |
+
+### `repos`
+
+Each `repos.<repo_id>` entry has this contract:
+
+| Field | Meaning |
+| --- | --- |
+| `ok` | `true` when the child repo exported successfully, else `false` |
+| `path` | Child repo path from `agentxchain-multi.json` |
+| `export` | Full nested `agentxchain_run_export` when `ok` is `true` |
+| `error` | Non-empty failure message when `ok` is `false` |
+
+The coordinator export does **not** fail just because one child repo export fails. Instead it records the bad repo as `ok: false` with an `error` string and still emits the coordinator artifact. That keeps coordinator-level evidence inspectable even when one repo is broken or missing.
+
+### Included coordinator roots
+
+When present, the coordinator export collects:
+
+- `agentxchain-multi.json`
+- `.agentxchain/multirepo/state.json`
+- `.agentxchain/multirepo/history.jsonl`
+- `.agentxchain/multirepo/barriers.json`
+- `.agentxchain/multirepo/decision-ledger.jsonl`
+- `.agentxchain/multirepo/barrier-ledger.jsonl`
+
+Each successful child repo entry then embeds the full governed run export for that repo under `repos.<repo_id>.export`.
+
+## Verification Contract
+
+`agentxchain verify export` currently accepts `schema_version: "0.2"` artifacts and checks:
+
+- file-entry integrity by recomputing `bytes` and `sha256` from `content_base64`
+- `data` truth for `json`, `jsonl`, and `text`
+- run-export summary fields against exported `state` and `files`
+- coordinator-export summary fields against exported multirepo state and barriers
+- recursive verification of each nested child export when `repos.<repo_id>.ok === true`
+
+If you need CLI usage and exit codes, see the [`verify export` command reference](./cli#verify-export). If you need the constitutional boundary, go back to [Protocol Reference v6](./protocol-reference).

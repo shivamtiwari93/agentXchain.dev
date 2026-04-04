@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'quickstart',
     'cli',
+    'export-schema',
     'templates',
     {
       type: 'category',
