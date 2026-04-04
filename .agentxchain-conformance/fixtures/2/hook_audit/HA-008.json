@@ -1,0 +1,65 @@
+{
+  "fixture_id": "HA-008",
+  "tier": 2,
+  "surface": "hook_audit",
+  "description": "Blocking hook with invalid JSON output records blocked_invalid_output and blocks the phase",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "roles": {
+        "dev": { "runtime": "manual" }
+      },
+      "hooks": {
+        "before_assignment": [
+          {
+            "name": "bad_output_gate",
+            "type": "process",
+            "command": ["node", "-e", "console.log('not valid json')"],
+            "timeout_ms": 5000,
+            "mode": "blocking"
+          }
+        ]
+      }
+    }
+  },
+  "input": {
+    "operation": "run_hooks",
+    "args": {
+      "phase": "before_assignment",
+      "payload": {
+        "run_id": "run_001",
+        "turn_id": "turn_abc",
+        "role": "dev"
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "hook_ok": false,
+    "blocked": true,
+    "audit_entry": {
+      "hook_phase": "before_assignment",
+      "hook_name": "bad_output_gate",
+      "transport": "process",
+      "run_id": "run_001",
+      "verdict": "block",
+      "exit_code": 0,
+      "timed_out": false,
+      "orchestrator_action": "blocked_invalid_output",
+      "timestamp": { "assert": "nonempty_string" },
+      "duration_ms": { "assert": "present" }
+    }
+  }
+}
