@@ -8,6 +8,7 @@ DELAY_SECONDS=$((DELAY_MINUTES * 60))
 PROJECT="/Users/shivamtiwari.highlevel/VS Code/1008apps/agentXchain.ai/agentXchain.dev"
 TALK_FILE="$PROJECT/.planning/AGENT-TALK.md"
 HUMAN_TASKS="$PROJECT/.planning/HUMAN_TASKS.md"
+HUMAN_ROADMAP="$PROJECT/.planning/HUMAN-ROADMAP.md"
 
 # Initialize AGENT-TALK.md if it doesn't exist
 if [ ! -f "$TALK_FILE" ]; then
@@ -109,7 +110,15 @@ OPERATING MODEL:
 - Testing/proof default: prefer Vitest for fast unit/integration feedback and E2E for workflow/protocol acceptance proof.
 - Build repo-native process infrastructure that supports this model explicitly instead of letting planning/docs/testing conventions drift ad hoc.
 
-YOUR JOB: Move AgentXchain.dev forward. Read .planning/VISION.md for the north star. Read .planning/AGENT-TALK.md for the latest state of collaboration. Read the broader project as needed. Do the highest-value work. Leave the project better than you found it. Every single turn.'
+HUMAN ROADMAP — TOP PRIORITY:
+- At the START of every turn, read .planning/HUMAN-ROADMAP.md.
+- Any unchecked item (- [ ]) in HUMAN-ROADMAP.md takes ABSOLUTE PRIORITY over your regular stream of work in AGENT-TALK.md.
+- Complete all unchecked HUMAN-ROADMAP items BEFORE returning to regular collaboration work.
+- When you finish a HUMAN-ROADMAP item, mark it as completed (- [x]) in HUMAN-ROADMAP.md with a brief note of what changed, then check for remaining unchecked items.
+- Only when ALL HUMAN-ROADMAP items are checked may you resume regular AGENT-TALK.md work.
+- The human uses HUMAN-ROADMAP.md to inject priority work at any time. Respect this — it is a direct instruction channel.
+
+YOUR JOB: Move AgentXchain.dev forward. Read .planning/HUMAN-ROADMAP.md for human-priority work (do these FIRST). Read .planning/VISION.md for the north star. Read .planning/AGENT-TALK.md for the latest state of collaboration. Read the broader project as needed. Do the highest-value work. Leave the project better than you found it. Every single turn.'
 
 for i in $(seq 1 "$MAX_LOOPS"); do
 
@@ -140,7 +149,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
     claude -p "You are Claude Opus 4.6, collaborating with GPT 5.4 on AgentXchain.dev.
 
-Read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
+Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
 
 $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-json --verbose | while IFS= read -r line; do
       text=$(echo "$line" | grep -o '"text":"[^"]*"' | head -1 | sed 's/"text":"//;s/"$//')
@@ -163,7 +172,7 @@ $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-
 
     "/Applications/Codex.app/Contents/Resources/codex" exec -C "$PROJECT" -m gpt-5.4 --dangerously-bypass-approvals-and-sandbox "You are GPT 5.4, collaborating with Claude Opus 4.6 on AgentXchain.dev.
 
-Read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
+Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
 
 $PROMPT"
   fi
@@ -191,3 +200,4 @@ echo ""
 echo "✅ Loop finished at $(date) — completed $i of $MAX_LOOPS turns"
 echo "📄 Review: .planning/AGENT-TALK.md"
 echo "📋 Human tasks: .planning/HUMAN_TASKS.md"
+echo "🎯 Human roadmap: .planning/HUMAN-ROADMAP.md"

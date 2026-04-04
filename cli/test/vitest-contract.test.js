@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -78,5 +78,44 @@ describe('Vitest coverage contract', () => {
       const source = read(`cli/${file}`);
       assert.doesNotMatch(source, /from ['"](?:node:)?child_process['"]/);
     }
+  });
+});
+
+describe('Test-surface hygiene — DEC-TEST-HYGIENE-001', () => {
+  const TEST_DIR = join(__dirname);
+  const entries = readdirSync(TEST_DIR, { withFileTypes: true });
+
+  it('cli/test/ contains only .test.js files and the fixtures directory', () => {
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        assert.equal(entry.name, 'fixtures',
+          `Unexpected directory in cli/test/: ${entry.name} — support dirs belong in cli/test-support/`);
+      } else {
+        assert.ok(entry.name.endsWith('.test.js'),
+          `Non-test file in cli/test/: ${entry.name} — support files belong in cli/test-support/`);
+      }
+    }
+  });
+
+  it('cli/test-support/ exists and contains only known support files', () => {
+    const SUPPORT_DIR = join(__dirname, '..', 'test-support');
+    const supportEntries = readdirSync(SUPPORT_DIR).sort();
+    assert.ok(supportEntries.length > 0, 'test-support/ should not be empty');
+    // Every support file must NOT be a .test.js (those belong in test/)
+    for (const name of supportEntries) {
+      assert.ok(!name.endsWith('.test.js'),
+        `Test file ${name} found in cli/test-support/ — test files belong in cli/test/`);
+    }
+  });
+
+  it('test/fixtures/ contains no executable .js or .mjs files that node --test could discover', () => {
+    const FIXTURES_DIR = join(TEST_DIR, 'fixtures');
+    const fixtureFiles = readdirSync(FIXTURES_DIR, { recursive: true })
+      .filter(f => typeof f === 'string');
+    const executableFixtures = fixtureFiles.filter(f =>
+      f.endsWith('.js') || f.endsWith('.mjs') || f.endsWith('.cjs')
+    );
+    assert.deepStrictEqual(executableFixtures, [],
+      `Executable files in test/fixtures/ risk node --test discovery: ${executableFixtures.join(', ')}`);
   });
 });

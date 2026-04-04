@@ -1,6 +1,7 @@
-# Reddit Posts — AgentXchain v2.0.0
+# Reddit Posts — AgentXchain v2.10.0
 
 > Ready-to-post content for Reddit. Post after npm publish is live.
+> Updated 2026-04-04 from v2.0.0 draft to reflect v2.10.0 shipped reality.
 
 ---
 
@@ -17,9 +18,11 @@ I built an open-source governance protocol for multi-agent software delivery. Th
 - Structured turn-based workflow with mandatory objections
 - Human approval required at phase transitions and ship decisions
 - Append-only audit trail (decisions, objections, risks, verification evidence)
-- Multi-repo coordination across multiple repositories (v2)
+- Continuous delivery intake: repo-native trigger detection, triage, approval, planning, scan, resolve lifecycle
+- Multi-repo coordination across multiple repositories
 - Plugin system for Slack notifications, JSON reporting, custom validators
 - Model-agnostic: works with Claude Code, Codex, Aider, or any LLM API
+- 53 conformance fixtures so third-party implementations can prove protocol compliance
 
 **What it is NOT:**
 
@@ -27,7 +30,7 @@ I built an open-source governance protocol for multi-agent software delivery. Th
 - Not a CI/CD pipeline
 - Not a chat interface
 
-The protocol is the product. The CLI is one implementation. 950+ tests. MIT licensed.
+The protocol is the product. The CLI is one implementation. 2,400+ tests. MIT licensed.
 
 - Website: https://agentxchain.dev
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
@@ -41,7 +44,7 @@ Happy to answer questions about the architecture or the "mandatory challenge" de
 
 ## r/artificial
 
-**Title:** AgentXchain v2 – governance protocol for multi-agent software teams (mandatory challenge, human gates, audit trail)
+**Title:** AgentXchain v2.10 – governance protocol for multi-agent software teams (mandatory challenge, human gates, audit trail)
 
 **Body:**
 
@@ -50,11 +53,13 @@ When multiple AI agents work on the same codebase, the bottleneck isn't intellig
 - Every turn must include at least one objection about the prior agent's work
 - Humans approve phase transitions and the final ship decision
 - Every decision is recorded in an append-only ledger
-- v2 adds multi-repo coordination, a local dashboard, and a plugin system
+- Continuous delivery intake: automated trigger detection, triage, approval, and governed execution
+- Multi-repo coordination, a local dashboard, and a plugin system
+- 53 conformance fixtures for third-party protocol implementors
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
-MIT licensed. 950+ tests. Protocol v6 spec published.
+MIT licensed. 2,400+ tests. Protocol v6 spec published.
 
 https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -73,12 +78,11 @@ If you're running local models for coding, you've probably noticed that multi-ag
 - Mandatory challenge: every turn must object to something from the prior turn
 - Phase gates: human approves planning → implementation → review transitions
 - Any model works: the protocol is runtime-agnostic. Local models via API proxy, Claude Code, Codex, or manual turns all participate under the same rules
-
-v2 adds multi-repo orchestration, a local browser dashboard, and a plugin system.
+- Continuous delivery intake pipeline for automated trigger detection and governed execution
 
 The insight: structured disagreement between agents produces better convergence than cooperative delegation from one "manager" agent.
 
-MIT licensed. https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 2,400+ tests. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -86,7 +90,7 @@ MIT licensed. https://github.com/shivamtiwari93/agentXchain.dev
 
 ## Posting Instructions
 
-1. Wait until `npm install agentxchain@2.0.0` works (NPM_TOKEN blocker must be resolved first)
+1. `npm install agentxchain@2.10.0` is live on npm — ready to post
 2. Post during US morning hours (10-11am ET, Mon-Thu)
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later
 4. Be in all threads for the first 2 hours to answer questions
