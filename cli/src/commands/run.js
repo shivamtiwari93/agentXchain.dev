@@ -16,7 +16,7 @@ import chalk from 'chalk';
 import { createInterface } from 'readline';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { loadProjectContext } from '../lib/config.js';
+import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { runLoop } from '../lib/run-loop.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import {
@@ -28,6 +28,7 @@ import { dispatchMcp, resolveMcpTransport, describeMcpRuntimeTarget } from '../l
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { resolveGovernedRole } from '../lib/role-resolution.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -55,12 +56,24 @@ export async function runCommand(opts) {
   const maxTurns = opts.maxTurns || 50;
   const autoApprove = !!opts.autoApprove;
   const verbose = !!opts.verbose;
+  const overrideResolution = opts.role
+    ? resolveGovernedRole({ override: opts.role, state: null, config })
+    : null;
+
+  if (overrideResolution?.error) {
+    console.log(chalk.red(overrideResolution.error));
+    if (overrideResolution.availableRoles.length) {
+      console.log(chalk.dim(`Available roles: ${overrideResolution.availableRoles.join(', ')}`));
+    }
+    process.exit(1);
+  }
 
   // ── Dry run ───────────────────────────────────────────────────────────────
   if (opts.dryRun) {
-    const roleId = resolveRole(opts.role, null, config, true);
+    const dryRunState = loadProjectState(root, config);
+    const roleId = overrideResolution?.roleId || resolveRole(null, dryRunState, config);
     console.log(chalk.cyan('Dry run — no execution'));
-    console.log(`  First role:   ${roleId || chalk.dim('(config-driven)')}`);
+    console.log(`  First role:   ${roleId || chalk.dim('(unresolved)')}`);
     console.log(`  Max turns:    ${maxTurns}`);
     console.log(`  Gate mode:    ${autoApprove ? 'auto-approve' : 'interactive'}`);
     const roleIds = Object.keys(config.roles || {});
@@ -105,15 +118,10 @@ export async function runCommand(opts) {
 
       if (firstSelectRole && opts.role) {
         firstSelectRole = false;
-        const roleId = opts.role;
-        if (!cfg.roles?.[roleId]) {
-          console.log(chalk.red(`Role "${roleId}" not found in config.`));
-          return null;
-        }
-        return roleId;
+        return overrideResolution.roleId;
       }
       firstSelectRole = false;
-      return resolveRole(null, state, cfg, false);
+      return resolveRole(null, state, cfg);
     },
 
     async dispatch(ctx) {
@@ -332,42 +340,11 @@ export async function runCommand(opts) {
 
 /**
  * Resolve the target role for the next turn.
- * Same logic as step.js resolveTargetRole, minus the interactive prompting.
+ * Same routing contract as step.js resolveTargetRole, minus interactive logging.
  */
-function resolveRole(override, state, config, isDryRun) {
-  if (override) {
-    if (!config.roles?.[override]) {
-      if (!isDryRun) console.log(chalk.red(`Role "${override}" not found in config.`));
-      return null;
-    }
-    return override;
-  }
-
-  // Check last accepted turn's recommendation
-  if (state?.history?.length) {
-    const lastEntry = state.history[state.history.length - 1];
-    if (lastEntry.next_recommended_role && config.roles?.[lastEntry.next_recommended_role]) {
-      return lastEntry.next_recommended_role;
-    }
-  }
-
-  // Current turn recommendation
-  if (state?.current_turn?.next_recommended_role && config.roles?.[state.current_turn.next_recommended_role]) {
-    return state.current_turn.next_recommended_role;
-  }
-
-  // Phase entry role
-  const phase = state?.phase || config.phases?.[0]?.id || config.phases?.[0];
-  const phaseConfig = config.phase_gates?.[phase];
-  if (phaseConfig?.entry_role && config.roles?.[phaseConfig.entry_role]) {
-    return phaseConfig.entry_role;
-  }
-
-  // First role in config
-  const roleIds = Object.keys(config.roles || {});
-  if (roleIds.length > 0) return roleIds[0];
-
-  return null;
+function resolveRole(override, state, config) {
+  const resolved = resolveGovernedRole({ override, state, config });
+  return resolved.error ? null : resolved.roleId;
 }
 
 /**

@@ -64,8 +64,8 @@ The `run` command calls `runLoop(root, config, callbacks, options)` exactly once
 
 1. On the first call, if `--role` was provided, return that role.
 2. On subsequent calls, use the same resolution logic as `step.js`:
-   - `state.current_turn?.next_recommended_role` if present
-   - Phase entry role from config
+   - `state.next_recommended_role` if present and routing-legal for the current phase
+   - Phase `routing.entry_role`
    - First role in `config.roles`
 3. Return `null` if no role can be determined (signals `caller_stopped`).
 
@@ -184,6 +184,7 @@ The run loop's `selectRole` callback checks the abort flag and returns `null` if
 | Scenario | Behavior |
 |----------|----------|
 | Not a governed project | Print error, exit 1 |
+| `--role` references an unknown role | Print error, exit 1 before entering `runLoop` |
 | `runLoop` returns `init_failed` | Print error, exit 1 |
 | Adapter dispatch throws unexpectedly | Caught by dispatch callback, returned as `{ accept: false, reason }`. `runLoop` handles retry/block. |
 | Gate prompt fails (stdin closed) | `approveGate` returns `false` (fail-closed). `runLoop` returns `gate_held`. |
@@ -226,3 +227,4 @@ The run loop's `selectRole` callback checks the abort flag and returns `null` if
 1. **Shared adapter dispatch extraction.** Should the adapter routing logic be extracted from `step.js` into a shared module, or kept separate? The `run` dispatch rejects `manual` while `step` supports it — this divergence may justify separate implementations. Decision deferred to implementation.
 2. **`runLoop` and hooks.** The `runLoop` spec says hooks are runner-specific. But `before_validation` and `after_validation` hooks currently run inside `step.js` after dispatch. Should `run`'s dispatch callback also run validation hooks, or should validation hooks move into the library? For now, the dispatch callback runs `after_dispatch` hooks. Validation hooks are handled by `acceptTurn` if they are part of the acceptance pipeline, or omitted from `run` initially.
 3. **Non-interactive gate behavior without `--auto-approve`.** If stdin is not a TTY (e.g., CI pipe), should gates fail-closed or should the command require `--auto-approve`? Lean toward fail-closed with a warning message.
+4. **Shared role-resolution helper.** Resolved in implementation: `step` and `run` now share `cli/src/lib/role-resolution.js` so override validation, routing legality, and entry-role fallback cannot drift independently.

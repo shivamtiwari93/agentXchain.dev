@@ -61,6 +61,7 @@ import { safeWriteJson } from '../lib/safe-write.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
+import { resolveGovernedRole } from '../lib/role-resolution.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -836,45 +837,24 @@ function printLifecycleHookFailure(title, result, { turnId, roleId, action }) {
 }
 
 function resolveTargetRole(opts, state, config) {
-  const phase = state.phase;
-  const routing = config.routing?.[phase];
-
-  if (opts.role) {
-    if (!config.roles?.[opts.role]) {
-      console.log(chalk.red(`Unknown role: "${opts.role}"`));
-      console.log(chalk.dim(`Available roles: ${Object.keys(config.roles || {}).join(', ')}`));
-      return null;
+  const resolved = resolveGovernedRole({ override: opts.role || null, state, config });
+  if (resolved.error) {
+    console.log(chalk.red(resolved.error));
+    if (resolved.availableRoles.length) {
+      console.log(chalk.dim(`Available roles: ${resolved.availableRoles.join(', ')}`));
     }
-    if (routing?.allowed_next_roles && !routing.allowed_next_roles.includes(opts.role) && opts.role !== 'human') {
-      console.log(chalk.yellow(`Warning: role "${opts.role}" is not in allowed_next_roles for phase "${phase}".`));
-    }
-    return opts.role;
+    return null;
   }
 
-  // Use stored next_recommended_role if routing-legal
-  if (state.next_recommended_role) {
-    const recommended = state.next_recommended_role;
-    if (config.roles?.[recommended]) {
-      const isLegal = !routing?.allowed_next_roles || routing.allowed_next_roles.includes(recommended);
-      if (isLegal) {
-        console.log(chalk.dim(`Using recommended role: ${recommended} (from previous turn)`));
-        return recommended;
-      }
-    }
+  if (!opts.role && state.next_recommended_role && resolved.roleId === state.next_recommended_role) {
+    console.log(chalk.dim(`Using recommended role: ${resolved.roleId} (from previous turn)`));
   }
 
-  if (routing?.entry_role) {
-    return routing.entry_role;
+  for (const warning of resolved.warnings) {
+    console.log(chalk.yellow(`Warning: ${warning}`));
   }
 
-  const roles = Object.keys(config.roles || {});
-  if (roles.length > 0) {
-    console.log(chalk.yellow(`No entry_role for phase "${phase}". Defaulting to "${roles[0]}".`));
-    return roles[0];
-  }
-
-  console.log(chalk.red('No roles defined in config.'));
-  return null;
+  return resolved.roleId;
 }
 
 function printRecoverySummary(state, heading) {
