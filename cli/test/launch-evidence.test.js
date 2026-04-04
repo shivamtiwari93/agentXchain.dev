@@ -112,6 +112,28 @@ describe('Website badge version matches package.json', () => {
   });
 });
 
+describe('Website analytics contract', () => {
+  const config = read('website-v2/docusaurus.config.ts');
+  const spec = read('.planning/WEBSITE_ANALYTICS_SPEC.md');
+
+  it('pins GA4 to the expected tracking ID through Docusaurus gtag config', () => {
+    assert.match(spec, /AT-WA-001/);
+    assert.match(config, /gtag:\s*\{/);
+    assert.match(config, /trackingID:\s*'G-1Z8RV9X341'/);
+  });
+
+  it('keeps anonymizeIP enabled', () => {
+    assert.match(spec, /AT-WA-002/);
+    assert.match(config, /anonymizeIP:\s*true/);
+  });
+
+  it('does not add a second manual GA snippet beside the Docusaurus plugin', () => {
+    assert.match(spec, /AT-WA-003/);
+    assert.doesNotMatch(config, /googletagmanager\.com\/gtag\/js/);
+    assert.doesNotMatch(config, /window\.dataLayer/);
+  });
+});
+
 describe('Launch brief references evidence report', () => {
   const brief = read('.planning/LAUNCH_BRIEF.md');
 

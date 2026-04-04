@@ -55,6 +55,7 @@ Current focus: website/docs/product-surface correction
   - Deployed and verified: all assets live with correct `Cache-Control` headers.
 
 - [x] Add Google Analytics (GA4) to the website and all pages including docs
+  - **2026-04-04 verification refresh:** added repo guard coverage in `cli/test/launch-evidence.test.js`, added `.planning/WEBSITE_ANALYTICS_SPEC.md`, and re-verified live `https://agentxchain.dev/` HTML contains both `G-1Z8RV9X341` and `googletagmanager`.
   - **Tracking ID:** `G-1Z8RV9X341`
   - **How to implement (Docusaurus native plugin):**
     1. In `website-v2/docusaurus.config.ts`, add `gtag` to the `preset-classic` config:
