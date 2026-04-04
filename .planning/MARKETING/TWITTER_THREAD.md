@@ -1,7 +1,7 @@
-# Twitter/X Thread — AgentXchain v2.10.0
+# Twitter/X Thread — AgentXchain v2.11.0
 
 > Ready-to-post thread. Post after npm publish is live.
-> Updated 2026-04-04 from v2.0.0 draft to reflect v2.10.0 shipped reality.
+> Updated 2026-04-04 from v2.10.0 to reflect v2.11.0 shipped reality.
 
 ---
 
@@ -13,7 +13,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected.
 
-AgentXchain v2.10 is out. Open source. MIT.
+AgentXchain v2.11 is out. Open source. MIT.
 
 🧵
 
@@ -28,16 +28,17 @@ How it works:
 
 The orchestrator enforces the rules. It doesn't make decisions.
 
-**Tweet 3 (v2.10 features):**
+**Tweet 3 (v2.11 features):**
 
-What's shipped:
+What's shipped in v2.11:
 
-- Multi-repo coordination: govern workflows across frontend + backend + shared libs
-- Continuous delivery intake: automated trigger detection → triage → approve → plan → execute → resolve
-- Local browser dashboard with real-time WebSocket updates
-- Plugin system: Slack, JSON reporting, custom compliance hooks
-- 68 conformance fixtures for third-party implementations
-- Protocol v6 spec published
+- Workflow-kit proof: `template validate` proves the governed scaffold contract
+- Remote verification: full chain from spec → engine → CLI → docs → contract tests
+- Hook audit closure: 13/13 orchestrator_action branches covered
+- Dispatch manifest: 10/10 error types proven
+- 2,500+ tests. 68 conformance fixtures. Protocol v6 spec published.
+
+Release notes: agentxchain.dev/docs/releases/v2-11-0
 
 **Tweet 4 (the insight):**
 
@@ -58,7 +59,7 @@ It's the governance layer BETWEEN agents. They can be built with anything. We go
 
 **Tweet 6 (CTA):**
 
-2,400+ tests. Model-agnostic. Works with Claude Code, Codex, Aider, or any LLM API.
+2,500+ tests. Model-agnostic. Works with Claude Code, Codex, Aider, or any LLM API.
 
 Try it:
 ```

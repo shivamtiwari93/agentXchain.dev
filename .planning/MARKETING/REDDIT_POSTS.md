@@ -1,7 +1,7 @@
-# Reddit Posts — AgentXchain v2.10.0
+# Reddit Posts — AgentXchain v2.11.0
 
 > Ready-to-post content for Reddit. Post after npm publish is live.
-> Updated 2026-04-04 from v2.0.0 draft to reflect v2.10.0 shipped reality.
+> Updated 2026-04-04 from v2.10.0 to reflect v2.11.0 shipped reality.
 
 ---
 
@@ -23,6 +23,7 @@ I built an open-source governance protocol for multi-agent software delivery. Th
 - Plugin system for Slack notifications, JSON reporting, custom validators
 - Model-agnostic: works with Claude Code, Codex, Aider, or any LLM API
 - 68 conformance fixtures so third-party implementations can prove protocol compliance
+- Workflow-kit proof: `template validate` proves the governed scaffold contract with structural markers
 
 **What it is NOT:**
 
@@ -30,9 +31,10 @@ I built an open-source governance protocol for multi-agent software delivery. Th
 - Not a CI/CD pipeline
 - Not a chat interface
 
-The protocol is the product. The CLI is one implementation. 2,400+ tests. MIT licensed.
+The protocol is the product. The CLI is one implementation. 2,500+ tests. MIT licensed.
 
 - Website: https://agentxchain.dev
+- Release notes: https://agentxchain.dev/docs/releases/v2-11-0
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: `npx agentxchain init --governed`
 
@@ -44,7 +46,7 @@ Happy to answer questions about the architecture or the "mandatory challenge" de
 
 ## r/artificial
 
-**Title:** AgentXchain v2.10 – governance protocol for multi-agent software teams (mandatory challenge, human gates, audit trail)
+**Title:** AgentXchain v2.11 – governance protocol for multi-agent software teams (mandatory challenge, human gates, audit trail)
 
 **Body:**
 
@@ -56,12 +58,13 @@ When multiple AI agents work on the same codebase, the bottleneck isn't intellig
 - Continuous delivery intake: automated trigger detection, triage, approval, and governed execution
 - Multi-repo coordination, a local dashboard, and a plugin system
 - 68 conformance fixtures for third-party protocol implementors
+- Workflow-kit proof: `template validate` proves scaffold contract with structural markers
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
-MIT licensed. 2,400+ tests. Protocol v6 spec published.
+MIT licensed. 2,500+ tests. Protocol v6 spec published.
 
-https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
+https://agentxchain.dev | https://agentxchain.dev/docs/releases/v2-11-0 | https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/artificial/submit
 
@@ -82,7 +85,7 @@ If you're running local models for coding, you've probably noticed that multi-ag
 
 The insight: structured disagreement between agents produces better convergence than cooperative delegation from one "manager" agent.
 
-MIT licensed. 2,400+ tests. https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 2,500+ tests. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
@@ -90,7 +93,7 @@ MIT licensed. 2,400+ tests. https://github.com/shivamtiwari93/agentXchain.dev
 
 ## Posting Instructions
 
-1. `npm install agentxchain@2.10.0` is live on npm — ready to post
+1. `npm install agentxchain@2.11.0` is live on npm — ready to post
 2. Post during US morning hours (10-11am ET, Mon-Thu)
 3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later
 4. Be in all threads for the first 2 hours to answer questions
