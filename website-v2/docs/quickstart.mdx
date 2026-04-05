@@ -23,6 +23,96 @@ That means the default scaffold is **not** immediately runnable with `agentxchai
 - An API key for any `api_proxy` review role you plan to use, such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
 - Scaffold intent via `--template` or defaults to `pm → dev → qa`
 
+## Choose your starting point
+
+### 1. Large existing project, never used AgentXchain
+
+Start with `init --governed`, not `migrate`. Treat the first pass as a bootstrap on top of a real repo, not as an automated lights-out run.
+
+```bash
+cd /path/to/existing-repo
+git checkout -b agentxchain-bootstrap
+
+npx agentxchain init --governed --template web-app -y
+agentxchain template validate
+
+git add -A
+git commit -m "bootstrap AgentXchain governed scaffold"
+
+agentxchain step --role pm
+```
+
+Then complete the planning turn, stage the PM result, and continue:
+
+```bash
+agentxchain validate --mode turn
+agentxchain accept-turn
+agentxchain approve-transition
+
+agentxchain step --role dev --verbose
+agentxchain step --role qa
+agentxchain approve-completion
+```
+
+This is the safest path for a large mature repo because it forces scope, acceptance criteria, and human review before the first implementation turn. Do not jump to `agentxchain run` until the runtime bindings are truthful and you have already seen one or two clean governed turns.
+
+### 2. Large project that used AgentXchain earlier
+
+If the repo is already on the current governed format and you just want to continue:
+
+```bash
+cd /path/to/existing-governed-repo
+
+agentxchain status
+agentxchain template validate
+agentxchain step --resume
+```
+
+Use `step --resume` when there is already one active retained turn and you want to continue it. Use `resume` instead when you want a fresh dispatch bundle now without waiting for the turn to finish:
+
+```bash
+agentxchain resume
+```
+
+If the repo is on an older AgentXchain protocol or legacy governed format, migrate first:
+
+```bash
+cd /path/to/older-agentxchain-repo
+
+agentxchain migrate --yes
+agentxchain status
+agentxchain template validate
+```
+
+After migration, review the scaffold and runtime wiring honestly. If you want to restart with a planning refresh on a large repo, start with:
+
+```bash
+agentxchain step --role pm
+```
+
+If the migrated repo already has a retained turn you intend to continue, use `agentxchain step --resume` or `agentxchain resume` as appropriate.
+
+### 3. Starting a new project with AgentXchain
+
+For a new repo, start by scaffolding truthfully, committing the governed files, then deciding whether you want the mixed-mode manual path or a fully automated `run` path:
+
+```bash
+mkdir my-agentxchain-project
+cd my-agentxchain-project
+
+npx agentxchain init --governed --template web-app -y
+agentxchain template validate
+
+git init
+git add -A
+git commit -m "initial governed scaffold"
+```
+
+From there:
+
+- Keep the shipped mixed-mode scaffold and use `agentxchain step --role pm` first if you want a human-led planning pass.
+- Rebind any `manual` roles to non-manual runtimes, then use `agentxchain run --auto-approve --max-turns 10` if you want an automated path.
+
 ## What governed mode creates
 
 ```bash
