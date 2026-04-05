@@ -15,14 +15,14 @@ function Hero() {
         />
         <div className="hero-badge">Open source &middot; MIT &middot; v2.11.0</div>
         <h1>
-          <span className="text-green">Governed</span> multi-agent{' '}
-          <span className="text-blue">software delivery</span>
+          The <span className="text-green">governance protocol</span> for{' '}
+          <span className="text-blue">lights-out software factories</span>
         </h1>
         <p className="hero-subtitle">
-          Your AI agents are smart enough. The problem is coordination.
-          AgentXchain is the governance protocol that turns independent AI agents
-          into accountable software teams — with mandatory challenge, structured
-          turns, phase gates, and human authority at the moments that matter.
+          The future of AI software delivery won't be won by the smartest single agent.
+          It will be won by the best-governed agent teams. AgentXchain turns independent
+          AI agents into an accountable software organization &mdash; with structured turns,
+          mandatory challenge, phase gates, and human sovereignty at the constitutional layer.
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="https://www.npmjs.com/package/agentxchain">
@@ -37,32 +37,37 @@ function Hero() {
             <span className="terminal-dot red" />
             <span className="terminal-dot yellow" />
             <span className="terminal-dot green" />
-            <span className="terminal-title">governed workflow</span>
+            <span className="terminal-title">governed multi-agent delivery</span>
           </div>
           <div className="terminal-code">
-            <span className="comment"># PM plans → Dev builds → QA reviews → Human ships</span>
+            <span className="comment"># Define roles, plan, build, challenge, review, ship</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
             <span className="cmd">npx agentxchain init --governed</span>
             <br />
-            <span className="output">&nbsp; ✓ Created agentxchain.json (pm → dev → qa)</span>
-            <br />
+            <span className="output">&nbsp; ✓ Created agentxchain.json (3 roles, 4 phases, gates enabled)</span>
+            <br /><br />
             <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain step --role pm</span>
+            <span className="cmd">agentxchain run</span>
             <br />
-            <span className="output">&nbsp; ⧖ Turn assigned to pm (manual)</span>
+            <span className="output">&nbsp; ⧖ Phase: planning &mdash; Turn assigned to pm</span>
             <br />
-            <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain accept-turn</span>
+            <span className="output">&nbsp; ✓ PM produced plan with 3 specs, 2 risks identified</span>
             <br />
-            <span className="output">
-              &nbsp; ✓ Turn accepted. Phase gate: human approval required.
-            </span>
+            <span className="output">&nbsp; ⧖ Phase: implementation &mdash; Turn assigned to dev</span>
             <br />
+            <span className="output">&nbsp; ✓ Dev challenged 1 spec assumption, built 4 files</span>
+            <br />
+            <span className="output">&nbsp; ⧖ Phase: qa &mdash; Turn assigned to qa</span>
+            <br />
+            <span className="output">&nbsp; ✓ QA raised 2 objections, provided evidence matrix</span>
+            <br />
+            <span className="output">&nbsp; ⏸ Gate: human approval required for release</span>
+            <br /><br />
             <span className="prompt">$</span>{' '}
             <span className="cmd">agentxchain approve-transition</span>
             <br />
-            <span className="output">&nbsp; ✓ Phase advanced: planning → implementation</span>
+            <span className="output">&nbsp; ✓ Run complete. Decision ledger: 12 entries, 0 unresolved.</span>
           </div>
         </div>
       </div>
@@ -74,12 +79,16 @@ function Stats() {
   return (
     <div className="stats-row">
       <div>
-        <div className="stat-number">68</div>
-        <div className="stat-label">Conformance fixtures</div>
+        <div className="stat-number">5</div>
+        <div className="stat-label">Architecture layers</div>
       </div>
       <div>
-        <div className="stat-number">3</div>
-        <div className="stat-label">Adapter modes</div>
+        <div className="stat-number">2,500+</div>
+        <div className="stat-label">Tests passing</div>
+      </div>
+      <div>
+        <div className="stat-number">68</div>
+        <div className="stat-label">Conformance fixtures</div>
       </div>
       <div>
         <div className="stat-number">v6</div>
@@ -93,16 +102,74 @@ function Stats() {
   );
 }
 
-function Philosophy() {
+function CoreProblem() {
   return (
     <section className="section-alt">
       <div className="container">
-        <span className="section-label text-green">Philosophy</span>
-        <h2>Mandatory challenge, explicit gates, auditable delivery</h2>
+        <span className="section-label text-orange">The hard problem</span>
+        <h2>Writing code isn't the bottleneck. Coordination is.</h2>
         <p className="section-subtitle">
-          Most multi-agent systems delegate from one brain to sub-agents.
-          AgentXchain inverts this: each agent has its own mandate and is{' '}
-          <em>required</em> to challenge the others.
+          Single models can already write code. The hard problem is what happens
+          when multiple agents touch the same codebase over time.
+        </p>
+        <div className="feature-grid problem-grid">
+          <div className="feature-card">
+            <h3>Work overlaps</h3>
+            <p>
+              Two agents modify the same file, unaware of each other's changes.
+              Merge conflicts are the symptom. Missing coordination is the disease.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Assumptions diverge</h3>
+            <p>
+              Agent A assumes an API shape. Agent B implements a different one.
+              Nobody catches it until integration fails three turns later.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Quality drifts</h3>
+            <p>
+              Without mandatory review, agents agree with each other. Tests pass
+              in isolation but the product doesn't work. Quality erodes silently.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>No decision trail</h3>
+            <p>
+              Who decided to use that library? Why was that approach chosen?
+              Without a ledger, there's no way to audit, learn, or roll back decisions.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Unclear what's shippable</h3>
+            <p>
+              Lots of agent activity, no clear answer to "is this done?"
+              Without gates and evidence, release readiness is a guess.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Humans lose governance</h3>
+            <p>
+              You either micromanage every turn or let agents run unsupervised.
+              There's no middle ground. Until now.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Philosophy() {
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-green">Philosophy</span>
+        <h2>Trust from protocol, evidence, and governance</h2>
+        <p className="section-subtitle">
+          Trust in multi-agent systems doesn't come from model capability alone.
+          It comes from how the system is governed.
         </p>
         <div className="feature-grid">
           <div className="feature-card">
@@ -116,17 +183,17 @@ function Philosophy() {
           <div className="feature-card">
             <h3>Divergent agents, healthy friction</h3>
             <p>
-              The PM pushes for user value. The dev pushes for feasibility.
-              QA pushes for correctness. They're <em>supposed</em> to disagree.
-              That tension produces better software than any single agent.
+              Agents are <em>supposed</em> to disagree. That tension surfaces
+              risks early and produces better software than any single agent
+              optimizing in isolation.
             </p>
           </div>
           <div className="feature-card">
             <h3>Long-horizon convergence</h3>
             <p>
               Phases, turn limits, mandatory verification, and human checkpoints.
-              Constraints force convergence on a real product — built for
-              long-horizon coding where quality compounds over speed.
+              Constraints force convergence on a real product &mdash; optimized for
+              convergence quality, not generation speed.
             </p>
           </div>
         </div>
@@ -135,55 +202,268 @@ function Philosophy() {
   );
 }
 
-function Architecture() {
+function FiveLayers() {
+  const layers = [
+    {
+      num: '1',
+      title: 'Protocol',
+      label: 'The constitution',
+      color: 'var(--axc-blue-light)',
+      bg: 'rgba(43,124,182,0.12)',
+      desc: 'Run state, roles, turn contracts, artifact schemas, validation rules, phase gates, decision ledger format, recovery semantics. Versioned independently. Model-agnostic. Runtime-agnostic.',
+      link: '/docs/protocol',
+      linkText: 'Protocol v6',
+    },
+    {
+      num: '2',
+      title: 'Runners',
+      label: 'The enforcement engines',
+      color: 'var(--axc-green-light)',
+      bg: 'rgba(107,181,54,0.12)',
+      desc: 'Read config, manage state, assign turns, validate results, enforce gates. The Node.js CLI is the reference runner. Future runners: cloud services, GitHub Actions, CI pipelines, K8s operators.',
+      link: '/docs/runner-interface',
+      linkText: 'Runner interface',
+    },
+    {
+      num: '3',
+      title: 'Connectors',
+      label: 'The bridge to agent runtimes',
+      color: 'var(--axc-orange)',
+      bg: 'rgba(232,117,42,0.12)',
+      desc: 'Three modes: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API calls). MCP support via stdio and streamable HTTP. ~200 lines to add a new connector.',
+      link: '/docs/adapters',
+      linkText: 'Adapter reference',
+    },
+    {
+      num: '4',
+      title: 'Workflow Kit',
+      label: 'The opinionated operating model',
+      color: '#38BDF8',
+      bg: 'rgba(56,189,248,0.12)',
+      desc: 'Planning framework (goal-first, scope-disciplined). Spec-driven development. Repo-native documentation. Test-driven quality. QA as governance proof. Escalation and recovery protocols.',
+      link: '/docs/templates',
+      linkText: 'Templates & workflows',
+    },
+    {
+      num: '5',
+      title: 'Integrations',
+      label: 'The organizational edges',
+      color: '#A78BFA',
+      bg: 'rgba(167,139,250,0.12)',
+      desc: 'IDE extensions (VS Code, Cursor). Real-time dashboard. Webhook notifications. Governance reports. Export & verification. Plugin system. Multi-repo coordination across workstreams.',
+      link: '/docs/plugins',
+      linkText: 'Plugins & integrations',
+    },
+  ];
+
+  return (
+    <section className="section-alt">
+      <div className="container">
+        <span className="section-label text-blue">Architecture</span>
+        <h2>Five layers. One governed delivery system.</h2>
+        <p className="section-subtitle">
+          Each layer is independently replaceable. The protocol is the
+          foundation &mdash; everything else plugs in.
+        </p>
+        <div className="layers-grid">
+          {layers.map((l) => (
+            <div className="layer-card" key={l.num}>
+              <div className="layer-header">
+                <div
+                  className="layer-num"
+                  style={{ background: l.bg, color: l.color }}
+                >
+                  {l.num}
+                </div>
+                <div>
+                  <h3 style={{ color: l.color, margin: 0 }}>{l.title}</h3>
+                  <span className="layer-subtitle">{l.label}</span>
+                </div>
+              </div>
+              <p>{l.desc}</p>
+              <Link className="layer-link" to={l.link} style={{ color: l.color }}>
+                {l.linkText} &rarr;
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WorkflowKit() {
   return (
     <section style={{ padding: '5rem 0' }}>
       <div className="container">
-        <span className="section-label text-blue">Architecture</span>
-        <h2>Protocol + runners + connectors + integrations</h2>
+        <span className="section-label text-green">Workflow Kit</span>
+        <h2>Planning, specs, QA, and evidence &mdash; built into the protocol</h2>
         <p className="section-subtitle">
-          The protocol defines the workflow. The runner enforces it. Connectors and
-          integrations make it usable in real software factories.
+          AgentXchain doesn't just coordinate agents. It ships software through
+          a structured lifecycle where every decision is traceable.
         </p>
-        <div className="arch-grid feature-grid">
+        <div className="feature-grid">
           <div className="feature-card">
-            <h3>
-              <span className="text-blue">Protocol layer</span>
-            </h3>
+            <h3>Goal-first planning</h3>
             <p>
-              The constitution. Config schema, state machine, turn-result schema,
-              validation rules, phase gates, decision ledger format. Versioned
-              independently. Model-agnostic, runtime-agnostic.
+              Every run starts with a goal, constraints, and acceptance criteria.
+              Plans break down into small, shippable increments. Scope discipline
+              is protocol-enforced, not suggested.
             </p>
           </div>
           <div className="feature-card">
-            <h3>
-              <span className="text-green">Runner layer</span>
-            </h3>
+            <h3>Spec-driven development</h3>
             <p>
-              The enforcement engine. Reads config, manages state, assigns turns,
-              validates results, enforces gates. Currently a Node.js CLI.
-              Could be a cloud service, GitHub Action, or K8s operator.
+              Explicit contracts between roles. Acceptance criteria defined before
+              implementation begins. Agents implement against specs, not vibes.
+              Divergence from spec triggers mandatory challenge.
             </p>
           </div>
           <div className="feature-card">
-            <h3>
-              <span className="text-orange">Connector layer</span>
-            </h3>
+            <h3>Repo-native documentation</h3>
             <p>
-              The bridge to agent runtimes. Three modes: <code>manual</code> (human),{' '}
-              <code>local_cli</code> (Claude Code by default, any CLI via <code>--dev-command</code>), <code>api_proxy</code>{' '}
-              (direct LLM API). ~200 lines to add a new connector.
+              Plans, specs, decisions, QA evidence, and release notes live with
+              the code. Not in a wiki. Not in Slack. In the repo, versioned and
+              auditable alongside the implementation.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Evidence-driven quality</h3>
+            <p>
+              QA isn't a checkbox. Every quality claim requires evidence: test results,
+              acceptance matrices, coverage reports. "It works" is not evidence.
+              Proof is evidence.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Escalation & recovery</h3>
+            <p>
+              When agents get stuck, the protocol defines recovery paths. Operator
+              escalation, blocked-state recovery, turn reassignment. No silent
+              failures. No infinite loops.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Decision ledger</h3>
+            <p>
+              Every turn records decisions, objections, risks, and verification
+              evidence in an append-only ledger. Full audit trail from first
+              plan to final release.
             </p>
           </div>
         </div>
-        <p className="section-subtitle" style={{ marginTop: '1.5rem', marginBottom: 0 }}>
-          Governed workflows sit on top of these layers: planning, implementation,
-          QA, escalation, release, multi-repo coordination, plugins, dashboards,
-          and organizational integrations. The{' '}
-          <Link to="/docs/cli#verify-protocol">protocol conformance kit</Link>{' '}
-          lets any implementation prove constitutional compliance against 68
-          golden fixtures — run <code>agentxchain verify protocol</code> to test yours.
+      </div>
+    </section>
+  );
+}
+
+function RoleSystem() {
+  return (
+    <section className="section-alt">
+      <div className="container">
+        <span className="section-label text-orange">Roles & Charters</span>
+        <h2>Open-ended roles, not a fixed PM/Dev/QA template</h2>
+        <p className="section-subtitle">
+          The PM/Dev/QA example is just that &mdash; an example. Roles in AgentXchain
+          are charter-driven and open-ended.
+        </p>
+        <div className="role-grid">
+          <div className="feature-card">
+            <h3>Charter-driven</h3>
+            <p>
+              Every role has a mandate, authority boundaries, governed artifacts,
+              and structured workflow participation. Define the roles your
+              project actually needs.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Any role shape</h3>
+            <p>
+              Security auditor. Performance engineer. API designer. Documentation
+              writer. Compliance reviewer. The protocol doesn't prescribe roles &mdash;
+              it governs how any role participates.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Turn structure</h3>
+            <p>
+              Each role gets structured turns with clear inputs and outputs. Turn
+              results are validated against the role's charter. Out-of-scope work
+              is flagged, not silently accepted.
+            </p>
+          </div>
+        </div>
+        <div className="terminal" style={{ marginTop: '2rem' }}>
+          <div className="terminal-bar">
+            <span className="terminal-dot red" />
+            <span className="terminal-dot yellow" />
+            <span className="terminal-dot green" />
+            <span className="terminal-title">agentxchain.json &mdash; custom roles</span>
+          </div>
+          <div className="terminal-code">
+            <span className="comment">// Roles are open-ended. Define what your project needs.</span>
+            <br />
+            <span className="cmd">{`"roles": [`}</span><br />
+            <span className="cmd">{`  { "name": "architect", "mandate": "System design & API contracts" },`}</span><br />
+            <span className="cmd">{`  { "name": "impl",      "mandate": "Implementation against specs" },`}</span><br />
+            <span className="cmd">{`  { "name": "security",  "mandate": "Threat modeling & audit" },`}</span><br />
+            <span className="cmd">{`  { "name": "qa",        "mandate": "Evidence-driven verification" }`}</span><br />
+            <span className="cmd">{`]`}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HumanSovereignty() {
+  const humanControls = [
+    'Mission & project goals',
+    'Constraints & non-negotiables',
+    'Phase gate approvals',
+    'Release authority (ship / no-ship)',
+    'Escalation resolution',
+    'Role & governance changes',
+  ];
+  const agentHandles = [
+    'Planning within constraints',
+    'Implementation against specs',
+    'Mandatory challenge & review',
+    'Test execution & evidence',
+    'Documentation & decision logging',
+    'Recovery within protocol bounds',
+  ];
+
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-blue">Human sovereignty</span>
+        <h2>Lights-out operation without blind trust</h2>
+        <p className="section-subtitle">
+          The goal is agents that can run long-horizon workflows unattended.
+          But unattended doesn't mean ungoverned.
+        </p>
+        <div className="sovereignty-grid">
+          <div className="sovereignty-card human-card">
+            <h3>Humans control</h3>
+            <ul>
+              {humanControls.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="sovereignty-card agent-card">
+            <h3>Agents handle</h3>
+            <ul>
+              {agentHandles.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <p className="section-note">
+          Humans remain sovereign at the constitutional layer. Agents operate
+          within granted authority. The protocol makes the boundary explicit.
         </p>
       </div>
     </section>
@@ -195,35 +475,35 @@ function HowItWorks() {
     {
       num: '1',
       title: 'Init',
-      desc: 'Define roles, phases, adapters, and gates in agentxchain.json.',
+      desc: 'Define roles, phases, adapters, and gates. Choose your team shape and workflow.',
       color: '#38BDF8',
       bg: 'rgba(56,189,248,0.12)',
     },
     {
       num: '2',
-      title: 'Step',
-      desc: 'Agent works within its mandate and produces a structured turn result.',
+      title: 'Plan',
+      desc: 'PM (or your planning role) produces specs with goals, constraints, and acceptance criteria.',
       color: 'var(--axc-blue-light)',
       bg: 'rgba(43,124,182,0.12)',
     },
     {
       num: '3',
-      title: 'Gate',
-      desc: 'Orchestrator validates artifacts and enforces challenge. Human approves transitions.',
+      title: 'Build & Challenge',
+      desc: 'Agents take structured turns. Every turn must challenge the previous work. Mandatory, not optional.',
       color: 'var(--axc-green-light)',
       bg: 'rgba(107,181,54,0.12)',
     },
     {
       num: '4',
-      title: 'Ship',
-      desc: 'QA requests completion. Human makes the final ship/no-ship decision.',
+      title: 'Gate & Ship',
+      desc: 'QA provides evidence. Human approves phase transitions. Decision ledger records everything.',
       color: 'var(--axc-orange)',
       bg: 'rgba(232,117,42,0.12)',
     },
   ];
 
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-alt">
       <div className="container">
         <span className="section-label text-blue">How it works</span>
         <h2>Structured turns. Mandatory challenge. Human authority.</h2>
@@ -251,20 +531,65 @@ function HowItWorks() {
   );
 }
 
-function PlatformSplit() {
+function Integrations() {
   return (
-    <section className="section-alt">
-      <div className="container" style={{ textAlign: 'center', maxWidth: 640 }}>
-        <span className="section-label text-green">Cloud</span>
-        <h2>Don't want to self-host?</h2>
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-green">Ecosystem</span>
+        <h2>IDE extensions, dashboard, plugins, and multi-repo</h2>
         <p className="section-subtitle">
-          Everything on this page is open source and MIT licensed.
-          If you want managed orchestration, persistent history, team dashboards,
-          and compliance reporting without running your own infrastructure —
+          AgentXchain meets you where you work. Not just a CLI &mdash; a full
+          delivery platform.
         </p>
-        <Link className="btn-secondary" to="https://agentxchain.ai">
-          Check out agentxchain.ai &rarr;
-        </Link>
+        <div className="feature-grid integrations-grid">
+          <div className="feature-card">
+            <h3>IDE extensions</h3>
+            <p>
+              VS Code and Cursor extensions bring governed workflows into your
+              editor. See turn status, approve gates, and monitor agent activity
+              without leaving your IDE.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Real-time dashboard</h3>
+            <p>
+              Web-based dashboard shows run state, turn history, decision ledgers,
+              and governance reports. Monitor your agent teams in real time.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Plugin system</h3>
+            <p>
+              Extend the runner with custom plugins for your workflow. Hook into
+              turn lifecycle events, add custom validation, integrate with your
+              existing tools.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Multi-repo coordination</h3>
+            <p>
+              Coordinate agent teams across multiple repositories with a
+              coordinator governance model. Workstreams, barriers, and
+              cross-repo context sharing.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Webhook notifications</h3>
+            <p>
+              Real-time notifications for turn completions, gate approvals,
+              escalations, and run events. Integrate with Slack, PagerDuty,
+              or any webhook consumer.
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>Export & verification</h3>
+            <p>
+              Export governed artifacts for compliance and audit. Verify exports
+              against protocol schemas. Governance reports in text, JSON, or
+              Markdown.
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -272,20 +597,22 @@ function PlatformSplit() {
 
 function Comparison() {
   const rows = [
-    ['Layer', 'Agent ↔ tools & data', 'Agent ↔ agent over network', 'Governance over shared work'],
-    ['Model', 'One agent, many tools', 'Many agents, messages', 'Adversarial collaboration, turns'],
-    ['Authority', 'Single agent decides', 'Delegation / RPC', 'Constitutional human sovereignty'],
+    ['Layer', 'Agent \u2194 tools & data', 'Agent \u2194 agent messages', 'Governance over shared work'],
+    ['Model', 'One agent, many tools', 'Delegation / RPC', 'Adversarial collaboration, turns'],
+    ['Authority', 'Single agent decides', 'Agents negotiate', 'Constitutional human sovereignty'],
     ['Audit trail', 'Tool call logs', 'Message history', 'Structured decisions + objections'],
+    ['Horizon', 'Single task', 'Request-response', 'Long-running, multi-phase delivery'],
     ['Best for', 'Agent uses tools', 'Agent calls another agent', 'AI team ships governed software'],
   ];
 
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-alt">
       <div className="container">
         <span className="section-label text-blue">Positioning</span>
         <h2>MCP connects tools. A2A connects agents. We govern delivery.</h2>
         <p className="section-subtitle">
-          Three protocols for three different problems. They're complementary.
+          Three protocols for three different problems. They're complementary,
+          not competing.
         </p>
         <div className="comparison-table-wrap">
           <table className="comparison-table">
@@ -320,34 +647,141 @@ function Comparison() {
   );
 }
 
-function Outcomes() {
-  const outcomes = [
-    { title: 'Errors caught earlier', desc: 'Mandatory challenge surfaces risks before they compound across agent turns.' },
-    { title: 'Higher quality releases', desc: 'QA evidence and acceptance matrices make release readiness explicit.' },
-    { title: 'Real accountability', desc: 'Every turn is logged, validated, and attributable to an agent role.' },
-    { title: 'Human control', desc: 'Protocol requires human approval for phase transitions and run completion.' },
-    { title: 'Structured convergence', desc: 'Phases, turn limits, and gates force the team toward a shippable result.' },
-    { title: 'Complete audit trail', desc: 'Every turn records decisions, objections, risks, and verification evidence.' },
-    { title: 'Lights-out capable', desc: 'Automated adapters run governed workflows unattended. Humans intervene at gates, not every turn.' },
-    { title: 'Faster decision loops', desc: 'Healthy friction surfaces risks early instead of after launch.' },
+function PlatformSplit() {
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-green">Platform</span>
+        <h2>Open protocol. Managed cloud. Same governance.</h2>
+        <p className="section-subtitle" style={{ maxWidth: 600 }}>
+          Two surfaces, one underlying protocol. Choose the deployment model
+          that fits your team.
+        </p>
+        <div className="platform-grid">
+          <div className="platform-card">
+            <h3><span className="text-blue">agentxchain.dev</span></h3>
+            <p className="platform-desc">Open-source core</p>
+            <ul>
+              <li>Full protocol specification (MIT)</li>
+              <li>CLI runner &mdash; local enforcement engine</li>
+              <li>All connectors: manual, local_cli, api_proxy, MCP</li>
+              <li>Workflow templates & conformance kit</li>
+              <li>Self-hosted dashboard</li>
+              <li>Plugin system & multi-repo coordination</li>
+            </ul>
+            <Link className="btn-secondary" to="/docs/quickstart" style={{ marginTop: '1rem' }}>
+              Get started &rarr;
+            </Link>
+          </div>
+          <div className="platform-card platform-card-ai">
+            <h3><span className="text-green">agentxchain.ai</span></h3>
+            <p className="platform-desc">Managed cloud experience</p>
+            <ul>
+              <li>Web dashboard &mdash; configure projects with UI, not JSON</li>
+              <li>Installable apps for Cursor, Claude Code, Codex</li>
+              <li>Cloud-managed coordination, state, and history</li>
+              <li>Team workspaces with shared runs</li>
+              <li>Compliance reporting & persistent audit trails</li>
+              <li>No infrastructure to manage</li>
+            </ul>
+            <Link className="btn-primary" to="https://agentxchain.ai" style={{ marginTop: '1rem' }}>
+              Explore the cloud &rarr;
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhatItIsNot() {
+  const items = [
+    { label: 'Not a single-agent coding assistant', desc: 'It governs teams, not individual agents.' },
+    { label: 'Not a prompt wrapper', desc: 'The protocol is the product, not prompt engineering.' },
+    { label: 'Not a chat UI', desc: 'It\'s a delivery system with structured turns and gates.' },
+    { label: 'Not a fragile IDE trick', desc: 'Protocol-enforced governance, not editor scripting.' },
+    { label: 'Not a generic agent framework', desc: 'Opinionated about governance. Unopinionated about models.' },
+    { label: 'Not just for PM/Dev/QA', desc: 'Roles are open-ended and charter-driven.' },
   ];
 
   return (
     <section className="section-alt">
       <div className="container">
-        <span className="section-label text-green">Product outcomes</span>
+        <span className="section-label text-orange">What this is NOT</span>
+        <h2>AgentXchain has opinions</h2>
+        <p className="section-subtitle">
+          If you want a generic agent framework with no opinions about governance,
+          this isn't it. Here's what AgentXchain intentionally is not.
+        </p>
+        <div className="not-grid">
+          {items.map((item) => (
+            <div className="not-item" key={item.label}>
+              <span className="not-x">&#x2717;</span>
+              <div>
+                <strong>{item.label}</strong>
+                <span className="not-desc">{item.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Outcomes() {
+  const outcomes = [
+    { title: 'Errors caught earlier', desc: 'Mandatory challenge surfaces risks before they compound across agent turns.' },
+    { title: 'Higher quality releases', desc: 'QA evidence and acceptance matrices make release readiness explicit, not assumed.' },
+    { title: 'Real accountability', desc: 'Every turn is logged, validated, and attributable to an agent role with a charter.' },
+    { title: 'Structured convergence', desc: 'Phases, turn limits, and gates force the team toward a shippable result.' },
+    { title: 'Complete audit trail', desc: 'Append-only decision ledger records decisions, objections, risks, and evidence.' },
+    { title: 'Lights-out capable', desc: 'Automated adapters run governed workflows unattended. Humans intervene at gates, not every turn.' },
+  ];
+
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-green">Outcomes</span>
         <h2>Why teams adopt AgentXchain</h2>
         <p className="section-subtitle">
-          The value is not "more agent activity." The value is better product
-          decisions and fewer expensive misses.
+          The value is better product decisions and fewer expensive misses &mdash;
+          not more agent activity.
         </p>
-        <div className="feature-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+        <div className="feature-grid outcomes-grid">
           {outcomes.map((o) => (
             <div className="feature-card" key={o.title}>
               <h3 style={{ color: 'var(--axc-green-light)' }}>{o.title}</h3>
               <p>{o.desc}</p>
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EndVision() {
+  return (
+    <section className="section-alt end-vision">
+      <div className="container" style={{ textAlign: 'center', maxWidth: 700 }}>
+        <span className="section-label text-blue">The end state</span>
+        <h2>Dark software factories</h2>
+        <p className="section-subtitle" style={{ maxWidth: 600, margin: '0 auto 2rem' }}>
+          Long-running. Multi-agent. Governed. Auditable. Evidence-backed.
+          Interoperable across models, tools, and organizations. That's the
+          future AgentXchain is building toward.
+        </p>
+        <div className="vision-principles">
+          <span>Protocol is core</span>
+          <span className="vision-dot">&middot;</span>
+          <span>Governance is core</span>
+          <span className="vision-dot">&middot;</span>
+          <span>Humans remain sovereign</span>
+          <span className="vision-dot">&middot;</span>
+          <span>Connectors are replaceable</span>
+          <span className="vision-dot">&middot;</span>
+          <span>Models are interchangeable</span>
         </div>
       </div>
     </section>
@@ -367,9 +801,9 @@ function CTA() {
           style={{ marginBottom: '1.25rem' }}
         />
         <h2>Software is a team sport. Even when the team is AI.</h2>
-        <p style={{ color: 'var(--ifm-font-color-secondary)', marginBottom: '2rem', maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
-          One protocol. Define your roles, route turns through real gates,
-          and keep a decision trail you can inspect later.
+        <p style={{ color: 'var(--ifm-font-color-secondary)', marginBottom: '2rem', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+          One protocol. Define your roles. Route turns through real gates.
+          Keep a decision trail you can inspect, audit, and trust.
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="https://www.npmjs.com/package/agentxchain">
@@ -377,6 +811,9 @@ function CTA() {
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
             Read the docs &rarr;
+          </Link>
+          <Link className="btn-secondary" to="https://agentxchain.ai">
+            Try the cloud &rarr;
           </Link>
         </div>
       </div>
@@ -387,17 +824,24 @@ function CTA() {
 export default function Home(): React.ReactElement {
   return (
     <Layout
-      title="Constitutional governance for AI software teams"
-      description="Protocol-governed multi-agent software delivery. Mandatory challenge, structured turns, phase gates, and human authority. Built for long-horizon coding and lights-out software factories."
+      title="Governed multi-agent software delivery"
+      description="The governance protocol for lights-out software factories. Structured turns, mandatory challenge, phase gates, and human sovereignty. Five layers: protocol, runners, connectors, workflow kit, and integrations. Built for long-horizon AI software teams."
     >
       <Hero />
       <Stats />
+      <CoreProblem />
       <Philosophy />
-      <Architecture />
+      <FiveLayers />
+      <WorkflowKit />
+      <RoleSystem />
+      <HumanSovereignty />
       <HowItWorks />
-      <PlatformSplit />
+      <Integrations />
       <Comparison />
+      <PlatformSplit />
+      <WhatItIsNot />
       <Outcomes />
+      <EndVision />
       <CTA />
     </Layout>
   );

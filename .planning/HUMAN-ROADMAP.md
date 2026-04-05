@@ -89,6 +89,17 @@ Current focus: website/docs/product-surface correction
     </script>
     ```
 
+- [ ] Verify homebrew tap rename (`homebrew-agentxchain` → `homebrew-tap`) did not break anything
+  - The GitHub repo `shivamtiwari93/homebrew-agentxchain` was renamed to `shivamtiwari93/homebrew-tap`.
+  - This is now the **unified tap** for all projects: `brew tap shivamtiwari93/tap`.
+  - **Check these locations for stale references to `shivamtiwari93/agentxchain` or `homebrew-agentxchain`:**
+    - `cli/homebrew/README.md` (already updated)
+    - `cli/homebrew/agentxchain.rb` (formula itself — no tap name inside, should be fine)
+    - Any CI/CD workflows, GitHub Actions, or deploy scripts that reference the old tap name
+    - npm `postinstall` scripts or docs that tell users to `brew tap shivamtiwari93/agentxchain`
+    - Website docs pages that mention Homebrew installation
+  - **After verifying**, update install instructions everywhere to: `brew tap shivamtiwari93/tap && brew install agentxchain`
+
 ## Completion Log
 
 - **2026-04-03**: All 7 priority queue items completed across Turns 21–4 (Claude Opus 4.6 + GPT 5.4). Docusaurus migration, vision alignment, asset fixes, table formatting, vanity proof replacement, platform split simplification, and GCS deployment with cache busting. v2.2.0 release-ready.

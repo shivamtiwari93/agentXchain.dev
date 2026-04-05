@@ -66,8 +66,8 @@ const config: Config = {
     image: 'img/agentXchain.dev_rectangle_600x120px.png',
     metadata: [
       {name: 'twitter:card', content: 'summary_large_image'},
-      {name: 'twitter:title', content: 'AgentXchain — Constitutional governance for AI software teams'},
-      {name: 'twitter:description', content: 'Protocol-governed multi-agent software delivery. Mandatory challenge, structured turns, phase gates, and human authority.'},
+      {name: 'twitter:title', content: 'AgentXchain — The governance protocol for lights-out software factories'},
+      {name: 'twitter:description', content: 'Governed multi-agent software delivery. Five layers: protocol, runners, connectors, workflow kit, integrations. Structured turns, mandatory challenge, and human sovereignty.'},
     ],
     colorMode: {
       defaultMode: 'dark',
@@ -115,13 +115,22 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Getting Started',
           items: [
             {label: 'Quickstart', to: '/docs/quickstart'},
             {label: 'CLI Reference', to: '/docs/cli'},
+            {label: 'Templates', to: '/docs/templates'},
+            {label: 'Multi-Repo', to: '/docs/multi-repo'},
+          ],
+        },
+        {
+          title: 'Architecture',
+          items: [
             {label: 'Protocol v6', to: '/docs/protocol'},
+            {label: 'Runner Interface', to: '/docs/runner-interface'},
             {label: 'Adapters', to: '/docs/adapters'},
             {label: 'Plugins', to: '/docs/plugins'},
+            {label: 'Recovery', to: '/docs/recovery'},
           ],
         },
         {
@@ -135,17 +144,12 @@ const config: Config = {
           ],
         },
         {
-          title: 'Community',
-          items: [
-            {label: 'GitHub', href: 'https://github.com/shivamtiwari93/agentXchain.dev'},
-            {label: 'npm', href: 'https://www.npmjs.com/package/agentxchain'},
-          ],
-        },
-        {
           title: 'Platform',
           items: [
             {label: 'agentxchain.dev (OSS)', href: 'https://agentxchain.dev'},
             {label: 'agentxchain.ai (Cloud)', href: 'https://agentxchain.ai'},
+            {label: 'GitHub', href: 'https://github.com/shivamtiwari93/agentXchain.dev'},
+            {label: 'npm', href: 'https://www.npmjs.com/package/agentxchain'},
           ],
         },
       ],
