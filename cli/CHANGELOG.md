@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.12.0
+
+Governed gates now enforce semantic truth, not just file presence. Scaffold ergonomics and docs accuracy improved across the board.
+
+### Semantic Workflow Gate Enforcement
+
+- Phase-transition gates now require `.planning/PM_SIGNOFF.md` to contain `Approved: YES`. File existence alone no longer satisfies the planning gate.
+- Run-completion gates now require `.planning/ship-verdict.md` to carry an affirmative `## Verdict:` value (`YES`, `SHIP`, or `SHIP IT`). Placeholder verdicts fail the gate.
+- `template validate` remains scaffold-integrity proof only — it does not pretend to certify gate readiness. Docs and CLI output now explicitly distinguish the two.
+- New `cli/src/lib/workflow-gate-semantics.js` module: pure-function semantic evaluators consumed by the gate evaluator.
+
+### Scaffold Ergonomics
+
+- `agentxchain init --governed` now accepts `--dir <path>` for explicit scaffold target directory. Project name is inferred from directory basename. `--dir .` bootstraps in-place inside an existing repo.
+- `--dev-command <parts...>` and `--dev-prompt-transport <mode>` allow non-default agent configuration at scaffold time.
+- All documentation examples updated to use explicit `--dir` — implicit default-directory patterns removed from docs.
+
+### Docs Accuracy
+
+- Adapter docs narrowed to verified-default `claude --print` contract; overclaiming of equal Codex/Aider support removed.
+- Quickstart cold-start E2E proof added: the documented flow is now tested end-to-end.
+- Homebrew tap rename audit completed: all stale `homebrew-agentxchain` references fixed across planning docs, scripts, and tests.
+
+### Evidence
+
+- 1921 node --test tests / 432 suites, 0 failures.
+- 681 Vitest tests / 36 files, 0 failures.
+- Website production build passes.
+
 ## 2.11.0
 
 Protocol conformance closure and workflow-kit proof surfaced honestly. This release closes the remaining shipped verifier gaps around `hook_audit` and `dispatch_manifest`, promotes remote verification into a first-class public docs contract, and turns `template validate` into an explicit operator proof for the governed scaffold.
