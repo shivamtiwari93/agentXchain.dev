@@ -157,7 +157,7 @@ This single command:
 3. Pushes the canonical tap (`shivamtiwari93/homebrew-tap`)
 
 In CI, this runs automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, the repo mirror is updated and the tap push is skipped with a warning.
-The tag workflow then rebases the repo-mirror commit onto the latest `origin/main` before pushing, so a detached tag checkout cannot clobber or fail against a fast-moving main branch.
+The tag workflow creates a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update instead of pushing directly to `main`, since `main` has branch protection requiring PR reviews. The PR must be merged manually or via auto-merge as part of the release follow-through.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
 Do not update Homebrew against a version that is not yet live on npm.

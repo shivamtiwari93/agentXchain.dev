@@ -98,12 +98,12 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow commits mirror updates back to main', () => {
+  it('CI workflow creates PR for mirror updates instead of pushing directly to protected main', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
-      /Commit Homebrew mirror updates/,
-      'workflow must have a step to commit mirror updates',
+      /Commit Homebrew mirror updates via PR/,
+      'workflow must have a step to commit mirror updates via PR',
     );
     assert.match(
       workflow,
@@ -112,18 +112,23 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /git switch -C homebrew-sync origin\/main/,
-      'workflow must apply mirror updates on top of the latest main branch, not the detached tag checkout',
+      /chore\/homebrew-sync-v/,
+      'workflow must create a named branch for the mirror update PR',
+    );
+    assert.match(
+      workflow,
+      /gh pr create/,
+      'workflow must create a PR for the mirror update instead of pushing directly to main',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /git push origin HEAD:main/,
+      'workflow must NOT push directly to main (branch protection requires PRs)',
     );
     assert.doesNotMatch(
       workflow,
       /git config --global url\..*insteadOf/,
       'workflow must not rewrite global GitHub auth just to push the canonical tap',
-    );
-    assert.match(
-      workflow,
-      /git push origin HEAD:main/,
-      'workflow must push mirror updates to main',
     );
   });
 });

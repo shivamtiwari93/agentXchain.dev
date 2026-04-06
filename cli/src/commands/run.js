@@ -14,10 +14,12 @@
 
 import chalk from 'chalk';
 import { createInterface } from 'readline';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { runLoop } from '../lib/run-loop.js';
+import { buildRunExport } from '../lib/export.js';
+import { buildGovernanceReport, formatGovernanceReportMarkdown } from '../lib/report.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import {
   dispatchLocalCli,
@@ -325,6 +327,32 @@ export async function runCommand(opts) {
       if (recovery.detail) {
         console.log(chalk.dim(`  Detail:   ${recovery.detail}`));
       }
+    }
+  }
+
+  // ── Auto governance report ──────────────────────────────────────────────
+  if (opts.report !== false && result.state) {
+    try {
+      const reportsDir = join(root, '.agentxchain', 'reports');
+      mkdirSync(reportsDir, { recursive: true });
+
+      const exportResult = buildRunExport(root);
+      if (exportResult.ok) {
+        const runId = result.state.run_id || 'unknown';
+        const exportPath = join(reportsDir, `export-${runId}.json`);
+        writeFileSync(exportPath, JSON.stringify(exportResult.export, null, 2));
+
+        const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
+        const reportPath = join(reportsDir, `report-${runId}.md`);
+        writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
+
+        console.log('');
+        console.log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+      } else {
+        console.log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
+      }
+    } catch (err) {
+      console.log(chalk.dim(`  Governance report failed: ${err.message}`));
     }
   }
 

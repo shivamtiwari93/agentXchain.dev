@@ -36,6 +36,16 @@ Usage: bash scripts/sync-homebrew.sh --target-version <semver> [--push-tap] [--d
 
 Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEBREW_TAP_TOKEN` secret is available. If the secret is not configured, emit a warning but do not fail the workflow — the sync can be run locally as a fallback.
 
+**Branch protection constraint (`DEC-HOMEBREW-SYNC-008`):** The `main` branch has branch protection requiring PRs with 1 approving review. `github-actions[bot]` cannot push directly to `main`. The CI workflow must:
+1. Create a feature branch (`chore/homebrew-sync-v<version>`) based on `origin/main`.
+2. Commit the mirror update to that branch.
+3. Open a PR via `gh pr create` instead of pushing `HEAD:main`.
+4. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
+
+**Auth requirements for canonical tap push:**
+- Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
+- This is a one-time human setup task. The PAT should be a fine-grained token scoped to only `homebrew-tap` with `contents: write` permission.
+
 ### npm script: `cli/package.json`
 
 ```json
@@ -88,3 +98,11 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 ## Open Questions
 
 None.
+
+## Auth Setup (Human Task)
+
+To enable fully automated Homebrew sync in CI, the repo owner must:
+
+1. Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission.
+2. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`.
+3. The mirror-update PR still requires manual merge due to `main` branch protection (1 approving review required).

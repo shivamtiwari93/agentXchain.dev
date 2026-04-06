@@ -90,32 +90,40 @@ jobs:
           fi
           bash scripts/sync-homebrew.sh --target-version "${RELEASE_TAG#v}" $PUSH_FLAG
 
-      - name: Commit Homebrew mirror updates
+      - name: Commit Homebrew mirror updates via PR
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
         working-directory: cli
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if git diff --quiet homebrew/; then
             echo "Homebrew mirror already in sync — no commit needed."
-          else
-            TMP_FORMULA="$(mktemp)"
-            TMP_README="$(mktemp)"
-            cp homebrew/agentxchain.rb "$TMP_FORMULA"
-            cp homebrew/README.md "$TMP_README"
-            git fetch origin main
-            git switch -C homebrew-sync origin/main
-            cp "$TMP_FORMULA" homebrew/agentxchain.rb
-            cp "$TMP_README" homebrew/README.md
-            rm -f "$TMP_FORMULA" "$TMP_README"
-            if git diff --quiet homebrew/; then
-              echo "Homebrew mirror update already present on main — no commit needed."
-              exit 0
-            fi
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add homebrew/agentxchain.rb homebrew/README.md
-            git commit -m "chore: sync Homebrew formula for v${RELEASE_TAG#v}"
-            git push origin HEAD:main
-            echo "Committed and pushed Homebrew mirror update."
+            exit 0
           fi
+          BRANCH="chore/homebrew-sync-v${RELEASE_TAG#v}"
+          TMP_FORMULA="$(mktemp)"
+          TMP_README="$(mktemp)"
+          cp homebrew/agentxchain.rb "$TMP_FORMULA"
+          cp homebrew/README.md "$TMP_README"
+          git fetch origin main
+          git switch -C "$BRANCH" origin/main
+          cp "$TMP_FORMULA" homebrew/agentxchain.rb
+          cp "$TMP_README" homebrew/README.md
+          rm -f "$TMP_FORMULA" "$TMP_README"
+          if git diff --quiet homebrew/; then
+            echo "Homebrew mirror update already present on main — no commit needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add homebrew/agentxchain.rb homebrew/README.md
+          git commit -m "chore: sync Homebrew formula for v${RELEASE_TAG#v}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
+            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
+          echo "Created PR for Homebrew mirror update on branch $BRANCH."

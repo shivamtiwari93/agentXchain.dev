@@ -118,4 +118,58 @@ describe('agentxchain run — guard tests', () => {
   it('AT-RUN-GUARD-010: run.js exists at expected path', () => {
     assert.ok(existsSync(runCommandPath), 'cli/src/commands/run.js must exist');
   });
+
+  // AT-RUN-GUARD-011: run.js imports buildRunExport and buildGovernanceReport for auto-report
+  it('AT-RUN-GUARD-011: run.js imports auto-report dependencies', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    assert.ok(
+      src.includes('buildRunExport'),
+      'run.js must import buildRunExport for automatic governance export after run',
+    );
+    assert.ok(
+      src.includes('buildGovernanceReport'),
+      'run.js must import buildGovernanceReport for automatic governance report after run',
+    );
+    assert.ok(
+      src.includes('formatGovernanceReportMarkdown'),
+      'run.js must import formatGovernanceReportMarkdown for writing the report file',
+    );
+  });
+
+  // AT-RUN-GUARD-012: run.js writes reports to .agentxchain/reports/
+  it('AT-RUN-GUARD-012: auto-report writes to .agentxchain/reports/', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    assert.ok(
+      src.includes('.agentxchain/reports/report-'),
+      'run.js must reference .agentxchain/reports/ for governance report output',
+    );
+    assert.ok(
+      src.includes('export-'),
+      'run.js must write export artifact alongside the governance report',
+    );
+  });
+
+  // AT-RUN-GUARD-013: run.js respects --no-report flag
+  it('AT-RUN-GUARD-013: auto-report respects --no-report opt-out', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    assert.ok(
+      src.includes('opts.report !== false'),
+      'run.js must check opts.report to support --no-report suppression',
+    );
+    const bin = readFileSync(binPath, 'utf8');
+    assert.ok(
+      bin.includes('--no-report'),
+      '--no-report option must be registered in CLI entry point',
+    );
+  });
+
+  // AT-RUN-GUARD-014: auto-report does not change exit code on failure
+  it('AT-RUN-GUARD-014: auto-report failure does not alter exit code', () => {
+    const src = readFileSync(runCommandPath, 'utf8');
+    // The report generation must be wrapped in try/catch so failures are non-fatal
+    assert.ok(
+      src.includes('Governance report failed:') || src.includes('Governance report skipped:'),
+      'run.js must handle report generation failures gracefully without altering exit code',
+    );
+  });
 });

@@ -321,6 +321,7 @@ program
   .option('--auto-approve', 'Auto-approve all gates (non-interactive mode)')
   .option('--verbose', 'Stream adapter subprocess output')
   .option('--dry-run', 'Print what would be dispatched without executing')
+  .option('--no-report', 'Suppress automatic governance report after run completes')
   .action(runCommand);
 
 program

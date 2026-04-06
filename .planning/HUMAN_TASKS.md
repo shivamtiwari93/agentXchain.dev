@@ -8,7 +8,7 @@ Current state: **No confirmed human-only blockers remain.** Historical release a
 
 ## Open
 
-- None currently.
+- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`. This enables CI to auto-push the canonical Homebrew tap formula after npm publish. Without it, the tap push is skipped with a warning and must be done manually.
 
 ## Agent Release Instruction
 
