@@ -126,16 +126,82 @@ The shipped coordinator supports four completion-barrier modes:
 
 Barrier transitions are tracked in `.agentxchain/multirepo/barriers.json` and audited in `.agentxchain/multirepo/barrier-ledger.jsonl`.
 
-`interface_alignment` is explicit, not magical. The coordinator does not infer semantic compatibility from changed files. You declare the required accepted decision IDs per repo in `agentxchain-multi.json`:
+`interface_alignment` is explicit, not magical. The coordinator does not infer semantic compatibility from changed files. You declare the required accepted decision IDs per repo in `agentxchain-multi.json`, and the barrier tracks progress per repo until every declared decision ID has been accepted.
 
-```json
-"interface_alignment": {
-  "decision_ids_by_repo": {
-    "api": ["DEC-101"],
-    "web": ["DEC-201"]
+### Interface alignment end-to-end example
+
+**1. Config — declare what alignment means**
+
+```json title="agentxchain-multi.json"
+{
+  "schema_version": "0.1",
+  "project": { "id": "payments", "name": "Payment API v2" },
+  "repos": {
+    "api": { "path": "./repos/api", "default_branch": "main", "required": true },
+    "web": { "path": "./repos/web", "default_branch": "main", "required": true }
+  },
+  "workstreams": {
+    "payment_flow": {
+      "phase": "implementation",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": [],
+      "completion_barrier": "interface_alignment",
+      "interface_alignment": {
+        "decision_ids_by_repo": {
+          "api": ["DEC-101"],
+          "web": ["DEC-201"]
+        }
+      }
+    }
+  },
+  "routing": {
+    "implementation": { "entry_workstream": "payment_flow" }
+  },
+  "gates": {
+    "initiative_ship": { "requires_human_approval": true, "requires_repos": ["api", "web"] }
   }
 }
 ```
+
+The config says: `api` must accept a turn containing decision `DEC-101`, and `web` must accept a turn containing decision `DEC-201`, before the workstream barrier is satisfied.
+
+**2. Turn result — include the decision IDs**
+
+When the agent working in the `api` repo accepts a turn, its `turn-result.json` must include the decision in the `decisions` array:
+
+```json title=".agentxchain/staging/<turn_id>/turn-result.json (excerpt)"
+{
+  "decisions": [
+    { "id": "DEC-101", "title": "Payment endpoint contract", "status": "accepted" }
+  ]
+}
+```
+
+After `agentxchain accept-turn` in the `api` repo and the next `agentxchain multi step`, the coordinator projects that acceptance and evaluates the barrier. At this point:
+
+- `api` has accepted `DEC-101` — aligned
+- `web` has not accepted `DEC-201` — not aligned
+- Barrier status: **`partially_satisfied`**
+
+**3. Coordinator context — what the next repo sees**
+
+When `multi step` dispatches to `web`, the generated `COORDINATOR_CONTEXT.md` surfaces what is still required:
+
+```text
+## Active Barriers
+- barrier_payment_flow: interface_alignment (partially_satisfied)
+  Required decision IDs for web: DEC-201.
+
+## Required Follow-ups
+- Accept declared interface-alignment decisions for web: DEC-201.
+```
+
+`COORDINATOR_CONTEXT.json` carries the same data in machine-readable form, including the full `alignment_decision_ids` map and `satisfied_repos` list.
+
+**4. Completion — barrier satisfied**
+
+After the `web` repo accepts a turn with `DEC-201` in its decisions array and the coordinator projects the result, the barrier reaches **`satisfied`** and the workstream can advance to the completion gate.
 
 ## Cross-Repo Context
 

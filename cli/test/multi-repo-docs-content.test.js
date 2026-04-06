@@ -98,6 +98,28 @@ describe('Multi-repo docs content', () => {
   });
 });
 
+describe('Interface alignment end-to-end example', () => {
+  it('shows a complete agentxchain-multi.json with interface_alignment as completion_barrier', () => {
+    assert.match(PAGE, /completion_barrier.*interface_alignment/s);
+    assert.match(PAGE, /"interface_alignment":\s*\{[\s\S]*?"decision_ids_by_repo"/);
+  });
+
+  it('shows turn result decisions array with declared DEC-NNN', () => {
+    assert.match(PAGE, /turn-result\.json/);
+    assert.match(PAGE, /"decisions":\s*\[[\s\S]*?"id":\s*"DEC-101"/);
+  });
+
+  it('shows coordinator context surfacing required decision IDs for the target repo', () => {
+    assert.match(PAGE, /Required decision IDs for web: DEC-201/);
+    assert.match(PAGE, /alignment_decision_ids/);
+  });
+
+  it('shows barrier progression from partially_satisfied to satisfied', () => {
+    assert.match(PAGE, /partially_satisfied/);
+    assert.match(PAGE, /barrier.*satisfied/i);
+  });
+});
+
 describe('Multi-repo doc spec alignment', () => {
   it('ships a standalone spec with the current route and acceptance contract', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+Shipped/i);
