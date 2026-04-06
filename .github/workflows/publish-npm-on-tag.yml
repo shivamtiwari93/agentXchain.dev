@@ -82,8 +82,6 @@ jobs:
           set -euo pipefail
           PUSH_FLAG=""
           if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
-            # Configure git to use the PAT for the tap push
-            git config --global url."https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/".insteadOf "https://github.com/"
             PUSH_FLAG="--push-tap"
             echo "HOMEBREW_TAP_TOKEN available — will push to canonical tap."
           else
@@ -101,6 +99,19 @@ jobs:
           if git diff --quiet homebrew/; then
             echo "Homebrew mirror already in sync — no commit needed."
           else
+            TMP_FORMULA="$(mktemp)"
+            TMP_README="$(mktemp)"
+            cp homebrew/agentxchain.rb "$TMP_FORMULA"
+            cp homebrew/README.md "$TMP_README"
+            git fetch origin main
+            git switch -C homebrew-sync origin/main
+            cp "$TMP_FORMULA" homebrew/agentxchain.rb
+            cp "$TMP_README" homebrew/README.md
+            rm -f "$TMP_FORMULA" "$TMP_README"
+            if git diff --quiet homebrew/; then
+              echo "Homebrew mirror update already present on main — no commit needed."
+              exit 0
+            fi
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add homebrew/agentxchain.rb homebrew/README.md

@@ -2,7 +2,7 @@
 # Sync Homebrew formula from live npm registry metadata.
 # Updates both the repo mirror (cli/homebrew/) and optionally the canonical tap.
 # Usage: bash scripts/sync-homebrew.sh --target-version <semver> [--push-tap] [--dry-run]
-set -uo pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLI_DIR="${SCRIPT_DIR}/.."
@@ -16,6 +16,16 @@ FORMULA_PATH="${CLI_DIR}/homebrew/agentxchain.rb"
 README_PATH="${CLI_DIR}/homebrew/README.md"
 CANONICAL_TAP_REPO="shivamtiwari93/homebrew-tap"
 PACKAGE_NAME="agentxchain"
+
+formula_url() {
+  local formula_path="$1"
+  grep -E '^\s*url\s+"' "$formula_path" | sed 's/.*url *"\([^"]*\)".*/\1/' || true
+}
+
+formula_sha() {
+  local formula_path="$1"
+  grep -E '^\s*sha256\s+"' "$formula_path" | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/' || true
+}
 
 usage() {
   echo "Usage: bash scripts/sync-homebrew.sh --target-version <semver> [--push-tap] [--dry-run]" >&2
@@ -81,21 +91,25 @@ echo "  sha256: ${TARBALL_SHA}"
 
 # --- Step 3: Check if already in sync ---
 echo "[3/5] Checking repo mirror..."
+MIRROR_IN_SYNC=false
 if [[ -f "$FORMULA_PATH" ]]; then
-  CURRENT_URL="$(grep -E '^\s*url\s+"' "$FORMULA_PATH" | sed 's/.*url *"\([^"]*\)".*/\1/' || true)"
-  CURRENT_SHA="$(grep -E '^\s*sha256\s+"' "$FORMULA_PATH" | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/' || true)"
+  CURRENT_URL="$(formula_url "$FORMULA_PATH")"
+  CURRENT_SHA="$(formula_sha "$FORMULA_PATH")"
   if [[ "$CURRENT_URL" == "$TARBALL_URL" && "$CURRENT_SHA" == "$TARBALL_SHA" ]]; then
-    echo "  Already in sync — no changes needed."
-    if $PUSH_TAP; then
-      echo "  Skipping tap push (already in sync)."
+    MIRROR_IN_SYNC=true
+    echo "  Repo mirror already matches npm registry."
+    if ! $PUSH_TAP; then
+      echo "====================================="
+      echo "SYNC COMPLETE — repo mirror already up to date."
+      exit 0
     fi
-    echo "====================================="
-    echo "SYNC COMPLETE — already up to date."
-    exit 0
+    echo "  Repo mirror is current, but canonical tap verification is still required."
   fi
-  echo "  Current URL: ${CURRENT_URL}"
-  echo "  Current SHA: ${CURRENT_SHA}"
-  echo "  Updating to match registry..."
+  if ! $MIRROR_IN_SYNC; then
+    echo "  Current URL: ${CURRENT_URL}"
+    echo "  Current SHA: ${CURRENT_SHA}"
+    echo "  Updating to match registry..."
+  fi
 else
   echo "  Formula not found at ${FORMULA_PATH} — will create."
 fi
@@ -103,15 +117,22 @@ fi
 if $DRY_RUN; then
   echo ""
   echo "[DRY RUN] Would update:"
-  echo "  ${FORMULA_PATH}:"
-  echo "    url -> ${TARBALL_URL}"
-  echo "    sha256 -> ${TARBALL_SHA}"
-  echo "  ${README_PATH}:"
-  echo "    version -> ${TARGET_VERSION}"
-  echo "    tarball -> ${TARBALL_URL}"
+  if $MIRROR_IN_SYNC; then
+    echo "  Repo mirror already matches:"
+    echo "    url -> ${TARBALL_URL}"
+    echo "    sha256 -> ${TARBALL_SHA}"
+  else
+    echo "  ${FORMULA_PATH}:"
+    echo "    url -> ${TARBALL_URL}"
+    echo "    sha256 -> ${TARBALL_SHA}"
+    echo "  ${README_PATH}:"
+    echo "    version -> ${TARGET_VERSION}"
+    echo "    tarball -> ${TARBALL_URL}"
+  fi
   if $PUSH_TAP; then
     echo "  Canonical tap ${CANONICAL_TAP_REPO}:"
-    echo "    Formula/agentxchain.rb -> same as above"
+    echo "    Formula/agentxchain.rb -> ${TARBALL_URL}"
+    echo "    Formula/agentxchain.rb sha256 -> ${TARBALL_SHA}"
   fi
   echo "====================================="
   echo "DRY RUN COMPLETE — no files modified."
@@ -121,31 +142,39 @@ fi
 # --- Step 4: Update repo mirror ---
 echo "[4/5] Updating repo mirror..."
 
-# Update formula
-ESCAPED_URL="$(printf '%s' "$TARBALL_URL" | sed 's/[&/\]/\\&/g')"
-ESCAPED_SHA="$(printf '%s' "$TARBALL_SHA" | sed 's/[&/\]/\\&/g')"
-sed -i.bak -E "s|^([[:space:]]*url \").*(\")|\1${ESCAPED_URL}\2|" "$FORMULA_PATH"
-sed -i.bak -E "s|^([[:space:]]*sha256 \").*(\")|\1${ESCAPED_SHA}\2|" "$FORMULA_PATH"
-rm -f "${FORMULA_PATH}.bak"
+if $MIRROR_IN_SYNC; then
+  echo "  Repo mirror already in sync — no local file changes needed."
+else
+  # Update formula
+  ESCAPED_URL="$(printf '%s' "$TARBALL_URL" | sed 's/[&/\]/\\&/g')"
+  ESCAPED_SHA="$(printf '%s' "$TARBALL_SHA" | sed 's/[&/\]/\\&/g')"
+  sed -i.bak -E "s|^([[:space:]]*url \").*(\")|\1${ESCAPED_URL}\2|" "$FORMULA_PATH"
+  sed -i.bak -E "s|^([[:space:]]*sha256 \").*(\")|\1${ESCAPED_SHA}\2|" "$FORMULA_PATH"
+  rm -f "${FORMULA_PATH}.bak"
 
-# Update README version and tarball lines
-if [[ -f "$README_PATH" ]]; then
-  # Update version line: "- version: `X.Y.Z`"
-  sed -i.bak -E "s|^(- version: \`).*(\`)|\1${TARGET_VERSION}\2|" "$README_PATH"
-  # Update tarball line: "- source tarball: `URL`"
-  sed -i.bak -E "s|^(- source tarball: \`).*(\`)|\1${TARBALL_URL}\2|" "$README_PATH"
-  rm -f "${README_PATH}.bak"
+  # Update README version and tarball lines
+  if [[ -f "$README_PATH" ]]; then
+    # Update version line: "- version: `X.Y.Z`"
+    sed -i.bak -E "s|^(- version: \`).*(\`)|\1${TARGET_VERSION}\2|" "$README_PATH"
+    # Update tarball line: "- source tarball: `URL`"
+    sed -i.bak -E "s|^(- source tarball: \`).*(\`)|\1${TARBALL_URL}\2|" "$README_PATH"
+    rm -f "${README_PATH}.bak"
+  fi
+
+  echo "  Updated ${FORMULA_PATH}"
+  echo "  Updated ${README_PATH}"
 fi
-
-echo "  Updated ${FORMULA_PATH}"
-echo "  Updated ${README_PATH}"
 
 # --- Step 5: Push to canonical tap (optional) ---
 if $PUSH_TAP; then
   echo "[5/5] Pushing to canonical tap ${CANONICAL_TAP_REPO}..."
   TAP_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/homebrew-tap-sync.XXXXXX")"
+  TAP_REMOTE_URL="https://github.com/${CANONICAL_TAP_REPO}.git"
+  if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+    TAP_REMOTE_URL="https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${CANONICAL_TAP_REPO}.git"
+  fi
 
-  if ! git clone "https://github.com/${CANONICAL_TAP_REPO}.git" "$TAP_TMPDIR" 2>/dev/null; then
+  if ! git clone "$TAP_REMOTE_URL" "$TAP_TMPDIR" 2>/dev/null; then
     echo "FAIL: could not clone ${CANONICAL_TAP_REPO}" >&2
     rm -rf "$TAP_TMPDIR"
     exit 1
@@ -156,18 +185,29 @@ if $PUSH_TAP; then
     mkdir -p "${TAP_TMPDIR}/Formula"
   fi
 
-  cp "$FORMULA_PATH" "$TAP_FORMULA"
+  TAP_CURRENT_URL=""
+  TAP_CURRENT_SHA=""
+  if [[ -f "$TAP_FORMULA" ]]; then
+    TAP_CURRENT_URL="$(formula_url "$TAP_FORMULA")"
+    TAP_CURRENT_SHA="$(formula_sha "$TAP_FORMULA")"
+  fi
 
   (
     cd "$TAP_TMPDIR" || exit 1
-    git add Formula/agentxchain.rb
-    if git diff --cached --quiet; then
+    if [[ "$TAP_CURRENT_URL" == "$TARBALL_URL" && "$TAP_CURRENT_SHA" == "$TARBALL_SHA" ]]; then
       echo "  Canonical tap already in sync — no push needed."
     else
+      cp "$FORMULA_PATH" "$TAP_FORMULA"
+      if ! git config user.name >/dev/null; then
+        git config user.name "${HOMEBREW_TAP_GIT_NAME:-github-actions[bot]}"
+      fi
+      if ! git config user.email >/dev/null; then
+        git config user.email "${HOMEBREW_TAP_GIT_EMAIL:-github-actions[bot]@users.noreply.github.com}"
+      fi
+      git add Formula/agentxchain.rb
       git commit -m "agentxchain ${TARGET_VERSION}"
-      if ! git push origin main; then
+      if ! git push origin HEAD:main; then
         echo "FAIL: could not push to ${CANONICAL_TAP_REPO}" >&2
-        rm -rf "$TAP_TMPDIR"
         exit 1
       fi
       echo "  Pushed to ${CANONICAL_TAP_REPO}"

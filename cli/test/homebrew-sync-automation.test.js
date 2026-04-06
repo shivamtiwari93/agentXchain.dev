@@ -49,11 +49,22 @@ describe('homebrew sync automation contract', () => {
 
   it('sync script requires --target-version (not hardcoded versions)', () => {
     const script = read('cli/scripts/sync-homebrew.sh');
+    assert.match(script, /set -euo pipefail/, 'script must fail closed on command errors');
     assert.match(script, /--target-version/, 'script must accept --target-version');
     assert.match(script, /--push-tap/, 'script must accept --push-tap');
     assert.match(script, /--dry-run/, 'script must accept --dry-run');
     assert.match(script, /npm view/, 'script must fetch from npm registry');
     assert.match(script, /shasum -a 256/, 'script must compute SHA256');
+    assert.match(
+      script,
+      /Repo mirror is current, but canonical tap verification is still required\./,
+      'script must not skip canonical tap verification when the repo mirror already matches npm',
+    );
+    assert.match(
+      script,
+      /git config user\.name/,
+      'script must configure a git identity for canonical tap commits when needed',
+    );
   });
 
   it('release playbook references sync:homebrew instead of manual steps', () => {
@@ -73,7 +84,7 @@ describe('homebrew sync automation contract', () => {
   it('sync automation spec exists with acceptance tests', () => {
     const spec = read('.planning/HOMEBREW_SYNC_AUTOMATION_SPEC.md');
     assert.match(spec, /AT-HS-001/, 'spec must define acceptance test AT-HS-001');
-    assert.match(spec, /AT-HS-008/, 'spec must define acceptance test AT-HS-008');
+    assert.match(spec, /AT-HS-010/, 'spec must define acceptance test AT-HS-010');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
   });
 
@@ -93,6 +104,21 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /Commit Homebrew mirror updates/,
       'workflow must have a step to commit mirror updates',
+    );
+    assert.match(
+      workflow,
+      /git fetch origin main/,
+      'workflow must fetch the latest main branch before committing mirror updates',
+    );
+    assert.match(
+      workflow,
+      /git switch -C homebrew-sync origin\/main/,
+      'workflow must apply mirror updates on top of the latest main branch, not the detached tag checkout',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /git config --global url\..*insteadOf/,
+      'workflow must not rewrite global GitHub auth just to push the canonical tap',
     );
     assert.match(
       workflow,

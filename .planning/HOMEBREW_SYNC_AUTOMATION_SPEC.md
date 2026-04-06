@@ -46,15 +46,18 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 
 1. Fetch tarball URL from `npm view agentxchain@<version> dist.tarball`.
 2. Download the tarball and compute SHA256.
-3. Compare against current `cli/homebrew/agentxchain.rb`. If already in sync, exit 0 with "already in sync" message.
-4. Update `cli/homebrew/agentxchain.rb`: replace `url` and `sha256` lines.
-5. Update `cli/homebrew/README.md`: replace version and tarball URL lines.
-6. If `--push-tap`:
+3. Compare against current `cli/homebrew/agentxchain.rb`. If already in sync and `--push-tap` is not set, exit 0 with "already in sync" message.
+4. If `--push-tap` is set, do not short-circuit on repo-mirror equality. The script must still verify and, if needed, push the canonical tap.
+5. Update `cli/homebrew/agentxchain.rb`: replace `url` and `sha256` lines when the repo mirror differs.
+6. Update `cli/homebrew/README.md`: replace version and tarball URL lines when the repo mirror differs.
+7. If `--push-tap`:
    a. Clone `shivamtiwari93/homebrew-tap` to a temp directory.
-   b. Replace `Formula/agentxchain.rb` with the updated formula.
-   c. Commit with message `agentxchain <version>`.
-   d. Push to `main`.
-   e. Clean up temp directory.
+   b. Compare the canonical tap formula against the target tarball URL and SHA.
+   c. Replace `Formula/agentxchain.rb` only when the canonical tap differs.
+   d. Configure a git identity if none exists so CI commits do not fail on an unconfigured runner.
+   e. Commit with message `agentxchain <version>`.
+   f. Push to `main`.
+   g. Clean up temp directory.
 
 ## Error Cases
 
@@ -63,9 +66,11 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | npm doesn't serve the target version | Exit 1 with clear error. Do not write partial updates. |
 | Tarball download fails | Exit 1. |
 | SHA256 computation fails | Exit 1. |
-| Formula already matches | Exit 0 with "already in sync" message. |
+| Formula already matches and `--push-tap` is not set | Exit 0 with "already in sync" message. |
+| Repo mirror matches but canonical tap is stale | Continue and push the canonical tap update. |
 | `--push-tap` without git access | Exit 1 with "push failed" error. |
 | `--dry-run` | Print planned changes, exit 0 without writing. |
+| CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
 
 ## Acceptance Tests
 
@@ -77,6 +82,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-006: CI workflow calls sync-homebrew after postflight when HOMEBREW_TAP_TOKEN is available.
 - AT-HS-007: CI workflow does not fail if HOMEBREW_TAP_TOKEN is unavailable (graceful skip).
 - AT-HS-008: The homebrew-mirror-contract test still passes after sync.
+- AT-HS-009: `--push-tap` still verifies and updates the canonical tap when the repo mirror already matches npm.
+- AT-HS-010: The sync path fails closed on commit/push errors instead of printing a false success.
 
 ## Open Questions
 
