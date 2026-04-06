@@ -147,7 +147,7 @@ describe('coordinator divergence detection', () => {
       // Write a repo-local history entry showing acceptance
       appendFileSync(
         join(apiRepo, '.agentxchain/history.jsonl'),
-        JSON.stringify({ turn_id: 'turn_001', status: 'accepted', summary: 'done' }) + '\n'
+        JSON.stringify({ turn_id: 'turn_001', status: 'completed', summary: 'done', accepted_at: new Date().toISOString() }) + '\n'
       );
 
       const result = detectDivergence(workspace, state, config);
@@ -219,10 +219,11 @@ describe('coordinator resync from repo authority', () => {
         join(apiRepo, '.agentxchain/history.jsonl'),
         JSON.stringify({
           turn_id: 'turn_001',
-          status: 'accepted',
+          status: 'completed',
           summary: 'API module complete',
           files_changed: ['src/api.ts'],
           decisions: ['DEC-API-001'],
+          accepted_at: new Date().toISOString(),
         }) + '\n'
       );
 
@@ -373,7 +374,7 @@ describe('coordinator resync from repo authority', () => {
         writeJson(join(repoPath, '.agentxchain/state.json'), repoState);
         appendFileSync(
           join(repoPath, '.agentxchain/history.jsonl'),
-          JSON.stringify({ turn_id: turnId, status: 'accepted', summary: `${repo} done` }) + '\n'
+          JSON.stringify({ turn_id: turnId, status: 'completed', summary: `${repo} done`, accepted_at: new Date().toISOString() }) + '\n'
         );
       }
 

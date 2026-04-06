@@ -66,6 +66,16 @@ function readRepoLocalHistory(repoPath) {
   }
 }
 
+function isAcceptedRepoHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return false;
+  }
+
+  // Real governed history records the turn outcome in `status` and acceptance
+  // via `accepted_at`. Older coordinator fixtures used `status: "accepted"`.
+  return Boolean(entry.accepted_at) || entry.status === 'accepted';
+}
+
 // ── Divergence Detection ────────────────────────────────────────────────────
 
 /**
@@ -166,7 +176,7 @@ export function detectDivergence(workspacePath, state, config) {
       // Read repo-local history to determine what happened
       const repoHistory = readRepoLocalHistory(repo.resolved_path);
       const turnAccepted = repoHistory.some(
-        e => e?.turn_id === dispatch.repo_turn_id && e?.status === 'accepted'
+        e => e?.turn_id === dispatch.repo_turn_id && isAcceptedRepoHistoryEntry(e)
       );
       const turnRejected = repoHistory.some(
         e => e?.turn_id === dispatch.repo_turn_id && e?.status === 'rejected'
@@ -279,7 +289,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
 
     const repoHistory = readRepoLocalHistory(repo.resolved_path);
     const acceptedEntry = repoHistory.find(
-      e => e?.turn_id === dispatch.repo_turn_id && e?.status === 'accepted'
+      e => e?.turn_id === dispatch.repo_turn_id && isAcceptedRepoHistoryEntry(e)
     );
 
     if (acceptedEntry) {

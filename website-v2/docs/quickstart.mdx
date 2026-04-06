@@ -313,6 +313,146 @@ agentxchain approve-completion
 
 QA must challenge the dev's work. Blind agreement is a protocol violation.
 
+## Multi-repo cold start
+
+Use the coordinator when one initiative spans multiple governed repos and you need cross-repo sequencing, shared barriers, or a coordinator-owned gate. The coordinator is additive: each child repo keeps its own governed state and its own gates.
+
+### 1. Scaffold two governed repos inside one workspace
+
+```bash
+mkdir agentxchain-rollout
+cd agentxchain-rollout
+
+npx agentxchain init --governed --template api-service --dir repos/api -y
+npx agentxchain init --governed --template web-app --dir repos/web -y
+
+git -C repos/api init
+git -C repos/api add -A
+git -C repos/api -c user.name="test" -c user.email="test@example.com" commit -m "bootstrap api governed scaffold"
+
+git -C repos/web init
+git -C repos/web add -A
+git -C repos/web -c user.name="test" -c user.email="test@example.com" commit -m "bootstrap web governed scaffold"
+
+(cd repos/api && agentxchain template validate)
+(cd repos/web && agentxchain template validate)
+```
+
+### 2. Create `agentxchain-multi.json`
+
+Create this file at the workspace root:
+
+```json title="agentxchain-multi.json"
+{
+  "schema_version": "0.1",
+  "project": {
+    "id": "agentxchain-rollout",
+    "name": "AgentXchain Rollout"
+  },
+  "repos": {
+    "api": {
+      "path": "./repos/api",
+      "default_branch": "main",
+      "required": true
+    },
+    "web": {
+      "path": "./repos/web",
+      "default_branch": "main",
+      "required": true
+    }
+  },
+  "workstreams": {
+    "planning_sync": {
+      "phase": "planning",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": [],
+      "completion_barrier": "all_repos_accepted"
+    },
+    "implementation_sync": {
+      "phase": "implementation",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": ["planning_sync"],
+      "completion_barrier": "all_repos_accepted"
+    }
+  },
+  "routing": {
+    "planning": {
+      "entry_workstream": "planning_sync"
+    },
+    "implementation": {
+      "entry_workstream": "implementation_sync"
+    }
+  },
+  "gates": {
+    "initiative_ship": {
+      "requires_human_approval": true,
+      "requires_repos": ["api", "web"]
+    }
+  }
+}
+```
+
+### 3. Initialize and dispatch the first repo
+
+```bash
+agentxchain multi init
+agentxchain multi step --json
+```
+
+The first `multi step` dispatches the entry repo for the current workstream. With the config above, that is `repos/api`.
+
+### 4. Complete the repo-local planning turn
+
+Inside the selected repo, do the normal manual planning flow from the earlier section:
+
+- update `.planning/PM_SIGNOFF.md` and `.planning/ROADMAP.md`
+- write the staged result to `.agentxchain/staging/<turn_id>/turn-result.json`
+- run repo-local acceptance and repo-local phase approval
+
+```bash
+cd repos/api
+agentxchain accept-turn
+agentxchain approve-transition
+cd ../..
+```
+
+Do not skip the repo-local `approve-transition`. The coordinator does not erase child repo gates. A planning turn that is accepted locally but still waiting on the child repo gate is not ready for the coordinator phase gate.
+
+### 5. Dispatch the downstream repo with coordinator context
+
+```bash
+agentxchain multi step --json
+```
+
+This dispatches `repos/web` and writes cross-repo handoff artifacts into the downstream bundle:
+
+- `COORDINATOR_CONTEXT.json`
+- `COORDINATOR_CONTEXT.md`
+
+The JSON artifact carries upstream acceptance projections and barrier context from the already-accepted repo.
+
+### 6. Complete the second repo, then open the coordinator gate
+
+Repeat the same repo-local flow in `repos/web`:
+
+```bash
+cd repos/web
+agentxchain accept-turn
+agentxchain approve-transition
+cd ../..
+```
+
+Then return to the workspace:
+
+```bash
+agentxchain multi step --json
+agentxchain multi approve-gate
+```
+
+At that point the coordinator can request `phase_transition_requested` from `planning` to `implementation`. You now have one active coordinated initiative, two linked governed child repos, coordinator history under `.agentxchain/multirepo/`, and real cross-repo context flowing into downstream repo turns.
+
 ## Verify the protocol surface
 
 If you are evaluating AgentXchain as protocol infrastructure, do not stop at a happy-path walkthrough. Run the conformance kit:

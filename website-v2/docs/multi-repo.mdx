@@ -10,6 +10,8 @@ Multi-repo coordination is the governed layer for work that spans more than one 
 
 If you only need one repository, stay on the normal governed lifecycle. Reach for `multi` when one change needs ordered work across repos, shared gates, or barrier-aware coordination.
 
+If you want the literal cold-start path first, use [Quickstart](/docs/quickstart#multi-repo-cold-start). This page stays focused on the full coordinator contract.
+
 ## Workspace Contract
 
 The coordinator workspace is a directory with an `agentxchain-multi.json` file at its root plus checked-out governed repos underneath it.
