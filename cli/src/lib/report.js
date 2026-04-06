@@ -181,6 +181,84 @@ function extractRecoverySummary(artifact) {
   };
 }
 
+function summarizeCoordinatorEvent(entry) {
+  const type = entry?.type || 'unknown';
+  const ts = entry?.timestamp || '';
+  switch (type) {
+    case 'run_initialized': {
+      const repoCount = entry.repo_runs ? Object.keys(entry.repo_runs).length : 0;
+      return `Coordinator run initialized with ${repoCount} repo${repoCount !== 1 ? 's' : ''}`;
+    }
+    case 'turn_dispatched':
+      return `Dispatched turn to ${entry.repo_id || 'unknown'} (${entry.role || '?'}) in workstream ${entry.workstream_id || 'unknown'}`;
+    case 'acceptance_projection': {
+      const turnRef = entry.repo_turn_id ? ` (turn ${entry.repo_turn_id})` : '';
+      const summaryText = entry.summary ? ` — ${entry.summary}` : '';
+      return `Projected acceptance from ${entry.repo_id || 'unknown'}${turnRef}${summaryText}`;
+    }
+    case 'context_generated': {
+      const upstreamCount = Array.isArray(entry.upstream_repo_ids) ? entry.upstream_repo_ids.length : 0;
+      return `Generated cross-repo context for ${entry.target_repo_id || 'unknown'} from ${upstreamCount} upstream repo${upstreamCount !== 1 ? 's' : ''}`;
+    }
+    case 'phase_transition_requested':
+      return `Requested phase transition: ${entry.from || '?'} → ${entry.to || '?'}`;
+    case 'phase_transition_approved':
+      return `Phase transition approved: ${entry.from || '?'} → ${entry.to || '?'}`;
+    case 'run_completion_requested':
+      return `Requested run completion (gate: ${entry.gate || 'unknown'})`;
+    case 'run_completed':
+      return 'Coordinator run completed';
+    case 'state_resynced': {
+      const resynced = Array.isArray(entry.resynced_repos) ? entry.resynced_repos.length : 0;
+      const barrierChanges = Array.isArray(entry.barrier_changes) ? entry.barrier_changes.length : 0;
+      return `Resynced state for ${resynced} repo${resynced !== 1 ? 's' : ''}, ${barrierChanges} barrier change${barrierChanges !== 1 ? 's' : ''}`;
+    }
+    case 'blocked_resolved':
+      return `Blocked state resolved: ${entry.from || '?'} → ${entry.to || '?'}`;
+    default:
+      return `${type} event${ts ? ` at ${ts}` : ''}`;
+  }
+}
+
+function extractCoordinatorTimeline(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/history.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((e) => e && typeof e === 'object' && !Array.isArray(e))
+    .map((e) => {
+      const details = {};
+      if (e.gate) details.gate = e.gate;
+      if (e.projection_ref) details.projection_ref = e.projection_ref;
+      if (e.context_ref) details.context_ref = e.context_ref;
+      if (Array.isArray(e.barrier_changes) && e.barrier_changes.length > 0) details.barrier_changes = e.barrier_changes;
+      if (e.blocked_reason) details.blocked_reason = e.blocked_reason;
+      return {
+        type: e.type || 'unknown',
+        timestamp: e.timestamp || null,
+        summary: summarizeCoordinatorEvent(e),
+        repo_id: e.repo_id || e.target_repo_id || null,
+        workstream_id: e.workstream_id || null,
+        details: Object.keys(details).length > 0 ? details : null,
+      };
+    });
+}
+
+function extractBarrierSummary(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/barriers.json');
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+  return Object.entries(data)
+    .filter(([, b]) => b && typeof b === 'object' && !Array.isArray(b))
+    .sort(([a], [b]) => a.localeCompare(b, 'en'))
+    .map(([barrierId, b]) => ({
+      barrier_id: barrierId,
+      workstream_id: b.workstream_id || null,
+      type: b.type || 'unknown',
+      status: b.status || 'unknown',
+      required_repos: Array.isArray(b.required_repos) ? b.required_repos : [],
+      satisfied_repos: Array.isArray(b.satisfied_repos) ? b.satisfied_repos : [],
+    }));
+}
+
 function deriveRepoStatusCounts(repoStatuses) {
   const counts = {};
   for (const status of Object.values(repoStatuses || {})) {
@@ -280,6 +358,8 @@ function buildCoordinatorSubject(artifact) {
     });
 
   const repoErrorCount = repos.filter((repo) => !repo.ok).length;
+  const coordinatorTimeline = extractCoordinatorTimeline(artifact);
+  const barrierSummary = extractBarrierSummary(artifact);
 
   return {
     kind: 'coordinator_workspace',
@@ -299,6 +379,8 @@ function buildCoordinatorSubject(artifact) {
       repo_ok_count: repos.length - repoErrorCount,
       repo_error_count: repoErrorCount,
     },
+    coordinator_timeline: coordinatorTimeline,
+    barrier_summary: barrierSummary,
     repos,
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -473,8 +555,8 @@ export function formatGovernanceReportText(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos } = report.subject;
-  return [
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary } = report.subject;
+  const lines = [
     'AgentXchain Governance Report',
     `Input: ${report.input}`,
     `Export kind: ${report.export_kind}`,
@@ -490,8 +572,28 @@ export function formatGovernanceReportText(report) {
     `Repo statuses: ${formatStatusCounts(run.repo_status_counts)}`,
     `History entries: ${artifacts.history_entries}`,
     `Decision entries: ${artifacts.decision_entries}`,
-    'Repo details:',
-    ...repos.flatMap((repo) => {
+  ];
+
+  if (coordinator_timeline && coordinator_timeline.length > 0) {
+    lines.push('', 'Coordinator Timeline:');
+    for (let i = 0; i < coordinator_timeline.length; i++) {
+      const ev = coordinator_timeline[i];
+      const ts = ev.timestamp ? ` [${ev.timestamp}]` : '';
+      lines.push(`  ${i + 1}. [${ev.type}]${ts} ${ev.summary}`);
+    }
+  }
+
+  if (barrier_summary && barrier_summary.length > 0) {
+    lines.push('', 'Barrier Summary:');
+    for (const b of barrier_summary) {
+      const satisfied = b.satisfied_repos.length;
+      const required = b.required_repos.length;
+      lines.push(`  - ${b.barrier_id}: ${b.status} (${b.type}, ${satisfied}/${required} repos satisfied, workstream ${b.workstream_id || 'unknown'})`);
+    }
+  }
+
+  lines.push('Repo details:');
+  lines.push(...repos.flatMap((repo) => {
       if (!repo.ok) {
         return [`- ${repo.repo_id}: failed export, ${repo.error || 'unknown error'}, path ${repo.path || 'unknown'}`];
       }
@@ -527,8 +629,8 @@ export function formatGovernanceReportText(report) {
         repoLines.push(`  Recovery: ${repo.recovery_summary.category || 'unknown'} — ${repo.recovery_summary.typed_reason || 'unknown'} (owner: ${repo.recovery_summary.owner || 'unknown'})`);
       }
       return repoLines;
-    }),
-  ].join('\n');
+    }));
+  return lines.join('\n');
 }
 
 export function formatGovernanceReportMarkdown(report) {
@@ -654,8 +756,8 @@ export function formatGovernanceReportMarkdown(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos } = report.subject;
-  return [
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary } = report.subject;
+  const mdLines = [
     '# AgentXchain Governance Report',
     '',
     `- Input: \`${report.input}\``,
@@ -672,49 +774,66 @@ export function formatGovernanceReportMarkdown(report) {
     `- Repo statuses: ${formatStatusCounts(run.repo_status_counts)}`,
     `- History entries: ${artifacts.history_entries}`,
     `- Decision entries: ${artifacts.decision_entries}`,
-    '',
-    '## Repo Details',
-    '',
-    ...repos.flatMap((repo) => {
-      if (!repo.ok) {
-        return [`- \`${repo.repo_id}\`: failed export, ${repo.error || 'unknown error'}, path \`${repo.path || 'unknown'}\``];
+  ];
+
+  if (coordinator_timeline && coordinator_timeline.length > 0) {
+    mdLines.push('', '## Coordinator Timeline', '', '| # | Type | Time | Summary |', '|---|------|------|---------|');
+    for (let i = 0; i < coordinator_timeline.length; i++) {
+      const ev = coordinator_timeline[i];
+      const ts = ev.timestamp ? `\`${ev.timestamp}\`` : 'n/a';
+      const escapedSummary = ev.summary.replace(/\|/g, '\\|');
+      mdLines.push(`| ${i + 1} | \`${ev.type}\` | ${ts} | ${escapedSummary} |`);
+    }
+  }
+
+  if (barrier_summary && barrier_summary.length > 0) {
+    mdLines.push('', '## Barrier Summary', '', '| Barrier | Workstream | Type | Status | Satisfied |', '|---------|------------|------|--------|-----------|');
+    for (const b of barrier_summary) {
+      mdLines.push(`| \`${b.barrier_id}\` | \`${b.workstream_id || 'unknown'}\` | \`${b.type}\` | \`${b.status}\` | ${b.satisfied_repos.length}/${b.required_repos.length} repos |`);
+    }
+  }
+
+  mdLines.push('', '## Repo Details', '');
+  mdLines.push(...repos.flatMap((repo) => {
+    if (!repo.ok) {
+      return [`- \`${repo.repo_id}\`: failed export, ${repo.error || 'unknown error'}, path \`${repo.path || 'unknown'}\``];
+    }
+    const repoLines = [`### ${repo.repo_id}`, '', `- Status: \`${repo.status || 'unknown'}\``, `- Run: \`${repo.run_id || 'none'}\``, `- Phase: \`${repo.phase || 'unknown'}\``, `- Path: \`${repo.path || 'unknown'}\``];
+    if (repo.blocked_on) {
+      repoLines.push(`- Blocked on: \`${summarizeBlockedOn(repo.blocked_on)}\``);
+    }
+    if (repo.turns && repo.turns.length > 0) {
+      repoLines.push('', '#### Turn Timeline', '', '| # | Role | Phase | Summary | Files | Cost | Time |', '|---|------|-------|---------|-------|------|------|');
+      for (let i = 0; i < repo.turns.length; i++) {
+        const t = repo.turns[i];
+        const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
+        const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
+        const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
+        repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count} | ${cost} | ${t.accepted_at || 'n/a'} |`);
       }
-      const repoLines = [`### ${repo.repo_id}`, '', `- Status: \`${repo.status || 'unknown'}\``, `- Run: \`${repo.run_id || 'none'}\``, `- Phase: \`${repo.phase || 'unknown'}\``, `- Path: \`${repo.path || 'unknown'}\``];
-      if (repo.blocked_on) {
-        repoLines.push(`- Blocked on: \`${summarizeBlockedOn(repo.blocked_on)}\``);
+    }
+    if (repo.decisions && repo.decisions.length > 0) {
+      repoLines.push('', '#### Decisions', '');
+      for (const d of repo.decisions) {
+        repoLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
       }
-      if (repo.turns && repo.turns.length > 0) {
-        repoLines.push('', '#### Turn Timeline', '', '| # | Role | Phase | Summary | Files | Cost | Time |', '|---|------|-------|---------|-------|------|------|');
-        for (let i = 0; i < repo.turns.length; i++) {
-          const t = repo.turns[i];
-          const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
-          const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
-          const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
-          repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count} | ${cost} | ${t.accepted_at || 'n/a'} |`);
-        }
+    }
+    if (repo.gate_summary && repo.gate_summary.length > 0) {
+      repoLines.push('', '#### Gate Outcomes', '');
+      for (const gate of repo.gate_summary) {
+        repoLines.push(`- \`${gate.gate_id}\`: \`${gate.status}\``);
       }
-      if (repo.decisions && repo.decisions.length > 0) {
-        repoLines.push('', '#### Decisions', '');
-        for (const d of repo.decisions) {
-          repoLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
-        }
-      }
-      if (repo.gate_summary && repo.gate_summary.length > 0) {
-        repoLines.push('', '#### Gate Outcomes', '');
-        for (const gate of repo.gate_summary) {
-          repoLines.push(`- \`${gate.gate_id}\`: \`${gate.status}\``);
-        }
-      }
-      if (repo.hook_summary) {
-        repoLines.push('', '#### Hook Activity', '', `- Total: ${repo.hook_summary.total}`, `- Blocked: ${repo.hook_summary.blocked}`);
-        const eventList = Object.entries(repo.hook_summary.events).sort(([a], [b]) => a.localeCompare(b, 'en')).map(([e, c]) => `${e}(${c})`).join(', ');
-        if (eventList) repoLines.push(`- Events: ${eventList}`);
-      }
-      if (repo.recovery_summary) {
-        repoLines.push('', '#### Recovery', '', `- Category: \`${repo.recovery_summary.category || 'unknown'}\``, `- Typed reason: \`${repo.recovery_summary.typed_reason || 'unknown'}\``, `- Owner: \`${repo.recovery_summary.owner || 'unknown'}\``, `- Action: \`${repo.recovery_summary.recovery_action || 'n/a'}\``);
-      }
-      repoLines.push('');
-      return repoLines;
-    }),
-  ].join('\n');
+    }
+    if (repo.hook_summary) {
+      repoLines.push('', '#### Hook Activity', '', `- Total: ${repo.hook_summary.total}`, `- Blocked: ${repo.hook_summary.blocked}`);
+      const eventList = Object.entries(repo.hook_summary.events).sort(([a], [b]) => a.localeCompare(b, 'en')).map(([e, c]) => `${e}(${c})`).join(', ');
+      if (eventList) repoLines.push(`- Events: ${eventList}`);
+    }
+    if (repo.recovery_summary) {
+      repoLines.push('', '#### Recovery', '', `- Category: \`${repo.recovery_summary.category || 'unknown'}\``, `- Typed reason: \`${repo.recovery_summary.typed_reason || 'unknown'}\``, `- Owner: \`${repo.recovery_summary.owner || 'unknown'}\``, `- Action: \`${repo.recovery_summary.recovery_action || 'n/a'}\``);
+    }
+    repoLines.push('');
+    return repoLines;
+  }));
+  return mdLines.join('\n');
 }

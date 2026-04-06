@@ -1,0 +1,529 @@
+import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
+import { describe, it } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { buildGovernanceReport, formatGovernanceReportText, formatGovernanceReportMarkdown } from '../src/lib/report.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Build a verified file entry with bytes, sha256, content_base64
+// Use format 'json' for .json files, 'jsonl' for .jsonl files
+function jsonFileEntry(data) {
+  const raw = JSON.stringify(data, null, 2) + '\n';
+  const buf = Buffer.from(raw, 'utf8');
+  return {
+    format: 'json',
+    data,
+    bytes: buf.length,
+    sha256: createHash('sha256').update(buf).digest('hex'),
+    content_base64: buf.toString('base64'),
+  };
+}
+
+function jsonlFileEntry(dataArray) {
+  const raw = dataArray.length > 0
+    ? dataArray.map((e) => JSON.stringify(e)).join('\n') + '\n'
+    : '';
+  const buf = Buffer.from(raw, 'utf8');
+  return {
+    format: 'jsonl',
+    data: dataArray,
+    bytes: buf.length,
+    sha256: createHash('sha256').update(buf).digest('hex'),
+    content_base64: buf.toString('base64'),
+  };
+}
+
+// Build a minimal valid run export for nested repo entries
+function buildRepoExport(repoId, projectName, { historyEntries = [], decisionEntries = [] } = {}) {
+  const projId = `${repoId}-proj`;
+  const runId = `run_${repoId}_001`;
+  const repoConfig = {
+    schema_version: '1.0',
+    template: 'governed',
+    project: { id: projId, name: projectName, default_branch: 'main' },
+    roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local' } },
+    runtimes: { local: { type: 'local_cli', command: ['echo', 'ok'], prompt_transport: 'argv' } },
+    routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
+    gates: {},
+    hooks: {},
+  };
+  const state = {
+    schema_version: '1.1',
+    project_id: projId,
+    run_id: runId,
+    status: 'completed',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: historyEntries.length,
+  };
+  return {
+    schema_version: '0.2',
+    export_kind: 'agentxchain_run_export',
+    exported_at: '2026-04-06T20:00:00.000Z',
+    project_root: `/tmp/repos/${repoId}`,
+    project: { id: projId, name: projectName, template: 'governed', schema_version: '1.0', protocol_mode: 'governed' },
+    summary: {
+      run_id: runId,
+      status: 'completed',
+      phase: 'implementation',
+      active_turn_ids: [],
+      retained_turn_ids: [],
+      history_entries: historyEntries.length,
+      decision_entries: decisionEntries.length,
+      hook_audit_entries: 0,
+      notification_audit_entries: 0,
+      dispatch_artifact_files: 0,
+      staging_artifact_files: 0,
+      intake_present: false,
+      coordinator_present: false,
+    },
+    state,
+    config: repoConfig,
+    files: {
+      'agentxchain.json': jsonFileEntry(repoConfig),
+      '.agentxchain/state.json': jsonFileEntry(state),
+      ...(historyEntries.length > 0 ? { '.agentxchain/history.jsonl': jsonlFileEntry(historyEntries) } : {}),
+      ...(decisionEntries.length > 0 ? { '.agentxchain/decision-ledger.jsonl': jsonlFileEntry(decisionEntries) } : {}),
+    },
+  };
+}
+
+// Build a realistic coordinator export fixture with multiple event types
+function buildCoordinatorFixture() {
+  const now = '2026-04-06T20:00:00.000Z';
+  const historyEvents = [
+    {
+      type: 'run_initialized',
+      super_run_id: 'srun_test_001',
+      project_id: 'multi-proj',
+      repo_runs: {
+        api: { run_id: 'run_api_001', initialized_by_coordinator: true },
+        web: { run_id: 'run_web_001', initialized_by_coordinator: true },
+      },
+      timestamp: '2026-04-06T19:00:00.000Z',
+    },
+    {
+      type: 'turn_dispatched',
+      timestamp: '2026-04-06T19:01:00.000Z',
+      super_run_id: 'srun_test_001',
+      workstream_id: 'core',
+      repo_id: 'api',
+      repo_run_id: 'run_api_001',
+      repo_turn_id: 'turn_api_001',
+      role: 'dev',
+      context_ref: 'ctx_core_api_abc123',
+    },
+    {
+      type: 'acceptance_projection',
+      timestamp: '2026-04-06T19:05:00.000Z',
+      super_run_id: 'srun_test_001',
+      projection_ref: 'proj_core_api_def456',
+      workstream_id: 'core',
+      repo_id: 'api',
+      repo_run_id: 'run_api_001',
+      repo_turn_id: 'turn_api_001',
+      summary: 'Implemented auth middleware',
+      files_changed: ['src/auth.ts'],
+      decisions: [{ id: 'DEC-101' }],
+      verification: { status: 'pass' },
+    },
+    {
+      type: 'context_generated',
+      timestamp: '2026-04-06T19:06:00.000Z',
+      super_run_id: 'srun_test_001',
+      context_ref: 'ctx_core_web_ghi789',
+      workstream_id: 'core',
+      target_repo_id: 'web',
+      relevant_workstream_ids: ['core'],
+      upstream_repo_ids: ['api'],
+    },
+    {
+      type: 'state_resynced',
+      timestamp: '2026-04-06T19:10:00.000Z',
+      super_run_id: 'srun_test_001',
+      resynced_repos: ['api'],
+      barrier_changes: [
+        {
+          barrier_id: 'core_completion',
+          previous_status: 'pending',
+          new_status: 'partially_satisfied',
+        },
+      ],
+    },
+    {
+      type: 'phase_transition_requested',
+      timestamp: '2026-04-06T19:15:00.000Z',
+      super_run_id: 'srun_test_001',
+      gate: 'phase_transition:planning->implementation',
+      from: 'planning',
+      to: 'implementation',
+      required_repos: ['api', 'web'],
+    },
+    {
+      type: 'phase_transition_approved',
+      timestamp: '2026-04-06T19:16:00.000Z',
+      super_run_id: 'srun_test_001',
+      gate: 'phase_transition:planning->implementation',
+      from: 'planning',
+      to: 'implementation',
+    },
+    {
+      type: 'blocked_resolved',
+      timestamp: '2026-04-06T19:20:00.000Z',
+      super_run_id: 'srun_test_001',
+      from: 'blocked',
+      to: 'active',
+      blocked_reason: 'hook violation',
+    },
+    {
+      type: 'run_completion_requested',
+      timestamp: '2026-04-06T19:25:00.000Z',
+      super_run_id: 'srun_test_001',
+      gate: 'initiative_ship',
+      required_repos: ['api', 'web'],
+    },
+    {
+      type: 'run_completed',
+      timestamp: '2026-04-06T19:30:00.000Z',
+      super_run_id: 'srun_test_001',
+      gate: 'initiative_ship',
+    },
+    // unknown event type for fallback test
+    {
+      type: 'custom_audit_event',
+      timestamp: '2026-04-06T19:31:00.000Z',
+      detail: 'something custom',
+    },
+  ];
+
+  const barriers = {
+    core_completion: {
+      workstream_id: 'core',
+      type: 'all_repos_accepted',
+      status: 'satisfied',
+      required_repos: ['api', 'web'],
+      satisfied_repos: ['api', 'web'],
+      created_at: '2026-04-06T19:00:00.000Z',
+    },
+    deploy_gate: {
+      workstream_id: 'deploy',
+      type: 'shared_human_gate',
+      status: 'pending',
+      required_repos: ['api'],
+      satisfied_repos: [],
+      created_at: '2026-04-06T19:00:00.000Z',
+    },
+  };
+
+  const coordConfig = {
+    schema_version: '0.1',
+    project: { id: 'multi-proj', name: 'Multi Project' },
+    repo_order: ['api', 'web'],
+    repos: {
+      api: { path: './repos/api', default_branch: 'main', required: true },
+      web: { path: './repos/web', default_branch: 'main', required: true },
+    },
+    workstream_order: ['core'],
+    workstreams: {
+      core: {
+        phase: 'planning',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: { planning: { entry_workstream: 'core' }, implementation: { entry_workstream: 'core' } },
+    gates: {},
+    hooks: {},
+  };
+
+  return {
+    schema_version: '0.2',
+    export_kind: 'agentxchain_coordinator_export',
+    exported_at: now,
+    workspace_root: '/tmp/test-workspace',
+    coordinator: {
+      project_id: 'multi-proj',
+      project_name: 'Multi Project',
+      schema_version: '0.1',
+      repo_count: 2,
+      workstream_count: 1,
+    },
+    summary: {
+      super_run_id: 'srun_test_001',
+      status: 'completed',
+      phase: 'implementation',
+      repo_run_statuses: { api: 'completed', web: 'completed' },
+      barrier_count: 2,
+      history_entries: historyEvents.length,
+      decision_entries: 0,
+    },
+    config: coordConfig,
+    files: {
+      'agentxchain-multi.json': jsonFileEntry(coordConfig),
+      '.agentxchain/multirepo/state.json': jsonFileEntry({
+        schema_version: '0.1',
+        super_run_id: 'srun_test_001',
+        status: 'completed',
+        phase: 'implementation',
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+          web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+        },
+      }),
+      '.agentxchain/multirepo/history.jsonl': jsonlFileEntry(historyEvents),
+      '.agentxchain/multirepo/barriers.json': jsonFileEntry(barriers),
+    },
+    repos: {
+      api: {
+        ok: true,
+        path: './repos/api',
+        export: buildRepoExport('api', 'API', {
+          historyEntries: [{
+            turn_id: 'turn_api_001', role: 'dev', status: 'accepted',
+            summary: 'Auth middleware', phase: 'implementation',
+            accepted_sequence: 1, accepted_at: '2026-04-06T19:05:00.000Z',
+            files_changed: ['src/auth.ts'], decisions: [{ id: 'DEC-101' }],
+          }],
+        }),
+      },
+      web: {
+        ok: true,
+        path: './repos/web',
+        export: buildRepoExport('web', 'Web'),
+      },
+    },
+  };
+}
+
+// AT-COORD-REPORT-001: 6+ event types in chronological order
+describe('coordinator report narrative — coordinator_timeline', () => {
+  it('AT-COORD-REPORT-001: includes all events in chronological order', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+    const timeline = result.report.subject.coordinator_timeline;
+    assert.ok(Array.isArray(timeline), 'coordinator_timeline is array');
+    assert.ok(timeline.length >= 6, `expected >=6 events, got ${timeline.length}`);
+
+    // Verify event type diversity
+    const types = new Set(timeline.map((e) => e.type));
+    assert.ok(types.has('run_initialized'));
+    assert.ok(types.has('turn_dispatched'));
+    assert.ok(types.has('acceptance_projection'));
+    assert.ok(types.has('context_generated'));
+    assert.ok(types.has('state_resynced'));
+    assert.ok(types.has('phase_transition_requested'));
+    assert.ok(types.has('phase_transition_approved'));
+    assert.ok(types.has('run_completed'));
+
+    // Chronological order preserved
+    for (let i = 1; i < timeline.length; i++) {
+      if (timeline[i].timestamp && timeline[i - 1].timestamp) {
+        assert.ok(timeline[i].timestamp >= timeline[i - 1].timestamp, `event ${i} should be after event ${i - 1}`);
+      }
+    }
+  });
+
+  // AT-COORD-REPORT-002: each entry has type, timestamp, and non-empty summary
+  it('AT-COORD-REPORT-002: every timeline entry has type, timestamp, and summary', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const timeline = result.report.subject.coordinator_timeline;
+    for (const ev of timeline) {
+      assert.ok(typeof ev.type === 'string' && ev.type.length > 0, `type must be non-empty string, got ${ev.type}`);
+      assert.ok(typeof ev.timestamp === 'string' || ev.timestamp === null, 'timestamp must be string or null');
+      assert.ok(typeof ev.summary === 'string' && ev.summary.length > 0, 'summary must be non-empty');
+    }
+  });
+
+  // AT-COORD-REPORT-007: unknown event type renders with fallback
+  it('AT-COORD-REPORT-007: unknown event type uses fallback summary', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const timeline = result.report.subject.coordinator_timeline;
+    const unknown = timeline.find((e) => e.type === 'custom_audit_event');
+    assert.ok(unknown, 'unknown event type present in timeline');
+    assert.match(unknown.summary, /custom_audit_event/, 'fallback includes type name');
+  });
+
+  // Verify specific summary content for known event types
+  it('generates correct human-readable summaries for each event type', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const timeline = result.report.subject.coordinator_timeline;
+
+    const init = timeline.find((e) => e.type === 'run_initialized');
+    assert.match(init.summary, /initialized with 2 repos/);
+
+    const dispatch = timeline.find((e) => e.type === 'turn_dispatched');
+    assert.match(dispatch.summary, /Dispatched turn to api/);
+    assert.match(dispatch.summary, /\(dev\)/);
+
+    const proj = timeline.find((e) => e.type === 'acceptance_projection');
+    assert.match(proj.summary, /Projected acceptance from api/);
+    assert.match(proj.summary, /Implemented auth middleware/);
+
+    const ctx = timeline.find((e) => e.type === 'context_generated');
+    assert.match(ctx.summary, /Generated cross-repo context for web/);
+    assert.match(ctx.summary, /1 upstream repo/);
+
+    const resync = timeline.find((e) => e.type === 'state_resynced');
+    assert.match(resync.summary, /Resynced state for 1 repo/);
+    assert.match(resync.summary, /1 barrier change/);
+
+    const phaseReq = timeline.find((e) => e.type === 'phase_transition_requested');
+    assert.match(phaseReq.summary, /planning/);
+    assert.match(phaseReq.summary, /implementation/);
+
+    const completed = timeline.find((e) => e.type === 'run_completed');
+    assert.match(completed.summary, /Coordinator run completed/);
+
+    const blocked = timeline.find((e) => e.type === 'blocked_resolved');
+    assert.match(blocked.summary, /blocked.*active/i);
+  });
+
+  // Verify details are extracted for relevant events
+  it('extracts event-specific details where present', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const timeline = result.report.subject.coordinator_timeline;
+
+    const proj = timeline.find((e) => e.type === 'acceptance_projection');
+    assert.ok(proj.details, 'acceptance_projection has details');
+    assert.equal(proj.details.projection_ref, 'proj_core_api_def456');
+
+    const resync = timeline.find((e) => e.type === 'state_resynced');
+    assert.ok(resync.details, 'state_resynced has details');
+    assert.ok(Array.isArray(resync.details.barrier_changes));
+  });
+});
+
+// AT-COORD-REPORT-005: barrier summary
+describe('coordinator report narrative — barrier_summary', () => {
+  it('AT-COORD-REPORT-005: includes barrier_id, status, and repo coverage', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const barriers = result.report.subject.barrier_summary;
+    assert.ok(Array.isArray(barriers), 'barrier_summary is array');
+    assert.equal(barriers.length, 2, 'two barriers in fixture');
+
+    // Sorted alphabetically
+    assert.equal(barriers[0].barrier_id, 'core_completion');
+    assert.equal(barriers[1].barrier_id, 'deploy_gate');
+
+    // core_completion: satisfied, 2/2
+    assert.equal(barriers[0].status, 'satisfied');
+    assert.equal(barriers[0].type, 'all_repos_accepted');
+    assert.deepEqual(barriers[0].satisfied_repos, ['api', 'web']);
+    assert.deepEqual(barriers[0].required_repos, ['api', 'web']);
+
+    // deploy_gate: pending, 0/1
+    assert.equal(barriers[1].status, 'pending');
+    assert.equal(barriers[1].type, 'shared_human_gate');
+    assert.deepEqual(barriers[1].satisfied_repos, []);
+    assert.deepEqual(barriers[1].required_repos, ['api']);
+  });
+});
+
+// AT-COORD-REPORT-003: text formatter includes Coordinator Timeline
+describe('coordinator report narrative — text format', () => {
+  it('AT-COORD-REPORT-003: text output includes Coordinator Timeline section', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+
+    assert.match(text, /Coordinator Timeline:/);
+    assert.match(text, /\[run_initialized\]/);
+    assert.match(text, /\[turn_dispatched\]/);
+    assert.match(text, /\[acceptance_projection\]/);
+    assert.match(text, /\[run_completed\]/);
+    assert.match(text, /initialized with 2 repos/);
+  });
+
+  it('text output includes Barrier Summary section', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+
+    assert.match(text, /Barrier Summary:/);
+    assert.match(text, /core_completion: satisfied/);
+    assert.match(text, /deploy_gate: pending/);
+    assert.match(text, /2\/2 repos satisfied/);
+    assert.match(text, /0\/1 repos satisfied/);
+  });
+});
+
+// AT-COORD-REPORT-004: markdown formatter includes ## Coordinator Timeline
+describe('coordinator report narrative — markdown format', () => {
+  it('AT-COORD-REPORT-004: markdown output includes Coordinator Timeline table', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+
+    assert.match(md, /## Coordinator Timeline/);
+    assert.match(md, /\| # \| Type \| Time \| Summary \|/);
+    assert.match(md, /`run_initialized`/);
+    assert.match(md, /`acceptance_projection`/);
+    assert.match(md, /`run_completed`/);
+  });
+
+  it('markdown output includes Barrier Summary table', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+
+    assert.match(md, /## Barrier Summary/);
+    assert.match(md, /\| Barrier \| Workstream \| Type \| Status \| Satisfied \|/);
+    assert.match(md, /`core_completion`/);
+    assert.match(md, /`deploy_gate`/);
+    assert.match(md, /2\/2 repos/);
+    assert.match(md, /0\/1 repos/);
+  });
+});
+
+// AT-COORD-REPORT-006: empty history -> no timeline section
+describe('coordinator report narrative — empty history', () => {
+  it('AT-COORD-REPORT-006: empty history omits timeline section in text', () => {
+    const fixture = buildCoordinatorFixture();
+    // Replace history with a valid empty JSONL — must rebuild the entire file entry + update summary
+    delete fixture.files['.agentxchain/multirepo/history.jsonl'];
+    fixture.summary.history_entries = 0;
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+
+    const timeline = result.report.subject.coordinator_timeline;
+    assert.equal(timeline.length, 0, 'empty timeline');
+
+    const text = formatGovernanceReportText(result.report);
+    assert.ok(!text.includes('Coordinator Timeline:'), 'no timeline section when empty');
+  });
+
+  it('empty barriers omits barrier section in markdown', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/barriers.json'] = jsonFileEntry({});
+    fixture.summary.barrier_count = 0;
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!md.includes('## Barrier Summary'), 'no barrier section when empty');
+  });
+});
+
+// Spec guard
+describe('coordinator report narrative spec', () => {
+  it('spec file exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'COORDINATOR_REPORT_NARRATIVE_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Coordinator Report Narrative/);
+    assert.match(spec, /AT-COORD-REPORT-001/);
+    assert.match(spec, /AT-COORD-REPORT-007/);
+    assert.match(spec, /coordinator_timeline/);
+    assert.match(spec, /barrier_summary/);
+  });
+});
