@@ -183,6 +183,21 @@ describe('E2E intake -> run integration', () => {
     assert.equal(completedState.run_id, startOut.run_id, 'run must preserve the intake-started run identity');
     assert.ok(completedState.last_completed_turn_id, 'final turn id must be recorded');
 
+    const reportsDir = join(root, '.agentxchain', 'reports');
+    const exportPath = join(reportsDir, `export-${startOut.run_id}.json`);
+    const reportPath = join(reportsDir, `report-${startOut.run_id}.md`);
+    assert.ok(existsSync(exportPath), 'run must emit the governed export artifact automatically');
+    assert.ok(existsSync(reportPath), 'run must emit the governance report automatically');
+
+    const exportArtifact = JSON.parse(readFileSync(exportPath, 'utf8'));
+    assert.equal(exportArtifact.summary.run_id, startOut.run_id, 'auto-export must preserve the intake-started run_id');
+    assert.equal(exportArtifact.summary.status, 'completed', 'auto-export must reflect completed run status');
+
+    const reportMarkdown = readFileSync(reportPath, 'utf8');
+    assert.match(reportMarkdown, new RegExp(`Run: \`${startOut.run_id}\``), 'governance report must identify the completed run');
+    assert.match(reportMarkdown, /Verification: `pass`/, 'governance report must be built from a valid export artifact');
+    assert.match(reportMarkdown, /Status: `completed`/, 'governance report must reflect final run status');
+
     const historyEntries = readHistory(root);
     assert.ok(
       historyEntries.some((entry) => entry.turn_id === startOut.turn_id),

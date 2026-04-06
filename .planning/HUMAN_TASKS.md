@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **No confirmed human-only blockers remain.** Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
+Current state: **One confirmed human-only blocker remains for fully hands-free Homebrew sync.** Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
 
 ---
 

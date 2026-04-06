@@ -40,7 +40,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 1. Create a feature branch (`chore/homebrew-sync-v<version>`) based on `origin/main`.
 2. Commit the mirror update to that branch.
 3. Open a PR via `gh pr create` instead of pushing `HEAD:main`.
-4. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
+4. On workflow rerun, update the existing branch safely and reuse any existing open PR instead of failing on branch or PR collisions.
+5. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -94,6 +95,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-008: The homebrew-mirror-contract test still passes after sync.
 - AT-HS-009: `--push-tap` still verifies and updates the canonical tap when the repo mirror already matches npm.
 - AT-HS-010: The sync path fails closed on commit/push errors instead of printing a false success.
+- AT-HS-011: The mirror-update workflow is rerun-safe: it force-with-lease updates the existing branch and reuses an open PR instead of failing on duplicate branch/PR creation.
 
 ## Open Questions
 

@@ -84,7 +84,7 @@ describe('homebrew sync automation contract', () => {
   it('sync automation spec exists with acceptance tests', () => {
     const spec = read('.planning/HOMEBREW_SYNC_AUTOMATION_SPEC.md');
     assert.match(spec, /AT-HS-001/, 'spec must define acceptance test AT-HS-001');
-    assert.match(spec, /AT-HS-010/, 'spec must define acceptance test AT-HS-010');
+    assert.match(spec, /AT-HS-011/, 'spec must define acceptance test AT-HS-011');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
   });
 
@@ -119,6 +119,16 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /gh pr create/,
       'workflow must create a PR for the mirror update instead of pushing directly to main',
+    );
+    assert.match(
+      workflow,
+      /git push --force-with-lease origin "\$BRANCH"/,
+      'workflow must update an existing mirror branch safely on rerun',
+    );
+    assert.match(
+      workflow,
+      /gh pr list --base main --head "\$BRANCH" --state open/,
+      'workflow must detect an existing open PR on rerun instead of blindly creating a second one',
     );
     assert.doesNotMatch(
       workflow,

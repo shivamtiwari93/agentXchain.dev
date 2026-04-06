@@ -158,6 +158,7 @@ This single command:
 
 In CI, this runs automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, the repo mirror is updated and the tap push is skipped with a warning.
 The tag workflow creates a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update instead of pushing directly to `main`, since `main` has branch protection requiring PR reviews. The PR must be merged manually or via auto-merge as part of the release follow-through.
+Workflow reruns update that same branch with `--force-with-lease` and reuse the open PR instead of failing on duplicate branch or PR creation.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
 Do not update Homebrew against a version that is not yet live on npm.

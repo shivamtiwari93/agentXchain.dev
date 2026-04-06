@@ -194,4 +194,25 @@ describe('agentxchain run — integration', () => {
     const state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
     assert.equal(state.status, 'idle', 'State should remain idle after dry-run');
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // AT-RUN-INT-006: --no-report suppresses auto-generated governance artifacts
+  // ──────────────────────────────────────────────────────────────────────────
+  it('AT-RUN-INT-006: --no-report suppresses auto-generated governance artifacts', () => {
+    const root = makeProject();
+
+    const result = runCli(root, ['run', '--auto-approve', '--max-turns', '5', '--no-report']);
+
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    assert.match(result.stdout, /Run completed/, 'Expected run completion with --no-report');
+
+    const state = JSON.parse(readFileSync(join(root, '.agentxchain/state.json'), 'utf8'));
+    const reportsDir = join(root, '.agentxchain', 'reports');
+    const exportPath = join(reportsDir, `export-${state.run_id}.json`);
+    const reportPath = join(reportsDir, `report-${state.run_id}.md`);
+
+    assert.ok(!existsSync(exportPath), 'export artifact must not be written when --no-report is set');
+    assert.ok(!existsSync(reportPath), 'governance report must not be written when --no-report is set');
+    assert.doesNotMatch(result.stdout, /Governance report:/, 'CLI output must not claim a report was written');
+  });
 });
