@@ -23,6 +23,7 @@ const sidebars: SidebarsConfig = {
         'protocol',
         'protocol-reference',
         'runner-interface',
+        'build-your-own-runner',
         'protocol-implementor-guide',
         'remote-verification',
       ],

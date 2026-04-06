@@ -14,6 +14,7 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
 - [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
 - [Protocol reference](https://agentxchain.dev/docs/protocol-reference/)
+- [Build your own runner](https://agentxchain.dev/docs/build-your-own-runner/)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
 
 ## Install
