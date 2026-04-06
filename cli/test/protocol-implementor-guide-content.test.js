@@ -8,12 +8,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 
 const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
+const readJSON = (rel) => JSON.parse(read(rel));
 
 const GUIDE_PATH = 'website-v2/docs/protocol-implementor-guide.mdx';
 const GUIDE = read(GUIDE_PATH);
 const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const GUIDE_SPEC = read('.planning/PROTOCOL_IMPLEMENTOR_GUIDE_SPEC.md');
+const PKG_VERSION = readJSON('cli/package.json').version;
+const CAPABILITIES = readJSON('.agentxchain-conformance/capabilities.json');
 
 describe('Protocol implementor guide surface', () => {
   it('ships the Docusaurus source page and planning spec', () => {
@@ -66,5 +69,20 @@ describe('Protocol implementor guide surface', () => {
     assert.match(DOCS_SURFACE_SPEC, /\/docs\/protocol-implementor-guide/);
     assert.match(GUIDE_SPEC, /\/docs\/protocol-implementor-guide/);
     assert.match(GUIDE_SPEC, /Protocol Implementor Guide/i);
+  });
+
+  it('capabilities.json version must match package.json version', () => {
+    assert.equal(
+      CAPABILITIES.version,
+      PKG_VERSION,
+      `capabilities.json version "${CAPABILITIES.version}" does not match package.json version "${PKG_VERSION}"`
+    );
+  });
+
+  it('implementor guide example must show current package version', () => {
+    assert.ok(
+      GUIDE.includes(`"version": "${PKG_VERSION}"`),
+      `implementor guide example must show version "${PKG_VERSION}", not a stale version`
+    );
   });
 });
