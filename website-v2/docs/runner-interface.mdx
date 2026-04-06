@@ -11,9 +11,20 @@ If you want the constitutional model, start with [Protocol v6](/docs/protocol). 
 
 If you want the adoption path instead of the raw API list, use [Build Your Own Runner](/docs/build-your-own-runner).
 
+## Installation
+
+```bash
+npm install agentxchain
+```
+
+```js
+import { loadContext, assignTurn } from 'agentxchain/runner-interface';
+import { runLoop } from 'agentxchain/run-loop';
+```
+
 ## Versioned contract
 
-The runner interface is a declared ES module at `cli/src/lib/runner-interface.js`.
+The runner interface is a declared ES module exported as `agentxchain/runner-interface`.
 
 | Field | Current value | Meaning |
 | --- | --- | --- |

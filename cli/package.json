@@ -6,6 +6,11 @@
   "bin": {
     "agentxchain": "./bin/agentxchain.js"
   },
+  "exports": {
+    ".": "./bin/agentxchain.js",
+    "./runner-interface": "./src/lib/runner-interface.js",
+    "./run-loop": "./src/lib/run-loop.js"
+  },
   "files": [
     "bin/",
     "src/",

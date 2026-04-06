@@ -11,6 +11,23 @@ If you are building a CI runner, a hosted orchestrator, or an internal execution
 
 Start with [Runner Interface](/docs/runner-interface) for the declared boundary. Come back here when you need the actual build sequence.
 
+## Installation
+
+Add `agentxchain` as a dependency in your runner project:
+
+```bash
+npm install agentxchain
+```
+
+The runner interface and run-loop are published as package exports. Import them directly:
+
+```js
+import { loadContext, assignTurn } from 'agentxchain/runner-interface';
+import { runLoop } from 'agentxchain/run-loop';
+```
+
+**Node.js requirement:** `>=18.17.0` or `>=20.5.0` (same as the CLI).
+
 ## What a runner owns
 
 A runner owns orchestration, not the protocol itself.
@@ -48,10 +65,10 @@ import {
   rejectTurn,
   approvePhaseGate,
   approveCompletionGate,
-} from '../cli/src/lib/runner-interface.js';
+} from 'agentxchain/runner-interface';
 ```
 
-Do not import `governed-state.js`, `turn-paths.js`, or other internal helpers directly. That shortcut buys you nothing except future drift.
+This is a real package export, not a path hack. Do not import `governed-state.js`, `turn-paths.js`, or other internal helpers directly. That shortcut buys you nothing except future drift.
 
 ## Step 2: Load context and state
 
@@ -144,6 +161,26 @@ if (nextState.pending_run_completion) {
 ```
 
 If your environment requires human review instead of automatic approval, pause there. The point is to read and react to actual pending state, not to assume the run is finished because one turn succeeded.
+
+## Return value contracts
+
+Every lifecycle operation uses the same `{ ok, error }` pattern. Success returns `ok: true` plus operation-specific fields. Failure returns `ok: false` plus `error` (a human-readable string).
+
+| Operation | Success shape | Failure shape |
+| --- | --- | --- |
+| `loadContext(dir?)` | `{ root, rawConfig, config, version }` | `null` |
+| `loadState(root, config)` | state object directly | `null` |
+| `initRun(root, config)` | `{ ok: true, state }` | `{ ok: false, error }` |
+| `reactivateRun(root, state, details?)` | `{ ok: true, state }` | `{ ok: false, error }` |
+| `assignTurn(root, config, roleId)` | `{ ok: true, state, turn, warnings? }` | `{ ok: false, error }` |
+| `acceptTurn(root, config, opts?)` | `{ ok: true, state, validation, accepted, gateResult, completionResult, hookResults }` | `{ ok: false, error, error_code?, validation? }` |
+| `rejectTurn(root, config, result, reason, opts?)` | `{ ok: true, state, escalated, turn }` | `{ ok: false, error }` |
+| `approvePhaseGate(root, config)` | `{ ok: true, state, transition }` | `{ ok: false, error, error_code?, state?, hookResults? }` |
+| `approveCompletionGate(root, config)` | `{ ok: true, state, completion }` | `{ ok: false, error, error_code?, state?, hookResults? }` |
+
+`loadContext` and `loadState` return `null` on failure (no project found or no state file). All governed operations return the `{ ok }` envelope. Check `ok` before accessing other fields.
+
+When `rejectTurn` exhausts retries, it returns `{ ok: true, escalated: true }` — the rejection succeeded but the run is now blocked.
 
 ## Shipped proof path
 
