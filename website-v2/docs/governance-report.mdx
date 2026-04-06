@@ -75,6 +75,13 @@ Run-export reports carry:
 | `subject.run.retained_turn_ids` | Retained turn ids |
 | `subject.run.active_roles` | Sorted active role ids |
 | `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
+| `subject.run.created_at` / `completed_at` / `duration_seconds` | Run timing summary when available |
+| `subject.run.turns` | Accepted-turn timeline derived from `.agentxchain/history.jsonl` |
+| `subject.run.decisions` | Decision digest derived from `.agentxchain/decision-ledger.jsonl` |
+| `subject.run.hook_summary` | Hook execution totals and event breakdown |
+| `subject.run.gate_summary` | Sorted gate outcomes derived from `state.phase_gate_status` |
+| `subject.run.intake_links` | Linked intake intents whose `target_run` matches the exported run |
+| `subject.run.recovery_summary` | Blocked-state recovery owner/action/detail when present |
 | `subject.artifacts` | Export-derived evidence counts and intake/coordinator presence flags |
 
 `subject.artifacts` includes:
@@ -129,10 +136,18 @@ Plain-text output is intended for terminal inspection. It includes:
 - turn or repo counts
 - artifact evidence counts
 - blocked-state or barrier information when present
+- turn timeline, decision digest, hook activity, gate outcomes, and intake linkage when those surfaces exist
 
 ### `markdown`
 
-`markdown` exists for copy-paste into pull requests, release notes, tickets, or audit records without manual reformatting. It uses the same verified report data as `json`, but renders it as a compact heading plus flat bullet summary.
+`markdown` exists for copy-paste into pull requests, release notes, tickets, or audit records without manual reformatting. It uses the same verified report data as `json`, and now adds sectioned operator context when available:
+
+- `## Turn Timeline`
+- `## Decisions`
+- `## Hook Activity`
+- `## Gate Outcomes`
+- `## Intake Linkage`
+- `## Recovery`
 
 ## Failure Shapes
 

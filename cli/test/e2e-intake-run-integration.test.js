@@ -197,6 +197,13 @@ describe('E2E intake -> run integration', () => {
     assert.match(reportMarkdown, new RegExp(`Run: \`${startOut.run_id}\``), 'governance report must identify the completed run');
     assert.match(reportMarkdown, /Verification: `pass`/, 'governance report must be built from a valid export artifact');
     assert.match(reportMarkdown, /Status: `completed`/, 'governance report must reflect final run status');
+    assert.match(reportMarkdown, /## Turn Timeline/, 'governance report must include turn timeline for real run output');
+    assert.match(reportMarkdown, /\| 1 \| pm /, 'governance report must include the intake-started PM turn row');
+    assert.match(reportMarkdown, /## Intake Linkage/, 'governance report must expose intake linkage on intake-started runs');
+    assert.match(reportMarkdown, new RegExp(`\`${intentId}\``), 'governance report must identify the linked intake intent');
+    assert.match(reportMarkdown, /## Gate Outcomes/, 'governance report must expose gate outcomes on completed runs');
+    assert.match(reportMarkdown, /`planning_signoff`: `passed`/, 'governance report must show passed planning gate');
+    assert.match(reportMarkdown, /`qa_ship_verdict`: `passed`/, 'governance report must show passed completion gate');
 
     const historyEntries = readHistory(root);
     assert.ok(
