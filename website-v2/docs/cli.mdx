@@ -119,6 +119,8 @@ The workflow kit proof is deliberate, not cosmetic. It checks that the scaffold-
 - `.planning/acceptance-matrix.md` includes the `| Req # |` table header
 - `.planning/ship-verdict.md` includes `## Verdict:`
 
+That proof is about scaffold integrity, not gate readiness. Governed phase/completion gates additionally require the workflow files to carry truthful operator state: `.planning/PM_SIGNOFF.md` must say `Approved: YES`, and `.planning/ship-verdict.md` must carry an affirmative `## Verdict:` value before the run can transition or complete.
+
 In JSON mode, that proof is exposed under the `workflow_kit` key so automation can distinguish core scaffold failures from template-specific planning-artifact failures and acceptance-hint warnings.
 
 A missing `template` field is treated as implicit `generic`; an unknown configured template fails validation. Missing workflow-kit files, missing workflow-kit markers, and missing planning artifacts are errors. Unchecked acceptance hints are warnings — QA-layer signal, not hard gates.
@@ -291,7 +293,7 @@ No flags. Approves a pending phase transition gate. The run must be in `blocked:
 agentxchain approve-completion
 ```
 
-No flags. Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval.
+No flags. Approves run completion. This is the final human gate. The run transitions to `completed` status and no further turns can be created. The ship verdict (`.planning/ship-verdict.md`) should be reviewed before approval, and the runtime only opens this gate when that file carries an affirmative `## Verdict:` value.
 
 ## Validation
 

@@ -197,6 +197,18 @@ function makeProject(mockServerUrl) {
   return root;
 }
 
+function seedQaCompletionArtifacts(root) {
+  mkdirSync(join(root, '.planning'), { recursive: true });
+  writeFileSync(
+    join(root, '.planning', 'acceptance-matrix.md'),
+    '# Acceptance Matrix\n\n- [x] QA scenarios reviewed\n',
+  );
+  writeFileSync(
+    join(root, '.planning', 'ship-verdict.md'),
+    '# Ship Verdict\n\n## Verdict: YES\n',
+  );
+}
+
 /**
  * Run CLI asynchronously so the event loop stays active for the mock server.
  */
@@ -261,6 +273,10 @@ describe('agentxchain run — review_only api_proxy integration', () => {
   it('AT-RUN-APIPROXY-INT-001: full lifecycle with mixed local_cli + api_proxy completes', async () => {
     const mock = await startMockAnthropicServer();
     const root = makeProject(mock.url);
+    // api_proxy review_only can validate and request completion, but it cannot
+    // author repo-local gate files. Pre-seed the QA artifacts to model the
+    // real contract instead of pretending remote review writes the workspace.
+    seedQaCompletionArtifacts(root);
 
     const result = await runCliAsync(root, ['run', '--auto-approve', '--max-turns', '10']);
 
@@ -285,8 +301,8 @@ describe('agentxchain run — review_only api_proxy integration', () => {
     assert.ok(existsSync(statePath), 'state.json should exist after run');
 
     const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    assert.ok(['completed', 'gate_held'].includes(state.status),
-      `Expected completed or gate_held, got "${state.status}"`);
+    assert.equal(state.status, 'completed',
+      `Expected completed, got "${state.status}"`);
   });
 
   // ──────────────────────────────────────────────────────────────────────────

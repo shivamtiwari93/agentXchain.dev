@@ -291,7 +291,7 @@ async function main() {
       config,
       roleId: 'pm',
       prepare: () => ensureFiles(root, {
-        '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved for implementation.\n',
+        '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved: YES\n',
         '.planning/ROADMAP.md': '# Roadmap\n## Slice\nRunner proof implementation.\n',
       }),
       buildTurnResult: ({ turn }) => makeTurnResult({
@@ -367,7 +367,7 @@ async function main() {
       roleId: 'qa',
       prepare: () => ensureFiles(root, {
         '.planning/acceptance-matrix.md': '# Acceptance Matrix\nAll proof assertions passed.\n',
-        '.planning/ship-verdict.md': '# Ship Verdict\nRunner proof complete.\n',
+        '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
       }),
       buildTurnResult: ({ turn }) => makeTurnResult({
         runId,

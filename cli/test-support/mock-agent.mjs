@@ -55,7 +55,7 @@ function ensureFile(relPath, content) {
 }
 
 if (phase === 'planning') {
-  ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\nApproved by mock agent.\n');
+  ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\n\nApproved: YES\n');
   ensureFile('.planning/ROADMAP.md', '# Roadmap\nMock roadmap for integration test.\n');
 }
 
@@ -65,7 +65,7 @@ if (phase === 'implementation') {
 
 if (phase === 'qa') {
   ensureFile('.planning/acceptance-matrix.md', '# Acceptance Matrix\nAll passed.\n');
-  ensureFile('.planning/ship-verdict.md', '# Ship Verdict\nShip it.\n');
+  ensureFile('.planning/ship-verdict.md', '# Ship Verdict\n\n## Verdict: YES\n');
 }
 
 // ── Determine phase transition / completion request ─────────────────────────

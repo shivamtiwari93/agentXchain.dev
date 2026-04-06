@@ -169,7 +169,7 @@ describe('evaluatePhaseExit — pure function', () => {
   it('Rule 3: gate_failed when some files exist but not all', () => {
     // Create one of the two required files
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Signed off.');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'planning' }),
@@ -230,7 +230,7 @@ describe('evaluatePhaseExit — pure function', () => {
   it('Rule 5: awaiting_human_approval when gate passes but requires approval', () => {
     // Create required files for planning_signoff
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Signed off.');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap content.');
 
     const result = evaluatePhaseExit({
@@ -244,6 +244,23 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.equal(result.blocked_by_human_approval, true);
     assert.equal(result.next_phase, 'implementation');
     assert.equal(result.gate_id, 'planning_signoff');
+  });
+
+  it('AT-WFG-001: gate_failed when PM_SIGNOFF exists but is not Approved: YES', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: NO\n');
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap content.\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'planning' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.passed, false);
+    assert.ok(result.reasons.some((reason) => reason.includes('PM signoff is not approved')));
   });
 
   it('auto-advances when current phase has no exit gate defined', () => {
@@ -413,7 +430,7 @@ describe('acceptGovernedTurn — gate integration', () => {
   it('pauses with pending_phase_transition when gate requires human approval', () => {
     const config = makeConfig();
     // Create required files
-    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Signed.');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap.');
 
     const state = setupRun(config, 'planning', 'pm');
@@ -670,7 +687,7 @@ describe('full phase lifecycle', () => {
     assert.ok(assign.ok);
 
     // Create required planning artifacts
-    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved by PM.');
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap v1.');
 
     // Stage PM turn result requesting transition to implementation

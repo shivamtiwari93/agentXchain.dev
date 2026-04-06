@@ -2,7 +2,7 @@
   "fixture_id": "GS-001",
   "tier": 1,
   "surface": "gate_semantics",
-  "description": "Gate with requires_files passes when files exist",
+  "description": "Gate with requires_files passes when required workflow file is truthfully approved",
   "type": "transition",
   "setup": {
     "state": {
@@ -50,7 +50,7 @@
       }
     },
     "filesystem": {
-      ".planning/PM_SIGNOFF.md": "Approved by PM"
+      ".planning/PM_SIGNOFF.md": "Approved: YES\n"
     },
     "turn_result": {
       "phase_transition_request": "implementation",

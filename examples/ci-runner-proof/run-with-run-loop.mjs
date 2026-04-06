@@ -208,7 +208,7 @@ function makeCallbacks(root) {
       if (role === 'pm') {
         roleIndex++;
         ensureFiles(root, {
-          '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved for implementation.\n',
+          '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved: YES\n',
           '.planning/ROADMAP.md': '# Roadmap\n## Slice\nRun-loop composition proof.\n',
         });
         return {
@@ -252,7 +252,7 @@ function makeCallbacks(root) {
         roleIndex++;
         ensureFiles(root, {
           '.planning/acceptance-matrix.md': '# Acceptance Matrix\nAll proof assertions passed.\n',
-          '.planning/ship-verdict.md': '# Ship Verdict\nRun-loop composition proof complete.\n',
+          '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
         });
         return {
           accept: true,

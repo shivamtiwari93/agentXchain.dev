@@ -273,7 +273,7 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
 
     // Create qa gate-required files
     writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\nAll pass.\n');
-    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\nSHIP IT.\n');
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n');
     execSync('git add -A', { cwd: root, stdio: 'ignore' });
     execSync('git -c user.name="test" -c user.email="test@test" commit -m "add qa artifacts"', { cwd: root, stdio: 'ignore' });
 

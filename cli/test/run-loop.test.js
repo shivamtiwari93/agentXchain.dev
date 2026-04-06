@@ -196,7 +196,7 @@ function makeStandardCallbacks(root) {
 
       if (role === 'pm') {
         ensureFiles(root, {
-          '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved.\n',
+          '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved: YES\n',
           '.planning/ROADMAP.md': '# Roadmap\nRunner proof.\n',
         });
         return {
@@ -227,7 +227,7 @@ function makeStandardCallbacks(root) {
       if (role === 'qa') {
         ensureFiles(root, {
           '.planning/acceptance-matrix.md': '# Acceptance\nAll passed.\n',
-          '.planning/ship-verdict.md': '# Ship Verdict\nComplete.\n',
+          '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
         });
         return {
           accept: true,
@@ -420,7 +420,7 @@ describe('run-loop', () => {
         selectRole() { return 'pm'; },
         async dispatch(ctx) {
           ensureFiles(root, {
-            '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved.\n',
+            '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved: YES\n',
             '.planning/ROADMAP.md': '# Roadmap\nTest.\n',
           });
           return {
@@ -551,7 +551,7 @@ describe('run-loop', () => {
             }
             // Second attempt: accept
             ensureFiles(root, {
-              '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved.\n',
+              '.planning/PM_SIGNOFF.md': '# PM Signoff\nApproved: YES\n',
               '.planning/ROADMAP.md': '# Roadmap\nRetried.\n',
             });
             return {

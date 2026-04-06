@@ -202,7 +202,7 @@ describe('evaluateRunCompletion — pure function', () => {
     // Create required files
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
-    writeFileSync(join(root, '.planning/ship-verdict.md'), 'ship it');
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
 
     const result = evaluateRunCompletion({
       state: { phase: 'qa' },
@@ -214,6 +214,23 @@ describe('evaluateRunCompletion — pure function', () => {
     assert.equal(result.passed, true);
     assert.equal(result.blocked_by_human_approval, true);
     assert.equal(result.gate_id, 'qa_ship_verdict');
+  });
+
+  it('AT-WFG-003: returns gate_failed when ship verdict is not affirmative', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: PENDING\n');
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.passed, false);
+    assert.ok(result.reasons.some((reason) => reason.includes('Ship verdict is not affirmative')));
   });
 
   it('returns complete when gate passes without human approval', () => {
@@ -372,7 +389,7 @@ describe('acceptGovernedTurn — run completion', () => {
     // Create required files for qa_ship_verdict gate
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
-    writeFileSync(join(root, '.planning/ship-verdict.md'), 'ship it');
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
 
     stageTurnResult(root, makeTurnResult({
       run_completion_request: true,
@@ -704,7 +721,7 @@ describe('Full lifecycle to run completion', () => {
     const pmTurnId = assignPm.state.current_turn.turn_id;
 
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved');
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES\n');
 
     stageTurnResult(root, {
       schema_version: '1.0',
@@ -771,7 +788,7 @@ describe('Full lifecycle to run completion', () => {
     assert.equal(assignQa.ok, true);
     const qaTurnId = assignQa.state.current_turn.turn_id;
 
-    writeFileSync(join(root, '.planning/ship-verdict.md'), 'SHIP IT');
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
 
     stageTurnResult(root, {
       schema_version: '1.0',

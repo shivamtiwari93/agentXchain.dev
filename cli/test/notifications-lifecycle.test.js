@@ -267,6 +267,8 @@ describe('notification lifecycle', () => {
     scaffoldGoverned(dir, config);
     initializeGovernedRun(dir, config);
     assignGovernedTurn(dir, config, 'pm');
+    writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
+    writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Validate plan | Complete |\n');
 
     const state = readJson(dir, STATE_PATH);
     const turn = getActiveTurn(state);
@@ -297,6 +299,8 @@ describe('notification lifecycle', () => {
       ...state,
       phase: 'qa',
     });
+    writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example | Example | pass | today | pass |\n');
+    writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n');
 
     assignGovernedTurn(dir, config, 'qa');
     const qaState = readJson(dir, STATE_PATH);

@@ -139,6 +139,8 @@ agentxchain template validate
 
 This proves five things: the built-in template registry is coherent, the project template resolves, the core workflow-kit files exist with their structural markers (`Approved:`, `## Phases`, `| Req # |`, `## Verdict:`), template-required planning artifacts are present, and acceptance hints are tracked. Use `--json` for machine-readable output — the `workflow_kit` block distinguishes scaffold-layer failures from template-layer failures. See [Templates — Prove the template surface](/docs/templates#prove-the-template-surface-instead-of-assuming-it) for details.
 
+This is scaffold proof, not gate proof. A fresh scaffold still starts with `Approved: NO` and `## Verdict: PENDING`; the governed runtime will only open the planning/completion gates after those become `Approved: YES` and an affirmative `## Verdict:` value.
+
 ### Override the local dev runtime during scaffold
 
 The shipped default dev runtime is:

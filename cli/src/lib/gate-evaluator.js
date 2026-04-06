@@ -19,6 +19,7 @@
 
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { evaluateWorkflowGateSemantics } from './workflow-gate-semantics.js';
 
 /**
  * Evaluate whether the current phase exit gate is satisfied.
@@ -113,6 +114,12 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
       if (!existsSync(join(root, filePath))) {
         result.missing_files.push(filePath);
         failures.push(`Required file missing: ${filePath}`);
+        continue;
+      }
+
+      const semanticCheck = evaluateWorkflowGateSemantics(root, filePath);
+      if (semanticCheck && !semanticCheck.ok) {
+        failures.push(semanticCheck.reason);
       }
     }
   }
@@ -229,6 +236,12 @@ export function evaluateRunCompletion({ state, config, acceptedTurn, root }) {
       if (!existsSync(join(root, filePath))) {
         result.missing_files.push(filePath);
         failures.push(`Required file missing: ${filePath}`);
+        continue;
+      }
+
+      const semanticCheck = evaluateWorkflowGateSemantics(root, filePath);
+      if (semanticCheck && !semanticCheck.ok) {
+        failures.push(semanticCheck.reason);
       }
     }
   }
