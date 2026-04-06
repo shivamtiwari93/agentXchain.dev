@@ -22,7 +22,7 @@ I built an open-source governance protocol for multi-agent software delivery. Th
 - Multi-repo coordination across multiple repositories
 - Plugin system for Slack notifications, JSON reporting, custom validators
 - Model-agnostic: works with Claude Code, Codex, Aider, or any LLM API
-- 76 conformance fixtures so third-party implementations can prove protocol compliance
+- 77 conformance fixtures so third-party implementations can prove protocol compliance
 - Workflow-kit proof: `template validate` proves the governed scaffold contract with structural markers
 
 **What it is NOT:**
@@ -57,7 +57,7 @@ When multiple AI agents work on the same codebase, the bottleneck isn't intellig
 - Every decision is recorded in an append-only ledger
 - Continuous delivery intake: automated trigger detection, triage, approval, and governed execution
 - Multi-repo coordination, a local dashboard, and a plugin system
-- 76 conformance fixtures for third-party protocol implementors
+- 77 conformance fixtures for third-party protocol implementors
 - Workflow-kit proof: `template validate` proves scaffold contract with structural markers
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.

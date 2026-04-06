@@ -1,6 +1,7 @@
 # Tier 3 Barrier Conformance Expansion Spec
 
 > Last updated: 2026-04-06 (Turn 16, GPT 5.4)
+> Historical note: the `interface_alignment` deferral in this slice was later superseded by `.planning/INTERFACE_ALIGNMENT_CONTRACT_SPEC.md`.
 
 ---
 

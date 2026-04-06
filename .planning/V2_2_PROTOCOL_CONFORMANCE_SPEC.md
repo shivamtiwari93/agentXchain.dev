@@ -102,7 +102,7 @@ Implementations claiming multi-repo orchestration MUST pass Tier 3 in addition t
 | Surface | Invariants |
 |---------|-----------|
 | **Coordinator Config** | schema_version 0.1 validated. Repos, workstreams, barriers declared. Acyclic workstream dependencies. Entry repo exists in workstream repo list. |
-| **Barrier Semantics** | Four barrier types: all_repos_accepted, interface_alignment, ordered_repo_sequence, shared_human_gate. Barrier status transitions: pending → partially_satisfied → satisfied. Deterministic evaluation from state + config. |
+| **Barrier Semantics** | Four barrier types: all_repos_accepted, interface_alignment (requires explicit `interface_alignment.decision_ids_by_repo`; satisfied only when each repo accepted its declared decision IDs), ordered_repo_sequence, shared_human_gate. Barrier status transitions: pending → partially_satisfied → satisfied. Deterministic evaluation from state + config. |
 | **Barrier Ledger** | Append-only JSONL. Records barrier_transition events. Status moves through valid transitions only. |
 | **Cross-Repo Isolation** | File writes in a turn result must belong to the declaring repo's path. Coordinator never writes to repo-local `.agentxchain/`. |
 | **Coordinator Gates** | Phase transition blocked if any required repo has active turn or pending repo-local gate. Coordinator cannot advance until all barriers satisfied. |

@@ -146,10 +146,93 @@ function validateWorkstreams(raw, repoIds, errors) {
         `workstream "${workstreamId}" completion_barrier must be one of: ${Array.from(VALID_BARRIER_TYPES).join(', ')}`,
       );
     }
+
+    validateInterfaceAlignment(workstreamId, workstream, errors);
   }
 
   detectWorkstreamCycles(raw.workstreams, errors);
   return workstreamIds;
+}
+
+function validateInterfaceAlignment(workstreamId, workstream, errors) {
+  if (workstream.completion_barrier !== 'interface_alignment') {
+    return;
+  }
+
+  const alignment = workstream.interface_alignment;
+  if (!alignment || typeof alignment !== 'object' || Array.isArray(alignment)) {
+    pushError(
+      errors,
+      'workstream_interface_alignment_invalid',
+      `workstream "${workstreamId}" with completion_barrier "interface_alignment" must declare interface_alignment.decision_ids_by_repo`,
+    );
+    return;
+  }
+
+  const byRepo = alignment.decision_ids_by_repo;
+  if (!byRepo || typeof byRepo !== 'object' || Array.isArray(byRepo)) {
+    pushError(
+      errors,
+      'workstream_interface_alignment_decisions_invalid',
+      `workstream "${workstreamId}" interface_alignment.decision_ids_by_repo must be an object`,
+    );
+    return;
+  }
+
+  const repoIds = Array.isArray(workstream.repos) ? workstream.repos : [];
+  const repoIdSet = new Set(repoIds);
+
+  for (const repoId of repoIds) {
+    if (!(repoId in byRepo)) {
+      pushError(
+        errors,
+        'workstream_interface_alignment_repo_missing',
+        `workstream "${workstreamId}" must declare interface_alignment.decision_ids_by_repo["${repoId}"]`,
+      );
+      continue;
+    }
+
+    const decisionIds = byRepo[repoId];
+    if (!Array.isArray(decisionIds) || decisionIds.length === 0) {
+      pushError(
+        errors,
+        'workstream_interface_alignment_repo_invalid',
+        `workstream "${workstreamId}" interface_alignment.decision_ids_by_repo["${repoId}"] must be a non-empty array`,
+      );
+      continue;
+    }
+
+    const seen = new Set();
+    for (const decisionId of decisionIds) {
+      if (typeof decisionId !== 'string' || !/^DEC-\d+$/.test(decisionId)) {
+        pushError(
+          errors,
+          'workstream_interface_alignment_decision_invalid',
+          `workstream "${workstreamId}" interface_alignment decision "${decisionId}" for repo "${repoId}" must match DEC-NNN`,
+        );
+        continue;
+      }
+      if (seen.has(decisionId)) {
+        pushError(
+          errors,
+          'workstream_interface_alignment_decision_duplicate',
+          `workstream "${workstreamId}" interface_alignment decision "${decisionId}" is duplicated for repo "${repoId}"`,
+        );
+        continue;
+      }
+      seen.add(decisionId);
+    }
+  }
+
+  for (const repoId of Object.keys(byRepo)) {
+    if (!repoIdSet.has(repoId)) {
+      pushError(
+        errors,
+        'workstream_interface_alignment_repo_unknown',
+        `workstream "${workstreamId}" interface_alignment references undeclared repo "${repoId}"`,
+      );
+    }
+  }
 }
 
 function detectWorkstreamCycles(workstreams, errors) {
@@ -344,6 +427,16 @@ export function normalizeCoordinatorConfig(raw) {
           entry_repo: workstream.entry_repo,
           depends_on: Array.isArray(workstream.depends_on) ? [...new Set(workstream.depends_on)] : [],
           completion_barrier: workstream.completion_barrier,
+          interface_alignment: workstream.interface_alignment?.decision_ids_by_repo
+            ? {
+                decision_ids_by_repo: Object.fromEntries(
+                  Object.entries(workstream.interface_alignment.decision_ids_by_repo).map(([repoId, decisionIds]) => [
+                    repoId,
+                    Array.isArray(decisionIds) ? [...new Set(decisionIds)] : [],
+                  ]),
+                ),
+              }
+            : null,
         },
       ]),
     ),

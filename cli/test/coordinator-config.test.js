@@ -152,6 +152,45 @@ describe('coordinator config validation', () => {
     }
   });
 
+  it('AT-MC-002b: accepts interface_alignment only when explicit decision ids are declared per repo', () => {
+    const config = buildValidCoordinatorConfig({ web: './repos/web', cli: './repos/cli' });
+    config.workstreams.protocol_doc_sync.completion_barrier = 'interface_alignment';
+    config.workstreams.protocol_doc_sync.interface_alignment = {
+      decision_ids_by_repo: {
+        web: ['DEC-101'],
+        cli: ['DEC-201', 'DEC-202'],
+      },
+    };
+
+    const result = validateCoordinatorConfig(config);
+    assert.equal(result.ok, true, result.errors?.join('\n'));
+
+    const normalized = normalizeCoordinatorConfig(config);
+    assert.deepEqual(
+      normalized.workstreams.protocol_doc_sync.interface_alignment,
+      {
+        decision_ids_by_repo: {
+          web: ['DEC-101'],
+          cli: ['DEC-201', 'DEC-202'],
+        },
+      },
+    );
+  });
+
+  it('AT-MC-002c: rejects interface_alignment without decision ids for every repo', () => {
+    const config = buildValidCoordinatorConfig({ web: './repos/web', cli: './repos/cli' });
+    config.workstreams.protocol_doc_sync.completion_barrier = 'interface_alignment';
+    config.workstreams.protocol_doc_sync.interface_alignment = {
+      decision_ids_by_repo: {
+        web: ['DEC-101'],
+      },
+    };
+
+    const result = validateCoordinatorConfig(config);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('workstream_interface_alignment_repo_missing')));
+  });
+
   it('AT-MC-003: rejects a repo path that does not exist on disk', () => {
     const workspace = makeWorkspace();
     const cliRepo = join(workspace, 'repos', 'cli');

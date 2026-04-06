@@ -71,6 +71,12 @@ describe('Multi-repo docs content', () => {
     }
   });
 
+  it('documents the explicit interface_alignment config contract', () => {
+    assert.match(COORDINATOR_CONFIG, /decision_ids_by_repo/);
+    assert.match(PAGE, /decision_ids_by_repo/);
+    assert.match(PAGE, /declared `DEC-NNN` decisions|declared DEC-NNN decisions/i);
+  });
+
   it('documents the shipped coordinator hook phases', () => {
     for (const phase of [
       'before_assignment',
@@ -88,6 +94,7 @@ describe('Multi-repo docs content', () => {
     assert.match(CROSS_REPO_CONTEXT, /COORDINATOR_CONTEXT\.md/);
     assert.match(PAGE, /COORDINATOR_CONTEXT\.json/);
     assert.match(PAGE, /COORDINATOR_CONTEXT\.md/);
+    assert.match(PAGE, /decision IDs still required/i);
   });
 });
 

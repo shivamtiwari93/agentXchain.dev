@@ -58,8 +58,9 @@ describe('Protocol implementor guide surface', () => {
 
   it('documents the current Tier 3 proof boundary honestly', () => {
     assert.match(GUIDE, /cross-repo write isolation/i);
-    assert.match(GUIDE, /not fixture-promoted yet/i);
-    assert.match(GUIDE, /heuristic placeholder/i);
+    assert.match(GUIDE, /decision_ids_by_repo/i);
+    assert.doesNotMatch(GUIDE, /intentionally not fixture-promoted yet/i);
+    assert.doesNotMatch(GUIDE, /current runtime still treats it as a heuristic placeholder/i);
   });
 
   it('describes workflow-file gate truth, not only abstract human approval', () => {

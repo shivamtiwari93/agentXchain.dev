@@ -403,6 +403,9 @@ describe('cross-repo context and dispatch', () => {
         workstream_id: 'delivery',
         type: 'interface_alignment',
         status: 'partially_satisfied',
+        alignment_decision_ids: {
+          web: ['DEC-201'],
+        },
         downstream_repos: ['web'],
         notes: 'Update web integration to match the accepted contract.',
       };
@@ -419,11 +422,14 @@ describe('cross-repo context and dispatch', () => {
       assert.equal(json.upstream_acceptances[0].repo_id, 'api');
       assert.equal(json.active_barriers.length, 1);
       assert.equal(json.active_barriers[0].barrier_id, 'delivery_alignment');
+      assert.deepEqual(json.active_barriers[0].alignment_decision_ids, { web: ['DEC-201'] });
       assert.ok(json.required_followups.some((item) => item.includes('accepted contract')));
+      assert.ok(json.required_followups.some((item) => item.includes('DEC-201')));
 
       assert.match(md, /Coordinator Context/);
       assert.match(md, /Accepted API contract update/);
       assert.match(md, /delivery_alignment/);
+      assert.match(md, /DEC-201/);
       assert.match(md, /Required Follow-ups/);
     } finally {
       rmSync(workspace, { recursive: true, force: true });

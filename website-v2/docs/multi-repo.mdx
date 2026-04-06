@@ -121,10 +121,21 @@ The shipped coordinator supports four completion-barrier modes:
 |--------------|---------|
 | `all_repos_accepted` | The workstream completes only after every repo listed in the workstream has an accepted projection |
 | `ordered_repo_sequence` | Downstream repos stay blocked until upstream acceptance order is satisfied |
-| `interface_alignment` | Cross-repo contract alignment barrier used to hold dispatch until interface coordination is satisfied |
+| `interface_alignment` | Cross-repo contract alignment barrier. The workstream must declare `interface_alignment.decision_ids_by_repo`, and the barrier is satisfied only when each repo has accepted the declared `DEC-NNN` decisions for that repo. |
 | `shared_human_gate` | Never auto-satisfies from repo acceptances; requires human approval through `multi approve-gate` |
 
 Barrier transitions are tracked in `.agentxchain/multirepo/barriers.json` and audited in `.agentxchain/multirepo/barrier-ledger.jsonl`.
+
+`interface_alignment` is explicit, not magical. The coordinator does not infer semantic compatibility from changed files. You declare the required accepted decision IDs per repo in `agentxchain-multi.json`:
+
+```json
+"interface_alignment": {
+  "decision_ids_by_repo": {
+    "api": ["DEC-101"],
+    "web": ["DEC-201"]
+  }
+}
+```
 
 ## Cross-Repo Context
 
@@ -137,6 +148,7 @@ Those artifacts summarize:
 
 - upstream acceptance projections from related workstreams
 - active non-satisfied barriers relevant to the target repo
+- declared `interface_alignment` decision IDs still required for the target repo
 - required follow-ups derived from dependencies and barrier notes
 
 The generated context is also stored under `.agentxchain/multirepo/context/<context_ref>/` so the coordinator can audit and invalidate stale context when upstream repos accept new work.

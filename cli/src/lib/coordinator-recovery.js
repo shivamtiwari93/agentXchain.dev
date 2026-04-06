@@ -21,6 +21,11 @@ import {
   readBarriers,
 } from './coordinator-state.js';
 import { safeWriteJson } from './safe-write.js';
+import {
+  computeBarrierStatus as computeCoordinatorBarrierStatus,
+  getAcceptedReposForWorkstream,
+  getAlignedReposForBarrier,
+} from './coordinator-barriers.js';
 
 // ── Paths ───────────────────────────────────────────────────────────────────
 
@@ -335,6 +340,23 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
     if (barrier.type === 'shared_human_gate') continue; // Never auto-transition
 
     const newStatus = recomputeBarrierStatus(barrier, fullHistory, config);
+    if (barrier.type === 'all_repos_accepted') {
+      const satisfiedRepos = getAcceptedReposForWorkstream(
+        fullHistory, barrier.workstream_id, barrier.required_repos
+      );
+      if (JSON.stringify(barrier.satisfied_repos || []) !== JSON.stringify(satisfiedRepos)) {
+        barrier.satisfied_repos = satisfiedRepos;
+        barriersChanged = true;
+      }
+    }
+    if (barrier.type === 'interface_alignment') {
+      const satisfiedRepos = getAlignedReposForBarrier(barrier, fullHistory);
+      if (JSON.stringify(barrier.satisfied_repos || []) !== JSON.stringify(satisfiedRepos)) {
+        barrier.satisfied_repos = satisfiedRepos;
+        barriersChanged = true;
+      }
+    }
+
     if (newStatus !== barrier.status) {
       const previousStatus = barrier.status;
       barrierChanges.push({
@@ -346,13 +368,6 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
       });
 
       barrier.status = newStatus;
-
-      // Update satisfied_repos for tracking
-      if (barrier.type === 'all_repos_accepted') {
-        barrier.satisfied_repos = getAcceptedReposForWorkstream(
-          fullHistory, barrier.workstream_id, barrier.required_repos
-        );
-      }
 
       barriersChanged = true;
 
@@ -421,75 +436,8 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   };
 }
 
-// ── Internal helpers ────────────────────────────────────────────────────────
-
-function getAcceptedReposForWorkstream(history, workstreamId, requiredRepos) {
-  const accepted = new Set();
-  for (const entry of history) {
-    if (entry?.type === 'acceptance_projection' && entry.workstream_id === workstreamId) {
-      if (requiredRepos.includes(entry.repo_id)) {
-        accepted.add(entry.repo_id);
-      }
-    }
-  }
-  return [...accepted];
-}
-
 function recomputeBarrierStatus(barrier, history, config) {
-  switch (barrier.type) {
-    case 'all_repos_accepted': {
-      const required = new Set(barrier.required_repos);
-      const satisfied = new Set();
-      for (const entry of history) {
-        if (entry?.type === 'acceptance_projection' && entry.workstream_id === barrier.workstream_id) {
-          if (required.has(entry.repo_id)) {
-            satisfied.add(entry.repo_id);
-          }
-        }
-      }
-      if (satisfied.size === required.size) return 'satisfied';
-      if (satisfied.size > 0) return 'partially_satisfied';
-      return 'pending';
-    }
-
-    case 'ordered_repo_sequence': {
-      const workstream = config.workstreams?.[barrier.workstream_id];
-      if (!workstream) return barrier.status;
-      const entryRepo = workstream.entry_repo;
-      const hasUpstream = history.some(
-        e => e?.type === 'acceptance_projection'
-          && e.workstream_id === barrier.workstream_id
-          && e.repo_id === entryRepo
-      );
-      if (hasUpstream) return 'satisfied';
-      const anyDownstream = history.some(
-        e => e?.type === 'acceptance_projection'
-          && e.workstream_id === barrier.workstream_id
-          && e.repo_id !== entryRepo
-      );
-      if (anyDownstream) return 'partially_satisfied';
-      return 'pending';
-    }
-
-    case 'interface_alignment': {
-      const required = new Set(barrier.required_repos);
-      const acceptedRepos = new Set();
-      for (const entry of history) {
-        if (entry?.type === 'acceptance_projection' && entry.workstream_id === barrier.workstream_id) {
-          if (required.has(entry.repo_id)) acceptedRepos.add(entry.repo_id);
-        }
-      }
-      if (acceptedRepos.size === 0) return 'pending';
-      if (acceptedRepos.size < required.size) return 'partially_satisfied';
-      return 'satisfied';
-    }
-
-    case 'shared_human_gate':
-      return barrier.status; // Never auto-transition
-
-    default:
-      return barrier.status;
-  }
+  return computeCoordinatorBarrierStatus(barrier, history, config);
 }
 
 /**

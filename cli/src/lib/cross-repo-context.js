@@ -60,6 +60,7 @@ function collectActiveBarriers(barriers, workstreamIds, targetRepoId) {
       type: barrier.type || 'unknown',
       status: barrier.status,
       notes: barrier.notes || null,
+      alignment_decision_ids: barrier.alignment_decision_ids || null,
     }));
 }
 
@@ -75,6 +76,17 @@ function buildRequiredFollowups(workstreamId, dependencyIds, upstreamAcceptances
   }
 
   for (const barrier of activeBarriers) {
+    if (
+      barrier.type === 'interface_alignment'
+      && barrier.alignment_decision_ids
+      && Array.isArray(barrier.alignment_decision_ids[targetRepoId])
+      && barrier.alignment_decision_ids[targetRepoId].length > 0
+    ) {
+      followups.push(
+        `Accept declared interface-alignment decisions for ${targetRepoId}: ${barrier.alignment_decision_ids[targetRepoId].join(', ')}.`,
+      );
+    }
+
     if (barrier.notes) {
       followups.push(barrier.notes);
     } else {
@@ -116,7 +128,16 @@ function renderContextMarkdown(snapshot) {
     lines.push('- None');
   } else {
     for (const barrier of snapshot.active_barriers) {
-      lines.push(`- ${barrier.barrier_id}: ${barrier.type} (${barrier.status})`);
+      let suffix = '';
+      if (
+        barrier.type === 'interface_alignment'
+        && barrier.alignment_decision_ids
+        && Array.isArray(barrier.alignment_decision_ids[snapshot.target_repo_id])
+        && barrier.alignment_decision_ids[snapshot.target_repo_id].length > 0
+      ) {
+        suffix = ` Required decision IDs for ${snapshot.target_repo_id}: ${barrier.alignment_decision_ids[snapshot.target_repo_id].join(', ')}.`;
+      }
+      lines.push(`- ${barrier.barrier_id}: ${barrier.type} (${barrier.status})${suffix}`);
     }
   }
 

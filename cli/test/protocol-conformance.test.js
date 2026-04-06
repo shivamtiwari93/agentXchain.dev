@@ -96,8 +96,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.results.tier_1.fixtures_passed, 46);
     assert.equal(report.results.tier_2.fixtures_run, 23);
     assert.equal(report.results.tier_2.fixtures_passed, 23);
-    assert.equal(report.results.tier_3.fixtures_run, 7);
-    assert.equal(report.results.tier_3.fixtures_passed, 7);
+    assert.equal(report.results.tier_3.fixtures_run, 8);
+    assert.equal(report.results.tier_3.fixtures_passed, 8);
   });
 
   it('supports Tier 3 surface filtering for coordinator fixtures', () => {
@@ -119,8 +119,8 @@ describe('protocol conformance verifier', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.results.tier_1.fixtures_run, 0);
     assert.equal(report.results.tier_2.fixtures_run, 0);
-    assert.equal(report.results.tier_3.fixtures_run, 7);
-    assert.equal(report.results.tier_3.fixtures_passed, 7);
+    assert.equal(report.results.tier_3.fixtures_run, 8);
+    assert.equal(report.results.tier_3.fixtures_passed, 8);
     assert.deepEqual(Object.keys(report.results.tier_3.surfaces), ['coordinator']);
   });
 

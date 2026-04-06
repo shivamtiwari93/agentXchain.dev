@@ -312,7 +312,7 @@ Barrier types in v2:
 Examples:
 
 - `ordered_repo_sequence`: repo `cli` must accept its interface change before repo `web` can take the matching implementation turn
-- `interface_alignment`: both repos must accept compatible contract decisions before QA can start
+- `interface_alignment`: verifies explicit declared contract decisions across repos before QA can start. The workstream must declare `interface_alignment.decision_ids_by_repo`, and the barrier is satisfied only when each repo has accepted the declared `DEC-NNN` IDs for that repo.
 
 ### 4. Acceptance
 

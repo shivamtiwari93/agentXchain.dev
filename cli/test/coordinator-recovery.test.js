@@ -269,6 +269,85 @@ describe('coordinator resync from repo authority', () => {
     }
   });
 
+  it('AT-CR-003b: resync recomputes interface_alignment from declared decision ids', () => {
+    const { workspace, apiRepo, webRepo, config, state } = setupWorkspace({
+      workstreams: {
+        delivery: {
+          phase: 'implementation',
+          repos: ['api', 'web'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'interface_alignment',
+          interface_alignment: {
+            decision_ids_by_repo: {
+              api: ['DEC-101'],
+              web: ['DEC-201'],
+            },
+          },
+        },
+      },
+    });
+    try {
+      const barriers = readBarriers(workspace);
+      barriers.delivery_completion.alignment_decision_ids = {
+        api: ['DEC-101'],
+        web: ['DEC-201'],
+      };
+      writeJson(join(workspace, '.agentxchain/multirepo/barriers.json'), barriers);
+
+      appendHistory(workspace, {
+        type: 'turn_dispatched',
+        timestamp: new Date().toISOString(),
+        super_run_id: state.super_run_id,
+        workstream_id: 'delivery',
+        repo_id: 'api',
+        repo_run_id: state.repo_runs.api.run_id,
+        repo_turn_id: 'turn_api_001',
+        role: 'dev',
+      });
+      appendHistory(workspace, {
+        type: 'turn_dispatched',
+        timestamp: new Date().toISOString(),
+        super_run_id: state.super_run_id,
+        workstream_id: 'delivery',
+        repo_id: 'web',
+        repo_run_id: state.repo_runs.web.run_id,
+        repo_turn_id: 'turn_web_001',
+        role: 'dev',
+      });
+
+      appendFileSync(
+        join(apiRepo, '.agentxchain/history.jsonl'),
+        JSON.stringify({
+          turn_id: 'turn_api_001',
+          status: 'completed',
+          summary: 'API contract accepted',
+          decisions: [{ id: 'DEC-101' }],
+          accepted_at: new Date().toISOString(),
+        }) + '\n'
+      );
+      appendFileSync(
+        join(webRepo, '.agentxchain/history.jsonl'),
+        JSON.stringify({
+          turn_id: 'turn_web_001',
+          status: 'completed',
+          summary: 'Web contract accepted',
+          decisions: [{ id: 'DEC-201' }],
+          accepted_at: new Date().toISOString(),
+        }) + '\n'
+      );
+
+      const result = resyncFromRepoAuthority(workspace, state, config);
+      assert.equal(result.ok, true);
+
+      const repairedBarriers = readBarriers(workspace);
+      assert.equal(repairedBarriers.delivery_completion.status, 'satisfied');
+      assert.deepEqual(repairedBarriers.delivery_completion.satisfied_repos.sort(), ['api', 'web']);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CR-004: ambiguous divergence enters blocked with mismatch details', () => {
     const { workspace, config, state } = setupWorkspace();
     try {

@@ -97,6 +97,7 @@ function bootstrapBarriers(config) {
       status: 'pending',
       required_repos: [...workstream.repos],
       satisfied_repos: [],
+      alignment_decision_ids: workstream.interface_alignment?.decision_ids_by_repo || null,
       created_at: new Date().toISOString(),
     };
   }

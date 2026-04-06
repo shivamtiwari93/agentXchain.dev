@@ -227,7 +227,7 @@ recordBarrierTransition(workspacePath, barrierId, previousStatus, newStatus, cau
 3. Acceptance rejects any declared path that resolves outside the target repo root, including relative traversal (`../other-repo/...`) and absolute paths into another declared repo.
 4. `evaluateBarriers` scans all declared barriers:
    - `all_repos_accepted`: satisfied when every repo in the workstream has at least one accepted turn in the current phase.
-   - `interface_alignment`: satisfied when all repos have accepted compatible contract decisions (heuristic: matching `DEC-*` IDs referenced in barrier config).
+  - `interface_alignment`: satisfied when all repos have accepted the explicit `interface_alignment.decision_ids_by_repo` decision IDs declared for that workstream.
    - `ordered_repo_sequence`: satisfied when the upstream repo has an accepted turn in the current phase.
    - `shared_human_gate`: satisfied only by explicit human approval via coordinator command.
 5. Barrier state changes are written to both `barriers.json` (snapshot) and `barrier-ledger.jsonl` (audit trail).

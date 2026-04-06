@@ -1,0 +1,123 @@
+{
+  "fixture_id": "CR-008",
+  "tier": 3,
+  "surface": "coordinator",
+  "description": "interface_alignment requires each repo to accept its declared decision ids before the barrier is satisfied",
+  "type": "transition",
+  "setup": {
+    "coordinator_config": {
+      "schema_version": "0.1",
+      "project": { "id": "alignment-test", "name": "Interface Alignment Test" },
+      "repos": {
+        "api": { "path": "./repos/api", "required": true },
+        "web": { "path": "./repos/web", "required": true }
+      },
+      "workstreams": {
+        "core": {
+          "phase": "implementation",
+          "repos": ["api", "web"],
+          "entry_repo": "api",
+          "depends_on": [],
+          "completion_barrier": "interface_alignment",
+          "interface_alignment": {
+            "decision_ids_by_repo": {
+              "api": ["DEC-101"],
+              "web": ["DEC-201"]
+            }
+          }
+        }
+      }
+    },
+    "repos": {
+      "api": {
+        "path": "./repos/api",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "api", "name": "API" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        },
+        "state": {
+          "run_id": "run_api_001",
+          "status": "active",
+          "phase": "implementation"
+        }
+      },
+      "web": {
+        "path": "./repos/web",
+        "config": {
+          "schema_version": "1.0",
+          "project": { "id": "web", "name": "Web" },
+          "roles": { "dev": { "runtime": "manual" } },
+          "runtimes": { "manual": { "type": "manual" } }
+        },
+        "state": {
+          "run_id": "run_web_001",
+          "status": "active",
+          "phase": "implementation"
+        }
+      }
+    },
+    "coordinator_state": {
+      "super_run_id": "srun_test_001",
+      "status": "active",
+      "phase": "implementation",
+      "repo_runs": {
+        "api": { "run_id": "run_api_001", "status": "active" },
+        "web": { "run_id": "run_web_001", "status": "active" }
+      }
+    },
+    "barriers": {
+      "core_barrier": {
+        "type": "interface_alignment",
+        "workstream_id": "core",
+        "status": "partially_satisfied",
+        "required_repos": ["api", "web"],
+        "satisfied_repos": ["api"],
+        "alignment_decision_ids": {
+          "api": ["DEC-101"],
+          "web": ["DEC-201"]
+        }
+      }
+    },
+    "coordinator_history": [
+      {
+        "type": "acceptance_projection",
+        "timestamp": "2026-04-01T00:00:00Z",
+        "super_run_id": "srun_test_001",
+        "projection_ref": "proj_core_api_prev",
+        "workstream_id": "core",
+        "repo_id": "api",
+        "repo_turn_id": "turn_api_001",
+        "summary": "API contract accepted",
+        "files_changed": ["src/contracts.ts"],
+        "decisions": [{ "id": "DEC-101" }],
+        "verification": { "status": "pass" }
+      }
+    ]
+  },
+  "input": {
+    "operation": "project_repo_acceptance",
+    "args": {
+      "repo_id": "web",
+      "workstream_id": "core",
+      "accepted_turn": {
+        "turn_id": "turn_web_001",
+        "summary": "Web contract accepted",
+        "files_changed": ["src/client.ts"],
+        "decisions": [{ "id": "DEC-201" }],
+        "verification": { "status": "pass" }
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "projection_ref": { "assert": "id_prefix", "value": "proj_" },
+    "barrier_effects": { "assert": "present" },
+    "barrier_snapshot": {
+      "core_barrier": {
+        "status": "satisfied"
+      }
+    }
+  }
+}

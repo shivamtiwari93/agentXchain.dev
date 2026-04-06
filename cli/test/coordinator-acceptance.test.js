@@ -280,6 +280,55 @@ describe('coordinator acceptance projection', () => {
     }
   });
 
+  it('AT-CA-005b: interface_alignment requires declared decision ids, not just repo acceptance', () => {
+    const { workspace, config, state } = setupWorkspace({
+      workstreams: {
+        delivery: {
+          phase: 'implementation',
+          repos: ['api', 'web'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'interface_alignment',
+          interface_alignment: {
+            decision_ids_by_repo: {
+              api: ['DEC-101'],
+              web: ['DEC-201'],
+            },
+          },
+        },
+      },
+    });
+    try {
+      projectRepoAcceptance(workspace, state, config, 'web', makeAcceptedTurn('turn_web_001', {
+        decisions: [{ id: 'DEC-999' }],
+      }), 'delivery');
+
+      const partialWithoutAlignment = evaluateBarriers(workspace, state, config);
+      assert.equal(partialWithoutAlignment.barriers['delivery_completion'].status, 'partially_satisfied');
+      assert.deepEqual(partialWithoutAlignment.barriers['delivery_completion'].satisfied_repos, []);
+
+      projectRepoAcceptance(workspace, state, config, 'web', makeAcceptedTurn('turn_web_002', {
+        decisions: [{ id: 'DEC-201' }],
+      }), 'delivery');
+      const partialWithWebAligned = evaluateBarriers(workspace, state, config);
+      assert.equal(partialWithWebAligned.barriers['delivery_completion'].status, 'partially_satisfied');
+      assert.deepEqual(partialWithWebAligned.barriers['delivery_completion'].satisfied_repos, ['web']);
+
+      projectRepoAcceptance(workspace, state, config, 'api', makeAcceptedTurn('turn_api_001', {
+        decisions: [{ id: 'DEC-101' }],
+      }), 'delivery');
+
+      const satisfied = evaluateBarriers(workspace, state, config);
+      assert.equal(satisfied.barriers['delivery_completion'].status, 'satisfied');
+      assert.deepEqual(
+        satisfied.barriers['delivery_completion'].satisfied_repos.sort(),
+        ['api', 'web'],
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CA-006: cross-repo write violation rejected at acceptance', () => {
     const { workspace, webRepo, config, state } = setupWorkspace();
     try {

@@ -17,6 +17,11 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } fr
 import { isAbsolute, join, dirname, relative, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { readBarriers, readCoordinatorHistory, saveCoordinatorState } from './coordinator-state.js';
+import {
+  computeBarrierStatus as computeCoordinatorBarrierStatus,
+  getAcceptedReposForWorkstream,
+  getAlignedReposForBarrier,
+} from './coordinator-barriers.js';
 
 // ── Paths ───────────────────────────────────────────────────────────────────
 
@@ -238,100 +243,8 @@ export function recordBarrierTransition(workspacePath, barrierId, previousStatus
   });
 }
 
-// ── Internal barrier logic ──────────────────────────────────────────────────
-
-function getAcceptedReposForWorkstream(history, workstreamId, requiredRepos) {
-  const accepted = new Set();
-  for (const entry of history) {
-    if (entry?.type === 'acceptance_projection' && entry.workstream_id === workstreamId) {
-      if (requiredRepos.includes(entry.repo_id)) {
-        accepted.add(entry.repo_id);
-      }
-    }
-  }
-  return [...accepted];
-}
-
 function computeBarrierStatus(barrier, history, config) {
-  switch (barrier.type) {
-    case 'all_repos_accepted':
-      return computeAllReposAccepted(barrier, history);
-
-    case 'ordered_repo_sequence':
-      return computeOrderedRepoSequence(barrier, history, config);
-
-    case 'interface_alignment':
-      return computeInterfaceAlignment(barrier, history);
-
-    case 'shared_human_gate':
-      // Never auto-satisfied — requires explicit human approval
-      return barrier.status;
-
-    default:
-      return barrier.status;
-  }
-}
-
-function computeAllReposAccepted(barrier, history) {
-  const required = new Set(barrier.required_repos);
-  const satisfied = new Set();
-
-  for (const entry of history) {
-    if (entry?.type === 'acceptance_projection' && entry.workstream_id === barrier.workstream_id) {
-      if (required.has(entry.repo_id)) {
-        satisfied.add(entry.repo_id);
-      }
-    }
-  }
-
-  if (satisfied.size === required.size) return 'satisfied';
-  if (satisfied.size > 0) return 'partially_satisfied';
-  return 'pending';
-}
-
-function computeOrderedRepoSequence(barrier, history, config) {
-  const workstream = config.workstreams?.[barrier.workstream_id];
-  if (!workstream) return barrier.status;
-
-  // Upstream is entry_repo. The barrier is satisfied when entry_repo has an accepted turn.
-  const entryRepo = workstream.entry_repo;
-  const hasUpstreamAcceptance = history.some(
-    entry => entry?.type === 'acceptance_projection'
-      && entry.workstream_id === barrier.workstream_id
-      && entry.repo_id === entryRepo
-  );
-
-  if (hasUpstreamAcceptance) return 'satisfied';
-
-  // Check if any non-entry repos have been accepted (partial)
-  const anyDownstreamAccepted = history.some(
-    entry => entry?.type === 'acceptance_projection'
-      && entry.workstream_id === barrier.workstream_id
-      && entry.repo_id !== entryRepo
-  );
-
-  if (anyDownstreamAccepted) return 'partially_satisfied';
-  return 'pending';
-}
-
-function computeInterfaceAlignment(barrier, history) {
-  const required = new Set(barrier.required_repos);
-  const repoDecisions = {};
-
-  for (const entry of history) {
-    if (entry?.type === 'acceptance_projection' && entry.workstream_id === barrier.workstream_id) {
-      if (required.has(entry.repo_id)) {
-        repoDecisions[entry.repo_id] = entry.decisions ?? [];
-      }
-    }
-  }
-
-  const acceptedRepos = Object.keys(repoDecisions);
-  if (acceptedRepos.length === 0) return 'pending';
-  if (acceptedRepos.length < required.size) return 'partially_satisfied';
-
-  // All repos accepted — check for DEC-* alignment (heuristic)
-  return 'satisfied';
+  return computeCoordinatorBarrierStatus(barrier, history, config);
 }
 
 // ── Barrier effects from a single acceptance ────────────────────────────────
@@ -340,19 +253,32 @@ function evaluateBarrierEffects(workspacePath, state, config, repoId, workstream
   const barriers = readBarriers(workspacePath);
   const history = readCoordinatorHistory(workspacePath);
   const effects = [];
+  let snapshotChanged = false;
 
   for (const [barrierId, barrier] of Object.entries(barriers)) {
     if (barrier.status === 'satisfied') continue;
     if (barrier.workstream_id !== workstreamId) continue;
 
     const newStatus = computeBarrierStatus(barrier, history, config);
+    if (barrier.type === 'all_repos_accepted') {
+      const satisfiedRepos = getAcceptedReposForWorkstream(history, workstreamId, barrier.required_repos);
+      if (JSON.stringify(barrier.satisfied_repos || []) !== JSON.stringify(satisfiedRepos)) {
+        barrier.satisfied_repos = satisfiedRepos;
+        snapshotChanged = true;
+      }
+    }
+    if (barrier.type === 'interface_alignment') {
+      const satisfiedRepos = getAlignedReposForBarrier(barrier, history);
+      if (JSON.stringify(barrier.satisfied_repos || []) !== JSON.stringify(satisfiedRepos)) {
+        barrier.satisfied_repos = satisfiedRepos;
+        snapshotChanged = true;
+      }
+    }
+
     if (newStatus !== barrier.status) {
       const previousStatus = barrier.status;
       barrier.status = newStatus;
-
-      if (barrier.type === 'all_repos_accepted') {
-        barrier.satisfied_repos = getAcceptedReposForWorkstream(history, workstreamId, barrier.required_repos);
-      }
+      snapshotChanged = true;
 
       effects.push({
         barrier_id: barrierId,
@@ -370,7 +296,7 @@ function evaluateBarrierEffects(workspacePath, state, config, repoId, workstream
   }
 
   // Persist updated barrier snapshot
-  if (effects.length > 0) {
+  if (snapshotChanged) {
     writeFileSync(barriersPath(workspacePath), JSON.stringify(barriers, null, 2) + '\n');
   }
 
