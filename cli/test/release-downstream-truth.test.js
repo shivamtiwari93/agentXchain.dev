@@ -171,7 +171,7 @@ describe('release downstream truth contract', () => {
     );
 
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /PASS: GitHub release v2\.14\.0 exists/);
+    assert.match(result.stdout, /PASS: GitHub release v2\.15\.0 exists/);
     assert.match(result.stdout, /PASS: canonical Homebrew formula SHA256 matches registry tarball/);
     assert.match(result.stdout, /PASS: canonical Homebrew formula URL matches registry tarball/);
     assert.match(result.stdout, /DOWNSTREAM TRUTH PASSED/);
@@ -277,6 +277,6 @@ describe('release downstream truth contract', () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /FAIL: GitHub release v2\.14\.0 not found/);
+    assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 not found/);
   });
 });
