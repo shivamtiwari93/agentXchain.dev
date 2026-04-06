@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { readCoordinatorHistory, readBarriers } from './coordinator-state.js';
+import { listWorkstreamHandoffs } from './intake-handoff.js';
 
 const CONTEXT_ROOT = '.agentxchain/multirepo/context';
 
@@ -97,6 +98,21 @@ function buildRequiredFollowups(workstreamId, dependencyIds, upstreamAcceptances
   return [...new Set(followups)];
 }
 
+function collectIntakeHandoffs(workspacePath, state, workstreamId) {
+  return listWorkstreamHandoffs(workspacePath, workstreamId, state.super_run_id).map((handoff) => ({
+    intent_id: handoff.intent_id,
+    source_repo: handoff.source_repo,
+    source_event_id: handoff.source_event_id,
+    source_signal_source: handoff.source_signal_source || null,
+    source_signal_category: handoff.source_signal_category || null,
+    charter: handoff.charter || '',
+    acceptance_contract: Array.isArray(handoff.acceptance_contract) ? handoff.acceptance_contract : [],
+    source_event_ref: handoff.source_event_ref || null,
+    evidence_refs: Array.isArray(handoff.evidence_refs) ? handoff.evidence_refs : [],
+    handed_off_at: handoff.handed_off_at || null,
+  }));
+}
+
 function renderContextMarkdown(snapshot) {
   const lines = [
     '# Coordinator Context',
@@ -150,6 +166,34 @@ function renderContextMarkdown(snapshot) {
   } else {
     for (const followup of snapshot.required_followups) {
       lines.push(`- ${followup}`);
+    }
+  }
+
+  if (snapshot.intake_handoffs.length > 0) {
+    lines.push('');
+    lines.push('## Intake Handoff');
+    lines.push('');
+
+    for (const handoff of snapshot.intake_handoffs) {
+      lines.push(`### ${handoff.intent_id}`);
+      lines.push('');
+      lines.push(`- Source Repo: ${handoff.source_repo}`);
+      if (handoff.source_signal_source || handoff.source_signal_category) {
+        lines.push(`- Original Signal: ${handoff.source_signal_source || 'unknown'} — ${handoff.source_signal_category || 'unknown'}`);
+      }
+      if (handoff.charter) {
+        lines.push(`- Charter: ${handoff.charter}`);
+      }
+      if (handoff.source_event_ref) {
+        lines.push(`- Evidence: ${handoff.source_repo}/${handoff.source_event_ref}`);
+      }
+      if (handoff.acceptance_contract.length > 0) {
+        lines.push('- Acceptance Contract:');
+        for (const requirement of handoff.acceptance_contract) {
+          lines.push(`  - ${requirement}`);
+        }
+      }
+      lines.push('');
     }
   }
 
@@ -218,6 +262,7 @@ export function generateCrossRepoContext(workspacePath, state, config, targetRep
   const relevantWorkstreamIds = [workstreamId, ...(Array.isArray(workstream.depends_on) ? workstream.depends_on : [])];
   const upstreamAcceptances = collectUpstreamAcceptances(history, targetRepoId, relevantWorkstreamIds);
   const activeBarriers = collectActiveBarriers(barriers, relevantWorkstreamIds, targetRepoId);
+  const intakeHandoffs = collectIntakeHandoffs(workspacePath, state, workstreamId);
   const snapshot = {
     schema_version: '0.1',
     super_run_id: state.super_run_id,
@@ -234,6 +279,7 @@ export function generateCrossRepoContext(workspacePath, state, config, targetRep
       activeBarriers,
       targetRepoId,
     ),
+    intake_handoffs: intakeHandoffs,
   };
 
   const contextDir = getContextDir(workspacePath, contextRef);

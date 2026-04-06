@@ -96,6 +96,7 @@ import { intakeTriageCommand } from '../src/commands/intake-triage.js';
 import { intakeApproveCommand } from '../src/commands/intake-approve.js';
 import { intakePlanCommand } from '../src/commands/intake-plan.js';
 import { intakeStartCommand } from '../src/commands/intake-start.js';
+import { intakeHandoffCommand } from '../src/commands/intake-handoff.js';
 import { intakeScanCommand } from '../src/commands/intake-scan.js';
 import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
@@ -485,6 +486,15 @@ intakeCmd
   .option('--role <role>', 'Override the default entry role for the governed phase')
   .option('-j, --json', 'Output as JSON')
   .action(intakeStartCommand);
+
+intakeCmd
+  .command('handoff')
+  .description('Hand off a planned intent to a coordinator workstream')
+  .option('--intent <id>', 'Intent ID to hand off')
+  .option('--coordinator-root <path>', 'Path to the coordinator workspace root')
+  .option('--workstream <id>', 'Coordinator workstream ID')
+  .option('-j, --json', 'Output as JSON')
+  .action(intakeHandoffCommand);
 
 intakeCmd
   .command('scan')

@@ -35,10 +35,10 @@ describe('Continuous delivery intake docs surface', () => {
     assert.match(SIDEBARS, /'continuous-delivery-intake'/);
   });
 
-  it('documents all eight shipped intake subcommands', () => {
+  it('documents all nine shipped intake subcommands', () => {
     for (const cmd of [
       'intake record', 'intake triage', 'intake approve', 'intake plan',
-      'intake start', 'intake resolve', 'intake scan', 'intake status',
+      'intake start', 'intake handoff', 'intake resolve', 'intake scan', 'intake status',
     ]) {
       assert.ok(DOC.includes(cmd), `intake docs must mention ${cmd}`);
     }
@@ -55,8 +55,11 @@ describe('Continuous delivery intake docs surface', () => {
       'approved_by',
       'planning_artifacts',
       'target_run',
+      'target_workstream',
       'target_turn',
       'started_at',
+      '.agentxchain/multirepo/handoffs/',
+      'super_run_id',
     ]) {
       assert.ok(DOC.includes(term), `intake docs must mention ${term}`);
     }
@@ -219,6 +222,11 @@ describe('Intake docs resolve outcome — code-backed verification', () => {
 
   it('documents no-change semantics for active and paused', () => {
     assert.ok(DOC.includes('no_change'), 'docs must mention no_change');
+  });
+
+  it('documents coordinator-backed resolve semantics distinctly', () => {
+    assert.ok(DOC.includes('coordinator') || DOC.includes('workstream'), 'docs must mention coordinator-backed resolve');
+    assert.ok(DOC.includes('super_run_id'), 'docs must mention super_run_id');
   });
 });
 

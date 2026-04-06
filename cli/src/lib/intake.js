@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, resolve as pathResolve } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { safeWriteJson } from './safe-write.js';
 import { VALID_GOVERNED_TEMPLATE_IDS, loadGovernedTemplate } from './governed-templates.js';
@@ -14,6 +14,9 @@ import { loadProjectContext, loadProjectState } from './config.js';
 import { writeDispatchBundle } from './dispatch-bundle.js';
 import { finalizeDispatchManifest } from './dispatch-manifest.js';
 import { getDispatchTurnDir } from './turn-paths.js';
+import { loadCoordinatorConfig } from './coordinator-config.js';
+import { loadCoordinatorState, readBarriers } from './coordinator-state.js';
+import { writeCoordinatorHandoff } from './intake-handoff.js';
 
 const VALID_SOURCES = ['manual', 'ci_failure', 'git_ref_change', 'schedule'];
 const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
@@ -60,6 +63,39 @@ function intakeDirs(root) {
     events: join(base, 'events'),
     intents: join(base, 'intents'),
   };
+}
+
+function readIntent(root, intentId) {
+  const dirs = intakeDirs(root);
+  const intentPath = join(dirs.intents, `${intentId}.json`);
+  if (!existsSync(intentPath)) {
+    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  }
+
+  return {
+    ok: true,
+    intentPath,
+    dirs,
+    intent: JSON.parse(readFileSync(intentPath, 'utf8')),
+  };
+}
+
+function readEvent(root, eventId) {
+  const dirs = intakeDirs(root);
+  const eventPath = join(dirs.events, `${eventId}.json`);
+  if (!existsSync(eventPath)) {
+    return { ok: false, error: `event ${eventId} not found`, exitCode: 2 };
+  }
+
+  return {
+    ok: true,
+    eventPath,
+    event: JSON.parse(readFileSync(eventPath, 'utf8')),
+  };
+}
+
+function getWorkstreamCompletionBarrierId(workstreamId) {
+  return `${workstreamId}_completion`;
 }
 
 function ensureIntakeDirs(root) {
@@ -644,28 +680,153 @@ function resolveIntakeRole(roleOverride, state, config) {
 }
 
 // ---------------------------------------------------------------------------
+// Handoff — planned → coordinator-mediated executing bridge
+// ---------------------------------------------------------------------------
+
+export function handoffIntent(root, intentId, options = {}) {
+  const loadedIntent = readIntent(root, intentId);
+  if (!loadedIntent.ok) {
+    return loadedIntent;
+  }
+
+  const { intent, intentPath } = loadedIntent;
+
+  if (intent.status !== 'planned') {
+    return {
+      ok: false,
+      error: `intent must be in planned state for handoff (current: ${intent.status})`,
+      exitCode: 1,
+    };
+  }
+
+  const coordinatorRoot = options.coordinatorRoot ? pathResolve(options.coordinatorRoot) : null;
+  if (!coordinatorRoot) {
+    return { ok: false, error: 'coordinator root does not contain agentxchain-multi.json', exitCode: 1 };
+  }
+
+  const coordinatorConfigResult = loadCoordinatorConfig(coordinatorRoot);
+  if (!coordinatorConfigResult.ok) {
+    return { ok: false, error: 'coordinator root does not contain agentxchain-multi.json', exitCode: 1 };
+  }
+  const coordinatorConfig = coordinatorConfigResult.config;
+
+  const workstreamId = options.workstreamId;
+  const workstream = coordinatorConfig.workstreams?.[workstreamId];
+  if (!workstream) {
+    return { ok: false, error: `workstream ${workstreamId} not found in coordinator config`, exitCode: 1 };
+  }
+
+  const context = loadProjectContext(root);
+  if (!context) {
+    return { ok: false, error: 'agentxchain.json not found or invalid', exitCode: 2 };
+  }
+
+  const sourceRepoId = context.config.project?.id;
+  if (!sourceRepoId) {
+    return { ok: false, error: 'governed project id is missing from agentxchain.json', exitCode: 2 };
+  }
+
+  if (!workstream.repos.includes(sourceRepoId)) {
+    return {
+      ok: false,
+      error: `repo ${sourceRepoId} is not a member of workstream ${workstreamId}`,
+      exitCode: 1,
+    };
+  }
+
+  const coordinatorState = loadCoordinatorState(coordinatorRoot);
+  if (!coordinatorState || coordinatorState.status !== 'active') {
+    return {
+      ok: false,
+      error: `coordinator run is not active (status: ${coordinatorState?.status || 'not_initialized'})`,
+      exitCode: 1,
+    };
+  }
+
+  const loadedEvent = readEvent(root, intent.event_id);
+  if (!loadedEvent.ok) {
+    return loadedEvent;
+  }
+  const { event } = loadedEvent;
+
+  const now = nowISO();
+  const handoff = {
+    schema_version: '1.0',
+    super_run_id: coordinatorState.super_run_id,
+    intent_id: intent.intent_id,
+    source_repo: sourceRepoId,
+    source_event_id: intent.event_id,
+    source_signal_source: event.source || null,
+    source_signal_category: event.category || null,
+    source_event_ref: `.agentxchain/intake/events/${intent.event_id}.json`,
+    workstream_id: workstreamId,
+    charter: intent.charter,
+    acceptance_contract: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [],
+    evidence_refs: [`.agentxchain/intake/events/${intent.event_id}.json`],
+    handed_off_at: now,
+    handed_off_by: options.handedOffBy || 'operator',
+  };
+  const handoffPath = writeCoordinatorHandoff(coordinatorRoot, intent.intent_id, handoff);
+
+  intent.status = 'executing';
+  intent.target_run = null;
+  intent.target_turn = null;
+  intent.target_workstream = {
+    coordinator_root: coordinatorRoot,
+    workstream_id: workstreamId,
+    super_run_id: coordinatorState.super_run_id,
+  };
+  intent.started_at = now;
+  intent.updated_at = now;
+  intent.history.push({
+    from: 'planned',
+    to: 'executing',
+    at: now,
+    super_run_id: coordinatorState.super_run_id,
+    workstream_id: workstreamId,
+    coordinator_root: coordinatorRoot,
+    reason: `handed off to coordinator workstream "${workstreamId}"`,
+  });
+
+  safeWriteJson(intentPath, intent);
+
+  return {
+    ok: true,
+    intent,
+    handoff_path: handoffPath,
+    super_run_id: coordinatorState.super_run_id,
+    exitCode: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Resolve — execution exit and intent closure linkage (V3-S5)
 // ---------------------------------------------------------------------------
 
 export function resolveIntent(root, intentId) {
-  const dirs = intakeDirs(root);
-  const intentPath = join(dirs.intents, `${intentId}.json`);
-
-  if (!existsSync(intentPath)) {
-    return { ok: false, error: `intent ${intentId} not found`, exitCode: 2 };
+  const loadedIntent = readIntent(root, intentId);
+  if (!loadedIntent.ok) {
+    return loadedIntent;
   }
 
-  const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
+  const { intent, intentPath, dirs } = loadedIntent;
 
   if (intent.status !== 'executing') {
     return { ok: false, error: `cannot resolve from status "${intent.status}" (must be executing)`, exitCode: 1 };
+  }
+
+  if (intent.target_workstream) {
+    return resolveCoordinatorBackedIntent(root, intentPath, dirs, intent);
   }
 
   if (!intent.target_run) {
     return { ok: false, error: `intent ${intentId} has no linked run (target_run is null)`, exitCode: 1 };
   }
 
-  // Load governed state
+  return resolveRepoBackedIntent(root, intentPath, dirs, intent);
+}
+
+function resolveRepoBackedIntent(root, intentPath, dirs, intent) {
   const statePath = join(root, STATE_PATH);
   if (!existsSync(statePath)) {
     return { ok: false, error: 'governed state not found at .agentxchain/state.json', exitCode: 1 };
@@ -745,7 +906,7 @@ export function resolveIntent(root, intentId) {
     });
 
     // Create observation directory scaffold
-    const obsDir = join(dirs.base, 'observations', intentId);
+    const obsDir = join(dirs.base, 'observations', intent.intent_id);
     mkdirSync(obsDir, { recursive: true });
 
     safeWriteJson(intentPath, intent);
@@ -767,6 +928,130 @@ export function resolveIntent(root, intentId) {
     previous_status: previousStatus,
     new_status: previousStatus,
     run_outcome: state.status,
+    no_change: true,
+    exitCode: 0,
+  };
+}
+
+function resolveCoordinatorBackedIntent(root, intentPath, dirs, intent) {
+  const targetWorkstream = intent.target_workstream;
+  const coordinatorRoot = targetWorkstream?.coordinator_root;
+  const workstreamId = targetWorkstream?.workstream_id;
+  const expectedSuperRunId = targetWorkstream?.super_run_id;
+
+  if (!coordinatorRoot || !workstreamId || !expectedSuperRunId) {
+    return { ok: false, error: 'intent target_workstream is incomplete', exitCode: 1 };
+  }
+
+  const coordinatorState = loadCoordinatorState(coordinatorRoot);
+  if (!coordinatorState) {
+    return { ok: false, error: `coordinator state not found at ${coordinatorRoot}`, exitCode: 1 };
+  }
+
+  if (coordinatorState.super_run_id !== expectedSuperRunId) {
+    return {
+      ok: false,
+      error: `super_run_id mismatch: intent targets ${expectedSuperRunId} but coordinator state has ${coordinatorState.super_run_id}`,
+      exitCode: 1,
+    };
+  }
+
+  const barriers = readBarriers(coordinatorRoot);
+  const barrier = barriers[getWorkstreamCompletionBarrierId(workstreamId)];
+  if (!barrier) {
+    return { ok: false, error: `completion barrier not found for workstream ${workstreamId}`, exitCode: 1 };
+  }
+
+  const now = nowISO();
+  const previousStatus = intent.status;
+
+  if (barrier.status === 'satisfied') {
+    intent.status = 'completed';
+    intent.run_completed_at = now;
+    intent.run_final_turn = null;
+    intent.updated_at = now;
+    intent.history.push({
+      from: previousStatus,
+      to: 'completed',
+      at: now,
+      reason: `coordinator workstream ${workstreamId} satisfied completion barrier`,
+      super_run_id: expectedSuperRunId,
+      run_status: coordinatorState.status,
+    });
+
+    const obsDir = join(dirs.base, 'observations', intent.intent_id);
+    mkdirSync(obsDir, { recursive: true });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: 'completed',
+      run_outcome: coordinatorState.status,
+      no_change: false,
+      exitCode: 0,
+    };
+  }
+
+  if (coordinatorState.status === 'blocked') {
+    intent.status = 'blocked';
+    intent.run_blocked_on = `coordinator:${workstreamId}`;
+    intent.run_blocked_reason = coordinatorState.blocked_reason || 'coordinator_blocked';
+    intent.run_blocked_recovery = 'resolve coordinator blocked state, then rerun agentxchain intake resolve';
+    intent.updated_at = now;
+    intent.history.push({
+      from: previousStatus,
+      to: 'blocked',
+      at: now,
+      reason: `coordinator run ${expectedSuperRunId} is blocked for workstream ${workstreamId}`,
+      super_run_id: expectedSuperRunId,
+      run_status: coordinatorState.status,
+    });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: 'blocked',
+      run_outcome: coordinatorState.status,
+      no_change: false,
+      exitCode: 0,
+    };
+  }
+
+  if (coordinatorState.status === 'failed' || coordinatorState.status === 'completed') {
+    intent.status = 'failed';
+    intent.run_failed_at = now;
+    intent.updated_at = now;
+    intent.history.push({
+      from: previousStatus,
+      to: 'failed',
+      at: now,
+      reason: `coordinator run ${expectedSuperRunId} ended without satisfying workstream ${workstreamId}`,
+      super_run_id: expectedSuperRunId,
+      run_status: coordinatorState.status,
+    });
+
+    safeWriteJson(intentPath, intent);
+    return {
+      ok: true,
+      intent,
+      previous_status: previousStatus,
+      new_status: 'failed',
+      run_outcome: coordinatorState.status,
+      no_change: false,
+      exitCode: 0,
+    };
+  }
+
+  return {
+    ok: true,
+    intent,
+    previous_status: previousStatus,
+    new_status: previousStatus,
+    run_outcome: coordinatorState.status,
     no_change: true,
     exitCode: 0,
   };

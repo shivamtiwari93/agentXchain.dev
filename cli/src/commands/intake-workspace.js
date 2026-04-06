@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, parse as pathParse, resolve } from 'node:path';
 import { findProjectRoot } from '../lib/config.js';
 import { COORDINATOR_CONFIG_FILE } from '../lib/coordinator-config.js';
@@ -19,6 +19,20 @@ function findCoordinatorWorkspaceRoot(startDir = process.cwd()) {
   }
 }
 
+function listCoordinatorChildRepos(coordinatorRoot) {
+  const configPath = join(coordinatorRoot, COORDINATOR_CONFIG_FILE);
+  if (!existsSync(configPath)) {
+    return [];
+  }
+
+  try {
+    const raw = JSON.parse(readFileSync(configPath, 'utf8'));
+    return Object.keys(raw?.repos || {});
+  } catch {
+    return [];
+  }
+}
+
 export function requireIntakeWorkspaceOrExit(opts, startDir = process.cwd()) {
   const projectRoot = findProjectRoot(startDir);
   if (projectRoot) {
@@ -26,8 +40,12 @@ export function requireIntakeWorkspaceOrExit(opts, startDir = process.cwd()) {
   }
 
   const coordinatorRoot = findCoordinatorWorkspaceRoot(startDir);
+  const childRepos = coordinatorRoot ? listCoordinatorChildRepos(coordinatorRoot) : [];
+  const repoHint = childRepos.length > 0
+    ? ` Available child repos: ${childRepos.join(', ')}.`
+    : '';
   const error = coordinatorRoot
-    ? `intake commands are repo-local only. Found coordinator workspace at ${coordinatorRoot} (${COORDINATOR_CONFIG_FILE}). Run intake inside a child governed repo (agentxchain.json), then use \`agentxchain multi step\` for cross-repo coordination.`
+    ? `intake commands are repo-local only. Found coordinator workspace at ${coordinatorRoot} (${COORDINATOR_CONFIG_FILE}). Run intake inside a child governed repo (agentxchain.json).${repoHint} Then use \`agentxchain multi step\` for cross-repo coordination.`
     : 'agentxchain.json not found';
 
   if (opts.json) {

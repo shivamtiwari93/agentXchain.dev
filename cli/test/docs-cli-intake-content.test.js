@@ -51,7 +51,7 @@ describe('CLI intake docs contract', () => {
   });
 
   it('documents every shipped intake subcommand from the CLI registration', () => {
-    assert.equal(intakeSubcommands.length, 8, 'expected eight shipped intake subcommands');
+    assert.equal(intakeSubcommands.length, 9, 'expected nine shipped intake subcommands');
     for (const subcommand of intakeSubcommands) {
       assert.match(
         intakeSection,
@@ -88,9 +88,12 @@ describe('CLI intake docs contract', () => {
     assert.match(intakeSection, /approve.*does not start a governed run/i);
     assert.match(intakeSection, /plan.*does not start execution/i);
     assert.match(intakeSection, /start.*planned -> executing/i);
+    assert.match(intakeSection, /handoff.*coordinator workstream/i);
+    assert.match(intakeSection, /target_workstream/);
+    assert.match(intakeSection, /super_run_id/);
     assert.match(intakeSection, /target_run/);
     assert.match(intakeSection, /target_turn/);
-    assert.match(intakeSection, /resolve.*blocked.*, `completed`, and `failed` run outcomes/i);
+    assert.match(intakeSection, /resolve.*blocked.*, `completed`, and `failed` outcomes/i);
     assert.match(intakeSection, /`active` and `paused` remain `no_change`/i);
   });
 

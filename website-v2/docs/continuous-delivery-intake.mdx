@@ -1,6 +1,6 @@
 ---
 title: Continuous Delivery Intake
-description: "Repo-native intake for continuous governed delivery: record and scan signals, triage work, approve intent, generate planning artifacts, start governed execution, resolve governed outcomes, and inspect backlog state."
+description: "Repo-native intake for continuous governed delivery: record and scan signals, triage work, approve intent, generate planning artifacts, start governed execution, hand planned work to a coordinator, resolve governed outcomes, and inspect backlog state."
 ---
 
 # Continuous Delivery Intake
@@ -18,11 +18,11 @@ It is **not** a coordinator-root command family. If your current workspace is ro
 - run intake inside the child governed repo that owns the signal
 - use `agentxchain multi step` for cross-repo orchestration
 
-If both config files exist in the same directory, governed-project detection wins and intake stays repo-local. AgentXchain does not yet ship automatic intake-to-coordinator handoff.
+If both config files exist in the same directory, governed-project detection wins and intake stays repo-local. AgentXchain now ships explicit `intake handoff`; it does **not** auto-escalate intake into coordinator state.
 
 ## What ships today
 
-The current CLI surface is eight commands:
+The current CLI surface is nine commands:
 
 ```bash
 agentxchain intake record
@@ -30,6 +30,7 @@ agentxchain intake triage
 agentxchain intake approve
 agentxchain intake plan
 agentxchain intake start
+agentxchain intake handoff
 agentxchain intake resolve
 agentxchain intake scan
 agentxchain intake status
@@ -61,6 +62,10 @@ Concrete artifact paths:
 - `.agentxchain/intake/intents/<intent_id>.json`
 - `.agentxchain/intake/observations/<intent_id>/`
 - `.agentxchain/intake/loop-state.json`
+
+When an operator escalates a planned intent into a coordinator workspace, AgentXchain also writes a read-only handoff ref under the coordinator root:
+
+- `.agentxchain/multirepo/handoffs/<intent_id>.json`
 
 ## `intake record`
 
@@ -194,6 +199,7 @@ agentxchain intake triage \
   ],
   "requires_human_start": true,
   "target_run": null,
+  "target_workstream": null,
   "created_at": "2026-04-03T20:10:00Z",
   "updated_at": "2026-04-03T20:18:00Z",
   "history": [
@@ -272,7 +278,7 @@ Planning behavior is template-aware:
 - `generic` is valid and may generate zero planning artifacts
 - if any target artifact already exists, planning fails atomically unless `--force` is supplied
 
-`planned` means execution-ready. It does **not** mean execution has started until `intake start` links the intent to a governed run.
+`planned` means execution-ready. It does **not** mean execution has started until `intake start` links the intent to a governed run or `intake handoff` links it to a coordinator workstream.
 
 ## `intake start`
 
@@ -324,6 +330,66 @@ On success the intent gains:
 
 The distinction matters: paused-with-pending-gate is rejected. Paused-without-pending-gate is resumed. If you are unsure whether a paused run has a pending gate, check `.agentxchain/state.json` for `pending_phase_transition` or `pending_run_completion` fields.
 
+## `intake handoff`
+
+Use `intake handoff` when the source repo owns the signal, but the resulting work belongs to a coordinated multi-repo workstream.
+
+```bash
+agentxchain intake handoff \
+  --intent intent_1712173200000_c3d4 \
+  --coordinator-root ../workspace \
+  --workstream delivery \
+  --json
+```
+
+Current handoff action:
+
+- `planned -> executing`
+
+Success output includes:
+
+- the handoff ref path under `.agentxchain/multirepo/handoffs/`
+- the coordinator `super_run_id`
+- `target_workstream` on the intent
+
+On success the intent gains:
+
+- `target_workstream.coordinator_root`
+- `target_workstream.workstream_id`
+- `target_workstream.super_run_id`
+- `started_at`
+
+The handoff ref is run-bound on purpose. `super_run_id` prevents a stale handoff file from contaminating a later coordinator run in the same workspace.
+
+### Handoff constraints
+
+`intake handoff` rejects deterministically when:
+
+- the intent is not in `planned`
+- `--coordinator-root` does not resolve to a valid `agentxchain-multi.json`
+- `--workstream` is not declared in the coordinator config
+- the source repo is not listed in that workstream's `repos`
+- the coordinator run is not `active`
+
+### Handoff artifact shape
+
+The coordinator handoff ref is read-only context. It carries enough information for coordinator dispatch to explain why the workstream exists without granting the coordinator authority over the source repo's intake state.
+
+Key fields:
+
+- `intent_id`
+- `super_run_id`
+- `source_repo`
+- `source_event_id`
+- `source_signal_source`
+- `source_signal_category`
+- `charter`
+- `acceptance_contract`
+- `source_event_ref`
+- `evidence_refs`
+
+`intake handoff` does **not** trigger `multi step` automatically. The operator still runs `agentxchain multi step` explicitly after the handoff.
+
 ## `intake resolve`
 
 Use `intake resolve` to close the loop between a governed run outcome and the linked intake intent.
@@ -334,7 +400,12 @@ agentxchain intake resolve \
   --json
 ```
 
-`intake resolve` reads `.agentxchain/state.json`, verifies that the governed `run_id` still matches the intent's `target_run`, and then maps the run outcome back onto intake state truth.
+`intake resolve` supports two execution backends:
+
+- repo-local governed execution via `target_run`
+- coordinator-mediated execution via `target_workstream`
+
+For repo-local execution, `intake resolve` reads `.agentxchain/state.json`, verifies that the governed `run_id` still matches the intent's `target_run`, and then maps the run outcome back onto intake state truth.
 
 ### Run-outcome mapping
 
@@ -346,6 +417,19 @@ agentxchain intake resolve \
 | `active` | no change | Returns `ok: true`, `no_change: true`; the intent stays `executing` |
 | `paused` | no change | Returns `ok: true`, `no_change: true`; approval-held pause is not an intake outcome |
 | `idle` | error | Indicates the governed state was reset or no longer matches the started intent |
+
+### Coordinator-backed outcome mapping
+
+If the intent carries `target_workstream`, `intake resolve` reads coordinator state from `target_workstream.coordinator_root`, verifies that `super_run_id` still matches, and then checks the workstream's completion barrier.
+
+| Coordinator state | Barrier state | Intent transition | Notes |
+| --- | --- | --- | --- |
+| `active` | not satisfied | no change | Returns `ok: true`, `no_change: true`; coordinated work is still in flight |
+| `blocked` | not satisfied | `executing -> blocked` | Preserves recoverability instead of collapsing every coordinator issue into `failed` |
+| `active` or `completed` | `satisfied` | `executing -> completed` | Creates `.agentxchain/intake/observations/<intent_id>/` just like repo-local completion |
+| `completed` or `failed` | not satisfied | `executing -> failed` | The coordinator run ended without satisfying the declared workstream |
+
+Coordinator-backed intents also record `target_workstream.super_run_id`. If the coordinator workspace is reinitialized and the `super_run_id` no longer matches, `intake resolve` fails fast instead of silently attaching the old intent to a new super-run.
 
 ### Resolve result shape
 
@@ -385,7 +469,7 @@ S5 makes the recovery path explicit:
 planned -> executing -> blocked -> approved -> planned -> executing
 ```
 
-`intake resolve` does not restart work by itself. It records the outcome. If the run blocked and the operator decides to continue, the next step is `agentxchain intake approve --intent <id>` followed by re-planning and a new `intake start`.
+`intake resolve` does not restart work by itself. It records the outcome. If the run or workstream blocked and the operator decides to continue, the next step is `agentxchain intake approve --intent <id>` followed by re-planning and a new `intake start` or `intake handoff`.
 
 ## `intake scan`
 
@@ -506,6 +590,7 @@ triaged -> approved
 triaged -> rejected
 approved -> planned
 planned -> executing
+planned -> executing (coordinator handoff)
 executing -> blocked
 executing -> completed
 executing -> failed
@@ -560,9 +645,10 @@ Intake is an entrypoint, not a loophole.
 - approving or planning an intent does not create a governed run
 - scanning a snapshot does not triage, approve, plan, or start anything
 - `intake start` does create or attach one planned intent to the governed execution boundary
-- `intake resolve` reads governed outcome state and updates the intent; it does not create release evidence or reopen runs
+- `intake handoff` does create a coordinator-managed execution link by writing `target_workstream` and a run-bound handoff ref
+- `intake resolve` reads governed or coordinator outcome state and updates the intent; it does not create release evidence or reopen runs
 - `planned` is not the same thing as `executing`
 - the future continuous loop still has to respect explicit approval transitions
-- neither `intake scan` nor `intake start` auto-triages, auto-approves, or auto-starts from raw signals
+- neither `intake scan`, `intake start`, nor `intake handoff` auto-triages, auto-approves, or auto-starts from raw signals
 
 If you want automatic code-writing execution from repo signals, that is a later governance decision, not a default.

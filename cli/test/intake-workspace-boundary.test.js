@@ -16,11 +16,12 @@ function createCoordinatorWorkspace() {
     project: { id: 'coord-test', name: 'Coordinator Test' },
     repos: {
       api: { path: './repos/api', default_branch: 'main', required: true },
+      web: { path: './repos/web', default_branch: 'main', required: true },
     },
     workstreams: {
       delivery_fix: {
         phase: 'implementation',
-        repos: ['api'],
+        repos: ['api', 'web'],
         entry_repo: 'api',
         depends_on: [],
         completion_barrier: 'all_repos_accepted',
@@ -86,6 +87,8 @@ describe('intake workspace boundary', () => {
       assert.match(out.error, /agentxchain-multi\.json/);
       assert.match(out.error, /child governed repo/i);
       assert.match(out.error, /agentxchain multi step/);
+      assert.match(out.error, /api/);
+      assert.match(out.error, /web/);
     }
   });
 

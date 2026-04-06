@@ -64,6 +64,10 @@ function printIntentDetail(intent, event) {
   console.log(`  ${chalk.dim('Charter:')}   ${intent.charter || '—'}`);
   console.log(`  ${chalk.dim('Created:')}   ${intent.created_at}`);
   console.log(`  ${chalk.dim('Updated:')}   ${intent.updated_at}`);
+  if (intent.target_workstream) {
+    console.log(`  ${chalk.dim('Workstream:')} ${intent.target_workstream.workstream_id}`);
+    console.log(`  ${chalk.dim('Super Run:')}  ${intent.target_workstream.super_run_id}`);
+  }
 
   if (intent.acceptance_contract && intent.acceptance_contract.length > 0) {
     console.log('');

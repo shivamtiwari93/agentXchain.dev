@@ -474,7 +474,7 @@ For repo-local runs, the Timeline, Decisions, Hooks, Blocked, and Gates views re
 agentxchain intake <subcommand> [options]
 ```
 
-The intake command family is the repo-native entrypoint for continuous governed delivery. It records signals under `.agentxchain/intake/`, turns them into governed intents, and then hands approved work into the existing governed run engine without bypassing human authority.
+The intake command family is the repo-native entrypoint for continuous governed delivery. It records signals under `.agentxchain/intake/`, turns them into governed intents, and then either starts repo-local governed execution or hands planned work into a coordinator workstream without bypassing human authority.
 
 | Subcommand | Purpose | Key contract |
 |------------|---------|--------------|
@@ -483,7 +483,8 @@ The intake command family is the repo-native entrypoint for continuous governed 
 | `approve` | Authorize a `triaged` or re-reviewed `blocked` intent for planning | Approval is an explicit gate. It does not start a governed run |
 | `plan` | Materialize template-backed planning artifacts and move `approved -> planned` | Generates `.planning/` artifacts and fails on conflicts unless `--force` is supplied |
 | `start` | Hand one `planned` intent into the governed execution engine | This is the explicit `planned -> executing` bridge. It assigns a governed run and turn, records `target_run` and `target_turn`, and is not triggered automatically from raw signals |
-| `resolve` | Read governed run outcome back into intake state | Maps `blocked`, `completed`, and `failed` run outcomes back onto the linked intent; `active` and `paused` remain `no_change` |
+| `handoff` | Link one `planned` intent to a coordinator workstream | Writes a run-bound handoff ref, records `target_workstream.super_run_id`, and leaves dispatch to explicit `multi step` |
+| `resolve` | Read governed run or coordinator outcome back into intake state | Maps repo-local or coordinator-backed `blocked`, `completed`, and `failed` outcomes back onto the linked intent; `active` and `paused` remain `no_change` |
 | `scan` | Ingest a deterministic source snapshot through the same event-recording path | Supported scan sources are `ci_failure`, `git_ref_change`, and `schedule`. `manual` is intentionally excluded |
 | `status` | Inspect intake backlog summary or one intent in detail | Summary mode reports counts and recent intents; `--intent` shows the linked event and transition history |
 
@@ -492,10 +493,11 @@ The command family is intentionally staged:
 - `record` and `scan` ingest signals only
 - `approve` authorizes but does not start execution
 - `plan` prepares artifacts but does not start execution
-- `start` is the first command that creates or attaches governed execution for intake work
+- `start` creates repo-local governed execution for one planned intent by recording `target_run` and `target_turn`
+- `handoff` creates coordinator-managed execution for one planned intent by recording `target_workstream` and its `super_run_id`
 - `resolve` closes the loop by reading governed outcome state back into intake truth
 
-Intake is repo-local. Run it inside a governed project rooted by `agentxchain.json`. If you are standing in a coordinator workspace rooted by `agentxchain-multi.json`, use `multi` there and run intake inside the child repo that owns the signal.
+Intake is repo-local. Run it inside a governed project rooted by `agentxchain.json`. If you are standing in a coordinator workspace rooted by `agentxchain-multi.json`, use `multi` there and run intake inside the child repo that owns the signal. `handoff` is explicit operator escalation, not automatic coordinator intake.
 
 Use [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full artifact layout, state-machine transitions, deduplication contract, and lifecycle details. The CLI reference should help you find the command family quickly, not become a second hand-maintained copy of the entire intake spec.
 
