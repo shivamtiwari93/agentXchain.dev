@@ -91,6 +91,19 @@ agentxchain approve-completion
 
 Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you override the dev runtime, either include `{prompt}` for argv delivery or set `--dev-prompt-transport` explicitly.
 
+### Multi-repo coordination
+
+For initiatives spanning multiple governed repos, use the coordinator to add cross-repo sequencing and shared gates:
+
+```bash
+npx agentxchain init --governed --template api-service --dir repos/backend -y
+npx agentxchain init --governed --template web-app --dir repos/frontend -y
+agentxchain multi init
+agentxchain multi step --repo backend --role pm
+```
+
+See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
+
 ### Migrate a legacy project
 
 ```bash

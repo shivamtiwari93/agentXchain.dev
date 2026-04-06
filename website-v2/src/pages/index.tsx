@@ -572,6 +572,9 @@ function Integrations() {
               coordinator governance model. Workstreams, barriers, and
               cross-repo context sharing.
             </p>
+            <Link className="layer-link" to="/docs/quickstart#multi-repo-cold-start" style={{ color: 'var(--axc-green-light)' }}>
+              Multi-repo quickstart &rarr;
+            </Link>
           </div>
           <div className="feature-card">
             <h3>Webhook notifications</h3>

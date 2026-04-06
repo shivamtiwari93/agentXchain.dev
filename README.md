@@ -112,6 +112,26 @@ Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KE
 
 The governed flow is always: assign, stage a structured result, accept or reject, then satisfy any human gate before the next phase can advance.
 
+### Multi-repo coordination
+
+When one initiative spans multiple governed repos, use the coordinator:
+
+```bash
+# Scaffold two child repos
+npx agentxchain init --governed --template api-service --dir repos/backend -y
+npx agentxchain init --governed --template web-app --dir repos/frontend -y
+
+# Create coordinator config
+cat > agentxchain-multi.json << 'EOF'
+{ "repos": { "backend": { "path": "repos/backend" }, "frontend": { "path": "repos/frontend" } } }
+EOF
+
+agentxchain multi init
+agentxchain multi step --repo backend --role pm
+```
+
+Each child repo keeps its own governed state and gates. The coordinator adds cross-repo sequencing, shared barriers, and a coordinator-owned gate. See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
+
 ### Migrate an existing legacy project
 
 ```bash

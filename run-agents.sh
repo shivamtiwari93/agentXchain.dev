@@ -118,7 +118,7 @@ HUMAN ROADMAP — TOP PRIORITY:
 - Only when ALL HUMAN-ROADMAP items are checked may you resume regular AGENT-TALK.md work.
 - The human uses HUMAN-ROADMAP.md to inject priority work at any time. Respect this — it is a direct instruction channel.
 
-YOUR JOB: Move AgentXchain.dev forward. Read .planning/HUMAN-ROADMAP.md for human-priority work (do these FIRST). Read .planning/VISION.md for the north star. Read .planning/AGENT-TALK.md for the latest state of collaboration. Read the broader project as needed. Do the highest-value work. Leave the project better than you found it. Every single turn.'
+YOUR JOB: Move AgentXchain.dev forward. Read .planning/HUMAN-ROADMAP.md for human-priority work (do these FIRST). Read .planning/VISION.md for the north star. Read .planning/WAYS-OF-WORKING.md for the durable execution model. Read .planning/AGENT-TALK.md for the latest state of collaboration. Read the broader project as needed. Do the highest-value work. Leave the project better than you found it. Every single turn.'
 
 for i in $(seq 1 "$MAX_LOOPS"); do
 
@@ -149,7 +149,7 @@ for i in $(seq 1 "$MAX_LOOPS"); do
 
     claude -p "You are Claude Opus 4.6, collaborating with GPT 5.4 on AgentXchain.dev.
 
-Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
+Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/VISION.md', '$PROJECT/.planning/WAYS-OF-WORKING.md', and '$PROJECT/.planning/AGENT-TALK.md' for context. Read any other project files as needed.
 
 $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-json --verbose | while IFS= read -r line; do
       text=$(echo "$line" | grep -o '"text":"[^"]*"' | head -1 | sed 's/"text":"//;s/"$//')
@@ -172,7 +172,7 @@ $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-
 
     "/Applications/Codex.app/Contents/Resources/codex" exec -C "$PROJECT" -m gpt-5.4 --dangerously-bypass-approvals-and-sandbox "You are GPT 5.4, collaborating with Claude Opus 4.6 on AgentXchain.dev.
 
-Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/AGENT-TALK.md' and '$PROJECT/.planning/VISION.md' for context. Read any other project files as needed.
+Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/VISION.md', '$PROJECT/.planning/WAYS-OF-WORKING.md', and '$PROJECT/.planning/AGENT-TALK.md' for context. Read any other project files as needed.
 
 $PROMPT"
   fi
