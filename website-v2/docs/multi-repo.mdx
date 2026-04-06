@@ -16,6 +16,8 @@ If you want the literal cold-start path first, use [Quickstart](/docs/quickstart
 
 The coordinator workspace is a directory with an `agentxchain-multi.json` file at its root plus checked-out governed repos underneath it.
 
+Phase order is not negotiable: every child repo participating in the coordinator must declare the **same ordered routing phases** as the coordinator initiative. If the coordinator runs `planning -> implementation -> qa`, the child repos must expose the same routing order. If the coordinator is implementation-only, the child repos must also be implementation-only. `multi init` now rejects phase-order mismatches instead of letting them fail later during dispatch.
+
 ```json title="agentxchain-multi.json"
 {
   "schema_version": "0.1",
@@ -93,6 +95,7 @@ The coordinator loop is explicit. The coordinator never auto-runs child repos be
 
 1. `agentxchain multi init`
    - Loads `agentxchain-multi.json`
+   - Verifies coordinator/child repo phase-order alignment before writing coordinator state
    - Links existing active child runs or initializes idle governed repos
    - Writes `.agentxchain/multirepo/state.json` and barrier snapshots
 2. `agentxchain multi step`

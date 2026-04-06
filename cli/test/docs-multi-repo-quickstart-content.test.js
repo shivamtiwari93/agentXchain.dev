@@ -28,6 +28,7 @@ describe('multi-repo quickstart docs contract', () => {
       'agentxchain multi init',
       'agentxchain multi step --json',
       'agentxchain multi approve-gate',
+      'qa_sync',
     ]) {
       assert.match(QUICKSTART, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     }
@@ -43,6 +44,11 @@ describe('multi-repo quickstart docs contract', () => {
   it('documents coordinator context artifacts for downstream repos', () => {
     assert.match(QUICKSTART, /COORDINATOR_CONTEXT\.json/);
     assert.match(QUICKSTART, /COORDINATOR_CONTEXT\.md/);
+  });
+
+  it('documents the coordinator-child phase alignment rule', () => {
+    assert.match(QUICKSTART, /default governed scaffold uses `planning -> implementation -> qa`/i);
+    assert.match(QUICKSTART, /multi init.*rejects mismatches/i);
   });
 
   it('links the deep-dive multi-repo page back to the quickstart section', () => {

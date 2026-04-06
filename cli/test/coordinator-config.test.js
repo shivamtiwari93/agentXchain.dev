@@ -18,13 +18,26 @@ function makeWorkspace() {
   return mkdtempSync(join(tmpdir(), 'axc-multi-config-'));
 }
 
-function writeGovernedRepo(root, projectId) {
+function writeGovernedRepo(root, projectId, options = {}) {
+  const routing = options.routing || {
+    implementation: {
+      entry_role: 'dev',
+      allowed_next_roles: ['qa', 'human'],
+    },
+  };
+
   mkdirSync(root, { recursive: true });
   writeJson(join(root, 'agentxchain.json'), {
     schema_version: '1.0',
     template: 'generic',
     project: { id: projectId, name: projectId, default_branch: 'main' },
     roles: {
+      pm: {
+        title: 'PM',
+        mandate: 'Plan safely.',
+        write_authority: 'authoritative',
+        runtime: 'manual-pm',
+      },
       dev: {
         title: 'Developer',
         mandate: 'Implement safely.',
@@ -39,6 +52,9 @@ function writeGovernedRepo(root, projectId) {
       },
     },
     runtimes: {
+      'manual-pm': {
+        type: 'manual',
+      },
       'local-dev': {
         type: 'local_cli',
         command: ['echo', '{prompt}'],
@@ -48,12 +64,7 @@ function writeGovernedRepo(root, projectId) {
         type: 'manual',
       },
     },
-    routing: {
-      implementation: {
-        entry_role: 'dev',
-        allowed_next_roles: ['qa', 'human'],
-      },
-    },
+    routing,
     gates: {},
   });
 }
@@ -100,6 +111,58 @@ function buildValidCoordinatorConfig(repoPaths) {
     routing: {
       implementation: {
         entry_workstream: 'protocol_doc_sync',
+      },
+    },
+    gates: {
+      initiative_ship: {
+        requires_human_approval: true,
+        requires_repos: ['web', 'cli'],
+      },
+    },
+  };
+}
+
+function buildPlanningImplementationCoordinatorConfig(repoPaths) {
+  return {
+    schema_version: '0.1',
+    project: {
+      id: 'agent-platform',
+      name: 'Agent Platform Rollout',
+    },
+    repos: {
+      web: {
+        path: repoPaths.web,
+        default_branch: 'main',
+        required: true,
+      },
+      cli: {
+        path: repoPaths.cli,
+        default_branch: 'main',
+        required: true,
+      },
+    },
+    workstreams: {
+      planning_sync: {
+        phase: 'planning',
+        repos: ['web', 'cli'],
+        entry_repo: 'cli',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+      implementation_sync: {
+        phase: 'implementation',
+        repos: ['web', 'cli'],
+        entry_repo: 'cli',
+        depends_on: ['planning_sync'],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      planning: {
+        entry_workstream: 'planning_sync',
+      },
+      implementation: {
+        entry_workstream: 'implementation_sync',
       },
     },
     gates: {
@@ -233,6 +296,80 @@ describe('coordinator config validation', () => {
       assert.equal(result.ok, false);
       assert.ok(result.errors.some((error) => error.includes('repo_not_governed')));
       assert.ok(result.errors.some((error) => error.includes('web')));
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CPA-002: rejects a child repo with extra phases beyond the coordinator order', () => {
+    const workspace = makeWorkspace();
+    const webRepo = join(workspace, 'repos', 'web');
+    const cliRepo = join(workspace, 'repos', 'cli');
+
+    try {
+      writeGovernedRepo(webRepo, 'web', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+          qa: { entry_role: 'qa', allowed_next_roles: ['human'] },
+        },
+      });
+      writeGovernedRepo(cliRepo, 'cli', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+          qa: { entry_role: 'qa', allowed_next_roles: ['human'] },
+        },
+      });
+      writeJson(
+        join(workspace, 'agentxchain-multi.json'),
+        buildPlanningImplementationCoordinatorConfig({
+          web: './repos/web',
+          cli: './repos/cli',
+        }),
+      );
+
+      const result = loadCoordinatorConfig(workspace);
+      assert.equal(result.ok, false);
+      assert.ok(result.errors.some((error) => error.includes('repo_phase_alignment_invalid')));
+      assert.ok(result.errors.some((error) => error.includes('[planning, implementation, qa]')));
+      assert.ok(result.errors.some((error) => error.includes('[planning, implementation]')));
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CPA-003: rejects a child repo missing a coordinator phase', () => {
+    const workspace = makeWorkspace();
+    const webRepo = join(workspace, 'repos', 'web');
+    const cliRepo = join(workspace, 'repos', 'cli');
+
+    try {
+      writeGovernedRepo(webRepo, 'web', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['human'] },
+        },
+      });
+      writeGovernedRepo(cliRepo, 'cli', {
+        routing: {
+          implementation: { entry_role: 'dev', allowed_next_roles: ['human'] },
+        },
+      });
+      writeJson(
+        join(workspace, 'agentxchain-multi.json'),
+        buildPlanningImplementationCoordinatorConfig({
+          web: './repos/web',
+          cli: './repos/cli',
+        }),
+      );
+
+      const result = loadCoordinatorConfig(workspace);
+      assert.equal(result.ok, false);
+      assert.ok(result.errors.some((error) => error.includes('repo_phase_alignment_invalid')));
+      assert.ok(result.errors.some((error) => error.includes('repo "cli"')));
+      assert.ok(result.errors.some((error) => error.includes('[implementation]')));
+      assert.ok(result.errors.some((error) => error.includes('[planning, implementation]')));
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }

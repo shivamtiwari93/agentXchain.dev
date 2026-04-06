@@ -375,6 +375,13 @@ Create this file at the workspace root:
       "entry_repo": "api",
       "depends_on": ["planning_sync"],
       "completion_barrier": "all_repos_accepted"
+    },
+    "qa_sync": {
+      "phase": "qa",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": ["implementation_sync"],
+      "completion_barrier": "all_repos_accepted"
     }
   },
   "routing": {
@@ -383,6 +390,9 @@ Create this file at the workspace root:
     },
     "implementation": {
       "entry_workstream": "implementation_sync"
+    },
+    "qa": {
+      "entry_workstream": "qa_sync"
     }
   },
   "gates": {
@@ -393,6 +403,8 @@ Create this file at the workspace root:
   }
 }
 ```
+
+Keep the coordinator phase order aligned with the child repos. The default governed scaffold uses `planning -> implementation -> qa`, so the coordinator should declare the same order unless you intentionally customize every child repo's routing first. `multi init` rejects mismatches instead of letting them fail later during dispatch.
 
 ### 3. Initialize and dispatch the first repo
 

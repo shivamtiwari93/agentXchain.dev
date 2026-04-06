@@ -377,6 +377,26 @@ function normalizeGates(rawGates = {}) {
   );
 }
 
+function getCoordinatorPhaseOrder(config) {
+  const routingPhases = Object.keys(config.routing || {});
+  if (routingPhases.length > 0) {
+    return routingPhases;
+  }
+
+  const phases = [];
+  for (const workstreamId of config.workstream_order || []) {
+    const phase = config.workstreams?.[workstreamId]?.phase;
+    if (phase && !phases.includes(phase)) {
+      phases.push(phase);
+    }
+  }
+  return phases;
+}
+
+function sameOrderedValues(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 export function validateCoordinatorConfig(raw) {
   const errors = [];
 
@@ -450,6 +470,7 @@ export function resolveRepoPaths(config, workspacePath) {
   const errors = [];
   const resolved = {};
   const workspaceRoot = resolve(workspacePath);
+  const coordinatorPhaseOrder = getCoordinatorPhaseOrder(config);
 
   for (const [repoId, repo] of Object.entries(config.repos)) {
     const resolvedPath = resolve(workspaceRoot, repo.path);
@@ -496,6 +517,16 @@ export function resolveRepoPaths(config, workspacePath) {
     if (!normalized?.ok || normalized.normalized?.protocol_mode !== 'governed') {
       const detail = normalized?.errors?.length ? ` (${normalized.errors.join(', ')})` : '';
       pushError(errors, 'repo_not_governed', `repo "${repoId}" is not a governed project${detail}`);
+      continue;
+    }
+
+    const repoPhaseOrder = Object.keys(normalized.normalized?.routing || {});
+    if (!sameOrderedValues(repoPhaseOrder, coordinatorPhaseOrder)) {
+      pushError(
+        errors,
+        'repo_phase_alignment_invalid',
+        `repo "${repoId}" routing phases [${repoPhaseOrder.join(', ')}] do not match coordinator phases [${coordinatorPhaseOrder.join(', ')}]`,
+      );
     }
   }
 

@@ -13,7 +13,14 @@ function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 }
 
-function writeGovernedRepo(root, projectId) {
+function writeGovernedRepo(root, projectId, options = {}) {
+  const routing = options.routing || {
+    implementation: {
+      entry_role: 'dev',
+      allowed_next_roles: ['qa', 'human'],
+    },
+  };
+
   mkdirSync(root, { recursive: true });
   mkdirSync(join(root, '.agentxchain', 'prompts'), { recursive: true });
   mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
@@ -32,6 +39,12 @@ function writeGovernedRepo(root, projectId) {
     template: 'generic',
     project: { id: projectId, name: projectId, default_branch: 'main' },
     roles: {
+      pm: {
+        title: 'PM',
+        mandate: 'Plan safely.',
+        write_authority: 'authoritative',
+        runtime: 'manual-pm',
+      },
       dev: {
         title: 'Developer',
         mandate: 'Implement safely.',
@@ -46,6 +59,7 @@ function writeGovernedRepo(root, projectId) {
       },
     },
     runtimes: {
+      'manual-pm': { type: 'manual' },
       'local-dev': {
         type: 'local_cli',
         command: ['echo', '{prompt}'],
@@ -53,12 +67,7 @@ function writeGovernedRepo(root, projectId) {
       },
       'manual-qa': { type: 'manual' },
     },
-    routing: {
-      implementation: {
-        entry_role: 'dev',
-        allowed_next_roles: ['qa', 'human'],
-      },
-    },
+    routing,
     gates: {},
   });
 }
@@ -85,6 +94,46 @@ function buildCoordinatorConfig(repoPaths) {
     },
     routing: {
       implementation: { entry_workstream: 'auth_rollout' },
+    },
+    gates: {
+      initiative_ship: {
+        requires_human_approval: true,
+        requires_repos: ['web', 'api'],
+      },
+    },
+  };
+}
+
+function buildPlanningImplementationCoordinatorConfig(repoPaths) {
+  return {
+    schema_version: '0.1',
+    project: {
+      id: 'test-multi',
+      name: 'Test Multi Repo',
+    },
+    repos: {
+      web: { path: repoPaths.web, default_branch: 'main', required: true },
+      api: { path: repoPaths.api, default_branch: 'main', required: true },
+    },
+    workstreams: {
+      planning_sync: {
+        phase: 'planning',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+      implementation_sync: {
+        phase: 'implementation',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: ['planning_sync'],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      planning: { entry_workstream: 'planning_sync' },
+      implementation: { entry_workstream: 'implementation_sync' },
     },
     gates: {
       initiative_ship: {
@@ -154,6 +203,42 @@ describe('multi init CLI', () => {
       const result = runCli(workspace, ['multi', 'init']);
       assert.notEqual(result.status, 0);
       assert.ok(result.stderr.includes('config') || result.stderr.includes('error'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CPA-004: multi init fails fast on coordinator-child phase mismatch', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+    const webRepo = join(workspace, 'repos', 'web');
+    const apiRepo = join(workspace, 'repos', 'api');
+
+    try {
+      writeGovernedRepo(webRepo, 'web', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+          qa: { entry_role: 'qa', allowed_next_roles: ['human'] },
+        },
+      });
+      writeGovernedRepo(apiRepo, 'api', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+          qa: { entry_role: 'qa', allowed_next_roles: ['human'] },
+        },
+      });
+      writeJson(
+        join(workspace, 'agentxchain-multi.json'),
+        buildPlanningImplementationCoordinatorConfig({ web: './repos/web', api: './repos/api' }),
+      );
+
+      const result = runCli(workspace, ['multi', 'init']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('repo_phase_alignment_invalid'), result.stderr);
+      assert.ok(result.stderr.includes('[planning, implementation, qa]'), result.stderr);
+      assert.ok(result.stderr.includes('[planning, implementation]'), result.stderr);
+      assert.equal(existsSync(join(workspace, '.agentxchain/multirepo/state.json')), false);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }

@@ -40,6 +40,12 @@ describe('Multi-repo docs content', () => {
     assert.match(COORDINATOR_STATE, /\.agentxchain\/multirepo/);
   });
 
+  it('documents coordinator-child phase-order alignment', () => {
+    assert.match(COORDINATOR_CONFIG, /repo_phase_alignment_invalid/);
+    assert.match(PAGE, /same ordered routing phases/i);
+    assert.match(PAGE, /multi init.*rejects phase-order mismatches/i);
+  });
+
   it('documents the full operator loop including repo-local accept-turn', () => {
     for (const term of [
       'multi init',
