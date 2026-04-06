@@ -27,6 +27,7 @@
     "preflight:release:strict": "bash scripts/release-preflight.sh --strict",
     "postflight:release": "bash scripts/release-postflight.sh",
     "postflight:downstream": "bash scripts/release-downstream-truth.sh",
+    "sync:homebrew": "bash scripts/sync-homebrew.sh",
     "build:macos": "bun build bin/agentxchain.js --compile --target=bun-darwin-arm64 --outfile=dist/agentxchain-macos-arm64",
     "build:linux": "bun build bin/agentxchain.js --compile --target=bun-linux-x64 --outfile=dist/agentxchain-linux-x64",
     "publish:npm": "bash scripts/publish-npm.sh"

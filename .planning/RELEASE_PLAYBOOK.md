@@ -54,8 +54,10 @@ npm view "agentxchain@<semver>" version
 After postflight passes and npm serves the requested version:
 
 1. Create the GitHub release: `gh release create v<semver> --title "v<semver>" --notes "..."`
-2. Update the Homebrew tap `shivamtiwari93/homebrew-tap` to the new tarball URL and SHA256
-3. Sync the repo Homebrew mirror (`cli/homebrew/agentxchain.rb`)
+2. Sync Homebrew (automated): `npm run sync:homebrew -- --target-version <semver> --push-tap`
+   - This updates the repo mirror (`cli/homebrew/agentxchain.rb` + README) AND pushes to the canonical tap (`shivamtiwari93/homebrew-tap`)
+   - In CI: runs automatically after postflight if `HOMEBREW_TAP_TOKEN` secret is configured
+   - Without `--push-tap`: updates the repo mirror only (tap must be pushed separately)
 
 ### Downstream Truth Verification
 
@@ -140,14 +142,21 @@ Postflight is the release-truth gate. It must prove:
 
 Tag existence alone is not release truth.
 
-### 6. Update Homebrew After npm Is Live
+### 6. Sync Homebrew After npm Is Live
 
 Only after postflight passes:
 
-1. fetch the tarball URL and SHA256 from npm
-2. update the Homebrew formula in `shivamtiwari93/homebrew-tap`
-3. push the tap update
-4. optionally create or verify the GitHub release notes surface after npm and Homebrew truth agree
+```bash
+cd cli
+npm run sync:homebrew -- --target-version <semver> --push-tap
+```
+
+This single command:
+1. Fetches the tarball URL and SHA256 from npm registry
+2. Updates the repo mirror formula and README
+3. Pushes the canonical tap (`shivamtiwari93/homebrew-tap`)
+
+In CI, this runs automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, the repo mirror is updated and the tap push is skipped with a warning.
 
 Do not update Homebrew against a version that is not yet live on npm.
 Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror must carry the real registry tarball checksum before release follow-through is considered complete.

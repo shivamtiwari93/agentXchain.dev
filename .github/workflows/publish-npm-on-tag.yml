@@ -13,7 +13,7 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 concurrency:
   group: npm-publish-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -71,3 +71,40 @@ jobs:
           RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: 18
           RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: 10
         run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"
+
+      - name: Sync Homebrew formula from npm registry
+        if: always() && (steps.registry.outputs.already_published == 'true' || success())
+        working-directory: cli
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          PUSH_FLAG=""
+          if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            # Configure git to use the PAT for the tap push
+            git config --global url."https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/".insteadOf "https://github.com/"
+            PUSH_FLAG="--push-tap"
+            echo "HOMEBREW_TAP_TOKEN available — will push to canonical tap."
+          else
+            echo "WARNING: HOMEBREW_TAP_TOKEN not configured — syncing repo mirror only."
+            echo "The canonical tap at shivamtiwari93/homebrew-tap must be updated manually."
+          fi
+          bash scripts/sync-homebrew.sh --target-version "${RELEASE_TAG#v}" $PUSH_FLAG
+
+      - name: Commit Homebrew mirror updates
+        if: always() && (steps.registry.outputs.already_published == 'true' || success())
+        working-directory: cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet homebrew/; then
+            echo "Homebrew mirror already in sync — no commit needed."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add homebrew/agentxchain.rb homebrew/README.md
+            git commit -m "chore: sync Homebrew formula for v${RELEASE_TAG#v}"
+            git push origin HEAD:main
+            echo "Committed and pushed Homebrew mirror update."
+          fi
