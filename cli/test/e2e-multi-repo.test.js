@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, appendFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadCoordinatorState, readCoordinatorHistory, readBarriers } from '../src/lib/coordinator-state.js';
+import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -142,31 +143,58 @@ function makeWorkspace() {
   return { workspace, apiRepo, webRepo };
 }
 
-function simulateAcceptedTurn(repoRoot, summary, options = {}) {
-  const statePath = join(repoRoot, '.agentxchain', 'state.json');
-  const historyPath = join(repoRoot, '.agentxchain', 'history.jsonl');
-  const state = readJson(statePath);
+function getActiveTurn(repoRoot) {
+  const state = readJson(join(repoRoot, '.agentxchain', 'state.json'));
   const activeTurn = Object.values(state.active_turns || {})[0];
-
   assert.ok(activeTurn, `expected active turn in ${repoRoot}`);
+  return { state, activeTurn };
+}
 
-  writeJson(statePath, {
-    ...state,
-    status: options.completed ? 'completed' : 'active',
-    active_turns: {},
-    accepted_count: (state.accepted_count || 0) + 1,
-    next_recommended_role: 'dev',
-  });
+function stageAndAcceptTurn(repoRoot, repoId, summary, options = {}) {
+  const { state, activeTurn } = getActiveTurn(repoRoot);
+  const changedFile = `src/${repoId}-${summary.replace(/\s+/g, '-').toLowerCase()}.ts`;
+  mkdirSync(join(repoRoot, 'src'), { recursive: true });
+  writeFileSync(join(repoRoot, changedFile), `export const result = "${summary}";\n`);
 
-  appendFileSync(historyPath, JSON.stringify({
+  const stagingPath = join(repoRoot, getTurnStagingResultPath(activeTurn.turn_id));
+  mkdirSync(dirname(stagingPath), { recursive: true });
+  writeJson(stagingPath, {
+    schema_version: '1.0',
+    run_id: state.run_id,
     turn_id: activeTurn.turn_id,
     role: activeTurn.assigned_role,
-    status: 'accepted',
+    runtime_id: activeTurn.runtime_id,
+    status: 'completed',
     summary,
-    files_changed: options.files_changed || [`src/${summary.replace(/\s+/g, '-').toLowerCase()}.ts`],
-    decisions: options.decisions || [`DEC-${summary.replace(/[^A-Za-z0-9]+/g, '-').toUpperCase()}`],
-    verification: { command: 'npm test', exit_code: 0 },
-  }) + '\n');
+    decisions: [
+      {
+        id: `DEC-${String(Date.now()).slice(-3)}`,
+        category: 'implementation',
+        statement: summary,
+        rationale: 'Multi-repo E2E acceptance.',
+      },
+    ],
+    objections: [],
+    files_changed: [changedFile],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['node --eval "process.exit(0)"'],
+      evidence_summary: `Acceptance proof for ${repoId}.`,
+      machine_evidence: [
+        { command: 'node --eval "process.exit(0)"', exit_code: 0 },
+      ],
+    },
+    artifact: { type: 'workspace', ref: null },
+    proposed_next_role: 'human',
+    phase_transition_request: options.phaseTransition || null,
+    run_completion_request: options.completed || false,
+    needs_human_reason: null,
+    cost: { input_tokens: 10, output_tokens: 5, usd: 0 },
+  });
+
+  const acceptResult = runCli(repoRoot, ['accept-turn']);
+  assert.equal(acceptResult.status, 0, `accept-turn failed in ${repoId}:\n${acceptResult.stdout}\n${acceptResult.stderr}`);
 
   return activeTurn.turn_id;
 }
@@ -185,7 +213,7 @@ describe('E2E multi-repo lifecycle', () => {
       assert.equal(planningApi.action, undefined);
       assert.equal(planningApi.repo_id, 'api');
 
-      simulateAcceptedTurn(apiRepo, 'Planning API accepted');
+      stageAndAcceptTurn(apiRepo, 'api', 'Planning API accepted', { phaseTransition: 'implementation' });
 
       const planningWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(planningWebDispatch.status, 0, `stderr: ${planningWebDispatch.stderr}`);
@@ -195,7 +223,7 @@ describe('E2E multi-repo lifecycle', () => {
       assert.equal(planningContext.upstream_acceptances.length, 1);
       assert.equal(planningContext.upstream_acceptances[0].repo_id, 'api');
 
-      simulateAcceptedTurn(webRepo, 'Planning web accepted');
+      stageAndAcceptTurn(webRepo, 'web', 'Planning web accepted', { phaseTransition: 'implementation' });
 
       const phaseGateRequest = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(phaseGateRequest.status, 0, `stderr: ${phaseGateRequest.stderr}`);
@@ -213,7 +241,7 @@ describe('E2E multi-repo lifecycle', () => {
       const implementationApi = JSON.parse(implementationApiDispatch.stdout);
       assert.equal(implementationApi.repo_id, 'api');
 
-      simulateAcceptedTurn(apiRepo, 'Implementation API accepted', { completed: true });
+      stageAndAcceptTurn(apiRepo, 'api', 'Implementation API accepted', { completed: true });
 
       const implementationWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(implementationWebDispatch.status, 0, `stderr: ${implementationWebDispatch.stderr}`);
@@ -223,7 +251,7 @@ describe('E2E multi-repo lifecycle', () => {
       assert.ok(implementationContext.upstream_acceptances.length >= 1);
       assert.ok(implementationContext.upstream_acceptances.some((entry) => entry.repo_id === 'api'));
 
-      simulateAcceptedTurn(webRepo, 'Implementation web accepted', { completed: true });
+      stageAndAcceptTurn(webRepo, 'web', 'Implementation web accepted', { completed: true });
 
       const completionGateRequest = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(completionGateRequest.status, 0, `stderr: ${completionGateRequest.stderr}`);
