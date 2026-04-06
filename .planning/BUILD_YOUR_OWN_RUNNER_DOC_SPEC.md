@@ -14,7 +14,7 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
 
 ## Behavior
 
-1. State clearly that runner authors should import only through `cli/src/lib/runner-interface.js` for governed execution operations.
+1. State clearly that external runner authors should import only through `agentxchain/runner-interface` for governed execution operations.
 2. Walk through the canonical sequence in operator order:
    - `loadContext()`
    - `loadState(root, config)`
@@ -28,12 +28,13 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
    - `examples/ci-runner-proof/run-one-turn.mjs`
    - `examples/ci-runner-proof/run-to-completion.mjs`
    - `examples/ci-runner-proof/run-with-run-loop.mjs`
+   - `examples/external-runner-starter/run-one-turn.mjs`
 4. Explain the escalation path between the proof tiers:
    - start with the single-turn primitive
    - graduate to full lifecycle
    - adopt `runLoop` only after primitive correctness is proven
 5. Document the real failure traps runner authors hit:
-   - importing internal helpers directly instead of `runner-interface.js`
+   - importing internal helpers directly instead of `agentxchain/runner-interface`
    - shelling out to `agentxchain step` and calling that a second runner
    - staging results anywhere other than `getTurnStagingResultPath(turn.turn_id)`
    - assuming `acceptTurn()` preserves transient dispatch and staging artifacts
@@ -41,6 +42,9 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
    - show all three example commands
    - describe what each proof tier demonstrates
    - point back to the public docs pages for the normative boundary and tutorial
+7. Distinguish repo-native proofs from the external starter:
+   - `examples/ci-runner-proof/` is repo-native CI proof
+   - `examples/external-runner-starter/` is the installed-package starter
 
 ## Error Cases
 
@@ -58,4 +62,4 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
 
 ## Open Questions
 
-1. Should a future release add a published starter package for external runners, or is the docs + examples surface sufficient until a real third-party runner exists?
+1. Should a future release add a dedicated starter repository or template generator once external runner adoption goes beyond a single starter script?

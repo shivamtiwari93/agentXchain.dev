@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-const REPO_ROOT = join(process.cwd(), '..');
-const SOURCE_SCRIPT = join(REPO_ROOT, 'cli', 'scripts', 'release-postflight.sh');
+const CLI_ROOT = join(import.meta.dirname, '..');
+const SOURCE_SCRIPT = join(CLI_ROOT, 'scripts', 'release-postflight.sh');
 
 function writeExecutable(path, content) {
   writeFileSync(path, content);
@@ -29,6 +29,7 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       {
         name: 'agentxchain',
         version,
+        type: 'module',
         bin: {
           agentxchain: './bin/agentxchain.js',
         },
@@ -36,6 +37,15 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       null,
       2,
     ),
+  );
+
+  mkdirSync(join(cliDir, 'src', 'lib'), { recursive: true });
+  writeFileSync(
+    join(cliDir, 'src', 'lib', 'runner-interface.js'),
+    [
+      "export const RUNNER_INTERFACE_VERSION = '0.2';",
+      'export function loadContext() { return null; }',
+    ].join('\n'),
   );
 
   writeExecutable(
@@ -121,8 +131,25 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       '    shift',
       '  done',
       '  if [[ -z "${prefix}" ]]; then',
-      '    echo "missing --prefix" >&2',
-      '    exit 2',
+      '    mkdir -p "node_modules/agentxchain/src/lib"',
+      '    cat > "node_modules/agentxchain/package.json" <<EOF',
+      '{',
+      '  "name": "agentxchain",',
+      '  "type": "module",',
+      '  "exports": {',
+      '    "./runner-interface": "./src/lib/runner-interface.js",',
+      '    "./run-loop": "./src/lib/run-loop.js"',
+      '  }',
+      '}',
+      'EOF',
+      '    cat > "node_modules/agentxchain/src/lib/runner-interface.js" <<EOF',
+      "export const RUNNER_INTERFACE_VERSION = '${FAKE_RUNNER_INTERFACE_VERSION:-0.2}';",
+      'export function loadContext() { return null; }',
+      'EOF',
+      '    cat > "node_modules/agentxchain/src/lib/run-loop.js" <<EOF',
+      'export async function runLoop() { return { stopReason: "completed" }; }',
+      'EOF',
+      '    exit 0',
       '  fi',
       '  mkdir -p "${prefix}/bin"',
       '  cat > "${prefix}/bin/agentxchain" <<EOF',
@@ -203,6 +230,7 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /PASS: Git tag v2\.0\.1 exists locally/);
     assert.match(result.stdout, /PASS: npm registry serves agentxchain@2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
+    assert.match(result.stdout, /PASS: published runner exports import with interface 0\.2/);
     assert.match(result.stdout, /Tarball: https:\/\/registry\.npmjs\.org\/agentxchain\/-\/agentxchain-2\.0\.1\.tgz/);
     assert.match(result.stdout, /POSTFLIGHT PASSED/);
   });
@@ -219,10 +247,12 @@ describe('release-postflight.sh', () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /\[3\/5\] Registry tarball metadata/);
-    assert.match(result.stdout, /\[5\/5\] Install smoke/);
+    assert.match(result.stdout, /\[3\/6\] Registry tarball metadata/);
+    assert.match(result.stdout, /\[5\/6\] Install smoke/);
+    assert.match(result.stdout, /\[6\/6\] Runner export smoke/);
     assert.match(result.stdout, /FAIL: npm registry does not serve agentxchain@2\.0\.1/);
     assert.match(result.stdout, /FAIL: published CLI install smoke failed/);
+    assert.match(result.stdout, /FAIL: published runner exports install smoke failed/);
     assert.match(result.stdout, /POSTFLIGHT FAILED/);
   });
 
@@ -239,6 +269,24 @@ describe('release-postflight.sh', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: published CLI reported '2\.0\.0', expected '2\.0\.1'/);
+  });
+
+  it('fails when the published runner exports report the wrong interface version', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      { FAKE_RUNNER_INTERFACE_VERSION: '0.1' },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stdout,
+      /FAIL: published runner exports reported interface '0\.1', expected '0\.2'/,
+    );
   });
 
   it('retries registry metadata and install smoke until the published artifact is ready', () => {

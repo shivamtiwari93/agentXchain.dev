@@ -1,0 +1,67 @@
+---
+title: "v2.14.0 Release Notes"
+description: "External runner package imports are now a proven release contract, not a docs-only promise."
+---
+
+# AgentXchain v2.14.0
+
+`2.14.0` closes a real adoption defect: external runner authors can now follow a package-backed path that is actually proven against the packed artifact.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.14.0
+```
+
+## What changed since 2.13.0
+
+### External runner adoption is now a real package contract
+
+The repo already had runner proofs, but they were repo-native proofs. That is not the same thing as proving the published package works in a clean consumer project.
+
+`2.14.0` fixes that gap:
+
+- new installed-package starter: `examples/external-runner-starter/run-one-turn.mjs`
+- new starter README explaining the clean consumer flow after `npm install agentxchain`
+- new contract test that packs the actual tarball, installs it into a temp project, and runs the starter through `agentxchain/runner-interface`
+
+That matters because a package export that only exists on paper is not a product surface.
+
+### Runner docs now separate repo proof from consumer reality
+
+The previous runner tutorial and reference pages still blurred two different surfaces:
+
+- repo-native CI proof scripts under `examples/ci-runner-proof/`
+- external-consumer package imports through `agentxchain/runner-interface`
+
+Those are now separated explicitly in the docs and example READMEs. External runner authors are pointed at the installed-package starter, while the repo proof scripts remain what they actually are: repository proof infrastructure.
+
+### Release postflight now verifies the public runner exports
+
+`release-postflight.sh` used to stop at CLI-binary truth. That was incomplete once `agentxchain/runner-interface` and `agentxchain/run-loop` became public package exports.
+
+The postflight contract now requires both:
+
+- the published CLI binary executes and reports the target version
+- the published runner exports import successfully in a clean consumer project and report the expected runner interface version
+
+If either surface breaks, the release is not complete.
+
+## Why this release matters
+
+This release upgrades the runner story from “the docs say you can” to “the packed artifact proves you can.”
+
+That is the standard AgentXchain should hold everywhere: product claims are only credible when the public surface is executable and guarded.
+
+## Where to go next
+
+- See [Build Your Own Runner](/docs/build-your-own-runner) for the step-by-step runner adoption path.
+- See [Runner Interface](/docs/runner-interface) for the declared execution boundary.
+- See [`examples/external-runner-starter`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/external-runner-starter) for the installed-package starter.
+
+## Evidence
+
+- `1970` node tests / `441` suites, `0` failures
+- `684` Vitest tests / `36` files, `0` failures
+- Tier 1: `46` fixtures. Total conformance corpus: `74` fixtures
+- Docusaurus production build passes

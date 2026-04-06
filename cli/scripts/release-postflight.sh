@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Release postflight — run this after publish succeeds.
 # Verifies: release tag exists, npm registry serves the version, metadata is present,
-# and the published package can execute its CLI entrypoint.
+# the published package can execute its CLI entrypoint, and runner package exports
+# are importable in a clean consumer project.
 # Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]
 set -uo pipefail
 
@@ -15,7 +16,7 @@ RETRY_ATTEMPTS="${RELEASE_POSTFLIGHT_RETRY_ATTEMPTS:-12}"
 RETRY_DELAY_SECONDS="${RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS:-10}"
 
 usage() {
-  echo "Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]" >&2
+echo "Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -76,6 +77,7 @@ TARBALL_URL=""
 REGISTRY_CHECKSUM=""
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
 PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
+RUNNER_INTERFACE_VERSION_EXPECTED="$(node --input-type=module -e "import('./src/lib/runner-interface.js').then((mod) => { console.log(mod.RUNNER_INTERFACE_VERSION); }).catch((error) => { console.error(error.message); process.exit(1); });")"
 
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
@@ -136,6 +138,67 @@ run_install_smoke() {
   return "$version_status"
 }
 
+run_runner_export_smoke() {
+  if [[ -z "$TARBALL_URL" ]]; then
+    echo "registry tarball metadata unavailable for runner export smoke" >&2
+    return 1
+  fi
+
+  local smoke_root
+  local consumer_root
+  local smoke_npmrc
+  local install_status
+  local node_status
+
+  smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-runner-postflight.XXXXXX")"
+  consumer_root="${smoke_root}/consumer"
+  mkdir -p "$consumer_root"
+
+  smoke_npmrc="${smoke_root}/.npmrc"
+  echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
+
+  cat > "${consumer_root}/package.json" <<'EOF'
+{
+  "name": "agentxchain-runner-postflight-smoke",
+  "private": true,
+  "type": "module"
+}
+EOF
+
+  (
+    cd "$consumer_root" || exit 1
+    env -u NODE_AUTH_TOKEN NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+      npm install "$TARBALL_URL" >/dev/null 2>&1
+  )
+  install_status=$?
+  if [[ "$install_status" -ne 0 ]]; then
+    rm -rf "$smoke_root"
+    return "$install_status"
+  fi
+
+  cat > "${consumer_root}/runner-export-smoke.mjs" <<'EOF'
+import { RUNNER_INTERFACE_VERSION, loadContext } from 'agentxchain/runner-interface';
+import { runLoop } from 'agentxchain/run-loop';
+
+if (typeof loadContext !== 'function') {
+  throw new Error('loadContext export missing');
+}
+
+if (typeof runLoop !== 'function') {
+  throw new Error('runLoop export missing');
+}
+
+console.log(RUNNER_INTERFACE_VERSION);
+EOF
+
+  local runner_output
+  runner_output="$(cd "$consumer_root" && node runner-export-smoke.mjs 2>&1)"
+  node_status=$?
+  printf '%s\n' "$runner_output"
+  rm -rf "$smoke_root"
+  return "$node_status"
+}
+
 run_with_retry() {
   local __output_var="$1"
   local description="$2"
@@ -189,17 +252,17 @@ run_with_retry() {
 
 echo "AgentXchain v${TARGET_VERSION} Release Postflight"
 echo "====================================="
-echo "Checks release truth after publish: tag, registry visibility, metadata, and install smoke."
+echo "Checks release truth after publish: tag, registry visibility, metadata, CLI install smoke, and runner export smoke."
 echo ""
 
-echo "[1/5] Git tag"
+echo "[1/6] Git tag"
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
   pass "Git tag ${TAG} exists locally"
 else
   fail "Git tag ${TAG} is missing locally"
 fi
 
-echo "[2/5] Registry version"
+echo "[2/6] Registry version"
 if run_with_retry VERSION_OUTPUT "registry version" equals "${TARGET_VERSION}" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" version; then
   PUBLISHED_VERSION="$(trim_last_line "$VERSION_OUTPUT")"
   if [[ "$PUBLISHED_VERSION" == "$TARGET_VERSION" ]]; then
@@ -212,7 +275,7 @@ else
   printf '%s\n' "$VERSION_OUTPUT" | tail -20
 fi
 
-echo "[3/5] Registry tarball metadata"
+echo "[3/6] Registry tarball metadata"
 if run_with_retry TARBALL_OUTPUT "registry tarball metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball; then
   TARBALL_URL="$(trim_last_line "$TARBALL_OUTPUT")"
   if [[ -n "$TARBALL_URL" ]]; then
@@ -225,7 +288,7 @@ else
   printf '%s\n' "$TARBALL_OUTPUT" | tail -20
 fi
 
-echo "[4/5] Registry checksum metadata"
+echo "[4/6] Registry checksum metadata"
 if run_with_retry INTEGRITY_OUTPUT "registry checksum metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.integrity; then
   REGISTRY_CHECKSUM="$(trim_last_line "$INTEGRITY_OUTPUT")"
 fi
@@ -240,7 +303,7 @@ else
   fail "registry did not return checksum metadata"
 fi
 
-echo "[5/5] Install smoke"
+echo "[5/6] Install smoke"
 if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" run_install_smoke; then
   EXEC_VERSION="$(trim_last_line "$EXEC_OUTPUT")"
   if [[ "$EXEC_VERSION" == "$TARGET_VERSION" ]]; then
@@ -251,6 +314,19 @@ if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" run_install_smoke; the
 else
   fail "published CLI install smoke failed"
   printf '%s\n' "$EXEC_OUTPUT" | tail -20
+fi
+
+echo "[6/6] Runner export smoke"
+if run_with_retry RUNNER_EXPORT_OUTPUT "runner export smoke" nonempty "" run_runner_export_smoke; then
+  RUNNER_EXPORT_VERSION="$(trim_last_line "$RUNNER_EXPORT_OUTPUT")"
+  if [[ "$RUNNER_EXPORT_VERSION" == "$RUNNER_INTERFACE_VERSION_EXPECTED" ]]; then
+    pass "published runner exports import with interface ${RUNNER_INTERFACE_VERSION_EXPECTED}"
+  else
+    fail "published runner exports reported interface '${RUNNER_EXPORT_VERSION}', expected '${RUNNER_INTERFACE_VERSION_EXPECTED}'"
+  fi
+else
+  fail "published runner exports install smoke failed"
+  printf '%s\n' "$RUNNER_EXPORT_OUTPUT" | tail -20
 fi
 
 echo ""

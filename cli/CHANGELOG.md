@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.14.0
+
+External runner adoption is now a real package contract instead of a docs promise. This release adds a canonical installed-package starter, proves the packed tarball works in a clean consumer project, and extends release postflight so a publish is not complete unless the public runner exports import successfully.
+
+### External Runner Package Contract
+
+- New `examples/external-runner-starter/run-one-turn.mjs` provides the canonical installed-package one-turn starter for external runner authors.
+- New `examples/external-runner-starter/README.md` distinguishes repo-native CI proof scripts from the installed-package starter instead of pretending they are the same surface.
+- New `external-runner-package-contract.test.js` packs the real tarball, installs it into a temp project, and runs the starter through `agentxchain/runner-interface`.
+
+### Runner Docs And Example Accuracy
+
+- `/docs/build-your-own-runner` and `/docs/runner-interface` now name `agentxchain/runner-interface` and `agentxchain/run-loop` as the external contract, not repo source paths.
+- Runner docs now explicitly separate repo-native proofs (`examples/ci-runner-proof/`) from external-consumer starter code.
+- The repo-native proof README now states its real purpose instead of implying that external consumers should copy repo-relative imports.
+
+### Release Truth Hardening
+
+- `release-postflight.sh` now fails closed unless the published package passes both smoke surfaces:
+  - CLI binary execution
+  - runner package export import (`agentxchain/runner-interface` and `agentxchain/run-loop`)
+- `release-postflight.test.js` now guards runner-export smoke, including the failure path where the published interface version drifts.
+
+### Evidence
+
+- 1970 node --test tests / 441 suites, 0 failures.
+- 684 Vitest tests / 36 files, 0 failures.
+- Tier 1: 46 fixtures. Total conformance corpus: 74 fixtures.
+- Website production build passes.
+
 ## 2.13.0
 
 Multi-repo onboarding is now front-door discoverable, and the protocol conformance kit proves the semantic workflow gates it already claimed to enforce.

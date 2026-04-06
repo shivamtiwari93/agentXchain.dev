@@ -22,6 +22,8 @@ import { loadContext, assignTurn } from 'agentxchain/runner-interface';
 import { runLoop } from 'agentxchain/run-loop';
 ```
 
+The package exports are the external contract. Repo source paths are implementation detail.
+
 ## Versioned contract
 
 The runner interface is a declared ES module exported as `agentxchain/runner-interface`.
@@ -99,9 +101,9 @@ AgentXchain ships three runner proof tiers, each defending a different failure b
 | **2. Multi-turn primitive** | `examples/ci-runner-proof/run-to-completion.mjs` | A full governed lifecycle (pm → dev → qa) can be driven through the raw runner-interface, including gate approvals, rejection, and retry on the same `turn_id`. |
 | **3. Run-loop composition** | `examples/ci-runner-proof/run-with-run-loop.mjs` | The `runLoop` library composes runner-interface operations into reusable continuous execution — gate pauses, rejection/retry, and typed stop reasons — without re-implementing lifecycle logic. |
 
-All three proofs:
+All three repo-native proofs:
 
-- import governed execution operations only through `runner-interface.js` (Tiers 1–2) or `run-loop.js` which itself only imports from `runner-interface.js` (Tier 3)
+- exercise the local source boundary continuously inside this repository's CI
 - execute governed turns programmatically without shelling out to `agentxchain`
 - stage turn results at the canonical staging path
 - validate state-machine artifacts and cleanup behavior
@@ -110,6 +112,15 @@ All three proofs:
 The point is not convenience. The point is proof that governed execution is not locked to the CLI shell.
 
 Tiers 1–2 validate the primitive operations. Tier 3 validates that `runLoop` composes them correctly. Neither layer replaces the other — they are complementary proof boundaries.
+
+## External-consumer starter
+
+If you are outside this repo, do not cargo-cult the repo-native proof imports. Use the installed-package starter in `examples/external-runner-starter/` and import from:
+
+- `agentxchain/runner-interface`
+- `agentxchain/run-loop`
+
+That starter exists to prove the packaged boundary, while the CI proofs above exist to prove the repository implementation.
 
 ## What is not in this interface
 

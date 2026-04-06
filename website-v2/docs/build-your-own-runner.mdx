@@ -7,7 +7,7 @@ description: "A step-by-step path for CI, hosted, or programmatic runners built 
 
 The runner interface page tells you what the boundary is. This page tells you how to use it without guessing.
 
-If you are building a CI runner, a hosted orchestrator, or an internal execution service, the rule is simple: import governed execution operations only through `cli/src/lib/runner-interface.js`. If you shell out to `agentxchain step`, you did not build a second runner. You wrapped the CLI.
+If you are building a CI runner, a hosted orchestrator, or an internal execution service, the rule is simple: import governed execution operations only through `agentxchain/runner-interface`. If you shell out to `agentxchain step`, you did not build a second runner. You wrapped the CLI.
 
 Start with [Runner Interface](/docs/runner-interface) for the declared boundary. Come back here when you need the actual build sequence.
 
@@ -27,6 +27,15 @@ import { runLoop } from 'agentxchain/run-loop';
 ```
 
 **Node.js requirement:** `>=18.17.0` or `>=20.5.0` (same as the CLI).
+
+## Repo proofs vs installed-package starter
+
+Do not collapse these into one thing:
+
+- `examples/ci-runner-proof/` is the repo-native proof surface. Those scripts intentionally exercise the local source tree in CI so this repository can prove its own runner boundary continuously.
+- `examples/external-runner-starter/` is the external-consumer starter surface. That is the example to copy after `npm install agentxchain`.
+
+They solve different problems. Treating the repo proof scripts as the canonical installed-package example would be lazy boundary design.
 
 ## What a runner owns
 
@@ -184,7 +193,7 @@ When `rejectTurn` exhausts retries, it returns `{ ok: true, escalated: true }` â
 
 ## Shipped proof path
 
-AgentXchain already ships the graduation path. Use it in order instead of jumping straight to abstractions.
+AgentXchain already ships the repo-native graduation path. Use it in order instead of jumping straight to abstractions.
 
 | Tier | File | Why it exists |
 | --- | --- | --- |
@@ -194,9 +203,22 @@ AgentXchain already ships the graduation path. Use it in order instead of jumpin
 
 Start with Tier 1. If Tier 1 is not stable, Tier 3 will only hide your defects behind nicer control flow.
 
+## External-consumer starter
+
+If you are starting from a blank project instead of this repo, use the installed-package starter:
+
+```bash
+npm init -y
+npm install agentxchain
+curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/examples/external-runner-starter/run-one-turn.mjs
+node run-one-turn.mjs --json
+```
+
+The starter imports from `agentxchain/runner-interface`, scaffolds a tiny governed repo in a temp directory, and proves the installed package can initialize, assign, stage, and accept a turn without any CLI shell-out.
+
 ## Common failure modes
 
-- Importing internal helpers directly instead of `runner-interface.js`. That is boundary violation, not engineering.
+- Importing internal helpers directly instead of `agentxchain/runner-interface`. That is boundary violation, not engineering.
 - Shelling out to `agentxchain step` and calling it a hosted runner. That is still the CLI runner.
 - Writing staged results to a guessed path instead of `getTurnStagingResultPath(turn.turn_id)`.
 - Forgetting that `acceptTurn()` removes transient dispatch and staging artifacts after commit.
@@ -218,4 +240,5 @@ If your own runner cannot pass the same progression, you are still missing a bou
 
 - [Runner Interface](/docs/runner-interface) for the declared boundary
 - [Protocol Implementor Guide](/docs/protocol-implementor-guide) if you are implementing the conformance surfaces too
-- [`examples/ci-runner-proof/README.md`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/ci-runner-proof) for the runnable proof scripts in one place
+- [`examples/ci-runner-proof/README.md`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/ci-runner-proof) for the repo-native proof scripts
+- [`examples/external-runner-starter/README.md`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/external-runner-starter) for the installed-package starter

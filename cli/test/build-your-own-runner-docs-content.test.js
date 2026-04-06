@@ -74,8 +74,13 @@ describe('Build your own runner docs surface', () => {
   });
 
   it('AT-BYR-004: documents real failure traps and canonical staging-path truth', () => {
-    for (const doc of [PAGE, README, PAGE_SPEC]) {
-      assert.match(doc, /runner-interface\.js/);
+    assert.match(PAGE, /agentxchain\/runner-interface/);
+    assert.match(PAGE, /getTurnStagingResultPath\(turn\.turn_id\)/);
+    assert.match(PAGE, /acceptTurn\(\).*dispatch.*staging/i);
+    assert.match(PAGE, /shelling out to `agentxchain step`|CLI wrapper|wrapped the CLI/i);
+
+    for (const doc of [README, PAGE_SPEC]) {
+      assert.match(doc, /agentxchain\/runner-interface|runner-interface\.js/);
       assert.match(doc, /getTurnStagingResultPath\(turn\.turn_id\)/);
       assert.match(doc, /acceptTurn\(\).*dispatch.*staging/i);
       assert.match(doc, /shelling out to `agentxchain step`|CLI wrapper|wrapped the CLI/i);
