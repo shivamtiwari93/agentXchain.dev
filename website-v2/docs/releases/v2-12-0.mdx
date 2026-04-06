@@ -1,0 +1,56 @@
+---
+title: "v2.12.0 Release Notes"
+description: "Governed gates enforce semantic truth. Scaffold ergonomics with explicit --dir. Docs accuracy audit."
+---
+
+# AgentXchain v2.12.0
+
+`2.12.0` is the release where governed gates stop lying.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.12.0
+```
+
+## What changed since 2.11.0
+
+### Governed gates now enforce semantic truth
+
+Before this release, phase-transition and run-completion gates checked whether `.planning/PM_SIGNOFF.md` and `.planning/ship-verdict.md` existed. A file containing `Approved: NO` or `## Verdict: PENDING` would pass the gate. That is false gate truth.
+
+Now:
+
+- **Planning gates** require `PM_SIGNOFF.md` to contain `Approved: YES`. Any other value (`NO`, `PENDING`, or a missing `Approved:` line) fails the gate.
+- **Completion gates** require `ship-verdict.md` to contain an affirmative `## Verdict:` line. Accepted values: `YES`, `SHIP`, `SHIP IT`. Non-affirmative values fail the gate.
+- **`template validate` remains scaffold proof, not gate proof.** A fresh scaffold with `Approved: NO` and `## Verdict: PENDING` still passes `template validate`. The distinction between "scaffold exists" and "gate is ready" is now explicit in the CLI output and docs.
+
+This is a real behavioral change. If your governed workflow had been advancing past gates with placeholder files, that path is now blocked. Fix it by actually approving the PM signoff and setting a real ship verdict.
+
+### Scaffold ergonomics
+
+- `agentxchain init --governed --dir <path>` explicitly sets the scaffold target directory. Project name is inferred from the directory basename. `--dir .` bootstraps in-place inside an existing repo.
+- `--dev-command <parts...>` and `--dev-prompt-transport <mode>` let you configure the local dev runtime at scaffold time instead of hand-editing `agentxchain.json` afterward.
+- All docs examples now use explicit `--dir`. The implicit default-directory pattern where `init` created a sibling folder and required `cd my-agentxchain-project` is gone from the documentation.
+
+### Docs accuracy
+
+- Adapter docs narrowed to verified-default `claude --print` contract. Prior docs overclaimed equal support for Codex, Aider, and other tools that had not been verified.
+- Quickstart cold-start E2E test added: the documented `init → validate → step/run` flow is now tested end-to-end.
+- Homebrew tap rename audit: all stale `homebrew-agentxchain` references fixed.
+
+## Why this release matters
+
+The governed run lifecycle is the core product. If gates advance on fake artifacts, the entire governance model is theater. `2.12.0` makes the two most important workflow-kit gates truthful: PM approval and ship verdict. Combined with scaffold ergonomics that reduce onboarding friction, this is the first release where the full `init → run → gate → approve → complete` path is both ergonomic and honest.
+
+## Where to go next
+
+- See [Quickstart](/docs/quickstart) for the updated scaffold flow with `--dir` and the scaffold-vs-gate-proof distinction.
+- See [CLI Reference](/docs/cli#template-validate) for the `template validate` contract and the explicit gate-readiness distinction.
+- See [Templates](/docs/templates) for scaffold templates and `--dev-command` usage.
+
+## Evidence
+
+- `1921` node tests / `432` suites, `0` failures
+- `681` Vitest tests / `36` files, `0` failures
+- Docusaurus production build passes
