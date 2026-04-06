@@ -229,12 +229,28 @@ Coordinator hooks are defined in `agentxchain-multi.json` and are separate from 
 
 | Hook phase | Behavior |
 |------------|----------|
-| `before_assignment` | Blocking hook before the coordinator dispatches the next repo assignment |
-| `after_acceptance` | Advisory hook after a child repo acceptance is projected into coordinator history |
-| `before_gate` | Blocking hook before the coordinator finalizes a phase or completion gate |
-| `on_escalation` | Advisory hook when the coordinator enters a blocked state |
+| `before_assignment` | Pre-action guard — blocks dispatch but does **not** persist `blocked` state |
+| `after_acceptance` | Post-action audit — failure persists `status: "blocked"` and fires `on_escalation` |
+| `before_gate` | Pre-action guard — blocks gate approval but does **not** persist `blocked` state |
+| `on_escalation` | Advisory — fires when the coordinator enters a blocked state |
 
 Coordinator hooks protect `.agentxchain/multirepo/` files and repo-local protected files. They are not allowed to mutate child repo state, child repo history, or dispatch bundles.
+
+### Hook-Stop Semantics
+
+Pre-action hooks (`before_assignment`, `before_gate`) and post-action hooks (`after_acceptance`) behave differently when they halt execution. This asymmetry is intentional.
+
+**Pre-action hooks** prevent something from happening. When they block, no coordinator state changes. The coordinator remains `active` (or `paused`). Recovery is: fix the condition the hook is checking, then re-run `multi step` or `multi approve-gate`. No `multi resume` is needed.
+
+**Post-action hooks** audit work that already happened. `after_acceptance` fires after a turn result has been projected into coordinator state. If the hook detects a problem (tamper, policy violation, failure), the coordinator state may be inconsistent. The coordinator persists `status: "blocked"`, fires `on_escalation`, and requires explicit recovery via `multi resume`.
+
+| Scenario | Coordinator state after halt | Recovery path |
+|----------|------------------------------|---------------|
+| `before_assignment` blocks dispatch | Unchanged (`active` or `paused`) | Fix hook condition → re-run `multi step` |
+| `before_gate` blocks gate approval | Unchanged (gate still pending) | Fix hook condition → re-run `multi approve-gate` |
+| `after_acceptance` fails or detects tamper | Persisted as `blocked` | Investigate → fix root cause → `multi resume` → continue |
+
+Pre-action blocks do **not** fire `on_escalation` because they represent expected operational friction (policy gates, maintenance windows, approval holds). Post-action failures fire `on_escalation` because they represent unexpected integrity events that need investigation.
 
 ## Dashboard And Recovery
 
