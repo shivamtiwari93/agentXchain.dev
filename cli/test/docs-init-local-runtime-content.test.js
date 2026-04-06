@@ -77,4 +77,14 @@ describe('governed init local runtime docs contract', () => {
     assert.match(whyPage, /--dev-command/,
       'why page must reference --dev-command for non-default tools');
   });
+
+  // --- Template page scaffold path guard (DEC-DOCS-SCAFFOLD-PATH-001) ---
+
+  const templatesDocs = read('website-v2/docs/templates.mdx');
+
+  it('templates page uses explicit --dir in init examples', () => {
+    assert.match(templatesDocs, /--dir/, 'templates page must use explicit --dir in init examples');
+    assert.doesNotMatch(templatesDocs, /init --governed --template \w+ -y\n/,
+      'templates page must not use -y without --dir');
+  });
 });
