@@ -132,7 +132,9 @@ agentxchain step
 | `template validate` | Prove the template registry, workflow-kit scaffold contract, and planning artifact completeness (`--json` exposes a `workflow_kit` block) |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
-| `plugin install|list|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
+| `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
+| `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
+| `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
 
 ### Shared utilities
 

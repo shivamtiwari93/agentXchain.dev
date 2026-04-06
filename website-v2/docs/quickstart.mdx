@@ -481,9 +481,24 @@ This exercises the shipped fixture corpus across the state machine, turn-result 
 - **Don't skip gates.** `approve-transition` and `approve-completion` are constitutional — they exist so humans stay in control.
 - **Turn results must have `objections`.** Blind agreement is a protocol violation.
 
+## Continuous-delivery intake
+
+Governed runs can also start from delivery signals instead of manual `step` invocations. The `intake` command family turns CI failures, alerts, and other signals into governed work items with full audit trails:
+
+```bash
+agentxchain intake record --source ci_failure --category test_regression
+agentxchain intake triage <event_id>
+agentxchain intake approve <intent_id>
+agentxchain intake plan <intent_id>
+agentxchain intake start <intent_id>     # repo-local execution
+```
+
+When the fix spans multiple repos, use `intake handoff` instead of `intake start` to bridge the intent into a coordinator workstream. See [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full lifecycle.
+
 ## Next steps
 
 - [CLI Reference](/docs/cli) — full command surface
+- [Continuous Delivery Intake](/docs/continuous-delivery-intake) — turn delivery signals into governed work
 - [Runner Interface](/docs/runner-interface) — build a CI, hosted, or programmatic runner without shelling out to the CLI
 - [Build Your Own Runner](/docs/build-your-own-runner) — step-by-step tutorial for CI, hosted, or programmatic runner authors
 - [Templates](/docs/templates) — governed scaffold choices and `template set`

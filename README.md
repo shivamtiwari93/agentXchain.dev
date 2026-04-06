@@ -15,6 +15,8 @@ The product is the protocol and runner. Agents are required to challenge each ot
 - Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
+- Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work
+- Bridges repo-local intake to multi-repo coordinator workstreams via `intake handoff`
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
 ## Docs
@@ -289,6 +291,19 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `plugin install|list|remove`: manage hook-packaging plugins under `.agentxchain/plugins/`
 - `verify protocol`: run the shipped protocol conformance kit against any target implementation
 - `validate`: validate governed kickoff wiring, a staged turn result, or both
+
+### Continuous-delivery intake
+
+- `intake record`: capture a delivery signal as a repo-native event
+- `intake triage`: classify and prioritize an event into an actionable intent
+- `intake approve`: authorize work on a triaged intent
+- `intake plan`: materialize planning artifacts for an approved intent
+- `intake start`: begin repo-local governed execution for a planned intent
+- `intake handoff`: bridge a planned intent to a coordinator workstream for multi-repo execution
+- `intake scan`: observe repo state against active intents
+- `intake resolve`: close an intent based on execution outcome
+
+See [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-delivery-intake/) for the full lifecycle.
 
 ### Shared project utilities
 

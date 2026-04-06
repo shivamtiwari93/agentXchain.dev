@@ -238,4 +238,23 @@ The local dashboard exposes coordinator state through the **Initiative** and **C
 
 Recovery follows one hard rule: repo-local governed state is authoritative. The coordinator is a derived control plane, not the source of truth. If someone accepts or rejects a turn directly in a child repo, `multi step` will detect that divergence and auto-resync when safe; otherwise `multi resync` rebuilds or blocks explicitly instead of guessing.
 
+## Intake Handoff
+
+When a delivery signal is detected in a single repo but the resulting fix spans multiple repos, use `intake handoff` to bridge repo-local intake into a coordinator workstream.
+
+```bash
+# In the source repo: record, triage, approve, plan
+agentxchain intake record --source ci_failure --category test_regression
+agentxchain intake triage <event_id>
+agentxchain intake approve <intent_id>
+agentxchain intake plan <intent_id>
+
+# Hand off to the coordinator workstream
+agentxchain intake handoff <intent_id> --coordinator-root ../workspace --workstream payment_flow
+```
+
+The handoff writes a read-only reference to the coordinator at `.agentxchain/multirepo/handoffs/<intent_id>.json`. The coordinator's `COORDINATOR_CONTEXT.md` then includes the original intent charter and acceptance contract so agents in sibling repos understand why the workstream exists. The source repo retains authority over the intent — only `intake resolve` in the source repo can close it.
+
+See [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full intake lifecycle and handoff contract.
+
 For the command-level reference, see [CLI Reference](/docs/cli). For the protocol overview, see [Protocol](/docs/protocol).
