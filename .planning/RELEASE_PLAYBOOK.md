@@ -66,7 +66,7 @@ cd cli
 npm run postflight:downstream -- --target-version <semver>
 ```
 
-This checks: GitHub release exists, Homebrew formula SHA matches registry tarball SHA, and Homebrew formula URL matches registry tarball URL.
+This checks: GitHub release exists, the canonical Homebrew tap formula SHA matches the registry tarball SHA, and the canonical Homebrew tap formula URL matches the registry tarball URL.
 
 ---
 

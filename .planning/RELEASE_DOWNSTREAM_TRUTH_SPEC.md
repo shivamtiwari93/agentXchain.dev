@@ -8,7 +8,7 @@
 The CI publish workflow verifies npm registry truth (version, tarball, checksum, install smoke). But two downstream release surfaces are updated manually after CI and have no automated verification:
 
 1. **GitHub release** — created via `gh release create` after publish succeeds
-2. **Homebrew tap** — formula URL and SHA256 updated in `shivamtiwari93/homebrew-tap` after postflight passes
+2. **Canonical Homebrew tap** — formula URL and SHA256 updated in `shivamtiwari93/homebrew-tap` after postflight passes
 
 These surfaces drift when agents or operators forget to update them, or update them with wrong values (e.g., local-pack SHA instead of registry tarball SHA — a real bug that occurred during v2.10.0).
 
@@ -33,14 +33,14 @@ The script checks 3 downstream truth conditions:
 
 ### Check 2: Homebrew Tap SHA Matches Registry Tarball SHA
 - Fetches the registry tarball: `curl -sL <tarball_url> | shasum -a 256`
-- Reads the Homebrew tap formula from the local repo mirror at `cli/homebrew/agentxchain.rb`
+- Fetches the canonical Homebrew formula from `shivamtiwari93/homebrew-tap`
 - Extracts the SHA256 from the formula
 - Asserts they match
 - This catches the "local-pack SHA vs registry tarball SHA" class of bug
 
 ### Check 3: Homebrew Tap URL Matches Registry Tarball URL
 - Reads `dist.tarball` from npm registry
-- Reads `url` from the Homebrew formula
+- Reads `url` from the canonical Homebrew formula
 - Asserts they match
 
 ## Error Cases
@@ -49,15 +49,18 @@ The script checks 3 downstream truth conditions:
 |-----------|----------|
 | `gh` CLI not available | FAIL with diagnostic |
 | GitHub release does not exist after retries | FAIL |
-| Homebrew formula SHA does not match registry SHA | FAIL |
-| Homebrew formula URL does not match registry URL | FAIL |
+| Canonical Homebrew formula cannot be fetched | FAIL |
+| Canonical Homebrew formula SHA does not match registry SHA | FAIL |
+| Canonical Homebrew formula URL does not match registry URL | FAIL |
 | npm registry does not serve the version | FAIL (defers to existing postflight) |
 
 ## Acceptance Tests
 
-1. `AT-RDT-001`: Running `postflight:downstream -- --target-version 2.13.0` against the current repo state passes all 3 checks.
-2. `AT-RDT-002`: A Homebrew formula with wrong SHA256 fails check 2.
-3. `AT-RDT-003`: A missing GitHub release fails check 1.
+1. `AT-RDT-001`: Running `postflight:downstream -- --target-version 2.14.0` against the current repo state passes all 3 checks.
+2. `AT-RDT-002`: A canonical Homebrew formula fetch failure fails checks 2 and 3.
+3. `AT-RDT-003`: A canonical Homebrew formula with wrong SHA256 fails check 2.
+4. `AT-RDT-004`: A canonical Homebrew formula with wrong tarball URL fails check 3.
+5. `AT-RDT-005`: A missing GitHub release fails check 1.
 
 ## Open Questions
 

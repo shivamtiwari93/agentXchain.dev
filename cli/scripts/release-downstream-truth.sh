@@ -47,7 +47,7 @@ if [[ -z "$TARGET_VERSION" ]]; then
 fi
 
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
-HOMEBREW_FORMULA="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
+CANONICAL_HOMEBREW_FORMULA_URL="${AGENTXCHAIN_DOWNSTREAM_FORMULA_URL:-https://raw.githubusercontent.com/shivamtiwari93/homebrew-tap/main/Formula/agentxchain.rb}"
 
 PASS=0
 FAIL=0
@@ -57,7 +57,7 @@ fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
 
 echo "AgentXchain v${TARGET_VERSION} Downstream Release Truth"
 echo "====================================="
-echo "Checks downstream surfaces after publish: GitHub release, Homebrew tap."
+echo "Checks downstream surfaces after publish: GitHub release, canonical Homebrew tap."
 echo ""
 
 # --- Check 1: GitHub Release ---
@@ -85,38 +85,39 @@ else
 fi
 
 # --- Get registry tarball URL and compute SHA ---
-echo "[2/3] Homebrew tap SHA matches registry tarball"
+echo "[2/3] Canonical Homebrew tap SHA matches registry tarball"
 REGISTRY_TARBALL_URL="$(npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball 2>/dev/null || true)"
+FORMULA_CONTENT="$(curl -fsSL "$CANONICAL_HOMEBREW_FORMULA_URL" 2>/dev/null || true)"
 if [[ -z "$REGISTRY_TARBALL_URL" ]]; then
   fail "cannot fetch registry tarball URL for ${PACKAGE_NAME}@${TARGET_VERSION}"
+elif [[ -z "$FORMULA_CONTENT" ]]; then
+  fail "cannot fetch canonical Homebrew formula from ${CANONICAL_HOMEBREW_FORMULA_URL}"
 else
   REGISTRY_SHA="$(curl -sL "$REGISTRY_TARBALL_URL" | shasum -a 256 | awk '{print $1}')"
   if [[ -z "$REGISTRY_SHA" ]]; then
     fail "cannot compute SHA256 of registry tarball"
-  elif [[ ! -f "$HOMEBREW_FORMULA" ]]; then
-    fail "Homebrew formula not found at ${HOMEBREW_FORMULA}"
   else
-    FORMULA_SHA="$(grep -E '^\s*sha256\s+"' "$HOMEBREW_FORMULA" | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/')"
+    FORMULA_SHA="$(printf '%s\n' "$FORMULA_CONTENT" | grep -E '^\s*sha256\s+"' | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/')"
     if [[ "$REGISTRY_SHA" == "$FORMULA_SHA" ]]; then
-      pass "Homebrew formula SHA256 matches registry tarball (${REGISTRY_SHA:0:16}...)"
+      pass "canonical Homebrew formula SHA256 matches registry tarball (${REGISTRY_SHA:0:16}...)"
     else
-      fail "Homebrew formula SHA256 mismatch: formula=${FORMULA_SHA:0:16}... registry=${REGISTRY_SHA:0:16}..."
+      fail "canonical Homebrew formula SHA256 mismatch: formula=${FORMULA_SHA:0:16}... registry=${REGISTRY_SHA:0:16}..."
     fi
   fi
 fi
 
 # --- Check 3: Homebrew tap URL matches registry tarball URL ---
-echo "[3/3] Homebrew tap URL matches registry tarball"
+echo "[3/3] Canonical Homebrew tap URL matches registry tarball"
 if [[ -z "$REGISTRY_TARBALL_URL" ]]; then
   fail "cannot verify URL — registry tarball URL unavailable"
-elif [[ ! -f "$HOMEBREW_FORMULA" ]]; then
-  fail "Homebrew formula not found at ${HOMEBREW_FORMULA}"
+elif [[ -z "$FORMULA_CONTENT" ]]; then
+  fail "cannot verify URL — canonical Homebrew formula unavailable"
 else
-  FORMULA_URL="$(grep -E '^\s*url\s+"' "$HOMEBREW_FORMULA" | sed 's/.*url *"\([^"]*\)".*/\1/')"
+  FORMULA_URL="$(printf '%s\n' "$FORMULA_CONTENT" | grep -E '^\s*url\s+"' | sed 's/.*url *"\([^"]*\)".*/\1/')"
   if [[ "$FORMULA_URL" == "$REGISTRY_TARBALL_URL" ]]; then
-    pass "Homebrew formula URL matches registry tarball"
+    pass "canonical Homebrew formula URL matches registry tarball"
   else
-    fail "Homebrew formula URL mismatch: formula=${FORMULA_URL} registry=${REGISTRY_TARBALL_URL}"
+    fail "canonical Homebrew formula URL mismatch: formula=${FORMULA_URL} registry=${REGISTRY_TARBALL_URL}"
   fi
 fi
 
