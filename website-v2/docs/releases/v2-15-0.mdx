@@ -1,0 +1,62 @@
+---
+title: "v2.15.0 Release Notes"
+description: "Intake-to-coordinator handoff, blocked-state recovery, hook-stop asymmetry, and repo-local automation continuity — all proven end to end."
+---
+
+# AgentXchain v2.15.0
+
+`2.15.0` closes the intake-to-coordinator workflow gap. Handoff, blocked-state recovery, hook-stop asymmetry, and single-repo automation continuity all ship with real subprocess E2E proofs — no forged state, no manual staging.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.15.0
+```
+
+## What changed since 2.14.0
+
+### Intake-to-coordinator handoff is now a proven product surface
+
+`intake handoff` bridges source-repo intent to a coordinator workstream. The handoff is bound by `super_run_id`, renders coordinator context into artifacts, and is discoverable from all front-door surfaces.
+
+The E2E proof drives real CLI dispatch through `multi step`, `accept-turn`, and `multi approve-gate` — no barrier mutations or state forgery.
+
+### Blocked coordinators can now recover
+
+Previously, a coordinator that entered `blocked` state (e.g., from a post-action hook violation) had no shipped recovery path. `2.15.0` adds `multi resume`:
+
+- Resyncs child repos first
+- Fails closed on blocked children
+- Restores `active` or `paused` state
+- Records `blocked_resolved` history entries
+
+`intake resolve` now accepts `blocked` as a valid source state, so the same run/workstream can recover to `completed`.
+
+### Hook-stop asymmetry is documented and guarded
+
+Pre-action hooks are idempotent barriers: they reject the operation but do not persist `blocked` state. Post-action hooks can persist `blocked` and fire `on_escalation`. This distinction was always intentional but never explicit. It is now spec'd, documented, and guarded.
+
+### Single-repo intake flows into `run` through the same `run_id`
+
+`intake start` hands off to `agentxchain run`, which adopts the intake-started run rather than silently creating a new one. The E2E proof drives the full `record -> triage -> approve -> plan -> start -> run -> resolve` sequence and verifies `run_id` continuity.
+
+### Interface alignment barriers
+
+Real `interface_alignment` barriers now ship with an end-to-end multi-repo docs example. Runner adoption docs are tightened with Tier 3 conformance requirements.
+
+## Why this release matters
+
+This release proves the lights-out automation story end to end. A governed intent can enter the system, flow through intake, hand off to a coordinator or local runner, recover from blocked state, and resolve — all through shipped CLI surfaces with real subprocess E2E proofs.
+
+## Where to go next
+
+- See [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the intake lifecycle.
+- See [Multi-Repo Coordination](/docs/multi-repo) for coordinator handoff and recovery.
+- See [Protocol Reference](/docs/protocol-reference) for the full governed workflow contract.
+
+## Evidence
+
+- `2048` node tests / `457` suites, `0` failures
+- `694` Vitest tests / `36` files, `0` failures
+- Tier 1: `46` fixtures. Total conformance corpus: `74` fixtures
+- Docusaurus production build passes

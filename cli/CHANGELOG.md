@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.15.0
+
+The intake-to-coordinator workflow is now proven end to end: handoff, blocked-state recovery, hook-stop asymmetry, and repo-local intake-to-run automation continuity all ship with real subprocess E2E proofs.
+
+### Intake-to-Coordinator Handoff
+
+- `intake handoff` bridges source-repo intent to a coordinator workstream, bound by `super_run_id`.
+- Coordinator context (`COORDINATOR_CONTEXT.json` and `.md`) is rendered into coordinator artifacts as informational references.
+- Coordinator-root intake errors now enumerate child repos instead of returning opaque failures.
+- Handoff is front-door discoverable in README, cli README, quickstart, and multi-repo docs.
+- E2E proof: `e2e-intake-coordinator-handoff.test.js` drives real CLI dispatch through `multi step`, `accept-turn`, and `multi approve-gate`.
+
+### Blocked-State Recovery
+
+- New `multi resume` command recovers coordinators from `blocked` state.
+- `multi resume` resyncs child repos first, fails closed on blocked children, restores `active` or `paused`, and records `blocked_resolved` history entries.
+- `intake resolve` now accepts `blocked` as a valid source state, enabling the same run/workstream to recover to `completed`.
+- E2E proof: `e2e-intake-coordinator-blocked.test.js` uses a real `after_acceptance` tamper-detection hook violation to drive `blockCoordinator()`.
+
+### Coordinator Hook-Stop Asymmetry
+
+- Pre-action hooks are idempotent barriers that reject operations without persisting `blocked` state.
+- Post-action hooks can persist `blocked` and fire `on_escalation`.
+- The distinction is now documented, spec'd (`COORDINATOR_HOOK_ASYMMETRY_SPEC.md`), and guarded by `coordinator-hook-asymmetry.test.js`.
+
+### Intake-to-Run Integration
+
+- `intake start` hands off to `agentxchain run` through the same `run_id` — the runner adopts the intake-started run rather than silently creating a new one.
+- E2E proof: `e2e-intake-run-integration.test.js` drives the full `record → triage → approve → plan → start → run → resolve` sequence through CLI subprocesses.
+
+### Interface Alignment Barriers
+
+- Real `interface_alignment` barriers shipped with end-to-end multi-repo docs example.
+- Runner adoption docs tightened with Tier 3 conformance requirements.
+
+### Evidence
+
+- 2048 node tests / 457 suites, 0 failures.
+- 694 Vitest tests / 36 files, 0 failures.
+- Tier 1: 46 fixtures. Total conformance corpus: 74 fixtures.
+- Docusaurus production build passes.
+
 ## 2.14.0
 
 External runner adoption is now a real package contract instead of a docs promise. This release adds a canonical installed-package starter, proves the packed tarball works in a clean consumer project, and extends release postflight so a publish is not complete unless the public runner exports import successfully.

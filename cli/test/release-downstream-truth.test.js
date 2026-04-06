@@ -19,7 +19,7 @@ function writeExecutable(path, content) {
   chmodSync(path, 0o755);
 }
 
-function createFixture({ version = '2.14.0' } = {}) {
+function createFixture({ version = '2.15.0' } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-release-downstream-'));
   const cliDir = join(root, 'cli');
   const scriptsDir = join(cliDir, 'scripts');
@@ -51,7 +51,7 @@ function createFixture({ version = '2.14.0' } = {}) {
       '  if [[ "${FAKE_REGISTRY_MISSING:-0}" == "1" ]]; then',
       '    exit 1',
       '  fi',
-      '  printf "%s\\n" "${FAKE_DIST_TARBALL:-https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz}"',
+      '  printf "%s\\n" "${FAKE_DIST_TARBALL:-https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz}"',
       '  exit 0',
       'fi',
       'echo "unexpected npm args: $*" >&2',
@@ -68,7 +68,7 @@ function createFixture({ version = '2.14.0' } = {}) {
       '  if [[ "${FAKE_GH_MISSING:-0}" == "1" ]]; then',
       '    exit 1',
       '  fi',
-      '  printf "%s\\n" "${FAKE_GH_TAG:-v2.14.0}"',
+      '  printf "%s\\n" "${FAKE_GH_TAG:-v2.15.0}"',
       '  exit 0',
       'fi',
       'echo "unexpected gh args: $*" >&2',
@@ -89,7 +89,7 @@ function createFixture({ version = '2.14.0' } = {}) {
       '  printf "%s" "${FAKE_FORMULA_CONTENT:-}"',
       '  exit 0',
       'fi',
-      'if [[ "$url" == "${FAKE_DIST_TARBALL:-https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz}" ]]; then',
+      'if [[ "$url" == "${FAKE_DIST_TARBALL:-https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz}" ]]; then',
       '  printf "%s" "${FAKE_TARBALL_CONTENT:-agentxchain-tarball}"',
       '  exit 0',
       'fi',
@@ -145,7 +145,7 @@ describe('release downstream truth contract', () => {
     const fixture = createFixture();
     fixtures.push(fixture);
 
-    const tarballUrl = 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz';
+    const tarballUrl = 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz';
     const tarballContent = 'registry-tarball-v2140';
     const sha = spawnSync('shasum', ['-a', '256'], {
       input: tarballContent,
@@ -161,12 +161,12 @@ describe('release downstream truth contract', () => {
     const result = runDownstream(
       fixture.cliDir,
       fixture.fakeBinDir,
-      ['--target-version', '2.14.0'],
+      ['--target-version', '2.15.0'],
       {
         FAKE_DIST_TARBALL: tarballUrl,
         FAKE_TARBALL_CONTENT: tarballContent,
         FAKE_FORMULA_CONTENT: formula,
-        FAKE_GH_TAG: 'v2.14.0',
+        FAKE_GH_TAG: 'v2.15.0',
       },
     );
 
@@ -184,7 +184,7 @@ describe('release downstream truth contract', () => {
     const result = runDownstream(
       fixture.cliDir,
       fixture.fakeBinDir,
-      ['--target-version', '2.14.0'],
+      ['--target-version', '2.15.0'],
       { FAKE_FORMULA_FETCH_FAIL: '1' },
     );
 
@@ -199,7 +199,7 @@ describe('release downstream truth contract', () => {
 
     const formula = [
       'class Agentxchain < Formula',
-      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz"',
+      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz"',
       '  sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
       'end',
     ].join('\n');
@@ -207,7 +207,7 @@ describe('release downstream truth contract', () => {
     const result = runDownstream(
       fixture.cliDir,
       fixture.fakeBinDir,
-      ['--target-version', '2.14.0'],
+      ['--target-version', '2.15.0'],
       {
         FAKE_FORMULA_CONTENT: formula,
         FAKE_TARBALL_CONTENT: 'registry-tarball-v2140',
@@ -237,9 +237,9 @@ describe('release downstream truth contract', () => {
     const result = runDownstream(
       fixture.cliDir,
       fixture.fakeBinDir,
-      ['--target-version', '2.14.0'],
+      ['--target-version', '2.15.0'],
       {
-        FAKE_DIST_TARBALL: 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz',
+        FAKE_DIST_TARBALL: 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz',
         FAKE_TARBALL_CONTENT: tarballContent,
         FAKE_FORMULA_CONTENT: formula,
       },
@@ -260,7 +260,7 @@ describe('release downstream truth contract', () => {
     }).stdout.trim().split(/\s+/)[0];
     const formula = [
       'class Agentxchain < Formula',
-      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.14.0.tgz"',
+      '  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz"',
       `  sha256 "${sha}"`,
       'end',
     ].join('\n');
@@ -268,7 +268,7 @@ describe('release downstream truth contract', () => {
     const result = runDownstream(
       fixture.cliDir,
       fixture.fakeBinDir,
-      ['--target-version', '2.14.0'],
+      ['--target-version', '2.15.0'],
       {
         FAKE_FORMULA_CONTENT: formula,
         FAKE_TARBALL_CONTENT: tarballContent,
