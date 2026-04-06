@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Publish a truthful operator and implementor guide for the repo-native intake surface at `/docs/continuous-delivery-intake`. This page explains how continuous governed delivery enters the system today: signals can be recorded or scanned into repo-local intake events, events become delivery intents, operators triage and approve those intents, template-backed planning artifacts prepare work, `intake start` hands one planned intent into the governed run engine without bypassing constitutional gates, and `intake resolve` maps governed run outcomes back into repo-native intake state.
+Publish a truthful operator and implementor guide for the repo-native intake surface at `/docs/continuous-delivery-intake`. This page explains how continuous governed delivery enters the system today: signals can be recorded or scanned into repo-local intake events, events become delivery intents, operators triage and approve those intents, template-backed planning artifacts prepare work, `intake start` hands one planned intent into the governed run engine without bypassing constitutional gates, and `intake resolve` maps governed run outcomes back into repo-native intake state. The page must also make the current workspace boundary explicit: intake is repo-local and does not run from coordinator workspace roots.
 
 ## Interface
 
@@ -52,7 +52,9 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - `intake start` transitions `planned -> executing`
    - success records `target_run`, `target_turn`, and `started_at`
    - start rejects when planning artifacts are missing, another turn is active, the run is blocked, the run is completed, or the run is paused on a pending approval
-   - the current governed schema treats `paused` as approval-held, not as a generic intake-resumable idle state
+   - idle runs can be initialized from `intake start`
+   - paused runs with no active turns can be resumed by `intake start`
+   - pending `pending_phase_transition` and `pending_run_completion` still block `intake start`
 9. Document the deterministic scan contract:
    - `intake scan` accepts only `ci_failure`, `git_ref_change`, and `schedule`
    - `manual` remains exclusive to `intake record`
@@ -63,6 +65,8 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - intake does not auto-start code-writing execution from raw signals
    - `planned` is not the same thing as `executing`
    - `intake scan` widens ingestion only; it does not triage, approve, plan, or start execution
+   - intake commands run inside governed project roots, not from coordinator workspace roots
+   - when a repo participates in a coordinator initiative, operators still run intake in the child repo and use `multi step` for cross-repo orchestration
 11. Document the resolve contract:
    - `intake resolve` reads `.agentxchain/state.json`
    - `run_id` must match `intent.target_run`
@@ -77,10 +81,11 @@ The page must document the shipped intake contract, not the aspirational v3 back
 
 - The page must not describe deduplication as a best-effort heuristic; it is deterministic and idempotent.
 - The page must not imply that `intake plan` creates or resumes a governed run.
-- The page must not claim that `intake start` reopens completed runs or resumes arbitrary paused runs.
+- The page must not claim that `intake start` reopens completed runs or bypasses pending approval gates.
 - The page must not describe `intake scan` as a generic batch wrapper for `manual`; `manual` stays on `intake record`.
 - The page must not claim that `awaiting_release_approval`, `released`, or `observing` are already implemented intake states.
 - The page must not imply that `intake resolve` writes observation evidence; S5 only creates an empty observation directory scaffold on `completed`.
+- The page must not imply that intake runs from a coordinator workspace root or already performs intake-to-coordinator handoff.
 
 ## Acceptance Tests
 
@@ -93,6 +98,7 @@ The page must document the shipped intake contract, not the aspirational v3 back
 - [ ] AT-7: The page documents `approved_by`, `planning_artifacts`, `target_run`, and the artifact-conflict rule
 - [ ] AT-8: The page documents the `intake scan` snapshot contract, manual-source exclusion, and `created` / `deduplicated` / `rejected` result semantics
 - [ ] AT-9: The page documents the `intake resolve` run-outcome mapping, `no_change` behavior, and observation-directory scaffold
+- [ ] AT-10: The page documents the coordinator-workspace boundary and points operators to child-repo intake plus `multi step`
 
 ## Open Questions
 

@@ -61,6 +61,18 @@ describe('Continuous delivery intake docs surface', () => {
       assert.ok(DOC.includes(term), `intake docs must mention ${term}`);
     }
   });
+
+  it('documents the coordinator-workspace boundary and child-repo workflow', () => {
+    for (const term of [
+      'repo-local',
+      'agentxchain.json',
+      'agentxchain-multi.json',
+      'child governed repo',
+      'agentxchain multi step',
+    ]) {
+      assert.ok(DOC.includes(term), `intake docs must mention ${term}`);
+    }
+  });
 });
 
 describe('Intake docs state machine — code-backed verification', () => {

@@ -449,7 +449,7 @@ intakeCmd
 intakeCmd
   .command('triage')
   .description('Triage a detected intent — set priority, template, charter, and acceptance')
-  .requiredOption('--intent <id>', 'Intent ID to triage')
+  .option('--intent <id>', 'Intent ID to triage')
   .option('--priority <level>', 'Priority level (p0, p1, p2, p3)')
   .option('--template <id>', 'Governed template (generic, api-service, cli-tool, library, web-app)')
   .option('--charter <text>', 'Delivery charter text')
@@ -489,7 +489,7 @@ intakeCmd
 intakeCmd
   .command('scan')
   .description('Scan a structured source snapshot into intake events')
-  .requiredOption('--source <id>', 'Source type: ci_failure, git_ref_change, schedule')
+  .option('--source <id>', 'Source type: ci_failure, git_ref_change, schedule')
   .option('--file <path>', 'Path to snapshot JSON file')
   .option('--stdin', 'Read snapshot from stdin')
   .option('-j, --json', 'Output as JSON')

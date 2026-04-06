@@ -93,6 +93,13 @@ describe('CLI intake docs contract', () => {
     assert.match(intakeSection, /resolve.*blocked.*, `completed`, and `failed` run outcomes/i);
     assert.match(intakeSection, /`active` and `paused` remain `no_change`/i);
   });
+
+  it('documents the repo-local workspace boundary', () => {
+    assert.match(intakeSection, /repo-local/i);
+    assert.match(intakeSection, /agentxchain\.json/);
+    assert.match(intakeSection, /agentxchain-multi\.json/);
+    assert.match(intakeSection, /use `multi` there/i);
+  });
 });
 
 describe('CLI intake docs spec alignment', () => {

@@ -9,6 +9,17 @@ Continuous governed delivery starts before any agent writes code. The intake sur
 
 This is the v3 entrypoint that exists today. It records signals, creates delivery intents, exposes triage and approval workflows, and generates execution-ready planning artifacts. It does **not** auto-start implementation or bypass human authority.
 
+## Workspace boundary
+
+Intake is a repo-local command family. Run it inside a governed project rooted by `agentxchain.json`.
+
+It is **not** a coordinator-root command family. If your current workspace is rooted by `agentxchain-multi.json`, the CLI rejects `agentxchain intake ...` explicitly and tells you to:
+
+- run intake inside the child governed repo that owns the signal
+- use `agentxchain multi step` for cross-repo orchestration
+
+If both config files exist in the same directory, governed-project detection wins and intake stays repo-local. AgentXchain does not yet ship automatic intake-to-coordinator handoff.
+
 ## What ships today
 
 The current CLI surface is eight commands:

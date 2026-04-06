@@ -1,17 +1,9 @@
 import chalk from 'chalk';
-import { findProjectRoot } from '../lib/config.js';
 import { startIntent } from '../lib/intake.js';
+import { requireIntakeWorkspaceOrExit } from './intake-workspace.js';
 
 export async function intakeStartCommand(opts) {
-  const root = findProjectRoot(process.cwd());
-  if (!root) {
-    if (opts.json) {
-      console.log(JSON.stringify({ ok: false, error: 'agentxchain.json not found' }, null, 2));
-    } else {
-      console.log(chalk.red('agentxchain.json not found'));
-    }
-    process.exit(2);
-  }
+  const root = requireIntakeWorkspaceOrExit(opts);
 
   if (!opts.intent) {
     const msg = '--intent <id> is required';

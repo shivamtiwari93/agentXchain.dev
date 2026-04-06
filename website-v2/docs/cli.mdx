@@ -495,6 +495,8 @@ The command family is intentionally staged:
 - `start` is the first command that creates or attaches governed execution for intake work
 - `resolve` closes the loop by reading governed outcome state back into intake truth
 
+Intake is repo-local. Run it inside a governed project rooted by `agentxchain.json`. If you are standing in a coordinator workspace rooted by `agentxchain-multi.json`, use `multi` there and run intake inside the child repo that owns the signal.
+
 Use [Continuous Delivery Intake](/docs/continuous-delivery-intake) for the full artifact layout, state-machine transitions, deduplication contract, and lifecycle details. The CLI reference should help you find the command family quickly, not become a second hand-maintained copy of the entire intake spec.
 
 ## Plugin management

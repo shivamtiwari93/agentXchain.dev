@@ -41,6 +41,8 @@ The CLI reference must:
    - `plan` materializes planning artifacts but does not start a run
    - `start` is the explicit governed handoff from `planned` to execution
    - `resolve` reads governed run outcome back into intake state
+   - intake is repo-local and rejects coordinator workspace roots
+   - child repos use intake; coordinator roots use `multi`
 5. Point readers to `/docs/continuous-delivery-intake` for the full artifact, state-machine, and lifecycle contract instead of duplicating that whole page in the CLI reference.
 
 ## Error Cases
@@ -49,6 +51,7 @@ The CLI reference must:
 - Do not imply that `scan` accepts `manual`.
 - Do not imply that `approve` or `plan` starts governed execution.
 - Do not imply that `start` is automatic or triggered from raw signals.
+- Do not imply that intake is a coordinator-root command family.
 - Do not duplicate the full intake page inside `cli.mdx`; that would create two detailed sources of truth for the same lifecycle.
 
 ## Acceptance Tests
@@ -60,6 +63,7 @@ The CLI reference must:
 - `AT-CLI-INTAKE-005`: The section documents `scan` sources from `SCAN_SOURCES` and excludes `manual`
 - `AT-CLI-INTAKE-006`: The section documents that `approve` and `plan` do not start execution, while `start` is the governed handoff
 - `AT-CLI-INTAKE-007`: The section links to `/docs/continuous-delivery-intake`
+- `AT-CLI-INTAKE-008`: The section documents that intake is repo-local and coordinator roots use `multi`, not `intake`
 
 ## Open Questions
 

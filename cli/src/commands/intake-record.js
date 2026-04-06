@@ -1,19 +1,11 @@
 import chalk from 'chalk';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { findProjectRoot } from '../lib/config.js';
 import { recordEvent } from '../lib/intake.js';
+import { requireIntakeWorkspaceOrExit } from './intake-workspace.js';
 
 export async function intakeRecordCommand(opts) {
-  const root = findProjectRoot(process.cwd());
-  if (!root) {
-    if (opts.json) {
-      console.log(JSON.stringify({ ok: false, error: 'agentxchain.json not found' }, null, 2));
-    } else {
-      console.log(chalk.red('agentxchain.json not found'));
-    }
-    process.exit(2);
-  }
+  const root = requireIntakeWorkspaceOrExit(opts);
 
   let payload;
   try {
