@@ -134,20 +134,20 @@ describe('Conformance count surfaces stay aligned', () => {
   const twitterThread = read('.planning/MARKETING/TWITTER_THREAD.md');
 
   it('homepage stat and architecture copy match the real fixture corpus size', () => {
-    assert.equal(totalFixtures, 68, 'update this guard when the shipped corpus size changes intentionally');
+    assert.equal(totalFixtures, 74, 'update this guard when the shipped corpus size changes intentionally');
     assert.match(homepage, new RegExp(`stat-number\">${totalFixtures}`));
     assert.match(homepage, /stat-label">Conformance fixtures</);
   });
 
   it('implementor guide tier counts match the shipped corpus', () => {
-    assert.match(guide, /\| `1` \| Core constitutional behavior .* \| `40` \|/);
+    assert.match(guide, /\| `1` \| Core constitutional behavior .* \| `46` \|/);
     assert.match(guide, /\| `2` \| Trust-hardening behavior .* \| `23` \|/);
     assert.match(guide, /\| `3` \| Multi-repo coordination .* \| `5` \|/);
   });
 
   it('marketing drafts use the current corpus size', () => {
-    assert.match(redditDrafts, /\b68 conformance fixtures\b/);
-    assert.match(twitterThread, /\b68 conformance fixtures\b/);
+    assert.match(redditDrafts, /\b74 conformance fixtures\b/);
+    assert.match(twitterThread, /\b74 conformance fixtures\b/);
   });
 });
 

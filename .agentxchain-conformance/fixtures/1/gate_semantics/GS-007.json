@@ -1,0 +1,74 @@
+{
+  "fixture_id": "GS-007",
+  "tier": 1,
+  "surface": "gate_semantics",
+  "description": "Planning gate fails when PM signoff exists but says Approved: NO",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "planning",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "pm": {
+          "title": "PM",
+          "mandate": "Define scope",
+          "write_authority": "authoritative",
+          "runtime": "local-pm"
+        }
+      },
+      "runtimes": {
+        "local-pm": { "type": "local_cli" }
+      },
+      "routing": {
+        "planning": {
+          "entry_role": "pm",
+          "allowed_next_roles": ["pm", "human"],
+          "exit_gate": "planning_signoff",
+          "max_concurrent_turns": 1
+        },
+        "implementation": {
+          "entry_role": "pm",
+          "allowed_next_roles": ["pm", "human"],
+          "max_concurrent_turns": 1
+        }
+      },
+      "gates": {
+        "planning_signoff": {
+          "requires_files": [".planning/PM_SIGNOFF.md"],
+          "requires_verification_pass": false,
+          "requires_human_approval": false
+        }
+      }
+    },
+    "filesystem": {
+      ".planning/PM_SIGNOFF.md": "Approved: NO\n"
+    },
+    "turn_result": {
+      "phase_transition_request": "implementation",
+      "verification": { "status": "pass" }
+    }
+  },
+  "input": {
+    "operation": "evaluate_phase_exit",
+    "args": {
+      "current_phase": "planning",
+      "requested_phase": "implementation"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "action": "gate_failed",
+    "phase_unchanged": true,
+    "state_unchanged": true,
+    "reason": "PM signoff is not approved. Found \"Approved: NO\" in .planning/PM_SIGNOFF.md; set it to \"Approved: YES\"."
+  }
+}

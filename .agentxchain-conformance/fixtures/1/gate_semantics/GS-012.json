@@ -1,0 +1,80 @@
+{
+  "fixture_id": "GS-012",
+  "tier": 1,
+  "surface": "gate_semantics",
+  "description": "Run completion request outside the final phase is rejected",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": {
+          "title": "Dev",
+          "mandate": "Build features",
+          "write_authority": "authoritative",
+          "runtime": "local-dev"
+        },
+        "qa": {
+          "title": "QA",
+          "mandate": "Ship verdict",
+          "write_authority": "review_only",
+          "runtime": "local-qa"
+        }
+      },
+      "runtimes": {
+        "local-dev": { "type": "local_cli" },
+        "local-qa": { "type": "local_cli" }
+      },
+      "routing": {
+        "implementation": {
+          "entry_role": "dev",
+          "allowed_next_roles": ["dev", "qa", "human"],
+          "max_concurrent_turns": 1
+        },
+        "qa": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "human"],
+          "exit_gate": "qa_ship_verdict",
+          "max_concurrent_turns": 1
+        }
+      },
+      "gates": {
+        "qa_ship_verdict": {
+          "requires_files": [".planning/acceptance-matrix.md", ".planning/ship-verdict.md"],
+          "requires_verification_pass": false,
+          "requires_human_approval": true
+        }
+      }
+    },
+    "filesystem": {
+      ".planning/acceptance-matrix.md": "# Acceptance Matrix\n",
+      ".planning/ship-verdict.md": "## Verdict: YES\n"
+    },
+    "turn_result": {
+      "run_completion_request": true,
+      "verification": { "status": "pass" }
+    }
+  },
+  "input": {
+    "operation": "evaluate_run_completion",
+    "args": {
+      "current_phase": "implementation"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "action": "not_final_phase",
+    "state_unchanged": true,
+    "reason": "Run completion requested but current phase \"implementation\" is not the final phase \"qa\""
+  }
+}

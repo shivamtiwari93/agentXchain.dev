@@ -23,6 +23,7 @@ These verbs are fixture abstractions, not CLI command names:
 - `transition_state` — generic state transition
 - `validate_turn_result` — run 5-stage turn result validation pipeline
 - `evaluate_phase_exit` — evaluate gate predicates for phase transition
+- `evaluate_run_completion` — evaluate gate predicates for run completion
 - `append_decision` — append a decision to the decision ledger
 - `validate_config` — validate a governed config against schema
 - `verify_dispatch_manifest` — finalize a dispatch bundle, apply declared post-finalize mutations, and verify integrity
@@ -58,23 +59,23 @@ The corpus uses a minimal matcher vocabulary inside `expected`:
 
 ## Authoring Status
 
-### Tier 1 — Complete (40 fixtures)
+### Tier 1 — Complete (46 fixtures)
 
 | Surface | Count | IDs |
 |---------|-------|-----|
 | State Machine | 12 | SM-001 through SM-012 |
 | Turn Result Validation | 10 | TR-001 through TR-010 |
-| Gate Semantics | 6 | GS-001 through GS-006 |
+| Gate Semantics | 12 | GS-001 through GS-012 |
 | Decision Ledger | 4 | DL-001 through DL-004 |
 | History | 3 | HS-001 through HS-003 |
 | Config Schema | 5 | CS-001 through CS-005 |
 
-### Tier 2 — Complete (8 fixtures)
+### Tier 2 — Complete (23 fixtures)
 
 | Surface | Count | IDs |
 |---------|-------|-----|
-| Dispatch Manifest | 5 | DM-001 through DM-005 |
-| Hook Audit | 3 | HA-001 through HA-003 |
+| Dispatch Manifest | 10 | DM-001 through DM-010 |
+| Hook Audit | 13 | HA-001 through HA-013 |
 
 ### Tier 3 — Complete (5 fixtures)
 

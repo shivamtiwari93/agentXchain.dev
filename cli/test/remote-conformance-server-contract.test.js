@@ -151,8 +151,8 @@ describe('remote conformance server example contract', () => {
     assert.equal(report.overall, 'pass');
     assert.equal(report.remote, baseUrl);
     assert.equal(report.target_root, null);
-    assert.equal(report.results.tier_1.fixtures_run, 40);
-    assert.equal(report.results.tier_1.fixtures_passed, 40);
+    assert.equal(report.results.tier_1.fixtures_run, 46);
+    assert.equal(report.results.tier_1.fixtures_passed, 46);
   });
 
   it('enforces optional bearer auth and still verifies successfully when token is provided', async () => {

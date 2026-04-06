@@ -17,7 +17,7 @@ The current corpus is split into three tiers:
 
 | Tier | Focus | Current surfaces | Current fixture count |
 | --- | --- | --- | --- |
-| `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema` | `40` |
+| `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema` | `46` |
 | `2` | Trust-hardening behavior | `dispatch_manifest`, `hook_audit` | `23` |
 | `3` | Multi-repo coordination | `coordinator` | `5` |
 
@@ -320,7 +320,7 @@ Validation pipeline for staged turn results: required fields, objection rules, s
 
 ### `gate_semantics`
 
-Human approval boundaries for phase transitions and run completion. This is where AgentXchain stops pretending a model can unilaterally ship.
+Human approval boundaries for phase transitions and run completion. This surface proves both structural gate predicates and workflow-file truth markers such as `.planning/PM_SIGNOFF.md` requiring `Approved: YES` and `.planning/ship-verdict.md` requiring an affirmative `## Verdict:` before completion can proceed. This is where AgentXchain stops pretending a model can unilaterally ship.
 
 ### `decision_ledger`
 

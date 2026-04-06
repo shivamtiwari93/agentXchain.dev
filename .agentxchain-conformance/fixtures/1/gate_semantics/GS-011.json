@@ -1,0 +1,72 @@
+{
+  "fixture_id": "GS-011",
+  "tier": 1,
+  "surface": "gate_semantics",
+  "description": "Run completion completes immediately when final gate does not require human approval",
+  "type": "transition",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "qa": {
+          "title": "QA",
+          "mandate": "Ship verdict",
+          "write_authority": "review_only",
+          "runtime": "local-qa"
+        }
+      },
+      "runtimes": {
+        "local-qa": { "type": "local_cli" }
+      },
+      "routing": {
+        "planning": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "human"],
+          "max_concurrent_turns": 1
+        },
+        "qa": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "human"],
+          "exit_gate": "qa_ship_verdict",
+          "max_concurrent_turns": 1
+        }
+      },
+      "gates": {
+        "qa_ship_verdict": {
+          "requires_files": [".planning/acceptance-matrix.md", ".planning/ship-verdict.md"],
+          "requires_verification_pass": false,
+          "requires_human_approval": false
+        }
+      }
+    },
+    "filesystem": {
+      ".planning/acceptance-matrix.md": "# Acceptance Matrix\n",
+      ".planning/ship-verdict.md": "## Verdict: YES\n"
+    },
+    "turn_result": {
+      "run_completion_request": true,
+      "verification": { "status": "pass" }
+    }
+  },
+  "input": {
+    "operation": "evaluate_run_completion",
+    "args": {
+      "current_phase": "qa"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "action": "complete",
+    "new_status": "completed"
+  }
+}

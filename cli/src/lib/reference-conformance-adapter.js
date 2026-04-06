@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { evaluatePhaseExit } from './gate-evaluator.js';
+import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
 import {
   approvePhaseTransition,
   approveRunCompletion,
@@ -699,6 +699,51 @@ function executeFixtureOperation(workspace, fixture) {
         result: 'success',
         action: result.action,
         phase_unchanged: true,
+        state_unchanged: true,
+        reason: result.missing_files.length > 0
+          ? 'requires_files predicate failed'
+          : result.missing_verification
+            ? 'requires_verification_pass predicate failed'
+            : (result.reasons[0] || null),
+      };
+    }
+
+    case 'evaluate_run_completion': {
+      const state = readJson(join(root, '.agentxchain', 'state.json'));
+      const acceptedTurn = {
+        run_completion_request: fixture.setup.turn_result?.run_completion_request ?? true,
+        verification: fixture.setup.turn_result?.verification || { status: 'pass' },
+      };
+      const result = evaluateRunCompletion({
+        state,
+        config: fixtureConfig,
+        acceptedTurn,
+        root,
+      });
+
+      if (result.action === 'awaiting_human_approval') {
+        return {
+          result: 'success',
+          action: result.action,
+          new_status: 'paused',
+          pending_run_completion: {
+            phase: state.phase,
+            gate: result.gate_id,
+          },
+        };
+      }
+
+      if (result.action === 'complete') {
+        return {
+          result: 'success',
+          action: result.action,
+          new_status: 'completed',
+        };
+      }
+
+      return {
+        result: 'success',
+        action: result.action,
         state_unchanged: true,
         reason: result.missing_files.length > 0
           ? 'requires_files predicate failed'

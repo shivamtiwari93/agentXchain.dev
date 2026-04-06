@@ -24,8 +24,8 @@ describe('protocol conformance verifier', () => {
 
     const report = JSON.parse(result.stdout);
     assert.equal(report.overall, 'pass');
-    assert.equal(report.results.tier_1.fixtures_run, 40);
-    assert.equal(report.results.tier_1.fixtures_passed, 40);
+    assert.equal(report.results.tier_1.fixtures_run, 46);
+    assert.equal(report.results.tier_1.fixtures_passed, 46);
   });
 
   it('passes Tier 2 self-validation against the reference adapter', () => {
@@ -34,8 +34,8 @@ describe('protocol conformance verifier', () => {
 
     const report = JSON.parse(result.stdout);
     assert.equal(report.overall, 'pass');
-    assert.equal(report.results.tier_1.fixtures_run, 40);
-    assert.equal(report.results.tier_1.fixtures_passed, 40);
+    assert.equal(report.results.tier_1.fixtures_run, 46);
+    assert.equal(report.results.tier_1.fixtures_passed, 46);
     assert.equal(report.results.tier_2.fixtures_run, 23);
     assert.equal(report.results.tier_2.fixtures_passed, 23);
   });
@@ -92,8 +92,8 @@ describe('protocol conformance verifier', () => {
 
     const report = JSON.parse(result.stdout);
     assert.equal(report.overall, 'pass');
-    assert.equal(report.results.tier_1.fixtures_run, 40);
-    assert.equal(report.results.tier_1.fixtures_passed, 40);
+    assert.equal(report.results.tier_1.fixtures_run, 46);
+    assert.equal(report.results.tier_1.fixtures_passed, 46);
     assert.equal(report.results.tier_2.fixtures_run, 23);
     assert.equal(report.results.tier_2.fixtures_passed, 23);
     assert.equal(report.results.tier_3.fixtures_run, 5);

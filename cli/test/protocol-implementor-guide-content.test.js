@@ -50,6 +50,12 @@ describe('Protocol implementor guide surface', () => {
     }
   });
 
+  it('describes workflow-file gate truth, not only abstract human approval', () => {
+    assert.match(GUIDE, /PM_SIGNOFF\.md/);
+    assert.match(GUIDE, /ship-verdict\.md/);
+    assert.match(GUIDE, /run completion/i);
+  });
+
   it('distinguishes adapter exit codes from verifier exit codes', () => {
     assert.match(GUIDE, /Adapter process \| `0=pass`, `1=fail`, `2=error`, `3=not_implemented`/);
     assert.match(GUIDE, /verify protocol` \| `0=overall pass`, `1=one or more fixture failures`, `2=verifier or adapter error`/);
