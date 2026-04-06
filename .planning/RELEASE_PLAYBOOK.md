@@ -150,6 +150,7 @@ Only after postflight passes:
 4. optionally create or verify the GitHub release notes surface after npm and Homebrew truth agree
 
 Do not update Homebrew against a version that is not yet live on npm.
+Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror must carry the real registry tarball checksum before release follow-through is considered complete.
 
 ---
 

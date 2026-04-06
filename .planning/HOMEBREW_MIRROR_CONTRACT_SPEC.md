@@ -15,12 +15,14 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 
 - The mirror formula must reference the same semver as `cli/package.json`.
 - The mirror formula tarball URL must match `https://registry.npmjs.org/agentxchain/-/agentxchain-<version>.tgz`.
+- The mirror formula SHA256 must be a real registry tarball checksum, not a placeholder sentinel.
 - The mirror maintainer README must state the same current package version and tarball URL as the mirror formula.
 - The README must describe `cli/homebrew/agentxchain.rb` as a repo mirror of the canonical tap formula, not an unrelated stale example.
 
 ## Error Cases
 
 - `cli/package.json` version is bumped for release but the mirror formula still points at an older tarball.
+- The mirror formula keeps an all-zero or otherwise placeholder SHA256 after publish completes.
 - The formula URL and README version drift from each other.
 - The maintainer README keeps obsolete packaging examples that no longer match the real tap.
 
@@ -28,6 +30,7 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 
 - A code-backed contract test reads `cli/package.json`, `cli/homebrew/agentxchain.rb`, and `cli/homebrew/README.md`.
 - The test fails if the formula version or tarball URL diverges from the package version.
+- The test fails if the formula SHA256 is missing or still uses the all-zero placeholder.
 - The test fails if the README current-version and tarball references diverge from the formula.
 
 ## Open Questions

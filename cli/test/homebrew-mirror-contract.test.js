@@ -22,7 +22,13 @@ describe('homebrew mirror contract', () => {
 
   it('keeps the mirror formula aligned with the current package version', () => {
     assert.match(formula, new RegExp(`url "${escapeRegExp(tarballUrl)}"`));
-    assert.match(formula, /sha256 "[0-9a-f]{64}"/);
+    const shaMatch = formula.match(/sha256 "([0-9a-f]{64})"/);
+    assert.ok(shaMatch, 'expected mirrored formula to declare a SHA256');
+    assert.notEqual(
+      shaMatch[1],
+      '0000000000000000000000000000000000000000000000000000000000000000',
+      'expected mirrored formula to use the real npm tarball SHA, not a placeholder',
+    );
     assert.match(formula, /system "npm", "install", \*std_npm_args\b/);
     assert.doesNotMatch(formula, /\*std_npm_args\(libexec\)/);
   });
