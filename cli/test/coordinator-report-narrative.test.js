@@ -272,6 +272,8 @@ function buildCoordinatorFixture() {
         super_run_id: 'srun_test_001',
         status: 'completed',
         phase: 'implementation',
+        created_at: '2026-04-06T18:59:00.000Z',
+        updated_at: '2026-04-06T19:40:00.000Z',
         repo_runs: {
           api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
           web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
@@ -329,6 +331,16 @@ describe('coordinator report narrative — coordinator_timeline', () => {
         assert.ok(timeline[i].timestamp >= timeline[i - 1].timestamp, `event ${i} should be after event ${i - 1}`);
       }
     }
+  });
+
+  it('AT-COORD-TIME-001/002: completed coordinator timing prefers history lifecycle timestamps', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const run = result.report.subject.run;
+
+    assert.equal(run.created_at, '2026-04-06T19:00:00.000Z');
+    assert.equal(run.completed_at, '2026-04-06T19:30:00.000Z');
+    assert.equal(run.duration_seconds, 1800);
   });
 
   // AT-COORD-REPORT-002: each entry has type, timestamp, and non-empty summary
@@ -458,6 +470,16 @@ describe('coordinator report narrative — text format', () => {
     assert.match(text, /2\/2 repos satisfied/);
     assert.match(text, /0\/1 repos satisfied/);
   });
+
+  it('AT-COORD-TIME-005: text output renders coordinator timing', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+
+    assert.match(text, /Started: 2026-04-06T19:00:00.000Z/);
+    assert.match(text, /Completed: 2026-04-06T19:30:00.000Z/);
+    assert.match(text, /Duration: 1800s/);
+  });
 });
 
 // AT-COORD-REPORT-004: markdown formatter includes ## Coordinator Timeline
@@ -486,6 +508,16 @@ describe('coordinator report narrative — markdown format', () => {
     assert.match(md, /2\/2 repos/);
     assert.match(md, /0\/1 repos/);
   });
+
+  it('markdown output renders coordinator timing bullets', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+
+    assert.match(md, /- Started: `2026-04-06T19:00:00.000Z`/);
+    assert.match(md, /- Completed: `2026-04-06T19:30:00.000Z`/);
+    assert.match(md, /- Duration: `1800s`/);
+  });
 });
 
 // AT-COORD-REPORT-006: empty history -> no timeline section
@@ -513,6 +545,28 @@ describe('coordinator report narrative — empty history', () => {
     const md = formatGovernanceReportMarkdown(result.report);
     assert.ok(!md.includes('## Barrier Summary'), 'no barrier section when empty');
   });
+
+  it('AT-COORD-TIME-003/004: active coordinator falls back to state created_at and leaves completion timing empty', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.summary.status = 'active';
+    fixture.files['.agentxchain/multirepo/history.jsonl'] = jsonlFileEntry([
+      { type: 'turn_dispatched', timestamp: '2026-04-06T19:01:00.000Z', repo_id: 'api', role: 'dev', workstream_id: 'core' },
+    ]);
+    fixture.summary.history_entries = 1;
+    fixture.files['.agentxchain/multirepo/state.json'] = jsonFileEntry({
+      ...fixture.files['.agentxchain/multirepo/state.json'].data,
+      status: 'active',
+      created_at: '2026-04-06T18:59:00.000Z',
+      updated_at: '2026-04-06T19:12:00.000Z',
+    });
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const run = result.report.subject.run;
+
+    assert.equal(run.created_at, '2026-04-06T18:59:00.000Z');
+    assert.equal(run.completed_at, null);
+    assert.equal(run.duration_seconds, null);
+  });
 });
 
 // Spec guard
@@ -525,5 +579,15 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /AT-COORD-REPORT-007/);
     assert.match(spec, /coordinator_timeline/);
     assert.match(spec, /barrier_summary/);
+  });
+
+  it('timing spec exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'COORDINATOR_REPORT_TIMING_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Coordinator Report Timing Spec/);
+    assert.match(spec, /AT-COORD-TIME-001/);
+    assert.match(spec, /AT-COORD-TIME-006/);
+    assert.match(spec, /created_at/);
+    assert.match(spec, /duration_seconds/);
   });
 });

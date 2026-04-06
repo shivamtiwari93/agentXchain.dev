@@ -129,6 +129,20 @@ function computeTiming(artifact, turns) {
   return { created_at: createdAt, completed_at: completedAt, duration_seconds: durationSeconds };
 }
 
+function isValidTimestamp(value) {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed);
+}
+
+function computeDurationSeconds(createdAt, completedAt) {
+  if (!isValidTimestamp(createdAt) || !isValidTimestamp(completedAt)) return null;
+  const start = Date.parse(createdAt);
+  const end = Date.parse(completedAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return Math.round((end - start) / 1000);
+}
+
 function extractGateSummary(artifact) {
   const phaseGateStatus = artifact.state?.phase_gate_status;
   if (!phaseGateStatus || typeof phaseGateStatus !== 'object' || Array.isArray(phaseGateStatus)) return [];
@@ -241,6 +255,33 @@ function extractCoordinatorTimeline(artifact) {
         details: Object.keys(details).length > 0 ? details : null,
       };
     });
+}
+
+function computeCoordinatorTiming(artifact, coordinatorTimeline) {
+  const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json');
+  const createdAtFromHistory = coordinatorTimeline
+    .find((entry) => entry.type === 'run_initialized' && isValidTimestamp(entry.timestamp))
+    ?.timestamp || null;
+  const completedAtFromHistory = [...coordinatorTimeline]
+    .reverse()
+    .find((entry) => entry.type === 'run_completed' && isValidTimestamp(entry.timestamp))
+    ?.timestamp || null;
+
+  const createdAt = createdAtFromHistory
+    || (isValidTimestamp(coordinatorState?.created_at) ? coordinatorState.created_at : null);
+
+  let completedAt = null;
+  const completedState = artifact.summary?.status === 'completed' || coordinatorState?.status === 'completed';
+  if (completedState) {
+    completedAt = completedAtFromHistory
+      || (isValidTimestamp(coordinatorState?.updated_at) ? coordinatorState.updated_at : null);
+  }
+
+  return {
+    created_at: createdAt,
+    completed_at: completedAt,
+    duration_seconds: computeDurationSeconds(createdAt, completedAt),
+  };
 }
 
 function extractBarrierSummary(artifact) {
@@ -360,6 +401,7 @@ function buildCoordinatorSubject(artifact) {
   const repoErrorCount = repos.filter((repo) => !repo.ok).length;
   const coordinatorTimeline = extractCoordinatorTimeline(artifact);
   const barrierSummary = extractBarrierSummary(artifact);
+  const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
 
   return {
     kind: 'coordinator_workspace',
@@ -374,6 +416,9 @@ function buildCoordinatorSubject(artifact) {
       super_run_id: artifact.summary?.super_run_id || null,
       status: artifact.summary?.status || null,
       phase: artifact.summary?.phase || null,
+      created_at: timing.created_at,
+      completed_at: timing.completed_at,
+      duration_seconds: timing.duration_seconds,
       barrier_count: artifact.summary?.barrier_count || 0,
       repo_status_counts: repoStatusCounts,
       repo_ok_count: repos.length - repoErrorCount,
@@ -566,6 +611,7 @@ export function formatGovernanceReportText(report) {
     `Super run: ${run.super_run_id || 'none'}`,
     `Status: ${run.status || 'unknown'}`,
     `Phase: ${run.phase || 'unknown'}`,
+    `Started: ${run.created_at || 'n/a'}`,
     `Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `Workstreams: ${coordinator.workstream_count}`,
     `Barriers: ${run.barrier_count}`,
@@ -573,6 +619,13 @@ export function formatGovernanceReportText(report) {
     `History entries: ${artifacts.history_entries}`,
     `Decision entries: ${artifacts.decision_entries}`,
   ];
+
+  if (run.completed_at) {
+    lines.push(`Completed: ${run.completed_at}`);
+  }
+  if (run.duration_seconds != null) {
+    lines.push(`Duration: ${run.duration_seconds}s`);
+  }
 
   if (coordinator_timeline && coordinator_timeline.length > 0) {
     lines.push('', 'Coordinator Timeline:');
@@ -768,6 +821,7 @@ export function formatGovernanceReportMarkdown(report) {
     `- Super run: \`${run.super_run_id || 'none'}\``,
     `- Status: \`${run.status || 'unknown'}\``,
     `- Phase: \`${run.phase || 'unknown'}\``,
+    `- Started: \`${run.created_at || 'n/a'}\``,
     `- Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `- Workstreams: ${coordinator.workstream_count}`,
     `- Barriers: ${run.barrier_count}`,
@@ -775,6 +829,13 @@ export function formatGovernanceReportMarkdown(report) {
     `- History entries: ${artifacts.history_entries}`,
     `- Decision entries: ${artifacts.decision_entries}`,
   ];
+
+  if (run.completed_at) {
+    mdLines.push(`- Completed: \`${run.completed_at}\``);
+  }
+  if (run.duration_seconds != null) {
+    mdLines.push(`- Duration: \`${run.duration_seconds}s\``);
+  }
 
   if (coordinator_timeline && coordinator_timeline.length > 0) {
     mdLines.push('', '## Coordinator Timeline', '', '| # | Type | Time | Summary |', '|---|------|------|---------|');

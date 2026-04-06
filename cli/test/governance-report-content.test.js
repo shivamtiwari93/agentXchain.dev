@@ -39,6 +39,9 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /report_version/);
     assert.match(REPORT_DOCS, /governed_run/);
     assert.match(REPORT_DOCS, /coordinator_workspace/);
+    assert.match(REPORT_DOCS, /coordinator_timeline/);
+    assert.match(REPORT_DOCS, /barrier_summary/);
+    assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
 });
 
@@ -63,5 +66,12 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /AT-REPORT-008/);
     assert.match(SPEC, /markdown/);
     assert.match(SPEC, /report_version/);
+  });
+
+  it('ships a coordinator timing spec for the coordinator report surface', () => {
+    const timingSpec = read('.planning/COORDINATOR_REPORT_TIMING_SPEC.md');
+    assert.match(timingSpec, /DEC-COORD-REPORT-TIME-001/);
+    assert.match(timingSpec, /AT-COORD-TIME-001/);
+    assert.match(timingSpec, /AT-COORD-TIME-006/);
   });
 });
