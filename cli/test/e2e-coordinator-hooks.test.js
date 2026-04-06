@@ -17,7 +17,6 @@ import {
   rmSync,
   writeFileSync,
   readFileSync,
-  appendFileSync,
   existsSync,
   realpathSync,
 } from 'node:fs';
@@ -26,6 +25,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadCoordinatorState, readCoordinatorHistory } from '../src/lib/coordinator-state.js';
+import { getTurnStagingResultPath } from '../src/lib/turn-paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -169,32 +169,57 @@ function makeWorkspace(hooks = {}) {
   return { workspace, apiRepo, webRepo };
 }
 
-function simulateAcceptedTurn(repoRoot, summary, options = {}) {
-  const statePath = join(repoRoot, '.agentxchain', 'state.json');
-  const historyPath = join(repoRoot, '.agentxchain', 'history.jsonl');
-  const state = readJson(statePath);
+function stageAndAcceptTurn(repoRoot, repoId, summary, options = {}) {
+  const state = readJson(join(repoRoot, '.agentxchain', 'state.json'));
   const activeTurn = Object.values(state.active_turns || {})[0];
   assert.ok(activeTurn, `expected active turn in ${repoRoot}`);
 
-  writeJson(statePath, {
-    ...state,
-    status: options.completed ? 'completed' : 'active',
-    active_turns: {},
-    accepted_count: (state.accepted_count || 0) + 1,
-    next_recommended_role: 'dev',
+  const changedFile = `src/${summary.replace(/\s+/g, '-').toLowerCase()}.ts`;
+  mkdirSync(join(repoRoot, 'src'), { recursive: true });
+  writeFileSync(join(repoRoot, changedFile), `export const result = "${summary}";\n`);
+
+  const stagingPath = join(repoRoot, getTurnStagingResultPath(activeTurn.turn_id));
+  mkdirSync(dirname(stagingPath), { recursive: true });
+  writeJson(stagingPath, {
+    schema_version: '1.0',
+    run_id: state.run_id,
+    turn_id: activeTurn.turn_id,
+    role: activeTurn.assigned_role,
+    runtime_id: activeTurn.runtime_id,
+    status: 'completed',
+    summary,
+    decisions: [
+      {
+        id: `DEC-${String((state.accepted_count || 0) + 1).padStart(3, '0')}`,
+        category: 'implementation',
+        statement: summary,
+        rationale: 'Coordinator hook E2E acceptance proof.',
+      },
+    ],
+    objections: [],
+    files_changed: [changedFile],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['node --eval "process.exit(0)"'],
+      evidence_summary: `Acceptance proof for ${repoId}.`,
+      machine_evidence: [
+        { command: 'node --eval "process.exit(0)"', exit_code: 0 },
+      ],
+    },
+    artifact: { type: 'workspace', ref: null },
+    proposed_next_role: 'human',
+    phase_transition_request: options.phaseTransition || null,
+    run_completion_request: options.completed || false,
+    needs_human_reason: null,
+    cost: { input_tokens: 10, output_tokens: 5, usd: 0 },
   });
 
-  appendFileSync(
-    historyPath,
-    JSON.stringify({
-      turn_id: activeTurn.turn_id,
-      role: activeTurn.assigned_role,
-      status: 'accepted',
-      summary,
-      files_changed: [`src/${summary.replace(/\s+/g, '-').toLowerCase()}.ts`],
-      decisions: [`DEC-${summary.replace(/[^A-Za-z0-9]+/g, '-').toUpperCase()}`],
-      verification: { command: 'npm test', exit_code: 0 },
-    }) + '\n',
+  const acceptResult = runCli(repoRoot, ['accept-turn']);
+  assert.equal(
+    acceptResult.status,
+    0,
+    `accept-turn failed in ${repoId}:\n${acceptResult.stdout}\n${acceptResult.stderr}`,
   );
 
   return activeTurn.turn_id;
@@ -249,7 +274,7 @@ HOOKEOF
       const stepApi = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(stepApi.status, 0, `step api stderr: ${stepApi.stderr}`);
 
-      simulateAcceptedTurn(apiRepo, 'planning api done');
+      stageAndAcceptTurn(apiRepo, 'api', 'planning api done', { phaseTransition: 'implementation' });
       const preHookApiState = readFileSync(apiStatePath, 'utf8');
 
       const stepAfterAcceptance = runCli(workspace, ['multi', 'step']);
@@ -321,11 +346,11 @@ HOOKEOF
       // Dispatch to api, accept, dispatch to web, accept → triggers phase gate request
       const stepApi = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(stepApi.status, 0, `step api stderr: ${stepApi.stderr}`);
-      simulateAcceptedTurn(apiRepo, 'planning api done');
+      stageAndAcceptTurn(apiRepo, 'api', 'planning api done', { phaseTransition: 'implementation' });
 
       const stepWeb = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(stepWeb.status, 0, `step web stderr: ${stepWeb.stderr}`);
-      simulateAcceptedTurn(webRepo, 'planning web done');
+      stageAndAcceptTurn(webRepo, 'web', 'planning web done', { phaseTransition: 'implementation' });
 
       // This step should auto-request the phase gate
       const stepGateRequest = runCli(workspace, ['multi', 'step', '--json']);
@@ -583,11 +608,11 @@ HOOKEOF
 
       const planningApiDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(planningApiDispatch.status, 0, `planning api stderr: ${planningApiDispatch.stderr}`);
-      simulateAcceptedTurn(apiRepo, 'Planning API accepted');
+      stageAndAcceptTurn(apiRepo, 'api', 'Planning API accepted', { phaseTransition: 'implementation' });
 
       const planningWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(planningWebDispatch.status, 0, `planning web stderr: ${planningWebDispatch.stderr}`);
-      simulateAcceptedTurn(webRepo, 'Planning web accepted');
+      stageAndAcceptTurn(webRepo, 'web', 'Planning web accepted', { phaseTransition: 'implementation' });
 
       const phaseGateRequest = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(phaseGateRequest.status, 0, `phase gate request stderr: ${phaseGateRequest.stderr}`);
@@ -596,11 +621,11 @@ HOOKEOF
 
       const implementationApiDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(implementationApiDispatch.status, 0, `implementation api stderr: ${implementationApiDispatch.stderr}`);
-      simulateAcceptedTurn(apiRepo, 'Implementation API accepted', { completed: true });
+      stageAndAcceptTurn(apiRepo, 'api', 'Implementation API accepted', { completed: true });
 
       const implementationWebDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(implementationWebDispatch.status, 0, `implementation web stderr: ${implementationWebDispatch.stderr}`);
-      simulateAcceptedTurn(webRepo, 'Implementation web accepted', { completed: true });
+      stageAndAcceptTurn(webRepo, 'web', 'Implementation web accepted', { completed: true });
 
       const completionGateRequest = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(completionGateRequest.status, 0, `completion gate request stderr: ${completionGateRequest.stderr}`);
@@ -701,12 +726,21 @@ HOOKEOF
         'after_acceptance payload should include accepted-turn decisions',
       );
       assert.ok(
-        acceptancePayloads.every((payload) => payload.verification?.exit_code === 0),
+        acceptancePayloads.every(
+          (payload) =>
+            payload.verification?.status === 'pass'
+            && payload.verification?.machine_evidence?.[0]?.exit_code === 0,
+        ),
         'after_acceptance payload should include accepted-turn verification',
       );
       assert.ok(
-        acceptancePayloads.every((payload) => payload.projection_ref.startsWith(`proj_recovery_${payload.repo_id}`)),
-        'after_acceptance payload should include recovery projection references',
+        acceptancePayloads.every(
+          (payload) =>
+            typeof payload.projection_ref === 'string'
+            && payload.projection_ref.startsWith('proj_')
+            && payload.projection_ref.includes(`_${payload.repo_id}_`),
+        ),
+        'after_acceptance payload should include real coordinator projection references',
       );
       assert.ok(
         acceptancePayloads.every((payload) => Array.isArray(payload.barrier_effects)),
@@ -789,7 +823,7 @@ HOOKEOF
       assert.equal(dispatch1.repo_id, 'api');
 
       // Step 3: Accept api turn
-      simulateAcceptedTurn(apiRepo, 'API planning complete');
+      stageAndAcceptTurn(apiRepo, 'api', 'API planning complete', { phaseTransition: 'implementation' });
 
       // Step 4: Resync + dispatch web turn (generates cross-repo context referencing api)
       const step2 = runCli(workspace, ['multi', 'step', '--json']);
@@ -811,7 +845,7 @@ HOOKEOF
       );
 
       // Step 5: Accept web turn
-      simulateAcceptedTurn(webRepo, 'Web planning complete');
+      stageAndAcceptTurn(webRepo, 'web', 'Web planning complete', { phaseTransition: 'implementation' });
 
       // Step 6: Resync + request phase gate (both repos accepted in planning)
       const step3 = runCli(workspace, ['multi', 'step', '--json']);
@@ -830,11 +864,16 @@ HOOKEOF
       assert.ok(hookPayload.repo_turn_id, 'after_acceptance payload should include repo_turn_id');
       assert.equal(hookPayload.summary, 'Web planning complete', 'after_acceptance payload should include accepted summary');
       assert.deepEqual(
-        hookPayload.decisions,
-        ['DEC-WEB-PLANNING-COMPLETE'],
-        'after_acceptance payload should include accepted decisions',
+        hookPayload.decisions.map((decision) => decision.statement),
+        ['Web planning complete'],
+        'after_acceptance payload should include accepted decision objects',
       );
-      assert.equal(hookPayload.verification?.exit_code, 0, 'after_acceptance payload should include verification');
+      assert.equal(hookPayload.verification?.status, 'pass', 'after_acceptance payload should include verification');
+      assert.equal(
+        hookPayload.verification?.machine_evidence?.[0]?.exit_code,
+        0,
+        'after_acceptance payload should include machine evidence',
+      );
       assert.deepEqual(
         hookPayload.files_changed,
         ['src/web-planning-complete.ts'],
@@ -852,7 +891,7 @@ HOOKEOF
       assert.equal(dispatch4.repo_id, 'api');
 
       // Step 9: Accept api implementation turn
-      simulateAcceptedTurn(apiRepo, 'API implementation complete');
+      stageAndAcceptTurn(apiRepo, 'api', 'API implementation complete');
 
       // Step 10: Resync — the critical test.
       // api acceptance in implementation phase should trigger after_acceptance.
@@ -874,11 +913,16 @@ HOOKEOF
       assert.ok(finalPayload.repo_turn_id, 'after_acceptance payload must include repo_turn_id');
       assert.equal(finalPayload.summary, 'API implementation complete', 'payload should include accepted summary');
       assert.deepEqual(
-        finalPayload.decisions,
-        ['DEC-API-IMPLEMENTATION-COMPLETE'],
-        'payload should include accepted decisions',
+        finalPayload.decisions.map((decision) => decision.statement),
+        ['API implementation complete'],
+        'payload should include accepted decision objects',
       );
-      assert.equal(finalPayload.verification?.exit_code, 0, 'payload should include accepted verification');
+      assert.equal(finalPayload.verification?.status, 'pass', 'payload should include accepted verification');
+      assert.equal(
+        finalPayload.verification?.machine_evidence?.[0]?.exit_code,
+        0,
+        'payload should include accepted verification evidence',
+      );
       assert.deepEqual(
         finalPayload.files_changed,
         ['src/api-implementation-complete.ts'],
