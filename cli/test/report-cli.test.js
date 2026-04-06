@@ -180,7 +180,7 @@ function createGovernedProject() {
   return root;
 }
 
-function createGovernedRepo(repoRoot, repoId, status) {
+function createGovernedRepo(repoRoot, repoId, status, opts = {}) {
   mkdirSync(join(repoRoot, '.agentxchain'), { recursive: true });
   writeJson(join(repoRoot, 'agentxchain.json'), {
     schema_version: '1.0',
@@ -210,6 +210,7 @@ function createGovernedRepo(repoRoot, repoId, status) {
     gates: {},
     hooks: {},
   });
+  const stateOverrides = opts.state || {};
   writeJson(join(repoRoot, '.agentxchain', 'state.json'), {
     schema_version: '1.1',
     project_id: repoId,
@@ -223,13 +224,19 @@ function createGovernedRepo(repoRoot, repoId, status) {
     phase_gate_status: {},
     budget_status: {},
     protocol_mode: 'governed',
+    ...stateOverrides,
   });
-  writeJsonl(join(repoRoot, '.agentxchain', 'history.jsonl'), [
+  const history = opts.history || [
     { turn_id: 'turn_000', role: 'dev', status: 'completed' },
-  ]);
-  writeJsonl(join(repoRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+  ];
+  writeJsonl(join(repoRoot, '.agentxchain', 'history.jsonl'), history);
+  const decisions = opts.decisions || [
     { id: 'DEC-001', statement: 'Repo ready.' },
-  ]);
+  ];
+  writeJsonl(join(repoRoot, '.agentxchain', 'decision-ledger.jsonl'), decisions);
+  if (opts.hookAudit) {
+    writeJsonl(join(repoRoot, '.agentxchain', 'hook-audit.jsonl'), opts.hookAudit);
+  }
 }
 
 function createCoordinatorWorkspace() {
@@ -525,6 +532,204 @@ describe('report CLI', () => {
       assert.equal(report.subject.run.repo_ok_count, 2);
       assert.equal(report.subject.run.repo_error_count, 0);
       assert.equal(report.subject.repos.length, 2);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-COORD-DRILL-001: coordinator report surfaces child-repo turn timeline and decisions', () => {
+    const root = mkdtempSync(join(tmpdir(), 'axc-report-coord-drill-'));
+    try {
+      createGovernedRepo(join(root, 'repos', 'web'), 'web-app', 'linked', {
+        history: [
+          { turn_id: 'turn_w1', role: 'dev', status: 'completed', summary: 'Set up routes', phase: 'implementation', accepted_sequence: 1, files_changed: ['src/app.js'], accepted_at: '2026-04-03T01:00:00Z' },
+          { turn_id: 'turn_w2', role: 'dev', status: 'completed', summary: 'Add tests', phase: 'implementation', accepted_sequence: 2, files_changed: ['test/app.test.js'], accepted_at: '2026-04-03T02:00:00Z' },
+        ],
+        decisions: [
+          { id: 'DEC-WEB-001', role: 'dev', phase: 'implementation', statement: 'Use express router' },
+          { id: 'DEC-WEB-002', role: 'dev', phase: 'implementation', statement: 'Add health check' },
+        ],
+        hookAudit: [
+          { event: 'after_acceptance', result: 'ok' },
+          { event: 'after_acceptance', result: 'blocked', blocked: true },
+        ],
+        state: {
+          phase_gate_status: { planning_signoff: 'passed', qa_ship_verdict: 'passed' },
+        },
+      });
+      createGovernedRepo(join(root, 'repos', 'cli'), 'cli-tool', 'initialized', {
+        history: [
+          { turn_id: 'turn_c1', role: 'dev', status: 'completed', summary: 'Init CLI', phase: 'implementation', accepted_sequence: 1, files_changed: ['bin/cli.js'], accepted_at: '2026-04-03T01:30:00Z' },
+        ],
+        decisions: [
+          { id: 'DEC-CLI-001', role: 'dev', phase: 'implementation', statement: 'Use commander' },
+        ],
+      });
+
+      writeJson(join(root, 'agentxchain-multi.json'), {
+        schema_version: '0.1',
+        project: { id: 'coord-drill', name: 'Coordinator Drill' },
+        repos: {
+          web: { path: './repos/web', default_branch: 'main', required: true },
+          cli: { path: './repos/cli', default_branch: 'main', required: true },
+        },
+        workstreams: {
+          sync: { phase: 'implementation', repos: ['web', 'cli'], entry_repo: 'web', depends_on: [], completion_barrier: 'all_repos_accepted' },
+        },
+        routing: { implementation: { entry_workstream: 'sync' } },
+        gates: {},
+        hooks: {},
+      });
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1', super_run_id: 'srun_drill_001', project_id: 'coord-drill',
+        status: 'active', phase: 'implementation',
+        repo_runs: {
+          web: { run_id: 'run_web-app_001', status: 'linked', phase: 'implementation' },
+          cli: { run_id: 'run_cli-tool_001', status: 'initialized', phase: 'implementation' },
+        },
+        pending_gate: null, phase_gate_status: {},
+        created_at: '2026-04-03T00:00:00Z', updated_at: '2026-04-03T00:00:00Z',
+      });
+      writeJson(join(root, '.agentxchain', 'multirepo', 'barriers.json'), {
+        barrier_001: { workstream_id: 'sync', type: 'all_repos_accepted', status: 'pending', required_repos: ['web', 'cli'], satisfied_repos: [] },
+      });
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [{ type: 'run_initialized', super_run_id: 'srun_drill_001' }]);
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'decision-ledger.jsonl'), [{ id: 'DEC-COORD-001', statement: 'Ready.' }]);
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'barrier-ledger.jsonl'), [{ barrier_id: 'barrier_001', to: 'pending' }]);
+
+      const artifactPath = exportArtifact(root);
+
+      // JSON drill-down assertions
+      const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+
+      const webRepo = report.subject.repos.find((r) => r.repo_id === 'web');
+      const cliRepo = report.subject.repos.find((r) => r.repo_id === 'cli');
+
+      // AT-COORD-DRILL-001: turns extracted
+      assert.equal(webRepo.turns.length, 2, 'web repo should have 2 turns');
+      assert.equal(webRepo.turns[0].role, 'dev');
+      assert.equal(webRepo.turns[0].summary, 'Set up routes');
+      assert.equal(webRepo.turns[1].summary, 'Add tests');
+      assert.equal(cliRepo.turns.length, 1, 'cli repo should have 1 turn');
+      assert.equal(cliRepo.turns[0].summary, 'Init CLI');
+
+      // AT-COORD-DRILL-002: decisions extracted
+      assert.equal(webRepo.decisions.length, 2, 'web repo should have 2 decisions');
+      assert.equal(webRepo.decisions[0].id, 'DEC-WEB-001');
+      assert.equal(webRepo.decisions[1].statement, 'Add health check');
+      assert.equal(cliRepo.decisions.length, 1);
+      assert.equal(cliRepo.decisions[0].id, 'DEC-CLI-001');
+
+      // hook summary extracted for web (has hook audit), null for cli (no hooks)
+      assert.ok(webRepo.hook_summary, 'web repo should have hook_summary');
+      assert.equal(webRepo.hook_summary.total, 2);
+      assert.equal(webRepo.hook_summary.blocked, 1);
+      assert.equal(cliRepo.hook_summary, null, 'cli repo should have null hook_summary');
+
+      // gate summary extracted for web
+      assert.equal(webRepo.gate_summary.length, 2, 'web repo should have 2 gate outcomes');
+      assert.equal(webRepo.gate_summary[0].gate_id, 'planning_signoff');
+      assert.equal(webRepo.gate_summary[0].status, 'passed');
+
+      // AT-COORD-DRILL-003: text output per-repo drill-down
+      const textResult = runCli(root, ['report', '--input', artifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Turn Timeline:/);
+      assert.match(textResult.stdout, /Set up routes/);
+      assert.match(textResult.stdout, /Add tests/);
+      assert.match(textResult.stdout, /Init CLI/);
+      assert.match(textResult.stdout, /Decisions:/);
+      assert.match(textResult.stdout, /DEC-WEB-001/);
+      assert.match(textResult.stdout, /DEC-CLI-001/);
+      assert.match(textResult.stdout, /Hook Activity:/);
+      assert.match(textResult.stdout, /Gate Outcomes:/);
+      assert.match(textResult.stdout, /planning_signoff/);
+
+      // AT-COORD-DRILL-004: markdown output per-repo headings and tables
+      const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(mdResult.status, 0, mdResult.stderr);
+      assert.match(mdResult.stdout, /### web/);
+      assert.match(mdResult.stdout, /### cli/);
+      assert.match(mdResult.stdout, /#### Turn Timeline/);
+      assert.match(mdResult.stdout, /Set up routes/);
+      assert.match(mdResult.stdout, /#### Decisions/);
+      assert.match(mdResult.stdout, /\*\*DEC-WEB-001\*\*/);
+      assert.match(mdResult.stdout, /#### Gate Outcomes/);
+      assert.match(mdResult.stdout, /#### Hook Activity/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-COORD-DRILL-005: failed child repo has no drill-down fields', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      const artifactPath = exportArtifact(root);
+      // Tamper the export to simulate a failed child repo
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.repos.cli = { ok: false, path: './repos/cli', error: 'permission denied' };
+      writeJson(artifactPath, artifact);
+
+      const result = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+
+      const failedRepo = report.subject.repos.find((r) => r.repo_id === 'cli');
+      assert.equal(failedRepo.ok, false);
+      assert.equal(failedRepo.error, 'permission denied');
+      assert.equal(failedRepo.turns, undefined, 'failed repo must not have turns');
+      assert.equal(failedRepo.decisions, undefined, 'failed repo must not have decisions');
+      assert.equal(failedRepo.hook_summary, undefined, 'failed repo must not have hook_summary');
+      assert.equal(failedRepo.gate_summary, undefined, 'failed repo must not have gate_summary');
+      assert.equal(failedRepo.recovery_summary, undefined, 'failed repo must not have recovery_summary');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-COORD-DRILL-006: child repo with empty history has empty turns and no rendered section', () => {
+    const root = mkdtempSync(join(tmpdir(), 'axc-report-coord-empty-'));
+    try {
+      createGovernedRepo(join(root, 'repos', 'empty'), 'empty-app', 'linked', {
+        history: [],
+        decisions: [],
+      });
+      writeJson(join(root, 'agentxchain-multi.json'), {
+        schema_version: '0.1',
+        project: { id: 'coord-empty', name: 'Coordinator Empty' },
+        repos: { empty: { path: './repos/empty', default_branch: 'main', required: true } },
+        workstreams: { sync: { phase: 'implementation', repos: ['empty'], entry_repo: 'empty', depends_on: [], completion_barrier: 'all_repos_accepted' } },
+        routing: { implementation: { entry_workstream: 'sync' } },
+        gates: {},
+        hooks: {},
+      });
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1', super_run_id: 'srun_empty_001', project_id: 'coord-empty',
+        status: 'active', phase: 'implementation',
+        repo_runs: { empty: { run_id: 'run_empty-app_001', status: 'linked', phase: 'implementation' } },
+        pending_gate: null, phase_gate_status: {},
+        created_at: '2026-04-03T00:00:00Z', updated_at: '2026-04-03T00:00:00Z',
+      });
+      writeJson(join(root, '.agentxchain', 'multirepo', 'barriers.json'), {});
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [{ type: 'run_initialized' }]);
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'decision-ledger.jsonl'), []);
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'barrier-ledger.jsonl'), []);
+
+      const artifactPath = exportArtifact(root);
+      const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+      const emptyRepo = report.subject.repos.find((r) => r.repo_id === 'empty');
+      assert.deepEqual(emptyRepo.turns, [], 'empty history produces empty turns');
+      assert.deepEqual(emptyRepo.decisions, [], 'empty decisions produces empty array');
+      assert.equal(emptyRepo.hook_summary, null, 'no hooks produces null');
+
+      const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(mdResult.status, 0, mdResult.stderr);
+      assert.doesNotMatch(mdResult.stdout, /#### Turn Timeline/, 'empty history must not render timeline');
+      assert.doesNotMatch(mdResult.stdout, /#### Decisions/, 'empty decisions must not render section');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

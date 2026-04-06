@@ -256,17 +256,28 @@ function buildCoordinatorSubject(artifact) {
   const repoStatusCounts = deriveRepoStatusCounts(repoStatuses);
   const repos = Object.entries(artifact.repos || {})
     .sort(([left], [right]) => left.localeCompare(right, 'en'))
-    .map(([repoId, repoEntry]) => ({
-      repo_id: repoId,
-      path: repoEntry?.path || null,
-      ok: Boolean(repoEntry?.ok),
-      status: repoEntry?.ok ? repoEntry.export?.summary?.status || null : null,
-      run_id: repoEntry?.ok ? repoEntry.export?.summary?.run_id || null : null,
-      phase: repoEntry?.ok ? repoEntry.export?.summary?.phase || null : null,
-      project_id: repoEntry?.ok ? repoEntry.export?.project?.id || null : null,
-      project_name: repoEntry?.ok ? repoEntry.export?.project?.name || null : null,
-      error: repoEntry?.ok ? null : repoEntry?.error || null,
-    }));
+    .map(([repoId, repoEntry]) => {
+      const base = {
+        repo_id: repoId,
+        path: repoEntry?.path || null,
+        ok: Boolean(repoEntry?.ok),
+        status: repoEntry?.ok ? repoEntry.export?.summary?.status || null : null,
+        run_id: repoEntry?.ok ? repoEntry.export?.summary?.run_id || null : null,
+        phase: repoEntry?.ok ? repoEntry.export?.summary?.phase || null : null,
+        project_id: repoEntry?.ok ? repoEntry.export?.project?.id || null : null,
+        project_name: repoEntry?.ok ? repoEntry.export?.project?.name || null : null,
+        error: repoEntry?.ok ? null : repoEntry?.error || null,
+      };
+      if (!repoEntry?.ok || !repoEntry?.export) return base;
+      const childExport = repoEntry.export;
+      base.turns = extractHistoryTimeline(childExport);
+      base.decisions = extractDecisionDigest(childExport);
+      base.hook_summary = extractHookSummary(childExport);
+      base.gate_summary = extractGateSummary(childExport);
+      base.recovery_summary = extractRecoverySummary(childExport);
+      base.blocked_on = childExport.state?.blocked_on || null;
+      return base;
+    });
 
   const repoErrorCount = repos.filter((repo) => !repo.ok).length;
 
@@ -480,9 +491,43 @@ export function formatGovernanceReportText(report) {
     `History entries: ${artifacts.history_entries}`,
     `Decision entries: ${artifacts.decision_entries}`,
     'Repo details:',
-    ...repos.map((repo) => repo.ok
-      ? `- ${repo.repo_id}: ok, status ${repo.status || 'unknown'}, run ${repo.run_id || 'none'}, path ${repo.path || 'unknown'}`
-      : `- ${repo.repo_id}: failed export, ${repo.error || 'unknown error'}, path ${repo.path || 'unknown'}`),
+    ...repos.flatMap((repo) => {
+      if (!repo.ok) {
+        return [`- ${repo.repo_id}: failed export, ${repo.error || 'unknown error'}, path ${repo.path || 'unknown'}`];
+      }
+      const repoLines = [`- ${repo.repo_id}: ok, status ${repo.status || 'unknown'}, run ${repo.run_id || 'none'}, path ${repo.path || 'unknown'}`];
+      if (repo.blocked_on) {
+        repoLines.push(`  Blocked on: ${summarizeBlockedOn(repo.blocked_on)}`);
+      }
+      if (repo.turns && repo.turns.length > 0) {
+        repoLines.push('  Turn Timeline:');
+        for (let i = 0; i < repo.turns.length; i++) {
+          const t = repo.turns[i];
+          const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
+          const phase = t.phase_transition ? `${t.phase || '?'} -> ${t.phase_transition}` : (t.phase || '?');
+          repoLines.push(`    ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
+        }
+      }
+      if (repo.decisions && repo.decisions.length > 0) {
+        repoLines.push('  Decisions:');
+        for (const d of repo.decisions) {
+          repoLines.push(`    - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
+        }
+      }
+      if (repo.gate_summary && repo.gate_summary.length > 0) {
+        repoLines.push('  Gate Outcomes:');
+        for (const gate of repo.gate_summary) {
+          repoLines.push(`    - ${gate.gate_id}: ${gate.status}`);
+        }
+      }
+      if (repo.hook_summary) {
+        repoLines.push(`  Hook Activity: ${repo.hook_summary.total} total, ${repo.hook_summary.blocked} blocked`);
+      }
+      if (repo.recovery_summary) {
+        repoLines.push(`  Recovery: ${repo.recovery_summary.category || 'unknown'} — ${repo.recovery_summary.typed_reason || 'unknown'} (owner: ${repo.recovery_summary.owner || 'unknown'})`);
+      }
+      return repoLines;
+    }),
   ].join('\n');
 }
 
@@ -630,8 +675,46 @@ export function formatGovernanceReportMarkdown(report) {
     '',
     '## Repo Details',
     '',
-    ...repos.map((repo) => repo.ok
-      ? `- \`${repo.repo_id}\`: ok, status \`${repo.status || 'unknown'}\`, run \`${repo.run_id || 'none'}\`, path \`${repo.path || 'unknown'}\``
-      : `- \`${repo.repo_id}\`: failed export, ${repo.error || 'unknown error'}, path \`${repo.path || 'unknown'}\``),
+    ...repos.flatMap((repo) => {
+      if (!repo.ok) {
+        return [`- \`${repo.repo_id}\`: failed export, ${repo.error || 'unknown error'}, path \`${repo.path || 'unknown'}\``];
+      }
+      const repoLines = [`### ${repo.repo_id}`, '', `- Status: \`${repo.status || 'unknown'}\``, `- Run: \`${repo.run_id || 'none'}\``, `- Phase: \`${repo.phase || 'unknown'}\``, `- Path: \`${repo.path || 'unknown'}\``];
+      if (repo.blocked_on) {
+        repoLines.push(`- Blocked on: \`${summarizeBlockedOn(repo.blocked_on)}\``);
+      }
+      if (repo.turns && repo.turns.length > 0) {
+        repoLines.push('', '#### Turn Timeline', '', '| # | Role | Phase | Summary | Files | Cost | Time |', '|---|------|-------|---------|-------|------|------|');
+        for (let i = 0; i < repo.turns.length; i++) {
+          const t = repo.turns[i];
+          const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
+          const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
+          const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
+          repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count} | ${cost} | ${t.accepted_at || 'n/a'} |`);
+        }
+      }
+      if (repo.decisions && repo.decisions.length > 0) {
+        repoLines.push('', '#### Decisions', '');
+        for (const d of repo.decisions) {
+          repoLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
+        }
+      }
+      if (repo.gate_summary && repo.gate_summary.length > 0) {
+        repoLines.push('', '#### Gate Outcomes', '');
+        for (const gate of repo.gate_summary) {
+          repoLines.push(`- \`${gate.gate_id}\`: \`${gate.status}\``);
+        }
+      }
+      if (repo.hook_summary) {
+        repoLines.push('', '#### Hook Activity', '', `- Total: ${repo.hook_summary.total}`, `- Blocked: ${repo.hook_summary.blocked}`);
+        const eventList = Object.entries(repo.hook_summary.events).sort(([a], [b]) => a.localeCompare(b, 'en')).map(([e, c]) => `${e}(${c})`).join(', ');
+        if (eventList) repoLines.push(`- Events: ${eventList}`);
+      }
+      if (repo.recovery_summary) {
+        repoLines.push('', '#### Recovery', '', `- Category: \`${repo.recovery_summary.category || 'unknown'}\``, `- Typed reason: \`${repo.recovery_summary.typed_reason || 'unknown'}\``, `- Owner: \`${repo.recovery_summary.owner || 'unknown'}\``, `- Action: \`${repo.recovery_summary.recovery_action || 'n/a'}\``);
+      }
+      repoLines.push('');
+      return repoLines;
+    }),
   ].join('\n');
 }

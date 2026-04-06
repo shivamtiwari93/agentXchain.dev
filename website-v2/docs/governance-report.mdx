@@ -124,6 +124,17 @@ Each `subject.repos[]` row includes:
 - `project_name`
 - `error`
 
+When `ok` is `true`, child-repo drill-down fields are also present:
+
+- `turns` — turn timeline extracted from the child repo's embedded export (same shape as governed-run turns)
+- `decisions` — decision digest from the child repo
+- `hook_summary` — hook execution summary (`total`, `blocked`, `events`) or `null`
+- `gate_summary` — phase gate outcomes or `[]`
+- `recovery_summary` — blocked recovery context or `null`
+- `blocked_on` — current blocked-on value or `null`
+
+These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
+
 ## Human-Readable Formats
 
 ### `text`
