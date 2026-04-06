@@ -115,6 +115,7 @@ program
   .description('Create a new AgentXchain project folder')
   .option('-y, --yes', 'Skip prompts, use defaults')
   .option('--governed', 'Create a governed project (orchestrator-owned state)')
+  .option('--dir <path>', 'Scaffold target directory. Use "." for in-place bootstrap.')
   .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, library, web-app')
   .option('--dev-command <parts...>', 'Governed local-dev command parts. Include {prompt} for argv prompt delivery.')
   .option('--dev-prompt-transport <mode>', 'Governed local-dev prompt transport: argv, stdin, dispatch_bundle_only')

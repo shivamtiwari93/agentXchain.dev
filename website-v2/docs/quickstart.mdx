@@ -33,8 +33,7 @@ Start with `init --governed`, not `migrate`. Treat the first pass as a bootstrap
 cd /path/to/existing-repo
 git checkout -b agentxchain-bootstrap
 
-# Run interactively — set folder name to "." to scaffold in the current repo
-npx agentxchain init --governed --template web-app
+npx agentxchain init --governed --template web-app --dir . -y
 agentxchain template validate
 
 git add -A
@@ -98,7 +97,7 @@ If the migrated repo already has a retained turn you intend to continue, use `ag
 For a new repo, start by scaffolding truthfully, committing the governed files, then deciding whether you want the mixed-mode manual path or a fully automated `run` path:
 
 ```bash
-npx agentxchain init --governed --template web-app -y
+npx agentxchain init --governed --template web-app --dir my-agentxchain-project -y
 cd my-agentxchain-project
 
 git init
@@ -116,7 +115,7 @@ From there:
 ## What governed mode creates
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 ```
 
 This creates the scaffold:
@@ -155,13 +154,13 @@ The shipped default dev runtime is:
 If your local coding agent needs a different launch command, set it during `init` instead of hand-editing the scaffold afterward:
 
 ```bash
-agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
 ```
 
 If your tool expects prompt text on the command line, include `{prompt}` directly in `--dev-command` and AgentXchain will lock the scaffold to `argv` delivery:
 
 ```bash
-agentxchain init --governed --dev-command my-agent run {prompt} -y
+agentxchain init --governed --dir my-agentxchain-project --dev-command my-agent run {prompt} -y
 ```
 
 Do not mix these modes casually. `argv` requires `{prompt}`. `stdin` and `dispatch_bundle_only` must not include `{prompt}`. Init fails closed if the prompt-delivery contract is ambiguous.
@@ -171,7 +170,7 @@ Do not mix these modes casually. `argv` requires `{prompt}`. `stdin` and `dispat
 ### 1. Initialize
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init && git add -A && git commit -m "initial governed scaffold"
 ```

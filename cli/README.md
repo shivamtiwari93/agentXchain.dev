@@ -25,7 +25,7 @@ npm install -g agentxchain
 Or run without installing:
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 ```
 
 ## Testing
@@ -49,7 +49,7 @@ Duplicate execution remains intentional for the current 36-file slice until a la
 ### Governed workflow
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
 git add -A
@@ -61,13 +61,13 @@ agentxchain step --role pm
 The default governed dev runtime is `claude --print` with stdin prompt delivery. If your local coding agent uses a different launch contract, set it during scaffold creation:
 
 ```bash
-npx agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+npx agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
 ```
 
 If you want template-specific planning artifacts from day one:
 
 ```bash
-npx agentxchain init --governed --template api-service -y
+npx agentxchain init --governed --template api-service --dir my-agentxchain-project -y
 ```
 
 Built-in governed templates:
@@ -105,7 +105,7 @@ agentxchain step
 
 | Command | What it does |
 |---|---|
-| `init --governed [--template <id>]` | Create a governed project, optionally with project-shape-specific planning artifacts |
+| `init --governed [--dir <path>] [--template <id>]` | Create a governed project, optionally in-place or in an explicit target directory, with project-shape-specific planning artifacts |
 | `migrate` | Convert a legacy v3 project to governed format |
 | `status` | Show current run, template, phase, turn, and approval state |
 | `resume` | Initialize or continue a governed run and assign the next turn |

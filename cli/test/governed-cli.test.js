@@ -240,6 +240,38 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed --dir . scaffolds in place and skips cd guidance', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-in-place-'));
+    try {
+      const result = runCli(dir, ['init', '--governed', '--dir', '.', '-y']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(existsSync(join(dir, 'agentxchain.json')));
+      assert.ok(!existsSync(join(dir, 'my-agentxchain-project', 'agentxchain.json')));
+
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.match(config.project.name, /^agentxchain-governed-in-place-/);
+      assert.doesNotMatch(result.stdout, /cd \./);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed --dir <path> writes directly into the requested directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-target-dir-'));
+    const projectDir = join(dir, 'customer-portal');
+    try {
+      const result = runCli(dir, ['init', '--governed', '--dir', 'customer-portal', '-y']);
+      assert.equal(result.status, 0, result.stderr);
+
+      assert.ok(existsSync(join(projectDir, 'agentxchain.json')));
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.project.name, 'customer-portal');
+      assert.match(result.stdout, /cd customer-portal/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed accepts a custom local dev command and prompt transport', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-custom-runtime-'));
     const projectDir = join(dir, 'my-agentxchain-project');

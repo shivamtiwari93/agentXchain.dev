@@ -1,5 +1,5 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { basename, join, relative, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
@@ -419,6 +419,27 @@ function formatGovernedRuntimeCommand(runtime) {
   return Array.isArray(runtime?.command) ? runtime.command.join(' ') : String(runtime?.command || '');
 }
 
+function resolveInitDirOption(dirOption) {
+  if (dirOption == null) return null;
+  const value = String(dirOption).trim();
+  if (!value) {
+    throw new Error('--dir must not be empty.');
+  }
+  return value;
+}
+
+function inferProjectNameFromTarget(targetPath, fallbackName) {
+  const inferred = basename(resolve(process.cwd(), targetPath));
+  return inferred && inferred.trim() ? inferred : fallbackName;
+}
+
+function formatInitTarget(dir) {
+  const rel = relative(process.cwd(), dir);
+  if (!rel) return '.';
+  if (!rel.startsWith('..')) return rel;
+  return dir;
+}
+
 export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}) {
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
@@ -546,6 +567,14 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 async function initGoverned(opts) {
   let projectName, folderName;
   const templateId = opts.template || 'generic';
+  let explicitDir;
+
+  try {
+    explicitDir = resolveInitDirOption(opts.dir);
+  } catch (err) {
+    console.error(chalk.red(`  Error: ${err.message}`));
+    process.exit(1);
+  }
 
   if (!VALID_GOVERNED_TEMPLATE_IDS.includes(templateId)) {
     console.error(chalk.red(`  Error: Unknown template "${templateId}".`));
@@ -560,28 +589,35 @@ async function initGoverned(opts) {
   }
 
   if (opts.yes) {
-    projectName = 'My AgentXchain Project';
-    folderName = slugify(projectName);
+    projectName = explicitDir
+      ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
+      : 'My AgentXchain Project';
+    folderName = explicitDir || slugify(projectName);
   } else {
     const { name } = await inquirer.prompt([{
       type: 'input',
       name: 'name',
       message: 'Project name:',
-      default: 'My AgentXchain Project'
+      default: explicitDir
+        ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
+        : 'My AgentXchain Project'
     }]);
     projectName = name;
-    folderName = slugify(projectName);
+    folderName = explicitDir || slugify(projectName);
 
-    const { folder } = await inquirer.prompt([{
-      type: 'input',
-      name: 'folder',
-      message: 'Folder name:',
-      default: folderName
-    }]);
-    folderName = folder;
+    if (!explicitDir) {
+      const { folder } = await inquirer.prompt([{
+        type: 'input',
+        name: 'folder',
+        message: 'Folder name:',
+        default: folderName
+      }]);
+      folderName = folder;
+    }
   }
 
   const dir = resolve(process.cwd(), folderName);
+  const targetLabel = formatInitTarget(dir);
   const projectId = slugify(projectName);
   let localDevRuntime;
 
@@ -612,7 +648,7 @@ async function initGoverned(opts) {
   scaffoldGoverned(dir, projectName, projectId, templateId, opts);
 
   console.log('');
-  console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(folderName)}/`));
+  console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));
   console.log('');
   console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim('(governed)')}`);
   console.log(`    ${chalk.dim('├──')} .agentxchain/`);
@@ -632,7 +668,9 @@ async function initGoverned(opts) {
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
   console.log(`  ${chalk.cyan('Next:')}`);
-  console.log(`    ${chalk.bold(`cd ${folderName}`)}`);
+  if (dir !== process.cwd()) {
+    console.log(`    ${chalk.bold(`cd ${targetLabel}`)}`);
+  }
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);
   console.log(`    ${chalk.bold('agentxchain status')} ${chalk.dim('# inspect phase, gate, and turn state')}`);
   console.log('');
@@ -644,11 +682,20 @@ export async function initCommand(opts) {
   }
 
   let project, agents, folderName, rules;
+  let explicitDir;
+  try {
+    explicitDir = resolveInitDirOption(opts.dir);
+  } catch (err) {
+    console.error(chalk.red(`  Error: ${err.message}`));
+    process.exit(1);
+  }
 
   if (opts.yes) {
-    project = 'My AgentXchain project';
+    project = explicitDir
+      ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain project')
+      : 'My AgentXchain project';
     agents = DEFAULT_AGENTS;
-    folderName = slugify(project);
+    folderName = explicitDir || slugify(project);
     rules = {
       max_consecutive_claims: 2,
       require_message: true,
@@ -698,7 +745,9 @@ export async function initCommand(opts) {
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
-        default: 'My AgentXchain project'
+        default: explicitDir
+          ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain project')
+          : 'My AgentXchain project'
       }]);
       project = projectName;
     } else {
@@ -706,7 +755,9 @@ export async function initCommand(opts) {
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
-        default: 'My AgentXchain project'
+        default: explicitDir
+          ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain project')
+          : 'My AgentXchain project'
       }]);
       project = projectName;
       agents = {};
@@ -761,14 +812,16 @@ export async function initCommand(opts) {
       }
     }
 
-    folderName = slugify(project);
-    const { folder } = await inquirer.prompt([{
-      type: 'input',
-      name: 'folder',
-      message: 'Folder name:',
-      default: folderName
-    }]);
-    folderName = folder;
+    folderName = explicitDir || slugify(project);
+    if (!explicitDir) {
+      const { folder } = await inquirer.prompt([{
+        type: 'input',
+        name: 'folder',
+        message: 'Folder name:',
+        default: folderName
+      }]);
+      folderName = folder;
+    }
   }
 
   const dir = resolve(process.cwd(), folderName);

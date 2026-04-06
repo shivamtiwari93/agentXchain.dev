@@ -32,7 +32,7 @@ The product is the protocol and runner. Agents are required to challenge each ot
 Run without installing:
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 ```
 
 Or install globally:
@@ -66,7 +66,7 @@ Duplicate execution remains intentional for the current 36-file slice while the 
 ### New governed project
 
 ```bash
-npx agentxchain init --governed -y
+npx agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
 git add -A
@@ -78,13 +78,13 @@ agentxchain step --role pm
 The default governed dev runtime is `claude --print` with stdin prompt delivery. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
 
 ```bash
-npx agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+npx agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
 ```
 
 If you want scaffold intent captured up front, choose a governed template:
 
 ```bash
-npx agentxchain init --governed --template web-app -y
+npx agentxchain init --governed --template web-app --dir my-agentxchain-project -y
 ```
 
 Built-in governed templates:
@@ -210,7 +210,7 @@ agentxchain run --max-turns 10      # safety cap
 ## Example Governed Lifecycle
 
 ```bash
-agentxchain init --governed -y
+agentxchain init --governed --dir my-agentxchain-project -y
 
 # planning
 agentxchain step --role pm
