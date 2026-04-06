@@ -469,7 +469,7 @@ S5 makes the recovery path explicit:
 planned -> executing -> blocked -> approved -> planned -> executing
 ```
 
-`intake resolve` does not restart work by itself. It records the outcome. If the run or workstream blocked and the operator decides to continue, the next step is `agentxchain intake approve --intent <id>` followed by re-planning and a new `intake start` or `intake handoff`.
+`intake resolve` does not restart work by itself. It records the outcome. If a repo-local governed run blocked and the operator decides to restart from intake state, the next step is `agentxchain intake approve --intent <id>` followed by re-planning and a new `intake start` or `intake handoff`. If a coordinator-backed workstream blocked but the operator is continuing the same workstream, fix the coordinator cause, run `agentxchain multi resume`, and then rerun `agentxchain intake resolve` after the coordinator advances.
 
 ## `intake scan`
 

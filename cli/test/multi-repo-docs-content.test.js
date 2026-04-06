@@ -44,6 +44,7 @@ describe('Multi-repo docs content', () => {
     for (const term of [
       'multi init',
       'multi step',
+      'multi resume',
       'multi approve-gate',
       'multi resync --dry-run',
       'accept-turn',
@@ -57,6 +58,12 @@ describe('Multi-repo docs content', () => {
     assert.match(MULTI_IMPL, /resyncFromRepoAuthority/);
     assert.match(PAGE, /auto-resync|auto-resyncs|resyncs from repo authority/i);
     assert.match(PAGE, /repo-local .* authoritative|repo-local governed state is authoritative/i);
+  });
+
+  it('documents blocked-state recovery distinctly from divergence resync', () => {
+    assert.match(PAGE, /multi resume/i);
+    assert.match(PAGE, /blocked state/i);
+    assert.match(PAGE, /multi step|multi approve-gate/i);
   });
 
   it('documents the shipped barrier types', () => {

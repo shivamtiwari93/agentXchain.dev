@@ -247,6 +247,31 @@ describe('multi approve-gate CLI', () => {
   });
 });
 
+describe('multi resume CLI', () => {
+  it('AT-MR-REC-001: multi resume fails without coordinator init', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const result = runCli(workspace, ['multi', 'resume']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('No coordinator state'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-MR-REC-002: multi resume rejects non-blocked coordinator state', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      runCli(workspace, ['multi', 'init']);
+      const result = runCli(workspace, ['multi', 'resume']);
+      assert.notEqual(result.status, 0);
+      assert.ok(result.stderr.includes('expected "blocked"'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('multi help surface', () => {
   it('AT-CLI-MR-010: multi --help lists subcommands', () => {
     const result = runCli(process.cwd(), ['multi', '--help']);
@@ -254,6 +279,7 @@ describe('multi help surface', () => {
     assert.ok(result.stdout.includes('init'), result.stdout);
     assert.ok(result.stdout.includes('status'), result.stdout);
     assert.ok(result.stdout.includes('step'), result.stdout);
+    assert.ok(result.stdout.includes('resume'), result.stdout);
     assert.ok(result.stdout.includes('approve-gate'), result.stdout);
     assert.ok(result.stdout.includes('resync'), result.stdout);
   });

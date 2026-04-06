@@ -339,7 +339,51 @@ describe('intake resolve', () => {
 
     const out = JSON.parse(result.stdout);
     assert.equal(out.ok, false);
-    assert.ok(out.error.includes('must be executing'));
+    assert.ok(out.error.includes('must be executing or blocked'));
+  });
+
+  it('allows a blocked intent to resolve to completed after the same run recovers', () => {
+    const { intentId } = pipelineThroughStart(dir);
+
+    setRunStatus(dir, {
+      status: 'blocked',
+      active_turns: {},
+      blocked_on: 'human:needs-review',
+      blocked_reason: {
+        category: 'needs_human',
+        blocked_at: new Date().toISOString(),
+        turn_id: null,
+        recovery: {
+          typed_reason: 'needs_human',
+          owner: 'human',
+          recovery_action: 'Review and unblock',
+          turn_retained: false,
+          detail: null,
+        },
+      },
+    });
+
+    const blockedResult = runCli(['intake', 'resolve', '--intent', intentId, '--json'], dir);
+    assert.equal(blockedResult.status, 0, `initial blocked resolve failed: ${blockedResult.stderr}\n${blockedResult.stdout}`);
+    const blockedOut = JSON.parse(blockedResult.stdout);
+    assert.equal(blockedOut.new_status, 'blocked');
+
+    const completedAt = new Date().toISOString();
+    setRunStatus(dir, {
+      status: 'completed',
+      completed_at: completedAt,
+      last_completed_turn_id: 'turn_after_recovery',
+      blocked_on: null,
+      blocked_reason: null,
+    });
+
+    const completedResult = runCli(['intake', 'resolve', '--intent', intentId, '--json'], dir);
+    assert.equal(completedResult.status, 0, `recovery resolve failed: ${completedResult.stderr}\n${completedResult.stdout}`);
+    const completedOut = JSON.parse(completedResult.stdout);
+    assert.equal(completedOut.previous_status, 'blocked');
+    assert.equal(completedOut.new_status, 'completed');
+    assert.equal(completedOut.intent.status, 'completed');
+    assert.equal(completedOut.intent.run_completed_at, completedAt);
   });
 
   // AT-V3S5-009: missing target_run rejection

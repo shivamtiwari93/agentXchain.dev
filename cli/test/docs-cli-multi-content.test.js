@@ -74,7 +74,7 @@ describe('CLI multi docs contract', () => {
   });
 
   it('documents every shipped multi subcommand from the CLI registration', () => {
-    assert.ok(subcommands.length >= 5, `expected at least 5 multi subcommands, got ${subcommands.length}`);
+    assert.ok(subcommands.length >= 6, `expected at least 6 multi subcommands, got ${subcommands.length}`);
     for (const sub of subcommands) {
       assert.match(
         multiSection,
@@ -101,6 +101,12 @@ describe('CLI multi docs contract', () => {
 
   it('documents resync --dry-run flag explicitly', () => {
     assert.match(multiSection, /--dry-run/);
+  });
+
+  it('documents blocked-state recovery via multi resume', () => {
+    assert.match(multiSection, /multi resume/i);
+    assert.match(multiSection, /blocked coordinator/i);
+    assert.match(multiSection, /multi approve-gate|multi step/i);
   });
 
   it('references agentxchain-multi.json as the config prerequisite', () => {
@@ -130,6 +136,7 @@ describe('CLI multi implementation alignment', () => {
     assert.match(MULTI_IMPL, /export async function multiInitCommand/);
     assert.match(MULTI_IMPL, /export async function multiStatusCommand/);
     assert.match(MULTI_IMPL, /export async function multiStepCommand/);
+    assert.match(MULTI_IMPL, /export async function multiResumeCommand/);
     assert.match(MULTI_IMPL, /export async function multiApproveGateCommand/);
     assert.match(MULTI_IMPL, /export async function multiResyncCommand/);
   });

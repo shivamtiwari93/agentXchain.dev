@@ -107,9 +107,13 @@ The coordinator loop is explicit. The coordinator never auto-runs child repos be
    - Projects repo-local acceptance into coordinator history
    - Updates barrier state
    - Either dispatches the next repo assignment or requests a coordinator gate
-5. When a gate is pending, run `agentxchain multi approve-gate`
+5. If the coordinator enters `blocked`, fix the cause and run `agentxchain multi resume`
+   - `multi resume` always resyncs from repo authority first
+   - Restores the coordinator to `active` when dispatch can continue
+   - Restores the coordinator to `paused` when a coherent `pending_gate` still exists
+6. When a gate is pending, run `agentxchain multi approve-gate`
    - Approves a phase-transition or completion gate for the coordinated initiative
-6. When you want an explicit recovery check, run `agentxchain multi resync --dry-run`
+7. When you want an explicit divergence check, run `agentxchain multi resync --dry-run`
    - Shows divergence without mutating state
    - Follow with `agentxchain multi resync` to rebuild coordinator state from repo truth
 
@@ -237,6 +241,12 @@ Coordinator hooks protect `.agentxchain/multirepo/` files and repo-local protect
 The local dashboard exposes coordinator state through the **Initiative** and **Cross-Repo** views, with gate and blocked panels reading from the same `.agentxchain/multirepo/` artifacts.
 
 Recovery follows one hard rule: repo-local governed state is authoritative. The coordinator is a derived control plane, not the source of truth. If someone accepts or rejects a turn directly in a child repo, `multi step` will detect that divergence and auto-resync when safe; otherwise `multi resync` rebuilds or blocks explicitly instead of guessing.
+
+Blocked-state recovery is a separate operator action:
+
+- Use `agentxchain multi resync --dry-run` / `agentxchain multi resync` to inspect or rebuild divergence from repo truth
+- Use `agentxchain multi resume` only after the blocked cause is fixed and you want to clear coordinator `status: "blocked"`
+- After `multi resume`, continue with `agentxchain multi step` or `agentxchain multi approve-gate` depending on the restored status
 
 ## Intake Handoff
 

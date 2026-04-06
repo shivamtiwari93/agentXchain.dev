@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { initializeCoordinatorRun, loadCoordinatorState, readCoordinatorHistory, readBarriers, saveCoordinatorState } from '../src/lib/coordinator-state.js';
 import { loadCoordinatorConfig } from '../src/lib/coordinator-config.js';
-import { detectDivergence, resyncFromRepoAuthority } from '../src/lib/coordinator-recovery.js';
+import {
+  detectDivergence,
+  resyncFromRepoAuthority,
+  resumeCoordinatorFromBlockedState,
+} from '../src/lib/coordinator-recovery.js';
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -487,6 +491,101 @@ describe('coordinator resync from repo authority', () => {
       const mismatch = result.mismatches.find(m => m.type === 'repo_blocked_unexpectedly');
       assert.ok(mismatch, 'should detect repo blocked unexpectedly');
       assert.equal(mismatch.repo_id, 'api');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('coordinator blocked recovery', () => {
+  it('AT-MR-REC-003: resumes a blocked coordinator to active when repos are healthy and no gate is pending', () => {
+    const { workspace, config, state } = setupWorkspace();
+    try {
+      const blockedState = {
+        ...state,
+        status: 'blocked',
+        blocked_reason: 'coordinator_hook_violation: tamper detected',
+      };
+      saveCoordinatorState(workspace, blockedState);
+
+      const result = resumeCoordinatorFromBlockedState(workspace, blockedState, config);
+      assert.equal(result.ok, true, result.error);
+      assert.equal(result.resumed_status, 'active');
+
+      const finalState = loadCoordinatorState(workspace);
+      assert.equal(finalState.status, 'active');
+      assert.ok(!('blocked_reason' in finalState), 'blocked_reason should be cleared after successful recovery');
+
+      const history = readCoordinatorHistory(workspace);
+      const resolved = history.filter((entry) => entry.type === 'blocked_resolved');
+      assert.equal(resolved.length, 1);
+      assert.equal(resolved[0].to, 'active');
+      assert.equal(resolved[0].blocked_reason, 'coordinator_hook_violation: tamper detected');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-MR-REC-004: resumes a blocked coordinator to paused when a coherent pending gate still exists', () => {
+    const { workspace, config, state } = setupWorkspace();
+    try {
+      const blockedState = {
+        ...state,
+        status: 'blocked',
+        blocked_reason: 'temporary operator hold',
+        pending_gate: {
+          gate_type: 'phase_transition',
+          gate: 'phase_transition:implementation->review',
+          from: 'implementation',
+          to: 'review',
+          required_repos: ['web', 'api'],
+          human_barriers: [],
+          requested_at: new Date().toISOString(),
+        },
+      };
+      saveCoordinatorState(workspace, blockedState);
+
+      const result = resumeCoordinatorFromBlockedState(workspace, blockedState, config);
+      assert.equal(result.ok, true, result.error);
+      assert.equal(result.resumed_status, 'paused');
+
+      const finalState = loadCoordinatorState(workspace);
+      assert.equal(finalState.status, 'paused');
+      assert.ok(finalState.pending_gate, 'pending gate should be preserved');
+      assert.equal(finalState.pending_gate.gate_type, 'phase_transition');
+
+      const history = readCoordinatorHistory(workspace);
+      const resolved = history.filter((entry) => entry.type === 'blocked_resolved');
+      assert.equal(resolved.length, 1);
+      assert.equal(resolved[0].to, 'paused');
+      assert.equal(resolved[0].pending_gate.gate_type, 'phase_transition');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-MR-REC-005: refuses recovery when a child repo remains blocked after resync', () => {
+    const { workspace, apiRepo, config, state } = setupWorkspace();
+    try {
+      const blockedState = {
+        ...state,
+        status: 'blocked',
+        blocked_reason: 'coordinator_hook_violation: tamper detected',
+      };
+      saveCoordinatorState(workspace, blockedState);
+
+      const repoState = JSON.parse(readFileSync(join(apiRepo, '.agentxchain/state.json'), 'utf8'));
+      repoState.status = 'blocked';
+      repoState.blocked_reason = 'repo validation failure';
+      writeJson(join(apiRepo, '.agentxchain/state.json'), repoState);
+
+      const result = resumeCoordinatorFromBlockedState(workspace, blockedState, config);
+      assert.equal(result.ok, false, 'resume must fail while a child repo remains blocked');
+      assert.deepEqual(result.blocked_repos, ['api']);
+
+      const finalState = loadCoordinatorState(workspace);
+      assert.equal(finalState.status, 'blocked');
+      assert.equal(finalState.blocked_reason, 'child repos remain blocked: api');
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }

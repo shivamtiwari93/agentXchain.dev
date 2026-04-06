@@ -436,6 +436,113 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   };
 }
 
+/**
+ * Clear a coordinator blocked state after the operator resolves the cause.
+ *
+ * Recovery always begins with repo-authority resync, then restores the
+ * coordinator to `active` or `paused` based on whether a pending gate still
+ * exists. It never mutates repo-local governed state.
+ *
+ * @param {string} workspacePath
+ * @param {object} state
+ * @param {object} config
+ * @returns {{ ok: boolean, state?: object, resumed_status?: string, blocked_reason?: string, blocked_repos?: string[], resync?: object, error?: string }}
+ */
+export function resumeCoordinatorFromBlockedState(workspacePath, state, config) {
+  if (!state || state.status !== 'blocked') {
+    return {
+      ok: false,
+      error: `Cannot resume coordinator: status is "${state?.status || 'missing'}", expected "blocked"`,
+    };
+  }
+
+  const previousBlockedReason = state.blocked_reason || 'unknown blocked reason';
+  const expectedSuperRunId = state.super_run_id;
+  const resync = resyncFromRepoAuthority(workspacePath, state, config);
+  const refreshedState = loadCoordinatorState(workspacePath);
+
+  if (!refreshedState) {
+    return {
+      ok: false,
+      error: 'Coordinator state could not be reloaded after resync',
+      blocked_reason: previousBlockedReason,
+      resync,
+    };
+  }
+
+  if (refreshedState.super_run_id !== expectedSuperRunId) {
+    return {
+      ok: false,
+      error: `Cannot resume coordinator: super_run_id changed from "${expectedSuperRunId}" to "${refreshedState.super_run_id}"`,
+      blocked_reason: previousBlockedReason,
+      resync,
+    };
+  }
+
+  if (!resync.ok) {
+    return {
+      ok: false,
+      error: `Coordinator remains blocked: ${resync.blocked_reason || refreshedState.blocked_reason || previousBlockedReason}`,
+      blocked_reason: resync.blocked_reason || refreshedState.blocked_reason || previousBlockedReason,
+      resync,
+      state: refreshedState,
+    };
+  }
+
+  const blockedRepos = Object.entries(refreshedState.repo_runs || {})
+    .filter(([, repoRun]) => repoRun?.status === 'blocked')
+    .map(([repoId]) => repoId);
+
+  if (blockedRepos.length > 0) {
+    const blockedReason = `child repos remain blocked: ${blockedRepos.join(', ')}`;
+    const blockedState = {
+      ...refreshedState,
+      status: 'blocked',
+      blocked_reason: blockedReason,
+    };
+    saveCoordinatorState(workspacePath, blockedState);
+    return {
+      ok: false,
+      error: `Cannot resume coordinator: ${blockedReason}`,
+      blocked_reason: blockedReason,
+      blocked_repos: blockedRepos,
+      resync,
+      state: blockedState,
+    };
+  }
+
+  const resumedStatus = refreshedState.pending_gate ? 'paused' : 'active';
+  const resumedState = {
+    ...refreshedState,
+    status: resumedStatus,
+  };
+  delete resumedState.blocked_reason;
+
+  saveCoordinatorState(workspacePath, resumedState);
+  appendJsonl(historyPath(workspacePath), {
+    type: 'blocked_resolved',
+    timestamp: new Date().toISOString(),
+    super_run_id: refreshedState.super_run_id,
+    from: 'blocked',
+    to: resumedStatus,
+    blocked_reason: previousBlockedReason,
+    pending_gate: refreshedState.pending_gate
+      ? {
+        gate: refreshedState.pending_gate.gate,
+        gate_type: refreshedState.pending_gate.gate_type,
+      }
+      : null,
+  });
+
+  return {
+    ok: true,
+    state: resumedState,
+    resumed_status: resumedStatus,
+    blocked_reason: previousBlockedReason,
+    resync,
+  };
+}
+
 function recomputeBarrierStatus(barrier, history, config) {
   return computeCoordinatorBarrierStatus(barrier, history, config);
 }

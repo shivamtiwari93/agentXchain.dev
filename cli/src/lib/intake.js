@@ -811,8 +811,12 @@ export function resolveIntent(root, intentId) {
 
   const { intent, intentPath, dirs } = loadedIntent;
 
-  if (intent.status !== 'executing') {
-    return { ok: false, error: `cannot resolve from status "${intent.status}" (must be executing)`, exitCode: 1 };
+  if (intent.status !== 'executing' && intent.status !== 'blocked') {
+    return {
+      ok: false,
+      error: `cannot resolve from status "${intent.status}" (must be executing or blocked)`,
+      exitCode: 1,
+    };
   }
 
   if (intent.target_workstream) {

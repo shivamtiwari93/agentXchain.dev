@@ -453,6 +453,8 @@ agentxchain multi approve-gate
 
 At that point the coordinator can request `phase_transition_requested` from `planning` to `implementation`. You now have one active coordinated initiative, two linked governed child repos, coordinator history under `.agentxchain/multirepo/`, and real cross-repo context flowing into downstream repo turns.
 
+If the coordinator enters `blocked`, fix the cause first, then run `agentxchain multi resume`. That restores the coordinator to `active` or `paused` without mutating repo-local state. Continue with `agentxchain multi step` or `agentxchain multi approve-gate` based on the restored status.
+
 ## Verify the protocol surface
 
 If you are evaluating AgentXchain as protocol infrastructure, do not stop at a happy-path walkthrough. Run the conformance kit:

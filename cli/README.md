@@ -100,10 +100,10 @@ For initiatives spanning multiple governed repos, use the coordinator to add cro
 npx agentxchain init --governed --template api-service --dir repos/backend -y
 npx agentxchain init --governed --template web-app --dir repos/frontend -y
 agentxchain multi init
-agentxchain multi step --repo backend --role pm
+agentxchain multi step --json
 ```
 
-See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
+If the coordinator enters `blocked`, fix the cause and run `agentxchain multi resume` before continuing with `multi step` or `multi approve-gate`. See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
 
 ### Migrate a legacy project
 
@@ -132,6 +132,7 @@ agentxchain step
 | `template validate` | Prove the template registry, workflow-kit scaffold contract, and planning artifact completeness (`--json` exposes a `workflow_kit` block) |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
+| `multi init\|status\|step\|resume\|approve-gate\|resync` | Run the multi-repo coordinator lifecycle, including blocked-state recovery via `multi resume` |
 | `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
 | `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
 | `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |

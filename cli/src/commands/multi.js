@@ -5,6 +5,7 @@
  *   multi init         — bootstrap a multi-repo coordinator run
  *   multi status       — show coordinator status and repo-run snapshots
  *   multi step         — reconcile repo truth, then dispatch or request the next coordinator gate
+ *   multi resume       — clear coordinator blocked state after operator recovery
  *   multi approve-gate — approve a pending phase transition or completion gate
  *   multi resync       — detect divergence and rebuild coordinator state from repo authority
  */
@@ -26,7 +27,11 @@ import {
   requestCoordinatorCompletion,
   requestPhaseTransition,
 } from '../lib/coordinator-gates.js';
-import { detectDivergence, resyncFromRepoAuthority } from '../lib/coordinator-recovery.js';
+import {
+  detectDivergence,
+  resyncFromRepoAuthority,
+  resumeCoordinatorFromBlockedState,
+} from '../lib/coordinator-recovery.js';
 import {
   fireCoordinatorHook,
   buildAssignmentPayload,
@@ -154,7 +159,7 @@ export async function multiStepCommand(options) {
     // Fire on_escalation hook (advisory — cannot block, only notifies)
     fireEscalationHook(workspacePath, configResult.config, state, state.blocked_reason || 'unknown reason');
     console.error(`Coordinator is blocked: ${state.blocked_reason || 'unknown reason'}`);
-    console.error('Resolve the blocked state before stepping.');
+    console.error('Resolve the blocked state, then run `agentxchain multi resume` before stepping again.');
     process.exitCode = 1;
     return;
   }
@@ -360,6 +365,57 @@ function maybeRequestCoordinatorGate(workspacePath, state, config) {
   }
 
   return { ok: false, type: 'run_completion', blockers: completionEvaluation.blockers };
+}
+
+// ── multi resume ───────────────────────────────────────────────────────────
+
+export async function multiResumeCommand(options) {
+  const workspacePath = process.cwd();
+  const configResult = loadCoordinatorConfig(workspacePath);
+
+  if (!configResult.ok) {
+    console.error('Coordinator config error:');
+    for (const err of configResult.errors || []) {
+      console.error(`  - ${typeof err === 'string' ? err : err.message || JSON.stringify(err)}`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  const state = loadCoordinatorState(workspacePath);
+  if (!state) {
+    console.error('No coordinator state found. Run `agentxchain multi init` first.');
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = resumeCoordinatorFromBlockedState(workspacePath, state, configResult.config);
+
+  if (!result.ok) {
+    console.error(result.error || 'Coordinator recovery failed.');
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.json) {
+    console.log(JSON.stringify({
+      ok: true,
+      previous_status: 'blocked',
+      resumed_status: result.resumed_status,
+      blocked_reason: result.blocked_reason,
+      pending_gate: result.state?.pending_gate || null,
+      resync: result.resync,
+    }, null, 2));
+    return;
+  }
+
+  console.log(`Coordinator resumed: ${result.resumed_status}`);
+  console.log(`Previous block: ${result.blocked_reason}`);
+  if (result.resumed_status === 'paused' && result.state?.pending_gate) {
+    console.log(`Next action: agentxchain multi approve-gate (${result.state.pending_gate.gate})`);
+  } else {
+    console.log('Next action: agentxchain multi step');
+  }
 }
 
 // ── multi approve-gate ─────────────────────────────────────────────────────

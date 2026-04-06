@@ -14,7 +14,7 @@ The product is the protocol and runner. Agents are required to challenge each ot
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
-- Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
+- Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work
 - Bridges repo-local intake to multi-repo coordinator workstreams via `intake handoff`
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
@@ -130,10 +130,10 @@ cat > agentxchain-multi.json << 'EOF'
 EOF
 
 agentxchain multi init
-agentxchain multi step --repo backend --role pm
+agentxchain multi step --json
 ```
 
-Each child repo keeps its own governed state and gates. The coordinator adds cross-repo sequencing, shared barriers, and a coordinator-owned gate. See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
+Each child repo keeps its own governed state and gates. The coordinator adds cross-repo sequencing, shared barriers, and a coordinator-owned gate. If the coordinator enters `blocked`, fix the cause and run `agentxchain multi resume` before continuing with `multi step` or `multi approve-gate`. See the [multi-repo quickstart](https://agentxchain.dev/docs/quickstart#multi-repo-cold-start) for the full cold-start walkthrough.
 
 ### Migrate an existing legacy project
 
@@ -208,6 +208,7 @@ agentxchain approve-completion
 agentxchain dashboard
 agentxchain template validate                  # prove scaffold + workflow-kit contract
 agentxchain template validate --json            # machine-readable proof with workflow_kit block
+agentxchain multi resume                        # clear a blocked coordinator after operator recovery
 agentxchain plugin list
 agentxchain plugin install ./my-plugin
 ```

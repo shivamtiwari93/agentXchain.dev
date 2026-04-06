@@ -108,7 +108,8 @@ The current coordinator surface is repo-native and local-first:
 2. `agentxchain multi step` detects divergence, auto-resyncs when safe, then dispatches the next repo-local assignment.
 3. The selected child repo completes its normal governed turn lifecycle.
 4. A later `agentxchain multi step` projects the accepted child result, updates barriers, and either dispatches again or requests a gate.
-5. `agentxchain multi approve-gate` clears pending coordinator phase or completion gates.
+5. If the coordinator blocks, the operator fixes the cause and runs `agentxchain multi resume` to restore `active` or `paused`.
+6. `agentxchain multi approve-gate` clears pending coordinator phase or completion gates.
 
 See [Multi-Repo Coordination](/docs/multi-repo) for the actual config schema, barrier types, hook phases, context files, dashboard views, and recovery flow. This protocol page stays at the constitutional layer; the deep-dive page carries the implementation-facing operator contract.
 

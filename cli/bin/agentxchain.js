@@ -88,6 +88,7 @@ import {
   multiInitCommand,
   multiStatusCommand,
   multiStepCommand,
+  multiResumeCommand,
   multiApproveGateCommand,
   multiResyncCommand,
 } from '../src/commands/multi.js';
@@ -415,6 +416,12 @@ multiCmd
   .description('Select the next workstream and dispatch a coordinator turn')
   .option('-j, --json', 'Output as JSON')
   .action(multiStepCommand);
+
+multiCmd
+  .command('resume')
+  .description('Clear a blocked coordinator state after operator recovery')
+  .option('-j, --json', 'Output as JSON')
+  .action(multiResumeCommand);
 
 multiCmd
   .command('approve-gate')

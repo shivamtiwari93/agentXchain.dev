@@ -189,7 +189,7 @@ This is an empty directory scaffold. Future slices will write post-release obser
 | Condition | Exit Code | Error Message |
 |-----------|-----------|---------------|
 | Intent ID not found | 2 | `intent {id} not found` |
-| Intent status is not `executing` | 1 | `cannot resolve from status "{status}" (must be executing)` |
+| Intent status is not `executing` or `blocked` | 1 | `cannot resolve from status "{status}" (must be executing or blocked)` |
 | Intent has no `target_run` | 1 | `intent {id} has no linked run (target_run is null)` |
 | Governed state file missing | 1 | `governed state not found at .agentxchain/state.json` |
 | Run ID mismatch | 1 | `run_id mismatch: intent targets {target_run} but governed state has {state.run_id}` |
@@ -213,6 +213,9 @@ Given an intent at `executing` linked to an active governed run, then `intake re
 
 ### AT-V3S5-005: Paused run returns no-change
 Given an intent at `executing` linked to a paused governed run, then `intake resolve` returns `ok: true` with `no_change: true` and the intent stays at `executing`.
+
+### AT-V3S5-005b: Blocked intent can resolve after same-run recovery
+Given an intent already at `blocked` from the same linked run, when that run later reaches `completed`, then `intake resolve` transitions the intent from `blocked` to `completed` instead of rejecting the recovery.
 
 ### AT-V3S5-006: Run ID mismatch rejection
 Given an intent with `target_run: "run_A"` and a governed state with `run_id: "run_B"`, then `intake resolve` fails with exit 1 and a mismatch error.

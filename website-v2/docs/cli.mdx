@@ -565,6 +565,7 @@ The multi command family orchestrates governed runs across linked repositories. 
 | `init` | Bootstrap a coordinator run, link repo runs, and write initial coordinator state | `--json` |
 | `status` | Show coordinator status: super-run state, repo-run snapshots, and barriers | `--json` |
 | `step` | Reconcile repo truth, select the next workstream, and dispatch a coordinator turn | `--json` |
+| `resume` | Clear a blocked coordinator after the operator fixes the cause and restore the next truthful status | `--json` |
 | `approve-gate` | Approve a pending phase transition or completion gate across the coordinated run | `--json` |
 | `resync` | Detect divergence between coordinator state and repo authority, and rebuild if needed | `--json`, `--dry-run` |
 
@@ -572,8 +573,16 @@ The typical coordinator flow is:
 
 1. `multi init` — reads `agentxchain-multi.json`, initializes or links repo-level governed runs, and writes coordinator state
 2. `multi step` — checks for divergence first, auto-resyncs from repo authority when safe, then selects the next workstream assignment, dispatches a coordinator turn, and fires hooks
-3. `multi approve-gate` — when a gate is pending (phase transition or completion), the human approves it through this command
-4. `multi resync` — explicit operator recovery path when coordinator state diverges from repo authority. Use `--dry-run` to detect divergence without modifying state.
+3. `multi resume` — after the operator fixes a blocked coordinator cause, this command runs a resync and restores coordinator status to `active` or `paused`
+4. `multi approve-gate` — when a gate is pending (phase transition or completion), the human approves it through this command
+5. `multi resync` — explicit divergence rebuild from repo authority. Use `--dry-run` to detect divergence without modifying state.
+
+`multi resync` and `multi resume` are not interchangeable:
+
+- `multi resync` reconciles coordinator state with repo truth
+- `multi resume` is the blocked-state recovery command after the operator resolves the cause
+
+If `multi resume` restores the coordinator to `active`, the next action is `agentxchain multi step`. If it restores to `paused` with a coherent `pending_gate`, the next action is `agentxchain multi approve-gate`.
 
 The dashboard **Initiative** and **Cross-Repo** views visualize coordinator state. When only coordinator state exists (no repo-local run), the dashboard opens on Initiative first.
 
