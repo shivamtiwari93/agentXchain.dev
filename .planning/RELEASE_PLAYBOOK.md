@@ -51,7 +51,7 @@ npm view "agentxchain@<semver>" version
 
 ### Downstream Update
 
-After postflight passes and npm serves the requested version, update the Homebrew tap `shivamtiwari93/homebrew-agentxchain` to the new tarball URL and SHA256.
+After postflight passes and npm serves the requested version, update the Homebrew tap `shivamtiwari93/homebrew-tap` to the new tarball URL and SHA256.
 
 ---
 
@@ -130,7 +130,7 @@ Tag existence alone is not release truth.
 Only after postflight passes:
 
 1. fetch the tarball URL and SHA256 from npm
-2. update the Homebrew formula in `shivamtiwari93/homebrew-agentxchain`
+2. update the Homebrew formula in `shivamtiwari93/homebrew-tap`
 3. push the tap update
 4. optionally create or verify the GitHub release notes surface after npm and Homebrew truth agree
 

@@ -28,7 +28,7 @@ describe('homebrew mirror contract', () => {
   });
 
   it('keeps maintainer docs aligned with the mirrored formula target', () => {
-    assert.match(readme, /canonical Homebrew tap lives in `shivamtiwari93\/homebrew-agentxchain`/);
+    assert.match(readme, /canonical Homebrew tap lives in `shivamtiwari93\/homebrew-tap`/);
     assert.match(readme, new RegExp(`- version: \`${escapeRegExp(version)}\``));
     assert.match(readme, new RegExp(`- source tarball: \`${escapeRegExp(tarballUrl)}\``));
     assert.match(

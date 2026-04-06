@@ -72,7 +72,7 @@
 - [x] npm publish dry-run succeeds — `npm pack --dry-run` passed in `cli/` and produced `agentxchain-0.9.0.tgz`
 - [x] Release preflight runs with 0 hard failures — observed result on 2026-04-01: `4 passed, 0 failed, 2 warnings` (`dirty tree`, `package.json` still `0.9.0` before the release bump)
 - [x] Release preflight strict-mode contract is frozen for the post-bump gate (`bash scripts/release-preflight.sh --strict` / `npm run preflight:release:strict`)
-- [x] Homebrew formula updated with real tap — completed in `shivamtiwari93/homebrew-agentxchain`
+- [x] Homebrew formula updated with real tap — completed in `shivamtiwari93/homebrew-tap`
 - [ ] Clean release workspace prepared before the cut (release-day task)
 - [ ] `cd cli && npm version 1.0.0` run successfully, creating the release commit and git tag `v1.0.0` (release-day task)
 - [ ] Push tag `v1.0.0` to GitHub — triggers `.github/workflows/publish-npm-on-tag.yml` which calls `scripts/publish-from-tag.sh`. The workflow enforces: tag shape must be `vX.Y.Z`, `package.json.version` must match tag semver, strict preflight must pass, and npm registry visibility is polled after publish. Human only creates tag; workflow handles publish.

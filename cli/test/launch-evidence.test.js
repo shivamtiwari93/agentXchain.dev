@@ -136,7 +136,7 @@ describe('Conformance count surfaces stay aligned', () => {
   it('homepage stat and architecture copy match the real fixture corpus size', () => {
     assert.equal(totalFixtures, 68, 'update this guard when the shipped corpus size changes intentionally');
     assert.match(homepage, new RegExp(`stat-number\">${totalFixtures}`));
-    assert.match(homepage, new RegExp(`${totalFixtures}\\s+golden fixtures`));
+    assert.match(homepage, /stat-label">Conformance fixtures</);
   });
 
   it('implementor guide tier counts match the shipped corpus', () => {

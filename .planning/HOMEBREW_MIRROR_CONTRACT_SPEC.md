@@ -9,7 +9,7 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 - Mirror formula: `cli/homebrew/agentxchain.rb`
 - Mirror maintainer notes: `cli/homebrew/README.md`
 - Version source of truth: `cli/package.json`
-- Canonical tap repo reference: `shivamtiwari93/homebrew-agentxchain`
+- Canonical tap repo reference: `shivamtiwari93/homebrew-tap`
 
 ## Behavior
 

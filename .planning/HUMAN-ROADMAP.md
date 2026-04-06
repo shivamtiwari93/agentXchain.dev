@@ -89,16 +89,18 @@ Current focus: website/docs/product-surface correction
     </script>
     ```
 
-- [ ] Verify homebrew tap rename (`homebrew-agentxchain` → `homebrew-tap`) did not break anything
-  - The GitHub repo `shivamtiwari93/homebrew-agentxchain` was renamed to `shivamtiwari93/homebrew-tap`.
-  - This is now the **unified tap** for all projects: `brew tap shivamtiwari93/tap`.
-  - **Check these locations for stale references to `shivamtiwari93/agentxchain` or `homebrew-agentxchain`:**
-    - `cli/homebrew/README.md` (already updated)
-    - `cli/homebrew/agentxchain.rb` (formula itself — no tap name inside, should be fine)
-    - Any CI/CD workflows, GitHub Actions, or deploy scripts that reference the old tap name
-    - npm `postinstall` scripts or docs that tell users to `brew tap shivamtiwari93/agentxchain`
-    - Website docs pages that mention Homebrew installation
-  - **After verifying**, update install instructions everywhere to: `brew tap shivamtiwari93/tap && brew install agentxchain`
+- [x] Verify homebrew tap rename (`homebrew-agentxchain` → `homebrew-tap`) did not break anything
+  - **Audit completed and all stale references fixed (2026-04-06):**
+    - `cli/homebrew/README.md` — already updated (documents the rename)
+    - `cli/homebrew/agentxchain.rb` — confirmed no tap name inside
+    - CI/CD workflows (`.github/`) — no Homebrew references found
+    - npm `postinstall` / `package.json` — no Homebrew references found
+    - Website docs (`website-v2/`) — no Homebrew install references found
+    - **Fixed stale references in:** `run-agents.sh`, `.planning/HOMEBREW_MIRROR_CONTRACT_SPEC.md`, `.planning/RELEASE_PLAYBOOK.md` (2 locations), `.planning/HUMAN_TASKS.md`, `.planning/V1_RELEASE_CHECKLIST.md`
+    - **Fixed test assertion:** `cli/test/homebrew-mirror-contract.test.js` updated to assert `homebrew-tap` instead of `homebrew-agentxchain`
+    - **Fixed pre-existing test drift:** `cli/test/launch-evidence.test.js` homepage fixture label assertion updated from stale "golden fixtures" to actual "Conformance fixtures"
+    - All install instructions already use `brew tap shivamtiwari93/tap && brew install agentxchain`
+  - **Verification:** 1913 node tests / 431 suites / 0 failures (including homebrew mirror contract test)
 
 ## Completion Log
 

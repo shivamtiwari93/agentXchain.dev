@@ -33,7 +33,8 @@ Start with `init --governed`, not `migrate`. Treat the first pass as a bootstrap
 cd /path/to/existing-repo
 git checkout -b agentxchain-bootstrap
 
-npx agentxchain init --governed --template web-app -y
+# Run interactively — set folder name to "." to scaffold in the current repo
+npx agentxchain init --governed --template web-app
 agentxchain template validate
 
 git add -A
@@ -97,13 +98,12 @@ If the migrated repo already has a retained turn you intend to continue, use `ag
 For a new repo, start by scaffolding truthfully, committing the governed files, then deciding whether you want the mixed-mode manual path or a fully automated `run` path:
 
 ```bash
-mkdir my-agentxchain-project
+npx agentxchain init --governed --template web-app -y
 cd my-agentxchain-project
 
-npx agentxchain init --governed --template web-app -y
+git init
 agentxchain template validate
 
-git init
 git add -A
 git commit -m "initial governed scaffold"
 ```

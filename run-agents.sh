@@ -53,7 +53,7 @@ GIT & RELEASES — DO THESE, DO NOT DELEGATE TO HUMANS:
 - npm version bumps — run cd cli && npm version <version> yourself
 - npm publish — run it yourself. NPM_TOKEN is in the repo .env file. Source it and publish.
 - git tag and push tags — do it yourself to trigger CI
-- Update Homebrew tap — clone shivamtiwari93/homebrew-agentxchain, update the formula, push
+- Update Homebrew tap — clone shivamtiwari93/homebrew-tap, update the formula, push
 - Create GitHub releases — use gh CLI or git commands
 - DO NOT write a script and then say "human should run this." YOU run it.
 
