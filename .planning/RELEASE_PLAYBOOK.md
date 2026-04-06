@@ -51,7 +51,22 @@ npm view "agentxchain@<semver>" version
 
 ### Downstream Update
 
-After postflight passes and npm serves the requested version, update the Homebrew tap `shivamtiwari93/homebrew-tap` to the new tarball URL and SHA256.
+After postflight passes and npm serves the requested version:
+
+1. Create the GitHub release: `gh release create v<semver> --title "v<semver>" --notes "..."`
+2. Update the Homebrew tap `shivamtiwari93/homebrew-tap` to the new tarball URL and SHA256
+3. Sync the repo Homebrew mirror (`cli/homebrew/agentxchain.rb`)
+
+### Downstream Truth Verification
+
+After all downstream surfaces are updated, verify consistency:
+
+```bash
+cd cli
+npm run postflight:downstream -- --target-version <semver>
+```
+
+This checks: GitHub release exists, Homebrew formula SHA matches registry tarball SHA, and Homebrew formula URL matches registry tarball URL.
 
 ---
 
@@ -167,4 +182,4 @@ Do not update Homebrew against a version that is not yet live on npm.
 
 ## Open Questions
 
-1. Should GitHub release creation become an explicit required step in this playbook once it is fully automated and verified in-repo?
+None. GitHub release creation is now an explicit required step with automated verification via `postflight:downstream`.
