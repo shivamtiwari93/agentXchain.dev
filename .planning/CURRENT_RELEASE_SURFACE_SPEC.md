@@ -1,0 +1,49 @@
+# Current Release Surface Spec
+
+> Guard the repo-controlled public surfaces that must track the current released package version.
+
+## Purpose
+
+Prevent version drift across the repo's front-door release surfaces. A release version is not just `cli/package.json`; operators and implementors also read the changelog, the release-notes route, the docs sidebar, the homepage badge, and the protocol implementor guide example. When those drift, the repo republishes contradictory release truth.
+
+## Interface
+
+Add one automated guard test:
+
+- `cli/test/current-release-surface.test.js`
+
+The guard reads:
+
+- `cli/package.json`
+- `cli/CHANGELOG.md`
+- `website-v2/docs/releases/`
+- `website-v2/sidebars.ts`
+- `website-v2/src/pages/index.tsx`
+- `.agentxchain-conformance/capabilities.json`
+- `website-v2/docs/protocol-implementor-guide.mdx`
+
+## Behavior
+
+The guard must enforce these invariants against the current `cli/package.json` version:
+
+1. The top changelog heading is `## <version>`.
+2. A matching release-notes doc exists at `website-v2/docs/releases/v<major>-<minor>-<patch>.mdx`.
+3. The docs sidebar includes that release-notes doc id.
+4. The homepage hero badge shows `v<version>`.
+5. `.agentxchain-conformance/capabilities.json` `version` matches `cli/package.json`.
+6. The protocol implementor guide inline `capabilities.json` example includes the current version string.
+
+## Error Cases
+
+- If `package.json` is bumped but the release page is missing, the guard fails.
+- If the changelog is updated but the homepage badge or sidebar is stale, the guard fails.
+- If the implementor guide or capabilities example lags the package version, the guard fails.
+
+## Acceptance Tests
+
+- **AT-CRS-001**: The guard reads `cli/package.json` and asserts the top changelog heading matches.
+- **AT-CRS-002**: The guard resolves the current release doc path from the package version and asserts the file exists.
+- **AT-CRS-003**: The guard asserts `website-v2/sidebars.ts` links the current release doc id.
+- **AT-CRS-004**: The guard asserts the homepage hero badge shows the current version.
+- **AT-CRS-005**: The guard asserts `.agentxchain-conformance/capabilities.json` matches the package version.
+- **AT-CRS-006**: The guard asserts the protocol implementor guide example shows the current version.

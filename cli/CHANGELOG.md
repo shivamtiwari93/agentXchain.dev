@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.13.0
+
+Multi-repo onboarding is now front-door discoverable, and the protocol conformance kit proves the semantic workflow gates it already claimed to enforce.
+
+### Multi-Repo Onboarding
+
+- The multi-repo cold-start path is now linked from all front-door surfaces: root `README.md`, `cli/README.md`, and the landing page.
+- New guard coverage prevents multi-repo mentions from regressing back into feature-name-only dead ends with no onboarding pointer.
+- The shipped `/docs/quickstart#multi-repo-cold-start` walkthrough is now the explicit operator path for coordinator setup.
+
+### Protocol Conformance Expansion
+
+- Tier 1 `gate_semantics` now proves `evaluateRunCompletion()` directly instead of stopping at phase-exit behavior.
+- New fixtures prove negative semantic truth for `.planning/PM_SIGNOFF.md` and `.planning/ship-verdict.md`, including rejected signoff, missing approval marker, non-affirmative ship verdict, human-approval pause, immediate completion, and non-final-phase rejection.
+- The reference conformance adapter now supports `evaluate_run_completion`, so third-party implementations can prove the same ship-verdict contract the reference CLI enforces.
+
+### Release Surface Hardening
+
+- `capabilities.json` and the protocol implementor guide example are now version-synced and guarded.
+- New `current-release-surface.test.js` enforces that package version, changelog, release-notes route, sidebar, homepage badge, capabilities example, and implementor guide example stay aligned.
+
+### Evidence
+
+- 1949 node --test tests / 437 suites, 0 failures.
+- 684 Vitest tests / 36 files, 0 failures.
+- Tier 1: 46 fixtures. Total conformance corpus: 74 fixtures.
+- Website production build passes.
+
 ## 2.12.0
 
 Governed gates now enforce semantic truth, not just file presence. Scaffold ergonomics and docs accuracy improved across the board.

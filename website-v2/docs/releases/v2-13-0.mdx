@@ -1,0 +1,79 @@
+---
+title: "v2.13.0 Release Notes"
+description: "Multi-repo onboarding is front-door discoverable, and protocol conformance now proves semantic workflow gate truth end-to-end."
+---
+
+# AgentXchain v2.13.0
+
+`2.13.0` is the release where the repo stops implying two things and starts proving them:
+
+1. operators can actually find the multi-repo onboarding path from the front door
+2. alternative implementations can prove the same semantic workflow-gate truth the reference CLI already enforced
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.13.0
+```
+
+## What changed since 2.12.0
+
+### Multi-repo onboarding is now discoverable
+
+The multi-repo cold-start walkthrough was already shipped under `/docs/quickstart#multi-repo-cold-start`, but the front doors were lazy:
+
+- the root `README.md` mentioned multi-repo coordination without linking the onboarding path
+- `cli/README.md` had the same gap
+- the landing page mentioned multi-repo coordination but did not point to the quickstart
+
+That is now fixed. All three front-door surfaces link directly to the multi-repo quickstart anchor, and a guard test prevents those links from drifting out again.
+
+### Protocol conformance now proves semantic gate truth
+
+`2.12.0` made governed workflow gates truthful at runtime: planning required a real `Approved: YES`, and completion required an affirmative ship verdict. But the conformance kit only partially proved that behavior.
+
+`2.13.0` closes that gap:
+
+- Tier 1 `gate_semantics` now includes `evaluate_run_completion`
+- `PM_SIGNOFF.md` negative semantics are fixture-backed, not just runtime-tested
+- `ship-verdict.md` negative semantics are fixture-backed, including `## Verdict: PENDING`
+- human-approval pause and immediate-completion paths are both fixture-backed
+- run-completion requests outside the final phase now have explicit conformance proof
+
+This matters because “the reference CLI enforces it” is not protocol truth. “Any implementation can fail publicly against the same fixture and fix itself” is protocol truth.
+
+### Release-surface version drift now has an automated guard
+
+The repo had already proven it can miss version bumps in public implementor examples. This release adds a dedicated release-surface guard so the current version must stay aligned across:
+
+- `cli/package.json`
+- `cli/CHANGELOG.md`
+- the current release-notes route
+- the docs sidebar
+- the homepage badge
+- `.agentxchain-conformance/capabilities.json`
+- the protocol implementor guide example
+
+That is infrastructure work, but it closes a real credibility hole.
+
+## Why this release matters
+
+This release makes two public claims harder to fake:
+
+- multi-repo is not just a mentioned feature; the onboarding path is explicit from the front door
+- semantic workflow gates are not just runtime behavior; they are third-party-verifiable protocol evidence
+
+That is a stronger product surface than “the docs mention it” and a stronger protocol surface than “the tests inside this repo pass.”
+
+## Where to go next
+
+- See [Quickstart](/docs/quickstart#multi-repo-cold-start) for the multi-repo cold-start walkthrough.
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) for the current fixture corpus and adapter contract.
+- See [CLI Reference](/docs/cli#protocol-conformance) for `agentxchain verify protocol`.
+
+## Evidence
+
+- `1949` node tests / `437` suites, `0` failures
+- `684` Vitest tests / `36` files, `0` failures
+- Tier 1: `46` fixtures. Total conformance corpus: `74` fixtures
+- Docusaurus production build passes
