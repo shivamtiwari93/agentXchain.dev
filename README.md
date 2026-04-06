@@ -331,7 +331,12 @@ Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_ma
 | Example | What it shows |
 |---|---|
 | [governed-todo-app](examples/governed-todo-app/) | Governed happy-path example using manual PM, local_cli dev, and api_proxy QA |
+| [external-runner-starter](examples/external-runner-starter/) | Canonical installed-package starter for external runner authors — `npm install agentxchain` + `import from 'agentxchain/runner-interface'` |
+| [ci-runner-proof](examples/ci-runner-proof/) | Repo-native runner proof in 3 tiers: single-turn primitive, full lifecycle, and `runLoop` composition |
 | [mcp-echo-agent](examples/mcp-echo-agent/) | Reference MCP stdio server implementing `agentxchain_turn` with a validator-clean no-op result |
+| [mcp-http-echo-agent](examples/mcp-http-echo-agent/) | Reference MCP streamable HTTP server for remote `agentxchain_turn` dispatch |
+| [remote-conformance-server](examples/remote-conformance-server/) | HTTP fixture server for `agentxchain verify protocol --remote` |
+| [live-governed-proof](examples/live-governed-proof/) | Live single-turn governed proof using a real model via `api_proxy` |
 
 ## Positioning
 

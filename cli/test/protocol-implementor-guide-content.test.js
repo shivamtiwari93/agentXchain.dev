@@ -48,9 +48,18 @@ describe('Protocol implementor guide surface', () => {
       'dispatch_manifest',
       'hook_audit',
       'coordinator',
+      'ordered_repo_sequence',
+      'shared_human_gate',
+      'interface_alignment',
     ]) {
       assert.ok(GUIDE.includes(term), `guide must mention ${term}`);
     }
+  });
+
+  it('documents the current Tier 3 proof boundary honestly', () => {
+    assert.match(GUIDE, /cross-repo write isolation/i);
+    assert.match(GUIDE, /not fixture-promoted yet/i);
+    assert.match(GUIDE, /heuristic placeholder/i);
   });
 
   it('describes workflow-file gate truth, not only abstract human approval', () => {

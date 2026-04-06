@@ -19,7 +19,7 @@ The current corpus is split into three tiers:
 | --- | --- | --- | --- |
 | `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema` | `46` |
 | `2` | Trust-hardening behavior | `dispatch_manifest`, `hook_audit` | `23` |
-| `3` | Multi-repo coordination | `coordinator` | `5` |
+| `3` | Multi-repo coordination | `coordinator` | `7` |
 
 The verifier selects every fixture up to the requested tier. `--tier 2` runs Tier 1 plus Tier 2. `--tier 3` runs the entire corpus.
 
@@ -382,6 +382,10 @@ The disambiguation signal for operators and dashboards is `orchestrator_action`,
 ### `coordinator`
 
 Multi-repo coordination: coordinator config validation, acceptance projection, workstream state, and barrier semantics. Tier 3 starts here because cross-repo governance is where weak protocol claims usually collapse.
+
+Current Tier 3 proof covers coordinator config validation, cross-repo write isolation, `all_repos_accepted`, `ordered_repo_sequence`, and `shared_human_gate`.
+
+`interface_alignment` is intentionally not fixture-promoted yet. The current runtime still treats it as a heuristic placeholder rather than a stable decision-matching contract, so freezing it into public conformance now would be fake precision.
 
 ## Fixture setup helpers you need to support
 

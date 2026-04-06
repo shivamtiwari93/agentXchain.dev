@@ -77,8 +77,18 @@ The corpus uses a minimal matcher vocabulary inside `expected`:
 | Dispatch Manifest | 10 | DM-001 through DM-010 |
 | Hook Audit | 13 | HA-001 through HA-013 |
 
-### Tier 3 — Complete (5 fixtures)
+### Tier 3 — Expanded (7 fixtures)
 
 | Surface | Count | IDs |
 |---------|-------|-----|
-| Coordinator | 5 | CR-001 through CR-005 |
+| Coordinator | 7 | CR-001 through CR-007 |
+
+Current Tier 3 proof covers:
+
+- coordinator config validation
+- `all_repos_accepted`
+- `ordered_repo_sequence`
+- `shared_human_gate`
+- cross-repo write isolation during acceptance projection
+
+`interface_alignment` is intentionally **not** fixture-promoted yet. The current runtime behavior is still a heuristic placeholder, not a stable decision-matching contract that should be frozen into public conformance.

@@ -7,6 +7,11 @@ It is intentionally different from `examples/ci-runner-proof/`:
 - `examples/ci-runner-proof/` proves the local source boundary inside this repo's CI.
 - `examples/external-runner-starter/` proves what a clean consumer project imports after `npm install agentxchain`.
 
+## Requirements
+
+- **Node.js >=18.17.0** (or >=20.5.0)
+- npm
+
 ## Quick start
 
 ```bash

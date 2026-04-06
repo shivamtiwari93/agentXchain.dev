@@ -197,6 +197,7 @@ TALK.md
 
 - `manual`: implemented
 - `local_cli`: implemented
+- `mcp`: implemented for stdio and streamable HTTP tool-contract dispatch
 - `api_proxy`: implemented for synchronous review-only turns and stages a provider-backed result during `step`
 
 ## Legacy IDE Mode
