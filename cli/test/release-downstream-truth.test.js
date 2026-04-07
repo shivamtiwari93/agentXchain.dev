@@ -102,17 +102,24 @@ function createFixture({ version = '2.15.0' } = {}) {
 }
 
 function runDownstream(cliDir, fakeBinDir, args = [], envOverrides = {}) {
+  const defaultEnv = {
+    ...process.env,
+    PATH: `${fakeBinDir}:${process.env.PATH}`,
+    AGENTXCHAIN_DOWNSTREAM_FORMULA_URL: 'https://example.test/homebrew/agentxchain.rb',
+    RELEASE_DOWNSTREAM_RETRY_ATTEMPTS: '1',
+    RELEASE_DOWNSTREAM_RETRY_DELAY_SECONDS: '0',
+  };
+  const env = {
+    ...defaultEnv,
+    ...envOverrides,
+  };
+  if (env.AGENTXCHAIN_DOWNSTREAM_FORMULA_URL === null) {
+    delete env.AGENTXCHAIN_DOWNSTREAM_FORMULA_URL;
+  }
   return spawnSync('bash', ['scripts/release-downstream-truth.sh', ...args], {
     cwd: cliDir,
     encoding: 'utf8',
-    env: {
-      ...process.env,
-      PATH: `${fakeBinDir}:${process.env.PATH}`,
-      AGENTXCHAIN_DOWNSTREAM_FORMULA_URL: 'https://example.test/homebrew/agentxchain.rb',
-      RELEASE_DOWNSTREAM_RETRY_ATTEMPTS: '1',
-      RELEASE_DOWNSTREAM_RETRY_DELAY_SECONDS: '0',
-      ...envOverrides,
-    },
+    env,
   });
 }
 
@@ -133,6 +140,7 @@ describe('release downstream truth contract', () => {
   it('AT-RDT-GUARD-001: downstream truth script exists and is referenced in package.json', () => {
     assert.equal(packageJson.scripts['postflight:downstream'], 'bash scripts/release-downstream-truth.sh');
     assert.match(script, /AGENTXCHAIN_DOWNSTREAM_FORMULA_URL/);
+    assert.match(script, /AGENTXCHAIN_DOWNSTREAM_FORMULA_REPO/);
   });
 
   it('AT-RDT-GUARD-002: spec and playbook declare canonical tap verification, not repo-mirror-only verification', () => {
@@ -278,5 +286,54 @@ describe('release downstream truth contract', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: GitHub release v2\.15\.0 not found/);
+  });
+
+  it('AT-RDT-006: default repo-based formula fetching works without raw URL override', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const formulaRepo = mkdtempSync(join(tmpdir(), 'axc-homebrew-tap-'));
+    fixtures.push({ root: formulaRepo });
+    mkdirSync(join(formulaRepo, 'Formula'), { recursive: true });
+
+    const tarballUrl = 'https://registry.npmjs.org/agentxchain/-/agentxchain-2.15.0.tgz';
+    const tarballContent = 'registry-tarball-v2150';
+    const sha = spawnSync('shasum', ['-a', '256'], {
+      input: tarballContent,
+      encoding: 'utf8',
+    }).stdout.trim().split(/\s+/)[0];
+
+    writeFileSync(
+      join(formulaRepo, 'Formula', 'agentxchain.rb'),
+      [
+        'class Agentxchain < Formula',
+        `  url "${tarballUrl}"`,
+        `  sha256 "${sha}"`,
+        'end',
+      ].join('\n'),
+    );
+
+    spawnSync('git', ['init'], { cwd: formulaRepo, stdio: 'ignore' });
+    spawnSync('git', ['config', 'user.name', 'Release Downstream Test'], { cwd: formulaRepo, stdio: 'ignore' });
+    spawnSync('git', ['config', 'user.email', 'release-downstream@example.invalid'], { cwd: formulaRepo, stdio: 'ignore' });
+    spawnSync('git', ['add', '.'], { cwd: formulaRepo, stdio: 'ignore' });
+    spawnSync('git', ['commit', '-m', 'fixture'], { cwd: formulaRepo, stdio: 'ignore' });
+
+    const result = runDownstream(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.15.0'],
+      {
+        AGENTXCHAIN_DOWNSTREAM_FORMULA_URL: null,
+        AGENTXCHAIN_DOWNSTREAM_FORMULA_REPO: formulaRepo,
+        FAKE_DIST_TARBALL: tarballUrl,
+        FAKE_TARBALL_CONTENT: tarballContent,
+        FAKE_GH_TAG: 'v2.15.0',
+      },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS: canonical Homebrew formula SHA256 matches registry tarball/);
+    assert.match(result.stdout, /PASS: canonical Homebrew formula URL matches registry tarball/);
   });
 });

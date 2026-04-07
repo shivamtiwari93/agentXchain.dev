@@ -48,12 +48,38 @@ fi
 
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
 CANONICAL_HOMEBREW_FORMULA_URL="${AGENTXCHAIN_DOWNSTREAM_FORMULA_URL:-https://raw.githubusercontent.com/shivamtiwari93/homebrew-tap/main/Formula/agentxchain.rb}"
+CANONICAL_HOMEBREW_FORMULA_REPO="${AGENTXCHAIN_DOWNSTREAM_FORMULA_REPO:-https://github.com/shivamtiwari93/homebrew-tap.git}"
+CANONICAL_HOMEBREW_FORMULA_PATH="${AGENTXCHAIN_DOWNSTREAM_FORMULA_PATH:-Formula/agentxchain.rb}"
 
 PASS=0
 FAIL=0
 
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
+
+fetch_formula_content() {
+  local content=""
+  if [[ -n "${AGENTXCHAIN_DOWNSTREAM_FORMULA_URL:-}" ]]; then
+    content="$(curl -fsSL "$CANONICAL_HOMEBREW_FORMULA_URL" 2>/dev/null || true)"
+    printf '%s' "$content"
+    return 0
+  fi
+
+  if ! command -v git >/dev/null 2>&1; then
+    printf ''
+    return 0
+  fi
+
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  if git clone --depth 1 "$CANONICAL_HOMEBREW_FORMULA_REPO" "$tmpdir" >/dev/null 2>&1; then
+    if [[ -f "$tmpdir/$CANONICAL_HOMEBREW_FORMULA_PATH" ]]; then
+      content="$(cat "$tmpdir/$CANONICAL_HOMEBREW_FORMULA_PATH")"
+    fi
+  fi
+  rm -rf "$tmpdir"
+  printf '%s' "$content"
+}
 
 echo "AgentXchain v${TARGET_VERSION} Downstream Release Truth"
 echo "====================================="
@@ -87,11 +113,11 @@ fi
 # --- Get registry tarball URL and compute SHA ---
 echo "[2/3] Canonical Homebrew tap SHA matches registry tarball"
 REGISTRY_TARBALL_URL="$(npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball 2>/dev/null || true)"
-FORMULA_CONTENT="$(curl -fsSL "$CANONICAL_HOMEBREW_FORMULA_URL" 2>/dev/null || true)"
+FORMULA_CONTENT="$(fetch_formula_content)"
 if [[ -z "$REGISTRY_TARBALL_URL" ]]; then
   fail "cannot fetch registry tarball URL for ${PACKAGE_NAME}@${TARGET_VERSION}"
 elif [[ -z "$FORMULA_CONTENT" ]]; then
-  fail "cannot fetch canonical Homebrew formula from ${CANONICAL_HOMEBREW_FORMULA_URL}"
+  fail "cannot fetch canonical Homebrew formula from ${CANONICAL_HOMEBREW_FORMULA_REPO}"
 else
   REGISTRY_SHA="$(curl -sL "$REGISTRY_TARBALL_URL" | shasum -a 256 | awk '{print $1}')"
   if [[ -z "$REGISTRY_SHA" ]]; then

@@ -33,7 +33,7 @@ The script checks 3 downstream truth conditions:
 
 ### Check 2: Homebrew Tap SHA Matches Registry Tarball SHA
 - Fetches the registry tarball: `curl -sL <tarball_url> | shasum -a 256`
-- Fetches the canonical Homebrew formula from `shivamtiwari93/homebrew-tap`
+- Fetches the canonical Homebrew formula from the `shivamtiwari93/homebrew-tap` git repo (default) or from an override URL for tests/special cases
 - Extracts the SHA256 from the formula
 - Asserts they match
 - This catches the "local-pack SHA vs registry tarball SHA" class of bug
@@ -43,13 +43,18 @@ The script checks 3 downstream truth conditions:
 - Reads `url` from the canonical Homebrew formula
 - Asserts they match
 
+### Canonical Source Rule
+- Default verification source is the tap git repo (`https://github.com/shivamtiwari93/homebrew-tap.git`), not `raw.githubusercontent.com`
+- Reason: GitHub raw/CDN caching can briefly serve stale branch content even after the tap repo `main` branch has moved
+- `AGENTXCHAIN_DOWNSTREAM_FORMULA_URL` remains available as an override for tests and emergency diagnostics
+
 ## Error Cases
 
 | Condition | Behavior |
 |-----------|----------|
 | `gh` CLI not available | FAIL with diagnostic |
 | GitHub release does not exist after retries | FAIL |
-| Canonical Homebrew formula cannot be fetched | FAIL |
+| Canonical Homebrew formula cannot be fetched from the tap repo or override source | FAIL |
 | Canonical Homebrew formula SHA does not match registry SHA | FAIL |
 | Canonical Homebrew formula URL does not match registry URL | FAIL |
 | npm registry does not serve the version | FAIL (defers to existing postflight) |
@@ -61,6 +66,7 @@ The script checks 3 downstream truth conditions:
 3. `AT-RDT-003`: A canonical Homebrew formula with wrong SHA256 fails check 2.
 4. `AT-RDT-004`: A canonical Homebrew formula with wrong tarball URL fails check 3.
 5. `AT-RDT-005`: A missing GitHub release fails check 1.
+6. `AT-RDT-006`: Default repo-based formula fetching succeeds without relying on a raw GitHub URL.
 
 ## Open Questions
 

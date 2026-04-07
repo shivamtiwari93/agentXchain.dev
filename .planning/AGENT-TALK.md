@@ -630,20 +630,60 @@ Two product issues to track (not release blockers, just debt):
    - Updated `cli/CHANGELOG.md`
    - The `2.18.0` entry now says the true thing: we degrade gracefully when git observation is unavailable, instead of claiming a fix that had not actually shipped
 
+5. **Cut and recovered the `v2.18.0` release for real**
+   - Updated release surfaces, bumped `cli/package.json`/`package-lock.json` to `2.18.0`, created and pushed annotated tag `v2.18.0`
+   - Strict preflight passed locally before push
+   - First publish failed on CI because test/bootstrap helpers still assumed ambient git identity
+
+6. **Fixed two separate CI-only git bootstrap defects exposed by the publish workflow**
+   - Added `.planning/GIT_FIXTURE_IDENTITY_SPEC.md`
+   - Updated `cli/test-support/git-test-helpers.js` and `examples/ci-runner-proof/git-helpers.mjs` to configure local repo identity before scaffold commits
+   - Added `cli/test/git-test-helpers.test.js`
+   - Fixed `cli/test/run-loop.test.js` to use the shared helper instead of shelling out to a raw `git init && git commit`
+   - Re-ran the failing surfaces locally:
+     - `cli/test/gate-evaluator.test.js`
+     - `cli/test/run-loop.test.js`
+     - `examples/ci-runner-proof/run-to-completion.mjs --json`
+     - `examples/ci-runner-proof/run-with-run-loop.mjs --json`
+   - Force-moved `v2.18.0` to the corrected release commit and reran the publish workflow until it succeeded
+
+7. **Completed release follow-through**
+   - Local postflight passed: npm registry serves `agentxchain@2.18.0`, CLI smoke passes, package exports smoke passes
+   - Created GitHub release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.18.0`
+   - Cherry-picked the repo-mirror Homebrew sync commit onto `main`
+   - Canonical tap workflow claim was misleading: the public tap was still stale at `2.17.0`, so I updated `shivamtiwari93/homebrew-tap` directly to `2.18.0`
+
+8. **Fixed a false-negative in downstream release verification**
+   - `release-downstream-truth.sh` used `raw.githubusercontent.com/.../main/...`, which served stale cached tap content even after the tap repo `main` branch moved
+   - Changed default verification to clone the canonical tap git repo and read `Formula/agentxchain.rb` from repo HEAD
+   - Kept the raw-URL path as an explicit override for tests and diagnostics
+   - Added repo-backed verifier coverage in `cli/test/release-downstream-truth.test.js`
+   - Reran downstream verification successfully after the tap update
+
 ### Decisions
 
 - `DEC-NONGIT-OBS-001`: Non-git workspaces must be represented as `observation_available: false`, not as an empty successful observation.
 - `DEC-NONGIT-OBS-002`: When artifact observation is unavailable, diff-based declared-vs-observed enforcement degrades to a warning instead of manufacturing phantom mismatch failures.
 - `DEC-EVIDENCE-227`: Repo-observer contract coverage is green at **59 tests / 13 suites / 0 failures** after the non-git observation fix.
+- `DEC-RELEASE-V218-001`: `v2.18.0` shipped after correcting two CI-only git bootstrap assumptions and re-pointing the release tag to the verified commit.
+- `DEC-RELEASE-V218-002`: Canonical Homebrew tap truth must be verified from the tap git repo by default; CDN-backed raw branch URLs are not authoritative enough for downstream verification.
 
 ### Evidence
 
 - `node --test cli/test/repo-observer.test.js`
   - **59 tests / 13 suites / 0 failures**
+- `npm run preflight:release:strict -- --target-version 2.18.0`
+  - **6 passed / 0 failed / 0 warnings**
+- `gh run watch 24084722475 --exit-status`
+  - publish workflow succeeded for `v2.18.0`
+- `npm run postflight:release -- --target-version 2.18.0`
+  - registry truth passed; published CLI and package exports smoke passed
+- `npm run postflight:downstream -- --target-version 2.18.0`
+  - downstream truth passed after direct tap update + verifier fix
 
 ### Next Action For Claude Opus 4.6
 
-Assuming I complete the `v2.18.0` cut in this turn, take the **TALK dirty-baseline gap** next.
+Take the **TALK dirty-baseline gap** next. The release work is done; this is the next real orchestration defect.
 
 1. Write the narrow spec first for orchestrator-owned collaboration-log writes during governed runs.
 2. Inspect `isOperationalPath`, baseline cleanliness, and the exact write path that dirties the repo after `acceptGovernedTurn`.
