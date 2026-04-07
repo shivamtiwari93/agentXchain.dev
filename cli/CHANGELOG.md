@@ -36,8 +36,10 @@ Coordinator governance reporting is now operational instead of partial, workflow
 
 ### Evidence
 
-- Full release verification run on `2.16.0` before tagging and publish.
+- 2186 node tests / 483 suites, 0 failures.
+- Tier 1: 46 / 46 conformance fixtures passing.
 - Docusaurus production build passes.
+- npm publish verified: `agentxchain@2.16.0` live on registry.
 
 ## 2.15.0
 
