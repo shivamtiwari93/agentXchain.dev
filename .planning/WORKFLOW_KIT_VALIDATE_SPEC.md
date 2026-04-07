@@ -14,6 +14,7 @@ Today the governed scaffold ships a concrete repo-native workflow surface:
 
 - `.planning/PM_SIGNOFF.md`
 - `.planning/ROADMAP.md`
+- `.planning/SYSTEM_SPEC.md`
 - `.planning/acceptance-matrix.md`
 - `.planning/ship-verdict.md`
 
@@ -50,18 +51,21 @@ agentxchain template validate --json
     "required_files": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],
     "gate_required_files": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],
     "present": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],
@@ -108,14 +112,18 @@ The validator must prove the required workflow-kit files exist:
 
 - `.planning/PM_SIGNOFF.md`
 - `.planning/ROADMAP.md`
+- `.planning/SYSTEM_SPEC.md`
 - `.planning/acceptance-matrix.md`
 - `.planning/ship-verdict.md`
 - plus any additional gate `requires_files` declared in the normalized governed config
 
-But it must also prove the four scaffold-owned files still expose the minimum structural markers the operator workflow depends on:
+But it must also prove the scaffold-owned files still expose the minimum structural markers the operator workflow depends on:
 
 - `PM_SIGNOFF.md` contains `Approved:`
 - `ROADMAP.md` contains a `## Phases` section
+- `SYSTEM_SPEC.md` contains `## Purpose`
+- `SYSTEM_SPEC.md` contains `## Interface`
+- `SYSTEM_SPEC.md` contains `## Acceptance Tests`
 - `acceptance-matrix.md` contains the acceptance table header row (`| Req # |`)
 - `ship-verdict.md` contains `## Verdict:`
 
@@ -152,17 +160,18 @@ This extension does not:
 | `.planning/ship-verdict.md` missing | Fail workflow-kit validation and name the missing file |
 | `PM_SIGNOFF.md` exists but has no `Approved:` line | Fail workflow-kit validation and name the missing marker |
 | `ROADMAP.md` exists but omits `## Phases` | Fail workflow-kit validation and name the missing marker |
-| A gate declares `requires_files` outside the core four | Include those files in `required_files` and fail if any are missing |
+| `SYSTEM_SPEC.md` exists but omits `## Acceptance Tests` | Fail workflow-kit validation and name the missing marker |
+| A gate declares `requires_files` outside the core five | Include those files in `required_files` and fail if any are missing |
 | No governed project in cwd | `workflow_kit` is `null`; registry validation still runs |
 | Project config cannot be normalized | Skip workflow-kit proof with a warning explaining why |
 
 ## Acceptance Tests
 
-- **AT-WORKFLOW-KIT-001**: fresh governed init passes `template validate --json` with `workflow_kit.ok = true` and the four core files present.
+- **AT-WORKFLOW-KIT-001**: fresh governed init passes `template validate --json` with `workflow_kit.ok = true` and the five core files present.
 - **AT-WORKFLOW-KIT-002**: removing `.planning/ship-verdict.md` makes `template validate --json` fail with `workflow_kit.missing = [".planning/ship-verdict.md"]`.
 - **AT-WORKFLOW-KIT-003**: removing the `Approved:` line from `PM_SIGNOFF.md` makes workflow-kit validation fail with the `pm_signoff_approved_field` check marked `ok = false`.
 - **AT-WORKFLOW-KIT-004**: governed `agentxchain validate --json` reuses the same workflow-kit errors instead of passing silently.
 
 ## Open Questions
 
-1. If a future workflow-kit slice adds machine-enforced release or QA artifacts beyond the current four-file scaffold, should those extend this same validation block or be promoted into a separate release/QA proof surface?
+1. If a future workflow-kit slice adds machine-enforced release or QA artifacts beyond the current five-file scaffold, should those extend this same validation block or be promoted into a separate release/QA proof surface?

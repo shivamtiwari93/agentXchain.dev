@@ -16,11 +16,11 @@ const CLI_README = read('cli/README.md');
 const QUICKSTART = read('website-v2/docs/quickstart.mdx');
 
 /* ------------------------------------------------------------------
- * The four structural markers that workflow-kit validation enforces.
+ * The core structural markers that workflow-kit validation enforces.
  * These are the contract from governed-templates.js and must appear
  * in the quickstart so operators know what the proof checks.
  * ----------------------------------------------------------------*/
-const STRUCTURAL_MARKERS = ['Approved:', '## Phases', '| Req # |', '## Verdict:'];
+const STRUCTURAL_MARKERS = ['Approved:', '## Phases', '## Purpose', '## Interface', '## Acceptance Tests', '| Req # |', '## Verdict:'];
 
 describe('Front-door docs — workflow-kit coverage', () => {
   describe('README.md (root)', () => {
@@ -70,7 +70,7 @@ describe('Front-door docs — workflow-kit coverage', () => {
       );
     });
 
-    it('documents the four structural markers', () => {
+    it('documents the structural markers', () => {
       for (const marker of STRUCTURAL_MARKERS) {
         assert.ok(
           QUICKSTART.includes(marker),

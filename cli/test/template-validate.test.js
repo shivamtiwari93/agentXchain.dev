@@ -275,16 +275,18 @@ describe('workflow kit validation', () => {
       assert.deepEqual(result.required_files, [
         '.planning/PM_SIGNOFF.md',
         '.planning/ROADMAP.md',
+        '.planning/SYSTEM_SPEC.md',
         '.planning/acceptance-matrix.md',
         '.planning/ship-verdict.md',
       ]);
       assert.deepEqual(result.gate_required_files, [
         '.planning/PM_SIGNOFF.md',
         '.planning/ROADMAP.md',
+        '.planning/SYSTEM_SPEC.md',
         '.planning/acceptance-matrix.md',
         '.planning/ship-verdict.md',
       ]);
-      assert.equal(result.present.length, 4);
+      assert.equal(result.present.length, 5);
       assert.deepEqual(result.missing, []);
       assert.equal(result.structural_checks.every((check) => check.ok), true);
     } finally {

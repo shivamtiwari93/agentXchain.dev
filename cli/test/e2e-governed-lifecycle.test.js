@@ -84,7 +84,7 @@ function makeConfig() {
       qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'eng_director', 'human'], exit_gate: 'qa_ship_verdict' },
     },
     gates: {
-      planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'], requires_human_approval: true },
+      planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'], requires_human_approval: true },
       implementation_complete: { requires_verification_pass: true },
       qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
     },
@@ -177,6 +177,7 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\nApproved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n## MVP Scope\nTodo app.\n');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nBuild the governed todo app slice.\n\n## Interface\n\n- Todo app flow\n\n## Acceptance Tests\n\n- [ ] Planning passes\n');
 
     // Stage and commit the gate files so baseline is clean
     execSync('git add -A', { cwd: root, stdio: 'ignore' });

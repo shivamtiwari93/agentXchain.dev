@@ -63,18 +63,21 @@ JSON mode prints:
     "required_files": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],
     "gate_required_files": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],
     "present": [
       ".planning/PM_SIGNOFF.md",
       ".planning/ROADMAP.md",
+      ".planning/SYSTEM_SPEC.md",
       ".planning/acceptance-matrix.md",
       ".planning/ship-verdict.md"
     ],

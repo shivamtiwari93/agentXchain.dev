@@ -164,6 +164,7 @@ agentxchain.json
 .agentxchain/dispatch/
 .planning/PM_SIGNOFF.md
 .planning/ROADMAP.md
+.planning/SYSTEM_SPEC.md
 .planning/acceptance-matrix.md
 .planning/ship-verdict.md
 TALK.md

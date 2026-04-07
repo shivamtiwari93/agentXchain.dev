@@ -251,6 +251,7 @@ const TEMPLATE_GUIDANCE_HEADER = '## Template Guidance';
 const GOVERNED_WORKFLOW_KIT_BASE_FILES = Object.freeze([
   '.planning/PM_SIGNOFF.md',
   '.planning/ROADMAP.md',
+  '.planning/SYSTEM_SPEC.md',
   '.planning/acceptance-matrix.md',
   '.planning/ship-verdict.md',
 ]);
@@ -266,6 +267,24 @@ const GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS = Object.freeze([
     file: '.planning/ROADMAP.md',
     pattern: /^##\s+Phases\b/im,
     description: 'Roadmap defines a ## Phases section',
+  },
+  {
+    id: 'system_spec_purpose_section',
+    file: '.planning/SYSTEM_SPEC.md',
+    pattern: /^##\s+Purpose\b/im,
+    description: 'System spec defines a ## Purpose section',
+  },
+  {
+    id: 'system_spec_interface_section',
+    file: '.planning/SYSTEM_SPEC.md',
+    pattern: /^##\s+Interface\b/im,
+    description: 'System spec defines a ## Interface section',
+  },
+  {
+    id: 'system_spec_acceptance_tests_section',
+    file: '.planning/SYSTEM_SPEC.md',
+    pattern: /^##\s+Acceptance Tests\b/im,
+    description: 'System spec defines a ## Acceptance Tests section',
   },
   {
     id: 'acceptance_matrix_table_header',

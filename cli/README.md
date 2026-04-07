@@ -194,6 +194,8 @@ agentxchain.json
 .agentxchain/staging/<turn_id>/turn-result.json
 TALK.md
 .planning/
+
+The first-party governed workflow kit includes `.planning/SYSTEM_SPEC.md` alongside `PM_SIGNOFF.md`, `ROADMAP.md`, `acceptance-matrix.md`, and `ship-verdict.md`. `template validate --json` exposes this under the `workflow_kit` block.
 ```
 
 ### Runtime support today

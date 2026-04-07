@@ -128,7 +128,7 @@ const GOVERNED_ROUTING = {
 
 const GOVERNED_GATES = {
   planning_signoff: {
-    requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+    requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
     requires_human_approval: true
   },
   implementation_complete: {
@@ -166,6 +166,7 @@ You are the Product Manager. Your mandate: **${role.mandate}**
 2. **Challenge it.** Even if the work looks correct, identify at least one risk, scope gap, or assumption worth questioning. Rubber-stamping violates the protocol.
 3. **Create or refine planning artifacts:**
    - \`.planning/ROADMAP.md\` — what will be built, in what order, with acceptance criteria
+   - \`.planning/SYSTEM_SPEC.md\` — the baseline subsystem contract implementation will follow
    - \`.planning/PM_SIGNOFF.md\` — your formal sign-off when planning is complete
    - \`.planning/acceptance-matrix.md\` — the acceptance criteria checklist for QA
 4. **Propose the next role.** Typically \`dev\` after planning is complete, or \`eng_director\` if there's a technical deadlock.
@@ -175,6 +176,7 @@ You are the Product Manager. Your mandate: **${role.mandate}**
 To exit the planning phase, you must:
 - Ensure \`.planning/PM_SIGNOFF.md\` exists with your explicit sign-off
 - Ensure \`.planning/ROADMAP.md\` exists with clear acceptance criteria
+- Ensure \`.planning/SYSTEM_SPEC.md\` defines \`## Purpose\`, \`## Interface\`, and \`## Acceptance Tests\`
 - Set \`phase_transition_request: "implementation"\` in your turn result
 
 The orchestrator will evaluate the gate and may require human approval.
@@ -531,6 +533,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   // Planning artifacts
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
+  writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), `# System Spec — ${projectName}\n\n## Purpose\n\n(Describe the problem this slice solves and why it exists.)\n\n## Interface\n\n(List the user-facing commands, files, APIs, or contracts this slice changes.)\n\n## Behavior\n\n(Describe the expected behavior, including important edge cases.)\n\n## Error Cases\n\n(List the failure modes and how the system should respond.)\n\n## Acceptance Tests\n\n- [ ] Name the executable checks that prove this slice works.\n\n## Open Questions\n\n- (Capture unresolved product or implementation questions here.)\n`);
   const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
   writeFileSync(
     join(dir, '.planning', 'acceptance-matrix.md'),
@@ -658,7 +661,7 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} reviews/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PM_SIGNOFF.md / ROADMAP.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PM_SIGNOFF.md / ROADMAP.md / SYSTEM_SPEC.md`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} acceptance-matrix.md / ship-verdict.md`);
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');

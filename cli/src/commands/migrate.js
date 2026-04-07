@@ -165,7 +165,7 @@ export async function migrateCommand(opts) {
     routing,
     gates: {
       planning_signoff: {
-        requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+        requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
         requires_human_approval: true
       },
       implementation_complete: {
@@ -311,6 +311,7 @@ ${report.requires_human_review.map((r, i) => `${i + 1}. ${r}`).join('\n')}
   const planningFiles = {
     'PM_SIGNOFF.md': `# PM Signoff — ${projectName}\n\nApproved: NO\n`,
     'ROADMAP.md': `# Roadmap — ${projectName}\n\n(Migrated from v3. Review and update.)\n`,
+    'SYSTEM_SPEC.md': `# System Spec — ${projectName}\n\n## Purpose\n\n(Describe the migrated subsystem purpose.)\n\n## Interface\n\n(List the commands, files, APIs, or contracts this repo owns.)\n\n## Behavior\n\n(Describe the expected runtime behavior.)\n\n## Error Cases\n\n(List the important failure modes.)\n\n## Acceptance Tests\n\n- [ ] Name the executable checks required before implementation resumes.\n\n## Open Questions\n\n- (Capture migration-specific gaps here.)\n`,
     'acceptance-matrix.md': `# Acceptance Matrix — ${projectName}\n\n(QA fills this.)\n`,
     'ship-verdict.md': `# Ship Verdict — ${projectName}\n\n## Verdict: PENDING\n`
   };

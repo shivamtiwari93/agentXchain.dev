@@ -48,7 +48,7 @@ function makeConfig(overrides = {}) {
     },
     gates: {
       planning_signoff: {
-        requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+        requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
         requires_human_approval: true,
       },
       implementation_complete: {
@@ -161,13 +161,14 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.equal(result.action, 'gate_failed');
     assert.equal(result.passed, false);
     assert.equal(result.gate_id, 'planning_signoff');
-    assert.equal(result.missing_files.length, 2);
+    assert.equal(result.missing_files.length, 3);
     assert.ok(result.missing_files.includes('.planning/PM_SIGNOFF.md'));
     assert.ok(result.missing_files.includes('.planning/ROADMAP.md'));
+    assert.ok(result.missing_files.includes('.planning/SYSTEM_SPEC.md'));
   });
 
   it('Rule 3: gate_failed when some files exist but not all', () => {
-    // Create one of the two required files
+    // Create one of the required files
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
 
@@ -178,8 +179,9 @@ describe('evaluatePhaseExit — pure function', () => {
       root,
     });
     assert.equal(result.action, 'gate_failed');
-    assert.equal(result.missing_files.length, 1);
+    assert.equal(result.missing_files.length, 2);
     assert.ok(result.missing_files.includes('.planning/ROADMAP.md'));
+    assert.ok(result.missing_files.includes('.planning/SYSTEM_SPEC.md'));
   });
 
   it('Rule 3: gate_failed when verification required but not passed', () => {
@@ -232,6 +234,7 @@ describe('evaluatePhaseExit — pure function', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap content.');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nSpec.\n\n## Interface\n\nSpec.\n\n## Acceptance Tests\n\n- [ ] Spec.\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'planning' }),
@@ -250,6 +253,7 @@ describe('evaluatePhaseExit — pure function', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: NO\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap content.\n');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nSpec.\n\n## Interface\n\nSpec.\n\n## Acceptance Tests\n\n- [ ] Spec.\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'planning' }),
@@ -261,6 +265,23 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.equal(result.action, 'gate_failed');
     assert.equal(result.passed, false);
     assert.ok(result.reasons.some((reason) => reason.includes('PM signoff is not approved')));
+  });
+
+  it('AT-PLANNING-SPEC-004: gate_failed when SYSTEM_SPEC omits acceptance tests', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap content.\n');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nSpec.\n\n## Interface\n\nSpec.\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'planning' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('## Acceptance Tests')));
   });
 
   it('auto-advances when current phase has no exit gate defined', () => {
@@ -432,6 +453,7 @@ describe('acceptGovernedTurn — gate integration', () => {
     // Create required files
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap.');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nSpec.\n\n## Interface\n\nSpec.\n\n## Acceptance Tests\n\n- [ ] Spec.\n');
 
     const state = setupRun(config, 'planning', 'pm');
     stageTurnResult(state, { phase_transition_request: 'implementation' });
@@ -689,6 +711,7 @@ describe('full phase lifecycle', () => {
     // Create required planning artifacts
     writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
     writeFileSync(join(root, '.planning', 'ROADMAP.md'), 'Roadmap v1.');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nSpec.\n\n## Interface\n\nSpec.\n\n## Acceptance Tests\n\n- [ ] Spec.\n');
 
     // Stage PM turn result requesting transition to implementation
     writeFileSync(
@@ -703,8 +726,8 @@ describe('full phase lifecycle', () => {
         summary: 'Planning phase complete. Roadmap and signoff delivered.',
         decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Scope frozen.', rationale: 'Agreed on v1 scope.' }],
         objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No objections.' }],
-        files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
-        artifacts_created: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'],
+        files_changed: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
+        artifacts_created: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'],
         verification: { status: 'pass', evidence_summary: 'Files created.' },
         artifact: { type: 'review', ref: null },
         proposed_next_role: 'dev',

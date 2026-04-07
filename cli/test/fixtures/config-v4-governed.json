@@ -70,7 +70,7 @@
   },
   "gates": {
     "planning_signoff": {
-      "requires_files": [".planning/PM_SIGNOFF.md", ".planning/ROADMAP.md"],
+      "requires_files": [".planning/PM_SIGNOFF.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"],
       "requires_human_approval": true
     },
     "implementation_complete": {

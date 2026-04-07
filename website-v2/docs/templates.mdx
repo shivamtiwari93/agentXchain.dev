@@ -90,7 +90,7 @@ Important truths:
 
 - if a governed repo omits `template`, validation treats it as implicit `generic`
 - if the repo names a template the installed CLI does not recognize, validation fails
-- if the core workflow-kit scaffold loses its minimum contract (`Approved:`, `## Phases`, `| Req # |`, `## Verdict:`), validation fails
+- if the core workflow-kit scaffold loses its minimum contract (`Approved:`, `## Phases`, `## Purpose`, `## Interface`, `## Acceptance Tests`, `| Req # |`, `## Verdict:`), validation fails
 - if the template requires planning artifacts (e.g., `library` requires `public-api.md`, `compatibility-policy.md`, `release-adoption.md`) and any are missing from `.planning/`, validation fails
 - if the template defines acceptance hints and any remain unchecked in `acceptance-matrix.md`, validation emits **warnings** (not errors) — this is QA-layer signal, not a hard gate
 
@@ -99,6 +99,8 @@ The JSON output exposes a dedicated `workflow_kit` block so automation can disti
 - core workflow-kit failures
 - template-specific artifact failures
 - acceptance-hint warnings
+
+The workflow-kit proof now includes `.planning/SYSTEM_SPEC.md`. First-party governed planning is not allowed to exit with no subsystem contract at all.
 
 Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance hints are warnings. Silent tolerance on either would hide governance gaps, but the severity distinction reflects that acceptance hints are guidance obligations, not structural requirements.
 
