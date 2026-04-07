@@ -48,9 +48,19 @@ const PROVIDER_ENDPOINTS = {
 
 // Cost rates per million tokens (USD)
 const COST_RATES = {
+  // Anthropic
   'claude-sonnet-4-6': { input_per_1m: 3.00, output_per_1m: 15.00 },
   'claude-opus-4-6': { input_per_1m: 15.00, output_per_1m: 75.00 },
   'claude-haiku-4-5-20251001': { input_per_1m: 0.80, output_per_1m: 4.00 },
+  // OpenAI
+  'gpt-4o': { input_per_1m: 2.50, output_per_1m: 10.00 },
+  'gpt-4o-mini': { input_per_1m: 0.15, output_per_1m: 0.60 },
+  'gpt-4.1': { input_per_1m: 2.00, output_per_1m: 8.00 },
+  'gpt-4.1-mini': { input_per_1m: 0.40, output_per_1m: 1.60 },
+  'gpt-4.1-nano': { input_per_1m: 0.10, output_per_1m: 0.40 },
+  'o3': { input_per_1m: 2.00, output_per_1m: 8.00 },
+  'o3-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
+  'o4-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
 };
 
 const RETRYABLE_ERROR_CLASSES = [

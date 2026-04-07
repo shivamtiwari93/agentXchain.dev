@@ -412,15 +412,33 @@ describe('buildOpenAiRequest', () => {
 // ── Tests: COST_RATES ──────────────────────────────────────────────────────
 
 describe('COST_RATES', () => {
-  it('has rates for supported models', () => {
+  it('has rates for supported Anthropic models', () => {
     assert.ok(COST_RATES['claude-sonnet-4-6']);
     assert.ok(COST_RATES['claude-opus-4-6']);
+    assert.ok(COST_RATES['claude-haiku-4-5-20251001']);
     assert.equal(typeof COST_RATES['claude-sonnet-4-6'].input_per_1m, 'number');
     assert.equal(typeof COST_RATES['claude-sonnet-4-6'].output_per_1m, 'number');
   });
 
+  it('has rates for supported OpenAI models', () => {
+    for (const model of ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3', 'o3-mini', 'o4-mini']) {
+      assert.ok(COST_RATES[model], `missing cost rates for ${model}`);
+      assert.equal(typeof COST_RATES[model].input_per_1m, 'number');
+      assert.equal(typeof COST_RATES[model].output_per_1m, 'number');
+      assert.ok(COST_RATES[model].input_per_1m > 0, `${model} input rate must be positive`);
+      assert.ok(COST_RATES[model].output_per_1m > 0, `${model} output rate must be positive`);
+    }
+  });
+
   it('computes reasonable cost for sonnet', () => {
     const rates = COST_RATES['claude-sonnet-4-6'];
+    const cost = (8000 / 1_000_000) * rates.input_per_1m + (1500 / 1_000_000) * rates.output_per_1m;
+    assert.ok(cost > 0);
+    assert.ok(cost < 1);
+  });
+
+  it('computes reasonable cost for gpt-4o', () => {
+    const rates = COST_RATES['gpt-4o'];
     const cost = (8000 / 1_000_000) * rates.input_per_1m + (1500 / 1_000_000) * rates.output_per_1m;
     assert.ok(cost > 0);
     assert.ok(cost < 1);

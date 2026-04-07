@@ -534,6 +534,8 @@ Not all models produce schema-conformant turn results on every attempt. Cheaper 
 
 **Budget implication:** When using the `api_proxy` adapter with cheaper models, plan for retry overhead. A `max_attempts: 3` policy means worst-case API spend is 3× the single-call cost. For `claude-haiku-4-5-20251001` at ~$0.004 per governed turn, worst-case is ~$0.012. For `claude-opus-4-6` at ~$0.90 per turn, worst-case is ~$2.70. Choose your model tier based on both quality requirements and retry budget tolerance.
 
+**Supported models with built-in cost tracking:** `claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001`, `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o3-mini`, `o4-mini`. Models not in this list still work but report `$0` cost in turn telemetry.
+
 :::tip
 The governed retry mechanism (`rejectTurn` → re-dispatch) is part of the protocol, not a workaround. It is designed to handle exactly this kind of model-level schema non-conformance. The retry policy, error classification, and audit trail work together to ensure that retry overhead is visible and auditable.
 :::
