@@ -41,13 +41,19 @@ agentxchain step
 # 5. Approve phase transition to implementation
 agentxchain approve-transition
 
-# 6. Run dev turn (dispatches to claude --print --dangerously-skip-permissions)
+# 6. Commit the accepted planning artifacts before the authoritative dev turn
+git add -A && git commit -m "orchestrator: accept pm turn"
+
+# 7. Run dev turn (dispatches to claude --print --dangerously-skip-permissions)
 agentxchain step
 
-# 7. After dev completes, run QA turn (dispatches to Anthropic API)
+# 8. Optional but recommended: preserve the accepted implementation as an audit anchor
+git add -A && git commit -m "orchestrator: accept dev turn"
+
+# 9. After dev completes, run QA turn (dispatches to Anthropic API)
 agentxchain step --role qa
 
-# 8. Approve run completion
+# 10. Approve run completion
 agentxchain approve-completion
 ```
 

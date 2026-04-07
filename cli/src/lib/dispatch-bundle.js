@@ -27,6 +27,8 @@ import {
 } from './turn-paths.js';
 
 const HISTORY_PATH = '.agentxchain/history.jsonl';
+const FILE_PREVIEW_MAX_FILES = 5;
+const FILE_PREVIEW_MAX_LINES = 80;
 
 // Reserved paths that agents must never modify
 const RESERVED_PATHS = [
@@ -125,7 +127,7 @@ export function writeDispatchBundle(root, state, config, opts = {}) {
   writeFileSync(join(root, getDispatchPromptPath(turn.turn_id)), prompt.content);
 
   // 3. CONTEXT.md
-  const context = renderContext(state, config, root);
+  const context = renderContext(state, config, root, turn, role);
   warnings.push(...context.warnings);
   writeFileSync(join(root, getDispatchContextPath(turn.turn_id)), context.content);
 
@@ -338,7 +340,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
 
 // ── Context Rendering ───────────────────────────────────────────────────────
 
-function renderContext(state, config, root) {
+function renderContext(state, config, root, turn, role) {
   const warnings = [];
   const lines = [];
 
@@ -392,6 +394,26 @@ function renderContext(state, config, root) {
           lines.push(`- \`${f}\``);
         }
         lines.push('');
+      }
+
+      const filePreviews = role?.write_authority === 'review_only'
+        ? buildChangedFilePreviews(root, filesChanged)
+        : [];
+      if (filePreviews.length > 0) {
+        lines.push('### Changed File Previews');
+        lines.push('');
+        for (const preview of filePreviews) {
+          lines.push(`#### \`${preview.path}\``);
+          lines.push('');
+          lines.push('```');
+          lines.push(preview.content);
+          lines.push('```');
+          if (preview.truncated) {
+            lines.push('');
+            lines.push(`_Preview truncated after ${FILE_PREVIEW_MAX_LINES} lines._`);
+          }
+          lines.push('');
+        }
       }
 
       // Verification evidence from the previous turn
@@ -493,6 +515,38 @@ function renderContext(state, config, root) {
     content: lines.join('\n') + '\n',
     warnings,
   };
+}
+
+function buildChangedFilePreviews(root, filesChanged) {
+  if (!Array.isArray(filesChanged) || filesChanged.length === 0) {
+    return [];
+  }
+
+  const previews = [];
+  for (const relPath of filesChanged.slice(0, FILE_PREVIEW_MAX_FILES)) {
+    const absPath = join(root, relPath);
+    if (!existsSync(absPath)) {
+      continue;
+    }
+
+    let raw;
+    try {
+      raw = readFileSync(absPath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    const lines = raw.replace(/\r\n/g, '\n').split('\n');
+    const truncated = lines.length > FILE_PREVIEW_MAX_LINES;
+    const previewLines = truncated ? lines.slice(0, FILE_PREVIEW_MAX_LINES) : lines;
+    previews.push({
+      path: relPath,
+      content: previewLines.join('\n').trimEnd(),
+      truncated,
+    });
+  }
+
+  return previews;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

@@ -105,6 +105,7 @@ Built-in governed templates:
 agentxchain validate --mode turn
 agentxchain accept-turn
 agentxchain approve-transition
+git add -A && git commit -m "orchestrator: accept pm turn"
 
 agentxchain step --role dev
 agentxchain step --role qa
@@ -241,9 +242,11 @@ agentxchain init --governed --dir my-agentxchain-project -y
 agentxchain step --role pm
 agentxchain accept-turn
 agentxchain approve-transition
+git add -A && git commit -m "orchestrator: accept pm turn"
 
 # implementation
 agentxchain step --role dev
+git add -A && git commit -m "orchestrator: accept dev turn"
 
 # qa
 agentxchain step --role qa

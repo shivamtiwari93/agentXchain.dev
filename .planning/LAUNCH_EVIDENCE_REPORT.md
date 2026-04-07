@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.0.0
+# Launch Evidence Report — AgentXchain v2.17.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-03.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-07.
 
 ---
 
@@ -51,10 +51,11 @@
   - Schema validation caught a real model compliance issue (`artifacts_created[]` objects instead of strings) — proves the validation layer rejects non-compliant output
   - `accepted_integration_ref` semantics confirmed: git lineage anchor in state, exact workspace snapshot in `history.jsonl`
   - All three core runtimes used in the governed path (`manual`, `local_cli`, `api_proxy`) now have live execution evidence in one run
+  - Review-turn context now includes changed-file previews for review-only QA retries, and live QA evidence shows that this removes speculative code-visibility objections
 - **What it does NOT prove**:
   - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
-  - That the QA objections raised in the rerun were substantively correct; only that they were preserved honestly
+  - Full machine-verifiable stdout/stderr proof for the dev test run
 
 ### E3 — Live API Proxy Preflight Smoke
 

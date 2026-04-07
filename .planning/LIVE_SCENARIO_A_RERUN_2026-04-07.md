@@ -38,6 +38,21 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
    - The staged JSON had the known schema defect where `artifacts_created[]` contained objects instead of strings.
    - The review content itself was coherent, so the staging artifact was normalized, the referenced review file was materialized, and the same QA turn was accepted.
 
+6. Follow-up rerun on the current repo state narrowed the QA blocker.
+   - Fresh workspace: `/tmp/agentxchain-live-turn72-qlJ0m5`
+   - Run: `run_e858f0bce77c41a7`
+   - PM turn: `turn_5b83634b6ad86a14`
+   - Dev turn: `turn_6d6fdc78aacdb015`
+   - QA turn: `turn_d1fb2a52e002c270`
+   - First QA attempt reproduced the known provider schema defect (`artifacts_created[0] must be a string`).
+   - After a product fix to dispatch `CONTEXT.md`, the QA retry could see bounded previews of `todo.js`, `test.js`, `package.json`, and `.planning/IMPLEMENTATION_NOTES.md`.
+   - The retry eliminated the earlier false objections about missing code visibility:
+     - QA no longer claimed persistence was unverified due to in-process-only tests.
+     - QA no longer claimed `process.exitCode` paths kept executing without return guards.
+   - Remaining objections were narrower:
+     - test stdout/assertion transcript still not present in machine evidence
+     - minor input-validation / UX nitpicks (`done 0`, repeated completion)
+
 5. Final governed state after acceptance:
    - `status`: `blocked`
    - `blocked_on`: `needs_human`
@@ -51,20 +66,23 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - The corrected default Claude runtime contract is usable for unattended implementation turns.
 - The governed acceptance boundary still caught a real provider-schema issue on the QA turn.
 - A live QA review can be accepted into governed state as `needs_human` without corrupting the run.
+- Bounded changed-file previews in QA context materially improve review quality by replacing speculative objections with code-grounded objections.
 
 ## What This Rerun Does Not Prove
 
 - Final run completion via `approve-completion`
 - Live MCP adapter execution
-- That the QA objections were correct; only that the governed system preserved them truthfully
+- Full machine-verifiable stdout/stderr proof for the dev test run
 
 ## Judgment
 
 - Live `local_cli` validation: **confirmed**
 - Live all-three-adapter run (`manual` + `local_cli` + `api_proxy`): **confirmed**
 - Full live Scenario A through completion gate: **not confirmed**
+- QA code-visibility gap: **substantially reduced but not fully closed**
 
 Reason:
 
 - Connector execution succeeded across all three runtimes in one governed run.
-- The run still stopped at QA because the accepted live review ended in `needs_human`, not in a completion request.
+- The run still stopped at QA because the accepted live review ended in objections, not a completion request.
+- The remaining review blocker is no longer missing code context; it is thin machine-evidence capture for test execution plus minor UX edge cases.

@@ -850,4 +850,78 @@ describe('dispatch bundle: QA evidence visibility', () => {
     assert.match(context, /Implemented todo API with tests/);
     assert.match(context, /DEC-002/);
   });
+
+  it('AT-QCV-001: review_only QA turn sees changed file previews from the last accepted turn', () => {
+    acceptPmTurnAndTransition();
+    mkdirSync(join(root, 'src'), { recursive: true });
+    writeFileSync(join(root, 'src', 'api.js'), 'function done() {\n  process.exitCode = 1;\n  return;\n}\n');
+    writeFileSync(join(root, 'src', 'api.test.js'), "const { execFileSync } = require('child_process');\nexecFileSync('node', ['api.js']);\n");
+    writeFileSync(join(root, 'package.json'), '{\n  "scripts": {\n    "test": "node src/api.test.js"\n  }\n}\n');
+    acceptDevTurn();
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Changed File Previews/);
+    assert.match(context, /#### `src\/api\.js`/);
+    assert.match(context, /process\.exitCode = 1/);
+    assert.match(context, /return;/);
+    assert.match(context, /#### `src\/api\.test\.js`/);
+    assert.match(context, /execFileSync/);
+  });
+
+  it('AT-QCV-002: authoritative target turns do not receive changed file previews', () => {
+    acceptPmTurnAndTransition();
+    assignGovernedTurn(root, config, 'dev');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
+
+    assert.ok(!context.includes('### Changed File Previews'));
+  });
+
+  it('AT-QCV-003: long changed files are truncated in preview output', () => {
+    acceptPmTurnAndTransition();
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const longFile = Array.from({ length: 100 }, (_, idx) => `line ${idx + 1}`).join('\n') + '\n';
+    writeFileSync(join(root, 'src', 'long.js'), longFile);
+    acceptDevTurn({ files_changed: ['src/long.js'] });
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /line 80/);
+    assert.ok(!context.includes('line 81'));
+    assert.match(context, /Preview truncated after 80 lines/);
+  });
+
+  it('AT-QCV-004: missing changed files are skipped without empty preview headings', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn({ files_changed: ['src/missing.js'] });
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.ok(!context.includes('### Changed File Previews'));
+    assert.ok(!context.includes('#### `src/missing.js`'));
+  });
 });

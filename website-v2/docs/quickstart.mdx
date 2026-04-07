@@ -48,8 +48,10 @@ Then complete the planning turn, stage the PM result, and continue:
 agentxchain validate --mode turn
 agentxchain accept-turn
 agentxchain approve-transition
+git add -A && git commit -m "orchestrator: accept pm turn"
 
 agentxchain step --role dev --verbose
+git add -A && git commit -m "orchestrator: accept dev turn"
 agentxchain step --role qa
 agentxchain approve-completion
 ```
@@ -148,7 +150,7 @@ The shipped default dev runtime is:
 ```json
 {
   "type": "local_cli",
-  "command": ["claude", "--print"],
+  "command": ["claude", "--print", "--dangerously-skip-permissions"],
   "prompt_transport": "stdin"
 }
 ```
