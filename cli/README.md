@@ -59,7 +59,7 @@ agentxchain status
 agentxchain step --role pm
 ```
 
-The default governed dev runtime is `claude --print` with stdin prompt delivery. If your local coding agent uses a different launch contract, set it during scaffold creation:
+The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it during scaffold creation:
 
 ```bash
 npx agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y

@@ -62,6 +62,15 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('default Claude runtime truth', () => {
+    it('documents the unattended Claude default with write permissions', () => {
+      assert.match(adapterDocs, /claude --print --dangerously-skip-permissions/,
+        'adapters.mdx must document the actual unattended default Claude command');
+      assert.match(adapterDocs, /permission prompt|write access|staging a result/i,
+        'adapters.mdx must explain why the extra Claude flag exists');
+    });
+  });
+
   describe('local_cli timeout and signal handling', () => {
     it('SIGTERM grace period in docs matches code (10 seconds)', () => {
       // Extract grace period from local-cli-adapter.js

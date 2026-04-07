@@ -78,8 +78,8 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses floor-hundred format: "1000+" (currently 1033)
-- Do not claim "full live end-to-end proof" — `local_cli` was not completed live (E2)
+- Test count uses floor-hundred format: "1000+" (currently 1033 in this launch brief; update when the evidence artifact is refreshed)
+- Do not claim "full live end-to-end proof" or "all adapters proven live" — E2 now proves `manual` + `local_cli` + `api_proxy` in one governed run, but not final completion and not live MCP
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
 - Do not claim dashboard is "feature-complete" publicly — use "v2.0 observation surface"

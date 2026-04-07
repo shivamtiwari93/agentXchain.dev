@@ -69,12 +69,12 @@ agentxchain init --governed [--dir <path>] [--template <id>] [--dev-command <par
 | `--governed` | `false` | Create the governed scaffold with protocol-owned state and prompts |
 | `--dir <path>` | derived folder | Target directory for the scaffold. Use `--dir .` for in-place bootstrap inside an existing repo |
 | `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app` |
-| `--dev-command <parts...>` | `claude --print` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
+| `--dev-command <parts...>` | `claude --print --dangerously-skip-permissions` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
 | `--dev-prompt-transport <mode>` | `stdin` | Prompt delivery for the scaffolded `local-dev` runtime: `argv`, `stdin`, or `dispatch_bundle_only` |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
 | `--schema-version <version>` | governed default | Force a specific schema path when needed |
 
-Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. In governed mode, the scaffold also includes the decision ledger, dispatch directories, and gate configuration. Non-`generic` templates add project-type-specific planning artifacts and prompt guidance. The default `local-dev` runtime is a real local CLI contract, not a placeholder: `["claude", "--print"]` with `prompt_transport: "stdin"`.
+Creates `agentxchain.json`, `.agentxchain/state.json`, role prompts, and planning document stubs. In governed mode, the scaffold also includes the decision ledger, dispatch directories, and gate configuration. Non-`generic` templates add project-type-specific planning artifacts and prompt guidance. The default `local-dev` runtime is a real local CLI contract, not a placeholder: `["claude", "--print", "--dangerously-skip-permissions"]` with `prompt_transport: "stdin"`. This is intentional because unattended governed implementation turns need write access; bare `claude --print` can stop at a permission prompt and never stage a result.
 
 `--dir` makes the target path explicit instead of relying on the default nested folder. Use `--dir . -y` when you are bootstrapping an existing repo in place. When you plan to `cd` into a named directory later, declare it up front with `--dir <path>` so the path contract stays visible in the command itself.
 

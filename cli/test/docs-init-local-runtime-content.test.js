@@ -12,6 +12,8 @@ describe('governed init local runtime docs contract', () => {
   const rootReadme = read('README.md');
   const cliReadme = read('cli/README.md');
   const cliEntry = read('cli/bin/agentxchain.js');
+  const governedExampleReadme = read('examples/governed-todo-app/README.md');
+  const governedExampleConfig = JSON.parse(read('examples/governed-todo-app/agentxchain.json'));
 
   it('CLI registers the governed init local runtime flags', () => {
     assert.match(cliEntry, /--dir <path>/, 'CLI must register --dir');
@@ -36,7 +38,8 @@ describe('governed init local runtime docs contract', () => {
   it('quickstart documents the scaffold-time override path', () => {
     assert.match(quickstartDocs, /--dir \./, 'quickstart must document --dir . for in-place bootstrap');
     assert.match(quickstartDocs, /--dev-command/, 'quickstart must mention --dev-command');
-    assert.match(quickstartDocs, /claude --print/, 'quickstart must state the default Claude command');
+    assert.match(quickstartDocs, /claude --print --dangerously-skip-permissions/,
+      'quickstart must state the unattended default Claude command');
   });
 
   it('front-door READMEs mention the scaffold-time local runtime override', () => {
@@ -44,6 +47,28 @@ describe('governed init local runtime docs contract', () => {
     assert.match(cliReadme, /--dir my-agentxchain-project/, 'CLI README must show explicit --dir usage');
     assert.match(rootReadme, /--dev-command/, 'root README must mention --dev-command');
     assert.match(cliReadme, /--dev-command/, 'CLI README must mention --dev-command');
+    assert.match(rootReadme, /claude --print --dangerously-skip-permissions/,
+      'root README must describe the unattended default Claude command truthfully');
+    assert.match(cliReadme, /claude --print --dangerously-skip-permissions/,
+      'CLI README must describe the unattended default Claude command truthfully');
+  });
+
+  it('governed todo example uses the same unattended Claude runtime contract', () => {
+    assert.deepEqual(
+      governedExampleConfig.runtimes['local-dev'].command,
+      ['claude', '--print', '--dangerously-skip-permissions'],
+      'governed example must use the unattended Claude command',
+    );
+    assert.equal(
+      governedExampleConfig.runtimes['local-dev'].prompt_transport,
+      'stdin',
+      'governed example must use stdin prompt delivery',
+    );
+    assert.match(
+      governedExampleReadme,
+      /claude --print --dangerously-skip-permissions/,
+      'governed example README must describe the same unattended Claude command',
+    );
   });
 
   // --- Overclaiming guards (DEC-DOCS-OVERCLAIM-001) ---

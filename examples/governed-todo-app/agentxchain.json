@@ -37,9 +37,9 @@
     },
     "local-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "-p", "{prompt}"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
       "cwd": ".",
-      "prompt_transport": "argv"
+      "prompt_transport": "stdin"
     },
     "api-qa": {
       "type": "api_proxy",

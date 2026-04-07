@@ -39,21 +39,22 @@
 
 ### E2 — Live Scenario A Dogfood
 
-- **Date**: 2026-04-01
-- **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`
-- **Run ID**: `run_399aea020ebb68d4`
-- **Result**: partial
+- **Date**: 2026-04-01 initial run, 2026-04-07 rerun
+- **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
+- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`
+- **Result**: live connector proof confirmed; full completion still partial
 - **What it proves**:
-  - Manual PM turn: dispatched, staged, accepted, planning gate approved (turn `turn_c87e687cf32e5f84`)
-  - `api_proxy` QA turn against live Anthropic (claude-sonnet-4-6): dispatched, received provider response, staged, accepted (turn `turn_9f5639c671280a8f`)
-  - Provider usage telemetry captured: 1559 input tokens, 2696 output tokens, $0.045
-  - Schema validation caught a real model compliance issue (objects instead of strings in `artifacts_created[]`) — proves the validation layer rejects non-compliant output
+  - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
+  - `local_cli` dev turn completed against live Claude Code in the rerun (`turn_555bf457840b6268`)
+  - `api_proxy` QA turn against live Anthropic (claude-sonnet-4-6): dispatched, received provider response, staged, accepted
+  - Provider usage telemetry captured in live QA turns
+  - Schema validation caught a real model compliance issue (`artifacts_created[]` objects instead of strings) — proves the validation layer rejects non-compliant output
   - `accepted_integration_ref` semantics confirmed: git lineage anchor in state, exact workspace snapshot in `history.jsonl`
-  - Governed state survived a mid-run adapter failure without corruption (local_cli quota exhaustion)
+  - All three core runtimes used in the governed path (`manual`, `local_cli`, `api_proxy`) now have live execution evidence in one run
 - **What it does NOT prove**:
-  - `local_cli` adapter completing a turn with a real LLM (hit external Claude CLI quota limit)
-  - Full PM -> Dev -> QA chain completed entirely through live adapters in one uninterrupted run
-  - Run completion approval (run ended in `paused` at QA phase, not `completed`)
+  - Final run completion approval (`approve-completion`)
+  - Live MCP adapter proof
+  - That the QA objections raised in the rerun were substantively correct; only that they were preserved honestly
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -115,8 +116,8 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live) | Phrase this as a protocol guarantee, not as evidence that `approve-completion` has been exercised live. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
-| "Model-agnostic / runtime-swappable" | E1 (three adapter types tested) + E2 (manual + api_proxy used in one run) | Do NOT claim "all adapters proven live" — local_cli was not completed live. |
-| "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) | Claim the protocol contract, not live proof of all three simultaneously. |
+| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood and the run did not reach final completion. |
+| "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) + E2 (all three executed live in one governed run) | This claim is now supported by both test coverage and live execution evidence. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
 | "Preemptive tokenization prevents wasted API calls" | E3 (local overflow short-circuit confirmed live) | |
@@ -130,7 +131,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
-| "Full live end-to-end proof" or "all adapters proven live" | E2: `local_cli` hit quota before completing a turn. The full PM->Dev->QA chain was not proven end-to-end with all live adapters. | Complete a governed run where every turn uses a live adapter. |
+| "Full live end-to-end proof" or "all adapters proven live" | E2 now proves manual + `local_cli` + `api_proxy` live in one governed run, but MCP is still not part of that proof and the run did not reach final completion. | Complete a governed run through `approve-completion` and separately add live MCP proof if that claim is desired. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
@@ -143,8 +144,8 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
-| `local_cli` adapter completing a turn with a real LLM | Unlocks "all three adapters proven live" claim | Claude CLI quota availability |
 | Full governed run through `approve-completion` | Unlocks "full lifecycle proven" claim | Complete a run to ship decision |
+| Live MCP adapter dogfood | Unlocks a truthful "all four adapters proven live" claim | Run a governed turn through the MCP adapter against a real server |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |

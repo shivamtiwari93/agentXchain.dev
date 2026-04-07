@@ -173,7 +173,7 @@ The manual adapter is designed for human-in-the-loop workflows where a person re
 
 ## local_cli adapter
 
-The local_cli adapter spawns a local subprocess and feeds it the dispatch bundle. The default scaffold targets Claude Code (`claude --print` with `stdin` prompt transport). Any local CLI tool that can accept a prompt and produce a valid turn result works — configure it at scaffold time with `--dev-command` and `--dev-prompt-transport` instead of hand-editing JSON afterward.
+The local_cli adapter spawns a local subprocess and feeds it the dispatch bundle. The default scaffold targets Claude Code with `claude --print --dangerously-skip-permissions` and `stdin` prompt transport. That extra flag is not cosmetic: unattended governed implementation turns need file-write access, and bare `claude --print` can stop at a permission prompt without ever staging a result. Any local CLI tool that can accept a prompt and produce a valid turn result works — configure it at scaffold time with `--dev-command` and `--dev-prompt-transport` instead of hand-editing JSON afterward.
 
 ### How it works
 

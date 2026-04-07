@@ -4,7 +4,7 @@
 
 Make `agentxchain init --governed` honest and usable with real local agent CLIs at scaffold time.
 
-The current scaffold hardcodes one `local-dev` runtime and forces operators to hand-edit `agentxchain.json` for anything else. Worse, the shipped default command shape for Claude is sloppy. Governed init should expose the local dev runtime as an explicit command-surface contract instead of hiding it in generated JSON.
+The current scaffold hardcodes one `local-dev` runtime and forces operators to hand-edit `agentxchain.json` for anything else. Worse, the shipped default command shape for Claude can be non-functional for unattended governed turns if it stops at a permission prompt instead of writing files. Governed init should expose the local dev runtime as an explicit command-surface contract instead of hiding it in generated JSON.
 
 ## Interface
 
@@ -34,13 +34,13 @@ When no override flags are supplied, governed init writes:
 ```json
 {
   "type": "local_cli",
-  "command": ["claude", "--print"],
+  "command": ["claude", "--print", "--dangerously-skip-permissions"],
   "cwd": ".",
   "prompt_transport": "stdin"
 }
 ```
 
-This is the verified default preset for the repo. Do not keep the redundant `--print -p {prompt}` shape.
+This is the verified default preset for the repo. Do not keep the redundant `--print -p {prompt}` shape, and do not regress to bare `claude --print` for the unattended default because it can stall on a write-permission prompt instead of staging a turn result.
 
 ### 2. Custom local dev command
 
@@ -84,7 +84,7 @@ Governed init output must print the effective dev runtime command and prompt tra
 
 ## Acceptance Tests
 
-1. `init --governed -y` writes `local-dev.command = ["claude", "--print"]`.
+1. `init --governed -y` writes `local-dev.command = ["claude", "--print", "--dangerously-skip-permissions"]`.
 2. `init --governed -y` writes `local-dev.prompt_transport = "stdin"`.
 3. `init --governed --dev-command my-agent --dev-prompt-transport dispatch_bundle_only -y` writes the custom command and transport.
 4. `init --governed --dev-command my-agent {prompt} -y` resolves `prompt_transport = "argv"`.

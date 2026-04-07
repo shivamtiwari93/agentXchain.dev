@@ -45,7 +45,7 @@ agentxchain multi approve-gate  # approves phase/completion gates
 
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-950+ tests. MIT licensed. Protocol v6 spec published.
+1000+ tests. MIT licensed. Protocol v6 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 

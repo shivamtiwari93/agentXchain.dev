@@ -237,9 +237,9 @@ describe('governed CLI support', () => {
       assert.doesNotMatch(result.stdout, /agentxchain start/);
 
       const config = JSON.parse(readFileSync(join(dir, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
-      assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '--print']);
+      assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '--print', '--dangerously-skip-permissions']);
       assert.equal(config.runtimes['local-dev'].prompt_transport, 'stdin');
-      assert.match(result.stdout, /Dev runtime:\s+claude --print\s+\(stdin\)/);
+      assert.match(result.stdout, /Dev runtime:\s+claude --print --dangerously-skip-permissions\s+\(stdin\)/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

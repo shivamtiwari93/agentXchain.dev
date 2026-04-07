@@ -63,7 +63,7 @@ The page must walk through:
 
 1. `npx agentxchain init --governed`
 2. documenting `--dir .` for existing repos and explicit `--dir <path>` when the walkthrough later `cd`s into a named directory
-3. documenting the default `local-dev` scaffold contract as `claude --print` with stdin prompt delivery
+3. documenting the default `local-dev` scaffold contract as `claude --print --dangerously-skip-permissions` with stdin prompt delivery
 4. documenting the scaffold-time override path via `--dev-command` and `--dev-prompt-transport`
 5. showing that the default scaffold is mixed-mode and not immediately runnable via `agentxchain run`
 6. changing `pm` from `manual-pm` to a non-manual runtime, or explicitly telling the operator to keep the manual path instead

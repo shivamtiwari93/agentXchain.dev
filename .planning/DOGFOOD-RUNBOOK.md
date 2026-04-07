@@ -163,7 +163,7 @@ git add -A && git commit -m "orchestrator: accept pm turn"
 agentxchain step
 ```
 
-Expected: Dispatches to `claude --print -p {prompt}` with the full seed prompt. The dev agent should:
+Expected: Dispatches to `claude --print --dangerously-skip-permissions` with the full seed prompt over stdin. The dev agent should:
 - Read the roadmap and acceptance criteria
 - Implement the todo CLI
 - Run tests

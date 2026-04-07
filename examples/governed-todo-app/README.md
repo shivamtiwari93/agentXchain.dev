@@ -41,7 +41,7 @@ agentxchain step
 # 5. Approve phase transition to implementation
 agentxchain approve-transition
 
-# 6. Run dev turn (dispatches to claude --print)
+# 6. Run dev turn (dispatches to claude --print --dangerously-skip-permissions)
 agentxchain step
 
 # 7. After dev completes, run QA turn (dispatches to Anthropic API)
@@ -56,7 +56,7 @@ agentxchain approve-completion
 | Role | Runtime | Type | Transport |
 |------|---------|------|-----------|
 | pm | manual-pm | manual | File handoff |
-| dev | local-dev | local_cli | `claude --print -p {prompt}` |
+| dev | local-dev | local_cli | `claude --print --dangerously-skip-permissions` |
 | qa | api-qa | api_proxy | Anthropic API (review-only) |
 | eng_director | manual-director | manual | File handoff |
 
