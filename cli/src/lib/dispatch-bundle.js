@@ -21,6 +21,7 @@ import {
   DISPATCH_INDEX_PATH,
   getDispatchAssignmentPath,
   getDispatchContextPath,
+  getDispatchLogPath,
   getDispatchPromptPath,
   getDispatchTurnDir,
   getTurnStagingResultPath,
@@ -29,6 +30,8 @@ import {
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const FILE_PREVIEW_MAX_FILES = 5;
 const FILE_PREVIEW_MAX_LINES = 80;
+const DISPATCH_LOG_MAX_LINES = 50;
+const DISPATCH_LOG_MAX_LINE_BYTES = 8192;
 
 // Reserved paths that agents must never modify
 const RESERVED_PATHS = [
@@ -451,6 +454,23 @@ function renderContext(state, config, root, turn, role) {
         lines.push('');
       }
 
+      // Dispatch log excerpt for review-only turns
+      if (role?.write_authority === 'review_only' && lastTurn.turn_id) {
+        const logExcerpt = buildDispatchLogExcerpt(root, lastTurn.turn_id);
+        if (logExcerpt) {
+          lines.push('### Dispatch Log Excerpt');
+          lines.push('');
+          if (logExcerpt.truncated) {
+            lines.push(`_Log truncated — showing last ${DISPATCH_LOG_MAX_LINES} lines of ${logExcerpt.totalLines} total._`);
+            lines.push('');
+          }
+          lines.push('```');
+          lines.push(logExcerpt.content);
+          lines.push('```');
+          lines.push('');
+        }
+      }
+
       // Observed artifact from the previous turn
       const obs = lastTurn.observed_artifact;
       if (obs && typeof obs === 'object') {
@@ -547,6 +567,54 @@ function buildChangedFilePreviews(root, filesChanged) {
   }
 
   return previews;
+}
+
+function buildDispatchLogExcerpt(root, turnId) {
+  const logPath = join(root, getDispatchLogPath(turnId));
+  if (!existsSync(logPath)) {
+    return null;
+  }
+
+  let raw;
+  try {
+    raw = readFileSync(logPath, 'utf8');
+  } catch {
+    return null;
+  }
+
+  if (!raw || raw.trim().length === 0) {
+    return null;
+  }
+
+  const allLines = raw.replace(/\r\n/g, '\n').split('\n');
+  // Remove trailing empty line from split
+  if (allLines.length > 0 && allLines[allLines.length - 1] === '') {
+    allLines.pop();
+  }
+
+  const totalLines = allLines.length;
+  if (totalLines === 0) {
+    return null;
+  }
+
+  const truncated = totalLines > DISPATCH_LOG_MAX_LINES;
+  const selectedLines = truncated
+    ? allLines.slice(totalLines - DISPATCH_LOG_MAX_LINES)
+    : allLines;
+
+  // Per-line byte cap
+  const cappedLines = selectedLines.map((line) => {
+    if (Buffer.byteLength(line, 'utf8') > DISPATCH_LOG_MAX_LINE_BYTES) {
+      return line.slice(0, DISPATCH_LOG_MAX_LINE_BYTES) + '…';
+    }
+    return line;
+  });
+
+  return {
+    content: cappedLines.join('\n').trimEnd(),
+    truncated,
+    totalLines,
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

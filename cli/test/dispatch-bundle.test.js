@@ -924,4 +924,136 @@ describe('dispatch bundle: QA evidence visibility', () => {
     assert.ok(!context.includes('### Changed File Previews'));
     assert.ok(!context.includes('#### `src/missing.js`'));
   });
+
+  // ── Dispatch log excerpt tests (AT-MED-*) ──
+
+  function writeDevDispatchLog(content) {
+    // Read the last completed turn ID from state to find the dispatch dir
+    const state = readJson(root, STATE_PATH);
+    const turnId = state.last_completed_turn_id;
+    const logDir = join(root, getDispatchTurnDir(turnId));
+    mkdirSync(logDir, { recursive: true });
+    writeFileSync(join(logDir, 'stdout.log'), content);
+  }
+
+  it('AT-MED-001: review_only QA turn sees dispatch log excerpt from the last accepted turn', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    const logContent = [
+      '> npm test',
+      '',
+      '  PASS  src/api.test.js',
+      '    ✓ GET /todos returns empty list (3ms)',
+      '    ✓ POST /todos creates a todo (5ms)',
+      '    ✓ DELETE /todos/:id removes a todo (2ms)',
+      '',
+      'Tests: 3 passed, 3 total',
+      'Time:  0.245s',
+    ].join('\n');
+    writeDevDispatchLog(logContent);
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Dispatch Log Excerpt/);
+    assert.match(context, /PASS.*src\/api\.test\.js/);
+    assert.match(context, /Tests: 3 passed, 3 total/);
+    assert.ok(!context.includes('Log truncated'));
+  });
+
+  it('AT-MED-002: authoritative dev turns do NOT see dispatch log excerpt', () => {
+    acceptPmTurnAndTransition();
+
+    // Write a fake dispatch log for the PM turn
+    const state = readJson(root, STATE_PATH);
+    const pmTurnId = state.last_completed_turn_id;
+    const logDir = join(root, getDispatchTurnDir(pmTurnId));
+    mkdirSync(logDir, { recursive: true });
+    writeFileSync(join(logDir, 'stdout.log'), 'PM turn log output\n');
+
+    assignGovernedTurn(root, config, 'dev');
+    const devState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, devState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(devState), 'CONTEXT.md'), 'utf8');
+
+    assert.ok(!context.includes('### Dispatch Log Excerpt'));
+    assert.ok(!context.includes('PM turn log output'));
+  });
+
+  it('AT-MED-003: long dispatch logs are truncated to last 50 lines with indicator', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    // Generate a 120-line log
+    const logLines = [];
+    for (let i = 1; i <= 120; i++) {
+      logLines.push(`Line ${i}: test output`);
+    }
+    writeDevDispatchLog(logLines.join('\n'));
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Dispatch Log Excerpt/);
+    assert.match(context, /Log truncated — showing last 50 lines of 120 total/);
+    // Should contain the last 50 lines (71-120), not the first
+    assert.match(context, /Line 120: test output/);
+    assert.match(context, /Line 71: test output/);
+    assert.ok(!context.includes('Line 70: test output'));
+  });
+
+  it('AT-MED-004: missing or empty dispatch log is skipped cleanly', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+    // Do NOT write a dispatch log
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.ok(!context.includes('### Dispatch Log Excerpt'));
+  });
+
+  it('AT-MED-005: extremely long lines are per-line truncated', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    const longLine = 'X'.repeat(10000);
+    writeDevDispatchLog(`short line\n${longLine}\nfinal line`);
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Dispatch Log Excerpt/);
+    assert.match(context, /short line/);
+    assert.match(context, /final line/);
+    // The long line should be truncated (8192 chars + ellipsis)
+    assert.ok(!context.includes('X'.repeat(10000)));
+    assert.match(context, /X{100}.*…/);
+  });
 });
