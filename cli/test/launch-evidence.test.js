@@ -62,6 +62,15 @@ describe('Launch evidence report', () => {
     assert.doesNotMatch(report, /full completion still partial/i);
     assert.doesNotMatch(report, /used `status: "needs_human"` instead of `run_completion_request: true`/i);
   });
+
+  it('records live MCP dogfood proof for both transports', () => {
+    assert.match(report, /E2b — Live MCP Adapter Dogfood/);
+    assert.match(report, /turn_e41e35ba8eea9768/);
+    assert.match(report, /turn_5292f4de9e01ea71/);
+    assert.match(report, /MCP stdio transport.*governed dev turn/i);
+    assert.match(report, /MCP streamable_http transport.*governed dev turn/i);
+    assert.match(report, /All four adapter types.*live CLI execution evidence/i);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {

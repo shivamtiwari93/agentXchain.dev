@@ -79,9 +79,27 @@
     - paused the run with `pending_run_completion.gate = "qa_ship_verdict"`
     - explicit human approval via `agentxchain approve-completion` completed the run at `2026-04-07T11:14:16.734Z`
 - **What it does NOT prove**:
-  - Live MCP adapter proof
   - Full machine-verifiable stdout/stderr proof for the dev test run
   - Independent QA execution of the dev test suite from the `api_proxy` runtime
+
+### E2b — Live MCP Adapter Dogfood
+
+- **Date**: 2026-04-07
+- **Location**: `.planning/MCP_LIVE_DOGFOOD_REPORT.md`
+- **Run IDs**: `run_5c008f7e6bc4b721` (stdio), `run_210040f7b9437431` (streamable_http)
+- **Turn IDs**: `turn_e41e35ba8eea9768` (stdio), `turn_5292f4de9e01ea71` (streamable_http)
+- **Result**: both MCP transports proven live through real `agentxchain step` CLI
+- **What it proves**:
+  - MCP stdio transport: governed dev turn dispatched to `mcp-echo-agent` via subprocess, accepted by state machine
+  - MCP streamable_http transport: governed dev turn dispatched to `mcp-http-echo-agent` via HTTP, accepted by state machine
+  - MCP tool contract (13 arguments) correctly marshalled and result correctly extracted
+  - Custom HTTP headers forwarded for streamable_http transport
+  - Turn results pass validation and are accepted into governed history
+  - All four adapter types (`manual`, `local_cli`, `api_proxy`, `mcp`) now have live CLI execution evidence
+- **What it does NOT prove**:
+  - A real AI model behind MCP (echo agents return canned results — transport-level proof only)
+  - MCP adapter behavior under production-scale context or long-running turns
+  - Full governed lifecycle through MCP (one dev turn per transport, not a complete run)
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -143,9 +161,10 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
-| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run through human-approved completion) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood. |
-| "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) + E2 (all three executed live in one governed run) | This claim is now supported by both test coverage and live execution evidence. |
-| "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Phrase narrowly. This is a three-adapter governed-run claim, not an "all adapters proven live" claim. |
+| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) | All four adapter types now have live CLI execution evidence. |
+| "All four adapters proven live" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) | All adapter types have been dispatched through the real `agentxchain step` CLI and accepted by the governed state machine. MCP proof is transport-level (echo agents, not real AI models). |
+| "Manual, local CLI, API-backed, and MCP agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b | All four adapter types proven live through the governed CLI. |
+| "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Full lifecycle proof exists only for the three-adapter path. MCP proof is a single dev turn per transport. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
 | "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
@@ -161,7 +180,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
-| "Full live end-to-end proof" or "all adapters proven live" | E2 now proves a full governed run live for `manual` + `local_cli` + `api_proxy`, but MCP is still not part of that proof. | Add live MCP proof if that broader claim is desired. |
+| "Full live end-to-end proof with MCP" | E2b proves MCP transport works (both stdio and HTTP), but the MCP dogfood used echo agents, not real AI models. MCP proof is transport-level, not model-level. | Run a governed MCP turn with a real AI model behind the MCP server. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
@@ -172,7 +191,8 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
-| Live MCP adapter dogfood | Unlocks a truthful "all four adapters proven live" claim | Run a governed turn through the MCP adapter against a real server |
+| ~~Live MCP adapter dogfood~~ | **CLOSED** — E2b proves both MCP transports live through `agentxchain step` CLI | Completed 2026-04-07 |
+| MCP with real AI model | Proves MCP transport works with an actual AI model, not just echo agents | Build or find an MCP server backed by a real model |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |
@@ -183,4 +203,5 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 - **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slices add 282 tests / 0 failures across 55 suites for review-artifact truth, dispatch-bundle truth, docs truth, and missing-status normalization
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
-- **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output
+- **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
+- **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. Allowed claims updated to include all four adapters. Evidence gap E2b closed.
