@@ -1049,3 +1049,156 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /next_actions/);
   });
 });
+
+function textFileEntry(content) {
+  const buf = Buffer.from(content, 'utf8');
+  return {
+    format: 'text',
+    data: content,
+    bytes: buf.length,
+    sha256: createHash('sha256').update(buf).digest('hex'),
+    content_base64: buf.toString('base64'),
+  };
+}
+
+describe('coordinator report narrative — recovery_report rendering', () => {
+  const RECOVERY_REPORT_CONTENT = `# Recovery Report
+
+Coordinator entered blocked state.
+
+**Blocked reason:** hook violation in api repo
+**Blocked at:** 2026-04-06T19:18:00.000Z
+
+## Trigger
+
+Post-acceptance hook on api detected tampered barrier file.
+
+## Impact
+
+Web repo turn was in-flight and had to be abandoned. Api repo turn was accepted but barrier state was inconsistent.
+
+## Mitigation
+
+Operator manually restored barriers.json from the last known-good coordinator snapshot and verified child repo states matched.
+
+## Owner
+
+ops-team-lead
+
+## Exit Condition
+
+All child repos must be in completed or active state with no blocked children.
+`;
+
+  const RECOVERY_REPORT_NO_OPTIONAL = `# Recovery Report
+
+**Blocked reason:** resync divergence
+**Blocked at:** 2026-04-06T19:18:00.000Z
+
+## Trigger
+
+Ambiguous divergence during resync.
+
+## Impact
+
+Coordinator could not determine authoritative state.
+
+## Mitigation
+
+Operator re-ran multi resume after manual inspection.
+`;
+
+  // AT-RR-RENDER-001: no recovery report → recovery_report is null
+  it('AT-RR-RENDER-001: absent recovery report produces null in report subject', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+    assert.strictEqual(result.report.subject.recovery_report, null);
+  });
+
+  // AT-RR-RENDER-002: present recovery report extracts sections
+  it('AT-RR-RENDER-002: present recovery report extracts all sections', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/RECOVERY_REPORT.md'] = textFileEntry(RECOVERY_REPORT_CONTENT);
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+
+    const rr = result.report.subject.recovery_report;
+    assert.ok(rr, 'recovery_report is present');
+    assert.strictEqual(rr.present, true);
+    assert.match(rr.trigger, /tampered barrier file/);
+    assert.match(rr.impact, /Web repo turn was in-flight/);
+    assert.match(rr.mitigation, /restored barriers\.json/);
+    assert.match(rr.owner, /ops-team-lead/);
+    assert.match(rr.exit_condition, /no blocked children/);
+  });
+
+  // AT-RR-RENDER-003: text format includes Recovery Report section
+  it('AT-RR-RENDER-003: text format renders recovery report section', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/RECOVERY_REPORT.md'] = textFileEntry(RECOVERY_REPORT_CONTENT);
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Recovery Report:/);
+    assert.match(text, /Trigger: Post-acceptance hook/);
+    assert.match(text, /Impact: Web repo turn/);
+    assert.match(text, /Mitigation: Operator manually restored/);
+    assert.match(text, /Owner: ops-team-lead/);
+    assert.match(text, /Exit Condition: All child repos/);
+  });
+
+  // AT-RR-RENDER-004: markdown format includes ## Recovery Report section
+  it('AT-RR-RENDER-004: markdown format renders recovery report section', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/RECOVERY_REPORT.md'] = textFileEntry(RECOVERY_REPORT_CONTENT);
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /## Recovery Report/);
+    assert.match(md, /\*\*Trigger:\*\* Post-acceptance hook/);
+    assert.match(md, /\*\*Impact:\*\* Web repo turn/);
+    assert.match(md, /\*\*Mitigation:\*\* Operator manually restored/);
+    assert.match(md, /\*\*Owner:\*\* ops-team-lead/);
+    assert.match(md, /\*\*Exit Condition:\*\* All child repos/);
+  });
+
+  // AT-RR-RENDER-005: missing optional sections render as n/a
+  it('AT-RR-RENDER-005: missing optional sections render as n/a', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/RECOVERY_REPORT.md'] = textFileEntry(RECOVERY_REPORT_NO_OPTIONAL);
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+
+    const rr = result.report.subject.recovery_report;
+    assert.ok(rr, 'recovery_report present');
+    assert.strictEqual(rr.owner, null);
+    assert.strictEqual(rr.exit_condition, null);
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Owner: n\/a/);
+    assert.match(text, /Exit Condition: n\/a/);
+
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /\*\*Owner:\*\* n\/a/);
+    assert.match(md, /\*\*Exit Condition:\*\* n\/a/);
+  });
+
+  // AT-RR-RENDER-001 complement: absent report means no Recovery Report section in text/md
+  it('absent recovery report omits section from text and markdown', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!text.includes('Recovery Report:'), 'text must not include Recovery Report section');
+    assert.ok(!md.includes('## Recovery Report'), 'markdown must not include Recovery Report section');
+  });
+
+  // AT-RR-RENDER-006: spec guard
+  it('AT-RR-RENDER-006: recovery report rendering spec exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'RECOVERY_REPORT_RENDERING_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Recovery Report Rendering Spec/);
+    assert.match(spec, /AT-RR-RENDER-001/);
+    assert.match(spec, /AT-RR-RENDER-006/);
+    assert.match(spec, /extractRecoveryReportSummary/);
+    assert.match(spec, /RECOVERY_REPORT\.md/);
+  });
+});

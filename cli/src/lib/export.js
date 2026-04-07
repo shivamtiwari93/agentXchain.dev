@@ -15,6 +15,7 @@ const COORDINATOR_INCLUDED_ROOTS = [
   '.agentxchain/multirepo/barriers.json',
   '.agentxchain/multirepo/decision-ledger.jsonl',
   '.agentxchain/multirepo/barrier-ledger.jsonl',
+  '.agentxchain/multirepo/RECOVERY_REPORT.md',
 ];
 
 const INCLUDED_ROOTS = [

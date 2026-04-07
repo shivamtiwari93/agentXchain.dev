@@ -117,6 +117,7 @@ Coordinator-export reports carry:
 | `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json` |
 | `subject.barrier_ledger_timeline` | Barrier transition history derived from `.agentxchain/multirepo/barrier-ledger.jsonl` |
 | `subject.decision_digest` | Coordinator-level decision digest derived from `.agentxchain/multirepo/decision-ledger.jsonl`, populated by coordinator init, dispatch, gate, and recovery decisions |
+| `subject.recovery_report` | Recovery report summary extracted from `.agentxchain/multirepo/RECOVERY_REPORT.md` when present, or `null` when absent |
 | `subject.repos` | Per-repo summary rows for paste-friendly reporting |
 | `subject.artifacts` | Coordinator history and decision counts |
 
@@ -142,6 +143,21 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 - `blocked_on` — current blocked-on value or `null`
 
 These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
+
+### `subject.recovery_report`
+
+When `.agentxchain/multirepo/RECOVERY_REPORT.md` is present in the coordinator export, the report extracts its sections:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `present` | `true` | Always `true` when the object is non-null |
+| `trigger` | `string \| null` | Content of `## Trigger` section, or `null` if absent/placeholder |
+| `impact` | `string \| null` | Content of `## Impact` section, or `null` if absent/placeholder |
+| `mitigation` | `string \| null` | Content of `## Mitigation` section, or `null` if absent/placeholder |
+| `owner` | `string \| null` | Content of `## Owner` section (optional), or `null` |
+| `exit_condition` | `string \| null` | Content of `## Exit Condition` section (optional), or `null` |
+
+When the recovery report file is absent, `subject.recovery_report` is `null` and no Recovery Report section appears in text or markdown output.
 
 ## Human-Readable Formats
 
@@ -172,6 +188,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Barrier Summary`
 - `## Barrier Transitions`
 - `## Coordinator Decisions`
+- `## Recovery Report`
 - `## Intake Linkage`
 - `## Recovery`
 

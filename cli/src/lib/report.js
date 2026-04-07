@@ -507,6 +507,36 @@ function buildRunSubject(artifact) {
   };
 }
 
+function extractRecoveryReportSection(content, heading) {
+  const pattern = new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm');
+  const match = content.match(pattern);
+  if (!match) return null;
+  const start = match.index + match[0].length;
+  const nextHeading = content.slice(start).match(/^## /m);
+  const sectionText = nextHeading
+    ? content.slice(start, start + nextHeading.index).trim()
+    : content.slice(start).trim();
+  if (!sectionText || /^\(.*\)$/.test(sectionText)) return null;
+  return sectionText;
+}
+
+function extractRecoveryReportSummary(artifact) {
+  const entry = artifact.files?.['.agentxchain/multirepo/RECOVERY_REPORT.md'];
+  if (!entry) return null;
+  const content = typeof entry.data === 'string'
+    ? entry.data
+    : (entry.content_base64 ? Buffer.from(entry.content_base64, 'base64').toString('utf8') : null);
+  if (!content) return null;
+  return {
+    present: true,
+    trigger: extractRecoveryReportSection(content, '## Trigger'),
+    impact: extractRecoveryReportSection(content, '## Impact'),
+    mitigation: extractRecoveryReportSection(content, '## Mitigation'),
+    owner: extractRecoveryReportSection(content, '## Owner'),
+    exit_condition: extractRecoveryReportSection(content, '## Exit Condition'),
+  };
+}
+
 function buildCoordinatorSubject(artifact) {
   const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json') || {};
   const repoStatuses = artifact.summary?.repo_run_statuses || {};
@@ -580,6 +610,7 @@ function buildCoordinatorSubject(artifact) {
     barrier_summary: barrierSummary,
     barrier_ledger_timeline: barrierLedgerTimeline,
     decision_digest: decisionDigest,
+    recovery_report: extractRecoveryReportSummary(artifact),
     repos,
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -754,7 +785,7 @@ export function formatGovernanceReportText(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest, recovery_report } = report.subject;
   const lines = [
     'AgentXchain Governance Report',
     `Input: ${report.input}`,
@@ -825,6 +856,15 @@ export function formatGovernanceReportText(report) {
     for (const d of decision_digest) {
       lines.push(`  - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
     }
+  }
+
+  if (recovery_report) {
+    lines.push('', 'Recovery Report:');
+    lines.push(`  Trigger: ${recovery_report.trigger || 'n/a'}`);
+    lines.push(`  Impact: ${recovery_report.impact || 'n/a'}`);
+    lines.push(`  Mitigation: ${recovery_report.mitigation || 'n/a'}`);
+    lines.push(`  Owner: ${recovery_report.owner || 'n/a'}`);
+    lines.push(`  Exit Condition: ${recovery_report.exit_condition || 'n/a'}`);
   }
 
   lines.push('Repo details:');
@@ -991,7 +1031,7 @@ export function formatGovernanceReportMarkdown(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest, recovery_report: coordRecoveryReport } = report.subject;
   const mdLines = [
     '# AgentXchain Governance Report',
     '',
@@ -1063,6 +1103,15 @@ export function formatGovernanceReportMarkdown(report) {
     for (const d of decision_digest) {
       mdLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
     }
+  }
+
+  if (coordRecoveryReport) {
+    mdLines.push('', '## Recovery Report', '');
+    mdLines.push(`- **Trigger:** ${coordRecoveryReport.trigger || 'n/a'}`);
+    mdLines.push(`- **Impact:** ${coordRecoveryReport.impact || 'n/a'}`);
+    mdLines.push(`- **Mitigation:** ${coordRecoveryReport.mitigation || 'n/a'}`);
+    mdLines.push(`- **Owner:** ${coordRecoveryReport.owner || 'n/a'}`);
+    mdLines.push(`- **Exit Condition:** ${coordRecoveryReport.exit_condition || 'n/a'}`);
   }
 
   mdLines.push('', '## Repo Details', '');

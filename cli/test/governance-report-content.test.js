@@ -51,6 +51,16 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
+
+  it('documents recovery report rendering in coordinator exports', () => {
+    assert.match(REPORT_DOCS, /recovery_report/);
+    assert.match(REPORT_DOCS, /RECOVERY_REPORT\.md/);
+    assert.match(REPORT_DOCS, /## Recovery Report/);
+    assert.match(REPORT_DOCS, /trigger/);
+    assert.match(REPORT_DOCS, /impact/);
+    assert.match(REPORT_DOCS, /mitigation/);
+    assert.match(REPORT_DOCS, /exit_condition/);
+  });
 });
 
 describe('governance report implementation contract', () => {
