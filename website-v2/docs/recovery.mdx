@@ -79,9 +79,9 @@ Hook blocks during assignment require `resume --role` to re-assign. Hook blocks 
 
 | State | Cause | Recovery |
 |---|---|---|
-| `budget_exhausted` | Cumulative turn costs exceeded `per_run_max_usd` | Increase `per_run_max_usd` in `.agentxchain/config.json`, then `agentxchain step --resume` |
+| `budget_exhausted` | Cumulative turn costs exceeded `per_run_max_usd` | Increase `per_run_max_usd` in `agentxchain.json` enough for the next reservation, then `agentxchain resume` |
 
-The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit.
+The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit. Because there is no retained turn, budget recovery re-assigns the next turn with `agentxchain resume` instead of replaying work with `step --resume`.
 
 ### Other States
 
@@ -97,6 +97,7 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 | Command | Recovery Role |
 |---|---|
 | `step --resume` | Resume a blocked turn (dispatch failure, escalation, hook block, agent request) |
+| `resume` | Re-assign the next turn after a cleared budget block or other no-retained-turn recovery |
 | `resume --role` | Re-assign a turn after cleared block or hook failure during assignment |
 | `approve-transition` | Approve a phase gate |
 | `approve-completion` | Approve run completion |

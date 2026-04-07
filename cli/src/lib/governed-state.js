@@ -222,6 +222,91 @@ function attachLegacyCurrentTurnAlias(state) {
   return state;
 }
 
+function formatBudgetRecoveryAction(isReadyToResume) {
+  return isReadyToResume
+    ? 'Run agentxchain resume to assign the next turn'
+    : 'Increase per_run_max_usd in agentxchain.json, then run agentxchain resume';
+}
+
+function formatBudgetRecoveryDetail(spentUsd, limitUsd, remainingUsd, isReadyToResume) {
+  if (limitUsd == null) {
+    return isReadyToResume
+      ? `Budget recovery ready: spent $${spentUsd.toFixed(2)} with per_run_max_usd disabled`
+      : `Run budget exhausted: spent $${spentUsd.toFixed(2)} with no configured per_run_max_usd limit`;
+  }
+
+  if (isReadyToResume) {
+    return `Budget recovery ready: spent $${spentUsd.toFixed(2)} of $${limitUsd.toFixed(2)} limit ($${remainingUsd.toFixed(2)} remaining)`;
+  }
+
+  return `Run budget exhausted: spent $${spentUsd.toFixed(2)} of $${limitUsd.toFixed(2)} limit ($${Math.abs(remainingUsd).toFixed(2)} over)`;
+}
+
+export function reconcileBudgetStatusWithConfig(state, config) {
+  if (!state || typeof state !== 'object') {
+    return { state, changed: false };
+  }
+
+  const baseState = stripLegacyCurrentTurn(state);
+  const budgetStatus = baseState.budget_status && typeof baseState.budget_status === 'object' && !Array.isArray(baseState.budget_status)
+    ? baseState.budget_status
+    : {};
+  const spentUsd = Number.isFinite(budgetStatus.spent_usd) ? budgetStatus.spent_usd : 0;
+  const limitUsd = Number.isFinite(config?.budget?.per_run_max_usd) ? config.budget.per_run_max_usd : null;
+  const remainingUsd = limitUsd != null ? limitUsd - spentUsd : null;
+  const nextBudgetStatus = {
+    ...budgetStatus,
+    spent_usd: spentUsd,
+    remaining_usd: remainingUsd,
+  };
+
+  if (remainingUsd != null && remainingUsd <= 0) {
+    nextBudgetStatus.exhausted = true;
+    if (budgetStatus.exhausted_at) {
+      nextBudgetStatus.exhausted_at = budgetStatus.exhausted_at;
+    }
+    if (budgetStatus.exhausted_after_turn) {
+      nextBudgetStatus.exhausted_after_turn = budgetStatus.exhausted_after_turn;
+    }
+  } else {
+    delete nextBudgetStatus.exhausted;
+    delete nextBudgetStatus.exhausted_at;
+    delete nextBudgetStatus.exhausted_after_turn;
+  }
+
+  let nextState = {
+    ...baseState,
+    budget_status: nextBudgetStatus,
+  };
+
+  const isBudgetBlocked = nextState.blocked_on === 'budget:exhausted' || nextState.blocked_reason?.category === 'budget_exhausted';
+  if (isBudgetBlocked) {
+    const isReadyToResume = remainingUsd == null || remainingUsd > 0;
+    nextState = {
+      ...nextState,
+      blocked_on: 'budget:exhausted',
+      blocked_reason: buildBlockedReason({
+        category: 'budget_exhausted',
+        recovery: {
+          typed_reason: 'budget_exhausted',
+          owner: 'human',
+          recovery_action: formatBudgetRecoveryAction(isReadyToResume),
+          turn_retained: false,
+          detail: formatBudgetRecoveryDetail(spentUsd, limitUsd, remainingUsd, isReadyToResume),
+        },
+        turnId: nextState.blocked_reason?.turn_id ?? nextState.last_completed_turn_id ?? null,
+        blockedAt: nextState.blocked_reason?.blocked_at,
+      }),
+    };
+  }
+
+  const changed = JSON.stringify(baseState) !== JSON.stringify(nextState);
+  return {
+    state: changed ? nextState : baseState,
+    changed,
+  };
+}
+
 function normalizeV1toV1_1(state) {
   const hadLegacyCurrentTurn = Object.prototype.hasOwnProperty.call(state, 'current_turn');
   const activeTurns = normalizeActiveTurns(state.active_turns);
@@ -1161,9 +1246,15 @@ export function initializeGovernedRun(root, config) {
  * @returns {{ ok: boolean, error?: string, warnings?: string[], state?: object }}
  */
 export function assignGovernedTurn(root, config, roleId) {
-  const state = readState(root);
+  let state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
+  }
+
+  const reconciledBudget = reconcileBudgetStatusWithConfig(state, config);
+  if (reconciledBudget.changed) {
+    state = reconciledBudget.state;
+    writeState(root, state);
   }
 
   // DEC-PARALLEL-007: No new assignment while run is blocked
@@ -1208,7 +1299,7 @@ export function assignGovernedTurn(root, config, roleId) {
 
   // DEC-BUDGET-ENFORCE-001: Pre-assignment budget exhaustion guard
   if (state.budget_status?.remaining_usd != null && state.budget_status.remaining_usd <= 0) {
-    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase per_run_max_usd in .agentxchain/config.json, then run: agentxchain step --resume` };
+    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase per_run_max_usd in agentxchain.json, then run agentxchain resume` };
   }
 
   // DEC-PARALLEL-011: Budget reservation
@@ -1837,7 +1928,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         recovery: {
           typed_reason: 'budget_exhausted',
           owner: 'human',
-          recovery_action: 'Increase per_run_max_usd in .agentxchain/config.json, then run: agentxchain step --resume',
+          recovery_action: 'Increase per_run_max_usd in agentxchain.json, then run agentxchain resume',
           turn_retained: false,
           detail: `Run budget exhausted: spent $${updatedState.budget_status.spent_usd.toFixed(2)} of $${limit.toFixed(2)} limit ($${overBy.toFixed(2)} over)`,
         },

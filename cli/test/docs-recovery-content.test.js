@@ -75,6 +75,7 @@ describe('Recovery docs — command coverage', () => {
   it('documents all recovery commands', () => {
     const RECOVERY_COMMANDS = [
       'step --resume',
+      'agentxchain resume',
       'resume --role',
       'approve-transition',
       'approve-completion',
@@ -135,6 +136,12 @@ describe('Recovery docs — implementation-backed contracts', () => {
       DOC.includes('decision-ledger.jsonl'),
       'must reference the decision ledger file'
     );
+  });
+
+  it('documents budget recovery against agentxchain.json', () => {
+    assert.match(DOC, /per_run_max_usd/);
+    assert.match(DOC, /agentxchain\.json/);
+    assert.doesNotMatch(DOC, /\.agentxchain\/config\.json/);
   });
 });
 

@@ -14,6 +14,7 @@ import {
   STAGING_PATH,
 } from '../src/lib/governed-state.js';
 import { scaffoldGoverned } from '../src/commands/init.js';
+import { loadProjectState } from '../src/lib/config.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -173,9 +174,32 @@ describe('Budget Enforcement — DEC-BUDGET-ENFORCE-001', () => {
     assert.equal(recovery.typed_reason, 'budget_exhausted');
     assert.equal(recovery.owner, 'human');
     assert.ok(recovery.recovery_action.includes('per_run_max_usd'));
-    assert.ok(recovery.recovery_action.includes('step --resume'));
+    assert.ok(recovery.recovery_action.includes('agentxchain resume'));
     assert.ok(recovery.detail.includes('$6.00'));
     assert.ok(recovery.detail.includes('$5.00'));
+  });
+
+  it('reconciles exhausted budget state after per_run_max_usd changes', () => {
+    const a1 = assignGovernedTurn(dir, config, 'pm');
+    const t1 = Object.values(a1.state.active_turns)[0];
+    const tr1 = makeTurnResult(a1.state, t1.turn_id, 'pm', 6.00);
+    writeFileSync(join(dir, STAGING_PATH), JSON.stringify(tr1, null, 2));
+    const blocked = acceptGovernedTurn(dir, config);
+    assert.ok(blocked.ok);
+    assert.equal(blocked.state.status, 'blocked');
+
+    const recoveredConfig = makeConfig({ per_run_max_usd: 9.0 });
+    const reconciled = loadProjectState(dir, recoveredConfig);
+    assert.ok(reconciled, 'Expected loadProjectState to return reconciled governed state');
+    assert.equal(reconciled.budget_status.remaining_usd, 3.0);
+    assert.equal(reconciled.budget_status.exhausted, undefined);
+    assert.equal(reconciled.blocked_reason.category, 'budget_exhausted');
+    assert.equal(reconciled.blocked_reason.recovery.recovery_action, 'Run agentxchain resume to assign the next turn');
+    assert.match(reconciled.blocked_reason.recovery.detail, /\$3\.00 remaining/);
+
+    const persisted = JSON.parse(readFileSync(join(dir, STATE_PATH), 'utf8'));
+    assert.equal(persisted.budget_status.remaining_usd, 3.0);
+    assert.equal(persisted.budget_status.exhausted, undefined);
   });
 
   it('releases reservation and tracks actual cost on acceptance', () => {
