@@ -59,6 +59,9 @@ describe('comparison pages content', () => {
     assertCommonPageContract(pages.crewai, 'CrewAI');
     assert.match(pages.crewai, /observability|provider support|flows/i);
     assert.match(pages.crewai, /governed software delivery|auditable repo delivery/i);
+    // CrewAI has guardrails and checkpoint/resume — page must acknowledge them
+    assert.match(pages.crewai, /guardrail/i, 'CrewAI page must acknowledge task-level guardrails');
+    assert.match(pages.crewai, /checkpoint|resume/i, 'CrewAI page must acknowledge checkpoint/resume capability');
   });
 
   it('keeps the LangGraph page honest and code-backed', () => {
