@@ -116,7 +116,7 @@ Coordinator-export reports carry:
 | `subject.coordinator_timeline` | Coordinator event narrative derived from `.agentxchain/multirepo/history.jsonl` |
 | `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json` |
 | `subject.barrier_ledger_timeline` | Barrier transition history derived from `.agentxchain/multirepo/barrier-ledger.jsonl` |
-| `subject.decision_digest` | Coordinator-level decision digest derived from `.agentxchain/multirepo/decision-ledger.jsonl` |
+| `subject.decision_digest` | Coordinator-level decision digest derived from `.agentxchain/multirepo/decision-ledger.jsonl`, populated by coordinator init, dispatch, gate, and recovery decisions |
 | `subject.repos` | Per-repo summary rows for paste-friendly reporting |
 | `subject.artifacts` | Coordinator history and decision counts |
 

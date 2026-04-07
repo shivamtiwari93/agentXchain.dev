@@ -64,6 +64,21 @@ function appendJsonl(filePath, entry) {
   writeFileSync(filePath, JSON.stringify(entry) + '\n', { flag: 'a' });
 }
 
+function nextCoordinatorDecisionId(entries) {
+  let max = 0;
+  for (const entry of entries) {
+    const match = typeof entry?.id === 'string'
+      ? entry.id.match(/^DEC-COORD-(\d+)$/)
+      : null;
+    if (!match) continue;
+    const current = Number.parseInt(match[1], 10);
+    if (Number.isFinite(current) && current > max) {
+      max = current;
+    }
+  }
+  return `DEC-COORD-${String(max + 1).padStart(3, '0')}`;
+}
+
 function readRepoLocalState(repoPath) {
   const stateFile = join(repoPath, '.agentxchain/state.json');
   if (!existsSync(stateFile)) return null;
@@ -252,6 +267,11 @@ export function initializeCoordinatorRun(workspacePath, preloadedConfig) {
       ),
       timestamp: now,
     });
+    recordCoordinatorDecision(workspacePath, state, {
+      timestamp: now,
+      category: 'initialization',
+      statement: `Initialized coordinator run for ${config.project.id} with ${Object.keys(repoRuns).length} repo${Object.keys(repoRuns).length === 1 ? '' : 's'}`,
+    });
   } catch (err) {
     // Atomic failure: clean up partial state
     try {
@@ -296,6 +316,59 @@ export function loadCoordinatorState(workspacePath) {
 export function saveCoordinatorState(workspacePath, state) {
   const updated = { ...state, updated_at: new Date().toISOString() };
   safeWriteJson(statePath(workspacePath), updated);
+}
+
+export function readCoordinatorDecisionLedger(workspacePath) {
+  const file = ledgerPath(workspacePath);
+  if (!existsSync(file)) return [];
+  try {
+    const content = readFileSync(file, 'utf8').trim();
+    if (!content) return [];
+    return content.split('\n').map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
+}
+
+export function recordCoordinatorDecision(workspacePath, state, decision) {
+  const statement = typeof decision?.statement === 'string' ? decision.statement.trim() : '';
+  if (statement.length === 0) {
+    throw new Error('Coordinator decision statement is required');
+  }
+
+  const existingEntries = readCoordinatorDecisionLedger(workspacePath);
+  const entry = {
+    id: typeof decision?.id === 'string' && decision.id.length > 0
+      ? decision.id
+      : nextCoordinatorDecisionId(existingEntries),
+    timestamp: decision?.timestamp || new Date().toISOString(),
+    super_run_id: decision?.super_run_id || state?.super_run_id || null,
+    role: decision?.role || 'coordinator',
+    phase: decision?.phase || state?.phase || null,
+    category: decision?.category || 'governance',
+    statement,
+  };
+
+  for (const key of [
+    'repo_id',
+    'repo_run_id',
+    'repo_turn_id',
+    'workstream_id',
+    'gate',
+    'from',
+    'to',
+    'reason',
+    'context_ref',
+    'projection_ref',
+  ]) {
+    const value = decision?.[key];
+    if (value != null) {
+      entry[key] = value;
+    }
+  }
+
+  appendJsonl(ledgerPath(workspacePath), entry);
+  return entry;
 }
 
 /**

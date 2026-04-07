@@ -1,6 +1,6 @@
 import { appendFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readBarriers, saveCoordinatorState } from './coordinator-state.js';
+import { readBarriers, recordCoordinatorDecision, saveCoordinatorState } from './coordinator-state.js';
 import { recordBarrierTransition } from './coordinator-acceptance.js';
 import { safeWriteJson } from './safe-write.js';
 
@@ -292,6 +292,14 @@ export function requestPhaseTransition(workspacePath, state, config, targetPhase
     required_repos: pendingGate.required_repos,
     human_barriers: pendingGate.human_barriers,
   });
+  recordCoordinatorDecision(workspacePath, updatedState, {
+    timestamp: pendingGate.requested_at,
+    category: 'phase_transition',
+    gate: pendingGate.gate,
+    from: pendingGate.from,
+    to: pendingGate.to,
+    statement: `Requested phase transition from ${pendingGate.from} to ${pendingGate.to}`,
+  });
 
   return { ok: true, state: updatedState, gate: pendingGate, evaluation };
 }
@@ -326,6 +334,13 @@ export function approveCoordinatorPhaseTransition(workspacePath, state, config) 
     gate: pendingGate.gate,
     from: pendingGate.from,
     to: pendingGate.to,
+  });
+  recordCoordinatorDecision(workspacePath, updatedState, {
+    category: 'phase_transition',
+    gate: pendingGate.gate,
+    from: pendingGate.from,
+    to: pendingGate.to,
+    statement: `Approved phase transition from ${pendingGate.from} to ${pendingGate.to}`,
   });
 
   return { ok: true, state: updatedState, transition: pendingGate };
@@ -449,6 +464,12 @@ export function requestCoordinatorCompletion(workspacePath, state, config) {
     required_repos: pendingGate.required_repos,
     human_barriers: pendingGate.human_barriers,
   });
+  recordCoordinatorDecision(workspacePath, updatedState, {
+    timestamp: pendingGate.requested_at,
+    category: 'completion',
+    gate: pendingGate.gate,
+    statement: `Requested coordinator completion gate ${pendingGate.gate}`,
+  });
 
   return { ok: true, state: updatedState, gate: pendingGate, evaluation };
 }
@@ -481,6 +502,12 @@ export function approveCoordinatorCompletion(workspacePath, state, config) {
     timestamp: updatedState.completed_at,
     super_run_id: state.super_run_id,
     gate: pendingGate.gate,
+  });
+  recordCoordinatorDecision(workspacePath, updatedState, {
+    timestamp: updatedState.completed_at,
+    category: 'completion',
+    gate: pendingGate.gate,
+    statement: `Approved coordinator completion gate ${pendingGate.gate}`,
   });
 
   return { ok: true, state: updatedState, completion: pendingGate };

@@ -4,7 +4,7 @@ import { loadProjectContext, loadProjectState } from './config.js';
 import { assignGovernedTurn, getActiveTurnCount } from './governed-state.js';
 import { writeDispatchBundle } from './dispatch-bundle.js';
 import { getDispatchTurnDir } from './turn-paths.js';
-import { readBarriers, readCoordinatorHistory } from './coordinator-state.js';
+import { readBarriers, readCoordinatorHistory, recordCoordinatorDecision } from './coordinator-state.js';
 import { generateCrossRepoContext } from './cross-repo-context.js';
 
 function loadRepoRuntime(repoPath) {
@@ -263,6 +263,15 @@ export function dispatchCoordinatorTurn(workspacePath, state, config, assignment
     repo_run_id: runtime.state.run_id,
     repo_turn_id: turn.turn_id,
     role: assignment.role,
+    context_ref: contextResult.contextRef,
+  });
+  recordCoordinatorDecision(workspacePath, state, {
+    category: 'dispatch',
+    statement: `Dispatched ${assignment.repo_id} to ${assignment.role} for workstream ${assignment.workstream_id}`,
+    repo_id: assignment.repo_id,
+    repo_run_id: runtime.state.run_id,
+    repo_turn_id: turn.turn_id,
+    workstream_id: assignment.workstream_id,
     context_ref: contextResult.contextRef,
   });
 

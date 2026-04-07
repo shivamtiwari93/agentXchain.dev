@@ -19,6 +19,7 @@ import {
   saveCoordinatorState,
   readCoordinatorHistory,
   readBarriers,
+  recordCoordinatorDecision,
 } from './coordinator-state.js';
 import { safeWriteJson } from './safe-write.js';
 import {
@@ -532,6 +533,15 @@ export function resumeCoordinatorFromBlockedState(workspacePath, state, config) 
         gate_type: refreshedState.pending_gate.gate_type,
       }
       : null,
+  });
+  recordCoordinatorDecision(workspacePath, resumedState, {
+    category: 'recovery',
+    from: 'blocked',
+    to: resumedStatus,
+    reason: typeof previousBlockedReason === 'string'
+      ? previousBlockedReason
+      : JSON.stringify(previousBlockedReason),
+    statement: `Resumed coordinator from blocked to ${resumedStatus}`,
   });
 
   return {
