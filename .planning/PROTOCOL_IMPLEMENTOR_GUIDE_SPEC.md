@@ -53,6 +53,9 @@ The page must document the repo's actual conformance contract, not an aspiration
    - `decision_ledger` must call out required entry shape, empty statement rejection, category validation, and duplicate decision-id rejection
    - `history` must call out atomic accept+state update, idempotent re-acceptance, and non-active turn rejection
    - `config_schema` must call out entry-role validation, runtime declaration validation, gate declaration validation, and schema-version rejection
+   - `dispatch_manifest` must call out SHA-256 digest verification, unexpected/deleted/tampered file rejection, size mismatch, accumulated errors, missing manifest, malformed manifest, missing required fields, and MANIFEST.json self-exclusion
+   - `hook_audit` must call out all 13 orchestrator_action invariants: required audit fields, HTTP transport recording, advisory block downgrade, blocking failure/timeout/invalid-output, advisory failure/timeout/invalid-output, tamper detection, explicit block, short-circuit skipping, and advisory warn
+   - `coordinator` must call out config validation, cyclic dependency rejection, barrier progression (pending → partially_satisfied → satisfied), cross-repo write isolation, ordered_repo_sequence ordering enforcement, shared_human_gate human-approval requirement, and interface_alignment decision-id verification
 9. Call out the current `surfaces` enforcement rule truthfully:
    - when `capabilities.json.surfaces` exists, `--surface <name>` must be explicitly claimed
    - when the `surfaces` map is absent, surface filtering remains backward compatible and unenforced

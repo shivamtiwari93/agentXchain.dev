@@ -385,11 +385,38 @@ Broken config validation pushes protocol drift downstream where it is harder to 
 
 ### `dispatch_manifest`
 
-Dispatch-bundle finalization and integrity verification. This is the hardening layer that proves agents received the expected assignment files and that post-finalization tampering is detectable.
+Dispatch-bundle finalization and integrity verification. This is the hardening layer that proves agents received the expected assignment files and that post-finalization tampering is detectable. Tier 2 currently proves:
+
+- a finalized manifest with valid SHA-256 digests verifies successfully
+- an unexpected file injected after finalization fails verification
+- content tampering that changes a file's digest fails verification
+- a deleted file after finalization fails verification
+- `MANIFEST.json` is excluded from its own file entries
+- a size mismatch after content replacement with different-length data fails verification
+- multiple simultaneous integrity violations produce accumulated errors, not just the first
+- a missing manifest after deletion fails with a `missing_manifest` error
+- malformed `MANIFEST.json` (invalid JSON) fails with `invalid_manifest`
+- a manifest missing required fields fails with `invalid_manifest`
+
+These are not smoke tests. They prove that the dispatch bundle is a tamper-evident envelope, not just a file list.
 
 ### `hook_audit`
 
-Execution and audit recording for lifecycle hooks. The important contract is not just "hooks run" but "their effects are observable and attributable."
+Execution and audit recording for lifecycle hooks. The important contract is not just "hooks run" but "their effects are observable and attributable." Tier 2 currently proves:
+
+- a process hook audit entry contains all required fields (`hook_id`, `orchestrator_action`, `verdict`, `exit_code`, `duration_ms`)
+- an HTTP hook records `transport: "http"` even on connection failure
+- an advisory hook returning `verdict: "block"` is downgraded to a warning (`downgraded_block_to_warn`)
+- a blocking hook process failure records `blocked_failure` and halts the phase
+- protected-file tamper detection records `aborted_tamper` and halts the phase with `hook_ok: false, blocked: false`
+- a blocking hook explicit block verdict records `blocked` and stops the phase
+- a blocking hook short-circuits later hooks; remaining entries are recorded as `skipped`
+- a blocking hook with invalid JSON output records `blocked_invalid_output` and halts the phase
+- an advisory hook with invalid JSON output records `warned_invalid_output` without blocking
+- a blocking hook timeout records `blocked_timeout` and halts the phase
+- an advisory hook timeout records `warned_timeout` without blocking
+- an advisory hook process failure records `warned_failure` without blocking
+- an advisory hook `verdict: "warn"` records `warned` without blocking
 
 Your adapter's `run_hooks` operation must return this shape:
 
@@ -430,11 +457,18 @@ The disambiguation signal for operators and dashboards is `orchestrator_action`,
 
 ### `coordinator`
 
-Multi-repo coordination: coordinator config validation, acceptance projection, workstream state, and barrier semantics. Tier 3 starts here because cross-repo governance is where weak protocol claims usually collapse.
+Multi-repo coordination: coordinator config validation, acceptance projection, workstream state, and barrier semantics. Tier 3 starts here because cross-repo governance is where weak protocol claims usually collapse. Tier 3 currently proves:
 
-Current Tier 3 proof covers coordinator config validation, cross-repo write isolation, `all_repos_accepted`, `interface_alignment`, `ordered_repo_sequence`, and `shared_human_gate`.
+- a valid coordinator config with repos and workstreams validates successfully
+- cyclic workstream dependencies are rejected at config validation time
+- the first repo acceptance transitions a barrier from `pending` to `partially_satisfied`
+- all required repos accepting transitions a barrier from `partially_satisfied` to `satisfied`
+- cross-repo write isolation is enforced: file write violations are rejected during acceptance projection
+- `ordered_repo_sequence` stays unsatisfied when a downstream repo accepts before the entry repo
+- `shared_human_gate` remains `pending` even after every required repo has accepted — it requires explicit human approval
+- `interface_alignment` requires each repo to have accepted its declared `DEC-NNN` decision IDs (via `decision_ids_by_repo`) before the barrier is satisfied
 
-`interface_alignment` is no longer a heuristic placeholder. A workstream using that barrier must declare `interface_alignment.decision_ids_by_repo`, and the coordinator only satisfies the barrier when each repo has accepted the declared `DEC-NNN` IDs for that repo.
+`interface_alignment` is not a heuristic placeholder. The coordinator resolves it by checking accepted decision ledger entries per repo against declared requirements.
 
 ## Fixture setup helpers you need to support
 

@@ -113,6 +113,62 @@ describe('Protocol implementor guide surface', () => {
     }
   });
 
+  it('documents Tier 2 dispatch_manifest invariants at fixture-level detail', () => {
+    const section = extractSection(GUIDE, 'dispatch_manifest');
+    for (const term of [
+      'SHA-256',
+      'unexpected file',
+      'content tampering',
+      'deleted file',
+      'MANIFEST.json',
+      'size mismatch',
+      'accumulated errors',
+      'missing_manifest',
+      'invalid_manifest',
+      'required fields',
+    ]) {
+      assert.match(section, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `dispatch_manifest section must mention "${term}"`);
+    }
+  });
+
+  it('documents Tier 2 hook_audit invariants at fixture-level detail', () => {
+    const section = extractSection(GUIDE, 'hook_audit');
+    for (const term of [
+      'required fields',
+      'transport.*http',
+      'downgraded_block_to_warn',
+      'blocked_failure',
+      'aborted_tamper',
+      'blocked.*stops the phase',
+      'skipped',
+      'blocked_invalid_output',
+      'warned_invalid_output',
+      'blocked_timeout',
+      'warned_timeout',
+      'warned_failure',
+      'warned.*without blocking',
+    ]) {
+      assert.match(section, new RegExp(term, 'i'), `hook_audit section must match "${term}"`);
+    }
+  });
+
+  it('documents Tier 3 coordinator invariants at fixture-level detail', () => {
+    const section = extractSection(GUIDE, 'coordinator');
+    for (const term of [
+      'valid coordinator config',
+      'cyclic.*dependencies.*rejected',
+      'partially_satisfied',
+      'satisfied',
+      'cross-repo write isolation',
+      'ordered_repo_sequence',
+      'shared_human_gate',
+      'interface_alignment',
+      'decision_ids_by_repo',
+    ]) {
+      assert.match(section, new RegExp(term, 'i'), `coordinator section must match "${term}"`);
+    }
+  });
+
   it('distinguishes adapter exit codes from verifier exit codes', () => {
     assert.match(GUIDE, /Adapter process \| `0=pass`, `1=fail`, `2=error`, `3=not_implemented`/);
     assert.match(GUIDE, /verify protocol` \| `0=overall pass`, `1=one or more fixture failures`, `2=verifier or adapter error`/);
