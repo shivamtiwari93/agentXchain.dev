@@ -6,10 +6,24 @@
 
 import { execSync } from 'child_process';
 
+const TEST_GIT_NAME = 'AgentXchain Test Helper';
+const TEST_GIT_EMAIL = 'agentxchain-tests@example.invalid';
+
+function git(cmd, root) {
+  execSync(cmd, { cwd: root, stdio: 'ignore' });
+}
+
 export function gitInit(root) {
-  execSync('git init && git add -A && git commit --allow-empty -m "scaffold"', { cwd: root, stdio: 'ignore' });
+  git('git init', root);
+  git(`git config user.name "${TEST_GIT_NAME}"`, root);
+  git(`git config user.email "${TEST_GIT_EMAIL}"`, root);
+  git('git add -A', root);
+  git('git commit --allow-empty -m "scaffold"', root);
 }
 
 export function gitCommitAll(root) {
-  try { execSync('git add -A && git commit -m "post-turn"', { cwd: root, stdio: 'ignore' }); } catch {}
+  try {
+    git('git add -A', root);
+    git('git commit -m "post-turn"', root);
+  } catch {}
 }
