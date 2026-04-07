@@ -61,26 +61,26 @@ The orchestrator writes these files to `.agentxchain/dispatch/turns/<turn_id>/`:
 
 | File | Purpose |
 |------|---------|
-| `ASSIGNMENT.json` | Structured assignment metadata: run ID, turn ID, role, phase, adapter config, timeout |
+| `ASSIGNMENT.json` | Structured assignment metadata: run ID, turn ID, role, phase, runtime ID, write authority, staging path, budget reservation |
+| `MANIFEST.json` | Integrity manifest listing all dispatch files with SHA-256 checksums, written after `after_dispatch` hooks complete |
 | `PROMPT.md` | The role prompt from `.agentxchain/prompts/<role>.md` with variable interpolation |
 | `CONTEXT.md` | Assembled context from previous turns: accepted decisions, open objections, files changed, verification evidence |
 
 ```json title="ASSIGNMENT.json"
 {
-  "schema_version": "1.0",
   "run_id": "run_a1b2c3",
   "turn_id": "turn_x7y8z9",
   "role": "dev",
   "phase": "implementation",
-  "adapter": "local_cli",
-  "adapter_config": {
-    "command": "claude",
-    "args": ["--print", "--dangerously-skip-permissions"],
-    "prompt_transport": "stdin"
-  },
-  "timeout_ms": 600000,
-  "context_ref": "./CONTEXT.md",
-  "prompt_ref": "./PROMPT.md"
+  "runtime_id": "local-dev",
+  "write_authority": "authoritative",
+  "staging_result_path": ".agentxchain/staging/turn_x7y8z9/turn-result.json",
+  "reserved_paths": [],
+  "allowed_next_roles": ["dev", "qa", "eng_director", "human"],
+  "attempt": 1,
+  "deadline_at": null,
+  "assigned_sequence": 3,
+  "budget_reservation_usd": 2
 }
 ```
 
@@ -155,15 +155,21 @@ The manual adapter is designed for human-in-the-loop workflows where a person re
 {
   "roles": {
     "pm": {
-      "adapter": "manual",
-      "adapter_config": {
-        "poll_interval_ms": 2000,
-        "timeout_ms": 1200000
-      }
+      "title": "Product Manager",
+      "mandate": "Protect user value, scope clarity, and acceptance criteria.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    }
+  },
+  "runtimes": {
+    "manual-pm": {
+      "type": "manual"
     }
   }
 }
 ```
+
+The manual adapter's poll interval (2 seconds) and timeout (20 minutes) are built-in defaults. They are not set in `agentxchain.json` — configure timeout via `--timeout` on `agentxchain step`.
 
 ### When to use
 
@@ -200,16 +206,18 @@ If `prompt_transport` is not set explicitly, the adapter infers the mode: if `{p
 {
   "roles": {
     "dev": {
-      "adapter": "local_cli",
-      "adapter_config": {
-        "command": "claude",
-        "args": ["--print", "--dangerously-skip-permissions"],
-        "prompt_transport": "stdin",
-        "timeout_ms": 600000,
-        "env": {
-          "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
-        }
-      }
+      "title": "Developer",
+      "mandate": "Implement approved work safely and verify behavior.",
+      "write_authority": "authoritative",
+      "runtime": "local-dev"
+    }
+  },
+  "runtimes": {
+    "local-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
     }
   }
 }
@@ -242,7 +250,7 @@ This scaffolds `prompt_transport: "argv"` and replaces `{prompt}` with the full 
 ```json
 {
   "type": "local_cli",
-  "command": ["my-agent", "run", "{prompt}"],
+  "command": ["my-agent run {prompt}"],
   "cwd": ".",
   "prompt_transport": "argv"
 }
@@ -268,13 +276,13 @@ The agent script receives no prompt on stdin or argv — it reads `PROMPT.md` an
 **Tool that reads prompt from stdin (like the Claude default):**
 
 ```bash
-agentxchain init --governed --dev-command codex --quiet --dev-prompt-transport stdin -y
+agentxchain init --governed --dev-command "codex --quiet" --dev-prompt-transport stdin -y
 ```
 
 ```json
 {
   "type": "local_cli",
-  "command": ["codex", "--quiet"],
+  "command": ["codex --quiet"],
   "cwd": ".",
   "prompt_transport": "stdin"
 }

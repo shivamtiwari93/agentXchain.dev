@@ -341,6 +341,64 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('dispatch bundle truth', () => {
+    it('docs list MANIFEST.json in the dispatch bundle table', () => {
+      assert.match(adapterDocs, /\| `MANIFEST\.json` \|/,
+        'dispatch bundle table must include MANIFEST.json');
+    });
+
+    it('ASSIGNMENT.json example uses runtime_id, not adapter/adapter_config', () => {
+      assert.match(adapterDocs, /"runtime_id":\s*"local-dev"/,
+        'ASSIGNMENT.json example must use runtime_id field');
+      assert.doesNotMatch(adapterDocs, /"adapter":\s*"local_cli"/,
+        'ASSIGNMENT.json example must not use fabricated adapter field');
+      assert.doesNotMatch(adapterDocs, /"adapter_config"/,
+        'ASSIGNMENT.json example must not use fabricated adapter_config field');
+      assert.doesNotMatch(adapterDocs, /"context_ref"/,
+        'ASSIGNMENT.json example must not use fabricated context_ref field');
+      assert.doesNotMatch(adapterDocs, /"prompt_ref"/,
+        'ASSIGNMENT.json example must not use fabricated prompt_ref field');
+    });
+
+    it('ASSIGNMENT.json example includes real fields', () => {
+      assert.match(adapterDocs, /"write_authority"/,
+        'ASSIGNMENT.json example must include write_authority');
+      assert.match(adapterDocs, /"staging_result_path"/,
+        'ASSIGNMENT.json example must include staging_result_path');
+      assert.match(adapterDocs, /"allowed_next_roles"/,
+        'ASSIGNMENT.json example must include allowed_next_roles');
+      assert.match(adapterDocs, /"budget_reservation_usd"/,
+        'ASSIGNMENT.json example must include budget_reservation_usd');
+    });
+  });
+
+  describe('config format truth', () => {
+    it('manual adapter config uses runtime/runtimes format, not adapter/adapter_config', () => {
+      // The manual config section should show role.runtime referencing runtimes.<id>
+      assert.match(adapterDocs, /"runtime":\s*"manual-pm"/,
+        'manual adapter config must use runtime reference format');
+      assert.match(adapterDocs, /"manual-pm":\s*\{[\s\S]*?"type":\s*"manual"/,
+        'manual adapter config must define the runtime in the runtimes section');
+    });
+
+    it('local_cli config uses runtime/runtimes format with command array', () => {
+      assert.match(adapterDocs, /"runtime":\s*"local-dev"/,
+        'local_cli config must use runtime reference format');
+      // command should be an array, not string + args
+      assert.match(adapterDocs, /"command":\s*\["claude",\s*"--print",\s*"--dangerously-skip-permissions"\]/,
+        'local_cli config must show command as an array, not string + separate args');
+    });
+
+    it('non-default init examples show command as single string in array', () => {
+      // argv example: single string with {prompt} placeholder
+      assert.match(adapterDocs, /"command":\s*\["my-agent run \{prompt\}"\]/,
+        'argv example must show command as a single string in an array');
+      // stdin custom example: single string
+      assert.match(adapterDocs, /"command":\s*\["codex --quiet"\]/,
+        'stdin custom example must show command as a single string in an array');
+    });
+  });
+
   describe('comparison table', () => {
     it('local_cli prompt transport lists correct modes', () => {
       // The comparison table row for local_cli should list the real transport modes
