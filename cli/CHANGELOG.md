@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.18.0 (unreleased)
+## 2.18.0
 
 The governed lifecycle now works correctly in git-backed workspaces with proper artifact observation, all four adapter types have live execution evidence (MCP at transport level), and the full governed completion path is proven end to end.
 

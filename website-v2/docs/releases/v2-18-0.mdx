@@ -1,0 +1,82 @@
+---
+title: "v2.18.0 Release Notes"
+description: "Live governed completion is now proven, all four adapter types have live execution evidence, and artifact-observation semantics are truthful when git diffing is unavailable."
+---
+
+# AgentXchain v2.18.0
+
+`2.18.0` is a live-proof release. The product already claimed governed multi-adapter execution, review-context evidence, and release-facing truth, but three credibility gaps were still open:
+
+- full governed completion had not been proven live end to end
+- MCP had runtime tests but no retained live governed-turn evidence
+- non-git workspaces could be misreported as “observed zero changes,” which manufactured phantom artifact failures instead of admitting observation was unavailable
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.18.0
+```
+
+## What changed since 2.17.0
+
+### Full governed completion is now proven live
+
+The retained dogfood run `run_91f4ba5d54707a7e` now proves the terminal path all the way through:
+
+- final-phase QA turn accepted with explicit completion intent
+- run paused at `pending_run_completion`
+- human `approve-completion` finalized the run at `2026-04-07T11:14:16.734Z`
+
+That matters because governed completion was previously discussed as a contract and partially exercised in tests, but not yet proven against a real retained workspace with a real human-gated close.
+
+### All four adapter types now have live CLI execution evidence
+
+`manual`, `local_cli`, and `api_proxy` were already proven in live governed runs. `2.18.0` adds the missing MCP boundary through real `agentxchain step` dispatch:
+
+- stdio MCP dogfood: `turn_e41e35ba8eea9768`
+- streamable HTTP MCP dogfood: `turn_5292f4de9e01ea71`
+
+This is transport-level proof, not model-level proof. The MCP servers used for dogfooding were real MCP servers, but they were echo agents rather than live AI-model backends. The release surfaces now say that explicitly instead of smuggling in a stronger claim.
+
+### PM signoff DX is explicit without weakening governance
+
+Governed scaffolds still begin at `Approved: NO`. That is correct. What changed is the operator path:
+
+- scaffolded `PM_SIGNOFF.md` now explains that the blocked default is intentional
+- quickstart, README, example docs, and `start --remaining` now state the exact action required to clear the planning gate
+
+The product no longer relies on tests silently overwriting signoff state while the public walkthrough omits the required human approval step.
+
+### Artifact-observation semantics are truthful when git observation is unavailable
+
+Non-git workspaces now degrade gracefully:
+
+- `observeChanges()` explicitly reports `observation_available: false`
+- diff-based declared-vs-observed enforcement is skipped with a warning instead of manufacturing phantom mismatches from an empty diff
+
+Git-backed governed runs remain strict. This change only closes the false-negative path where observation was unavailable but represented as successful zero-change evidence.
+
+## Why this release matters
+
+`2.17.0` tightened the protocol-proof surface. `2.18.0` tightens the execution-proof surface:
+
+- governed completion is now proven live, not just specified
+- every shipped adapter type has live CLI evidence
+- operator-facing docs name the real planning gate semantics
+- artifact observation now distinguishes “no changes” from “cannot observe”
+
+That is the right sequence for AgentXchain. A governed delivery system that cannot prove its own execution boundary is just elaborate copy.
+
+## Where to go next
+
+- See [Quickstart](/docs/quickstart) for the governed scaffold path and PM signoff step.
+- See [Adapters](/docs/adapters) for the current runtime boundary and the MCP transport-level qualifier.
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) for the current conformance contract.
+
+## Evidence
+
+- 2290 node tests / 495 suites, 0 failures.
+- 758 Vitest tests / 36 files, 0 failures.
+- Conformance: 81 / 81 fixtures passing across all tiers.
+- Live completion: `run_91f4ba5d54707a7e` completed at `2026-04-07T11:14:16.734Z`.
+- Live MCP dogfood: `turn_e41e35ba8eea9768` (stdio), `turn_5292f4de9e01ea71` (streamable_http).
