@@ -382,6 +382,68 @@ function renderContext(state, config, root) {
         }
       }
       lines.push('');
+
+      // Files changed by the previous turn
+      const filesChanged = lastTurn.files_changed;
+      if (Array.isArray(filesChanged) && filesChanged.length > 0) {
+        lines.push('### Files Changed');
+        lines.push('');
+        for (const f of filesChanged) {
+          lines.push(`- \`${f}\``);
+        }
+        lines.push('');
+      }
+
+      // Verification evidence from the previous turn
+      // Use raw verification (has commands, machine_evidence, evidence_summary)
+      // and supplement with normalized_verification status when available
+      const v = lastTurn.verification;
+      if (v && typeof v === 'object' && Object.keys(v).length > 0) {
+        lines.push('### Verification');
+        lines.push('');
+        if (v.status) {
+          lines.push(`- **Status:** ${v.status}`);
+        }
+        const nv = lastTurn.normalized_verification;
+        if (nv?.status && nv.status !== v.status) {
+          lines.push(`- **Normalized status:** ${nv.status} — ${nv.reason || ''}`);
+        }
+        if (Array.isArray(v.commands) && v.commands.length > 0) {
+          lines.push('- **Commands:**');
+          for (const cmd of v.commands) {
+            lines.push(`  - \`${cmd}\``);
+          }
+        }
+        if (v.evidence_summary) {
+          lines.push(`- **Evidence summary:** ${v.evidence_summary}`);
+        }
+        if (Array.isArray(v.machine_evidence) && v.machine_evidence.length > 0) {
+          lines.push('- **Machine evidence:**');
+          lines.push('');
+          lines.push('  | Command | Exit Code |');
+          lines.push('  |---------|-----------|');
+          for (const me of v.machine_evidence) {
+            lines.push(`  | \`${me.command || '(unknown)'}\` | ${me.exit_code ?? '?'} |`);
+          }
+        }
+        lines.push('');
+      }
+
+      // Observed artifact from the previous turn
+      const obs = lastTurn.observed_artifact;
+      if (obs && typeof obs === 'object') {
+        const obsFiles = obs.files_changed;
+        if (Array.isArray(obsFiles) && obsFiles.length > 0) {
+          lines.push('### Observed Artifact');
+          lines.push('');
+          lines.push(`- **Files observed:** ${obsFiles.length}`);
+          if (typeof obs.lines_added === 'number' || typeof obs.lines_removed === 'number') {
+            lines.push(`- **Lines added:** ${obs.lines_added ?? 0}`);
+            lines.push(`- **Lines removed:** ${obs.lines_removed ?? 0}`);
+          }
+          lines.push('');
+        }
+      }
     }
   }
 

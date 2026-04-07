@@ -668,3 +668,186 @@ describe('dispatch bundle: turn result template', () => {
     assert.match(prompt, /mutually exclusive/);
   });
 });
+
+describe('dispatch bundle: QA evidence visibility', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  function acceptPmTurnAndTransition() {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const pmState = readJson(root, STATE_PATH);
+    const pmResult = {
+      schema_version: '1.0',
+      run_id: pmState.run_id,
+      turn_id: pmState.current_turn.turn_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Approved scope.',
+      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Build it.', rationale: 'User value.' }],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'Review complete.' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
+    const pmAccept = acceptGovernedTurn(root, config);
+    assert.ok(pmAccept.ok, `PM accept failed: ${pmAccept.error}`);
+
+    // Transition to implementation
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+  }
+
+  function acceptDevTurn(overrides = {}) {
+    assignGovernedTurn(root, config, 'dev');
+    const devState = readJson(root, STATE_PATH);
+    const devResult = {
+      schema_version: '1.0',
+      run_id: devState.run_id,
+      turn_id: devState.current_turn.turn_id,
+      role: 'dev',
+      runtime_id: 'local-dev',
+      status: 'completed',
+      summary: 'Implemented todo API with tests.',
+      decisions: [{ id: 'DEC-002', category: 'implementation', statement: 'Used Express.', rationale: 'Simple.' }],
+      objections: [],
+      files_changed: ['src/api.js', 'src/api.test.js', 'package.json'],
+      artifacts_created: [],
+      verification: {
+        status: 'pass',
+        commands: ['npm test', 'npm run build'],
+        evidence_summary: 'All 27 tests pass. Build output clean.',
+        machine_evidence: [
+          { command: 'npm test', exit_code: 0 },
+          { command: 'npm run build', exit_code: 0 },
+        ],
+      },
+      artifact: { type: 'workspace', ref: 'abc123' },
+      proposed_next_role: 'qa',
+      phase_transition_request: null,
+      cost: { input_tokens: 5000, output_tokens: 3000, usd: 0.02 },
+      ...overrides,
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(devResult));
+    const devAccept = acceptGovernedTurn(root, config);
+    assert.ok(devAccept.ok, `Dev accept failed: ${devAccept.error}`);
+  }
+
+  it('AT-QEV-001: CONTEXT.md includes verification evidence for QA turn', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    // Assign QA turn
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    // Verification section must exist with status, commands, evidence, and machine evidence
+    assert.match(context, /### Verification/);
+    assert.match(context, /Status:.*pass/);
+    assert.match(context, /`npm test`/);
+    assert.match(context, /`npm run build`/);
+    assert.match(context, /All 27 tests pass/);
+    assert.match(context, /Machine evidence/);
+    assert.match(context, /\| `npm test` \| 0 \|/);
+    assert.match(context, /\| `npm run build` \| 0 \|/);
+  });
+
+  it('AT-QEV-002: CONTEXT.md includes files changed list for QA turn', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Files Changed/);
+    assert.match(context, /`src\/api\.js`/);
+    assert.match(context, /`src\/api\.test\.js`/);
+    assert.match(context, /`package\.json`/);
+  });
+
+  it('AT-QEV-003: verification section shows only status when no commands or evidence', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn({ verification: { status: 'skipped' } });
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Verification/);
+    assert.match(context, /Status:.*skipped/);
+    assert.ok(!context.includes('Machine evidence'));
+    assert.ok(!context.includes('Commands:'));
+  });
+
+  it('AT-QEV-004: no files changed section when files_changed is empty', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn({ files_changed: [] });
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.ok(!context.includes('### Files Changed'));
+  });
+
+  it('AT-QEV-005: existing context sections unchanged after evidence addition', () => {
+    acceptPmTurnAndTransition();
+    acceptDevTurn();
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    // Existing sections must still be present
+    assert.match(context, /## Current State/);
+    assert.match(context, /## Last Accepted Turn/);
+    assert.match(context, /Implemented todo API with tests/);
+    assert.match(context, /DEC-002/);
+  });
+});
