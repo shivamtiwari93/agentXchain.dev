@@ -40,7 +40,8 @@ export async function startCommand(opts) {
         console.log(chalk.dim(`   - ${e}`));
       }
       console.log('');
-      console.log(chalk.dim('  Suggested next step: complete .planning/PM_SIGNOFF.md and roadmap waves/phases, then run:'));
+      console.log(chalk.dim('  Suggested next step: complete .planning/PM_SIGNOFF.md and roadmap waves/phases.'));
+      console.log(chalk.dim('  Fresh governed scaffolds start at `Approved: NO`; flip that line to `Approved: YES` only after human kickoff approval, then run:'));
       console.log(chalk.bold('    agentxchain validate --mode kickoff'));
       console.log('');
       process.exit(1);

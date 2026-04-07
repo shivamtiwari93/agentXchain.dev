@@ -249,7 +249,7 @@ The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_
 
 ### 2. Create PM artifacts and stage the turn result
 
-Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then fill the staged turn result. Copy the exact template from the dispatch bundle instead of inventing fields. The minimum truthful shape still looks like this:
+Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then fill the staged turn result. A fresh scaffold starts with `PM_SIGNOFF.md` set to `Approved: NO`; change that line to `Approved: YES` only after a human reviews the planning artifacts and is ready to open the planning gate. Copy the exact template from the dispatch bundle instead of inventing fields. The minimum truthful shape still looks like this:
 
 ```json
 {
@@ -308,6 +308,7 @@ agentxchain approve-transition
 ```
 
 The phase advances from `planning` to `implementation`.
+If `PM_SIGNOFF.md` still says `Approved: NO`, `approve-transition` must fail closed.
 
 ### 4. Continue with dev and QA
 

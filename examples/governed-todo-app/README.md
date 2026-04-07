@@ -32,13 +32,15 @@ agentxchain step
 
 # 4. Complete the PM turn manually:
 #    - Edit .planning/ROADMAP.md with scope and acceptance criteria
-#    - Edit .planning/PM_SIGNOFF.md with sign-off
+#    - Change .planning/PM_SIGNOFF.md from "Approved: NO" to "Approved: YES"
+#      only after the human agrees planning is complete
 #    - Use the turn ID/path printed by `step`
 #    - Fill in .agentxchain/staging/<turn_id>/turn-result.json
 #    - Optional preflight: agentxchain validate --mode turn
 #    - Run: agentxchain accept-turn
 
 # 5. Approve phase transition to implementation
+#    (the planning gate will stay blocked if PM_SIGNOFF.md still says Approved: NO)
 agentxchain approve-transition
 
 # 6. Commit the accepted planning artifacts before the authoritative dev turn

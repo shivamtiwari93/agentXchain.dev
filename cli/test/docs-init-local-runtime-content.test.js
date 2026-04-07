@@ -12,8 +12,10 @@ describe('governed init local runtime docs contract', () => {
   const rootReadme = read('README.md');
   const cliReadme = read('cli/README.md');
   const cliEntry = read('cli/bin/agentxchain.js');
+  const startCommand = read('cli/src/commands/start.js');
   const governedExampleReadme = read('examples/governed-todo-app/README.md');
   const governedExampleConfig = JSON.parse(read('examples/governed-todo-app/agentxchain.json'));
+  const governedExamplePmSignoff = read('examples/governed-todo-app/.planning/PM_SIGNOFF.md');
 
   it('CLI registers the governed init local runtime flags', () => {
     assert.match(cliEntry, /--dir <path>/, 'CLI must register --dir');
@@ -96,6 +98,39 @@ describe('governed init local runtime docs contract', () => {
       governedExampleReadme,
       /cannot directly edit \.planning\/acceptance-matrix\.md|switch the QA runtime to `manual`/i,
       'governed example README must explain how to handle QA gate files truthfully',
+    );
+  });
+
+  it('front-door docs and scaffold explain the PM signoff gate semantics explicitly', () => {
+    assert.match(
+      governedExampleReadme,
+      /Approved: NO" to "Approved: YES"|Approved: NO -> Approved: YES/i,
+      'governed example README must tell operators to flip the PM signoff marker explicitly',
+    );
+    assert.match(
+      governedExamplePmSignoff,
+      /starts blocked on purpose/i,
+      'governed example PM signoff must explain that the blocked default is intentional',
+    );
+    assert.match(
+      governedExamplePmSignoff,
+      /Approved: YES/,
+      'governed example PM signoff must name the exact marker operators need',
+    );
+    assert.match(
+      quickstartDocs,
+      /A fresh scaffold starts with `PM_SIGNOFF\.md` set to `Approved: NO`/i,
+      'quickstart must state that fresh scaffolds begin blocked at Approved: NO',
+    );
+    assert.match(
+      rootReadme,
+      /Approved: NO -> Approved: YES/,
+      'root README lifecycle snippet must tell operators to flip the PM signoff marker explicitly',
+    );
+    assert.match(
+      startCommand,
+      /Fresh governed scaffolds start at `Approved: NO`.*`Approved: YES`/s,
+      'start command guidance must explain the blocked default and the required signoff flip',
     );
   });
 

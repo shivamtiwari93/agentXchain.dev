@@ -161,6 +161,15 @@ describe('scaffoldGoverned', () => {
     assert.ok(existsSync(join(dir, 'TALK.md')));
   });
 
+  it('scaffolds PM signoff as intentionally blocked until human approval', () => {
+    scaffoldGoverned(dir, 'Test Project', 'test-project');
+    const signoff = readFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), 'utf8');
+    assert.match(signoff, /Approved: NO/);
+    assert.match(signoff, /starts blocked on purpose/i);
+    assert.match(signoff, /Approved: YES/);
+    assert.match(signoff, /only after a human reviews the planning artifacts/i);
+  });
+
   it('creates v4 governed config', () => {
     scaffoldGoverned(dir, 'Test Project', 'test-project');
     const config = readJson(dir, 'agentxchain.json');

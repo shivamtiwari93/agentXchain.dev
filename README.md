@@ -242,6 +242,8 @@ agentxchain init --governed --dir my-agentxchain-project -y
 
 # planning
 agentxchain step --role pm
+# edit .planning/PM_SIGNOFF.md and change Approved: NO -> Approved: YES
+# only after human kickoff approval
 agentxchain accept-turn
 agentxchain approve-transition
 git add -A && git commit -m "orchestrator: accept pm turn"
