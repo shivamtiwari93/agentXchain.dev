@@ -646,6 +646,31 @@ describe('acceptGovernedTurn', () => {
     assert.ok(!history[0].artifacts_created.includes(reviewPath));
   });
 
+  it('allows an authoritative follow-up turn without committing a derived review artifact first', () => {
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+
+    const qaAssign = assignGovernedTurn(dir, config, 'qa');
+    const qaState = qaAssign.state;
+    const qaResult = makeTurnResult(qaState);
+    qaResult.summary = 'QA review completed through api_proxy.';
+    qaResult.proposed_next_role = 'human';
+    writeFileSync(join(dir, STAGING_PATH), JSON.stringify(qaResult, null, 2));
+
+    const accepted = acceptGovernedTurn(dir, config);
+    assert.ok(accepted.ok, `Accept failed: ${accepted.error}`);
+
+    const reviewPath = `.agentxchain/reviews/${qaState.current_turn.turn_id}-qa-review.md`;
+    assert.ok(existsSync(join(dir, reviewPath)), 'derived review artifact must exist');
+
+    const nextAssign = assignGovernedTurn(dir, config, 'dev');
+    assert.ok(nextAssign.ok, `assignGovernedTurn should ignore derived review evidence dirt: ${nextAssign.error}`);
+    assert.equal(nextAssign.state.current_turn.assigned_role, 'dev');
+  });
+
   it('rejects api_proxy review turns that still claim phantom planning files', () => {
     execSync('git init', { cwd: dir, stdio: 'ignore' });
     execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });

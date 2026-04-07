@@ -42,6 +42,14 @@ const ORCHESTRATOR_STATE_FILES = [
   'TALK.md',
 ];
 
+// Evidence paths may legitimately remain dirty across turns without blocking the
+// next code-writing assignment. They still remain actor-observable so review
+// accountability is preserved during acceptance.
+const BASELINE_EXEMPT_PATH_PREFIXES = [
+  '.agentxchain/reviews/',
+  '.agentxchain/reports/',
+];
+
 /**
  * Check whether a file path belongs to orchestrator-owned operational state.
  * These paths are excluded from actor-attributed observation.
@@ -51,6 +59,11 @@ export function isOperationalPath(filePath) {
     || ORCHESTRATOR_STATE_FILES.includes(filePath);
 }
 
+function isBaselineExemptPath(filePath) {
+  return isOperationalPath(filePath)
+    || BASELINE_EXEMPT_PATH_PREFIXES.some(prefix => filePath.startsWith(prefix));
+}
+
 // ── Baseline Capture ────────────────────────────────────────────────────────
 
 /**
@@ -58,6 +71,10 @@ export function isOperationalPath(filePath) {
  * This gives acceptance a stable "before" view.
  *
  * @param {string} root — project root directory
+ * clean is actor-facing baseline cleanliness, not literal `git status` emptiness.
+ * dirty_snapshot may still contain baseline-exempt evidence paths so later
+ * observation can filter unchanged pre-existing dirt.
+ *
  * @returns {{ kind: string, head_ref: string|null, clean: boolean, captured_at: string }}
  */
 export function captureBaseline(root) {
@@ -74,14 +91,15 @@ export function captureBaseline(root) {
   }
 
   const headRef = getHeadRef(root);
-  const clean = isWorkingTreeClean(root);
+  const dirtyFiles = getWorkingTreeChanges(root);
+  const clean = dirtyFiles.filter((filePath) => !isBaselineExemptPath(filePath)).length === 0;
 
   return {
     kind: 'git_worktree',
     head_ref: headRef,
     clean,
     captured_at: now,
-    dirty_snapshot: clean ? {} : captureDirtyWorkspaceSnapshot(root),
+    dirty_snapshot: dirtyFiles.length === 0 ? {} : captureDirtyWorkspaceSnapshot(root),
   };
 }
 
@@ -118,7 +136,6 @@ export function observeChanges(root, baseline) {
   if (baseline?.head_ref && baseline.head_ref === currentHead) {
     // Same commit — changes are in working tree / staging area
     changedFiles = getWorkingTreeChanges(root);
-    changedFiles = filterBaselineDirtyFiles(root, changedFiles, baseline);
     diffSummary = buildObservedDiffSummary(getWorkingTreeDiffSummary(root), untrackedFiles);
   } else if (baseline?.head_ref) {
     // New commits exist — get files changed since baseline ref
@@ -134,6 +151,8 @@ export function observeChanges(root, baseline) {
     changedFiles = getWorkingTreeChanges(root);
     diffSummary = buildObservedDiffSummary(getWorkingTreeDiffSummary(root), untrackedFiles);
   }
+
+  changedFiles = filterBaselineDirtyFiles(root, changedFiles, baseline);
 
   // Filter out orchestrator-owned operational paths (Session #19 freeze)
   const actorFiles = changedFiles.filter(f => !isOperationalPath(f));
@@ -426,10 +445,10 @@ export function checkCleanBaseline(root, writeAuthority) {
     return { clean: true };
   }
 
-  // Check if all dirty files are orchestrator-owned operational paths.
-  // If only operational paths are dirty, the baseline is still clean for actor purposes.
+  // Check if all dirty files are baseline-exempt evidence or orchestrator-owned state.
+  // If only those paths are dirty, the baseline is still clean for actor purposes.
   const dirtyFiles = getWorkingTreeChanges(root);
-  const actorDirtyFiles = dirtyFiles.filter(f => !isOperationalPath(f));
+  const actorDirtyFiles = dirtyFiles.filter(f => !isBaselineExemptPath(f));
 
   if (actorDirtyFiles.length === 0) return { clean: true };
 

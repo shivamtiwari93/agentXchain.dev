@@ -404,6 +404,7 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('src/index.ts'), false);
     assert.equal(isOperationalPath('.planning/ROADMAP.md'), false);
     assert.equal(isOperationalPath('.agentxchain/reviews/turn-0004.md'), false);
+    assert.equal(isOperationalPath('.agentxchain/reports/report-run_123.md'), false);
     assert.equal(isOperationalPath('.agentxchain/prompts/dev.md'), false);
   });
 });
@@ -479,6 +480,22 @@ describe('checkCleanBaseline — operational path exclusion', () => {
     assert.equal(result.clean, true, 'should be clean when only TALK.md is dirty — it is orchestrator-owned');
   });
 
+  it('authoritative: clean when only review evidence is dirty', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reviews', 'turn_1234-qa-review.md'), '# Review\n');
+
+    const result = checkCleanBaseline(dir, 'authoritative');
+    assert.equal(result.clean, true, 'review evidence should not block the next code-writing turn');
+  });
+
+  it('authoritative: clean when only governance reports are dirty', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reports'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'report-run_1234.md'), '# Report\n');
+
+    const result = checkCleanBaseline(dir, 'authoritative');
+    assert.equal(result.clean, true, 'governance report artifacts should not block the next code-writing turn');
+  });
+
   it('authoritative: not clean when actor files are dirty alongside operational files', () => {
     mkdirSync(join(dir, '.agentxchain/dispatch/current'), { recursive: true });
     writeFileSync(join(dir, '.agentxchain/dispatch/current/PROMPT.md'), '# prompt');
@@ -521,6 +538,24 @@ describe('captureBaseline — dirty workspace snapshot', () => {
     const baseline = captureBaseline(dir);
     assert.ok(!('TALK.md' in (baseline.dirty_snapshot || {})),
       'TALK.md should not appear in dirty_snapshot — it is orchestrator-owned');
+  });
+
+  it('marks review evidence as baseline-clean while still tracking it in dirty snapshot', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reviews', 'turn_1234-qa-review.md'), '# Review\n');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true, 'review evidence should not make the baseline fail clean-checks');
+    assert.ok('.agentxchain/reviews/turn_1234-qa-review.md' in (baseline.dirty_snapshot || {}),
+      'review evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
+  });
+
+  it('marks report evidence as baseline-clean while still tracking it in dirty snapshot', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reports'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reports', 'report-run_1234.md'), '# Report\n');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true, 'report evidence should not make the baseline fail clean-checks');
+    assert.ok('.agentxchain/reports/report-run_1234.md' in (baseline.dirty_snapshot || {}),
+      'report evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
   });
 
   it('records empty dirty snapshot for clean workspace', () => {
@@ -572,6 +607,33 @@ describe('observeChanges — dirty-snapshot baseline filtering', () => {
       'new file should be observed');
     assert.ok(!obs.files_changed.includes('pre-existing.txt'),
       'unchanged pre-existing dirty file should be filtered');
+  });
+
+  it('filters unchanged dirty review evidence from same-HEAD observation', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reviews', 'turn_1234-qa-review.md'), '# Review\n');
+    const baseline = captureBaseline(dir);
+
+    writeFileSync(join(dir, 'feature.js'), 'console.log("feature");\n');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('feature.js'));
+    assert.ok(!obs.files_changed.includes('.agentxchain/reviews/turn_1234-qa-review.md'),
+      'unchanged baseline-dirty review evidence must not leak into the next observed diff');
+  });
+
+  it('filters unchanged dirty review evidence when HEAD changes after baseline', () => {
+    mkdirSync(join(dir, '.agentxchain', 'reviews'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'reviews', 'turn_1234-qa-review.md'), '# Review\n');
+    const baseline = captureBaseline(dir);
+
+    writeFileSync(join(dir, 'committed.js'), 'export const committed = true;\n');
+    execSync('git add committed.js', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "add committed change"', { cwd: dir, stdio: 'ignore' });
+
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('committed.js'));
+    assert.ok(!obs.files_changed.includes('.agentxchain/reviews/turn_1234-qa-review.md'),
+      'unchanged baseline-dirty review evidence must stay filtered even when HEAD changed');
   });
 
   it('handles deleted file markers correctly under dirty-snapshot filtering', () => {
