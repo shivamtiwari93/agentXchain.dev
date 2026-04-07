@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
-import { validateStagedTurnResult, STAGING_PATH } from '../src/lib/turn-result-validator.js';
+import { validateStagedTurnResult, normalizeTurnResult, STAGING_PATH } from '../src/lib/turn-result-validator.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -544,6 +544,165 @@ describe('turn-result-validator', () => {
       assert.equal(res.stage, 'schema');
       // Should not see assignment errors
       assert.ok(!res.errors.some(e => e.includes('mismatch')));
+    });
+  });
+
+  // ─── Normalization ──────────────────────────────────────────────────────
+
+  describe('normalizeTurnResult', () => {
+    it('AT-NORM-001: coerces artifacts_created objects with path property to strings', () => {
+      const tr = makeValidTurnResult({
+        artifacts_created: [
+          { path: '.planning/acceptance-matrix.md', description: 'Acceptance matrix' },
+          { path: '.planning/ship-verdict.md', description: 'Ship verdict' },
+        ],
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.deepStrictEqual(normalized.artifacts_created, [
+        '.planning/acceptance-matrix.md',
+        '.planning/ship-verdict.md',
+      ]);
+      assert.equal(corrections.length, 2);
+      assert.ok(corrections[0].includes('coerced object to string'));
+    });
+
+    it('AT-NORM-002: preserves strings and coerces objects in mixed arrays', () => {
+      const tr = makeValidTurnResult({
+        artifacts_created: [
+          '.planning/foo.md',
+          { path: '.planning/bar.md', description: 'Bar' },
+        ],
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.deepStrictEqual(normalized.artifacts_created, [
+        '.planning/foo.md',
+        '.planning/bar.md',
+      ]);
+      assert.equal(corrections.length, 1);
+    });
+
+    it('AT-NORM-003: corrects terminal exit gate to run_completion_request', () => {
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        phase_transition_request: 'qa_ship_verdict',
+        run_completion_request: null,
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.phase_transition_request, null);
+      assert.equal(normalized.run_completion_request, true);
+      assert.equal(corrections.length, 1);
+      assert.ok(corrections[0].includes('run_completion_request'));
+    });
+
+    it('AT-NORM-004: corrects non-terminal exit gate to next phase name', () => {
+      const tr = makeValidTurnResult({
+        phase_transition_request: 'planning_signoff',
+        run_completion_request: null,
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.phase_transition_request, 'implementation');
+      assert.equal(normalized.run_completion_request, null);
+      assert.equal(corrections.length, 1);
+      assert.ok(corrections[0].includes('planning_signoff'));
+      assert.ok(corrections[0].includes('implementation'));
+    });
+
+    it('AT-NORM-005: returns unchanged result when already valid', () => {
+      const tr = makeValidTurnResult();
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.deepStrictEqual(normalized.artifacts_created, tr.artifacts_created);
+      assert.equal(normalized.phase_transition_request, null);
+      assert.equal(corrections.length, 0);
+    });
+
+    it('AT-NORM-006: does not normalize when both phase_transition and run_completion are set', () => {
+      const tr = makeValidTurnResult({
+        phase_transition_request: 'qa_ship_verdict',
+        run_completion_request: true,
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      // Should NOT touch either field — let mutual-exclusivity validator catch it
+      assert.equal(normalized.phase_transition_request, 'qa_ship_verdict');
+      assert.equal(normalized.run_completion_request, true);
+      assert.equal(corrections.length, 0);
+    });
+
+    it('coerces objects with name property when path is absent', () => {
+      const tr = makeValidTurnResult({
+        artifacts_created: [{ name: '.agentxchain/reviews/r1.md' }],
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.deepStrictEqual(normalized.artifacts_created, ['.agentxchain/reviews/r1.md']);
+      assert.equal(corrections.length, 1);
+    });
+
+    it('handles non-object turn result gracefully', () => {
+      const { normalized, corrections } = normalizeTurnResult(null, makeConfig());
+      assert.equal(normalized, null);
+      assert.equal(corrections.length, 0);
+    });
+
+    it('corrects implementation_complete gate to qa phase', () => {
+      const tr = makeValidTurnResult({
+        phase_transition_request: 'implementation_complete',
+        run_completion_request: null,
+      });
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.phase_transition_request, 'qa');
+      assert.equal(corrections.length, 1);
+    });
+  });
+
+  // ─── Normalization integration with validator pipeline ──────────────────
+
+  describe('normalization integration', () => {
+    beforeEach(setup);
+    afterEach(teardown);
+
+    it('artifacts_created objects pass validation after normalization', () => {
+      const tr = makeValidTurnResult({
+        artifacts_created: [
+          { path: '.planning/acceptance-matrix.md', description: 'Matrix' },
+        ],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
+      assert.ok(res.warnings.some((w) => w.includes('[normalized]')));
+    });
+
+    it('terminal gate name passes validation via normalization to run_completion_request', () => {
+      const qaState = makeState({
+        phase: 'qa',
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'qa',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'api-qa',
+        },
+      });
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        phase_transition_request: 'qa_ship_verdict',
+        run_completion_request: null,
+        artifact: { type: 'review', ref: null },
+        files_changed: [],
+        verification: {
+          status: 'skipped',
+          commands: [],
+          evidence_summary: 'Review turn.',
+          machine_evidence: [],
+        },
+        objections: [
+          { id: 'OBJ-001', severity: 'low', against_turn_id: 'turn-0003', statement: 'Observation.', status: 'raised' },
+        ],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, qaState, makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
+      assert.ok(res.warnings.some((w) => w.includes('run_completion_request')));
     });
   });
 });

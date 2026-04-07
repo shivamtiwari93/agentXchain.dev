@@ -69,6 +69,11 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     return result('schema', 'schema_error', [`Invalid JSON in ${stagingRel}: ${err.message}`]);
   }
 
+  // ── Pre-validation normalization ───────────────────────────────────────
+  const { normalized, corrections } = normalizeTurnResult(turnResult, config);
+  turnResult = normalized;
+  const normWarnings = corrections.map((c) => `[normalized] ${c}`);
+
   // ── Stage A: Schema Validation ─────────────────────────────────────────
   const schemaErrors = validateSchema(turnResult);
   if (schemaErrors.length > 0) {
@@ -101,6 +106,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
 
   // ── All stages passed ──────────────────────────────────────────────────
   const allWarnings = [
+    ...normWarnings,
     ...artifactResult.warnings,
     ...verificationResult.warnings,
     ...protocolResult.warnings,
@@ -478,6 +484,87 @@ function validateProtocol(tr, state, config) {
   }
 
   return { errors, warnings };
+}
+
+// ── Normalization ───────────────────────────────────────────────────────────
+
+/**
+ * Best-effort normalization of predictable model-output drift patterns.
+ * Returns a shallow-cloned turn result with corrections applied plus an
+ * array of human-readable correction strings for logging.
+ *
+ * This runs BEFORE schema validation. It does not bypass validation —
+ * it only fixes patterns that are unambiguously recoverable.
+ */
+export function normalizeTurnResult(tr, config) {
+  const corrections = [];
+  if (tr === null || typeof tr !== 'object' || Array.isArray(tr)) {
+    return { normalized: tr, corrections };
+  }
+
+  const normalized = { ...tr };
+
+  // ── Rule 1: artifacts_created object coercion ─────────────────────────
+  if (Array.isArray(normalized.artifacts_created)) {
+    const coerced = [];
+    for (let i = 0; i < normalized.artifacts_created.length; i++) {
+      const item = normalized.artifacts_created[i];
+      if (typeof item === 'string') {
+        coerced.push(item);
+      } else if (item !== null && typeof item === 'object') {
+        const str = typeof item.path === 'string' ? item.path
+          : typeof item.name === 'string' ? item.name
+          : JSON.stringify(item);
+        corrections.push(`artifacts_created[${i}]: coerced object to string "${str}"`);
+        coerced.push(str);
+      } else {
+        coerced.push(item); // let validator catch non-string/non-object
+      }
+    }
+    normalized.artifacts_created = coerced;
+  }
+
+  // ── Rule 2: exit-gate-as-phase auto-correction ────────────────────────
+  const routing = config?.routing;
+  const gates = config?.gates;
+  if (
+    typeof normalized.phase_transition_request === 'string' &&
+    routing && gates &&
+    !normalized.run_completion_request // don't touch if both are set — let mutual-exclusivity validator catch it
+  ) {
+    const requested = normalized.phase_transition_request;
+    const isValidPhase = requested in routing;
+    const isGateName = requested in gates;
+
+    if (!isValidPhase && isGateName) {
+      // Find which phase owns this gate
+      const phaseNames = Object.keys(routing);
+      const ownerPhaseIndex = phaseNames.findIndex(
+        (p) => routing[p].exit_gate === requested
+      );
+
+      if (ownerPhaseIndex >= 0) {
+        const nextPhaseIndex = ownerPhaseIndex + 1;
+        if (nextPhaseIndex < phaseNames.length) {
+          // Non-terminal phase: correct to the next phase name
+          const nextPhase = phaseNames[nextPhaseIndex];
+          corrections.push(
+            `phase_transition_request: corrected gate name "${requested}" to phase "${nextPhase}"`
+          );
+          normalized.phase_transition_request = nextPhase;
+        } else {
+          // Terminal phase: the agent meant run_completion_request
+          corrections.push(
+            `phase_transition_request: corrected terminal gate name "${requested}" to run_completion_request: true`
+          );
+          normalized.phase_transition_request = null;
+          normalized.run_completion_request = true;
+        }
+      }
+    }
+  }
+
+  return { normalized, corrections };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

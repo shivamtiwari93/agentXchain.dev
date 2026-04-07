@@ -332,9 +332,23 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   if (role.write_authority === 'review_only') {
     lines.push('- `objections`: **must be non-empty** (challenge requirement for review_only roles)');
   }
-  lines.push('- `phase_transition_request`: set to next phase name when gate requirements are met, or `null`');
+  // List valid phase names explicitly to prevent gate-name confusion
+  const phaseNames = config.routing ? Object.keys(config.routing) : [];
+  if (phaseNames.length > 0) {
+    lines.push(`- \`phase_transition_request\`: set to a **phase name** when gate requirements are met, or \`null\`. Valid phases: ${phaseNames.map((p) => `\`"${p}"\``).join(', ')}`);
+    lines.push('- **Do NOT use exit gate names** (e.g., `planning_signoff`, `implementation_complete`, `qa_ship_verdict`) as `phase_transition_request` values — those are gate identifiers, not phase names');
+  } else {
+    lines.push('- `phase_transition_request`: set to next phase name when gate requirements are met, or `null`');
+  }
   lines.push('- `run_completion_request`: set to `true` only in the final phase when ready to ship, or `null`');
   lines.push('- `phase_transition_request` and `run_completion_request` are **mutually exclusive**');
+  if (role.write_authority === 'review_only' && phaseNames.length > 0) {
+    const currentPhase = state?.phase;
+    const isTerminal = currentPhase && phaseNames.indexOf(currentPhase) === phaseNames.length - 1;
+    if (isTerminal) {
+      lines.push('- **To signal ship readiness**: set `run_completion_request: true` and `phase_transition_request: null`. Do NOT set `phase_transition_request` to the exit gate name');
+    }
+  }
   lines.push('');
 
   return {

@@ -1077,4 +1077,60 @@ describe('dispatch bundle: QA evidence visibility', () => {
     assert.ok(!context.includes('X'.repeat(10000)));
     assert.match(context, /X{100}.*…/);
   });
+
+  // ─── AT-NORM-007: Prompt phase-name guidance ──────────────────────────
+
+  it('AT-NORM-007: QA review_only prompt in terminal phase lists valid phase names and run_completion guidance', () => {
+    // Setup: standalone root with QA phase
+    const qaRoot = makeTmpDir();
+    const qaConfig = makeNormalizedConfig();
+    scaffoldGoverned(qaRoot, 'test-project');
+    initializeGovernedRun(qaRoot, qaConfig);
+    assignGovernedTurn(qaRoot, qaConfig, 'pm');
+
+    // Accept PM turn
+    const pmState = readJson(qaRoot, STATE_PATH);
+    const pmResult = {
+      schema_version: '1.0',
+      run_id: pmState.run_id,
+      turn_id: pmState.current_turn.turn_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Approved scope.',
+      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Build it.', rationale: 'User value.' }],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'No concerns.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+    };
+    mkdirSync(join(qaRoot, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(qaRoot, STAGING_PATH), JSON.stringify(pmResult));
+    acceptGovernedTurn(qaRoot, qaConfig);
+
+    // Force to QA phase and assign QA turn
+    const rawSt = JSON.parse(readFileSync(join(qaRoot, STATE_PATH), 'utf8'));
+    rawSt.phase = 'qa';
+    writeFileSync(join(qaRoot, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    assignGovernedTurn(qaRoot, qaConfig, 'qa');
+    const qaState = readJson(qaRoot, STATE_PATH);
+
+    writeDispatchBundle(qaRoot, qaState, qaConfig);
+
+    const promptPath = join(qaRoot, bundleDirFor(qaState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // Must list valid phase names
+    assert.match(prompt, /Valid phases:.*planning.*implementation.*qa/i);
+    // Must warn about gate names
+    assert.match(prompt, /Do NOT use exit gate names/i);
+    // Must include run_completion guidance for terminal phase
+    assert.match(prompt, /run_completion_request.*true/i);
+
+    rmSync(qaRoot, { recursive: true, force: true });
+  });
 });
