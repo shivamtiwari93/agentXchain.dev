@@ -371,7 +371,11 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     const currentPhase = state?.phase;
     const isTerminal = currentPhase && phaseNames.indexOf(currentPhase) === phaseNames.length - 1;
     if (isTerminal) {
-      lines.push('- **To signal ship readiness**: set `run_completion_request: true` and `phase_transition_request: null`. Do NOT set `phase_transition_request` to the exit gate name');
+      lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).**`);
+      lines.push('- **If your review verdict is ship-ready (no blocking issues):** set `run_completion_request: true` and `status: "completed"`. This triggers the human approval gate — it does NOT bypass human review.');
+      lines.push('- **If you found genuine blocking issues that prevent shipping:** set `status: "needs_human"` and explain the blockers in `needs_human_reason`.');
+      lines.push('- Do NOT use `status: "needs_human"` to mean "human should approve the release." That is what `run_completion_request: true` is for.');
+      lines.push('- Do NOT set `phase_transition_request` to the exit gate name.');
       if (runtimeType === 'api_proxy') {
         lines.push('- `run_completion_request: true` does **not** mean this runtime wrote `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md` for you.');
       }

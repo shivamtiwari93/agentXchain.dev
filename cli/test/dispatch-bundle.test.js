@@ -1306,6 +1306,29 @@ describe('dispatch bundle: phase-transition intent prompt', () => {
     assert.doesNotMatch(prompt, /\*\*You are in the `implementation` phase\.\*\*/);
   });
 
+  it('AT-TCS-001: review_only terminal prompt distinguishes ship-ready from blocked', () => {
+    const qaPhaseConfig = { ...config, routing: { ...config.routing } };
+    initializeGovernedRun(root, config);
+
+    // Advance to qa phase
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+
+    assignGovernedTurn(root, qaPhaseConfig, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, qaState, qaPhaseConfig);
+
+    const promptPath = join(root, bundleDirFor(qaState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // Must include ship-ready vs blocked distinction
+    assert.match(prompt, /ship-ready.*run_completion_request.*true/is);
+    assert.match(prompt, /blocking issues.*needs_human/is);
+    assert.match(prompt, /Do NOT use.*needs_human.*to mean.*human should approve/is);
+  });
+
   it('AT-PTI-004: no phase-specific instruction when routing config is absent', () => {
     const noRoutingConfig = { ...config, routing: undefined };
     initializeGovernedRun(root, noRoutingConfig);

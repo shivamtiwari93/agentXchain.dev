@@ -70,7 +70,21 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
   }
 
   // ── Pre-validation normalization ───────────────────────────────────────
-  const { normalized, corrections } = normalizeTurnResult(turnResult, config);
+  // Build context for role/phase-aware normalization rules
+  const normContext = {};
+  if (state) {
+    normContext.phase = state.phase;
+    // Support both active_turns (v2+) and legacy current_turn formats
+    const activeTurn = getActiveTurn(state) || state.current_turn;
+    if (activeTurn) {
+      const roleKey = activeTurn.assigned_role || activeTurn.role;
+      const roleConfig = config?.roles?.[roleKey];
+      if (roleConfig) {
+        normContext.writeAuthority = roleConfig.write_authority;
+      }
+    }
+  }
+  const { normalized, corrections } = normalizeTurnResult(turnResult, config, normContext);
   turnResult = normalized;
   const normWarnings = corrections.map((c) => `[normalized] ${c}`);
 
@@ -496,7 +510,7 @@ function validateProtocol(tr, state, config) {
  * This runs BEFORE schema validation. It does not bypass validation —
  * it only fixes patterns that are unambiguously recoverable.
  */
-export function normalizeTurnResult(tr, config) {
+export function normalizeTurnResult(tr, config, context = {}) {
   const corrections = [];
   if (tr === null || typeof tr !== 'object' || Array.isArray(tr)) {
     return { normalized: tr, corrections };
@@ -580,6 +594,33 @@ export function normalizeTurnResult(tr, config) {
           normalized.phase_transition_request = null;
           normalized.run_completion_request = true;
         }
+      }
+    }
+  }
+
+  // ── Rule 3: review_only terminal needs_human → run_completion_request ──
+  if (
+    context.writeAuthority === 'review_only' &&
+    context.phase &&
+    routing &&
+    normalized.status === 'needs_human' &&
+    normalized.run_completion_request !== false
+  ) {
+    const phaseNames = Object.keys(routing);
+    const isTerminal = phaseNames.indexOf(context.phase) === phaseNames.length - 1;
+    if (isTerminal && typeof normalized.needs_human_reason === 'string') {
+      const reason = normalized.needs_human_reason.toLowerCase();
+      const affirmativeSignals = /\b(approv|ship|release|sign.?off|no.?block|ready|pass|good|accept|green.?light)\b/i;
+      const blockerSignals = /\b(critical|security|fail|block|cannot|must.?fix|regression|vulnerab|reject|unsafe|broken)\b/i;
+      const isAffirmative = affirmativeSignals.test(reason);
+      const isBlocker = blockerSignals.test(reason);
+      if (isAffirmative && !isBlocker) {
+        corrections.push(
+          `status: corrected review_only terminal "needs_human" to run_completion_request — reason indicated ship readiness ("${normalized.needs_human_reason.slice(0, 80)}"), not a genuine blocker`
+        );
+        normalized.status = 'completed';
+        normalized.run_completion_request = true;
+        delete normalized.needs_human_reason;
       }
     }
   }

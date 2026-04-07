@@ -683,6 +683,85 @@ describe('turn-result-validator', () => {
       assert.ok(!('status' in normalized));
       assert.equal(corrections.length, 0);
     });
+
+    // ── Terminal completion signaling (Rule 3) ────────────────────────────
+
+    it('AT-TCS-002: normalizes review_only terminal needs_human with affirmative reason to run_completion_request', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'All checks pass. Human should approve the release for shipping.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'qa' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'completed');
+      assert.equal(normalized.run_completion_request, true);
+      assert.equal(normalized.needs_human_reason, undefined);
+      assert.equal(corrections.length, 1);
+      assert.ok(corrections[0].includes('run_completion_request'));
+    });
+
+    it('AT-TCS-003: does NOT normalize when reason contains blocker keywords', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Critical security vulnerability found in auth module. Cannot ship.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'qa' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'needs_human');
+      assert.equal(normalized.run_completion_request, null);
+      assert.equal(normalized.needs_human_reason, tr.needs_human_reason);
+      assert.equal(corrections.length, 0);
+    });
+
+    it('AT-TCS-004: does NOT normalize for non-review_only roles', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Human should approve release.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'authoritative', phase: 'qa' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'needs_human');
+      assert.equal(corrections.length, 0);
+    });
+
+    it('AT-TCS-005: does NOT normalize in non-terminal phases', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Ready to ship, human should approve.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'implementation' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'needs_human');
+      assert.equal(corrections.length, 0);
+    });
+
+    it('AT-TCS-006: does NOT normalize when run_completion_request is explicitly false', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Human should approve and ship.',
+        run_completion_request: false,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'qa' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'needs_human');
+      assert.equal(corrections.length, 0);
+    });
+
+    it('AT-TCS-007: does NOT normalize when reason is ambiguous (no affirmative signals)', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Requires manual verification of the deployment.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'qa' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'needs_human');
+      assert.equal(corrections.length, 0);
+    });
   });
 
   // ─── Normalization integration with validator pipeline ──────────────────
@@ -735,6 +814,43 @@ describe('turn-result-validator', () => {
       const res = validateStagedTurnResult(TMP_ROOT, qaState, makeConfig());
       assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
       assert.ok(res.warnings.some((w) => w.includes('run_completion_request')));
+    });
+
+    it('AT-TCS-008: terminal review_only needs_human passes full validator pipeline via normalization', () => {
+      const qaState = makeState({
+        phase: 'qa',
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'qa',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'api-qa',
+        },
+      });
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        status: 'needs_human',
+        needs_human_reason: 'No blockers found. Human should approve and ship the release.',
+        run_completion_request: null,
+        artifact: { type: 'review', ref: null },
+        files_changed: [],
+        verification: {
+          status: 'skipped',
+          commands: [],
+          evidence_summary: 'Review turn.',
+          machine_evidence: [],
+        },
+        objections: [
+          { id: 'OBJ-001', severity: 'low', against_turn_id: 'turn-0003', statement: 'Minor observation.', status: 'raised' },
+        ],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, qaState, makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors?.join(', ')}`);
+      assert.equal(res.turnResult.status, 'completed');
+      assert.equal(res.turnResult.run_completion_request, true);
+      assert.ok(res.warnings.some((w) => w.includes('review_only terminal')));
     });
 
     it('AT-STATUS-005: validator accepts missing status after normalization from phase_transition_request', () => {
