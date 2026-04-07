@@ -151,6 +151,28 @@ describe('Conformance count surfaces stay aligned', () => {
   });
 });
 
+describe('Gate semantics docs truth', () => {
+  const guide = read('website-v2/docs/protocol-implementor-guide.mdx');
+
+  const requiredSemantics = [
+    ['PM_SIGNOFF.md', 'Approved: YES'],
+    ['ship-verdict.md', 'Verdict'],
+    ['SYSTEM_SPEC.md', 'Acceptance Tests'],
+    ['IMPLEMENTATION_NOTES.md', 'scaffold placeholders'],
+    ['acceptance-matrix.md', 'requirement table'],
+    ['RELEASE_NOTES.md', 'scaffold placeholders'],
+  ];
+
+  for (const [file, keyword] of requiredSemantics) {
+    it(`implementor guide documents ${file} semantic check`, () => {
+      assert.match(guide, new RegExp(file.replace('.', '\\.')),
+        `protocol-implementor-guide.mdx must mention ${file} in the gate_semantics section`);
+      assert.match(guide, new RegExp(keyword),
+        `protocol-implementor-guide.mdx must describe the ${file} semantic check`);
+    });
+  }
+});
+
 describe('Website analytics contract', () => {
   const config = read('website-v2/docusaurus.config.ts');
   const spec = read('.planning/WEBSITE_ANALYTICS_SPEC.md');
