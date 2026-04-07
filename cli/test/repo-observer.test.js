@@ -396,6 +396,10 @@ describe('isOperationalPath', () => {
     assert.equal(isOperationalPath('.agentxchain/lock.json'), true);
   });
 
+  it('identifies TALK.md as operational (orchestrator-owned collaboration log)', () => {
+    assert.equal(isOperationalPath('TALK.md'), true);
+  });
+
   it('does not flag non-operational paths', () => {
     assert.equal(isOperationalPath('src/index.ts'), false);
     assert.equal(isOperationalPath('.planning/ROADMAP.md'), false);
@@ -468,6 +472,13 @@ describe('checkCleanBaseline — operational path exclusion', () => {
     assert.equal(result.clean, true, 'should be clean when only operational paths are dirty');
   });
 
+  it('authoritative: clean when only TALK.md is dirty', () => {
+    writeFileSync(join(dir, 'TALK.md'), '## Turn 1 — dev (planning)\n\n- **Status:** accepted\n');
+
+    const result = checkCleanBaseline(dir, 'authoritative');
+    assert.equal(result.clean, true, 'should be clean when only TALK.md is dirty — it is orchestrator-owned');
+  });
+
   it('authoritative: not clean when actor files are dirty alongside operational files', () => {
     mkdirSync(join(dir, '.agentxchain/dispatch/current'), { recursive: true });
     writeFileSync(join(dir, '.agentxchain/dispatch/current/PROMPT.md'), '# prompt');
@@ -503,6 +514,13 @@ describe('captureBaseline — dirty workspace snapshot', () => {
     assert.ok(!('.agentxchain/dispatch/current/PROMPT.md' in baseline.dirty_snapshot),
       'operational paths should not appear in dirty_snapshot');
     assert.ok('actor-file.txt' in baseline.dirty_snapshot);
+  });
+
+  it('does not include TALK.md in dirty snapshot', () => {
+    writeFileSync(join(dir, 'TALK.md'), '## Turn 1\n');
+    const baseline = captureBaseline(dir);
+    assert.ok(!('TALK.md' in (baseline.dirty_snapshot || {})),
+      'TALK.md should not appear in dirty_snapshot — it is orchestrator-owned');
   });
 
   it('records empty dirty snapshot for clean workspace', () => {
