@@ -40,7 +40,7 @@ describe('Templates docs surface', () => {
       'agentxchain template list --json',
       'agentxchain template validate',
       'agentxchain template validate --json',
-      'agentxchain template set <id>',
+      'agentxchain template set <id> [--yes] [--dry-run]',
       'agentxchain status',
       'agentxchain status --json',
     ]) {
@@ -72,6 +72,7 @@ describe('Templates docs surface', () => {
     assert.ok(TEMPLATE_SET_SOURCE.includes('files_created'));
     assert.ok(TEMPLATE_SET_SOURCE.includes('prompts_appended'));
     assert.ok(TEMPLATE_SET_SOURCE.includes('acceptance_hints_status'));
+    assert.ok(TEMPLATE_SET_SOURCE.includes('SYSTEM_SPEC_OVERLAY_SEPARATOR'));
     assert.ok(TEMPLATE_SET_SOURCE.includes("type: 'template_set'"));
 
     for (const term of [
@@ -80,6 +81,7 @@ describe('Templates docs surface', () => {
       'creates missing planning artifacts',
       'appends prompt guidance once',
       'appends acceptance hints once',
+      'appends template-specific guidance to `SYSTEM_SPEC.md`',
       'decision-ledger.jsonl',
       'additive, not destructive',
       'overwrite existing planning docs',
@@ -125,6 +127,8 @@ describe('Templates docs surface', () => {
   });
 
   it('does not fabricate template set flags or conflict semantics', () => {
+    assert.ok(TEMPLATES_DOC_SOURCE.includes('--dry-run'), 'templates docs must mention the shipped --dry-run flag');
+    assert.ok(TEMPLATES_DOC_SOURCE.includes('No changes written. Use without --dry-run to apply.'), 'templates docs must describe the dry-run no-write behavior');
     assert.ok(!TEMPLATES_DOC_SOURCE.includes('template set --force'), 'templates docs must not mention unshipped --force');
     assert.ok(!TEMPLATES_DOC_SOURCE.includes('conflict detection'), 'templates docs must not fabricate conflict detection');
 
@@ -181,6 +185,14 @@ describe('Templates docs surface', () => {
     assert.ok(
       TEMPLATES_DOC_SOURCE.includes('Template-Specific Guidance'),
       'templates docs must mention Template-Specific Guidance separator'
+    );
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('Project-Type-Specific Guidance'),
+      'templates docs must mention the prompt override separator'
+    );
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('Template Guidance'),
+      'templates docs must mention the acceptance-matrix guidance separator'
     );
   });
 

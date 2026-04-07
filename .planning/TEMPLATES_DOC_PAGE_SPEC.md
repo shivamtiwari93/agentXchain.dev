@@ -82,7 +82,7 @@ The page must document:
 - `agentxchain template list --json`
 - `agentxchain template validate`
 - `agentxchain template validate --json`
-- `agentxchain template set <id>`
+- `agentxchain template set <id> [--yes] [--dry-run]`
 - `agentxchain status`
 - `agentxchain status --json`
 
@@ -113,13 +113,17 @@ The page must describe the actual `template set` behavior:
 - creates missing planning artifacts only
 - appends prompt guidance once per role when no `## Project-Type-Specific Guidance` section exists
 - appends acceptance hints once when `acceptance-matrix.md` has no `## Template Guidance` section
+- appends template-specific guidance to `SYSTEM_SPEC.md` when no `## Template-Specific Guidance` section exists
 - records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
+- `--dry-run` prints the mutation plan without writing changes
 - switching from one non-`generic` template to another is additive, not destructive
 
 The page must describe what `template set` does not do:
 
 - overwrite existing planning docs
-- replace an existing template guidance section
+- replace an existing `## Project-Type-Specific Guidance` block in prompts
+- replace an existing `## Template Guidance` section in `acceptance-matrix.md`
+- replace an existing `## Template-Specific Guidance` section in `SYSTEM_SPEC.md`
 - delete old template files
 
 ### 5. Describe `template list --json` honestly
@@ -171,7 +175,7 @@ Quickstart and CLI docs must also link into `/docs/templates`.
 
 1. `website-v2/docs/templates.mdx` exists and is wired into `website-v2/sidebars.ts`.
 2. `website-v2/build/docs/templates/index.html` exists after `website-v2` build.
-3. The page documents `init --governed --template <id>`, `template list`, `template list --json`, and `template set <id>`.
+3. The page documents `init --governed --template <id>`, `template list`, `template list --json`, and `template set <id> [--yes] [--dry-run]`.
 4. The page documents `template validate` and `template validate --json`.
 5. The page documents `status` and `status --json` template visibility.
 6. The page lists `generic`, `api-service`, `cli-tool`, `library`, and `web-app`.

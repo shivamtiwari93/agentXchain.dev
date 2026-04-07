@@ -111,7 +111,7 @@ Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance h
 The mutation command surface is:
 
 ```bash
-agentxchain template set <id>
+agentxchain template set <id> [--yes] [--dry-run]
 ```
 
 If a repo was initialized as `generic`, annotate it later:
@@ -124,15 +124,25 @@ agentxchain template set api-service --yes
 
 - updates the top-level `template` field in `agentxchain.json`
 - creates missing planning artifacts from the target template
-- appends prompt guidance once per role when no template-guidance section exists
-- appends acceptance hints once when `acceptance-matrix.md` has no template-guidance section
+- appends prompt guidance once per role when no `## Project-Type-Specific Guidance` section exists
+- appends acceptance hints once when `acceptance-matrix.md` has no `## Template Guidance` section
 - appends template-specific guidance to `SYSTEM_SPEC.md` when no `## Template-Specific Guidance` section exists
 - records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
+
+Use `--dry-run` when you want the exact mutation plan before writing anything:
+
+```bash
+agentxchain template set cli-tool --dry-run
+```
+
+The CLI prints what would change and what would be skipped, for example `WILL CREATE`, `WILL APPEND override`, `ALREADY HAS guidance (skip)`, and `No changes written. Use without --dry-run to apply.`
 
 What it does **not** do:
 
 - overwrite existing planning docs
-- replace an existing `## Project-Type-Specific Guidance` block
+- replace an existing `## Project-Type-Specific Guidance` block in role prompts
+- replace an existing `## Template Guidance` block in `acceptance-matrix.md`
+- replace an existing `## Template-Specific Guidance` block in `SYSTEM_SPEC.md`
 - delete old template files when switching templates
 - infer a template from repo contents
 
