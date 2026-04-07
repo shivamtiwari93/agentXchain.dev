@@ -75,6 +75,14 @@ Hook blocks during assignment require `resume --role` to re-assign. Hook blocks 
 | Validation failure (retryable) | `agentxchain reject-turn` then `agentxchain step` |
 | Validation failure (non-retryable) | Manual fix, then `agentxchain accept-turn` |
 
+### Budget Exhaustion
+
+| State | Cause | Recovery |
+|---|---|---|
+| `budget_exhausted` | Cumulative turn costs exceeded `per_run_max_usd` | Increase `per_run_max_usd` in `.agentxchain/config.json`, then `agentxchain step --resume` |
+
+The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit.
+
 ### Other States
 
 | Condition | Recovery |
@@ -110,6 +118,7 @@ The `deriveRecoveryDescriptor()` function in `blocked-state.js` is the canonical
 - `hook_block`
 - `hook_tamper`
 - `conflict_loop`
+- `budget_exhausted`
 - `unknown_block`
 
 The `unknown_block` fallback ensures that even unrecognized `blocked_on` values produce a recovery action (manual inspection).

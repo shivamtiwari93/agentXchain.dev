@@ -1206,6 +1206,11 @@ export function assignGovernedTurn(root, config, roleId) {
     return { ok: false, error: `Cannot assign turn: ${activeCount} active turn(s) already at capacity (max_concurrent_turns = ${maxConcurrent})` };
   }
 
+  // DEC-BUDGET-ENFORCE-001: Pre-assignment budget exhaustion guard
+  if (state.budget_status?.remaining_usd != null && state.budget_status.remaining_usd <= 0) {
+    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase per_run_max_usd in .agentxchain/config.json, then run: agentxchain step --resume` };
+  }
+
   // DEC-PARALLEL-011: Budget reservation
   const warnings = [];
   const reservations = { ...(state.budget_reservations || {}) };
@@ -1807,6 +1812,44 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     });
   }
 
+  // DEC-BUDGET-ENFORCE-001: Post-acceptance budget exhaustion check
+  // Per-turn overrun warning (advisory only)
+  let budgetWarning = null;
+  const turnReservation = state.budget_reservations?.[currentTurn.turn_id];
+  if (turnReservation && costUsd > turnReservation.reserved_usd) {
+    budgetWarning = `Actual cost $${costUsd.toFixed(2)} exceeded reservation $${turnReservation.reserved_usd.toFixed(2)} for this turn`;
+  }
+  // Budget exhaustion enforcement
+  if (
+    updatedState.budget_status.remaining_usd != null &&
+    updatedState.budget_status.remaining_usd <= 0 &&
+    updatedState.status !== 'blocked' &&
+    updatedState.status !== 'completed'
+  ) {
+    const onExceed = config.budget?.on_exceed || 'pause_and_escalate';
+    if (onExceed === 'pause_and_escalate') {
+      const limit = (updatedState.budget_status.spent_usd + updatedState.budget_status.remaining_usd);
+      const overBy = Math.abs(updatedState.budget_status.remaining_usd);
+      updatedState.status = 'blocked';
+      updatedState.blocked_on = 'budget:exhausted';
+      updatedState.blocked_reason = buildBlockedReason({
+        category: 'budget_exhausted',
+        recovery: {
+          typed_reason: 'budget_exhausted',
+          owner: 'human',
+          recovery_action: 'Increase per_run_max_usd in .agentxchain/config.json, then run: agentxchain step --resume',
+          turn_retained: false,
+          detail: `Run budget exhausted: spent $${updatedState.budget_status.spent_usd.toFixed(2)} of $${limit.toFixed(2)} limit ($${overBy.toFixed(2)} over)`,
+        },
+        turnId: currentTurn.turn_id,
+        blockedAt: now,
+      });
+      updatedState.budget_status.exhausted = true;
+      updatedState.budget_status.exhausted_at = now;
+      updatedState.budget_status.exhausted_after_turn = currentTurn.turn_id;
+    }
+  }
+
   let gateResult = null;
   let completionResult = null;
   const hasRemainingTurns = Object.keys(remainingTurns).length > 0;
@@ -2030,6 +2073,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     gateResult,
     completionResult,
     hookResults,
+    ...(budgetWarning ? { budget_warning: budgetWarning } : {}),
   };
 }
 
