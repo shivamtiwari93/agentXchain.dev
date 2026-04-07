@@ -1,0 +1,84 @@
+---
+title: "v2.22.0 Release Notes"
+description: "Governance depth release: budget enforcement, budget recovery, escalation recovery E2E proof, and runtime-aware escalation guidance."
+---
+
+# AgentXchain v2.22.0
+
+`2.22.0` adds real cost guardrails and escalation recovery proof to the governed workflow.
+
+`2.21.0` closed front-door truth gaps. `2.22.0` closes governance depth gaps: what happens when a run exceeds its budget, and what happens when an operator escalates and needs to recover.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.22.0
+```
+
+## What changed since 2.21.0
+
+### Budget enforcement is now shipped
+
+Governed runs can now set `per_run_max_usd` in `agentxchain.json` and the runtime will enforce it:
+
+- **Post-acceptance exhaustion**: when a turn's actual cost pushes `remaining_usd` to zero or below and `on_exceed` is `pause_and_escalate`, the run transitions to `blocked` with `budget_exhausted` category. The exhausting turn is accepted — work is never discarded.
+- **Pre-assignment guard**: if the budget is already exhausted, new turn assignment is rejected before dispatch.
+- **Per-turn overrun warning**: when actual cost exceeds the reservation amount, the acceptance result includes a `budget_warning` (advisory only).
+
+This matters because `per_run_max_usd` and `on_exceed: 'pause_and_escalate'` existed in the scaffolded config since project inception, but nothing in the runtime ever read them. That was a shipped lie. Now it is enforced.
+
+### Budget recovery works through the real CLI
+
+When a run is blocked by `budget_exhausted`:
+
+1. Edit `agentxchain.json` to raise `per_run_max_usd`
+2. Run `agentxchain status` — budget is reconciled from the config and shows resume-ready guidance when headroom is sufficient
+3. Run `agentxchain resume` — assigns the next turn and dispatches
+
+The recovery path is proven through real CLI subprocess execution, not unit-level state manipulation.
+
+### Escalation recovery is proven end to end
+
+The `escalate → status → resume` cycle now has subprocess-level proof for both paths:
+
+- **Retained-turn escalation**: `escalate` blocks the run, `resume` re-dispatches the same retained turn with the same `turn_id`
+- **Run-level escalation**: `escalate` after clearing the turn, `resume` assigns a new turn with a new `turn_id`
+
+Both paths verify that the decision ledger contains `operator_escalated` and `escalation_resolved` entries.
+
+### Escalation guidance is now runtime-aware
+
+Recovery action strings now vary by runtime type:
+
+- Retained `manual` turn → `agentxchain resume` (non-blocking redispatch)
+- Retained non-manual turn → `agentxchain step --resume` (dispatches and waits)
+- Run-level escalation → `agentxchain resume`
+- Targeted multi-turn escalation → appends `--turn <id>`
+
+Stale recovery actions from pre-2.22.0 blocked states are reconciled at load time to the correct command.
+
+### OpenAI cost rates are shipped
+
+The `api_proxy` adapter now has built-in cost rates for 8 OpenAI models: `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o3-mini`, and `o4-mini`. Previously, every OpenAI governed turn reported `$0` cost with no indication that cost tracking was unsupported.
+
+## Why this release matters
+
+AgentXchain claims governed delivery over long horizons. That requires cost control and operator intervention surfaces that actually work, not just config scaffolds that look like they do something.
+
+`2.22.0` matters because:
+
+- budget enforcement closes a gap between the shipped config and the runtime behavior
+- budget recovery is proven through the real operator path, not just the blocked state
+- escalation recovery is proven through real subprocess execution for both retained and cleared turn paths
+- recovery guidance is runtime-aware instead of always pointing operators at commands that may hang
+
+## Where to go next
+
+- See [Recovery](/docs/recovery) for the operator recovery map including `budget_exhausted` and `operator_escalation`.
+- See [Adapters](/docs/adapters) for the full list of models with built-in cost tracking.
+- Start with the [Quickstart](/docs/quickstart) if this is your first governed run.
+
+## Evidence
+
+- 2394 node tests / 514 suites, 0 failures.
+- Docusaurus production build passes.

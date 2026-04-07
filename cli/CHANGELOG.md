@@ -1,5 +1,50 @@
 # Changelog
 
+## 2.22.0
+
+`2.22.0` is a governance depth release.
+
+`2.21.0` closed front-door truth gaps. `2.22.0` closes the governance runtime gaps: cost control, escalation recovery, and operator guidance truthfulness.
+
+### Budget enforcement
+
+- `per_run_max_usd` and `on_exceed: 'pause_and_escalate'` are now enforced at runtime. Previously scaffolded as dead config.
+- Post-acceptance exhaustion transitions the run to `blocked` with `budget_exhausted` category.
+- Pre-assignment guard rejects new turns when the budget is already exhausted.
+- Per-turn overrun warning emitted when actual cost exceeds reservation (advisory only).
+
+### Budget recovery
+
+- Operator raises `per_run_max_usd` in `agentxchain.json`, then `agentxchain resume` assigns the next turn.
+- Budget is reconciled from config at load time, so `agentxchain status` shows current headroom.
+- Proven through real CLI subprocess execution.
+
+### Escalation recovery E2E proof
+
+- Both escalation paths (retained-turn and run-level) are now proven through real CLI subprocess execution.
+- Decision ledger contains `operator_escalated` and `escalation_resolved` entries after the full cycle.
+
+### Runtime-aware escalation guidance
+
+- Recovery action strings now vary by runtime type: `agentxchain resume` for manual runtimes, `agentxchain step --resume` for non-manual.
+- Targeted multi-turn escalation appends `--turn <id>`.
+- Stale pre-2.22.0 recovery actions are reconciled at load time.
+
+### OpenAI cost rates
+
+- Added built-in cost rates for 8 OpenAI models: `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o3-mini`, `o4-mini`.
+- Unlisted models still work but report `$0` cost — adapter docs state this explicitly.
+
+### Multi-provider governed proof harness
+
+- Added `examples/live-governed-proof/run-multi-provider-proof.mjs` with mock-backed contract test.
+- Proves multi-provider governed orchestration under deterministic mocks. Live execution blocked only by `OPENAI_API_KEY`.
+
+### Evidence
+
+- 2394 node tests / 514 suites / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.21.0
 
 `2.21.0` is a truth-surface release.
