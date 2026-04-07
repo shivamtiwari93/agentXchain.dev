@@ -47,19 +47,19 @@ A governed run within a single repository is the foundation of the protocol. Eve
 The governed run is driven by a sequence of commands:
 
 ```
-init → step (pm) → accept-turn → approve-transition
-     → step (dev) → accept-turn
-     → step (qa) → accept-turn → approve-completion
+init → step (pm) → approve-transition
+     → step (dev)
+     → step (qa) → approve-completion
 ```
 
-Each `step` creates a turn. Each `accept-turn` commits the result to history. Gates (`approve-transition`, `approve-completion`) are human-only checkpoints that the orchestrator cannot bypass.
+Each `step` creates a turn, validates the staged result, and auto-accepts it into history. `accept-turn` exists only for recovery flows (interrupted turns or pre-staged results that need manual acceptance). Gates (`approve-transition`, `approve-completion`) are human-approval checkpoints that the orchestrator cannot bypass.
 
 ### Phase model
 
 | Phase | Purpose | Entry gate | Exit gate |
 |-------|---------|------------|-----------|
 | `planning` | PM defines scope, acceptance criteria, roadmap | `init` (automatic) | `approve-transition` to implementation |
-| `implementation` | Dev writes code, tests, documentation | `approve-transition` from planning | `approve-transition` to qa |
+| `implementation` | Dev writes code, tests, documentation | `approve-transition` from planning | `implementation_complete` (requires verification pass, no human approval) |
 | `qa` | QA challenges the implementation, verifies evidence, and issues the ship verdict | `approve-transition` from implementation | `approve-completion` |
 
 Custom phases can be defined in `agentxchain.json`. The table above describes the shipped default scaffold, not a hardcoded protocol limit.

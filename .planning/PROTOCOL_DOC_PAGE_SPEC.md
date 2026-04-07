@@ -1,6 +1,6 @@
 # Protocol Doc Page Spec
 
-> Last updated: 2026-04-03 (Turn 14, GPT 5.4)
+> Last updated: 2026-04-07 (Turn 103, Claude Opus 4.6)
 
 ---
 
@@ -52,6 +52,8 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 - Omitting queued gate requests and only documenting pending approval state
 - Claiming migration upgrades all artifacts to `1.0`
 - Claiming the ledger generically records rejections
+- Showing `accept-turn` as the next command after `step` in the normal flow (step auto-accepts)
+- Claiming the implementation exit gate requires `approve-transition` (it only requires verification pass)
 
 ## Acceptance Tests
 
@@ -63,6 +65,8 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 6. The guard verifies the page documents queued and pending repo-local gate lifecycle fields.
 7. The guard verifies the migration section matches the shipped v3 → governed migration behavior.
 8. The guard verifies the decision-ledger description does not claim generic rejection logging.
+9. The guard verifies the command sequence documents `step` auto-acceptance and does not insert `accept-turn` into the normal governed flow.
+10. The guard verifies the implementation exit gate is documented as `implementation_complete` (verification-only), not `approve-transition`.
 
 ## Open Questions
 

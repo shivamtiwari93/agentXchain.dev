@@ -104,6 +104,44 @@ describe('Protocol docs content', () => {
     }
   });
 
+  it('documents step auto-acceptance instead of manual accept-turn in the normal flow', () => {
+    // The command sequence must NOT show accept-turn as a step in the normal flow
+    assert.doesNotMatch(
+      PROTOCOL_DOCS_MDX,
+      /step \(pm\) → accept-turn/,
+      'protocol docs must not show accept-turn as the next command after step in the normal flow'
+    );
+    assert.doesNotMatch(
+      PROTOCOL_DOCS_MDX,
+      /step \(dev\) → accept-turn/,
+      'protocol docs must not show accept-turn after dev step in the normal flow'
+    );
+    assert.doesNotMatch(
+      PROTOCOL_DOCS_MDX,
+      /step \(qa\) → accept-turn/,
+      'protocol docs must not show accept-turn after qa step in the normal flow'
+    );
+    // Must document auto-acceptance
+    assert.match(PROTOCOL_DOCS_MDX, /auto-accepts/i, 'protocol docs must mention step auto-acceptance');
+    // accept-turn must be described as recovery, not the normal path
+    assert.match(PROTOCOL_DOCS_MDX, /accept-turn.*recovery/i, 'accept-turn must be described as a recovery flow');
+  });
+
+  it('documents the implementation exit gate as verification-only, not human-approval', () => {
+    // The real gate: implementation_complete requires verification_pass, NOT human approval
+    assert.match(INIT_COMMAND, /implementation_complete.*requires_verification_pass: true/s);
+    assert.doesNotMatch(
+      PROTOCOL_DOCS_MDX,
+      /\| `implementation`.*approve-transition to qa/,
+      'implementation exit gate must not claim approve-transition (it is verification-only)'
+    );
+    assert.match(
+      PROTOCOL_DOCS_MDX,
+      /implementation_complete/,
+      'protocol docs must name the real implementation exit gate'
+    );
+  });
+
   it('documents the real migrate contract for governed config and state', () => {
     assert.match(MIGRATE_COMMAND, /schema_version: '1\.0'/);
     assert.match(MIGRATE_COMMAND, /schema_version: '1\.1'/);
