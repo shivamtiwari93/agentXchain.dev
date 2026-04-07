@@ -65,8 +65,8 @@ The documented quickstart config must be minimal but truthful:
 
 - `schema_version: "0.1"`
 - two repos under `repos/`
-- one planning workstream and one implementation workstream
-- routing for `planning` and `implementation`
+- one planning workstream, one implementation workstream, and one qa workstream
+- routing for `planning`, `implementation`, and `qa`
 - one initiative completion gate
 
 The quickstart does not need to teach every barrier type or hook phase. The deep-dive multi-repo page already owns that reference surface.

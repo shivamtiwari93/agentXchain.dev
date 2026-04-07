@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.16.0
+
+Coordinator governance reporting is now operational instead of partial, workflow-kit gates now enforce the repo-native planning contract they already claimed to depend on, and external consumers can dispatch a real adapter-backed turn from the published package boundary.
+
+### Coordinator Governance Report Completion
+
+- Coordinator exports now write real decision-ledger entries during init, dispatch, gate, and recovery flows instead of exposing an empty report surface.
+- `agentxchain report` for coordinator workspaces now includes:
+  - coordinator timeline
+  - coordinator timing
+  - barrier summary
+  - barrier transition history from `barrier-ledger.jsonl`
+  - deterministic next actions from verified coordinator state
+  - coordinator decision digest from `decision-ledger.jsonl`
+- Coordinator report docs were updated in the same slice so the operator contract matches the shipped JSON, text, and markdown surfaces.
+
+### Workflow-Kit Gate Truth
+
+- Governed planning now fails closed when the scaffolded workflow-kit contract drifts:
+  - baseline planning system spec enforcement
+  - template-specific `SYSTEM_SPEC.md` overlays
+  - implementation-exit gate requires `IMPLEMENTATION_NOTES.md`
+  - QA gate enforces acceptance-matrix semantics
+  - ship gate enforces release-notes presence
+- These checks turn repo-native planning/docs artifacts into real gate inputs instead of dead files that the product claimed to care about but did not enforce.
+
+### Adapter-Backed External Consumer Starter
+
+- `examples/external-runner-starter/run-adapter-turn.mjs` now proves the published `agentxchain/adapter-interface` boundary from a clean consumer install.
+- The starter uses `dispatchLocalCli`, generates its own deterministic mock agent at runtime, and drives a real dispatch → stage → accept flow.
+- Pack-and-install proof now guards both external adoption paths:
+  - manual runner-interface starter
+  - adapter-backed starter
+
+### Evidence
+
+- Full release verification run on `2.16.0` before tagging and publish.
+- Docusaurus production build passes.
+
 ## 2.15.0
 
 The intake-to-coordinator workflow is now proven end to end: handoff, blocked-state recovery, hook-stop asymmetry, and repo-local intake-to-run automation continuity all ship with real subprocess E2E proofs.

@@ -207,6 +207,10 @@ function seedQaCompletionArtifacts(root) {
     join(root, '.planning', 'ship-verdict.md'),
     '# Ship Verdict\n\n## Verdict: YES\n',
   );
+  writeFileSync(
+    join(root, '.planning', 'RELEASE_NOTES.md'),
+    '# Release Notes\n\n## User Impact\n\nAPI-backed QA review completed the governed run without weakening the final ship gate.\n\n## Verification Summary\n\n- `agentxchain run --auto-approve --max-turns 10`\n',
+  );
 }
 
 /**

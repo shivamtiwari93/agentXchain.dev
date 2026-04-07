@@ -77,6 +77,13 @@ function buildCoordinatorConfig() {
         depends_on: ['planning_sync'],
         completion_barrier: 'all_repos_accepted',
       },
+      qa_sync: {
+        phase: 'qa',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: ['implementation_sync'],
+        completion_barrier: 'all_repos_accepted',
+      },
     },
     routing: {
       planning: {
@@ -84,6 +91,9 @@ function buildCoordinatorConfig() {
       },
       implementation: {
         entry_workstream: 'implementation_sync',
+      },
+      qa: {
+        entry_workstream: 'qa_sync',
       },
     },
     gates: {

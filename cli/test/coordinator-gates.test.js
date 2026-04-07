@@ -47,7 +47,15 @@ function writeGovernedRepo(root, projectId) {
       },
     },
     routing: {
+      planning: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
       implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      qa: {
         entry_role: 'dev',
         allowed_next_roles: ['dev', 'human'],
       },
@@ -60,7 +68,7 @@ function writeGovernedRepo(root, projectId) {
     project_id: projectId,
     run_id: null,
     status: 'idle',
-    phase: 'implementation',
+    phase: 'planning',
     active_turns: {},
     turn_sequence: 0,
     accepted_count: 0,

@@ -50,7 +50,7 @@
       }
     },
     "filesystem": {
-      ".planning/acceptance-matrix.md": "# Acceptance Matrix\n",
+      ".planning/acceptance-matrix.md": "# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Ship verdict review | QA confirms the final gate pauses for approval after a passing verdict | pass | 2026-04-06 | pass |\n",
       ".planning/ship-verdict.md": "## Verdict: SHIP IT\n"
     },
     "turn_result": {

@@ -94,10 +94,11 @@ function makeConfig() {
         requires_human_approval: true,
       },
       implementation_complete: {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },
@@ -328,6 +329,7 @@ async function main() {
       roleId: 'dev',
       prepare: () => ensureFiles(root, {
         'src/proof-output.js': 'export const runnerProof = true;\n',
+        '.planning/IMPLEMENTATION_NOTES.md': '# Implementation Notes\n\n## Changes\n\nImplemented the governed CI proof output and advanced the run into QA.\n\n## Verification\n\nRun the CI multi-turn runner proof and verify retry, gate approval, and artifact cleanup semantics.\n',
       }),
       buildRejectedResult: ({ turn }) => ({
         schema_version: '1.0',
@@ -345,9 +347,9 @@ async function main() {
         summary: 'Dev advanced the governed proof into QA.',
         proposedNextRole: 'qa',
         phaseTransitionRequest: 'qa',
-        filesChanged: ['src/proof-output.js'],
+        filesChanged: ['src/proof-output.js', '.planning/IMPLEMENTATION_NOTES.md'],
         artifactType: 'workspace',
-        verificationCommands: ['test -f src/proof-output.js'],
+        verificationCommands: ['test -f src/proof-output.js', 'test -f .planning/IMPLEMENTATION_NOTES.md'],
       }),
       afterAccept: () => {
         const state = loadState(root, config);
@@ -366,8 +368,9 @@ async function main() {
       config,
       roleId: 'qa',
       prepare: () => ensureFiles(root, {
-        '.planning/acceptance-matrix.md': '# Acceptance Matrix\nAll proof assertions passed.\n',
+        '.planning/acceptance-matrix.md': '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Multi-turn governed proof | CI runner proof completes pm -> dev -> qa with one rejected dev retry | pass | 2026-04-06 | pass |\n',
         '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
+        '.planning/RELEASE_NOTES.md': '# Release Notes\n\n## User Impact\n\nThe CI runner proof now satisfies the current governed workflow-kit gate contract.\n\n## Verification Summary\n\nThe proof completes the full lifecycle, records one rejection retry, and closes through the QA ship gate.\n',
       }),
       buildTurnResult: ({ turn }) => makeTurnResult({
         runId,
@@ -375,9 +378,9 @@ async function main() {
         summary: 'QA requested governed completion with ship artifacts present.',
         proposedNextRole: 'human',
         runCompletionRequest: true,
-        filesChanged: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        filesChanged: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         artifactType: 'review',
-        verificationCommands: ['test -f .planning/acceptance-matrix.md', 'test -f .planning/ship-verdict.md'],
+        verificationCommands: ['test -f .planning/acceptance-matrix.md', 'test -f .planning/ship-verdict.md', 'test -f .planning/RELEASE_NOTES.md'],
       }),
       afterAccept: () => {
         const state = loadState(root, config);

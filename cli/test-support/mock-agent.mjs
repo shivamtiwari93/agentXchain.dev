@@ -56,16 +56,27 @@ function ensureFile(relPath, content) {
 
 if (phase === 'planning') {
   ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\n\nApproved: YES\n');
-  ensureFile('.planning/ROADMAP.md', '# Roadmap\nMock roadmap for integration test.\n');
+  ensureFile('.planning/ROADMAP.md', '# Roadmap\n\n## Phases\n\n- planning\n- implementation\n- qa\n');
 }
 
 if (phase === 'implementation') {
   ensureFile('src/output.js', 'export const ok = true;\n');
+  ensureFile(
+    '.planning/IMPLEMENTATION_NOTES.md',
+    '# Implementation Notes\n\n## Changes\n\nImplemented the integration-test governed artifact output.\n\n## Verification\n\nRun the governed integration test flow and confirm the implementation phase exits cleanly.\n',
+  );
 }
 
 if (phase === 'qa') {
-  ensureFile('.planning/acceptance-matrix.md', '# Acceptance Matrix\nAll passed.\n');
+  ensureFile(
+    '.planning/acceptance-matrix.md',
+    '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Mock governed run | QA confirms the mocked governed run can complete end to end | pass | 2026-04-06 | pass |\n',
+  );
   ensureFile('.planning/ship-verdict.md', '# Ship Verdict\n\n## Verdict: YES\n');
+  ensureFile(
+    '.planning/RELEASE_NOTES.md',
+    '# Release Notes\n\n## User Impact\n\nMock governed run completed successfully through QA.\n\n## Verification Summary\n\nIntegration-test mock agent created the full workflow-kit artifact set required by the shipped gates.\n',
+  );
 }
 
 // ── Determine phase transition / completion request ─────────────────────────
@@ -105,7 +116,14 @@ const turnResult = {
     statement: `Mock objection from ${roleId}.`,
     status: 'raised',
   }],
-  files_changed: [],
+  files_changed:
+    phase === 'planning'
+      ? ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md']
+      : phase === 'implementation'
+        ? ['src/output.js', '.planning/IMPLEMENTATION_NOTES.md']
+        : phase === 'qa'
+          ? ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md']
+          : [],
   artifacts_created: [],
   verification: {
     status: 'pass',

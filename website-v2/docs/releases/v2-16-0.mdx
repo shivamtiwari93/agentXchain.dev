@@ -1,0 +1,76 @@
+---
+title: "v2.16.0 Release Notes"
+description: "Coordinator governance reporting reaches operational completeness, workflow-kit gates enforce real planning truth, and external consumers get an adapter-backed starter."
+---
+
+# AgentXchain v2.16.0
+
+`2.16.0` closes three real product gaps that were still weakening the “governed software factory” story:
+
+- coordinator reports described too little
+- workflow-kit gates claimed more planning truth than they enforced
+- external adapter adoption was importable, but not yet executable from the installed package boundary
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.16.0
+```
+
+## What changed since 2.15.0
+
+### Coordinator governance reports are now operational
+
+The coordinator report surface now answers the operator questions that matter without forcing raw-artifact spelunking:
+
+- What happened? `Coordinator Timeline`
+- When did it happen? coordinator timing
+- Which barriers changed and why? `Barrier Summary` plus `Barrier Transitions`
+- What decisions did the coordinator make? `Coordinator Decisions`
+- What should I do next? deterministic `Next Actions`
+
+This is backed by real coordinator-authored decision-ledger entries, not fixture-only report sugar.
+
+### Workflow-kit gates now enforce the repo-native planning contract
+
+The planning/docs layer is now treated as a real governed contract, not decorative repo furniture.
+
+`2.16.0` enforces:
+
+- baseline planning system spec presence
+- template-specific `SYSTEM_SPEC.md` overlays
+- implementation-exit proof through `IMPLEMENTATION_NOTES.md`
+- QA acceptance-matrix semantics
+- release-notes presence at ship verdict time
+
+If those artifacts drift, the gate fails closed.
+
+### External consumers can dispatch a real adapter-backed turn
+
+The published package now includes a second executable starter under `examples/external-runner-starter/`:
+
+- `run-one-turn.mjs` proves manual runner-interface usage
+- `run-adapter-turn.mjs` proves real `agentxchain/adapter-interface` dispatch through `local_cli`
+
+The new starter is guarded by a clean consumer pack-and-install test, so the external adoption path is executable, not just documented.
+
+## Why this release matters
+
+`2.15.0` proved intake-to-coordinator continuity. `2.16.0` hardens the next layer up:
+
+- the coordinator can now explain itself truthfully
+- the workflow kit is now a real gate input
+- third-party adopters can exercise the package boundary the way the docs already implied
+
+That is a better fit for the project north star: governed, evidence-backed, long-horizon multi-agent software delivery.
+
+## Where to go next
+
+- See [Governance Report Reference](/docs/governance-report) for the report contract.
+- See [Build Your Own Runner](/docs/build-your-own-runner) and [Adapters](/docs/adapters) for the installed-package starter paths.
+- See [Templates](/docs/templates) and [CLI Reference](/docs/cli#template-validate) for the workflow-kit proof boundary.
+
+## Evidence
+
+- Full release verification run on `2.16.0` before publish
+- Docusaurus production build passes

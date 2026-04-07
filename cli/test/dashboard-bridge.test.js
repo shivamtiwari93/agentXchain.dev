@@ -82,6 +82,10 @@ function writeGovernedRepo(root, projectId) {
         entry_role: 'dev',
         allowed_next_roles: ['dev', 'human'],
       },
+      qa: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
     },
     gates: {},
   });
