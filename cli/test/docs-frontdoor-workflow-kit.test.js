@@ -101,5 +101,19 @@ describe('Front-door docs — workflow-kit coverage', () => {
         'quickstart must document that implementation gate requires ## Changes and ## Verification sections'
       );
     });
+
+    it('documents RELEASE_NOTES.md as a planning artifact', () => {
+      assert.ok(
+        QUICKSTART.includes('RELEASE_NOTES.md'),
+        'quickstart must mention RELEASE_NOTES.md in planning artifacts'
+      );
+    });
+
+    it('documents release notes gate requirements', () => {
+      assert.ok(
+        QUICKSTART.includes('## User Impact') && QUICKSTART.includes('## Verification Summary'),
+        'quickstart must document that release notes gate requires ## User Impact and ## Verification Summary sections'
+      );
+    });
   });
 });

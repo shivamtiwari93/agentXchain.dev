@@ -56,7 +56,7 @@ function makeConfig(overrides = {}) {
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },
@@ -308,6 +308,7 @@ describe('evaluatePhaseExit — pure function', () => {
       '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n'
     );
     writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),
@@ -327,6 +328,7 @@ describe('evaluatePhaseExit — pure function', () => {
       '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | Pending |\n'
     );
     writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),
@@ -343,6 +345,7 @@ describe('evaluatePhaseExit — pure function', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),

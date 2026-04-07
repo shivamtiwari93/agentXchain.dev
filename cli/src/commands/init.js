@@ -136,7 +136,7 @@ const GOVERNED_GATES = {
     requires_verification_pass: true
   },
   qa_ship_verdict: {
-    requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+    requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
     requires_human_approval: true
   }
 };
@@ -249,6 +249,7 @@ You are QA. Your mandate: **${role.mandate}**
 4. **Create review artifacts:**
    - \`.planning/acceptance-matrix.md\` — updated with pass/fail verdicts per criterion
    - \`.planning/ship-verdict.md\` — your overall ship/no-ship recommendation
+   - \`.planning/RELEASE_NOTES.md\` — user-facing release notes with impact and verification summary
 
 ## You Cannot Modify Code
 
@@ -276,12 +277,14 @@ Each objection must have:
 When you are satisfied the work meets acceptance criteria:
 1. Create \`.planning/ship-verdict.md\` with your verdict
 2. Create/update \`.planning/acceptance-matrix.md\` with all criteria checked
-3. Set \`run_completion_request: true\` in your turn result
+3. Create/update \`.planning/RELEASE_NOTES.md\` with \`## User Impact\` and \`## Verification Summary\`
+4. Set \`run_completion_request: true\` in your turn result
 
 **Only set \`run_completion_request: true\` when:**
 - All blocking objections from prior turns are resolved
 - The acceptance matrix shows all critical criteria passing
 - \`.planning/ship-verdict.md\` exists with an affirmative verdict
+- \`.planning/RELEASE_NOTES.md\` exists with real \`## User Impact\` and \`## Verification Summary\` content
 
 **Do NOT set \`run_completion_request: true\` if:**
 - You have unresolved blocking objections
@@ -542,6 +545,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     appendAcceptanceHints(baseAcceptanceMatrix, template.acceptance_hints)
   );
   writeFileSync(join(dir, '.planning', 'ship-verdict.md'), `# Ship Verdict — ${projectName}\n\n## Verdict: PENDING\n\n## QA Summary\n\n(QA writes the final ship/no-ship assessment here.)\n\n## Open Blockers\n\n(List any blocking issues.)\n\n## Conditions\n\n(List any conditions for shipping.)\n`);
+  writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), `# Release Notes — ${projectName}\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n\n## Upgrade Notes\n\n(QA fills this during the QA phase)\n\n## Known Issues\n\n(QA fills this during the QA phase)\n`);
   for (const artifact of template.planning_artifacts) {
     writeFileSync(
       join(dir, '.planning', artifact.filename),
@@ -664,7 +668,8 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PM_SIGNOFF.md / ROADMAP.md / SYSTEM_SPEC.md`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} acceptance-matrix.md / ship-verdict.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} acceptance-matrix.md / ship-verdict.md`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} RELEASE_NOTES.md`);
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);

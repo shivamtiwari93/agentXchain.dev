@@ -70,7 +70,7 @@ function makeNormalizedConfig() {
       },
       implementation_complete: { requires_verification_pass: true },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },

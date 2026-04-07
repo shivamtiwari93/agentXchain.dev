@@ -81,7 +81,7 @@ function makeConfig(overrides = {}) {
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },
@@ -228,6 +228,7 @@ function makeStandardCallbacks(root) {
         ensureFiles(root, {
           '.planning/acceptance-matrix.md': '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Loop completion | QA confirms the run can close cleanly | pass | 2026-04-06 | pass |\n',
           '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
+          '.planning/RELEASE_NOTES.md': '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n',
         });
         return {
           accept: true,
@@ -235,7 +236,7 @@ function makeStandardCallbacks(root) {
             summary: 'QA approved.',
             proposedNextRole: 'human',
             runCompletionRequest: true,
-            filesChanged: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+            filesChanged: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
             artifactType: 'review',
           }),
         };
@@ -631,7 +632,7 @@ describe('run-loop', () => {
           planning_signoff: { requires_verification_pass: true }, // no human approval
           implementation_complete: { requires_verification_pass: true },
           qa_ship_verdict: {
-            requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+            requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
             requires_human_approval: true,
           },
         },

@@ -6,6 +6,7 @@ export const SYSTEM_SPEC_PATH = '.planning/SYSTEM_SPEC.md';
 export const IMPLEMENTATION_NOTES_PATH = '.planning/IMPLEMENTATION_NOTES.md';
 export const ACCEPTANCE_MATRIX_PATH = '.planning/acceptance-matrix.md';
 export const SHIP_VERDICT_PATH = '.planning/ship-verdict.md';
+export const RELEASE_NOTES_PATH = '.planning/RELEASE_NOTES.md';
 
 const AFFIRMATIVE_SHIP_VERDICTS = new Set(['YES', 'SHIP', 'SHIP IT']);
 const AFFIRMATIVE_ACCEPTANCE_STATUSES = new Set(['PASS', 'PASSED', 'OK', 'YES']);
@@ -185,6 +186,55 @@ function evaluateImplementationNotes(content) {
   return { ok: true };
 }
 
+const RELEASE_NOTES_PLACEHOLDER = /^\(QA fills this during the QA phase\)$/i;
+
+function hasReleaseNotesSectionContent(content, sectionHeader) {
+  const lines = content.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => line.trim().startsWith(sectionHeader));
+  if (headerIndex === -1) {
+    return { found: false, hasContent: false };
+  }
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('## ')) break;
+    if (!line) continue;
+    if (RELEASE_NOTES_PLACEHOLDER.test(line)) continue;
+    return { found: true, hasContent: true };
+  }
+
+  return { found: true, hasContent: false };
+}
+
+function evaluateReleaseNotes(content) {
+  const userImpact = hasReleaseNotesSectionContent(content, '## User Impact');
+  const verificationSummary = hasReleaseNotesSectionContent(content, '## Verification Summary');
+
+  const missingSections = [];
+  if (!userImpact.found) missingSections.push('## User Impact');
+  if (!verificationSummary.found) missingSections.push('## Verification Summary');
+
+  if (missingSections.length > 0) {
+    return {
+      ok: false,
+      reason: `.planning/RELEASE_NOTES.md must define ${missingSections.join(' and ')} before ship approval can be requested.`,
+    };
+  }
+
+  const emptySections = [];
+  if (!userImpact.hasContent) emptySections.push('## User Impact');
+  if (!verificationSummary.hasContent) emptySections.push('## Verification Summary');
+
+  if (emptySections.length > 0) {
+    return {
+      ok: false,
+      reason: `${emptySections.join(' and ')} in .planning/RELEASE_NOTES.md still contains only placeholder text. QA must replace placeholder content with real release notes.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 function evaluateShipVerdict(content) {
   const verdict = parseLineValue(content, /^##\s+Verdict\s*:\s*(.+)$/im);
   if (!verdict) {
@@ -228,6 +278,10 @@ export function evaluateWorkflowGateSemantics(root, relPath) {
 
   if (relPath === SHIP_VERDICT_PATH) {
     return evaluateShipVerdict(content);
+  }
+
+  if (relPath === RELEASE_NOTES_PATH) {
+    return evaluateReleaseNotes(content);
   }
 
   return null;

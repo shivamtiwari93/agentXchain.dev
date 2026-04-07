@@ -63,7 +63,7 @@ function makeConfig(overrides = {}) {
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },
@@ -207,6 +207,7 @@ describe('evaluateRunCompletion — pure function', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluateRunCompletion({
       state: { phase: 'qa' },
@@ -224,6 +225,7 @@ describe('evaluateRunCompletion — pure function', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: PENDING\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluateRunCompletion({
       state: { phase: 'qa' },
@@ -244,6 +246,7 @@ describe('evaluateRunCompletion — pure function', () => {
       '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | Pending |\n'
     );
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     const result = evaluateRunCompletion({
       state: { phase: 'qa' },
@@ -413,6 +416,7 @@ describe('acceptGovernedTurn — run completion', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     stageTurnResult(root, makeTurnResult({
       run_completion_request: true,
@@ -812,6 +816,7 @@ describe('Full lifecycle to run completion', () => {
     const qaTurnId = assignQa.state.current_turn.turn_id;
 
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     stageTurnResult(root, {
       schema_version: '1.0',

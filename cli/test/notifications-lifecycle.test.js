@@ -124,7 +124,7 @@ function makeConfig(webhookUrl, events = []) {
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
+        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
         requires_human_approval: true,
       },
     },
@@ -301,6 +301,7 @@ describe('notification lifecycle', () => {
     });
     writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example | Example | pass | today | pass |\n');
     writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n');
+    writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
 
     assignGovernedTurn(dir, config, 'qa');
     const qaState = readJson(dir, STATE_PATH);

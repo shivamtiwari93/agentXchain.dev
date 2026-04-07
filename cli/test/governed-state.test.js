@@ -157,6 +157,7 @@ describe('scaffoldGoverned', () => {
     assert.ok(existsSync(join(dir, '.planning', 'ROADMAP.md')));
     assert.ok(existsSync(join(dir, '.planning', 'acceptance-matrix.md')));
     assert.ok(existsSync(join(dir, '.planning', 'ship-verdict.md')));
+    assert.ok(existsSync(join(dir, '.planning', 'RELEASE_NOTES.md')));
     assert.ok(existsSync(join(dir, 'TALK.md')));
   });
 

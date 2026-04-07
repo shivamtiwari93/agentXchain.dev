@@ -82,7 +82,7 @@ function makeConfig() {
     gates: {
       planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'], requires_human_approval: true },
       implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
-      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
+      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'], requires_human_approval: true },
     },
     budget: { per_turn_max_usd: 2.0, per_run_max_usd: 50.0 },
     rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 2 },

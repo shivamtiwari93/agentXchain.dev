@@ -64,7 +64,7 @@ function createGovernedProject(overrides = {}) {
     gates: {
       planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'], requires_human_approval: true },
       implementation_complete: { requires_verification_pass: true },
-      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
+      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'], requires_human_approval: true },
     },
     prompts: {
       pm: '.agentxchain/prompts/pm.md',
@@ -112,6 +112,7 @@ function createGovernedProject(overrides = {}) {
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# roadmap\n');
   writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# acceptance\n');
   writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# ship verdict\n');
+  writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n');
 
   return dir;
 }

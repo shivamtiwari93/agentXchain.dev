@@ -72,7 +72,7 @@ function createGovernedProject() {
     gates: {
       planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'], requires_human_approval: true },
       implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
-      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
+      qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'], requires_human_approval: true },
     },
     prompts: {
       pm: '.agentxchain/prompts/pm.md',
@@ -128,6 +128,7 @@ function createGovernedProject() {
   writeFileSync(join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Implementation Notes\n\n## Changes\n\nDocument the governed fixture state for CLI command coverage.\n\n## Verification\n\nRun the governed CLI tests that exercise validate, accept-turn, reject-turn, and resume.\n');
   writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | Pending | — | Pending |\n');
   writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: PENDING\n');
+  writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n');
 
   return dir;
 }
