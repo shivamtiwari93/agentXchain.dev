@@ -8,21 +8,25 @@ Depends on: [WORKFLOW_GATE_FILE_SEMANTICS_SPEC.md](./WORKFLOW_GATE_FILE_SEMANTIC
 
 ## Purpose
 
-Close the gap between shipped gate behavior and executable protocol proof.
+Close the gap between shipped workflow-gate behavior and executable protocol proof.
 
-Today Tier 1 `gate_semantics` proves:
+Today Tier 1 `gate_semantics` already proves:
 
 - phase-exit file existence checks
 - verification-pass checks
 - human-approval pauses
 - unknown-phase rejection
+- negative `.planning/PM_SIGNOFF.md` semantics
+- run-completion behavior for `.planning/ship-verdict.md`
 
-But it still misses two critical truths:
+But it still misses four enforced semantic contracts:
 
-1. Negative semantic failures for `.planning/PM_SIGNOFF.md`
-2. Run-completion gate behavior, including `.planning/ship-verdict.md`
+1. `.planning/SYSTEM_SPEC.md` must contain required contract sections
+2. `.planning/IMPLEMENTATION_NOTES.md` must replace scaffold placeholders with real content
+3. `.planning/acceptance-matrix.md` must preserve the requirement table and mark every row passing
+4. `.planning/RELEASE_NOTES.md` must replace scaffold placeholders with real QA content
 
-That means the runtime can truthfully enforce workflow gate semantics while the conformance kit only partially proves them. That is weak protocol evidence.
+That means the runtime can truthfully enforce workflow gate semantics while the conformance kit still overclaims Tier 1 proof. That is a protocol-truth bug, not a documentation nit.
 
 ## Interface
 
@@ -55,27 +59,31 @@ Phase exits and run completion already share the same gate predicate model:
 
 The conformance surface should reflect that shared constitutional boundary.
 
-### 2. Prove negative PM signoff semantics
+### 2. Preserve existing PM signoff and ship-verdict proof
 
-Tier 1 fixtures must prove that phase advancement stays blocked when:
+Do not regress the already-shipped gate semantics proof for:
 
-- `.planning/PM_SIGNOFF.md` says `Approved: NO`
-- `.planning/PM_SIGNOFF.md` exists but has no `Approved:` line
+- `.planning/PM_SIGNOFF.md`
+- `.planning/ship-verdict.md`
+- run completion outside the final phase
 
-Both must return `gate_failed` with phase/state unchanged.
+Those fixtures remain part of the Tier 1 contract.
 
-### 3. Prove run-completion semantics
+### 3. Prove workflow-file semantic failures already enforced by the runtime
 
-Tier 1 fixtures must prove `evaluateRunCompletion()` behavior for:
+Tier 1 fixtures must additionally prove that gate advancement stays blocked when:
 
-- non-final-phase rejection (`not_final_phase`)
-- non-affirmative ship verdict failure (`gate_failed`)
-- affirmative ship verdict plus human approval (`awaiting_human_approval`)
-- affirmative ship verdict without human approval (`complete`)
+- `.planning/SYSTEM_SPEC.md` exists but omits a required section such as `## Acceptance Tests`
+- `.planning/IMPLEMENTATION_NOTES.md` still contains scaffold placeholders
+- `.planning/acceptance-matrix.md` exists but does not contain a real passing requirement table
+- `.planning/RELEASE_NOTES.md` still contains scaffold placeholders
 
-At least one affirmative fixture must use a compatibility alias (`SHIP` or `SHIP IT`) so the conformance corpus proves the documented compatibility contract instead of merely claiming it.
+Each must return `gate_failed` with state unchanged and a reason derived from the semantic evaluator, not a generic missing-file failure.
 
-### 4. Keep fixture truth minimal
+### 4. Keep `gate_semantics` as the surface
+Do not create new surfaces for `system_spec_semantics`, `implementation_notes_semantics`, or other workflow-kit slices. These file semantics are already part of the same gate predicate model and are enforced by the same gate evaluator.
+
+### 5. Keep fixture truth minimal
 
 Fixtures should assert only the constitutional outcome:
 
@@ -85,7 +93,7 @@ Fixtures should assert only the constitutional outcome:
 
 Do not overfit fixture expectations to incidental implementation details.
 
-### 5. Public count surfaces must move with the corpus
+### 6. Public count surfaces must move with the corpus
 
 Any intentional fixture-count expansion must update:
 
@@ -106,14 +114,16 @@ Any intentional fixture-count expansion must update:
 
 ## Acceptance Tests
 
-- **AT-WFGC-001**: Tier 1 self-validation passes after adding `evaluate_run_completion` support.
-- **AT-WFGC-002**: `gate_semantics` includes fixtures proving `Approved: NO` and missing `Approved:` both block phase exit.
-- **AT-WFGC-003**: `gate_semantics` includes fixtures proving run completion fails on `## Verdict: PENDING`.
-- **AT-WFGC-004**: `gate_semantics` includes a run-completion fixture that accepts `## Verdict: SHIP IT`.
-- **AT-WFGC-005**: `agentxchain verify protocol --tier 1 --target . --format json` reports the new Tier 1 fixture count consistently across local and remote verifier tests.
-- **AT-WFGC-006**: Homepage/docs/marketing count surfaces match the expanded corpus size.
-- **AT-WFGC-007**: `gate_semantics` includes a fixture proving `run_completion_request` outside the final phase returns `not_final_phase`.
+- **AT-WFGC-001**: Tier 1 self-validation passes after the workflow-file semantic fixtures are added.
+- **AT-WFGC-002**: Existing PM signoff negative fixtures remain in the `gate_semantics` corpus.
+- **AT-WFGC-003**: Existing ship-verdict and run-completion fixtures remain in the `gate_semantics` corpus.
+- **AT-WFGC-004**: `gate_semantics` includes a fixture proving `.planning/SYSTEM_SPEC.md` semantic failure blocks phase exit.
+- **AT-WFGC-005**: `gate_semantics` includes a fixture proving `.planning/IMPLEMENTATION_NOTES.md` placeholder content blocks phase exit.
+- **AT-WFGC-006**: `gate_semantics` includes a fixture proving `.planning/acceptance-matrix.md` semantic failure blocks run completion.
+- **AT-WFGC-007**: `gate_semantics` includes a fixture proving `.planning/RELEASE_NOTES.md` placeholder content blocks run completion.
+- **AT-WFGC-008**: `agentxchain verify protocol --tier 1 --target . --format json` reports the expanded Tier 1 fixture count consistently across local and remote verifier tests.
+- **AT-WFGC-009**: Homepage/docs/marketing count surfaces match the expanded corpus size.
 
 ## Open Questions
 
-1. Should a later conformance slice prove broader workflow-kit semantics such as acceptance-matrix completion, or should that remain outside Tier 1 until there is a narrower protocol contract for it?
+None for this slice. Recovery-report semantics remain outside Tier 1 because they are a coordinator/operator workflow artifact, not a current protocol-v6 conformance surface.

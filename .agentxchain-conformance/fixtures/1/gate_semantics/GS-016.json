@@ -1,0 +1,74 @@
+{
+  "fixture_id": "GS-016",
+  "tier": 1,
+  "surface": "gate_semantics",
+  "description": "Run completion fails when RELEASE_NOTES.md still contains scaffold placeholders",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "qa",
+      "run_id": "run_001",
+      "active_turns": {},
+      "pending_phase_transition": null,
+      "pending_run_completion": null,
+      "blocked_on": null
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "qa": {
+          "title": "QA",
+          "mandate": "Ship verdict",
+          "write_authority": "review_only",
+          "runtime": "local-qa"
+        }
+      },
+      "runtimes": {
+        "local-qa": { "type": "local_cli" }
+      },
+      "routing": {
+        "planning": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "human"],
+          "max_concurrent_turns": 1
+        },
+        "qa": {
+          "entry_role": "qa",
+          "allowed_next_roles": ["qa", "human"],
+          "exit_gate": "qa_ship_verdict",
+          "max_concurrent_turns": 1
+        }
+      },
+      "gates": {
+        "qa_ship_verdict": {
+          "requires_files": [".planning/acceptance-matrix.md", ".planning/ship-verdict.md", ".planning/RELEASE_NOTES.md"],
+          "requires_verification_pass": false,
+          "requires_human_approval": true
+        }
+      }
+    },
+    "filesystem": {
+      ".planning/acceptance-matrix.md": "# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Release notes gate | QA proves release notes placeholders block ship approval | pass | 2026-04-07 | pass |\n",
+      ".planning/ship-verdict.md": "## Verdict: YES\n",
+      ".planning/RELEASE_NOTES.md": "# Release Notes\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n"
+    },
+    "turn_result": {
+      "run_completion_request": true,
+      "verification": { "status": "pass" }
+    }
+  },
+  "input": {
+    "operation": "evaluate_run_completion",
+    "args": {
+      "current_phase": "qa"
+    }
+  },
+  "expected": {
+    "result": "success",
+    "action": "gate_failed",
+    "state_unchanged": true,
+    "reason": "## User Impact and ## Verification Summary in .planning/RELEASE_NOTES.md still contains only placeholder text. QA must replace placeholder content with real release notes."
+  }
+}

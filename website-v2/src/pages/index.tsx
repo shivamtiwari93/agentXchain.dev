@@ -87,7 +87,7 @@ function Stats() {
         <div className="stat-label">Tests passing</div>
       </div>
       <div>
-        <div className="stat-number">77</div>
+        <div className="stat-number">81</div>
         <div className="stat-label">Conformance fixtures</div>
       </div>
       <div>

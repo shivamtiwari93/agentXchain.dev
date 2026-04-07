@@ -151,8 +151,8 @@ describe('protocol conformance verifier remote mode', () => {
       assert.equal(report.overall, 'pass');
       assert.equal(report.remote, baseUrl);
       assert.equal(report.target_root, null);
-      assert.equal(report.results.tier_1.fixtures_run, 46);
-      assert.equal(report.results.tier_1.fixtures_passed, 46);
+      assert.equal(report.results.tier_1.fixtures_run, 50);
+      assert.equal(report.results.tier_1.fixtures_passed, 50);
     });
   });
 

@@ -59,13 +59,13 @@ The corpus uses a minimal matcher vocabulary inside `expected`:
 
 ## Authoring Status
 
-### Tier 1 — Complete (46 fixtures)
+### Tier 1 — Complete (50 fixtures)
 
 | Surface | Count | IDs |
 |---------|-------|-----|
 | State Machine | 12 | SM-001 through SM-012 |
 | Turn Result Validation | 10 | TR-001 through TR-010 |
-| Gate Semantics | 12 | GS-001 through GS-012 |
+| Gate Semantics | 16 | GS-001 through GS-016 |
 | Decision Ledger | 4 | DL-001 through DL-004 |
 | History | 3 | HS-001 through HS-003 |
 | Config Schema | 5 | CS-001 through CS-005 |

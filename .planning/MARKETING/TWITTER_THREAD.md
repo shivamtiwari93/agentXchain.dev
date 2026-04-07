@@ -36,7 +36,7 @@ What's shipped in v2.11:
 - Remote verification: full chain from spec → engine → CLI → docs → contract tests
 - Hook audit closure: 13/13 orchestrator_action branches covered
 - Dispatch manifest: 10/10 error types proven
-- 2,500+ tests. 77 conformance fixtures. Protocol v6 spec published.
+- 2,500+ tests. 81 conformance fixtures. Protocol v6 spec published.
 
 Release notes: agentxchain.dev/docs/releases/v2-11-0
 
