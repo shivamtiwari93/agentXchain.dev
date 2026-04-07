@@ -53,6 +53,7 @@ describe('CLI command map docs contract', () => {
   const commandMapRows = extractCommandMapRows();
   const governedCommands = topLevelCommands.filter((command) => !LEGACY_COMMANDS.includes(command));
   const expectedRowMapping = new Map([
+    ['demo', ['demo']],
     ['init', ['init']],
     ['status', ['status']],
     ['export', ['export']],
@@ -81,6 +82,7 @@ describe('CLI command map docs contract', () => {
       'status',
       'export',
       'report',
+      'demo',
       'validate',
       'verify',
       'migrate',

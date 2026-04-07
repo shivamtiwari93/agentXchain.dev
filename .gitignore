@@ -12,3 +12,5 @@ dist/
 
 # Local agent worktrees / tool residue
 .claude/
+.agentxchain-workspaces/
+**/.agentxchain-workspaces/

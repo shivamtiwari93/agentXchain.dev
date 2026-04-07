@@ -101,6 +101,7 @@ import { intakeHandoffCommand } from '../src/commands/intake-handoff.js';
 import { intakeScanCommand } from '../src/commands/intake-scan.js';
 import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
+import { demoCommand } from '../src/commands/demo.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -232,6 +233,13 @@ program
   .command('doctor')
   .description('Check local environment and first-run readiness')
   .action(doctorCommand);
+
+program
+  .command('demo')
+  .description('Run a complete governed lifecycle demo (no API keys required)')
+  .option('-j, --json', 'Output as JSON')
+  .option('-v, --verbose', 'Show stack traces on failure')
+  .action(demoCommand);
 
 program
   .command('validate')
