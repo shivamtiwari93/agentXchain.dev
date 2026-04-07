@@ -32,6 +32,8 @@ function createGovernedProject() {
 
   const config = {
     schema_version: '1.0',
+    protocol_mode: 'governed',
+    template: 'generic',
     project: {
       id: 'baby-tracker',
       name: 'Baby Tracker',
@@ -68,8 +70,8 @@ function createGovernedProject() {
       qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'qa_ship_verdict' },
     },
     gates: {
-      planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md'], requires_human_approval: true },
-      implementation_complete: { requires_verification_pass: true },
+      planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'], requires_human_approval: true },
+      implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
       qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
     },
     prompts: {
@@ -122,6 +124,8 @@ function createGovernedProject() {
   writeFileSync(join(dir, '.agentxchain', 'prompts', 'qa.md'), '# qa\n');
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Implementation | Build approved work | In progress |\n');
+  writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), '# System Spec\n\n## Purpose\n\nDefine the governed CLI test fixture contract.\n\n## Interface\n\n- agentxchain validate --mode turn --agent dev --json\n\n## Acceptance Tests\n\n- [ ] Governed turn validation succeeds without a staged result.\n');
+  writeFileSync(join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Implementation Notes\n\n## Changes\n\nDocument the governed fixture state for CLI command coverage.\n\n## Verification\n\nRun the governed CLI tests that exercise validate, accept-turn, reject-turn, and resume.\n');
   writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | Pending | — | Pending |\n');
   writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: PENDING\n');
 
