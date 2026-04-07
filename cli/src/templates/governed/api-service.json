@@ -27,5 +27,12 @@
     "API contract reviewed and endpoints listed",
     "Error cases enumerated with recovery expectations",
     "Verification command covers automated tests or smoke checks"
-  ]
+  ],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the API service, its consumers, and the problem it solves. Include the primary use case and why this service exists as a separate boundary.",
+    "interface_guidance": "List the endpoints (method, path, auth), request/response schemas, and backward-compatibility commitments. Reference api-contract.md for the full surface.",
+    "behavior_guidance": "Describe the expected runtime behavior: request lifecycle, caching, rate limiting, and any async processing. Include latency and throughput expectations.",
+    "error_cases_guidance": "List HTTP error responses, upstream dependency failures, auth rejection behavior, and rate-limit enforcement. Reference error-budget.md for failure thresholds.",
+    "acceptance_tests_guidance": "- [ ] API contract endpoints return expected status codes and shapes\n- [ ] Error responses match documented error contract\n- [ ] Auth rejection returns 401/403 with correct body\n- [ ] Operational readiness checklist items verified"
+  }
 }

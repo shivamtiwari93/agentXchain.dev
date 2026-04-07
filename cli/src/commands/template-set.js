@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import chalk from 'chalk';
 import { CONFIG_FILE } from '../lib/config.js';
-import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS } from '../lib/governed-templates.js';
+import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, SYSTEM_SPEC_OVERLAY_SEPARATOR } from '../lib/governed-templates.js';
 
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const PROMPT_OVERRIDE_SEPARATOR = '## Project-Type-Specific Guidance';
@@ -76,6 +76,7 @@ export async function templateSetCommand(templateId, opts) {
     prompts_missing_paths: [],
     prompts_missing_files: [],
     acceptance_hints_status: 'none',
+    system_spec_overlay_status: 'none',
   };
 
   // Planning artifacts
@@ -127,6 +128,22 @@ export async function templateSetCommand(templateId, opts) {
     }
   }
 
+  // System spec overlay
+  const systemSpecOverlay = manifest.system_spec_overlay;
+  const systemSpecPath = join(root, '.planning', 'SYSTEM_SPEC.md');
+  if (systemSpecOverlay && Object.keys(systemSpecOverlay).length > 0) {
+    if (!existsSync(systemSpecPath)) {
+      plan.system_spec_overlay_status = 'missing_file';
+    } else {
+      const specContent = readFileSync(systemSpecPath, 'utf8');
+      if (specContent.includes(SYSTEM_SPEC_OVERLAY_SEPARATOR)) {
+        plan.system_spec_overlay_status = 'existing_guidance';
+      } else {
+        plan.system_spec_overlay_status = 'append';
+      }
+    }
+  }
+
   // ── Dry run: print plan and exit ──────────────────────────────────────
   if (opts.dryRun) {
     console.log(chalk.bold(`\n  Template: ${previousTemplate} → ${templateId}\n`));
@@ -172,6 +189,16 @@ export async function templateSetCommand(templateId, opts) {
       console.log(`    .planning/acceptance-matrix.md: ${chalk.dim('ALREADY HAS guidance (skip)')}`);
     } else if (plan.acceptance_hints_status === 'missing_file') {
       console.log(`    .planning/acceptance-matrix.md: ${chalk.yellow('MISSING FILE (skip)')}`);
+    } else {
+      console.log(`    ${chalk.dim('(none)')}`);
+    }
+    console.log('\n  System spec overlay:');
+    if (plan.system_spec_overlay_status === 'append') {
+      console.log(`    .planning/SYSTEM_SPEC.md: ${chalk.green('WILL APPEND template guidance')}`);
+    } else if (plan.system_spec_overlay_status === 'existing_guidance') {
+      console.log(`    .planning/SYSTEM_SPEC.md: ${chalk.dim('ALREADY HAS guidance (skip)')}`);
+    } else if (plan.system_spec_overlay_status === 'missing_file') {
+      console.log(`    .planning/SYSTEM_SPEC.md: ${chalk.yellow('MISSING FILE (skip)')}`);
     } else {
       console.log(`    ${chalk.dim('(none)')}`);
     }
@@ -242,7 +269,24 @@ export async function templateSetCommand(templateId, opts) {
     console.log(chalk.yellow('  Warning: .planning/acceptance-matrix.md not found. Skipping template guidance hints.'));
   }
 
-  // 5. Decision ledger
+  // 5. Append system spec overlay
+  if (plan.system_spec_overlay_status === 'append' && existsSync(systemSpecPath)) {
+    const specContent = readFileSync(systemSpecPath, 'utf8');
+    const guidanceLines = [];
+    if (systemSpecOverlay.purpose_guidance) guidanceLines.push(`**Purpose:** ${systemSpecOverlay.purpose_guidance}`);
+    if (systemSpecOverlay.interface_guidance) guidanceLines.push(`**Interface:** ${systemSpecOverlay.interface_guidance}`);
+    if (systemSpecOverlay.behavior_guidance) guidanceLines.push(`**Behavior:** ${systemSpecOverlay.behavior_guidance}`);
+    if (systemSpecOverlay.error_cases_guidance) guidanceLines.push(`**Error Cases:** ${systemSpecOverlay.error_cases_guidance}`);
+    if (systemSpecOverlay.acceptance_tests_guidance) guidanceLines.push(`**Acceptance Tests:**\n${systemSpecOverlay.acceptance_tests_guidance}`);
+    if (systemSpecOverlay.extra_sections) guidanceLines.push(systemSpecOverlay.extra_sections);
+    const guidanceBlock = guidanceLines.join('\n\n');
+    const appended = `${specContent}\n\n${SYSTEM_SPEC_OVERLAY_SEPARATOR}\n\n${guidanceBlock}\n`;
+    writeFileSync(systemSpecPath, appended);
+  } else if (plan.system_spec_overlay_status === 'missing_file') {
+    console.log(chalk.yellow('  Warning: .planning/SYSTEM_SPEC.md not found. Skipping template spec overlay.'));
+  }
+
+  // 6. Decision ledger
   const ledgerEntry = {
     type: 'template_set',
     timestamp: new Date().toISOString(),
@@ -260,6 +304,8 @@ export async function templateSetCommand(templateId, opts) {
     prompt_missing_files: plan.prompts_missing_files,
     acceptance_hints_appended: plan.acceptance_hints_status === 'append',
     acceptance_hints_skipped_reason: plan.acceptance_hints_status === 'append' ? null : plan.acceptance_hints_status,
+    system_spec_overlay_appended: plan.system_spec_overlay_status === 'append',
+    system_spec_overlay_skipped_reason: plan.system_spec_overlay_status === 'append' ? null : plan.system_spec_overlay_status,
     operator: 'human',
   };
   appendJsonl(root, LEDGER_PATH, ledgerEntry);
@@ -274,6 +320,9 @@ export async function templateSetCommand(templateId, opts) {
   }
   if (plan.acceptance_hints_status === 'append') {
     console.log(`  Appended template guidance to acceptance-matrix.md`);
+  }
+  if (plan.system_spec_overlay_status === 'append') {
+    console.log(`  Appended template-specific guidance to SYSTEM_SPEC.md`);
   }
   console.log('');
 }

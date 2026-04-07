@@ -27,5 +27,12 @@
     "Public API surface reviewed and intentionally versioned",
     "Compatibility or migration expectations documented for consumers",
     "Install/import or package-consumer smoke path verified"
-  ]
+  ],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the library, its consumers, and the capability it provides. Include the primary export surface and why this is a separate package.",
+    "interface_guidance": "List the public exports, import paths, and stable vs experimental surface. Reference public-api.md for the full consumer contract.",
+    "behavior_guidance": "Describe the expected behavior of the public API: input/output contracts, side effects, thread safety, and performance characteristics.",
+    "error_cases_guidance": "List invalid-input handling, type errors at the consumer boundary, and breaking-change scenarios. Reference compatibility-policy.md for deprecation paths.",
+    "acceptance_tests_guidance": "- [ ] Public API exports match documented surface\n- [ ] Consumer install and import smoke check passes\n- [ ] Breaking changes have deprecation path documented\n- [ ] Supported runtime versions verified"
+  }
 }

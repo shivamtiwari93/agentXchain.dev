@@ -73,6 +73,32 @@ function validateAcceptanceHints(acceptanceHints, errors) {
   }
 }
 
+const VALID_SPEC_OVERLAY_KEYS = new Set([
+  'purpose_guidance',
+  'interface_guidance',
+  'behavior_guidance',
+  'error_cases_guidance',
+  'acceptance_tests_guidance',
+  'extra_sections',
+]);
+
+function validateSystemSpecOverlay(overlay, errors) {
+  if (overlay === undefined) return;
+  if (!overlay || typeof overlay !== 'object' || Array.isArray(overlay)) {
+    errors.push('system_spec_overlay must be an object when provided');
+    return;
+  }
+
+  for (const [key, value] of Object.entries(overlay)) {
+    if (!VALID_SPEC_OVERLAY_KEYS.has(key)) {
+      errors.push(`system_spec_overlay contains unknown key "${key}"`);
+    }
+    if (typeof value !== 'string' || !value.trim()) {
+      errors.push(`system_spec_overlay["${key}"] must be a non-empty string`);
+    }
+  }
+}
+
 export function validateGovernedTemplateManifest(manifest, expectedId = null) {
   const errors = [];
 
@@ -111,6 +137,7 @@ export function validateGovernedTemplateManifest(manifest, expectedId = null) {
   validatePlanningArtifacts(manifest.planning_artifacts, errors);
   validatePromptOverrides(manifest.prompt_overrides, errors);
   validateAcceptanceHints(manifest.acceptance_hints, errors);
+  validateSystemSpecOverlay(manifest.system_spec_overlay, errors);
 
   return { ok: errors.length === 0, errors };
 }
@@ -469,6 +496,20 @@ export function validateGovernedWorkflowKit(root, config = {}) {
     errors,
     warnings,
   };
+}
+
+export const SYSTEM_SPEC_OVERLAY_SEPARATOR = '## Template-Specific Guidance';
+
+export function buildSystemSpecContent(projectName, overlay) {
+  const o = overlay || {};
+  const purpose = o.purpose_guidance || '(Describe the problem this slice solves and why it exists.)';
+  const iface = o.interface_guidance || '(List the user-facing commands, files, APIs, or contracts this slice changes.)';
+  const behavior = o.behavior_guidance || '(Describe the expected behavior, including important edge cases.)';
+  const errorCases = o.error_cases_guidance || '(List the failure modes and how the system should respond.)';
+  const acceptance = o.acceptance_tests_guidance || '- [ ] Name the executable checks that prove this slice works.';
+  const extra = o.extra_sections ? `\n${o.extra_sections}\n` : '';
+
+  return `# System Spec — ${projectName}\n\n## Purpose\n\n${purpose}\n\n## Interface\n\n${iface}\n\n## Behavior\n\n${behavior}\n\n## Error Cases\n\n${errorCases}\n\n## Acceptance Tests\n\n${acceptance}\n\n## Open Questions\n\n- (Capture unresolved product or implementation questions here.)\n${extra}`;
 }
 
 export function validateGovernedProjectTemplate(templateId, source = 'agentxchain.json') {

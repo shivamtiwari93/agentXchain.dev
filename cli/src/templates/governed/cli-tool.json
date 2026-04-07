@@ -26,5 +26,12 @@
     "Command help audited for every user-facing command touched",
     "Install or invocation path checked on the intended runtime",
     "Failure-mode UX reviewed for invalid flags or missing inputs"
-  ]
+  ],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the CLI tool, its primary users, and the workflow it enables. Include the core commands and why this tool exists.",
+    "interface_guidance": "List the user-facing commands, flags, and options. Reference command-surface.md for the full command table. Include stdin/stdout/stderr contracts.",
+    "behavior_guidance": "Describe the expected behavior for each primary command, including exit codes, output format (human vs JSON), and safe retry semantics.",
+    "error_cases_guidance": "List invalid-flag handling, missing-input behavior, permission errors, and network failure UX. Include expected error messages and help fallback behavior.",
+    "acceptance_tests_guidance": "- [ ] Primary commands produce expected output and exit codes\n- [ ] Help text is accurate for every user-facing command\n- [ ] Invalid flags and missing inputs produce clear error messages\n- [ ] Install and invocation paths verified on target platforms"
+  }
 }

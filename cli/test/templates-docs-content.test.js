@@ -173,6 +173,17 @@ describe('Templates docs surface', () => {
     assert.ok(CLI_DOC_SOURCE.includes('/docs/templates'), 'cli docs must link to /docs/templates');
   });
 
+  it('documents system_spec_overlay as part of template set behavior', () => {
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('system_spec_overlay'),
+      'templates docs must mention system_spec_overlay'
+    );
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('Template-Specific Guidance'),
+      'templates docs must mention Template-Specific Guidance separator'
+    );
+  });
+
   it('documents workflow-kit proof as part of template validation', () => {
     for (const term of [
       'workflow kit',

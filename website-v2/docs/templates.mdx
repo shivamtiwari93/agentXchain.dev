@@ -102,6 +102,8 @@ The JSON output exposes a dedicated `workflow_kit` block so automation can disti
 
 The workflow-kit proof now includes `.planning/SYSTEM_SPEC.md`. First-party governed planning is not allowed to exit with no subsystem contract at all.
 
+Each non-generic template also carries a `system_spec_overlay` that replaces the generic placeholder text in `SYSTEM_SPEC.md` with project-shape-specific guidance. For example, `api-service` prompts for endpoint contracts and error budgets, while `library` prompts for public API surface and compatibility policy. The generic template produces the baseline spec with universal placeholders.
+
 Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance hints are warnings. Silent tolerance on either would hide governance gaps, but the severity distinction reflects that acceptance hints are guidance obligations, not structural requirements.
 
 ## Apply a template to an existing governed repo
@@ -124,6 +126,7 @@ agentxchain template set api-service --yes
 - creates missing planning artifacts from the target template
 - appends prompt guidance once per role when no template-guidance section exists
 - appends acceptance hints once when `acceptance-matrix.md` has no template-guidance section
+- appends template-specific guidance to `SYSTEM_SPEC.md` when no `## Template-Specific Guidance` section exists
 - records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
 
 What it does **not** do:

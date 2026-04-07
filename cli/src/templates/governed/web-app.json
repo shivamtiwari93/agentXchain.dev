@@ -26,5 +26,12 @@
     "Primary user flow reviewed end to end",
     "Mobile and desktop behavior checked explicitly",
     "Accessibility or copy regressions noted before ship request"
-  ]
+  ],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the web application, its target users, and the primary user flow it enables. Include the core screens and why this product exists.",
+    "interface_guidance": "List the user-facing screens, routes, and interactive elements. Reference user-flows.md for the full flow map. Include auth and navigation contracts.",
+    "behavior_guidance": "Describe the expected behavior of primary user flows: page load sequence, state management, real-time updates, and responsive breakpoints.",
+    "error_cases_guidance": "List network failure UX, form validation errors, auth expiry handling, and empty-state rendering. Reference ui-acceptance.md for visual acceptance criteria.",
+    "acceptance_tests_guidance": "- [ ] Primary user flow completes end to end\n- [ ] Mobile and desktop layouts render correctly\n- [ ] Error states and empty states display correctly\n- [ ] Accessibility smoke checks pass (keyboard nav, contrast)"
+  }
 }

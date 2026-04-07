@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
-import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS } from '../lib/governed-templates.js';
+import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, buildSystemSpecContent } from '../lib/governed-templates.js';
 import { VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -533,7 +533,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   // Planning artifacts
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
-  writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), `# System Spec — ${projectName}\n\n## Purpose\n\n(Describe the problem this slice solves and why it exists.)\n\n## Interface\n\n(List the user-facing commands, files, APIs, or contracts this slice changes.)\n\n## Behavior\n\n(Describe the expected behavior, including important edge cases.)\n\n## Error Cases\n\n(List the failure modes and how the system should respond.)\n\n## Acceptance Tests\n\n- [ ] Name the executable checks that prove this slice works.\n\n## Open Questions\n\n- (Capture unresolved product or implementation questions here.)\n`);
+  writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), buildSystemSpecContent(projectName, template.system_spec_overlay));
   const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
   writeFileSync(
     join(dir, '.planning', 'acceptance-matrix.md'),
