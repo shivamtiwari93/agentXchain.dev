@@ -17,6 +17,16 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 - [Build your own runner](https://agentxchain.dev/docs/build-your-own-runner/)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
 
+## Try It Now
+
+See governance before you scaffold a real repo:
+
+```bash
+npx agentxchain demo
+```
+
+Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and removes the temp workspace when finished. No API keys, config edits, or manual turn authoring required.
+
 ## Install
 
 ```bash
@@ -119,6 +129,7 @@ agentxchain step
 
 | Command | What it does |
 |---|---|
+| `demo` | Run a temporary PM -> Dev -> QA governed lifecycle demo with real gates, decisions, and objections |
 | `init --governed [--dir <path>] [--template <id>]` | Create a governed project, optionally in-place or in an explicit target directory, with project-shape-specific planning artifacts |
 | `migrate` | Convert a legacy v3 project to governed format |
 | `status` | Show current run, template, phase, turn, and approval state |

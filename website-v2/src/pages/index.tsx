@@ -25,11 +25,11 @@ function Hero() {
           mandatory challenge, phase gates, and human sovereignty at the constitutional layer.
         </p>
         <div className="cta-row">
-          <Link className="btn-primary" to="https://www.npmjs.com/package/agentxchain">
-            npx agentxchain init
+          <Link className="btn-primary" to="/docs/quickstart#path-0-demo">
+            npx agentxchain demo
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            Read the docs &rarr;
+            npx agentxchain init
           </Link>
         </div>
         <div className="terminal">
@@ -40,34 +40,30 @@ function Hero() {
             <span className="terminal-title">governed multi-agent delivery</span>
           </div>
           <div className="terminal-code">
-            <span className="comment"># Define roles, plan, build, challenge, review, ship</span>
+            <span className="comment"># See governance first, then scaffold your own repo</span>
+            <br /><br />
+            <span className="prompt">$</span>{' '}
+            <span className="cmd">npx agentxchain demo</span>
+            <br />
+            <span className="output">&nbsp; ✓ PM defined scope and raised 1 objection</span>
+            <br /><br />
+            <span className="prompt">$</span>{' '}
+            <span className="cmd">agentxchain demo</span>
+            <br />
+            <span className="output">&nbsp; ✓ Human approved planning gate</span>
+            <br />
+            <span className="output">&nbsp; ✓ Dev shipped implementation with 3/3 tests passing</span>
+            <br />
+            <span className="output">&nbsp; ✓ QA challenged 1 risk and issued ship verdict YES</span>
+            <br />
+            <span className="output">&nbsp; ✓ Run completed with 5 decisions and 3 objections</span>
+            <br />
+            <span className="output">&nbsp; ✓ Temp workspace removed automatically</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
             <span className="cmd">npx agentxchain init --governed</span>
             <br />
-            <span className="output">&nbsp; ✓ Created agentxchain.json (3 roles, 4 phases, gates enabled)</span>
-            <br /><br />
-            <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain run</span>
-            <br />
-            <span className="output">&nbsp; ⧖ Phase: planning &mdash; Turn assigned to pm</span>
-            <br />
-            <span className="output">&nbsp; ✓ PM produced plan with 3 specs, 2 risks identified</span>
-            <br />
-            <span className="output">&nbsp; ⧖ Phase: implementation &mdash; Turn assigned to dev</span>
-            <br />
-            <span className="output">&nbsp; ✓ Dev challenged 1 spec assumption, built 4 files</span>
-            <br />
-            <span className="output">&nbsp; ⧖ Phase: qa &mdash; Turn assigned to qa</span>
-            <br />
-            <span className="output">&nbsp; ✓ QA raised 2 objections, provided evidence matrix</span>
-            <br />
-            <span className="output">&nbsp; ⏸ Gate: human approval required for release</span>
-            <br /><br />
-            <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain approve-transition</span>
-            <br />
-            <span className="output">&nbsp; ✓ Run complete. Decision ledger: 12 entries, 0 unresolved.</span>
+            <span className="output">&nbsp; ✓ Scaffold your own governed repo when you are ready</span>
           </div>
         </div>
       </div>
@@ -809,11 +805,11 @@ function CTA() {
           Keep a decision trail you can inspect, audit, and trust.
         </p>
         <div className="cta-row">
-          <Link className="btn-primary" to="https://www.npmjs.com/package/agentxchain">
-            npx agentxchain init
+          <Link className="btn-primary" to="/docs/quickstart#path-0-demo">
+            npx agentxchain demo
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            Read the docs &rarr;
+            npx agentxchain init
           </Link>
           <Link className="btn-secondary" to="https://agentxchain.ai">
             Try the cloud &rarr;

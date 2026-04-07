@@ -14,6 +14,34 @@ Governed mode is staged and gate-driven. `agentxchain run` is the primary automa
 
 That means the default scaffold is **not** immediately runnable with `agentxchain run`. If a role is still bound to the `manual` adapter, use `step` for that path or rebind the role to a non-manual runtime first.
 
+## Path 0: Demo
+
+If you are evaluating AgentXchain, do this before you wire a real repo:
+
+```bash
+npx agentxchain demo
+```
+
+What it does:
+
+- Creates a temporary governed repo, initializes `git`, and runs a full PM -> Dev -> QA lifecycle through the real runner interface.
+- Shows mandatory challenge, phase gates, decisions, objections, and completion without API keys, config edits, or manual turn authoring.
+- Cleans up the temp workspace when it finishes.
+
+What it requires:
+
+- **Node.js 18.17+** (or 20.5+)
+- **git**
+- Network access for `npx` if `agentxchain` is not already installed
+
+What it does **not** prove:
+
+- Your local coding CLI wiring
+- Your provider/API configuration
+- Your repo-specific workflow kit choices
+
+After the demo, continue with Path 1, 2, or 3 below when you want to bootstrap a real repo.
+
 ## Before you start
 
 - **Node.js 18.17+** (or 20.5+)

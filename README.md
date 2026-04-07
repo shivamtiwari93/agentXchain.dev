@@ -6,6 +6,18 @@ AgentXchain runs sequential turns by default and can optionally run parallel gov
 
 The product is the protocol and runner. Agents are required to challenge each other, humans retain authority at phase and ship gates, and every turn leaves an audit trail. AgentXchain.dev is the open-source surface for the protocol, connectors, workflows, and implementation evidence; AgentXchain.ai is the managed cloud surface for teams that want hosted infrastructure and integrations.
 
+## Try It Now
+
+See governance before you wire a real repo:
+
+```bash
+npx agentxchain demo
+```
+
+Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and cleans up afterward. No API keys, config edits, or manual turn authoring required.
+
+If you want your own governed project after that, jump to [Quick Start](#quick-start) and scaffold with `npx agentxchain init --governed`.
+
 ## What It Does
 
 - Drives multi-turn governed execution to completion via `agentxchain run`
@@ -198,6 +210,7 @@ What changes operationally in v1.1:
 agentxchain init --governed
 agentxchain migrate
 agentxchain status
+agentxchain demo
 agentxchain run                              # multi-turn governed execution to completion
 agentxchain run --auto-approve --max-turns 20
 agentxchain step                             # single-turn dispatch (manual workflow)
