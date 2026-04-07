@@ -525,9 +525,13 @@ describe('report CLI', () => {
       assert.equal(report.subject.coordinator.repo_count, 2);
       assert.equal(report.subject.coordinator.workstream_count, 1);
       assert.equal(report.subject.run.barrier_count, 1);
+      assert.equal(report.subject.run.blocked_reason, null);
+      assert.equal(report.subject.run.pending_gate, null);
       assert.equal(report.subject.run.created_at, '2026-04-03T00:00:00Z');
       assert.equal(report.subject.run.completed_at, null);
       assert.equal(report.subject.run.duration_seconds, null);
+      assert.equal(report.subject.run.next_actions.length, 1);
+      assert.equal(report.subject.run.next_actions[0].command, 'agentxchain multi resync');
       assert.deepEqual(report.subject.run.repo_status_counts, {
         initialized: 1,
         linked: 1,
@@ -538,6 +542,8 @@ describe('report CLI', () => {
 
       const textResult = runCli(root, ['report', '--input', artifactPath]);
       assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Next Actions:/);
+      assert.match(textResult.stdout, /agentxchain multi resync/);
       assert.match(textResult.stdout, /Started: 2026-04-03T00:00:00Z/);
       assert.doesNotMatch(textResult.stdout, /Completed:/);
       assert.doesNotMatch(textResult.stdout, /Duration:/);

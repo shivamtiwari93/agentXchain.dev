@@ -105,6 +105,9 @@ Coordinator-export reports carry:
 | `subject.run.super_run_id` | Current coordinator run id or `null` |
 | `subject.run.status` | Current coordinator status |
 | `subject.run.phase` | Current coordinator phase |
+| `subject.run.blocked_reason` | Coordinator blocked reason from state when present |
+| `subject.run.pending_gate` | Current coordinator pending gate from state when present |
+| `subject.run.next_actions` | Ordered operator commands derived from verified coordinator state |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Coordinator timing summary derived from lifecycle history when available, with state fallback |
 | `subject.run.barrier_count` | Number of coordinator barriers |
 | `subject.run.repo_status_counts` | Status histogram derived from coordinator state |
@@ -152,6 +155,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - turn or repo counts
 - artifact evidence counts
 - blocked-state or barrier information when present
+- pending gate and next actions when coordinator state makes them deterministic
 - turn timeline, coordinator timeline, decision digest, hook activity, gate outcomes, barrier summary, barrier transitions, and intake linkage when those surfaces exist
 
 ### `markdown`
@@ -163,6 +167,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Decisions`
 - `## Hook Activity`
 - `## Gate Outcomes`
+- `## Next Actions`
 - `## Barrier Summary`
 - `## Barrier Transitions`
 - `## Intake Linkage`

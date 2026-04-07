@@ -39,10 +39,14 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /report_version/);
     assert.match(REPORT_DOCS, /governed_run/);
     assert.match(REPORT_DOCS, /coordinator_workspace/);
+    assert.match(REPORT_DOCS, /blocked_reason/);
+    assert.match(REPORT_DOCS, /pending_gate/);
+    assert.match(REPORT_DOCS, /next_actions/);
     assert.match(REPORT_DOCS, /coordinator_timeline/);
     assert.match(REPORT_DOCS, /barrier_summary/);
     assert.match(REPORT_DOCS, /barrier_ledger_timeline/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
+    assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
 });
@@ -75,5 +79,12 @@ describe('governance report spec alignment', () => {
     assert.match(timingSpec, /DEC-COORD-REPORT-TIME-001/);
     assert.match(timingSpec, /AT-COORD-TIME-001/);
     assert.match(timingSpec, /AT-COORD-TIME-006/);
+  });
+
+  it('ships a coordinator action-guidance spec for operator next steps', () => {
+    const actionsSpec = read('.planning/COORDINATOR_REPORT_ACTIONS_SPEC.md');
+    assert.match(actionsSpec, /DEC-COORD-ACTIONS-001/);
+    assert.match(actionsSpec, /AT-COORD-ACT-001/);
+    assert.match(actionsSpec, /AT-COORD-ACT-006/);
   });
 });

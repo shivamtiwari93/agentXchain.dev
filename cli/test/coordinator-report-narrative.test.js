@@ -94,7 +94,7 @@ function buildRepoExport(repoId, projectName, { historyEntries = [], decisionEnt
 }
 
 // Build a realistic coordinator export fixture with multiple event types
-function buildCoordinatorFixture() {
+function buildCoordinatorFixture(options = {}) {
   const now = '2026-04-06T20:00:00.000Z';
   const historyEvents = [
     {
@@ -280,7 +280,21 @@ function buildCoordinatorFixture() {
     },
   ];
 
-  return {
+  const stateData = {
+    schema_version: '0.1',
+    super_run_id: 'srun_test_001',
+    status: 'completed',
+    phase: 'implementation',
+    created_at: '2026-04-06T18:59:00.000Z',
+    updated_at: '2026-04-06T19:40:00.000Z',
+    repo_runs: {
+      api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+      web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+    },
+    pending_gate: null,
+  };
+
+  const fixture = {
     schema_version: '0.2',
     export_kind: 'agentxchain_coordinator_export',
     exported_at: now,
@@ -304,18 +318,7 @@ function buildCoordinatorFixture() {
     config: coordConfig,
     files: {
       'agentxchain-multi.json': jsonFileEntry(coordConfig),
-      '.agentxchain/multirepo/state.json': jsonFileEntry({
-        schema_version: '0.1',
-        super_run_id: 'srun_test_001',
-        status: 'completed',
-        phase: 'implementation',
-        created_at: '2026-04-06T18:59:00.000Z',
-        updated_at: '2026-04-06T19:40:00.000Z',
-        repo_runs: {
-          api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
-          web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
-        },
-      }),
+      '.agentxchain/multirepo/state.json': jsonFileEntry(stateData),
       '.agentxchain/multirepo/history.jsonl': jsonlFileEntry(historyEvents),
       '.agentxchain/multirepo/barriers.json': jsonFileEntry(barriers),
       '.agentxchain/multirepo/barrier-ledger.jsonl': jsonlFileEntry(barrierLedgerEvents),
@@ -340,6 +343,24 @@ function buildCoordinatorFixture() {
       },
     },
   };
+
+  if (options.summaryStatus) {
+    fixture.summary.status = options.summaryStatus;
+  }
+
+  if (options.state) {
+    fixture.files['.agentxchain/multirepo/state.json'] = jsonFileEntry({
+      ...fixture.files['.agentxchain/multirepo/state.json'].data,
+      ...options.state,
+      repo_runs: options.state.repo_runs || fixture.files['.agentxchain/multirepo/state.json'].data.repo_runs,
+    });
+  }
+
+  if (options.repos) {
+    fixture.repos = options.repos;
+  }
+
+  return fixture;
 }
 
 // AT-COORD-REPORT-001: 6+ event types in chronological order
@@ -369,6 +390,18 @@ describe('coordinator report narrative — coordinator_timeline', () => {
         assert.ok(timeline[i].timestamp >= timeline[i - 1].timestamp, `event ${i} should be after event ${i - 1}`);
       }
     }
+  });
+
+  it('AT-COORD-ACT-005: completed coordinator emits no next actions', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+
+    assert.deepEqual(result.report.subject.run.next_actions, []);
+
+    const text = formatGovernanceReportText(result.report);
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!text.includes('Next Actions:'), 'completed report must omit text next-actions section');
+    assert.ok(!md.includes('## Next Actions'), 'completed report must omit markdown next-actions section');
   });
 
   it('AT-COORD-TIME-001/002: completed coordinator timing prefers history lifecycle timestamps', () => {
@@ -607,6 +640,116 @@ describe('coordinator report narrative — empty history', () => {
   });
 });
 
+describe('coordinator report narrative — next actions', () => {
+  it('AT-COORD-ACT-001: blocked coordinator with pending gate recommends resume then approve-gate', () => {
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'blocked',
+      state: {
+        status: 'blocked',
+        blocked_reason: 'coordinator_hook_violation',
+        pending_gate: {
+          gate: 'initiative_ship',
+          gate_type: 'run_completion',
+          requested_at: '2026-04-06T19:25:00.000Z',
+        },
+      },
+    });
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const run = result.report.subject.run;
+
+    assert.equal(run.blocked_reason, 'coordinator_hook_violation');
+    assert.equal(run.pending_gate.gate, 'initiative_ship');
+    assert.equal(run.next_actions.length, 2);
+    assert.equal(run.next_actions[0].command, 'agentxchain multi resume');
+    assert.match(run.next_actions[0].reason, /blocked/i);
+    assert.equal(run.next_actions[1].command, 'agentxchain multi approve-gate');
+    assert.match(run.next_actions[1].reason, /After resume/i);
+
+    const text = formatGovernanceReportText(result.report);
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(text, /Blocked reason: coordinator_hook_violation/);
+    assert.match(text, /Pending gate: initiative_ship \(run_completion\)/);
+    assert.match(text, /Next Actions:/);
+    assert.match(text, /agentxchain multi resume/);
+    assert.match(text, /agentxchain multi approve-gate/);
+    assert.match(md, /## Next Actions/);
+    assert.match(md, /`agentxchain multi resume`/);
+    assert.match(md, /`agentxchain multi approve-gate`/);
+  });
+
+  it('AT-COORD-ACT-002: paused coordinator with pending gate recommends only approve-gate', () => {
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'paused',
+      state: {
+        status: 'paused',
+        pending_gate: {
+          gate: 'phase_transition:planning->implementation',
+          gate_type: 'phase_transition',
+          from: 'planning',
+          to: 'implementation',
+        },
+      },
+    });
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const run = result.report.subject.run;
+
+    assert.equal(run.blocked_reason, null);
+    assert.equal(run.next_actions.length, 1);
+    assert.equal(run.next_actions[0].command, 'agentxchain multi approve-gate');
+    assert.match(run.next_actions[0].reason, /phase_transition/);
+  });
+
+  it('AT-COORD-ACT-003: active coordinator with no blockers recommends multi step', () => {
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'active',
+      state: {
+        status: 'active',
+      },
+    });
+    fixture.files['.agentxchain/multirepo/history.jsonl'] = jsonlFileEntry([
+      { type: 'run_initialized', timestamp: '2026-04-06T19:00:00.000Z', repo_runs: {} },
+      { type: 'turn_dispatched', timestamp: '2026-04-06T19:01:00.000Z', repo_id: 'api', role: 'dev', workstream_id: 'core' },
+    ]);
+    fixture.summary.history_entries = 2;
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const run = result.report.subject.run;
+
+    assert.equal(run.next_actions.length, 1);
+    assert.equal(run.next_actions[0].command, 'agentxchain multi step');
+    assert.match(run.next_actions[0].reason, /no blocked state or pending gate/i);
+  });
+
+  it('AT-COORD-ACT-004: child/coordinator status drift recommends multi resync', () => {
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'active',
+      state: {
+        status: 'active',
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation', initialized_by_coordinator: true },
+          web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+        },
+      },
+    });
+    fixture.summary.repo_run_statuses = { api: 'linked', web: 'completed' };
+    fixture.files['.agentxchain/multirepo/history.jsonl'] = jsonlFileEntry([
+      { type: 'run_initialized', timestamp: '2026-04-06T19:00:00.000Z', repo_runs: {} },
+      { type: 'state_resynced', timestamp: '2026-04-06T19:10:00.000Z', resynced_repos: ['api'], barrier_changes: [] },
+    ]);
+    fixture.summary.history_entries = 2;
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report must build from a verifier-valid drift fixture');
+    const run = result.report.subject.run;
+
+    assert.equal(run.next_actions.length, 1);
+    assert.equal(run.next_actions[0].command, 'agentxchain multi resync');
+    assert.match(run.next_actions[0].reason, /api/);
+  });
+});
+
 // AT-BARRIER-LEDGER-001: all ledger entries extracted in chronological order
 describe('coordinator report narrative — barrier_ledger_timeline', () => {
   it('AT-BARRIER-LEDGER-001: includes all barrier_transition entries in order', () => {
@@ -758,5 +901,15 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /AT-BARRIER-LEDGER-007/);
     assert.match(spec, /barrier_ledger_timeline/);
     assert.match(spec, /barrier_transition/);
+  });
+
+  it('action-guidance spec exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'COORDINATOR_REPORT_ACTIONS_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Action Guidance Spec/);
+    assert.match(spec, /AT-COORD-ACT-001/);
+    assert.match(spec, /AT-COORD-ACT-006/);
+    assert.match(spec, /blocked_reason/);
+    assert.match(spec, /next_actions/);
   });
 });

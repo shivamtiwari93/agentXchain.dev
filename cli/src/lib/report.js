@@ -284,6 +284,90 @@ function computeCoordinatorTiming(artifact, coordinatorTimeline) {
   };
 }
 
+function normalizeCoordinatorBlockedReason(blockedReason) {
+  if (typeof blockedReason === 'string' && blockedReason.trim().length > 0) {
+    return blockedReason;
+  }
+  if (blockedReason && typeof blockedReason === 'object' && !Array.isArray(blockedReason)) {
+    if (typeof blockedReason.reason === 'string' && blockedReason.reason.trim().length > 0) {
+      return blockedReason.reason;
+    }
+    if (typeof blockedReason.category === 'string' && blockedReason.category.trim().length > 0) {
+      return blockedReason.category;
+    }
+  }
+  return null;
+}
+
+function normalizePendingGate(pendingGate) {
+  if (!pendingGate || typeof pendingGate !== 'object' || Array.isArray(pendingGate)) return null;
+  if (typeof pendingGate.gate !== 'string' || pendingGate.gate.length === 0) return null;
+  if (typeof pendingGate.gate_type !== 'string' || pendingGate.gate_type.length === 0) return null;
+  const normalized = {
+    gate: pendingGate.gate,
+    gate_type: pendingGate.gate_type,
+  };
+  if (typeof pendingGate.from === 'string' && pendingGate.from.length > 0) normalized.from = pendingGate.from;
+  if (typeof pendingGate.to === 'string' && pendingGate.to.length > 0) normalized.to = pendingGate.to;
+  if (Array.isArray(pendingGate.required_repos)) normalized.required_repos = pendingGate.required_repos;
+  if (Array.isArray(pendingGate.human_barriers)) normalized.human_barriers = pendingGate.human_barriers;
+  if (typeof pendingGate.requested_at === 'string' && pendingGate.requested_at.length > 0) {
+    normalized.requested_at = pendingGate.requested_at;
+  }
+  return normalized;
+}
+
+function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repos, coordinatorRepoRuns }) {
+  const nextActions = [];
+
+  if (status === 'blocked') {
+    nextActions.push({
+      command: 'agentxchain multi resume',
+      reason: `Coordinator is blocked${blockedReason ? `: ${blockedReason}` : ''}. Resume after fixing the underlying issue.`,
+    });
+    if (pendingGate) {
+      nextActions.push({
+        command: 'agentxchain multi approve-gate',
+        reason: `After resume, approve pending gate "${pendingGate.gate}" (${pendingGate.gate_type}).`,
+      });
+    }
+    return nextActions;
+  }
+
+  const driftedRepos = repos
+    .filter((repo) => repo.ok)
+    .filter((repo) => {
+      const coordinatorStatus = coordinatorRepoRuns?.[repo.repo_id]?.status || null;
+      return coordinatorStatus && repo.status && coordinatorStatus !== repo.status;
+    })
+    .map((repo) => repo.repo_id);
+
+  if (driftedRepos.length > 0) {
+    nextActions.push({
+      command: 'agentxchain multi resync',
+      reason: `Coordinator state disagrees with child repo status for: ${driftedRepos.join(', ')}.`,
+    });
+    return nextActions;
+  }
+
+  if (pendingGate) {
+    nextActions.push({
+      command: 'agentxchain multi approve-gate',
+      reason: `Coordinator is waiting on pending gate "${pendingGate.gate}" (${pendingGate.gate_type}).`,
+    });
+    return nextActions;
+  }
+
+  if (status === 'active' || status === 'paused') {
+    nextActions.push({
+      command: 'agentxchain multi step',
+      reason: 'Coordinator has no blocked state or pending gate and can continue.',
+    });
+  }
+
+  return nextActions;
+}
+
 function extractBarrierSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/multirepo/barriers.json');
   if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
@@ -409,6 +493,7 @@ function buildRunSubject(artifact) {
 }
 
 function buildCoordinatorSubject(artifact) {
+  const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json') || {};
   const repoStatuses = artifact.summary?.repo_run_statuses || {};
   const repoStatusCounts = deriveRepoStatusCounts(repoStatuses);
   const repos = Object.entries(artifact.repos || {})
@@ -441,6 +526,15 @@ function buildCoordinatorSubject(artifact) {
   const barrierSummary = extractBarrierSummary(artifact);
   const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
+  const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
+  const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
+  const nextActions = deriveCoordinatorNextActions({
+    status: artifact.summary?.status || null,
+    blockedReason,
+    pendingGate,
+    repos,
+    coordinatorRepoRuns: coordinatorState.repo_runs || {},
+  });
 
   return {
     kind: 'coordinator_workspace',
@@ -455,6 +549,9 @@ function buildCoordinatorSubject(artifact) {
       super_run_id: artifact.summary?.super_run_id || null,
       status: artifact.summary?.status || null,
       phase: artifact.summary?.phase || null,
+      blocked_reason: blockedReason,
+      pending_gate: pendingGate,
+      next_actions: nextActions,
       created_at: timing.created_at,
       completed_at: timing.completed_at,
       duration_seconds: timing.duration_seconds,
@@ -651,6 +748,7 @@ export function formatGovernanceReportText(report) {
     `Super run: ${run.super_run_id || 'none'}`,
     `Status: ${run.status || 'unknown'}`,
     `Phase: ${run.phase || 'unknown'}`,
+    `Blocked reason: ${run.blocked_reason || 'none'}`,
     `Started: ${run.created_at || 'n/a'}`,
     `Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `Workstreams: ${coordinator.workstream_count}`,
@@ -665,6 +763,17 @@ export function formatGovernanceReportText(report) {
   }
   if (run.duration_seconds != null) {
     lines.push(`Duration: ${run.duration_seconds}s`);
+  }
+  if (run.pending_gate) {
+    lines.push(`Pending gate: ${run.pending_gate.gate} (${run.pending_gate.gate_type})`);
+  }
+
+  if (run.next_actions && run.next_actions.length > 0) {
+    lines.push('', 'Next Actions:');
+    for (let i = 0; i < run.next_actions.length; i++) {
+      const action = run.next_actions[i];
+      lines.push(`  ${i + 1}. ${action.command} | ${action.reason}`);
+    }
   }
 
   if (coordinator_timeline && coordinator_timeline.length > 0) {
@@ -870,6 +979,7 @@ export function formatGovernanceReportMarkdown(report) {
     `- Super run: \`${run.super_run_id || 'none'}\``,
     `- Status: \`${run.status || 'unknown'}\``,
     `- Phase: \`${run.phase || 'unknown'}\``,
+    `- Blocked reason: \`${run.blocked_reason || 'none'}\``,
     `- Started: \`${run.created_at || 'n/a'}\``,
     `- Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `- Workstreams: ${coordinator.workstream_count}`,
@@ -884,6 +994,17 @@ export function formatGovernanceReportMarkdown(report) {
   }
   if (run.duration_seconds != null) {
     mdLines.push(`- Duration: \`${run.duration_seconds}s\``);
+  }
+  if (run.pending_gate) {
+    mdLines.push(`- Pending gate: \`${run.pending_gate.gate}\` (\`${run.pending_gate.gate_type}\`)`);
+  }
+
+  if (run.next_actions && run.next_actions.length > 0) {
+    mdLines.push('', '## Next Actions', '');
+    for (let i = 0; i < run.next_actions.length; i++) {
+      const action = run.next_actions[i];
+      mdLines.push(`${i + 1}. \`${action.command}\`: ${action.reason}`);
+    }
   }
 
   if (coordinator_timeline && coordinator_timeline.length > 0) {
