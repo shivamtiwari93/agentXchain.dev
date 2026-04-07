@@ -42,7 +42,7 @@
 - **Date**: 2026-04-01 initial run, 2026-04-07 rerun
 - **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
 - **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`, `run_91f4ba5d54707a7e`
-- **Result**: live connector proof confirmed; final-phase QA review and gate-file preview behavior now proven live; full completion still partial because terminal QA did not express ship readiness via `run_completion_request: true`
+- **Result**: live connector proof confirmed; final-phase QA review, governed completion signaling, and `approve-completion` are now proven live for the `manual` + `local_cli` + `api_proxy` path
 - **What it proves**:
   - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
   - `local_cli` dev turn completed against live Claude Code in the rerun (`turn_555bf457840b6268`)
@@ -73,12 +73,15 @@
     - correctly identified that `.planning/acceptance-matrix.md` still cited `24 passed`
     - correctly identified that `.planning/RELEASE_NOTES.md` still cited `24 passed`
     - these objections only exist if gate-file previews were actually visible in `CONTEXT.md`
+  - A fresh terminal QA turn in that same retained run (`turn_9710c088069f0ff2`) proved governed completion signaling live:
+    - accepted as `completed`
+    - requested `run_completion_request: true`
+    - paused the run with `pending_run_completion.gate = "qa_ship_verdict"`
+    - explicit human approval via `agentxchain approve-completion` completed the run at `2026-04-07T11:14:16.734Z`
 - **What it does NOT prove**:
-  - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
   - Full machine-verifiable stdout/stderr proof for the dev test run
   - Independent QA execution of the dev test suite from the `api_proxy` runtime
-  - Live `pending_run_completion` / `approve-completion` path from a terminal QA turn, because the accepted final-phase QA output used `status: "needs_human"` instead of `run_completion_request: true`
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -138,10 +141,11 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 |-------|----------|-------|
 | "1000+ tests" | E1 (1033 tests as of 2026-04-03) | Use floor-hundred format per DEC-SHOW-HN-003. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
-| "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live) | Phrase this as a protocol guarantee, not as evidence that `approve-completion` has been exercised live. |
+| "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
-| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood and the run did not reach final completion. |
+| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run through human-approved completion) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood. |
 | "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) + E2 (all three executed live in one governed run) | This claim is now supported by both test coverage and live execution evidence. |
+| "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Phrase narrowly. This is a three-adapter governed-run claim, not an "all adapters proven live" claim. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
 | "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
@@ -157,21 +161,17 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
-| "Full live end-to-end proof" or "all adapters proven live" | E2 now proves manual + `local_cli` + `api_proxy` live in one governed run, but MCP is still not part of that proof and the run did not reach final completion. | Complete a governed run through `approve-completion` and separately add live MCP proof if that claim is desired. |
-| "Live `approve-completion` is proven" or "full live run completion" | E2 now proves final-phase QA review live, but the accepted terminal QA turn still used `status: "needs_human"` instead of `run_completion_request: true`, so `pending_run_completion` and `approve-completion` were not exercised live. | Complete a live run where terminal QA requests completion and a human closes it via `approve-completion`. |
+| "Full live end-to-end proof" or "all adapters proven live" | E2 now proves a full governed run live for `manual` + `local_cli` + `api_proxy`, but MCP is still not part of that proof. | Add live MCP proof if that broader claim is desired. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
 | "Dashboard is feature-complete" in public copy | Dashboard is v2.0 scope with explicit deferrals (dispatch-bundle inspection, editor deep links, dashboard-triggered approvals). | Ship deferred features or reword to "v2.0 observation surface." |
-| "Full live run completion" | E2: Run ended in `paused` at QA phase, not `completed`. `approve-completion` was never exercised live. | Complete a run through `approve-completion`. |
-
 ## 4. Evidence Gaps
 
 These are the most valuable evidence items that do not yet exist. Ordered by launch value.
 
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
-| Full governed run through `approve-completion` | Unlocks "full lifecycle proven" claim | Complete a run to ship decision |
 | Live MCP adapter dogfood | Unlocks a truthful "all four adapters proven live" claim | Run a governed turn through the MCP adapter against a real server |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
@@ -182,5 +182,5 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 ## Audit
 
 - **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slices add 282 tests / 0 failures across 55 suites for review-artifact truth, dispatch-bundle truth, docs truth, and missing-status normalization
-- **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found
+- **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

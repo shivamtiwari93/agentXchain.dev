@@ -70,7 +70,7 @@ Current keywords in `package.json` are adequate:
 | Docs: Protocol | Ready | Protocol v6 published; v5 remains historical reference |
 | Show HN Draft | Frozen | DEC-SHOW-HN-002 |
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
-| Homebrew Tap | Needs update | P1 human task: update tarball URL + SHA after publish |
+| Homebrew Tap | Ready | Canonical tap is on the live release; workflow sync + graceful PR fallback shipped |
 | Social Preview Image | Not created | Requires design tool or generation |
 | Blog / Long-form Post | Ready | Published at `website-v2/src/pages/why.mdx`; source lives in `WHY_GOVERNED_MULTI_AGENT_DELIVERY.md` |
 | Launch Evidence Report | Ready | `.planning/LAUNCH_EVIDENCE_REPORT.md` — anchors all claim boundaries |
@@ -79,7 +79,7 @@ Current keywords in `package.json` are adequate:
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
 - Test count uses floor-hundred format: "1000+" (currently 1033 in this launch brief; update when the evidence artifact is refreshed)
-- Do not claim "full live end-to-end proof" or "all adapters proven live" — E2 now proves `manual` + `local_cli` + `api_proxy` in one governed run, but not final completion and not live MCP
+- Do not claim "all adapters proven live" or imply MCP live proof — E2 now proves a full governed run for `manual` + `local_cli` + `api_proxy`, but live MCP evidence still does not exist
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
 - Do not claim dashboard is "feature-complete" publicly — use "v2.0 observation surface"

@@ -53,12 +53,14 @@ describe('Launch evidence report', () => {
     assert.match(report, /v2\.0\.1 published to npm/i);
   });
 
-  it('records terminal qa review as proven live and keeps approve-completion unproven', () => {
-    assert.match(report, /final-phase QA review and gate-file preview behavior now proven live/i);
+  it('records full live governed completion for the three-adapter path', () => {
+    assert.match(report, /final-phase QA review, governed completion signaling, and `approve-completion` are now proven live/i);
     assert.match(report, /turn_8fa2ffe2abc2f3b0/);
-    assert.match(report, /Live `approve-completion` is proven/i);
-    assert.match(report, /used `status: "needs_human"` instead of `run_completion_request: true`/i);
-    assert.doesNotMatch(report, /Final-phase QA review is proven live" \| The current live evidence still never entered the final `qa` phase/i);
+    assert.match(report, /turn_9710c088069f0ff2/);
+    assert.match(report, /approve-completion` completed the run at `2026-04-07T11:14:16\.734Z`/i);
+    assert.match(report, /A full governed run is proven live for the `manual` \+ `local_cli` \+ `api_proxy` path/i);
+    assert.doesNotMatch(report, /full completion still partial/i);
+    assert.doesNotMatch(report, /used `status: "needs_human"` instead of `run_completion_request: true`/i);
   });
 });
 
@@ -212,7 +214,7 @@ describe('Launch brief references evidence report', () => {
   });
 
   it('includes claim boundary constraints', () => {
-    assert.match(brief, /full live end-to-end proof/i);
+    assert.match(brief, /all adapters proven live/i);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });

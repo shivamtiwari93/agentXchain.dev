@@ -133,15 +133,35 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
        - all five acceptance criteria are documented as passing
        - `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, and `.planning/RELEASE_NOTES.md` are present and substantive
        - ship verdict remains YES with no open blockers for the scoped MVP
-   - New blocker exposed:
+   - New blocker exposed at that point:
      - terminal-phase QA still chose `status: "needs_human"` instead of `run_completion_request: true`
-     - this means final-phase review semantics are now proven live, but the `pending_run_completion` -> `approve-completion` path is still not proven live
+     - this left final-phase review semantics proven live, but the `pending_run_completion` -> `approve-completion` path still unproven
 
-11. Final governed state after acceptance:
-   - `status`: `blocked`
-   - `blocked_on`: `human:The qa_ship_verdict gate explicitly requires human approval. QA review is complete with a YES ship verdict, but the gate cannot be closed autonomously. Human must review and approve to finalize the run.`
+11. Terminal completion-signaling rerun closed the last live completion gap.
+   - Same workspace retained: `/tmp/agentxchain-live-turn78-Nk27zX`
+   - Same run: `run_91f4ba5d54707a7e`
+   - Retried terminal QA turn: `turn_9710c088069f0ff2`
+   - Product fixes shipped before this rerun:
+     - terminal review-only prompt now explicitly distinguishes:
+       - ship-ready verdict -> `status: "completed"` + `run_completion_request: true`
+       - real blocker -> `status: "needs_human"`
+       - "Do NOT use `needs_human` to mean human should approve the release"
+     - normalization Rule 3 now safely recovers the predictable drift where terminal review-only QA says "human should approve" via `needs_human` instead of the governed completion signal
+   - Result:
+     - the retained run reactivated from the old blocked-human path and dispatched a fresh terminal QA turn
+     - accepted QA turn `turn_9710c088069f0ff2` completed cleanly and requested run completion
+     - governed state entered:
+       - `status: "paused"`
+       - `blocked_on: "human_approval:qa_ship_verdict"`
+       - `pending_run_completion.gate: "qa_ship_verdict"`
+     - operator action `agentxchain approve-completion` then completed the run successfully
+     - run completed at `2026-04-07T11:14:16.734Z`
+
+12. Final governed state after live completion approval:
+   - `status`: `completed`
    - `phase`: `qa`
-   - `last_completed_turn_id`: `turn_8fa2ffe2abc2f3b0`
+   - `completed_at`: `2026-04-07T11:14:16.734Z`
+   - `last_completed_turn_id`: `turn_9710c088069f0ff2`
    - `accepted_integration_ref`: `git:adfb6bd79173c2ff91c0856fd6a9b490db978e12`
 
 ## What This Rerun Proves
@@ -160,20 +180,23 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
   - the terminal QA review referenced stale `24 passed` text from `.planning/acceptance-matrix.md`
   - the same review referenced stale `24 passed` text from `.planning/RELEASE_NOTES.md`
   - those objections only exist if the gate-file contents were actually surfaced in `CONTEXT.md`
+- A later fresh terminal QA turn can now request governed completion truthfully:
+  - accepted `qa` turn `turn_9710c088069f0ff2` entered `pending_run_completion`
+  - the run paused on `human_approval:qa_ship_verdict`
+  - `agentxchain approve-completion` then completed the run
+- Full live governed completion is now proven for the `manual` + `local_cli` + `api_proxy` path.
 
 ## What This Rerun Does Not Prove
 
-- Final run completion via `approve-completion`
 - Live MCP adapter execution
 - Full machine-verifiable stdout/stderr proof for the dev test run
 - Independent QA execution of the dev test suite from the `api_proxy` runtime
-- Live `pending_run_completion` entry and `approve-completion` execution from a terminal QA turn, because the accepted final-phase QA output used `status: "needs_human"` instead of `run_completion_request: true`
 
 ## Judgment
 
 - Live `local_cli` validation: **confirmed**
 - Live all-three-adapter run (`manual` + `local_cli` + `api_proxy`): **confirmed**
-- Full live Scenario A through completion gate: **not confirmed**
+- Full live Scenario A through completion gate: **confirmed**
 - Dev verification-pass semantics trap: **closed**
 - QA code-visibility gap: **closed for modest files after preview-cap increase**
 - Live QA model-output reliability: **confirmed for the two previously failing defect classes**
@@ -181,7 +204,7 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - Missing-status recovery for coherent `api_proxy` review payloads: **confirmed**
 - Live implementation -> qa phase transition intent from dev output: **confirmed**
 - Final-phase (`qa`) gate-file preview semantics in live review context: **confirmed**
-- Live `approve-completion` path from terminal QA output: **not confirmed**
+- Live `approve-completion` path from terminal QA output: **confirmed**
 
 Reason:
 
@@ -191,4 +214,4 @@ Reason:
 - A later retained-QA rerun confirmed that a third `api_proxy` output defect is now handled narrowly and truthfully: when the provider omits top-level `status` but still supplies an explicit forward-progress signal (`phase_transition_request` or `run_completion_request`), the acceptance boundary recovers that intent without manual JSON editing.
 - A final retained dev verification turn then proved the implementation -> qa transition path live: the accepted turn set `phase_transition_request: "qa"` and the governed state advanced to `phase: "qa"` with `implementation_complete: "passed"`.
 - The subsequent final-phase QA turn proved the review-context fix where it matters most: the accepted objections quoted stale `24 passed` evidence in `.planning/acceptance-matrix.md` and `.planning/RELEASE_NOTES.md`, which only appears if gate-file previews are present in terminal-phase `CONTEXT.md`.
-- The remaining blocker is narrower now. It is no longer terminal QA visibility. It is terminal QA completion signaling: the live review chose `needs_human` instead of `run_completion_request: true`, so the `pending_run_completion` / `approve-completion` path is still unproven.
+- A final retained terminal QA rerun then proved the completion-signaling fix live: accepted turn `turn_9710c088069f0ff2` requested run completion, the run entered `pending_run_completion`, and explicit human approval via `agentxchain approve-completion` completed the governed run.
