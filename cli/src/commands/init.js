@@ -132,6 +132,7 @@ const GOVERNED_GATES = {
     requires_human_approval: true
   },
   implementation_complete: {
+    requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
     requires_verification_pass: true
   },
   qa_ship_verdict: {
@@ -534,6 +535,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
   writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
   writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), buildSystemSpecContent(projectName, template.system_spec_overlay));
+  writeFileSync(join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'), `# Implementation Notes — ${projectName}\n\n## Changes\n\n(Dev fills this during implementation)\n\n## Verification\n\n(Dev fills this during implementation)\n\n## Unresolved Follow-ups\n\n(Dev lists any known gaps, tech debt, or follow-up items here.)\n`);
   const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
   writeFileSync(
     join(dir, '.planning', 'acceptance-matrix.md'),

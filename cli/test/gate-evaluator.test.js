@@ -52,6 +52,7 @@ function makeConfig(overrides = {}) {
         requires_human_approval: true,
       },
       implementation_complete: {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
         requires_verification_pass: true,
       },
       qa_ship_verdict: {
@@ -189,6 +190,10 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('Rule 3: gate_failed when verification required but not passed', () => {
+    // Create valid implementation notes so the only failure is verification
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'implementation' }),
       config: makeConfig(),
@@ -204,6 +209,10 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('Rule 4: advance when gate passes without human approval', () => {
+    // Create required implementation notes file
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'implementation' }),
       config: makeConfig(),
@@ -220,6 +229,10 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('Rule 4: advance when verification is attested_pass', () => {
+    // Create required implementation notes file
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'implementation' }),
       config: makeConfig(),
@@ -532,6 +545,11 @@ describe('acceptGovernedTurn — gate integration', () => {
   it('auto-advances phase when gate passes without human approval', () => {
     const config = makeConfig();
     const state = setupRun(config, 'implementation', 'dev');
+
+    // Create required implementation notes file for implementation_complete gate
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
     stageTurnResult(state, {
       role: 'dev',
       runtime_id: 'local-dev',
@@ -812,6 +830,9 @@ describe('full phase lifecycle', () => {
     // ── Phase 2: Implementation ──
     assign = assignGovernedTurn(root, config, 'dev');
     assert.ok(assign.ok);
+
+    // Create required implementation notes file
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt app.ts.\n\n## Verification\n\nRun npm test.\n');
 
     // Stage dev turn result requesting transition to qa
     writeFileSync(

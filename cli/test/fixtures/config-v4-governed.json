@@ -74,6 +74,7 @@
       "requires_human_approval": true
     },
     "implementation_complete": {
+      "requires_files": [".planning/IMPLEMENTATION_NOTES.md"],
       "requires_verification_pass": true
     },
     "qa_ship_verdict": {

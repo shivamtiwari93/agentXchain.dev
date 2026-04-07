@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 export const PM_SIGNOFF_PATH = '.planning/PM_SIGNOFF.md';
 export const SYSTEM_SPEC_PATH = '.planning/SYSTEM_SPEC.md';
+export const IMPLEMENTATION_NOTES_PATH = '.planning/IMPLEMENTATION_NOTES.md';
 export const ACCEPTANCE_MATRIX_PATH = '.planning/acceptance-matrix.md';
 export const SHIP_VERDICT_PATH = '.planning/ship-verdict.md';
 
@@ -135,6 +136,55 @@ function evaluateAcceptanceMatrix(content) {
   return { ok: true };
 }
 
+const IMPLEMENTATION_NOTES_PLACEHOLDER = /^\(Dev fills this during implementation\)$/i;
+
+function hasSectionContent(content, sectionHeader) {
+  const lines = content.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => line.trim().startsWith(sectionHeader));
+  if (headerIndex === -1) {
+    return { found: false, hasContent: false };
+  }
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('## ')) break;
+    if (!line) continue;
+    if (IMPLEMENTATION_NOTES_PLACEHOLDER.test(line)) continue;
+    return { found: true, hasContent: true };
+  }
+
+  return { found: true, hasContent: false };
+}
+
+function evaluateImplementationNotes(content) {
+  const changes = hasSectionContent(content, '## Changes');
+  const verification = hasSectionContent(content, '## Verification');
+
+  const missingSections = [];
+  if (!changes.found) missingSections.push('## Changes');
+  if (!verification.found) missingSections.push('## Verification');
+
+  if (missingSections.length > 0) {
+    return {
+      ok: false,
+      reason: `.planning/IMPLEMENTATION_NOTES.md must define ${missingSections.join(' and ')} before implementation can exit.`,
+    };
+  }
+
+  const emptySections = [];
+  if (!changes.hasContent) emptySections.push('## Changes');
+  if (!verification.hasContent) emptySections.push('## Verification');
+
+  if (emptySections.length > 0) {
+    return {
+      ok: false,
+      reason: `${emptySections.join(' and ')} in .planning/IMPLEMENTATION_NOTES.md still contains only placeholder text. Dev must replace placeholder content with real implementation notes.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 function evaluateShipVerdict(content) {
   const verdict = parseLineValue(content, /^##\s+Verdict\s*:\s*(.+)$/im);
   if (!verdict) {
@@ -166,6 +216,10 @@ export function evaluateWorkflowGateSemantics(root, relPath) {
 
   if (relPath === SYSTEM_SPEC_PATH) {
     return evaluateSystemSpec(content);
+  }
+
+  if (relPath === IMPLEMENTATION_NOTES_PATH) {
+    return evaluateImplementationNotes(content);
   }
 
   if (relPath === ACCEPTANCE_MATRIX_PATH) {

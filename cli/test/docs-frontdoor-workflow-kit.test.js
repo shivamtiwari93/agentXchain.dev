@@ -87,5 +87,19 @@ describe('Front-door docs — workflow-kit coverage', () => {
         'quickstart must explain that template validate proves scaffold integrity, while governed gates require Approved: YES, a passing acceptance matrix, and an affirmative verdict'
       );
     });
+
+    it('documents implementation notes as a planning artifact', () => {
+      assert.ok(
+        QUICKSTART.includes('IMPLEMENTATION_NOTES.md'),
+        'quickstart must mention IMPLEMENTATION_NOTES.md in planning artifacts'
+      );
+    });
+
+    it('documents implementation gate requirements', () => {
+      assert.ok(
+        QUICKSTART.includes('## Changes') && QUICKSTART.includes('## Verification'),
+        'quickstart must document that implementation gate requires ## Changes and ## Verification sections'
+      );
+    });
   });
 });

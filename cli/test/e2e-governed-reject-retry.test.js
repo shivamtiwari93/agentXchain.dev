@@ -81,7 +81,7 @@ function makeConfig() {
     },
     gates: {
       planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md'], requires_human_approval: true },
-      implementation_complete: { requires_verification_pass: true },
+      implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
       qa_ship_verdict: { requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'], requires_human_approval: true },
     },
     budget: { per_turn_max_usd: 2.0, per_run_max_usd: 50.0 },
@@ -222,11 +222,12 @@ describe('E2E governed reject/retry lifecycle', () => {
     assert.match(retryPrompt, /Missing required field: schema_version/);
 
     writeFileSync(join(root, 'index.js'), 'console.log("todo app");\n');
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Implementation Notes\n\n## Changes\n\nImplemented todo app in index.js.\n\n## Verification\n\nRun `node index.js`.\n');
     execSync('git add -A', { cwd: root, stdio: 'ignore' });
     execSync('git -c user.name="test" -c user.email="test@test" commit -m "implement todo app"', { cwd: root, stdio: 'ignore' });
 
     stageTurnResult(root, readJson(root, STATE_PATH), {
-      files_changed: ['index.js'],
+      files_changed: ['index.js', '.planning/IMPLEMENTATION_NOTES.md'],
       artifact: { type: 'commit', ref: 'mock-sha' },
       phase_transition_request: 'qa',
       proposed_next_role: 'qa',
