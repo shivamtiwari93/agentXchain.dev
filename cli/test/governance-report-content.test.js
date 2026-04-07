@@ -41,6 +41,8 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /coordinator_workspace/);
     assert.match(REPORT_DOCS, /coordinator_timeline/);
     assert.match(REPORT_DOCS, /barrier_summary/);
+    assert.match(REPORT_DOCS, /barrier_ledger_timeline/);
+    assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
 });

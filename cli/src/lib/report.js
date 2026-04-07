@@ -300,6 +300,44 @@ function extractBarrierSummary(artifact) {
     }));
 }
 
+function summarizeBarrierTransition(entry) {
+  const bid = entry.barrier_id || '?';
+  const prev = entry.previous_status || '?';
+  const next = entry.new_status || '?';
+  const repo = entry.causation?.repo_id || null;
+
+  if (prev === 'pending' && next === 'partially_satisfied') {
+    return `Barrier ${bid}: first repo satisfied${repo ? ` (${repo})` : ''}`;
+  }
+  if (prev === 'partially_satisfied' && next === 'satisfied') {
+    return `Barrier ${bid}: all repos satisfied${repo ? ` (${repo} completed the set)` : ''}`;
+  }
+  if (prev === 'pending' && next === 'satisfied') {
+    return `Barrier ${bid}: satisfied${repo ? ` (single-repo barrier, ${repo})` : ''}`;
+  }
+  if (next === 'completed') {
+    return `Barrier ${bid}: completed`;
+  }
+  return `Barrier ${bid}: ${prev} → ${next}`;
+}
+
+function extractBarrierLedgerTimeline(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/barrier-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((e) => e && typeof e === 'object' && !Array.isArray(e) && e.type === 'barrier_transition')
+    .map((e) => ({
+      barrier_id: e.barrier_id || 'unknown',
+      timestamp: e.timestamp || null,
+      previous_status: e.previous_status || 'unknown',
+      new_status: e.new_status || 'unknown',
+      summary: summarizeBarrierTransition(e),
+      workstream_id: e.causation?.workstream_id || null,
+      repo_id: e.causation?.repo_id || null,
+      trigger: e.causation?.trigger || null,
+    }));
+}
+
 function deriveRepoStatusCounts(repoStatuses) {
   const counts = {};
   for (const status of Object.values(repoStatuses || {})) {
@@ -401,6 +439,7 @@ function buildCoordinatorSubject(artifact) {
   const repoErrorCount = repos.filter((repo) => !repo.ok).length;
   const coordinatorTimeline = extractCoordinatorTimeline(artifact);
   const barrierSummary = extractBarrierSummary(artifact);
+  const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
 
   return {
@@ -426,6 +465,7 @@ function buildCoordinatorSubject(artifact) {
     },
     coordinator_timeline: coordinatorTimeline,
     barrier_summary: barrierSummary,
+    barrier_ledger_timeline: barrierLedgerTimeline,
     repos,
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -600,7 +640,7 @@ export function formatGovernanceReportText(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline } = report.subject;
   const lines = [
     'AgentXchain Governance Report',
     `Input: ${report.input}`,
@@ -642,6 +682,15 @@ export function formatGovernanceReportText(report) {
       const satisfied = b.satisfied_repos.length;
       const required = b.required_repos.length;
       lines.push(`  - ${b.barrier_id}: ${b.status} (${b.type}, ${satisfied}/${required} repos satisfied, workstream ${b.workstream_id || 'unknown'})`);
+    }
+  }
+
+  if (barrier_ledger_timeline && barrier_ledger_timeline.length > 0) {
+    lines.push('', 'Barrier Transitions:');
+    for (let i = 0; i < barrier_ledger_timeline.length; i++) {
+      const t = barrier_ledger_timeline[i];
+      const ts = t.timestamp ? ` [${t.timestamp}]` : '';
+      lines.push(`  ${i + 1}.${ts} ${t.summary}`);
     }
   }
 
@@ -809,7 +858,7 @@ export function formatGovernanceReportMarkdown(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline } = report.subject;
   const mdLines = [
     '# AgentXchain Governance Report',
     '',
@@ -851,6 +900,16 @@ export function formatGovernanceReportMarkdown(report) {
     mdLines.push('', '## Barrier Summary', '', '| Barrier | Workstream | Type | Status | Satisfied |', '|---------|------------|------|--------|-----------|');
     for (const b of barrier_summary) {
       mdLines.push(`| \`${b.barrier_id}\` | \`${b.workstream_id || 'unknown'}\` | \`${b.type}\` | \`${b.status}\` | ${b.satisfied_repos.length}/${b.required_repos.length} repos |`);
+    }
+  }
+
+  if (barrier_ledger_timeline && barrier_ledger_timeline.length > 0) {
+    mdLines.push('', '## Barrier Transitions', '', '| # | Time | Barrier | From | To | Summary |', '|---|------|---------|------|----|---------|');
+    for (let i = 0; i < barrier_ledger_timeline.length; i++) {
+      const t = barrier_ledger_timeline[i];
+      const ts = t.timestamp ? `\`${t.timestamp}\`` : 'n/a';
+      const escapedSummary = t.summary.replace(/\|/g, '\\|');
+      mdLines.push(`| ${i + 1} | ${ts} | \`${t.barrier_id}\` | \`${t.previous_status}\` | \`${t.new_status}\` | ${escapedSummary} |`);
     }
   }
 

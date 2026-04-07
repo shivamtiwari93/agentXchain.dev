@@ -243,6 +243,43 @@ function buildCoordinatorFixture() {
     hooks: {},
   };
 
+  const barrierLedgerEvents = [
+    {
+      type: 'barrier_transition',
+      timestamp: '2026-04-06T19:10:00.000Z',
+      barrier_id: 'core_completion',
+      previous_status: 'pending',
+      new_status: 'partially_satisfied',
+      causation: {
+        super_run_id: 'srun_test_001',
+        workstream_id: 'core',
+        barrier_type: 'all_repos_accepted',
+        repo_id: 'api',
+        trigger: 'resync',
+      },
+    },
+    {
+      type: 'barrier_transition',
+      timestamp: '2026-04-06T19:20:00.000Z',
+      barrier_id: 'core_completion',
+      previous_status: 'partially_satisfied',
+      new_status: 'satisfied',
+      causation: {
+        super_run_id: 'srun_test_001',
+        workstream_id: 'core',
+        barrier_type: 'all_repos_accepted',
+        repo_id: 'web',
+        trigger: 'resync',
+      },
+    },
+    // non-transition entry that should be filtered out
+    {
+      type: 'barrier_audit',
+      timestamp: '2026-04-06T19:15:00.000Z',
+      detail: 'some audit event',
+    },
+  ];
+
   return {
     schema_version: '0.2',
     export_kind: 'agentxchain_coordinator_export',
@@ -281,6 +318,7 @@ function buildCoordinatorFixture() {
       }),
       '.agentxchain/multirepo/history.jsonl': jsonlFileEntry(historyEvents),
       '.agentxchain/multirepo/barriers.json': jsonFileEntry(barriers),
+      '.agentxchain/multirepo/barrier-ledger.jsonl': jsonlFileEntry(barrierLedgerEvents),
     },
     repos: {
       api: {
@@ -569,6 +607,126 @@ describe('coordinator report narrative — empty history', () => {
   });
 });
 
+// AT-BARRIER-LEDGER-001: all ledger entries extracted in chronological order
+describe('coordinator report narrative — barrier_ledger_timeline', () => {
+  it('AT-BARRIER-LEDGER-001: includes all barrier_transition entries in order', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+    const ledger = result.report.subject.barrier_ledger_timeline;
+    assert.ok(Array.isArray(ledger), 'barrier_ledger_timeline is array');
+    assert.equal(ledger.length, 2, 'only barrier_transition entries (non-transition filtered out)');
+
+    // Chronological order
+    assert.equal(ledger[0].timestamp, '2026-04-06T19:10:00.000Z');
+    assert.equal(ledger[1].timestamp, '2026-04-06T19:20:00.000Z');
+
+    // Correct barrier_ids
+    assert.equal(ledger[0].barrier_id, 'core_completion');
+    assert.equal(ledger[1].barrier_id, 'core_completion');
+  });
+
+  // AT-BARRIER-LEDGER-002: each entry has required fields and non-empty summary
+  it('AT-BARRIER-LEDGER-002: every entry has barrier_id, timestamps, statuses, and summary', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const ledger = result.report.subject.barrier_ledger_timeline;
+    for (const entry of ledger) {
+      assert.ok(typeof entry.barrier_id === 'string' && entry.barrier_id.length > 0);
+      assert.ok(typeof entry.timestamp === 'string' || entry.timestamp === null);
+      assert.ok(typeof entry.previous_status === 'string' && entry.previous_status.length > 0);
+      assert.ok(typeof entry.new_status === 'string' && entry.new_status.length > 0);
+      assert.ok(typeof entry.summary === 'string' && entry.summary.length > 0);
+    }
+  });
+
+  it('generates correct human-readable summaries for transitions', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const ledger = result.report.subject.barrier_ledger_timeline;
+
+    // pending → partially_satisfied
+    assert.match(ledger[0].summary, /first repo satisfied/);
+    assert.match(ledger[0].summary, /api/);
+
+    // partially_satisfied → satisfied
+    assert.match(ledger[1].summary, /all repos satisfied/);
+    assert.match(ledger[1].summary, /web completed the set/);
+  });
+
+  it('extracts causation metadata (workstream_id, repo_id, trigger)', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const ledger = result.report.subject.barrier_ledger_timeline;
+
+    assert.equal(ledger[0].workstream_id, 'core');
+    assert.equal(ledger[0].repo_id, 'api');
+    assert.equal(ledger[0].trigger, 'resync');
+
+    assert.equal(ledger[1].repo_id, 'web');
+  });
+
+  // AT-BARRIER-LEDGER-006: non-transition entries filtered out
+  it('AT-BARRIER-LEDGER-006: non-transition entries are filtered out', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const ledger = result.report.subject.barrier_ledger_timeline;
+    const types = ledger.map((e) => e.barrier_id);
+    assert.ok(!types.includes(undefined), 'no undefined barrier_ids');
+    // The barrier_audit entry should not appear
+    assert.equal(ledger.length, 2, 'only barrier_transition entries');
+  });
+
+  // AT-BARRIER-LEDGER-005: empty/absent ledger omits the section
+  it('AT-BARRIER-LEDGER-005: empty ledger omits section in text', () => {
+    const fixture = buildCoordinatorFixture();
+    delete fixture.files['.agentxchain/multirepo/barrier-ledger.jsonl'];
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+    const ledger = result.report.subject.barrier_ledger_timeline;
+    assert.equal(ledger.length, 0);
+
+    const text = formatGovernanceReportText(result.report);
+    assert.ok(!text.includes('Barrier Transitions:'), 'no barrier transitions section when empty');
+  });
+
+  it('empty ledger omits section in markdown', () => {
+    const fixture = buildCoordinatorFixture();
+    fixture.files['.agentxchain/multirepo/barrier-ledger.jsonl'] = jsonlFileEntry([]);
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!md.includes('## Barrier Transitions'), 'no barrier transitions section when empty');
+  });
+});
+
+// AT-BARRIER-LEDGER-003/004: text and markdown rendering
+describe('coordinator report narrative — barrier ledger rendering', () => {
+  it('AT-BARRIER-LEDGER-003: text output includes Barrier Transitions section', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+
+    assert.match(text, /Barrier Transitions:/);
+    assert.match(text, /first repo satisfied.*api/);
+    assert.match(text, /all repos satisfied.*web completed the set/);
+    assert.match(text, /\[2026-04-06T19:10:00.000Z\]/);
+    assert.match(text, /\[2026-04-06T19:20:00.000Z\]/);
+  });
+
+  it('AT-BARRIER-LEDGER-004: markdown output includes Barrier Transitions table', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+
+    assert.match(md, /## Barrier Transitions/);
+    assert.match(md, /\| # \| Time \| Barrier \| From \| To \| Summary \|/);
+    assert.match(md, /`core_completion`/);
+    assert.match(md, /`pending`/);
+    assert.match(md, /`partially_satisfied`/);
+    assert.match(md, /`satisfied`/);
+  });
+});
+
 // Spec guard
 describe('coordinator report narrative spec', () => {
   it('spec file exists and is current', () => {
@@ -589,5 +747,16 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /AT-COORD-TIME-006/);
     assert.match(spec, /created_at/);
     assert.match(spec, /duration_seconds/);
+  });
+
+  // AT-BARRIER-LEDGER-007: barrier-ledger spec guard
+  it('barrier-ledger narrative spec exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'COORDINATOR_BARRIER_LEDGER_NARRATIVE_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Barrier-Ledger Narrative/);
+    assert.match(spec, /AT-BARRIER-LEDGER-001/);
+    assert.match(spec, /AT-BARRIER-LEDGER-007/);
+    assert.match(spec, /barrier_ledger_timeline/);
+    assert.match(spec, /barrier_transition/);
   });
 });

@@ -112,6 +112,7 @@ Coordinator-export reports carry:
 | `subject.run.repo_error_count` | Number of child repo exports that failed |
 | `subject.coordinator_timeline` | Coordinator event narrative derived from `.agentxchain/multirepo/history.jsonl` |
 | `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json` |
+| `subject.barrier_ledger_timeline` | Barrier transition history derived from `.agentxchain/multirepo/barrier-ledger.jsonl` |
 | `subject.repos` | Per-repo summary rows for paste-friendly reporting |
 | `subject.artifacts` | Coordinator history and decision counts |
 
@@ -151,7 +152,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - turn or repo counts
 - artifact evidence counts
 - blocked-state or barrier information when present
-- turn timeline, coordinator timeline, decision digest, hook activity, gate outcomes, barrier summary, and intake linkage when those surfaces exist
+- turn timeline, coordinator timeline, decision digest, hook activity, gate outcomes, barrier summary, barrier transitions, and intake linkage when those surfaces exist
 
 ### `markdown`
 
@@ -163,6 +164,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Hook Activity`
 - `## Gate Outcomes`
 - `## Barrier Summary`
+- `## Barrier Transitions`
 - `## Intake Linkage`
 - `## Recovery`
 
