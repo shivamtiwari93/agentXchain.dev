@@ -34,6 +34,7 @@ describe('Escalate CLI docs contract', () => {
   it('documents active-only scope, multi-turn targeting, and resolution semantics', () => {
     assert.match(CLI_DOCS, /active-run-only/i);
     assert.match(CLI_DOCS, /If multiple active turns exist, `--turn` is required/i);
+    assert.match(CLI_DOCS, /agentxchain resume/);
     assert.match(CLI_DOCS, /agentxchain step --resume/);
     assert.match(CLI_DOCS, /decision = "operator_escalated"/);
     assert.match(CLI_DOCS, /decision = "escalation_resolved"/);

@@ -1,6 +1,30 @@
-import { getActiveTurnCount } from './governed-state.js';
+import { deriveEscalationRecoveryAction, getActiveTurnCount } from './governed-state.js';
 
-export function deriveRecoveryDescriptor(state) {
+function isLegacyEscalationRecoveryAction(action) {
+  return action === 'Resolve the escalation, then run agentxchain step --resume'
+    || action === 'Resolve the escalation, then run agentxchain step';
+}
+
+function maybeRefreshEscalationAction(state, config, persistedRecovery, turnRetained) {
+  if (!config || !persistedRecovery || typeof persistedRecovery !== 'object') {
+    return null;
+  }
+
+  const typedReason = persistedRecovery.typed_reason;
+  const currentAction = persistedRecovery.recovery_action || null;
+  const shouldRefresh = typedReason === 'retries_exhausted'
+    || ((typedReason === 'operator_escalation') && isLegacyEscalationRecoveryAction(currentAction));
+  if (!shouldRefresh) {
+    return null;
+  }
+
+  return deriveEscalationRecoveryAction(state, config, {
+    turnRetained,
+    turnId: state?.blocked_reason?.turn_id ?? state?.escalation?.from_turn_id ?? null,
+  });
+}
+
+export function deriveRecoveryDescriptor(state, config = null) {
   if (!state || typeof state !== 'object') {
     return null;
   }
@@ -29,10 +53,13 @@ export function deriveRecoveryDescriptor(state) {
 
   const persistedRecovery = state.blocked_reason?.recovery;
   if (persistedRecovery && typeof persistedRecovery === 'object') {
+    const refreshedEscalationAction = maybeRefreshEscalationAction(state, config, persistedRecovery, turnRetained);
     return {
       typed_reason: persistedRecovery.typed_reason || 'unknown_block',
       owner: persistedRecovery.owner || 'human',
-      recovery_action: persistedRecovery.recovery_action || 'Inspect state.json and resolve manually before rerunning agentxchain step',
+      recovery_action: refreshedEscalationAction
+        || persistedRecovery.recovery_action
+        || 'Inspect state.json and resolve manually before rerunning agentxchain step',
       turn_retained: typeof persistedRecovery.turn_retained === 'boolean'
         ? persistedRecovery.turn_retained
         : turnRetained,
@@ -66,9 +93,10 @@ export function deriveRecoveryDescriptor(state) {
 
   if (state.blocked_on.startsWith('escalation:')) {
     const isOperatorEscalation = state.blocked_on.startsWith('escalation:operator:') || state.escalation?.source === 'operator';
-    const recoveryAction = turnRetained
-      ? 'Resolve the escalation, then run agentxchain step --resume'
-      : 'Resolve the escalation, then run agentxchain step';
+    const recoveryAction = deriveEscalationRecoveryAction(state, config, {
+      turnRetained,
+      turnId: state.blocked_reason?.turn_id ?? state.escalation?.from_turn_id ?? null,
+    });
     return {
       typed_reason: isOperatorEscalation ? 'operator_escalation' : 'retries_exhausted',
       owner: 'human',

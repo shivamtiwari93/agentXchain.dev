@@ -168,7 +168,7 @@ function renderGovernedStatus(context, opts) {
   if (state?.blocked_on) {
     console.log('');
     if (state.status === 'blocked') {
-      const recovery = deriveRecoveryDescriptor(state);
+      const recovery = deriveRecoveryDescriptor(state, config);
       const detail = recovery?.detail || state.blocked_on;
       console.log(`  ${chalk.dim('Blocked:')}  ${chalk.red.bold('BLOCKED')} — ${detail}`);
     } else if (state.blocked_on.startsWith('human_approval:')) {
@@ -179,7 +179,7 @@ function renderGovernedStatus(context, opts) {
     }
   }
 
-  const recovery = deriveRecoveryDescriptor(state);
+  const recovery = deriveRecoveryDescriptor(state, config);
   if (recovery) {
     console.log('');
     console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);

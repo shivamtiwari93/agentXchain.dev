@@ -3,7 +3,12 @@ import { join, parse as pathParse, resolve } from 'path';
 import { safeParseJson, validateConfigSchema, validateLockSchema, validateProjectStateSchema, validateStateSchema } from './schema.js';
 import { loadNormalizedConfig } from './normalized-config.js';
 import { safeWriteJson } from './safe-write.js';
-import { normalizeGovernedStateShape, getActiveTurn, reconcileBudgetStatusWithConfig } from './governed-state.js';
+import {
+  normalizeGovernedStateShape,
+  getActiveTurn,
+  reconcileBudgetStatusWithConfig,
+  reconcileEscalationRecoveryWithConfig,
+} from './governed-state.js';
 
 function attachLegacyCurrentTurnAlias(state) {
   if (!state || typeof state !== 'object') {
@@ -150,7 +155,9 @@ export function loadProjectState(root, config) {
     stateData = normalized.state;
     const reconciledBudget = reconcileBudgetStatusWithConfig(stateData, config);
     stateData = reconciledBudget.state;
-    if (normalized.changed || reconciledBudget.changed) {
+    const reconciledRecovery = reconcileEscalationRecoveryWithConfig(stateData, config);
+    stateData = reconciledRecovery.state;
+    if (normalized.changed || reconciledBudget.changed || reconciledRecovery.changed) {
       safeWriteJson(filePath, stateData);
     }
   }

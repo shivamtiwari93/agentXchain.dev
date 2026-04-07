@@ -209,7 +209,7 @@ agentxchain escalate --reason <reason> [--detail <detail>] [--action <action>] [
 | `--action <action>` | derived | Override the default recovery action string |
 | `--turn <id>` | (auto when one active turn) | Target a specific active turn when multiple turns exist |
 
-Raises an operator-controlled escalation and moves the run to `status = blocked`. This command is active-run-only. If exactly one active turn exists, that turn is retained automatically and the default recovery action becomes `agentxchain step --resume`. If no turn is active, the escalation blocks the run at the run level and the default recovery action becomes `agentxchain step`. If multiple active turns exist, `--turn` is required so the operator is explicit about which turn the escalation is retaining.
+Raises an operator-controlled escalation and moves the run to `status = blocked`. This command is active-run-only. If exactly one active turn exists, that turn is retained automatically. Retained `manual` turns recover with `agentxchain resume`; retained non-manual turns recover with `agentxchain step --resume`. If no turn is active, the escalation blocks the run at the run level and the default recovery action becomes `agentxchain resume`. If multiple active turns exist, `--turn` is required so the operator is explicit about which turn the escalation is retaining, and the suggested recovery command includes that `--turn` target.
 
 The escalation is recorded in both `.agentxchain/state.json` and `.agentxchain/decision-ledger.jsonl` with `decision = "operator_escalated"`. When `step` or `resume` clears the blocked escalation, the ledger records `decision = "escalation_resolved"`.
 

@@ -112,7 +112,7 @@ describe('escalation recovery E2E', () => {
       assert.equal(status.status, 0, `status failed: ${status.combined}`);
       assert.match(status.stdout, /Reason:\s+operator_escalation/, 'status should show operator_escalation');
       assert.match(status.stdout, /Owner:\s+human/, 'status should show human owner');
-      assert.match(status.stdout, /step --resume/, 'status should recommend step --resume for retained turn');
+      assert.match(status.stdout, /agentxchain resume/, 'status should recommend resume for retained manual turn');
       assert.match(status.stdout, /Turn:\s+retained/, 'status should show turn retained');
 
       // Recover via resume — re-dispatches the retained turn without waiting for manual completion
@@ -187,11 +187,12 @@ describe('escalation recovery E2E', () => {
       assert.ok(blockedState.blocked_on.startsWith('escalation:operator:'));
       assert.equal(blockedState.blocked_reason.category, 'operator_escalation');
 
-      // Status should show escalation with step recovery (not step --resume)
+      // Status should show escalation with resume recovery
       const status = runCli(dir, ['status']);
       assert.equal(status.status, 0, `status failed: ${status.combined}`);
       assert.match(status.stdout, /Reason:\s+operator_escalation/);
       assert.match(status.stdout, /Owner:\s+human/);
+      assert.match(status.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume/);
       assert.match(status.stdout, /Turn:\s+cleared/, 'status should show turn cleared');
 
       // Recover via resume — should assign next turn

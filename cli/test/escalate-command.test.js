@@ -125,7 +125,7 @@ describe('escalate command', () => {
       const result = runCli(dir, ['escalate', '--reason', 'Scope contradiction']);
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /Typed:\s+operator_escalation/);
-      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain step/);
+      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume/);
       assert.match(result.stdout, /Retained:\s+no/);
 
       const state = readState(dir);
@@ -143,7 +143,7 @@ describe('escalate command', () => {
     }
   });
 
-  it('AT-ESC-002: retains a single active turn automatically and requires step --resume recovery', () => {
+  it('AT-ESC-002: retains a single manual turn automatically and recommends resume recovery', () => {
     const dir = createGovernedProject({
       state: {
         active_turns: {
@@ -165,13 +165,60 @@ describe('escalate command', () => {
       const result = runCli(dir, ['escalate', '--reason', 'Need product review']);
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /Turn:\s+turn_pm_01/);
-      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain step --resume/);
+      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume/);
       assert.match(result.stdout, /Retained:\s+yes/);
 
       const state = readState(dir);
       assert.equal(state.escalation.from_turn_id, 'turn_pm_01');
       assert.equal(state.escalation.from_role, 'pm');
       assert.equal(state.blocked_reason.recovery.turn_retained, true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ERG-002: retained non-manual escalations still recommend step --resume', () => {
+    const dir = createGovernedProject({
+      config: {
+        roles: {
+          pm: {
+            title: 'Product Manager',
+            mandate: 'Protect scope.',
+            write_authority: 'review_only',
+            runtime: 'api-pm',
+          },
+          qa: {
+            title: 'QA',
+            mandate: 'Challenge correctness.',
+            write_authority: 'review_only',
+            runtime: 'manual-qa',
+          },
+        },
+        runtimes: {
+          'api-pm': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
+          'manual-qa': { type: 'manual' },
+        },
+      },
+      state: {
+        active_turns: {
+          turn_pm_01: {
+            turn_id: 'turn_pm_01',
+            assigned_role: 'pm',
+            runtime_id: 'api-pm',
+            status: 'assigned',
+            attempt: 1,
+            assigned_sequence: 1,
+            started_at: '2026-04-04T00:00:00.000Z',
+            deadline_at: '2026-04-04T00:20:00.000Z',
+          },
+        },
+        turn_sequence: 1,
+      },
+    });
+    try {
+      const result = runCli(dir, ['escalate', '--reason', 'Need architecture review']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain step --resume/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -208,6 +255,7 @@ describe('escalate command', () => {
 
       const targeted = runCli(dir, ['escalate', '--reason', 'Cross-role deadlock', '--turn', 'turn_qa_02']);
       assert.equal(targeted.status, 0, targeted.stderr);
+      assert.match(targeted.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume --turn turn_qa_02/);
 
       const state = readState(dir);
       assert.equal(state.escalation.from_turn_id, 'turn_qa_02');

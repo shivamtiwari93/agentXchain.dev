@@ -190,6 +190,68 @@ export function getActiveTurn(state) {
   return turns.length === 1 ? turns[0] : null;
 }
 
+function resolveRecoveryTurnId(state, preferredTurnId = null) {
+  const activeTurns = getActiveTurns(state);
+  if (preferredTurnId && activeTurns[preferredTurnId]) {
+    return preferredTurnId;
+  }
+
+  const blockedTurnId = state?.blocked_reason?.turn_id;
+  if (blockedTurnId && activeTurns[blockedTurnId]) {
+    return blockedTurnId;
+  }
+
+  const escalationTurnId = state?.escalation?.from_turn_id;
+  if (escalationTurnId && activeTurns[escalationTurnId]) {
+    return escalationTurnId;
+  }
+
+  const turnIds = Object.keys(activeTurns);
+  return turnIds.length === 1 ? turnIds[0] : null;
+}
+
+export function deriveRetainedTurnRecoveryCommand(state, config, options = {}) {
+  const turnId = resolveRecoveryTurnId(state, options.turnId);
+  if (!turnId) {
+    return options.fallbackCommand || 'agentxchain step --resume';
+  }
+
+  const turn = getActiveTurns(state)[turnId];
+  const runtimeType = config?.runtimes?.[turn?.runtime_id]?.type || 'manual';
+  let command = runtimeType === 'manual'
+    ? (options.manualCommand || 'agentxchain resume')
+    : (options.automatedCommand || 'agentxchain step --resume');
+
+  if (getActiveTurnCount(state) > 1) {
+    command += ` --turn ${turnId}`;
+  }
+
+  return command;
+}
+
+function isLegacyEscalationRecoveryAction(action) {
+  return action === 'Resolve the escalation, then run agentxchain step --resume'
+    || action === 'Resolve the escalation, then run agentxchain step';
+}
+
+export function deriveEscalationRecoveryAction(state, config, options = {}) {
+  if (typeof options.overrideAction === 'string' && options.overrideAction.trim()) {
+    return options.overrideAction.trim();
+  }
+
+  const turnRetained = typeof options.turnRetained === 'boolean'
+    ? options.turnRetained
+    : getActiveTurnCount(state) > 0;
+  const command = turnRetained
+    ? deriveRetainedTurnRecoveryCommand(state, config, {
+      turnId: options.turnId,
+      fallbackCommand: 'agentxchain step --resume',
+    })
+    : 'agentxchain resume';
+
+  return `Resolve the escalation, then run ${command}`;
+}
+
 export function getActiveTurnOrThrow(state) {
   const turns = Object.values(getActiveTurns(state));
   if (turns.length === 0) {
@@ -874,6 +936,66 @@ function normalizeRecoveryDescriptor(recovery, turnRetained, detail) {
   };
 }
 
+export function reconcileEscalationRecoveryWithConfig(state, config) {
+  if (!state || typeof state !== 'object' || state.status !== 'blocked' || !config) {
+    return { state, changed: false };
+  }
+
+  const recovery = state.blocked_reason?.recovery;
+  const typedReason = recovery?.typed_reason;
+  if (typedReason !== 'operator_escalation' && typedReason !== 'retries_exhausted') {
+    return { state, changed: false };
+  }
+
+  const currentAction = recovery?.recovery_action || null;
+  const shouldRefresh = typedReason === 'retries_exhausted' || isLegacyEscalationRecoveryAction(currentAction);
+  if (!shouldRefresh) {
+    return { state, changed: false };
+  }
+
+  const turnRetained = typeof recovery?.turn_retained === 'boolean'
+    ? recovery.turn_retained
+    : getActiveTurnCount(state) > 0;
+  const nextAction = deriveEscalationRecoveryAction(state, config, {
+    turnRetained,
+    turnId: state.blocked_reason?.turn_id ?? state.escalation?.from_turn_id ?? null,
+  });
+
+  let nextState = state;
+  let changed = false;
+
+  if (recovery && currentAction !== nextAction) {
+    nextState = {
+      ...nextState,
+      blocked_reason: {
+        ...nextState.blocked_reason,
+        recovery: {
+          ...recovery,
+          recovery_action: nextAction,
+        },
+      },
+    };
+    changed = true;
+  }
+
+  if (
+    nextState.escalation?.source === 'operator'
+    && isLegacyEscalationRecoveryAction(nextState.escalation.recovery_action)
+    && nextState.escalation.recovery_action !== nextAction
+  ) {
+    nextState = {
+      ...nextState,
+      escalation: {
+        ...nextState.escalation,
+        recovery_action: nextAction,
+      },
+    };
+    changed = true;
+  }
+
+  return { state: nextState, changed };
+}
+
 function inferBlockedReasonFromState(state) {
   if (!state || typeof state !== 'object') {
     return null;
@@ -903,9 +1025,10 @@ function inferBlockedReasonFromState(state) {
 
   if (state.blocked_on.startsWith('escalation:')) {
     const isOperatorEscalation = isOperatorEscalationBlockedOn(state.blocked_on) || state.escalation?.source === 'operator';
-    const recoveryAction = turnRetained
-      ? 'Resolve the escalation, then run agentxchain step --resume'
-      : 'Resolve the escalation, then run agentxchain step';
+    const recoveryAction = deriveEscalationRecoveryAction(state, null, {
+      turnRetained,
+      turnId: activeTurn?.turn_id ?? state.escalation?.from_turn_id ?? null,
+    });
     return buildBlockedReason({
       category: isOperatorEscalation ? 'operator_escalation' : 'retries_exhausted',
       recovery: {
@@ -1086,10 +1209,11 @@ export function raiseOperatorEscalation(root, config, details) {
   }
 
   const turnRetained = Boolean(targetTurn);
-  const recoveryAction = details.action
-    || (turnRetained
-      ? 'Resolve the escalation, then run agentxchain step --resume'
-      : 'Resolve the escalation, then run agentxchain step');
+  const recoveryAction = deriveEscalationRecoveryAction(state, config, {
+    turnRetained,
+    turnId: targetTurn?.turn_id || null,
+    overrideAction: details.action,
+  });
   const detail = typeof details.detail === 'string' && details.detail.trim()
     ? details.detail.trim()
     : reason;
@@ -2306,7 +2430,7 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
   }
 
   // Retries exhausted — escalate
-  const updatedState = {
+  const exhaustedEscalationState = {
     ...state,
     status: 'blocked',
     active_turns: {
@@ -2320,12 +2444,19 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
       },
     },
     blocked_on: `escalation:retries-exhausted:${currentTurn.assigned_role}`,
+  };
+
+  const updatedState = {
+    ...exhaustedEscalationState,
     blocked_reason: buildBlockedReason({
       category: 'retries_exhausted',
       recovery: {
         typed_reason: 'retries_exhausted',
         owner: 'human',
-        recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+        recovery_action: deriveEscalationRecoveryAction(exhaustedEscalationState, config, {
+          turnRetained: true,
+          turnId: currentTurn.turn_id,
+        }),
         turn_retained: true,
         detail: `escalation:retries-exhausted:${currentTurn.assigned_role}`,
       },
@@ -2353,7 +2484,10 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
   if (hooksConfig.on_escalation?.length > 0) {
     _fireOnEscalationHooks(root, hooksConfig, {
       blocked_reason: 'retries_exhausted',
-      recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+      recovery_action: deriveEscalationRecoveryAction(updatedState, config, {
+        turnRetained: true,
+        turnId: currentTurn.turn_id,
+      }),
       failed_turn_id: currentTurn.turn_id,
       failed_role: currentTurn.assigned_role,
       attempt_count: currentAttempt,

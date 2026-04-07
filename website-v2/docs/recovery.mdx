@@ -41,10 +41,10 @@ The failed turn is retained. `step --resume` re-dispatches the same turn to the 
 
 | State | Cause | Recovery |
 |---|---|---|
-| `operator_escalation` | Operator raised via `agentxchain escalate` | Resolve the issue, then `agentxchain step` or `step --resume` |
-| `retries_exhausted` | Max retries hit on a role turn | `agentxchain step --resume` (turn preserved) |
+| `operator_escalation` | Operator raised via `agentxchain escalate` | Resolve the issue, then `agentxchain resume` for run-level or retained `manual` turns; use `agentxchain step --resume` for retained non-manual turns |
+| `retries_exhausted` | Max retries hit on a role turn | `agentxchain resume` for retained `manual` turns, otherwise `agentxchain step --resume` |
 
-Operator escalations record `decision = "operator_escalated"` in the decision ledger. Resolution records `decision = "escalation_resolved"`.
+Operator escalations record `decision = "operator_escalated"` in the decision ledger. Resolution records `decision = "escalation_resolved"`. If the escalation targeted one retained turn out of several, the surfaced recovery command includes `--turn <id>` so the operator can run it directly.
 
 ### Agent Requests
 
@@ -96,8 +96,8 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 
 | Command | Recovery Role |
 |---|---|
-| `step --resume` | Resume a blocked turn (dispatch failure, escalation, hook block, agent request) — dispatches and runs the agent |
-| `resume` | Resume a blocked run: re-dispatches retained turn or assigns the next turn (budget, escalation, any blocked state) |
+| `step --resume` | Resume a blocked non-manual retained turn when you want dispatch plus waiting in one command |
+| `resume` | Resume a blocked run: re-dispatches retained turns without waiting or assigns the next turn (budget, escalation, any blocked state) |
 | `resume --role` | Re-assign a turn after cleared block or hook failure during assignment |
 | `approve-transition` | Approve a phase gate |
 | `approve-completion` | Approve run completion |

@@ -43,7 +43,7 @@ Raising an operator escalation writes:
     "recovery": {
       "typed_reason": "operator_escalation",
       "owner": "human",
-      "recovery_action": "Resolve the escalation, then run agentxchain step [--resume]",
+      "recovery_action": "Resolve the escalation, then run agentxchain resume or agentxchain step --resume",
       "turn_retained": true,
       "detail": "..."
     }
@@ -55,7 +55,7 @@ Raising an operator escalation writes:
     "from_turn_id": "turn_123",
     "reason": "Scope contradiction",
     "detail": "PM and QA acceptance criteria disagree",
-    "recovery_action": "Resolve the escalation, then run agentxchain step --resume",
+    "recovery_action": "Resolve the escalation, then run agentxchain resume",
     "escalated_at": "2026-04-04T..."
   }
 }
@@ -88,10 +88,12 @@ If there is exactly one active turn, it is targeted automatically. If there are 
 
 ### 2. Recovery Action
 
-The default recovery action depends on whether a turn is retained:
+The default recovery action depends on retained-turn runtime context:
 
-- retained turn: `Resolve the escalation, then run agentxchain step --resume`
-- no retained turn: `Resolve the escalation, then run agentxchain step`
+- retained `manual` turn: `Resolve the escalation, then run agentxchain resume`
+- retained non-manual turn: `Resolve the escalation, then run agentxchain step --resume`
+- no retained turn: `Resolve the escalation, then run agentxchain resume`
+- targeted escalation with multiple retained turns: append `--turn <id>` to the suggested command
 
 `--action` may override the recovery string, but it does not change orchestrator behavior.
 
@@ -127,13 +129,13 @@ Recovery descriptors and state normalization must preserve that distinction:
 ## Acceptance Tests
 
 - `AT-ESC-001`: `agentxchain escalate --reason "..."` on an active run with no active turn writes `status = blocked`, `blocked_on = escalation:operator:*`, and `typed_reason = operator_escalation`.
-- `AT-ESC-002`: a single active turn is retained automatically and the recovery action is `agentxchain step --resume`.
+- `AT-ESC-002`: a single retained `manual` turn recommends `agentxchain resume`; retained non-manual turns still recommend `agentxchain step --resume`.
 - `AT-ESC-003`: multiple active turns require `--turn`.
 - `AT-ESC-004`: `--turn` targets the chosen active turn and persists `state.escalation.from_turn_id`.
-- `AT-ESC-005`: `step --resume` clears a retained escalation block and appends `decision = escalation_resolved`.
+- `AT-ESC-005`: `resume` clears a retained `manual` escalation block and appends `decision = escalation_resolved`.
 - `AT-ESC-006`: `resume` clears a blocked escalation with no retained turn, assigns the next turn, and appends `decision = escalation_resolved`.
 - `AT-ESC-007`: retry-exhaustion escalation still derives `typed_reason = retries_exhausted`, not `operator_escalation`.
-- `AT-ESC-008`: CLI docs include the `escalate` command row, flag contract, active-only scope, and recovery semantics.
+- `AT-ESC-008`: CLI docs include the `escalate` command row, flag contract, active-only scope, and runtime-aware recovery semantics.
 
 ## Open Questions
 

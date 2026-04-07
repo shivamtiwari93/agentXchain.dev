@@ -35,7 +35,7 @@ export async function escalateCommand(opts) {
     process.exit(1);
   }
 
-  const recovery = deriveRecoveryDescriptor(result.state);
+  const recovery = deriveRecoveryDescriptor(result.state, config);
 
   console.log('');
   console.log(chalk.yellow('  Run Escalated'));

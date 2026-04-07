@@ -365,6 +365,66 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('AT-ERG-005: status reconciles stale manual escalation recovery guidance on load', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        blocked_on: 'escalation:operator:pm-review',
+        escalation: {
+          source: 'operator',
+          raised_by: 'human',
+          from_role: 'pm',
+          from_turn_id: 'turn_pm_01',
+          reason: 'PM review required',
+          detail: 'PM review required',
+          recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+          escalated_at: '2026-04-01T20:00:00Z',
+        },
+        active_turns: {
+          turn_pm_01: {
+            turn_id: 'turn_pm_01',
+            assigned_role: 'pm',
+            status: 'failed',
+            attempt: 1,
+            started_at: '2026-04-01T20:00:00Z',
+            deadline_at: '2026-04-01T20:20:00Z',
+            runtime_id: 'manual-pm',
+          },
+        },
+        blocked_reason: {
+          category: 'operator_escalation',
+          blocked_at: '2026-04-01T20:00:00Z',
+          turn_id: 'turn_pm_01',
+          recovery: {
+            typed_reason: 'operator_escalation',
+            owner: 'human',
+            recovery_action: 'Resolve the escalation, then run agentxchain step --resume',
+            turn_retained: true,
+            detail: 'PM review required',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume/);
+
+      const migratedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(
+        migratedState.blocked_reason.recovery.recovery_action,
+        'Resolve the escalation, then run agentxchain resume',
+      );
+      assert.equal(
+        migratedState.escalation.recovery_action,
+        'Resolve the escalation, then run agentxchain resume',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('step suggests --resume when a turn is already assigned', () => {
     const dir = createGovernedProject({
       state: {
@@ -672,7 +732,7 @@ describe('operator recovery surfaces', () => {
       assert.match(result.stdout, /Turn Escalated/);
       assert.match(result.stdout, /Reason:\s+retries_exhausted/);
       assert.match(result.stdout, /Owner:\s+human/);
-      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain step/);
+      assert.match(result.stdout, /Action:\s+Resolve the escalation, then run agentxchain resume/);
       assert.match(result.stdout, /Turn:\s+retained/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
