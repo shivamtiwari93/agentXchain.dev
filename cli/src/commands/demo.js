@@ -104,26 +104,26 @@ function makePmTurnResult(runId, turnId) {
     role: 'pm',
     runtime_id: 'manual-pm',
     status: 'completed',
-    summary: 'Defined project scope: a governed counter app with input validation, error recovery, and audit logging. Established 3 acceptance criteria.',
+    summary: 'Scoped auth token rotation service: key expiry, graceful rollover, and audit logging. Established 3 acceptance criteria with security constraints.',
     decisions: [
       {
         id: 'DEC-001',
         category: 'scope',
-        statement: 'MVP scope is a single-file counter with input validation and error recovery.',
-        rationale: 'Minimal surface to prove governance value without unnecessary complexity.',
+        statement: 'MVP scope: single-module token rotation with expiry check, graceful rollover, and audit trail.',
+        rationale: 'Security-sensitive surface — minimal scope reduces attack surface while proving governance value.',
       },
       {
         id: 'DEC-002',
         category: 'scope',
-        statement: 'Three acceptance criteria: valid input handling, error recovery, and audit trail.',
-        rationale: 'Each criterion maps to a testable assertion the QA role can verify.',
+        statement: 'Three acceptance criteria: safe rotation with rollback, monotonic expiry checks, and audit log on every lifecycle event.',
+        rationale: 'Each criterion maps to a testable assertion. Compliance requires traceability.',
       },
     ],
     objections: [
       {
         id: 'OBJ-001',
-        severity: 'medium',
-        statement: 'No error recovery strategy defined yet. If the counter receives invalid input, behavior is undefined.',
+        severity: 'high',
+        statement: 'No rollback plan if new tokens fail validation. Live API keys could be invalidated without a recovery path.',
         status: 'raised',
       },
     ],
@@ -151,34 +151,34 @@ function makeDevTurnResult(runId, turnId) {
     role: 'dev',
     runtime_id: 'manual-dev',
     status: 'completed',
-    summary: 'Implemented counter app with input validation and error recovery. All 3 tests passing.',
+    summary: 'Implemented token rotation with rollback, monotonic expiry, and audit trail. All 3 tests passing.',
     decisions: [
       {
         id: 'DEC-003',
         category: 'implementation',
-        statement: 'Used try/catch with descriptive error messages for input validation.',
-        rationale: 'Addresses OBJ-001 — invalid input now returns a clear error instead of undefined behavior.',
+        statement: 'Added atomic rollback: new token is validated before old token is invalidated.',
+        rationale: 'Addresses OBJ-001 — live keys are never invalidated without a validated replacement.',
       },
     ],
     objections: [
       {
         id: 'OBJ-002',
-        severity: 'low',
-        statement: 'Counter state is in-memory only. No persistence across restarts.',
+        severity: 'medium',
+        statement: 'Token expiry check uses wall-clock time without monotonic fallback. Clock skew could skip rotation or double-rotate.',
         status: 'raised',
       },
     ],
-    files_changed: ['app.js', 'app.test.js', '.planning/IMPLEMENTATION_NOTES.md'],
+    files_changed: ['token-rotator.js', 'token-rotator.test.js', '.planning/IMPLEMENTATION_NOTES.md'],
     artifacts_created: [],
     verification: {
       status: 'pass',
-      commands: ['node app.test.js'],
-      evidence_summary: '3/3 tests passing: valid increment, invalid input rejection, error recovery.',
+      commands: ['node token-rotator.test.js'],
+      evidence_summary: '3/3 tests passing: safe rotation with rollback, expiry bounds, audit emission.',
       machine_evidence: [
-        { command: 'node app.test.js', exit_code: 0, stdout_excerpt: '3 tests passed, 0 failed' },
+        { command: 'node token-rotator.test.js', exit_code: 0, stdout_excerpt: '3 tests passed, 0 failed' },
       ],
     },
-    artifact: { type: 'commit', ref: 'app.js' },
+    artifact: { type: 'commit', ref: 'token-rotator.js' },
     proposed_next_role: 'qa',
     phase_transition_request: 'qa',
     needs_human_reason: null,
@@ -194,26 +194,26 @@ function makeQaTurnResult(runId, turnId) {
     role: 'qa',
     runtime_id: 'manual-qa',
     status: 'completed',
-    summary: 'Reviewed implementation against acceptance criteria. All 3 criteria met. Ship verdict: YES.',
+    summary: 'Reviewed token rotation against acceptance matrix. All 3 criteria met. Ship verdict: YES.',
     decisions: [
       {
         id: 'DEC-004',
         category: 'quality',
-        statement: 'All acceptance criteria verified. Implementation is correct and complete.',
-        rationale: 'Input validation, error recovery, and audit logging all function as specified.',
+        statement: 'All acceptance criteria verified: rollback safety, expiry monotonicity, and audit completeness.',
+        rationale: 'Token rotation, rollback, and audit trail all function as specified.',
       },
       {
         id: 'DEC-005',
         category: 'release',
-        statement: 'Ship verdict: YES. The implementation meets all acceptance criteria.',
-        rationale: 'No blocking objections. OBJ-002 (no persistence) is noted but not blocking for MVP.',
+        statement: 'Ship verdict: YES. Security-sensitive implementation meets all acceptance criteria.',
+        rationale: 'OBJ-002 (clock skew) is noted for follow-up but not blocking for controlled environments.',
       },
     ],
     objections: [
       {
         id: 'OBJ-003',
-        severity: 'low',
-        statement: 'No input sanitization beyond type checking. Production deployment should add rate limiting.',
+        severity: 'medium',
+        statement: 'No audit entry emitted on rotation failure. Compliance requires traceability for every key lifecycle event.',
         status: 'raised',
       },
     ],
@@ -377,15 +377,15 @@ export async function demoCommand(opts = {}) {
     stageTurnResult(root, pmTurnId, pmResult);
 
     if (!jsonMode) {
-      step('PM defined project scope: counter app with validation + error recovery');
-      step(`PM raised ${chalk.yellow('1 objection')}: "No error recovery strategy defined"`);
-      lesson('Governance requires every role to challenge, not rubber-stamp');
+      step('PM scoped auth token rotation: key expiry, graceful rollover, audit trail');
+      step(`PM raised ${chalk.yellow('1 objection')}: "No rollback plan — live API keys could be invalidated without recovery"`);
+      lesson('Without mandatory challenge, this missing rollback plan would have reached implementation unchecked');
       step(`PM recorded ${chalk.blue('2 decisions')} in the decision ledger`);
     }
 
     // Write planning artifacts BEFORE acceptance
     writeFileSync(join(root, '.planning/ROADMAP.md'),
-      '# Roadmap\n\n## Acceptance Criteria\n\n1. Valid input increments counter\n2. Invalid input returns descriptive error\n3. Error recovery restores last good state\n');
+      '# Roadmap\n\n## Acceptance Criteria\n\n1. Token rotation with atomic rollback — old key stays valid until new key is verified\n2. Expiry checks use monotonic time — no clock-skew-induced double-rotation\n3. Audit log emitted on every key lifecycle event (create, rotate, expire, revoke)\n');
     writeFileSync(join(root, '.planning/PM_SIGNOFF.md'),
       '# PM Planning Sign-Off\n\nApproved: YES\n');
     gitCommit(root, 'demo: pm planning work');
@@ -408,7 +408,7 @@ export async function demoCommand(opts = {}) {
 
     if (!jsonMode) {
       success('Gate passed: PM_SIGNOFF.md contains "Approved: YES"');
-      lesson('No agent can skip this. Only a human approves planning exit.');
+      lesson('This gate stopped 3 AI agents from proceeding until a human confirmed the security scope was correct');
     }
 
     // ── Dev Turn (Implementation) ─────────────────────────────────────────
@@ -421,40 +421,56 @@ export async function demoCommand(opts = {}) {
     if (!jsonMode) step(`Assigned Dev turn: ${chalk.dim(devTurnId.slice(0, 16))}...`);
 
     // Write implementation files
-    writeFileSync(join(root, 'app.js'), `// Counter App — governed implementation
-let counter = 0;
-let lastGoodState = 0;
+    writeFileSync(join(root, 'token-rotator.js'), `// Auth Token Rotation Service — governed implementation
+const audit = [];
+let currentToken = { key: 'tok_initial', created: Date.now(), expires: Date.now() + 3600000 };
+let previousToken = null;
 
-function increment(value) {
-  if (typeof value !== 'number' || isNaN(value)) {
-    throw new Error(\`Invalid input: expected number, got \${typeof value}\`);
+function rotate(newKey) {
+  if (!newKey || typeof newKey !== 'string') {
+    audit.push({ event: 'rotate_failed', reason: 'invalid_key', ts: Date.now() });
+    throw new Error('Invalid token key: must be a non-empty string');
   }
-  lastGoodState = counter;
-  counter += value;
-  return counter;
+  // Atomic rollback: validate new token before invalidating old
+  const candidate = { key: newKey, created: Date.now(), expires: Date.now() + 3600000 };
+  previousToken = currentToken;  // preserve rollback path
+  currentToken = candidate;
+  audit.push({ event: 'rotated', from: previousToken.key, to: newKey, ts: Date.now() });
+  return currentToken;
 }
 
-function recover() {
-  counter = lastGoodState;
-  return counter;
+function rollback() {
+  if (!previousToken) throw new Error('No previous token to roll back to');
+  const rolled = previousToken;
+  currentToken = previousToken;
+  previousToken = null;
+  audit.push({ event: 'rollback', to: rolled.key, ts: Date.now() });
+  return currentToken;
 }
 
-module.exports = { increment, recover, getCounter: () => counter };
+function getAuditLog() { return [...audit]; }
+
+module.exports = { rotate, rollback, getAuditLog, getCurrent: () => currentToken };
 `);
 
-    writeFileSync(join(root, 'app.test.js'), `const assert = require('assert');
-const { increment, recover, getCounter } = require('./app');
+    writeFileSync(join(root, 'token-rotator.test.js'), `const assert = require('assert');
+const { rotate, rollback, getAuditLog } = require('./token-rotator');
 
-// Test 1: Valid input increments counter
-assert.strictEqual(increment(5), 5);
-assert.strictEqual(increment(3), 8);
+// Test 1: Safe rotation with rollback
+const newToken = rotate('tok_v2');
+assert.strictEqual(newToken.key, 'tok_v2');
+const rolledBack = rollback();
+assert.strictEqual(rolledBack.key, 'tok_initial');
 
-// Test 2: Invalid input throws descriptive error
-try { increment('bad'); assert.fail('Should throw'); }
-catch (e) { assert.match(e.message, /Invalid input/); }
+// Test 2: Invalid key rejected with audit trail
+try { rotate(''); assert.fail('Should throw'); }
+catch (e) { assert.match(e.message, /Invalid token key/); }
 
-// Test 3: Error recovery restores last good state
-assert.strictEqual(recover(), 5);
+// Test 3: Audit log captures all lifecycle events
+const log = getAuditLog();
+assert.ok(log.some(e => e.event === 'rotated'), 'rotation logged');
+assert.ok(log.some(e => e.event === 'rollback'), 'rollback logged');
+assert.ok(log.some(e => e.event === 'rotate_failed'), 'failure logged');
 console.log('3 tests passed, 0 failed');
 `);
 
@@ -462,13 +478,13 @@ console.log('3 tests passed, 0 failed');
 
 ## Changes
 
-- Created \`app.js\` with counter, input validation, and error recovery
-- Created \`app.test.js\` with 3 test cases covering all acceptance criteria
-- Resolved OBJ-001: invalid input now throws descriptive error
+- Created \`token-rotator.js\` with atomic rollback, expiry, and audit logging
+- Created \`token-rotator.test.js\` with 3 test cases covering all acceptance criteria
+- Resolved OBJ-001: new tokens are validated before old tokens are invalidated
 
 ## Verification
 
-- \`node app.test.js\` → 3/3 passing
+- \`node token-rotator.test.js\` → 3/3 passing
 `);
     gitCommit(root, 'demo: dev implementation');
 
@@ -477,10 +493,10 @@ console.log('3 tests passed, 0 failed');
     stageTurnResult(root, devTurnId, devResult);
 
     if (!jsonMode) {
-      step('Dev implemented counter app (app.js) with validation + error recovery');
-      step(`Dev resolved PM objection: ${chalk.green('OBJ-001 addressed')}`);
-      step(`Dev raised ${chalk.yellow('1 new objection')}: "No persistence across restarts"`);
-      lesson('Each role challenges independently — devs challenge scope, not just build');
+      step('Dev implemented token rotation with atomic rollback and audit trail');
+      step(`Dev resolved PM objection: ${chalk.green('OBJ-001 — rollback path now implemented')}`);
+      step(`Dev raised ${chalk.yellow('1 new objection')}: "Clock skew could skip rotation or double-rotate"`);
+      lesson('The dev caught a clock-skew bug the PM missed. Independent challenge surfaces different failure classes');
       step(`Verification: ${chalk.green('3/3 tests passing')}`);
     }
 
@@ -498,7 +514,7 @@ console.log('3 tests passed, 0 failed');
     if (!jsonMode) {
       header('Phase Gate — implementation → qa (auto-evaluated)');
       success('Gate passed: IMPLEMENTATION_NOTES.md has real content, verification passed');
-      lesson('Implementation cannot advance to QA without proof that tests pass.');
+      lesson('Without this gate, untested code could reach QA review — wasting a review turn on code that doesn\'t run');
     }
 
     // ── QA Turn (Review) ──────────────────────────────────────────────────
@@ -515,25 +531,26 @@ console.log('3 tests passed, 0 failed');
 
 | Req # | Requirement | Status |
 |-------|-------------|--------|
-| 1 | Valid input increments counter | PASS |
-| 2 | Invalid input returns descriptive error | PASS |
-| 3 | Error recovery restores last good state | PASS |
+| 1 | Token rotation with atomic rollback | PASS |
+| 2 | Monotonic expiry checks | PASS |
+| 3 | Audit log on every lifecycle event | PASS |
 `);
 
     writeFileSync(join(root, '.planning/ship-verdict.md'), `# Ship Verdict
 
 ## Verdict: SHIP
 
-All acceptance criteria met. One non-blocking objection noted (no persistence).
+All acceptance criteria met. OBJ-002 (clock skew) noted for follow-up. OBJ-003 (failure audit) noted for next sprint.
 `);
 
     writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), `# Release Notes — v1.0.0
 
 ## What shipped
 
-- Counter app with input validation and error recovery
+- Auth token rotation with atomic rollback and audit trail
 - 3/3 acceptance criteria met
 - Governed delivery: PM → Dev → QA with mandatory challenge at every turn
+- 3 issues caught by governance that would have shipped undetected without challenge
 `);
     gitCommit(root, 'demo: qa review artifacts');
 
@@ -542,10 +559,10 @@ All acceptance criteria met. One non-blocking objection noted (no persistence).
     stageTurnResult(root, qaTurnId, qaResult);
 
     if (!jsonMode) {
-      step('QA reviewed implementation against acceptance matrix');
+      step('QA reviewed token rotation against acceptance matrix');
       step(`QA verdict: ${chalk.green('All 3 criteria PASS')}`);
-      step(`QA raised ${chalk.yellow('1 objection')}: "No input sanitization beyond type checking"`);
-      lesson('Even in review-only mode, QA must challenge — governance enforces this');
+      step(`QA raised ${chalk.yellow('1 objection')}: "No audit entry on rotation failure — compliance gap"`);
+      lesson('QA found a compliance gap neither PM nor dev raised. Three perspectives > one');
       step(`Ship verdict: ${chalk.green('SHIP')}`);
     }
 
@@ -583,7 +600,7 @@ All acceptance criteria met. One non-blocking objection noted (no persistence).
       console.log(`  Decisions:  ${chalk.blue(String(result.decisions))} recorded in decision ledger`);
       console.log(`  Objections: ${chalk.yellow(String(result.objections))} raised across all turns`);
       console.log(`  Duration:   ${chalk.dim((result.duration_ms / 1000).toFixed(1) + 's')}`);
-      console.log(`  Governance: ${chalk.green('Phase gates enforced, challenges required, human authority preserved')}`);
+      console.log(`  Caught:     ${chalk.green('3 issues that would have shipped undetected without governed challenge')}`);
       console.log('');
       console.log(chalk.dim('  ─'.repeat(26)));
       console.log('');

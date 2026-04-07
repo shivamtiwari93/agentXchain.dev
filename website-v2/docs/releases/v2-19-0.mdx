@@ -1,0 +1,97 @@
+---
+title: "v2.19.0 Release Notes"
+description: "Demo-first adoption is now real: one-command governance walkthrough, higher-signal narrative, and baseline evidence paths that no longer poison later governed turns."
+---
+
+# AgentXchain v2.19.0
+
+`2.19.0` fixes the first 60 seconds of evaluation.
+
+Before this release, the binary had already grown credible governed-execution depth, but the front door still failed the evaluator:
+
+- the fastest path to value was hidden behind docs and scaffold steps
+- the shipped demo narrative looked like a toy counter app, which undersold why governance matters
+- baseline evidence files like `AGENT-TALK.md` and derived review/report artifacts could dirty the repo and block the next actor for the wrong reason
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.19.0
+```
+
+## What changed since 2.18.0
+
+### `agentxchain demo` is now the real first-run path
+
+The CLI now ships `agentxchain demo`, a one-command governed walkthrough that:
+
+- creates a temporary git workspace
+- runs PM → Dev → QA through the real runner interface
+- stages real turn results, decisions, objections, and phase-gate artifacts
+- cleans up the workspace automatically on success or failure
+
+This is not a fake “hello world” transcript. It is a fast, bounded first-run experience that shows what governed multi-agent delivery actually looks like before asking evaluators to scaffold their own repo.
+
+### The adoption funnel is demo-first across the front door
+
+`npx agentxchain demo` now leads the public entry surfaces:
+
+- root `README.md`
+- `cli/README.md`
+- homepage hero CTA
+- quickstart Path 0
+
+The init path still exists, but it is now the second step after the evaluator has seen governance in action. That is the right order. Asking new users to bootstrap a repo before they understand the product was avoidable friction.
+
+### The demo now demonstrates governance pressure, not coding-101
+
+The demo narrative moved from a toy counter app to an auth token rotation service with:
+
+- rollback safety
+- expiry/rotation correctness
+- audit logging
+
+That matters because the objections now carry real delivery consequences:
+
+- PM catches a missing rollback plan that could invalidate live API keys
+- Dev catches a clock-skew risk the PM missed
+- QA catches a compliance/audit gap neither of the earlier roles raised
+
+The summary now lands the actual value proposition: governed challenge caught three issues that otherwise would have shipped silently.
+
+### Baseline evidence paths no longer create false dirty-state failures
+
+Governed delivery depends on artifact evidence, but evidence should not sabotage the next turn.
+
+`2.19.0` hardens that contract:
+
+- `.planning/AGENT-TALK.md`, `.agentxchain/reviews/`, and `.agentxchain/reports/` are treated as baseline-exempt evidence paths, not invisible operational paths
+- unchanged pre-existing evidence dirt is filtered from both same-HEAD and head-changed observation
+- authoritative follow-up turns remain accountable for their own changes without being blocked by stale derived evidence
+
+This closes a real workflow integrity issue instead of just polishing output.
+
+## Why this release matters
+
+`2.18.0` strengthened execution proof. `2.19.0` makes that proof discoverable.
+
+That is a real product boundary:
+
+- evaluators can now see governance in one command
+- the demo now shows why governed challenge matters
+- baseline evidence handling no longer punishes routine collaboration artifacts
+
+AgentXchain cannot claim adoption readiness if the product value is buried under setup work or if its own collaboration files break the next governed turn.
+
+## Where to go next
+
+- Run [`npx agentxchain demo`](/docs/quickstart#path-0-demo) to see the governed lifecycle in under a minute.
+- Continue to [Quickstart](/docs/quickstart) when you want to scaffold a real governed repo.
+- Read [CLI Reference](/docs/cli) for the current command surface.
+
+## Evidence
+
+- 2315 node tests / 499 suites, 0 failures.
+- 758 Vitest tests / 36 files, 0 failures.
+- Docusaurus production build passes.
+- `agentxchain demo` completes in ~1.1s with 5 decisions and 3 objections.

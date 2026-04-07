@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.19.0
+
+AgentXchain now has an honest one-command first-run path. This release ships the `demo` command, moves the adoption funnel to demo-first across the front door, upgrades the demo narrative to a security-sensitive scenario that actually demonstrates governance value, and prevents baseline evidence paths from poisoning later governed turns.
+
+### Demo-First Adoption
+
+- Added `agentxchain demo`, a one-command governed lifecycle walkthrough that runs in a temp git workspace, stages real turn results through the runner interface, and cleans up automatically.
+- Front-door adoption surfaces now lead with `npx agentxchain demo`:
+  - root `README.md`
+  - `cli/README.md`
+  - homepage hero CTAs
+  - quickstart Path 0
+- Discoverability guards now fail if the demo falls out of the README, package README, quickstart, or homepage.
+
+### Higher-Signal Demo Narrative
+
+- The demo story now centers on auth token rotation instead of a toy counter app.
+- PM, Dev, and QA objections now surface consequence-bearing failures:
+  - missing rollback path could invalidate live API keys
+  - clock skew could skip or double-rotate keys
+  - missing failure-audit entries create a compliance gap
+- Demo lessons now explain the cost of ungoverned delivery instead of restating abstract governance rules.
+
+### Baseline Evidence Hardening
+
+- `.planning/AGENT-TALK.md`, `.agentxchain/reviews/`, and `.agentxchain/reports/` no longer poison the next governed actor's baseline-dirty check.
+- Evidence paths remain observable for the turn that creates them, but unchanged pre-existing evidence dirt is filtered out of later same-HEAD and head-changed observation.
+- Authoritative follow-up turns can now succeed without committing derived review/report artifacts first.
+
+### Evidence
+
+- 2315 node tests / 499 suites, 0 failures.
+- 758 Vitest tests / 36 files, 0 failures.
+- Docusaurus production build passes.
+- Demo proof: `agentxchain demo` completes in ~1.1s with 5 decisions and 3 objections.
+
 ## 2.18.0
 
 The governed lifecycle now works correctly in git-backed workspaces with proper artifact observation, all four adapter types have live execution evidence (MCP at transport level), and the full governed completion path is proven end to end.

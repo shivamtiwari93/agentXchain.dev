@@ -79,12 +79,12 @@ describe('agentxchain demo', () => {
       timeout: 30_000,
     });
 
-    // Verify governance lessons are present
-    assert.match(output, /Governance requires every role to challenge/);
-    assert.match(output, /Only a human approves planning exit/);
-    assert.match(output, /Each role challenges independently/);
-    assert.match(output, /QA must challenge.*governance enforces/);
-    assert.match(output, /proof that tests pass/);
+    // Verify governance lessons explain consequences, not just rules
+    assert.match(output, /missing rollback plan would have reached implementation unchecked/);
+    assert.match(output, /gate stopped 3 AI agents.*human confirmed/);
+    assert.match(output, /dev caught a clock-skew bug the PM missed/);
+    assert.match(output, /QA found a compliance gap neither PM nor dev raised/);
+    assert.match(output, /untested code could reach QA review/);
   });
 
   it('is registered in CLI help', () => {
