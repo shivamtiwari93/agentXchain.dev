@@ -31,6 +31,7 @@ import {
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const FILE_PREVIEW_MAX_FILES = 5;
 const FILE_PREVIEW_MAX_LINES = 120;
+const GATE_FILE_PREVIEW_MAX_LINES = 60;
 const DISPATCH_LOG_MAX_LINES = 50;
 const DISPATCH_LOG_MAX_LINE_BYTES = 8192;
 
@@ -213,7 +214,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push('- **This runtime cannot write repo files directly.** Do NOT claim `.planning/*` or `.agentxchain/reviews/*` changes you did not actually make.');
       lines.push(`- The orchestrator will materialize your accepted review at \`${reviewArtifactPath}\`.`);
       lines.push('- Use `summary`, `decisions`, `objections`, and `verification.evidence_summary` to communicate the review content.');
-      lines.push('- Only request run completion if the required QA gate files already contain real content from a writable/manual path.');
+      lines.push('- Gate file contents and semantic status are shown in CONTEXT.md under "Gate Required Files". Check them before requesting run completion.');
     }
     lines.push('');
   } else if (role.write_authority === 'authoritative') {
@@ -543,9 +544,35 @@ function renderContext(state, config, root, turn, role) {
   if (gateConfig?.requires_files) {
     lines.push('## Gate Required Files');
     lines.push('');
+    const isReviewRole = role?.write_authority === 'review_only';
     for (const f of gateConfig.requires_files) {
-      const exists = existsSync(join(root, f));
-      lines.push(`- \`${f}\` — ${exists ? 'exists' : 'MISSING'}`);
+      const absPath = join(root, f);
+      const exists = existsSync(absPath);
+      if (isReviewRole) {
+        lines.push(`### \`${f}\` — ${exists ? 'exists' : 'MISSING'}`);
+        lines.push('');
+        if (exists) {
+          const gatePreview = buildGateFilePreview(absPath);
+          if (gatePreview) {
+            // Semantic annotations for known gate files
+            const semantic = extractGateFileSemantic(f, gatePreview.raw);
+            if (semantic) {
+              lines.push(`**Gate semantic: ${semantic}**`);
+              lines.push('');
+            }
+            lines.push('```');
+            lines.push(gatePreview.content);
+            lines.push('```');
+            if (gatePreview.truncated) {
+              lines.push('');
+              lines.push(`_Preview truncated after ${GATE_FILE_PREVIEW_MAX_LINES} lines._`);
+            }
+            lines.push('');
+          }
+        }
+      } else {
+        lines.push(`- \`${f}\` — ${exists ? 'exists' : 'MISSING'}`);
+      }
     }
     lines.push('');
   }
@@ -564,6 +591,46 @@ function renderContext(state, config, root, turn, role) {
     content: lines.join('\n') + '\n',
     warnings,
   };
+}
+
+function buildGateFilePreview(absPath) {
+  let raw;
+  try {
+    raw = readFileSync(absPath, 'utf8');
+  } catch {
+    return null;
+  }
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const truncated = lines.length > GATE_FILE_PREVIEW_MAX_LINES;
+  const previewLines = truncated ? lines.slice(0, GATE_FILE_PREVIEW_MAX_LINES) : lines;
+  return {
+    raw,
+    content: previewLines.join('\n').trimEnd(),
+    truncated,
+  };
+}
+
+function extractGateFileSemantic(relPath, raw) {
+  const lower = relPath.toLowerCase();
+  if (lower.endsWith('pm_signoff.md')) {
+    const match = raw.match(/^Approved:\s*(YES|NO|PENDING)/im);
+    if (match && match[1].toUpperCase() === 'YES') {
+      return 'Approved: YES';
+    }
+    return 'approval not found';
+  }
+  if (lower.endsWith('ship-verdict.md')) {
+    const match = raw.match(/^##\s*Verdict:\s*(YES|SHIP|SHIP IT|NO|PENDING)/im);
+    if (match) {
+      const val = match[1].toUpperCase();
+      if (val === 'YES' || val === 'SHIP' || val === 'SHIP IT') {
+        return `Verdict: ${match[1]}`;
+      }
+      return 'verdict not affirmative';
+    }
+    return 'verdict not affirmative';
+  }
+  return null;
 }
 
 function buildChangedFilePreviews(root, filesChanged) {
