@@ -243,6 +243,25 @@ function buildCoordinatorFixture(options = {}) {
     hooks: {},
   };
 
+  const coordinatorDecisions = [
+    {
+      id: 'DEC-COORD-001',
+      turn_id: 'turn_coord_001',
+      role: 'pm',
+      phase: 'planning',
+      category: 'scope',
+      statement: 'Dispatch to api before web for dependency ordering.',
+    },
+    {
+      id: 'DEC-COORD-002',
+      turn_id: 'turn_coord_002',
+      role: 'dev',
+      phase: 'implementation',
+      category: 'architecture',
+      statement: 'Use shared auth middleware across repos.',
+    },
+  ];
+
   const barrierLedgerEvents = [
     {
       type: 'barrier_transition',
@@ -313,7 +332,7 @@ function buildCoordinatorFixture(options = {}) {
       repo_run_statuses: { api: 'completed', web: 'completed' },
       barrier_count: 2,
       history_entries: historyEvents.length,
-      decision_entries: 0,
+      decision_entries: coordinatorDecisions.length,
     },
     config: coordConfig,
     files: {
@@ -322,6 +341,7 @@ function buildCoordinatorFixture(options = {}) {
       '.agentxchain/multirepo/history.jsonl': jsonlFileEntry(historyEvents),
       '.agentxchain/multirepo/barriers.json': jsonFileEntry(barriers),
       '.agentxchain/multirepo/barrier-ledger.jsonl': jsonlFileEntry(barrierLedgerEvents),
+      '.agentxchain/multirepo/decision-ledger.jsonl': jsonlFileEntry(coordinatorDecisions),
     },
     repos: {
       api: {
@@ -870,6 +890,111 @@ describe('coordinator report narrative — barrier ledger rendering', () => {
   });
 });
 
+// AT-COORD-DECISION-001: coordinator decisions extracted
+describe('coordinator report narrative — decision_digest', () => {
+  it('AT-COORD-DECISION-001: includes coordinator decisions with correct fields', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+    const digest = result.report.subject.decision_digest;
+    assert.ok(Array.isArray(digest), 'decision_digest is array');
+    assert.equal(digest.length, 2, 'two coordinator decisions in fixture');
+
+    assert.equal(digest[0].id, 'DEC-COORD-001');
+    assert.equal(digest[0].role, 'pm');
+    assert.equal(digest[0].phase, 'planning');
+    assert.equal(digest[0].category, 'scope');
+    assert.match(digest[0].statement, /Dispatch to api before web/);
+
+    assert.equal(digest[1].id, 'DEC-COORD-002');
+    assert.equal(digest[1].role, 'dev');
+    assert.equal(digest[1].phase, 'implementation');
+    assert.equal(digest[1].category, 'architecture');
+    assert.match(digest[1].statement, /shared auth middleware/);
+  });
+
+  // AT-COORD-DECISION-002: every entry has id and statement
+  it('AT-COORD-DECISION-002: every entry has id (string) and statement (string)', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const digest = result.report.subject.decision_digest;
+    for (const d of digest) {
+      assert.ok(typeof d.id === 'string' && d.id.length > 0, `id must be non-empty string, got ${d.id}`);
+      assert.ok(typeof d.statement === 'string' && d.statement.length > 0, `statement must be non-empty string`);
+    }
+  });
+
+  // AT-COORD-DECISION-006: entries without id are filtered out
+  it('AT-COORD-DECISION-006: entries without id field are filtered out', () => {
+    const fixture = buildCoordinatorFixture();
+    // Add a governance event entry without an id field
+    const currentData = fixture.files['.agentxchain/multirepo/decision-ledger.jsonl'].data;
+    const withGovernanceEvent = [
+      ...currentData,
+      { decision: 'conflict_detected', timestamp: '2026-04-06T19:12:00.000Z', turn_id: 'turn_003' },
+    ];
+    fixture.files['.agentxchain/multirepo/decision-ledger.jsonl'] = jsonlFileEntry(withGovernanceEvent);
+    fixture.summary.decision_entries = withGovernanceEvent.length;
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+    const digest = result.report.subject.decision_digest;
+    assert.equal(digest.length, 2, 'governance event without id is filtered out');
+    assert.ok(digest.every((d) => typeof d.id === 'string'));
+  });
+
+  // AT-COORD-DECISION-005: absent ledger omits section
+  it('AT-COORD-DECISION-005: absent decision-ledger omits section in text', () => {
+    const fixture = buildCoordinatorFixture();
+    delete fixture.files['.agentxchain/multirepo/decision-ledger.jsonl'];
+    fixture.summary.decision_entries = 0;
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+    const digest = result.report.subject.decision_digest;
+    assert.equal(digest.length, 0);
+
+    const text = formatGovernanceReportText(result.report);
+    assert.ok(!text.includes('Coordinator Decisions:'), 'no coordinator decisions section when absent');
+  });
+
+  it('absent decision-ledger omits section in markdown', () => {
+    const fixture = buildCoordinatorFixture();
+    delete fixture.files['.agentxchain/multirepo/decision-ledger.jsonl'];
+    fixture.summary.decision_entries = 0;
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!md.includes('## Coordinator Decisions'), 'no coordinator decisions section when absent');
+  });
+});
+
+// AT-COORD-DECISION-003/004: text and markdown rendering
+describe('coordinator report narrative — decision digest rendering', () => {
+  it('AT-COORD-DECISION-003: text output includes Coordinator Decisions section', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const text = formatGovernanceReportText(result.report);
+
+    assert.match(text, /Coordinator Decisions:/);
+    assert.match(text, /DEC-COORD-001 \(pm, planning\): Dispatch to api before web/);
+    assert.match(text, /DEC-COORD-002 \(dev, implementation\): Use shared auth middleware/);
+  });
+
+  it('AT-COORD-DECISION-004: markdown output includes Coordinator Decisions section', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const md = formatGovernanceReportMarkdown(result.report);
+
+    assert.match(md, /## Coordinator Decisions/);
+    assert.match(md, /\*\*DEC-COORD-001\*\*/);
+    assert.match(md, /\(pm, planning phase\)/);
+    assert.match(md, /Dispatch to api before web/);
+    assert.match(md, /\*\*DEC-COORD-002\*\*/);
+    assert.match(md, /\(dev, implementation phase\)/);
+    assert.match(md, /shared auth middleware/);
+  });
+});
+
 // Spec guard
 describe('coordinator report narrative spec', () => {
   it('spec file exists and is current', () => {
@@ -901,6 +1026,17 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /AT-BARRIER-LEDGER-007/);
     assert.match(spec, /barrier_ledger_timeline/);
     assert.match(spec, /barrier_transition/);
+  });
+
+  // AT-COORD-DECISION-007: decision-digest spec guard
+  it('decision-digest spec exists and is current', () => {
+    const specPath = join(__dirname, '..', '..', '.planning', 'COORDINATOR_DECISION_DIGEST_SPEC.md');
+    const spec = readFileSync(specPath, 'utf8');
+    assert.match(spec, /Coordinator Decision Digest/);
+    assert.match(spec, /AT-COORD-DECISION-001/);
+    assert.match(spec, /AT-COORD-DECISION-007/);
+    assert.match(spec, /decision_digest/);
+    assert.match(spec, /decision-ledger\.jsonl/);
   });
 
   it('action-guidance spec exists and is current', () => {

@@ -45,7 +45,9 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /coordinator_timeline/);
     assert.match(REPORT_DOCS, /barrier_summary/);
     assert.match(REPORT_DOCS, /barrier_ledger_timeline/);
+    assert.match(REPORT_DOCS, /decision_digest/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
+    assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
@@ -79,6 +81,14 @@ describe('governance report spec alignment', () => {
     assert.match(timingSpec, /DEC-COORD-REPORT-TIME-001/);
     assert.match(timingSpec, /AT-COORD-TIME-001/);
     assert.match(timingSpec, /AT-COORD-TIME-006/);
+  });
+
+  it('ships a coordinator decision-digest spec for coordinator-level decisions', () => {
+    const digestSpec = read('.planning/COORDINATOR_DECISION_DIGEST_SPEC.md');
+    assert.match(digestSpec, /Coordinator Decision Digest/);
+    assert.match(digestSpec, /AT-COORD-DECISION-001/);
+    assert.match(digestSpec, /AT-COORD-DECISION-007/);
+    assert.match(digestSpec, /decision_digest/);
   });
 
   it('ships a coordinator action-guidance spec for operator next steps', () => {

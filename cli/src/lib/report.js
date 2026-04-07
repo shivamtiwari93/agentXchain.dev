@@ -368,6 +368,21 @@ function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repo
   return nextActions;
 }
 
+function extractCoordinatorDecisionDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => typeof d?.id === 'string')
+    .map((d) => ({
+      id: d.id,
+      turn_id: d.turn_id || null,
+      role: d.role || null,
+      phase: d.phase || null,
+      category: d.category || null,
+      statement: d.statement || '',
+    }));
+}
+
 function extractBarrierSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/multirepo/barriers.json');
   if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
@@ -525,6 +540,7 @@ function buildCoordinatorSubject(artifact) {
   const coordinatorTimeline = extractCoordinatorTimeline(artifact);
   const barrierSummary = extractBarrierSummary(artifact);
   const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
+  const decisionDigest = extractCoordinatorDecisionDigest(artifact);
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
@@ -563,6 +579,7 @@ function buildCoordinatorSubject(artifact) {
     coordinator_timeline: coordinatorTimeline,
     barrier_summary: barrierSummary,
     barrier_ledger_timeline: barrierLedgerTimeline,
+    decision_digest: decisionDigest,
     repos,
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -737,7 +754,7 @@ export function formatGovernanceReportText(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest } = report.subject;
   const lines = [
     'AgentXchain Governance Report',
     `Input: ${report.input}`,
@@ -800,6 +817,13 @@ export function formatGovernanceReportText(report) {
       const t = barrier_ledger_timeline[i];
       const ts = t.timestamp ? ` [${t.timestamp}]` : '';
       lines.push(`  ${i + 1}.${ts} ${t.summary}`);
+    }
+  }
+
+  if (decision_digest && decision_digest.length > 0) {
+    lines.push('', 'Coordinator Decisions:');
+    for (const d of decision_digest) {
+      lines.push(`  - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
     }
   }
 
@@ -967,7 +991,7 @@ export function formatGovernanceReportMarkdown(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline } = report.subject;
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest } = report.subject;
   const mdLines = [
     '# AgentXchain Governance Report',
     '',
@@ -1031,6 +1055,13 @@ export function formatGovernanceReportMarkdown(report) {
       const ts = t.timestamp ? `\`${t.timestamp}\`` : 'n/a';
       const escapedSummary = t.summary.replace(/\|/g, '\\|');
       mdLines.push(`| ${i + 1} | ${ts} | \`${t.barrier_id}\` | \`${t.previous_status}\` | \`${t.new_status}\` | ${escapedSummary} |`);
+    }
+  }
+
+  if (decision_digest && decision_digest.length > 0) {
+    mdLines.push('', '## Coordinator Decisions', '');
+    for (const d of decision_digest) {
+      mdLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
     }
   }
 
