@@ -67,14 +67,12 @@ agentxchain template validate
 git add -A
 git commit -m "bootstrap AgentXchain governed scaffold"
 
-agentxchain step --role pm
+agentxchain step
 ```
 
-Then complete the planning turn, stage the PM result, and continue:
+`step` assigns the PM turn (the planning-phase entry role), writes the dispatch bundle, and polls for the staged result. While `step` is waiting, open a second terminal to write your planning docs and stage the turn result at `.agentxchain/staging/<turn_id>/turn-result.json`. When `step` detects the staged result, it auto-validates and auto-accepts. Then approve the phase transition:
 
 ```bash
-agentxchain validate --mode turn
-agentxchain accept-turn
 agentxchain approve-transition
 git add -A && git commit -m "orchestrator: accept pm turn"
 
@@ -85,6 +83,8 @@ agentxchain step --role qa
 # already contain real content before you approve completion
 agentxchain approve-completion
 ```
+
+If you prefer more control, press Ctrl+C during the `step` poll, do your work, then run `agentxchain accept-turn` and `agentxchain approve-transition` manually.
 
 This is the safest path for a large mature repo because it forces scope, acceptance criteria, and human review before the first implementation turn. Do not jump to `agentxchain run` until the runtime bindings are truthful and you have already seen one or two clean governed turns.
 
@@ -121,7 +121,7 @@ agentxchain template validate
 After migration, review the scaffold and runtime wiring honestly. If you want to restart with a planning refresh on a large repo, start with:
 
 ```bash
-agentxchain step --role pm
+agentxchain step
 ```
 
 If the migrated repo already has a retained turn you intend to continue, use `agentxchain step --resume` or `agentxchain resume` as appropriate.
@@ -143,7 +143,7 @@ git commit -m "initial governed scaffold"
 
 From there:
 
-- Keep the shipped mixed-mode scaffold and use `agentxchain step --role pm` first if you want a human-led planning pass.
+- Keep the shipped mixed-mode scaffold and use `agentxchain step` first if you want a human-led planning pass.
 - Rebind any `manual` roles to non-manual runtimes, then use `agentxchain run --auto-approve --max-turns 10` if you want an automated path.
 
 ## What governed mode creates
@@ -267,17 +267,17 @@ agentxchain run --dry-run
 
 If you keep `pm` on `manual-pm`, use `step` for the planning turn and let the orchestrator stop where the human work actually happens.
 
-### 1. Assign the PM turn
+### 1. Start the PM turn
 
 ```bash
-agentxchain step --role pm
+agentxchain step
 ```
 
-The orchestrator writes a dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/` and waits for a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`.
+`step` assigns the PM turn (the planning-phase entry role), writes the dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/`, and polls for a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`. When the staged result appears, `step` auto-validates and auto-accepts the turn.
 
 ### 2. Create PM artifacts and stage the turn result
 
-Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then fill the staged turn result. A fresh scaffold starts with `PM_SIGNOFF.md` set to `Approved: NO`; change that line to `Approved: YES` only after a human reviews the planning artifacts and is ready to open the planning gate. Copy the exact template from the dispatch bundle instead of inventing fields. The minimum truthful shape still looks like this:
+While `step` is polling, open a second terminal and write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then create the staged turn result. A fresh scaffold starts with `PM_SIGNOFF.md` set to `Approved: NO`; change that line to `Approved: YES` only after a human reviews the planning artifacts and is ready to open the planning gate. Copy the exact template from the dispatch bundle's `ASSIGNMENT.json` instead of inventing fields. The minimum truthful shape still looks like this:
 
 ```json
 {
@@ -322,27 +322,32 @@ Write your planning docs (`PM_SIGNOFF.md`, `ROADMAP.md`), then fill the staged t
 }
 ```
 
-Optional validation before acceptance:
+### 3. Approve the phase transition
+
+Once `step` detects and accepts the staged result, approve the phase transition:
 
 ```bash
-agentxchain validate --mode turn
-```
-
-### 3. Accept and approve the gate
-
-```bash
-agentxchain accept-turn
 agentxchain approve-transition
 ```
 
 The phase advances from `planning` to `implementation`.
 If `PM_SIGNOFF.md` still says `Approved: NO`, `approve-transition` must fail closed.
 
+If you pressed Ctrl+C during the `step` poll instead of letting it auto-accept, you can validate and accept manually:
+
+```bash
+agentxchain validate --mode turn
+agentxchain accept-turn
+agentxchain approve-transition
+```
+
 ### 4. Continue with dev and QA
 
 ```bash
-agentxchain step --role dev
-agentxchain step --role qa
+agentxchain step --verbose
+# dev turn: local_cli dispatches to your coding agent, auto-accepts on completion
+agentxchain step
+# qa turn: api_proxy calls the LLM API, auto-accepts on completion
 # api_proxy QA does not directly rewrite .planning/* gate files
 agentxchain approve-completion
 ```

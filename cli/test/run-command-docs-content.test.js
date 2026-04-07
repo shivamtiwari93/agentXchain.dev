@@ -69,7 +69,7 @@ describe('run command documentation surface', () => {
   });
 
   it('quickstart documents the shipped mixed-mode default and manual fallback', () => {
-    for (const token of ['manual-pm', 'local-dev', 'api-qa', 'agentxchain step --role pm']) {
+    for (const token of ['manual-pm', 'local-dev', 'api-qa', 'agentxchain step']) {
       assert.ok(QUICKSTART_DOCS.includes(token),
         `quickstart must document mixed-mode default/manual fallback token: ${token}`);
     }
