@@ -838,6 +838,7 @@ echo '{"verdict":"allow"}'`);
       assert.match(combined, /Dispatch Blocked By Hook/);
       assert.match(combined, /dispatch-tamper/);
       assert.match(combined, /hook_bundle_tamper|tampered with protected file/i);
+      assert.match(combined, /Action:\s+Fix or reconfigure the hook, then rerun agentxchain step --resume/);
 
       const updatedState = readGovernedState(join(dir, '.agentxchain', 'state.json'));
       assert.equal(updatedState.status, 'blocked');
@@ -1287,11 +1288,16 @@ describe('resume after_dispatch hooks', () => {
       const combined = result.stdout + result.stderr;
       assert.match(combined, /Dispatch Blocked By Hook/, 'should show structured dispatch hook failure');
       assert.match(combined, /block-dispatch/, 'should name the blocking hook');
+      assert.match(combined, /Action:\s+Fix or reconfigure the hook, then rerun agentxchain resume/, 'manual retained dispatch hook block should surface resume');
 
       // State should be blocked
       const finalState = readGovernedState(statePath);
       assert.equal(finalState.status, 'blocked');
       assert.match(finalState.blocked_on, /hook:after_dispatch/);
+      assert.equal(
+        finalState.blocked_reason.recovery.recovery_action,
+        'Fix or reconfigure the hook, then rerun agentxchain resume',
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

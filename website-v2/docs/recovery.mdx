@@ -50,24 +50,24 @@ Operator escalations record `decision = "operator_escalated"` in the decision le
 
 | State | Cause | Recovery |
 |---|---|---|
-| `needs_human` | Agent returned `blocked_on: "human:..."` requesting human intervention | Resolve the stated issue, then `agentxchain step --resume` |
+| `needs_human` | Agent returned `blocked_on: "human:..."` requesting human intervention | Resolve the stated issue, then `agentxchain resume` |
 
-The agent specifies what it needs after the `human:` prefix. The operator resolves the external issue and resumes.
+The normal `needs_human` path accepts the turn that raised the issue and clears it, so recovery assigns the next turn with `resume` instead of trying to wait on a non-existent retained turn.
 
 ### Hook Failures
 
 | State | Cause | Recovery |
 |---|---|---|
-| `hook_block` | Lifecycle hook failed without tampering | Fix the hook, then `agentxchain step --resume` or `agentxchain resume --role` |
-| `hook_tamper` | Hook detected unauthorized file changes | Fix tampering, then `agentxchain step --resume` |
+| `hook_block` | Lifecycle hook failed without tampering | Follow the surfaced command: `approve-*`, `accept-turn`, runtime-aware retained-turn recovery, or `resume --role` depending on where the hook fired |
+| `hook_tamper` | Hook detected unauthorized file changes | Fix tampering, then follow the surfaced command (`agentxchain resume` for cleared or retained `manual` turns, `agentxchain step --resume` for retained non-manual turns, approval commands for gate pauses) |
 
-Hook blocks during assignment require `resume --role` to re-assign. Hook blocks during dispatch or validation require `step --resume`.
+Hook blocks during assignment require `resume --role` to re-assign. Hook tamper no longer assumes every blocked turn is resumable with `step --resume`; the persisted recovery action is derived from the actual retained-turn state.
 
 ### Turn Conflicts
 
 | State | Cause | Recovery |
 |---|---|---|
-| `conflict_loop` | Repeated conflicting changes across turns | `agentxchain reject-turn --reassign` or `agentxchain accept-turn --resolution human_merge` |
+| `conflict_loop` | Repeated conflicting changes across turns | Default surfaced action: `agentxchain reject-turn --turn <id> --reassign`; alternate manual path: `agentxchain accept-turn --turn <id> --resolution human_merge` |
 
 | Condition | Recovery |
 |---|---|

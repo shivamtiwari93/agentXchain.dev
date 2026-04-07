@@ -965,6 +965,10 @@ describe('acceptGovernedTurn', () => {
     assert.equal(thirdConflict.state.active_turns[secondTurnId].conflict_state.detection_count, 3);
     assert.equal(thirdConflict.state.status, 'blocked');
     assert.equal(thirdConflict.state.blocked_reason.recovery.typed_reason, 'conflict_loop');
+    assert.equal(
+      thirdConflict.state.blocked_reason.recovery.recovery_action,
+      `Serialize the conflicting work, then run agentxchain reject-turn --turn ${secondTurnId} --reassign`,
+    );
   });
 
   it('queues phase transition requests until the final sibling drains', () => {

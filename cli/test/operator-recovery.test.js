@@ -326,12 +326,147 @@ describe('operator recovery surfaces', () => {
       const result = runCli(dir, ['status']);
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /Reason:\s+needs_human/);
-      assert.match(result.stdout, /Action:\s+Resolve the stated issue, then run agentxchain step --resume/);
+      assert.match(result.stdout, /Action:\s+Resolve the stated issue, then run agentxchain resume/);
       assert.match(result.stdout, /Turn:\s+cleared/);
 
       const migratedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
       assert.equal(migratedState.status, 'blocked');
       assert.equal(migratedState.blocked_reason.category, 'needs_human');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('status reconciles stale retained manual hook_tamper recovery guidance on load', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        blocked_on: 'hook:after_dispatch:tamper-hook',
+        active_turns: {
+          turn_pm_01: {
+            turn_id: 'turn_pm_01',
+            assigned_role: 'pm',
+            status: 'failed',
+            attempt: 1,
+            started_at: '2026-04-01T20:00:00Z',
+            deadline_at: '2026-04-01T20:20:00Z',
+            runtime_id: 'manual-pm',
+          },
+        },
+        blocked_reason: {
+          category: 'hook_tamper',
+          blocked_at: '2026-04-01T20:00:00Z',
+          turn_id: 'turn_pm_01',
+          recovery: {
+            typed_reason: 'hook_tamper',
+            owner: 'human',
+            recovery_action: 'Disable or fix the hook, verify protected files, then run agentxchain step --resume',
+            turn_retained: true,
+            detail: 'tamper detected',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Reason:\s+hook_tamper/);
+      assert.match(result.stdout, /Action:\s+Disable or fix the hook, verify protected files, then run agentxchain resume/);
+
+      const migratedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(
+        migratedState.blocked_reason.recovery.recovery_action,
+        'Disable or fix the hook, verify protected files, then run agentxchain resume',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('status keeps retained non-manual hook_tamper on step --resume', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        blocked_on: 'hook:after_dispatch:tamper-hook',
+        active_turns: {
+          turn_dev_01: {
+            turn_id: 'turn_dev_01',
+            assigned_role: 'dev',
+            status: 'failed',
+            attempt: 1,
+            started_at: '2026-04-01T20:00:00Z',
+            deadline_at: '2026-04-01T20:20:00Z',
+            runtime_id: 'local-dev',
+          },
+        },
+        blocked_reason: {
+          category: 'hook_tamper',
+          blocked_at: '2026-04-01T20:00:00Z',
+          turn_id: 'turn_dev_01',
+          recovery: {
+            typed_reason: 'hook_tamper',
+            owner: 'human',
+            recovery_action: 'Disable or fix the hook, verify protected files, then run agentxchain step --resume',
+            turn_retained: true,
+            detail: 'tamper detected',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Reason:\s+hook_tamper/);
+      assert.match(result.stdout, /Action:\s+Disable or fix the hook, verify protected files, then run agentxchain step --resume/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('status reconciles stale conflict_loop recovery guidance on load', () => {
+    const dir = createGovernedProject({
+      state: {
+        status: 'blocked',
+        blocked_on: 'human:conflict_loop:turn_conflict_01',
+        active_turns: {
+          turn_conflict_01: {
+            turn_id: 'turn_conflict_01',
+            assigned_role: 'dev',
+            status: 'conflicted',
+            attempt: 3,
+            started_at: '2026-04-01T20:00:00Z',
+            deadline_at: '2026-04-01T20:20:00Z',
+            runtime_id: 'local-dev',
+          },
+        },
+        blocked_reason: {
+          category: 'conflict_loop',
+          blocked_at: '2026-04-01T20:00:00Z',
+          turn_id: 'turn_conflict_01',
+          recovery: {
+            typed_reason: 'conflict_loop',
+            owner: 'human',
+            recovery_action: 'Serialize the conflicting work, then run agentxchain step --resume --turn turn_conflict_01',
+            turn_retained: true,
+            detail: 'Conflicting files: app.js',
+          },
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Reason:\s+conflict_loop/);
+      assert.match(result.stdout, /Action:\s+Serialize the conflicting work, then run agentxchain reject-turn --turn turn_conflict_01 --reassign/);
+
+      const migratedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+      assert.equal(
+        migratedState.blocked_reason.recovery.recovery_action,
+        'Serialize the conflicting work, then run agentxchain reject-turn --turn turn_conflict_01 --reassign',
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

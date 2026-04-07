@@ -229,6 +229,60 @@ export function deriveRetainedTurnRecoveryCommand(state, config, options = {}) {
   return command;
 }
 
+export function deriveBlockedRecoveryCommand(state, config, options = {}) {
+  const turnRetained = typeof options.turnRetained === 'boolean'
+    ? options.turnRetained
+    : getActiveTurnCount(state) > 0;
+  if (!turnRetained) {
+    return options.clearedCommand || 'agentxchain resume';
+  }
+
+  return deriveRetainedTurnRecoveryCommand(state, config, {
+    turnId: options.turnId,
+    fallbackCommand: options.fallbackCommand || 'agentxchain step --resume',
+    manualCommand: options.manualCommand || 'agentxchain resume',
+    automatedCommand: options.automatedCommand || 'agentxchain step --resume',
+  });
+}
+
+export function deriveNeedsHumanRecoveryAction(state, config, options = {}) {
+  const command = deriveBlockedRecoveryCommand(state, config, {
+    turnRetained: options.turnRetained,
+    turnId: options.turnId,
+  });
+  return `Resolve the stated issue, then run ${command}`;
+}
+
+export function deriveDispatchRecoveryAction(state, config, options = {}) {
+  const command = deriveBlockedRecoveryCommand(state, config, {
+    turnRetained: options.turnRetained,
+    turnId: options.turnId,
+  });
+  return `Resolve the dispatch issue, then run ${command}`;
+}
+
+export function deriveHookTamperRecoveryAction(state, config, options = {}) {
+  const command = deriveBlockedRecoveryCommand(state, config, {
+    turnRetained: options.turnRetained,
+    turnId: options.turnId,
+  });
+  return `Disable or fix the hook, verify protected files, then run ${command}`;
+}
+
+export function deriveAfterDispatchHookRecoveryAction(state, config, options = {}) {
+  const command = deriveBlockedRecoveryCommand(state, config, {
+    turnRetained: options.turnRetained,
+    turnId: options.turnId,
+  });
+  return `Fix or reconfigure the hook, then rerun ${command}`;
+}
+
+export function deriveConflictLoopRecoveryAction(turnId) {
+  return turnId
+    ? `Serialize the conflicting work, then run agentxchain reject-turn --turn ${turnId} --reassign`
+    : 'Serialize the conflicting work, then run agentxchain reject-turn --reassign';
+}
+
 function isLegacyEscalationRecoveryAction(action) {
   return action === 'Resolve the escalation, then run agentxchain step --resume'
     || action === 'Resolve the escalation, then run agentxchain step';
@@ -857,7 +911,7 @@ function deriveHookRecovery(state, { phase, hookName, detail, errorCode, turnId,
     typed_reason: isTamper ? 'hook_tamper' : 'hook_block',
     owner: 'human',
     recovery_action: isTamper
-      ? 'Disable or fix the hook, verify protected files, then run agentxchain step --resume'
+      ? deriveHookTamperRecoveryAction(state, null, { turnRetained, turnId })
       : `Fix or reconfigure hook "${hookName}", then rerun agentxchain accept-turn${turnId ? ` --turn ${turnId}` : ''}`,
     turn_retained: Boolean(turnRetained),
     detail: detail || hookName || phase,
@@ -936,30 +990,80 @@ function normalizeRecoveryDescriptor(recovery, turnRetained, detail) {
   };
 }
 
-export function reconcileEscalationRecoveryWithConfig(state, config) {
+function isLegacyNeedsHumanRecoveryAction(action) {
+  return action === 'Resolve the stated issue, then run agentxchain step --resume';
+}
+
+function isLegacyHookTamperRecoveryAction(action) {
+  return action === 'Disable or fix the hook, verify protected files, then run agentxchain step --resume';
+}
+
+function isLegacyAfterDispatchHookBlockRecoveryAction(action) {
+  return action === 'Fix or reconfigure the hook, then rerun agentxchain resume';
+}
+
+function isLegacyConflictLoopRecoveryAction(action) {
+  return typeof action === 'string' && action.startsWith('Serialize the conflicting work, then run agentxchain step --resume');
+}
+
+export function reconcileRecoveryActionsWithConfig(state, config) {
   if (!state || typeof state !== 'object' || state.status !== 'blocked' || !config) {
     return { state, changed: false };
   }
 
   const recovery = state.blocked_reason?.recovery;
   const typedReason = recovery?.typed_reason;
-  if (typedReason !== 'operator_escalation' && typedReason !== 'retries_exhausted') {
-    return { state, changed: false };
-  }
-
   const currentAction = recovery?.recovery_action || null;
-  const shouldRefresh = typedReason === 'retries_exhausted' || isLegacyEscalationRecoveryAction(currentAction);
-  if (!shouldRefresh) {
-    return { state, changed: false };
-  }
-
   const turnRetained = typeof recovery?.turn_retained === 'boolean'
     ? recovery.turn_retained
     : getActiveTurnCount(state) > 0;
-  const nextAction = deriveEscalationRecoveryAction(state, config, {
-    turnRetained,
-    turnId: state.blocked_reason?.turn_id ?? state.escalation?.from_turn_id ?? null,
-  });
+  const turnId = state.blocked_reason?.turn_id ?? state.escalation?.from_turn_id ?? null;
+
+  let shouldRefresh = false;
+  let nextAction = null;
+
+  if (typedReason === 'operator_escalation' || typedReason === 'retries_exhausted') {
+    shouldRefresh = typedReason === 'retries_exhausted' || isLegacyEscalationRecoveryAction(currentAction);
+    if (shouldRefresh) {
+      nextAction = deriveEscalationRecoveryAction(state, config, {
+        turnRetained,
+        turnId,
+      });
+    }
+  } else if (typedReason === 'needs_human') {
+    shouldRefresh = isLegacyNeedsHumanRecoveryAction(currentAction);
+    if (shouldRefresh) {
+      nextAction = deriveNeedsHumanRecoveryAction(state, config, {
+        turnRetained,
+        turnId,
+      });
+    }
+  } else if (typedReason === 'hook_tamper') {
+    shouldRefresh = isLegacyHookTamperRecoveryAction(currentAction);
+    if (shouldRefresh) {
+      nextAction = deriveHookTamperRecoveryAction(state, config, {
+        turnRetained,
+        turnId,
+      });
+    }
+  } else if (typedReason === 'hook_block') {
+    shouldRefresh = isLegacyAfterDispatchHookBlockRecoveryAction(currentAction);
+    if (shouldRefresh) {
+      nextAction = deriveAfterDispatchHookRecoveryAction(state, config, {
+        turnRetained,
+        turnId,
+      });
+    }
+  } else if (typedReason === 'conflict_loop') {
+    shouldRefresh = isLegacyConflictLoopRecoveryAction(currentAction);
+    if (shouldRefresh) {
+      nextAction = deriveConflictLoopRecoveryAction(turnId);
+    }
+  }
+
+  if (!shouldRefresh || !nextAction) {
+    return { state, changed: false };
+  }
 
   let nextState = state;
   let changed = false;
@@ -1015,7 +1119,10 @@ function inferBlockedReasonFromState(state) {
       recovery: {
         typed_reason: 'needs_human',
         owner: 'human',
-        recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
+        recovery_action: deriveNeedsHumanRecoveryAction(state, null, {
+          turnRetained,
+          turnId: activeTurn?.turn_id ?? state.blocked_reason?.turn_id ?? null,
+        }),
         turn_retained: turnRetained,
         detail,
       },
@@ -1049,7 +1156,10 @@ function inferBlockedReasonFromState(state) {
       recovery: {
         typed_reason: 'dispatch_error',
         owner: 'human',
-        recovery_action: 'Resolve the dispatch issue, then run agentxchain step --resume',
+        recovery_action: deriveDispatchRecoveryAction(state, null, {
+          turnRetained,
+          turnId: activeTurn?.turn_id ?? state.blocked_reason?.turn_id ?? null,
+        }),
         turn_retained: turnRetained,
         detail,
       },
@@ -1859,7 +1969,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         recovery: {
           typed_reason: 'conflict_loop',
           owner: 'human',
-          recovery_action: `Serialize the conflicting work, then run agentxchain step --resume --turn ${currentTurn.turn_id}`,
+          recovery_action: deriveConflictLoopRecoveryAction(currentTurn.turn_id),
           turn_retained: true,
           detail: buildConflictDetail(conflict),
         },
@@ -2018,7 +2128,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       recovery: {
         typed_reason: 'needs_human',
         owner: 'human',
-        recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
+        recovery_action: deriveNeedsHumanRecoveryAction(updatedState, config, {
+          turnRetained: false,
+          turnId: turnResult.turn_id,
+        }),
         turn_retained: false,
         detail: turnResult.needs_human_reason || 'unspecified',
       },

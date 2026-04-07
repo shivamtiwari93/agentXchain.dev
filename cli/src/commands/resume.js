@@ -21,6 +21,7 @@ import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import {
   initializeGovernedRun,
   assignGovernedTurn,
+  deriveAfterDispatchHookRecoveryAction,
   markRunBlocked,
   getActiveTurns,
   getActiveTurnCount,
@@ -358,13 +359,17 @@ function runAfterDispatchHooks(root, hooksConfig, state, turn, config) {
       || `after_dispatch hook blocked dispatch for turn ${turnId}`;
     const errorCode = afterDispatchHooks.tamper?.error_code || 'hook_blocked';
 
+    const recoveryAction = deriveAfterDispatchHookRecoveryAction(state, config, {
+      turnRetained: true,
+      turnId,
+    });
     markRunBlocked(root, {
       blockedOn: `hook:after_dispatch:${hookName}`,
       category: 'dispatch_error',
       recovery: {
         typed_reason: afterDispatchHooks.tamper ? 'hook_tamper' : 'hook_block',
         owner: 'human',
-        recovery_action: `Fix or reconfigure the hook, then rerun agentxchain resume`,
+        recovery_action: recoveryAction,
         turn_retained: true,
         detail,
       },
@@ -378,6 +383,7 @@ function runAfterDispatchHooks(root, hooksConfig, state, turn, config) {
       hookName,
       error: detail,
       errorCode,
+      recoveryAction,
       hookResults: afterDispatchHooks,
     });
 
@@ -387,7 +393,7 @@ function runAfterDispatchHooks(root, hooksConfig, state, turn, config) {
   return { ok: true };
 }
 
-function printDispatchHookFailure({ turnId, roleId, hookName, error, hookResults }) {
+function printDispatchHookFailure({ turnId, roleId, hookName, error, hookResults, recoveryAction }) {
   const isTamper = hookResults?.tamper;
   console.log('');
   console.log(chalk.yellow('  Dispatch Blocked By Hook'));
@@ -399,7 +405,7 @@ function printDispatchHookFailure({ turnId, roleId, hookName, error, hookResults
   console.log(`  ${chalk.dim('Error:')}    ${error}`);
   console.log(`  ${chalk.dim('Reason:')}   ${isTamper ? 'hook_tamper' : 'hook_block'}`);
   console.log(`  ${chalk.dim('Owner:')}    human`);
-  console.log(`  ${chalk.dim('Action:')}   Fix or reconfigure the hook, then rerun agentxchain resume`);
+  console.log(`  ${chalk.dim('Action:')}   ${recoveryAction}`);
   console.log('');
 }
 

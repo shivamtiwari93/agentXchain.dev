@@ -28,6 +28,7 @@ import {
   initializeGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
+  deriveAfterDispatchHookRecoveryAction,
   rejectGovernedTurn,
   markRunBlocked,
   getActiveTurnCount,
@@ -338,7 +339,7 @@ export async function stepCommand(opts) {
     });
 
     if (!afterDispatchHooks.ok) {
-      const blocked = blockStepForHookIssue(root, turn, {
+      const blocked = blockStepForHookIssue(root, state, turn, {
         hookResults: afterDispatchHooks,
         phase: 'after_dispatch',
         defaultDetail: `after_dispatch hook blocked dispatch for turn ${turn.turn_id}`,
@@ -654,7 +655,7 @@ export async function stepCommand(opts) {
     });
 
     if (!beforeValidationHooks.ok) {
-      const blocked = blockStepForHookIssue(root, turn, {
+      const blocked = blockStepForHookIssue(root, state, turn, {
         hookResults: beforeValidationHooks,
         phase: 'before_validation',
         defaultDetail: `before_validation hook blocked validation for turn ${turn.turn_id}`,
@@ -686,7 +687,7 @@ export async function stepCommand(opts) {
     });
 
     if (!afterValidationHooks.ok) {
-      const blocked = blockStepForHookIssue(root, turn, {
+      const blocked = blockStepForHookIssue(root, state, turn, {
         hookResults: afterValidationHooks,
         phase: 'after_validation',
         defaultDetail: `after_validation hook blocked acceptance for turn ${turn.turn_id}`,
@@ -775,7 +776,7 @@ function loadHookStagedTurn(root, stagingRel) {
   }
 }
 
-function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail, config }) {
+function blockStepForHookIssue(root, state, turn, { hookResults, phase, defaultDetail, config }) {
   const hookName = hookResults.blocker?.hook_name
     || hookResults.results?.find((entry) => entry.hook_name)?.hook_name
     || 'unknown';
@@ -783,13 +784,17 @@ function blockStepForHookIssue(root, turn, { hookResults, phase, defaultDetail, 
     || hookResults.tamper?.message
     || defaultDetail;
   const errorCode = hookResults.tamper?.error_code || 'hook_blocked';
+  const recoveryAction = deriveAfterDispatchHookRecoveryAction(state, config, {
+    turnRetained: true,
+    turnId: turn.turn_id,
+  });
   const blocked = markRunBlocked(root, {
     blockedOn: `hook:${phase}:${hookName}`,
     category: phase === 'after_dispatch' ? 'dispatch_error' : 'validation_error',
     recovery: {
       typed_reason: hookResults.tamper ? 'hook_tamper' : 'hook_block',
       owner: 'human',
-      recovery_action: 'Fix or reconfigure the hook, then run agentxchain step --resume',
+      recovery_action: recoveryAction,
       turn_retained: true,
       detail,
     },

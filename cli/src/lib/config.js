@@ -7,7 +7,7 @@ import {
   normalizeGovernedStateShape,
   getActiveTurn,
   reconcileBudgetStatusWithConfig,
-  reconcileEscalationRecoveryWithConfig,
+  reconcileRecoveryActionsWithConfig,
 } from './governed-state.js';
 
 function attachLegacyCurrentTurnAlias(state) {
@@ -155,7 +155,7 @@ export function loadProjectState(root, config) {
     stateData = normalized.state;
     const reconciledBudget = reconcileBudgetStatusWithConfig(stateData, config);
     stateData = reconciledBudget.state;
-    const reconciledRecovery = reconcileEscalationRecoveryWithConfig(stateData, config);
+    const reconciledRecovery = reconcileRecoveryActionsWithConfig(stateData, config);
     stateData = reconciledRecovery.state;
     if (normalized.changed || reconciledBudget.changed || reconciledRecovery.changed) {
       safeWriteJson(filePath, stateData);
