@@ -1,0 +1,318 @@
+---
+sidebar_position: 2
+title: Your First Governed Turn
+description: "Step-by-step: scaffold a governed repo, run your first PM → Dev → QA cycle, and see what every artifact looks like."
+---
+
+# Your First Governed Turn
+
+You ran `npx agentxchain demo` and saw governance in action. Now do it for real on your own repo. This guide walks through every step, shows you what each artifact looks like, and tells you exactly when to act.
+
+**Time:** ~10 minutes. **Prerequisites:** Node.js 18.17+, git, a terminal.
+
+## Step 1 — Scaffold
+
+```bash
+mkdir my-first-governed && cd my-first-governed
+npx agentxchain init --governed --template cli-tool -y
+git init && git add -A && git commit -m "initial governed scaffold"
+```
+
+After this, your repo has:
+
+```
+my-first-governed/
+├── agentxchain.json              # roles, runtimes, gates, workflow
+├── .agentxchain/
+│   ├── state.json                # orchestrator-owned run state
+│   ├── history.jsonl             # append-only turn history
+│   ├── decision-ledger.jsonl     # every decision from every turn
+│   ├── dispatch/turns/           # turn dispatch bundles (written by orchestrator)
+│   ├── staging/                  # turn results (written by actor, read by orchestrator)
+│   ├── reviews/                  # QA review artifacts (materialized by orchestrator)
+│   └── prompts/
+│       ├── pm.md                 # PM role prompt
+│       ├── dev.md                # Dev role prompt
+│       ├── qa.md                 # QA role prompt
+│       └── eng_director.md       # Engineering Director prompt
+├── .planning/
+│   ├── PM_SIGNOFF.md             # ← starts at "Approved: NO"
+│   ├── ROADMAP.md
+│   ├── SYSTEM_SPEC.md
+│   ├── IMPLEMENTATION_NOTES.md
+│   ├── acceptance-matrix.md
+│   ├── ship-verdict.md
+│   ├── RELEASE_NOTES.md
+│   └── (template extras)         # e.g. command-surface.md for cli-tool
+└── TALK.md                       # collaboration log (orchestrator appends here)
+```
+
+The `cli-tool` template adds project-type planning artifacts like `command-surface.md`, `distribution-checklist.md`, and `platform-support.md`. Other templates add different extras. See [Templates](/docs/templates) for details.
+
+Verify the scaffold is intact:
+
+```bash
+agentxchain template validate
+```
+
+## Step 2 — Assign the PM Turn
+
+```bash
+agentxchain step --role pm
+```
+
+**What happens:**
+- The orchestrator creates a dispatch bundle at `.agentxchain/dispatch/turns/<turn_id>/`
+- The bundle contains: `CONTEXT.md` (full project context), `DISPATCH.json` (role, phase, constraints), and your role prompt
+- State moves to `turn_assigned`
+
+**What you see:**
+
+```
+Turn assigned: turn_a1b2c3d4e5f6...
+Role: pm
+Phase: planning
+Dispatch bundle: .agentxchain/dispatch/turns/turn_a1b2c3d4e5f6.../
+```
+
+**What to do next:** Read the dispatch bundle. Then write your planning artifacts.
+
+## Step 3 — Write Planning Artifacts
+
+Open `.planning/PM_SIGNOFF.md`. It looks like this:
+
+```markdown
+# PM Signoff — My First Governed
+
+Approved: NO
+
+> This scaffold starts blocked on purpose. Change this to `Approved: YES`
+> only after a human reviews the planning artifacts and is ready to open
+> the planning gate.
+
+## Discovery Checklist
+- [ ] Target user defined
+- [ ] Core pain point defined
+- [ ] Core workflow defined
+- [ ] MVP scope defined
+- [ ] Out-of-scope list defined
+- [ ] Success metric defined
+
+## Notes for team
+(PM and human add final kickoff notes here.)
+```
+
+This is the **planning gate**. It starts at `Approved: NO` on purpose — no AI agent can proceed past planning until a human flips this to `Approved: YES`.
+
+Fill in the checklist, add your scope, and change `Approved: NO` → `Approved: YES`:
+
+```markdown
+# PM Signoff — My First Governed
+
+Approved: YES
+
+> This scaffold starts blocked on purpose. Change this to `Approved: YES`
+> only after a human reviews the planning artifacts and is ready to open
+> the planning gate.
+
+## Discovery Checklist
+- [x] Target user defined — developers who process CSV data
+- [x] Core pain point defined — existing tools OOM on large files
+- [x] Core workflow defined — stdin/file → streaming parse → JSON stdout
+- [x] MVP scope defined — single-file CLI, streaming, error handling
+- [x] Out-of-scope list defined — no GUI, no multi-file, no format detection
+- [x] Success metric defined — handles 1GB+ CSV without OOM
+
+## Notes for team
+CLI tool that converts CSV files to JSON with streaming support for large files.
+Acceptance criteria: reads from stdin/file, outputs valid JSON, handles >1GB, exits non-zero on errors.
+```
+
+Also update `.planning/ROADMAP.md` with your delivery phases, and `.planning/SYSTEM_SPEC.md` with the technical contract.
+
+## Step 4 — Stage the PM Turn Result
+
+The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/turn-result.json`. Copy the template from the dispatch bundle and fill it in:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "run_...",
+  "turn_id": "turn_...",
+  "role": "pm",
+  "runtime_id": "manual-pm",
+  "status": "completed",
+  "summary": "Scoped CSV-to-JSON CLI: streaming, error handling, 4 acceptance criteria",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "category": "scope",
+      "statement": "Streaming architecture — no full-file buffering",
+      "rationale": "1GB+ files must work without OOM"
+    },
+    {
+      "id": "DEC-002",
+      "category": "scope",
+      "statement": "Exit codes: 0 success, 1 malformed CSV, 2 I/O error",
+      "rationale": "Predictable exit codes for shell pipelines"
+    }
+  ],
+  "objections": [
+    {
+      "id": "OBJ-001",
+      "severity": "medium",
+      "against_turn_id": "self",
+      "statement": "No character encoding spec — assumes UTF-8 only",
+      "status": "raised"
+    }
+  ],
+  "files_changed": [],
+  "verification": {
+    "status": "skipped",
+    "commands": [],
+    "evidence_summary": "Planning review turn — no code changes.",
+    "machine_evidence": []
+  },
+  "artifact": { "type": "review", "ref": null },
+  "proposed_next_role": "dev",
+  "phase_transition_request": "implementation",
+  "run_completion_request": null
+}
+```
+
+**Key points:**
+- `objections` is **required**. Every role must challenge — blind agreement is a protocol violation.
+- `decisions` accumulate in the **decision ledger** (`.agentxchain/decision-ledger.jsonl`). They are append-only. Neither you nor any agent can delete them.
+- `phase_transition_request: "implementation"` tells the orchestrator the PM wants to advance past planning.
+
+## Step 5 — Accept the Turn and Open the Gate
+
+```bash
+agentxchain accept-turn
+```
+
+The orchestrator validates the staged result: decisions are well-formed, objections exist, and the turn contract is complete. If validation passes:
+
+```
+Turn accepted: turn_a1b2c3d4e5f6...
+Decisions: 2 recorded
+Objections: 1 raised
+```
+
+Now open the planning gate:
+
+```bash
+agentxchain approve-transition
+```
+
+**This is where the gate matters.** The orchestrator checks `PM_SIGNOFF.md`. If it still says `Approved: NO`, the gate fails:
+
+```
+Gate failed: planning_signoff — PM_SIGNOFF.md does not contain "Approved: YES"
+```
+
+If you changed it to `Approved: YES` in Step 3, the gate passes and the phase advances:
+
+```
+Phase transition: planning → implementation
+```
+
+Commit the orchestrator state:
+
+```bash
+git add -A && git commit -m "pm turn accepted, phase: implementation"
+```
+
+## Step 6 — Dev Turn
+
+```bash
+agentxchain step --role dev --verbose
+```
+
+If `dev` is bound to `local_cli` (the default), the orchestrator spawns your local coding agent with the full dispatch context. The agent implements the work, runs tests, and stages its own turn result.
+
+If `dev` is bound to `manual`, you write the code yourself and stage the result like the PM turn.
+
+After the dev turn completes and is accepted:
+
+```bash
+agentxchain accept-turn
+```
+
+The decision ledger now has the PM's 2 decisions *plus* the dev's decisions — all append-only, all traceable.
+
+**What the decision ledger looks like after two turns:**
+
+```jsonl
+{"id":"DEC-001","category":"scope","statement":"Streaming architecture...","turn_id":"turn_a1b2...","role":"pm"}
+{"id":"DEC-002","category":"scope","statement":"Exit codes: 0, 1, 2...","turn_id":"turn_a1b2...","role":"pm"}
+{"id":"DEC-003","category":"implementation","statement":"Use Node.js Transform streams...","turn_id":"turn_f7e8...","role":"dev"}
+{"id":"DEC-004","category":"implementation","statement":"Resolved OBJ-001: added --encoding flag...","turn_id":"turn_f7e8...","role":"dev"}
+```
+
+The `implementation_complete` gate auto-evaluates — it checks that `IMPLEMENTATION_NOTES.md` has real content and verification passed. If it does, the phase advances to `qa` automatically.
+
+## Step 7 — QA Turn
+
+```bash
+agentxchain step --role qa
+```
+
+QA reviews the dev's work against the acceptance matrix. If bound to `api_proxy`, the orchestrator sends the full context to an LLM and materializes the review under `.agentxchain/reviews/`.
+
+QA must raise at least one objection. This is not bureaucracy — it's how governed delivery catches issues that PM and dev both missed:
+
+```json
+{
+  "objections": [
+    {
+      "id": "OBJ-002",
+      "severity": "low",
+      "against_turn_id": "turn_f7e8...",
+      "statement": "No test for CSV with embedded newlines in quoted fields",
+      "status": "raised"
+    }
+  ]
+}
+```
+
+After QA acceptance:
+
+```bash
+agentxchain accept-turn
+agentxchain approve-completion
+```
+
+The `qa_ship_verdict` gate checks `.planning/ship-verdict.md`. If the verdict is `SHIP`, the run completes.
+
+## What You Have Now
+
+After one full PM → Dev → QA cycle:
+
+| Artifact | What it proves |
+|----------|---------------|
+| `.agentxchain/decision-ledger.jsonl` | Every decision from every role, append-only |
+| `.agentxchain/history.jsonl` | Full turn history with timestamps |
+| `.agentxchain/reviews/` | QA review artifacts (if `api_proxy`) |
+| `.planning/PM_SIGNOFF.md` | Human approved the planning scope |
+| `.planning/IMPLEMENTATION_NOTES.md` | Dev documented what changed and how to verify |
+| `.planning/ship-verdict.md` | QA approved the ship decision |
+| `TALK.md` | Cross-role collaboration log |
+
+The decision ledger is the **governance proof**. Any auditor, any future agent, any operator can read it and understand: what was decided, by whom, when, and why. No decisions can be deleted or edited after acceptance.
+
+## Common Gate Failures
+
+| Failure | Cause | Fix |
+|---------|-------|-----|
+| `planning_signoff` failed | `PM_SIGNOFF.md` still says `Approved: NO` | Change to `Approved: YES` after human review |
+| `implementation_complete` failed | `IMPLEMENTATION_NOTES.md` is still placeholder | Fill in real `## Changes` and `## Verification` sections |
+| `qa_ship_verdict` failed | `ship-verdict.md` says `PENDING` | QA must set `## Verdict: SHIP` (or `NO SHIP` to block) |
+
+## Next Steps
+
+- [Quickstart — Automated Path](/docs/quickstart#automated-path-use-agentxchain-run) — run the full lifecycle without manual turns
+- [CLI Reference](/docs/cli) — full command surface
+- [Adapters](/docs/adapters) — configure automated agents (local CLI, API proxy, MCP)
+- [Templates](/docs/templates) — project-type scaffolds
+- [Protocol v6](/docs/protocol) — the constitutional spec
