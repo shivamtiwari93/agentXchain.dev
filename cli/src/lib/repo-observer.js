@@ -92,12 +92,18 @@ export function captureBaseline(root) {
  *
  * @param {string} root — project root directory
  * @param {object} baseline — the baseline captured at assignment time
- * @returns {{ files_changed: string[], head_ref: string|null, diff_summary: string|null }}
+ * @returns {{ files_changed: string[], head_ref: string|null, diff_summary: string|null, observation_available: boolean, kind: string }}
  */
 export function observeChanges(root, baseline) {
   if (!isGitRepo(root) || (baseline && baseline.kind === 'no_git')) {
     // Non-git project — no observation possible
-    return { files_changed: [], head_ref: null, diff_summary: null };
+    return {
+      files_changed: [],
+      head_ref: null,
+      diff_summary: null,
+      observation_available: false,
+      kind: 'no_git',
+    };
   }
 
   const currentHead = getHeadRef(root);
@@ -135,6 +141,8 @@ export function observeChanges(root, baseline) {
     files_changed: actorFiles.sort(),
     head_ref: currentHead,
     diff_summary: diffSummary,
+    observation_available: true,
+    kind: 'git_observed',
   };
 }
 
@@ -322,11 +330,13 @@ export function normalizeVerification(verification, runtimeType) {
  * @param {string[]} declared — files_changed from the turn result
  * @param {string[]} observed — files_changed from observeChanges()
  * @param {string} writeAuthority — 'authoritative' | 'proposed' | 'review_only'
+ * @param {{ observation_available?: boolean }} [options]
  * @returns {{ errors: string[], warnings: string[] }}
  */
-export function compareDeclaredVsObserved(declared, observed, writeAuthority) {
+export function compareDeclaredVsObserved(declared, observed, writeAuthority, options = {}) {
   const errors = [];
   const warnings = [];
+  const observationAvailable = options.observation_available !== false;
 
   const declaredSet = new Set(declared || []);
   const observedSet = new Set(observed || []);
@@ -335,6 +345,11 @@ export function compareDeclaredVsObserved(declared, observed, writeAuthority) {
   const undeclared = [...observedSet].filter(f => !declaredSet.has(f));
   // Files the agent declared but didn't actually change
   const phantom = [...declaredSet].filter(f => !observedSet.has(f));
+
+  if (!observationAvailable) {
+    warnings.push('Artifact observation unavailable; diff-based declared-vs-observed checks were skipped.');
+    return { errors, warnings };
+  }
 
   if (writeAuthority === 'authoritative') {
     if (undeclared.length > 0) {

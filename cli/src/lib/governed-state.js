@@ -1587,6 +1587,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     turnResult.files_changed || [],
     observation.files_changed,
     writeAuthority,
+    { observation_available: observation.observation_available },
   );
   if (diffComparison.errors.length > 0) {
     return {

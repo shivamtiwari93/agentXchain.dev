@@ -13,7 +13,7 @@ The governed lifecycle now works correctly in git-backed workspaces with proper 
 
 ### Artifact Observation Fixes
 
-- Fixed `compareDeclaredVsObserved` phantom-artifact false positives in non-git workspaces that blocked `review_only` turns.
+- `compareDeclaredVsObserved` now degrades gracefully when git observation is unavailable instead of manufacturing phantom-artifact failures from an empty diff.
 - Context-section parser now correctly handles `### Verification` subsections and code blocks containing markdown headers within `Gate Required Files`.
 - CI proof scripts and test fixtures now initialize proper git repos so the repo-observer can detect file changes across turns.
 

@@ -114,6 +114,19 @@ describe('observeChanges', () => {
     const obs = observeChanges(dir, null);
     assert.ok(obs.files_changed.includes('new.txt'));
   });
+
+  it('reports observation unavailable for non-git workspaces', () => {
+    const nonGitDir = join(tmpdir(), `axc-obs-nogit-${randomBytes(6).toString('hex')}`);
+    mkdirSync(nonGitDir, { recursive: true });
+    writeFileSync(join(nonGitDir, 'README.md'), '# Test\n');
+    const baseline = captureBaseline(nonGitDir);
+    const obs = observeChanges(nonGitDir, baseline);
+    assert.equal(baseline.kind, 'no_git');
+    assert.equal(obs.observation_available, false);
+    assert.equal(obs.kind, 'no_git');
+    assert.deepEqual(obs.files_changed, []);
+    rmSync(nonGitDir, { recursive: true, force: true });
+  });
 });
 
 // ── Tests: normalizeVerification ────────────────────────────────────────────
@@ -240,6 +253,18 @@ describe('compareDeclaredVsObserved', () => {
     assert.match(result.errors[0], /ship-verdict\.md/);
   });
 
+  it('degrades gracefully when observation is unavailable', () => {
+    const result = compareDeclaredVsObserved(
+      ['.planning/ship-verdict.md', '.agentxchain/reviews/turn_1-qa-review.md'],
+      [],
+      'review_only',
+      { observation_available: false },
+    );
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.warnings.length, 1);
+    assert.match(result.warnings[0], /observation unavailable/i);
+  });
+
   it('proposed: no strict checking', () => {
     const result = compareDeclaredVsObserved(
       ['src/a.js'],
@@ -247,6 +272,17 @@ describe('compareDeclaredVsObserved', () => {
       'proposed',
     );
     assert.equal(result.errors.length, 0);
+  });
+
+  it('authoritative: unavailable observation skips diff mismatch checks', () => {
+    const result = compareDeclaredVsObserved(
+      ['src/a.js'],
+      [],
+      'authoritative',
+      { observation_available: false },
+    );
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.warnings.length, 1);
   });
 });
 
