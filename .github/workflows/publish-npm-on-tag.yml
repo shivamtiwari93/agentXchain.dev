@@ -58,6 +58,20 @@ jobs:
         shell: bash
         run: bash scripts/release-preflight.sh --strict --target-version "${RELEASE_TAG#v}"
 
+      - name: Verify canonical tap readiness before first publish
+        if: steps.registry.outputs.already_published != 'true'
+        shell: bash
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+            echo "HOMEBREW_TAP_TOKEN available — first-time publish can complete canonical tap truth."
+            exit 0
+          fi
+          echo "::error::Release blocked before npm publish: HOMEBREW_TAP_TOKEN not configured. Canonical Homebrew tap at shivamtiwari93/homebrew-tap cannot be updated on a first-time release attempt. Configure the secret or use a manual release path that completes downstream truth."
+          exit 1
+
       - name: Publish tagged release
         if: steps.registry.outputs.already_published != 'true'
         working-directory: cli
@@ -171,9 +185,9 @@ jobs:
           RELEASE_DOWNSTREAM_RETRY_DELAY_SECONDS: 10
         run: |
           set -euo pipefail
-          if [[ "${{ steps.homebrew.outputs.tap_pushed }}" != "true" ]]; then
-            echo "::error::Release incomplete: HOMEBREW_TAP_TOKEN not configured. Canonical Homebrew tap at shivamtiwari93/homebrew-tap was NOT updated. Configure the secret and rerun, or sync manually."
-            exit 1
+          if [[ "${{ steps.homebrew.outputs.tap_pushed }}" == "true" ]]; then
+            echo "Canonical tap push ran in CI — verifying all downstream surfaces..."
+          else
+            echo "Canonical tap push did not run in CI for this attempt — verifying downstream surfaces directly."
           fi
-          echo "Canonical tap was pushed — verifying all downstream surfaces..."
           bash scripts/release-downstream-truth.sh --target-version "${RELEASE_TAG#v}"

@@ -47,6 +47,25 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
+  it('CI workflow blocks first-time publish before npm mutation when HOMEBREW_TAP_TOKEN is missing', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /Verify canonical tap readiness before first publish/,
+      'workflow must have a prereq gate before first publish',
+    );
+    assert.match(
+      workflow,
+      /Release blocked before npm publish: HOMEBREW_TAP_TOKEN not configured/,
+      'prereq gate must fail before npm publish when the token is missing',
+    );
+    assert.match(
+      workflow,
+      /Verify canonical tap readiness before first publish[\s\S]*Publish tagged release/,
+      'prereq gate must run before the publish step',
+    );
+  });
+
   it('sync script requires --target-version (not hardcoded versions)', () => {
     const script = read('cli/scripts/sync-homebrew.sh');
     assert.match(script, /set -euo pipefail/, 'script must fail closed on command errors');
@@ -144,8 +163,13 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /::error::Release incomplete.*HOMEBREW_TAP_TOKEN not configured/,
-      'completeness gate must hard-fail with error annotation when token is absent',
+      /Canonical tap push did not run in CI for this attempt — verifying downstream surfaces directly\./,
+      'completeness gate must verify downstream truth directly on reruns without a CI tap push',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /Verify release completeness[\s\S]*::error::Release incomplete.*HOMEBREW_TAP_TOKEN not configured/,
+      'completeness gate must not use token absence as a proxy for downstream truth',
     );
   });
 

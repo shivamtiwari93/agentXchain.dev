@@ -19,6 +19,8 @@ describe('release planning surface classification', () => {
     assert.match(playbook, /npm run postflight:release -- --target-version <semver>/,
       'playbook must require postflight verification');
     assert.match(playbook, /Homebrew/i, 'playbook must include Homebrew update sequencing');
+    assert.match(playbook, /fails before npm publication/i,
+      'playbook must document the pre-publish canonical-tap prereq gate');
   });
 
   // -- Current contracts: these must NOT be marked SUPERSEDED --
@@ -102,6 +104,8 @@ describe('release planning surface classification', () => {
       'publish workflow must run downstream truth as the final completeness gate');
     assert.match(workflow, /RELEASE_DOWNSTREAM_RETRY_ATTEMPTS/,
       'downstream truth must have retry configuration in CI');
+    assert.match(workflow, /Verify canonical tap readiness before first publish/,
+      'publish workflow must block first-time publish when canonical tap completion is impossible');
   });
 
   it('cli package exposes the documented postflight script alias', () => {
