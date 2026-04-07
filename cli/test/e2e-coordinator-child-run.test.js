@@ -27,6 +27,7 @@ import {
   loadCoordinatorState,
   readCoordinatorHistory,
   readBarriers,
+  readCoordinatorDecisionLedger,
 } from '../src/lib/coordinator-state.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -392,5 +393,58 @@ describe('E2E coordinator with real child-repo execution', () => {
       existsSync(join(webRepo, '.agentxchain', 'dispatch')),
       'web repo must have dispatch directory from real step execution',
     );
+
+    // ── AT-COORD-RUN-004: Coordinator decision ledger populated by lifecycle ──
+    // The decision ledger must have real entries from init, dispatch, gate
+    // transitions, and completion — NOT from manual writeFileSync calls.
+    const decisions = readCoordinatorDecisionLedger(workspace);
+    assert.ok(decisions.length > 0, 'decision ledger must not be empty');
+
+    // Verify expected categories from real lifecycle execution
+    const categories = decisions.map((d) => d.category);
+    assert.ok(categories.includes('initialization'), 'must have initialization decision from multi init');
+    assert.ok(categories.includes('dispatch'), 'must have dispatch decisions from multi step');
+    assert.ok(categories.includes('phase_transition'), 'must have phase_transition decisions from gate approval');
+    assert.ok(categories.includes('completion'), 'must have completion decisions from run completion');
+
+    // Verify dispatch decisions match the 4 dispatched turns
+    const dispatchDecisions = decisions.filter((d) => d.category === 'dispatch');
+    assert.equal(dispatchDecisions.length, 4, 'must have 4 dispatch decisions matching 4 dispatched turns');
+
+    // Every decision must have a valid DEC-COORD-NNN id and non-empty statement
+    for (const d of decisions) {
+      assert.match(d.id, /^DEC-COORD-\d{3}$/, `decision id must match DEC-COORD-NNN: ${d.id}`);
+      assert.ok(typeof d.statement === 'string' && d.statement.length > 0, `decision must have non-empty statement: ${d.id}`);
+      assert.ok(d.timestamp, `decision must have timestamp: ${d.id}`);
+    }
+
+    // ── AT-COORD-RUN-005: Export contains lifecycle-produced decisions ─────────
+    const exportResult = runCli(workspace, ['export', '--format', 'json']);
+    assert.equal(exportResult.exitCode, 0, `export failed:\n${exportResult.combined}`);
+
+    const exported = JSON.parse(exportResult.stdout);
+    assert.equal(exported.export_kind, 'agentxchain_coordinator_export');
+
+    // Decision ledger file must be in the export with real entries
+    const ledgerFile = exported.files['.agentxchain/multirepo/decision-ledger.jsonl'];
+    assert.ok(ledgerFile, 'export must contain decision-ledger.jsonl');
+    assert.equal(ledgerFile.format, 'jsonl');
+    assert.ok(ledgerFile.data.length >= 7, `exported ledger must have at least 7 entries (1 init + 4 dispatch + 1 phase_transition_req + 1 phase_transition_approve + completion), got ${ledgerFile.data.length}`);
+    assert.ok(ledgerFile.content_base64.length > 0, 'decision ledger content_base64 must not be empty');
+
+    // ── AT-COORD-RUN-006: Report renders lifecycle-produced coordinator decisions ─
+    // Pipe the export into the report command via --input flag
+    const exportOutputPath = join(workspace, 'e2e-export.json');
+    writeFileSync(exportOutputPath, exportResult.stdout);
+    const reportResult = runCli(workspace, ['report', '--format', 'markdown', '--input', exportOutputPath]);
+    assert.equal(reportResult.exitCode, 0, `report failed:\n${reportResult.combined}`);
+
+    const reportOutput = reportResult.stdout;
+    assert.match(reportOutput, /Coordinator Decisions/, 'report must contain Coordinator Decisions section');
+    assert.match(reportOutput, /DEC-COORD-001/, 'report must render at least the first coordinator decision');
+    assert.match(reportOutput, /Initialized coordinator run/, 'report must show initialization decision statement');
+    assert.match(reportOutput, /Dispatched.*to.*for workstream/, 'report must show dispatch decision statements');
+    assert.match(reportOutput, /phase transition/, 'report must show phase transition decisions');
+    assert.match(reportOutput, /DEC-COORD-009/, 'report must render all 9 lifecycle decisions');
   });
 });
