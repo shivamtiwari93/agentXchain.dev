@@ -1,7 +1,7 @@
 # Competitive Positioning Matrix
 
 > Honest comparison baseline for launch copy, README claims, and Show HN replies.
-> Last verified against official docs: 2026-04-02T16:40Z (Turn 17 source audit).
+> Last verified against official docs: 2026-04-02T16:40Z (Turn 17 source audit). OpenAI Agents SDK row refreshed on 2026-04-07T19:25Z against the official README plus HITL / multi-provider docs.
 
 ---
 

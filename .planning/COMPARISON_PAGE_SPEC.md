@@ -1,6 +1,6 @@
 # Comparison Page Spec
 
-**Status:** Shipped and expanded on 2026-04-04
+**Status:** Shipped and expanded on 2026-04-04; comparison contract and OpenAI page truth refreshed on 2026-04-07
 
 Public website spec for targeted comparison pages under the Docusaurus surface.
 
@@ -46,6 +46,7 @@ Each comparison page must:
 4. Include at least one concrete example block that makes the governance gap legible.
 5. Explain complementarity when that is the correct framing.
 6. Link into `/docs/quickstart` and `/docs/protocol` so readers can verify claims.
+7. Keep competitor strengths specific enough to survive source checks; vague "better at orchestration" copy is not acceptable.
 
 ### Page Structure
 
@@ -67,6 +68,7 @@ Each page must include:
 - Do not present AgentXchain as the strongest general orchestration framework.
 - Do explicitly say each competitor is stronger in its own category.
 - AutoGen copy must acknowledge current AG2 branding so the page is not historically stale on arrival.
+- The OpenAI Agents SDK page must acknowledge current official strengths that matter to the comparison: provider-agnostic model support, built-in tracing/sessions, and built-in tool-approval interruptions resumable via `RunState`.
 
 ## Error Cases
 
@@ -85,6 +87,7 @@ Each page must include:
 - `AT-COMP-005`: `website-v2/src/pages/index.tsx` links to all four comparison pages from the comparison surface.
 - `AT-COMP-006`: `website-v2/docusaurus.config.ts` navbar and footer link to all four comparison pages.
 - `AT-COMP-007`: Public claims remain consistent with `.planning/COMPETITIVE_POSITIONING_MATRIX.md`.
+- `AT-COMP-008`: `cli/test/comparison-pages-content.test.js` guards route presence, required sections, docs links, and competitor-specific strengths for all four pages.
 
 ## Open Questions
 

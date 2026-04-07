@@ -7,7 +7,7 @@ description: "The OpenAI Agents SDK is stronger for building agent apps. AgentXc
 
 ## The short answer
 
-**Choose the OpenAI Agents SDK** if you need lightweight primitives for building agent applications: handoffs, agents-as-tools, guardrails, tracing, sessions, and app-defined human-in-the-loop approval points.
+**Choose the OpenAI Agents SDK** if you need lightweight primitives for building agent applications: handoffs, agents-as-tools, guardrails, built-in tracing, sessions, provider-agnostic model support, and built-in tool-approval interruptions that resume from `RunState`.
 
 **Choose AgentXchain** if you need governance for multiple agents shipping software: mandatory challenge, explicit phase gates, append-only decision history, and human authority at ship-critical transitions.
 
@@ -19,8 +19,9 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 |---|---|---|
 | **Primary job** | Build agent applications | Govern software delivery |
 | **Workflow model** | Handoffs, agents-as-tools, guardrails, sessions | Role-based turns, objections, and gates |
-| **Human involvement** | App-defined approvals and interruptions | Protocol-native phase and completion gates |
+| **Human involvement** | Built-in tool approvals / interruptions; broader delivery authority is app-defined | Protocol-native phase and completion gates |
 | **Audit surface** | Tracing and run/session state | Append-only decision and objection ledgers |
+| **Model support** | Provider-agnostic SDK with OpenAI plus 100+ other LLMs | Manual, local CLI, and API-backed runtimes |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Agent apps and product features | Governed repo workflows |
 
@@ -29,6 +30,8 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 - You are building an agent application, not a governed repository workflow.
 - You want lightweight handoffs and agents-as-tools primitives.
 - You need built-in tracing, sessions, and guardrails around agent interactions.
+- You need built-in tool approvals that pause a run and resume from `RunState`.
+- You want provider-agnostic model routing without inventing your own adapter layer first.
 - You want orchestration that stays inside your application code.
 
 ## Choose AgentXchain when
@@ -40,14 +43,18 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 
 ## A concrete workflow difference
 
-The Agents SDK lets you wire handoffs and guardrails directly inside an application. AgentXchain governs a software-delivery loop over a repo with explicit acceptance rules.
+The Agents SDK lets you wire handoffs, tool approvals, and resumable run state directly inside an application. AgentXchain governs a software-delivery loop over a repo with explicit acceptance rules.
 
 ```python
-# OpenAI Agents SDK-style framing: compose app agents and handoffs
-triage_agent = Agent(name="Triage")
-qa_agent = Agent(name="QA")
-pm_agent = Agent(name="PM", handoffs=[triage_agent, qa_agent])
-result = Runner.run_sync(pm_agent, "Review the bug and propose next steps")
+# OpenAI Agents SDK-style framing: compose app agents, then pause/resume approvals
+triage_agent = Agent(name="Triage", handoffs=[qa_agent], tools=[deploy_tool])
+result = Runner.run_sync(triage_agent, "Review the bug and decide whether to deploy")
+
+if result.interruptions:
+    state = result.to_state()
+    for interruption in result.interruptions:
+        state.approve(interruption, always_approve=False)
+    result = Runner.run_sync(triage_agent, state)
 ```
 
 ```bash
@@ -58,7 +65,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-The Agents SDK can absolutely support human approvals and tracing. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
+The Agents SDK can absolutely support handoffs, sessions, tracing, provider-agnostic model routing, and built-in approval/resume flows. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
 
 ## Using both together
 
