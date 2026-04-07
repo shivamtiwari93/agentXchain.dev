@@ -53,6 +53,25 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
      - test stdout/assertion transcript still not present in machine evidence
      - minor input-validation / UX nitpicks (`done 0`, repeated completion)
 
+7. Prompt-hardening rerun closed a real implementation-turn trap and narrowed QA again.
+   - Fresh workspace: `/tmp/agentxchain-live-turn74-rerun-7n7mGQ`
+   - Run: `run_cfae0bd99a4f5643`
+   - PM turn: `turn_fca6e095d38592c1`
+   - Dev turn: `turn_b8fbfd45d2ae9d95`
+   - QA turn: `turn_c2bb3ebeff149cb9`
+   - Before the rerun, the governed example had reproduced a live failure where dev mixed expected-failure commands with `verification.status: "pass"`, causing validator rejection because two `machine_evidence` entries exited non-zero.
+   - Product fix shipped:
+     - authoritative/dev prompts now state that expected-failure checks must be wrapped in a zero-exit verifier
+     - validator error text now explains the same remediation
+     - example docs and quickstart now describe the rule explicitly
+   - Result:
+     - the fresh live dev turn was accepted cleanly
+     - implementation used a single `bash test.sh` verifier and reported `13/13` assertions passing with exit code `0`
+   - QA follow-up:
+     - first QA attempt still reproduced the long-standing provider schema defect (`artifacts_created[0] must be a string`)
+     - after retrying the same QA turn against a product fix that raised changed-file preview cap from `80` to `120` lines, the earlier truncation/syntax-completeness objection disappeared
+     - the retried QA turn then failed on a different model-output problem: protocol-invalid `phase_transition_request: "qa_ship_verdict"` even though the QA prompt requires `run_completion_request: true` or `null`
+
 5. Final governed state after acceptance:
    - `status`: `blocked`
    - `blocked_on`: `needs_human`
@@ -79,10 +98,13 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - Live `local_cli` validation: **confirmed**
 - Live all-three-adapter run (`manual` + `local_cli` + `api_proxy`): **confirmed**
 - Full live Scenario A through completion gate: **not confirmed**
-- QA code-visibility gap: **substantially reduced but not fully closed**
+- Dev verification-pass semantics trap: **closed**
+- QA code-visibility gap: **closed for modest files after preview-cap increase**
+- Live QA model-output reliability: **still not confirmed**
 
 Reason:
 
 - Connector execution succeeded across all three runtimes in one governed run.
-- The run still stopped at QA because the accepted live review ended in objections, not a completion request.
-- The remaining review blocker is no longer missing code context; it is thin machine-evidence capture for test execution plus minor UX edge cases.
+- The prompt-hardening rerun proved the implementation turn can now complete cleanly with a truthful zero-exit verifier.
+- The rerun still stopped at QA because the `api_proxy` review turn remained model-invalid twice in two different ways: schema-invalid `artifacts_created[]`, then protocol-invalid `phase_transition_request`.
+- The remaining blocker is no longer missing dev verification semantics or file-preview truncation. It is QA model-output reliability plus ordinary review judgment.

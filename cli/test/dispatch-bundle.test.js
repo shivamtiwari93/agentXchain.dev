@@ -200,6 +200,7 @@ describe('writeDispatchBundle', () => {
 
     assert.match(prompt, /Write Authority: authoritative/);
     assert.match(prompt, /directly modify repository files/);
+    assert.match(prompt, /Expected-failure checks must be wrapped/);
   });
 
   it('PROMPT.md includes gate requirements', () => {
@@ -887,10 +888,30 @@ describe('dispatch bundle: QA evidence visibility', () => {
     assert.ok(!context.includes('### Changed File Previews'));
   });
 
-  it('AT-QCV-003: long changed files are truncated in preview output', () => {
+  it('AT-RFPC-001: modest changed files are shown in full for review-only QA turns', () => {
     acceptPmTurnAndTransition();
     mkdirSync(join(root, 'src'), { recursive: true });
-    const longFile = Array.from({ length: 100 }, (_, idx) => `line ${idx + 1}`).join('\n') + '\n';
+    const eightyOneLineFile = Array.from({ length: 81 }, (_, idx) => `line ${idx + 1}`).join('\n') + '\n';
+    writeFileSync(join(root, 'src', 'eighty-one.js'), eightyOneLineFile);
+    acceptDevTurn({ files_changed: ['src/eighty-one.js'] });
+
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /line 81/);
+    assert.ok(!context.includes('Preview truncated'));
+  });
+
+  it('AT-RFPC-002: long changed files are truncated in preview output', () => {
+    acceptPmTurnAndTransition();
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const longFile = Array.from({ length: 140 }, (_, idx) => `line ${idx + 1}`).join('\n') + '\n';
     writeFileSync(join(root, 'src', 'long.js'), longFile);
     acceptDevTurn({ files_changed: ['src/long.js'] });
 
@@ -903,9 +924,9 @@ describe('dispatch bundle: QA evidence visibility', () => {
 
     const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
 
-    assert.match(context, /line 80/);
-    assert.ok(!context.includes('line 81'));
-    assert.match(context, /Preview truncated after 80 lines/);
+    assert.match(context, /line 120/);
+    assert.ok(!context.includes('line 121'));
+    assert.match(context, /Preview truncated after 120 lines/);
   });
 
   it('AT-QCV-004: missing changed files are skipped without empty preview headings', () => {

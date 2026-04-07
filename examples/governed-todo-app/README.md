@@ -57,6 +57,8 @@ agentxchain step --role qa
 agentxchain approve-completion
 ```
 
+For the dev turn, keep the verification contract honest: a passing turn must report `verification.status: "pass"` only when every listed `verification.machine_evidence[].exit_code` is `0`. If you need to prove error handling, wrap those checks in `npm test`, `node --test`, or a shell assertion that exits `0` when the failure occurs as expected. Do not list raw non-zero negative-case commands on a passing turn.
+
 ## Runtime Configuration
 
 | Role | Runtime | Type | Transport |

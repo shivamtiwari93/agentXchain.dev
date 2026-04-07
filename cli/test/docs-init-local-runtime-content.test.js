@@ -69,6 +69,16 @@ describe('governed init local runtime docs contract', () => {
       /claude --print --dangerously-skip-permissions/,
       'governed example README must describe the same unattended Claude command',
     );
+    assert.match(
+      governedExampleReadme,
+      /Do not list raw non-zero negative-case commands on a passing turn|verification\.machine_evidence.*exit_code.*0/i,
+      'governed example README must describe the expected-failure verification contract',
+    );
+    assert.match(
+      quickstartDocs,
+      /Do not list raw non-zero negative-case commands on a passing turn|machine_evidence.*command exits `0`/i,
+      'quickstart must describe the expected-failure verification contract',
+    );
   });
 
   // --- Overclaiming guards (DEC-DOCS-OVERCLAIM-001) ---

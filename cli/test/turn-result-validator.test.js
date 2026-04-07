@@ -390,6 +390,7 @@ describe('turn-result-validator', () => {
       assert.equal(res.stage, 'verification');
       assert.equal(res.error_class, 'verification_error');
       assert.ok(res.errors.some(e => e.includes('non-zero exit')));
+      assert.ok(res.errors.some(e => e.includes('Wrap expected-failure checks')));
     });
 
     it('accepts skipped verification without evidence', () => {

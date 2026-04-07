@@ -417,7 +417,7 @@ function validateVerification(tr) {
       const failedCommands = v.machine_evidence.filter(e => typeof e.exit_code === 'number' && e.exit_code !== 0);
       if (failedCommands.length > 0) {
         errors.push(
-          `verification.status is "pass" but ${failedCommands.length} command(s) have non-zero exit codes.`
+          `verification.status is "pass" but ${failedCommands.length} command(s) have non-zero exit codes. Wrap expected-failure checks in a verifier that exits 0 only when the failure occurs as expected, or do not report "pass".`
         );
       }
     }

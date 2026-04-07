@@ -29,7 +29,7 @@ import {
 
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const FILE_PREVIEW_MAX_FILES = 5;
-const FILE_PREVIEW_MAX_LINES = 80;
+const FILE_PREVIEW_MAX_LINES = 120;
 const DISPATCH_LOG_MAX_LINES = 50;
 const DISPATCH_LOG_MAX_LINE_BYTES = 8192;
 
@@ -325,6 +325,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `objections[].id`: pattern `OBJ-NNN`');
   lines.push('- `objections[].severity`: one of `low`, `medium`, `high`, `blocking`');
   lines.push('- `verification.status`: one of `pass`, `fail`, `skipped`');
+  lines.push('- `verification.status: "pass"` is valid only when every `verification.machine_evidence[].exit_code` is `0`');
+  lines.push('- Expected-failure checks must be wrapped in a verifier that exits `0` when the failure occurs as expected; do not list raw non-zero negative-case commands on a passing turn');
   lines.push('- `artifact.type`: one of `workspace`, `patch`, `commit`, `review`');
   lines.push('- `proposed_next_role`: must be in allowed_next_roles for current phase, or `human`');
   if (role.write_authority === 'review_only') {

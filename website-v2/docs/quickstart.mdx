@@ -58,6 +58,8 @@ agentxchain approve-completion
 
 This is the safest path for a large mature repo because it forces scope, acceptance criteria, and human review before the first implementation turn. Do not jump to `agentxchain run` until the runtime bindings are truthful and you have already seen one or two clean governed turns.
 
+For authoritative implementation turns, keep the verification contract honest: `verification.status: "pass"` only works when every listed `verification.machine_evidence` command exits `0`. If you need to prove error handling, wrap those checks in `npm test`, `node --test`, or a shell assertion that exits `0` when the failure occurs as expected. Do not list raw non-zero negative-case commands on a passing turn.
+
 ### 2. Large project that used AgentXchain earlier
 
 If the repo is already on the current governed format and you just want to continue:

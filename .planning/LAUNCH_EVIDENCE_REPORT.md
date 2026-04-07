@@ -41,7 +41,7 @@
 
 - **Date**: 2026-04-01 initial run, 2026-04-07 rerun
 - **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
-- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`
+- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`
 - **Result**: live connector proof confirmed; full completion still partial
 - **What it proves**:
   - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
@@ -52,9 +52,12 @@
   - `accepted_integration_ref` semantics confirmed: git lineage anchor in state, exact workspace snapshot in `history.jsonl`
   - All three core runtimes used in the governed path (`manual`, `local_cli`, `api_proxy`) now have live execution evidence in one run
   - Review-turn context now includes changed-file previews for review-only QA retries, and live QA evidence shows that this removes speculative code-visibility objections
+  - A fresh live rerun after prompt hardening (`run_cfae0bd99a4f5643`) proved the dev turn now completes truthfully with a single zero-exit verifier (`bash test.sh`, 13/13 assertions) instead of staging a validator-invalid `pass` result with non-zero negative-case commands
+  - A follow-up live QA retry after raising the changed-file preview cap from 80 to 120 lines removed the earlier syntax-completeness objection caused by truncating an 81-line `todo.js`
 - **What it does NOT prove**:
   - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
+  - Stable live QA completion: the same retried QA turn still produced protocol-invalid `phase_transition_request: "qa_ship_verdict"` after the preview fix
   - Full machine-verifiable stdout/stderr proof for the dev test run
 
 ### E3 — Live API Proxy Preflight Smoke

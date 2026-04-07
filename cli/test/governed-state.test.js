@@ -209,6 +209,7 @@ describe('scaffoldGoverned', () => {
     assert.ok(devPrompt.includes('Developer'));
     assert.ok(devPrompt.includes('Implement'));
     assert.ok(devPrompt.includes('Verification Is Mandatory'));
+    assert.ok(devPrompt.includes('Expected-failure checks must be wrapped'));
 
     const qaPrompt = readFileSync(join(dir, '.agentxchain', 'prompts', 'qa.md'), 'utf8');
     assert.ok(qaPrompt.includes('QA'));
