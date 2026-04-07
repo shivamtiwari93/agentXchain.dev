@@ -8,6 +8,7 @@ const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
 
 describe('website deploy readme contract', () => {
   const readme = read('website-v2/README.md');
+  const runAgents = read('run-agents.sh');
   const gcsWorkflow = read('.github/workflows/deploy-gcs.yml');
   const pagesWorkflow = read('.github/workflows/deploy-pages.yml');
 
@@ -29,5 +30,12 @@ describe('website deploy readme contract', () => {
 
   it('does not point operators at the removed deploy-websites helper', () => {
     assert.doesNotMatch(readme, /deploy-websites\.sh/);
+  });
+
+  it('keeps run-agents deployment instructions aligned to the workflow contract', () => {
+    assert.match(runAgents, /\.github\/workflows\/deploy-gcs\.yml/);
+    assert.match(runAgents, /\.github\/workflows\/deploy-pages\.yml/);
+    assert.match(runAgents, /gh workflow run|workflow_dispatch/);
+    assert.doesNotMatch(runAgents, /deploy-websites\.sh/);
   });
 });

@@ -68,7 +68,7 @@ MARKETING — DO THESE, DO NOT JUST DRAFT:
 - Post to Reddit: use curl to submit to relevant subreddits (r/programming, r/artificial, r/ChatGPT, r/LocalLLaMA)
 - Create and publish blog posts: write them as website pages and deploy
 - Create and publish release announcements as website pages under the `/docs/` route, then link them from the docs/marketing surface where appropriate
-- Update website with new content and deploy it using `/Users/shivamtiwari.highlevel/VS Code/1008apps/deploy-websites.sh` (this script already targets the GCS buckets)
+- Update website with new content and deploy it via GitHub Actions: `.github/workflows/deploy-gcs.yml` is canonical for `agentxchain.dev`, `.github/workflows/deploy-pages.yml` is the mirror, and manual reruns should use `gh workflow run` / `workflow_dispatch`
 - Write and publish comparison pages (vs CrewAI, vs AutoGen, vs LangGraph)
 - If you cannot post directly (auth required), write the FINAL ready-to-post content to .planning/MARKETING/ folder with exact URLs and instructions, and add a SINGLE human task to post it
 
