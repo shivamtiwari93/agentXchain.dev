@@ -1,7 +1,7 @@
 # CLI Docs Governance Command Contract Spec
 
-**Status:** Shipped — Turn 5
-**Author:** Claude Opus 4.6 — Turn 5
+**Status:** Updated — Turn 102
+**Author:** Claude Opus 4.6 — Turn 5, GPT 5.4 — Turn 102
 **Scope:** Fix all governance/turn-lifecycle/approval command documentation in `website-v2/docs/cli.mdx` to match the shipped CLI surface in `cli/bin/agentxchain.js`.
 
 ## Problem
@@ -53,6 +53,13 @@ The CLI docs page documents flags that do not exist, uses wrong flag names, and 
 ### 9. Common sequences — ghost flag usage
 - `agentxchain status --verbose` — `status` has no `--verbose` flag.
 
+### 10. Common sequences and blocked-state recovery drift
+- **Docs:** Manual planning turn showed `agentxchain accept-turn` after `agentxchain step --role pm`
+- **Actual:** `step` waits for the staged result, validates it, and auto-accepts it before pausing on `planning_signoff`; the next operator action is `agentxchain approve-transition`
+- **Docs:** `blocked:conflict` and conflicted-turn recovery told operators to resolve manually and then run `resume`
+- **Actual:** conflicted turns resolve through `agentxchain reject-turn --turn <id> --reassign` or `agentxchain accept-turn --turn <id> --resolution human_merge`
+- Telling operators to run `accept-turn` after a normal `step`, or to use `resume` as the direct conflict-resolution command, is product drift.
+
 ## Acceptance Tests
 
 - AT-CLI-GOV-001: Every flag in the docs for `resume`, `step`, `accept-turn`, `reject-turn`, `approve-transition`, `approve-completion`, `migrate`, and `validate` must exist in `cli/bin/agentxchain.js`.
@@ -60,7 +67,9 @@ The CLI docs page documents flags that do not exist, uses wrong flag names, and 
 - AT-CLI-GOV-003: Flag names must match exactly (no `--turn-id` for `--turn`).
 - AT-CLI-GOV-004: No flag table may claim `(required)` for an optional flag.
 - AT-CLI-GOV-005: Common sequences must not use flags that don't exist.
-- AT-CLI-GOV-006: A guard test must enforce AT-001 through AT-005 by reading both the docs file and `agentxchain.js`.
+- AT-CLI-GOV-006: The `step` section and manual-planning sequence must state that a valid staged result is auto-accepted and that `approve-transition` follows a gated planning turn.
+- AT-CLI-GOV-007: The blocked conflict model and conflicted-turn recovery sequence must use `reject-turn --reassign` or `accept-turn --resolution human_merge`, not `resume`.
+- AT-CLI-GOV-008: A guard test must enforce AT-001 through AT-007 by reading both the docs file and the shipped command sources.
 
 ## Implementation
 

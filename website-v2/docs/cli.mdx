@@ -229,6 +229,7 @@ agentxchain step [options]
 | `--auto-reject` | `false` | Auto-reject and retry on validation failure |
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
+On a valid staged result, `step` auto-accepts the turn immediately. Use `accept-turn` directly when you are fixing a retained failed or conflicted turn, or when you intentionally interrupted a manual step before the CLI detected the staged result.
 
 ### `run`
 
@@ -289,7 +290,7 @@ No flags. Approves a pending phase transition gate. The run must be in `blocked:
 |---------------|---------|------------|
 | `blocked:gate` | A turn's `phase_transition_request` was accepted | `approve-transition` |
 | `blocked:completion` | A turn's `run_completion_request` was accepted | `approve-completion` |
-| `blocked:conflict` | State file conflict detected | Manual resolution, then `resume` |
+| `blocked:conflict` | State file conflict detected | Resolve with `reject-turn --reassign` or `accept-turn --resolution human_merge` |
 
 ### `approve-completion`
 
@@ -601,8 +602,10 @@ agentxchain step --role pm
 # 2. Human writes PM_SIGNOFF.md, ROADMAP.md, stages turn result
 #    (work happens outside the CLI)
 
-# 3. Accept and gate
-agentxchain accept-turn
+# 3. step detects the staged result, validates it, and auto-accepts it
+#    If the PM requested implementation, the run pauses on planning_signoff
+
+# 4. Human approves the pending phase transition gate
 agentxchain approve-transition
 ```
 
@@ -612,14 +615,13 @@ agentxchain approve-transition
 # 1. Check what went wrong
 agentxchain status --json
 
-# 2. The status shows blocked:conflict — resolve manually
-#    Fix the conflicting state in .agentxchain/staging/
+# 2. If the turn is conflicted, choose an explicit resolution path
 
-# 3. Re-dispatch
-agentxchain resume
+# Option A: reject and immediately re-dispatch with conflict context
+agentxchain reject-turn --turn <turn_id> --reassign
 
-# 4. After result is staged, accept
-agentxchain accept-turn
+# Option B: manually merge the conflict, then re-accept the turn
+agentxchain accept-turn --turn <turn_id> --resolution human_merge
 ```
 
 ### Continue after a retained failed turn

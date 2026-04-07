@@ -11,6 +11,7 @@ const binPath = join(cliRoot, 'bin', 'agentxchain.js');
 const specPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_GOVERNANCE_CONTRACT_SPEC.md');
 const resumePath = join(cliRoot, 'src', 'commands', 'resume.js');
 const stepPath = join(cliRoot, 'src', 'commands', 'step.js');
+const statusPath = join(cliRoot, 'src', 'commands', 'status.js');
 const governedStatePath = join(cliRoot, 'src', 'lib', 'governed-state.js');
 const resumeStepSpecPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_RESUME_STEP_CONTRACT_SPEC.md');
 
@@ -18,6 +19,7 @@ const docs = readFileSync(docsPath, 'utf8');
 const bin = readFileSync(binPath, 'utf8');
 const resumeSource = readFileSync(resumePath, 'utf8');
 const stepSource = readFileSync(stepPath, 'utf8');
+const statusSource = readFileSync(statusPath, 'utf8');
 const governedStateSource = readFileSync(governedStatePath, 'utf8');
 
 /**
@@ -180,6 +182,37 @@ describe('CLI governance docs contract — common sequences', () => {
     assert.ok(
       !docs.includes('status --verbose'),
       'cli.mdx common sequences reference "status --verbose" but status has no --verbose flag'
+    );
+  });
+
+  it('manual planning sequence reflects step auto-accept and approve-transition', () => {
+    assert.match(stepSource, /Staged result detected\./);
+    assert.match(stepSource, /Turn Accepted/);
+    assert.match(
+      docs,
+      /step detects the staged result, validates it, and auto-accepts it/i
+    );
+    assert.match(docs, /agentxchain approve-transition/);
+    assert.doesNotMatch(
+      docs,
+      /### `?Manual planning turn`?[\s\S]*agentxchain accept-turn[\s\S]*agentxchain approve-transition/i
+    );
+  });
+
+  it('conflicted-turn recovery uses reject-turn --reassign or accept-turn --resolution human_merge', () => {
+    assert.match(stepSource, /reject-turn --turn .* --reassign/);
+    assert.match(stepSource, /accept-turn --turn .* --resolution human_merge/);
+    assert.match(statusSource, /agentxchain reject-turn --turn .* --reassign/);
+    assert.match(statusSource, /agentxchain accept-turn --turn .* --resolution human_merge/);
+    assert.match(docs, /reject-turn --turn <turn_id> --reassign/);
+    assert.match(docs, /accept-turn --turn <turn_id> --resolution human_merge/);
+    assert.doesNotMatch(
+      docs,
+      /### `?Recover a conflicted turn`?[\s\S]*agentxchain resume[\s\S]*agentxchain accept-turn/i
+    );
+    assert.doesNotMatch(
+      docs,
+      /\| `blocked:conflict` \| State file conflict detected \| Manual resolution, then `resume` \|/
     );
   });
 });
