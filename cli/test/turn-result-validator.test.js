@@ -651,6 +651,38 @@ describe('turn-result-validator', () => {
       assert.equal(normalized.phase_transition_request, 'qa');
       assert.equal(corrections.length, 1);
     });
+
+    it('AT-STATUS-001: infers completed when status is missing but phase_transition_request is present', () => {
+      const tr = makeValidTurnResult({ status: undefined, phase_transition_request: 'qa' });
+      delete tr.status;
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.status, 'completed');
+      assert.ok(corrections.some((c) => c.includes('phase_transition_request "qa"')));
+    });
+
+    it('AT-STATUS-002: infers completed when status is missing but run_completion_request is true', () => {
+      const tr = makeValidTurnResult({ status: undefined, run_completion_request: true });
+      delete tr.status;
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.status, 'completed');
+      assert.ok(corrections.some((c) => c.includes('run_completion_request: true')));
+    });
+
+    it('AT-STATUS-003: infers needs_human when status is missing but needs_human_reason is present', () => {
+      const tr = makeValidTurnResult({ status: undefined, needs_human_reason: 'Need operator approval.' });
+      delete tr.status;
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.equal(normalized.status, 'needs_human');
+      assert.ok(corrections.some((c) => c.includes('needs_human_reason')));
+    });
+
+    it('AT-STATUS-004: leaves ambiguous missing status unchanged', () => {
+      const tr = makeValidTurnResult({ status: undefined });
+      delete tr.status;
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
+      assert.ok(!('status' in normalized));
+      assert.equal(corrections.length, 0);
+    });
   });
 
   // ─── Normalization integration with validator pipeline ──────────────────
@@ -703,6 +735,41 @@ describe('turn-result-validator', () => {
       const res = validateStagedTurnResult(TMP_ROOT, qaState, makeConfig());
       assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
       assert.ok(res.warnings.some((w) => w.includes('run_completion_request')));
+    });
+
+    it('AT-STATUS-005: validator accepts missing status after normalization from phase_transition_request', () => {
+      const qaReviewState = makeState({
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'qa',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'api-qa',
+        },
+      });
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        status: undefined,
+        phase_transition_request: 'qa',
+        verification: {
+          status: 'skipped',
+          commands: [],
+          evidence_summary: 'Review turn.',
+          machine_evidence: [],
+        },
+        artifact: { type: 'review', ref: null },
+        files_changed: [],
+        objections: [
+          { id: 'OBJ-001', severity: 'low', against_turn_id: 'turn-0003', statement: 'Observation.', status: 'raised' },
+        ],
+      });
+      delete tr.status;
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, qaReviewState, makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got errors: ${res.errors.join(', ')}`);
+      assert.equal(res.turnResult.status, 'completed');
+      assert.ok(res.warnings.some((w) => w.includes('status: inferred "completed"')));
     });
   });
 });

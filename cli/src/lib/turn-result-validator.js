@@ -504,6 +504,26 @@ export function normalizeTurnResult(tr, config) {
 
   const normalized = { ...tr };
 
+  // ── Rule 0: infer missing status only when intent is unambiguous ──────
+  if (!('status' in normalized)) {
+    const hasNeedsHumanReason = typeof normalized.needs_human_reason === 'string'
+      && normalized.needs_human_reason.trim().length > 0;
+    const hasPhaseTransitionRequest = typeof normalized.phase_transition_request === 'string'
+      && normalized.phase_transition_request.trim().length > 0;
+    const hasRunCompletionRequest = normalized.run_completion_request === true;
+
+    if (hasNeedsHumanReason) {
+      normalized.status = 'needs_human';
+      corrections.push('status: inferred "needs_human" from needs_human_reason');
+    } else if (hasPhaseTransitionRequest) {
+      normalized.status = 'completed';
+      corrections.push(`status: inferred "completed" from phase_transition_request "${normalized.phase_transition_request}"`);
+    } else if (hasRunCompletionRequest) {
+      normalized.status = 'completed';
+      corrections.push('status: inferred "completed" from run_completion_request: true');
+    }
+  }
+
   // ── Rule 1: artifacts_created object coercion ─────────────────────────
   if (Array.isArray(normalized.artifacts_created)) {
     const coerced = [];

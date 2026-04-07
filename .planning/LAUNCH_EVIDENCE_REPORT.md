@@ -41,8 +41,8 @@
 
 - **Date**: 2026-04-01 initial run, 2026-04-07 rerun
 - **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
-- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`, `run_42b64ccb7b051bf6` (QA-only continuation proof)
-- **Result**: live connector proof confirmed; QA output-contract drift closed; full completion still partial
+- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`, `run_91f4ba5d54707a7e`
+- **Result**: live connector proof confirmed; three QA output-contract drift classes closed; full completion still partial because live dev turns still fail to request the implementation -> qa phase transition reliably
 - **What it proves**:
   - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
   - `local_cli` dev turn completed against live Claude Code in the rerun (`turn_555bf457840b6268`)
@@ -59,11 +59,17 @@
     - no invalid `phase_transition_request: "qa_ship_verdict"`
   - Accepted `api_proxy` review turns now materialize a real review artifact under `.agentxchain/reviews/<turn_id>-<role>-review.md` instead of recording a missing artifact ref
   - Public docs/example surfaces now state the real boundary: `api_proxy` QA returns a structured review but does not directly author `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`
+  - A later retained live QA turn (`turn_cd88863ae5a8619e`) proved a third narrow recovery path:
+    - provider omitted top-level `status`
+    - payload still contained explicit forward-progress intent (`phase_transition_request: "qa"`)
+    - after the status-omission normalization patch, the same staged result was accepted without manual JSON edits
+  - A follow-up live dev turn (`turn_1b22674c77374e55`) closed the specific QA objections around duplicate-ID risk, cwd-relative storage, and missing negative-case machine evidence, raising the verifier from `24/24` to `28/28`
 - **What it does NOT prove**:
   - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
   - Full machine-verifiable stdout/stderr proof for the dev test run
   - Independent QA execution of the dev test suite from the `api_proxy` runtime
+  - Final-phase `qa` review semantics in a live run, because the implementation -> qa phase transition was omitted by live dev output twice and the run remained in `implementation`
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -128,6 +134,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood and the run did not reach final completion. |
 | "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) + E2 (all three executed live in one governed run) | This claim is now supported by both test coverage and live execution evidence. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
+| "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
 | "Preemptive tokenization prevents wasted API calls" | E3 (local overflow short-circuit confirmed live) | |
@@ -142,6 +149,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
 | "Full live end-to-end proof" or "all adapters proven live" | E2 now proves manual + `local_cli` + `api_proxy` live in one governed run, but MCP is still not part of that proof and the run did not reach final completion. | Complete a governed run through `approve-completion` and separately add live MCP proof if that claim is desired. |
+| "Final-phase QA review is proven live" | The current live evidence still never entered the final `qa` phase; repeated live dev turns omitted `phase_transition_request: \"qa\"` and the run stayed in `implementation`. | Ship and prove a fix for reliable implementation -> qa phase-transition intent, then rerun the final QA phase live. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
@@ -155,6 +163,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
 | Full governed run through `approve-completion` | Unlocks "full lifecycle proven" claim | Complete a run to ship decision |
+| Reliable live implementation -> qa phase transition | Unlocks truthful proof of final-phase QA review and gate-file preview behavior | Fix or harden phase-transition intent from live dev output, then rerun |
 | Live MCP adapter dogfood | Unlocks a truthful "all four adapters proven live" claim | Run a governed turn through the MCP adapter against a real server |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
@@ -164,6 +173,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slice adds 231 tests / 0 failures across 45 suites for review-artifact truth, dispatch-bundle truth, and docs truth
+- **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slices add 282 tests / 0 failures across 55 suites for review-artifact truth, dispatch-bundle truth, docs truth, and missing-status normalization
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output
