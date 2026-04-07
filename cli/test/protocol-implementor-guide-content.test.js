@@ -18,6 +18,13 @@ const GUIDE_SPEC = read('.planning/PROTOCOL_IMPLEMENTOR_GUIDE_SPEC.md');
 const PKG_VERSION = readJSON('cli/package.json').version;
 const CAPABILITIES = readJSON('.agentxchain-conformance/capabilities.json');
 
+function extractSection(doc, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = doc.match(new RegExp(`### \`${escaped}\`\\n\\n([\\s\\S]*?)(?=\\n### \`|\\n## |$)`));
+  assert.ok(match, `Missing section for ${heading}`);
+  return match[1];
+}
+
 describe('Protocol implementor guide surface', () => {
   it('ships the Docusaurus source page and planning spec', () => {
     assert.ok(existsSync(join(REPO_ROOT, GUIDE_PATH)), 'guide source must exist');
@@ -67,6 +74,43 @@ describe('Protocol implementor guide surface', () => {
     assert.match(GUIDE, /PM_SIGNOFF\.md/);
     assert.match(GUIDE, /ship-verdict\.md/);
     assert.match(GUIDE, /run completion/i);
+  });
+
+  it('documents Tier 1 surface invariants at fixture-level detail', () => {
+    const stateMachine = extractSection(GUIDE, 'state_machine');
+    for (const term of ['idle', 'active', 'paused', 'blocked', 'completed', 'run_id']) {
+      assert.match(stateMachine, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    const turnValidation = extractSection(GUIDE, 'turn_result_validation');
+    for (const term of [
+      'summary',
+      'run_id',
+      'turn_id',
+      'reserved paths',
+      'review_only',
+      'DEC-NNN',
+      'phase_transition',
+      'run_completion',
+      'needs_human',
+    ]) {
+      assert.match(turnValidation, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    const decisionLedger = extractSection(GUIDE, 'decision_ledger');
+    for (const term of ['required fields', 'empty decision statements', 'invalid categories', 'duplicate decision IDs']) {
+      assert.match(decisionLedger, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    const history = extractSection(GUIDE, 'history');
+    for (const term of ['atomically', 're-accepting', 'non-active turn']) {
+      assert.match(history, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
+    const configSchema = extractSection(GUIDE, 'config_schema');
+    for (const term of ['minimal governed config', 'entry_role', 'undeclared runtimes', 'undeclared gates', 'schema_version']) {
+      assert.match(configSchema, new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
   });
 
   it('distinguishes adapter exit codes from verifier exit codes', () => {

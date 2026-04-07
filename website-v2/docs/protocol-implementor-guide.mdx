@@ -312,11 +312,30 @@ The `input.operation` verbs are fixture abstractions, not CLI command names. You
 
 ### `state_machine`
 
-Core run lifecycle rules: initialization, assignment, completion, blocked-state transitions, and invalid transitions. If your state machine is loose here, every higher surface becomes untrustworthy.
+Core run lifecycle rules. Tier 1 currently proves:
+
+- initialization moves `idle` to `active` only with valid governed config
+- human gates move `active` to `paused`, and approvals resume to `active` or finish to `completed`
+- escalations move `active` to `blocked`, and explicit resolution moves `blocked` back to `active`
+- terminal `completed` runs reject new assignment and approval attempts
+- illegal transitions such as `idle -> paused` are rejected
+- `run_id` is immutable after initialization
+
+If your state machine is loose here, every higher surface becomes untrustworthy.
 
 ### `turn_result_validation`
 
-Validation pipeline for staged turn results: required fields, objection rules, schema correctness, and rejection of malformed or incomplete artifacts before they enter history.
+Validation pipeline for staged turn results. Tier 1 currently proves:
+
+- required fields such as `summary` are enforced at schema validation time
+- staged results must match the assigned `run_id` and `turn_id`
+- reserved paths in `files_changed` are rejected before acceptance
+- `review_only` turns must include at least one objection
+- decision IDs must match the `DEC-NNN` contract
+- `phase_transition` and `run_completion` cannot both be requested in one staged result
+- `needs_human` status is valid when accompanied by the required reason
+
+These checks exist to reject malformed or incomplete artifacts before they enter history.
 
 ### `gate_semantics`
 
@@ -333,15 +352,36 @@ These are not documentation preferences. They are runtime-enforced semantic chec
 
 ### `decision_ledger`
 
-Append-only constitutional record for decisions, objections, approvals, and rejections. If this surface is wrong, your audit trail is fiction.
+Append-only constitutional record for decisions, objections, approvals, and rejections. Tier 1 currently proves:
+
+- well-formed decision entries include the required fields
+- empty decision statements are rejected
+- invalid categories are rejected
+- duplicate decision IDs within one run are rejected
+
+If this surface is wrong, your audit trail is fiction.
 
 ### `history`
 
-Accepted turn-result history and its integrity constraints. This surface proves what actually happened across the run, not what a status screen claims happened.
+Accepted turn-result history and its integrity constraints. Tier 1 currently proves:
+
+- accepting a turn appends exactly one history entry atomically with the state update
+- re-accepting the same turn is idempotent and does not duplicate history
+- accepting a non-active turn fails before history can change
+
+This surface proves what actually happened across the run, not what a status screen claims happened.
 
 ### `config_schema`
 
-Validation of governed config shape, roles, runtimes, and baseline project contract. Broken config validation pushes protocol drift downstream where it is harder to debug.
+Validation of governed config shape, roles, runtimes, and baseline project contract. Tier 1 currently proves:
+
+- a minimal governed config is accepted
+- `entry_role` must refer to a declared role
+- roles cannot reference undeclared runtimes
+- routing cannot reference undeclared gates
+- invalid `schema_version` values are rejected
+
+Broken config validation pushes protocol drift downstream where it is harder to debug.
 
 ### `dispatch_manifest`
 
