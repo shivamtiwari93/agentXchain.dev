@@ -14,13 +14,14 @@ function escapeRegExp(value) {
 }
 
 describe('homebrew mirror contract', () => {
+  const isReleasePreflight = process.env.AGENTXCHAIN_RELEASE_PREFLIGHT === '1';
   const packageJson = JSON.parse(read('cli/package.json'));
   const formula = read('cli/homebrew/agentxchain.rb');
   const readme = read('cli/homebrew/README.md');
   const version = packageJson.version;
   const tarballUrl = `https://registry.npmjs.org/agentxchain/-/agentxchain-${version}.tgz`;
 
-  it('keeps the mirror formula aligned with the current package version', () => {
+  it('keeps the mirror formula aligned with the current package version', { skip: isReleasePreflight }, () => {
     assert.match(formula, new RegExp(`url "${escapeRegExp(tarballUrl)}"`));
     const shaMatch = formula.match(/sha256 "([0-9a-f]{64})"/);
     assert.ok(shaMatch, 'expected mirrored formula to declare a SHA256');
@@ -33,7 +34,7 @@ describe('homebrew mirror contract', () => {
     assert.doesNotMatch(formula, /\*std_npm_args\(libexec\)/);
   });
 
-  it('keeps maintainer docs aligned with the mirrored formula target', () => {
+  it('keeps maintainer docs aligned with the mirrored formula target', { skip: isReleasePreflight }, () => {
     assert.match(readme, /canonical Homebrew tap lives in `shivamtiwari93\/homebrew-tap`/);
     assert.match(readme, new RegExp(`- version: \`${escapeRegExp(version)}\``));
     assert.match(readme, new RegExp(`- source tarball: \`${escapeRegExp(tarballUrl)}\``));
@@ -43,5 +44,16 @@ describe('homebrew mirror contract', () => {
     );
     assert.doesNotMatch(readme, /0\.8\.8/);
     assert.doesNotMatch(readme, /2\.1\.1/);
+  });
+
+  it('documents the canonical tap and uses a real non-placeholder SHA', () => {
+    assert.match(readme, /canonical Homebrew tap lives in `shivamtiwari93\/homebrew-tap`/);
+    const shaMatch = formula.match(/sha256 "([0-9a-f]{64})"/);
+    assert.ok(shaMatch, 'expected mirrored formula to declare a SHA256');
+    assert.notEqual(
+      shaMatch[1],
+      '0000000000000000000000000000000000000000000000000000000000000000',
+      'expected mirrored formula to use the real npm tarball SHA, not a placeholder',
+    );
   });
 });

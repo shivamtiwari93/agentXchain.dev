@@ -107,7 +107,7 @@ for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../exampl
     (cd "$example_dir" && env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm install --ignore-scripts --userconfig /dev/null 2>&1) || true
   fi
 done
-if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" npm test; then
+if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test; then
   TEST_STATUS=0
 else
   TEST_STATUS=$?

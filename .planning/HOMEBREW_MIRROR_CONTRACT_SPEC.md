@@ -18,6 +18,7 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 - The mirror formula SHA256 must be a real registry tarball checksum, not a placeholder sentinel.
 - The mirror maintainer README must state the same current package version and tarball URL as the mirror formula.
 - The README must describe `cli/homebrew/agentxchain.rb` as a repo mirror of the canonical tap formula, not an unrelated stale example.
+- This contract is **post-publish / post-sync truth**, not release-preflight truth. During `release-preflight.sh`, the mirror may still legitimately point at the previous published version because npm publish and `sync-homebrew.sh` have not happened yet.
 
 ## Error Cases
 
@@ -25,6 +26,7 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 - The mirror formula keeps an all-zero or otherwise placeholder SHA256 after publish completes.
 - The formula URL and README version drift from each other.
 - The maintainer README keeps obsolete packaging examples that no longer match the real tap.
+- Release preflight fails before npm publish simply because the mirror still points at the last published version.
 
 ## Acceptance Tests
 
@@ -32,6 +34,7 @@ Keep the in-repo Homebrew mirror under `cli/homebrew/` aligned with the released
 - The test fails if the formula version or tarball URL diverges from the package version.
 - The test fails if the formula SHA256 is missing or still uses the all-zero placeholder.
 - The test fails if the README current-version and tarball references diverge from the formula.
+- When `AGENTXCHAIN_RELEASE_PREFLIGHT=1` is set, the version-alignment assertions are skipped; only stable invariants such as canonical-tap documentation and non-placeholder SHA remain enforced.
 
 ## Open Questions
 
