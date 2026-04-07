@@ -125,14 +125,17 @@ jobs:
           else
             git push origin "$BRANCH"
           fi
-          EXISTING_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          EXISTING_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)"
           if [[ -n "$EXISTING_PR" ]]; then
             echo "Homebrew mirror PR already open: #${EXISTING_PR}"
             exit 0
           fi
-          gh pr create \
+          if gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
-            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
-          echo "Created PR for Homebrew mirror update on branch $BRANCH."
+            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball." 2>&1; then
+            echo "Created PR for Homebrew mirror update on branch $BRANCH."
+          else
+            echo "::warning::Could not create Homebrew mirror PR (token may lack pull_requests permission). Branch $BRANCH was pushed — create the PR manually or merge the branch."
+          fi

@@ -141,4 +141,23 @@ describe('homebrew sync automation contract', () => {
       'workflow must not rewrite global GitHub auth just to push the canonical tap',
     );
   });
+
+  it('CI workflow does not fail if PR creation is denied by token permissions', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /::warning::/,
+      'workflow must emit a GitHub Actions warning annotation when PR creation fails',
+    );
+    assert.match(
+      workflow,
+      /Could not create Homebrew mirror PR/,
+      'warning must explain what failed',
+    );
+    assert.match(
+      workflow,
+      /Branch .* was pushed/,
+      'warning must confirm the branch was pushed even though PR creation failed',
+    );
+  });
 });

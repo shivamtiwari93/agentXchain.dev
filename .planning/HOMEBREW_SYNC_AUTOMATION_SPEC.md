@@ -82,6 +82,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | `--push-tap` without git access | Exit 1 with "push failed" error. |
 | `--dry-run` | Print planned changes, exit 0 without writing. |
 | CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
+| GitHub token lacks `pull_requests` permission | Branch push succeeds; PR creation emits a `::warning` annotation but does not fail the workflow. The PR must be created manually. |
 
 ## Acceptance Tests
 
@@ -96,6 +97,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-009: `--push-tap` still verifies and updates the canonical tap when the repo mirror already matches npm.
 - AT-HS-010: The sync path fails closed on commit/push errors instead of printing a false success.
 - AT-HS-011: The mirror-update workflow is rerun-safe: it force-with-lease updates the existing branch and reuses an open PR instead of failing on duplicate branch/PR creation.
+- AT-HS-012: If the GitHub token lacks `pull_requests` permission, the workflow emits a warning but does not fail. The branch is pushed successfully and the PR can be created manually.
 
 ## Open Questions
 
