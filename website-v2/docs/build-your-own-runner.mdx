@@ -219,9 +219,11 @@ AgentXchain already ships the repo-native graduation path. Use it in order inste
 
 Start with Tier 1. If Tier 1 is not stable, Tier 3 will only hide your defects behind nicer control flow.
 
-## External-consumer starter
+## External-consumer starters
 
-If you are starting from a blank project instead of this repo, use the installed-package starter:
+If you are starting from a blank project instead of this repo, use the installed-package starters:
+
+### Manual staging (runner-interface only)
 
 ```bash
 npm init -y
@@ -230,7 +232,20 @@ curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/ex
 node run-one-turn.mjs --json
 ```
 
-The starter imports from `agentxchain/runner-interface`, scaffolds a tiny governed repo in a temp directory, and proves the installed package can initialize, assign, stage, and accept a turn without any CLI shell-out.
+Imports from `agentxchain/runner-interface`. Scaffolds a tiny governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. No adapter, no subprocess.
+
+### Adapter-backed dispatch (runner-interface + adapter-interface)
+
+```bash
+npm init -y
+npm install agentxchain
+curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/examples/external-runner-starter/run-adapter-turn.mjs
+node run-adapter-turn.mjs --json
+```
+
+Imports from both `agentxchain/runner-interface` and `agentxchain/adapter-interface`. Uses `dispatchLocalCli` to dispatch a real `local_cli` turn through the shipped adapter — the same dispatch path the CLI uses. Proves the full dispatch → stage → accept lifecycle works from a clean consumer install.
+
+Start with the manual starter to prove your import boundary, then graduate to the adapter starter when you want real dispatch.
 
 ## Common failure modes
 

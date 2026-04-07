@@ -10,6 +10,7 @@ const REPO_ROOT = join(CLI_ROOT, '..');
 const STARTER_DIR = join(REPO_ROOT, 'examples', 'external-runner-starter');
 const STARTER_README = readFileSync(join(STARTER_DIR, 'README.md'), 'utf8');
 const STARTER_SCRIPT = readFileSync(join(STARTER_DIR, 'run-one-turn.mjs'), 'utf8');
+const ADAPTER_STARTER_SCRIPT = readFileSync(join(STARTER_DIR, 'run-adapter-turn.mjs'), 'utf8');
 const BUILD_DOC = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'build-your-own-runner.mdx'), 'utf8');
 const INTERFACE_DOC = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'runner-interface.mdx'), 'utf8');
 const SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNNER_PACKAGE_CONTRACT_SPEC.md'), 'utf8');
@@ -35,16 +36,28 @@ describe('External runner package contract', () => {
   it('AT-RPC-002: starter example uses package exports and install instructions', () => {
     assert.ok(existsSync(join(STARTER_DIR, 'README.md')), 'starter README must exist');
     assert.ok(existsSync(join(STARTER_DIR, 'run-one-turn.mjs')), 'starter script must exist');
+    assert.ok(existsSync(join(STARTER_DIR, 'run-adapter-turn.mjs')), 'adapter starter script must exist');
     assert.match(STARTER_README, /npm install agentxchain/);
     assert.match(STARTER_README, /agentxchain\/adapter-interface/);
+    assert.match(STARTER_README, /run-adapter-turn\.mjs/);
     assert.match(STARTER_SCRIPT, /from 'agentxchain\/runner-interface'/);
+    assert.match(ADAPTER_STARTER_SCRIPT, /from 'agentxchain\/runner-interface'/);
+    assert.match(ADAPTER_STARTER_SCRIPT, /from 'agentxchain\/adapter-interface'/);
     assert.ok(
       !STARTER_SCRIPT.includes('cli/src/lib/runner-interface.js'),
       'starter script must not use repo-relative runner-interface imports',
     );
     assert.ok(
+      !ADAPTER_STARTER_SCRIPT.includes('cli/src/lib/'),
+      'adapter starter must not use repo-relative imports',
+    );
+    assert.ok(
       !STARTER_SCRIPT.includes('agentxchain step'),
       'starter script must not shell out to the CLI',
+    );
+    assert.ok(
+      !ADAPTER_STARTER_SCRIPT.includes('agentxchain step'),
+      'adapter starter must not shell out to the CLI',
     );
   });
 

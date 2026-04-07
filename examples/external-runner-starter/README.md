@@ -12,7 +12,7 @@ It is intentionally different from `examples/ci-runner-proof/`:
 - **Node.js >=18.17.0** (or >=20.5.0)
 - npm
 
-## Quick start
+## Quick start — manual staging
 
 ```bash
 npm init -y
@@ -21,22 +21,30 @@ curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/ex
 node run-one-turn.mjs --json
 ```
 
-## What it proves
+## Quick start — adapter-backed dispatch
 
-`run-one-turn.mjs` imports from:
+```bash
+npm init -y
+npm install agentxchain
+curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/examples/external-runner-starter/run-adapter-turn.mjs
+node run-adapter-turn.mjs --json
+```
 
-- `agentxchain/runner-interface`
+## What the starters prove
 
-If you want to reuse the shipped adapters instead of staging results yourself, import them from:
+### `run-one-turn.mjs` — runner-interface only
 
-- `agentxchain/adapter-interface`
+Imports from `agentxchain/runner-interface`. Manually scaffolds a governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. No adapter, no subprocess, no CLI shell-out.
 
-Then it:
+### `run-adapter-turn.mjs` — runner-interface + adapter-interface
 
-1. scaffolds a tiny governed repo in a temp directory
-2. initializes a run
-3. assigns a turn
-4. stages a valid result at `getTurnStagingResultPath(turn.turn_id)`
-5. accepts the turn without any CLI shell-out
+Imports from both `agentxchain/runner-interface` and `agentxchain/adapter-interface`. Uses `dispatchLocalCli` to dispatch a real `local_cli` turn through the shipped adapter — the same dispatch path the CLI uses. A tiny mock agent script stages the result, proving the full dispatch → stage → accept lifecycle works from a clean consumer install.
 
-If this starter cannot run in a clean project, the published package boundary is broken.
+Key differences from `run-one-turn.mjs`:
+
+- Calls `writeDispatchBundle()` before dispatch (required by the adapter)
+- Calls `dispatchLocalCli()` to run a real subprocess
+- Calls `saveDispatchLogs()` to persist dispatch output
+- Reports `adapter_interface_version` and `dispatched_via` in output
+
+If either starter cannot run in a clean project, the published package boundary is broken.

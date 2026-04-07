@@ -88,6 +88,14 @@ describe('Build your own runner docs surface', () => {
     }
   });
 
+  it('AT-BYR-005a: documents both external-consumer starters (manual and adapter-backed)', () => {
+    assert.match(PAGE, /run-one-turn\.mjs/);
+    assert.match(PAGE, /run-adapter-turn\.mjs/);
+    assert.match(PAGE, /dispatchLocalCli/);
+    assert.match(PAGE, /Manual staging|runner-interface only/i);
+    assert.match(PAGE, /Adapter-backed dispatch|adapter-interface/i);
+  });
+
   it('AT-BYR-005: runner-adoption surfaces link to the tutorial', () => {
     assert.match(RUNNER_INTERFACE_PAGE, /\/docs\/build-your-own-runner/);
     assert.match(QUICKSTART_DOCS, /\/docs\/build-your-own-runner/);
