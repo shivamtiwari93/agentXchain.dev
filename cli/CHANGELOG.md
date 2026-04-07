@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.17.0
+
+Protocol conformance now proves the workflow-kit semantics it previously left implicit, and the public implementor guide now states the exact fixture-backed contract for every shipped surface instead of collapsing proof into slogans.
+
+### Workflow Gate Conformance Expansion
+
+- Tier 1 `gate_semantics` now proves semantic failures for:
+  - `.planning/SYSTEM_SPEC.md` missing required sections
+  - `.planning/IMPLEMENTATION_NOTES.md` scaffold-placeholder content
+  - `.planning/acceptance-matrix.md` placeholder requirement tables
+  - `.planning/RELEASE_NOTES.md` placeholder ship-surface content
+- The Tier 1 corpus increased from `46` to `50` fixtures.
+- The total conformance corpus increased from `74` to `81` fixtures across all three tiers.
+
+### Implementor Guide Truth Contracts
+
+- `/docs/protocol-implementor-guide` now enumerates the concrete fixture-backed invariants for all shipped surfaces:
+  - Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`
+  - Tier 2: `dispatch_manifest`, `hook_audit`
+  - Tier 3: `coordinator`
+- Section-aware docs guards now fail if any surface regresses back to vague summary text while the fixture corpus still proves specific invariants.
+- Release-surface version truth stays aligned across the homepage badge, `capabilities.json`, release notes, and the implementor-guide example.
+
+### Evidence
+
+- 2224 node tests / 489 suites, 0 failures.
+- 705 Vitest tests / 36 files, 0 failures.
+- Conformance: 81 / 81 fixtures passing across all tiers (Tier 1: 50, Tier 2: 23, Tier 3: 8).
+- Docusaurus production build passes.
+- npm publish verified: `agentxchain@2.17.0` live on registry.
+
 ## 2.16.0
 
 Coordinator governance reporting is now operational instead of partial, workflow-kit gates now enforce the repo-native planning contract they already claimed to depend on, and external consumers can dispatch a real adapter-backed turn from the published package boundary.

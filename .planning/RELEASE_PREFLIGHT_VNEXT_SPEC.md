@@ -45,14 +45,15 @@ Flags may appear in any order. `--target-version` requires exactly one argument 
 
 ### Version-Dependent Check Parameters
 
-The target version determines exactly two parameterized values:
+The target version determines three parameterized values:
 
 | Parameter | Derived from `--target-version` | Example for `2.10.1` |
 |---|---|---|
 | `CHANGELOG_HEADING` | `## <target-version>` | `## 2.10.1` |
 | `EXPECTED_PKG_VERSION` | `<target-version>` | `2.10.1` |
+| `AGENTXCHAIN_RELEASE_TARGET_VERSION` | exported into `npm test` during preflight | `2.10.1` |
 
-Everything else — git cleanliness, `npm ci`, `npm test`, `npm pack --dry-run` — is version-independent and unchanged.
+Everything else — git cleanliness, `npm ci`, `npm pack --dry-run` — is version-independent and unchanged. `npm test` remains logically version-independent, but release-surface guards consume `AGENTXCHAIN_RELEASE_TARGET_VERSION` so pre-bump release-surface edits can be validated against the intended target version instead of the old package version.
 
 ### Output Contract (unchanged, extended)
 
@@ -76,7 +77,7 @@ When `--target-version` is omitted, the script defaults to `2.0.0` (the original
 
 1. **Git working tree cleanliness** — version-independent
 2. **`npm ci --ignore-scripts`** — version-independent
-3. **`npm test`** — version-independent
+3. **`npm test`** — runs with `AGENTXCHAIN_RELEASE_TARGET_VERSION=<target-version>` exported so release-surface guards validate the intended release state before `npm version`
 4. **CHANGELOG heading** — checks for `## <target-version>` instead of hardcoded `## 1.0.0`
 5. **Package version** — compares `package.json` version against `<target-version>` instead of hardcoded `1.0.0`
 6. **`npm pack --dry-run`** — version-independent
@@ -174,6 +175,7 @@ All v1 error cases from `RELEASE_PREFLIGHT_SPEC.md` remain unchanged.
 
 13. Version-independent checks (git clean, npm ci, npm test, npm pack) are unaffected by the `--target-version` value.
 14. The script never executes release actions (no `npm version`, no `npm publish`, no git tag creation).
+15. `npm test` receives `AGENTXCHAIN_RELEASE_TARGET_VERSION=<target-version>` so pre-bump release-surface changes can pass without hand-editing `package.json` first.
 
 ---
 

@@ -1,0 +1,75 @@
+---
+title: "v2.17.0 Release Notes"
+description: "Workflow-gate conformance expands to real planning semantics, and the implementor guide now matches the shipped fixture contract across all tiers."
+---
+
+# AgentXchain v2.17.0
+
+`2.17.0` is a protocol-truth release. The product already claimed governed workflow files and multi-tier conformance, but parts of that proof boundary were still too soft:
+
+- Tier 1 workflow gates still under-proved key planning artifacts
+- the implementor guide compressed concrete fixture-backed invariants into vague summaries
+- public docs could drift behind the verifier corpus without failing loudly enough
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.17.0
+```
+
+## What changed since 2.16.0
+
+### Workflow-gate semantics now prove real planning truth
+
+Tier 1 `gate_semantics` no longer stops at PM signoff and ship verdict alone. `2.17.0` adds semantic conformance fixtures for:
+
+- `.planning/SYSTEM_SPEC.md` required-section completeness
+- `.planning/IMPLEMENTATION_NOTES.md` scaffold-placeholder rejection
+- `.planning/acceptance-matrix.md` placeholder requirement-table rejection
+- `.planning/RELEASE_NOTES.md` placeholder-content rejection
+
+That expands Tier 1 from `46` to `50` fixtures and pushes the total shipped corpus to `81` fixtures.
+
+### The implementor guide now states the actual contract
+
+`/docs/protocol-implementor-guide` now documents the concrete fixture-backed invariants for every shipped surface instead of hand-waving the boundaries:
+
+- Tier 1: state lifecycle, turn-result validation, workflow-gate semantics, decision-ledger integrity, history append semantics, and config-schema validation
+- Tier 2: dispatch-manifest tamper/error taxonomy and hook-audit action semantics
+- Tier 3: coordinator config, barriers, isolation rules, and interface-alignment requirements
+
+This matters because the guide is the adoption contract for third-party runners and validators. If it is vague while the verifier is precise, the public story lies.
+
+### Docs-truth regressions are now guarded
+
+The docs surface is now held by section-aware tests, not just global keyword grep:
+
+- Tier 1 sections must mention the concrete invariants their fixtures prove
+- Tier 2 and Tier 3 sections must enumerate the shipped rejection and progression rules
+- release-surface tests continue to enforce version sync across the package, homepage, capabilities example, and release notes
+
+This closes the class of drift where proof expanded but the public docs kept describing the old, smaller boundary.
+
+## Why this release matters
+
+`2.16.0` made the governance and workflow layers more operational. `2.17.0` makes the conformance story harder to fake:
+
+- workflow-kit files are proven as semantic gate inputs, not decorative scaffolding
+- third-party implementors can see the real fixture contract surface-by-surface
+- public protocol claims now fail tests if they drift behind the shipped verifier corpus
+
+That is the correct direction for a governed software-delivery protocol. Trust comes from tight proof and truthful public surfaces, not aspirational copy.
+
+## Where to go next
+
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) for the current fixture-level contract.
+- See [Protocol Reference](/docs/protocol-reference) for the tier and surface map.
+- See [CLI Reference](/docs/cli#verify-protocol) for verification commands and surface filtering.
+
+## Evidence
+
+- 2224 node tests / 489 suites, 0 failures.
+- 705 Vitest tests / 36 files, 0 failures.
+- Conformance: 81 / 81 fixtures passing across all tiers (Tier 1: 50, Tier 2: 23, Tier 3: 8).
+- Docusaurus production build passes.
+- npm publish verified: `agentxchain@2.17.0` live on registry.

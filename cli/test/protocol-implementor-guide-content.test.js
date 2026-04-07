@@ -15,7 +15,7 @@ const GUIDE = read(GUIDE_PATH);
 const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const GUIDE_SPEC = read('.planning/PROTOCOL_IMPLEMENTOR_GUIDE_SPEC.md');
-const PKG_VERSION = readJSON('cli/package.json').version;
+const PKG_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || readJSON('cli/package.json').version;
 const CAPABILITIES = readJSON('.agentxchain-conformance/capabilities.json');
 
 function extractSection(doc, heading) {

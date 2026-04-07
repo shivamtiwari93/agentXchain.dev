@@ -21,7 +21,7 @@ const SIDEBARS = read('website-v2/sidebars.ts');
 const HOME = read('website-v2/src/pages/index.tsx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
-const CURRENT_VERSION = PACKAGE.version;
+const CURRENT_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || PACKAGE.version;
 const CURRENT_RELEASE_DOC_ID = `releases/v${CURRENT_VERSION.replace(/\./g, '-')}`;
 const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`;
 

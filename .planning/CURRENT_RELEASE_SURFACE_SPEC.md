@@ -6,6 +6,8 @@
 
 Prevent version drift across the repo's front-door release surfaces. A release version is not just `cli/package.json`; operators and implementors also read the changelog, the release-notes route, the docs sidebar, the homepage badge, and the protocol implementor guide example. When those drift, the repo republishes contradictory release truth.
 
+The guard also doubles as pre-bump release validation: when `AGENTXCHAIN_RELEASE_TARGET_VERSION` is set, it validates the repo-controlled release surfaces against that target version instead of the current `cli/package.json` version. This keeps `release-preflight.sh --target-version <semver>` compatible with version-synced public-surface tests.
+
 ## Interface
 
 Add one automated guard test:
@@ -24,7 +26,7 @@ The guard reads:
 
 ## Behavior
 
-The guard must enforce these invariants against the current `cli/package.json` version:
+The guard must enforce these invariants against the current `cli/package.json` version by default, or `AGENTXCHAIN_RELEASE_TARGET_VERSION` when that env var is set:
 
 1. The top changelog heading is `## <version>`.
 2. A matching release-notes doc exists at `website-v2/docs/releases/v<major>-<minor>-<patch>.mdx`.
@@ -38,6 +40,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - If `package.json` is bumped but the release page is missing, the guard fails.
 - If the changelog is updated but the homepage badge or sidebar is stale, the guard fails.
 - If the implementor guide or capabilities example lags the package version, the guard fails.
+- If pre-bump release surfaces are validated with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, the guard fails when those surfaces do not match the target version even if `package.json` still points at the previous release.
 
 ## Acceptance Tests
 

@@ -116,12 +116,13 @@ describe('Launch surfaces do not contain disallowed claims', () => {
 describe('Website badge version matches package.json', () => {
   const homepage = read('website-v2/src/pages/index.tsx');
   const pkg = JSON.parse(read('cli/package.json'));
+  const expectedVersion = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || pkg.version;
 
   it('hero badge shows the current package.json version', () => {
     const badgeMatch = homepage.match(/v(\d+\.\d+\.\d+)/);
     assert.ok(badgeMatch, 'hero badge should contain a version like vX.Y.Z');
-    assert.equal(badgeMatch[1], pkg.version,
-      `Website badge shows v${badgeMatch[1]} but package.json is ${pkg.version} — update the badge in website-v2/src/pages/index.tsx`);
+    assert.equal(badgeMatch[1], expectedVersion,
+      `Website badge shows v${badgeMatch[1]} but expected release surface is ${expectedVersion} — update the badge in website-v2/src/pages/index.tsx`);
   });
 });
 

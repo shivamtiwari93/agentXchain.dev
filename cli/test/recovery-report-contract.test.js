@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import {
   evaluateRecoveryReport,
   scaffoldRecoveryReport,
@@ -10,6 +11,9 @@ import {
 } from '../src/lib/workflow-gate-semantics.js';
 import { initializeCoordinatorRun, loadCoordinatorState, saveCoordinatorState } from '../src/lib/coordinator-state.js';
 import { resumeCoordinatorFromBlockedState } from '../src/lib/coordinator-recovery.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -254,6 +258,6 @@ describe('multi resume requires recovery report', () => {
 
 describe('Recovery report spec guard', () => {
   it('AT-RECOVERY-REPORT-009: spec file exists', () => {
-    assert.ok(existsSync(join(process.cwd(), '.planning', 'RECOVERY_REPORT_CONTRACT_SPEC.md')));
+    assert.ok(existsSync(join(REPO_ROOT, '.planning', 'RECOVERY_REPORT_CONTRACT_SPEC.md')));
   });
 });
