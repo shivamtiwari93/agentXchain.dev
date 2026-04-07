@@ -7,6 +7,7 @@ const SECTION_DEFINITIONS = [
   { id: 'last_turn_summary', header: null, required: false },
   { id: 'last_turn_decisions', header: null, required: false },
   { id: 'last_turn_objections', header: null, required: false },
+  { id: 'last_turn_verification', header: null, required: false },
   { id: 'blockers', header: 'Blockers', required: true },
   { id: 'escalation', header: 'Escalation', required: true },
   { id: 'gate_required_files', header: 'Gate Required Files', required: false },
@@ -48,12 +49,14 @@ export function parseContextSections(contextMd) {
       summaryLines,
       decisionsLines,
       objectionsLines,
+      verificationLines,
     } = splitLastAcceptedTurn(lastAcceptedTurnBody);
 
     pushSection(parsedSections, 'last_turn_header', headerLines);
     pushSection(parsedSections, 'last_turn_summary', summaryLines);
     pushSection(parsedSections, 'last_turn_decisions', decisionsLines);
     pushSection(parsedSections, 'last_turn_objections', objectionsLines);
+    pushSection(parsedSections, 'last_turn_verification', verificationLines);
   }
 
   for (const [header, id] of HEADER_TO_ID.entries()) {
@@ -80,6 +83,7 @@ export function renderContextSections(sections) {
     sectionMap.get('last_turn_summary')?.content,
     sectionMap.get('last_turn_decisions')?.content,
     sectionMap.get('last_turn_objections')?.content,
+    sectionMap.get('last_turn_verification')?.content,
   ]);
 
   appendTopLevelSection(lines, 'Blockers', [sectionMap.get('blockers')?.content]);
@@ -91,11 +95,20 @@ export function renderContextSections(sections) {
 }
 
 function appendTopLevelSection(lines, header, fragments) {
-  const content = fragments
-    .filter((fragment) => typeof fragment === 'string' && fragment.length > 0)
-    .join('\n');
+  const validFragments = fragments
+    .filter((fragment) => typeof fragment === 'string' && fragment.length > 0);
 
-  if (!content) return;
+  if (validFragments.length === 0) return;
+
+  // Join fragments with a blank-line separator before sub-headings (###)
+  const contentParts = [];
+  for (const fragment of validFragments) {
+    if (contentParts.length > 0 && fragment.startsWith('###')) {
+      contentParts.push('');
+    }
+    contentParts.push(fragment);
+  }
+  const content = contentParts.join('\n');
 
   lines.push(`## ${header}`);
   lines.push('');
@@ -106,9 +119,13 @@ function appendTopLevelSection(lines, header, fragments) {
 function splitTopLevelSections(contextMd) {
   const lines = normalizeNewlines(contextMd).split('\n');
   const sectionStarts = [];
+  let inCodeBlock = false;
 
   for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index].startsWith('## ')) {
+    if (lines[index].startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+    }
+    if (!inCodeBlock && lines[index].startsWith('## ')) {
       sectionStarts.push(index);
     }
   }
@@ -130,9 +147,29 @@ function splitLastAcceptedTurn(lines) {
   let summaryLines = [];
   let decisionsLines = [];
   let objectionsLines = [];
+  let verificationLines = [];
+
+  let inVerification = false;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
+
+    if (line.startsWith('### Verification')) {
+      inVerification = true;
+      verificationLines.push(line);
+      continue;
+    }
+
+    if (inVerification) {
+      // A new heading at level 2 or 3 ends the verification block
+      if (line.startsWith('## ') || (line.startsWith('### ') && !line.startsWith('### Verification'))) {
+        inVerification = false;
+        headerLines.push(line);
+        continue;
+      }
+      verificationLines.push(line);
+      continue;
+    }
 
     if (SUMMARY_LINE_PATTERN.test(line)) {
       summaryLines = [line];
@@ -161,6 +198,7 @@ function splitLastAcceptedTurn(lines) {
     summaryLines: trimBlankLines(summaryLines),
     decisionsLines: trimBlankLines(decisionsLines),
     objectionsLines: trimBlankLines(objectionsLines),
+    verificationLines: trimBlankLines(verificationLines),
   };
 }
 

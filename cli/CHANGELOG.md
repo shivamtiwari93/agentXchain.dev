@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.18.0 (unreleased)
+
+The governed lifecycle now works correctly in git-backed workspaces with proper artifact observation, all four adapter types have live execution evidence (MCP at transport level), and the full governed completion path is proven end to end.
+
+### Live Connector & Completion Proof
+
+- All four adapter types (`manual`, `local_cli`, `api_proxy`, `mcp`) now have live CLI execution evidence through real `agentxchain step` dispatch.
+- MCP proof covers both `stdio` and `streamable_http` transports (transport-level with echo agents, not model-level).
+- Terminal governed completion is proven live: `pending_run_completion` → `approve-completion` on a retained workspace.
+- Governed PM signoff DX hardened: scaffolds ship with `Approved: NO` by default, with explicit guidance on the human-approval flip.
+
+### Artifact Observation Fixes
+
+- Fixed `compareDeclaredVsObserved` phantom-artifact false positives in non-git workspaces that blocked `review_only` turns.
+- Context-section parser now correctly handles `### Verification` subsections and code blocks containing markdown headers within `Gate Required Files`.
+- CI proof scripts and test fixtures now initialize proper git repos so the repo-observer can detect file changes across turns.
+
+### QA & Evidence Depth
+
+- QA evidence visibility: verification details, changed-file previews, dispatch-log excerpts, and gate-file content previews now surface in review context.
+- Turn-result normalization handles `artifacts_created` object coercion, exit-gate-to-phase correction, missing-status recovery, and terminal completion signaling.
+- Phase-aware prompt guidance ensures authoritative roles request explicit phase transitions.
+- Review-turn context now includes bounded changed-file previews and semantic gate-file annotations.
+
+### Evidence
+
+- 2290 node tests / 495 suites, 0 failures.
+- Conformance: 81 / 81 fixtures passing across all tiers.
+- Live completion: `run_91f4ba5d54707a7e` completed at `2026-04-07T11:14:16.734Z`.
+- Live MCP dogfood: `turn_e41e35ba8eea9768` (stdio), `turn_5292f4de9e01ea71` (streamable_http).
+
 ## 2.17.0
 
 Protocol conformance now proves the workflow-kit semantics it previously left implicit, and the public implementor guide now states the exact fixture-backed contract for every shipped surface instead of collapsing proof into slogans.

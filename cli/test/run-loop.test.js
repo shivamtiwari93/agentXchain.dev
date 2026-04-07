@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes, createHash } from 'crypto';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -123,6 +124,8 @@ function scaffoldProject(root, config) {
   writeFileSync(join(root, '.agentxchain/history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
   writeFileSync(join(root, 'TALK.md'), '# Talk\n');
+  // Initialize git repo so repo-observer can detect file changes
+  execSync('git init && git add -A && git commit -m "scaffold"', { cwd: root, stdio: 'ignore' });
 }
 
 function makeTurnResult(turn, state, { summary, proposedNextRole, phaseTransitionRequest = null, runCompletionRequest = null, filesChanged = [], artifactType = 'workspace' }) {
@@ -248,7 +251,16 @@ function makeStandardCallbacks(root) {
     async approveGate(gateType, state) {
       return true;
     },
+
   };
+}
+
+// Commit all changes after turn acceptance / gate approval so the next
+// authoritative turn gets a clean baseline (mirrors real agent behavior).
+function gitCommitAfterTurn(root, evt) {
+  if (evt.type === 'turn_accepted' || evt.type === 'gate_approved') {
+    try { execSync('git add -A && git commit -m "post-turn"', { cwd: root, stdio: 'ignore' }); } catch {}
+  }
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -299,7 +311,7 @@ describe('run-loop', () => {
       config = makeConfig();
       scaffoldProject(root, config);
       const cbs = makeStandardCallbacks(root);
-      cbs.onEvent = (evt) => events.push(evt);
+      cbs.onEvent = (evt) => { events.push(evt); gitCommitAfterTurn(root, evt); };
       result = await runLoop(root, config, cbs);
     });
 
@@ -348,7 +360,7 @@ describe('run-loop', () => {
       scaffoldProject(root, config);
       events = [];
       const cbs = makeStandardCallbacks(root);
-      cbs.onEvent = (evt) => events.push(evt);
+      cbs.onEvent = (evt) => { events.push(evt); gitCommitAfterTurn(root, evt); };
       await runLoop(root, config, cbs);
     });
 
@@ -385,7 +397,8 @@ describe('run-loop', () => {
       config = makeConfig();
       scaffoldProject(root, config);
       const cbs = makeStandardCallbacks(root);
-      cbs.onEvent = () => {
+      cbs.onEvent = (evt) => {
+        gitCommitAfterTurn(root, evt);
         throw new Error('observer failed');
       };
       result = await runLoop(root, config, cbs);
@@ -641,6 +654,7 @@ describe('run-loop', () => {
       gateCallCount = 0;
 
       const cbs = makeStandardCallbacks(root);
+      cbs.onEvent = (evt) => gitCommitAfterTurn(root, evt);
       const origApprove = cbs.approveGate;
       cbs.approveGate = async (gateType, state) => {
         gateCallCount++;

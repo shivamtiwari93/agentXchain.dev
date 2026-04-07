@@ -17,6 +17,7 @@ import { join, dirname } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes, createHash } from 'crypto';
 import { fileURLToPath } from 'url';
+import { gitInit, gitCommitAll } from './git-helpers.mjs';
 
 const jsonMode = process.argv.includes('--json');
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'cli');
@@ -139,6 +140,8 @@ function scaffoldProject(root) {
   writeFileSync(join(root, '.agentxchain/history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
   writeFileSync(join(root, 'TALK.md'), '# Talk\n');
+  // Initialize git repo so repo-observer can detect file changes
+  gitInit(root);
   return config;
 }
 
@@ -476,6 +479,8 @@ async function executeTurn({ root, config, roleId, prepare, buildTurnResult, aft
 
   roles.push(roleId);
   afterAccept();
+  // Commit so the next authoritative turn gets a clean baseline
+  gitCommitAll(root);
 }
 
 async function executeTurnWithRetry({
@@ -608,6 +613,8 @@ async function executeTurnWithRetry({
 
   roles.push(roleId);
   afterAccept();
+  // Commit so the next authoritative turn gets a clean baseline
+  gitCommitAll(root);
 }
 
 function report(root, {

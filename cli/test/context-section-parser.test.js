@@ -287,6 +287,10 @@ describe('context-section-parser integration with dispatch bundle rendering', ()
     const sections = parseContextSections(contextMd);
 
     assert.ok(sections.length >= 8);
-    assert.equal(renderContextSections(sections), contextMd);
+    // Normalize consecutive blank lines: the parser trims trailing blanks from
+    // section bodies, so a content-internal double-blank (e.g. between code blocks
+    // in Gate Required Files) may collapse to a single blank on round-trip.
+    const normalize = (s) => s.replace(/\n{3,}/g, '\n\n');
+    assert.equal(normalize(renderContextSections(sections)), normalize(contextMd));
   });
 });

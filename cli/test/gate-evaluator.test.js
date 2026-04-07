@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
+import { gitInit, gitCommitAll } from '../test-support/git-test-helpers.js';
 
 import { evaluatePhaseExit, getPhaseOrder } from '../src/lib/gate-evaluator.js';
 import {
@@ -762,6 +763,8 @@ describe('full phase lifecycle', () => {
     mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
     mkdirSync(join(root, '.agentxchain', 'dispatch', 'current'), { recursive: true });
     mkdirSync(join(root, '.planning'), { recursive: true });
+    // Initialize git repo so repo-observer can detect file changes
+    gitInit(root);
   });
 
   afterEach(() => {
@@ -830,9 +833,12 @@ describe('full phase lifecycle', () => {
     assert.equal(approve.state.phase, 'implementation');
     assert.equal(approve.state.status, 'active');
 
+    // Commit planning artifacts so dev turn gets a clean baseline
+    gitCommitAll(root);
+
     // ── Phase 2: Implementation ──
     assign = assignGovernedTurn(root, config, 'dev');
-    assert.ok(assign.ok);
+    assert.ok(assign.ok, `Dev assign failed: ${assign.error}`);
 
     // Create required implementation notes file
     writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt app.ts.\n\n## Verification\n\nRun npm test.\n');
@@ -850,7 +856,7 @@ describe('full phase lifecycle', () => {
         summary: 'Implementation complete. All tests pass.',
         decisions: [{ id: 'DEC-002', category: 'implementation', statement: 'Used approach B.', rationale: 'Faster.' }],
         objections: [],
-        files_changed: ['src/app.ts'],
+        files_changed: ['src/app.ts', '.planning/IMPLEMENTATION_NOTES.md'],
         artifacts_created: [],
         verification: { status: 'pass', commands: ['npm test'], machine_evidence: [{ command: 'npm test', exit_code: 0 }] },
         artifact: { type: 'workspace', ref: 'git:def456' },
