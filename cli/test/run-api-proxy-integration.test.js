@@ -201,7 +201,7 @@ function seedQaCompletionArtifacts(root) {
   mkdirSync(join(root, '.planning'), { recursive: true });
   writeFileSync(
     join(root, '.planning', 'acceptance-matrix.md'),
-    '# Acceptance Matrix\n\n- [x] QA scenarios reviewed\n',
+    '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | API proxy governed run | QA confirms the governed run can complete with API-backed execution | pass | 2026-04-06 | pass |\n',
   );
   writeFileSync(
     join(root, '.planning', 'ship-verdict.md'),

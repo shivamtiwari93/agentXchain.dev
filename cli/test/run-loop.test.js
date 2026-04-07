@@ -226,7 +226,7 @@ function makeStandardCallbacks(root) {
 
       if (role === 'qa') {
         ensureFiles(root, {
-          '.planning/acceptance-matrix.md': '# Acceptance\nAll passed.\n',
+          '.planning/acceptance-matrix.md': '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Loop completion | QA confirms the run can close cleanly | pass | 2026-04-06 | pass |\n',
           '.planning/ship-verdict.md': '# Ship Verdict\n\n## Verdict: YES\n',
         });
         return {

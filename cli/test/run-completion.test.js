@@ -118,6 +118,10 @@ function makeTurnResult(overrides = {}) {
   };
 }
 
+function makePassingAcceptanceMatrix() {
+  return '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | pass |\n';
+}
+
 function stageTurnResult(root, turnResult) {
   writeJson(root, STAGING_PATH, turnResult);
 }
@@ -201,7 +205,7 @@ describe('evaluateRunCompletion — pure function', () => {
   it('returns awaiting_human_approval when gate passes + requires_human_approval', () => {
     // Create required files
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
 
     const result = evaluateRunCompletion({
@@ -218,7 +222,7 @@ describe('evaluateRunCompletion — pure function', () => {
 
   it('AT-WFG-003: returns gate_failed when ship verdict is not affirmative', () => {
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: PENDING\n');
 
     const result = evaluateRunCompletion({
@@ -231,6 +235,25 @@ describe('evaluateRunCompletion — pure function', () => {
     assert.equal(result.action, 'gate_failed');
     assert.equal(result.passed, false);
     assert.ok(result.reasons.some((reason) => reason.includes('Ship verdict is not affirmative')));
+  });
+
+  it('AT-QA-GATE-004: returns gate_failed when acceptance matrix contains a pending row', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning/acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | Pending |\n'
+    );
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('1=Pending')));
   });
 
   it('returns complete when gate passes without human approval', () => {
@@ -388,7 +411,7 @@ describe('acceptGovernedTurn — run completion', () => {
 
     // Create required files for qa_ship_verdict gate
     mkdirSync(join(root, '.planning'), { recursive: true });
-    writeFileSync(join(root, '.planning/acceptance-matrix.md'), 'matrix');
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
 
     stageTurnResult(root, makeTurnResult({

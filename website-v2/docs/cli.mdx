@@ -122,7 +122,7 @@ The workflow kit proof is deliberate, not cosmetic. It checks that the scaffold-
 - `.planning/acceptance-matrix.md` includes the `| Req # |` table header
 - `.planning/ship-verdict.md` includes `## Verdict:`
 
-That proof is about scaffold integrity, not gate readiness. Governed phase/completion gates additionally require the workflow files to carry truthful operator state: `.planning/PM_SIGNOFF.md` must say `Approved: YES`, `.planning/SYSTEM_SPEC.md` must preserve the baseline spec sections, and `.planning/ship-verdict.md` must carry an affirmative `## Verdict:` value before the run can transition or complete.
+That proof is about scaffold integrity, not gate readiness. Governed phase/completion gates additionally require the workflow files to carry truthful operator state: `.planning/PM_SIGNOFF.md` must say `Approved: YES`, `.planning/SYSTEM_SPEC.md` must preserve the baseline spec sections, `.planning/acceptance-matrix.md` must contain real requirement rows whose final `Status` values are all passing, and `.planning/ship-verdict.md` must carry an affirmative `## Verdict:` value before the run can transition or complete.
 
 In JSON mode, that proof is exposed under the `workflow_kit` key so automation can distinguish core scaffold failures from template-specific planning-artifact failures and acceptance-hint warnings.
 

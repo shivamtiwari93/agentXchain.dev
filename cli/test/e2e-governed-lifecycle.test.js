@@ -273,7 +273,10 @@ describe('E2E governed lifecycle (3-phase happy path)', () => {
     const state = readJson(root, STATE_PATH);
 
     // Create qa gate-required files
-    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), '# Acceptance Matrix\nAll pass.\n');
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Core governed lifecycle | QA confirms the run can complete through the final gate | pass | 2026-04-06 | pass |\n'
+    );
     writeFileSync(join(root, '.planning', 'ship-verdict.md'), '# Ship Verdict\n\n## Verdict: YES\n');
     execSync('git add -A', { cwd: root, stdio: 'ignore' });
     execSync('git -c user.name="test" -c user.email="test@test" commit -m "add qa artifacts"', { cwd: root, stdio: 'ignore' });

@@ -101,6 +101,10 @@ function makeTurnResult(overrides = {}) {
   };
 }
 
+function makePassingAcceptanceMatrix() {
+  return '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | pass |\n';
+}
+
 // ── Pure evaluatePhaseExit tests ─────────────────────────────────────────────
 
 describe('evaluatePhaseExit — pure function', () => {
@@ -282,6 +286,61 @@ describe('evaluatePhaseExit — pure function', () => {
 
     assert.equal(result.action, 'gate_failed');
     assert.ok(result.reasons.some((reason) => reason.includes('## Acceptance Tests')));
+  });
+
+  it('AT-QA-GATE-001: gate_failed when acceptance matrix is still the scaffold placeholder', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n'
+    );
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'qa' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('no real requirement verdict rows')));
+  });
+
+  it('AT-QA-GATE-002: gate_failed when any acceptance row is not passing', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning', 'acceptance-matrix.md'),
+      '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Example requirement | Example acceptance criterion | pass | 2026-04-06 | Pending |\n'
+    );
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'qa' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('1=Pending')));
+  });
+
+  it('AT-QA-GATE-003: awaiting_human_approval when every acceptance row is passing', () => {
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), makePassingAcceptanceMatrix());
+    writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'qa' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      root,
+    });
+
+    assert.equal(result.action, 'awaiting_human_approval');
+    assert.equal(result.passed, true);
+    assert.equal(result.gate_id, 'qa_ship_verdict');
   });
 
   it('auto-advances when current phase has no exit gate defined', () => {

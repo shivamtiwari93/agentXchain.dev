@@ -81,8 +81,10 @@ describe('Front-door docs — workflow-kit coverage', () => {
 
     it('distinguishes scaffold proof from gate readiness', () => {
       assert.ok(
-        QUICKSTART.includes('Approved: YES') && QUICKSTART.includes('## Verdict: PENDING'),
-        'quickstart must explain that template validate proves scaffold integrity, while governed gates require Approved: YES and an affirmative verdict'
+        QUICKSTART.includes('Approved: YES')
+          && QUICKSTART.includes('## Verdict: PENDING')
+          && QUICKSTART.includes('passing `Status` values'),
+        'quickstart must explain that template validate proves scaffold integrity, while governed gates require Approved: YES, a passing acceptance matrix, and an affirmative verdict'
       );
     });
   });

@@ -3,9 +3,11 @@ import { join } from 'node:path';
 
 export const PM_SIGNOFF_PATH = '.planning/PM_SIGNOFF.md';
 export const SYSTEM_SPEC_PATH = '.planning/SYSTEM_SPEC.md';
+export const ACCEPTANCE_MATRIX_PATH = '.planning/acceptance-matrix.md';
 export const SHIP_VERDICT_PATH = '.planning/ship-verdict.md';
 
 const AFFIRMATIVE_SHIP_VERDICTS = new Set(['YES', 'SHIP', 'SHIP IT']);
+const AFFIRMATIVE_ACCEPTANCE_STATUSES = new Set(['PASS', 'PASSED', 'OK', 'YES']);
 
 function normalizeToken(value) {
   return value.trim().replace(/\s+/g, ' ').toUpperCase();
@@ -57,6 +59,82 @@ function evaluateSystemSpec(content) {
   return { ok: true };
 }
 
+function isMarkdownSeparatorRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function evaluateAcceptanceMatrix(content) {
+  const lines = content.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => /^\|\s*Req\s*#\s*\|/i.test(line));
+
+  if (headerIndex === -1) {
+    return {
+      ok: false,
+      reason: 'Acceptance matrix must preserve the `| Req # |` requirement table header in .planning/acceptance-matrix.md.',
+    };
+  }
+
+  const rows = [];
+  let sawTable = false;
+
+  for (let index = headerIndex + 1; index < lines.length; index++) {
+    const line = lines[index];
+    if (!line.trim()) {
+      if (sawTable) break;
+      continue;
+    }
+
+    if (!line.trim().startsWith('|')) {
+      if (sawTable) break;
+      continue;
+    }
+
+    sawTable = true;
+    const cells = line
+      .trim()
+      .split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+
+    if (cells.length === 0 || isMarkdownSeparatorRow(cells)) {
+      continue;
+    }
+
+    rows.push(cells);
+  }
+
+  const requirementRows = rows.filter((cells) => {
+    const reqId = cells[0] || '';
+    return reqId && !/^\(QA fills this from ROADMAP\.md\)$/i.test(reqId);
+  });
+
+  if (requirementRows.length === 0) {
+    return {
+      ok: false,
+      reason: 'Acceptance matrix has no real requirement verdict rows. Replace the scaffold placeholder with QA-owned requirement results before requesting ship approval.',
+    };
+  }
+
+  const failingRows = [];
+  for (const cells of requirementRows) {
+    const reqId = cells[0] || '<unknown>';
+    const status = cells[cells.length - 1] || '';
+    const normalizedStatus = status ? normalizeToken(status) : '';
+    if (!AFFIRMATIVE_ACCEPTANCE_STATUSES.has(normalizedStatus)) {
+      failingRows.push(`${reqId}=${status || 'missing'}`);
+    }
+  }
+
+  if (failingRows.length > 0) {
+    return {
+      ok: false,
+      reason: `Acceptance matrix still has non-passing requirement rows in .planning/acceptance-matrix.md: ${failingRows.join(', ')}. Mark every requirement row with a passing Status before requesting ship approval.`,
+    };
+  }
+
+  return { ok: true };
+}
+
 function evaluateShipVerdict(content) {
   const verdict = parseLineValue(content, /^##\s+Verdict\s*:\s*(.+)$/im);
   if (!verdict) {
@@ -88,6 +166,10 @@ export function evaluateWorkflowGateSemantics(root, relPath) {
 
   if (relPath === SYSTEM_SPEC_PATH) {
     return evaluateSystemSpec(content);
+  }
+
+  if (relPath === ACCEPTANCE_MATRIX_PATH) {
+    return evaluateAcceptanceMatrix(content);
   }
 
   if (relPath === SHIP_VERDICT_PATH) {
