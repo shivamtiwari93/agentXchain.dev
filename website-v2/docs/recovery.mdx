@@ -96,8 +96,8 @@ The recovery surface uses these existing commands — no dedicated `recover` com
 
 | Command | Recovery Role |
 |---|---|
-| `step --resume` | Resume a blocked turn (dispatch failure, escalation, hook block, agent request) |
-| `resume` | Re-assign the next turn after a cleared budget block or other no-retained-turn recovery |
+| `step --resume` | Resume a blocked turn (dispatch failure, escalation, hook block, agent request) — dispatches and runs the agent |
+| `resume` | Resume a blocked run: re-dispatches retained turn or assigns the next turn (budget, escalation, any blocked state) |
 | `resume --role` | Re-assign a turn after cleared block or hook failure during assignment |
 | `approve-transition` | Approve a phase gate |
 | `approve-completion` | Approve run completion |

@@ -68,6 +68,10 @@ function createGovernedProject() {
         allowed_next_roles: ['dev', 'human'],
       },
     },
+    budget: {
+      per_run_max_usd: 10.0,
+      per_turn_max_usd: 2.0,
+    },
     gates: {},
     hooks: {},
   });
@@ -206,6 +210,10 @@ function createGovernedRepo(repoRoot, repoId, status, opts = {}) {
         entry_role: 'dev',
         allowed_next_roles: ['dev'],
       },
+    },
+    budget: {
+      per_run_max_usd: 10.0,
+      per_turn_max_usd: 2.0,
     },
     gates: {},
     hooks: {},
