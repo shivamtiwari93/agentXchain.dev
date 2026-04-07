@@ -15,7 +15,7 @@ describe('release planning surface classification', () => {
       'playbook must require explicit target-version preflight');
     assert.match(playbook, /npm run preflight:release:strict -- --target-version <semver>/,
       'playbook must require strict preflight');
-    assert.match(playbook, /npm version <semver>/, 'playbook must use npm version to create release identity');
+    assert.match(playbook, /npm run bump:release/, 'playbook must use bump:release to create release identity');
     assert.match(playbook, /npm run postflight:release -- --target-version <semver>/,
       'playbook must require postflight verification');
     assert.match(playbook, /Homebrew/i, 'playbook must include Homebrew update sequencing');

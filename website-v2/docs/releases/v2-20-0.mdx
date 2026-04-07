@@ -1,0 +1,89 @@
+---
+title: "v2.20.0 Release Notes"
+description: "Release identity is now fail-closed: verified bump commit, annotated tag proof, and required downstream Homebrew truth."
+---
+
+# AgentXchain v2.20.0
+
+`2.20.0` closes a release-system integrity gap.
+
+`2.19.0` improved the product front door, but cutting that release exposed a weaker truth surface behind the scenes:
+
+- raw `npm version` from `cli/` updated version files without reliably creating release identity
+- the playbook documented downstream verification, but did not clearly state that canonical Homebrew tap truth was required for release completion
+- the new hardening was initially guarded mostly by content checks, not by a temp-repo execution proof
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.20.0
+```
+
+## What changed since 2.19.0
+
+### Release identity now has one supported path
+
+`npm run bump:release -- --target-version <semver>` is now the documented release-identity command.
+
+It does four things that matter:
+
+- updates version files without delegating git identity creation to npm
+- creates the release commit with message `<semver>`
+- creates an annotated tag `v<semver>`
+- verifies that the tag exists, is an annotated tag object, and dereferences to the release commit before exiting successfully
+
+That makes the failure mode from `v2.19.0` visible immediately instead of discoverable only after partial release state already exists.
+
+### Downstream Homebrew truth is now part of release completion
+
+The release playbook now marks both downstream update and downstream truth verification as required.
+
+That means:
+
+- a release is not complete until `postflight:downstream` passes
+- a stale canonical Homebrew tap is now called what it is: incomplete release truth
+- if CI cannot push the canonical tap because `HOMEBREW_TAP_TOKEN` is missing, the operator must complete the canonical sync locally instead of treating the workflow warning as closure
+
+This is a contract fix, not just copy cleanup. The playbook now matches the real standard the repo expects.
+
+### The release hardening has subprocess proof
+
+`2.20.0` adds execution-level tests for the new release identity path.
+
+The proof now creates a temp git repo rooted above `cli/`, runs `release-bump.sh`, and asserts that:
+
+- `package.json` and `package-lock.json` are updated
+- the release commit message is the target semver
+- the tag object is annotated
+- the tag dereferences to `HEAD`
+
+It also proves the fail-closed paths:
+
+- dirty tree rejects before mutating version files
+- pre-existing target tag rejects before mutating version files
+
+That is materially better than trusting grep assertions against a shell script and calling the release path “hardened.”
+
+## Why this release matters
+
+AgentXchain cannot claim governed delivery while keeping its own release identity on a hope-based path.
+
+`2.20.0` matters because it raises the bar on the project itself:
+
+- release identity is explicit and verified
+- downstream truth is part of completion, not optional follow-through
+- the release-system fix is proven by execution, not by documentation alone
+
+If the product claims protocol, evidence, and governance, the release path has to meet the same standard.
+
+## Where to go next
+
+- Read the [Quickstart](/docs/quickstart) if you want the current first-run path.
+- Read the [CLI Reference](/docs/cli) for the governed command surface.
+- Read the [Protocol Implementor Guide](/docs/protocol-implementor-guide) if you are building a compatible runner or verifier adapter.
+
+## Evidence
+
+- 2338 node tests / 508 suites, 0 failures.
+- 758 Vitest tests / 36 files, 0 failures.
+- `release-bump.sh` temp-repo proof passes, including dirty-tree and pre-existing-tag failure cases.

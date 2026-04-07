@@ -30,16 +30,19 @@ This playbook exists because historical release notes and handoff specs in `.pla
   - publish script: `cli/scripts/publish-from-tag.sh`
   - preflight script: `cli/scripts/release-preflight.sh`
   - postflight script: `cli/scripts/release-postflight.sh`
+  - release identity script: `cli/scripts/release-bump.sh`
 
 ### Release Commands
 
 ```bash
 cd cli
 npm run preflight:release -- --target-version <semver>
-npm version <semver>
+npm run bump:release -- --target-version <semver>
 npm run preflight:release:strict -- --target-version <semver>
 git push origin main --follow-tags
 ```
+
+> **Why `bump:release` instead of `npm version`?** Raw `npm version <semver>` from a subdirectory may update version files without creating the release commit and annotated tag. `release-bump.sh` separates the file update from git identity creation and verifies both before exiting. See `DEC-RIH-001`.
 
 ### Verification Commands
 
@@ -49,7 +52,7 @@ npm run postflight:release -- --target-version <semver>
 npm view "agentxchain@<semver>" version
 ```
 
-### Downstream Update
+### Downstream Update (REQUIRED)
 
 After postflight passes and npm serves the requested version:
 
@@ -57,18 +60,19 @@ After postflight passes and npm serves the requested version:
 2. Sync Homebrew (automated): `npm run sync:homebrew -- --target-version <semver> --push-tap`
    - This updates the repo mirror (`cli/homebrew/agentxchain.rb` + README) AND pushes to the canonical tap (`shivamtiwari93/homebrew-tap`)
    - In CI: runs automatically after postflight if `HOMEBREW_TAP_TOKEN` secret is configured
-   - Without `--push-tap`: updates the repo mirror only (tap must be pushed separately)
+   - **If CI cannot push the canonical tap** (missing `HOMEBREW_TAP_TOKEN`), the operator MUST run the sync locally: `npm run sync:homebrew -- --target-version <semver> --push-tap`
+   - Without `--push-tap`: updates the repo mirror only — this is NOT sufficient for release completion
 
-### Downstream Truth Verification
+### Downstream Truth Verification (REQUIRED)
 
-After all downstream surfaces are updated, verify consistency:
+The release is **not complete** until downstream truth verification passes:
 
 ```bash
 cd cli
 npm run postflight:downstream -- --target-version <semver>
 ```
 
-This checks: GitHub release exists, the canonical Homebrew tap formula SHA matches the registry tarball SHA, and the canonical Homebrew tap formula URL matches the registry tarball URL.
+This checks: GitHub release exists, the canonical Homebrew tap formula SHA matches the registry tarball SHA, and the canonical Homebrew tap formula URL matches the registry tarball URL. A release with stale canonical tap truth is an incomplete release.
 
 ---
 
@@ -91,10 +95,17 @@ Run:
 
 ```bash
 cd cli
-npm version <semver>
+npm run bump:release -- --target-version <semver>
 ```
 
-This updates `cli/package.json`, creates the release commit, and creates tag `v<semver>`. Do not hand-edit the tag or let CI invent the version.
+This fail-closed script:
+1. Asserts the tree is clean and the version is not already bumped
+2. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
+3. Creates a commit with message `<semver>`
+4. Creates an annotated tag `v<semver>`
+5. Verifies both commit and tag exist before exiting
+
+Do not use raw `npm version <semver>` — it may update files without creating git identity when run from a subdirectory. Do not hand-edit the tag or let CI invent the version.
 
 ### 3. Strict Preflight On Tagged State
 
@@ -173,7 +184,8 @@ Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror mu
 |---|---|
 | Working tree is dirty before release | Stop and clean or commit intentionally before `npm version`. |
 | `CHANGELOG.md` lacks `## <semver>` | Stop and add the release notes before bumping. |
-| `npm version <semver>` fails | Stop. Do not create the tag manually as a workaround. |
+| `bump:release` fails | Stop. Do not create the tag manually as a workaround. Fix the issue and rerun `bump:release`. |
+| Canonical Homebrew tap is stale after CI | Operator MUST run `sync:homebrew --push-tap` locally. Release is not complete with a stale tap. |
 | Strict preflight fails after version bump | Stop. Fix the issue and rerun strict preflight before pushing. |
 | Publish workflow fails before npm serves the version | Fix the workflow or script failure; do not pretend the tag means release success. |
 | Workflow rerun sees version already on npm | Treat as verification rerun; do not republish. |
@@ -187,10 +199,12 @@ Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror mu
 1. A single current release playbook exists at `.planning/RELEASE_PLAYBOOK.md`.
 2. The playbook references the shipped workflow `.github/workflows/publish-npm-on-tag.yml`.
 3. The playbook requires both default-mode and strict-mode preflight with explicit `--target-version`.
-4. The playbook uses `npm version <semver>` to create release identity.
+4. The playbook uses `bump:release` (not raw `npm version`) to create release identity.
 5. The playbook requires postflight verification after publish succeeds.
 6. The playbook states that Homebrew updates happen only after npm truth is live.
 7. The playbook does not rely on deprecated v1/v2 release-specific planning files for current instructions.
+8. The playbook lists `postflight:downstream` as a required step for release completion.
+9. The playbook documents the manual Homebrew tap follow-through when CI cannot push.
 
 ---
 

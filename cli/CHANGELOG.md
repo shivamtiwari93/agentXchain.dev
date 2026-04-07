@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.20.0
+
+The release path is now harder to lie about. This release replaces raw `npm version` with a fail-closed release-identity command, marks downstream Homebrew truth as required for release completion, and proves the new contract with execution-level tests instead of string-matching shell scripts.
+
+### Release Identity Hardening
+
+- Added `npm run bump:release -- --target-version <semver>` as the supported release-identity path.
+- `release-bump.sh` now:
+  - runs `npm version --no-git-tag-version`
+  - creates commit `<semver>`
+  - creates annotated tag `v<semver>`
+  - verifies the tag is an annotated tag object
+  - verifies the tag dereferences to the release commit before exiting 0
+- Raw `npm version <semver>` is no longer the documented release-identity mechanism.
+
+### Downstream Truth Is Required
+
+- `.planning/RELEASE_PLAYBOOK.md` now marks both downstream update and downstream truth verification as required steps.
+- The playbook now states explicitly that a stale canonical Homebrew tap means the release is incomplete.
+- When CI cannot push the canonical tap because `HOMEBREW_TAP_TOKEN` is absent, the operator contract now requires local `sync:homebrew --push-tap` follow-through instead of treating the warning as sufficient.
+
+### Execution-Level Proof
+
+- Added subprocess release-identity tests that create a temp git repo rooted above `cli/`, run `release-bump.sh`, and assert:
+  - `package.json` and `package-lock.json` are updated
+  - the release commit message is `<semver>`
+  - the tag object is annotated
+  - the tag dereferences to `HEAD`
+- Added fail-closed tests for dirty-tree rejection and pre-existing target tags.
+
+### Evidence
+
+- 2338 node tests / 508 suites, 0 failures.
+- 758 Vitest tests / 36 files, 0 failures.
+- `release-bump.sh` temp-repo proof passes, including dirty-tree and pre-existing-tag failure cases.
+
 ## 2.19.0
 
 AgentXchain now has an honest one-command first-run path. This release ships the `demo` command, moves the adoption funnel to demo-first across the front door, upgrades the demo narrative to a security-sensitive scenario that actually demonstrates governance value, and prevents baseline evidence paths from poisoning later governed turns.
