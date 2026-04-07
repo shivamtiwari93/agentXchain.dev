@@ -26,6 +26,21 @@ describe('first-turn walkthrough docs', () => {
     assert.ok(content.includes('approve-completion'), 'must reference approve-completion');
   });
 
+  it('documents the real step-based happy path', () => {
+    assert.ok(content.includes('agentxchain step'), 'must show the default step command');
+    assert.ok(content.includes('Initialized governed run'), 'must show run initialization output');
+    assert.ok(content.includes('Staged result detected.'), 'must explain that step waits for the result');
+    assert.ok(content.includes('Turn Accepted'), 'must show that step auto-accepts a valid staged result');
+  });
+
+  it('documents the real dispatch bundle files', () => {
+    assert.ok(content.includes('ASSIGNMENT.json'), 'must mention ASSIGNMENT.json');
+    assert.ok(content.includes('MANIFEST.json'), 'must mention MANIFEST.json');
+    assert.ok(content.includes('PROMPT.md'), 'must mention PROMPT.md');
+    assert.ok(content.includes('CONTEXT.md'), 'must mention CONTEXT.md');
+    assert.ok(!content.includes('DISPATCH.json'), 'must not mention stale DISPATCH.json');
+  });
+
   it('shows a decision ledger example', () => {
     assert.ok(content.includes('decision-ledger'), 'must reference decision ledger');
     assert.ok(content.includes('DEC-001'), 'must show at least one decision ID example');
@@ -45,6 +60,9 @@ describe('first-turn walkthrough docs', () => {
     assert.ok(content.includes('planning_signoff'), 'must mention planning_signoff gate');
     assert.ok(content.includes('implementation_complete'), 'must mention implementation_complete gate');
     assert.ok(content.includes('qa_ship_verdict'), 'must mention qa_ship_verdict gate');
+    assert.ok(content.includes('ROADMAP.md'), 'must mention ROADMAP.md as part of the planning gate');
+    assert.ok(content.includes('SYSTEM_SPEC.md'), 'must mention SYSTEM_SPEC.md as part of the planning gate');
+    assert.ok(content.includes('RELEASE_NOTES.md'), 'must mention RELEASE_NOTES.md as part of the QA gate');
   });
 
   it('sidebar includes first-turn between quickstart and cli', () => {

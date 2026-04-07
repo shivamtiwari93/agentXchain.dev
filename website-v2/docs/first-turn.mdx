@@ -58,24 +58,29 @@ agentxchain template validate
 ## Step 2 — Assign the PM Turn
 
 ```bash
-agentxchain step --role pm
+agentxchain step
 ```
 
 **What happens:**
+- On a fresh scaffold, `step` initializes the governed run automatically
 - The orchestrator creates a dispatch bundle at `.agentxchain/dispatch/turns/<turn_id>/`
-- The bundle contains: `CONTEXT.md` (full project context), `DISPATCH.json` (role, phase, constraints), and your role prompt
-- State moves to `turn_assigned`
+- The bundle contains `ASSIGNMENT.json`, `MANIFEST.json`, `CONTEXT.md`, and `PROMPT.md`
+- Because the planning phase entry role is `pm`, the first turn is assigned to PM without needing `--role pm`
+- State moves to `active`, and `step` waits for `.agentxchain/staging/<turn_id>/turn-result.json`
 
 **What you see:**
 
 ```
-Turn assigned: turn_a1b2c3d4e5f6...
+Initialized governed run: run_e4f2...
+
+MANUAL TURN REQUIRED
 Role: pm
-Phase: planning
-Dispatch bundle: .agentxchain/dispatch/turns/turn_a1b2c3d4e5f6.../
+Turn: turn_a1b2c3d4e5f6...
+Prompt: .agentxchain/dispatch/turns/turn_a1b2c3d4e5f6.../PROMPT.md
+Result: .agentxchain/staging/turn_a1b2c3d4e5f6.../turn-result.json
 ```
 
-**What to do next:** Read the dispatch bundle. Then write your planning artifacts.
+**What to do next:** Read `PROMPT.md` and `CONTEXT.md`. `ASSIGNMENT.json` gives you the authoritative staging path and turn metadata. `MANIFEST.json` records the dispatch bundle contents.
 
 ## Step 3 — Write Planning Artifacts
 
@@ -102,7 +107,13 @@ Approved: NO
 (PM and human add final kickoff notes here.)
 ```
 
-This is the **planning gate**. It starts at `Approved: NO` on purpose — no AI agent can proceed past planning until a human flips this to `Approved: YES`.
+This is part of the **planning gate**. It starts at `Approved: NO` on purpose. The full planning gate requires three files to be ready:
+
+- `.planning/PM_SIGNOFF.md`
+- `.planning/ROADMAP.md`
+- `.planning/SYSTEM_SPEC.md`
+
+Human approval still matters, but the gate is broader than a single file.
 
 Fill in the checklist, add your scope, and change `Approved: NO` → `Approved: YES`:
 
@@ -132,7 +143,7 @@ Also update `.planning/ROADMAP.md` with your delivery phases, and `.planning/SYS
 
 ## Step 4 — Stage the PM Turn Result
 
-The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/turn-result.json`. Copy the template from the dispatch bundle and fill it in:
+The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/turn-result.json`. The exact path is written in `ASSIGNMENT.json`, and the full schema is embedded in `PROMPT.md`. Fill it in like this:
 
 ```json
 {
@@ -167,6 +178,7 @@ The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/tu
     }
   ],
   "files_changed": [],
+  "artifacts_created": [],
   "verification": {
     "status": "skipped",
     "commands": [],
@@ -174,7 +186,9 @@ The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/tu
     "machine_evidence": []
   },
   "artifact": { "type": "review", "ref": null },
-  "proposed_next_role": "dev",
+  "needs_human_reason": null,
+  "cost": { "input_tokens": 0, "output_tokens": 0, "usd": 0 },
+  "proposed_next_role": "human",
   "phase_transition_request": "implementation",
   "run_completion_request": null
 }
@@ -184,37 +198,42 @@ The orchestrator needs a structured result at `.agentxchain/staging/<turn_id>/tu
 - `objections` is **required**. Every role must challenge — blind agreement is a protocol violation.
 - `decisions` accumulate in the **decision ledger** (`.agentxchain/decision-ledger.jsonl`). They are append-only. Neither you nor any agent can delete them.
 - `phase_transition_request: "implementation"` tells the orchestrator the PM wants to advance past planning.
+- `proposed_next_role: "human"` is normal here because the run pauses for human approval before the phase can advance.
 
-## Step 5 — Accept the Turn and Open the Gate
+## Step 5 — Let `step` Accept the Turn, Then Open the Gate
 
-```bash
-agentxchain accept-turn
-```
-
-The orchestrator validates the staged result: decisions are well-formed, objections exist, and the turn contract is complete. If validation passes:
+Once the staged result file exists, the same `agentxchain step` process detects it, validates it, and accepts the turn automatically. If validation passes, you see output like:
 
 ```
-Turn accepted: turn_a1b2c3d4e5f6...
-Decisions: 2 recorded
-Objections: 1 raised
+Staged result detected.
+
+Turn Accepted
+Turn:     turn_a1b2c3d4e5f6...
+Role:     pm
+Status:   completed
+Reason:   pending_phase_transition
+Action:   agentxchain approve-transition
+Detail:   planning_signoff
 ```
 
-Now open the planning gate:
+Now approve the pending planning transition:
 
 ```bash
 agentxchain approve-transition
 ```
 
-**This is where the gate matters.** The orchestrator checks `PM_SIGNOFF.md`. If it still says `Approved: NO`, the gate fails:
+**This is where the gate matters.** The orchestrator checks the planning gate contract. If `PM_SIGNOFF.md` is still unapproved, or `ROADMAP.md` / `SYSTEM_SPEC.md` are still placeholders, the gate stays closed.
+
+When the gate passes, the CLI prints the actual phase transition:
 
 ```
-Gate failed: planning_signoff — PM_SIGNOFF.md does not contain "Approved: YES"
-```
+Approving Phase Transition
+From:  planning
+To:    implementation
+Gate:  planning_signoff
 
-If you changed it to `Approved: YES` in Step 3, the gate passes and the phase advances:
-
-```
-Phase transition: planning → implementation
+✓ Phase advanced: planning → implementation
+Next: agentxchain step
 ```
 
 Commit the orchestrator state:
@@ -226,20 +245,14 @@ git add -A && git commit -m "pm turn accepted, phase: implementation"
 ## Step 6 — Dev Turn
 
 ```bash
-agentxchain step --role dev --verbose
+agentxchain step --verbose
 ```
 
-If `dev` is bound to `local_cli` (the default), the orchestrator spawns your local coding agent with the full dispatch context. The agent implements the work, runs tests, and stages its own turn result.
+In the `cli-tool` template, `dev` is bound to `local_cli` by default, so the implementation turn is the next entry-role turn. The orchestrator spawns your local coding agent with the full dispatch context. The agent implements the work, runs tests, and stages its own turn result.
 
 If `dev` is bound to `manual`, you write the code yourself and stage the result like the PM turn.
 
-After the dev turn completes and is accepted:
-
-```bash
-agentxchain accept-turn
-```
-
-The decision ledger now has the PM's 2 decisions *plus* the dev's decisions — all append-only, all traceable.
+After the dev turn completes, `step` validates and accepts that turn too. The decision ledger now has the PM's 2 decisions *plus* the dev's decisions — all append-only, all traceable.
 
 **What the decision ledger looks like after two turns:**
 
@@ -255,10 +268,10 @@ The `implementation_complete` gate auto-evaluates — it checks that `IMPLEMENTA
 ## Step 7 — QA Turn
 
 ```bash
-agentxchain step --role qa
+agentxchain step
 ```
 
-QA reviews the dev's work against the acceptance matrix. If bound to `api_proxy`, the orchestrator sends the full context to an LLM and materializes the review under `.agentxchain/reviews/`.
+At this point the run is in the `qa` phase, so `agentxchain step` assigns the QA turn by default. In the `cli-tool` template, QA is bound to `api_proxy`, so the orchestrator sends the full context to an LLM and materializes the review under `.agentxchain/reviews/`. This requires `ANTHROPIC_API_KEY` to be set. If you want to stay fully manual, rebind QA to a manual runtime first.
 
 QA must raise at least one objection. This is not bureaucracy — it's how governed delivery catches issues that PM and dev both missed:
 
@@ -276,14 +289,13 @@ QA must raise at least one objection. This is not bureaucracy — it's how gover
 }
 ```
 
-After QA acceptance:
+After the QA turn is accepted by `step`:
 
 ```bash
-agentxchain accept-turn
 agentxchain approve-completion
 ```
 
-The `qa_ship_verdict` gate checks `.planning/ship-verdict.md`. If the verdict is `SHIP`, the run completes.
+The `qa_ship_verdict` gate checks `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, and `.planning/RELEASE_NOTES.md`, then waits for human approval. If the verdict is `SHIP`, the run completes.
 
 ## What You Have Now
 
@@ -305,9 +317,9 @@ The decision ledger is the **governance proof**. Any auditor, any future agent, 
 
 | Failure | Cause | Fix |
 |---------|-------|-----|
-| `planning_signoff` failed | `PM_SIGNOFF.md` still says `Approved: NO` | Change to `Approved: YES` after human review |
+| `planning_signoff` failed | `PM_SIGNOFF.md` is still unapproved, or `ROADMAP.md` / `SYSTEM_SPEC.md` are still placeholders | Complete all three planning files, then rerun `agentxchain approve-transition` |
 | `implementation_complete` failed | `IMPLEMENTATION_NOTES.md` is still placeholder | Fill in real `## Changes` and `## Verification` sections |
-| `qa_ship_verdict` failed | `ship-verdict.md` says `PENDING` | QA must set `## Verdict: SHIP` (or `NO SHIP` to block) |
+| `qa_ship_verdict` failed | `ship-verdict.md` still says `PENDING`, `RELEASE_NOTES.md` is missing, or acceptance evidence is incomplete | Set `## Verdict: SHIP` (or `NO SHIP` to block), finish `RELEASE_NOTES.md`, and make sure the acceptance matrix is real |
 
 ## Next Steps
 

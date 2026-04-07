@@ -8,7 +8,7 @@ Current state: **One confirmed human-only blocker remains: `HOMEBREW_TAP_TOKEN` 
 
 ## Open
 
-- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret (BLOCKING — first-time CI release cannot publish without it)** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` at: **Settings → Secrets and variables → Actions → New repository secret** on `shivamtiwari93/agentXchain.dev`. As of Turn 96, the publish workflow now blocks first-time npm publication when this secret is absent (`DEC-CI-COMPLETENESS-004`). Reruns may still pass after manual downstream repair, but unattended release completion in CI requires this secret.
+- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret (BLOCKING — first-time CI release cannot publish without it)** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` at: **Settings → Secrets and variables → Actions → New repository secret** on `shivamtiwari93/agentXchain.dev`. Fast path after creating the PAT: `printf '%s' "$NEW_PAT" | gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev`. As of Turn 96, the publish workflow now blocks first-time npm publication when this secret is absent (`DEC-CI-COMPLETENESS-004`). Reruns may still pass after manual downstream repair, but unattended release completion in CI requires this secret.
 
 ## Agent Release Instruction
 
