@@ -1151,6 +1151,177 @@ describe('dispatch bundle: QA evidence visibility', () => {
   });
 });
 
+// ─── Phase-Transition Intent Tests ──────────────────────────────────────────
+
+describe('dispatch bundle: phase-transition intent prompt', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  it('AT-PTI-001: authoritative role in non-terminal phase sees explicit next-phase instruction', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+
+    // Accept PM turn to advance
+    const pmState = readJson(root, STATE_PATH);
+    const pmResult = {
+      schema_version: '1.0',
+      run_id: pmState.run_id,
+      turn_id: pmState.current_turn.turn_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Approved.',
+      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
+    acceptGovernedTurn(root, config);
+
+    // Force to implementation phase and assign dev turn
+    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+    rawSt.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    assignGovernedTurn(root, config, 'dev');
+    const devState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, devState, config);
+
+    const promptPath = join(root, bundleDirFor(devState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // Must see explicit current-phase identification
+    assert.match(prompt, /You are in the `implementation` phase/);
+    // Must see explicit next-phase instruction
+    assert.match(prompt, /phase_transition_request: "qa"/);
+    // Must reference the exit gate
+    assert.match(prompt, /implementation_complete/);
+  });
+
+  it('AT-PTI-002: authoritative role in terminal phase sees final-phase and run_completion guidance', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+
+    // Accept PM turn
+    const pmState = readJson(root, STATE_PATH);
+    const pmResult = {
+      schema_version: '1.0',
+      run_id: pmState.run_id,
+      turn_id: pmState.current_turn.turn_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Approved.',
+      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
+    acceptGovernedTurn(root, config);
+
+    // Force to qa phase (terminal) and assign dev turn (hypothetical authoritative role in terminal phase)
+    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+    rawSt.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    // Temporarily make dev authoritative in qa phase for this test
+    assignGovernedTurn(root, config, 'dev');
+    const devState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, devState, config);
+
+    const promptPath = join(root, bundleDirFor(devState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // Must see terminal-phase identification
+    assert.match(prompt, /You are in the `qa` phase \(final phase\)/);
+    // Must see run_completion guidance
+    assert.match(prompt, /run_completion_request: true/);
+  });
+
+  it('AT-PTI-003: review_only role does NOT see authoritative phase guidance', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+
+    // Accept PM turn
+    const pmState = readJson(root, STATE_PATH);
+    const pmResult = {
+      schema_version: '1.0',
+      run_id: pmState.run_id,
+      turn_id: pmState.current_turn.turn_id,
+      role: 'pm',
+      runtime_id: 'manual-pm',
+      status: 'completed',
+      summary: 'Approved.',
+      decisions: [{ id: 'DEC-001', category: 'scope', statement: 'Go.', rationale: 'Yes.' }],
+      objections: [{ id: 'OBJ-001', severity: 'low', statement: 'None.', status: 'raised' }],
+      files_changed: [],
+      artifacts_created: [],
+      verification: { status: 'pass', commands: [], evidence_summary: 'Review.' },
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'human',
+      phase_transition_request: null,
+      cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(pmResult));
+    acceptGovernedTurn(root, config);
+
+    // Force to implementation and assign QA (review_only) turn
+    const rawSt = JSON.parse(readFileSync(join(root, STATE_PATH), 'utf8'));
+    rawSt.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(rawSt, null, 2));
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, qaState, config);
+
+    const promptPath = join(root, bundleDirFor(qaState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // review_only must NOT see "You are in the `implementation` phase" authoritative guidance
+    assert.doesNotMatch(prompt, /\*\*You are in the `implementation` phase\.\*\*/);
+  });
+
+  it('AT-PTI-004: no phase-specific instruction when routing config is absent', () => {
+    const noRoutingConfig = { ...config, routing: undefined };
+    initializeGovernedRun(root, noRoutingConfig);
+    assignGovernedTurn(root, noRoutingConfig, 'dev');
+    const devState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, devState, noRoutingConfig);
+
+    const promptPath = join(root, bundleDirFor(devState), 'PROMPT.md');
+    const prompt = readFileSync(promptPath, 'utf8');
+
+    // Must not contain phase-specific guidance
+    assert.doesNotMatch(prompt, /You are in the/);
+  });
+});
+
 describe('dispatch bundle: review context sufficiency (gate-file content)', () => {
   let root;
   let config;

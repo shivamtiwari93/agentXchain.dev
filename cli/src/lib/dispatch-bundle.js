@@ -353,6 +353,20 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   }
   lines.push('- `run_completion_request`: set to `true` only in the final phase when ready to ship, or `null`');
   lines.push('- `phase_transition_request` and `run_completion_request` are **mutually exclusive**');
+  // Phase-specific guidance for authoritative roles
+  if (role.write_authority === 'authoritative' && phaseNames.length > 0) {
+    const currentPhase = state?.phase;
+    const phaseIdx = currentPhase ? phaseNames.indexOf(currentPhase) : -1;
+    if (phaseIdx >= 0 && phaseIdx < phaseNames.length - 1) {
+      const nextPhase = phaseNames[phaseIdx + 1];
+      const currentGate = config.routing?.[currentPhase]?.exit_gate;
+      const gateClause = currentGate ? ` and the exit gate (\`${currentGate}\`) is satisfied` : '';
+      lines.push(`- **You are in the \`${currentPhase}\` phase.** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\` to advance to the next phase.`);
+    } else if (phaseIdx === phaseNames.length - 1) {
+      lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
+    }
+  }
+  // Phase-specific guidance for review_only roles (terminal phase ship readiness)
   if (role.write_authority === 'review_only' && phaseNames.length > 0) {
     const currentPhase = state?.phase;
     const isTerminal = currentPhase && phaseNames.indexOf(currentPhase) === phaseNames.length - 1;
