@@ -27,6 +27,7 @@ describe('External runner package contract', () => {
     assert.match(BUILD_DOC, /examples\/external-runner-starter/);
     assert.match(BUILD_DOC, /repo-native proof surface/i);
     assert.match(INTERFACE_DOC, /External-consumer starter/);
+    assert.match(INTERFACE_DOC, /agentxchain\/adapter-interface/);
     assert.match(SPEC, /agentxchain\/runner-interface/);
     assert.match(SPEC, /agentxchain\/run-loop/);
   });
@@ -35,6 +36,7 @@ describe('External runner package contract', () => {
     assert.ok(existsSync(join(STARTER_DIR, 'README.md')), 'starter README must exist');
     assert.ok(existsSync(join(STARTER_DIR, 'run-one-turn.mjs')), 'starter script must exist');
     assert.match(STARTER_README, /npm install agentxchain/);
+    assert.match(STARTER_README, /agentxchain\/adapter-interface/);
     assert.match(STARTER_SCRIPT, /from 'agentxchain\/runner-interface'/);
     assert.ok(
       !STARTER_SCRIPT.includes('cli/src/lib/runner-interface.js'),

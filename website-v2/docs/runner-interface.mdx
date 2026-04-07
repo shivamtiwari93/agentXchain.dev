@@ -19,6 +19,7 @@ npm install agentxchain
 
 ```js
 import { loadContext, assignTurn } from 'agentxchain/runner-interface';
+import { dispatchLocalCli } from 'agentxchain/adapter-interface';
 import { runLoop } from 'agentxchain/run-loop';
 ```
 
@@ -33,6 +34,16 @@ The runner interface is a declared ES module exported as `agentxchain/runner-int
 | `RUNNER_INTERFACE_VERSION` | `0.2` | Current versioned boundary for runner authors |
 
 Versioning is not decorative. Adding, removing, or breaking runner operations changes the interface version.
+
+## Boundary split
+
+Do not blur these surfaces:
+
+- `agentxchain/runner-interface` is the governed state-machine boundary.
+- `agentxchain/adapter-interface` is the shipped adapter-dispatch boundary.
+- `agentxchain/run-loop` is the higher-level runner composition layer.
+
+If your runner uses the first-party adapters, import them through `agentxchain/adapter-interface`. If you implement your own dispatch, you may ignore that export entirely.
 
 ## Lifecycle operations
 
@@ -89,7 +100,7 @@ loadContext/loadState
   -> approvePhaseGate or approveCompletionGate when pending
 ```
 
-Runner-specific dispatch is intentionally outside the interface. The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
+Runner-specific dispatch is intentionally outside `agentxchain/runner-interface`. The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy` through `agentxchain/adapter-interface`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
 
 ## Shipped runner proofs
 
@@ -117,6 +128,7 @@ Tiers 1–2 validate the primitive operations. Tier 3 validates that `runLoop` c
 
 If you are outside this repo, do not cargo-cult the repo-native proof imports. Use the installed-package starter in `examples/external-runner-starter/` and import from:
 
+- `agentxchain/adapter-interface` when you want the shipped adapters
 - `agentxchain/runner-interface`
 - `agentxchain/run-loop`
 
@@ -130,6 +142,6 @@ These concerns are intentionally excluded:
 - dashboard serving
 - export and report generation
 - intake workflow commands
-- adapter dispatch strategy
+- custom adapter dispatch strategy beyond the shipped `agentxchain/adapter-interface`
 
 Those are runner features or adjacent product surfaces. The runner interface is the governed execution boundary.

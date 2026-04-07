@@ -8,6 +8,24 @@ description: "Four adapters, one contract. manual, local_cli, mcp, and api_proxy
 
 Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, or a remote API — it only cares that the result conforms to the protocol.
 
+## Package export
+
+If you are building a non-CLI runner and want to reuse the shipped adapters, import them through the public package boundary:
+
+```js
+import {
+  ADAPTER_INTERFACE_VERSION,
+  dispatchLocalCli,
+  dispatchApiProxy,
+  dispatchMcp,
+  printManualDispatchInstructions,
+  waitForStagedResult,
+  readStagedResult,
+} from 'agentxchain/adapter-interface';
+```
+
+Do not import deep source paths like `cli/src/lib/adapters/local-cli-adapter.js`. That is implementation detail, not contract.
+
 ## Shared adapter contract
 
 Every adapter follows a three-phase lifecycle:

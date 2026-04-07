@@ -47,6 +47,13 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       'export function loadContext() { return null; }',
     ].join('\n'),
   );
+  writeFileSync(
+    join(cliDir, 'src', 'lib', 'adapter-interface.js'),
+    [
+      "export const ADAPTER_INTERFACE_VERSION = '0.1';",
+      'export async function dispatchLocalCli() { return { ok: true }; }',
+    ].join('\n'),
+  );
 
   writeExecutable(
     join(fakeBinDir, 'npm'),
@@ -137,10 +144,15 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       '  "name": "agentxchain",',
       '  "type": "module",',
       '  "exports": {',
+      '    "./adapter-interface": "./src/lib/adapter-interface.js",',
       '    "./runner-interface": "./src/lib/runner-interface.js",',
       '    "./run-loop": "./src/lib/run-loop.js"',
       '  }',
       '}',
+      'EOF',
+      '    cat > "node_modules/agentxchain/src/lib/adapter-interface.js" <<EOF',
+      "export const ADAPTER_INTERFACE_VERSION = '${FAKE_ADAPTER_INTERFACE_VERSION:-0.1}';",
+      'export async function dispatchLocalCli() { return { ok: true }; }',
       'EOF',
       '    cat > "node_modules/agentxchain/src/lib/runner-interface.js" <<EOF',
       "export const RUNNER_INTERFACE_VERSION = '${FAKE_RUNNER_INTERFACE_VERSION:-0.2}';",
@@ -231,6 +243,7 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /PASS: npm registry serves agentxchain@2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published runner exports import with interface 0\.2/);
+    assert.match(result.stdout, /PASS: published adapter exports import with interface 0\.1/);
     assert.match(result.stdout, /Tarball: https:\/\/registry\.npmjs\.org\/agentxchain\/-\/agentxchain-2\.0\.1\.tgz/);
     assert.match(result.stdout, /POSTFLIGHT PASSED/);
   });
@@ -249,10 +262,10 @@ describe('release-postflight.sh', () => {
     assert.equal(result.status, 1);
     assert.match(result.stdout, /\[3\/6\] Registry tarball metadata/);
     assert.match(result.stdout, /\[5\/6\] Install smoke/);
-    assert.match(result.stdout, /\[6\/6\] Runner export smoke/);
+    assert.match(result.stdout, /\[6\/6\] Package export smoke/);
     assert.match(result.stdout, /FAIL: npm registry does not serve agentxchain@2\.0\.1/);
     assert.match(result.stdout, /FAIL: published CLI install smoke failed/);
-    assert.match(result.stdout, /FAIL: published runner exports install smoke failed/);
+    assert.match(result.stdout, /FAIL: published runner\/adapter exports install smoke failed/);
     assert.match(result.stdout, /POSTFLIGHT FAILED/);
   });
 
@@ -286,6 +299,24 @@ describe('release-postflight.sh', () => {
     assert.match(
       result.stdout,
       /FAIL: published runner exports reported interface '0\.1', expected '0\.2'/,
+    );
+  });
+
+  it('fails when the published adapter exports report the wrong interface version', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      { FAKE_ADAPTER_INTERFACE_VERSION: '0.0' },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stdout,
+      /FAIL: published adapter exports reported interface '0\.0', expected '0\.1'/,
     );
   });
 

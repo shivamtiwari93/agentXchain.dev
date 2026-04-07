@@ -78,6 +78,7 @@ REGISTRY_CHECKSUM=""
 PACKAGE_NAME="$(node -e "console.log(JSON.parse(require('fs').readFileSync('package.json', 'utf8')).name)")"
 PACKAGE_BIN_NAME="$(node -e "const pkg = JSON.parse(require('fs').readFileSync('package.json', 'utf8')); if (typeof pkg.bin === 'string') { console.log(pkg.name); process.exit(0); } const names = Object.keys(pkg.bin || {}); if (names.length !== 1) { console.error('package.json bin must declare exactly one entry'); process.exit(1); } console.log(names[0]);")"
 RUNNER_INTERFACE_VERSION_EXPECTED="$(node --input-type=module -e "import('./src/lib/runner-interface.js').then((mod) => { console.log(mod.RUNNER_INTERFACE_VERSION); }).catch((error) => { console.error(error.message); process.exit(1); });")"
+ADAPTER_INTERFACE_VERSION_EXPECTED="$(node --input-type=module -e "import('./src/lib/adapter-interface.js').then((mod) => { console.log(mod.ADAPTER_INTERFACE_VERSION); }).catch((error) => { console.error(error.message); process.exit(1); });")"
 
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
@@ -178,17 +179,25 @@ EOF
 
   cat > "${consumer_root}/runner-export-smoke.mjs" <<'EOF'
 import { RUNNER_INTERFACE_VERSION, loadContext } from 'agentxchain/runner-interface';
+import { ADAPTER_INTERFACE_VERSION, dispatchLocalCli } from 'agentxchain/adapter-interface';
 import { runLoop } from 'agentxchain/run-loop';
 
 if (typeof loadContext !== 'function') {
   throw new Error('loadContext export missing');
 }
 
+if (typeof dispatchLocalCli !== 'function') {
+  throw new Error('dispatchLocalCli export missing');
+}
+
 if (typeof runLoop !== 'function') {
   throw new Error('runLoop export missing');
 }
 
-console.log(RUNNER_INTERFACE_VERSION);
+console.log(JSON.stringify({
+  runner_interface_version: RUNNER_INTERFACE_VERSION,
+  adapter_interface_version: ADAPTER_INTERFACE_VERSION
+}));
 EOF
 
   local runner_output
@@ -252,7 +261,7 @@ run_with_retry() {
 
 echo "AgentXchain v${TARGET_VERSION} Release Postflight"
 echo "====================================="
-echo "Checks release truth after publish: tag, registry visibility, metadata, CLI install smoke, and runner export smoke."
+echo "Checks release truth after publish: tag, registry visibility, metadata, CLI install smoke, and package export smoke."
 echo ""
 
 echo "[1/6] Git tag"
@@ -316,16 +325,23 @@ else
   printf '%s\n' "$EXEC_OUTPUT" | tail -20
 fi
 
-echo "[6/6] Runner export smoke"
+echo "[6/6] Package export smoke"
 if run_with_retry RUNNER_EXPORT_OUTPUT "runner export smoke" nonempty "" run_runner_export_smoke; then
-  RUNNER_EXPORT_VERSION="$(trim_last_line "$RUNNER_EXPORT_OUTPUT")"
+  RUNNER_EXPORT_JSON="$(trim_last_line "$RUNNER_EXPORT_OUTPUT")"
+  RUNNER_EXPORT_VERSION="$(printf '%s' "$RUNNER_EXPORT_JSON" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.runner_interface_version || ''); });")"
+  ADAPTER_EXPORT_VERSION="$(printf '%s' "$RUNNER_EXPORT_JSON" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.adapter_interface_version || ''); });")"
   if [[ "$RUNNER_EXPORT_VERSION" == "$RUNNER_INTERFACE_VERSION_EXPECTED" ]]; then
     pass "published runner exports import with interface ${RUNNER_INTERFACE_VERSION_EXPECTED}"
   else
     fail "published runner exports reported interface '${RUNNER_EXPORT_VERSION}', expected '${RUNNER_INTERFACE_VERSION_EXPECTED}'"
   fi
+  if [[ "$ADAPTER_EXPORT_VERSION" == "$ADAPTER_INTERFACE_VERSION_EXPECTED" ]]; then
+    pass "published adapter exports import with interface ${ADAPTER_INTERFACE_VERSION_EXPECTED}"
+  else
+    fail "published adapter exports reported interface '${ADAPTER_EXPORT_VERSION}', expected '${ADAPTER_INTERFACE_VERSION_EXPECTED}'"
+  fi
 else
-  fail "published runner exports install smoke failed"
+  fail "published runner/adapter exports install smoke failed"
   printf '%s\n' "$RUNNER_EXPORT_OUTPUT" | tail -20
 fi
 

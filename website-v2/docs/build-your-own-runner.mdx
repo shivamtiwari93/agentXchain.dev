@@ -7,7 +7,7 @@ description: "A step-by-step path for CI, hosted, or programmatic runners built 
 
 The runner interface page tells you what the boundary is. This page tells you how to use it without guessing.
 
-If you are building a CI runner, a hosted orchestrator, or an internal execution service, the rule is simple: import governed execution operations only through `agentxchain/runner-interface`. If you shell out to `agentxchain step`, you did not build a second runner. You wrapped the CLI.
+If you are building a CI runner, a hosted orchestrator, or an internal execution service, the rule is simple: import governed execution operations through `agentxchain/runner-interface`, and import first-party adapter dispatch through `agentxchain/adapter-interface` when you want the shipped adapters. If you shell out to `agentxchain step`, you did not build a second runner. You wrapped the CLI.
 
 Start with [Runner Interface](/docs/runner-interface) for the declared boundary. Come back here when you need the actual build sequence.
 
@@ -23,6 +23,7 @@ The runner interface and run-loop are published as package exports. Import them 
 
 ```js
 import { loadContext, assignTurn } from 'agentxchain/runner-interface';
+import { dispatchLocalCli } from 'agentxchain/adapter-interface';
 import { runLoop } from 'agentxchain/run-loop';
 ```
 
@@ -77,7 +78,7 @@ import {
 } from 'agentxchain/runner-interface';
 ```
 
-This is a real package export, not a path hack. Do not import `governed-state.js`, `turn-paths.js`, or other internal helpers directly. That shortcut buys you nothing except future drift.
+This is a real package export, not a path hack. Do not import `governed-state.js`, `turn-paths.js`, or adapter implementation files directly. That shortcut buys you nothing except future drift.
 
 ## Step 2: Load context and state
 
@@ -128,6 +129,21 @@ The top-level `turn` return is part of the contract. Do not rediscover it by wal
 Now the runner does its own job.
 
 Use `writeDispatchBundle(root, assignedState, config, opts?)` if your worker needs the repo-native prompt bundle. Or skip it if your hosted runner builds its own dispatch payload. Both are valid.
+
+If you want the shipped adapters instead of custom dispatch code, import them through:
+
+```js
+import {
+  dispatchLocalCli,
+  dispatchApiProxy,
+  dispatchMcp,
+  printManualDispatchInstructions,
+  waitForStagedResult,
+  readStagedResult,
+} from 'agentxchain/adapter-interface';
+```
+
+That is the public adapter boundary. Do not reach into `cli/src/lib/adapters/*`.
 
 What is not optional is the staging path:
 
@@ -218,7 +234,7 @@ The starter imports from `agentxchain/runner-interface`, scaffolds a tiny govern
 
 ## Common failure modes
 
-- Importing internal helpers directly instead of `agentxchain/runner-interface`. That is boundary violation, not engineering.
+- Importing internal helpers directly instead of `agentxchain/runner-interface` and `agentxchain/adapter-interface`. That is boundary violation, not engineering.
 - Shelling out to `agentxchain step` and calling it a hosted runner. That is still the CLI runner.
 - Writing staged results to a guessed path instead of `getTurnStagingResultPath(turn.turn_id)`.
 - Forgetting that `acceptTurn()` removes transient dispatch and staging artifacts after commit.

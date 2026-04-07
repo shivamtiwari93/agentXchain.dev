@@ -27,6 +27,10 @@ node run-one-turn.mjs --json
 
 - `agentxchain/runner-interface`
 
+If you want to reuse the shipped adapters instead of staging results yourself, import them from:
+
+- `agentxchain/adapter-interface`
+
 Then it:
 
 1. scaffolds a tiny governed repo in a temp directory

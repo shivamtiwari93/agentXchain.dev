@@ -8,6 +8,7 @@
   },
   "exports": {
     ".": "./bin/agentxchain.js",
+    "./adapter-interface": "./src/lib/adapter-interface.js",
     "./runner-interface": "./src/lib/runner-interface.js",
     "./run-loop": "./src/lib/run-loop.js"
   },
