@@ -1,13 +1,13 @@
 ---
 title: AgentXchain vs LangGraph
-description: "LangGraph is stronger for durable graph orchestration. AgentXchain is stronger for governed software delivery on a codebase."
+description: "LangGraph is stronger for durable graph orchestration, Command-based routing, and subgraphs. AgentXchain is stronger for governed software delivery on a codebase."
 ---
 
 # AgentXchain vs LangGraph
 
 ## The short answer
 
-**Choose LangGraph** if you need graph-shaped control flow, durable execution, interrupts, time-travel debugging, and long-running agent systems outside a narrow software-delivery workflow.
+**Choose LangGraph** if you need graph-shaped control flow, `Command`-driven routing, subgraphs, interrupts, parallel branches, and durable long-running agent systems outside a narrow software-delivery workflow.
 
 **Choose AgentXchain** if you need structured disagreement, human-gated phase transitions, repo-local audit trails, and governed convergence on shippable code.
 
@@ -18,15 +18,16 @@ They operate at different layers. LangGraph is stronger for runtime orchestratio
 | | LangGraph | AgentXchain |
 |---|---|---|
 | **Primary job** | Graph/state-machine orchestration | Governed software delivery |
-| **Control flow** | Developer-defined nodes and edges | Role-based turns and protocol gates |
-| **Human authority** | Interrupts and state intervention | Explicit phase and completion approvals |
-| **Observability** | Durable state plus LangSmith | Append-only local delivery ledgers |
+| **Control flow** | Developer-defined graphs with conditional edges, `Command`, parallel branches, and subgraphs | Role-based turns and protocol gates |
+| **Human authority** | Interrupts with checkpoint-backed resume and state intervention | Explicit phase and completion approvals |
+| **Observability** | Durable checkpoints, time travel, and LangSmith | Append-only local delivery ledgers |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Long-running agent apps | Auditable code convergence |
 
 ## Choose LangGraph when
 
-- You need branching graphs, loops, retries, interrupts, and durable long-running execution.
+- You need branching graphs, loops, retries, interrupts, `Command`-based routing, and durable long-running execution.
+- You want parallel branches and subgraphs as first-class graph composition tools.
 - You care more about runtime orchestration than about repo-level delivery governance.
 - You want the broader LangGraph and LangSmith ecosystem.
 - Your system is an always-on agent application, not a governed software team workflow.
@@ -40,16 +41,16 @@ They operate at different layers. LangGraph is stronger for runtime orchestratio
 
 ## A concrete workflow difference
 
-LangGraph lets you define runtime control flow directly. AgentXchain fixes the software-delivery constitution first, then routes turns through it.
+LangGraph lets you encode runtime routing directly in the graph, including state updates plus control-flow changes from the same node. AgentXchain fixes the software-delivery constitution first, then routes turns through it.
 
 ```python
-# LangGraph-style framing: define graph nodes and edges
-graph.add_node("plan", plan_agent)
-graph.add_node("implement", dev_agent)
-graph.add_node("verify", qa_agent)
-graph.add_edge("plan", "implement")
-graph.add_edge("implement", "verify")
-graph.add_edge("verify", END)
+# LangGraph-style framing: routing can return Command objects
+from langgraph.types import Command
+
+def router(state):
+    if state["needs_review"]:
+        return Command(goto="review", update={"status": "awaiting_review"})
+    return Command(goto="ship", update={"status": "ready"})
 ```
 
 ```bash
@@ -60,7 +61,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-LangGraph can absolutely support human interrupts. What it does not provide by default is a delivery constitution that forces disagreement, role ownership, and ship-gate evidence.
+LangGraph can absolutely support human interrupts, subgraphs, and parallel fan-out. What it does not provide by default is a delivery constitution that forces disagreement, role ownership, and ship-gate evidence.
 
 ## Using both together
 

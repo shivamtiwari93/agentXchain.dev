@@ -67,6 +67,8 @@ describe('comparison pages content', () => {
   it('keeps the LangGraph page honest and code-backed', () => {
     assertCommonPageContract(pages.langgraph, 'LangGraph');
     assert.match(pages.langgraph, /durable execution|time-travel|interrupts/i);
+    assert.match(pages.langgraph, /Command/i, 'LangGraph page must acknowledge Command-based routing');
+    assert.match(pages.langgraph, /subgraph|parallel/i, 'LangGraph page must acknowledge subgraphs or parallel fan-out');
     assert.match(pages.langgraph, /governed convergence|human-gated phase transitions|protocol-backed convergence/i);
   });
 
@@ -92,6 +94,7 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /\*\*LangGraph\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*OpenAI Agents SDK\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*AG2 \/ AutoGen\*\*/);
+    assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
     assert.match(POSITIONING_MATRIX, /OpenAI Swarm README/);
   });
