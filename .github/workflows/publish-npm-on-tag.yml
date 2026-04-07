@@ -73,6 +73,7 @@ jobs:
         run: bash scripts/release-postflight.sh --target-version "${RELEASE_TAG#v}"
 
       - name: Sync Homebrew formula from npm registry
+        id: homebrew
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
         working-directory: cli
         shell: bash
@@ -83,8 +84,10 @@ jobs:
           PUSH_FLAG=""
           if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
             PUSH_FLAG="--push-tap"
+            echo "tap_pushed=true" >> "$GITHUB_OUTPUT"
             echo "HOMEBREW_TAP_TOKEN available — will push to canonical tap."
           else
+            echo "tap_pushed=false" >> "$GITHUB_OUTPUT"
             echo "WARNING: HOMEBREW_TAP_TOKEN not configured — syncing repo mirror only."
             echo "The canonical tap at shivamtiwari93/homebrew-tap must be updated manually."
           fi
@@ -139,3 +142,38 @@ jobs:
           else
             echo "::warning::Could not create Homebrew mirror PR (token may lack pull_requests permission). Branch $BRANCH was pushed — create the PR manually or merge the branch."
           fi
+
+      - name: Create GitHub Release
+        if: always() && (steps.registry.outputs.already_published == 'true' || success())
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${RELEASE_TAG}"
+          if gh release view "$TAG" --json tagName -q '.tagName' >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists — skipping creation."
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag
+            echo "Created GitHub Release $TAG."
+          fi
+
+      - name: Verify release completeness
+        if: always() && (steps.registry.outputs.already_published == 'true' || success())
+        working-directory: cli
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_DOWNSTREAM_RETRY_ATTEMPTS: 6
+          RELEASE_DOWNSTREAM_RETRY_DELAY_SECONDS: 10
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.homebrew.outputs.tap_pushed }}" != "true" ]]; then
+            echo "::error::Release incomplete: HOMEBREW_TAP_TOKEN not configured. Canonical Homebrew tap at shivamtiwari93/homebrew-tap was NOT updated. Configure the secret and rerun, or sync manually."
+            exit 1
+          fi
+          echo "Canonical tap was pushed — verifying all downstream surfaces..."
+          bash scripts/release-downstream-truth.sh --target-version "${RELEASE_TAG#v}"

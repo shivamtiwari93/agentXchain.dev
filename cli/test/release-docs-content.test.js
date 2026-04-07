@@ -96,6 +96,14 @@ describe('release planning surface classification', () => {
     assert.match(workflow, /RELEASE_POSTFLIGHT_RETRY_ATTEMPTS/);
   });
 
+  it('publish workflow includes downstream truth verification as completeness gate', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(workflow, /release-downstream-truth\.sh/,
+      'publish workflow must run downstream truth as the final completeness gate');
+    assert.match(workflow, /RELEASE_DOWNSTREAM_RETRY_ATTEMPTS/,
+      'downstream truth must have retry configuration in CI');
+  });
+
   it('cli package exposes the documented postflight script alias', () => {
     const pkg = JSON.parse(read('cli/package.json'));
     assert.equal(pkg.scripts['postflight:release'], 'bash scripts/release-postflight.sh');

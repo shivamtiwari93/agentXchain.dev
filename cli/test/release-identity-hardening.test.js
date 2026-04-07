@@ -156,7 +156,7 @@ describe('Release identity hardening', () => {
 
     it('playbook mentions manual tap push when CI cannot push', () => {
       assert.ok(
-        playbook.includes('operator MUST run') &&
+        playbook.includes('operator must') &&
         playbook.includes('sync:homebrew') &&
         playbook.includes('push-tap'),
         'playbook must document the manual tap push requirement when CI cannot push',

@@ -88,13 +88,64 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
   });
 
-  it('CI workflow does not fail if HOMEBREW_TAP_TOKEN is missing (graceful)', () => {
+  it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
-    // The step should have a condition that handles missing token gracefully
     assert.match(
       workflow,
       /WARNING.*HOMEBREW_TAP_TOKEN not configured/,
-      'workflow must warn gracefully when HOMEBREW_TAP_TOKEN is not set',
+      'workflow must warn when HOMEBREW_TAP_TOKEN is not set',
+    );
+  });
+
+  it('Homebrew sync step emits tap_pushed output for downstream gate', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /tap_pushed=true.*GITHUB_OUTPUT/s,
+      'workflow must set tap_pushed=true output when token is available',
+    );
+    assert.match(
+      workflow,
+      /tap_pushed=false.*GITHUB_OUTPUT/s,
+      'workflow must set tap_pushed=false output when token is missing',
+    );
+  });
+
+  it('CI workflow creates GitHub Release after postflight', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /Create GitHub Release/,
+      'workflow must have a GitHub Release creation step',
+    );
+    assert.match(
+      workflow,
+      /gh release create/,
+      'workflow must use gh release create',
+    );
+    assert.match(
+      workflow,
+      /gh release view.*tagName.*skipping creation/s,
+      'workflow must be idempotent — skip if release already exists',
+    );
+  });
+
+  it('CI workflow has a release completeness gate as the final step', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /Verify release completeness/,
+      'workflow must have a release completeness verification step',
+    );
+    assert.match(
+      workflow,
+      /release-downstream-truth\.sh/,
+      'completeness gate must run downstream truth verification',
+    );
+    assert.match(
+      workflow,
+      /::error::Release incomplete.*HOMEBREW_TAP_TOKEN not configured/,
+      'completeness gate must hard-fail with error annotation when token is absent',
     );
   });
 

@@ -2,13 +2,13 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **One confirmed human-only blocker remains for fully hands-free Homebrew sync.** Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
+Current state: **One confirmed human-only blocker remains: `HOMEBREW_TAP_TOKEN` secret.** Without it, every future release workflow will hard-fail after npm publication (`DEC-CI-COMPLETENESS-001`). Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
 
 ---
 
 ## Open
 
-- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`. This enables CI to auto-push the canonical Homebrew tap formula after npm publish. Without it, the tap push is skipped with a warning and must be done manually.
+- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret (BLOCKING — CI will hard-fail without it)** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` at: **Settings → Secrets and variables → Actions → New repository secret** on `shivamtiwari93/agentXchain.dev`. As of Turn 95, the publish workflow now hard-fails with `::error::Release incomplete` when this secret is absent (`DEC-CI-COMPLETENESS-001`). Every future release will show a red workflow until this is configured.
 
 ## Agent Release Instruction
 

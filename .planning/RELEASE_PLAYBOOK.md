@@ -52,16 +52,17 @@ npm run postflight:release -- --target-version <semver>
 npm view "agentxchain@<semver>" version
 ```
 
-### Downstream Update (REQUIRED)
+### Downstream Update (Automated in CI)
 
-After postflight passes and npm serves the requested version:
+The publish workflow now handles all downstream surfaces automatically:
 
-1. Create the GitHub release: `gh release create v<semver> --title "v<semver>" --notes "..."`
-2. Sync Homebrew (automated): `npm run sync:homebrew -- --target-version <semver> --push-tap`
-   - This updates the repo mirror (`cli/homebrew/agentxchain.rb` + README) AND pushes to the canonical tap (`shivamtiwari93/homebrew-tap`)
-   - In CI: runs automatically after postflight if `HOMEBREW_TAP_TOKEN` secret is configured
-   - **If CI cannot push the canonical tap** (missing `HOMEBREW_TAP_TOKEN`), the operator MUST run the sync locally: `npm run sync:homebrew -- --target-version <semver> --push-tap`
-   - Without `--push-tap`: updates the repo mirror only — this is NOT sufficient for release completion
+1. **GitHub Release** — created by CI via `gh release create` (idempotent, skips if exists)
+2. **Homebrew sync** — repo mirror always updated; canonical tap pushed if `HOMEBREW_TAP_TOKEN` is configured
+3. **Completeness gate** — `release-downstream-truth.sh` runs as the final CI step
+
+**If `HOMEBREW_TAP_TOKEN` is absent**, the workflow fails with `::error::Release incomplete`. The operator must either:
+- Configure `HOMEBREW_TAP_TOKEN` as a GitHub Actions secret and rerun the workflow, OR
+- Run the sync locally: `npm run sync:homebrew -- --target-version <semver> --push-tap`
 
 ### Downstream Truth Verification (REQUIRED)
 
@@ -132,7 +133,12 @@ That push triggers `.github/workflows/publish-npm-on-tag.yml`. The workflow:
 2. re-runs strict preflight against the tag version
 3. publishes via trusted publishing by default, falling back to token auth only when configured
 4. skips republish on reruns if npm already serves the exact version
-5. runs `release-postflight.sh` before declaring success
+5. runs `release-postflight.sh` to verify the published artifact
+6. syncs Homebrew formula (repo mirror + canonical tap if `HOMEBREW_TAP_TOKEN` is configured)
+7. creates a GitHub Release via `gh release create` (idempotent — skips if already exists)
+8. runs `release-downstream-truth.sh` as the **completeness gate** — workflow fails if any downstream surface is stale
+
+**A green workflow means the release is complete across all distribution surfaces.** If `HOMEBREW_TAP_TOKEN` is absent, the workflow fails after npm publication with an explicit error annotation. This ensures a green workflow cannot be mistaken for a complete release when the canonical Homebrew tap is stale (`DEC-CI-COMPLETENESS-001`).
 
 ### 5. Postflight Truth
 
@@ -185,7 +191,7 @@ Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror mu
 | Working tree is dirty before release | Stop and clean or commit intentionally before `npm version`. |
 | `CHANGELOG.md` lacks `## <semver>` | Stop and add the release notes before bumping. |
 | `bump:release` fails | Stop. Do not create the tag manually as a workaround. Fix the issue and rerun `bump:release`. |
-| Canonical Homebrew tap is stale after CI | Operator MUST run `sync:homebrew --push-tap` locally. Release is not complete with a stale tap. |
+| Canonical Homebrew tap is stale after CI | Workflow fails with `::error::Release incomplete`. Configure `HOMEBREW_TAP_TOKEN` and rerun, or run `sync:homebrew --push-tap` locally then rerun the workflow. |
 | Strict preflight fails after version bump | Stop. Fix the issue and rerun strict preflight before pushing. |
 | Publish workflow fails before npm serves the version | Fix the workflow or script failure; do not pretend the tag means release success. |
 | Workflow rerun sees version already on npm | Treat as verification rerun; do not republish. |
