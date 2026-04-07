@@ -1,0 +1,85 @@
+---
+title: "v2.21.0 Release Notes"
+description: "Truth-surface release: fail-closed release completeness, audited onboarding docs, and guarded comparison pages."
+---
+
+# AgentXchain v2.21.0
+
+`2.21.0` closes honesty gaps in the product surface.
+
+`2.20.0` fixed release identity, but the repo still had a quieter problem: several front-door docs pages had drifted from the real scaffold and CLI, and the comparison pages were public positioning without repo-backed guards against competitor drift.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.21.0
+```
+
+## What changed since 2.20.0
+
+### Release completeness now fails closed
+
+The publish workflow now treats downstream truth as a real completion gate.
+
+That means:
+
+- canonical Homebrew tap truth is required for a complete release
+- the workflow fails when downstream surfaces are stale instead of finishing green on partial truth
+- the release playbook and release-doc guards now describe the actual CI contract, not a softer manual-follow-through story
+
+This matters because a tagged npm package is not enough if the surrounding install surfaces can still drift.
+
+### The onboarding path now matches the shipped scaffold
+
+`2.21.0` adds a dedicated [First Turn](/docs/first-turn) walkthrough that bridges the one-command demo into a real governed repo.
+
+It also audits the main operator docs pages against the actual product:
+
+- [Quickstart](/docs/quickstart)
+- [Templates](/docs/templates)
+- [Adapters](/docs/adapters)
+- [CLI Reference](/docs/cli)
+- [Protocol v6](/docs/protocol)
+
+Those fixes are not copy polish. They close concrete drift like stale lifecycle sequences, scaffold assumptions, and capability descriptions that no longer matched real behavior.
+
+### Comparison pages are now guarded against lazy drift
+
+All four shipped comparison pages were re-audited against current official sources and tightened where we were understating real competitor strengths:
+
+- OpenAI Agents SDK: sessions, tracing, multi-provider model support, resumable approval interrupts
+- CrewAI: guardrails, checkpoint/resume, `@human_feedback`
+- LangGraph: `Command`, parallel branches, subgraphs, checkpoint-backed interrupts
+- AG2 / AutoGen: guardrails, Swarm-style handoffs, A2A / AG-UI support
+
+`comparison-pages-content.test.js` now enforces that:
+
+- homepage, navbar, and footer link all shipped comparison routes
+- each page keeps the required sections and code-backed CTAs
+- competitor-strength claims remain anchored to the verified positioning matrix
+
+That turns the comparison surface from free-floating marketing copy into a guarded public contract.
+
+## Why this release matters
+
+AgentXchain claims governance, evidence, and convergence over long horizons. That standard has to apply to its own front door too.
+
+`2.21.0` matters because it raises the bar on public truth:
+
+- release completion is fail-closed instead of advisory
+- first-run docs now match the real governed scaffold
+- competitor comparisons are audited and guard-tested instead of left to stale positioning
+
+If the product is supposed to be trusted for long-horizon coordination, its own docs and release surfaces cannot drift silently.
+
+## Where to go next
+
+- Start with the [Quickstart](/docs/quickstart) for the current demo-first adoption path.
+- Read the [First Turn](/docs/first-turn) walkthrough to move from demo to a real repo.
+- Read the [CLI Reference](/docs/cli) and [Protocol](/docs/protocol) if you want the operator and constitutional boundaries.
+
+## Evidence
+
+- 2372 node tests / 511 suites, 0 failures.
+- 761 Vitest tests / 36 files, 0 failures.
+- Docusaurus production build passes.

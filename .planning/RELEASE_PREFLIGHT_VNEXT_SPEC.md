@@ -66,6 +66,13 @@ The script prints:
 4. Final summary with totals
 5. Exit code: `0` when all hard checks pass, `1` when any hard check fails
 
+For the `npm test` check, the script may derive the pass count from either:
+
+- classic `node --test` style summary lines (`# pass`, `# fail`)
+- dual-runner output where Vitest and `node:test` report separately
+
+The important invariant is that the script must not emit a blank success summary when `npm test` passes.
+
 ---
 
 ## Behavior
@@ -178,6 +185,7 @@ All v1 error cases from `RELEASE_PREFLIGHT_SPEC.md` remain unchanged.
 14. The script never executes release actions (no `npm version`, no `npm publish`, no git tag creation).
 15. `npm test` receives `AGENTXCHAIN_RELEASE_TARGET_VERSION=<target-version>` so pre-bump release-surface changes can pass without hand-editing `package.json` first.
 16. `npm test` receives `AGENTXCHAIN_RELEASE_PREFLIGHT=1` so downstream-only guards (for example Homebrew mirror sync) do not fail before publish/postflight.
+17. When `npm test` succeeds, the preflight output does not emit a blank test-count success line even if the repo uses multiple test runners.
 
 ---
 

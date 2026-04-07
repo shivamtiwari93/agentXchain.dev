@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.21.0
+
+`2.21.0` is a truth-surface release.
+
+`2.20.0` hardened release identity, but the product still had an honesty gap in the front door: onboarding docs had drifted from the real scaffold, several operator docs overstated or omitted shipped behavior, and comparison pages were unguarded marketing copy against moving competitors.
+
+### Release completeness now fails closed in CI
+
+- The publish workflow now treats downstream truth as a completion gate instead of advisory follow-through.
+- Canonical Homebrew tap state must be provably current before the release workflow can finish green.
+- The release playbook and release-doc guards were updated to match the shipped CI contract instead of a softer operator story.
+
+### The onboarding path is now audited against the real scaffold
+
+- Added `/docs/first-turn` as the bridge from `agentxchain demo` to a real governed repo.
+- Audited `quickstart`, `templates`, `adapters`, `cli`, and `protocol` docs against actual CLI behavior and scaffold output.
+- Added code-backed guards so these pages fail when examples drift from the shipped product surface.
+
+### Comparison pages are now guarded public truth surfaces
+
+- Refreshed all four shipped comparison pages against current official sources:
+  - OpenAI Agents SDK: sessions, tracing, provider-agnostic model support, resumable HITL interrupts
+  - CrewAI: task guardrails, checkpoint/resume, `@human_feedback`
+  - LangGraph: `Command`, parallel supersteps, subgraphs, checkpoint-backed interrupts
+  - AG2 / AutoGen: guardrails, Swarm-style handoffs, A2A / AG-UI support
+- Added `comparison-pages-content.test.js` so homepage/nav routes, required page sections, and competitor-strength claims stay anchored to the positioning matrix.
+
+### Evidence
+
+- 2372 node tests / 511 suites, 0 failures.
+- 761 Vitest tests / 36 files, 0 failures.
+- Docusaurus production build passes.
+
 ## 2.20.0
 
 The release path is now harder to lie about. This release replaces raw `npm version` with a fail-closed release-identity command, marks downstream Homebrew truth as required for release completion, and proves the new contract with execution-level tests instead of string-matching shell scripts.

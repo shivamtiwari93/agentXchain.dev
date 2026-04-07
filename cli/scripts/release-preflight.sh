@@ -114,8 +114,31 @@ else
 fi
 TEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# pass / { print $3 }')"
 TEST_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# fail / { print $3 }')"
+if [ -z "${TEST_PASS:-}" ]; then
+  VITEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')"
+  NODE_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ tests / { print $3; exit }')"
+  if [ -n "${VITEST_PASS:-}" ] && [ -n "${NODE_PASS:-}" ]; then
+    TEST_PASS="$((VITEST_PASS + NODE_PASS))"
+  elif [ -n "${NODE_PASS:-}" ]; then
+    TEST_PASS="${NODE_PASS}"
+  elif [ -n "${VITEST_PASS:-}" ]; then
+    TEST_PASS="${VITEST_PASS}"
+  fi
+fi
+if [ -z "${TEST_FAIL:-}" ]; then
+  NODE_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ fail / { print $3; exit }')"
+  if [ -n "${NODE_FAIL:-}" ]; then
+    TEST_FAIL="${NODE_FAIL}"
+  elif printf '%s\n' "$TEST_OUTPUT" | grep -Eq '^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed'; then
+    TEST_FAIL=0
+  fi
+fi
 if [ "$TEST_STATUS" -eq 0 ] && [ "${TEST_FAIL:-0}" = "0" ]; then
-  pass "${TEST_PASS} tests passed, 0 failures"
+  if [ -n "${TEST_PASS:-}" ]; then
+    pass "${TEST_PASS} tests passed, 0 failures"
+  else
+    pass "npm test passed, 0 failures"
+  fi
 else
   fail "npm test failed"
   printf '%s\n' "$TEST_OUTPUT" | tail -20

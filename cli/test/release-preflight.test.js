@@ -67,6 +67,12 @@ function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'] } = {}
       '      echo "# fail 1"',
       '      exit 1',
       '    fi',
+      '    if [[ "${FAKE_NPM_TEST_FORMAT:-tap}" == "dual-runner" ]]; then',
+      '      echo "      Tests  761 passed (761)"',
+      '      echo "ℹ tests 2371"',
+      '      echo "ℹ fail 0"',
+      '      exit 0',
+      '    fi',
       '    echo "# pass 9"',
       '    echo "# fail 0"',
       '    exit 0',
@@ -198,6 +204,22 @@ describe('release-preflight.sh', () => {
     );
     assert.match(result.stdout, /PASS: CHANGELOG\.md contains 1\.1\.0 entry/);
     assert.match(result.stdout, /PASS: package\.json is at 1\.1\.0/);
+    assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
+  });
+
+  it('summarizes dual-runner npm test output without losing the pass count', () => {
+    const fixture = createFixture({ version: '2.21.0', changelogVersions: ['2.21.0'] });
+    fixtures.push(fixture);
+
+    const result = runPreflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--strict', '--target-version', '2.21.0'],
+      { FAKE_NPM_TEST_FORMAT: 'dual-runner' },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS: 3132 tests passed, 0 failures/);
     assert.match(result.stdout, /Results: 6 passed, 0 failed, 0 warnings/);
   });
 
