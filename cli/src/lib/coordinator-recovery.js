@@ -21,6 +21,7 @@ import {
   readBarriers,
   recordCoordinatorDecision,
 } from './coordinator-state.js';
+import { evaluateRecoveryReport, scaffoldRecoveryReport } from './workflow-gate-semantics.js';
 import { safeWriteJson } from './safe-write.js';
 import {
   computeBarrierStatus as computeCoordinatorBarrierStatus,
@@ -416,6 +417,9 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   }
 
   saveCoordinatorState(workspacePath, updatedState);
+  if (blockedReason) {
+    scaffoldRecoveryReport(workspacePath, blockedReason);
+  }
 
   // Step 6: Append resync event to history
   appendJsonl(historyPath(workspacePath), {
@@ -458,6 +462,22 @@ export function resumeCoordinatorFromBlockedState(workspacePath, state, config) 
   }
 
   const previousBlockedReason = state.blocked_reason || 'unknown blocked reason';
+
+  // Require a recovery report before allowing resume
+  const reportResult = evaluateRecoveryReport(workspacePath);
+  if (reportResult === null) {
+    return {
+      ok: false,
+      error: 'Recovery report required before resume. Create .agentxchain/multirepo/RECOVERY_REPORT.md with ## Trigger, ## Impact, and ## Mitigation sections.',
+    };
+  }
+  if (!reportResult.ok) {
+    return {
+      ok: false,
+      error: reportResult.reason,
+    };
+  }
+
   const expectedSuperRunId = state.super_run_id;
   const resync = resyncFromRepoAuthority(workspacePath, state, config);
   const refreshedState = loadCoordinatorState(workspacePath);

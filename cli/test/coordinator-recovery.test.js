@@ -10,6 +10,7 @@ import {
   resyncFromRepoAuthority,
   resumeCoordinatorFromBlockedState,
 } from '../src/lib/coordinator-recovery.js';
+import { RECOVERY_REPORT_PATH } from '../src/lib/workflow-gate-semantics.js';
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -124,6 +125,23 @@ function setupWorkspace(configOverrides = {}) {
 
 function appendHistory(workspace, entry) {
   appendFileSync(join(workspace, '.agentxchain/multirepo/history.jsonl'), JSON.stringify(entry) + '\n');
+}
+
+function writeValidRecoveryReport(workspace) {
+  writeFileSync(join(workspace, '.agentxchain/multirepo/RECOVERY_REPORT.md'), `# Recovery Report
+
+## Trigger
+
+Hook violation detected during coordinator acceptance.
+
+## Impact
+
+Coordinator blocked. No child repo data lost.
+
+## Mitigation
+
+Operator investigated and confirmed false positive. Resuming.
+`);
 }
 
 describe('coordinator divergence detection', () => {
@@ -386,6 +404,15 @@ describe('coordinator resync from repo authority', () => {
       // Verify coordinator state is now blocked
       const finalState = loadCoordinatorState(workspace);
       assert.equal(finalState.status, 'blocked');
+
+      // Blocked resync must scaffold the recovery artifact too.
+      const reportPath = join(workspace, RECOVERY_REPORT_PATH);
+      assert.equal(existsSync(reportPath), true);
+      const reportContent = readFileSync(reportPath, 'utf8');
+      assert.match(reportContent, /## Trigger/);
+      assert.match(reportContent, /## Impact/);
+      assert.match(reportContent, /## Mitigation/);
+      assert.match(reportContent, /repo "api" is now blocked/);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
@@ -507,6 +534,7 @@ describe('coordinator blocked recovery', () => {
         blocked_reason: 'coordinator_hook_violation: tamper detected',
       };
       saveCoordinatorState(workspace, blockedState);
+      writeValidRecoveryReport(workspace);
 
       const result = resumeCoordinatorFromBlockedState(workspace, blockedState, config);
       assert.equal(result.ok, true, result.error);
@@ -544,6 +572,7 @@ describe('coordinator blocked recovery', () => {
         },
       };
       saveCoordinatorState(workspace, blockedState);
+      writeValidRecoveryReport(workspace);
 
       const result = resumeCoordinatorFromBlockedState(workspace, blockedState, config);
       assert.equal(result.ok, true, result.error);
@@ -573,6 +602,7 @@ describe('coordinator blocked recovery', () => {
         blocked_reason: 'coordinator_hook_violation: tamper detected',
       };
       saveCoordinatorState(workspace, blockedState);
+      writeValidRecoveryReport(workspace);
 
       const repoState = JSON.parse(readFileSync(join(apiRepo, '.agentxchain/state.json'), 'utf8'));
       repoState.status = 'blocked';

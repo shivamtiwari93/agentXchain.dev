@@ -110,8 +110,10 @@ The coordinator loop is explicit. The coordinator never auto-runs child repos be
    - Projects repo-local acceptance into coordinator history
    - Updates barrier state
    - Either dispatches the next repo assignment or requests a coordinator gate
-5. If the coordinator enters `blocked`, fix the cause and run `agentxchain multi resume`
-   - `multi resume` always resyncs from repo authority first
+5. If the coordinator enters `blocked`, fix the cause, fill in `.agentxchain/multirepo/RECOVERY_REPORT.md`, and run `agentxchain multi resume`
+   - The system scaffolds `RECOVERY_REPORT.md` on any blocked coordinator transition, including hook-driven blocks and ambiguous resync results
+   - Fill in `## Trigger`, `## Impact`, and `## Mitigation` with real content before resume
+   - `multi resume` validates the recovery report, then resyncs from repo authority
    - Restores the coordinator to `active` when dispatch can continue
    - Restores the coordinator to `paused` when a coherent `pending_gate` still exists
 6. When a gate is pending, run `agentxchain multi approve-gate`
@@ -264,7 +266,9 @@ Recovery follows one hard rule: repo-local governed state is authoritative. The 
 Blocked-state recovery is a separate operator action:
 
 - Use `agentxchain multi resync --dry-run` / `agentxchain multi resync` to inspect or rebuild divergence from repo truth
-- Use `agentxchain multi resume` only after the blocked cause is fixed and you want to clear coordinator `status: "blocked"`
+- When the coordinator enters `blocked`, including a resync that finds an ambiguous gate, a `RECOVERY_REPORT.md` is scaffolded in `.agentxchain/multirepo/`
+- Fill in `## Trigger`, `## Impact`, and `## Mitigation` with real content describing the incident
+- Use `agentxchain multi resume` only after the recovery report is complete and the blocked cause is fixed
 - After `multi resume`, continue with `agentxchain multi step` or `agentxchain multi approve-gate` depending on the restored status
 
 ## Intake Handoff

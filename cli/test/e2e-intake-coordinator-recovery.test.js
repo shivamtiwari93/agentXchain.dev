@@ -325,6 +325,10 @@ describe('E2E intake coordinator blocked recovery path', () => {
 
       disableBrokenHook(workspace);
 
+      // Recovery report is required before resume (DEC-RECOVERY-REPORT-001)
+      writeFileSync(join(workspace, '.agentxchain', 'multirepo', 'RECOVERY_REPORT.md'),
+        '# Recovery Report\n\n## Trigger\n\nCoordinator hook violation: tamper detection false positive.\n\n## Impact\n\nCoordinator blocked after turn acceptance. No child data lost.\n\n## Mitigation\n\nDisabled broken hook. Verified repo state integrity before resume.\n');
+
       const resumed = parseJsonResult(runCli(workspace, ['multi', 'resume', '--json']), 'multi resume');
       assert.equal(resumed.ok, true);
       assert.equal(resumed.resumed_status, 'active');

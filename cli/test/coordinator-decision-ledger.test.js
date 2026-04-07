@@ -280,6 +280,10 @@ describe('coordinator decision ledger writes', () => {
         blocked_reason: 'hook escalation',
       });
 
+      // Recovery report is required before resume (DEC-RECOVERY-REPORT-001)
+      writeFileSync(join(workspace, '.agentxchain/multirepo/RECOVERY_REPORT.md'),
+        '# Recovery Report\n\n## Trigger\n\nHook escalation detected.\n\n## Impact\n\nCoordinator blocked.\n\n## Mitigation\n\nOperator confirmed safe to resume.\n');
+
       const resume = resumeCoordinatorFromBlockedState(workspace, loadCoordinatorState(workspace), config);
       assert.equal(resume.ok, true, resume.error);
 

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const PM_SIGNOFF_PATH = '.planning/PM_SIGNOFF.md';
@@ -7,6 +7,7 @@ export const IMPLEMENTATION_NOTES_PATH = '.planning/IMPLEMENTATION_NOTES.md';
 export const ACCEPTANCE_MATRIX_PATH = '.planning/acceptance-matrix.md';
 export const SHIP_VERDICT_PATH = '.planning/ship-verdict.md';
 export const RELEASE_NOTES_PATH = '.planning/RELEASE_NOTES.md';
+export const RECOVERY_REPORT_PATH = '.agentxchain/multirepo/RECOVERY_REPORT.md';
 
 const AFFIRMATIVE_SHIP_VERDICTS = new Set(['YES', 'SHIP', 'SHIP IT']);
 const AFFIRMATIVE_ACCEPTANCE_STATUSES = new Set(['PASS', 'PASSED', 'OK', 'YES']);
@@ -233,6 +234,105 @@ function evaluateReleaseNotes(content) {
   }
 
   return { ok: true };
+}
+
+const RECOVERY_REPORT_PLACEHOLDER = /^\(Operator fills this before running multi resume\)$/i;
+
+function hasRecoveryReportSectionContent(content, sectionHeader) {
+  const lines = content.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => line.trim().startsWith(sectionHeader));
+  if (headerIndex === -1) {
+    return { found: false, hasContent: false };
+  }
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('## ')) break;
+    if (!line) continue;
+    if (RECOVERY_REPORT_PLACEHOLDER.test(line)) continue;
+    return { found: true, hasContent: true };
+  }
+
+  return { found: true, hasContent: false };
+}
+
+export function evaluateRecoveryReport(workspacePath) {
+  const content = readFile(workspacePath, RECOVERY_REPORT_PATH);
+  if (content === null) {
+    return null;
+  }
+
+  const trigger = hasRecoveryReportSectionContent(content, '## Trigger');
+  const impact = hasRecoveryReportSectionContent(content, '## Impact');
+  const mitigation = hasRecoveryReportSectionContent(content, '## Mitigation');
+
+  const missingSections = [];
+  if (!trigger.found) missingSections.push('## Trigger');
+  if (!impact.found) missingSections.push('## Impact');
+  if (!mitigation.found) missingSections.push('## Mitigation');
+
+  if (missingSections.length > 0) {
+    return {
+      ok: false,
+      reason: `Recovery report must define ${missingSections.join(' and ')} before resume.`,
+    };
+  }
+
+  const emptySections = [];
+  if (!trigger.hasContent) emptySections.push('## Trigger');
+  if (!impact.hasContent) emptySections.push('## Impact');
+  if (!mitigation.hasContent) emptySections.push('## Mitigation');
+
+  if (emptySections.length > 0) {
+    return {
+      ok: false,
+      reason: `Recovery report sections still contain placeholder text: ${emptySections.join(', ')}. Replace placeholder content before running multi resume.`,
+    };
+  }
+
+  return { ok: true };
+}
+
+export function scaffoldRecoveryReport(workspacePath, blockedReason) {
+  const absPath = join(workspacePath, RECOVERY_REPORT_PATH);
+  if (existsSync(absPath)) {
+    return false;
+  }
+
+  const reasonText = typeof blockedReason === 'string'
+    ? blockedReason
+    : JSON.stringify(blockedReason) || 'unknown';
+
+  const content = `# Recovery Report
+
+Coordinator entered blocked state. Fill in the sections below before running \`agentxchain multi resume\`.
+
+**Blocked reason:** ${reasonText}
+**Blocked at:** ${new Date().toISOString()}
+
+## Trigger
+
+(Operator fills this before running multi resume)
+
+## Impact
+
+(Operator fills this before running multi resume)
+
+## Mitigation
+
+(Operator fills this before running multi resume)
+
+## Owner
+
+(Optional: who performed the recovery)
+
+## Exit Condition
+
+(Optional: what must remain true after recovery)
+`;
+
+  writeFileSync(absPath, content);
+  return true;
 }
 
 function evaluateShipVerdict(content) {

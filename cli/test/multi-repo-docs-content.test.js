@@ -72,6 +72,14 @@ describe('Multi-repo docs content', () => {
     assert.match(PAGE, /multi step|multi approve-gate/i);
   });
 
+  it('documents recovery report requirement for multi resume', () => {
+    assert.match(PAGE, /RECOVERY_REPORT\.md/);
+    assert.match(PAGE, /## Trigger/);
+    assert.match(PAGE, /## Impact/);
+    assert.match(PAGE, /## Mitigation/);
+    assert.match(PAGE, /ambiguous resync results|resync that finds an ambiguous gate/i);
+  });
+
   it('documents the shipped barrier types', () => {
     for (const barrierType of [
       'all_repos_accepted',

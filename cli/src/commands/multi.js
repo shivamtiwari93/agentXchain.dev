@@ -40,6 +40,7 @@ import {
   buildEscalationPayload,
 } from '../lib/coordinator-hooks.js';
 import { computeContextInvalidations } from '../lib/cross-repo-context.js';
+import { scaffoldRecoveryReport } from '../lib/workflow-gate-semantics.js';
 
 // ── multi init ─────────────────────────────────────────────────────────────
 
@@ -601,5 +602,6 @@ function blockCoordinator(workspacePath, state, blockedReason) {
     blocked_reason: blockedReason,
   };
   saveCoordinatorState(workspacePath, blockedState);
+  scaffoldRecoveryReport(workspacePath, blockedReason);
   return blockedState;
 }
