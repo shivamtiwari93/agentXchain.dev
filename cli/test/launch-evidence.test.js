@@ -52,6 +52,14 @@ describe('Launch evidence report', () => {
     assert.doesNotMatch(report, /v1\.0\.0 published to npm/i);
     assert.match(report, /v2\.0\.1 published to npm/i);
   });
+
+  it('records terminal qa review as proven live and keeps approve-completion unproven', () => {
+    assert.match(report, /final-phase QA review and gate-file preview behavior now proven live/i);
+    assert.match(report, /turn_8fa2ffe2abc2f3b0/);
+    assert.match(report, /Live `approve-completion` is proven/i);
+    assert.match(report, /used `status: "needs_human"` instead of `run_completion_request: true`/i);
+    assert.doesNotMatch(report, /Final-phase QA review is proven live" \| The current live evidence still never entered the final `qa` phase/i);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {

@@ -42,7 +42,7 @@
 - **Date**: 2026-04-01 initial run, 2026-04-07 rerun
 - **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
 - **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`, `run_91f4ba5d54707a7e`
-- **Result**: live connector proof confirmed; three QA output-contract drift classes closed; full completion still partial because live dev turns still fail to request the implementation -> qa phase transition reliably
+- **Result**: live connector proof confirmed; final-phase QA review and gate-file preview behavior now proven live; full completion still partial because terminal QA did not express ship readiness via `run_completion_request: true`
 - **What it proves**:
   - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
   - `local_cli` dev turn completed against live Claude Code in the rerun (`turn_555bf457840b6268`)
@@ -64,12 +64,21 @@
     - payload still contained explicit forward-progress intent (`phase_transition_request: "qa"`)
     - after the status-omission normalization patch, the same staged result was accepted without manual JSON edits
   - A follow-up live dev turn (`turn_1b22674c77374e55`) closed the specific QA objections around duplicate-ID risk, cwd-relative storage, and missing negative-case machine evidence, raising the verifier from `24/24` to `28/28`
+  - A later retained live dev verification turn (`turn_34b01846000101a2`) proved implementation -> qa transition intent live after the phase-aware prompt fix:
+    - re-ran verification with `28/28` passing assertions
+    - explicitly requested `phase_transition_request: "qa"`
+    - advanced governed state to `phase: "qa"` with `implementation_complete: "passed"`
+  - The final-phase QA turn in that same run (`turn_8fa2ffe2abc2f3b0`) proved terminal review-context sufficiency live:
+    - accepted in the real `qa` phase
+    - correctly identified that `.planning/acceptance-matrix.md` still cited `24 passed`
+    - correctly identified that `.planning/RELEASE_NOTES.md` still cited `24 passed`
+    - these objections only exist if gate-file previews were actually visible in `CONTEXT.md`
 - **What it does NOT prove**:
   - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
   - Full machine-verifiable stdout/stderr proof for the dev test run
   - Independent QA execution of the dev test suite from the `api_proxy` runtime
-  - Final-phase `qa` review semantics in a live run, because the implementation -> qa phase transition was omitted by live dev output twice and the run remained in `implementation`
+  - Live `pending_run_completion` / `approve-completion` path from a terminal QA turn, because the accepted final-phase QA output used `status: "needs_human"` instead of `run_completion_request: true`
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -149,7 +158,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
 | "Full live end-to-end proof" or "all adapters proven live" | E2 now proves manual + `local_cli` + `api_proxy` live in one governed run, but MCP is still not part of that proof and the run did not reach final completion. | Complete a governed run through `approve-completion` and separately add live MCP proof if that claim is desired. |
-| "Final-phase QA review is proven live" | The current live evidence still never entered the final `qa` phase; repeated live dev turns omitted `phase_transition_request: \"qa\"` and the run stayed in `implementation`. | Ship and prove a fix for reliable implementation -> qa phase-transition intent, then rerun the final QA phase live. |
+| "Live `approve-completion` is proven" or "full live run completion" | E2 now proves final-phase QA review live, but the accepted terminal QA turn still used `status: "needs_human"` instead of `run_completion_request: true`, so `pending_run_completion` and `approve-completion` were not exercised live. | Complete a live run where terminal QA requests completion and a human closes it via `approve-completion`. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
@@ -163,7 +172,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
 | Full governed run through `approve-completion` | Unlocks "full lifecycle proven" claim | Complete a run to ship decision |
-| Reliable live implementation -> qa phase transition | Unlocks truthful proof of final-phase QA review and gate-file preview behavior | Fix or harden phase-transition intent from live dev output, then rerun |
 | Live MCP adapter dogfood | Unlocks a truthful "all four adapters proven live" claim | Run a governed turn through the MCP adapter against a real server |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |

@@ -114,16 +114,35 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
        - corrupt-JSON and non-array-JSON paths are covered by machine-evidenced tests
        - `todo.js` is executable
        - `node test.js` now passes `28/28`
-   - Remaining blocker:
+   - Remaining blocker at that point:
      - the run still did **not** advance into the `qa` phase because both live dev turns omitted `phase_transition_request: "qa"` even after satisfying the implementation gate
-     - this means the final-phase QA gate-file preview contract is still not exercised in a live run; the system remained in `implementation`
+     - this meant the final-phase QA gate-file preview contract was still unproven live
 
-5. Final governed state after acceptance:
+10. Phase-aware prompt guidance closed the implementation -> qa gap and exercised final-phase QA review live.
+   - Same workspace retained: `/tmp/agentxchain-live-turn78-Nk27zX`
+   - Run: `run_91f4ba5d54707a7e`
+   - Clean-baseline commit before rerun: `adfb6bd` (`Accept retained live rerun implementation fixes`)
+   - Verification-only dev turn: `turn_34b01846000101a2`
+   - Final-phase QA turn: `turn_8fa2ffe2abc2f3b0`
+   - Result:
+     - after the prompt change, a fresh live `dev` turn re-ran `node test.js`, repeated the cross-directory check, and explicitly requested `phase_transition_request: "qa"`
+     - governed state advanced to `phase: "qa"` with `implementation_complete: "passed"`
+     - the live terminal-phase `api_proxy` QA turn accepted as `needs_human`
+     - the accepted QA review explicitly cited stale `24 passed` evidence in both `.planning/acceptance-matrix.md` and `.planning/RELEASE_NOTES.md`, which proves the gate-file previews were visible in final-phase `CONTEXT.md`
+     - the QA review also confirmed:
+       - all five acceptance criteria are documented as passing
+       - `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, and `.planning/RELEASE_NOTES.md` are present and substantive
+       - ship verdict remains YES with no open blockers for the scoped MVP
+   - New blocker exposed:
+     - terminal-phase QA still chose `status: "needs_human"` instead of `run_completion_request: true`
+     - this means final-phase review semantics are now proven live, but the `pending_run_completion` -> `approve-completion` path is still not proven live
+
+11. Final governed state after acceptance:
    - `status`: `blocked`
-   - `blocked_on`: `needs_human`
+   - `blocked_on`: `human:The qa_ship_verdict gate explicitly requires human approval. QA review is complete with a YES ship verdict, but the gate cannot be closed autonomously. Human must review and approve to finalize the run.`
    - `phase`: `qa`
-   - `last_completed_turn_id`: `turn_7e47fb1e5dc27e56`
-   - `accepted_integration_ref`: `git:c40afcee986e830f96f8a49d23b9e0eb69f39994`
+   - `last_completed_turn_id`: `turn_8fa2ffe2abc2f3b0`
+   - `accepted_integration_ref`: `git:adfb6bd79173c2ff91c0856fd6a9b490db978e12`
 
 ## What This Rerun Proves
 
@@ -136,6 +155,11 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - The product now tells the truth that `api_proxy` review turns do not directly author `.planning/*` gate files.
 - A retained live `api_proxy` QA turn can now recover from a missing top-level `status` field when the payload already contains an unambiguous `phase_transition_request` or `run_completion_request`.
 - A follow-up live dev turn can resolve the concrete QA objections around ID assignment, cwd-relative storage, and missing negative-case machine evidence.
+- A later live dev verification turn can now advance the run from `implementation` to `qa` by explicitly setting `phase_transition_request: "qa"` after satisfying `implementation_complete`.
+- Final-phase (`qa`) gate-file preview semantics are now proven live:
+  - the terminal QA review referenced stale `24 passed` text from `.planning/acceptance-matrix.md`
+  - the same review referenced stale `24 passed` text from `.planning/RELEASE_NOTES.md`
+  - those objections only exist if the gate-file contents were actually surfaced in `CONTEXT.md`
 
 ## What This Rerun Does Not Prove
 
@@ -143,7 +167,7 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - Live MCP adapter execution
 - Full machine-verifiable stdout/stderr proof for the dev test run
 - Independent QA execution of the dev test suite from the `api_proxy` runtime
-- Final-phase (`qa`) gate-file preview semantics in a live run, because repeated live dev turns failed to request the implementation -> qa phase transition
+- Live `pending_run_completion` entry and `approve-completion` execution from a terminal QA turn, because the accepted final-phase QA output used `status: "needs_human"` instead of `run_completion_request: true`
 
 ## Judgment
 
@@ -155,7 +179,9 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - Live QA model-output reliability: **confirmed for the two previously failing defect classes**
 - Review-artifact truth for `api_proxy` QA: **confirmed**
 - Missing-status recovery for coherent `api_proxy` review payloads: **confirmed**
-- Live implementation -> qa phase transition intent from dev output: **not confirmed**
+- Live implementation -> qa phase transition intent from dev output: **confirmed**
+- Final-phase (`qa`) gate-file preview semantics in live review context: **confirmed**
+- Live `approve-completion` path from terminal QA output: **not confirmed**
 
 Reason:
 
@@ -163,5 +189,6 @@ Reason:
 - The prompt-hardening rerun proved the implementation turn can now complete cleanly with a truthful zero-exit verifier.
 - A later QA-only rerun confirmed that those two previously failing `api_proxy` defects are now handled: the accepted turn neither drifted `artifacts_created[]` nor used the exit gate as a phase name, and the review artifact was actually materialized on disk.
 - A later retained-QA rerun confirmed that a third `api_proxy` output defect is now handled narrowly and truthfully: when the provider omits top-level `status` but still supplies an explicit forward-progress signal (`phase_transition_request` or `run_completion_request`), the acceptance boundary recovers that intent without manual JSON editing.
-- The next live blocker is no longer QA context visibility. It is repeated dev-turn omission of `phase_transition_request: "qa"` even after implementation gate requirements are satisfied, which prevents the system from entering the final `qa` phase and exercising ship-readiness review there.
-- The remaining blocker is no longer QA output-contract drift. It is normal review posture for a non-executing QA runtime: independent test execution and gate-file-content visibility still require human or CI confirmation.
+- A final retained dev verification turn then proved the implementation -> qa transition path live: the accepted turn set `phase_transition_request: "qa"` and the governed state advanced to `phase: "qa"` with `implementation_complete: "passed"`.
+- The subsequent final-phase QA turn proved the review-context fix where it matters most: the accepted objections quoted stale `24 passed` evidence in `.planning/acceptance-matrix.md` and `.planning/RELEASE_NOTES.md`, which only appears if gate-file previews are present in terminal-phase `CONTEXT.md`.
+- The remaining blocker is narrower now. It is no longer terminal QA visibility. It is terminal QA completion signaling: the live review chose `needs_human` instead of `run_completion_request: true`, so the `pending_run_completion` / `approve-completion` path is still unproven.
