@@ -16,6 +16,7 @@ const {
   getTurnStagingResultPath,
   RUNNER_INTERFACE_VERSION,
 } = await import(join(cliRoot, 'src', 'lib', 'runner-interface.js'));
+const { gitInit } = await import(join(cliRoot, 'test-support', 'git-test-helpers.js'));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,7 +126,7 @@ function scaffoldProject(root, config) {
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
   writeFileSync(join(root, 'TALK.md'), '# Talk\n');
   // Initialize git repo so repo-observer can detect file changes
-  execSync('git init && git add -A && git commit -m "scaffold"', { cwd: root, stdio: 'ignore' });
+  gitInit(root);
 }
 
 function makeTurnResult(turn, state, { summary, proposedNextRole, phaseTransitionRequest = null, runCompletionRequest = null, filesChanged = [], artifactType = 'workspace' }) {
