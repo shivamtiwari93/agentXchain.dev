@@ -1,7 +1,7 @@
 # Competitive Positioning Matrix
 
 > Honest comparison baseline for launch copy, README claims, and Show HN replies.
-> Last verified against official docs: 2026-04-02T16:40Z (Turn 17 source audit). OpenAI Agents SDK row refreshed on 2026-04-07T19:25Z against the official README plus HITL / multi-provider docs. CrewAI row refreshed on 2026-04-07T22:00Z: added guardrails, checkpoint/resume (v1.14+), `@human_feedback` decorators, A2A protocol support. LangGraph row refreshed on 2026-04-07T19:38Z: added `Command` routing, parallel supersteps, and subgraph composition.
+> Last verified against official docs: 2026-04-02T16:40Z (Turn 17 source audit). OpenAI Agents SDK row refreshed on 2026-04-07T19:25Z against the official README plus HITL / multi-provider docs. CrewAI row refreshed on 2026-04-07T22:00Z: added guardrails, checkpoint/resume (v1.14+), `@human_feedback` decorators, A2A protocol support. LangGraph row refreshed on 2026-04-07T19:38Z: added `Command` routing, parallel supersteps, and subgraph composition. AG2 row refreshed on 2026-04-07T23:30Z: comparison page now acknowledges guardrails, Swarm-style handoffs, and A2A/AG-UI protocol support that were already in the matrix but missing from the public page.
 
 ---
 

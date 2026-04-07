@@ -87,6 +87,10 @@ describe('comparison pages content', () => {
     assert.match(pages.autogen, /AG2/i);
     assert.match(pages.autogen, /AutoPattern|RoundRobinPattern|ManualPattern|human_input_mode/i);
     assert.match(pages.autogen, /governed software delivery|auditable code convergence/i);
+    // AG2 has guardrails and A2A/AG-UI — page must acknowledge them
+    assert.match(pages.autogen, /guardrail/i, 'AG2 page must acknowledge guardrails');
+    assert.match(pages.autogen, /A2A|AG-UI/i, 'AG2 page must acknowledge A2A or AG-UI protocol support');
+    assert.match(pages.autogen, /[Ss]warm/i, 'AG2 page must acknowledge Swarm-style orchestration');
   });
 
   it('anchors public comparison claims to the competitive positioning matrix', () => {

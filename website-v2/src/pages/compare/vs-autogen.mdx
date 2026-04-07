@@ -7,7 +7,7 @@ description: "AG2 / AutoGen is stronger for conversational orchestration pattern
 
 ## The short answer
 
-**Choose AG2 / AutoGen** if you need conversation-oriented orchestration patterns, handoffs, guardrails, user agents, and flexible speaker-selection strategies across a broad agent system.
+**Choose AG2 / AutoGen** if you need conversation-oriented orchestration patterns, handoffs, guardrails, Swarm-style orchestration, user agents, and flexible speaker-selection strategies across a broad agent system. AG2 also supports A2A and AG-UI protocols for cross-system agent interoperability.
 
 **Choose AgentXchain** if you need governed software delivery: mandatory challenge, explicit phase gates, append-only decision history, and constitutional human authority over a repository workflow.
 
@@ -18,18 +18,20 @@ AutoGen is also a branding trap if you compare it lazily. The current project is
 | | AG2 / AutoGen | AgentXchain |
 |---|---|---|
 | **Primary job** | Multi-agent conversation and orchestration patterns | Governed software delivery |
-| **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, custom routing | Role-based turns and governed phases |
+| **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, Swarm-style handoffs, custom routing | Role-based turns and governed phases |
+| **Quality controls** | Guardrails on agent outputs; no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
 | **Human involvement** | `human_input_mode`, user agents, manual speaker selection | Phase-transition and run-completion gates |
-| **Audit surface** | Conversation history and integrations | Append-only decision and objection ledgers |
-| **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
+| **Interoperability** | A2A and AG-UI protocol support | Connector-based (manual, local CLI, API proxy) |
+| **Audit surface** | Conversation history and observability integrations | Append-only decision and objection ledgers |
 | **Best fit** | Flexible agent conversations and workflows | Auditable code convergence |
 
 ## Choose AG2 / AutoGen when
 
 - You need flexible multi-agent conversation patterns out of the box.
 - You want richer built-in speaker-selection strategies than AgentXchain's governed runner surface.
+- You need guardrails on agent outputs or Swarm-style handoff orchestration.
+- You want cross-system agent interoperability via A2A or AG-UI protocols.
 - Your problem is broader agent coordination, not governed code delivery.
-- You need user-agent participation or conversational orchestration beyond one repository workflow.
 
 ## Choose AgentXchain when
 
@@ -59,7 +61,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-AG2 can include humans and manual control. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
+AG2 can include humans and manual control, and provides guardrails on agent outputs and Swarm-style handoffs for flexible coordination. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
 
 ## Using both together
 
