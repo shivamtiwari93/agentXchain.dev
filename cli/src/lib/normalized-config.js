@@ -389,11 +389,11 @@ export function validateV4Config(data, projectRoot) {
           errors.push(`Role "${id}" is review_only but uses local_cli runtime "${role.runtime}" — review_only roles should not have authoritative write access`);
         }
       }
-      // v1 api_proxy restriction: only review_only roles may bind to api_proxy runtimes (Session #19 freeze)
+      // api_proxy restriction: only review_only and proposed roles may bind to api_proxy runtimes
       if (role.runtime && data.runtimes[role.runtime]) {
         const rt = data.runtimes[role.runtime];
-        if (rt.type === 'api_proxy' && role.write_authority !== 'review_only') {
-          errors.push(`Role "${id}" has write_authority "${role.write_authority}" but uses api_proxy runtime "${role.runtime}" — v1 api_proxy only supports review_only roles`);
+        if (rt.type === 'api_proxy' && role.write_authority !== 'review_only' && role.write_authority !== 'proposed') {
+          errors.push(`Role "${id}" has write_authority "${role.write_authority}" but uses api_proxy runtime "${role.runtime}" — api_proxy only supports review_only and proposed roles`);
         }
       }
     }

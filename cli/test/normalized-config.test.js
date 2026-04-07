@@ -886,16 +886,15 @@ describe('validateV4Config — api_proxy validation', () => {
     assert.ok(result.errors.some(e => e.includes('auth_env')));
   });
 
-  it('rejects api_proxy bound to authoritative role in v1', () => {
+  it('rejects api_proxy bound to authoritative role', () => {
     const result = validateV4Config(baseConfig({}, { write_authority: 'authoritative' }));
     assert.equal(result.ok, false);
-    assert.ok(result.errors.some(e => e.includes('v1 api_proxy only supports review_only')));
+    assert.ok(result.errors.some(e => e.includes('api_proxy only supports review_only and proposed')));
   });
 
-  it('rejects api_proxy bound to proposed role in v1', () => {
+  it('accepts api_proxy bound to proposed role', () => {
     const result = validateV4Config(baseConfig({}, { write_authority: 'proposed' }));
-    assert.equal(result.ok, false);
-    assert.ok(result.errors.some(e => e.includes('v1 api_proxy only supports review_only')));
+    assert.equal(result.ok, true, `Expected ok but got errors: ${result.errors?.join('; ')}`);
   });
 
   it('rejects non-string api_proxy base_url', () => {

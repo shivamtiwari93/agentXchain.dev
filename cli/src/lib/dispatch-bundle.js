@@ -229,6 +229,21 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
     lines.push('- You may propose changes as patches but cannot directly commit.');
     lines.push('- Your artifact type should be `patch`.');
+    if (runtimeType === 'api_proxy') {
+      lines.push('- **This runtime cannot write repo files directly.** You MUST return proposed changes as structured JSON.');
+      lines.push('- Include a `proposed_changes` array in your turn result with each file change:');
+      lines.push('  ```json');
+      lines.push('  "proposed_changes": [');
+      lines.push('    { "path": "src/lib/foo.js", "action": "create", "content": "// full file..." },');
+      lines.push('    { "path": "src/lib/bar.js", "action": "modify", "content": "// full new content..." },');
+      lines.push('    { "path": "src/old.js", "action": "delete" }');
+      lines.push('  ]');
+      lines.push('  ```');
+      lines.push('- Valid actions: `create` (new file), `modify` (replace content), `delete` (remove file).');
+      lines.push('- `content` is required for `create` and `modify` actions.');
+      lines.push('- The orchestrator will materialize your proposal to `.agentxchain/proposed/<turn_id>/` for review.');
+      lines.push('- List all proposed file paths in `files_changed`.');
+    }
     lines.push('');
   }
 

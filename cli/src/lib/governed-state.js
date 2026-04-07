@@ -155,6 +155,58 @@ function materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, 
   return reviewPath;
 }
 
+function materializeDerivedProposalArtifact(root, turnResult, state, runtimeType) {
+  if (turnResult?.artifact?.type !== 'patch' || runtimeType !== 'api_proxy') {
+    return null;
+  }
+  if (!Array.isArray(turnResult.proposed_changes) || turnResult.proposed_changes.length === 0) {
+    return null;
+  }
+
+  const proposalDir = `.agentxchain/proposed/${turnResult.turn_id}`;
+  const absProposalDir = join(root, proposalDir);
+  mkdirSync(absProposalDir, { recursive: true });
+
+  // Write PROPOSAL.md summary
+  const summaryLines = [
+    `# Proposed Changes — ${turnResult.turn_id}`,
+    '',
+    `**Role:** ${turnResult.role}`,
+    `**Runtime:** ${turnResult.runtime_id}`,
+    `**Status:** ${turnResult.status}`,
+    '',
+    `## Summary`,
+    '',
+    turnResult.summary || '(no summary)',
+    '',
+    `## Files`,
+    '',
+  ];
+  for (const change of turnResult.proposed_changes) {
+    summaryLines.push(`- \`${change.path}\` — ${change.action}`);
+  }
+  if (turnResult.decisions?.length > 0) {
+    summaryLines.push('', '## Decisions', '');
+    for (const dec of turnResult.decisions) {
+      summaryLines.push(`- **${dec.id}** (${dec.category}): ${dec.statement}`);
+    }
+  }
+  summaryLines.push('');
+  writeFileSync(join(absProposalDir, 'PROPOSAL.md'), summaryLines.join('\n'));
+
+  // Materialize each proposed file (create/modify only; delete just listed)
+  for (const change of turnResult.proposed_changes) {
+    if (change.action === 'delete') continue;
+    if (typeof change.content !== 'string') continue;
+    const absFilePath = join(absProposalDir, change.path);
+    mkdirSync(dirname(absFilePath), { recursive: true });
+    writeFileSync(absFilePath, change.content);
+  }
+
+  turnResult.artifact = { ...(turnResult.artifact || {}), ref: proposalDir };
+  return proposalDir;
+}
+
 function normalizeActiveTurns(activeTurns) {
   if (!activeTurns || typeof activeTurns !== 'object' || Array.isArray(activeTurns)) {
     return {};
@@ -1912,6 +1964,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const runtime = config.runtimes?.[runtimeId];
   const runtimeType = runtime?.type || 'manual';
   materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, baseline);
+  materializeDerivedProposalArtifact(root, turnResult, state, runtimeType);
   const writeAuthority = role?.write_authority || 'review_only';
   const diffComparison = compareDeclaredVsObserved(
     turnResult.files_changed || [],

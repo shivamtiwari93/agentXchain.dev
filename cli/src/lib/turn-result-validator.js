@@ -386,6 +386,38 @@ function validateArtifact(tr, config) {
     warnings.push('Authoritative role completed with no files_changed — is this intentional?');
   }
 
+  // Validate proposed_changes for proposed + api_proxy turns
+  const runtimeType = config.runtimes?.[tr.runtime_id]?.type;
+  if (writeAuthority === 'proposed' && runtimeType === 'api_proxy') {
+    if (tr.status === 'completed' && (!tr.proposed_changes || tr.proposed_changes.length === 0)) {
+      errors.push('Proposed api_proxy turn completed but proposed_changes is empty or missing.');
+    }
+  }
+  if (tr.proposed_changes && Array.isArray(tr.proposed_changes)) {
+    if (writeAuthority === 'review_only') {
+      warnings.push('Turn result contains proposed_changes but role has review_only write authority — proposed_changes will be ignored.');
+    }
+    for (let i = 0; i < tr.proposed_changes.length; i++) {
+      const change = tr.proposed_changes[i];
+      if (!change || typeof change !== 'object') {
+        errors.push(`proposed_changes[${i}]: must be an object.`);
+        continue;
+      }
+      if (!change.path || typeof change.path !== 'string') {
+        errors.push(`proposed_changes[${i}]: missing or invalid "path".`);
+      }
+      if (!['create', 'modify', 'delete'].includes(change.action)) {
+        errors.push(`proposed_changes[${i}]: action must be "create", "modify", or "delete" (got "${change.action}").`);
+      }
+      if ((change.action === 'create' || change.action === 'modify') && (change.content == null || typeof change.content !== 'string')) {
+        errors.push(`proposed_changes[${i}]: content is required for "${change.action}" action.`);
+      }
+      if (change.path && RESERVED_PATHS.includes(change.path)) {
+        errors.push(`proposed_changes[${i}]: cannot propose changes to reserved path "${change.path}".`);
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 

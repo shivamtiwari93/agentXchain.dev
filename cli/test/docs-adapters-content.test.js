@@ -232,22 +232,27 @@ describe('Adapter docs contract', () => {
     });
   });
 
-  describe('api_proxy v1 restriction', () => {
-    it('code enforces review_only for api_proxy', () => {
-      assert.match(normalizedConfigSource, /api_proxy.*review_only|review_only.*api_proxy/,
-        'normalized-config.js must enforce review_only restriction for api_proxy');
+  describe('api_proxy write authority restriction', () => {
+    it('code enforces write authority for api_proxy', () => {
+      assert.match(normalizedConfigSource, /api_proxy.*review_only.*proposed|api_proxy.*only supports review_only and proposed/,
+        'normalized-config.js must enforce review_only and proposed restriction for api_proxy');
     });
 
-    it('docs document the review_only restriction', () => {
-      assert.match(adapterDocs, /review_only.*api_proxy|api_proxy.*review_only/i,
-        'adapters.mdx must document that api_proxy is restricted to review_only roles');
+    it('docs document the write authority support', () => {
+      assert.match(adapterDocs, /review_only.*proposed|proposed.*review_only/i,
+        'adapters.mdx must document that api_proxy supports review_only and proposed roles');
     });
 
-    it('docs say api_proxy review turns do not write QA planning files directly', () => {
-      assert.match(adapterDocs, /cannot directly author .*acceptance-matrix|does not patch your planning docs/i,
-        'adapters.mdx must explain that api_proxy does not write QA planning files directly');
+    it('docs say api_proxy turns do not write QA planning files directly', () => {
+      assert.match(adapterDocs, /cannot directly author|not applied automatically/i,
+        'adapters.mdx must explain that api_proxy does not write planning files directly');
       assert.match(adapterDocs, /\.agentxchain\/reviews\//,
         'adapters.mdx must mention the orchestrator-materialized review artifact path');
+    });
+
+    it('docs mention proposed changes materialization path', () => {
+      assert.match(adapterDocs, /\.agentxchain\/proposed\//,
+        'adapters.mdx must mention the proposed changes materialization path');
     });
   });
 
@@ -406,9 +411,9 @@ describe('Adapter docs contract', () => {
         'comparison table must list correct prompt transport modes for local_cli');
     });
 
-    it('comparison table documents review_only constraint for api_proxy', () => {
-      assert.match(adapterDocs, /review_only.*only/i,
-        'comparison table must note the review_only constraint for api_proxy');
+    it('comparison table documents write authority constraint for api_proxy', () => {
+      assert.match(adapterDocs, /review_only.*proposed.*only/i,
+        'comparison table must note the write authority constraint for api_proxy');
     });
 
     it('comparison table states 10s grace period', () => {

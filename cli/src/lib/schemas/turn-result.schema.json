@@ -193,6 +193,34 @@
       "type": ["string", "null"],
       "description": "If status is needs_human, explain why."
     },
+    "proposed_changes": {
+      "type": "array",
+      "description": "Structured file proposals for proposed write authority turns via api_proxy. Orchestrator materializes these to .agentxchain/proposed/<turn_id>/.",
+      "items": {
+        "type": "object",
+        "required": ["path", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative file path for the proposed change."
+          },
+          "action": {
+            "enum": ["create", "modify", "delete"],
+            "description": "Type of file change being proposed."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full file content for create/modify actions. Required for create and modify, ignored for delete."
+          },
+          "original_snippet": {
+            "type": "string",
+            "description": "Optional snippet of the original code being replaced (for modify actions)."
+          }
+        }
+      }
+    },
     "cost": {
       "type": "object",
       "properties": {

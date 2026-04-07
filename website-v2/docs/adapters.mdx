@@ -450,11 +450,14 @@ For a real governed-project wiring path showing both transports, see the [govern
 
 The api_proxy adapter calls an LLM API directly, handles retries, tracks token usage, and writes the staged result on behalf of the model.
 
-:::info v1 restriction
-The api_proxy adapter is currently restricted to **review_only** roles only. Roles with `authoritative` or `proposed` write authority cannot bind to api_proxy runtimes. This is a v1 safety constraint — the adapter does not support tool use, patch application, or repo writes.
+:::info Write authority support
+The api_proxy adapter supports **review_only** and **proposed** write authority roles. Roles with `authoritative` write authority cannot bind to api_proxy runtimes — the adapter does not support tool use or direct repo writes.
+
+- **review_only**: The model returns a structured review verdict. The orchestrator materializes it to `.agentxchain/reviews/`.
+- **proposed**: The model returns a `proposed_changes` array with structured file proposals. The orchestrator materializes them to `.agentxchain/proposed/<turn_id>/` for review — they are not applied to the working tree.
 :::
 
-That restriction is operational, not academic. An `api_proxy` QA turn can return a structured verdict and request completion, but it cannot directly author `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`. If your completion gate depends on repo-local QA files, those files must already contain real content from a writable or manual path. The orchestrator can materialize a review artifact under `.agentxchain/reviews/`, but it does not patch your planning docs for you.
+These restrictions are operational, not academic. An `api_proxy` QA turn can return a structured verdict and request completion, but it cannot directly author `.planning/acceptance-matrix.md` or `.planning/ship-verdict.md`. A `proposed` api_proxy turn can propose code changes, but those proposals are staged for human or peer review, not applied automatically. If your completion gate depends on repo-local files, those files must contain real content from a writable or manual path.
 
 ### How it works
 
@@ -638,5 +641,5 @@ If you need to hit a mock or proxy endpoint, add `base_url` to the runtime block
 | **Retry logic** | N/A | Exit code based | None in v1 | Configurable exponential backoff with jitter |
 | **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy |
 | **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
-| **Write authority** | Any | Any | Any | `review_only` only (v1) |
+| **Write authority** | Any | Any | Any | `review_only` or `proposed` only |
 | **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls |

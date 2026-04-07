@@ -1,10 +1,14 @@
 /**
- * API proxy adapter — review-only synchronous provider calls.
+ * API proxy adapter — synchronous provider calls for review and proposed authoring.
  *
- * v1 scope (Session #19 freeze):
- *   - review_only roles only
+ * Supported write authorities:
+ *   - review_only: single request/response, structured review JSON
+ *   - proposed: single request/response, structured JSON with proposed_changes[]
+ *     (orchestrator materializes proposals to .agentxchain/proposed/<turn_id>/)
+ *
+ * Constraints:
  *   - single request / single response (synchronous within `step`)
- *   - no tool use, no patch application, no repo writes
+ *   - no tool use, no direct repo writes
  *   - turn result must arrive as structured JSON
  *   - provider telemetry is authoritative for cost
  *
@@ -740,9 +744,9 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
     return { ok: false, error: `Runtime "${runtimeId}" is not an api_proxy runtime` };
   }
 
-  // Enforce v1 restriction: review_only only
-  if (role?.write_authority !== 'review_only') {
-    return { ok: false, error: `v1 api_proxy only supports review_only roles (got "${role?.write_authority}")` };
+  // Enforce api_proxy restriction: review_only or proposed only
+  if (role?.write_authority !== 'review_only' && role?.write_authority !== 'proposed') {
+    return { ok: false, error: `api_proxy only supports review_only and proposed roles (got "${role?.write_authority}")` };
   }
 
   // Read dispatch bundle
