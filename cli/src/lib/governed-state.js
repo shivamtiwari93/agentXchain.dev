@@ -32,7 +32,7 @@ import {
   checkCleanBaseline,
 } from './repo-observer.js';
 import { getMaxConcurrentTurns } from './normalized-config.js';
-import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir } from './turn-paths.js';
+import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
 import { emitNotifications } from './notification-runner.js';
 
@@ -75,6 +75,84 @@ function emitPendingLifecycleNotification(root, config, state, eventType, payloa
     return;
   }
   emitNotifications(root, config, state, eventType, payload, turn);
+}
+
+function normalizeDerivedReviewPath(turnResult) {
+  const requestedPath = typeof turnResult?.artifact?.ref === 'string' ? turnResult.artifact.ref.trim() : '';
+  if (requestedPath.startsWith('.agentxchain/reviews/')) {
+    return requestedPath;
+  }
+  return getReviewArtifactPath(turnResult.turn_id, turnResult.role);
+}
+
+function renderDerivedReviewArtifact(turnResult, state) {
+  const lines = [];
+  lines.push(`# Review Artifact — ${turnResult.role}`);
+  lines.push('');
+  lines.push(`- **Run:** ${turnResult.run_id}`);
+  lines.push(`- **Turn:** ${turnResult.turn_id}`);
+  lines.push(`- **Phase:** ${state.phase}`);
+  lines.push(`- **Status:** ${turnResult.status}`);
+  lines.push(`- **Proposed next role:** ${turnResult.proposed_next_role || 'human'}`);
+  lines.push('');
+  lines.push('## Summary');
+  lines.push('');
+  lines.push(turnResult.summary || 'No summary provided.');
+  lines.push('');
+  lines.push('## Decisions');
+  lines.push('');
+  if (Array.isArray(turnResult.decisions) && turnResult.decisions.length > 0) {
+    for (const decision of turnResult.decisions) {
+      lines.push(`- **${decision.id}** (${decision.category}): ${decision.statement}`);
+      if (decision.rationale) {
+        lines.push(`  - Rationale: ${decision.rationale}`);
+      }
+    }
+  } else {
+    lines.push('- None.');
+  }
+  lines.push('');
+  lines.push('## Objections');
+  lines.push('');
+  if (Array.isArray(turnResult.objections) && turnResult.objections.length > 0) {
+    for (const objection of turnResult.objections) {
+      lines.push(`- **${objection.id}** (${objection.severity}): ${objection.statement}`);
+      if (objection.status) {
+        lines.push(`  - Status: ${objection.status}`);
+      }
+    }
+  } else {
+    lines.push('- None.');
+  }
+  lines.push('');
+  lines.push('## Verification');
+  lines.push('');
+  lines.push(`- **Status:** ${turnResult.verification?.status || 'skipped'}`);
+  if (turnResult.verification?.evidence_summary) {
+    lines.push(`- **Summary:** ${turnResult.verification.evidence_summary}`);
+  }
+  if (turnResult.needs_human_reason) {
+    lines.push(`- **Needs human reason:** ${turnResult.needs_human_reason}`);
+  }
+  lines.push('');
+  return lines.join('\n') + '\n';
+}
+
+function materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, baseline = null) {
+  if (turnResult?.artifact?.type !== 'review' || runtimeType !== 'api_proxy') {
+    return null;
+  }
+
+  const reviewPath = normalizeDerivedReviewPath(turnResult);
+  const absReviewPath = join(root, reviewPath);
+  mkdirSync(dirname(absReviewPath), { recursive: true });
+
+  if (!existsSync(absReviewPath)) {
+    writeFileSync(absReviewPath, renderDerivedReviewArtifact(turnResult, state));
+  }
+
+  turnResult.artifact = { ...(turnResult.artifact || {}), ref: reviewPath };
+  return reviewPath;
 }
 
 function normalizeActiveTurns(activeTurns) {
@@ -1503,6 +1581,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const runtimeId = turnResult.runtime_id;
   const runtime = config.runtimes?.[runtimeId];
   const runtimeType = runtime?.type || 'manual';
+  materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, baseline);
   const writeAuthority = role?.write_authority || 'review_only';
   const diffComparison = compareDeclaredVsObserved(
     turnResult.files_changed || [],

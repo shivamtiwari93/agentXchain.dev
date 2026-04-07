@@ -242,6 +242,13 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /review_only.*api_proxy|api_proxy.*review_only/i,
         'adapters.mdx must document that api_proxy is restricted to review_only roles');
     });
+
+    it('docs say api_proxy review turns do not write QA planning files directly', () => {
+      assert.match(adapterDocs, /cannot directly author .*acceptance-matrix|does not patch your planning docs/i,
+        'adapters.mdx must explain that api_proxy does not write QA planning files directly');
+      assert.match(adapterDocs, /\.agentxchain\/reviews\//,
+        'adapters.mdx must mention the orchestrator-materialized review artifact path');
+    });
   });
 
   describe('no fabricated custom adapter interface', () => {

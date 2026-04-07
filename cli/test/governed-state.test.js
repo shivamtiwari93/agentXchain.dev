@@ -609,6 +609,54 @@ describe('acceptGovernedTurn', () => {
     assert.ok(!existsSync(join(dir, STAGING_PATH)));
   });
 
+  it('materializes a derived review artifact for api_proxy review turns', () => {
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+
+    const assignResult = assignGovernedTurn(dir, config, 'qa');
+    const state = assignResult.state;
+    const turnResult = makeTurnResult(state);
+    turnResult.summary = 'QA review completed through api_proxy.';
+    writeFileSync(join(dir, STAGING_PATH), JSON.stringify(turnResult, null, 2));
+
+    const result = acceptGovernedTurn(dir, config);
+    assert.ok(result.ok, `Accept failed: ${result.error}`);
+
+    const reviewPath = `.agentxchain/reviews/${state.current_turn.turn_id}-qa-review.md`;
+    assert.ok(existsSync(join(dir, reviewPath)), 'derived review artifact must exist');
+    const reviewMd = readFileSync(join(dir, reviewPath), 'utf8');
+    assert.match(reviewMd, /QA review completed through api_proxy/);
+    assert.match(reviewMd, /## Objections/);
+
+    const history = readJsonl(dir, HISTORY_PATH);
+    assert.equal(history[0].artifact.ref, reviewPath);
+    assert.ok(!history[0].files_changed.includes(reviewPath));
+    assert.ok(!history[0].artifacts_created.includes(reviewPath));
+  });
+
+  it('rejects api_proxy review turns that still claim phantom planning files', () => {
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+
+    const assignResult = assignGovernedTurn(dir, config, 'qa');
+    const state = assignResult.state;
+    const turnResult = makeTurnResult(state);
+    turnResult.files_changed = ['.planning/ship-verdict.md'];
+    turnResult.artifacts_created = ['.planning/ship-verdict.md'];
+    writeFileSync(join(dir, STAGING_PATH), JSON.stringify(turnResult, null, 2));
+
+    const result = acceptGovernedTurn(dir, config);
+    assert.ok(!result.ok);
+    assert.match(result.error, /artifact mismatch/i);
+    assert.match(result.validation.errors[0], /ship-verdict\.md/);
+  });
+
   it('tracks budget after acceptance', () => {
     const assignResult = assignGovernedTurn(dir, config, 'qa');
     const turnResult = makeTurnResult(assignResult.state);

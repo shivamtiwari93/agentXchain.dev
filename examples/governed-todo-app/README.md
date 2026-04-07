@@ -53,11 +53,17 @@ git add -A && git commit -m "orchestrator: accept dev turn"
 # 9. After dev completes, run QA turn (dispatches to Anthropic API)
 agentxchain step --role qa
 
-# 10. Approve run completion
+# 10. Inspect the generated review artifact and make sure the QA gate files
+#     already contain real content before completion
+#     Example review path: .agentxchain/reviews/<turn_id>-qa-review.md
+
+# 11. Approve run completion
 agentxchain approve-completion
 ```
 
 For the dev turn, keep the verification contract honest: a passing turn must report `verification.status: "pass"` only when every listed `verification.machine_evidence[].exit_code` is `0`. If you need to prove error handling, wrap those checks in `npm test`, `node --test`, or a shell assertion that exits `0` when the failure occurs as expected. Do not list raw non-zero negative-case commands on a passing turn.
+
+The default QA runtime in this example is `api_proxy`. That path can produce a structured review and an orchestrator-materialized review artifact, but it cannot directly edit `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`. If you want QA itself to author those files, switch the QA runtime to `manual`.
 
 ## Runtime Configuration
 

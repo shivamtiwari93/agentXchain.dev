@@ -41,8 +41,8 @@
 
 - **Date**: 2026-04-01 initial run, 2026-04-07 rerun
 - **Location**: `.planning/LIVE_SCENARIO_A_REPORT.md`, `.planning/LIVE_SCENARIO_A_RERUN_2026-04-07.md`
-- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`
-- **Result**: live connector proof confirmed; full completion still partial
+- **Run IDs**: `run_399aea020ebb68d4`, `run_99e509c066d2daa9`, `run_cfae0bd99a4f5643`, `run_42b64ccb7b051bf6` (QA-only continuation proof)
+- **Result**: live connector proof confirmed; QA output-contract drift closed; full completion still partial
 - **What it proves**:
   - Manual PM turn: dispatched, staged, accepted, planning gate approved in both runs
   - `local_cli` dev turn completed against live Claude Code in the rerun (`turn_555bf457840b6268`)
@@ -54,11 +54,16 @@
   - Review-turn context now includes changed-file previews for review-only QA retries, and live QA evidence shows that this removes speculative code-visibility objections
   - A fresh live rerun after prompt hardening (`run_cfae0bd99a4f5643`) proved the dev turn now completes truthfully with a single zero-exit verifier (`bash test.sh`, 13/13 assertions) instead of staging a validator-invalid `pass` result with non-zero negative-case commands
   - A follow-up live QA retry after raising the changed-file preview cap from 80 to 120 lines removed the earlier syntax-completeness objection caused by truncating an 81-line `todo.js`
+  - A later QA-only continuation on the same governed todo path (`turn_fd7f82248d8562b3`) accepted cleanly without the two earlier `api_proxy` output defects:
+    - no `artifacts_created[]` schema drift
+    - no invalid `phase_transition_request: "qa_ship_verdict"`
+  - Accepted `api_proxy` review turns now materialize a real review artifact under `.agentxchain/reviews/<turn_id>-<role>-review.md` instead of recording a missing artifact ref
+  - Public docs/example surfaces now state the real boundary: `api_proxy` QA returns a structured review but does not directly author `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`
 - **What it does NOT prove**:
   - Final run completion approval (`approve-completion`)
   - Live MCP adapter proof
-  - Stable live QA completion: the same retried QA turn still produced protocol-invalid `phase_transition_request: "qa_ship_verdict"` after the preview fix
   - Full machine-verifiable stdout/stderr proof for the dev test run
+  - Independent QA execution of the dev test suite from the `api_proxy` runtime
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -122,6 +127,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
 | "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live in one governed run) | Still do NOT claim "all adapters proven live" because MCP is not covered by this dogfood and the run did not reach final completion. |
 | "Manual, local CLI, and API-backed agents all run under the same protocol" | E1 (adapter tests) + E2 (all three executed live in one governed run) | This claim is now supported by both test coverage and live execution evidence. |
+| "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
 | "Preemptive tokenization prevents wasted API calls" | E3 (local overflow short-circuit confirmed live) | |
@@ -158,6 +164,6 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-03, 1033 tests / 0 failures across 235 suites (`1000+` launch-copy floor)
+- **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slice adds 231 tests / 0 failures across 45 suites for review-artifact truth, dispatch-bundle truth, and docs truth
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, test suite output

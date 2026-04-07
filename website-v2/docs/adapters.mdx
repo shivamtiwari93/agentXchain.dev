@@ -446,6 +446,8 @@ The api_proxy adapter calls an LLM API directly, handles retries, tracks token u
 The api_proxy adapter is currently restricted to **review_only** roles only. Roles with `authoritative` or `proposed` write authority cannot bind to api_proxy runtimes. This is a v1 safety constraint — the adapter does not support tool use, patch application, or repo writes.
 :::
 
+That restriction is operational, not academic. An `api_proxy` QA turn can return a structured verdict and request completion, but it cannot directly author `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`. If your completion gate depends on repo-local QA files, those files must already contain real content from a writable or manual path. The orchestrator can materialize a review artifact under `.agentxchain/reviews/`, but it does not patch your planning docs for you.
+
 ### How it works
 
 1. The orchestrator writes the dispatch bundle.

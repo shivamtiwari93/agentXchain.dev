@@ -53,6 +53,8 @@ git add -A && git commit -m "orchestrator: accept pm turn"
 agentxchain step --role dev --verbose
 git add -A && git commit -m "orchestrator: accept dev turn"
 agentxchain step --role qa
+# default api_proxy QA returns a review artifact; ensure the QA gate files
+# already contain real content before you approve completion
 agentxchain approve-completion
 ```
 
@@ -312,10 +314,13 @@ The phase advances from `planning` to `implementation`.
 ```bash
 agentxchain step --role dev
 agentxchain step --role qa
+# api_proxy QA does not directly rewrite .planning/* gate files
 agentxchain approve-completion
 ```
 
 QA must challenge the dev's work. Blind agreement is a protocol violation.
+
+If QA is bound to `api_proxy` in this flow, the accepted turn produces a structured review and an orchestrator-materialized review artifact under `.agentxchain/reviews/`. It does **not** mean the QA gate files were rewritten automatically.
 
 ## Multi-repo cold start
 

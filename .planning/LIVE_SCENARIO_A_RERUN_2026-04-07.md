@@ -72,6 +72,25 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
      - after retrying the same QA turn against a product fix that raised changed-file preview cap from `80` to `120` lines, the earlier truncation/syntax-completeness objection disappeared
      - the retried QA turn then failed on a different model-output problem: protocol-invalid `phase_transition_request: "qa_ship_verdict"` even though the QA prompt requires `run_completion_request: true` or `null`
 
+8. Review-artifact truth rerun closed the remaining product-output lie in the QA path.
+   - Fresh QA-only workspace: `/tmp/agentxchain-live-turn76-qa-3bDl33`
+   - Based on the accepted pre-QA commit from the fresh live rerun (`b83cabf`) with the updated QA prompt synced in
+   - QA turn: `turn_fd7f82248d8562b3`
+   - Product fixes shipped before this rerun:
+     - `api_proxy` review prompts now explicitly forbid claiming `.planning/*` writes the runtime cannot perform
+     - accepted `api_proxy` review turns now get a real derived review artifact at `.agentxchain/reviews/<turn_id>-<role>-review.md`
+     - review-only turns now fail closed if they claim phantom `.planning/*` or `.agentxchain/reviews/*` writes
+   - Result:
+     - QA accepted cleanly as `needs_human`
+     - no schema failure
+     - no invalid `phase_transition_request`
+     - no false claim that `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md` were created by `api_proxy`
+     - derived review artifact was materialized on disk at `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`
+   - Remaining objections were ordinary review judgment:
+     - QA cannot independently execute `bash test.sh` from `api_proxy`
+     - gate-file contents were not surfaced in context
+     - minor test-design concerns
+
 5. Final governed state after acceptance:
    - `status`: `blocked`
    - `blocked_on`: `needs_human`
@@ -86,12 +105,15 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - The governed acceptance boundary still caught a real provider-schema issue on the QA turn.
 - A live QA review can be accepted into governed state as `needs_human` without corrupting the run.
 - Bounded changed-file previews in QA context materially improve review quality by replacing speculative objections with code-grounded objections.
+- The `api_proxy` QA path now accepts without schema drift or gate-name drift and materializes a real review artifact instead of recording a missing one.
+- The product now tells the truth that `api_proxy` review turns do not directly author `.planning/*` gate files.
 
 ## What This Rerun Does Not Prove
 
 - Final run completion via `approve-completion`
 - Live MCP adapter execution
 - Full machine-verifiable stdout/stderr proof for the dev test run
+- Independent QA execution of the dev test suite from the `api_proxy` runtime
 
 ## Judgment
 
@@ -100,11 +122,12 @@ Purpose: rerun Scenario A after the original `local_cli` proof was blocked by ex
 - Full live Scenario A through completion gate: **not confirmed**
 - Dev verification-pass semantics trap: **closed**
 - QA code-visibility gap: **closed for modest files after preview-cap increase**
-- Live QA model-output reliability: **still not confirmed**
+- Live QA model-output reliability: **confirmed for the two previously failing defect classes**
+- Review-artifact truth for `api_proxy` QA: **confirmed**
 
 Reason:
 
 - Connector execution succeeded across all three runtimes in one governed run.
 - The prompt-hardening rerun proved the implementation turn can now complete cleanly with a truthful zero-exit verifier.
-- The rerun still stopped at QA because the `api_proxy` review turn remained model-invalid twice in two different ways: schema-invalid `artifacts_created[]`, then protocol-invalid `phase_transition_request`.
-- The remaining blocker is no longer missing dev verification semantics or file-preview truncation. It is QA model-output reliability plus ordinary review judgment.
+- A later QA-only rerun confirmed that those two previously failing `api_proxy` defects are now handled: the accepted turn neither drifted `artifacts_created[]` nor used the exit gate as a phase name, and the review artifact was actually materialized on disk.
+- The remaining blocker is no longer QA output-contract drift. It is normal review posture for a non-executing QA runtime: independent test execution and gate-file-content visibility still require human or CI confirmation.

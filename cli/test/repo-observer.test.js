@@ -229,6 +229,17 @@ describe('compareDeclaredVsObserved', () => {
     assert.equal(result.errors.length, 0);
   });
 
+  it('review_only: phantom declared review/planning files → error', () => {
+    const result = compareDeclaredVsObserved(
+      ['.planning/ship-verdict.md', '.agentxchain/reviews/turn_1-qa-review.md'],
+      ['.agentxchain/reviews/turn_1-qa-review.md'],
+      'review_only',
+    );
+    assert.equal(result.errors.length, 1);
+    assert.match(result.errors[0], /declared file changes/);
+    assert.match(result.errors[0], /ship-verdict\.md/);
+  });
+
   it('proposed: no strict checking', () => {
     const result = compareDeclaredVsObserved(
       ['src/a.js'],

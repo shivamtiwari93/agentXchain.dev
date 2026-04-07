@@ -109,10 +109,12 @@ git add -A && git commit -m "orchestrator: accept pm turn"
 
 agentxchain step --role dev
 agentxchain step --role qa
+# if QA uses api_proxy, inspect the review artifact and confirm the
+# QA gate files already contain real content before completion
 agentxchain approve-completion
 ```
 
-Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you use a custom local coding CLI, either include `{prompt}` in `--dev-command` for argv delivery or set `--dev-prompt-transport` explicitly at init time.
+Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. That review path can return a structured verdict, but it cannot directly write `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`; use a writable or manual QA path if you want QA itself to edit those files. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you use a custom local coding CLI, either include `{prompt}` in `--dev-command` for argv delivery or set `--dev-prompt-transport` explicitly at init time.
 
 The governed flow is always: assign, stage a structured result, accept or reject, then satisfy any human gate before the next phase can advance.
 

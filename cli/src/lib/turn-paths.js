@@ -2,6 +2,7 @@ const DISPATCH_ROOT = '.agentxchain/dispatch';
 const DISPATCH_INDEX_PATH = `${DISPATCH_ROOT}/index.json`;
 const DISPATCH_TURNS_DIR = `${DISPATCH_ROOT}/turns`;
 const STAGING_ROOT = '.agentxchain/staging';
+const REVIEW_ROOT = '.agentxchain/reviews';
 
 export function getDispatchTurnDir(turnId) {
   return `${DISPATCH_TURNS_DIR}/${turnId}`;
@@ -59,9 +60,14 @@ export function getTurnRetryTracePath(turnId) {
   return `${getTurnStagingDir(turnId)}/retry-trace.json`;
 }
 
+export function getReviewArtifactPath(turnId, roleId = 'review') {
+  return `${REVIEW_ROOT}/${turnId}-${roleId}-review.md`;
+}
+
 export {
   DISPATCH_ROOT,
   DISPATCH_INDEX_PATH,
   DISPATCH_TURNS_DIR,
+  REVIEW_ROOT,
   STAGING_ROOT,
 };

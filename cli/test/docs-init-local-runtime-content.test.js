@@ -81,6 +81,24 @@ describe('governed init local runtime docs contract', () => {
     );
   });
 
+  it('front-door docs tell the truth about default api_proxy QA', () => {
+    assert.match(
+      rootReadme,
+      /cannot directly write .*acceptance-matrix\.md.*ship-verdict\.md.*RELEASE_NOTES\.md/i,
+      'root README must explain that default api_proxy QA does not directly author QA gate files',
+    );
+    assert.match(
+      quickstartDocs,
+      /\.agentxchain\/reviews\/|does \*\*not\*\* mean the QA gate files were rewritten automatically/i,
+      'quickstart must describe the review artifact path and non-writing api_proxy truth',
+    );
+    assert.match(
+      governedExampleReadme,
+      /cannot directly edit \.planning\/acceptance-matrix\.md|switch the QA runtime to `manual`/i,
+      'governed example README must explain how to handle QA gate files truthfully',
+    );
+  });
+
   // --- Overclaiming guards (DEC-DOCS-OVERCLAIM-001) ---
 
   const adaptersDocs = read('website-v2/docs/adapters.mdx');

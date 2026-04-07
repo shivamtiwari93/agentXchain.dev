@@ -668,6 +668,22 @@ describe('dispatch bundle: turn result template', () => {
     assert.match(prompt, /run_completion_request/);
     assert.match(prompt, /mutually exclusive/);
   });
+
+  it('PROMPT.md tells api_proxy review turns not to claim planning-file writes', () => {
+    initializeGovernedRun(root, config);
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'qa';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+    const prompt = readFileSync(join(root, bundleDirFor(qaState), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /cannot write repo files directly/i);
+    assert.match(prompt, /\.agentxchain\/reviews\/turn_[a-z0-9]+-qa-review\.md/);
+    assert.match(prompt, /Do NOT claim `?\.planning/i);
+  });
 });
 
 describe('dispatch bundle: QA evidence visibility', () => {

@@ -351,6 +351,9 @@ export function compareDeclaredVsObserved(declared, observed, writeAuthority) {
     if (productFileChanges.length > 0) {
       errors.push(`review_only role modified product files (observed in actual diff): ${productFileChanges.join(', ')}`);
     }
+    if (phantom.length > 0) {
+      errors.push(`review_only role declared file changes that were not observed in the actual diff: ${phantom.join(', ')}`);
+    }
   }
 
   return { errors, warnings };

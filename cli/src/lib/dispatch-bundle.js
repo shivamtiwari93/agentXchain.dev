@@ -23,6 +23,7 @@ import {
   getDispatchContextPath,
   getDispatchLogPath,
   getDispatchPromptPath,
+  getReviewArtifactPath,
   getDispatchTurnDir,
   getTurnStagingResultPath,
 } from './turn-paths.js';
@@ -148,6 +149,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   const routing = config.routing?.[phase];
   const exitGate = routing?.exit_gate;
   const gateConfig = exitGate ? config.gates?.[exitGate] : null;
+  const runtime = config.runtimes?.[turn.runtime_id];
+  const runtimeType = runtime?.type || 'manual';
   const warnings = [];
 
   // Load custom prompt template from disk (best-effort)
@@ -205,6 +208,13 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('- You may create/modify files under `.planning/` and `.agentxchain/reviews/`.');
     lines.push('- Your artifact type must be `review`.');
     lines.push('- You MUST raise at least one objection (even if minor).');
+    if (runtimeType === 'api_proxy') {
+      const reviewArtifactPath = getReviewArtifactPath(turn.turn_id, roleId);
+      lines.push('- **This runtime cannot write repo files directly.** Do NOT claim `.planning/*` or `.agentxchain/reviews/*` changes you did not actually make.');
+      lines.push(`- The orchestrator will materialize your accepted review at \`${reviewArtifactPath}\`.`);
+      lines.push('- Use `summary`, `decisions`, `objections`, and `verification.evidence_summary` to communicate the review content.');
+      lines.push('- Only request run completion if the required QA gate files already contain real content from a writable/manual path.');
+    }
     lines.push('');
   } else if (role.write_authority === 'authoritative') {
     lines.push('### Write Authority: authoritative');
@@ -347,6 +357,9 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     const isTerminal = currentPhase && phaseNames.indexOf(currentPhase) === phaseNames.length - 1;
     if (isTerminal) {
       lines.push('- **To signal ship readiness**: set `run_completion_request: true` and `phase_transition_request: null`. Do NOT set `phase_transition_request` to the exit gate name');
+      if (runtimeType === 'api_proxy') {
+        lines.push('- `run_completion_request: true` does **not** mean this runtime wrote `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md` for you.');
+      }
     }
   }
   lines.push('');
