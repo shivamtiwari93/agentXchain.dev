@@ -48,6 +48,7 @@ const ORCHESTRATOR_STATE_FILES = [
 const BASELINE_EXEMPT_PATH_PREFIXES = [
   '.agentxchain/reviews/',
   '.agentxchain/reports/',
+  '.agentxchain/proposed/',
 ];
 
 /**

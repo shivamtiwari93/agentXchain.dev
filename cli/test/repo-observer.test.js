@@ -558,6 +558,16 @@ describe('captureBaseline — dirty workspace snapshot', () => {
       'report evidence must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
   });
 
+  it('marks proposal artifacts as baseline-clean while still tracking them in dirty snapshot', () => {
+    mkdirSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'PROPOSAL.md'), '# Proposal\n');
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src', 'feature.js'), 'export const staged = true;\n');
+    const baseline = captureBaseline(dir);
+    assert.equal(baseline.clean, true, 'proposal artifacts should not make the baseline fail clean-checks');
+    assert.ok('.agentxchain/proposed/turn_1234/PROPOSAL.md' in (baseline.dirty_snapshot || {}),
+      'proposal artifacts must remain in dirty_snapshot so later observation can filter unchanged baseline dirt');
+  });
+
   it('records empty dirty snapshot for clean workspace', () => {
     const baseline = captureBaseline(dir);
     assert.equal(baseline.clean, true);
@@ -636,6 +646,21 @@ describe('observeChanges — dirty-snapshot baseline filtering', () => {
       'unchanged baseline-dirty review evidence must stay filtered even when HEAD changed');
   });
 
+  it('filters unchanged dirty proposal artifacts from same-HEAD observation', () => {
+    mkdirSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'PROPOSAL.md'), '# Proposal\n');
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src', 'feature.js'), 'export const staged = true;\n');
+    const baseline = captureBaseline(dir);
+
+    writeFileSync(join(dir, 'feature.js'), 'console.log("real change");\n');
+    const obs = observeChanges(dir, baseline);
+    assert.ok(obs.files_changed.includes('feature.js'));
+    assert.ok(!obs.files_changed.includes('.agentxchain/proposed/turn_1234/PROPOSAL.md'),
+      'unchanged baseline-dirty proposal evidence must not leak into the next observed diff');
+    assert.ok(!obs.files_changed.includes('.agentxchain/proposed/turn_1234/src/feature.js'),
+      'unchanged baseline-dirty proposed files must not leak into the next observed diff');
+  });
+
   it('handles deleted file markers correctly under dirty-snapshot filtering', () => {
     // Create a file, commit it, then delete it before baseline
     writeFileSync(join(dir, 'will-delete.txt'), 'to be deleted');
@@ -682,6 +707,21 @@ describe('observeChanges — dirty-snapshot baseline filtering', () => {
     const obs = observeChanges(dir, baseline);
     assert.ok(obs.files_changed.includes('new-dirty.txt'),
       'files should not be filtered when baseline had no dirty_snapshot');
+  });
+});
+
+describe('checkCleanBaseline', () => {
+  let dir;
+  beforeEach(() => { dir = makeTmpGitRepo(); });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('allows code-writing turns when only proposal artifacts are dirty', () => {
+    mkdirSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src'), { recursive: true });
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'PROPOSAL.md'), '# Proposal\n');
+    writeFileSync(join(dir, '.agentxchain', 'proposed', 'turn_1234', 'src', 'feature.js'), 'export const staged = true;\n');
+
+    const result = checkCleanBaseline(dir, 'proposed');
+    assert.deepEqual(result, { clean: true });
   });
 });
 

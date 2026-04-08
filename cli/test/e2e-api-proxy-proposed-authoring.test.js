@@ -14,7 +14,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 
@@ -30,6 +30,11 @@ function startMockAnthropicServer() {
   return new Promise((resolve, reject) => {
     const requestLog = [];
 
+    function getLastPromptField(promptText, fieldName) {
+      const matches = [...promptText.matchAll(new RegExp(`"${fieldName}"\\s*:\\s*"([^"]+)"`, 'g'))];
+      return matches.length > 0 ? matches[matches.length - 1][1] : null;
+    }
+
     const server = createServer((req, res) => {
       let body = '';
       req.on('data', (chunk) => { body += chunk; });
@@ -41,51 +46,91 @@ function startMockAnthropicServer() {
             body: parsed,
             timestamp: new Date().toISOString(),
           });
+          const requestNumber = requestLog.length;
 
           const userMsg = parsed.messages?.find((m) => m.role === 'user');
           const promptText = userMsg?.content || '';
-          const runId = promptText.match(/"run_id"\s*:\s*"([^"]+)"/)?.[1] || 'run_mock';
-          const turnId = promptText.match(/"turn_id"\s*:\s*"([^"]+)"/)?.[1] || 'turn_mock';
-          const runtimeId = promptText.match(/"runtime_id"\s*:\s*"([^"]+)"/)?.[1] || 'api-dev';
-          const roleId = promptText.match(/"assigned_role"\s*:\s*"([^"]+)"/)?.[1] || 'dev';
+          const runId = getLastPromptField(promptText, 'run_id') || 'run_mock';
+          const turnId = getLastPromptField(promptText, 'turn_id') || 'turn_mock';
+          const isProposedAuthoringPrompt = requestNumber === 1;
+          const roleId = getLastPromptField(promptText, 'assigned_role')
+            || (isProposedAuthoringPrompt ? 'dev' : 'qa');
+          const runtimeId = getLastPromptField(promptText, 'runtime_id')
+            || (roleId === 'qa' ? 'api-qa' : 'api-dev');
 
-          const turnResult = {
-            schema_version: '1.0',
-            run_id: runId,
-            turn_id: turnId,
-            role: roleId,
-            runtime_id: runtimeId,
-            status: 'completed',
-            summary: 'Mock api_proxy proposed authoring completed.',
-            decisions: [{
-              id: 'DEC-001',
-              category: 'implementation',
-              statement: 'Return structured proposed changes.',
-              rationale: 'Integration proof for proposed authoring.',
-            }],
-            objections: [],
-            files_changed: ['src/proxy-feature.js'],
-            artifacts_created: [],
-            verification: {
-              status: 'pass',
-              commands: ['echo ok'],
-              evidence_summary: 'proposal staged',
-              machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
-            },
-            artifact: { type: 'patch', ref: null },
-            proposed_next_role: 'qa',
-            phase_transition_request: 'qa',
-            run_completion_request: null,
-            needs_human_reason: null,
-            proposed_changes: [
-              {
-                path: 'src/proxy-feature.js',
-                action: 'create',
-                content: 'export const proxyFeature = "ready";\n',
+          const turnResult = !isProposedAuthoringPrompt
+            ? {
+              schema_version: '1.0',
+              run_id: runId,
+              turn_id: turnId,
+              role: roleId,
+              runtime_id: runtimeId,
+              status: 'completed',
+              summary: 'Mock api_proxy QA review completed.',
+              decisions: [{
+                id: 'DEC-002',
+                category: 'quality',
+                statement: 'Proposal application reviewed successfully.',
+                rationale: 'Integration proof for post-apply acceptance.',
+              }],
+              objections: [{
+                id: 'OBJ-001',
+                severity: 'low',
+                statement: 'Review-only QA confirmed the staged proposal still needs normal human/operator judgement before ship.',
+                status: 'raised',
+              }],
+              files_changed: [],
+              artifacts_created: [],
+              verification: {
+                status: 'pass',
+                commands: ['echo ok'],
+                evidence_summary: 'qa review passed',
+                machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
               },
-            ],
-            cost: { input_tokens: 120, output_tokens: 180, usd: 0.01 },
-          };
+              artifact: { type: 'review', ref: null },
+              proposed_next_role: 'human',
+              phase_transition_request: null,
+              run_completion_request: null,
+              needs_human_reason: null,
+              cost: { input_tokens: 80, output_tokens: 140, usd: 0.01 },
+            }
+            : {
+              schema_version: '1.0',
+              run_id: runId,
+              turn_id: turnId,
+              role: roleId,
+              runtime_id: runtimeId,
+              status: 'completed',
+              summary: 'Mock api_proxy proposed authoring completed.',
+              decisions: [{
+                id: 'DEC-001',
+                category: 'implementation',
+                statement: 'Return structured proposed changes.',
+                rationale: 'Integration proof for proposed authoring.',
+              }],
+              objections: [],
+              files_changed: ['src/proxy-feature.js'],
+              artifacts_created: [],
+              verification: {
+                status: 'pass',
+                commands: ['echo ok'],
+                evidence_summary: 'proposal staged',
+                machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+              },
+              artifact: { type: 'patch', ref: null },
+              proposed_next_role: 'qa',
+              phase_transition_request: 'qa',
+              run_completion_request: null,
+              needs_human_reason: null,
+              proposed_changes: [
+                {
+                  path: 'src/proxy-feature.js',
+                  action: 'create',
+                  content: 'export const proxyFeature = "ready";\n',
+                },
+              ],
+              cost: { input_tokens: 120, output_tokens: 180, usd: 0.01 },
+            };
 
           const response = {
             id: `msg_mock_${Date.now()}`,
@@ -129,7 +174,19 @@ function makeProject(mockServerUrl) {
 
   config.roles.dev.write_authority = 'proposed';
   config.roles.dev.runtime = 'api-dev';
+  config.roles.qa.write_authority = 'review_only';
+  config.roles.qa.runtime = 'api-qa';
   config.runtimes['api-dev'] = {
+    type: 'api_proxy',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    auth_env: 'MOCK_ANTHROPIC_KEY',
+    base_url: mockServerUrl,
+    max_output_tokens: 4096,
+    timeout_seconds: 30,
+    retry_policy: { max_attempts: 1 },
+  };
+  config.runtimes['api-qa'] = {
     type: 'api_proxy',
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
@@ -160,6 +217,11 @@ function makeProject(mockServerUrl) {
   writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
 
   mkdirSync(join(root, '.planning'), { recursive: true });
+  execSync('git init', { cwd: root, stdio: 'ignore' });
+  execSync('git config user.email "test@example.com"', { cwd: root, stdio: 'ignore' });
+  execSync('git config user.name "Test User"', { cwd: root, stdio: 'ignore' });
+  execSync('git add .', { cwd: root, stdio: 'ignore' });
+  execSync('git commit -m "baseline"', { cwd: root, stdio: 'ignore' });
   return root;
 }
 
@@ -248,5 +310,65 @@ describe('api_proxy proposed authoring — CLI integration', () => {
     assert.match(context, /### Proposed File Previews/);
     assert.match(context, /#### `src\/proxy-feature\.js` \(create\)/);
     assert.match(context, /export const proxyFeature = "ready";/);
+  });
+
+  it('AT-PROXY-PROP-E2E-002: proposal list/diff/apply integrates cleanly with the next QA acceptance', async () => {
+    const mock = await startMockAnthropicServer();
+    const root = makeProject(mock.url);
+
+    const devStep = await runCliAsync(root, ['step', '--role', 'dev']);
+    assert.equal(devStep.status, 0,
+      `Expected dev step exit 0, got ${devStep.status}.\nstdout: ${devStep.stdout?.slice(-800)}\nstderr: ${devStep.stderr?.slice(-800)}`);
+
+    const stateAfterDev = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    const proposalTurnId = stateAfterDev.last_completed_turn_id;
+    assert.ok(proposalTurnId, 'dev step should complete a proposal turn');
+
+    const listPending = await runCliAsync(root, ['proposal', 'list']);
+    assert.equal(listPending.status, 0);
+    assert.match(listPending.stdout, new RegExp(proposalTurnId));
+    assert.match(listPending.stdout, /pending/);
+
+    const diffResult = await runCliAsync(root, ['proposal', 'diff', proposalTurnId]);
+    assert.equal(diffResult.status, 0);
+    assert.match(diffResult.stdout, /src\/proxy-feature\.js/);
+    assert.match(diffResult.stdout, /new file/i);
+
+    const applyResult = await runCliAsync(root, ['proposal', 'apply', proposalTurnId]);
+    assert.equal(applyResult.status, 0,
+      `Expected proposal apply exit 0, got ${applyResult.status}.\nstdout: ${applyResult.stdout?.slice(-800)}\nstderr: ${applyResult.stderr?.slice(-800)}`);
+    assert.match(applyResult.stdout, /Proposal Applied/);
+    assert.ok(existsSync(join(root, 'src', 'proxy-feature.js')), 'proposal apply must copy the staged file into the workspace');
+    assert.ok(existsSync(join(root, '.agentxchain', 'proposed', proposalTurnId, 'APPLIED.json')),
+      'proposal apply must record APPLIED.json');
+
+    const listApplied = await runCliAsync(root, ['proposal', 'list']);
+    assert.equal(listApplied.status, 0);
+    assert.match(listApplied.stdout, /applied/);
+
+    const qaStep = await runCliAsync(root, ['step', '--role', 'qa']);
+    assert.equal(qaStep.status, 0,
+      `Expected qa step exit 0, got ${qaStep.status}.\nstdout: ${qaStep.stdout?.slice(-800)}\nstderr: ${qaStep.stderr?.slice(-800)}`);
+    assert.doesNotMatch(qaStep.stdout + qaStep.stderr, /Observed artifact mismatch|review_only role modified product files|Acceptance conflict/i,
+      'QA acceptance must not blame proposal-applied workspace files on the reviewer');
+
+    assert.equal(mock.requestLog.length, 2, 'Expected one api_proxy request for dev and one for qa');
+    const qaPrompt = mock.requestLog[1].body.messages.find((m) => m.role === 'user')?.content || '';
+    assert.doesNotMatch(qaPrompt, /proposed_changes/,
+      'QA review prompt should not instruct review_only turns to return proposed_changes');
+
+    const historyLines = readFileSync(join(root, '.agentxchain', 'history.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+    const finalState = JSON.parse(readFileSync(join(root, '.agentxchain', 'state.json'), 'utf8'));
+    assert.equal(historyLines.length, 2, 'history should contain accepted dev and qa turns');
+    assert.deepEqual(historyLines.map((entry) => entry.role), ['dev', 'qa']);
+    assert.equal(finalState.last_completed_turn_id, historyLines[1].turn_id,
+      'QA turn should become the last completed turn after proposal apply');
+    assert.equal(Object.keys(finalState.active_turns || {}).length, 0, 'QA acceptance should clear active turns');
+    assert.deepEqual(historyLines[1].artifact.files_changed || [], [],
+      'QA acceptance should not attribute the proposal-applied workspace file to the qa turn');
   });
 });
