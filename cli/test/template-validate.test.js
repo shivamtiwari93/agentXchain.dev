@@ -66,8 +66,8 @@ describe('template validate command', () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.ok, true);
     assert.equal(payload.registry.ok, true);
-    assert.deepEqual(payload.registry.registered_ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app']);
-    assert.deepEqual(payload.registry.manifest_ids, ['api-service', 'cli-tool', 'generic', 'library', 'web-app']);
+    assert.deepEqual(payload.registry.registered_ids, ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app']);
+    assert.deepEqual(payload.registry.manifest_ids, ['api-service', 'cli-tool', 'enterprise-app', 'generic', 'library', 'web-app']);
     assert.equal(payload.project.present, false);
   });
 
@@ -544,6 +544,7 @@ describe('template registry drift detection', () => {
         [
           'api-service.json',
           'cli-tool.json',
+          'enterprise-app.json',
           'generic.json',
           'library.json',
           'orphan-template.json',
@@ -601,5 +602,99 @@ describe('open-ended prompt override roles', () => {
       },
     }));
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join('; ')}`);
+  });
+
+  it('AT-TEMPLATE-BLUEPRINT-001: accepts scaffold_blueprint when it is a valid governed config fragment', () => {
+    const manifest = {
+      id: 'enterprise-app',
+      display_name: 'Enterprise App',
+      description: 'Blueprint-backed template',
+      version: '1',
+      protocol_compatibility: ['1.0'],
+      planning_artifacts: [],
+      prompt_overrides: {
+        architect: 'Own the architecture review.',
+      },
+      acceptance_hints: [],
+      scaffold_blueprint: {
+        roles: {
+          architect: {
+            title: 'Architect',
+            mandate: 'Define boundaries.',
+            write_authority: 'review_only',
+            runtime: 'manual-architect',
+          },
+          dev: {
+            title: 'Developer',
+            mandate: 'Implement safely.',
+            write_authority: 'authoritative',
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'manual-architect': { type: 'manual' },
+          'local-dev': { type: 'local_cli', command: ['echo'], cwd: '.', prompt_transport: 'stdin' },
+        },
+        routing: {
+          architecture: {
+            entry_role: 'architect',
+            allowed_next_roles: ['dev', 'human'],
+            exit_gate: 'architecture_review',
+          },
+          implementation: {
+            entry_role: 'dev',
+            allowed_next_roles: ['dev', 'human'],
+            exit_gate: 'implementation_complete',
+          },
+        },
+        gates: {
+          architecture_review: { requires_files: ['.planning/ARCHITECTURE.md'] },
+          implementation_complete: { requires_files: ['.planning/IMPLEMENTATION_NOTES.md'], requires_verification_pass: true },
+        },
+      },
+    };
+
+    const validation = validateGovernedTemplateManifest(manifest, 'enterprise-app');
+    assert.equal(validation.ok, true, validation.errors?.join('\n'));
+  });
+
+  it('AT-TEMPLATE-BLUEPRINT-001b: rejects invalid scaffold_blueprint config', () => {
+    const manifest = {
+      id: 'enterprise-app',
+      display_name: 'Enterprise App',
+      description: 'Blueprint-backed template',
+      version: '1',
+      protocol_compatibility: ['1.0'],
+      planning_artifacts: [],
+      prompt_overrides: {},
+      acceptance_hints: [],
+      scaffold_blueprint: {
+        roles: {
+          Architect: {
+            title: 'Architect',
+            mandate: 'Define boundaries.',
+            write_authority: 'review_only',
+            runtime: 'manual-architect',
+          },
+        },
+        runtimes: {
+          'manual-architect': { type: 'manual' },
+        },
+        routing: {
+          architecture: {
+            entry_role: 'Architect',
+            allowed_next_roles: ['human'],
+            exit_gate: 'architecture_review',
+          },
+        },
+        gates: {
+          architecture_review: { requires_files: ['.planning/ARCHITECTURE.md'] },
+        },
+      },
+    };
+
+    const validation = validateGovernedTemplateManifest(manifest, 'enterprise-app');
+    assert.equal(validation.ok, false);
+    assert.ok(validation.errors.some((error) => error.includes('scaffold_blueprint')));
   });
 });

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateV4Config } from './normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -11,6 +12,7 @@ export const VALID_GOVERNED_TEMPLATE_IDS = Object.freeze([
   'cli-tool',
   'library',
   'web-app',
+  'enterprise-app',
 ]);
 
 const VALID_ROLE_ID_PATTERN = /^[a-z0-9_-]+$/;
@@ -69,6 +71,47 @@ function validateAcceptanceHints(acceptanceHints, errors) {
   for (const hint of acceptanceHints) {
     if (typeof hint !== 'string' || !hint.trim()) {
       errors.push('acceptance_hints entries must be non-empty strings');
+    }
+  }
+}
+
+const VALID_SCAFFOLD_BLUEPRINT_KEYS = new Set([
+  'roles',
+  'runtimes',
+  'routing',
+  'gates',
+  'workflow_kit',
+]);
+
+function validateScaffoldBlueprint(scaffoldBlueprint, errors) {
+  if (scaffoldBlueprint === undefined) return;
+  if (!scaffoldBlueprint || typeof scaffoldBlueprint !== 'object' || Array.isArray(scaffoldBlueprint)) {
+    errors.push('scaffold_blueprint must be an object when provided');
+    return;
+  }
+
+  for (const key of Object.keys(scaffoldBlueprint)) {
+    if (!VALID_SCAFFOLD_BLUEPRINT_KEYS.has(key)) {
+      errors.push(`scaffold_blueprint contains unknown key "${key}"`);
+    }
+  }
+
+  const validation = validateV4Config({
+    schema_version: '1.0',
+    project: {
+      id: 'template-manifest',
+      name: 'Template Manifest',
+    },
+    roles: scaffoldBlueprint.roles,
+    runtimes: scaffoldBlueprint.runtimes,
+    routing: scaffoldBlueprint.routing,
+    gates: scaffoldBlueprint.gates,
+    workflow_kit: scaffoldBlueprint.workflow_kit,
+  });
+
+  if (!validation.ok) {
+    for (const error of validation.errors) {
+      errors.push(`scaffold_blueprint ${error}`);
     }
   }
 }
@@ -138,6 +181,7 @@ export function validateGovernedTemplateManifest(manifest, expectedId = null) {
   validatePromptOverrides(manifest.prompt_overrides, errors);
   validateAcceptanceHints(manifest.acceptance_hints, errors);
   validateSystemSpecOverlay(manifest.system_spec_overlay, errors);
+  validateScaffoldBlueprint(manifest.scaffold_blueprint, errors);
 
   return { ok: errors.length === 0, errors };
 }

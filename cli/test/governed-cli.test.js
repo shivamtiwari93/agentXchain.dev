@@ -410,6 +410,36 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('init --governed --template enterprise-app writes a custom governed team blueprint', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-enterprise-template-'));
+    const projectDir = join(dir, 'my-agentxchain-project');
+    try {
+      const result = runCli(dir, ['init', '--governed', '--template', 'enterprise-app', '-y']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Template:\s+enterprise-app/);
+      assert.match(result.stdout, /Roles:\s+pm, architect, dev, security_reviewer, qa, eng_director/);
+      assert.match(result.stdout, /Phases:.*planning.*architecture.*implementation.*security_review.*qa/);
+
+      const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.template, 'enterprise-app');
+      assert.ok(config.roles.architect);
+      assert.ok(config.roles.security_reviewer);
+      assert.ok(config.routing.architecture);
+      assert.ok(config.routing.security_review);
+      assert.ok(config.gates.architecture_review);
+      assert.ok(config.gates.security_review_signoff);
+      assert.ok(config.workflow_kit?.phases?.architecture);
+      assert.ok(config.workflow_kit?.phases?.security_review);
+
+      assert.ok(existsSync(join(projectDir, '.agentxchain', 'prompts', 'architect.md')));
+      assert.ok(existsSync(join(projectDir, '.agentxchain', 'prompts', 'security_reviewer.md')));
+      assert.ok(existsSync(join(projectDir, '.planning', 'ARCHITECTURE.md')));
+      assert.ok(existsSync(join(projectDir, '.planning', 'SECURITY_REVIEW.md')));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init --governed rejects unknown templates before writing files', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-bad-template-'));
     const projectDir = join(dir, 'my-agentxchain-project');

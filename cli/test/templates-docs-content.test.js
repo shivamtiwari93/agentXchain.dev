@@ -15,7 +15,7 @@ function loadManifest(templateId) {
   return JSON.parse(read(`cli/src/templates/governed/${templateId}.json`));
 }
 
-const TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app'];
+const TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
 const TEMPLATES_SPEC = read('.planning/TEMPLATES_DOC_PAGE_SPEC.md');
 const TEMPLATES_DOC_SOURCE = read('website-v2/docs/templates.mdx');
 const QUICKSTART_DOC_SOURCE = read('website-v2/docs/quickstart.mdx');
@@ -98,9 +98,11 @@ describe('Templates docs surface', () => {
       'workflow_kit',
       'planning artifact filenames',
       'roles with prompt overrides',
+      'scaffold blueprint roles',
       'acceptance hints',
       'built-in registry',
       'current project template',
+      'init-only',
     ]) {
       assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
     }
@@ -110,6 +112,7 @@ describe('Templates docs surface', () => {
       'description',
       'planning_artifacts',
       'prompt_overrides',
+      'scaffold_blueprint_roles',
       'acceptance_hints',
     ]) {
       assert.ok(
@@ -152,6 +155,7 @@ describe('Templates docs surface', () => {
       'status --json',
       'template_set',
       'template set --force',
+      'enterprise-app',
     ]) {
       assert.ok(TEMPLATES_SPEC.includes(term), `templates spec must mention ${term}`);
     }
@@ -231,6 +235,18 @@ describe('Templates docs surface', () => {
       'workflow_kit: {}',
     ]) {
       assert.ok(TEMPLATES_SPEC.includes(term), `templates spec must mention ${term}`);
+    }
+  });
+
+  it('documents blueprint-backed template boundaries honestly', () => {
+    for (const term of [
+      'enterprise-app',
+      'architect',
+      'security_reviewer',
+      'template set enterprise-app',
+      'custom governed team blueprint',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
     }
   });
 });

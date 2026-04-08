@@ -10,6 +10,7 @@ export function templateListCommand(opts) {
       description: t.description,
       planning_artifacts: (t.planning_artifacts || []).map((a) => a.filename),
       prompt_overrides: Object.keys(t.prompt_overrides || {}),
+      scaffold_blueprint_roles: Object.keys(t.scaffold_blueprint?.roles || {}),
       acceptance_hints: t.acceptance_hints || [],
     }));
     console.log(JSON.stringify(output, null, 2));
@@ -26,6 +27,9 @@ export function templateListCommand(opts) {
     }
     if (t.prompt_overrides && Object.keys(t.prompt_overrides).length > 0) {
       console.log(`    Prompt overrides: ${Object.keys(t.prompt_overrides).join(', ')}`);
+    }
+    if (t.scaffold_blueprint?.roles && Object.keys(t.scaffold_blueprint.roles).length > 0) {
+      console.log(`    Scaffold roles: ${Object.keys(t.scaffold_blueprint.roles).join(', ')}`);
     }
     console.log('');
   }

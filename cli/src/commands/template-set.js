@@ -64,6 +64,12 @@ export async function templateSetCommand(templateId, opts) {
 
   // ── Load manifest ─────────────────────────────────────────────────────
   const manifest = loadGovernedTemplate(templateId);
+  if (manifest.scaffold_blueprint) {
+    console.error(chalk.red(`  Error: Template "${templateId}" defines a custom governed team blueprint.`));
+    console.error(chalk.yellow(`  Use ${chalk.bold(`agentxchain init --governed --template ${templateId}`)} for new repos.`));
+    console.error(chalk.yellow('  Retrofitting an existing repo to a blueprint-backed team is deferred until a dedicated migrator exists.'));
+    process.exit(1);
+  }
   const projectName = config.project?.name || 'Untitled';
 
   // ── Build mutation plan ───────────────────────────────────────────────

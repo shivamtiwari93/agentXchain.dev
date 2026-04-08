@@ -468,13 +468,49 @@ function generateWorkflowKitPlaceholder(artifact, projectName) {
   return `# ${title} — ${projectName}\n\n(Operator fills this in.)\n`;
 }
 
+function cloneJsonCompatible(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig) {
+  const blueprint = template.scaffold_blueprint || null;
+  const roles = cloneJsonCompatible(blueprint?.roles || GOVERNED_ROLES);
+  const runtimes = cloneJsonCompatible(blueprint?.runtimes || GOVERNED_RUNTIMES);
+
+  if (!blueprint || Object.values(roles).some((role) => role?.runtime === 'local-dev')) {
+    runtimes['local-dev'] = localDevRuntime;
+  }
+
+  const routing = cloneJsonCompatible(blueprint?.routing || GOVERNED_ROUTING);
+  const gates = cloneJsonCompatible(blueprint?.gates || GOVERNED_GATES);
+  const effectiveWorkflowKitConfig = workflowKitConfig || cloneJsonCompatible(blueprint?.workflow_kit || null);
+  const prompts = Object.fromEntries(
+    Object.keys(roles).map((roleId) => [roleId, `.agentxchain/prompts/${roleId}.md`])
+  );
+
+  return {
+    roles,
+    runtimes,
+    routing,
+    gates,
+    prompts,
+    workflowKitConfig: effectiveWorkflowKitConfig,
+  };
+}
+
 export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}, workflowKitConfig = null) {
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
-  const runtimes = {
-    ...GOVERNED_RUNTIMES,
-    'local-dev': localDevRuntime,
-  };
+  const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig);
+  const { roles, runtimes, routing, gates, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
+  const initialPhase = Object.keys(routing)[0] || 'planning';
+  const phaseGateStatus = Object.fromEntries(
+    [...new Set(
+      Object.values(routing)
+        .map((route) => route?.exit_gate)
+        .filter(Boolean)
+    )].map((gateId) => [gateId, 'pending'])
+  );
   const config = {
     schema_version: '1.0',
     template: template.id,
@@ -483,10 +519,10 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       name: projectName,
       default_branch: 'main'
     },
-    roles: GOVERNED_ROLES,
+    roles,
     runtimes,
-    routing: GOVERNED_ROUTING,
-    gates: GOVERNED_GATES,
+    routing,
+    gates,
     budget: {
       per_turn_max_usd: 2.0,
       per_run_max_usd: 50.0,
@@ -496,25 +532,23 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       talk_strategy: 'append_only',
       history_strategy: 'jsonl_append_only'
     },
-    prompts: {
-      pm: '.agentxchain/prompts/pm.md',
-      dev: '.agentxchain/prompts/dev.md',
-      qa: '.agentxchain/prompts/qa.md',
-      eng_director: '.agentxchain/prompts/eng_director.md'
-    },
+    prompts,
     rules: {
       challenge_required: true,
       max_turn_retries: 2,
       max_deadlock_cycles: 2
     }
   };
+  if (effectiveWorkflowKitConfig) {
+    config.workflow_kit = effectiveWorkflowKitConfig;
+  }
 
   const state = {
     schema_version: '1.1',
     run_id: null,
     project_id: projectId,
     status: 'idle',
-    phase: 'planning',
+    phase: initialPhase,
     accepted_integration_ref: null,
     active_turns: {},
     turn_sequence: 0,
@@ -524,11 +558,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     escalation: null,
     queued_phase_transition: null,
     queued_run_completion: null,
-    phase_gate_status: {
-      planning_signoff: 'pending',
-      implementation_complete: 'pending',
-      qa_ship_verdict: 'pending'
-    },
+    phase_gate_status: phaseGateStatus,
     budget_reservations: {},
     budget_status: {
       spent_usd: 0,
@@ -550,7 +580,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   writeFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), '');
 
   // Prompt templates
-  for (const [roleId, role] of Object.entries(GOVERNED_ROLES)) {
+  for (const [roleId, role] of Object.entries(roles)) {
     const basePrompt = buildGovernedPrompt(roleId, role);
     const prompt = appendPromptOverride(basePrompt, template.prompt_overrides?.[roleId]);
     writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), prompt);
@@ -577,7 +607,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
   // Workflow-kit custom artifacts — only scaffold files from explicit workflow_kit config
   // that are not already handled by the default scaffold above
-  if (workflowKitConfig && workflowKitConfig.phases && typeof workflowKitConfig.phases === 'object') {
+  if (effectiveWorkflowKitConfig && effectiveWorkflowKitConfig.phases && typeof effectiveWorkflowKitConfig.phases === 'object') {
     const defaultScaffoldPaths = new Set([
       '.planning/PM_SIGNOFF.md',
       '.planning/ROADMAP.md',
@@ -588,7 +618,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       '.planning/RELEASE_NOTES.md',
     ]);
 
-    for (const phaseConfig of Object.values(workflowKitConfig.phases)) {
+    for (const phaseConfig of Object.values(effectiveWorkflowKitConfig.phases)) {
       if (!Array.isArray(phaseConfig.artifacts)) continue;
       for (const artifact of phaseConfig.artifacts) {
         if (!artifact.path || defaultScaffoldPaths.has(artifact.path)) continue;
@@ -629,6 +659,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 async function initGoverned(opts) {
   let projectName, folderName;
   const templateId = opts.template || 'generic';
+  let selectedTemplate;
   let explicitDir;
 
   try {
@@ -649,6 +680,7 @@ async function initGoverned(opts) {
     console.error('    web-app       Governed scaffold for a web application');
     process.exit(1);
   }
+  selectedTemplate = loadGovernedTemplate(templateId);
 
   if (opts.yes) {
     projectName = explicitDir
@@ -721,16 +753,18 @@ async function initGoverned(opts) {
     }
   }
 
-  scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
+  const { config } = scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));
   console.log('');
+  const promptRoleIds = Object.keys(config.roles);
+  const phaseNames = Object.keys(config.routing);
   console.log(`    ${chalk.dim('├──')} agentxchain.json  ${chalk.dim('(governed)')}`);
   console.log(`    ${chalk.dim('├──')} .agentxchain/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} state.json / history.jsonl / decision-ledger.jsonl`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} staging/`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} prompts/  ${chalk.dim('(pm, dev, qa, eng_director)')}`);
+  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} prompts/  ${chalk.dim(`(${promptRoleIds.join(', ')})`)}`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} reviews/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
@@ -739,29 +773,32 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} RELEASE_NOTES.md`);
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
-  console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);
-  console.log(`  ${chalk.dim('Phases:')} planning → implementation → qa ${chalk.dim('(default; extend via routing in agentxchain.json)')}`);
+  console.log(`  ${chalk.dim('Roles:')} ${promptRoleIds.join(', ')}`);
+  console.log(`  ${chalk.dim('Phases:')} ${phaseNames.join(' → ')} ${chalk.dim(selectedTemplate.scaffold_blueprint ? '(template-defined; edit routing in agentxchain.json to customize)' : '(default; extend via routing in agentxchain.json)')}`);
   console.log(`  ${chalk.dim('Template:')} ${templateId}`);
   console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
 
   // Readiness hint: tell user which roles work immediately vs which need API keys
-  const allRuntimes = { ...GOVERNED_RUNTIMES, 'local-dev': localDevRuntime };
-  const needsKey = Object.entries(allRuntimes)
-    .filter(([, rt]) => rt.auth_env)
-    .map(([id, rt]) => ({ id, env: rt.auth_env }));
-  if (needsKey.length > 0) {
-    const envVars = [...new Set(needsKey.map(r => r.env))];
-    const roleNames = needsKey.map(r => r.id);
+  const allRuntimes = config.runtimes;
+  const manualRoleIds = Object.entries(config.roles)
+    .filter(([, role]) => allRuntimes[role.runtime]?.type === 'manual')
+    .map(([roleId]) => roleId);
+  const rolesNeedingKeys = Object.entries(config.roles)
+    .filter(([, role]) => Boolean(allRuntimes[role.runtime]?.auth_env))
+    .map(([roleId, role]) => ({ roleId, env: allRuntimes[role.runtime].auth_env }));
+  if (rolesNeedingKeys.length > 0) {
+    const envVars = [...new Set(rolesNeedingKeys.map((r) => r.env))];
+    const roleNames = rolesNeedingKeys.map((r) => r.roleId);
     const hasKeys = envVars.every(v => process.env[v]);
     if (hasKeys) {
       console.log(`  ${chalk.green('Ready:')} all runtimes configured (${envVars.join(', ')} detected)`);
     } else {
-      console.log(`  ${chalk.yellow('Mixed-mode:')} pm and eng_director work immediately (manual).`);
+      console.log(`  ${chalk.yellow('Mixed-mode:')} ${manualRoleIds.join(', ')} work immediately (manual).`);
       console.log(`  ${chalk.yellow('  ')}${roleNames.join(', ')} need ${chalk.bold(envVars.join(', '))} to dispatch automatically.`);
       console.log(`  ${chalk.yellow('  ')}Without it, those turns fall back to manual input.`);
-      if (allRuntimes['manual-qa']) {
+      if (config.roles?.qa?.runtime === 'api-qa' && allRuntimes['manual-qa']) {
         console.log(`  ${chalk.yellow('  ')}No-key QA path: change ${chalk.bold('roles.qa.runtime')} from ${chalk.bold('"api-qa"')} to ${chalk.bold('"manual-qa"')} in ${chalk.bold('agentxchain.json')}.`);
       }
     }

@@ -38,6 +38,7 @@ cli/src/templates/governed/
   cli-tool.json
   library.json
   web-app.json
+  enterprise-app.json
 ```
 
 This is a new subdirectory parallel to the existing `cli/src/templates/` (which contains legacy v3 team templates). Governed templates must NOT be mixed into the legacy template directory.
@@ -82,6 +83,7 @@ Fields:
 | `planning_artifacts` | yes | array | Each entry: `{ filename: string, content_template: string }` |
 | `prompt_overrides` | no | object | Keys are role IDs, values are appended to the base governed prompt |
 | `acceptance_hints` | no | string[] | Human-readable hints written to `acceptance-matrix.md` footer |
+| `scaffold_blueprint` | no | object | Optional governed scaffold override for roles, runtimes, routing, gates, and workflow_kit |
 
 ### Template interpolation
 
@@ -133,7 +135,7 @@ function loadGovernedTemplate(templateId) {
 The template ID is validated against a hardcoded allowlist BEFORE any filesystem access:
 
 ```javascript
-const VALID_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app'];
+const VALID_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
 ```
 
 This prevents path traversal even though the templates directory is read-only packaged data.
@@ -158,6 +160,7 @@ Available templates:
   cli-tool      Governed scaffold for a CLI tool
   library       Governed scaffold for a reusable package
   web-app       Governed scaffold for a web application
+  enterprise-app Governed scaffold for multi-role enterprise delivery
 ```
 
 Exit code: 1. No partial scaffold written. No cleanup needed because the error fires before any filesystem writes.
@@ -191,10 +194,12 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
 New behavior:
 1. Load the template manifest via `loadGovernedTemplate(templateId)`
-2. Write `"template": templateId` into the config object
-3. After writing the base planning artifacts (PM_SIGNOFF, ROADMAP, acceptance-matrix, ship-verdict), write template-specific planning artifacts from `planning_artifacts[]`
-4. If `prompt_overrides` exists, append the override text to the corresponding role prompt file (after the base prompt, separated by `\n\n---\n\n## Project-Type-Specific Guidance\n\n`)
-5. If `acceptance_hints` exists, append them to `acceptance-matrix.md` as a "Template Guidance" section
+2. If the manifest has `scaffold_blueprint`, derive `roles`, `runtimes`, `routing`, `gates`, prompt paths, and optional `workflow_kit` from it; otherwise use the default governed team constants
+3. Write `"template": templateId` into the config object
+4. After writing the base planning artifacts (PM_SIGNOFF, ROADMAP, acceptance-matrix, ship-verdict), write template-specific planning artifacts from `planning_artifacts[]`
+5. If `prompt_overrides` exists, append the override text to the corresponding role prompt file (after the base prompt, separated by `\n\n---\n\n## Project-Type-Specific Guidance\n\n`)
+6. If `acceptance_hints` exists, append them to `acceptance-matrix.md` as a "Template Guidance" section
+7. If `workflow_kit` came from `scaffold_blueprint`, preserve it in `agentxchain.json` and scaffold any additional artifact placeholders declared there
 
 ### `initGoverned()` changes
 
@@ -207,7 +212,7 @@ New behavior:
 In `bin/agentxchain.js`, the `init` command gains:
 
 ```javascript
-.option('--template <id>', 'project template for governed scaffold (generic, api-service, cli-tool, library, web-app)')
+.option('--template <id>', 'project template for governed scaffold (generic, api-service, cli-tool, library, web-app, enterprise-app)')
 ```
 
 ### Config loader changes
@@ -227,7 +232,7 @@ In `bin/agentxchain.js`, the `init` command gains:
 
 `migrate` writes `"template": "generic"` into the newly generated governed config and may record that in its migration report for operator clarity.
 
-It must **not** infer `api-service`, `cli-tool`, `library`, or `web-app` from repo contents in v1. The no-guess rule still stands; explicit `generic` is the safe baseline.
+It must **not** infer `api-service`, `cli-tool`, `library`, `web-app`, or `enterprise-app` from repo contents in v1. The no-guess rule still stands; explicit `generic` is the safe baseline.
 
 ---
 
@@ -237,6 +242,7 @@ It must **not** infer `api-service`, `cli-tool`, `library`, or `web-app` from re
 - Remote template registries. Explicitly a non-goal for v1.
 - Interactive template picker during `init --governed` (without `--template`). Deferred — the flag is sufficient for v1.
 - Framework-specific generators inside templates. Explicitly a non-goal.
+- Safe retroactive rewriting of an existing governed repo into a blueprint-backed team shape. `template set` must fail closed for those templates until a dedicated migrator exists.
 
 ---
 
@@ -245,6 +251,7 @@ It must **not** infer `api-service`, `cli-tool`, `library`, or `web-app` from re
 - **AT-TEMPLATE-INIT-001**: `init --governed` with no `--template` flag writes `"template": "generic"` to `agentxchain.json`.
 - **AT-TEMPLATE-INIT-002**: `init --governed --template api-service` writes `"template": "api-service"` to `agentxchain.json` and creates `api-contract.md`, `operational-readiness.md`, `error-budget.md` in `.planning/`.
 - **AT-TEMPLATE-INIT-002b**: `init --governed --template library` writes `"template": "library"` to `agentxchain.json` and creates `public-api.md`, `compatibility-policy.md`, `release-adoption.md` in `.planning/`.
+- **AT-TEMPLATE-INIT-002c**: `init --governed --template enterprise-app` writes custom roles/routing/gates/workflow_kit into `agentxchain.json`, creates prompt files for `architect` and `security_reviewer`, and scaffolds enterprise workflow-kit artifacts.
 - **AT-TEMPLATE-INIT-003**: `init --governed --template unknown-id` exits with code 1, prints available templates, writes no files.
 - **AT-TEMPLATE-INIT-004**: All built-in template manifests parse as valid JSON and contain required fields (`id`, `display_name`, `description`, `version`, `protocol_compatibility`, `planning_artifacts`).
 - **AT-TEMPLATE-INIT-005**: Template `id` field matches filename for every governed template manifest.
@@ -252,6 +259,7 @@ It must **not** infer `api-service`, `cli-tool`, `library`, or `web-app` from re
 - **AT-TEMPLATE-INIT-007**: `prompt_overrides` content appears in the generated prompt file for the specified role.
 - **AT-TEMPLATE-INIT-008**: Existing projects without a `template` field in `agentxchain.json` are treated as `generic` by the config loader (no validation error, no migration required).
 - **AT-TEMPLATE-INIT-009**: `agentxchain migrate --yes` writes `"template": "generic"` to the migrated governed config and does not infer a more specific template from repo contents.
+- **AT-TEMPLATE-INIT-010**: `template set enterprise-app` fails closed with init-only guidance because blueprint-backed templates change governed team topology.
 
 ---
 

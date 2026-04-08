@@ -214,6 +214,14 @@ This marker is not decorative. `template validate` and governed scaffold re-init
 
 Without that distinction, an explicit opt-out (`workflow_kit: {}`) can silently reactivate the default scaffold proof surface, which would be a contract lie.
 
+Downstream consumers that must preserve this distinction:
+
+- `validateGovernedWorkflowKit(...)`
+- `template validate`
+- governed scaffold re-init (`agentxchain init --governed --dir . -y`)
+
+If any refactor removes `_explicit` or stops propagating it into those surfaces, explicit empty workflow-kit becomes unprovable again.
+
 ### Integration Point
 
 `normalizeV4()` calls `normalizeWorkflowKit(raw.workflow_kit, derivedPhases)` after routing normalization, and attaches the result to the normalized config as `config.workflow_kit`.

@@ -110,6 +110,7 @@ Built-in governed templates:
 - `cli-tool`: adds command-surface, platform-support, and distribution planning files
 - `library`: adds public-API, compatibility-policy, and release-adoption planning files
 - `web-app`: adds user-flow, UI acceptance, and browser-support planning files
+- `enterprise-app`: adds enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
 
 `step` writes a turn-scoped dispatch bundle under `.agentxchain/dispatch/turns/<turn_id>/` and tells you where the staged result must be written. For manual turns, fill in `.agentxchain/staging/<turn_id>/turn-result.json`, then accept the turn:
 

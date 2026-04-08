@@ -70,7 +70,7 @@ agentxchain init --governed [--dir <path>] [--template <id>] [--dev-command <par
 |------|---------|-------------|
 | `--governed` | `false` | Create the governed scaffold with protocol-owned state and prompts |
 | `--dir <path>` | derived folder | Target directory for the scaffold. Use `--dir .` for in-place bootstrap inside an existing repo |
-| `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app` |
+| `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app`, `enterprise-app` |
 | `--dev-command <parts...>` | `claude --print --dangerously-skip-permissions` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
 | `--dev-prompt-transport <mode>` | `stdin` | Prompt delivery for the scaffolded `local-dev` runtime: `argv`, `stdin`, or `dispatch_bundle_only` |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
@@ -104,7 +104,7 @@ See [Templates](/docs/templates) for the full scaffold contract instead of guess
 agentxchain template list [--json]
 ```
 
-Prints the built-in governed templates with their descriptions, planning artifacts, prompt override roles, and acceptance hints. Use this before `template set` when you want the exact built-in surface.
+Prints the built-in governed templates with their descriptions, planning artifacts, prompt override roles, scaffold blueprint roles when present, and acceptance hints. Use this before `template set` when you want the exact built-in surface.
 
 ### `template validate`
 
@@ -136,7 +136,9 @@ A missing `template` field is treated as implicit `generic`; an unknown configur
 agentxchain template set <id> [--yes] [--dry-run]
 ```
 
-Annotates an existing governed project with a template. This command is additive by design: it updates the config `template` field, creates missing planning artifacts, appends prompt guidance once, appends template guidance to `acceptance-matrix.md` once, and records the change in `.agentxchain/decision-ledger.jsonl`. It does **not** overwrite operator-authored planning docs or replace existing template-guidance blocks. See [Templates](/docs/templates) for the full mutation semantics.
+Annotates an existing governed project with a template. This command is additive by design: it updates the config `template` field, creates missing planning artifacts, appends prompt guidance once, appends template guidance to `acceptance-matrix.md` once, and records the change in `.agentxchain/decision-ledger.jsonl`. It does **not** overwrite operator-authored planning docs or replace existing template-guidance blocks.
+
+Blueprint-backed templates are the explicit exception. `template set enterprise-app` fails closed because rewriting `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit` inside an existing repo is not an additive mutation. Use `init --governed --template enterprise-app` for new repos instead. See [Templates](/docs/templates) for the full mutation semantics.
 
 ### `status`
 

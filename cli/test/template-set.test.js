@@ -408,6 +408,7 @@ describe('template list', () => {
     assert.ok(result.stdout.includes('cli-tool'));
     assert.ok(result.stdout.includes('library'));
     assert.ok(result.stdout.includes('web-app'));
+    assert.ok(result.stdout.includes('enterprise-app'));
   });
 
   it('outputs JSON with --json flag', () => {
@@ -415,18 +416,33 @@ describe('template list', () => {
     assert.equal(result.status, 0, result.stderr);
     const templates = JSON.parse(result.stdout);
     assert.ok(Array.isArray(templates));
-    assert.equal(templates.length, 5);
+    assert.equal(templates.length, 6);
     const ids = templates.map(t => t.id);
     assert.ok(ids.includes('generic'));
     assert.ok(ids.includes('api-service'));
     assert.ok(ids.includes('cli-tool'));
     assert.ok(ids.includes('library'));
     assert.ok(ids.includes('web-app'));
+    assert.ok(ids.includes('enterprise-app'));
     // Check structure
     const apiService = templates.find(t => t.id === 'api-service');
     assert.ok(Array.isArray(apiService.planning_artifacts));
     assert.ok(apiService.planning_artifacts.includes('api-contract.md'));
     assert.ok(Array.isArray(apiService.prompt_overrides));
     assert.ok(Array.isArray(apiService.acceptance_hints));
+    const enterpriseApp = templates.find(t => t.id === 'enterprise-app');
+    assert.deepEqual(enterpriseApp.scaffold_blueprint_roles, ['pm', 'architect', 'dev', 'security_reviewer', 'qa', 'eng_director']);
+  });
+});
+
+describe('template set — blueprint-backed templates', () => {
+  it('fails closed for templates that redefine team topology', () => {
+    const dir = makeGovernedProject();
+    const result = run(['template', 'set', 'enterprise-app', '--yes'], dir);
+    assert.equal(result.status, 1);
+    const output = result.stderr + result.stdout;
+    assert.ok(output.includes('custom governed team blueprint'));
+    assert.ok(output.includes('init --governed --template enterprise-app'));
+    rmSync(dir, { recursive: true, force: true });
   });
 });

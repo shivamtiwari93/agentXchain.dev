@@ -24,6 +24,7 @@ This is the contract:
 | `cli-tool` | Command-line tools and packaged CLIs | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` |
 | `library` | Reusable packages and shared modules | `public-api.md`, `compatibility-policy.md`, `release-adoption.md` |
 | `web-app` | Product UIs and browser-facing apps | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` |
+| `enterprise-app` | Multi-role delivery with architecture and security review | `integration-boundaries.md`, `data-classification.md`, `risk-register.md` |
 
 If you cannot justify one of the specialized templates honestly, stay on `generic`. The point is clearer planning, not decorative metadata.
 
@@ -67,6 +68,7 @@ The JSON mode exposes the operator-relevant shape directly:
 - `description`
 - planning artifact filenames
 - roles with prompt overrides
+- scaffold blueprint roles
 - acceptance hints
 
 ## Prove the template surface instead of assuming it
@@ -139,6 +141,29 @@ If `workflow_kit` is absent, `template validate` falls back to the built-in scaf
 Each non-generic template also carries a `system_spec_overlay` that replaces the generic placeholder text in `SYSTEM_SPEC.md` with project-shape-specific guidance. For example, `api-service` prompts for endpoint contracts and error budgets, while `library` prompts for public API surface and compatibility policy. The generic template produces the baseline spec with universal placeholders.
 
 Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance hints are warnings. Silent tolerance on either would hide governance gaps, but the severity distinction reflects that acceptance hints are guidance obligations, not structural requirements.
+
+### Blueprint-backed templates
+
+`enterprise-app` is intentionally not just another artifact bundle. It is an init-only blueprint-backed template with a custom governed team blueprint:
+
+- `architect`
+- `security_reviewer`
+- custom phases: `architecture` and `security_review`
+- explicit workflow-kit artifacts: `.planning/ARCHITECTURE.md` and `.planning/SECURITY_REVIEW.md`
+
+This is the shipped proof that built-in governed templates are no longer locked to `pm`, `dev`, `qa`, and `eng_director`.
+
+Important boundary:
+
+- `init --governed --template enterprise-app` is supported and writes the custom team topology
+- `template set enterprise-app` is intentionally rejected because rewriting `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit` inside an existing repo is not additive work
+
+The error is deliberate:
+
+```text
+Error: Template "enterprise-app" defines a custom governed team blueprint.
+Use agentxchain init --governed --template enterprise-app for new repos.
+```
 
 ## Apply a template to an existing governed repo
 
@@ -213,6 +238,8 @@ Use `cli-tool` when the repo's risk is command surface, install path, and distri
 Use `library` when the repo's risk is public API stability, compatibility guarantees, and consumer adoption.
 
 Use `web-app` when the repo's risk is user flow, browser behavior, and UI acceptance proof.
+
+Use `enterprise-app` when the repo needs architecture and security review as first-class governed phases instead of burying those concerns inside generic PM or QA notes.
 
 Use `generic` when none of those specializations fit cleanly or when you want the base governed scaffold first.
 

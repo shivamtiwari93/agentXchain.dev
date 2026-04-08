@@ -8,7 +8,7 @@ Depends on: [TEMPLATE_INIT_IMPL_SPEC.md](./TEMPLATE_INIT_IMPL_SPEC.md), [SDLC_TE
 
 ## Purpose
 
-Define the mutation semantics for annotating an existing governed project with a template after initial scaffold. This covers the common case: a project was created with `init --governed` (defaulting to `generic`) and the operator later wants to apply `api-service`, `cli-tool`, `library`, or `web-app` guidance.
+Define the mutation semantics for annotating an existing governed project with a template after initial scaffold. This covers the common case: a project was created with `init --governed` (defaulting to `generic`) and the operator later wants to apply `api-service`, `cli-tool`, `library`, or `web-app` guidance. Blueprint-backed templates such as `enterprise-app` are explicitly out of scope here because they redefine team topology and are not additive mutations.
 
 This is a **metadata + guidance** command, not a destructive rewrite. The operator is choosing to annotate their project with a template's planning artifacts and prompt overrides. The command must be safe to run at any point in a governed project's lifecycle.
 

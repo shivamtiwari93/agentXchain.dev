@@ -15,7 +15,7 @@ const CLI_SPEC = readFileSync(join(PLANNING, 'CLI_SPEC.md'), 'utf8');
 const ROADMAP = readFileSync(join(PLANNING, 'POST_V1_ROADMAP.md'), 'utf8');
 
 // Canonical template IDs defined in the implementation spec
-const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app'];
+const CANONICAL_TEMPLATE_IDS = ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app'];
 
 describe('Template spec consistency', () => {
 
@@ -136,6 +136,7 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
   const CLI_TOOL_ARTIFACTS = ['command-surface.md', 'platform-support.md', 'distribution-checklist.md'];
   const LIBRARY_ARTIFACTS = ['public-api.md', 'compatibility-policy.md', 'release-adoption.md'];
   const WEB_APP_ARTIFACTS = ['user-flows.md', 'ui-acceptance.md', 'browser-support.md'];
+  const ENTERPRISE_APP_ARTIFACTS = ['integration-boundaries.md', 'data-classification.md', 'risk-register.md'];
 
   for (const artifact of API_SERVICE_ARTIFACTS) {
     it(`api-service planning artifact "${artifact}" is mentioned in SDLC spec`, () => {
@@ -161,6 +162,12 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
     });
   }
 
+  for (const artifact of ENTERPRISE_APP_ARTIFACTS) {
+    it(`enterprise-app planning artifact "${artifact}" is mentioned in SDLC spec`, () => {
+      assert.ok(SDLC_SPEC.includes(artifact), `SDLC spec must mention ${artifact}`);
+    });
+  }
+
   it('implementation spec mentions api-service artifacts in AT-TEMPLATE-INIT-002', () => {
     for (const artifact of API_SERVICE_ARTIFACTS) {
       assert.ok(
@@ -175,6 +182,15 @@ describe('Template spec — no drift from SDLC planning artifacts', () => {
       assert.ok(
         TEMPLATE_INIT_SPEC.includes(artifact),
         `Implementation spec AT-TEMPLATE-INIT-002b must verify ${artifact}`
+      );
+    }
+  });
+
+  it('implementation spec mentions enterprise-app blueprint in AT-TEMPLATE-INIT-002c', () => {
+    for (const term of ['enterprise-app', 'architect', 'security_reviewer', 'workflow_kit']) {
+      assert.ok(
+        TEMPLATE_INIT_SPEC.includes(term),
+        `Implementation spec AT-TEMPLATE-INIT-002c must verify ${term}`
       );
     }
   });

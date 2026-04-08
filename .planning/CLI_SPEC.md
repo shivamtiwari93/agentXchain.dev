@@ -85,7 +85,7 @@ Exit code contract:
 
 Scaffolds a governed project with:
 
-- `agentxchain.json` in governed format, including `"template": "<id>"` (defaults to `"generic"`; built-ins currently include `api-service`, `cli-tool`, `library`, and `web-app`)
+- `agentxchain.json` in governed format, including `"template": "<id>"` (defaults to `"generic"`; built-ins currently include `api-service`, `cli-tool`, `library`, `web-app`, and `enterprise-app`)
 - `.agentxchain/state.json` with `schema_version = "1.1"`, `status = "idle"`, `run_id = null`, `active_turns = {}`, and `turn_sequence = 0`
 - `.agentxchain/history.jsonl`
 - `.agentxchain/decision-ledger.jsonl`

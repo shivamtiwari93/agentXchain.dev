@@ -33,6 +33,7 @@ Supported template ids for the first release of this system:
 - `cli-tool`
 - `library`
 - `web-app`
+- `enterprise-app`
 
 Non-goals for v1 of the template system:
 
@@ -62,8 +63,9 @@ The manifest is internal CLI data, not part of the governed run state. The resul
 Manifest field meanings for v1:
 
 - `planning_artifacts`: array of `{ filename, content_template }` objects written under `.planning/`
-- `prompt_overrides`: object keyed by governed role id (`pm`, `dev`, `qa`, `eng_director`) with appended guidance text
+- `prompt_overrides`: object keyed by governed role id with appended guidance text
 - `acceptance_hints`: human-readable checklist lines appended to `.planning/acceptance-matrix.md`
+- `scaffold_blueprint`: optional governed team blueprint used only by `init --governed --template <id>`
 
 The v1 manifest is intentionally narrow. It scaffolds files and guidance. It does **not** introduce machine-enforced template gates.
 It now does support machine-checked registry validation so the CLI can prove the built-in template set is coherent.
@@ -115,6 +117,15 @@ Each template adds or customizes the human-readable planning files under `.plann
 - `ui-acceptance.md`
 - `browser-support.md`
 
+`enterprise-app` adds:
+
+- `integration-boundaries.md`
+- `data-classification.md`
+- `risk-register.md`
+- a non-default governed team blueprint with `architect` and `security_reviewer`
+- custom phases such as `architecture` and `security_review`
+- explicit workflow-kit artifacts for those phases
+
 These are not filler documents. Each one must include starter headings that make QA and ship decisions more concrete.
 
 ### 3. Template-Specific Prompt Seeds
@@ -127,6 +138,7 @@ Examples:
 - `cli-tool` QA prompt seed emphasizes command UX, help text, install flow, and shell compatibility
 - `library` QA prompt seed emphasizes public API stability, install/import smoke, and upgrade-path clarity
 - `web-app` QA prompt seed emphasizes user flow integrity, responsive behavior, and accessibility smoke checks
+- `enterprise-app` architect/security review prompt seeds emphasize design-boundary decisions and explicit risk closure
 
 The template system must not introduce role-specific protocol forks. A `qa` turn still returns the same governed turn-result schema regardless of template.
 
@@ -165,6 +177,7 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 - Existing projects without a template remain valid and are treated as `generic`.
 - `migrate` must never guess a template from repo contents in the first release.
 - A future explicit command may annotate an existing project with a chosen template after human confirmation. The intended surface is `agentxchain template set <id>`.
+- `template set` remains additive for artifact-and-guidance templates. It must fail closed for blueprint-backed templates that would need to rewrite team topology.
 - Config loading remains tolerant of missing or unknown `template` values, but explicit validation must fail when the installed CLI cannot prove a project's configured template binding.
 
 ## Error Cases
@@ -184,6 +197,7 @@ These minimums are scaffold guidance first. In v1 they are represented as `accep
 - AT-SDLC-TEMPLATE-005: generated docs mention the selected template so operators and future migrations can inspect scaffold intent.
 - AT-SDLC-TEMPLATE-006: the packaged npm tarball contains every built-in template asset required by its manifest.
 - AT-SDLC-TEMPLATE-007: `agentxchain template validate` proves both the built-in registry and the current project's configured template binding.
+- AT-SDLC-TEMPLATE-008: `init --governed --template enterprise-app` proves the scaffold can emit a governed team beyond the default `pm/dev/qa` loop.
 
 ## Open Questions
 

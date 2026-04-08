@@ -1,0 +1,193 @@
+{
+  "id": "enterprise-app",
+  "display_name": "Enterprise App",
+  "description": "Governed scaffold for multi-role product delivery with explicit architecture and security-review phases.",
+  "version": "1",
+  "protocol_compatibility": ["1.0", "1.1"],
+  "planning_artifacts": [
+    {
+      "filename": "integration-boundaries.md",
+      "content_template": "# Integration Boundaries — {{project_name}}\n\n## Systems And Owners\n| System | Owner | Dependency type | Contract |\n|--------|-------|-----------------|----------|\n| | | | |\n\n## Cross-Team Dependencies\n- External approvals required:\n- Deployment dependencies:\n- Data-sharing constraints:\n"
+    },
+    {
+      "filename": "data-classification.md",
+      "content_template": "# Data Classification — {{project_name}}\n\n## Data Types\n| Data type | Sensitivity | Storage boundary | Notes |\n|-----------|-------------|------------------|-------|\n| | | | |\n\n## Compliance Constraints\n- Retention requirements:\n- Encryption expectations:\n- Audit obligations:\n"
+    },
+    {
+      "filename": "risk-register.md",
+      "content_template": "# Risk Register — {{project_name}}\n\n## Delivery Risks\n| Risk | Likelihood | Impact | Mitigation | Owner |\n|------|------------|--------|------------|-------|\n| | | | | |\n\n## Ship Blockers\n- Blocking risk thresholds:\n- Conditions for mitigated ship:\n"
+    }
+  ],
+  "prompt_overrides": {
+    "pm": "Drive cross-functional clarity early. Enterprise delivery fails when integration owners, rollout boundaries, or security obligations are left implicit.",
+    "architect": "Own the architecture phase. Make interface boundaries, data flow, and trade-offs explicit before dev starts implementation.",
+    "dev": "Treat integration safety, data handling, and architecture drift as first-class delivery risks. Do not bypass the architecture or security contracts.",
+    "security_reviewer": "Threat-model the shipped change, record findings explicitly, and block progression when risks are unresolved or undocumented.",
+    "qa": "Do not sign off until the architecture and security-review artifacts agree with the shipped behavior and verification evidence."
+  },
+  "acceptance_hints": [
+    "Architecture decisions reviewed before implementation started",
+    "Security review findings closed or explicitly accepted",
+    "Integration boundaries and rollout risks documented before ship request"
+  ],
+  "system_spec_overlay": {
+    "purpose_guidance": "Describe the enterprise workflow, the internal or external users it serves, and why this product needs governed multi-role delivery instead of a simple feature implementation.",
+    "interface_guidance": "List the product boundaries, key integrations, data flows, and authority handoffs. Reference integration-boundaries.md for the cross-system contract.",
+    "behavior_guidance": "Describe the expected system behavior across architecture, implementation, and security-review concerns. Include deployment and rollback assumptions.",
+    "error_cases_guidance": "List integration failures, auth or entitlement risks, rollout hazards, and security findings that would block release. Reference risk-register.md for mitigation expectations.",
+    "acceptance_tests_guidance": "- [ ] Architecture artifact documents boundaries and trade-offs\n- [ ] Security review captures findings and explicit verdict\n- [ ] Verification covers critical user and integration paths\n- [ ] Rollout or mitigation plan is documented before ship approval"
+  },
+  "scaffold_blueprint": {
+    "roles": {
+      "pm": {
+        "title": "Product Manager",
+        "mandate": "Protect scope clarity, user value, and cross-functional delivery readiness.",
+        "write_authority": "review_only",
+        "runtime": "manual-pm"
+      },
+      "architect": {
+        "title": "Architect",
+        "mandate": "Define the system boundary, integration contracts, and technical trade-offs before implementation commits to a design.",
+        "write_authority": "review_only",
+        "runtime": "manual-architect"
+      },
+      "dev": {
+        "title": "Developer",
+        "mandate": "Implement approved work safely and verify behavior.",
+        "write_authority": "authoritative",
+        "runtime": "local-dev"
+      },
+      "security_reviewer": {
+        "title": "Security Reviewer",
+        "mandate": "Challenge data handling, auth boundaries, and exploit paths before work proceeds to final QA.",
+        "write_authority": "review_only",
+        "runtime": "manual-security"
+      },
+      "qa": {
+        "title": "QA",
+        "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+        "write_authority": "review_only",
+        "runtime": "api-qa"
+      },
+      "eng_director": {
+        "title": "Engineering Director",
+        "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
+        "write_authority": "review_only",
+        "runtime": "manual-director"
+      }
+    },
+    "runtimes": {
+      "manual-pm": { "type": "manual" },
+      "local-dev": {
+        "type": "local_cli",
+        "command": ["claude", "--print", "--dangerously-skip-permissions"],
+        "cwd": ".",
+        "prompt_transport": "stdin"
+      },
+      "api-qa": {
+        "type": "api_proxy",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "auth_env": "ANTHROPIC_API_KEY"
+      },
+      "manual-qa": { "type": "manual" },
+      "manual-architect": { "type": "manual" },
+      "manual-security": { "type": "manual" },
+      "manual-director": { "type": "manual" }
+    },
+    "routing": {
+      "planning": {
+        "entry_role": "pm",
+        "allowed_next_roles": ["pm", "architect", "eng_director", "human"],
+        "exit_gate": "planning_signoff"
+      },
+      "architecture": {
+        "entry_role": "architect",
+        "allowed_next_roles": ["architect", "dev", "pm", "eng_director", "human"],
+        "exit_gate": "architecture_review"
+      },
+      "implementation": {
+        "entry_role": "dev",
+        "allowed_next_roles": ["dev", "security_reviewer", "qa", "architect", "eng_director", "human"],
+        "exit_gate": "implementation_complete"
+      },
+      "security_review": {
+        "entry_role": "security_reviewer",
+        "allowed_next_roles": ["dev", "qa", "architect", "eng_director", "human"],
+        "exit_gate": "security_review_signoff"
+      },
+      "qa": {
+        "entry_role": "qa",
+        "allowed_next_roles": ["dev", "qa", "eng_director", "human"],
+        "exit_gate": "qa_ship_verdict"
+      }
+    },
+    "gates": {
+      "planning_signoff": {
+        "requires_files": [".planning/PM_SIGNOFF.md", ".planning/ROADMAP.md", ".planning/SYSTEM_SPEC.md"],
+        "requires_human_approval": true
+      },
+      "architecture_review": {
+        "requires_files": [".planning/ARCHITECTURE.md"]
+      },
+      "implementation_complete": {
+        "requires_files": [".planning/IMPLEMENTATION_NOTES.md"],
+        "requires_verification_pass": true
+      },
+      "security_review_signoff": {
+        "requires_files": [".planning/SECURITY_REVIEW.md"]
+      },
+      "qa_ship_verdict": {
+        "requires_files": [".planning/acceptance-matrix.md", ".planning/ship-verdict.md", ".planning/RELEASE_NOTES.md"],
+        "requires_human_approval": true
+      }
+    },
+    "workflow_kit": {
+      "phases": {
+        "planning": {
+          "artifacts": [
+            { "path": ".planning/PM_SIGNOFF.md", "semantics": "pm_signoff", "required": true },
+            { "path": ".planning/SYSTEM_SPEC.md", "semantics": "system_spec", "required": true },
+            { "path": ".planning/ROADMAP.md", "semantics": null, "required": true }
+          ]
+        },
+        "architecture": {
+          "artifacts": [
+            {
+              "path": ".planning/ARCHITECTURE.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": ["## Context", "## Proposed Design", "## Trade-offs", "## Risks"]
+              },
+              "required": true
+            }
+          ]
+        },
+        "implementation": {
+          "artifacts": [
+            { "path": ".planning/IMPLEMENTATION_NOTES.md", "semantics": "implementation_notes", "required": true }
+          ]
+        },
+        "security_review": {
+          "artifacts": [
+            {
+              "path": ".planning/SECURITY_REVIEW.md",
+              "semantics": "section_check",
+              "semantics_config": {
+                "required_sections": ["## Threat Model", "## Findings", "## Verdict"]
+              },
+              "required": true
+            }
+          ]
+        },
+        "qa": {
+          "artifacts": [
+            { "path": ".planning/acceptance-matrix.md", "semantics": "acceptance_matrix", "required": true },
+            { "path": ".planning/ship-verdict.md", "semantics": "ship_verdict", "required": true },
+            { "path": ".planning/RELEASE_NOTES.md", "semantics": "release_notes", "required": true }
+          ]
+        }
+      }
+    }
+  }
+}

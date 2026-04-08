@@ -45,8 +45,8 @@ JSON mode prints:
   "ok": true,
   "registry": {
     "ok": true,
-    "registered_ids": ["generic", "api-service", "cli-tool", "library", "web-app"],
-    "manifest_ids": ["generic", "api-service", "cli-tool", "library", "web-app"],
+    "registered_ids": ["generic", "api-service", "cli-tool", "library", "web-app", "enterprise-app"],
+    "manifest_ids": ["api-service", "cli-tool", "enterprise-app", "generic", "library", "web-app"],
     "errors": [],
     "warnings": []
   },

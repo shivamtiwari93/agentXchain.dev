@@ -88,6 +88,7 @@ Built-in governed templates:
 - `cli-tool`: command surface, platform support, distribution checklist
 - `library`: public API, compatibility policy, release and adoption checklist
 - `web-app`: user flows, UI acceptance, browser support
+- `enterprise-app`: enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
 
 `step` writes a turn-scoped bundle under `.agentxchain/dispatch/turns/<turn_id>/` and expects a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`. Typical continuation:
 

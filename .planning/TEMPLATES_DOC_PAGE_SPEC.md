@@ -19,6 +19,7 @@ This page must document the real product contract:
 - `template validate [--json]` proves the built-in registry, current project template binding, and governed workflow-kit scaffold
 - explicit `workflow_kit` changes `template validate` from default-scaffold proof to operator-declared artifact proof
 - `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
+- blueprint-backed templates may be init-only when they redefine team topology
 - `status` and `status --json` keep template choice visible to operators and automation
 
 ## Interface
@@ -103,8 +104,11 @@ The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` an
 - `cli-tool`
 - `library`
 - `web-app`
+- `enterprise-app`
 
 `generic` must be described as the baseline governed scaffold with no extra project-type files.
+
+`enterprise-app` must be described honestly as a blueprint-backed template that changes the governed team shape at init time.
 
 ### 4. Document mutation safety truthfully
 
@@ -118,6 +122,7 @@ The page must describe the actual `template set` behavior:
 - records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
 - `--dry-run` prints the mutation plan without writing changes
 - switching from one non-`generic` template to another is additive, not destructive
+- blueprint-backed templates fail closed under `template set` because team-topology rewrites are not additive
 
 The page must describe what `template set` does not do:
 
@@ -126,6 +131,7 @@ The page must describe what `template set` does not do:
 - replace an existing `## Template Guidance` section in `acceptance-matrix.md`
 - replace an existing `## Template-Specific Guidance` section in `SYSTEM_SPEC.md`
 - delete old template files
+- rewrite `roles`, `runtimes`, `routing`, or `gates` for blueprint-backed templates
 
 ### 5. Describe `template list --json` honestly
 
@@ -136,6 +142,7 @@ The page must describe the operator-relevant JSON shape emitted by `template lis
 - `description`
 - planning artifact filenames
 - roles with prompt overrides
+- scaffold blueprint roles when present
 - acceptance hints
 
 ### 6. Describe `template validate` honestly
@@ -183,6 +190,7 @@ Quickstart and CLI docs must also link into `/docs/templates`.
 4. The page documents `template validate` and `template validate --json`.
 5. The page documents `status` and `status --json` template visibility.
 6. The page lists `generic`, `api-service`, `cli-tool`, `library`, and `web-app`.
+6a. The page lists `enterprise-app` and explains its init-only blueprint boundary.
 7. The page lists the real planning artifact filenames from governed template manifests.
 8. The page explains additive `template set` semantics and records `template_set` in `.agentxchain/decision-ledger.jsonl`.
 9. The page does not mention `template set --force` or fake conflict-detection semantics.
