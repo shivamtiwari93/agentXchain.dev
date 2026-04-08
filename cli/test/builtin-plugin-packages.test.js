@@ -21,6 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
 const SLACK_PLUGIN_ROOT = join(ROOT, 'plugins', 'plugin-slack-notify');
 const JSON_REPORT_PLUGIN_ROOT = join(ROOT, 'plugins', 'plugin-json-report');
+const GITHUB_ISSUES_PLUGIN_ROOT = join(ROOT, 'plugins', 'plugin-github-issues');
 
 function writeJson(filePath, value) {
   writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
@@ -113,7 +114,7 @@ async function waitForFile(filePath, timeoutMs = 5000) {
 
 describe('built-in plugin packages', () => {
   it('AT-BUILTIN-PLUGIN-001: built-in plugin manifests exist and validate', () => {
-    const pluginRoots = [SLACK_PLUGIN_ROOT, JSON_REPORT_PLUGIN_ROOT];
+    const pluginRoots = [SLACK_PLUGIN_ROOT, JSON_REPORT_PLUGIN_ROOT, GITHUB_ISSUES_PLUGIN_ROOT];
 
     for (const pluginRoot of pluginRoots) {
       assert.ok(existsSync(pluginRoot), `missing plugin root: ${pluginRoot}`);
@@ -137,9 +138,18 @@ describe('built-in plugin packages', () => {
       const jsonInstall = installPlugin(JSON_REPORT_PLUGIN_ROOT, project);
       assert.equal(jsonInstall.ok, true, jsonInstall.error);
 
+      const githubInstall = installPlugin(GITHUB_ISSUES_PLUGIN_ROOT, project, {
+        config: {
+          repo: 'acme/example',
+          issue_number: 42,
+        },
+      });
+      assert.equal(githubInstall.ok, true, githubInstall.error);
+
       const config = readJson(join(project, 'agentxchain.json'));
       assert.ok(config.plugins['@agentxchain/plugin-slack-notify']);
       assert.ok(config.plugins['@agentxchain/plugin-json-report']);
+      assert.ok(config.plugins['@agentxchain/plugin-github-issues']);
       assert.deepEqual(
         config.plugins['@agentxchain/plugin-slack-notify'].hooks.before_gate,
         ['slack_notify_gate'],
@@ -147,6 +157,10 @@ describe('built-in plugin packages', () => {
       assert.deepEqual(
         config.plugins['@agentxchain/plugin-json-report'].hooks.after_acceptance,
         ['json_report_acceptance'],
+      );
+      assert.deepEqual(
+        config.plugins['@agentxchain/plugin-github-issues'].hooks.after_acceptance,
+        ['github_issues_acceptance'],
       );
       assert.match(
         config.hooks.after_acceptance[0].command[1],
@@ -316,6 +330,196 @@ process.on('SIGTERM', () => server.close(() => process.exit(0)));
       const stampedReports = readdirSync(reportsDir).filter((file) => file.endsWith('.json') && file.includes('T'));
       assert.ok(stampedReports.length >= 2, 'expected timestamped report artifacts for each invocation');
     } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-BUILTIN-PLUGIN-005: GitHub issues plugin upserts one run comment, preserves unrelated labels, and warns when token is missing', async () => {
+    const project = createGovernedProject();
+    const portFile = join(project, 'github-port.txt');
+    const requestsFile = join(project, 'github-requests.jsonl');
+const serverScript = `
+const { appendFileSync, writeFileSync } = require('node:fs');
+const { createServer } = require('node:http');
+
+const [portFile, requestsFile] = process.argv.slice(1);
+let nextCommentId = 1000;
+const state = {
+  labels: ['bug', 'triaged'],
+  comments: [],
+};
+
+function sendJson(res, status, value) {
+  res.writeHead(status, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(value));
+}
+
+function record(req, body) {
+  appendFileSync(requestsFile, JSON.stringify({
+    method: req.method,
+    url: req.url,
+    authorization: req.headers.authorization || null,
+    body: body || null,
+  }) + '\\n');
+}
+
+const server = createServer((req, res) => {
+  let body = '';
+  req.on('data', (chunk) => { body += chunk; });
+  req.on('end', () => {
+    record(req, body);
+
+    if (req.method === 'GET' && req.url === '/repos/acme/example/issues/42') {
+      return sendJson(res, 200, {
+        number: 42,
+        labels: state.labels.map((name) => ({ name })),
+      });
+    }
+
+    if (req.method === 'PUT' && req.url === '/repos/acme/example/issues/42/labels') {
+      const parsed = body ? JSON.parse(body) : {};
+      state.labels = Array.isArray(parsed.labels) ? parsed.labels.slice() : [];
+      return sendJson(res, 200, state.labels.map((name) => ({ name })));
+    }
+
+    if (req.method === 'GET' && req.url.startsWith('/repos/acme/example/issues/42/comments')) {
+      return sendJson(res, 200, state.comments);
+    }
+
+    if (req.method === 'POST' && req.url === '/repos/acme/example/issues/42/comments') {
+      const parsed = body ? JSON.parse(body) : {};
+      const comment = { id: nextCommentId++, body: parsed.body || '' };
+      state.comments.push(comment);
+      return sendJson(res, 201, comment);
+    }
+
+    if (req.method === 'PATCH' && req.url.startsWith('/repos/acme/example/issues/comments/')) {
+      const id = Number(req.url.split('/').pop());
+      const parsed = body ? JSON.parse(body) : {};
+      const comment = state.comments.find((entry) => entry.id === id);
+      if (!comment) {
+        return sendJson(res, 404, { message: 'not found' });
+      }
+      comment.body = parsed.body || '';
+      return sendJson(res, 200, comment);
+    }
+
+    return sendJson(res, 404, { message: 'not found' });
+  });
+});
+
+server.listen(0, '127.0.0.1', () => {
+  writeFileSync(portFile, String(server.address().port));
+});
+process.on('SIGTERM', () => server.close(() => process.exit(0)));
+`;
+    const server = spawn(process.execPath, ['-e', serverScript, portFile, requestsFile], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+    });
+
+    await waitForFile(portFile);
+    const apiBaseUrl = `http://127.0.0.1:${readFileSync(portFile, 'utf8').trim()}`;
+
+    try {
+      const install = installPlugin(GITHUB_ISSUES_PLUGIN_ROOT, project, {
+        config: {
+          repo: 'acme/example',
+          issue_number: 42,
+          token_env: 'AGENTXCHAIN_GITHUB_TEST_TOKEN',
+          api_base_url: apiBaseUrl,
+        },
+      });
+      assert.equal(install.ok, true, install.error);
+      const config = readJson(join(project, 'agentxchain.json'));
+
+      await withEnv('AGENTXCHAIN_GITHUB_TEST_TOKEN', 'test-token', async () => {
+        const acceptance1 = runHooks(project, config.hooks, 'after_acceptance', {
+          turn_id: 'turn_accept_1',
+          role_id: 'dev',
+          decisions_count: 2,
+          objections_count: 1,
+          run_status: 'active',
+          phase: 'implementation',
+          history_entry_index: 4,
+        }, {
+          run_id: 'run_github_plugin',
+          turn_id: 'turn_accept_1',
+        });
+        assert.equal(acceptance1.ok, true);
+        assert.equal(acceptance1.results[0].verdict, 'allow');
+
+        const acceptance2 = runHooks(project, config.hooks, 'after_acceptance', {
+          turn_id: 'turn_accept_2',
+          role_id: 'qa',
+          decisions_count: 0,
+          objections_count: 2,
+          run_status: 'active',
+          phase: 'qa',
+          history_entry_index: 5,
+        }, {
+          run_id: 'run_github_plugin',
+          turn_id: 'turn_accept_2',
+        });
+        assert.equal(acceptance2.ok, true);
+        assert.equal(acceptance2.results[0].verdict, 'allow');
+
+        const escalation = runHooks(project, config.hooks, 'on_escalation', {
+          blocked_reason: 'validation_failed',
+          recovery_action: 'Fix the issue and rerun agentxchain step --resume',
+          failed_turn_id: 'turn_accept_2',
+          failed_role: 'qa',
+          last_error: 'schema mismatch',
+        }, {
+          run_id: 'run_github_plugin',
+          turn_id: 'turn_accept_2',
+        });
+        assert.equal(escalation.ok, true);
+        assert.equal(escalation.results[0].verdict, 'allow');
+      });
+
+      const missingToken = await withEnv('AGENTXCHAIN_GITHUB_TEST_TOKEN', undefined, () => (
+        runHooks(project, config.hooks, 'after_acceptance', {
+          turn_id: 'turn_accept_3',
+          role_id: 'dev',
+          decisions_count: 1,
+          objections_count: 0,
+          run_status: 'active',
+          phase: 'implementation',
+          history_entry_index: 6,
+        }, {
+          run_id: 'run_github_plugin',
+          turn_id: 'turn_accept_3',
+        })
+      ));
+      assert.equal(missingToken.ok, true);
+      assert.equal(missingToken.results[0].verdict, 'warn');
+      assert.match(missingToken.results[0].message, /missing.*token/i);
+
+      const requests = readFileSync(requestsFile, 'utf8')
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+
+      const postComments = requests.filter((entry) => entry.method === 'POST' && entry.url === '/repos/acme/example/issues/42/comments');
+      const patchComments = requests.filter((entry) => entry.method === 'PATCH' && entry.url.startsWith('/repos/acme/example/issues/comments/'));
+      const putLabels = requests.filter((entry) => entry.method === 'PUT' && entry.url === '/repos/acme/example/issues/42/labels');
+
+      assert.equal(postComments.length, 1, 'plugin must create exactly one comment for the run');
+      assert.equal(patchComments.length, 2, 'subsequent run updates must patch the same comment');
+      assert.equal(putLabels.length, 3, 'managed labels must sync on each successful update');
+      assert.ok(requests.every((entry) => !entry.authorization || entry.authorization === 'Bearer test-token'));
+
+      const finalLabelBody = JSON.parse(putLabels[2].body);
+      assert.deepEqual(finalLabelBody.labels, ['bug', 'triaged', 'agentxchain', 'agentxchain:blocked']);
+
+      const finalCommentPatch = JSON.parse(patchComments[1].body);
+      assert.match(finalCommentPatch.body, /blocked/i);
+      assert.match(finalCommentPatch.body, /run_github_plugin/);
+      assert.doesNotMatch(finalCommentPatch.body, /close issue/i);
+      assert.doesNotMatch(finalCommentPatch.body, /approved/i);
+    } finally {
+      server.kill('SIGTERM');
       rmSync(project, { recursive: true, force: true });
     }
   });

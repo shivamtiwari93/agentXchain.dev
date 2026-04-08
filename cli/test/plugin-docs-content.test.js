@@ -75,6 +75,13 @@ describe('Plugin docs surface', () => {
       assert.doesNotMatch(page, /AGENTXCHAIN_PAYLOAD_FILE/);
       assert.doesNotMatch(page, /Path to a temp JSON file/);
     });
+
+    it('plugins.mdx documents the GitHub issues reference package honestly', () => {
+      const page = read('website-v2/docs/plugins.mdx');
+      assert.match(page, /@agentxchain\/plugin-github-issues/);
+      assert.match(page, /issue_number/);
+      assert.match(page, /does \*\*not\*\* close issues|does not close issues/i);
+    });
   });
 
   describe('CLI docs page includes plugin commands', () => {

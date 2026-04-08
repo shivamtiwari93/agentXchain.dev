@@ -1,6 +1,6 @@
 # Built-In Plugin Packages Spec
 
-> Contract for the first two built-in plugin packages shipped in the repo under `plugins/`.
+> Contract for the built-in plugin packages shipped in the repo under `plugins/`.
 
 ---
 
@@ -12,6 +12,7 @@ The built-in packages are reference integrations that prove the plugin packaging
 
 - `@agentxchain/plugin-slack-notify`
 - `@agentxchain/plugin-json-report`
+- `@agentxchain/plugin-github-issues`
 
 They must be installable today from repo-local paths, must validate as normal plugins, and must perform useful hook work without any unpublished marketplace or special runtime.
 
@@ -54,6 +55,19 @@ Each built-in plugin package lives under `plugins/<package-dir>/` and includes:
   - `latest.json`
   - `latest-<hook_phase>.json`
 
+### `@agentxchain/plugin-github-issues`
+
+- Install path: `./plugins/plugin-github-issues`
+- Hook phases:
+  - `after_acceptance`
+  - `on_escalation`
+- Runtime configuration:
+  - `repo` in `owner/name` form
+  - `issue_number`
+  - optional `token_env`
+  - optional GitHub API base URL override
+  - optional managed `label_prefix`
+
 ---
 
 ## Behavior
@@ -85,6 +99,21 @@ The hook is advisory in all phases. Notification failure must never block govern
 
 The JSON report plugin is intentionally filesystem-local so CI jobs and operators can consume artifacts without external services.
 
+### GitHub issues
+
+1. Read the hook envelope from stdin.
+2. Resolve a configured GitHub issue from plugin config.
+3. Upsert one plugin-owned comment per run using the run id marker.
+4. Sync only managed labels:
+   - phase label on `after_acceptance`
+   - blocked label on `on_escalation`
+5. Preserve non-AgentXchain labels already on the issue.
+6. Return:
+   - `allow` on successful GitHub API writes
+   - `warn` if config, token, or API calls fail
+
+The GitHub plugin is intentionally advisory. It mirrors governed truth into an issue. It does not close issues or claim post-gate approval state because the shipped hook surface does not provide post-gate evidence.
+
 ---
 
 ## Error Cases
@@ -94,15 +123,19 @@ The JSON report plugin is intentionally filesystem-local so CI jobs and operator
 3. If Slack notify returns `block` for missing webhook or delivery failure, the test fails because notification plugins must be advisory.
 4. If JSON report writes outside `.agentxchain/reports/`, the test fails because report artifacts must stay scoped to the governed project.
 5. If plugin install does not rewrite hook command paths for the built-in packages, the test fails because the packages are not actually installable through the plugin lifecycle.
+6. If the GitHub issues plugin duplicates comments for the same run, the test fails because idempotent run binding is broken.
+7. If the GitHub issues plugin removes unrelated issue labels, the test fails because external ticket metadata must be preserved.
+8. If the GitHub issues plugin claims issue closure or approval completion, the test fails because the hook surface cannot prove post-gate state.
 
 ---
 
 ## Acceptance Tests
 
-1. `AT-BUILTIN-PLUGIN-001`: both built-in plugin packages exist and their manifests validate.
+1. `AT-BUILTIN-PLUGIN-001`: all built-in plugin packages exist and their manifests validate.
 2. `AT-BUILTIN-PLUGIN-002`: the built-in packages install from repo-local paths through the normal plugin install flow.
 3. `AT-BUILTIN-PLUGIN-003`: the Slack plugin posts webhook notifications for acceptance, gate, and escalation hooks and degrades to `warn` when webhook configuration is missing.
 4. `AT-BUILTIN-PLUGIN-004`: the JSON report plugin writes timestamped and latest report artifacts for acceptance and gate hooks.
+5. `AT-BUILTIN-PLUGIN-005`: the GitHub issues plugin upserts one comment per run, preserves unrelated labels, switches managed phase/blocked labels truthfully, and degrades to `warn` when token configuration is missing.
 
 ---
 

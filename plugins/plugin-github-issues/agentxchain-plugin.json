@@ -1,0 +1,53 @@
+{
+  "schema_version": "0.1",
+  "name": "@agentxchain/plugin-github-issues",
+  "version": "0.1.0",
+  "description": "Mirrors governed run status into a configured GitHub issue using advisory hooks.",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "github_issues_acceptance",
+        "type": "process",
+        "command": ["node", "./hooks/after-acceptance.js"],
+        "timeout_ms": 8000,
+        "mode": "advisory"
+      }
+    ],
+    "on_escalation": [
+      {
+        "name": "github_issues_escalation",
+        "type": "process",
+        "command": ["node", "./hooks/on-escalation.js"],
+        "timeout_ms": 8000,
+        "mode": "advisory"
+      }
+    ]
+  },
+  "config_schema": {
+    "type": "object",
+    "required": ["repo", "issue_number"],
+    "additionalProperties": false,
+    "properties": {
+      "repo": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$"
+      },
+      "issue_number": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "token_env": {
+        "type": "string",
+        "minLength": 1
+      },
+      "api_base_url": {
+        "type": "string",
+        "minLength": 1
+      },
+      "label_prefix": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

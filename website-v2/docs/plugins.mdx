@@ -431,4 +431,33 @@ agentxchain plugin install ./plugins/plugin-json-report
 }
 ```
 
+### `@agentxchain/plugin-github-issues`
+
+Mirrors governed run status into one configured GitHub issue with one plugin-owned comment per run.
+
+**Hook phases:** `after_acceptance`, `on_escalation`
+
+```bash
+agentxchain plugin install ./plugins/plugin-github-issues
+```
+
+**Config:**
+
+```json
+{
+  "plugins": {
+    "@agentxchain/plugin-github-issues": {
+      "config": {
+        "repo": "owner/name",
+        "issue_number": 42,
+        "token_env": "GITHUB_TOKEN",
+        "label_prefix": "agentxchain"
+      }
+    }
+  }
+}
+```
+
+This package intentionally does **not** close issues or set approval-pending labels. The current hook surface has no post-gate callback, so those states would be guesses rather than governed truth.
+
 The built-in packages live in the repo `plugins/` directory and can be installed from a local path or published tarball/package spec.
