@@ -12,8 +12,9 @@ Prove that `api_proxy` proposed authority works end-to-end with a **real AI prov
 - `proposal apply` copies real-model-proposed files into the workspace
 - The proof harness now rejects scenario-wrong staged outputs before `acceptTurn` so invalid completion-turn payloads do not get mistaken for proof
 
-**What this does NOT prove (pending live rerun after 2026-04-08 contract fix):**
-- Live run completion with a real provider was blocked by a product contract bug: the validator rejected no-op completion turns for proposed+api_proxy roles. Fixed in Turn 133 (`DEC-PROP-COMPLETION-CONTRACT-001`). Needs a live rerun to close.
+**What this does NOT prove:**
+- Full hardened live end-to-end proof is still missing. Turn 133 fixed the no-op completion product contract bug, but the semantic-hardened 2026-04-08 reruns showed the real model still does not reliably emit a gate-valid `.planning/IMPLEMENTATION_NOTES.md` proposal with exact `## Changes` and `## Verification` sections.
+- Live run completion with a real provider is still not proven. One post-fix rerun reached a no-op completion request, but the run did not pause on `pending_run_completion`; later reruns failed even earlier at the proposal-turn semantic contract.
 - Multi-provider proposed authority (requires `OPENAI_API_KEY`)
 - Large-scale or complex file proposals
 - Conflict detection with real provider output (covered by mock E2E)
@@ -24,6 +25,7 @@ Prove that `api_proxy` proposed authority works end-to-end with a **real AI prov
 2. Seed planning gate files so the run starts in `implementation` phase
 3. Assign dev turn → dispatch to real Anthropic API
 4. Model returns turn result with `proposed_changes[]` containing `IMPLEMENTATION_NOTES.md`
+4a. Proposal content must already satisfy the implementation gate semantic contract: exact `## Changes` and `## Verification` sections with real content
 5. Accept turn → proposals materialized under `.agentxchain/proposed/<turn_id>/`
 6. Verify the proposed file exists only in `.agentxchain/proposed/<turn_id>/` before apply
 7. `proposal apply <turn_id>` → file copied to workspace
@@ -48,17 +50,19 @@ node examples/live-governed-proof/run-proposed-authority-proof.mjs [--json]
 ## Acceptance Tests
 
 1. Real Anthropic API returns valid JSON with `proposed_changes[]`
-2. Proposed files materialized under `.agentxchain/proposed/<turn_id>/`
-3. The proposed file is absent from the workspace before `proposal apply`
-4. `proposal apply` moves the proposed file into the workspace
-5. The completion-turn harness rejects scenario-wrong staged outputs before acceptance
-6. Decision ledger contains `proposal:applied` entry
-7. Run reaches `completed` state once a compliant completion turn is produced
+2. The proposal turn content already satisfies the implementation-gate semantic contract for `.planning/IMPLEMENTATION_NOTES.md`
+3. Proposed files materialized under `.agentxchain/proposed/<turn_id>/`
+4. The proposed file is absent from the workspace before `proposal apply`
+5. `proposal apply` moves the proposed file into the workspace
+6. The completion-turn harness rejects scenario-wrong staged outputs before acceptance
+7. Decision ledger contains `proposal:applied` entry
+8. Run reaches `completed` state once a compliant completion turn is produced
 
 ## Error Cases
 
 - Model returns invalid JSON → retry up to 3 times, then fail
 - Model omits `proposed_changes` → fail with clear error
+- Model proposes `.planning/IMPLEMENTATION_NOTES.md` but omits gate-valid `## Changes` / `## Verification` content → fail and retry before acceptance
 - Model returns a validator-clean but scenario-wrong completion payload → reject and retry before acceptance
 - API timeout → fail with timeout error
 - Missing API key → skip (not fail)
@@ -67,4 +71,6 @@ node examples/live-governed-proof/run-proposed-authority-proof.mjs [--json]
 
 ~~Can a real Anthropic provider satisfy the dedicated completion-turn contract reliably enough to close live completion proof, or does the prompt/adapter boundary need product-level tightening?~~
 
-**Resolved (Turn 133):** The answer was "no, because the product contract was broken." Three interacting defects prevented no-op completion turns: (1) the validator required non-empty `proposed_changes` for all completed proposed+api_proxy turns with no exception for `run_completion_request: true`; (2) the prompt told proposed+api_proxy roles "You MUST return proposed changes" without qualifying completion turns; (3) phase/completion guidance existed for authoritative and review_only roles but was missing for proposed roles. All three fixed. Needs a live rerun to confirm.
+**Resolved in two stages:**
+- **Turn 133:** The no-op completion contract was broken in product code. Three interacting defects prevented no-op completion turns: (1) the validator required non-empty `proposed_changes` for all completed proposed+api_proxy turns with no exception for `run_completion_request: true`; (2) the prompt told proposed+api_proxy roles "You MUST return proposed changes" without qualifying completion turns; (3) phase/completion guidance existed for authoritative and review_only roles but was missing for proposed roles. All three fixed.
+- **Turn 134:** After the contract fix, hardened live reruns exposed a different boundary: proposal-turn semantic reliability. The real model still failed to emit gate-valid `.planning/IMPLEMENTATION_NOTES.md` content with exact `## Changes` / `## Verification` sections after 3 attempts, so full hardened live proof remains open.

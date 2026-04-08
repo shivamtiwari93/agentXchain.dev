@@ -104,13 +104,13 @@
 
 ### E2c — Live Proposed-Authority Dogfood
 
-- **Date**: 2026-04-07 initial proof, 2026-04-08 completion-hardening reruns
+- **Date**: 2026-04-07 initial proof, 2026-04-08 contract-fix + semantic-hardening reruns
 - **Location**: `examples/live-governed-proof/run-proposed-authority-proof.mjs`, `.planning/LIVE_PROPOSED_AUTHORITY_PROOF_SPEC.md`
-- **Run IDs**: `run_9cff2c5a43cb4205` (historical core lifecycle pass), `run_3c68b1c271cf0002` (latest hardened completion rerun)
-- **Turn IDs**: `turn_34e2c76fd6ff6ec3` (historical proposal turn), `turn_567062fa5b7c9b55` (latest proposal turn)
+- **Run IDs**: `run_9cff2c5a43cb4205` (historical core lifecycle pass), `run_bd9c4727f572a091` (completion-contract rerun reached no-op completion request but did not pause), `run_379dcb010755a00c` and `run_c07051c5bdea9975` (semantic-hardened reruns failed proposal-turn contract after 3 attempts)
+- **Turn IDs**: `turn_34e2c76fd6ff6ec3` (historical proposal turn), `turn_d580605079e1531a` (completion-request turn that remained active), `turn_34511bb4bdc8b194` / `turn_942f6a7075de3045` (semantic-hardened proposal reruns)
 - **Provider**: Anthropic Claude (historical proof on `claude-haiku-4-5-20251001`; current harness hardened on `claude-sonnet-4-6`)
 - **Cost**: historical core lifecycle run cost $0.007; hardened Sonnet reruns cost more but still low double-digit cents
-- **Result**: core proposed-authority lifecycle proven live; run completion still NOT proven live even after adding a dedicated completion turn and pre-accept scenario-contract rejection
+- **Result**: historical core proposed-authority lifecycle remains proven live, but the hardened 2026-04-08 proof still fails. The current blocker is earlier than completion: the real model does not yet reliably emit a gate-valid `.planning/IMPLEMENTATION_NOTES.md` proposal with exact `## Changes` and `## Verification` sections under the stricter live harness.
 - **What it proves**:
   - Real Anthropic model returns valid `proposed_changes[]` with file contents in governed JSON format
   - Proposal materialization under `.agentxchain/proposed/<turn_id>/` works with real model output
@@ -118,10 +118,12 @@
   - `proposal apply` copies real-model-proposed files into the workspace
   - Decision ledger records the proposal-apply entry
   - The hardened proof harness now rejects scenario-wrong staged outputs before `acceptTurn`, so live completion proof cannot be faked by validator-clean but instruction-violating payloads
-  - Real-provider failure modes are now concrete instead of hand-waved: observed rerun failures included invalid `proposed_next_role`, internal `.agentxchain/staging/.../turn-result.json` proposal paths, extraction failure, omitted `run_completion_request`, and completion turns that kept declaring file/proposal changes despite explicit instructions not to
+  - The hardened proof harness now rejects proposal artifacts that would fail the implementation gate later. Proposal turns must include real `## Changes` and `## Verification` content, not just any Markdown blob.
+  - Real-provider failure modes are now concrete instead of hand-waved: observed rerun failures included invalid `proposed_next_role`, internal `.agentxchain/staging/.../turn-result.json` proposal paths, extraction failure, omitted `run_completion_request`, completion turns that kept declaring file/proposal changes despite explicit instructions not to, and proposal turns that still omitted gate-valid `## Changes` content after 3 attempts
   - Full validation pipeline (schema, objection requirement, file-change declaration) processes real model output
-- **What it does NOT prove (pending rerun after 2026-04-08 contract fix)**:
-  - Run completion with real provider. Root cause identified in Turn 133: three product contract defects blocked no-op completion turns (validator required `proposed_changes`, prompt lacked completion guidance, dispatch had no phase-specific rules for proposed roles). All fixed — needs live rerun.
+- **What it does NOT prove**:
+  - Full end-to-end live proposed-authority proof under the hardened contract. Turn 133 fixed the no-op completion product contract bug, but the current live blocker is now upstream proposal reliability: the real model still fails the proposal-turn semantic contract in the hardened harness.
+  - Run completion with real provider. One post-fix rerun (`run_bd9c4727f572a091`) reached a no-op completion request, but the run did not pause for approval; later semantic-hardened reruns failed even earlier at the proposal turn.
   - Multi-provider proposed authority (only Anthropic tested; `OPENAI_API_KEY` absent)
 
 ### E3 — Live API Proxy Preflight Smoke
@@ -206,7 +208,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
 | "Full live end-to-end proof with MCP" | E2b proves MCP transport works (both stdio and HTTP), but the MCP dogfood used echo agents, not real AI models. MCP proof is transport-level, not model-level. | Run a governed MCP turn with a real AI model behind the MCP server. |
-| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Still false. A product contract bug (Turn 133, `DEC-PROP-COMPLETION-CONTRACT-001`) was the root cause: the validator rejected no-op completion turns for proposed+api_proxy (required `proposed_changes` even on `run_completion_request: true`), the prompt lacked completion guidance for proposed roles, and the dispatch bundle gave no phase-specific instructions to proposed roles. All three defects fixed 2026-04-08. Previous live failures were the product rejecting valid model output, not model noncompliance. | Rerun the live proof harness after the contract fix. One successful run where the completion turn passes validation, the run pauses on `pending_run_completion`, and `approve-completion` finishes the run. |
+| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Still false. Turn 133 fixed the no-op completion product contract bug (`DEC-PROP-COMPLETION-CONTRACT-001`), but the hardened 2026-04-08 live reruns exposed an earlier reliability boundary: Anthropic still did not consistently emit a gate-valid `.planning/IMPLEMENTATION_NOTES.md` proposal with exact `## Changes` and `## Verification` sections. One post-fix rerun (`run_bd9c4727f572a091`) reached a no-op completion request, but the run never paused for approval; later reruns failed even earlier at the proposal-turn semantic contract. | Record one hardened live run where: 1. the proposal turn passes the semantic contract for `.planning/IMPLEMENTATION_NOTES.md`; 2. `proposal apply` copies the file into the workspace; 3. the completion turn requests `run_completion_request: true`; 4. the run pauses on `pending_run_completion`; 5. `approve-completion` finishes the run. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |

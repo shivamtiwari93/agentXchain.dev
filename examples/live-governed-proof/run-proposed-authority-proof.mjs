@@ -154,6 +154,8 @@ Critical requirements:
 1. Include at least one decision and one objection.
 2. files_changed MUST be exactly [".planning/IMPLEMENTATION_NOTES.md"].
 3. proposed_changes MUST be a non-empty array containing exactly one entry for ".planning/IMPLEMENTATION_NOTES.md" with the full file content.
+3a. The proposed file content MUST contain the exact headings "## Changes" and "## Verification". Do NOT rename them, omit them, or replace them with "## Overview" / "## Architecture" only.
+3b. Both "## Changes" and "## Verification" MUST contain real prose content, not placeholders and not empty sections.
 4. phase_transition_request MUST be null (gate will be checked separately).
 5. run_completion_request MUST be null.
 6. status MUST be "completed".
@@ -161,7 +163,7 @@ Critical requirements:
 8. Do NOT mention, modify, or propose any path under ".agentxchain/", "staging/", "dispatch/", or any internal orchestration file. The ONLY allowed file path is ".planning/IMPLEMENTATION_NOTES.md".
 
 Return exactly this JSON structure (fill in the FILL fields):
-{"schema_version":"1.0","run_id":"FILL_FROM_CONTEXT","turn_id":"FILL_FROM_CONTEXT","role":"dev","runtime_id":"anthropic-dev","status":"completed","summary":"Proposed IMPLEMENTATION_NOTES.md documenting feature implementation.","decisions":[{"id":"DEC-001","category":"implementation","statement":"Created implementation notes with architecture overview.","rationale":"Documents the implementation approach for review."}],"objections":[{"id":"OBJ-001","severity":"low","statement":"Implementation scope is intentionally minimal for proof purposes.","status":"raised"}],"files_changed":[".planning/IMPLEMENTATION_NOTES.md"],"artifacts_created":[],"verification":{"status":"pass","commands":["echo verified"],"evidence_summary":"Implementation notes proposed for review.","machine_evidence":[{"command":"echo verified","exit_code":0}]},"artifact":{"type":"patch","ref":null},"proposed_next_role":"human","phase_transition_request":null,"run_completion_request":null,"needs_human_reason":null,"proposed_changes":[{"path":".planning/IMPLEMENTATION_NOTES.md","action":"create","content":"# Implementation Notes\\n\\n## Overview\\n\\nThis document captures the implementation approach for the governed proof feature.\\n\\n## Architecture\\n\\n- Single-role governed workflow with proposed authority\\n- Developer proposes changes via api_proxy adapter\\n- Operator reviews and applies proposals before gate evaluation\\n\\n## Changes\\n\\n- Added .planning/IMPLEMENTATION_NOTES.md (this file)\\n\\n## Verification\\n\\nAll acceptance criteria satisfied via governed workflow proof.\\n"}],"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
+{"schema_version":"1.0","run_id":"FILL_FROM_CONTEXT","turn_id":"FILL_FROM_CONTEXT","role":"dev","runtime_id":"anthropic-dev","status":"completed","summary":"Proposed IMPLEMENTATION_NOTES.md documenting the governed proof implementation.","decisions":[{"id":"DEC-001","category":"implementation","statement":"Created implementation notes with the required gate-valid sections.","rationale":"The implementation exit gate requires real content under ## Changes and ## Verification."}],"objections":[{"id":"OBJ-001","severity":"low","statement":"Implementation scope is intentionally minimal for proof purposes.","status":"raised"}],"files_changed":[".planning/IMPLEMENTATION_NOTES.md"],"artifacts_created":[],"verification":{"status":"pass","commands":["echo verified"],"evidence_summary":"Implementation notes proposed for review.","machine_evidence":[{"command":"echo verified","exit_code":0}]},"artifact":{"type":"patch","ref":null},"proposed_next_role":"human","phase_transition_request":null,"run_completion_request":null,"needs_human_reason":null,"proposed_changes":[{"path":".planning/IMPLEMENTATION_NOTES.md","action":"create","content":"# Implementation Notes\\n\\n## Changes\\n\\n- Added a governed-proof implementation notes artifact for the proposed-authority live harness.\\n- Kept the scope intentionally narrow so the operator can review and apply a single planned file.\\n\\n## Verification\\n\\n- Confirmed the proposal is staged for operator review before apply.\\n- Confirmed the file is intended to satisfy the implementation gate only after proposal apply copies it into the workspace.\\n"}],"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
 `;
 
 const COMPLETION_PROMPT = `# Developer Turn — Completion Request
@@ -298,6 +300,16 @@ function readStagedTurnResult(root, turnId) {
 
 function validateProposalTurn(turnResult) {
   const errors = [];
+  const hasSectionContent = (content, sectionHeader) => {
+    const escapedHeader = sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = content.match(new RegExp(`${escapedHeader}\\s*\\n+([\\s\\S]*?)(?=\\n##\\s|$)`));
+    if (!match) return false;
+    return match[1]
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .some((line) => line && !/^\(.*fills this.*\)$/i.test(line));
+  };
+
   if (turnResult.status !== 'completed') {
     errors.push(`status must be "completed" (got "${turnResult.status}")`);
   }
@@ -310,6 +322,22 @@ function validateProposalTurn(turnResult) {
     const [change] = turnResult.proposed_changes;
     if (change.path !== '.planning/IMPLEMENTATION_NOTES.md') {
       errors.push(`proposal turn must target only ".planning/IMPLEMENTATION_NOTES.md" (got "${change.path}")`);
+    }
+    if (typeof change.content !== 'string') {
+      errors.push('proposal turn must include full content for ".planning/IMPLEMENTATION_NOTES.md"');
+    } else {
+      if (!change.content.includes('## Changes')) {
+        errors.push('proposal turn content must include a "## Changes" section');
+      }
+      if (!change.content.includes('## Verification')) {
+        errors.push('proposal turn content must include a "## Verification" section');
+      }
+      if (!hasSectionContent(change.content, '## Changes')) {
+        errors.push('proposal turn "## Changes" section must contain real content');
+      }
+      if (!hasSectionContent(change.content, '## Verification')) {
+        errors.push('proposal turn "## Verification" section must contain real content');
+      }
     }
   }
   const filesChanged = turnResult.files_changed || [];
@@ -400,7 +428,11 @@ async function dispatchWithRetry(root, config, roleId, validateScenario) {
           phase: acceptResult.state.phase,
           pending_phase_transition: acceptResult.state.pending_phase_transition || null,
           pending_run_completion: acceptResult.state.pending_run_completion || null,
+          queued_phase_transition: acceptResult.state.queued_phase_transition || null,
+          queued_run_completion: acceptResult.state.queued_run_completion || null,
         },
+        completion_result: acceptResult.completionResult || null,
+        gate_result: acceptResult.gateResult || null,
       };
     }
 
@@ -536,6 +568,8 @@ async function main() {
       attempts: dev2.attempts_used,
       usage: dev2.usage,
       accepted_state: dev2.accepted_state,
+      completion_result: dev2.completion_result,
+      gate_result: dev2.gate_result,
     };
 
     const historyAfterCompletionRequest = readJsonl(join(root, '.agentxchain', 'history.jsonl'));
@@ -553,7 +587,12 @@ async function main() {
     proof.pending_run_completion_after_request = state.pending_run_completion || null;
 
     if (!state.pending_run_completion) {
-      errors.push('Run did not pause for pending run completion after completion-request turn');
+      const completionAction = dev2.completion_result?.action || 'unknown';
+      const completionReasons = dev2.completion_result?.reasons || [];
+      const gateReasons = dev2.gate_result?.reasons || [];
+      errors.push(
+        `Run did not pause for pending run completion after completion-request turn (completion action: ${completionAction}${completionReasons.length ? `; reasons: ${completionReasons.join(' | ')}` : ''}${gateReasons.length ? `; gate reasons: ${gateReasons.join(' | ')}` : ''})`
+      );
       return outputResult({ result: 'fail', errors, proof });
     }
 

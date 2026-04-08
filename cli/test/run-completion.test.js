@@ -478,6 +478,78 @@ describe('acceptGovernedTurn — run completion', () => {
     assert.equal(result.completionResult.action, 'awaiting_human_approval');
   });
 
+  it('AT-PROP-COMPLETION-004: pauses for human approval on single-phase proposed api_proxy completion turns', () => {
+    const proposedConfig = makeConfig({
+      roles: {
+        dev: {
+          title: 'Developer',
+          mandate: 'Implement',
+          write_authority: 'proposed',
+          runtime_class: 'api_proxy',
+          runtime_id: 'api-dev',
+        },
+      },
+      runtimes: {
+        'api-dev': {
+          type: 'api_proxy',
+          provider: 'anthropic',
+          model: 'claude-sonnet-4-6',
+          auth_env: 'ANTHROPIC_API_KEY',
+        },
+      },
+      routing: {
+        implementation: {
+          entry_role: 'dev',
+          allowed_next_roles: ['dev', 'human'],
+          exit_gate: 'implementation_complete',
+        },
+      },
+      gates: {
+        implementation_complete: {
+          requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+          requires_human_approval: true,
+        },
+      },
+    });
+
+    makeState(root, {
+      phase: 'implementation',
+      current_turn: {
+        turn_id: 'turn_test456',
+        assigned_role: 'dev',
+        status: 'running',
+        attempt: 1,
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 20 * 60000).toISOString(),
+        runtime_id: 'api-dev',
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Implementation Notes\n\n## Changes\n\nImplemented the proposed-authority completion fixture.\n\n## Verification\n\nValidated the gate-ready workspace artifact.\n'
+    );
+
+    stageTurnResult(root, makeTurnResult({
+      role: 'dev',
+      runtime_id: 'api-dev',
+      artifact: { type: 'review', ref: null },
+      proposed_next_role: 'dev',
+      files_changed: [],
+      proposed_changes: [],
+      run_completion_request: true,
+    }));
+
+    const result = acceptGovernedTurn(root, proposedConfig);
+    assert.equal(result.ok, true);
+    assert.equal(result.state.status, 'paused');
+    assert.ok(result.state.pending_run_completion);
+    assert.equal(result.state.pending_run_completion.gate, 'implementation_complete');
+    assert.ok(result.state.blocked_on.startsWith('human_approval:'));
+    assert.equal(result.completionResult.action, 'awaiting_human_approval');
+  });
+
   it('accepts turn but does not complete when gate fails', () => {
     const state = makeState(root, {
       phase: 'qa',
