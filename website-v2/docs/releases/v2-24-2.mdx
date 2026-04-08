@@ -1,0 +1,96 @@
+---
+title: "v2.24.2 Release Notes"
+description: "Onboarding-truth patch release: run-path manual-QA recovery parity and the shipped mobile-nav fix."
+---
+
+# AgentXchain v2.24.2
+
+`2.24.2` is an onboarding-truth patch release.
+
+`2.24.1` made the public evidence boundary honest. `2.24.2` closes a narrower but real operator-facing inconsistency: the mixed-mode scaffold already had a built-in no-key QA fallback, but only `agentxchain step` surfaced it precisely when QA credentials were missing. The automated `agentxchain run` path did not. This patch brings those two entry points back into agreement and rolls the already-shipped mobile-nav fix into the next published package boundary.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.24.2
+```
+
+## What changed since 2.24.1
+
+### `agentxchain run` now gives the same no-key QA recovery as `step`
+
+The default governed scaffold is intentionally mixed-mode:
+
+- PM is manual by default
+- Dev is local CLI
+- QA is `api_proxy`
+
+That is honest, but it means evaluators without `ANTHROPIC_API_KEY` need an exact fallback once the run reaches QA. Before this patch:
+
+- `agentxchain step` named the built-in `manual-qa` runtime and the exact config edit
+- `agentxchain run` only surfaced the provider error and left the operator to infer the recovery
+
+`2.24.2` fixes that drift. When the automated path hits the narrow QA missing-credential failure:
+
+- the CLI names the built-in `manual-qa` runtime
+- it tells the operator to edit `roles.qa.runtime` from `api-qa` to `manual-qa`
+- it points to the truthful retained-turn recovery command: `agentxchain step --resume`
+- it links back to the getting-started guide instead of vague "rebind QA" language
+
+This guidance is intentionally narrow. It only appears for:
+
+- `missing_credentials`
+- the `qa` role
+- the default `api-qa` runtime
+- configs that actually define `manual-qa`
+
+That matters because recovery guidance is part of product truth. If two shipped CLI surfaces disagree at the exact point where new users get blocked, the onboarding story is not honest.
+
+### The automated proof now covers the real failure contract
+
+The `run-api-proxy` integration suite now covers the no-key path through the real `agentxchain run` command.
+
+The acceptance proof asserts all of the operator-facing behavior, not just the exit code:
+
+- no outbound API request is made
+- the missing env var is named
+- the output mentions `manual-qa`
+- the output names `roles.qa.runtime`
+- the output gives `agentxchain step --resume`
+- the output links to `/docs/getting-started`
+
+That closes the gap between "the fallback exists in code somewhere" and "the shipped automated path tells operators exactly what to do."
+
+### The mobile nav fix is now inside the published version line
+
+The website mobile / narrow-width nav collapse fix is part of the same released boundary.
+
+The bug was a CSS containing-block issue:
+
+- `.navbar` used `backdrop-filter: blur(20px)`
+- that caused Docusaurus's fixed `.navbar-sidebar` overlay to resolve against the navbar instead of the viewport
+- the menu opened, but the actual nav links collapsed to zero height on narrow desktop windows
+
+The fix is deliberately small:
+
+- `.navbar-sidebar--show { backdrop-filter: none; }`
+
+When the sidebar is visible, it fully overlays the navbar, so removing the blur there has no visual downside. The important point is that the public release boundary now includes the correction instead of leaving website truth ahead of npm truth.
+
+## Why this release matters
+
+Patch releases still need to defend trust.
+
+`2.24.2` matters because it removes a false choice in the first-run experience. Operators no longer have to guess how to recover the automated QA path when credentials are missing, and the public version boundary once again matches the shipped website state.
+
+## Where to go next
+
+- See [Getting Started](/docs/getting-started) for the copy-paste path from demo to a real governed repo.
+- See [Your First Governed Turn](/docs/first-turn) for the mixed-mode scaffold and manual/automated handoff points.
+- See [CLI Reference](/docs/cli) for `run`, `step`, and recovery commands.
+
+## Evidence
+
+- 2503 node tests / 540 suites / 0 failures.
+- 774 Vitest tests / 36 files / 0 failures.
+- Docusaurus production build passes.

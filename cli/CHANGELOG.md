@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.24.2
+
+`2.24.2` is an onboarding-truth patch release.
+
+`2.24.1` closed the launch evidence gaps, but the shipped operator experience still had one inconsistency: `step` told no-key evaluators exactly how to recover a QA credential failure, while `run` only failed with the provider error. `2.24.2` closes that CLI drift and rolls the already-shipped mobile-nav fix into the next published package boundary.
+
+### `run` now tells the truth on missing QA credentials
+
+- `agentxchain run` now emits the same first-party no-key QA fallback as `agentxchain step` when a QA `api_proxy` dispatch fails with `missing_credentials`.
+- The guidance is narrow and explicit:
+  - edit `roles.qa.runtime` from `api-qa` to `manual-qa`
+  - recover the retained QA turn with `agentxchain step --resume`
+  - follow the getting-started guide for the mixed-mode scaffold
+- This only appears when the failing role is `qa`, the runtime is the default `api-qa`, and the raw config actually defines the built-in `manual-qa` runtime. No generic "just rebind something" hand-waving.
+
+### Automated onboarding proof now covers the real `run` path
+
+- `run-api-proxy` integration coverage now proves the no-key QA path through the real `agentxchain run` surface.
+- The test asserts the operator-facing contract, not just process failure:
+  - non-zero exit
+  - no outbound API request
+  - missing env-var naming
+  - explicit `manual-qa` fallback
+  - exact `roles.qa.runtime` edit
+  - truthful recovery command `agentxchain step --resume`
+  - getting-started docs link
+
+### The mobile-nav fix is now part of the released version boundary
+
+- The narrow-width website nav collapse fix from `main` is included in the published version line after living on the website ahead of npm.
+- The root cause remains the same: `backdrop-filter` on `.navbar` created a containing block for the fixed sidebar. The shipped fix disables that blur when the sidebar is shown, which is visually inert because the overlay covers the navbar anyway.
+
+### Evidence
+
+- 2503 node tests / 540 suites / 0 failures.
+- 774 Vitest tests / 36 files / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.24.1
 
 `2.24.1` is the corrected evidence-closure release.
