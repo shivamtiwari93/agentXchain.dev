@@ -17,6 +17,7 @@ import { join, extname, resolve, sep } from 'path';
 import { readResource } from './state-reader.js';
 import { FileWatcher } from './file-watcher.js';
 import { approvePendingDashboardGate } from './actions.js';
+import { readCoordinatorBlockerSnapshot } from './coordinator-blockers.js';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -208,6 +209,7 @@ function resolveDashboardAssetPath(dashboardDir, pathname) {
 // ── Bridge Server ───────────────────────────────────────────────────────────
 
 export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }) {
+  const workspacePath = resolve(agentxchainDir, '..');
   const wsClients = new Set();
   const watcher = new FileWatcher(agentxchainDir);
   const mutationToken = randomBytes(24).toString('hex');
@@ -267,6 +269,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
       }
 
       const result = approvePendingDashboardGate(agentxchainDir);
+      writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/coordinator/blockers') {
+      const result = readCoordinatorBlockerSnapshot(workspacePath);
       writeJson(res, result.status, result.body);
       return;
     }

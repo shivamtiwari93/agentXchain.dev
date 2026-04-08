@@ -65,9 +65,12 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('http://localhost:<port>'), 'cli docs must describe the printed local URL');
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention repo completion approval');
     assert.ok(CLI_DOCS.includes('X-AgentXchain-Token'), 'cli docs must document the local mutation token boundary');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/blockers'), 'cli docs must document the coordinator blockers endpoint');
+    assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('step --resume'), 'cli docs must document that blocked recovery remains CLI-only');
     assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
     assert.ok(BRIDGE_SERVER.includes('/api/actions/approve-gate'), 'bridge server must expose the approve-gate endpoint');
+    assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
     assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
   });

@@ -391,6 +391,108 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data[0].barrier_id, 'backend_completion');
     });
 
+    it('GET /api/coordinator/blockers returns structured repo_run_id_mismatch diagnostics', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_999',
+        status: 'active',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.reposDir, 'web', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'web',
+        run_id: 'run_web_001',
+        status: 'active',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+        },
+      });
+      writeJson(join(fixture.multiDir, 'barriers.json'), {
+        implementation_build_completion: {
+          workstream_id: 'implementation_build',
+          type: 'all_repos_accepted',
+          status: 'satisfied',
+          required_repos: ['api', 'web'],
+          satisfied_repos: ['api', 'web'],
+        },
+        qa_release_completion: {
+          workstream_id: 'qa_release',
+          type: 'all_repos_accepted',
+          status: 'pending',
+          required_repos: ['api', 'web'],
+          satisfied_repos: [],
+        },
+      });
+
+      const res = await httpGet(port, '/api/coordinator/blockers');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.mode, 'phase_transition');
+      assert.equal(data.active.gate_type, 'phase_transition');
+      assert.equal(data.active.ready, false);
+      assert.equal(data.active.gate_id, 'phase_transition:implementation->qa');
+      assert.equal(data.active.blockers.length, 1);
+      assert.equal(data.active.blockers[0].code, 'repo_run_id_mismatch');
+      assert.equal(data.active.blockers[0].repo_id, 'api');
+      assert.equal(data.active.blockers[0].expected_run_id, 'run_api_001');
+      assert.equal(data.active.blockers[0].actual_run_id, 'run_api_999');
+      assert.equal(data.evaluations.run_completion.ready, false);
+    });
+
+    it('GET /api/coordinator/blockers returns pending_gate mode when approval is waiting', async () => {
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'paused',
+        phase: 'implementation',
+        pending_gate: {
+          gate_type: 'phase_transition',
+          gate: 'phase_transition:implementation->qa',
+          from: 'implementation',
+          to: 'qa',
+          required_repos: ['api', 'web'],
+          human_barriers: [],
+          requested_at: '2026-04-08T23:45:00.000Z',
+        },
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+        },
+      });
+
+      const res = await httpGet(port, '/api/coordinator/blockers');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.mode, 'pending_gate');
+      assert.equal(data.pending_gate.gate, 'phase_transition:implementation->qa');
+      assert.equal(data.active.gate_type, 'phase_transition');
+      assert.equal(data.active.pending, true);
+      assert.equal(data.active.ready, true);
+      assert.deepEqual(data.active.blockers, []);
+    });
+
     it('GET /api/unknown returns 404', async () => {
       const res = await httpGet(port, '/api/unknown');
       assert.equal(res.status, 404);
@@ -642,6 +744,13 @@ describe('Dashboard Bridge Server', () => {
     it('GET /api/history returns 404 when history.jsonl is missing', async () => {
       const res = await httpGet(emptyPort, '/api/history');
       assert.equal(res.status, 404);
+    });
+
+    it('GET /api/coordinator/blockers returns 404 when coordinator state is missing', async () => {
+      const res = await httpGet(emptyPort, '/api/coordinator/blockers');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'coordinator_config_missing');
     });
   });
 });

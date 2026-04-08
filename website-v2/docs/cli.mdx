@@ -465,6 +465,8 @@ The dashboard is not a general write surface. It supports exactly one authentica
 
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
 
+For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus structured blockers such as `repo_run_id_mismatch` with expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand.
+
 Everything else remains CLI-only. The dashboard does **not** execute arbitrary commands and does **not** perform blocked-state recovery actions such as:
 
 - `agentxchain step --resume`
