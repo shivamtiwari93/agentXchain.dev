@@ -1,6 +1,6 @@
 import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -191,6 +191,7 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       'fi',
       'count=$((count + 1))',
       'printf "%s" "${count}" > "${counter_file}"',
+      'printf "%s\\n" "$*" > "${FAKE_COUNTER_DIR:?}/npx-args.txt"',
       '',
       'if [[ "${count}" -lt "${FAKE_NPX_AVAILABLE_AFTER:-1}" ]]; then',
       '  echo "npx resolution failed" >&2',
@@ -200,6 +201,11 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
       'if [[ "${FAKE_NPX_FAIL:-0}" == "1" ]]; then',
       '  echo "npx resolution failed" >&2',
       '  exit 1',
+      'fi',
+      '',
+      'if [[ -n "${FAKE_NPX_OUTPUT:-}" ]]; then',
+      '  printf "%b" "${FAKE_NPX_OUTPUT}"',
+      '  exit 0',
       'fi',
       '',
       'printf "%s\\n" "${FAKE_NPX_VERSION:-2.0.1}"',
@@ -313,6 +319,38 @@ describe('release-postflight.sh', () => {
 
     assert.equal(result.status, 1);
     assert.match(result.stdout, /FAIL: published npx command reported '2\.0\.0', expected '2\.0\.1'/);
+  });
+
+  it('passes when npx emits npm notices around the correct version line', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      {
+        FAKE_NPX_OUTPUT: '2.0.1\\nnpm notice New major version of npm available!\\n',
+      },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS: published npx command resolves and reports 2\.0\.1/);
+  });
+
+  it('uses the explicit npx package invocation instead of the ambiguous shorthand form', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+    );
+
+    assert.equal(result.status, 0);
+    const npxArgs = readFileSync(join(fixture.fakeBinDir, 'npx-args.txt'), 'utf8').trim();
+    assert.equal(npxArgs, '--yes -p agentxchain@2.0.1 -c agentxchain --version');
   });
 
   it('fails when the published CLI reports the wrong version', () => {

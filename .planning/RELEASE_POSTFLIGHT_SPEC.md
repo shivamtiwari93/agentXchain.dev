@@ -50,9 +50,11 @@ The script evaluates these checks in order:
 2. npm registry serves `package@version`
 3. Registry exposes `dist.tarball`
 4. Registry exposes checksum metadata (`dist.integrity` or `dist.shasum`)
-5. `npx` smoke: `npx --yes <package@version> --version`
+5. `npx` smoke: `npx --yes -p <package@version> -c '<bin-name> --version'`
    - The smoke check must run with an isolated temp `HOME` / npm cache / userconfig so cached global state or private registry config does not poison the result.
+   - The smoke check must also run from an isolated temp working directory so the current repo does not affect npm package resolution.
    - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
+   - The parser must accept the expected version when `npx` prints extra npm notice lines before or after the version line.
 6. Install smoke: `npm install --global --prefix <temp-prefix> <dist.tarball>` followed by explicit `<temp-prefix>/bin/agentxchain --version`
    - The smoke check must install the exact `dist.tarball` into an isolated temporary prefix and execute the installed binary by explicit path.
    - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
@@ -97,6 +99,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `npx agentxchain@<version> --version` resolves a cached or wrong package | Mark check as `FAIL`, continue |
 | ambient `agentxchain` exists on runner PATH | Ignore it. Install smoke must execute the temp-prefix binary resolved from the published tarball, not the ambient PATH binary |
 | ambient npm config points to a private registry | Ignore it. `npx` smoke must force `registry=https://registry.npmjs.org/` in isolated temp config |
+| `npx` prints npm notice lines in addition to the version | Accept the smoke when one output line exactly matches the target version. Do not require the final line to be the version. |
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
 | registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
@@ -113,6 +116,7 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 5. The script fails when the installed CLI reports a mismatched version.
 6. The script retries registry metadata, `npx` smoke, and install smoke checks before failing closed.
 7. The script ignores an older ambient `agentxchain` binary on `PATH` and still proves both the `npx` path and the published tarball path.
+8. The script passes when `npx` prints the target version plus extra npm notice lines.
 
 ---
 

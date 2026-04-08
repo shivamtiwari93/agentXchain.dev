@@ -48,9 +48,10 @@ describe('Launch evidence report', () => {
       'report should not retain the stale 900+ floor after crossing 1000+');
   });
 
-  it('removes stale prerelease references to v1.0.0 publish gating', () => {
+  it('removes stale prerelease references to old publish-gating placeholders', () => {
     assert.doesNotMatch(report, /v1\.0\.0 published to npm/i);
-    assert.match(report, /v2\.0\.1 published to npm/i);
+    assert.match(report, /post-release `npx agentxchain` installation verification.*CLOSED/i);
+    assert.match(report, /2\.24\.1/i);
   });
 
   it('records full live governed completion for the three-adapter path', () => {

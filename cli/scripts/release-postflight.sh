@@ -101,6 +101,27 @@ trim_last_line() {
   printf '%s\n' "$1" | awk 'NF { line=$0 } END { gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line }'
 }
 
+extract_matching_line() {
+  local output="$1"
+  local expected="$2"
+  printf '%s\n' "$output" | awk -v expected="$expected" '
+    {
+      line=$0
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line == expected) {
+        print line
+        found=1
+        exit
+      }
+    }
+    END {
+      if (!found) {
+        exit 1
+      }
+    }
+  '
+}
+
 run_install_smoke() {
   if [[ -z "$TARBALL_URL" ]]; then
     echo "registry tarball metadata unavailable for install smoke" >&2
@@ -147,18 +168,21 @@ run_npx_smoke() {
   local npx_status
 
   smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-npx-postflight.XXXXXX")"
-  mkdir -p "${smoke_root}/home" "${smoke_root}/cache" "${smoke_root}/npm-cache"
+  mkdir -p "${smoke_root}/home" "${smoke_root}/cache" "${smoke_root}/npm-cache" "${smoke_root}/workspace"
 
   smoke_npmrc="${smoke_root}/.npmrc"
   echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
 
   npx_output="$(
-    env -u NODE_AUTH_TOKEN \
-      HOME="${smoke_root}/home" \
-      XDG_CACHE_HOME="${smoke_root}/cache" \
-      NPM_CONFIG_CACHE="${smoke_root}/npm-cache" \
-      NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
-      npx --yes "${PACKAGE_NAME}@${TARGET_VERSION}" --version 2>&1
+    (
+      cd "${smoke_root}/workspace" || exit 1
+      env -u NODE_AUTH_TOKEN \
+        HOME="${smoke_root}/home" \
+        XDG_CACHE_HOME="${smoke_root}/cache" \
+        NPM_CONFIG_CACHE="${smoke_root}/npm-cache" \
+        NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+        npx --yes -p "${PACKAGE_NAME}@${TARGET_VERSION}" -c "${PACKAGE_BIN_NAME} --version" 2>&1
+    )
   )"
   npx_status=$?
 
@@ -342,7 +366,7 @@ fi
 
 echo "[5/7] npx smoke"
 if run_with_retry NPX_OUTPUT "npx smoke" nonempty "" run_npx_smoke; then
-  NPX_VERSION="$(trim_last_line "$NPX_OUTPUT")"
+  NPX_VERSION="$(extract_matching_line "$NPX_OUTPUT" "$TARGET_VERSION" 2>/dev/null || trim_last_line "$NPX_OUTPUT")"
   if [[ "$NPX_VERSION" == "$TARGET_VERSION" ]]; then
     pass "published npx command resolves and reports ${TARGET_VERSION}"
   else

@@ -267,7 +267,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 |-----|--------|--------------|
 | ~~Live MCP adapter dogfood~~ | **CLOSED** — E2b proves both MCP transports live through `agentxchain step` CLI | Completed 2026-04-07 |
 | ~~MCP with real AI model~~ | **CLOSED** — E2b+ proves MCP stdio transport with real Anthropic model (`claude-haiku-4-5-20251001`) | Completed 2026-04-08 |
-| Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
+| ~~Post-release `npx agentxchain` installation verification~~ | **CLOSED** — `release-postflight.sh` now proves the public `npx` path against the live registry for `2.24.1`, including the cwd-isolation and noisy-npm-notice edge cases that initially broke the verifier. | Completed 2026-04-08 |
 | ~~Scenario D escalation dogfood~~ | **CLOSED** — E2d proves retry exhaustion → escalation → operator recovery → eng_director intervention (`run_ebf10c05d7419a0c`) | Completed 2026-04-08 |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |
 
@@ -280,3 +280,4 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. Allowed claims updated to include all four adapters. Evidence gap E2b closed.
 - **2026-04-08 Scenario D**: Escalation & recovery proof (`run_ebf10c05d7419a0c`) exercises retry exhaustion → blocked escalation → operator recovery → eng_director intervention. Evidence gap closed.
+- **2026-04-08 Release truth**: `agentxchain@2.24.1` is live on npm, `npx` postflight proof now passes against the public registry, GitHub Release `v2.24.1` exists, and the canonical Homebrew tap formula matches the published tarball URL + SHA256. The last pre-launch actionable evidence gap is closed.
