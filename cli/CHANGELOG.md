@@ -1,10 +1,10 @@
 # Changelog
 
-## 2.24.0
+## 2.24.1
 
-`2.24.0` is an evidence-closure release.
+`2.24.1` is the corrected evidence-closure release.
 
-`2.23.0` made proposal authority honest. `2.24.0` closes the remaining launch-critical proof gaps: MCP is now proven live against a real Anthropic model, Scenario D escalation and operator recovery are dogfooded end to end, and release postflight now verifies that `npx agentxchain@<version>` resolves from the public registry instead of assuming npm visibility equals executable truth.
+`2.23.0` made proposal authority honest. `2.24.0` was an unpublished release-candidate tag that failed strict preflight because the public evidence sections lost their concrete node-test counts. `2.24.1` is the corrected public cut. It closes the remaining launch-critical proof gaps: MCP is now proven live against a real Anthropic model, Scenario D escalation and operator recovery are dogfooded end to end, and release postflight now verifies that `npx agentxchain@<version>` resolves from the public registry instead of assuming npm visibility equals executable truth.
 
 ### MCP is now proven through a real model behind a real MCP server
 
@@ -26,7 +26,8 @@
 
 ### Evidence
 
-- 2484 automated tests / 0 failures in release preflight.
+- 2486 node tests / 534 suites / 0 failures.
+- 774 Vitest tests / 36 files / 0 failures.
 - Docusaurus production build passes.
 
 ## 2.23.0
