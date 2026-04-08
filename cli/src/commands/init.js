@@ -454,7 +454,21 @@ function formatInitTarget(dir) {
   return dir;
 }
 
-export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}) {
+function generateWorkflowKitPlaceholder(artifact, projectName) {
+  const filename = basename(artifact.path);
+  const title = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+
+  if (artifact.semantics === 'section_check' && artifact.semantics_config?.required_sections?.length) {
+    const sections = artifact.semantics_config.required_sections
+      .map(s => `${s}\n\n(Content here.)\n`)
+      .join('\n');
+    return `# ${title} — ${projectName}\n\n${sections}`;
+  }
+
+  return `# ${title} — ${projectName}\n\n(Operator fills this in.)\n`;
+}
+
+export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}, workflowKitConfig = null) {
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
   const runtimes = {
@@ -561,6 +575,37 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     );
   }
 
+  // Workflow-kit custom artifacts — only scaffold files from explicit workflow_kit config
+  // that are not already handled by the default scaffold above
+  if (workflowKitConfig && workflowKitConfig.phases && typeof workflowKitConfig.phases === 'object') {
+    const defaultScaffoldPaths = new Set([
+      '.planning/PM_SIGNOFF.md',
+      '.planning/ROADMAP.md',
+      '.planning/SYSTEM_SPEC.md',
+      '.planning/IMPLEMENTATION_NOTES.md',
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      '.planning/RELEASE_NOTES.md',
+    ]);
+
+    for (const phaseConfig of Object.values(workflowKitConfig.phases)) {
+      if (!Array.isArray(phaseConfig.artifacts)) continue;
+      for (const artifact of phaseConfig.artifacts) {
+        if (!artifact.path || defaultScaffoldPaths.has(artifact.path)) continue;
+        const absPath = join(dir, artifact.path);
+        if (existsSync(absPath)) continue;
+
+        // Ensure parent directory exists
+        const parentDir = dirname(absPath);
+        if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+
+        // Generate placeholder content based on semantics type
+        const content = generateWorkflowKitPlaceholder(artifact, projectName);
+        writeFileSync(absPath, content);
+      }
+    }
+  }
+
   // TALK.md
   writeFileSync(join(dir, 'TALK.md'), `# ${projectName} — Team Talk File\n\nCanonical human-readable handoff log for all agents.\n\n---\n\n`);
 
@@ -662,7 +707,21 @@ async function initGoverned(opts) {
 
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  scaffoldGoverned(dir, projectName, projectId, templateId, opts);
+  // If reinitializing a project that has explicit workflow_kit config, preserve it for scaffold
+  let workflowKitConfig = null;
+  const existingConfigPath = join(dir, CONFIG_FILE);
+  if (existsSync(existingConfigPath)) {
+    try {
+      const existing = JSON.parse(readFileSync(existingConfigPath, 'utf8'));
+      if (existing.workflow_kit && typeof existing.workflow_kit === 'object' && Object.keys(existing.workflow_kit).length > 0) {
+        workflowKitConfig = existing.workflow_kit;
+      }
+    } catch {
+      // Ignore parse errors — scaffold will overwrite the config anyway
+    }
+  }
+
+  scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));

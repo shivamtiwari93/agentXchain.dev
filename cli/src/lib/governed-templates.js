@@ -446,7 +446,25 @@ export function validateGovernedWorkflowKit(root, config = {}) {
   const gateRequiredFiles = uniqueStrings(
     Object.values(config?.gates || {}).flatMap((gate) => Array.isArray(gate?.requires_files) ? gate.requires_files : [])
   );
-  const requiredFiles = uniqueStrings([...GOVERNED_WORKFLOW_KIT_BASE_FILES, ...gateRequiredFiles]);
+
+  // Collect workflow-kit artifact paths from explicit config
+  const wkArtifactPaths = [];
+  const wk = config?.workflow_kit;
+  if (wk && wk.phases && typeof wk.phases === 'object') {
+    for (const phaseConfig of Object.values(wk.phases)) {
+      if (Array.isArray(phaseConfig.artifacts)) {
+        for (const a of phaseConfig.artifacts) {
+          if (a.path && a.required !== false) {
+            wkArtifactPaths.push(a.path);
+          }
+        }
+      }
+    }
+  }
+
+  const hasExplicitWorkflowKit = wk && wk._explicit === true && Object.keys(wk.phases || {}).length > 0;
+  const baseFiles = hasExplicitWorkflowKit ? wkArtifactPaths : GOVERNED_WORKFLOW_KIT_BASE_FILES;
+  const requiredFiles = uniqueStrings([...baseFiles, ...gateRequiredFiles]);
   const present = [];
   const missing = [];
 
@@ -459,32 +477,38 @@ export function validateGovernedWorkflowKit(root, config = {}) {
     }
   }
 
-  const structuralChecks = GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS.map((check) => {
-    const absPath = join(root, check.file);
-    if (!existsSync(absPath)) {
+  // Build structural checks: from explicit workflow_kit semantics or hardcoded defaults
+  let structuralChecks;
+  if (hasExplicitWorkflowKit) {
+    structuralChecks = buildStructuralChecksFromWorkflowKit(root, wk, errors);
+  } else {
+    structuralChecks = GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS.map((check) => {
+      const absPath = join(root, check.file);
+      if (!existsSync(absPath)) {
+        return {
+          id: check.id,
+          file: check.file,
+          ok: false,
+          skipped: true,
+          description: check.description,
+        };
+      }
+
+      const content = readFileSync(absPath, 'utf8');
+      const ok = check.pattern.test(content);
+      if (!ok) {
+        errors.push(`Workflow kit file "${check.file}" must preserve its structural marker: ${check.description}.`);
+      }
+
       return {
         id: check.id,
         file: check.file,
-        ok: false,
-        skipped: true,
+        ok,
+        skipped: false,
         description: check.description,
       };
-    }
-
-    const content = readFileSync(absPath, 'utf8');
-    const ok = check.pattern.test(content);
-    if (!ok) {
-      errors.push(`Workflow kit file "${check.file}" must preserve its structural marker: ${check.description}.`);
-    }
-
-    return {
-      id: check.id,
-      file: check.file,
-      ok,
-      skipped: false,
-      description: check.description,
-    };
-  });
+    });
+  }
 
   return {
     ok: errors.length === 0,
@@ -496,6 +520,64 @@ export function validateGovernedWorkflowKit(root, config = {}) {
     errors,
     warnings,
   };
+}
+
+function buildStructuralChecksFromWorkflowKit(root, wk, errors) {
+  const checks = [];
+  if (!wk.phases) return checks;
+
+  for (const [phase, phaseConfig] of Object.entries(wk.phases)) {
+    if (!Array.isArray(phaseConfig.artifacts)) continue;
+    for (const artifact of phaseConfig.artifacts) {
+      if (!artifact.semantics) continue;
+
+      if (artifact.semantics === 'section_check' && artifact.semantics_config?.required_sections?.length) {
+        for (const section of artifact.semantics_config.required_sections) {
+          const checkId = `wk_${phase}_${artifact.path.replace(/[^a-zA-Z0-9]/g, '_')}_section_${section.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const description = `${artifact.path} defines ${section}`;
+          const absPath = join(root, artifact.path);
+
+          if (!existsSync(absPath)) {
+            checks.push({ id: checkId, file: artifact.path, ok: false, skipped: true, description });
+            continue;
+          }
+
+          const content = readFileSync(absPath, 'utf8');
+          const ok = content.includes(section);
+          if (!ok) {
+            errors.push(`Workflow kit file "${artifact.path}" must contain section: ${section}.`);
+          }
+          checks.push({ id: checkId, file: artifact.path, ok, skipped: false, description });
+        }
+      } else if (artifact.semantics !== 'section_check') {
+        // Built-in semantic check — generate a structural check entry
+        const checkId = `wk_${phase}_${artifact.semantics}`;
+        const description = `${artifact.path} passes ${artifact.semantics} validation`;
+        const absPath = join(root, artifact.path);
+
+        if (!existsSync(absPath)) {
+          checks.push({ id: checkId, file: artifact.path, ok: false, skipped: true, description });
+          continue;
+        }
+
+        // For built-in validators, delegate to the hardcoded check if one exists
+        const hardcoded = GOVERNED_WORKFLOW_KIT_STRUCTURAL_CHECKS.find(c => c.file === artifact.path);
+        if (hardcoded) {
+          const content = readFileSync(absPath, 'utf8');
+          const ok = hardcoded.pattern.test(content);
+          if (!ok) {
+            errors.push(`Workflow kit file "${artifact.path}" must preserve its structural marker: ${hardcoded.description}.`);
+          }
+          checks.push({ id: checkId, file: artifact.path, ok, skipped: false, description: hardcoded.description });
+        } else {
+          // No hardcoded check for this semantic — mark as passing (runtime gate handles full validation)
+          checks.push({ id: checkId, file: artifact.path, ok: true, skipped: false, description });
+        }
+      }
+    }
+  }
+
+  return checks;
 }
 
 export const SYSTEM_SPEC_OVERLAY_SEPARATOR = '## Template-Specific Guidance';

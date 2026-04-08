@@ -780,7 +780,7 @@ export function normalizeWorkflowKit(raw, routingPhases) {
 
   // Empty object is an explicit opt-out — no artifacts
   if (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0) {
-    return { phases: {} };
+    return { phases: {}, _explicit: true };
   }
 
   const phases = {};
@@ -797,7 +797,7 @@ export function normalizeWorkflowKit(raw, routingPhases) {
     }
   }
 
-  return { phases };
+  return { phases, _explicit: true };
 }
 
 function buildDefaultWorkflowKit(routingPhases) {

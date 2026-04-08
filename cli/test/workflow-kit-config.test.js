@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -11,6 +11,8 @@ import {
   loadNormalizedConfig,
 } from '../src/lib/normalized-config.js';
 import { evaluateArtifactSemantics } from '../src/lib/workflow-gate-semantics.js';
+import { validateGovernedWorkflowKit } from '../src/lib/governed-templates.js';
+import { scaffoldGoverned } from '../src/commands/init.js';
 
 function baseConfig(overrides = {}) {
   return {
@@ -344,5 +346,247 @@ describe('evaluateArtifactSemantics', () => {
     });
     assert.ok(result);
     assert.equal(result.ok, false);
+  });
+});
+
+// --- Slice 3: Template Validate Integration ---
+
+describe('validateGovernedWorkflowKit — template validate integration', () => {
+  it('AT-WKC-030: explicit workflow_kit reflects declared artifacts in required_files', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+    writeFileSync(join(tmp, '.planning/DESIGN_DOC.md'), '# Design\n\n## Architecture\n\nContent\n');
+    writeFileSync(join(tmp, '.planning/SECURITY_REVIEW.md'), '# Security\n');
+
+    const config = {
+      workflow_kit: {
+        _explicit: true,
+        phases: {
+          design: {
+            artifacts: [
+              { path: '.planning/DESIGN_DOC.md', semantics: 'section_check', semantics_config: { required_sections: ['## Architecture'] }, required: true },
+              { path: '.planning/SECURITY_REVIEW.md', semantics: null, required: true },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = validateGovernedWorkflowKit(tmp, config);
+    assert.ok(result.required_files.includes('.planning/DESIGN_DOC.md'), 'should include DESIGN_DOC.md');
+    assert.ok(result.required_files.includes('.planning/SECURITY_REVIEW.md'), 'should include SECURITY_REVIEW.md');
+    // Should NOT include default base files when explicit workflow_kit is present
+    assert.ok(!result.required_files.includes('.planning/PM_SIGNOFF.md'), 'should not include default PM_SIGNOFF.md');
+  });
+
+  it('AT-WKC-031: explicit workflow_kit generates structural_checks from semantics declarations', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+    writeFileSync(join(tmp, '.planning/DESIGN_DOC.md'), '# Design\n\n## Architecture\n\nContent\n\n## Trade-offs\n\nMore\n');
+
+    const config = {
+      workflow_kit: {
+        _explicit: true,
+        phases: {
+          design: {
+            artifacts: [
+              {
+                path: '.planning/DESIGN_DOC.md',
+                semantics: 'section_check',
+                semantics_config: { required_sections: ['## Architecture', '## Trade-offs'] },
+                required: true,
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = validateGovernedWorkflowKit(tmp, config);
+    assert.ok(result.ok, `Unexpected errors: ${result.errors.join(', ')}`);
+    assert.ok(result.structural_checks.length >= 2, `Expected at least 2 structural checks, got ${result.structural_checks.length}`);
+    const archCheck = result.structural_checks.find(c => c.description.includes('## Architecture'));
+    assert.ok(archCheck, 'should have structural check for ## Architecture');
+    assert.equal(archCheck.ok, true);
+    const tradeoffsCheck = result.structural_checks.find(c => c.description.includes('## Trade-offs'));
+    assert.ok(tradeoffsCheck, 'should have structural check for ## Trade-offs');
+    assert.equal(tradeoffsCheck.ok, true);
+  });
+
+  it('AT-WKC-031b: section_check structural_checks fail when section missing', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+    writeFileSync(join(tmp, '.planning/DESIGN_DOC.md'), '# Design\n\n## Architecture\n\nContent\n');
+
+    const config = {
+      workflow_kit: {
+        _explicit: true,
+        phases: {
+          design: {
+            artifacts: [
+              {
+                path: '.planning/DESIGN_DOC.md',
+                semantics: 'section_check',
+                semantics_config: { required_sections: ['## Architecture', '## Missing Section'] },
+                required: true,
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = validateGovernedWorkflowKit(tmp, config);
+    assert.equal(result.ok, false);
+    const failedCheck = result.structural_checks.find(c => c.description.includes('## Missing Section'));
+    assert.ok(failedCheck, 'should have structural check for ## Missing Section');
+    assert.equal(failedCheck.ok, false);
+  });
+
+  it('AT-WKC-032: without workflow_kit produces identical output to default behavior', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+    writeFileSync(join(tmp, '.planning/PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(join(tmp, '.planning/ROADMAP.md'), '# Roadmap\n\n## Phases\n\n| Phase |\n');
+    writeFileSync(join(tmp, '.planning/SYSTEM_SPEC.md'), '# Spec\n\n## Purpose\n\nFoo\n\n## Interface\n\nBar\n\n## Acceptance Tests\n\nBaz\n');
+    writeFileSync(join(tmp, '.planning/acceptance-matrix.md'), '| Req # | foo |\n');
+    writeFileSync(join(tmp, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+
+    const resultNoWk = validateGovernedWorkflowKit(tmp, {});
+    const resultUndefined = validateGovernedWorkflowKit(tmp);
+
+    // Both should use the default base files
+    assert.deepStrictEqual(resultNoWk.required_files, resultUndefined.required_files);
+    assert.ok(resultNoWk.required_files.includes('.planning/PM_SIGNOFF.md'));
+    assert.ok(resultNoWk.structural_checks.length > 0, 'should have hardcoded structural checks');
+  });
+
+  it('structural_checks for built-in semantics like pm_signoff in explicit workflow_kit', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+    writeFileSync(join(tmp, '.planning/PM_SIGNOFF.md'), 'Approved: YES\n');
+
+    const config = {
+      workflow_kit: {
+        _explicit: true,
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
+            ],
+          },
+        },
+      },
+    };
+
+    const result = validateGovernedWorkflowKit(tmp, config);
+    assert.ok(result.ok, `Unexpected errors: ${result.errors.join(', ')}`);
+    const pmCheck = result.structural_checks.find(c => c.file === '.planning/PM_SIGNOFF.md');
+    assert.ok(pmCheck, 'should have structural check for PM_SIGNOFF.md');
+    assert.equal(pmCheck.ok, true);
+  });
+});
+
+// --- Slice 3: Scaffold (governed init) ---
+
+describe('scaffoldGoverned — workflow_kit artifact scaffold', () => {
+  it('AT-WKC-040: scaffolds declared workflow_kit artifacts with placeholder content', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    const workflowKit = {
+      phases: {
+        design: {
+          artifacts: [
+            {
+              path: '.planning/DESIGN_DOC.md',
+              semantics: 'section_check',
+              semantics_config: { required_sections: ['## Architecture', '## Interfaces'] },
+              required: true,
+            },
+            {
+              path: '.planning/SECURITY_REVIEW.md',
+              semantics: null,
+              required: true,
+            },
+          ],
+        },
+      },
+    };
+
+    scaffoldGoverned(tmp, 'Test Project', 'test-project', 'generic', {}, workflowKit);
+
+    // Custom artifacts should exist
+    assert.ok(existsSync(join(tmp, '.planning/DESIGN_DOC.md')), 'DESIGN_DOC.md should be scaffolded');
+    assert.ok(existsSync(join(tmp, '.planning/SECURITY_REVIEW.md')), 'SECURITY_REVIEW.md should be scaffolded');
+
+    // section_check artifact should have required sections pre-filled
+    const designContent = readFileSync(join(tmp, '.planning/DESIGN_DOC.md'), 'utf8');
+    assert.ok(designContent.includes('## Architecture'), 'should contain ## Architecture');
+    assert.ok(designContent.includes('## Interfaces'), 'should contain ## Interfaces');
+
+    // No-semantics artifact should have generic placeholder
+    const securityContent = readFileSync(join(tmp, '.planning/SECURITY_REVIEW.md'), 'utf8');
+    assert.ok(securityContent.includes('Operator fills this in'), 'should have generic placeholder');
+  });
+
+  it('AT-WKC-041: without workflow_kit scaffolds default 5+ files unchanged', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    scaffoldGoverned(tmp, 'Default Project', 'default-project', 'generic', {});
+
+    // Default files should exist
+    assert.ok(existsSync(join(tmp, '.planning/PM_SIGNOFF.md')));
+    assert.ok(existsSync(join(tmp, '.planning/ROADMAP.md')));
+    assert.ok(existsSync(join(tmp, '.planning/SYSTEM_SPEC.md')));
+    assert.ok(existsSync(join(tmp, '.planning/IMPLEMENTATION_NOTES.md')));
+    assert.ok(existsSync(join(tmp, '.planning/acceptance-matrix.md')));
+    assert.ok(existsSync(join(tmp, '.planning/ship-verdict.md')));
+    assert.ok(existsSync(join(tmp, '.planning/RELEASE_NOTES.md')));
+
+    // No custom artifacts should exist
+    assert.ok(!existsSync(join(tmp, '.planning/DESIGN_DOC.md')), 'should not scaffold custom artifacts without workflow_kit');
+  });
+
+  it('AT-WKC-040b: does not re-scaffold default files via workflow_kit', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    const workflowKit = {
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
+          ],
+        },
+        design: {
+          artifacts: [
+            { path: '.planning/CUSTOM.md', semantics: null, required: true },
+          ],
+        },
+      },
+    };
+
+    scaffoldGoverned(tmp, 'Test', 'test', 'generic', {}, workflowKit);
+
+    // Default PM_SIGNOFF.md should have the standard scaffold content, not the workflow_kit placeholder
+    const pmContent = readFileSync(join(tmp, '.planning/PM_SIGNOFF.md'), 'utf8');
+    assert.ok(pmContent.includes('Approved: NO'), 'PM_SIGNOFF.md should have standard scaffold content');
+    assert.ok(!pmContent.includes('Operator fills this in'), 'PM_SIGNOFF.md should not have workflow_kit placeholder');
+
+    // Custom artifact should be scaffolded
+    assert.ok(existsSync(join(tmp, '.planning/CUSTOM.md')));
+  });
+
+  it('AT-WKC-040c: scaffolds artifacts in subdirectories', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    const workflowKit = {
+      phases: {
+        design: {
+          artifacts: [
+            { path: '.planning/reviews/design-review.md', semantics: null, required: true },
+          ],
+        },
+      },
+    };
+
+    scaffoldGoverned(tmp, 'Test', 'test', 'generic', {}, workflowKit);
+
+    assert.ok(existsSync(join(tmp, '.planning/reviews/design-review.md')), 'should create subdirectories as needed');
   });
 });
