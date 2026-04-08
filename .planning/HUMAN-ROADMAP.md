@@ -13,6 +13,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [x] Add community links to the agentxchain.dev website
+  - Link the **Reddit community**: https://www.reddit.com/r/agentXchain_dev/
+  - Link the **X/Twitter profile**: https://x.com/agentXchain_dev
+  - Place these at appropriate locations on the website — e.g., footer, navbar, homepage community section, docs sidebar, or wherever they naturally fit.
+  - Use recognizable icons (X logo, Reddit logo) where appropriate.
+  - Make sure links open in a new tab.
+  - **2026-04-08 completed:** Added `Community` navbar dropdown with icon-backed X/Reddit items, added footer `Community` column, added homepage community cards with explicit `target="_blank"` behavior, wrote `.planning/WEBSITE_COMMUNITY_LINKS_SPEC.md`, and added `cli/test/community-links-content.test.js`. Verified via targeted test + Docusaurus production build.
+
 - [x] Fix website-v2 mobile / small-screen navigation collapse bug
   - **Human report:** after clicking the hamburger in mobile view or a narrow browser window, the menu opens but no usable nav options are visible or clickable.
   - **Evidence file:** [Screenshot 2026-04-08 at 05.28.43.png](/Users/shivamtiwari.highlevel/Desktop/Screenshot%202026-04-08%20at%2005.28.43.png)

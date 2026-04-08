@@ -105,6 +105,22 @@ const config: Config = {
           ],
         },
         {
+          label: 'Community',
+          position: 'left',
+          items: [
+            {
+              href: 'https://x.com/agentXchain_dev',
+              label: 'X / Twitter',
+              className: 'navbar-community-link navbar-community-x',
+            },
+            {
+              href: 'https://www.reddit.com/r/agentXchain_dev/',
+              label: 'Reddit',
+              className: 'navbar-community-link navbar-community-reddit',
+            },
+          ],
+        },
+        {
           href: 'https://github.com/shivamtiwari93/agentXchain.dev',
           label: 'GitHub',
           position: 'right',
@@ -161,6 +177,13 @@ const config: Config = {
             {label: 'agentxchain.ai (Cloud)', href: 'https://agentxchain.ai'},
             {label: 'GitHub', href: 'https://github.com/shivamtiwari93/agentXchain.dev'},
             {label: 'npm', href: 'https://www.npmjs.com/package/agentxchain'},
+          ],
+        },
+        {
+          title: 'Community',
+          items: [
+            {label: 'X / Twitter', href: 'https://x.com/agentXchain_dev'},
+            {label: 'Reddit', href: 'https://www.reddit.com/r/agentXchain_dev/'},
           ],
         },
       ],

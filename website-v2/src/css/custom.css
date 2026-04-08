@@ -64,6 +64,31 @@
   content: ' \2197';
 }
 
+.navbar-community-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.navbar-community-link::before {
+  content: '';
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-block;
+  background-color: currentColor;
+  flex: 0 0 auto;
+}
+
+.navbar-community-x::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18.244 2H21l-6.024 6.885L22 22h-5.492l-4.301-6.312L6.683 22H3.926l6.442-7.363L2 2h5.632l3.888 5.706L18.244 2Zm-.967 18h1.527L6.803 3.895H5.166L17.277 20Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M18.244 2H21l-6.024 6.885L22 22h-5.492l-4.301-6.312L6.683 22H3.926l6.442-7.363L2 2h5.632l3.888 5.706L18.244 2Zm-.967 18h1.527L6.803 3.895H5.166L17.277 20Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.navbar-community-reddit::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='13' r='5.75' fill='none' stroke='black' stroke-width='1.7'/%3E%3Ccircle cx='9.5' cy='12.4' r='0.9'/%3E%3Ccircle cx='14.5' cy='12.4' r='0.9'/%3E%3Cpath d='M9.3 15.05c.8.74 1.73 1.1 2.7 1.1.97 0 1.9-.36 2.7-1.1' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M13.15 7.55 14.3 4.9l2.55.6' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='17.75' cy='5.4' r='1.15' fill='none' stroke='black' stroke-width='1.4'/%3E%3Ccircle cx='6.15' cy='11.05' r='1.1' fill='none' stroke='black' stroke-width='1.4'/%3E%3Ccircle cx='17.85' cy='11.05' r='1.1' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='13' r='5.75' fill='none' stroke='black' stroke-width='1.7'/%3E%3Ccircle cx='9.5' cy='12.4' r='0.9'/%3E%3Ccircle cx='14.5' cy='12.4' r='0.9'/%3E%3Cpath d='M9.3 15.05c.8.74 1.73 1.1 2.7 1.1.97 0 1.9-.36 2.7-1.1' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M13.15 7.55 14.3 4.9l2.55.6' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='17.75' cy='5.4' r='1.15' fill='none' stroke='black' stroke-width='1.4'/%3E%3Ccircle cx='6.15' cy='11.05' r='1.1' fill='none' stroke='black' stroke-width='1.4'/%3E%3Ccircle cx='17.85' cy='11.05' r='1.1' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* Hero section */
 .hero-section {
   padding: 6rem 0 4rem;
@@ -235,6 +260,55 @@
   gap: 0.75rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+.community-card {
+  display: block;
+  text-decoration: none !important;
+  color: inherit;
+  background: linear-gradient(180deg, rgba(14, 28, 51, 0.96), rgba(8, 18, 34, 0.96));
+  border: 1px solid var(--ifm-color-emphasis-300, #162845);
+  border-radius: 14px;
+  padding: 1.5rem;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.community-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--axc-blue-light);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.community-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.85rem;
+}
+
+.community-card p {
+  color: var(--ifm-font-color-secondary);
+  margin-bottom: 0.9rem;
+}
+
+.community-link-text {
+  color: var(--axc-green-light);
+  font-weight: 600;
+}
+
+.community-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: 0 0 auto;
 }
 
 /* Feature cards */
@@ -687,6 +761,7 @@
   .integrations-grid,
   .outcomes-grid,
   .role-grid { grid-template-columns: 1fr; }
+  .community-grid { grid-template-columns: 1fr; }
   .steps-grid { grid-template-columns: 1fr 1fr; }
   .platform-grid { grid-template-columns: 1fr; }
   .sovereignty-grid { grid-template-columns: 1fr; }

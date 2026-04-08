@@ -3,6 +3,32 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
+      <path
+        fill="currentColor"
+        d="M18.244 2H21l-6.024 6.885L22 22h-5.492l-4.301-6.312L6.683 22H3.926l6.442-7.363L2 2h5.632l3.888 5.706L18.244 2Zm-.967 18h1.527L6.803 3.895H5.166L17.277 20Z"
+      />
+    </svg>
+  );
+}
+
+function RedditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
+      <circle cx="12" cy="13" r="5.75" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="9.5" cy="12.4" r="0.9" fill="currentColor" />
+      <circle cx="14.5" cy="12.4" r="0.9" fill="currentColor" />
+      <path d="M9.3 15.05c.8.74 1.73 1.1 2.7 1.1.97 0 1.9-.36 2.7-1.1" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M13.15 7.55 14.3 4.9l2.55.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="17.75" cy="5.4" r="1.15" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="6.15" cy="11.05" r="1.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="17.85" cy="11.05" r="1.1" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function Hero() {
   const logoSrc = useBaseUrl('/img/agentXchain.dev_square_250x250px.png');
   return (
@@ -651,6 +677,53 @@ function Comparison() {
   );
 }
 
+function Community() {
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-orange">Community</span>
+        <h2>Build in public with other AgentXchain operators</h2>
+        <p className="section-subtitle">
+          Product truth should not live only in release notes. Follow shipping work,
+          challenge decisions, and watch the governed delivery model evolve in public.
+        </p>
+        <div className="community-grid">
+          <a
+            className="community-card"
+            href="https://x.com/agentXchain_dev"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="community-card-header">
+              <XIcon />
+              <span>X / Twitter</span>
+            </div>
+            <p>
+              Release callouts, live build updates, and sharp product positioning.
+            </p>
+            <span className="community-link-text">Open profile &rarr;</span>
+          </a>
+          <a
+            className="community-card"
+            href="https://www.reddit.com/r/agentXchain_dev/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="community-card-header">
+              <RedditIcon />
+              <span>Reddit community</span>
+            </div>
+            <p>
+              Longer-form discussion, implementation feedback, and operator questions.
+            </p>
+            <span className="community-link-text">Join subreddit &rarr;</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PlatformSplit() {
   return (
     <section style={{ padding: '5rem 0' }}>
@@ -843,6 +916,7 @@ export default function Home(): React.ReactElement {
       <Integrations />
       <Comparison />
       <PlatformSplit />
+      <Community />
       <WhatItIsNot />
       <Outcomes />
       <EndVision />
