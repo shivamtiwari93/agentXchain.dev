@@ -196,7 +196,7 @@ New behavior:
 1. Load the template manifest via `loadGovernedTemplate(templateId)`
 2. If the manifest has `scaffold_blueprint`, derive `roles`, `runtimes`, `routing`, `gates`, prompt paths, and optional `workflow_kit` from it; otherwise use the default governed team constants
 3. Write `"template": templateId` into the config object
-4. After writing the base planning artifacts (PM_SIGNOFF, ROADMAP, acceptance-matrix, ship-verdict), write template-specific planning artifacts from `planning_artifacts[]`
+4. After writing the base planning artifacts (PM_SIGNOFF, ROADMAP, acceptance-matrix, ship-verdict), write template-specific planning artifacts from `planning_artifacts[]`. ROADMAP.md phase table is derived from routing keys and role mandates — not hardcoded. Blueprint-backed templates with custom routing get a truthful phase table matching their declared phases.
 5. If `prompt_overrides` exists, append the override text to the corresponding role prompt file (after the base prompt, separated by `\n\n---\n\n## Project-Type-Specific Guidance\n\n`)
 6. If `acceptance_hints` exists, append them to `acceptance-matrix.md` as a "Template Guidance" section
 7. If `workflow_kit` came from `scaffold_blueprint`, preserve it in `agentxchain.json` and scaffold any additional artifact placeholders declared there

@@ -557,6 +557,18 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
   };
 }
 
+function buildRoadmapPhaseTable(routing, roles) {
+  const rows = Object.entries(routing).map(([phaseKey, phaseConfig]) => {
+    const phaseName = phaseKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const entryRole = phaseConfig.entry_role;
+    const role = roles[entryRole];
+    const goal = role?.mandate || phaseName;
+    const status = phaseKey === Object.keys(routing)[0] ? 'In progress' : 'Pending';
+    return `| ${phaseName} | ${goal} | ${status} |`;
+  });
+  return `| Phase | Goal | Status |\n|-------|------|--------|\n${rows.join('\n')}\n`;
+}
+
 function buildPlanningSummaryLines(template, workflowKitConfig) {
   const lines = [
     'PM_SIGNOFF.md / ROADMAP.md / SYSTEM_SPEC.md',
@@ -694,7 +706,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
   // Planning artifacts
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n> This scaffold starts blocked on purpose. Change this to \`Approved: YES\` only after a human reviews the planning artifacts and is ready to open the planning gate.\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
-  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope, requirements, acceptance criteria | In progress |\n| Implementation | Build and verify | Pending |\n| QA | Challenge correctness and ship readiness | Pending |\n`);
+  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n${buildRoadmapPhaseTable(routing, roles)}`);
   writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), buildSystemSpecContent(projectName, template.system_spec_overlay));
   writeFileSync(join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'), `# Implementation Notes — ${projectName}\n\n## Changes\n\n(Dev fills this during implementation)\n\n## Verification\n\n(Dev fills this during implementation)\n\n## Unresolved Follow-ups\n\n(Dev lists any known gaps, tech debt, or follow-up items here.)\n`);
   const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
