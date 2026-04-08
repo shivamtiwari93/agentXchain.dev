@@ -250,6 +250,32 @@ describe('Templates docs surface', () => {
     }
   });
 
+  it('documents blueprint authoring as a CLI-source extension, not runtime magic', () => {
+    for (const term of [
+      'CLI-source extension point today',
+      'cli/src/templates/governed/<id>.json',
+      'VALID_GOVERNED_TEMPLATE_IDS',
+      'roles',
+      'runtimes',
+      'routing',
+      'gates',
+      'workflow_kit',
+      'phase IDs in `routing` and `workflow_kit.phases` must agree',
+      'npx agentxchain init --governed --template <id> --dir /tmp/template-proof -y',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention blueprint authoring term ${term}`);
+    }
+
+    for (const term of [
+      'CLI-source extension',
+      'cli/src/templates/governed/<id>.json',
+      'VALID_GOVERNED_TEMPLATE_IDS',
+      'init-only until a dedicated migrator exists',
+    ]) {
+      assert.ok(TEMPLATES_SPEC.includes(term), `templates spec must mention blueprint authoring term ${term}`);
+    }
+  });
+
   it('documents enterprise-app phase walkthrough with concrete examples', () => {
     // Phase table with role-to-phase-to-artifact mapping
     for (const term of [

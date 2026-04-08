@@ -20,6 +20,7 @@ This page must document the real product contract:
 - explicit `workflow_kit` changes `template validate` from default-scaffold proof to operator-declared artifact proof
 - `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
 - blueprint-backed templates may be init-only when they redefine team topology
+- authoring a new blueprint-backed template is a CLI-source extension, not a runtime operator command
 - `status` and `status --json` keep template choice visible to operators and automation
 
 ## Interface
@@ -172,6 +173,18 @@ The page must link back to:
 
 Quickstart and CLI docs must also link into `/docs/templates`.
 
+### 8. Describe blueprint authoring honestly
+
+The page must not imply operators can drop arbitrary local template manifests into an existing install.
+
+It must state the real extension path:
+
+- new governed templates live under `cli/src/templates/governed/<id>.json`
+- new template IDs must be registered in `VALID_GOVERNED_TEMPLATE_IDS`
+- `scaffold_blueprint` may define `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit`
+- those blueprint blocks are validated through the governed config validator
+- blueprint-backed templates that rewrite team topology remain init-only until a dedicated migrator exists
+
 ## Error Cases
 
 | Condition | Required docs behavior |
@@ -180,6 +193,7 @@ Quickstart and CLI docs must also link into `/docs/templates`.
 | Page claims `template set` rewrites, merges, or force-overwrites existing planning docs | Wrong. The command is intentionally additive and conservative. |
 | Page fabricates `--force` or conflict-detection behavior for `template set` | Wrong. Those semantics belong elsewhere and are not part of the shipped template mutation surface. |
 | Page lists template IDs without manifest-backed artifact differences | Incomplete. Operators still cannot choose honestly. |
+| Page claims arbitrary operator-supplied blueprint manifests are supported at runtime | Wrong. New blueprint-backed templates are currently a CLI-source extension point. |
 | Spec points at retired static-site output paths | Wrong. The docs system is Docusaurus and the spec must bind to the live source/build surface. |
 
 ## Acceptance Tests
@@ -196,6 +210,7 @@ Quickstart and CLI docs must also link into `/docs/templates`.
 9. The page does not mention `template set --force` or fake conflict-detection semantics.
 10. `website-v2/docs/quickstart.mdx` links to `/docs/templates`.
 11. `website-v2/docs/cli.mdx` links to `/docs/templates`.
+12. The page documents blueprint authoring as a built-in CLI extension path via `cli/src/templates/governed/<id>.json` and `VALID_GOVERNED_TEMPLATE_IDS`, not as an operator runtime command.
 
 ## Open Questions
 

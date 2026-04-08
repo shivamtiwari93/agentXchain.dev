@@ -249,13 +249,47 @@ Error: Template "enterprise-app" defines a custom governed team blueprint.
 Use agentxchain init --governed --template enterprise-app for new repos.
 ```
 
-#### Building your own blueprint-backed template
+#### Authoring a new blueprint-backed template
 
-The `enterprise-app` manifest demonstrates the pattern. Any template can carry a `scaffold_blueprint` with custom `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit`. Inspect the shipped manifest for the full contract:
+This is a **CLI-source extension point today**, not a runtime operator command. New governed templates are built into the CLI from manifest files under `cli/src/templates/governed/` and registered in `VALID_GOVERNED_TEMPLATE_IDS`.
+
+The honest authoring path is:
+
+1. Add `cli/src/templates/governed/<id>.json`
+2. Register `<id>` in `cli/src/lib/governed-templates.js`
+3. Define the base manifest fields: `id`, `display_name`, `description`, `version`, `protocol_compatibility`, `planning_artifacts`, `prompt_overrides`, `acceptance_hints`, and `system_spec_overlay`
+4. Add `scaffold_blueprint` only when the template really changes team topology
+
+If you define `scaffold_blueprint`, its five governed config blocks are the contract:
+
+- `roles`
+- `runtimes`
+- `routing`
+- `gates`
+- `workflow_kit`
+
+Those blocks are validated through the same governed config validator used by the product. That means:
+
+- role IDs must stay within `^[a-z0-9_-]+$`
+- phase IDs in `routing` and `workflow_kit.phases` must agree
+- each `exit_gate` must exist under `gates`
+- gate `requires_files` and workflow-kit artifact paths should describe the same phase contract instead of drifting apart
+
+Use the shipped `enterprise-app` manifest as the reference implementation:
 
 ```bash
 agentxchain template list --json | jq '.[] | select(.id == "enterprise-app")'
 ```
+
+Then prove the new template end to end instead of trusting the JSON by inspection:
+
+```bash
+npx agentxchain init --governed --template <id> --dir /tmp/template-proof -y
+cd /tmp/template-proof
+agentxchain template validate --json
+```
+
+Important boundary: if the new template rewrites `roles`, `runtimes`, `routing`, `gates`, or `workflow_kit`, keep it init-only. `template set` is only honest for additive templates until a dedicated migrator exists.
 
 ## Apply a template to an existing governed repo
 
