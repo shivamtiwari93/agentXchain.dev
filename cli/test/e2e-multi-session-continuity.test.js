@@ -1,11 +1,14 @@
 /**
  * E2E — Multi-Session Governed Continuity
  *
- * Proves that a governed run survives process boundaries:
- *   1. Start run + complete first turn in Session A (process A)
- *   2. Resume same run + complete second turn in Session B (process B)
- *   3. Block run in Session C, recover in Session D
- *   4. Complete run in Session E
+ * Proves two independent multi-session operator paths:
+ *   1. Recovery path:
+ *      - Start run + complete first turn in Session A
+ *      - Resume same run + complete second turn in Session B
+ *      - Block run in Session C, recover in Session D
+ *   2. Completion path:
+ *      - Final-phase QA turn requests run completion in Session E
+ *      - Fresh process approves completion in Session F
  *
  * Every "session" is a separate spawnSync invocation — a fresh process
  * with no shared in-memory state. Continuity lives entirely in
@@ -26,7 +29,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import { scaffoldGoverned } from '../src/commands/init.js';
@@ -110,26 +113,76 @@ function stageTurnResult(dir, turn, runId, overrides = {}) {
   writeFileSync(join(stagingDir, 'turn-result.json'), JSON.stringify(result, null, 2));
 }
 
+function makePassingAcceptanceMatrix() {
+  return '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Completion flow | Fresh-session approve-completion finalizes the run | pass | 2026-04-08 | pass |\n';
+}
+
 function createProject() {
   const dir = mkdtempSync(join(tmpdir(), 'axc-session-continuity-'));
   scaffoldGoverned(dir, 'Session Continuity Fixture', 'session-continuity-fixture');
   mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  initGitRepo(dir);
+  return dir;
+}
+
+function initGitRepo(dir) {
+  execSync('git init', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+  execSync('git add .', { cwd: dir, stdio: 'ignore' });
+  execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+}
+
+function createCompletionProject() {
+  const dir = mkdtempSync(join(tmpdir(), 'axc-session-completion-'));
+  scaffoldGoverned(dir, 'Session Completion Fixture', 'session-completion-fixture');
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  mkdirSync(join(dir, '.planning'), { recursive: true });
+
+  writeFileSync(join(dir, '.planning', 'acceptance-matrix.md'), makePassingAcceptanceMatrix());
+  writeFileSync(join(dir, '.planning', 'ship-verdict.md'), '## Verdict: YES\n\nReady to ship.\n');
+  writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nGoverned runs can now complete across fresh operator sessions.\n\n## Verification Summary\n\nMulti-session completion proof.\n');
+
+  const statePath = join(dir, '.agentxchain', 'state.json');
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  state.phase = 'qa';
+  state.status = 'idle';
+  state.run_id = null;
+  state.active_turns = {};
+  state.completed_turns = [];
+  state.turn_sequence = 0;
+  state.last_completed_turn_id = null;
+  state.pending_phase_transition = null;
+  state.pending_run_completion = null;
+  state.completed_at = null;
+  state.blocked_on = null;
+  state.blocked_reason = null;
+  state.escalation = null;
+  state.phase_gate_status = {
+    planning_signoff: 'passed',
+    implementation_complete: 'passed',
+    qa_ship_verdict: 'pending',
+  };
+  writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
+
+  initGitRepo(dir);
   return dir;
 }
 
 // ── Test ─────────────────────────────────────────────────────────────
 
 describe('E2E multi-session governed continuity', () => {
-  let dir;
+  const dirs = [];
 
   after(() => {
-    if (dir) {
+    for (const dir of dirs) {
       try { rmSync(dir, { recursive: true, force: true }); } catch {}
     }
   });
 
-  it('AT-SESSION-001..006: run survives across five separate process sessions', () => {
-    dir = createProject();
+  it('AT-SESSION-001,002,003,004,006: run survives across separate recovery sessions', () => {
+    const dir = createProject();
+    dirs.push(dir);
 
     // ─── Session A: Initialize run + assign + accept first turn ───
     const resumeA = runCli(dir, ['resume', '--role', 'pm']);
@@ -238,28 +291,79 @@ describe('E2E multi-session governed continuity', () => {
 
     const finalState = readState(dir);
 
-    // AT-SESSION-005: cross-session state persistence — run_id unchanged through all sessions
-    assert.equal(finalState.run_id, runId, 'AT-SESSION-005: run_id unchanged through all sessions');
-    assert.equal(finalState.last_completed_turn_id, turnD.turn_id, 'AT-SESSION-005: last_completed_turn_id from Session D');
+    assert.equal(finalState.run_id, runId, 'run_id unchanged through all recovery sessions');
+    assert.equal(finalState.last_completed_turn_id, turnD.turn_id, 'last_completed_turn_id updated after recovery session');
 
     // Verify full history spans all sessions
     const finalHistory = readHistory(dir);
     assert.ok(
       finalHistory.length >= 3,
-      `AT-SESSION-005: final history should have ≥3 entries (one per accepted turn), got ${finalHistory.length}`,
+      `final history should have ≥3 entries (one per accepted turn), got ${finalHistory.length}`,
     );
 
     // Verify ledger spans all sessions (turn decisions + escalation + resolution)
     const finalLedger = readLedger(dir);
     assert.ok(
       finalLedger.length >= 3,
-      `AT-SESSION-005: final ledger should have ≥3 entries spanning all sessions, got ${finalLedger.length}`,
+      `final ledger should have ≥3 entries spanning all sessions, got ${finalLedger.length}`,
     );
 
     // AT-SESSION-006 (strengthened): turn sequence is monotonic across all sessions
     assert.ok(
       finalState.turn_sequence >= 3,
       `AT-SESSION-006: turn_sequence should be ≥3 after 3 turns, got ${finalState.turn_sequence}`,
+    );
+  });
+
+  it('AT-SESSION-005: final-phase run completion can be approved in a fresh session', () => {
+    const dir = createCompletionProject();
+    dirs.push(dir);
+
+    const resumeQa = runCli(dir, ['resume', '--role', 'qa']);
+    assert.equal(resumeQa.status, 0, `Completion Session E resume failed: ${resumeQa.combined}`);
+
+    const stateAfterResume = readState(dir);
+    assert.equal(stateAfterResume.status, 'active', 'Completion Session E: run should be active');
+    const runId = stateAfterResume.run_id;
+    assert.ok(runId, 'Completion Session E: run_id must exist');
+
+    const qaTurn = Object.values(stateAfterResume.active_turns || {})[0];
+    assert.ok(qaTurn, 'Completion Session E: active QA turn must exist');
+    assert.equal(qaTurn.assigned_role, 'qa', 'Completion Session E: turn must be assigned to qa');
+
+    stageTurnResult(dir, qaTurn, runId, {
+      summary: 'Final QA review complete. Requesting governed run completion.',
+      proposed_next_role: 'human',
+      run_completion_request: true,
+    });
+
+    const acceptQa = runCli(dir, ['accept-turn']);
+    assert.equal(acceptQa.status, 0, `Completion Session E accept-turn failed: ${acceptQa.combined}`);
+
+    const pausedState = readState(dir);
+    assert.equal(pausedState.status, 'paused', 'AT-SESSION-005: run should pause for pending completion approval');
+    assert.equal(pausedState.run_id, runId, 'AT-SESSION-005: run_id must remain stable before approval');
+    assert.equal(pausedState.pending_run_completion?.gate, 'qa_ship_verdict', 'AT-SESSION-005: pending completion must target final gate');
+    assert.equal(pausedState.pending_run_completion?.requested_by_turn, qaTurn.turn_id, 'AT-SESSION-005: pending completion must point at QA turn');
+
+    const status = runCli(dir, ['status']);
+    assert.equal(status.status, 0, `Completion Session F status failed: ${status.combined}`);
+    assert.match(status.combined, /approve-completion/, 'AT-SESSION-005: status must guide the operator to approve-completion');
+
+    const approveCompletion = runCli(dir, ['approve-completion']);
+    assert.equal(approveCompletion.status, 0, `Completion Session F approve-completion failed: ${approveCompletion.combined}`);
+
+    const finalState = readState(dir);
+    assert.equal(finalState.status, 'completed', 'AT-SESSION-005: fresh-session approve-completion must complete the run');
+    assert.equal(finalState.run_id, runId, 'AT-SESSION-005: run_id must remain stable after approval');
+    assert.equal(finalState.pending_run_completion, null, 'AT-SESSION-005: pending completion must be cleared after approval');
+    assert.equal(finalState.phase_gate_status?.qa_ship_verdict, 'passed', 'AT-SESSION-005: final gate must be marked passed after approval');
+    assert.ok(finalState.completed_at, 'AT-SESSION-005: completed_at must be set');
+
+    const finalHistory = readHistory(dir);
+    assert.ok(
+      finalHistory.some((entry) => entry.turn_id === qaTurn.turn_id),
+      'AT-SESSION-005: history must retain the accepted QA turn that requested completion',
     );
   });
 });

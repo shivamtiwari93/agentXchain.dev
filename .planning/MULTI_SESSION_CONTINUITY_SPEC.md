@@ -6,13 +6,13 @@
 
 ## Purpose
 
-Prove that a governed run survives process boundaries. An operator can:
+Prove that a governed run survives process boundaries all the way to a truthful governed end-state. An operator can:
 
 1. Start a governed run and complete a turn in **Session A**
 2. Terminate the process completely
 3. Resume the same run in **Session B** (fresh process) with full state, history, and decision ledger continuity
 4. Recover from blocked state across sessions
-5. Complete the run in a session different from the one that started it
+5. Request final run completion in one session and approve that completion in a later fresh session
 
 This is the foundational proof for long-horizon execution — the vision's "lights-out software factory" requires runs that outlive any single process.
 
@@ -46,12 +46,14 @@ No new commands or APIs. This spec validates that the existing `resume`, `accept
 4. Another fresh process runs `agentxchain resume` to recover from blocked
 5. State is `active`, `blocked_on` is cleared, ledger contains both escalation and resolution entries from separate sessions
 
-### Session D (Completion)
+### Final-Phase Completion Path
 
-1. Fresh process assigns final turn, stages completion result, accepts it
-2. Run transitions to `completed`
-3. History contains entries spanning all sessions
-4. Decision ledger is append-only across all sessions
+1. A governed project is positioned in the final `qa` phase with prior phase gates already passed
+2. **Session E** assigns a final QA turn, stages a result with `run_completion_request: true`, and accepts it
+3. The run pauses with `pending_run_completion` because the final gate requires explicit human approval
+4. **Session F** is a fresh process that runs `agentxchain approve-completion`
+5. The run transitions to `completed` without changing `run_id`
+6. `pending_run_completion` is cleared and the final gate is marked `passed`
 
 ## Invariants
 
@@ -80,12 +82,12 @@ Record decisions in process A and process B. Assert `decision-ledger.jsonl` cont
 ### AT-SESSION-004: Cross-session blocked recovery
 Block run in process A, recover via `resume` in process B. Assert `blocked_on` is cleared and ledger has both escalation and resolution.
 
-### AT-SESSION-005: Cross-session completion
-Complete run across multiple sessions. Assert final state is `completed` with history spanning all sessions.
+### AT-SESSION-005: Cross-session completion approval
+Request run completion in one process, then approve it in a different fresh process. Assert final state is `completed`, `pending_run_completion` is cleared, and the final gate is marked `passed`.
 
 ### AT-SESSION-006: Turn sequence monotonicity
 Turns assigned in later sessions have higher sequence numbers than turns from earlier sessions.
 
 ## Open Questions
 
-None. The existing state persistence model (file-based JSON/JSONL) already supports this by design. The spec exists to **prove** it works, not to implement new behavior.
+None. The existing state persistence model (file-based JSON/JSONL) already supports this by design, but architecture claims do not count as product truth until the CLI proves them through separate processes.
