@@ -168,9 +168,9 @@ describe('Adapter docs contract', () => {
         'adapters.mdx must have a "Model tier and retry budget" section');
     });
 
-    it('docs reference real models from the COST_RATES table', () => {
-      const costRatesMatch = apiProxySource.match(/COST_RATES\s*=\s*\{([\s\S]*?)\n\}/);
-      assert.ok(costRatesMatch, 'COST_RATES found in api-proxy-adapter.js');
+    it('docs reference real models from the BUNDLED_COST_RATES table', () => {
+      const costRatesMatch = apiProxySource.match(/BUNDLED_COST_RATES\s*=\s*\{([\s\S]*?)\n\}/);
+      assert.ok(costRatesMatch, 'BUNDLED_COST_RATES found in api-proxy-adapter.js');
       const modelIds = costRatesMatch[1].match(/'([^']+)':/g).map(s => s.replace(/[':]/g, ''));
       for (const modelId of modelIds) {
         assert.match(adapterDocs, new RegExp(`\`${modelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``),

@@ -50,13 +50,15 @@ const PROVIDER_ENDPOINTS = {
   openai: 'https://api.openai.com/v1/chat/completions',
 };
 
-// Cost rates per million tokens (USD)
-const COST_RATES = {
-  // Anthropic
+// Bundled cost rates per million tokens (USD).
+// These are convenience defaults — operators can override via budget.cost_rates in agentxchain.json.
+// Verified: 2026-04-07 (Anthropic via docs.anthropic.com; OpenAI from training knowledge)
+const BUNDLED_COST_RATES = {
+  // Anthropic — verified 2026-04-07
   'claude-sonnet-4-6': { input_per_1m: 3.00, output_per_1m: 15.00 },
-  'claude-opus-4-6': { input_per_1m: 15.00, output_per_1m: 75.00 },
-  'claude-haiku-4-5-20251001': { input_per_1m: 0.80, output_per_1m: 4.00 },
-  // OpenAI
+  'claude-opus-4-6': { input_per_1m: 5.00, output_per_1m: 25.00 },
+  'claude-haiku-4-5-20251001': { input_per_1m: 1.00, output_per_1m: 5.00 },
+  // OpenAI — verified 2026-04-07 (training knowledge, could not live-verify openai.com)
   'gpt-4o': { input_per_1m: 2.50, output_per_1m: 10.00 },
   'gpt-4o-mini': { input_per_1m: 0.15, output_per_1m: 0.60 },
   'gpt-4.1': { input_per_1m: 2.00, output_per_1m: 8.00 },
@@ -66,6 +68,18 @@ const COST_RATES = {
   'o3-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
   'o4-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
 };
+
+// Resolve cost rates: operator-supplied cost_rates override bundled defaults
+function getCostRates(model, config) {
+  const operatorRates = config?.budget?.cost_rates;
+  if (operatorRates && typeof operatorRates === 'object' && operatorRates[model]) {
+    const r = operatorRates[model];
+    if (Number.isFinite(r.input_per_1m) && Number.isFinite(r.output_per_1m)) {
+      return r;
+    }
+  }
+  return BUNDLED_COST_RATES[model] || null;
+}
 
 const RETRYABLE_ERROR_CLASSES = [
   'rate_limited',
@@ -419,7 +433,7 @@ function emptyUsageTotals() {
   };
 }
 
-function usageFromTelemetry(provider, model, usage) {
+function usageFromTelemetry(provider, model, usage, config) {
   if (!usage || typeof usage !== 'object') return null;
 
   let inputTokens = 0;
@@ -433,7 +447,7 @@ function usageFromTelemetry(provider, model, usage) {
     outputTokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
   }
 
-  const rates = COST_RATES[model];
+  const rates = getCostRates(model, config);
   const usd = rates
     ? (inputTokens / 1_000_000) * rates.input_per_1m + (outputTokens / 1_000_000) * rates.output_per_1m
     : 0;
@@ -580,6 +594,7 @@ async function executeApiCall({
   requestBody,
   timeoutSeconds,
   signal,
+  config,
 }) {
   const timeoutMs = timeoutSeconds * 1000;
   const controller = new AbortController();
@@ -676,7 +691,7 @@ async function executeApiCall({
     };
   }
 
-  const usage = usageFromTelemetry(provider, model, responseData.usage);
+  const usage = usageFromTelemetry(provider, model, responseData.usage, config);
   const extraction = extractTurnResult(responseData, provider);
 
   if (!extraction.ok) {
@@ -883,6 +898,7 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
       requestBody,
       timeoutSeconds,
       signal,
+      config,
     });
 
     const attemptCompletedAt = new Date().toISOString();
@@ -1184,5 +1200,7 @@ export {
   buildOpenAiRequest,
   classifyError,
   classifyHttpError,
-  COST_RATES,
+  BUNDLED_COST_RATES,
+  BUNDLED_COST_RATES as COST_RATES, // backward compat alias
+  getCostRates,
 };

@@ -13,6 +13,8 @@ import {
   classifyError,
   classifyHttpError,
   COST_RATES,
+  BUNDLED_COST_RATES,
+  getCostRates,
 } from '../src/lib/adapters/api-proxy-adapter.js';
 import { renderContextSections } from '../src/lib/context-section-parser.js';
 import { countTokens } from '../src/lib/token-counter.js';
@@ -442,6 +444,68 @@ describe('COST_RATES', () => {
     const cost = (8000 / 1_000_000) * rates.input_per_1m + (1500 / 1_000_000) * rates.output_per_1m;
     assert.ok(cost > 0);
     assert.ok(cost < 1);
+  });
+});
+
+// ── Tests: getCostRates operator override ─────────────────────────────────
+
+describe('getCostRates', () => {
+  it('returns bundled rates when no config is provided', () => {
+    const rates = getCostRates('claude-sonnet-4-6', null);
+    assert.deepStrictEqual(rates, BUNDLED_COST_RATES['claude-sonnet-4-6']);
+  });
+
+  it('returns bundled rates when config has no cost_rates', () => {
+    const rates = getCostRates('gpt-4o', { budget: { per_run_max_usd: 50 } });
+    assert.deepStrictEqual(rates, BUNDLED_COST_RATES['gpt-4o']);
+  });
+
+  it('operator cost_rates override bundled defaults', () => {
+    const config = {
+      budget: {
+        cost_rates: {
+          'claude-opus-4-6': { input_per_1m: 99.99, output_per_1m: 199.99 },
+        },
+      },
+    };
+    const rates = getCostRates('claude-opus-4-6', config);
+    assert.equal(rates.input_per_1m, 99.99);
+    assert.equal(rates.output_per_1m, 199.99);
+  });
+
+  it('operator cost_rates for unknown models work', () => {
+    const config = {
+      budget: {
+        cost_rates: {
+          'deepseek-v3': { input_per_1m: 0.27, output_per_1m: 1.10 },
+        },
+      },
+    };
+    const rates = getCostRates('deepseek-v3', config);
+    assert.equal(rates.input_per_1m, 0.27);
+    assert.equal(rates.output_per_1m, 1.10);
+  });
+
+  it('returns null for unknown models with no operator override', () => {
+    const rates = getCostRates('unknown-model-xyz', null);
+    assert.equal(rates, null);
+  });
+
+  it('ignores malformed operator cost_rates entries', () => {
+    const config = {
+      budget: {
+        cost_rates: {
+          'claude-sonnet-4-6': { input_per_1m: 'not-a-number', output_per_1m: 15.00 },
+        },
+      },
+    };
+    // Falls back to bundled because operator entry is malformed
+    const rates = getCostRates('claude-sonnet-4-6', config);
+    assert.deepStrictEqual(rates, BUNDLED_COST_RATES['claude-sonnet-4-6']);
+  });
+
+  it('COST_RATES backward-compat alias matches BUNDLED_COST_RATES', () => {
+    assert.strictEqual(COST_RATES, BUNDLED_COST_RATES);
   });
 });
 

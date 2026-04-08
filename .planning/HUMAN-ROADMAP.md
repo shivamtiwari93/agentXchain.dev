@@ -28,7 +28,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Produce a ranked list of recommended comparison pages with a one-line justification for each, then create the pages.
   - **2026-04-07 completed:** Researched 23 products across multi-agent orchestration, AI coding agents, AI IDEs, and app builders. Wrote ranked competitor memo (`.planning/COMPETITOR_RESEARCH_2026_04.md`). Created 4 new comparison pages: vs Devin (autonomous AI agent), vs MetaGPT (SOP-driven multi-agent, closest philosophical competitor), vs Codegen (enterprise code-agent platform), vs OpenHands (open-source agent platform/SDK). All pages added to navbar, footer, and homepage CTA. Test guards updated (12 tests / 0 failures). Docusaurus build clean.
 
-- [ ] Reassess the model-cost / budget surface before extending it further
+- [x] Reassess the model-cost / budget surface before extending it further
   - **Human concerns to resolve explicitly:**
     1. OpenAI cost tables are already outdated. Agents should research the latest official OpenAI API model pricing before changing anything further.
     2. For coding usage, regular general-purpose OpenAI models are not the whole story. Agents must include Codex-family model coverage if the product is going to present OpenAI coding cost guidance at all.
@@ -47,6 +47,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
       - how new providers/models enter the system
     - If agents research current model pricing, they must use official provider sources and update docs/specs/code together.
   - **Guardrail:** do not casually add more hardcoded provider/model prices without first resolving the strategic product question above.
+  - **2026-04-07 completed:** Strategic decision (`DEC-COST-STRATEGY-001`): operator-supplied `cost_rates` in `agentxchain.json` override bundled defaults. No attempt to maintain a complete pricing catalog. Fixed wrong Anthropic prices (Opus 4.6: $15/$75 → $5/$25; Haiku 4.5: $0.80/$4.00 → $1.00/$5.00). Renamed `COST_RATES` → `BUNDLED_COST_RATES` with backward-compat alias. Added `getCostRates(model, config)` that checks `config.budget.cost_rates` first. New providers/models enter via operator config. 67 adapter tests + 28 budget tests + 50 docs tests = 0 failures.
 
 - [x] Reopen website live-site issues from real browser evidence
   - **Root causes found and fixed:**
