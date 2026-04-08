@@ -12,6 +12,7 @@ Today the scaffold ships `qa` bound to `api-qa`, but the first-run docs and reco
 - `agentxchain step` dispatch failure output for missing QA API credentials points to the exact config edit:
   - change `roles.qa.runtime` from `api-qa` to `manual-qa`
   - rerun `agentxchain step --resume`
+- `agentxchain run` prints the same exact no-key QA fallback when a QA `api_proxy` dispatch fails for missing credentials.
 - Public onboarding docs name `manual-qa` explicitly instead of vague "manual runtime" language.
 
 ## Behavior
@@ -20,11 +21,12 @@ Today the scaffold ships `qa` bound to `api-qa`, but the first-run docs and reco
    - `"manual-qa": { "type": "manual" }` under `runtimes`
    - `"qa": { ..., "runtime": "api-qa" }` under `roles`
 2. If `ANTHROPIC_API_KEY` is missing during `init --governed`, the readiness hint still says the scaffold is mixed-mode, but it also tells the operator the truthful no-key fallback: set `roles.qa.runtime` to `manual-qa`.
-3. If a QA `api_proxy` turn fails because `ANTHROPIC_API_KEY` is missing, `step` prints the exact fallback edit and the getting-started docs link in addition to the normal blocked-state recovery commands.
-4. This guidance is narrow:
-   - only for `missing_credentials`
-   - only for the QA role
-   - only when the scaffold actually has a `manual-qa` runtime
+3. If a QA `api_proxy` turn fails because the configured auth env var is missing, `step` prints the exact fallback edit and the getting-started docs link in addition to the normal blocked-state recovery commands.
+4. If the same QA dispatch failure happens inside `agentxchain run`, the run summary prints the same exact config edit and points to `agentxchain step --resume` to recover the retained QA turn truthfully.
+5. This guidance is narrow:
+  - only for `missing_credentials`
+  - only for the QA role
+  - only when the scaffold actually has a `manual-qa` runtime
 
 ## Error Cases
 
@@ -37,7 +39,13 @@ Today the scaffold ships `qa` bound to `api-qa`, but the first-run docs and reco
 - `init --governed` writes `runtimes.manual-qa.type === "manual"` in `agentxchain.json`.
 - `init --governed` output mentions `manual-qa` when `ANTHROPIC_API_KEY` is absent.
 - `agentxchain step` on a QA `api_proxy` turn without `ANTHROPIC_API_KEY` mentions:
-  - `ANTHROPIC_API_KEY`
+  - the configured auth env var
+  - `manual-qa`
+  - `roles.qa.runtime`
+  - `agentxchain step --resume`
+  - `https://agentxchain.dev/docs/getting-started`
+- `agentxchain run` on a QA `api_proxy` turn without the configured auth env var mentions:
+  - the configured auth env var
   - `manual-qa`
   - `roles.qa.runtime`
   - `agentxchain step --resume`

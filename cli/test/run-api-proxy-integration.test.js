@@ -376,11 +376,17 @@ describe('agentxchain run — review_only api_proxy integration', () => {
     assert.equal(mock.requestLog.length, 0,
       'No request should reach server when credentials are missing');
 
-    // Output should mention the credential issue
+    assert.equal(result.status, 1, 'Missing QA credentials should stop run with a non-zero exit');
+
+    // Output should mention the credential issue and the first-party no-key fallback
     const combined = result.stdout + result.stderr;
     assert.ok(
       combined.includes('MOCK_ANTHROPIC_KEY') || combined.includes('not set'),
       'Output should mention the missing credential'
     );
+    assert.match(combined, /manual-qa/, 'run output must name the built-in QA fallback');
+    assert.match(combined, /roles\.qa\.runtime/, 'run output must name the exact config edit');
+    assert.match(combined, /agentxchain step --resume/, 'run output must give the truthful recovery command');
+    assert.match(combined, /https:\/\/agentxchain\.dev\/docs\/getting-started/, 'run output must link the getting-started guide');
   });
 });

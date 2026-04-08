@@ -47,7 +47,7 @@ export async function runCommand(opts) {
     process.exit(1);
   }
 
-  const { root, config } = context;
+  const { root, config, rawConfig } = context;
 
   if (config.protocol_mode !== 'governed') {
     console.log(chalk.red('The run command is only available for governed projects.'));
@@ -112,6 +112,7 @@ export async function runCommand(opts) {
 
   // ── Track first-call for --role override ────────────────────────────────
   let firstSelectRole = true;
+  let qaMissingCredentialsFallback = null;
 
   // ── Callbacks ───────────────────────────────────────────────────────────
   const callbacks = {
@@ -134,6 +135,7 @@ export async function runCommand(opts) {
       const runtime = cfg.runtimes?.[runtimeId];
       const runtimeType = runtime?.type || role?.runtime_class || 'manual';
       const hooksConfig = cfg.hooks || {};
+      qaMissingCredentialsFallback = null;
 
       // Manual adapter is not supported in run mode
       if (runtimeType === 'manual') {
@@ -219,6 +221,18 @@ export async function runCommand(opts) {
 
       // Adapter failure
       if (!adapterResult.ok) {
+        if (shouldPrintManualQaFallback({
+          roleId,
+          runtimeId,
+          classified: adapterResult.classified,
+          rawConfig,
+        })) {
+          qaMissingCredentialsFallback = {
+            roleId,
+            runtimeId,
+            errorClass: adapterResult.classified.error_class,
+          };
+        }
         const errorDetail = adapterResult.classified
           ? `${adapterResult.classified.error_class}: ${adapterResult.classified.recovery}`
           : adapterResult.error;
@@ -317,6 +331,10 @@ export async function runCommand(opts) {
     }
   }
 
+  if (qaMissingCredentialsFallback) {
+    printManualQaFallback();
+  }
+
   // Recovery guidance for blocked/rejected states
   if (result.state && (result.stop_reason === 'blocked' || result.stop_reason === 'reject_exhausted' || result.stop_reason === 'dispatch_error')) {
     const recovery = deriveRecoveryDescriptor(result.state);
@@ -390,4 +408,19 @@ function promptUser(question) {
     });
     rl.on('close', () => resolve(''));
   });
+}
+
+function shouldPrintManualQaFallback({ roleId, runtimeId, classified, rawConfig }) {
+  return classified?.error_class === 'missing_credentials'
+    && roleId === 'qa'
+    && runtimeId === 'api-qa'
+    && rawConfig?.runtimes?.['manual-qa']?.type === 'manual';
+}
+
+function printManualQaFallback() {
+  console.log('');
+  console.log(chalk.dim('  No-key QA fallback:'));
+  console.log(chalk.dim('  - Edit agentxchain.json and change roles.qa.runtime from "api-qa" to "manual-qa"'));
+  console.log(chalk.dim('  - Then recover the retained QA turn with: agentxchain step --resume'));
+  console.log(chalk.dim('  - Guide: https://agentxchain.dev/docs/getting-started'));
 }
