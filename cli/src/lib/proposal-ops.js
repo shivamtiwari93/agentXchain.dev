@@ -7,9 +7,13 @@
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { join, dirname, relative } from 'path';
+import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
 import { LEDGER_PATH } from './governed-state.js';
 
 const PROPOSED_DIR = '.agentxchain/proposed';
+const HISTORY_PATH = '.agentxchain/history.jsonl';
+const SOURCE_SNAPSHOT_FILE = 'SOURCE_SNAPSHOT.json';
 
 function appendLedgerEntry(root, entry) {
   const filePath = join(root, LEDGER_PATH);
@@ -127,8 +131,29 @@ export function applyProposal(root, turnId, opts = {}) {
     return { ok: false, error: `File ${opts.file} is not part of proposal ${turnId}` };
   }
 
+  const conflictCheck = detectProposalApplyConflicts(root, turnId, turnDir, targets);
+  if (!conflictCheck.ok) {
+    return conflictCheck;
+  }
+  if (conflictCheck.conflicts.length > 0 && !opts.force) {
+    const conflictedPaths = conflictCheck.conflicts.map((conflict) => conflict.path);
+    return {
+      ok: false,
+      error: `Proposal ${turnId} conflicts with the current workspace for: ${conflictedPaths.join(', ')}. Re-run with --force to override.`,
+      error_code: 'proposal_conflict',
+      conflicts: conflictCheck.conflicts,
+    };
+  }
+
   if (opts.dryRun) {
-    return { ok: true, applied_files: targets.map((f) => f.path), skipped_files: [], dry_run: true };
+    return {
+      ok: true,
+      applied_files: targets.map((f) => f.path),
+      skipped_files: [],
+      dry_run: true,
+      forced: Boolean(opts.force),
+      overridden_conflicts: conflictCheck.conflicts,
+    };
   }
 
   const applied = [];
@@ -160,6 +185,8 @@ export function applyProposal(root, turnId, opts = {}) {
     applied_at: new Date().toISOString(),
     files: applied,
     selective: Boolean(opts.file),
+    forced: Boolean(opts.force),
+    overridden_conflicts: conflictCheck.conflicts,
   };
   writeFileSync(join(turnDir, 'APPLIED.json'), JSON.stringify(appliedRecord, null, 2) + '\n');
 
@@ -170,10 +197,19 @@ export function applyProposal(root, turnId, opts = {}) {
     turn_id: turnId,
     files: applied,
     selective: Boolean(opts.file),
+    forced: Boolean(opts.force),
+    overridden_conflicts: conflictCheck.conflicts,
     timestamp: appliedRecord.applied_at,
   });
 
-  return { ok: true, applied_files: applied, skipped_files: skipped, dry_run: false };
+  return {
+    ok: true,
+    applied_files: applied,
+    skipped_files: skipped,
+    dry_run: false,
+    forced: Boolean(opts.force),
+    overridden_conflicts: conflictCheck.conflicts,
+  };
 }
 
 /**
@@ -229,6 +265,137 @@ function validateProposalDir(root, turnId) {
   const content = readFileSync(proposalMd, 'utf8');
   const fileActions = extractFileActions(content);
   return { ok: true, turnDir, fileActions, content };
+}
+
+function detectProposalApplyConflicts(root, turnId, turnDir, targets) {
+  const sourceSnapshots = loadProposalSourceSnapshots(root, turnId, turnDir, targets);
+  const conflicts = [];
+
+  for (const file of targets) {
+    const source = sourceSnapshots.get(file.path);
+    if (!source) {
+      conflicts.push({
+        path: file.path,
+        action: file.action,
+        reason: 'missing_source_snapshot',
+      });
+      continue;
+    }
+
+    const current = getWorkspaceFingerprint(root, file.path);
+    if (file.action === 'delete') {
+      if (!current.exists || fingerprintsMatch(current, source)) {
+        continue;
+      }
+      conflicts.push({
+        path: file.path,
+        action: file.action,
+        reason: 'workspace_diverged',
+      });
+      continue;
+    }
+
+    const proposed = getProposedFingerprint(turnDir, file.path);
+    if (fingerprintsMatch(current, proposed) || fingerprintsMatch(current, source)) {
+      continue;
+    }
+    conflicts.push({
+      path: file.path,
+      action: file.action,
+      reason: 'workspace_diverged',
+    });
+  }
+
+  return { ok: true, conflicts };
+}
+
+function loadProposalSourceSnapshots(root, turnId, turnDir, targets) {
+  const snapshotPath = join(turnDir, SOURCE_SNAPSHOT_FILE);
+  if (existsSync(snapshotPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+      return new Map((parsed.files || []).map((entry) => [entry.path, entry]));
+    } catch {
+      return new Map();
+    }
+  }
+
+  return deriveLegacySourceSnapshots(root, turnId, targets);
+}
+
+function deriveLegacySourceSnapshots(root, turnId, targets) {
+  const historyPath = join(root, HISTORY_PATH);
+  if (!existsSync(historyPath)) {
+    return new Map();
+  }
+
+  const historyEntry = readFileSync(historyPath, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .find((entry) => entry.turn_id === turnId);
+  const baselineRef = historyEntry?.observed_artifact?.baseline_ref;
+  if (!baselineRef || !baselineRef.startsWith('git:')) {
+    return new Map();
+  }
+
+  const gitRef = baselineRef.slice(4);
+  return new Map(targets.map((file) => [file.path, {
+    path: file.path,
+    action: file.action,
+    ...getGitFingerprint(root, gitRef, file.path),
+  }]));
+}
+
+function getWorkspaceFingerprint(root, filePath) {
+  const absPath = join(root, filePath);
+  if (!existsSync(absPath)) {
+    return { existed: false, sha256: null };
+  }
+  return {
+    existed: true,
+    sha256: hashContent(readFileSync(absPath)),
+  };
+}
+
+function getProposedFingerprint(turnDir, filePath) {
+  const proposedPath = join(turnDir, filePath);
+  if (!existsSync(proposedPath)) {
+    return { existed: false, sha256: null };
+  }
+  return {
+    existed: true,
+    sha256: hashContent(readFileSync(proposedPath)),
+  };
+}
+
+function getGitFingerprint(root, gitRef, filePath) {
+  try {
+    const content = execFileSync('git', ['show', `${gitRef}:${filePath}`], {
+      cwd: root,
+      encoding: 'buffer',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return {
+      existed: true,
+      sha256: hashContent(content),
+    };
+  } catch {
+    return {
+      existed: false,
+      sha256: null,
+    };
+  }
+}
+
+function fingerprintsMatch(left, right) {
+  return Boolean(left && right)
+    && Boolean(left.existed) === Boolean(right.existed)
+    && (left.sha256 || null) === (right.sha256 || null);
+}
+
+function hashContent(content) {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`;
 }
 
 function extractField(content, fieldName) {

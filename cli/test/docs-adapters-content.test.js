@@ -254,6 +254,13 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /\.agentxchain\/proposed\//,
         'adapters.mdx must mention the proposed changes materialization path');
     });
+
+    it('docs explain proposal apply conflict detection and force override', () => {
+      assert.match(adapterDocs, /fails closed|silently overwriting/i,
+        'adapters.mdx must explain that proposal apply refuses diverged workspace state');
+      assert.match(adapterDocs, /--force/,
+        'adapters.mdx must document the explicit operator override for proposal conflicts');
+    });
   });
 
   describe('no fabricated custom adapter interface', () => {

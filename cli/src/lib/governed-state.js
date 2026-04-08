@@ -17,7 +17,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
 import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
@@ -193,6 +193,10 @@ function materializeDerivedProposalArtifact(root, turnResult, state, runtimeType
   }
   summaryLines.push('');
   writeFileSync(join(absProposalDir, 'PROPOSAL.md'), summaryLines.join('\n'));
+  writeFileSync(
+    join(absProposalDir, 'SOURCE_SNAPSHOT.json'),
+    JSON.stringify(captureProposalSourceSnapshot(root, turnResult.proposed_changes), null, 2) + '\n',
+  );
 
   // Materialize each proposed file (create/modify only; delete just listed)
   for (const change of turnResult.proposed_changes) {
@@ -205,6 +209,31 @@ function materializeDerivedProposalArtifact(root, turnResult, state, runtimeType
 
   turnResult.artifact = { ...(turnResult.artifact || {}), ref: proposalDir };
   return proposalDir;
+}
+
+function captureProposalSourceSnapshot(root, proposedChanges) {
+  return {
+    captured_at: new Date().toISOString(),
+    files: proposedChanges.map((change) => {
+      const absFilePath = join(root, change.path);
+      if (!existsSync(absFilePath)) {
+        return {
+          path: change.path,
+          action: change.action,
+          existed: false,
+          sha256: null,
+        };
+      }
+
+      const content = readFileSync(absFilePath);
+      return {
+        path: change.path,
+        action: change.action,
+        existed: true,
+        sha256: `sha256:${createHash('sha256').update(content).digest('hex')}`,
+      };
+    }),
+  };
 }
 
 function normalizeActiveTurns(activeTurns) {

@@ -321,6 +321,7 @@ describe('api_proxy proposed authoring — materialization', () => {
       const proposalDir = join(env.tmp, '.agentxchain/proposed', env.turnId);
       assert.ok(existsSync(proposalDir), 'Proposal directory should exist');
       assert.ok(existsSync(join(proposalDir, 'PROPOSAL.md')), 'PROPOSAL.md should exist');
+      assert.ok(existsSync(join(proposalDir, 'SOURCE_SNAPSHOT.json')), 'SOURCE_SNAPSHOT.json should exist');
       assert.ok(existsSync(join(proposalDir, 'src/pool.js')), 'Proposed pool.js should exist');
       assert.ok(existsSync(join(proposalDir, 'src/config.js')), 'Proposed config.js should exist');
       assert.ok(!existsSync(join(proposalDir, 'src/old.js')), 'Deleted file should not be materialized');
@@ -336,6 +337,10 @@ describe('api_proxy proposed authoring — materialization', () => {
       assert.match(proposalMd, /src\/pool\.js.*create/);
       assert.match(proposalMd, /src\/config\.js.*modify/);
       assert.match(proposalMd, /src\/old\.js.*delete/);
+
+      const snapshot = JSON.parse(readFileSync(join(proposalDir, 'SOURCE_SNAPSHOT.json'), 'utf8'));
+      assert.equal(snapshot.files.length, 3);
+      assert.deepStrictEqual(snapshot.files.map((entry) => entry.path), ['src/pool.js', 'src/config.js', 'src/old.js']);
     } finally {
       rmSync(env.tmp, { recursive: true, force: true });
     }

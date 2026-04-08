@@ -558,6 +558,7 @@ proposalCmd
   .description('Apply proposed changes to the workspace')
   .option('--file <path>', 'Apply only a specific file')
   .option('--dry-run', 'Show what would change without writing')
+  .option('--force', 'Override proposal conflicts or unverifiable legacy proposals')
   .action(proposalApplyCommand);
 
 proposalCmd

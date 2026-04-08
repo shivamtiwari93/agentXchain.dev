@@ -61,9 +61,19 @@ export async function proposalApplyCommand(turnId, opts) {
   const result = applyProposal(context.root, turnId, {
     file: opts.file,
     dryRun: opts.dryRun,
+    force: opts.force,
   });
 
   if (!result.ok) {
+    if (Array.isArray(result.conflicts) && result.conflicts.length > 0) {
+      console.log(chalk.red(`  ${result.error}`));
+      console.log(chalk.dim('  ' + '─'.repeat(44)));
+      for (const conflict of result.conflicts) {
+        console.log(`  ${chalk.red('•')} ${conflict.path} ${chalk.dim(`(${conflict.reason})`)}`);
+      }
+      console.log('');
+      process.exit(1);
+    }
     console.log(chalk.red(result.error));
     process.exit(1);
   }
@@ -71,6 +81,8 @@ export async function proposalApplyCommand(turnId, opts) {
   console.log('');
   if (result.dry_run) {
     console.log(chalk.yellow('  Dry Run — No Changes Written'));
+  } else if (result.forced) {
+    console.log(chalk.yellow('  Proposal Applied With Force'));
   } else {
     console.log(chalk.green('  Proposal Applied'));
   }
@@ -86,6 +98,12 @@ export async function proposalApplyCommand(turnId, opts) {
     console.log(`  ${chalk.dim('Skipped:')} ${result.skipped_files.length} files`);
     for (const f of result.skipped_files) {
       console.log(`           ${chalk.dim('•')} ${f}`);
+    }
+  }
+  if (result.forced && result.overridden_conflicts?.length > 0) {
+    console.log(`  ${chalk.dim('Forced:')}  ${result.overridden_conflicts.length} conflicts overridden`);
+    for (const conflict of result.overridden_conflicts) {
+      console.log(`           ${chalk.dim('•')} ${conflict.path}`);
     }
   }
   console.log('');

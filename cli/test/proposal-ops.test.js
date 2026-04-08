@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 
 import {
   listProposals,
@@ -59,6 +59,21 @@ function scaffoldProposal(root, turnId, files, opts = {}) {
     '',
   ].join('\n');
   writeFileSync(join(proposalDir, 'PROPOSAL.md'), proposalMd);
+  writeFileSync(join(proposalDir, 'SOURCE_SNAPSHOT.json'), JSON.stringify({
+    captured_at: new Date().toISOString(),
+    files: files.map((f) => {
+      const workspacePath = join(root, f.path);
+      if (!existsSync(workspacePath)) {
+        return { path: f.path, action: f.action, existed: false, sha256: null };
+      }
+      return {
+        path: f.path,
+        action: f.action,
+        existed: true,
+        sha256: `sha256:${createHash('sha256').update(readFileSync(workspacePath)).digest('hex')}`,
+      };
+    }),
+  }, null, 2) + '\n');
 
   for (const f of files) {
     if (f.action === 'delete') continue;
@@ -247,6 +262,54 @@ describe('proposal-ops', () => {
       assert.ok(entry, 'ledger entry should exist');
       assert.strictEqual(entry.action, 'applied');
       assert.deepStrictEqual(entry.files, ['f.js']);
+    });
+
+    it('fails closed when the workspace diverged after proposal capture', () => {
+      writeFileSync(join(root, 'shared.js'), 'base\n');
+      scaffoldProposal(root, 'turn-018', [
+        { path: 'shared.js', action: 'modify', content: 'proposal\n' },
+      ]);
+      writeFileSync(join(root, 'shared.js'), 'concurrent\n');
+
+      const result = applyProposal(root, 'turn-018');
+      assert.ok(!result.ok);
+      assert.strictEqual(result.error_code, 'proposal_conflict');
+      assert.deepStrictEqual(result.conflicts.map((conflict) => conflict.path), ['shared.js']);
+      assert.strictEqual(readFileSync(join(root, 'shared.js'), 'utf8'), 'concurrent\n');
+    });
+
+    it('allows idempotent apply when the workspace already matches the proposal', () => {
+      writeFileSync(join(root, 'shared.js'), 'base\n');
+      scaffoldProposal(root, 'turn-019', [
+        { path: 'shared.js', action: 'modify', content: 'proposal\n' },
+      ]);
+      writeFileSync(join(root, 'shared.js'), 'proposal\n');
+
+      const result = applyProposal(root, 'turn-019');
+      assert.ok(result.ok);
+      assert.strictEqual(readFileSync(join(root, 'shared.js'), 'utf8'), 'proposal\n');
+    });
+
+    it('allows forced apply and records the override', () => {
+      writeFileSync(join(root, 'shared.js'), 'base\n');
+      scaffoldProposal(root, 'turn-020', [
+        { path: 'shared.js', action: 'modify', content: 'proposal\n' },
+      ]);
+      writeFileSync(join(root, 'shared.js'), 'concurrent\n');
+
+      const result = applyProposal(root, 'turn-020', { force: true });
+      assert.ok(result.ok);
+      assert.equal(result.forced, true);
+      assert.deepStrictEqual(result.overridden_conflicts.map((conflict) => conflict.path), ['shared.js']);
+
+      const applied = JSON.parse(readFileSync(join(root, '.agentxchain/proposed/turn-020/APPLIED.json'), 'utf8'));
+      assert.equal(applied.forced, true);
+      assert.deepStrictEqual(applied.overridden_conflicts.map((conflict) => conflict.path), ['shared.js']);
+
+      const entry = readLedger(root).find((item) => item.id === 'DEC-PROP-APPLY-turn-020');
+      assert.equal(entry.forced, true);
+      assert.deepStrictEqual(entry.overridden_conflicts.map((conflict) => conflict.path), ['shared.js']);
+      assert.strictEqual(readFileSync(join(root, 'shared.js'), 'utf8'), 'proposal\n');
     });
   });
 
