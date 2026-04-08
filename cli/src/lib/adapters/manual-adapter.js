@@ -105,7 +105,7 @@ function getPhaseGateHints(phase, roleId, config) {
     hints.push('.planning/IMPLEMENTATION_NOTES.md — record what you built and how to verify');
   } else if (phase === 'qa' && (roleId === 'qa' || roleId === 'human')) {
     hints.push('.planning/acceptance-matrix.md — mark each requirement PASS/FAIL');
-    hints.push('.planning/ship-verdict.md — change "## Verdict: PENDING" → "## Verdict: SHIP"');
+    hints.push('.planning/ship-verdict.md — change "## Verdict: PENDING" → "## Verdict: YES"');
     hints.push('.planning/RELEASE_NOTES.md — user impact, verification summary, upgrade notes');
   }
 

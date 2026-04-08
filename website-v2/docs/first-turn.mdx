@@ -14,7 +14,7 @@ You ran `npx agentxchain demo` and saw governance in action. Now do it for real 
 
 ```bash
 mkdir my-first-governed && cd my-first-governed
-npx agentxchain init --governed --template cli-tool -y
+npx agentxchain init --governed --template cli-tool --dir . -y
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 
@@ -319,7 +319,7 @@ The decision ledger is the **governance proof**. Any auditor, any future agent, 
 |---------|-------|-----|
 | `planning_signoff` failed | `PM_SIGNOFF.md` is still unapproved, or `ROADMAP.md` / `SYSTEM_SPEC.md` are still placeholders | Complete all three planning files, then rerun `agentxchain approve-transition` |
 | `implementation_complete` failed | `IMPLEMENTATION_NOTES.md` is still placeholder | Fill in real `## Changes` and `## Verification` sections |
-| `qa_ship_verdict` failed | `ship-verdict.md` still says `PENDING`, `RELEASE_NOTES.md` is missing, or acceptance evidence is incomplete | Set `## Verdict: SHIP` (or `NO SHIP` to block), finish `RELEASE_NOTES.md`, and make sure the acceptance matrix is real |
+| `qa_ship_verdict` failed | `ship-verdict.md` still says `PENDING`, `RELEASE_NOTES.md` is missing, or acceptance evidence is incomplete | Set `## Verdict: YES` (or `NO SHIP` to block), finish `RELEASE_NOTES.md`, and make sure the acceptance matrix is real |
 
 ## Next Steps
 

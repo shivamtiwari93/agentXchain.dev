@@ -34,13 +34,19 @@ describe('Tutorial walkthrough docs surface', () => {
     assert.match(DOC, /approve-transition/, 'must show approve-transition');
     assert.match(DOC, /approve-completion/, 'must show approve-completion');
     assert.match(DOC, /agentxchain status/, 'must show agentxchain status');
-    assert.match(DOC, /agentxchain report/, 'must show agentxchain report');
+    assert.match(DOC, /agentxchain export --format json/, 'must show agentxchain export');
+    assert.match(DOC, /agentxchain report --input/, 'must show agentxchain report with explicit input');
   });
 
   // AT-TUTORIAL-004
-  it('shows manual-qa runtime config for zero API keys', () => {
+  it('shows the fully manual runtime rebind', () => {
+    assert.match(DOC, /local-dev/, 'must mention the default local-dev runtime');
+    assert.match(DOC, /api-qa/, 'must mention the default api-qa runtime');
+    assert.match(DOC, /manual-dev/, 'must mention manual-dev runtime');
     assert.match(DOC, /manual-qa/, 'must mention manual-qa runtime');
-    assert.match(DOC, /zero API key/i, 'must explain zero API key requirement');
+    assert.match(DOC, /roles\.dev\.runtime/, 'must show dev runtime edit');
+    assert.match(DOC, /roles\.qa\.runtime/, 'must show qa runtime edit');
+    assert.match(DOC, /No API keys required/i, 'must explain zero API key requirement');
   });
 
   // AT-TUTORIAL-005 — exact gate file content
@@ -62,6 +68,14 @@ describe('Tutorial walkthrough docs surface', () => {
     assert.match(DOC, /"role":\s*"qa"/, 'must show QA turn result');
     assert.match(DOC, /run_completion_request/, 'must show run_completion_request in QA result');
     assert.match(DOC, /phase_transition_request/, 'must show phase_transition_request');
+  });
+
+  // AT-TUTORIAL-009
+  it('shows exactly one human phase approval and explains implementation auto-advance', () => {
+    const approvals = DOC.match(/agentxchain approve-transition/g) || [];
+    assert.equal(approvals.length, 1, 'tutorial must show approve-transition only for planning -> implementation');
+    assert.match(DOC, /implementation gate auto-advances to `qa`/i, 'must explain implementation -> qa auto-advance');
+    assert.doesNotMatch(DOC, /approve implementation\s*→\s*qa/i, 'must not tell operators to approve implementation -> qa');
   });
 
   // AT-TUTORIAL-007 — links to reference pages
