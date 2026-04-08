@@ -144,6 +144,25 @@ git commit -m "approve governed completion"
 
 That final approval is constitutional. It exists so humans remain sovereign over what actually ships.
 
+## Custom phases
+
+The default scaffold uses three phases: `planning → implementation → qa`. This is intentional — most governed runs fit this model.
+
+If your workflow needs additional phases (e.g., `design`, `security_review`, `staging`), add them to the `routing` section of `agentxchain.json` after scaffolding:
+
+```json
+{
+  "routing": {
+    "planning": { "entry_role": "pm", "exit_gate": "planning_signoff" },
+    "design": { "entry_role": "architect", "exit_gate": "design_review" },
+    "implementation": { "entry_role": "dev", "exit_gate": "implementation_complete" },
+    "qa": { "entry_role": "qa", "exit_gate": "qa_ship_verdict" }
+  }
+}
+```
+
+Phase order is derived from the declaration order in `routing`. Transitions can only target the immediate next declared phase — no skipping. You must also add matching gate entries in `gates` for any custom phase. See [Adapters](/docs/adapters) for the full custom-phase contract.
+
 ## What to read next
 
 - [Your First Governed Turn](/docs/first-turn) for artifact-level detail

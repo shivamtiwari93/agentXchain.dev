@@ -681,6 +681,7 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} pm, dev, qa, eng_director`);
+  console.log(`  ${chalk.dim('Phases:')} planning → implementation → qa ${chalk.dim('(default; extend via routing in agentxchain.json)')}`);
   console.log(`  ${chalk.dim('Template:')} ${templateId}`);
   console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);

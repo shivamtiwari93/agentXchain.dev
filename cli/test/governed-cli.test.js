@@ -242,6 +242,10 @@ describe('governed CLI support', () => {
       assert.equal(config.runtimes['manual-qa'].type, 'manual');
       assert.match(result.stdout, /Dev runtime:\s+claude --print --dangerously-skip-permissions\s+\(stdin\)/);
 
+      // Phase scaffold hint
+      assert.match(result.stdout, /Phases:.*planning.*implementation.*qa/, 'init output must show default phase order');
+      assert.match(result.stdout, /routing/, 'init output must hint at routing config for custom phases');
+
       // Readiness hint and getting-started link
       assert.match(result.stdout, /Mixed-mode:|Ready:/, 'init output must include a readiness hint');
       assert.match(result.stdout, /manual-qa/, 'init output must name the built-in no-key QA fallback');

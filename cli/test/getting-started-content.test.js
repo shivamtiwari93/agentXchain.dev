@@ -49,6 +49,14 @@ describe('getting-started tutorial docs', () => {
       'must explicitly reject the dishonest no-key claim');
   });
 
+  it('documents the custom phase extension boundary', () => {
+    assert.ok(content.includes('Custom phases'), 'getting-started must mention custom phases');
+    assert.ok(content.includes('planning → implementation → qa') || content.includes('planning, implementation, qa'),
+      'getting-started must name the default phase order');
+    assert.ok(content.includes('routing'), 'getting-started must reference routing config for custom phases');
+    assert.ok(content.includes('/docs/adapters'), 'getting-started must link to adapters for full custom-phase contract');
+  });
+
   it('links back to first-turn for artifact detail and is surfaced from front-door pages', () => {
     assert.ok(content.includes('/docs/first-turn'), 'getting-started must link to first-turn');
     assert.ok(quickstart.includes('/docs/getting-started'), 'quickstart must link to getting-started');
