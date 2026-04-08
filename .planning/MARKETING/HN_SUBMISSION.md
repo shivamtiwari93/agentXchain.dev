@@ -1,4 +1,4 @@
-# Hacker News Submission — AgentXchain v2.24.1
+# Hacker News Submission — AgentXchain v2.24.2
 
 > Ready-to-post. Updated 2026-04-08.
 
@@ -34,7 +34,7 @@ npx agentxchain demo
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.24.1:**
+**What's shipped in v2.24.2:**
 - All 4 runtime adapters (manual, local CLI, API proxy, MCP) proven live
 - `local_cli`, `api_proxy`, and `mcp` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
@@ -72,4 +72,4 @@ Happy to answer questions about the architecture, the mandatory challenge design
    - "Does mandatory challenge slow things down?" → The demo runs in 1.8s. The overhead is structural, not temporal.
    - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude, works with any LLM API.
    - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process.
-   - "`npx agentxchain demo` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@2.24.1 -c 'agentxchain demo'`.
+   - "`npx agentxchain demo` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@latest -c 'agentxchain demo'`.

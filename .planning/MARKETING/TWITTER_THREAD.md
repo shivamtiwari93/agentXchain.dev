@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.24.1
+# Twitter/X Thread — AgentXchain v2.24.2
 
-> Ready-to-post thread. Updated 2026-04-08 to reflect v2.24.1 shipped reality.
+> Ready-to-post thread. Updated 2026-04-08 to reflect v2.24.2 shipped reality.
 
 ---
 
@@ -87,7 +87,7 @@ Docs: agentxchain.dev/docs/quickstart
 npm: npmjs.com/package/agentxchain
 
 If npm resolves a stale global install first, run:
-`npx -p agentxchain@2.24.1 -c 'agentxchain demo'`
+`npx -p agentxchain@latest -c 'agentxchain demo'`
 
 ---
 
