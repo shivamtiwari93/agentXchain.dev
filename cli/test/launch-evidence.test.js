@@ -70,6 +70,12 @@ describe('Launch evidence report', () => {
     assert.match(report, /proposal materialization.*gate rejection/i);
   });
 
+  it('records live api_proxy proposed-authority proof as disallowed until real-provider evidence exists', () => {
+    assert.match(report, /proposed-authority is proven live against a real provider/i);
+    assert.match(report, /Current proposed-authority proof is E1-only subprocess E2E against mock providers/i);
+    assert.match(report, /Run a real-provider governed lifecycle with `api_proxy` using `proposed` authority/i);
+  });
+
   it('records live MCP dogfood proof for both transports', () => {
     assert.match(report, /E2b — Live MCP Adapter Dogfood/);
     assert.match(report, /turn_e41e35ba8eea9768/);
@@ -99,6 +105,13 @@ describe('Launch surfaces do not contain disallowed claims', () => {
       it('does not claim "full live end-to-end proof"', () => {
         assert.doesNotMatch(content, /full live (end.to.end|e2e) proof/i);
         assert.doesNotMatch(content, /all adapters proven live/i);
+      });
+
+      it('does not imply live api_proxy proposed-authority proof', () => {
+        if (/proposed-authority|proposal apply|api_proxy/i.test(content)) {
+          assert.doesNotMatch(content, /live .*proposed-authority/i);
+          assert.doesNotMatch(content, /real-provider .*proposed-authority/i);
+        }
       });
 
       it('frames human gate claims as protocol rules, not as implied live proof', () => {
@@ -231,6 +244,7 @@ describe('Launch brief references evidence report', () => {
 
   it('includes claim boundary constraints', () => {
     assert.match(brief, /all adapters proven live/i);
+    assert.match(brief, /live `api_proxy` proposed-authority proof/i);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });
