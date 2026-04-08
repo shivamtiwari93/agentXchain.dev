@@ -1,7 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.11.0
+# Twitter/X Thread — AgentXchain v2.24.1
 
-> Ready-to-post thread. Post after npm publish is live.
-> Updated 2026-04-04 from v2.10.0 to reflect v2.11.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-08 to reflect v2.24.1 shipped reality.
 
 ---
 
@@ -11,69 +10,88 @@
 
 Most multi-agent AI coding demos: three agents agree with each other, dump a diff, nobody can explain why it should ship.
 
-We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected.
+We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.11 is out. Open source. MIT.
+AgentXchain v2.24 is live. Open source. MIT.
 
-🧵
+**Tweet 2 (30-second demo):**
 
-**Tweet 2 (how it works):**
+See it work in 30 seconds. No API keys:
+
+```
+npx agentxchain demo
+```
+
+PM scopes auth-token rotation, raises a missing-rollback risk.
+Dev implements, resolves it, raises clock-skew.
+QA reviews, raises a compliance gap.
+
+3 agents. 3 different failure classes caught. 1.8 seconds.
+
+**Tweet 3 (how it works):**
 
 How it works:
 
-- PM agent plans → Dev agent builds → QA agent reviews
+- PM plans -> Dev builds -> QA reviews
 - Every turn MUST include an objection about the prior work
 - Human approves phase transitions and the final ship decision
+- Phase gates enforce real artifacts before work advances
 - Every decision goes into an append-only audit trail
 
 The orchestrator enforces the rules. It doesn't make decisions.
 
-**Tweet 3 (v2.11 features):**
+**Tweet 4 (real proof):**
 
-What's shipped in v2.11:
+All 4 adapter types proven live with real AI models:
 
-- Workflow-kit proof: `template validate` proves the governed scaffold contract
-- Remote verification: full chain from spec → engine → CLI → docs → contract tests
-- Hook audit closure: 13/13 orchestrator_action branches covered
-- Dispatch manifest: 10/10 error types proven
-- 2,500+ tests. 81 conformance fixtures. Protocol v6 spec published.
+- manual (human-in-the-loop)
+- local_cli (Claude Code, any CLI agent)
+- api_proxy (direct LLM API with proposal staging)
+- MCP (stdio + streamable HTTP with Anthropic API)
 
-Release notes: agentxchain.dev/docs/releases/v2-11-0
+2,486+ tests. 81 conformance fixtures. Protocol v6 spec.
 
-**Tweet 4 (the insight):**
+**Tweet 5 (the insight):**
 
 The insight from institutional design:
 
 The quality of collective output depends on the STRUCTURE of disagreement, not the intelligence of participants.
 
-Same reason code review exists for human teams. Same reason adversarial legal systems work better than inquisitorial ones.
+Same reason code review exists for human teams.
+Same reason adversarial legal systems outperform inquisitorial ones.
 
-**Tweet 5 (positioning):**
+**Tweet 6 (positioning):**
 
 AgentXchain is NOT:
-- An agent framework (that's CrewAI, LangGraph)
-- An agent network protocol (that's A2A)
-- A tool connector (that's MCP)
+- An agent framework (CrewAI, LangGraph, AutoGen)
+- A coding assistant (Devin, Cursor, Copilot)
+- A message router (A2A)
+- A tool connector (MCP)
 
 It's the governance layer BETWEEN agents. They can be built with anything. We govern how they converge.
 
-**Tweet 6 (CTA):**
-
-2,500+ tests. Model-agnostic. Works with Claude Code, Codex, Aider, or any LLM API.
+**Tweet 7 (CTA):**
 
 Try it:
+```
+npx agentxchain demo
+```
+
+Then scaffold your own:
 ```
 npx agentxchain init --governed
 ```
 
 GitHub: github.com/shivamtiwari93/agentXchain.dev
 Docs: agentxchain.dev/docs/quickstart
+npm: npmjs.com/package/agentxchain
 
 ---
 
 ## Posting Notes
 
-- Post during US working hours
+- Post during US working hours (10-11am ET, Tue-Thu)
 - Space tweets 2-3 minutes apart
 - Pin the thread to profile
 - Quote-tweet Tweet 1 with any interesting reply threads
+- Lead with the demo — `npx agentxchain demo` is the strongest hook

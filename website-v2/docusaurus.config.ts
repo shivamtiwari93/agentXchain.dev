@@ -88,6 +88,7 @@ const config: Config = {
           label: 'Docs',
         },
         {to: '/why', label: 'Why', position: 'left'},
+        {to: '/launch', label: 'Launch', position: 'left'},
         {
           label: 'Compare',
           position: 'left',

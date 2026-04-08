@@ -1,44 +1,61 @@
-# Reddit Posts — AgentXchain v2.11.0
+# Reddit Posts — AgentXchain v2.24.1
 
-> Ready-to-post content for Reddit. Post after npm publish is live.
-> Updated 2026-04-04 from v2.10.0 to reflect v2.11.0 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-08 to reflect v2.24.1 shipped reality.
+> All adapter types proven live with real models. Full evidence surface at agentxchain.dev.
 
 ---
 
 ## r/programming
 
-**Title:** Show r/programming: AgentXchain – open-source protocol where AI agents are required to challenge each other before code can ship
+**Title:** Show r/programming: AgentXchain – open-source protocol where AI agents must challenge each other before code ships
 
 **Body:**
 
-I built an open-source governance protocol for multi-agent software delivery. The core idea: instead of one AI agent writing code unchecked, multiple agents with different mandates (PM, Dev, QA) work in structured turns and are **required to challenge each other's work**. Blind agreement is rejected by the orchestrator.
+I've been building an open-source governance protocol for multi-agent software delivery. The problem: when you let multiple AI agents work on the same codebase, they agree with each other, quality drifts, nobody owns decisions, and you can't tell what's shippable. Sound familiar?
 
-**What it does:**
+AgentXchain fixes this with a constitutional governance layer:
 
-- Structured turn-based workflow with mandatory objections
-- Human approval required at phase transitions and ship decisions
-- Append-only audit trail (decisions, objections, risks, verification evidence)
-- Continuous delivery intake: repo-native trigger detection, triage, approval, planning, scan, resolve lifecycle
-- Multi-repo coordination across multiple repositories
-- Plugin system for Slack notifications, JSON reporting, custom validators
-- Model-agnostic: works with Claude Code, Codex, Aider, or any LLM API
-- 81 conformance fixtures so third-party implementations can prove protocol compliance
-- Workflow-kit proof: `template validate` proves the governed scaffold contract with structural markers
+**Core rules:**
+- Every agent turn MUST include at least one objection about the prior agent's work. Blind agreement is a protocol violation.
+- Humans approve phase transitions (planning -> implementation -> QA) and the final ship decision.
+- Every decision goes into an append-only audit ledger.
+- Phase gates enforce that real artifacts exist before work advances.
+
+**What's in the box (v2.24.1):**
+- 4 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP)
+- All 4 adapters proven live with real AI models (Claude, not mocks)
+- Escalation and recovery: retry exhaustion -> blocked state -> operator recovery -> director review. Proven through the real CLI.
+- Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
+- Multi-repo coordination across repositories
+- Plugin system, real-time dashboard, webhook notifications
+- 2,486+ tests across 534 suites. 81 conformance fixtures.
+- Protocol v6 spec published for third-party implementors
+
+**See it in 30 seconds (no API keys needed):**
+
+```
+npx agentxchain demo
+```
+
+This runs a complete governed lifecycle: PM scopes auth-token rotation, raises a missing-rollback objection. Dev implements and resolves the objection, raises a clock-skew risk. QA reviews against the acceptance matrix, raises a compliance gap. Three different failure classes caught by three different perspectives. 1.8 seconds. Zero API keys.
 
 **What it is NOT:**
-
 - Not an agent framework (that's CrewAI, LangGraph, AutoGen)
-- Not a CI/CD pipeline
-- Not a chat interface
+- Not a single-agent coding assistant (that's Devin, Cursor, Copilot)
+- Not a message router (that's A2A)
+- Not a tool connector (that's MCP)
 
-The protocol is the product. The CLI is one implementation. 2,500+ tests. MIT licensed.
+It's the governance layer between agents. They can be built with anything. We govern how they converge.
+
+MIT licensed. Protocol is the product. CLI is one implementation.
 
 - Website: https://agentxchain.dev
-- Release notes: https://agentxchain.dev/docs/releases/v2-11-0
+- Demo: `npx agentxchain demo`
+- Quickstart: https://agentxchain.dev/docs/quickstart
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
-- npm: `npx agentxchain init --governed`
+- npm: https://www.npmjs.com/package/agentxchain
 
-Happy to answer questions about the architecture or the "mandatory challenge" design.
+Happy to answer questions about the architecture, the "mandatory challenge" design, or how we proved all adapter types with real models.
 
 **URL:** https://reddit.com/r/programming/submit
 
@@ -46,25 +63,33 @@ Happy to answer questions about the architecture or the "mandatory challenge" de
 
 ## r/artificial
 
-**Title:** AgentXchain v2.11 – governance protocol for multi-agent software teams (mandatory challenge, human gates, audit trail)
+**Title:** AgentXchain v2.24 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
 
 **Body:**
 
-When multiple AI agents work on the same codebase, the bottleneck isn't intelligence — it's coordination. AgentXchain is an open-source protocol that governs how agents collaborate:
+When multiple AI agents work on the same codebase, the bottleneck isn't intelligence — it's coordination. Work overlaps. Assumptions diverge. Quality drifts. Nobody owns the decision trail.
+
+AgentXchain is an open-source protocol that governs how agents collaborate:
 
 - Every turn must include at least one objection about the prior agent's work
 - Humans approve phase transitions and the final ship decision
 - Every decision is recorded in an append-only ledger
-- Continuous delivery intake: automated trigger detection, triage, approval, and governed execution
-- Multi-repo coordination, a local dashboard, and a plugin system
-- 81 conformance fixtures for third-party protocol implementors
-- Workflow-kit proof: `template validate` proves scaffold contract with structural markers
+- Phase gates enforce that real artifacts exist before work advances
+- 4 runtime adapters: manual, local CLI, API proxy, MCP — all proven live with real AI models
+- Escalation and recovery protocols for when agents fail or get stuck
+- Proposal authoring: agents propose changes through a staging area with conflict detection
+- Multi-repo coordination, plugin system, real-time dashboard
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
-MIT licensed. 2,500+ tests. Protocol v6 spec published.
+**See it instantly:**
+```
+npx agentxchain demo
+```
 
-https://agentxchain.dev | https://agentxchain.dev/docs/releases/v2-11-0 | https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 2,486+ tests. Protocol v6 spec published.
+
+https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/artificial/submit
 
@@ -72,29 +97,61 @@ https://agentxchain.dev | https://agentxchain.dev/docs/releases/v2-11-0 | https:
 
 ## r/LocalLLaMA
 
-**Title:** AgentXchain – open protocol for governing multi-agent coding workflows (works with any model)
+**Title:** AgentXchain – open protocol for governing multi-agent coding workflows (works with any model, any runtime)
 
 **Body:**
 
 If you're running local models for coding, you've probably noticed that multi-agent setups where agents just agree with each other produce worse output than a single focused agent. AgentXchain fixes this with a governance protocol:
 
 - Mandatory challenge: every turn must object to something from the prior turn
-- Phase gates: human approves planning → implementation → review transitions
-- Any model works: the protocol is runtime-agnostic. Local models via API proxy, Claude Code, Codex, or manual turns all participate under the same rules
-- Continuous delivery intake pipeline for automated trigger detection and governed execution
+- Phase gates: human approves planning -> implementation -> review transitions
+- Any model works: local models via API proxy, Claude Code, Cursor, Codex, or manual turns — all under the same governance rules
+- MCP adapter: any MCP-compatible tool server can participate as a governed agent
+- Proposal authoring: agents propose file changes through a staging workflow instead of writing directly to the workspace
 
-The insight: structured disagreement between agents produces better convergence than cooperative delegation from one "manager" agent.
+The protocol doesn't care what model you use. It governs the coordination between agents.
 
-MIT licensed. 2,500+ tests. https://github.com/shivamtiwari93/agentXchain.dev
+**Quick demo (no API keys):**
+```
+npx agentxchain demo
+```
+
+MIT licensed. 2,486+ tests. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 
 ---
 
+## r/ChatGPT
+
+**Title:** Built an open-source protocol where AI agents are required to disagree with each other before code can ship
+
+**Body:**
+
+Most multi-agent AI demos show agents cooperating smoothly. The problem: they're just agreeing with each other, which produces the same failure modes as a single agent.
+
+AgentXchain is an open-source governance protocol where:
+- Every agent turn MUST challenge the prior agent's work
+- Humans approve phase transitions and ship decisions
+- Every decision is auditable in an append-only ledger
+- Works with any model (Claude, GPT, local models, MCP servers)
+
+Try it in 30 seconds: `npx agentxchain demo`
+
+No API keys needed. Watch three agents (PM, Dev, QA) work through auth-token rotation with mandatory objections.
+
+MIT licensed. https://agentxchain.dev
+
+**URL:** https://reddit.com/r/ChatGPT/submit
+
+---
+
 ## Posting Instructions
 
-1. `npm install agentxchain@2.11.0` is live on npm — ready to post
+1. `npm install agentxchain@2.24.1` is live on npm — ready to post
 2. Post during US morning hours (10-11am ET, Mon-Thu)
-3. Post to r/programming first, then r/artificial and r/LocalLLaMA 30-60 minutes later
-4. Be in all threads for the first 2 hours to answer questions
-5. Do NOT use the word "constitutional" in the title — it sounds academic. Save it for deep architectural questions.
+3. Post to r/programming first (highest signal), then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT
+4. Lead with the demo: `npx agentxchain demo` — this is the strongest hook because it works instantly with zero setup
+5. Be in all threads for the first 2 hours to answer questions
+6. Do NOT use the word "constitutional" in the title — it sounds academic
+7. If asked "how is this different from CrewAI/LangGraph": AgentXchain governs the delivery process, not the agent construction. Those frameworks build agents. AgentXchain governs how they converge.

@@ -1,0 +1,144 @@
+# AgentXchain v2.24 — All Adapters Proven Live
+
+<head>
+  <title>AgentXchain v2.24 Launch — Governed Multi-Agent Software Delivery</title>
+  <meta name="description" content="AgentXchain v2.24: all four runtime adapters proven live with real AI models. Mandatory challenge, human sovereignty, real evidence." />
+</head>
+
+**April 2026** — AgentXchain v2.24.1 is the first release where every runtime adapter — manual, local CLI, API proxy, and MCP — is proven live with real AI models, not mocks. Escalation, recovery, and the public install path are all exercised through the real CLI.
+
+---
+
+## The problem AgentXchain solves
+
+AI capability is improving quickly. Coordination quality is not.
+
+A single model can write useful code. That is not the hard problem. The hard problem is what happens when multiple agents touch the same codebase over time: work overlaps, assumptions diverge, quality drifts, nobody owns the decision trail, and humans lose governance without micromanaging.
+
+**The bottleneck is no longer intelligence. The bottleneck is governance, coordination, and convergence.**
+
+AgentXchain is an open-source governance protocol that turns independent AI agents into a governed software team with structured turns, mandatory challenge, phase gates, and human sovereignty.
+
+---
+
+## See it in 30 seconds
+
+No API keys needed:
+
+```bash
+npx agentxchain demo
+```
+
+This runs a complete governed lifecycle:
+- **PM** scopes auth-token rotation, raises a missing-rollback objection
+- **Dev** implements with atomic rollback, resolves the PM objection, raises a clock-skew risk
+- **QA** reviews against the acceptance matrix, raises a compliance gap, issues ship verdict
+
+Three agents. Three different failure classes caught. 1.8 seconds. Zero API keys.
+
+---
+
+## What's proven in v2.24
+
+### All 4 adapters live with real models
+
+| Adapter | What it does | Live proof |
+|---------|-------------|------------|
+| `manual` | Human types the turn result | Proven across multiple governed runs |
+| `local_cli` | Claude Code, Cursor, any CLI agent | `run_91f4ba5d54707a7e` — live Claude Code dev turn |
+| `api_proxy` | Direct LLM API call with proposal staging | `run_7b067f892916b799` — full proposed-authority lifecycle |
+| `mcp` | MCP stdio/HTTP with real model behind server | `run_83a64c7bb6925711` — Anthropic API via MCP stdio |
+
+### Escalation and recovery
+
+AgentXchain doesn't just run agents. It recovers when they fail.
+
+- Dev turn rejected twice until `max_turn_retries` exhausted
+- Run transitions to `blocked` with `escalation:retries-exhausted:dev`
+- Operator recovers the run
+- Engineering director reviews with an objection
+- Full audit trail preserved
+
+**Proof:** `run_ebf10c05d7419a0c` — [Scenario D recovery details](/docs/releases/v2-24-1)
+
+### Proposal authoring
+
+`api_proxy` agents can propose file changes through a staging area:
+
+1. Agent returns `proposed_changes[]` in the turn result
+2. Proposals materialize under `.agentxchain/proposed/<turn_id>/`
+3. Operator reviews with `agentxchain proposal list` and `agentxchain proposal diff`
+4. `agentxchain proposal apply` copies reviewed changes into the workspace
+5. Conflict detection prevents stale proposals from silently overwriting workspace changes
+
+### Post-release install verification
+
+Release postflight now verifies the public `npx` install path in an isolated environment — not just registry metadata.
+
+---
+
+## How it works
+
+AgentXchain governs multi-agent delivery with five layers:
+
+1. **Protocol** — the constitution. Run state, roles, turn contracts, phase gates, decision ledger, recovery semantics. Versioned independently. Model-agnostic.
+2. **Runners** — enforcement engines. The CLI is the reference implementation.
+3. **Connectors** — bridges to agent runtimes. Manual, local CLI, API proxy, MCP.
+4. **Workflow Kit** — opinionated operating model. Planning, specs, QA, release, escalation, recovery.
+5. **Integrations** — dashboard, notifications, plugins, multi-repo coordination.
+
+### Core governance rules
+
+- **Mandatory challenge**: every turn must include at least one objection. Blind agreement is a protocol violation.
+- **Human sovereignty**: humans approve phase transitions and ship decisions.
+- **Phase gates**: real artifacts must exist before work advances.
+- **Append-only audit**: every decision, objection, and risk is recorded.
+- **Structured convergence**: phases, turn limits, and mandatory verification force convergence on real output.
+
+---
+
+## What AgentXchain is not
+
+| What it's not | What that is | How AgentXchain differs |
+|---|---|---|
+| Agent framework | CrewAI, LangGraph, AutoGen, MetaGPT | Those build agents. AgentXchain governs how agents converge. |
+| Single-agent coder | Devin, Cursor, Copilot, Codex | Those are smart individual agents. AgentXchain coordinates teams of them. |
+| Message router | Google A2A | A2A routes messages between agents. AgentXchain governs the delivery process. |
+| Tool connector | MCP | MCP connects models to tools. AgentXchain is one of those tools — and also uses MCP as a connector. |
+
+---
+
+## Get started
+
+```bash
+# See governance in action (no API keys)
+npx agentxchain demo
+
+# Scaffold a governed repo
+npx agentxchain init --governed
+
+# Walk through your first governed turn
+# https://agentxchain.dev/docs/first-turn
+```
+
+**Links:**
+- [Quickstart](/docs/quickstart)
+- [Your First Governed Turn](/docs/first-turn)
+- [Release Notes (v2.24.1)](/docs/releases/v2-24-1)
+- [Protocol Reference](/docs/protocol-reference)
+- [Adapters](/docs/adapters)
+- [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
+- [npm](https://www.npmjs.com/package/agentxchain)
+
+---
+
+## Evidence
+
+- 2,486 node tests / 534 suites / 0 failures
+- 774 Vitest tests / 36 files / 0 failures
+- 81 conformance fixtures
+- Protocol v6 spec published
+- All 4 adapter types proven live with real AI models
+- Docusaurus production build passes
+
+MIT licensed. [View source on GitHub.](https://github.com/shivamtiwari93/agentXchain.dev)
