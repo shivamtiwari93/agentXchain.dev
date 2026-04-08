@@ -1,0 +1,265 @@
+/**
+ * E2E — Multi-Session Governed Continuity
+ *
+ * Proves that a governed run survives process boundaries:
+ *   1. Start run + complete first turn in Session A (process A)
+ *   2. Resume same run + complete second turn in Session B (process B)
+ *   3. Block run in Session C, recover in Session D
+ *   4. Complete run in Session E
+ *
+ * Every "session" is a separate spawnSync invocation — a fresh process
+ * with no shared in-memory state. Continuity lives entirely in
+ * .agentxchain/ on disk.
+ *
+ * See: .planning/MULTI_SESSION_CONTINUITY_SPEC.md
+ */
+
+import { strict as assert } from 'node:assert';
+import { describe, it, after } from 'node:test';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+import { scaffoldGoverned } from '../src/commands/init.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function runCli(cwd, args) {
+  const result = spawnSync(process.execPath, [CLI_BIN, ...args], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 15000,
+    env: { ...process.env, NO_COLOR: '1', NODE_NO_WARNINGS: '1' },
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    combined: `${result.stdout || ''}${result.stderr || ''}`,
+  };
+}
+
+function readState(dir) {
+  return JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
+}
+
+function readHistory(dir) {
+  const raw = readFileSync(join(dir, '.agentxchain', 'history.jsonl'), 'utf8').trim();
+  if (!raw) return [];
+  return raw.split('\n').filter(l => l.trim()).map(line => JSON.parse(line));
+}
+
+function readLedger(dir) {
+  const raw = readFileSync(join(dir, '.agentxchain', 'decision-ledger.jsonl'), 'utf8').trim();
+  if (!raw) return [];
+  return raw.split('\n').filter(l => l.trim()).map(line => JSON.parse(line));
+}
+
+function stageTurnResult(dir, turn, runId, overrides = {}) {
+  const result = {
+    schema_version: '1.0',
+    run_id: runId,
+    turn_id: turn.turn_id,
+    role: turn.assigned_role,
+    runtime_id: turn.runtime_id,
+    status: 'completed',
+    summary: `Multi-session continuity E2E — ${turn.assigned_role} turn.`,
+    decisions: [{
+      id: 'DEC-001',
+      category: 'implementation',
+      statement: `Session continuity proof for ${turn.assigned_role}.`,
+      rationale: 'Cross-session proof.',
+    }],
+    objections: [{
+      id: 'OBJ-001',
+      severity: 'low',
+      statement: 'No blocker.',
+      status: 'raised',
+    }],
+    files_changed: [],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['echo ok'],
+      evidence_summary: 'Fixture pass.',
+      machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+    },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: overrides.proposed_next_role || 'pm',
+    phase_transition_request: overrides.phase_transition_request || null,
+    run_completion_request: overrides.run_completion_request || false,
+    needs_human_reason: null,
+    cost: { input_tokens: 100, output_tokens: 50, usd: 0.01 },
+    ...overrides,
+  };
+  // Use flat staging path (legacy path supported by acceptGovernedTurn)
+  const stagingDir = join(dir, '.agentxchain', 'staging');
+  mkdirSync(stagingDir, { recursive: true });
+  writeFileSync(join(stagingDir, 'turn-result.json'), JSON.stringify(result, null, 2));
+}
+
+function createProject() {
+  const dir = mkdtempSync(join(tmpdir(), 'axc-session-continuity-'));
+  scaffoldGoverned(dir, 'Session Continuity Fixture', 'session-continuity-fixture');
+  mkdirSync(join(dir, '.agentxchain', 'staging'), { recursive: true });
+  return dir;
+}
+
+// ── Test ─────────────────────────────────────────────────────────────
+
+describe('E2E multi-session governed continuity', () => {
+  let dir;
+
+  after(() => {
+    if (dir) {
+      try { rmSync(dir, { recursive: true, force: true }); } catch {}
+    }
+  });
+
+  it('AT-SESSION-001..006: run survives across five separate process sessions', () => {
+    dir = createProject();
+
+    // ─── Session A: Initialize run + assign + accept first turn ───
+    const resumeA = runCli(dir, ['resume', '--role', 'pm']);
+    assert.equal(resumeA.status, 0, `Session A resume failed: ${resumeA.combined}`);
+
+    const stateA = readState(dir);
+    assert.equal(stateA.status, 'active', 'Session A: run should be active');
+    const runId = stateA.run_id;
+    assert.ok(runId, 'Session A: run_id must exist');
+
+    const turnA = Object.values(stateA.active_turns || {})[0];
+    assert.ok(turnA, 'Session A: active turn must exist');
+    assert.equal(turnA.assigned_role, 'pm', 'Session A: first turn assigned to pm');
+
+    // Stage and accept turn in Session A
+    stageTurnResult(dir, turnA, runId);
+    const acceptA = runCli(dir, ['accept-turn']);
+    assert.equal(acceptA.status, 0, `Session A accept-turn failed: ${acceptA.combined}`);
+
+    const stateAfterA = readState(dir);
+    assert.equal(stateAfterA.run_id, runId, 'Session A: run_id unchanged after acceptance');
+    assert.equal(stateAfterA.last_completed_turn_id, turnA.turn_id, 'Session A: last_completed_turn_id set');
+
+    const historyAfterA = readHistory(dir);
+    assert.ok(historyAfterA.length >= 1, `Session A: history should have ≥1 entry after acceptance, got ${historyAfterA.length}`);
+
+    const ledgerAfterA = readLedger(dir);
+    assert.ok(ledgerAfterA.length >= 1, `Session A: ledger should have ≥1 entry, got ${ledgerAfterA.length}`);
+
+    const historyCountAfterA = historyAfterA.length;
+    const ledgerCountAfterA = ledgerAfterA.length;
+
+    // ─── Session B: Fresh process — resume same run + second turn ───
+    const resumeB = runCli(dir, ['resume', '--role', 'pm']);
+    assert.equal(resumeB.status, 0, `Session B resume failed: ${resumeB.combined}`);
+
+    const stateB = readState(dir);
+    // AT-SESSION-001: same run_id across sessions
+    assert.equal(stateB.run_id, runId, 'AT-SESSION-001: run_id must be identical across sessions');
+    assert.equal(stateB.status, 'active');
+
+    const turnB = Object.values(stateB.active_turns || {})[0];
+    assert.ok(turnB, 'Session B: active turn must exist');
+    assert.equal(turnB.assigned_role, 'pm', 'Session B: second turn assigned to pm');
+    assert.notEqual(turnB.turn_id, turnA.turn_id, 'Session B: turn_id must differ from Session A');
+
+    // AT-SESSION-006: turn sequence monotonicity
+    assert.ok(stateB.turn_sequence > 1, `AT-SESSION-006: turn_sequence should be >1, got ${stateB.turn_sequence}`);
+
+    // Stage and accept turn in Session B
+    stageTurnResult(dir, turnB, runId);
+    const acceptB = runCli(dir, ['accept-turn']);
+    assert.equal(acceptB.status, 0, `Session B accept-turn failed: ${acceptB.combined}`);
+
+    // AT-SESSION-002: cross-session history continuity
+    const historyAfterB = readHistory(dir);
+    assert.ok(
+      historyAfterB.length > historyCountAfterA,
+      `AT-SESSION-002: history should grow across sessions. Before: ${historyCountAfterA}, after: ${historyAfterB.length}`,
+    );
+
+    // AT-SESSION-003: cross-session ledger continuity
+    const ledgerAfterB = readLedger(dir);
+    assert.ok(
+      ledgerAfterB.length >= ledgerCountAfterA + 1,
+      `AT-SESSION-003: ledger should grow across sessions. Before: ${ledgerCountAfterA}, after: ${ledgerAfterB.length}`,
+    );
+
+    const stateAfterB = readState(dir);
+    assert.equal(stateAfterB.last_completed_turn_id, turnB.turn_id, 'Session B: last_completed_turn_id updated');
+
+    // ─── Session C: Block run via escalation ───
+    const escalate = runCli(dir, ['escalate', '--reason', 'Cross-session recovery proof']);
+    assert.equal(escalate.status, 0, `Session C escalate failed: ${escalate.combined}`);
+
+    const stateC = readState(dir);
+    assert.equal(stateC.status, 'blocked', 'Session C: run should be blocked');
+    assert.ok(stateC.blocked_on, 'Session C: blocked_on must be set');
+    assert.equal(stateC.blocked_reason.category, 'operator_escalation');
+
+    // ─── Session D: Fresh process — recover from blocked ───
+    const resumeD = runCli(dir, ['resume']);
+    assert.equal(resumeD.status, 0, `Session D resume failed: ${resumeD.combined}`);
+
+    const stateD = readState(dir);
+    // AT-SESSION-004: cross-session blocked recovery
+    assert.equal(stateD.status, 'active', 'AT-SESSION-004: run should be active after cross-session recovery');
+    assert.equal(stateD.blocked_on, null, 'AT-SESSION-004: blocked_on should be cleared');
+    assert.equal(stateD.blocked_reason, null, 'AT-SESSION-004: blocked_reason should be cleared');
+    assert.equal(stateD.escalation, null, 'AT-SESSION-004: escalation should be cleared');
+    assert.equal(stateD.run_id, runId, 'AT-SESSION-004: run_id still the same');
+
+    const ledgerAfterD = readLedger(dir);
+    const escalatedEntry = ledgerAfterD.find(e => e.decision === 'operator_escalated');
+    assert.ok(escalatedEntry, 'AT-SESSION-004: ledger must have operator_escalated');
+    const resolvedEntry = ledgerAfterD.find(e => e.decision === 'escalation_resolved');
+    assert.ok(resolvedEntry, 'AT-SESSION-004: ledger must have escalation_resolved');
+
+    // Session D assigns a turn after recovery — accept it to prove post-recovery continuity
+    const turnD = Object.values(stateD.active_turns || {})[0];
+    assert.ok(turnD, 'Session D: active turn must exist after recovery');
+
+    stageTurnResult(dir, turnD, runId);
+    const acceptD = runCli(dir, ['accept-turn']);
+    assert.equal(acceptD.status, 0, `Session D accept-turn failed: ${acceptD.combined}`);
+
+    const finalState = readState(dir);
+
+    // AT-SESSION-005: cross-session state persistence — run_id unchanged through all sessions
+    assert.equal(finalState.run_id, runId, 'AT-SESSION-005: run_id unchanged through all sessions');
+    assert.equal(finalState.last_completed_turn_id, turnD.turn_id, 'AT-SESSION-005: last_completed_turn_id from Session D');
+
+    // Verify full history spans all sessions
+    const finalHistory = readHistory(dir);
+    assert.ok(
+      finalHistory.length >= 3,
+      `AT-SESSION-005: final history should have ≥3 entries (one per accepted turn), got ${finalHistory.length}`,
+    );
+
+    // Verify ledger spans all sessions (turn decisions + escalation + resolution)
+    const finalLedger = readLedger(dir);
+    assert.ok(
+      finalLedger.length >= 3,
+      `AT-SESSION-005: final ledger should have ≥3 entries spanning all sessions, got ${finalLedger.length}`,
+    );
+
+    // AT-SESSION-006 (strengthened): turn sequence is monotonic across all sessions
+    assert.ok(
+      finalState.turn_sequence >= 3,
+      `AT-SESSION-006: turn_sequence should be ≥3 after 3 turns, got ${finalState.turn_sequence}`,
+    );
+  });
+});

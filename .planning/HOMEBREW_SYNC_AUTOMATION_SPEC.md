@@ -99,6 +99,16 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-011: The mirror-update workflow is rerun-safe: it force-with-lease updates the existing branch and reuses an open PR instead of failing on duplicate branch/PR creation.
 - AT-HS-012: If the GitHub token lacks `pull_requests` permission, the workflow emits a warning but does not fail. The branch is pushed successfully and the PR can be created manually.
 
+## Known Debt
+
+**`DEBT-HOMEBREW-PR-001`: Manual PR merge required during releases.**
+The CI workflow pushes the `chore/homebrew-sync-vX.Y.Z` branch but cannot auto-create or auto-merge the PR because the `GITHUB_TOKEN` lacks `pull_requests` permission. Every release requires a manual `gh pr create` + `gh pr merge --admin` step. This is tracked as operational debt, not an accepted permanent pattern. Resolution options:
+1. Add a PAT with `pull_requests` scope as a repo secret
+2. Enable GitHub Actions auto-merge on the homebrew-tap repo
+3. Remove branch protection from the homebrew-tap `main` branch (lowest ceremony)
+
+**Status:** Open since v2.25.2. Accepted temporarily per `DEC-RELEASE-V2260-002`.
+
 ## Open Questions
 
 None.
