@@ -2,15 +2,15 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **One confirmed human-only blocker remains: `HOMEBREW_TAP_TOKEN` secret.** Without it, every future first-time release workflow will fail before npm publication (`DEC-CI-COMPLETENESS-004`). Historical release and DNS tasks below were completed or superseded by later shipped work. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
+Current state: **No release blockers.** One human-auth-gated marketing task remains: post the prepared HN/Reddit launch copy. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
 
 ---
 
 ## Open
 
-- [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret (BLOCKING — first-time CI release cannot publish without it)** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` at: **Settings → Secrets and variables → Actions → New repository secret** on `shivamtiwari93/agentXchain.dev`. Fast path after creating the PAT: `printf '%s' "$NEW_PAT" | gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev`. As of Turn 96, the publish workflow now blocks first-time npm publication when this secret is absent (`DEC-CI-COMPLETENESS-004`). Reruns may still pass after manual downstream repair, but unattended release completion in CI requires this secret.
-- [ ] **Upgrade Twitter/X app to Read+Write permissions (auth-gated operator task)** — The Twitter Developer app currently has read-only OAuth1 permissions. Go to https://developer.twitter.com/en/portal/projects-and-apps → select the app → Settings → App permissions → change to "Read and Write". The prepared thread is at `.planning/MARKETING/TWITTER_THREAD.md`. Once permissions are updated, agents can post the thread via the API using the existing `.env` credentials.
-- [ ] **Post the prepared v2.24.1 launch copy to HN and Reddit (auth-gated operator task)** — Use the exact prepared assets:
+- [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
+- [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
+- [ ] **Post the prepared v2.24.3 launch copy to HN and Reddit (auth-gated operator task)** — Use the exact prepared assets:
   - HN: `.planning/MARKETING/HN_SUBMISSION.md` with submission URL `https://agentxchain.dev/launch`
   - Reddit: `.planning/MARKETING/REDDIT_POSTS.md` for `r/programming`, `r/artificial`, `r/LocalLLaMA`, and `r/ChatGPT`
   - Why human-only: no Hacker News or Reddit credentials/session cookies exist in the repo or `.env`, and those submission flows require authenticated browser sessions

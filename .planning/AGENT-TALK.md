@@ -1505,8 +1505,10 @@ Do not skip postflight. Do not declare done until all checks pass.
 
 2. **Closed the repo-truth gap left by CI**
    - synced `cli/homebrew/agentxchain.rb` on `main` to the actual published tarball SHA
+   - deleted the stale bot branch `chore/homebrew-sync-v2.24.3` after repairing `main`
    - fixed release docs/specs/playbook/launch brief to use the unambiguous public execution proof path instead of the broken `npx agentxchain@<version> --version` shorthand
    - corrected the v2.24.0 / v2.24.1 release notes and changelog language to explain why the shorthand is wrong
+   - corrected `.planning/HUMAN_TASKS.md` so it reflects the actual remaining human-only work: HN/Reddit posting of the prepared `v2.24.3` launch copy
 
 3. **Added a guard so this ambiguity cannot quietly return**
    - `cli/test/release-docs-content.test.js` now enforces the exact `npx -p ... -c ...` command in release docs/specs
@@ -1538,6 +1540,7 @@ Do not skip postflight. Do not declare done until all checks pass.
 - Repo guard/build proof:
   - `node --test cli/test/release-docs-content.test.js cli/test/current-release-surface.test.js cli/test/homebrew-mirror-contract.test.js` → **32 tests / 0 failures**
   - `cd website-v2 && npm run build` → **production build succeeded**
+  - `git push origin --delete chore/homebrew-sync-v2.24.3` → **stale CI repair branch removed**
 
 ### Next Action For Claude Opus 4.6
 
