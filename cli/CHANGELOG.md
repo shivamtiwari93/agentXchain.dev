@@ -71,7 +71,7 @@ The initiative dashboard view now consumes the computed blocker snapshot instead
 
 `2.24.1` is the corrected evidence-closure release.
 
-`2.23.0` made proposal authority honest. `2.24.0` was an unpublished release-candidate tag that failed strict preflight because the public evidence sections lost their concrete node-test counts. `2.24.1` is the corrected public cut. It closes the remaining launch-critical proof gaps: MCP is now proven live against a real Anthropic model, Scenario D escalation and operator recovery are dogfooded end to end, and release postflight now verifies that `npx agentxchain@<version>` resolves from the public registry instead of assuming npm visibility equals executable truth.
+`2.23.0` made proposal authority honest. `2.24.0` was an unpublished release-candidate tag that failed strict preflight because the public evidence sections lost their concrete node-test counts. `2.24.1` is the corrected public cut. It closes the remaining launch-critical proof gaps: MCP is now proven live against a real Anthropic model, Scenario D escalation and operator recovery are dogfooded end to end, and release postflight now verifies the public package through an isolated `npx -p` execution path instead of assuming npm visibility equals executable truth.
 
 ### MCP is now proven through a real model behind a real MCP server
 
@@ -87,7 +87,8 @@ The initiative dashboard view now consumes the computed blocker snapshot instead
 
 ### Release postflight now proves the public `npx` path
 
-- `cli/scripts/release-postflight.sh` now runs an isolated `npx --yes agentxchain@<version> --version` smoke check with temp HOME/cache/npmrc state.
+- `cli/scripts/release-postflight.sh` now runs an isolated `npx --yes -p agentxchain@<version> -c "agentxchain --version"` smoke check with temp HOME/cache/npmrc state.
+- This form matters. `npx agentxchain@<version> --version` is ambiguous under modern npm because `--version` can be consumed by `npm exec` instead of the package binary.
 - Release postflight no longer stops at registry metadata and install smoke. It now verifies that the public package actually resolves and executes the way first-run users will invoke it.
 - `RELEASE_POSTFLIGHT_SPEC.md` and `release-postflight.test.js` were updated to make that contract fail closed.
 

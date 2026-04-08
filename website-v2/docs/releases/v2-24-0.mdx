@@ -66,11 +66,11 @@ Package metadata alone is not enough. Users do not experience your release as `n
 
 - the registry serves the exact target version
 - the tarball metadata and checksum exist
-- `npx --yes agentxchain@<version> --version` resolves and executes in an isolated temp environment
+- `npx --yes -p agentxchain@<version> -c "agentxchain --version"` resolves and executes in an isolated temp environment
 - the published tarball installs correctly into an isolated prefix
 - exported runner and adapter interfaces import cleanly from a consumer project
 
-That closes the last meaningful gap between "the package published" and "a new user can actually run it."
+That closes the last meaningful gap between "the package published" and "a new user can actually run it." The shorter `npx agentxchain@<version> --version` form is not the proof contract because npm can consume `--version` before the package binary sees it.
 
 ## Why this release matters
 

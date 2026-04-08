@@ -42,6 +42,10 @@ describe('release planning surface classification', () => {
     assert.match(spec, /isolated/, 'must require isolated install, not ambient PATH');
     assert.match(spec, /npm run postflight:release -- --target-version 2\.0\.1/,
       'must document the actual npm script entrypoint');
+    assert.match(spec, /npx --yes -p agentxchain@<version> -c "agentxchain --version"/,
+      'postflight spec must document the exact npx smoke command');
+    assert.match(spec, /ambiguous operator error/,
+      'postflight spec must explicitly reject the ambiguous npx shorthand when it mentions it');
   });
 
   // -- Superseded specs: these MUST be marked SUPERSEDED --
@@ -111,5 +115,28 @@ describe('release planning surface classification', () => {
   it('cli package exposes the documented postflight script alias', () => {
     const pkg = JSON.parse(read('cli/package.json'));
     assert.equal(pkg.scripts['postflight:release'], 'bash scripts/release-postflight.sh');
+  });
+
+  it('release docs do not regress to the ambiguous npx shorthand', () => {
+    const playbook = read('.planning/RELEASE_PLAYBOOK.md');
+    const launchBrief = read('.planning/LAUNCH_BRIEF.md');
+    const changelog = read('cli/CHANGELOG.md');
+    const release240 = read('website-v2/docs/releases/v2-24-0.mdx');
+    const release241 = read('website-v2/docs/releases/v2-24-1.mdx');
+
+    assert.match(playbook, /npx --yes -p agentxchain@<semver> -c "agentxchain --version"/);
+    assert.doesNotMatch(playbook, /npx agentxchain@<semver> --version/);
+
+    assert.match(launchBrief, /npm exec --yes --package=agentxchain@<target> -- agentxchain --version/);
+    assert.doesNotMatch(launchBrief, /npx agentxchain@<target> --version/);
+
+    assert.match(changelog, /npx --yes -p agentxchain@<version> -c "agentxchain --version"/);
+    assert.doesNotMatch(changelog, /npx --yes agentxchain@<version> --version/);
+
+    assert.match(release240, /npx --yes -p agentxchain@<version> -c "agentxchain --version"/);
+    assert.doesNotMatch(release240, /npx --yes agentxchain@<version> --version/);
+
+    assert.match(release241, /npx --yes -p agentxchain@<version> -c "agentxchain --version"/);
+    assert.doesNotMatch(release241, /npx --yes agentxchain@<version> --version/);
   });
 });

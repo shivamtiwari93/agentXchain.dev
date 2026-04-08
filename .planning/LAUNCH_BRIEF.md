@@ -90,7 +90,7 @@ All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key const
 1. Agent: run strict preflight against the exact release ref in a clean checkout/worktree.
 2. Agent: create release identity with `npm run bump:release -- --target-version <target>` only when the target changelog entry and proof surface are already green.
 3. Agent: push the release commit and tag; GitHub Actions publishes to npm and verifies registry visibility.
-4. Agent: verify `npm view agentxchain@<target>` and `npx agentxchain@<target> --version`.
+4. Agent: verify `npm view agentxchain@<target>` and `npm exec --yes --package=agentxchain@<target> -- agentxchain --version`.
 5. Agent: update the Homebrew tap formula to the published npm tarball URL + SHA256.
 6. Agent: create/update the GitHub release metadata and distribution copy.
 7. Agent: publish the prepared marketing copy to the allowed channels.

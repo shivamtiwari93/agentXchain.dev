@@ -96,7 +96,8 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `npm view <pkg@version> version` returns 404 / auth error / empty output | Mark check as `FAIL`, continue |
 | `dist.tarball` missing | Mark check as `FAIL`, continue |
 | `dist.integrity` missing but `dist.shasum` present | Accept `dist.shasum` as fallback checksum metadata |
-| `npx agentxchain@<version> --version` resolves a cached or wrong package | Mark check as `FAIL`, continue |
+| `npx --yes -p agentxchain@<version> -c "agentxchain --version"` resolves a cached or wrong package | Mark check as `FAIL`, continue |
+| operator uses `npx agentxchain@<version> --version` as proof | Treat it as ambiguous operator error, not release truth. The smoke contract must execute `agentxchain --version` via `npx -p ... -c ...` or equivalent `npm exec --package=... -- agentxchain --version`. |
 | ambient `agentxchain` exists on runner PATH | Ignore it. Install smoke must execute the temp-prefix binary resolved from the published tarball, not the ambient PATH binary |
 | ambient npm config points to a private registry | Ignore it. `npx` smoke must force `registry=https://registry.npmjs.org/` in isolated temp config |
 | `npx` prints npm notice lines in addition to the version | Accept the smoke when one output line exactly matches the target version. Do not require the final line to be the version. |
