@@ -301,3 +301,21 @@ describe('Launch brief references evidence report', () => {
     assert.match(brief, /DEC-POSITIONING-008/);
   });
 });
+
+describe('Mobile nav sidebar regression guard', () => {
+  const css = read('website-v2/src/css/custom.css');
+
+  it('disables backdrop-filter when sidebar is shown to prevent fixed-position containment', () => {
+    // backdrop-filter on .navbar creates a containing block for position:fixed
+    // children, causing .navbar-sidebar to be constrained to the navbar height
+    // (~60px) instead of the full viewport. This collapsed .navbar-sidebar__items
+    // to height:0 on narrow desktop viewports.
+    assert.match(css, /\.navbar-sidebar--show\s*\{[^}]*backdrop-filter:\s*none/,
+      '.navbar-sidebar--show must set backdrop-filter:none to prevent fixed-position containment bug');
+  });
+
+  it('still applies backdrop-filter to navbar in normal state', () => {
+    assert.match(css, /\.navbar\s*\{[^}]*backdrop-filter:\s*blur/,
+      '.navbar should retain backdrop-filter blur for the frosted-glass effect');
+  });
+});

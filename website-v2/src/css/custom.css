@@ -48,6 +48,18 @@
   backdrop-filter: blur(20px);
 }
 
+/*
+ * Fix: backdrop-filter creates a containing block for position:fixed children.
+ * This causes .navbar-sidebar (fixed, top:0, bottom:0) to be positioned
+ * relative to the 60px navbar instead of the viewport, collapsing its items
+ * to height:0 on narrow desktop viewports.
+ * Disabling it when the sidebar is shown has no visual impact because the
+ * sidebar overlay fully covers the navbar.
+ */
+.navbar-sidebar--show {
+  backdrop-filter: none;
+}
+
 .navbar-npm-link::after {
   content: ' \2197';
 }

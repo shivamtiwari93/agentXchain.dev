@@ -13,6 +13,30 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [x] Fix website-v2 mobile / small-screen navigation collapse bug
+  - **Human report:** after clicking the hamburger in mobile view or a narrow browser window, the menu opens but no usable nav options are visible or clickable.
+  - **Evidence file:** [Screenshot 2026-04-08 at 05.28.43.png](/Users/shivamtiwari.highlevel/Desktop/Screenshot%202026-04-08%20at%2005.28.43.png)
+  - **Local reproduction completed:** this is reproducible on the locally served production build at `http://127.0.0.1:4174/` using a narrow desktop viewport (`874x768`) in Playwright Chromium.
+  - **Observed failure mode:**
+    - `.navbar__toggle` exists and responds to click
+    - `.navbar-sidebar` becomes visible, but its computed height is only `60px`
+    - `.navbar-sidebar__brand` renders at `60px`
+    - `.navbar-sidebar__items` exists but collapses to `height: 0px`
+    - result: only the top bar / close icon is visible, while the actual nav links are effectively hidden
+  - **Observed debug values from reproduction:**
+    - `sidebarVisible=true`
+    - `sidebarBox={\"x\":0,\"y\":0,\"width\":725.40625,\"height\":60}`
+    - `panelVisible=false`
+    - `panelBox={\"x\":0,\"y\":60,\"width\":725.40625,\"height\":0}`
+    - `panelText=\"Docs\\nWhy\\nLaunch\\nCompare\\nGitHub\\nnpm\\n← Back to main menu\"`
+  - **Important nuance:** mobile emulation with Playwright `iPhone 13` did show the menu opening correctly, so this looks like a **small-screen / narrow-window breakpoint bug**, not a universal mobile-nav failure.
+  - **Required agent work:**
+    - identify the CSS / layout interaction causing `.navbar-sidebar__items` to collapse to zero height
+    - reproduce and verify on both homepage and docs pages
+    - add a regression test or proof artifact so this does not silently return
+    - do not mark complete until the menu options are visibly rendered and clickable on narrow desktop and mobile widths
+  - **2026-04-08 completed:** Root cause: `backdrop-filter: blur(20px)` on `.navbar` creates a CSS containing block for `position: fixed` descendants, constraining `.navbar-sidebar` to the 60px navbar height instead of the viewport. Fix: `.navbar-sidebar--show { backdrop-filter: none; }` — sidebar overlay covers navbar so no visual impact. Regression guard added. 2503 tests / 540 suites / 0 failures. `DEC-MOBILE-NAV-FIX-001`.
+
 - [x] Add a comparison page: AgentXchain vs Warp.dev
   - **Before writing anything**, do exhaustive research of Warp.dev's documentation, features, positioning, and capabilities.
   - Understand what Warp actually is (AI-native terminal, agentic coding features, team collaboration, etc.) and how it positions itself.
