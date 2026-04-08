@@ -30,29 +30,98 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   const role = config.roles?.[turn.assigned_role];
   const promptPath = getDispatchPromptPath(turn.turn_id);
   const stagingPath = getTurnStagingResultPath(turn.turn_id);
+  const phase = state.phase || 'planning';
+  const roleId = turn.assigned_role;
 
   const lines = [];
   lines.push('');
   lines.push('  +---------------------------------------------------------+');
   lines.push('  |  MANUAL TURN REQUIRED                                    |');
   lines.push('  |                                                          |');
-  lines.push(`  |  Role:    ${pad(turn.assigned_role, 46)}|`);
+  lines.push(`  |  Role:    ${pad(roleId, 46)}|`);
   lines.push(`  |  Turn:    ${pad(turn.turn_id, 46)}|`);
-  lines.push(`  |  Phase:   ${pad(state.phase, 46)}|`);
+  lines.push(`  |  Phase:   ${pad(phase, 46)}|`);
   lines.push(`  |  Attempt: ${pad(String(turn.attempt), 46)}|`);
   lines.push('  |                                                          |');
   lines.push(`  |  Prompt:  ${pad(promptPath, 46)}|`);
   lines.push(`  |  Result:  ${pad(stagingPath, 46)}|`);
-  lines.push('  |                                                          |');
-  lines.push('  |  1. Read the prompt at the path above                    |');
-  lines.push('  |  2. Complete the work described in the prompt             |');
-  lines.push('  |  3. Write your turn result JSON to the result path       |');
-  lines.push('  |                                                          |');
-  lines.push('  |  The step command will detect the file and proceed.      |');
   lines.push('  +---------------------------------------------------------+');
+  lines.push('');
+  lines.push('  Steps:');
+  lines.push(`    1. Read the prompt:   cat ${promptPath}`);
+  lines.push('    2. Do the work described in the prompt');
+  lines.push(`    3. Write turn-result.json to:  ${stagingPath}`);
+  lines.push('    4. The step command will detect the file and proceed');
+  lines.push('');
+
+  // Phase-aware guidance
+  const gateHints = getPhaseGateHints(phase, roleId, config);
+  if (gateHints.length > 0) {
+    lines.push('  Gate files to update this phase:');
+    for (const hint of gateHints) {
+      lines.push(`    - ${hint}`);
+    }
+    lines.push('');
+  }
+
+  // Minimal turn-result example
+  lines.push('  Minimal turn-result.json:');
+  lines.push('  {');
+  lines.push('    "schema_version": "1.0",');
+  lines.push(`    "run_id": "${state.run_id || 'run_...'}",`);
+  lines.push(`    "turn_id": "${turn.turn_id}",`);
+  lines.push(`    "role": "${roleId}",`);
+  lines.push(`    "runtime_id": "${role?.runtime || 'manual'}",`);
+  lines.push('    "status": "completed",');
+  lines.push('    "summary": "...",');
+  lines.push('    "decisions": [{"id":"DEC-001","category":"scope","statement":"...","rationale":"..."}],');
+  lines.push('    "objections": [{"id":"OBJ-001","severity":"medium","statement":"...","status":"raised"}],');
+  lines.push('    "files_changed": [],');
+  lines.push('    "verification": {"status":"skipped","commands":[],"evidence_summary":"..."},');
+  lines.push('    "artifact": {"type":"review","ref":null},');
+  lines.push(`    "proposed_next_role": "${getDefaultNextRole(roleId, config)}",`);
+  lines.push('    "phase_transition_request": null,');
+  lines.push('    "run_completion_request": null');
+  lines.push('  }');
+  lines.push('');
+  lines.push('  Docs: https://agentxchain.dev/docs/first-turn');
   lines.push('');
 
   return lines.join('\n');
+}
+
+/**
+ * Return gate-file hints relevant to the current phase and role.
+ */
+function getPhaseGateHints(phase, roleId, config) {
+  const hints = [];
+  const gates = config.gates || {};
+
+  if (phase === 'planning' && (roleId === 'pm' || roleId === 'human')) {
+    hints.push('.planning/PM_SIGNOFF.md — change "Approved: NO" → "Approved: YES" when ready');
+    hints.push('.planning/ROADMAP.md — define phases and acceptance criteria');
+    hints.push('.planning/SYSTEM_SPEC.md — define ## Purpose, ## Interface, ## Acceptance Tests');
+  } else if (phase === 'implementation' && (roleId === 'dev' || roleId === 'human')) {
+    hints.push('.planning/IMPLEMENTATION_NOTES.md — record what you built and how to verify');
+  } else if (phase === 'qa' && (roleId === 'qa' || roleId === 'human')) {
+    hints.push('.planning/acceptance-matrix.md — mark each requirement PASS/FAIL');
+    hints.push('.planning/ship-verdict.md — change "## Verdict: PENDING" → "## Verdict: SHIP"');
+    hints.push('.planning/RELEASE_NOTES.md — user impact, verification summary, upgrade notes');
+  }
+
+  return hints;
+}
+
+/**
+ * Suggest a reasonable next role based on current role.
+ */
+function getDefaultNextRole(roleId, config) {
+  const routing = config.routing || {};
+  if (routing[roleId]?.default_next) return routing[roleId].default_next;
+  if (roleId === 'pm') return 'dev';
+  if (roleId === 'dev') return 'qa';
+  if (roleId === 'qa') return 'human';
+  return 'human';
 }
 
 /**
