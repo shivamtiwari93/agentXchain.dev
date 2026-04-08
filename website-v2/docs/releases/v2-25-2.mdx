@@ -1,0 +1,77 @@
+---
+title: "v2.25.2 Release Notes"
+description: "Workflow-kit release: per-phase artifact contracts with semantic validators, runtime gate integration, template validate + scaffold integration, opt-out fix, and operator docs."
+---
+
+# AgentXchain v2.25.2
+
+`2.25.2` is the workflow-kit release.
+
+`2.25.0` and `2.25.1` shipped custom phases — operator-defined phase names with ordered enforcement. What was missing was the artifact-contract layer: operators could define phases but could not declare which artifacts each phase requires, what structural or semantic validators apply, or how those declarations compose with the existing `requires_files` gate system.
+
+`2.25.2` closes that gap across four slices: config parsing/validation, runtime gate integration, template validate + scaffold integration, and a real opt-out fix.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.25.2
+```
+
+## What changed since 2.25.1
+
+### Workflow-kit config: per-phase artifacts with semantic validators
+
+A new optional `workflow_kit` section in `agentxchain.json` lets operators declare per-phase artifacts with semantic validators:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "artifacts": [
+          { "path": ".planning/PM_SIGNOFF.md", "semantics": "pm_signoff" },
+          { "path": ".planning/DESIGN_REVIEW.md", "semantics": "section_check", "required_sections": ["Architecture", "Risks"] }
+        ]
+      }
+    }
+  }
+}
+```
+
+Supported semantics: `section_check` (heading-presence), `pm_signoff`, `acceptance_matrix`, `release_notes`. Default behavior is unchanged when `workflow_kit` is absent.
+
+### Workflow-kit gate integration
+
+Phase-exit and run-completion gates now build an effective artifact set from both `requires_files` and `workflow_kit.phases[phase].artifacts`:
+
+- Duplicate paths are merged by path — not evaluated twice.
+- Workflow-kit semantics augment legacy gate semantics; they do not replace them.
+- Missing optional workflow-kit artifacts do not block.
+- Coordinator-level workflow-kit enforcement remains deferred to a future release.
+
+### Template validate and scaffold integration
+
+`template validate` now reflects declared workflow-kit artifacts:
+
+- When `workflow_kit` is explicit, `required_files` come from declared artifacts instead of the built-in default set.
+- `structural_checks` are generated from `semantics` declarations: `section_check` produces one check per required section, built-in semantics delegate to hardcoded regex patterns.
+- `init --governed` scaffolds custom artifact files when an explicit `workflow_kit` config is present. `section_check` artifacts get required sections pre-filled as markdown headings.
+- Reinit (`agentxchain init --governed --dir . -y`) reads existing config for `workflow_kit` before overwriting.
+
+### Fixed: explicit empty `workflow_kit: {}` opt-out
+
+The explicit empty `workflow_kit: {}` config is an opt-out across both runtime gating and template validation. Previously, `template validate` still produced default required files and structural checks for explicit empty configs. This is now fixed.
+
+### Operator docs
+
+`getting-started.mdx`, `templates.mdx`, and `adapters.mdx` now document:
+
+- The `workflow_kit` config section and its relationship to `routing` and `gates.requires_files`.
+- How custom artifacts are scaffolded via `init --governed`.
+- The re-init path for adding workflow-kit artifacts to an existing project.
+
+## Evidence
+
+- 2606 node tests / 558 suites / 0 failures.
+- 809 Vitest tests / 36 files / 0 failures.
+- Docusaurus production build passes.

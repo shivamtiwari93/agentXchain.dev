@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.25.2
+
+`2.25.2` is the workflow-kit release.
+
+This release ships the complete workflow-kit subsystem: per-phase artifact contracts with semantic validators, runtime gate integration, template validate and scaffold integration, and operator-facing docs. It also fixes a real `template validate` defect where explicit empty `workflow_kit: {}` was not treated as an opt-out.
+
+### Workflow-kit config: per-phase artifacts with semantic validators (Slice 1)
+
+- New optional `workflow_kit` section in `agentxchain.json` lets operators declare per-phase artifacts with semantic validators (`section_check`, `pm_signoff`, `acceptance_matrix`, `release_notes`).
+- Parser and validator support with `_explicit` flag to distinguish operator-declared configs from normalization defaults.
+- Default behavior unchanged when `workflow_kit` is absent.
+
+### Workflow-kit gate integration (Slice 2)
+
+- Phase-exit and run-completion gates now build an effective artifact set from both `requires_files` and `workflow_kit.phases[phase].artifacts`.
+- Duplicate paths are merged by path — not evaluated twice.
+- Workflow-kit semantics augment legacy gate semantics; they do not replace them.
+- Missing optional workflow-kit artifacts do not block.
+
+### Workflow-kit template validate and scaffold integration (Slice 3)
+
+- `template validate` now reflects declared workflow-kit artifacts in `required_files` and generates `structural_checks` from `semantics` declarations when workflow_kit is explicit.
+- `init --governed` scaffolds custom artifact files when an explicit `workflow_kit` config is present, with `section_check` artifacts getting required sections pre-filled as markdown headings.
+- Reinit reads existing config for `workflow_kit` before overwriting.
+
+### Fixed: explicit empty `workflow_kit: {}` template validation opt-out
+
+- `workflow_kit: {}` now correctly behaves as an opt-out during `template validate`.
+- Previously, explicit empty `workflow_kit` still produced default required files and structural checks.
+
+### Operator docs for workflow-kit
+
+- `getting-started.mdx`, `templates.mdx`, and `adapters.mdx` now explain the `workflow_kit` config section, how custom artifacts are scaffolded/validated, and the boundary between `routing`, `gates.requires_files`, and explicit `workflow_kit`.
+
+### Evidence
+
+- 2606 node tests / 558 suites / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.25.1
 
 `2.25.1` is the coordinator custom-phase proof patch.

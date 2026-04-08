@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.25.1
+# Launch Evidence Report — AgentXchain v2.25.2
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-08 for the v2.25.1 coordinator custom-phase proof patch.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-08 for the v2.25.2 workflow-kit release.
 
 ---
 
