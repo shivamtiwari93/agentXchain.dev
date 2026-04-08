@@ -1,0 +1,111 @@
+# AgentXchain.dev
+
+> Governed multi-agent software delivery. The protocol, runners, connectors, and workflow kit for lights-out software factories.
+
+AgentXchain is an open-source protocol and CLI for coordinating multiple AI agents in structured, governed software delivery. It treats multi-agent coding as a governed system with explicit roles, turn structure, artifact contracts, challenge requirements, decision history, and human sovereignty.
+
+## Core Concepts
+
+- **Protocol**: Constitutional layer defining run state, role definitions, turn contracts, artifact contracts, validation rules, decision ledger, gates, and recovery rules.
+- **Runners**: Execution engines that apply the protocol (local CLI runner, future hosted runners, CI/automation runners).
+- **Connectors**: Bridges to agent runtimes — local AI coding agents, cloud AI agents, model APIs, IDE surfaces (VS Code, Cursor, Codex, OpenCode).
+- **Workflow Kit**: Opinionated operating model for planning, specs, implementation, QA, release, escalation, recovery, and documentation.
+- **Integrations**: Dashboards, notifications, ticketing, compliance hooks, release surfaces.
+
+## Key Features
+
+- Governed multi-agent coordination with structured turns and mandatory challenge
+- Open-ended roles: any charter-driven role (architect, security_reviewer, tech_writer, etc.)
+- Phase gates with artifact contracts and workflow-kit validation
+- Multi-repo orchestration with coordinator pattern
+- Continuous delivery intake lifecycle (record → triage → plan → execute → verify → resolve)
+- Human-sovereign approvals and escalation
+- Provider-agnostic: works with any LLM (Anthropic, OpenAI, local models)
+- Dashboard observation and governance reporting
+
+## Documentation
+
+- [Quickstart](https://agentxchain.dev/docs/quickstart): Install and run your first governed multi-agent session in under 5 minutes.
+- [Getting Started Tutorial](https://agentxchain.dev/docs/getting-started): Step-by-step guide to setting up governed delivery.
+- [First Turn Guide](https://agentxchain.dev/docs/first-turn): What happens in a governed turn — artifacts, challenge, gates.
+- [CLI Reference](https://agentxchain.dev/docs/cli): Complete command reference for the agentxchain CLI.
+- [Export Schema](https://agentxchain.dev/docs/export-schema): JSON schema for governed run exports.
+- [Governance Report](https://agentxchain.dev/docs/governance-report): Understanding the auto-generated governance report.
+- [Templates](https://agentxchain.dev/docs/templates): Built-in and custom governed templates (generic, api-service, cli-tool, library, web-app, enterprise-app).
+- [Protocol v6 Reference](https://agentxchain.dev/docs/protocol): Full protocol specification.
+- [Protocol Reference](https://agentxchain.dev/docs/protocol-reference): Protocol data structures and contracts.
+- [Runner Interface](https://agentxchain.dev/docs/runner-interface): How to integrate with the runner execution engine.
+- [Build Your Own Runner](https://agentxchain.dev/docs/build-your-own-runner): Guide to implementing a custom runner.
+- [Protocol Implementor Guide](https://agentxchain.dev/docs/protocol-implementor-guide): For teams building protocol-compatible tools.
+- [Remote Verification](https://agentxchain.dev/docs/remote-verification): Verifying governed runs across distributed systems.
+- [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-delivery-intake): The intake lifecycle for continuous delivery.
+- [Multi-Repo Orchestration](https://agentxchain.dev/docs/multi-repo): Coordinating governed runs across multiple repositories.
+- [Adapters](https://agentxchain.dev/docs/adapters): Provider adapters for Anthropic, OpenAI, and custom LLMs.
+- [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
+- [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
+- [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.
+
+## Comparison Pages
+
+- [vs Devin](https://agentxchain.dev/compare/vs-devin): AgentXchain vs Devin (autonomous AI coding agent).
+- [vs MetaGPT](https://agentxchain.dev/compare/vs-metagpt): AgentXchain vs MetaGPT (SOP-driven multi-agent framework).
+- [vs Codegen](https://agentxchain.dev/compare/vs-codegen): AgentXchain vs Codegen (enterprise code-agent platform).
+- [vs OpenHands](https://agentxchain.dev/compare/vs-openhands): AgentXchain vs OpenHands (open-source agent platform).
+- [vs Warp.dev](https://agentxchain.dev/compare/vs-warp): AgentXchain vs Warp (AI-native terminal).
+- [vs CrewAI](https://agentxchain.dev/compare/vs-crewai): AgentXchain vs CrewAI (multi-agent orchestration).
+- [vs LangGraph](https://agentxchain.dev/compare/vs-langgraph): AgentXchain vs LangGraph (stateful agent graphs).
+- [vs OpenAI Agents SDK](https://agentxchain.dev/compare/vs-openai-agents-sdk): AgentXchain vs OpenAI Agents SDK.
+- [vs AutoGen](https://agentxchain.dev/compare/vs-autogen): AgentXchain vs AutoGen (conversational multi-agent).
+
+## Other Pages
+
+- [Why AgentXchain](https://agentxchain.dev/why): The problem AgentXchain solves and why governance matters.
+- [Launch Announcement](https://agentxchain.dev/launch): Product launch details and positioning.
+- [Homepage](https://agentxchain.dev/): Landing page with architecture overview and getting started.
+
+## Release Notes
+
+- [v2.25.2](https://agentxchain.dev/docs/releases/v2-25-2)
+- [v2.25.1](https://agentxchain.dev/docs/releases/v2-25-1)
+- [v2.25.0](https://agentxchain.dev/docs/releases/v2-25-0)
+- [v2.24.3](https://agentxchain.dev/docs/releases/v2-24-3)
+- [v2.24.2](https://agentxchain.dev/docs/releases/v2-24-2)
+- [v2.24.1](https://agentxchain.dev/docs/releases/v2-24-1)
+- [v2.24.0](https://agentxchain.dev/docs/releases/v2-24-0)
+- [v2.23.0](https://agentxchain.dev/docs/releases/v2-23-0)
+- [v2.22.0](https://agentxchain.dev/docs/releases/v2-22-0)
+- [v2.21.0](https://agentxchain.dev/docs/releases/v2-21-0)
+- [v2.20.0](https://agentxchain.dev/docs/releases/v2-20-0)
+- [v2.19.0](https://agentxchain.dev/docs/releases/v2-19-0)
+- [v2.18.0](https://agentxchain.dev/docs/releases/v2-18-0)
+- [v2.17.0](https://agentxchain.dev/docs/releases/v2-17-0)
+- [v2.16.0](https://agentxchain.dev/docs/releases/v2-16-0)
+- [v2.15.0](https://agentxchain.dev/docs/releases/v2-15-0)
+- [v2.14.0](https://agentxchain.dev/docs/releases/v2-14-0)
+- [v2.13.0](https://agentxchain.dev/docs/releases/v2-13-0)
+- [v2.12.0](https://agentxchain.dev/docs/releases/v2-12-0)
+- [v2.11.0](https://agentxchain.dev/docs/releases/v2-11-0)
+
+## Installation
+
+```bash
+npm install -g agentxchain
+# or
+brew tap shivamtiwari93/tap && brew install agentxchain
+```
+
+## Quick Example
+
+```bash
+agentxchain init --governed --template generic
+agentxchain run --provider anthropic --model claude-sonnet-4-6
+agentxchain report
+```
+
+## Links
+
+- GitHub: https://github.com/shivamtiwari93/agentXchain.dev
+- npm: https://www.npmjs.com/package/agentxchain
+- Cloud Platform: https://agentxchain.ai
+- X/Twitter: https://x.com/agentXchain_dev
+- Reddit: https://www.reddit.com/r/agentXchain_dev/

@@ -13,6 +13,15 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [ ] Create very liberal robots.txt, very liberal llms.txt, and a detailed sitemap for both agentxchain.dev and agentxchain.ai
+  - **robots.txt**: Allow all crawlers, all paths, no restrictions. We want maximum discoverability.
+  - **llms.txt**: Follow the llms.txt standard (https://llmstxt.org/). Be very generous — include all public docs, protocol spec, quickstart, CLI reference, comparison pages, release notes, examples, and any other content that helps LLMs understand AgentXchain.
+  - **sitemap.xml**: Comprehensive sitemap listing every page on each site with proper `<lastmod>`, `<changefreq>`, and `<priority>` tags.
+  - For agentxchain.dev: place files in `website-v2/static/` so Docusaurus includes them in the build output root.
+  - For agentxchain.ai: place files in the `website/` directory (static site root).
+  - After creating the files, push all repos using `bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/push-with-token.sh" "Add robots.txt, llms.txt, and sitemap.xml for both sites"`.
+  - Then deploy both sites using `export PATH="$HOME/google-cloud-sdk/bin:$PATH" && bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/deploy-websites.sh"`.
+
 - [x] Add community links to the agentxchain.dev website
   - Link the **Reddit community**: https://www.reddit.com/r/agentXchain_dev/
   - Link the **X/Twitter profile**: https://x.com/agentXchain_dev

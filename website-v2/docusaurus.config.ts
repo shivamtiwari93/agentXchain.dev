@@ -46,6 +46,7 @@ const config: Config = {
           trackingID: 'G-1Z8RV9X341',
           anonymizeIP: true,
         },
+        sitemap: false,
       } satisfies Preset.Options,
     ],
   ],

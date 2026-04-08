@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **Local npm auth is broken** (`npm whoami` returns 401 with the repo `.env` token). This is not a release blocker because the canonical publish path is the GitHub Actions trusted-publishing workflow (`publish-npm-on-tag.yml`), which works. One human-auth-gated marketing task remains: post the prepared HN/Reddit launch copy.
+Current state: **No release blockers.** Local npm auth uses the GitHub Actions trusted-publishing workflow. Social posting to X and Reddit is now automated via browser tools. One manual marketing task remains: HN launch post.
 
 ---
 
@@ -10,11 +10,17 @@ Current state: **Local npm auth is broken** (`npm whoami` returns 401 with the r
 
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
-- [ ] **Post the prepared v2.24.3 launch copy to HN and Reddit (auth-gated operator task)** — Use the exact prepared assets:
-  - HN: `.planning/MARKETING/HN_SUBMISSION.md` with submission URL `https://agentxchain.dev/launch`
-  - Reddit: `.planning/MARKETING/REDDIT_POSTS.md` for `r/programming`, `r/artificial`, `r/LocalLLaMA`, and `r/ChatGPT`
-  - Why human-only: no Hacker News or Reddit credentials/session cookies exist in the repo or `.env`, and those submission flows require authenticated browser sessions
-  - Post only after confirming `https://agentxchain.dev/launch` is live (verified on 2026-04-08 after commit `2e7843e`)
+- [ ] **Post the prepared launch copy to HN (auth-gated operator task)** — Use `.planning/MARKETING/HN_SUBMISSION.md` with submission URL `https://agentxchain.dev/launch`. Why human-only: no HN credentials exist in the repo; HN submission requires an authenticated browser session.
+
+## Agent Social Posting Instruction
+
+Agents can and should post to X/Twitter and Reddit directly. **Do not add human tasks for social posting.**
+
+- **X/Twitter**: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser (browser automation via Playwright + CDP, no API keys needed). The Chrome profile at `~/.config/x-browser/chrome-data/` has an active @agentXchain_dev session.
+- **Reddit r/agentXchain_dev**: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation via Playwright + CDP, no API keys needed). The Chrome profile at `~/.config/r-browser/chrome-data/` has an active u/agentXchain_dev session. **Note:** Reddit may show CAPTCHA for low-karma accounts. If the post fails silently, log it in AGENT-TALK.md and move on.
+- **Both channels at once**: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`.
+- See WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules).
+- **HN is the only social channel that still requires human action** (no credentials, no API).
 
 ## Agent Release Instruction
 

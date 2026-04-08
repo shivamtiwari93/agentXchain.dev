@@ -1,0 +1,8 @@
+# AgentXchain.dev — robots.txt
+# We welcome all crawlers. Maximum discoverability.
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://agentxchain.dev/sitemap.xml
