@@ -354,6 +354,53 @@ function evaluateShipVerdict(content) {
   return { ok: true };
 }
 
+function evaluateSectionCheck(content, config) {
+  if (!config?.required_sections?.length) {
+    return { ok: true };
+  }
+  const missing = config.required_sections.filter(
+    section => !content.includes(section)
+  );
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      reason: `Document must contain sections: ${missing.join(', ')}`,
+    };
+  }
+  return { ok: true };
+}
+
+const SEMANTIC_VALIDATORS = {
+  pm_signoff: evaluatePmSignoff,
+  system_spec: evaluateSystemSpec,
+  implementation_notes: evaluateImplementationNotes,
+  acceptance_matrix: evaluateAcceptanceMatrix,
+  ship_verdict: evaluateShipVerdict,
+  release_notes: evaluateReleaseNotes,
+  section_check: evaluateSectionCheck,
+};
+
+/**
+ * Evaluate a workflow artifact's semantic constraints by validator ID.
+ * @param {string} root - project root directory
+ * @param {object} artifact - { path, semantics, semantics_config }
+ * @returns {{ ok: boolean, reason?: string } | null}
+ */
+export function evaluateArtifactSemantics(root, artifact) {
+  if (!artifact.semantics) return null;
+  const validator = SEMANTIC_VALIDATORS[artifact.semantics];
+  if (!validator) return null;
+  const content = readFile(root, artifact.path);
+  if (content === null) return null;
+  if (artifact.semantics === 'section_check') {
+    return validator(content, artifact.semantics_config);
+  }
+  return validator(content);
+}
+
+/**
+ * Path-based dispatch (backward compat for code calling this directly).
+ */
 export function evaluateWorkflowGateSemantics(root, relPath) {
   const content = readFile(root, relPath);
   if (content === null) {

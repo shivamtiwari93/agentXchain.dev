@@ -22,7 +22,29 @@ const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
 const DEFAULT_PHASES = ['planning', 'implementation', 'qa'];
+export { DEFAULT_PHASES };
 const VALID_PHASE_NAME = /^[a-z][a-z0-9_-]*$/;
+const VALID_SEMANTIC_IDS = ['pm_signoff', 'system_spec', 'implementation_notes', 'acceptance_matrix', 'ship_verdict', 'release_notes', 'section_check'];
+
+/**
+ * Default artifact map for phases when workflow_kit is absent from config.
+ * Only phases present in this map get default artifacts.
+ */
+const DEFAULT_PHASE_ARTIFACTS = {
+  planning: [
+    { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
+    { path: '.planning/SYSTEM_SPEC.md', semantics: 'system_spec', required: true },
+    { path: '.planning/ROADMAP.md', semantics: null, required: true },
+  ],
+  implementation: [
+    { path: '.planning/IMPLEMENTATION_NOTES.md', semantics: 'implementation_notes', required: true },
+  ],
+  qa: [
+    { path: '.planning/acceptance-matrix.md', semantics: 'acceptance_matrix', required: true },
+    { path: '.planning/ship-verdict.md', semantics: 'ship_verdict', required: true },
+    { path: '.planning/RELEASE_NOTES.md', semantics: 'release_notes', required: true },
+  ],
+};
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
 const VALID_API_PROXY_RETRY_CLASSES = [
   'rate_limited',
@@ -448,7 +470,115 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...notificationValidation.errors);
   }
 
+  // Workflow Kit (optional but validated if present)
+  if (data.workflow_kit !== undefined) {
+    const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing);
+    errors.push(...wkValidation.errors);
+  }
+
   return { ok: errors.length === 0, errors };
+}
+
+/**
+ * Validate the workflow_kit config section.
+ * Returns { ok, errors, warnings }.
+ */
+export function validateWorkflowKitConfig(wk, routing) {
+  const errors = [];
+  const warnings = [];
+
+  if (wk === null || (typeof wk === 'object' && !Array.isArray(wk) && Object.keys(wk).length === 0)) {
+    // Empty workflow_kit is a valid opt-out
+    return { ok: true, errors, warnings };
+  }
+
+  if (!wk || typeof wk !== 'object' || Array.isArray(wk)) {
+    errors.push('workflow_kit must be an object');
+    return { ok: false, errors, warnings };
+  }
+
+  if (wk.phases !== undefined) {
+    if (!wk.phases || typeof wk.phases !== 'object' || Array.isArray(wk.phases)) {
+      errors.push('workflow_kit.phases must be an object');
+      return { ok: false, errors, warnings };
+    }
+
+    const routingPhases = routing ? new Set(Object.keys(routing)) : new Set(DEFAULT_PHASES);
+
+    for (const [phase, phaseConfig] of Object.entries(wk.phases)) {
+      if (!VALID_PHASE_NAME.test(phase)) {
+        errors.push(`workflow_kit phase name "${phase}" must be lowercase alphanumeric starting with a letter (hyphens and underscores allowed)`);
+        continue;
+      }
+
+      if (!routingPhases.has(phase)) {
+        warnings.push(`workflow_kit declares phase "${phase}" which is not in routing`);
+      }
+
+      if (!phaseConfig || typeof phaseConfig !== 'object' || Array.isArray(phaseConfig)) {
+        errors.push(`workflow_kit.phases.${phase} must be an object`);
+        continue;
+      }
+
+      if (!Array.isArray(phaseConfig.artifacts)) {
+        errors.push(`workflow_kit.phases.${phase}.artifacts must be an array`);
+        continue;
+      }
+
+      const seenPaths = new Set();
+      for (let i = 0; i < phaseConfig.artifacts.length; i++) {
+        const artifact = phaseConfig.artifacts[i];
+        const prefix = `workflow_kit.phases.${phase}.artifacts[${i}]`;
+
+        if (!artifact || typeof artifact !== 'object') {
+          errors.push(`${prefix} must be an object`);
+          continue;
+        }
+
+        if (typeof artifact.path !== 'string' || !artifact.path.trim()) {
+          errors.push(`${prefix} requires a non-empty path`);
+          continue;
+        }
+
+        if (artifact.path.includes('..')) {
+          errors.push(`${prefix} path must not traverse above project root (contains "..")`);
+          continue;
+        }
+
+        if (seenPaths.has(artifact.path)) {
+          errors.push(`duplicate artifact path "${artifact.path}" in phase "${phase}"`);
+        }
+        seenPaths.add(artifact.path);
+
+        if (artifact.semantics !== null && artifact.semantics !== undefined) {
+          if (typeof artifact.semantics !== 'string') {
+            errors.push(`${prefix} semantics must be a string or null`);
+          } else if (!VALID_SEMANTIC_IDS.includes(artifact.semantics)) {
+            errors.push(`${prefix} unknown semantics validator "${artifact.semantics}"; valid values: ${VALID_SEMANTIC_IDS.join(', ')}`);
+          } else if (artifact.semantics === 'section_check') {
+            if (!artifact.semantics_config || typeof artifact.semantics_config !== 'object') {
+              errors.push(`${prefix} section_check requires semantics_config`);
+            } else if (!Array.isArray(artifact.semantics_config.required_sections) || artifact.semantics_config.required_sections.length === 0) {
+              errors.push(`${prefix} section_check requires semantics_config.required_sections as a non-empty array`);
+            } else {
+              for (const section of artifact.semantics_config.required_sections) {
+                if (typeof section !== 'string' || !section.trim()) {
+                  errors.push(`${prefix} section_check required_sections must contain non-empty strings`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (artifact.required !== undefined && typeof artifact.required !== 'boolean') {
+          errors.push(`${prefix} required must be a boolean`);
+        }
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings };
 }
 
 /**
@@ -492,6 +622,7 @@ export function normalizeV3(raw) {
     hooks: {},
     notifications: {},
     budget: null,
+    workflow_kit: normalizeWorkflowKit(undefined, DEFAULT_PHASES),
     retention: {
       talk_strategy: 'append_only',
       history_strategy: 'jsonl_append_only',
@@ -536,6 +667,9 @@ export function normalizeV4(raw) {
     }
   }
 
+  const routing = raw.routing || {};
+  const routingPhases = Object.keys(routing).length > 0 ? Object.keys(routing) : DEFAULT_PHASES;
+
   return {
     schema_version: 4,
     protocol_mode: 'governed',
@@ -547,11 +681,12 @@ export function normalizeV4(raw) {
     },
     roles,
     runtimes: raw.runtimes || {},
-    routing: raw.routing || {},
+    routing,
     gates: raw.gates || {},
     hooks: raw.hooks || {},
     notifications: raw.notifications || {},
     budget: raw.budget || null,
+    workflow_kit: normalizeWorkflowKit(raw.workflow_kit, routingPhases),
     retention: raw.retention || {
       talk_strategy: 'append_only',
       history_strategy: 'jsonl_append_only',
@@ -632,6 +767,50 @@ export function getMaxConcurrentTurns(config, phase) {
   return Math.min(configured, 4);
 }
 
+
+/**
+ * Normalize workflow_kit config.
+ * When absent, builds defaults from routing phases using DEFAULT_PHASE_ARTIFACTS.
+ * When present, normalizes artifact entries.
+ */
+export function normalizeWorkflowKit(raw, routingPhases) {
+  if (raw === undefined || raw === null) {
+    return buildDefaultWorkflowKit(routingPhases);
+  }
+
+  // Empty object is an explicit opt-out — no artifacts
+  if (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0) {
+    return { phases: {} };
+  }
+
+  const phases = {};
+  if (raw.phases) {
+    for (const [phase, phaseConfig] of Object.entries(raw.phases)) {
+      phases[phase] = {
+        artifacts: (phaseConfig.artifacts || []).map(a => ({
+          path: a.path,
+          semantics: a.semantics || null,
+          semantics_config: a.semantics_config || null,
+          required: a.required !== false,
+        })),
+      };
+    }
+  }
+
+  return { phases };
+}
+
+function buildDefaultWorkflowKit(routingPhases) {
+  const phases = {};
+  for (const phase of routingPhases) {
+    if (DEFAULT_PHASE_ARTIFACTS[phase]) {
+      phases[phase] = {
+        artifacts: DEFAULT_PHASE_ARTIFACTS[phase].map(a => ({ ...a, semantics_config: null })),
+      };
+    }
+  }
+  return { phases };
+}
 
 // --- Internal helpers ---
 
