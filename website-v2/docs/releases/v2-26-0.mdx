@@ -1,0 +1,91 @@
+---
+title: "v2.26.0 Release Notes"
+description: "Charter enforcement release: artifact ownership binding, enterprise-app blueprint template with scaffold-to-runtime proof, dynamic ROADMAP generation, open-ended roles, SEO, community links, mobile nav fix, and vs-Warp comparison."
+---
+
+# AgentXchain v2.26.0
+
+`2.26.0` is the charter enforcement and enterprise template release.
+
+`2.25.2` shipped workflow-kit: per-phase artifact contracts with semantic validators. What was missing was **ownership enforcement** — the ability to bind specific artifacts to specific roles and have the gate evaluator reject transitions when the owning role hasn't participated. This release closes that gap and ships the first blueprint-backed template that proves the full path from scaffold to runtime.
+
+## Charter enforcement: artifact ownership at gate time
+
+New optional `owned_by` field on workflow-kit artifact entries:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "architecture": {
+        "artifacts": [
+          {
+            "path": ".planning/ARCHITECTURE.md",
+            "semantics": "section_check",
+            "sections": ["System Boundary", "Integration Contracts", "Trade-offs"],
+            "owned_by": "architect"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+When `owned_by` is set, the gate evaluator checks `state.history` for at least one accepted turn from the owning role in the current phase. If the role hasn't participated, the gate blocks:
+
+```
+".planning/ARCHITECTURE.md" requires participation from role "architect" in phase "architecture"
+```
+
+This is **phase-scoped participation proof** — the owning role must have contributed during the phase, not necessarily authored the specific file. Optional artifacts with `owned_by` are only checked when the file exists.
+
+## Enterprise-app template
+
+The `enterprise-app` template ships as a complete blueprint-backed governed template:
+
+- **6 roles**: pm, architect, dev, security_reviewer, qa, tech_writer
+- **5 phases**: planning → architecture → implementation → security_review → qa
+- **Ownership-enforced artifacts**: `ARCHITECTURE.md` (architect), `SECURITY_REVIEW.md` (security_reviewer)
+
+Scaffold with:
+
+```bash
+agentxchain init --governed --template enterprise-app --dir my-project -y
+```
+
+The scaffolded repo includes truthful prompt files, a ROADMAP table derived from routing, and ownership enforcement that prevents phase transitions without the right roles participating.
+
+## Dynamic ROADMAP from routing
+
+Scaffolded `.planning/ROADMAP.md` now derives its phase table from the template's `routing` configuration instead of always showing a generic 3-phase table. The enterprise-app template scaffolds a 5-row table matching its actual phase order. Phase goals come from role mandates.
+
+## Open-ended roles
+
+Removed the hardcoded `VALID_PROMPT_OVERRIDE_ROLES` constraint. Any valid role ID is now accepted in template prompt overrides, matching the vision that AgentXchain governs **chartered roles**, not a hardcoded team template.
+
+## SEO and discoverability
+
+- `robots.txt` — allow all crawlers, all paths
+- `llms.txt` — comprehensive LLM-friendly content index following the llmstxt.org standard
+- `sitemap.xml` — all pages with priority and changefreq metadata
+
+Created for both agentxchain.dev and agentxchain.ai.
+
+## Community links
+
+X/Twitter and Reddit community links added to the navbar, footer, and homepage.
+
+## Mobile navigation fix
+
+Fixed a CSS bug where `backdrop-filter: blur(20px)` on `.navbar` created a containing block that constrained `.navbar-sidebar` to 60px height on narrow desktop viewports. The sidebar now renders correctly at all screen widths.
+
+## vs-Warp comparison
+
+New [comparison page](/compare/vs-warp) providing an honest, research-backed comparison between AgentXchain and Warp.dev.
+
+## Evidence
+
+- 2649 node tests / 566 suites / 0 failures
+- Docusaurus production build passes
+- Enterprise-app scaffold-to-runtime E2E green

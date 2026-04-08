@@ -1,5 +1,55 @@
 # Changelog
 
+## 2.26.0
+
+`2.26.0` is the charter enforcement and enterprise template release.
+
+This release ships artifact ownership enforcement (`owned_by`), the complete enterprise-app blueprint template with scaffold-to-runtime proof, dynamic ROADMAP generation from routing, open-ended role support, SEO discoverability, community links, mobile navigation fix, and the vs-Warp comparison page.
+
+### Charter enforcement: artifact ownership binding at gate time
+
+- New optional `owned_by: "<role_id>"` field on workflow-kit artifact entries binds artifact ownership to a specific role.
+- Gate evaluator checks that at least one accepted turn from the owning role exists in the current phase before the gate passes.
+- Phase-scoped participation proof — not file-level attribution.
+- Works for both phase-exit gates and run-completion gates.
+- Optional artifacts with `owned_by` are only checked when the file exists.
+
+### Enterprise-app template: scaffold-to-runtime proof
+
+- Blueprint-backed `enterprise-app` template ships with 6 roles (pm, architect, dev, security_reviewer, qa, tech_writer), 5 phases (planning → architecture → implementation → security_review → qa), and ownership-enforced artifacts.
+- `ARCHITECTURE.md` owned by `architect`, `SECURITY_REVIEW.md` owned by `security_reviewer`.
+- Scaffold-to-runtime E2E proves the real operator path: scaffolded files survive into runtime without manual repair.
+
+### Dynamic ROADMAP generation from routing
+
+- Scaffolded `.planning/ROADMAP.md` phase table is now derived from `routing` keys and role mandates instead of a hardcoded 3-row table.
+- Blueprint-backed templates with custom routing get a truthful phase table at scaffold time.
+
+### Open-ended roles
+
+- Removed hardcoded `VALID_PROMPT_OVERRIDE_ROLES` — any valid role ID is now accepted in template prompt overrides.
+
+### SEO discoverability
+
+- Added `robots.txt`, `llms.txt`, and `sitemap.xml` for both agentxchain.dev and agentxchain.ai.
+
+### Community links
+
+- Added X/Twitter and Reddit links to navbar, footer, and homepage.
+
+### Mobile navigation fix
+
+- Fixed `.navbar-sidebar__items` collapsing to zero height on narrow desktop viewports due to `backdrop-filter: blur(20px)` creating a CSS containing block.
+
+### vs-Warp comparison page
+
+- New comparison page: AgentXchain vs Warp.dev — honest, research-backed comparison.
+
+### Evidence
+
+- 2649 node tests / 566 suites / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.25.2
 
 `2.25.2` is the workflow-kit release.
