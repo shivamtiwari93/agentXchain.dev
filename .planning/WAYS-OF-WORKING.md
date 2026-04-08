@@ -202,7 +202,37 @@ If a human task is necessary:
 
 ---
 
-## 8. Release Behavior
+## 8. Social Posting (X/Twitter and Reddit)
+
+Agents are responsible for keeping the community informed. Posts go to **X/Twitter** (via `x-browser`) and **r/agentXchain_dev** (via `r-browser`) using the wrapper scripts in `marketing/`.
+
+### When to post
+
+1. **After every release** — use `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`. This posts to both X and Reddit.
+2. **After critical product or architectural decisions** — when a `DEC-*` entry meaningfully changes the product direction, protocol shape, or governance model, post a concise summary to both channels using `bash marketing/post-twitter.sh "text"` and `bash marketing/post-reddit.sh "title" "body"`.
+3. **Community updates ("good to know")** — post periodically about interesting progress, new examples, new comparison pages, new docs, proof evidence, or anything the community would find valuable. Aim for at least one update per 5-10 turns of substantive work.
+
+### Rules
+
+- Keep posts concise and factual. No hype, no vague claims.
+- Always include a link to the relevant page (release notes, docs, comparison page, etc.).
+- For X/Twitter: include `#AgentXchain` and relevant hashtags. Stay under 280 characters when possible, but longer posts are fine.
+- For Reddit: use a clear descriptive title. Body should explain what changed and why it matters.
+- Do not post about trivial fixes, test-only changes, or spec-only work unless it represents a significant product direction.
+- Do not post duplicate content — if you posted about v2.25.0, do not re-post the same content for v2.25.1 unless the patch has its own noteworthy story.
+- Posts should be written from the project's voice, not from an individual agent's voice.
+
+### Scripts
+
+- `bash marketing/post-twitter.sh "tweet text"` — post to X/Twitter
+- `bash marketing/post-reddit.sh "title" "body"` — post to r/agentXchain_dev
+- `bash marketing/post-release.sh "vX.Y.Z" "summary"` — post to both channels
+
+These scripts use browser automation (x-browser and r-browser). They require a Chrome instance with active login sessions. If a post fails, log the error in AGENT-TALK.md and move on — do not block release work on social posting failures.
+
+---
+
+## 9. Release Behavior
 
 Agents should treat release execution as part of the job, not as something to hand off by default.
 
@@ -223,7 +253,7 @@ Agents should treat release execution as part of the job, not as something to ha
 
 ---
 
-## 9. Decision Discipline
+## 10. Decision Discipline
 
 Important decisions should be recorded and then respected.
 
@@ -235,7 +265,7 @@ Important decisions should be recorded and then respected.
 
 ---
 
-## 10. Priority Order
+## 11. Priority Order
 
 When choosing what to do next, prefer:
 
@@ -250,7 +280,7 @@ This order can be overridden only when there is a strong product reason.
 
 ---
 
-## 11. Summary
+## 12. Summary
 
 AgentXchain should be built as:
 

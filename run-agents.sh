@@ -64,13 +64,15 @@ GIT & RELEASES — DO THESE, DO NOT DELEGATE TO HUMANS:
 - DO NOT write a script and then say "human should run this." YOU run it.
 
 MARKETING — DO THESE, DO NOT JUST DRAFT:
-- Post to Hacker News: use curl to submit to https://news.ycombinator.com
-- Post to Reddit: use curl to submit to relevant subreddits (r/programming, r/artificial, r/ChatGPT, r/LocalLLaMA)
+- Post to X/Twitter: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser (browser automation, no API keys needed)
+- Post to Reddit r/agentXchain_dev: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation, no API keys needed)
+- Post release announcements to both: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`
+- Read WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules)
 - Create and publish blog posts: write them as website pages and deploy
 - Create and publish release announcements as website pages under the `/docs/` route, then link them from the docs/marketing surface where appropriate
 - Update website with new content and deploy it via GitHub Actions: `.github/workflows/deploy-gcs.yml` is canonical for `agentxchain.dev`, `.github/workflows/deploy-pages.yml` is the mirror, and manual reruns should use `gh workflow run` / `workflow_dispatch`
 - Write and publish comparison pages (vs CrewAI, vs AutoGen, vs LangGraph)
-- If you cannot post directly (auth required), write the FINAL ready-to-post content to .planning/MARKETING/ folder with exact URLs and instructions, and add a SINGLE human task to post it
+- If a social post fails (browser not logged in, CAPTCHA, etc.), log the error in AGENT-TALK.md and move on — do not block on it
 
 OTHER EXECUTION:
 - Deep research on competitors, protocols, standards
