@@ -14,7 +14,7 @@
  * orchestrator turn loop call it after assignGovernedTurn().
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { getActiveTurn, getActiveTurns } from './governed-state.js';
 import {
@@ -31,6 +31,7 @@ import {
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const FILE_PREVIEW_MAX_FILES = 5;
 const FILE_PREVIEW_MAX_LINES = 120;
+const PROPOSAL_SUMMARY_MAX_LINES = 80;
 const GATE_FILE_PREVIEW_MAX_LINES = 60;
 const DISPATCH_LOG_MAX_LINES = 50;
 const DISPATCH_LOG_MAX_LINE_BYTES = 8192;
@@ -482,6 +483,42 @@ function renderContext(state, config, root, turn, role) {
         }
       }
 
+      const proposalPreview = role?.write_authority === 'review_only'
+        ? buildProposalArtifactPreview(root, lastTurn)
+        : null;
+      if (proposalPreview) {
+        lines.push('### Proposed Artifact');
+        lines.push('');
+        lines.push(`- **Artifact ref:** \`${proposalPreview.artifactRef}\``);
+        lines.push(`- **Proposed files:** ${proposalPreview.changeCount}`);
+        lines.push('');
+        lines.push('```');
+        lines.push(proposalPreview.summary);
+        lines.push('```');
+        if (proposalPreview.summaryTruncated) {
+          lines.push('');
+          lines.push(`_Preview truncated after ${PROPOSAL_SUMMARY_MAX_LINES} lines._`);
+        }
+        lines.push('');
+
+        if (proposalPreview.filePreviews.length > 0) {
+          lines.push('### Proposed File Previews');
+          lines.push('');
+          for (const preview of proposalPreview.filePreviews) {
+            lines.push(`#### \`${preview.path}\` (${preview.action})`);
+            lines.push('');
+            lines.push('```');
+            lines.push(preview.content);
+            lines.push('```');
+            if (preview.truncated) {
+              lines.push('');
+              lines.push(`_Preview truncated after ${FILE_PREVIEW_MAX_LINES} lines._`);
+            }
+            lines.push('');
+          }
+        }
+      }
+
       // Verification evidence from the previous turn
       // Use raw verification (has commands, machine_evidence, evidence_summary)
       // and supplement with normalized_verification status when available
@@ -696,6 +733,113 @@ function buildChangedFilePreviews(root, filesChanged) {
   }
 
   return previews;
+}
+
+function buildProposalArtifactPreview(root, lastTurn) {
+  const artifactRef = lastTurn?.artifact?.ref;
+  if (typeof artifactRef !== 'string' || !artifactRef.startsWith('.agentxchain/proposed/')) {
+    return null;
+  }
+
+  const absProposalDir = join(root, artifactRef);
+  const summaryPath = join(absProposalDir, 'PROPOSAL.md');
+
+  let summary = '';
+  let summaryTruncated = false;
+
+  if (existsSync(summaryPath)) {
+    try {
+      const raw = readFileSync(summaryPath, 'utf8');
+      const lines = raw.replace(/\r\n/g, '\n').split('\n');
+      summaryTruncated = lines.length > PROPOSAL_SUMMARY_MAX_LINES;
+      summary = (summaryTruncated ? lines.slice(0, PROPOSAL_SUMMARY_MAX_LINES) : lines)
+        .join('\n')
+        .trimEnd();
+    } catch {
+      summary = '';
+    }
+  }
+
+  const changeActions = extractProposalActions(summary);
+  const materializedFiles = collectProposalFiles(absProposalDir);
+
+  if (!summary) {
+    const fallbackLines = [
+      `# Proposed Changes — ${lastTurn.turn_id || '(unknown)'}`,
+      '',
+      lastTurn.summary || '(no summary)',
+      '',
+    ];
+    for (const filePath of materializedFiles) {
+      fallbackLines.push(`- \`${filePath}\` — ${changeActions.get(filePath) || 'create'}`);
+    }
+    summary = fallbackLines.join('\n');
+  }
+
+  const filePreviews = [];
+  for (const relPath of materializedFiles.slice(0, FILE_PREVIEW_MAX_FILES)) {
+    const absPath = join(absProposalDir, relPath);
+
+    let raw;
+    try {
+      raw = readFileSync(absPath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    const lines = raw.replace(/\r\n/g, '\n').split('\n');
+    const truncated = lines.length > FILE_PREVIEW_MAX_LINES;
+    const previewLines = truncated ? lines.slice(0, FILE_PREVIEW_MAX_LINES) : lines;
+    filePreviews.push({
+      path: relPath,
+      action: changeActions.get(relPath) || 'create',
+      content: previewLines.join('\n').trimEnd(),
+      truncated,
+    });
+  }
+
+  return {
+    artifactRef,
+    summary,
+    summaryTruncated,
+    filePreviews,
+    changeCount: changeActions.size || materializedFiles.length,
+  };
+}
+
+function extractProposalActions(summary) {
+  const actions = new Map();
+  if (!summary) {
+    return actions;
+  }
+
+  const matches = summary.matchAll(/^- `([^`]+)` — ([a-z]+)/gm);
+  for (const match of matches) {
+    actions.set(match[1], match[2]);
+  }
+  return actions;
+}
+
+function collectProposalFiles(absProposalDir, relPrefix = '') {
+  if (!existsSync(absProposalDir)) {
+    return [];
+  }
+
+  const files = [];
+  for (const entry of readdirSync(absProposalDir, { withFileTypes: true })) {
+    if (entry.name === 'PROPOSAL.md') {
+      continue;
+    }
+
+    const relPath = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+    const absPath = join(absProposalDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectProposalFiles(absPath, relPath));
+    } else if (entry.isFile()) {
+      files.push(relPath);
+    }
+  }
+  return files.sort();
 }
 
 function buildDispatchLogExcerpt(root, turnId) {

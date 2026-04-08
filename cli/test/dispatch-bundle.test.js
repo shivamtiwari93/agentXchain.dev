@@ -962,6 +962,62 @@ describe('dispatch bundle: QA evidence visibility', () => {
     assert.ok(!context.includes('#### `src/missing.js`'));
   });
 
+  it('AT-PROPCTX-001: review_only turns see accepted proposed artifacts in context', () => {
+    acceptPmTurnAndTransition();
+
+    config.roles.dev.write_authority = 'proposed';
+    config.roles.dev.runtime_class = 'api_proxy';
+    config.roles.dev.runtime_id = 'api-dev';
+    config.runtimes['api-dev'] = { type: 'api_proxy' };
+    config.gates.implementation_complete = { requires_verification_pass: true };
+
+    assignGovernedTurn(root, config, 'dev');
+    const devState = readJson(root, STATE_PATH);
+    const devResult = {
+      schema_version: '1.0',
+      run_id: devState.run_id,
+      turn_id: devState.current_turn.turn_id,
+      role: 'dev',
+      runtime_id: 'api-dev',
+      status: 'completed',
+      summary: 'Proposed the API-backed implementation slice for review.',
+      decisions: [{ id: 'DEC-003', category: 'implementation', statement: 'Stage the implementation as a proposal.', rationale: 'Remote runtime cannot write directly.' }],
+      objections: [],
+      files_changed: ['src/proposed-feature.js'],
+      artifacts_created: [],
+      verification: {
+        status: 'pass',
+        commands: ['echo ok'],
+        evidence_summary: 'Proposal validated.',
+        machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+      },
+      artifact: { type: 'patch', ref: null },
+      proposed_next_role: 'qa',
+      phase_transition_request: 'qa',
+      proposed_changes: [
+        { path: 'src/proposed-feature.js', action: 'create', content: 'export const proposalReady = true;\n' },
+      ],
+      cost: { input_tokens: 10, output_tokens: 20, usd: 0.01 },
+    };
+    mkdirSync(join(root, '.agentxchain', 'staging'), { recursive: true });
+    writeFileSync(join(root, STAGING_PATH), JSON.stringify(devResult));
+    const devAccept = acceptGovernedTurn(root, config);
+    assert.ok(devAccept.ok, `Dev accept failed: ${devAccept.error}`);
+
+    assignGovernedTurn(root, config, 'qa');
+    const qaState = readJson(root, STATE_PATH);
+    writeDispatchBundle(root, qaState, config);
+
+    const context = readFileSync(join(root, bundleDirFor(qaState), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /### Proposed Artifact/);
+    assert.match(context, /\.agentxchain\/proposed\/turn_/);
+    assert.match(context, /### Proposed File Previews/);
+    assert.match(context, /#### `src\/proposed-feature\.js` \(create\)/);
+    assert.match(context, /export const proposalReady = true/);
+    assert.ok(!context.includes('### Changed File Previews'));
+  });
+
   // ── Dispatch log excerpt tests (AT-MED-*) ──
 
   function writeDevDispatchLog(content) {
