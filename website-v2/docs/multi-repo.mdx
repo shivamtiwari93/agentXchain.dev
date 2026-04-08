@@ -257,6 +257,31 @@ Pre-action hooks (`before_assignment`, `before_gate`) and post-action hooks (`af
 
 Pre-action blocks do **not** fire `on_escalation` because they represent expected operational friction (policy gates, maintenance windows, approval holds). Post-action failures fire `on_escalation` because they represent unexpected integrity events that need investigation.
 
+## Coordinator Blocked States
+
+When a coordinator enters `blocked`, the `blocked_reason` field in `.agentxchain/multirepo/state.json` describes why. Governance reports surface these reasons with structured diagnostic detail. The most common blocked states are:
+
+| Blocked state | Cause | Diagnosis | Recovery |
+|---|---|---|---|
+| **Hook violation** | `after_acceptance` hook failed or detected tamper | Check hook audit log in `.agentxchain/multirepo/hooks/` | Fix root cause → fill `RECOVERY_REPORT.md` → `multi resume` |
+| **Run identity drift** (`repo_run_id_mismatch`) | A child repo's `run_id` no longer matches what the coordinator recorded at initialization | Report shows expected vs actual `run_id` per repo | Investigate why the child repo was re-initialized → restore the correct run or `multi resume` after filling `RECOVERY_REPORT.md` |
+| **Gate coherence failure** | Pending gate references repos whose state no longer supports the gate | Check `pending_gate` in coordinator state | Fix child repo state → `multi resync` → `multi resume` |
+
+### Run Identity Drift
+
+Run identity drift is the most dangerous coordinator blocked state. It means a child repo was re-initialized (or its `.agentxchain/state.json` was replaced) after the coordinator linked it. The coordinator refuses to continue because the child repo's audit trail no longer belongs to the same governed run.
+
+**How it appears in reports:**
+- `Blocked reason:` includes `run identity drifted`
+- `Run ID mismatches:` section lists each affected repo with `expected` and `actual` run IDs
+- `Next Actions:` includes per-repo `repo_run_id_mismatch` diagnostics
+
+**How it appears in CLI output:**
+- `multi step` prints `[repo_run_id_mismatch]` with expected/actual run IDs
+- `multi resync` detects the drift and blocks instead of auto-adopting the new run
+
+**Recovery:** Determine why the child repo's run changed. If it was accidental re-initialization, restore the correct `.agentxchain/state.json` from backup or git history. If it was intentional, fill in `RECOVERY_REPORT.md` explaining why, then `agentxchain multi resume`.
+
 ## Dashboard And Recovery
 
 The local dashboard exposes coordinator state through the **Initiative** and **Cross-Repo** views, with gate and blocked panels reading from the same `.agentxchain/multirepo/` artifacts.

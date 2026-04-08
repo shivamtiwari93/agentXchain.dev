@@ -1202,3 +1202,85 @@ Operator re-ran multi resume after manual inspection.
     assert.match(spec, /RECOVERY_REPORT\.md/);
   });
 });
+
+// AT-COORD-RUNID-001 through 005: run_id_mismatch visibility in reports
+describe('coordinator report narrative — run_id_mismatch visibility', () => {
+  it('AT-COORD-RUNID-001: no mismatch produces empty run_id_mismatches array', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok);
+    assert.deepEqual(result.report.subject.run.run_id_mismatches, []);
+  });
+
+  function buildDriftedFixture() {
+    // Build a fresh api export with a different run_id (run_api_999 vs coordinator's run_api_001)
+    const driftedApiExport = buildRepoExport('api', 'API');
+    // Override run_id consistently across summary + state + file entry
+    driftedApiExport.summary.run_id = 'run_api_999';
+    driftedApiExport.state.run_id = 'run_api_999';
+    driftedApiExport.files['.agentxchain/state.json'] = jsonFileEntry(driftedApiExport.state);
+
+    const fixture = buildCoordinatorFixture({
+      summaryStatus: 'blocked',
+      state: {
+        status: 'blocked',
+        blocked_reason: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"',
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+          web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+        },
+      },
+      repos: {
+        api: { ok: true, path: './repos/api', export: driftedApiExport },
+        web: { ok: true, path: './repos/web', export: buildRepoExport('web', 'Web') },
+      },
+    });
+    return fixture;
+  }
+
+  it('AT-COORD-RUNID-002: drifted child run_id surfaces in report data model', () => {
+    const fixture = buildDriftedFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    const mismatches = result.report.subject.run.run_id_mismatches;
+    assert.equal(mismatches.length, 1);
+    assert.equal(mismatches[0].repo_id, 'api');
+    assert.equal(mismatches[0].expected_run_id, 'run_api_001');
+    assert.equal(mismatches[0].actual_run_id, 'run_api_999');
+  });
+
+  it('AT-COORD-RUNID-003: text report renders run_id_mismatches with expected/actual', () => {
+    const fixture = buildDriftedFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Run ID mismatches: 1/);
+    assert.match(text, /api: expected run_api_001, actual run_api_999/);
+  });
+
+  it('AT-COORD-RUNID-004: markdown report renders run_id_mismatches with expected/actual', () => {
+    const fixture = buildDriftedFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /Run ID mismatches: 1/);
+    assert.match(md, /`api`.*expected.*`run_api_001`.*actual.*`run_api_999`/);
+  });
+
+  it('AT-COORD-RUNID-005: blocked next_actions include per-repo repo_run_id_mismatch diagnostics', () => {
+    const fixture = buildDriftedFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    const actions = result.report.subject.run.next_actions;
+    assert.ok(actions.length >= 2, 'should have resume + mismatch diagnostic');
+
+    const resumeAction = actions.find(a => a.command === 'agentxchain multi resume');
+    assert.ok(resumeAction, 'resume action present');
+
+    const mismatchAction = actions.find(a => a.command.includes('repo_run_id_mismatch'));
+    assert.ok(mismatchAction, 'mismatch diagnostic action present');
+    assert.match(mismatchAction.command, /api/);
+    assert.match(mismatchAction.reason, /run_api_001/);
+    assert.match(mismatchAction.reason, /run_api_999/);
+  });
+});

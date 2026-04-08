@@ -257,7 +257,12 @@ export async function multiStepCommand(options) {
     if (gate.blockers.length > 0) {
       console.error(`Coordinator ${gate.type === 'phase_transition' ? 'phase' : 'completion'} gate is not ready:`);
       for (const blocker of gate.blockers) {
-        console.error(`  - ${blocker.message}`);
+        const codeTag = blocker.code ? `[${blocker.code}] ` : '';
+        console.error(`  - ${codeTag}${blocker.message}`);
+        if (blocker.code === 'repo_run_id_mismatch') {
+          console.error(`    expected: ${blocker.expected_run_id}`);
+          console.error(`    actual:   ${blocker.actual_run_id}`);
+        }
       }
     }
     process.exitCode = 1;

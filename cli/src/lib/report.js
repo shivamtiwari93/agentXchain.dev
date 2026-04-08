@@ -299,6 +299,23 @@ function normalizeCoordinatorBlockedReason(blockedReason) {
   return null;
 }
 
+function detectRunIdMismatches(repos, coordinatorRepoRuns) {
+  const mismatches = [];
+  for (const repo of repos) {
+    if (!repo.ok || !repo.run_id) continue;
+    const expected = coordinatorRepoRuns[repo.repo_id]?.run_id;
+    if (!expected) continue;
+    if (expected !== repo.run_id) {
+      mismatches.push({
+        repo_id: repo.repo_id,
+        expected_run_id: expected,
+        actual_run_id: repo.run_id,
+      });
+    }
+  }
+  return mismatches;
+}
+
 function normalizePendingGate(pendingGate) {
   if (!pendingGate || typeof pendingGate !== 'object' || Array.isArray(pendingGate)) return null;
   if (typeof pendingGate.gate !== 'string' || pendingGate.gate.length === 0) return null;
@@ -317,7 +334,7 @@ function normalizePendingGate(pendingGate) {
   return normalized;
 }
 
-function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repos, coordinatorRepoRuns }) {
+function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repos, coordinatorRepoRuns, runIdMismatches }) {
   const nextActions = [];
 
   if (status === 'blocked') {
@@ -325,6 +342,14 @@ function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repo
       command: 'agentxchain multi resume',
       reason: `Coordinator is blocked${blockedReason ? `: ${blockedReason}` : ''}. Resume after fixing the underlying issue.`,
     });
+    if (runIdMismatches && runIdMismatches.length > 0) {
+      for (const m of runIdMismatches) {
+        nextActions.push({
+          command: `# repo_run_id_mismatch: ${m.repo_id}`,
+          reason: `Repo "${m.repo_id}" run identity drifted: coordinator expects "${m.expected_run_id}" but repo has "${m.actual_run_id}". Re-initialize the child repo with the correct run or use multi resume after investigation.`,
+        });
+      }
+    }
     if (pendingGate) {
       nextActions.push({
         command: 'agentxchain multi approve-gate',
@@ -574,12 +599,14 @@ function buildCoordinatorSubject(artifact) {
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
+  const runIdMismatches = detectRunIdMismatches(repos, coordinatorState.repo_runs || {});
   const nextActions = deriveCoordinatorNextActions({
     status: artifact.summary?.status || null,
     blockedReason,
     pendingGate,
     repos,
     coordinatorRepoRuns: coordinatorState.repo_runs || {},
+    runIdMismatches,
   });
 
   return {
@@ -597,6 +624,7 @@ function buildCoordinatorSubject(artifact) {
       phase: artifact.summary?.phase || null,
       blocked_reason: blockedReason,
       pending_gate: pendingGate,
+      run_id_mismatches: runIdMismatches,
       next_actions: nextActions,
       created_at: timing.created_at,
       completed_at: timing.completed_at,
@@ -797,6 +825,16 @@ export function formatGovernanceReportText(report) {
     `Status: ${run.status || 'unknown'}`,
     `Phase: ${run.phase || 'unknown'}`,
     `Blocked reason: ${run.blocked_reason || 'none'}`,
+  ];
+
+  if (run.run_id_mismatches && run.run_id_mismatches.length > 0) {
+    lines.push(`Run ID mismatches: ${run.run_id_mismatches.length}`);
+    for (const m of run.run_id_mismatches) {
+      lines.push(`  - ${m.repo_id}: expected ${m.expected_run_id}, actual ${m.actual_run_id}`);
+    }
+  }
+
+  lines.push(
     `Started: ${run.created_at || 'n/a'}`,
     `Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `Workstreams: ${coordinator.workstream_count}`,
@@ -804,7 +842,7 @@ export function formatGovernanceReportText(report) {
     `Repo statuses: ${formatStatusCounts(run.repo_status_counts)}`,
     `History entries: ${artifacts.history_entries}`,
     `Decision entries: ${artifacts.decision_entries}`,
-  ];
+  );
 
   if (run.completed_at) {
     lines.push(`Completed: ${run.completed_at}`);
@@ -1044,6 +1082,16 @@ export function formatGovernanceReportMarkdown(report) {
     `- Status: \`${run.status || 'unknown'}\``,
     `- Phase: \`${run.phase || 'unknown'}\``,
     `- Blocked reason: \`${run.blocked_reason || 'none'}\``,
+  ];
+
+  if (run.run_id_mismatches && run.run_id_mismatches.length > 0) {
+    mdLines.push(`- **Run ID mismatches: ${run.run_id_mismatches.length}**`);
+    for (const m of run.run_id_mismatches) {
+      mdLines.push(`  - \`${m.repo_id}\`: expected \`${m.expected_run_id}\`, actual \`${m.actual_run_id}\``);
+    }
+  }
+
+  mdLines.push(
     `- Started: \`${run.created_at || 'n/a'}\``,
     `- Repos: ${coordinator.repo_count} total, ${run.repo_ok_count} exported cleanly, ${run.repo_error_count} failed`,
     `- Workstreams: ${coordinator.workstream_count}`,
@@ -1051,7 +1099,7 @@ export function formatGovernanceReportMarkdown(report) {
     `- Repo statuses: ${formatStatusCounts(run.repo_status_counts)}`,
     `- History entries: ${artifacts.history_entries}`,
     `- Decision entries: ${artifacts.decision_entries}`,
-  ];
+  );
 
   if (run.completed_at) {
     mdLines.push(`- Completed: \`${run.completed_at}\``);
