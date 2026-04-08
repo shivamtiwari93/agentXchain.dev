@@ -18,7 +18,7 @@ That means:
 
 - `npx agentxchain demo` needs no API keys
 - your first real repo can start with a manual planning turn immediately
-- the default QA leg needs `ANTHROPIC_API_KEY` unless you rebind `qa` to a manual runtime first
+- the default QA leg needs `ANTHROPIC_API_KEY` unless you change `roles.qa.runtime` to `manual-qa` first
 
 If you want artifact-by-artifact detail, read [Your First Governed Turn](/docs/first-turn). This page stays focused on the fastest real command sequence.
 
@@ -118,7 +118,19 @@ Before you run QA, make sure these files contain real content:
 - `.planning/ship-verdict.md`
 - `.planning/RELEASE_NOTES.md`
 
-If you do not want API-backed QA yet, rebind `qa` to a manual runtime before you run the turn. Do not pretend the default scaffold is fully no-key end to end.
+If you do not want API-backed QA yet, use the built-in manual fallback before you run the turn:
+
+```json
+{
+  "roles": {
+    "qa": {
+      "runtime": "manual-qa"
+    }
+  }
+}
+```
+
+Edit `agentxchain.json` and change `roles.qa.runtime` from `api-qa` to `manual-qa`. Do not pretend the default scaffold is fully no-key end to end.
 
 ## 7. Complete the run
 

@@ -43,6 +43,7 @@ describe('getting-started tutorial docs', () => {
     assert.ok(content.includes('manual-pm'), 'must mention manual-pm');
     assert.ok(content.includes('local-dev'), 'must mention local-dev');
     assert.ok(content.includes('api-qa'), 'must mention api-qa');
+    assert.ok(content.includes('manual-qa'), 'must mention the built-in manual QA fallback');
     assert.ok(content.includes('ANTHROPIC_API_KEY'), 'must mention default QA auth requirement');
     assert.ok(content.includes('Do not pretend the default scaffold is fully no-key end to end'),
       'must explicitly reject the dishonest no-key claim');
@@ -62,5 +63,6 @@ describe('getting-started tutorial spec', () => {
     assert.ok(spec.includes('## Behavior'));
     assert.ok(spec.includes('## Acceptance Tests'));
     assert.ok(spec.includes('ANTHROPIC_API_KEY'));
+    assert.ok(spec.includes('manual-qa'));
   });
 });

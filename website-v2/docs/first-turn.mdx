@@ -271,7 +271,7 @@ The `implementation_complete` gate auto-evaluates — it checks that `IMPLEMENTA
 agentxchain step
 ```
 
-At this point the run is in the `qa` phase, so `agentxchain step` assigns the QA turn by default. In the `cli-tool` template, QA is bound to `api_proxy`, so the orchestrator sends the full context to an LLM and materializes the review under `.agentxchain/reviews/`. This requires `ANTHROPIC_API_KEY` to be set. If you want to stay fully manual, rebind QA to a manual runtime first.
+At this point the run is in the `qa` phase, so `agentxchain step` assigns the QA turn by default. In the `cli-tool` template, QA is bound to `api_proxy`, so the orchestrator sends the full context to an LLM and materializes the review under `.agentxchain/reviews/`. This requires `ANTHROPIC_API_KEY` to be set. If you want to stay fully manual, edit `agentxchain.json` and change `roles.qa.runtime` from `api-qa` to `manual-qa` first.
 
 QA must raise at least one objection. This is not bureaucracy — it's how governed delivery catches issues that PM and dev both missed:
 

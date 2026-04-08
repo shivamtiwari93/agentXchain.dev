@@ -239,10 +239,12 @@ describe('governed CLI support', () => {
       const config = JSON.parse(readFileSync(join(dir, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
       assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '--print', '--dangerously-skip-permissions']);
       assert.equal(config.runtimes['local-dev'].prompt_transport, 'stdin');
+      assert.equal(config.runtimes['manual-qa'].type, 'manual');
       assert.match(result.stdout, /Dev runtime:\s+claude --print --dangerously-skip-permissions\s+\(stdin\)/);
 
       // Readiness hint and getting-started link
       assert.match(result.stdout, /Mixed-mode:|Ready:/, 'init output must include a readiness hint');
+      assert.match(result.stdout, /manual-qa/, 'init output must name the built-in no-key QA fallback');
       assert.match(result.stdout, /getting-started/, 'init output must link to getting-started docs');
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -55,6 +55,7 @@ function createGovernedProject(overrides = {}) {
       'manual-pm': { type: 'manual' },
       'local-dev': { type: 'local_cli', command: ['claude', '--print'], cwd: '.' },
       'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
+      'manual-qa': { type: 'manual' },
     },
     routing: {
       planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'human'], exit_gate: 'planning_signoff' },
@@ -645,7 +646,10 @@ describe('operator recovery surfaces', () => {
       const result = runCli(dir, ['step'], { env });
       assert.equal(result.status, 1);
       assert.match(result.stdout, /ANTHROPIC_API_KEY/);
+      assert.match(result.stdout, /manual-qa/);
+      assert.match(result.stdout, /roles\.qa\.runtime/);
       assert.match(result.stdout, /agentxchain step --resume/);
+      assert.match(result.stdout, /docs\/getting-started/);
 
       const blockedState = JSON.parse(readFileSync(join(dir, '.agentxchain', 'state.json'), 'utf8'));
       assert.equal(blockedState.status, 'blocked');

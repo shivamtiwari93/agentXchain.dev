@@ -105,6 +105,7 @@ const GOVERNED_RUNTIMES = {
   'manual-pm': { type: 'manual' },
   'local-dev': DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME,
   'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
+  'manual-qa': { type: 'manual' },
   'manual-director': { type: 'manual' }
 };
 
@@ -700,6 +701,9 @@ async function initGoverned(opts) {
       console.log(`  ${chalk.yellow('Mixed-mode:')} pm and eng_director work immediately (manual).`);
       console.log(`  ${chalk.yellow('  ')}${roleNames.join(', ')} need ${chalk.bold(envVars.join(', '))} to dispatch automatically.`);
       console.log(`  ${chalk.yellow('  ')}Without it, those turns fall back to manual input.`);
+      if (allRuntimes['manual-qa']) {
+        console.log(`  ${chalk.yellow('  ')}No-key QA path: change ${chalk.bold('roles.qa.runtime')} from ${chalk.bold('"api-qa"')} to ${chalk.bold('"manual-qa"')} in ${chalk.bold('agentxchain.json')}.`);
+      }
     }
     console.log('');
   }
