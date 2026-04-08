@@ -1,0 +1,91 @@
+---
+title: AgentXchain vs MetaGPT
+description: "MetaGPT is stronger as a multi-agent software generation framework with SOP pipelines. AgentXchain is stronger as a governed delivery protocol with arbitrary chartered roles, mandatory challenge, and constitutional human authority."
+---
+
+# AgentXchain vs MetaGPT
+
+## The short answer
+
+**Choose MetaGPT** if you want a multi-agent framework that models a software company — Product Manager, Architect, Engineer — and uses Standard Operating Procedures to generate code from a single-line requirement. MetaGPT is well-suited for greenfield generation where a structured SOP pipeline turns requirements into working code.
+
+**Choose AgentXchain** if you need governed software delivery across long horizons: arbitrary chartered roles (not fixed PM/Architect/Engineer), mandatory cross-role challenge, explicit phase gates, append-only decision ledger, constitutional human authority, and recovery from failures.
+
+Both products assign agents to software roles. The difference is framework vs protocol, fixed pipeline vs arbitrary governance, and generation vs delivery.
+
+## Comparison
+
+| | MetaGPT | AgentXchain |
+|---|---|---|
+| **Primary job** | Multi-agent code generation from requirements | Governed software delivery protocol |
+| **Agent roles** | Fixed: Product Manager, Architect, Engineer, QA | Arbitrary: any chartered role with any mandate |
+| **Governance model** | Standard Operating Procedures (SOPs) | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Workflow shape** | Linear pipeline: requirement → PRD → design → code → review | Structured turns with mandatory challenge at every phase |
+| **Human authority** | User provides the initial requirement | Constitutional authority at planning, phase transitions, and completion |
+| **Cross-role challenge** | Agents follow SOPs; challenge is implicit in sequential review | Mandatory — roles must challenge each other structurally; challenge is a protocol requirement |
+| **Decision trail** | Intermediate artifacts (PRD, design doc, code) | Append-only decision ledger with objections, evidence, and resolution |
+| **Recovery** | Restart the pipeline | Governed blocked-state recovery, escalation, resume |
+| **Long-horizon execution** | Optimized for single-pass generation | Optimized for sustained multi-turn delivery with drift recovery |
+| **Best fit** | Greenfield code generation from requirements | Auditable, governed convergence on shippable software over time |
+
+## Choose MetaGPT when
+
+- You want to generate a complete codebase from a single requirement using a structured multi-agent pipeline.
+- The SOP-driven pipeline (requirement → PRD → architecture → code → review) matches your workflow.
+- You want a well-researched framework backed by an ICLR 2025 oral paper and the DeepWisdom team.
+- Your primary goal is generation speed: turn a requirement into working code as fast as possible.
+- You want a hosted product (MGX at mgx.dev) without self-hosting.
+
+## Choose AgentXchain when
+
+- Your roles are not fixed PM/Architect/Engineer — you need security reviewers, release managers, technical writers, or any arbitrary charter.
+- Multiple roles must challenge each other structurally, not just sequentially pass artifacts down a pipeline.
+- Human authority must be explicit at phase boundaries, not only at the initial requirement.
+- You need long-horizon execution: sustained delivery over many turns with governed recovery from blocked states, not single-pass generation.
+- You need an append-only decision ledger with objections, evidence, and resolution — not just intermediate artifacts.
+
+## A concrete workflow difference
+
+MetaGPT optimizes for generating code from requirements. AgentXchain optimizes for governing how multiple roles converge on shippable software.
+
+```python
+# MetaGPT framing: generate code from a requirement through an SOP pipeline
+import asyncio
+from metagpt.roles import ProductManager, Architect, Engineer
+from metagpt.team import Team
+
+team = Team()
+team.hire([ProductManager(), Architect(), Engineer()])
+await team.run(idea="Build a CLI tool that validates API schemas")
+```
+
+```bash
+# AgentXchain framing: govern delivery with explicit authority boundaries
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+MetaGPT's pipeline produces artifacts quickly and its SOP structure prevents the chaos of uncoordinated agents. What it does not provide is arbitrary role chartering, mandatory cross-role challenge as a protocol requirement, constitutional human authority at phase boundaries, or governed recovery from blocked states during long-horizon execution.
+
+## The honest overlap
+
+Both products assign agents to software roles and enforce structure. That is real overlap and worth acknowledging.
+
+The differences are:
+- **Protocol vs framework**: AgentXchain defines a constitutional governance protocol. MetaGPT provides a framework with built-in SOPs.
+- **Arbitrary roles vs fixed roles**: AgentXchain supports any chartered role. MetaGPT ships a fixed set (PM, Architect, Engineer, QA).
+- **Delivery vs generation**: AgentXchain governs sustained delivery with recovery. MetaGPT optimizes single-pass generation.
+- **Challenge as requirement vs challenge as side-effect**: In AgentXchain, challenge is mandatory and protocol-enforced. In MetaGPT, review happens as part of the SOP sequence.
+
+## Using both together
+
+MetaGPT's generation pipeline could operate as an executor within an AgentXchain-governed workflow — the generation engine for initial code, operating under AgentXchain's delivery governance, challenge requirements, and phase-gate authority.
+
+This layering would combine MetaGPT's efficient SOP-driven generation with AgentXchain's long-horizon governance and human authority model.
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

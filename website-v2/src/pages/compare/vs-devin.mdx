@@ -1,0 +1,77 @@
+---
+title: AgentXchain vs Devin
+description: "Devin is stronger as an autonomous AI software engineer. AgentXchain is stronger for governed multi-agent software delivery where multiple roles must converge on trustworthy output."
+---
+
+# AgentXchain vs Devin
+
+## The short answer
+
+**Choose Devin** if you want a powerful autonomous AI software engineer that can tackle coding tasks end to end — bug fixes, migrations, refactors, PR reviews — and scale by running parallel Devin instances across large codebases. Devin excels at making a single agent type extremely capable.
+
+**Choose AgentXchain** if you need governed software delivery: chartered roles with different mandates, mandatory cross-role challenge, explicit phase gates, append-only decision history, and constitutional human authority over what advances or ships.
+
+Devin is a very capable AI coding agent. AgentXchain is a delivery governance protocol. Those are different layers of the stack, not substitutes.
+
+## Comparison
+
+| | Devin | AgentXchain |
+|---|---|---|
+| **Primary job** | Autonomous AI software engineer | Governed software delivery protocol |
+| **Agent model** | One agent type, parallelized across tasks | Heterogeneous chartered roles with different mandates |
+| **Scaling model** | Run many Devins in parallel on independent tasks | Multiple roles collaborate through structured turns on shared work |
+| **Governance** | Human reviews PRs that Devin produces | Protocol-enforced phase gates, mandatory challenge, and decision ledger |
+| **Human authority** | Approve or reject Devin's output | Explicit phase-transition and run-completion approvals at the constitutional layer |
+| **Cross-role challenge** | Not applicable (single agent type) | Required — roles must challenge each other structurally |
+| **Learning** | Fine-tunable to specific codebases; learns from past sessions | Protocol-level decision history; no model fine-tuning |
+| **Best fit** | High-volume autonomous coding tasks | Auditable convergence on shippable software across roles |
+
+## Choose Devin when
+
+- You want a capable autonomous coding agent that can handle complex multi-step tasks end to end.
+- You want to scale by running many parallel instances for large migrations, refactors, or codebase-wide changes.
+- You want deep integrations with Slack, Linear, GitHub, and Datadog for seamless team workflows.
+- You want an agent that fine-tunes to your codebase and improves over time from past sessions.
+- Your problem is "make one very capable agent do more coding work faster."
+
+## Choose AgentXchain when
+
+- Multiple roles must challenge each other structurally — PM vs Dev vs QA vs Security — not operate as clones of the same agent.
+- Human authority must be explicit at planning, phase-transition, and completion boundaries.
+- You need accepted work recorded with objections, evidence, and decision history in the repo.
+- Your problem is not "make one agent faster." Your problem is "make multiple agents converge on trustworthy, governed software delivery."
+
+## A concrete workflow difference
+
+Devin is optimized to make an autonomous agent execute coding tasks. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
+
+```bash
+# Devin framing: deploy autonomous agents on coding tasks
+devin --prompt "migrate the auth module from v2 to v3"
+# Run 10 Devins in parallel for a large migration
+devin --parallel 10 --prompt "update all API clients to the new schema"
+```
+
+```bash
+# AgentXchain framing: govern repository delivery with explicit authority boundaries
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+Devin can absolutely produce high-quality code at scale. What it does not provide is a governed multi-role delivery protocol with mandatory disagreement, append-only delivery ledgers, and constitutional ship gates. Parallel Devins are parallel instances of the same agent — they do not challenge each other, do not enforce phase transitions, and do not produce a governed decision trail.
+
+## Using both together
+
+This is the honest layering:
+
+- Devin as the coding executor: it writes, refactors, and reviews code
+- AgentXchain as the governance layer: it defines who may do what, when work may advance, and what counts as approved delivery
+
+A Devin instance could serve as a connector within an AgentXchain-governed workflow — one of several agents operating under chartered roles with mandatory challenge and explicit human authority at phase boundaries.
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

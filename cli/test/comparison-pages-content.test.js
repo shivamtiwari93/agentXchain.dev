@@ -20,6 +20,11 @@ const pages = {
   langgraph: read('website-v2/src/pages/compare/vs-langgraph.mdx'),
   openai: read('website-v2/src/pages/compare/vs-openai-agents-sdk.mdx'),
   autogen: read('website-v2/src/pages/compare/vs-autogen.mdx'),
+  warp: read('website-v2/src/pages/compare/vs-warp.mdx'),
+  devin: read('website-v2/src/pages/compare/vs-devin.mdx'),
+  metagpt: read('website-v2/src/pages/compare/vs-metagpt.mdx'),
+  codegen: read('website-v2/src/pages/compare/vs-codegen.mdx'),
+  openhands: read('website-v2/src/pages/compare/vs-openhands.mdx'),
 };
 
 const REQUIRED_ROUTES = [
@@ -27,6 +32,11 @@ const REQUIRED_ROUTES = [
   '/compare/vs-langgraph',
   '/compare/vs-openai-agents-sdk',
   '/compare/vs-autogen',
+  '/compare/vs-warp',
+  '/compare/vs-devin',
+  '/compare/vs-metagpt',
+  '/compare/vs-codegen',
+  '/compare/vs-openhands',
 ];
 
 function assertCommonPageContract(page, competitorName) {
@@ -91,6 +101,48 @@ describe('comparison pages content', () => {
     assert.match(pages.autogen, /guardrail/i, 'AG2 page must acknowledge guardrails');
     assert.match(pages.autogen, /A2A|AG-UI/i, 'AG2 page must acknowledge A2A or AG-UI protocol support');
     assert.match(pages.autogen, /[Ss]warm/i, 'AG2 page must acknowledge Swarm-style orchestration');
+  });
+
+  it('keeps the Warp page honest about AI-native terminal framing', () => {
+    assertCommonPageContract(pages.warp, 'Warp');
+    assert.match(pages.warp, /AI-native terminal/i);
+    assert.match(pages.warp, /Warp Drive/i, 'Warp page must mention Warp Drive');
+    assert.match(pages.warp, /Oz/i, 'Warp page must mention Oz CLI');
+    assert.match(pages.warp, /governed software delivery|delivery constitution/i);
+  });
+
+  it('keeps the Devin page honest about autonomous agent framing', () => {
+    assertCommonPageContract(pages.devin, 'Devin');
+    assert.match(pages.devin, /autonomous/i, 'Devin page must acknowledge autonomous agent capability');
+    assert.match(pages.devin, /parallel/i, 'Devin page must acknowledge parallel Devin instances');
+    assert.match(pages.devin, /fine-tun/i, 'Devin page must acknowledge fine-tunability');
+    assert.match(pages.devin, /governed software delivery|delivery governance protocol/i);
+  });
+
+  it('keeps the MetaGPT page honest about SOP-driven multi-agent framing', () => {
+    assertCommonPageContract(pages.metagpt, 'MetaGPT');
+    assert.match(pages.metagpt, /Standard Operating Procedure|SOP/i, 'MetaGPT page must acknowledge SOPs');
+    assert.match(pages.metagpt, /Product Manager|Architect|Engineer/i, 'MetaGPT page must acknowledge role assignments');
+    assert.match(pages.metagpt, /ICLR/i, 'MetaGPT page must acknowledge research backing');
+    assert.match(pages.metagpt, /governed software delivery|delivery protocol/i);
+    assert.match(pages.metagpt, /honest overlap|overlap/i, 'MetaGPT page must honestly acknowledge category overlap');
+  });
+
+  it('keeps the Codegen page honest about enterprise agent platform framing', () => {
+    assertCommonPageContract(pages.codegen, 'Codegen');
+    assert.match(pages.codegen, /managed|SaaS|platform/i, 'Codegen page must acknowledge managed platform model');
+    assert.match(pages.codegen, /sandbox/i, 'Codegen page must acknowledge sandboxed execution');
+    assert.match(pages.codegen, /repository rules|repo rules|agent permissions/i, 'Codegen page must acknowledge repository governance features');
+    assert.match(pages.codegen, /governed software delivery|governance protocol/i);
+  });
+
+  it('keeps the OpenHands page honest about open-source agent platform framing', () => {
+    assertCommonPageContract(pages.openhands, 'OpenHands');
+    assert.match(pages.openhands, /open.source/i, 'OpenHands page must acknowledge open-source nature');
+    assert.match(pages.openhands, /SDK/i, 'OpenHands page must acknowledge SDK');
+    assert.match(pages.openhands, /sandbox/i, 'OpenHands page must acknowledge sandboxed execution');
+    assert.match(pages.openhands, /model.agnostic/i, 'OpenHands page must acknowledge model-agnostic execution');
+    assert.match(pages.openhands, /governed software delivery|governance protocol/i);
   });
 
   it('anchors public comparison claims to the competitive positioning matrix', () => {

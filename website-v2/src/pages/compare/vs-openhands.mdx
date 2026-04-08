@@ -1,0 +1,83 @@
+---
+title: AgentXchain vs OpenHands
+description: "OpenHands is stronger as an open-source agent platform and SDK. AgentXchain is stronger as a governed delivery protocol with structured turns, mandatory challenge, and constitutional human authority."
+---
+
+# AgentXchain vs OpenHands
+
+## The short answer
+
+**Choose OpenHands** if you want an open-source platform and SDK for building, deploying, and orchestrating AI coding agents in sandboxed environments — with model-agnostic execution, micro-agents, and self-hostable infrastructure.
+
+**Choose AgentXchain** if you need governed software delivery: arbitrary chartered roles, mandatory cross-role challenge, explicit phase gates, append-only decision ledger, and constitutional human authority over what advances or ships.
+
+OpenHands is a platform for building and running agents. AgentXchain is a protocol for governing how agents deliver software. OpenHands gives you the execution surface. AgentXchain gives you the governance layer.
+
+## Comparison
+
+| | OpenHands | AgentXchain |
+|---|---|---|
+| **Primary job** | Open-source agent platform and SDK | Governed software delivery protocol |
+| **Agent model** | Build custom agents via SDK; deploy micro-agents | Connector-based: any agent runtime under protocol governance |
+| **Orchestration** | User-built via SDK; can scale to thousands of parallel runs | Protocol-enforced turns with structured challenge and phase gates |
+| **Governance** | Sandboxed runtime, access control, auditability | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Hosting** | Self-hostable, Docker/Kubernetes, air-gapped options | Self-hosted, local-first, open source |
+| **Human authority** | User-configurable within agent behavior | Constitutional authority at planning, phase transitions, and completion |
+| **Cross-role challenge** | Not a built-in concept | Mandatory — roles must challenge each other structurally |
+| **Best fit** | Building and running custom agent workflows | Auditable convergence on shippable software across governed roles |
+
+## Choose OpenHands when
+
+- You want a flexible open-source SDK to build custom agent workflows for vulnerability fixing, code migration, incident triage, or any other task.
+- You want model-agnostic execution — swap models without changing agent logic.
+- You want to scale from one agent to thousands of parallel runs in sandboxed environments.
+- You want to self-host with enterprise-grade security including air-gapped deployment.
+- Your problem is "build and run custom AI coding agents."
+
+## Choose AgentXchain when
+
+- You need governed software delivery, not just agent execution — chartered roles, mandatory challenge, phase gates, and human authority.
+- Multiple roles must challenge each other structurally, not just execute tasks in parallel.
+- You need an append-only decision ledger with objections, evidence, and resolution for every governed turn.
+- Human authority must be explicit at phase boundaries, not delegated to agent behavior configuration.
+- Your problem is not "run agents." Your problem is "govern how agents converge on trustworthy software delivery."
+
+## A concrete workflow difference
+
+OpenHands is optimized to build and run agent workflows. AgentXchain is optimized to govern how multiple roles converge on shippable software.
+
+```python
+# OpenHands framing: build and deploy agents with the SDK
+from openhands import Agent, Sandbox
+
+agent = Agent(model="claude-sonnet-4-6")
+sandbox = Sandbox(docker_image="python:3.12")
+result = agent.run(
+    task="Fix the failing test in src/auth.py",
+    sandbox=sandbox
+)
+```
+
+```bash
+# AgentXchain framing: govern delivery with explicit authority boundaries
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+OpenHands provides powerful sandboxed agent execution with a flexible SDK. What it does not provide is a governance protocol: structured turns with mandatory challenge, phase gates with human authority, and an append-only decision ledger that proves how delivery decisions were made.
+
+## Using both together
+
+This is the natural layering:
+
+- OpenHands for the agent runtime: build, sandbox, and execute coding agents
+- AgentXchain for the governance protocol: define roles, enforce challenge, gate transitions, and govern delivery
+
+OpenHands agents could serve as connectors within an AgentXchain-governed workflow — sandboxed executors operating under constitutional governance. This combines OpenHands' flexible execution with AgentXchain's delivery assurance.
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

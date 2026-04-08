@@ -1,0 +1,78 @@
+---
+title: AgentXchain vs Codegen
+description: "Codegen is stronger as an enterprise code-agent deployment platform. AgentXchain is stronger as an open protocol for governed multi-agent software delivery with constitutional human authority."
+---
+
+# AgentXchain vs Codegen
+
+## The short answer
+
+**Choose Codegen** if you want a managed SaaS platform that deploys code agents to plan, build, and review PRs in sandboxed environments — with repository rules, model routing, and enterprise security built in.
+
+**Choose AgentXchain** if you need an open protocol for governed software delivery: arbitrary chartered roles, mandatory cross-role challenge, explicit phase gates, append-only decision ledger, and constitutional human authority over what advances or ships.
+
+Codegen is a platform for deploying and managing code agents. AgentXchain is a protocol for governing how multiple agents converge on trustworthy delivery. Those are different products solving related but distinct problems.
+
+## Comparison
+
+| | Codegen | AgentXchain |
+|---|---|---|
+| **Primary job** | Managed code-agent deployment platform | Governed software delivery protocol |
+| **Agent model** | Platform-managed agents with smart model routing (Claude, Gemini, custom) | Connector-based: any agent runtime under protocol governance |
+| **Governance** | Repository rules, agent permissions, sandboxed environments | Protocol-enforced turns, objections, phase gates, decision ledger |
+| **Delivery model** | Agents assigned to issues/tickets, deliver PRs for review | Structured turns across multiple chartered roles with mandatory challenge |
+| **Human authority** | PR review and merge | Constitutional authority at planning, phase transitions, and completion |
+| **Cross-role challenge** | Not documented as a protocol requirement | Mandatory — roles must challenge each other structurally |
+| **Hosting model** | Managed SaaS with SOC 2 compliance | Self-hosted, local-first, open source |
+| **Best fit** | Enterprise teams wanting managed agent-driven PRs | Teams needing auditable convergence with protocol-level governance |
+
+## Choose Codegen when
+
+- You want a managed platform where agents create PRs from issues and tickets with minimal setup.
+- You want smart model routing — Claude for reasoning, Gemini for refactoring, custom models for specialized tasks.
+- You want enterprise features: SOC 2 compliance, sandboxed execution, repository rules, and forward-deployed engineering support.
+- You want deep integrations with GitHub, Linear, Jira, Slack, Sentry, and Postgres out of the box.
+- Your problem is "deploy and manage code agents at enterprise scale."
+
+## Choose AgentXchain when
+
+- You need arbitrary chartered roles, not just "code agents" — PM, QA, Security, Release Manager, or any other charter.
+- Multiple roles must challenge each other structurally, not just deliver PRs independently.
+- Human authority must be explicit at phase boundaries, not only at PR review.
+- You want an open protocol you can self-host and extend, not a managed SaaS dependency.
+- Your problem is not "deploy agents that write code." Your problem is "govern how multiple agents converge on trustworthy software delivery."
+
+## A concrete workflow difference
+
+Codegen is optimized to deploy agents that deliver code. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
+
+```bash
+# Codegen framing: deploy code agents via issues and chat
+# Agent picks up a Linear/Jira issue, plans, builds, and delivers a PR
+codegen deploy --repo my-org/my-repo
+codegen assign --issue PROJ-123
+```
+
+```bash
+# AgentXchain framing: govern delivery with explicit authority boundaries
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+Codegen can deliver high-quality PRs at scale with enterprise security. What it does not document as a product is an open governance protocol with mandatory cross-role challenge, append-only decision ledgers, constitutional human authority at phase boundaries, and self-hosted local-first execution.
+
+## Using both together
+
+This is a plausible layering:
+
+- Codegen for the execution surface: deploy code agents that write, refactor, and review code in sandboxed environments
+- AgentXchain for the governance layer: define who may do what, enforce phase transitions, require challenge, and govern what counts as approved delivery
+
+Codegen's agents could operate as connectors within an AgentXchain-governed workflow — powerful executors operating under protocol-level governance.
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

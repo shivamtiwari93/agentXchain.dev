@@ -92,6 +92,10 @@ const config: Config = {
           label: 'Compare',
           position: 'left',
           items: [
+            {to: '/compare/vs-devin', label: 'vs Devin'},
+            {to: '/compare/vs-metagpt', label: 'vs MetaGPT'},
+            {to: '/compare/vs-codegen', label: 'vs Codegen'},
+            {to: '/compare/vs-openhands', label: 'vs OpenHands'},
             {to: '/compare/vs-warp', label: 'vs Warp.dev'},
             {to: '/compare/vs-crewai', label: 'vs CrewAI'},
             {to: '/compare/vs-langgraph', label: 'vs LangGraph'},
@@ -137,6 +141,10 @@ const config: Config = {
         {
           title: 'Product',
           items: [
+            {label: 'vs Devin', to: '/compare/vs-devin'},
+            {label: 'vs MetaGPT', to: '/compare/vs-metagpt'},
+            {label: 'vs Codegen', to: '/compare/vs-codegen'},
+            {label: 'vs OpenHands', to: '/compare/vs-openhands'},
             {label: 'vs Warp.dev', to: '/compare/vs-warp'},
             {label: 'Why AgentXchain', to: '/why'},
             {label: 'vs CrewAI', to: '/compare/vs-crewai'},

@@ -636,6 +636,10 @@ function Comparison() {
           </table>
         </div>
         <div className="cta-row" style={{ justifyContent: 'flex-start', marginTop: '1.5rem' }}>
+          <Link className="btn-secondary" to="/compare/vs-devin">vs Devin</Link>
+          <Link className="btn-secondary" to="/compare/vs-metagpt">vs MetaGPT</Link>
+          <Link className="btn-secondary" to="/compare/vs-codegen">vs Codegen</Link>
+          <Link className="btn-secondary" to="/compare/vs-openhands">vs OpenHands</Link>
           <Link className="btn-secondary" to="/compare/vs-warp">vs Warp.dev</Link>
           <Link className="btn-secondary" to="/compare/vs-crewai">vs CrewAI</Link>
           <Link className="btn-secondary" to="/compare/vs-langgraph">vs LangGraph</Link>
