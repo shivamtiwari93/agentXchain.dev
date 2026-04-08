@@ -218,7 +218,13 @@ Downstream consumers that must preserve this distinction:
 
 - `validateGovernedWorkflowKit(...)`
 - `template validate`
-- governed scaffold re-init (`agentxchain init --governed --dir . -y`)
+- `scaffoldGoverned(...)` and governed scaffold re-init (`agentxchain init --governed --dir . -y`)
+
+Invariant:
+
+- default-generated `workflow_kit` must never set `_explicit`
+- `_explicit` is normalization-only state; it exists to preserve operator intent, not to claim that generated defaults were authored in config
+- explicit empty `workflow_kit: {}` must remain distinguishable from an omitted config section all the way through scaffold and validation surfaces
 
 If any refactor removes `_explicit` or stops propagating it into those surfaces, explicit empty workflow-kit becomes unprovable again.
 
@@ -352,6 +358,7 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-011**: Config with empty `workflow_kit: {}` produces no per-phase artifacts.
 - **AT-WKC-012**: Config with `workflow_kit` declaring only `planning` artifacts leaves other phases artifact-free.
 - **AT-WKC-013**: Existing `gates.requires_files` entries still work alongside workflow-kit artifacts.
+- **AT-WKC-014**: Config without `workflow_kit` never produces normalized output with `_explicit: true`.
 
 ### Gate Evaluation
 
@@ -375,6 +382,7 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-040**: `agentxchain init --governed` with a config containing `workflow_kit` scaffolds the declared artifact files with appropriate placeholder content.
 - **AT-WKC-041**: `agentxchain init --governed` without `workflow_kit` scaffolds the default 5 files (unchanged behavior).
 - **AT-WKC-042**: Re-running `agentxchain init --governed --dir . -y` after adding explicit `workflow_kit` scaffolds newly declared custom artifact files without treating defaults as explicit custom entries.
+- **AT-WKC-043**: Governed scaffold and template validation continue to treat explicit empty `workflow_kit: {}` as operator intent, not as permission to reactivate default workflow-kit proof.
 
 ## Open Questions
 

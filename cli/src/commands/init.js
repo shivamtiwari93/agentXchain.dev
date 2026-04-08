@@ -142,7 +142,7 @@ const GOVERNED_GATES = {
   }
 };
 
-function buildGovernedPrompt(roleId, role) {
+function buildGovernedPrompt(roleId, role, scaffoldContext = {}) {
   const rolePrompts = {
     pm: buildPmPrompt,
     dev: buildDevPrompt,
@@ -154,7 +154,7 @@ function buildGovernedPrompt(roleId, role) {
   if (builder) return builder(role);
 
   // Fallback for custom roles
-  return buildGenericPrompt(roleId, role);
+  return buildGenericPrompt(roleId, role, scaffoldContext);
 }
 
 function buildPmPrompt(role) {
@@ -351,7 +351,51 @@ If you cannot resolve the deadlock:
 `;
 }
 
-function buildGenericPrompt(roleId, role) {
+function summarizeRoleWorkflow(roleId, scaffoldContext = {}) {
+  const routing = scaffoldContext.routing || {};
+  const gates = scaffoldContext.gates || {};
+  const workflowKitConfig = scaffoldContext.workflowKitConfig || {};
+  const ownedPhases = Object.entries(routing)
+    .filter(([, route]) => route?.entry_role === roleId)
+    .map(([phaseName]) => phaseName);
+  const gateLines = [];
+  const artifactLines = [];
+
+  for (const phaseName of ownedPhases) {
+    const exitGate = routing[phaseName]?.exit_gate;
+    if (exitGate) {
+      gateLines.push(`- ${phaseName}: ${exitGate}`);
+    }
+
+    const workflowArtifacts = Array.isArray(workflowKitConfig?.phases?.[phaseName]?.artifacts)
+      ? workflowKitConfig.phases[phaseName].artifacts
+        .map((artifact) => artifact?.path)
+        .filter(Boolean)
+      : [];
+    const gateArtifacts = Array.isArray(gates?.[exitGate]?.requires_files)
+      ? gates[exitGate].requires_files.filter(Boolean)
+      : [];
+    const ownedArtifacts = [...new Set([...workflowArtifacts, ...gateArtifacts])];
+    if (ownedArtifacts.length > 0) {
+      artifactLines.push(`- ${phaseName}: ${ownedArtifacts.join(', ')}`);
+    }
+  }
+
+  return { ownedPhases, gateLines, artifactLines };
+}
+
+function buildGenericPrompt(roleId, role, scaffoldContext = {}) {
+  const workflowSummary = summarizeRoleWorkflow(roleId, scaffoldContext);
+  const primaryPhasesSection = workflowSummary.ownedPhases.length > 0
+    ? `\n## Primary Phases\n\n- ${workflowSummary.ownedPhases.join(', ')}\n`
+    : '';
+  const phaseGatesSection = workflowSummary.gateLines.length > 0
+    ? `\n## Phase Gates\n\n${workflowSummary.gateLines.join('\n')}\n`
+    : '';
+  const workflowArtifactsSection = workflowSummary.artifactLines.length > 0
+    ? `\n## Workflow Artifacts You Own\n\n${workflowSummary.artifactLines.join('\n')}\n`
+    : '';
+
   return `# ${role.title} — Role Prompt
 
 You are the **${role.title}** on this project.
@@ -371,7 +415,7 @@ ${role.write_authority === 'authoritative'
     ? 'You may modify product files directly.'
     : role.write_authority === 'proposed'
       ? 'You may propose changes via patches.'
-      : 'You may NOT modify product files. Only create review artifacts under `.planning/` and `.agentxchain/reviews/`.'}
+      : 'You may NOT modify product files. Only create review artifacts under `.planning/` and `.agentxchain/reviews/`.'}${primaryPhasesSection}${phaseGatesSection}${workflowArtifactsSection}
 `;
 }
 
@@ -498,6 +542,49 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
   };
 }
 
+function buildPlanningSummaryLines(template, workflowKitConfig) {
+  const lines = [
+    'PM_SIGNOFF.md / ROADMAP.md / SYSTEM_SPEC.md',
+    'acceptance-matrix.md / ship-verdict.md',
+    'RELEASE_NOTES.md',
+  ];
+  const templatePlanningFiles = Array.isArray(template?.planning_artifacts)
+    ? template.planning_artifacts
+      .map((artifact) => artifact?.filename)
+      .filter(Boolean)
+    : [];
+  const defaultScaffoldPaths = new Set([
+    '.planning/PM_SIGNOFF.md',
+    '.planning/ROADMAP.md',
+    '.planning/SYSTEM_SPEC.md',
+    '.planning/IMPLEMENTATION_NOTES.md',
+    '.planning/acceptance-matrix.md',
+    '.planning/ship-verdict.md',
+    '.planning/RELEASE_NOTES.md',
+  ]);
+  const customWorkflowFiles = [];
+
+  if (workflowKitConfig?.phases && typeof workflowKitConfig.phases === 'object') {
+    for (const phaseConfig of Object.values(workflowKitConfig.phases)) {
+      if (!Array.isArray(phaseConfig?.artifacts)) continue;
+      for (const artifact of phaseConfig.artifacts) {
+        if (!artifact?.path || defaultScaffoldPaths.has(artifact.path)) continue;
+        customWorkflowFiles.push(basename(artifact.path));
+      }
+    }
+  }
+
+  if (templatePlanningFiles.length > 0) {
+    lines.push(`template: ${templatePlanningFiles.join(' / ')}`);
+  }
+  const uniqueCustomWorkflowFiles = [...new Set(customWorkflowFiles)];
+  if (uniqueCustomWorkflowFiles.length > 0) {
+    lines.push(`workflow: ${uniqueCustomWorkflowFiles.join(' / ')}`);
+  }
+
+  return lines;
+}
+
 export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}, workflowKitConfig = null) {
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
@@ -581,7 +668,11 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
   // Prompt templates
   for (const [roleId, role] of Object.entries(roles)) {
-    const basePrompt = buildGovernedPrompt(roleId, role);
+    const basePrompt = buildGovernedPrompt(roleId, role, {
+      routing,
+      gates,
+      workflowKitConfig: effectiveWorkflowKitConfig,
+    });
     const prompt = appendPromptOverride(basePrompt, template.prompt_overrides?.[roleId]);
     writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), prompt);
   }
@@ -768,9 +859,11 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} reviews/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} PM_SIGNOFF.md / ROADMAP.md / SYSTEM_SPEC.md`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} acceptance-matrix.md / ship-verdict.md`);
-  console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} RELEASE_NOTES.md`);
+  const planningSummaryLines = buildPlanningSummaryLines(selectedTemplate, config.workflow_kit);
+  for (const [index, line] of planningSummaryLines.entries()) {
+    const branch = index === planningSummaryLines.length - 1 ? '└──' : '├──';
+    console.log(`    ${chalk.dim('│')}    ${chalk.dim(branch)} ${line}`);
+  }
   console.log(`    ${chalk.dim('└──')} TALK.md`);
   console.log('');
   console.log(`  ${chalk.dim('Roles:')} ${promptRoleIds.join(', ')}`);

@@ -419,6 +419,8 @@ describe('governed CLI support', () => {
       assert.match(result.stdout, /Template:\s+enterprise-app/);
       assert.match(result.stdout, /Roles:\s+pm, architect, dev, security_reviewer, qa, eng_director/);
       assert.match(result.stdout, /Phases:.*planning.*architecture.*implementation.*security_review.*qa/);
+      assert.match(result.stdout, /template: integration-boundaries\.md \/ data-classification\.md \/ risk-register\.md/);
+      assert.match(result.stdout, /workflow: ARCHITECTURE\.md \/ SECURITY_REVIEW\.md/);
 
       const config = JSON.parse(readFileSync(join(projectDir, 'agentxchain.json'), 'utf8'));
       assert.equal(config.template, 'enterprise-app');
@@ -435,6 +437,22 @@ describe('governed CLI support', () => {
       assert.ok(existsSync(join(projectDir, '.agentxchain', 'prompts', 'security_reviewer.md')));
       assert.ok(existsSync(join(projectDir, '.planning', 'ARCHITECTURE.md')));
       assert.ok(existsSync(join(projectDir, '.planning', 'SECURITY_REVIEW.md')));
+
+      const architectPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'architect.md'), 'utf8');
+      assert.match(architectPrompt, /## Primary Phases/);
+      assert.match(architectPrompt, /- architecture/);
+      assert.match(architectPrompt, /## Phase Gates/);
+      assert.match(architectPrompt, /architecture_review/);
+      assert.match(architectPrompt, /## Workflow Artifacts You Own/);
+      assert.match(architectPrompt, /\.planning\/ARCHITECTURE\.md/);
+
+      const securityPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'security_reviewer.md'), 'utf8');
+      assert.match(securityPrompt, /## Primary Phases/);
+      assert.match(securityPrompt, /- security_review/);
+      assert.match(securityPrompt, /## Phase Gates/);
+      assert.match(securityPrompt, /security_review_signoff/);
+      assert.match(securityPrompt, /## Workflow Artifacts You Own/);
+      assert.match(securityPrompt, /\.planning\/SECURITY_REVIEW\.md/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

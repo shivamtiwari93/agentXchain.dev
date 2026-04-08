@@ -88,6 +88,42 @@ describe('template validate command', () => {
     }
   });
 
+  it('AT-TEMPLATE-VALIDATE-002B: enterprise-app validates its custom workflow-kit scaffold', () => {
+    const { tempRoot, projectDir } = initGovernedProject('enterprise-app');
+    try {
+      const result = runCli(projectDir, ['template', 'validate', '--json']);
+      assert.equal(result.status, 0, result.stderr);
+
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.project.template, 'enterprise-app');
+      assert.deepEqual(
+        payload.workflow_kit.present,
+        [
+          '.planning/PM_SIGNOFF.md',
+          '.planning/SYSTEM_SPEC.md',
+          '.planning/ROADMAP.md',
+          '.planning/ARCHITECTURE.md',
+          '.planning/IMPLEMENTATION_NOTES.md',
+          '.planning/SECURITY_REVIEW.md',
+          '.planning/acceptance-matrix.md',
+          '.planning/ship-verdict.md',
+          '.planning/RELEASE_NOTES.md',
+        ],
+      );
+      assert.ok(
+        payload.workflow_kit.structural_checks.some((check) => check.file === '.planning/ARCHITECTURE.md' && check.ok),
+        'enterprise-app template validate must prove ARCHITECTURE.md checks',
+      );
+      assert.ok(
+        payload.workflow_kit.structural_checks.some((check) => check.file === '.planning/SECURITY_REVIEW.md' && check.ok),
+        'enterprise-app template validate must prove SECURITY_REVIEW.md checks',
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('AT-TEMPLATE-VALIDATE-003: treats a missing template field as implicit generic', () => {
     const { tempRoot, projectDir } = initGovernedProject('generic');
     try {
