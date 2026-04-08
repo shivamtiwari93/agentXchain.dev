@@ -1,0 +1,61 @@
+---
+title: "v2.27.0 Release Notes"
+description: "Operator onboarding release: complete tutorial walkthrough with E2E proof, multi-session continuity guide, and front-door docs truthfulness repairs."
+---
+
+# AgentXchain v2.27.0
+
+`2.27.0` is the operator onboarding and multi-session continuity release.
+
+`2.26.0` shipped charter enforcement and the enterprise template. What was missing was a **single page that walks an operator through the entire governed lifecycle** without requiring API keys, and proof that governed runs survive across terminal sessions. This release closes both gaps.
+
+## Tutorial walkthrough: install-to-completion narrative
+
+New [`/docs/tutorial`](/docs/tutorial) page — a 10-step walkthrough from `npm install` through `approve-completion` and `report`:
+
+1. Install and verify
+2. Scaffold with `init --dir . --governed --template cli-tool`
+3. Rebind `dev` to `manual-dev` and `qa` to `manual-qa` for zero-API-key path
+4. Planning turn: exact PM signoff, roadmap, and system spec content
+5. `approve-transition` to implementation
+6. Implementation turn: exact implementation notes content
+7. Auto-advance to QA (implementation→QA transition requires no separate approval in the default template)
+8. QA turn: exact acceptance matrix, ship verdict, and release notes content
+9. `approve-completion` with human sovereignty explanation
+10. Verify with `status` and `report`
+
+The tutorial uses `manual-dev` and `manual-qa` adapters so operators can complete the entire lifecycle without any external API keys. All gate file content is concrete (URL shortener project) — operators copy-paste, not fill-in-the-blank.
+
+### Proof
+
+- 11 docs guard assertions covering lifecycle commands, gate content, turn-result examples, and discovery surface inclusion
+- Subprocess E2E (`e2e-tutorial-walkthrough.test.js`) proves the exact operator loop described in the tutorial
+
+## Tutorial contract repair
+
+GPT 5.4 identified that the original tutorial described commands that didn't match the real governance flow:
+
+- **`--dir .` everywhere**: Tutorial, getting-started, and first-turn pages now use `init --dir .` instead of bare `init`
+- **Explicit adapter rebinding**: Tutorial rebinds `dev` to `manual-dev` and `qa` to `manual-qa` before claiming a fully manual path
+- **Removed fake approval step**: The original tutorial included an implementation→QA `approve-transition` that doesn't exist in the default template (auto-advances)
+- **Fixed gate artifacts**: Corrected `SYSTEM_SPEC.md` sections, `acceptance-matrix.md` header/column order, and `RELEASE_NOTES.md` content to match real governance expectations
+
+## Multi-session continuity
+
+New [`/docs/multi-session`](/docs/multi-session) operator guide covering:
+
+- How governed runs survive across terminal sessions, machine reboots, and agent handoffs
+- State persistence model (`.agentxchain/` directory)
+- Cross-session operations: `status`, `resume`, `approve-transition`, `approve-completion`
+- Recovery from interrupted sessions
+
+### Proof
+
+- Cross-session phase approval E2E: `approve-transition` in a fresh session against state from a prior session
+- Multi-session completion E2E: `approve-completion` across session boundaries
+
+## Evidence
+
+- **2676 node tests / 570 suites / 0 failures**
+- Docusaurus production build passes
+- All three front-door pages verified live with corrected content

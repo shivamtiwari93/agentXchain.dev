@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.27.0
+
+`2.27.0` is the operator onboarding and multi-session continuity release.
+
+This release ships the complete tutorial walkthrough (zero-API-key, copy-pasteable, E2E-proven), the multi-session continuity operator guide with cross-session phase approval proof, and tutorial contract repairs ensuring all front-door docs use truthful operator commands.
+
+### Tutorial walkthrough: install-to-completion narrative
+
+- New `docs/tutorial` page: 10-step walkthrough from `npm install` through `approve-completion` and `report`.
+- Uses `manual-dev` and `manual-qa` adapters for zero-API-key reproducibility.
+- Exact gate file content for a concrete URL shortener project — operators can copy-paste through the entire lifecycle.
+- 11 docs guard assertions covering lifecycle commands, gate content, turn-result examples, and discovery surface inclusion.
+
+### Tutorial contract repair
+
+- Tutorial, getting-started, and first-turn pages now use `init --dir .` (not bare `init`).
+- Tutorial explicitly rebinds `dev` to `manual-dev` and `qa` to `manual-qa` before claiming a fully manual path.
+- Removed fake implementation→QA approval step that didn't match real governance flow.
+- New subprocess E2E (`e2e-tutorial-walkthrough.test.js`) proves the exact operator loop described in the tutorial.
+
+### Multi-session continuity
+
+- New `docs/multi-session` operator guide: how governed runs survive across terminal sessions, machine reboots, and agent handoffs.
+- Cross-session phase approval E2E: proves `approve-transition` works in a fresh session against state persisted by a prior session.
+- Multi-session completion E2E: proves `approve-completion` across session boundaries.
+
+### Evidence
+
+- 2676 node tests / 570 suites / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.26.0
 
 `2.26.0` is the charter enforcement and enterprise template release.
