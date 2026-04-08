@@ -174,7 +174,7 @@ New function: `normalizeWorkflowKit(raw, routingPhases)`
  * Normalize the workflow_kit config section.
  * @param {object|undefined} raw - raw workflow_kit from config JSON
  * @param {string[]} routingPhases - derived phase names from routing (or defaults)
- * @returns {{ phases: Record<string, { artifacts: NormalizedArtifact[] }> }}
+ * @returns {{ phases: Record<string, { artifacts: NormalizedArtifact[] }>, _explicit?: true }}
  */
 export function normalizeWorkflowKit(raw, routingPhases) {
   if (!raw) {
@@ -198,6 +198,21 @@ export function normalizeWorkflowKit(raw, routingPhases) {
 9. `required` defaults to `true` when absent.
 10. Duplicate `path` values within the same phase are rejected.
 11. Cross-phase duplicate paths are allowed (same file can serve multiple phases).
+
+### Explicit-vs-default marker
+
+`normalizeWorkflowKit()` must preserve whether the operator declared `workflow_kit` at all:
+
+- when `workflow_kit` is absent, normalized output is the derived default map and omits `_explicit`
+- when `workflow_kit` is present, normalized output sets `_explicit: true`
+- `workflow_kit: {}` is therefore distinguishable from an absent config section
+
+This marker is not decorative. `template validate` and governed scaffold re-init use it to distinguish:
+
+- operator-declared workflow-kit contract
+- normalization-generated defaults
+
+Without that distinction, an explicit opt-out (`workflow_kit: {}`) can silently reactivate the default scaffold proof surface, which would be a contract lie.
 
 ### Integration Point
 
@@ -278,9 +293,11 @@ function evaluateSectionCheck(content, config) {
 
 `template validate --json` workflow_kit block changes:
 
-1. `required_files` is now the union of core scaffold files (from `workflow_kit.phases`) plus gate `requires_files`.
-2. `structural_checks` is generated from the `semantics` declarations in the workflow_kit config, not hardcoded.
-3. For custom phases, structural checks use the artifact's `semantics` and `semantics_config` to generate check descriptions.
+1. If `workflow_kit` is absent, `required_files` and `structural_checks` use the built-in governed scaffold contract.
+2. If `workflow_kit` is explicit, `required_files` is the union of declared required artifact paths plus gate `requires_files`.
+3. If `workflow_kit` is explicit, `structural_checks` are generated from the `semantics` declarations in the config, not from the hardcoded default table.
+4. `workflow_kit: {}` is an explicit opt-out: `template validate` must not silently fall back to the default scaffold proof surface.
+5. For custom phases, structural checks use the artifact's `semantics` and `semantics_config` to generate check descriptions.
 
 ## Backward Compatibility Rules
 
@@ -343,11 +360,13 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-030**: `template validate --json` with explicit `workflow_kit` reflects declared artifacts in `workflow_kit.required_files`.
 - **AT-WKC-031**: `template validate --json` with explicit `workflow_kit` generates `structural_checks` from `semantics` declarations.
 - **AT-WKC-032**: `template validate --json` without `workflow_kit` produces identical output to today.
+- **AT-WKC-032b**: `template validate --json` with explicit empty `workflow_kit: {}` produces no default workflow-kit required files or structural checks.
 
 ### Scaffold (governed init)
 
 - **AT-WKC-040**: `agentxchain init --governed` with a config containing `workflow_kit` scaffolds the declared artifact files with appropriate placeholder content.
 - **AT-WKC-041**: `agentxchain init --governed` without `workflow_kit` scaffolds the default 5 files (unchanged behavior).
+- **AT-WKC-042**: Re-running `agentxchain init --governed --dir . -y` after adding explicit `workflow_kit` scaffolds newly declared custom artifact files without treating defaults as explicit custom entries.
 
 ## Open Questions
 

@@ -461,6 +461,19 @@ describe('validateGovernedWorkflowKit — template validate integration', () => 
     assert.ok(resultNoWk.structural_checks.length > 0, 'should have hardcoded structural checks');
   });
 
+  it('AT-WKC-032b: explicit empty workflow_kit opts out of default scaffold proof', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    mkdirSync(join(tmp, '.planning'), { recursive: true });
+
+    const result = validateGovernedWorkflowKit(tmp, {
+      workflow_kit: { _explicit: true, phases: {} },
+    });
+
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+    assert.deepEqual(result.required_files, [], 'explicit empty workflow_kit should not reintroduce default files');
+    assert.deepEqual(result.structural_checks, [], 'explicit empty workflow_kit should not run default structural checks');
+  });
+
   it('structural_checks for built-in semantics like pm_signoff in explicit workflow_kit', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
     mkdirSync(join(tmp, '.planning'), { recursive: true });

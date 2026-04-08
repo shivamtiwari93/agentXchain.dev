@@ -462,7 +462,8 @@ export function validateGovernedWorkflowKit(root, config = {}) {
     }
   }
 
-  const hasExplicitWorkflowKit = wk && wk._explicit === true && Object.keys(wk.phases || {}).length > 0;
+  const hasExplicitWorkflowKit = wk && wk._explicit === true;
+  const hasExplicitWorkflowKitArtifacts = hasExplicitWorkflowKit && Object.keys(wk.phases || {}).length > 0;
   const baseFiles = hasExplicitWorkflowKit ? wkArtifactPaths : GOVERNED_WORKFLOW_KIT_BASE_FILES;
   const requiredFiles = uniqueStrings([...baseFiles, ...gateRequiredFiles]);
   const present = [];

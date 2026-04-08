@@ -213,4 +213,24 @@ describe('Templates docs surface', () => {
       assert.ok(CLI_DOC_SOURCE.includes(term), `cli docs must mention ${term}`);
     }
   });
+
+  it('documents explicit workflow_kit custom artifact proof honestly', () => {
+    for (const term of [
+      'Explicit `workflow_kit` for custom phases',
+      'section_check',
+      'required_sections',
+      'agentxchain init --governed --dir . -y',
+      'workflow_kit: {}',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
+    }
+
+    for (const term of [
+      'explicit `workflow_kit`',
+      'operator-declared artifact proof',
+      'workflow_kit: {}',
+    ]) {
+      assert.ok(TEMPLATES_SPEC.includes(term), `templates spec must mention ${term}`);
+    }
+  });
 });

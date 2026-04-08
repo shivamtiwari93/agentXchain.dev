@@ -138,7 +138,7 @@ The adapter must write a valid turn result to `.agentxchain/staging/<turn_id>/tu
 
 **Required fields:** All fields shown above are required. The `objections` array is required and must be a valid array. For `review_only` roles, the protocol enforces a challenge requirement: at least one objection must be raised. Other roles may submit an empty objections array.
 
-Custom phases are operator-defined, not scaffold-generated. If you extend `routing` with phases like `design` or `security_review`, you must also define their gate files in `gates`, and `phase_transition_request` may only target the immediate next declared phase.
+Custom phases are operator-defined, not scaffold-generated. If you extend `routing` with phases like `design` or `security_review`, you must also define their gate files in `gates`, and `phase_transition_request` may only target the immediate next declared phase. If you want those phases to have scaffolded docs or structural validation, declare `workflow_kit` explicitly in `agentxchain.json`; otherwise custom phases rely on `requires_files` alone and do not inherit the built-in `planning` / `implementation` / `qa` workflow artifacts.
 
 ## manual adapter
 

@@ -28,6 +28,11 @@ Add a copy-paste getting-started guide that bridges the gap between `npx agentxc
   - the default scaffold is mixed-mode (`manual-pm`, `local-dev`, `api-qa`)
   - QA on the shipped default requires `ANTHROPIC_API_KEY` unless the operator changes `roles.qa.runtime` from `api-qa` to `manual-qa`
 - Link deeper artifact detail to `/docs/first-turn`
+- Explain the custom-phase workflow boundary:
+  - `routing` controls phase order
+  - `gates.requires_files` controls blocking files
+  - explicit `workflow_kit` controls custom-phase artifact scaffolding and structural validation
+  - `agentxchain init --governed --dir . -y` plus `agentxchain template validate` is the operator path after adding explicit `workflow_kit`
 - Manual adapter instructions must point at the new getting-started guide, not only the narrower first-turn page
 
 ## Error Cases
@@ -43,6 +48,7 @@ Add a copy-paste getting-started guide that bridges the gap between `npx agentxc
 3. The page states the default runtime bindings, the `ANTHROPIC_API_KEY` requirement for default QA, and the built-in `manual-qa` fallback.
 4. The page links to `/docs/first-turn` for artifact-level detail.
 5. Manual adapter output includes gate hints, a turn-result example, a suggested next role, and the new `/docs/getting-started` link.
+6. The page documents explicit `workflow_kit` for custom phases and the re-init plus `template validate` operator path.
 
 ## Open Questions
 

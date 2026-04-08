@@ -57,6 +57,17 @@ describe('getting-started tutorial docs', () => {
     assert.ok(content.includes('/docs/adapters'), 'getting-started must link to adapters for full custom-phase contract');
   });
 
+  it('documents explicit workflow_kit for custom-phase artifacts', () => {
+    assert.ok(content.includes('workflow_kit'), 'getting-started must mention workflow_kit');
+    assert.ok(content.includes('section_check'), 'getting-started must show a real workflow_kit semantics example');
+    assert.ok(content.includes('agentxchain init --governed --dir . -y'),
+      'getting-started must document the in-place re-init path for explicit workflow_kit');
+    assert.ok(content.includes('agentxchain template validate'),
+      'getting-started must document template validate after adding workflow_kit');
+    assert.ok(content.includes('workflow_kit: {}'),
+      'getting-started must document the explicit empty opt-out boundary');
+  });
+
   it('links back to first-turn for artifact detail and is surfaced from front-door pages', () => {
     assert.ok(content.includes('/docs/first-turn'), 'getting-started must link to first-turn');
     assert.ok(quickstart.includes('/docs/getting-started'), 'quickstart must link to getting-started');
@@ -72,5 +83,7 @@ describe('getting-started tutorial spec', () => {
     assert.ok(spec.includes('## Acceptance Tests'));
     assert.ok(spec.includes('ANTHROPIC_API_KEY'));
     assert.ok(spec.includes('manual-qa'));
+    assert.ok(spec.includes('workflow_kit'));
+    assert.ok(spec.includes('template validate'));
   });
 });

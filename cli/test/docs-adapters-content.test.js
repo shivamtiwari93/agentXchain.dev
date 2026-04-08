@@ -384,6 +384,15 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('custom phase workflow-kit boundary', () => {
+    it('docs explain that custom phases need explicit workflow_kit for scaffolded artifacts', () => {
+      assert.match(adapterDocs, /workflow_kit/,
+        'adapters.mdx must mention workflow_kit for custom-phase artifact contracts');
+      assert.match(adapterDocs, /requires_files alone|do not inherit the built-in/i,
+        'adapters.mdx must explain the boundary between gate files and workflow-kit scaffold truth');
+    });
+  });
+
   describe('config format truth', () => {
     it('manual adapter config uses runtime/runtimes format, not adapter/adapter_config', () => {
       // The manual config section should show role.runtime referencing runtimes.<id>

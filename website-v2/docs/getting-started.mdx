@@ -163,6 +163,48 @@ If your workflow needs additional phases (e.g., `design`, `security_review`, `st
 
 Phase order is derived from the declaration order in `routing`. Transitions can only target the immediate next declared phase — no skipping. You must also add matching gate entries in `gates` for any custom phase. See [Adapters](/docs/adapters) for the full custom-phase contract.
 
+## Add workflow artifacts for custom phases
+
+Changing `routing` gives you phase order. Changing `gates` tells the orchestrator which files block a transition. Neither one tells AgentXchain what to scaffold or structurally validate for a new phase.
+
+If you want a custom phase to own real workflow docs, declare `workflow_kit` explicitly in `agentxchain.json`:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "design": {
+        "artifacts": [
+          {
+            "path": ".planning/DESIGN_DOC.md",
+            "semantics": "section_check",
+            "semantics_config": {
+              "required_sections": ["## Architecture", "## Interfaces", "## Trade-offs"]
+            },
+            "required": true
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Important boundaries:
+
+- If `workflow_kit` is absent, the built-in workflow artifact contract stays limited to `planning`, `implementation`, and `qa`.
+- Custom phases without explicit `workflow_kit` entries can still gate on `requires_files`, but they do not get scaffolded files or structural checks from `template validate`.
+- `workflow_kit: {}` is an explicit opt-out. That disables per-phase workflow artifacts instead of silently falling back to the default scaffold contract.
+
+After adding `workflow_kit` to an existing repo, re-run init in place so missing declared files are scaffolded:
+
+```bash
+agentxchain init --governed --dir . -y
+agentxchain template validate
+```
+
+That proves scaffold/config agreement only. It does not mean the phase gate is ready to pass. The files still need real content that satisfies their runtime semantics.
+
 ## What to read next
 
 - [Your First Governed Turn](/docs/first-turn) for artifact-level detail
