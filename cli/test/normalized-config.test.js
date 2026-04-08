@@ -915,3 +915,107 @@ describe('validateV4Config — api_proxy validation', () => {
     assert.ok(result.errors.some(e => e.includes('base_url must use http or https')));
   });
 });
+
+// --- Custom Phases ---
+
+describe('custom phases', () => {
+  it('AT-CP-001: accepts custom phases declared in routing', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'r1' },
+        arch: { title: 'Architect', mandate: 'Design', write_authority: 'authoritative', runtime: 'r1' },
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' },
+        qa: { title: 'QA', mandate: 'Test', write_authority: 'review_only', runtime: 'r1' },
+      },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'pm' },
+        design: { entry_role: 'arch' },
+        implementation: { entry_role: 'dev' },
+        qa: { entry_role: 'qa' },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-CP-002: accepts a two-phase config without qa', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'r1' },
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' },
+      },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'pm' },
+        implementation: { entry_role: 'dev' },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-CP-007: existing 3-phase config continues to work', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'dev' },
+        implementation: { entry_role: 'dev' },
+        qa: { entry_role: 'dev' },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects phase names with invalid characters', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'dev' },
+        'Security Review': { entry_role: 'dev' },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('Security Review') && e.includes('lowercase')));
+  });
+
+  it('rejects phase names starting with a number', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' } },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        '1planning': { entry_role: 'dev' },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('1planning') && e.includes('lowercase')));
+  });
+
+  it('accepts custom phases with hyphens and underscores', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' },
+        sec: { title: 'Security', mandate: 'Review', write_authority: 'review_only', runtime: 'r1' },
+      },
+      runtimes: { r1: { type: 'manual' } },
+      routing: {
+        planning: { entry_role: 'dev' },
+        security_review: { entry_role: 'sec' },
+        'post-implementation': { entry_role: 'dev' },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+});

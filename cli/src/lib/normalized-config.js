@@ -21,7 +21,8 @@ const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp'];
 const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
-const VALID_PHASES = ['planning', 'implementation', 'qa'];
+const DEFAULT_PHASES = ['planning', 'implementation', 'qa'];
+const VALID_PHASE_NAME = /^[a-z][a-z0-9_-]*$/;
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
 const VALID_API_PROXY_RETRY_CLASSES = [
   'rate_limited',
@@ -400,10 +401,11 @@ export function validateV4Config(data, projectRoot) {
   }
 
   // Routing (optional but validated if present)
+  // Phase names are derived from routing keys when present; fall back to defaults
   if (data.routing) {
     for (const [phase, route] of Object.entries(data.routing)) {
-      if (!VALID_PHASES.includes(phase)) {
-        errors.push(`Routing references unknown phase: "${phase}"`);
+      if (!VALID_PHASE_NAME.test(phase)) {
+        errors.push(`Routing phase name "${phase}" must be lowercase alphanumeric starting with a letter (hyphens and underscores allowed)`);
       }
       if (route.entry_role && data.roles && !data.roles[route.entry_role]) {
         errors.push(`Routing "${phase}": entry_role "${route.entry_role}" is not a defined role`);

@@ -21,9 +21,16 @@ function makeWorkspace() {
   return mkdtempSync(join(tmpdir(), 'axc-multi-dispatch-'));
 }
 
-function writeGovernedRepo(root, projectId) {
+function writeGovernedRepo(root, projectId, options = {}) {
   mkdirSync(root, { recursive: true });
   mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+  const routing = options.routing || {
+    implementation: {
+      entry_role: 'dev',
+      allowed_next_roles: ['dev', 'qa', 'human'],
+    },
+  };
 
   writeJson(join(root, 'agentxchain.json'), {
     schema_version: '1.0',
@@ -53,12 +60,7 @@ function writeGovernedRepo(root, projectId) {
         type: 'manual',
       },
     },
-    routing: {
-      implementation: {
-        entry_role: 'dev',
-        allowed_next_roles: ['dev', 'qa', 'human'],
-      },
-    },
+    routing,
     gates: {},
   });
 
@@ -132,8 +134,18 @@ function setupWorkspace(configOverrides = {}) {
   const webRepo = join(workspace, 'repos', 'web');
   const apiRepo = join(workspace, 'repos', 'api');
 
-  writeGovernedRepo(webRepo, 'web');
-  writeGovernedRepo(apiRepo, 'api');
+  // Derive repo routing from coordinator routing so phase alignment passes
+  const repoRouting = configOverrides.routing
+    ? Object.fromEntries(
+        Object.keys(configOverrides.routing).map((phase) => [
+          phase,
+          { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'] },
+        ]),
+      )
+    : undefined;
+
+  writeGovernedRepo(webRepo, 'web', repoRouting ? { routing: repoRouting } : {});
+  writeGovernedRepo(apiRepo, 'api', repoRouting ? { routing: repoRouting } : {});
   writeJson(
     join(workspace, 'agentxchain-multi.json'),
     buildCoordinatorConfig(
@@ -183,6 +195,9 @@ describe('coordinator dispatch selection', () => {
         },
       },
       routing: {
+        planning: {
+          entry_workstream: 'api_contract',
+        },
         implementation: {
           entry_workstream: 'web_delivery',
         },
@@ -218,6 +233,9 @@ describe('coordinator dispatch selection', () => {
         },
       },
       routing: {
+        planning: {
+          entry_workstream: 'api_contract',
+        },
         implementation: {
           entry_workstream: 'web_delivery',
         },

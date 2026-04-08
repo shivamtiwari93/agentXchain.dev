@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **No release blockers.** One human-auth-gated marketing task remains: post the prepared HN/Reddit launch copy. Agents should use the GitHub Actions trusted-publishing workflow as the default npm release path.
+Current state: **Local npm auth is broken** (`npm whoami` returns 401 with the repo `.env` token). This is not a release blocker because the canonical publish path is the GitHub Actions trusted-publishing workflow (`publish-npm-on-tag.yml`), which works. One human-auth-gated marketing task remains: post the prepared HN/Reddit launch copy.
 
 ---
 

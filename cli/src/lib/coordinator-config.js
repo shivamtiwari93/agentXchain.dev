@@ -6,7 +6,8 @@ import { safeParseJson } from './schema.js';
 export const COORDINATOR_CONFIG_FILE = 'agentxchain-multi.json';
 
 const VALID_ID = /^[a-z0-9_-]+$/;
-const VALID_PHASES = new Set(['planning', 'implementation', 'qa']);
+const DEFAULT_PHASES = new Set(['planning', 'implementation', 'qa']);
+const VALID_PHASE_NAME = /^[a-z][a-z0-9_-]*$/;
 const VALID_BARRIER_TYPES = new Set([
   'all_repos_accepted',
   'interface_alignment',
@@ -88,11 +89,14 @@ function validateWorkstreams(raw, repoIds, errors) {
       continue;
     }
 
-    if (!VALID_PHASES.has(workstream.phase)) {
+    // Derive valid phases from routing keys when present; fall back to defaults
+    const validPhases = raw.routing ? new Set(Object.keys(raw.routing)) : DEFAULT_PHASES;
+    if (!validPhases.has(workstream.phase)) {
+      const phaseList = [...validPhases].join(', ');
       pushError(
         errors,
         'workstream_phase_invalid',
-        `workstream "${workstreamId}" phase must be one of: planning, implementation, qa`,
+        `workstream "${workstreamId}" phase must be one of: ${phaseList}`,
       );
     }
 
@@ -279,8 +283,8 @@ function validateRouting(raw, workstreamIds, errors) {
 
   const workstreamIdSet = new Set(workstreamIds);
   for (const [phase, route] of Object.entries(raw.routing)) {
-    if (!VALID_PHASES.has(phase)) {
-      pushError(errors, 'routing_phase_invalid', `routing phase "${phase}" must be one of: planning, implementation, qa`);
+    if (!VALID_PHASE_NAME.test(phase)) {
+      pushError(errors, 'routing_phase_invalid', `routing phase "${phase}" must be lowercase alphanumeric starting with a letter (hyphens and underscores allowed)`);
     }
 
     if (!route || typeof route !== 'object' || Array.isArray(route)) {

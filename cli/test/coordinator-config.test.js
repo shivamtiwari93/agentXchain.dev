@@ -439,3 +439,118 @@ describe('coordinator config validation', () => {
     }
   });
 });
+
+// --- Custom Phases (Coordinator) ---
+
+describe('coordinator custom phases', () => {
+  it('AT-CP-005: accepts custom phases in workstream when routing declares them', () => {
+    const result = validateCoordinatorConfig({
+      schema_version: '0.1',
+      project: { id: 'x', name: 'X' },
+      repos: { api: { path: './api', default_branch: 'main', required: true } },
+      workstreams: {
+        design_ws: {
+          phase: 'design',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+        build_ws: {
+          phase: 'implementation',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: ['design_ws'],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+      routing: {
+        design: { entry_workstream: 'design_ws' },
+        implementation: { entry_workstream: 'build_ws' },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects workstream phase not declared in routing', () => {
+    const result = validateCoordinatorConfig({
+      schema_version: '0.1',
+      project: { id: 'x', name: 'X' },
+      repos: { api: { path: './api', default_branch: 'main', required: true } },
+      workstreams: {
+        sec_ws: {
+          phase: 'security_review',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+      routing: {
+        implementation: { entry_workstream: 'sec_ws' },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('workstream_phase_invalid') && e.includes('sec_ws')));
+  });
+
+  it('rejects coordinator routing phase names with invalid characters', () => {
+    const result = validateCoordinatorConfig({
+      schema_version: '0.1',
+      project: { id: 'x', name: 'X' },
+      repos: { api: { path: './api', default_branch: 'main', required: true } },
+      workstreams: {
+        ws: {
+          phase: 'planning',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+      routing: {
+        planning: { entry_workstream: 'ws' },
+        'Design Phase': { entry_workstream: 'ws' },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('Design Phase') && e.includes('lowercase')));
+  });
+
+  it('uses default phases when no routing is configured', () => {
+    const result = validateCoordinatorConfig({
+      schema_version: '0.1',
+      project: { id: 'x', name: 'X' },
+      repos: { api: { path: './api', default_branch: 'main', required: true } },
+      workstreams: {
+        ws: {
+          phase: 'implementation',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects custom phase in workstream when no routing is configured', () => {
+    const result = validateCoordinatorConfig({
+      schema_version: '0.1',
+      project: { id: 'x', name: 'X' },
+      repos: { api: { path: './api', default_branch: 'main', required: true } },
+      workstreams: {
+        ws: {
+          phase: 'security_review',
+          repos: ['api'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('workstream_phase_invalid')));
+  });
+});
