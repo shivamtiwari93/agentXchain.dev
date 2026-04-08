@@ -63,6 +63,13 @@ describe('Launch evidence report', () => {
     assert.doesNotMatch(report, /used `status: "needs_human"` instead of `run_completion_request: true`/i);
   });
 
+  it('records api_proxy proposed-authority proof as an allowed claim', () => {
+    assert.match(report, /proposed-authority turns are proven through full governed lifecycle/i);
+    assert.match(report, /e2e-api-proxy-proposed-lifecycle/);
+    assert.match(report, /e2e-proposal-aware-gates/);
+    assert.match(report, /proposal materialization.*gate rejection/i);
+  });
+
   it('records live MCP dogfood proof for both transports', () => {
     assert.match(report, /E2b — Live MCP Adapter Dogfood/);
     assert.match(report, /turn_e41e35ba8eea9768/);

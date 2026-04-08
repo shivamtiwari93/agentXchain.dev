@@ -126,7 +126,7 @@ agentxchain step --role qa
 agentxchain approve-completion
 ```
 
-Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. That review path can return a structured verdict, but it cannot directly write `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`; use a writable or manual QA path if you want QA itself to edit those files. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you use a custom local coding CLI, either include `{prompt}` in `--dev-command` for argv delivery or set `--dev-prompt-transport` explicitly at init time.
+Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KEY`. In `review_only` mode, that path returns a structured verdict but cannot directly write `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md`. In `proposed` mode, the model returns file proposals that the orchestrator materializes under `.agentxchain/proposed/<turn_id>/` for operator review — `proposal apply` copies them to the workspace. Use a writable or manual QA path if you want QA to edit gate files directly. For a provider-free walkthrough, switch the QA runtime to `manual` before the QA step. If you use a custom local coding CLI, either include `{prompt}` in `--dev-command` for argv delivery or set `--dev-prompt-transport` explicitly at init time.
 
 The governed flow is always: assign, stage a structured result, accept or reject, then satisfy any human gate before the next phase can advance.
 
@@ -246,7 +246,7 @@ agentxchain run --max-turns 10      # safety cap
 - `manual` is working
 - `local_cli` is working
 - `mcp` is working for stdio tool-contract dispatch
-- `api_proxy` is implemented for synchronous review-only turns and stages a provider-backed result during `step`
+- `api_proxy` is implemented for synchronous `review_only` and `proposed` turns and stages a provider-backed result during `step`
 
 ## Example Governed Lifecycle
 

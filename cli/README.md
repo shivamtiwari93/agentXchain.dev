@@ -214,7 +214,7 @@ The first-party governed workflow kit includes `.planning/SYSTEM_SPEC.md` alongs
 - `manual`: implemented
 - `local_cli`: implemented
 - `mcp`: implemented for stdio and streamable HTTP tool-contract dispatch
-- `api_proxy`: implemented for synchronous review-only turns and stages a provider-backed result during `step`
+- `api_proxy`: implemented for synchronous `review_only` and `proposed` write-authority turns; stages a provider-backed result during `step`
 
 ## Legacy IDE Mode
 

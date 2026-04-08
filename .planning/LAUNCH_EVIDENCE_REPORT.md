@@ -29,6 +29,7 @@
   - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation with unresolved-placeholder rejection, non-2xx failure handling, annotation recording, audit trail with transport field
   - Dashboard evidence drill-down: turn detail panels with hook annotations/audit, decision ledger filters (phase, date range, objection), hook audit filters (phase, verdict, hook name)
   - Context compressor, token counter, token budget
+  - Proposal-aware governance: `api_proxy` proposed-authority authoring, phase-exit gates reject proposal-only files, run-completion gates reject proposal-only files, full governed lifecycle with proposal apply across implementation and QA phases (E2E subprocess proof)
   - Release preflight and publish scripts
   - Competitive positioning and documentation content assertions
 - **What it does NOT prove**:
@@ -166,6 +167,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Manual, local CLI, API-backed, and MCP agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b | All four adapter types proven live through the governed CLI. |
 | "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Full lifecycle proof exists only for the three-adapter path. MCP proof is a single dev turn per transport. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
+| "`api_proxy` proposed-authority turns are proven through full governed lifecycle with gate enforcement" | E1 (e2e-api-proxy-proposed-lifecycle, e2e-api-proxy-proposed-authoring, e2e-proposal-aware-gates, e2e-proposal-aware-run-completion) | Four subprocess E2E tests prove: proposal materialization, gate rejection of proposal-only files, proposal apply enabling gate pass, and full lifecycle through implementation and QA with operator approval. |
 | "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |

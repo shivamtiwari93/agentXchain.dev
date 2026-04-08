@@ -48,7 +48,7 @@ After the demo, read [Your First Governed Turn](/docs/first-turn) for a step-by-
 - **git** (governed scaffold expects a repo)
 - `npx agentxchain` or `npm install -g agentxchain`
 - A working local coding CLI for the default `local-dev` runtime, or a config change to point `local-dev.command` at your installed tool
-- An API key for any `api_proxy` review role you plan to use, such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
+- An API key for any `api_proxy` role you plan to use (`review_only` or `proposed`), such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
 - Scaffold intent via `--template` or defaults to `pm → dev → qa`
 
 ## Choose your starting point
@@ -354,7 +354,7 @@ agentxchain approve-completion
 
 QA must challenge the dev's work. Blind agreement is a protocol violation.
 
-If QA is bound to `api_proxy` in this flow, the accepted turn produces a structured review and an orchestrator-materialized review artifact under `.agentxchain/reviews/`. It does **not** mean the QA gate files were rewritten automatically.
+If QA is bound to `api_proxy` with `review_only` authority, the accepted turn produces a structured review and an orchestrator-materialized review artifact under `.agentxchain/reviews/`. It does **not** mean the QA gate files were rewritten automatically. If QA uses `proposed` authority instead, the model returns file proposals materialized under `.agentxchain/proposed/<turn_id>/`; run `agentxchain proposal apply` to copy them to the workspace after review.
 
 ## Multi-repo cold start
 
