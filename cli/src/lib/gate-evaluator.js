@@ -98,7 +98,7 @@ function hasRoleParticipationInPhase(state, phase, roleId) {
     return false;
   }
   return history.some(
-    turn => turn.phase === phase && turn.role === roleId && turn.status === 'accepted',
+    turn => turn.phase === phase && turn.role === roleId,
   );
 }
 

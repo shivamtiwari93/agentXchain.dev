@@ -282,6 +282,8 @@ describe('Templates docs surface', () => {
       'planning → architecture → implementation → security_review → qa',
       'ARCHITECTURE.md',
       'SECURITY_REVIEW.md',
+      'owned_by: "architect"',
+      'owned_by: "security_reviewer"',
       '## Threat Model',
       '## Findings',
       '## Verdict',
@@ -301,6 +303,10 @@ describe('Templates docs surface', () => {
     assert.ok(
       TEMPLATES_DOC_SOURCE.includes('agentxchain step --role security_reviewer'),
       'templates docs must show security_reviewer turn command'
+    );
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('the gate will not pass unless that role has an accepted turn in the phase'),
+      'templates docs must explain ownership enforcement in the generated prompts'
     );
 
     // Init example

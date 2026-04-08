@@ -2129,6 +2129,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     turn_id: turnResult.turn_id,
     run_id: turnResult.run_id,
     role: turnResult.role,
+    phase: state.phase,
     runtime_id: turnResult.runtime_id,
     status: turnResult.status,
     summary: turnResult.summary,
@@ -2280,12 +2281,13 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         };
       }
     } else {
+      const nextHistoryEntries = [...historyEntries, historyEntry];
       const postAcceptanceState = {
         ...state,
         active_turns: remainingTurns,
         turn_sequence: acceptedSequence,
+        history: nextHistoryEntries,
       };
-      const nextHistoryEntries = [...historyEntries, historyEntry];
       const completionSource = turnResult.run_completion_request
         ? turnResult
         : findHistoryTurnRequest(nextHistoryEntries, state.queued_run_completion?.requested_by_turn, 'run_completion');

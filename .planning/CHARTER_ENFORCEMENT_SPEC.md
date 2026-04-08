@@ -57,7 +57,8 @@ When `evaluateGateArtifacts` processes an artifact with `owned_by`:
 The ownership check uses `state.history` (the array of accepted turn records). A turn counts as "ownership participation" when:
 - `turn.phase === currentPhase`
 - `turn.role === artifact.owned_by`
-- `turn.status === 'accepted'`
+
+Important runtime truth: accepted turns are represented by their presence in `state.history`. The original turn-result `status` remains operator/runtime truth such as `completed`; the ownership check must not invent a separate `accepted` status value that the runtime does not emit.
 
 ### Failure Mode
 

@@ -110,6 +110,7 @@ The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` an
 `generic` must be described as the baseline governed scaffold with no extra project-type files.
 
 `enterprise-app` must be described honestly as a blueprint-backed template that changes the governed team shape at init time.
+Its architecture and security-review artifacts must also be described honestly as ownership-enforced via `owned_by`, not just structural markdown files.
 
 ### 4. Document mutation safety truthfully
 

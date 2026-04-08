@@ -149,9 +149,9 @@ Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance h
 | Role | Phase owned | Gate artifact |
 |---|---|---|
 | `pm` | `planning` | `PM_SIGNOFF.md`, `ROADMAP.md`, `SYSTEM_SPEC.md` |
-| `architect` | `architecture` | `ARCHITECTURE.md` (requires `## Context`, `## Proposed Design`, `## Trade-offs`, `## Risks`) |
+| `architect` | `architecture` | `ARCHITECTURE.md` (requires `## Context`, `## Proposed Design`, `## Trade-offs`, `## Risks`; ownership enforced via `owned_by: "architect"`) |
 | `dev` | `implementation` | `IMPLEMENTATION_NOTES.md` |
-| `security_reviewer` | `security_review` | `SECURITY_REVIEW.md` (requires `## Threat Model`, `## Findings`, `## Verdict`) |
+| `security_reviewer` | `security_review` | `SECURITY_REVIEW.md` (requires `## Threat Model`, `## Findings`, `## Verdict`; ownership enforced via `owned_by: "security_reviewer"`) |
 | `qa` | `qa` | `acceptance-matrix.md`, `ship-verdict.md`, `RELEASE_NOTES.md` |
 | `eng_director` | — (escalation) | — |
 
@@ -186,14 +186,14 @@ This produces:
 .agentxchain/
   prompts/
     pm.md
-    architect.md             ← includes owned phase, gate, and artifact context
+    architect.md             ← includes owned phase, gate, artifact context, and ownership enforcement
     dev.md
-    security_reviewer.md     ← includes owned phase, gate, and artifact context
+    security_reviewer.md     ← includes owned phase, gate, artifact context, and ownership enforcement
     qa.md
     eng_director.md
 ```
 
-The generated prompt files for custom roles (`architect.md`, `security_reviewer.md`) include their owned phase, exit gate ID, and workflow artifacts so operators can immediately see the contract without cross-referencing the config.
+The generated prompt files for custom roles (`architect.md`, `security_reviewer.md`) include their owned phase, exit gate ID, workflow artifacts, and the explicit ownership rule: the gate will not pass unless that role has an accepted turn in the phase.
 
 #### Running through the enterprise phases
 
@@ -213,7 +213,7 @@ agentxchain step --role security_reviewer
 agentxchain approve-transition
 ```
 
-Both `ARCHITECTURE.md` and `SECURITY_REVIEW.md` are structurally validated by `template validate` via `section_check` semantics. The gate will not pass if required sections are missing.
+Both `ARCHITECTURE.md` and `SECURITY_REVIEW.md` are structurally validated by `template validate` via `section_check` semantics. The gate will not pass if required sections are missing, and it also stays blocked if the wrong role tried to satisfy an ownership-enforced artifact.
 
 #### Validation proof
 

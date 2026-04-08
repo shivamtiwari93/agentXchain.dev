@@ -432,6 +432,8 @@ describe('governed CLI support', () => {
       assert.ok(config.gates.security_review_signoff);
       assert.ok(config.workflow_kit?.phases?.architecture);
       assert.ok(config.workflow_kit?.phases?.security_review);
+      assert.equal(config.workflow_kit.phases.architecture.artifacts[0].owned_by, 'architect');
+      assert.equal(config.workflow_kit.phases.security_review.artifacts[0].owned_by, 'security_reviewer');
 
       assert.ok(existsSync(join(projectDir, '.agentxchain', 'prompts', 'architect.md')));
       assert.ok(existsSync(join(projectDir, '.agentxchain', 'prompts', 'security_reviewer.md')));
@@ -445,6 +447,8 @@ describe('governed CLI support', () => {
       assert.match(architectPrompt, /architecture_review/);
       assert.match(architectPrompt, /## Workflow Artifacts You Own/);
       assert.match(architectPrompt, /\.planning\/ARCHITECTURE\.md/);
+      assert.match(architectPrompt, /## Ownership Enforcement/);
+      assert.match(architectPrompt, /requires an accepted turn from you before the gate can pass/);
 
       const securityPrompt = readFileSync(join(projectDir, '.agentxchain', 'prompts', 'security_reviewer.md'), 'utf8');
       assert.match(securityPrompt, /## Primary Phases/);
@@ -453,6 +457,8 @@ describe('governed CLI support', () => {
       assert.match(securityPrompt, /security_review_signoff/);
       assert.match(securityPrompt, /## Workflow Artifacts You Own/);
       assert.match(securityPrompt, /\.planning\/SECURITY_REVIEW\.md/);
+      assert.match(securityPrompt, /## Ownership Enforcement/);
+      assert.match(securityPrompt, /requires an accepted turn from you before the gate can pass/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

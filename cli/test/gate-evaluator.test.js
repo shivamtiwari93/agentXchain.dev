@@ -1306,6 +1306,28 @@ describe('evaluatePhaseExit — charter enforcement (owned_by)', () => {
     assert.equal(result.action, 'advance');
   });
 
+  it('AT-CHARTER-010b: completed history entry from owning role counts as participation', () => {
+    const config = makeCharterConfig();
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review\nok\n');
+
+    const result = evaluatePhaseExit({
+      state: {
+        phase: 'planning',
+        history: [
+          { turn_id: 't1', role: 'security_reviewer', phase: 'planning', status: 'completed' },
+        ],
+      },
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.passed, true);
+    assert.equal(result.action, 'advance');
+  });
+
   it('AT-CHARTER-014: optional artifact with owned_by + file missing → gate passes', () => {
     const config = makeCharterConfig({
       workflow_kit: {

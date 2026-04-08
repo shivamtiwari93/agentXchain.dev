@@ -235,7 +235,48 @@ describe('normalizeV4 workflow_kit integration', () => {
     const normalized = normalizeV4(raw);
     assert.equal(normalized.workflow_kit.phases.planning.artifacts.length, 1);
     assert.equal(normalized.workflow_kit.phases.planning.artifacts[0].path, '.planning/CUSTOM.md');
+    assert.equal(normalized.workflow_kit.phases.planning.artifacts[0].owned_by, null);
     assert.equal(normalized.workflow_kit.phases.qa, undefined);
+  });
+
+  it('preserves owned_by during workflow_kit normalization', () => {
+    const raw = baseConfig({
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Define architecture.',
+          write_authority: 'review_only',
+          runtime: 'manual-architect',
+        },
+      },
+      runtimes: {
+        'manual-architect': { type: 'manual' },
+      },
+      routing: {
+        architecture: {
+          entry_role: 'architect',
+          allowed_next_roles: ['architect'],
+          exit_gate: 'architecture_review',
+        },
+      },
+      gates: {
+        architecture_review: {
+          requires_files: ['.planning/ARCHITECTURE.md'],
+        },
+      },
+      workflow_kit: {
+        phases: {
+          architecture: {
+            artifacts: [
+              { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: true },
+            ],
+          },
+        },
+      },
+    });
+
+    const normalized = normalizeV4(raw);
+    assert.equal(normalized.workflow_kit.phases.architecture.artifacts[0].owned_by, 'architect');
   });
 });
 

@@ -801,6 +801,7 @@ export function normalizeWorkflowKit(raw, routingPhases) {
           path: a.path,
           semantics: a.semantics || null,
           semantics_config: a.semantics_config || null,
+          owned_by: a.owned_by || null,
           required: a.required !== false,
         })),
       };

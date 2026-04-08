@@ -360,6 +360,7 @@ function summarizeRoleWorkflow(roleId, scaffoldContext = {}) {
     .map(([phaseName]) => phaseName);
   const gateLines = [];
   const artifactLines = [];
+  const ownershipLines = [];
 
   for (const phaseName of ownedPhases) {
     const exitGate = routing[phaseName]?.exit_gate;
@@ -367,11 +368,12 @@ function summarizeRoleWorkflow(roleId, scaffoldContext = {}) {
       gateLines.push(`- ${phaseName}: ${exitGate}`);
     }
 
-    const workflowArtifacts = Array.isArray(workflowKitConfig?.phases?.[phaseName]?.artifacts)
-      ? workflowKitConfig.phases[phaseName].artifacts
-        .map((artifact) => artifact?.path)
-        .filter(Boolean)
+    const phaseArtifacts = Array.isArray(workflowKitConfig?.phases?.[phaseName]?.artifacts)
+      ? workflowKitConfig.phases[phaseName].artifacts.filter((artifact) => artifact?.path)
       : [];
+    const workflowArtifacts = phaseArtifacts
+      .map((artifact) => artifact.path)
+      .filter(Boolean);
     const gateArtifacts = Array.isArray(gates?.[exitGate]?.requires_files)
       ? gates[exitGate].requires_files.filter(Boolean)
       : [];
@@ -379,9 +381,19 @@ function summarizeRoleWorkflow(roleId, scaffoldContext = {}) {
     if (ownedArtifacts.length > 0) {
       artifactLines.push(`- ${phaseName}: ${ownedArtifacts.join(', ')}`);
     }
+
+    const enforcedArtifacts = phaseArtifacts
+      .filter((artifact) => artifact.owned_by === roleId)
+      .map((artifact) => artifact.path);
+    if (enforcedArtifacts.length > 0) {
+      const verb = enforcedArtifacts.length === 1 ? 'requires' : 'require';
+      ownershipLines.push(
+        `- ${phaseName}: ${enforcedArtifacts.join(', ')} ${verb} an accepted turn from you before the gate can pass`,
+      );
+    }
   }
 
-  return { ownedPhases, gateLines, artifactLines };
+  return { ownedPhases, gateLines, artifactLines, ownershipLines };
 }
 
 function buildGenericPrompt(roleId, role, scaffoldContext = {}) {
@@ -394,6 +406,9 @@ function buildGenericPrompt(roleId, role, scaffoldContext = {}) {
     : '';
   const workflowArtifactsSection = workflowSummary.artifactLines.length > 0
     ? `\n## Workflow Artifacts You Own\n\n${workflowSummary.artifactLines.join('\n')}\n`
+    : '';
+  const ownershipSection = workflowSummary.ownershipLines.length > 0
+    ? `\n## Ownership Enforcement\n\n${workflowSummary.ownershipLines.join('\n')}\n`
     : '';
 
   return `# ${role.title} — Role Prompt
@@ -415,7 +430,7 @@ ${role.write_authority === 'authoritative'
     ? 'You may modify product files directly.'
     : role.write_authority === 'proposed'
       ? 'You may propose changes via patches.'
-      : 'You may NOT modify product files. Only create review artifacts under `.planning/` and `.agentxchain/reviews/`.'}${primaryPhasesSection}${phaseGatesSection}${workflowArtifactsSection}
+      : 'You may NOT modify product files. Only create review artifacts under `.planning/` and `.agentxchain/reviews/`.'}${primaryPhasesSection}${phaseGatesSection}${workflowArtifactsSection}${ownershipSection}
 `;
 }
 
