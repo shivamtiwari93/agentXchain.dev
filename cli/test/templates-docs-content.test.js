@@ -249,4 +249,58 @@ describe('Templates docs surface', () => {
       assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
     }
   });
+
+  it('documents enterprise-app phase walkthrough with concrete examples', () => {
+    // Phase table with role-to-phase-to-artifact mapping
+    for (const term of [
+      'planning → architecture → implementation → security_review → qa',
+      'ARCHITECTURE.md',
+      'SECURITY_REVIEW.md',
+      '## Threat Model',
+      '## Findings',
+      '## Verdict',
+      '## Context',
+      '## Proposed Design',
+      '## Trade-offs',
+      '## Risks',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must show enterprise phase detail: ${term}`);
+    }
+
+    // Concrete CLI examples for custom-role turns
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('agentxchain step --role architect'),
+      'templates docs must show architect turn command'
+    );
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('agentxchain step --role security_reviewer'),
+      'templates docs must show security_reviewer turn command'
+    );
+
+    // Init example
+    assert.ok(
+      TEMPLATES_DOC_SOURCE.includes('init --governed --template enterprise-app --dir'),
+      'templates docs must show enterprise-app init command'
+    );
+  });
+
+  it('getting-started docs cross-reference enterprise-app custom-role path', () => {
+    const GETTING_STARTED = read('website-v2/docs/getting-started.mdx');
+    assert.ok(
+      GETTING_STARTED.includes('enterprise-app'),
+      'getting-started must mention enterprise-app template'
+    );
+    assert.ok(
+      GETTING_STARTED.includes('architect'),
+      'getting-started must mention architect role'
+    );
+    assert.ok(
+      GETTING_STARTED.includes('security_reviewer'),
+      'getting-started must mention security_reviewer role'
+    );
+    assert.ok(
+      GETTING_STARTED.includes('/docs/templates'),
+      'getting-started must link to templates docs'
+    );
+  });
 });

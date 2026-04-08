@@ -205,8 +205,19 @@ agentxchain template validate
 
 That proves scaffold/config agreement only. It does not mean the phase gate is ready to pass. The files still need real content that satisfies their runtime semantics.
 
+## Enterprise and custom-role teams
+
+The default scaffold uses `pm`, `dev`, and `qa`. If your workflow needs additional governed roles like `architect` or `security_reviewer` with dedicated phases and artifact contracts, use the `enterprise-app` template:
+
+```bash
+npx agentxchain init --governed --template enterprise-app --dir my-enterprise -y
+```
+
+This scaffolds a 5-phase workflow (`planning → architecture → implementation → security_review → qa`) with 6 roles, custom gate artifacts, and structurally validated docs for each phase. See [Templates — Blueprint-backed templates](/docs/templates#blueprint-backed-templates--custom-roles-and-phases) for the full walkthrough.
+
 ## What to read next
 
 - [Your First Governed Turn](/docs/first-turn) for artifact-level detail
 - [Quickstart](/docs/quickstart) for alternate entry paths and the fully automated `run` path
+- [Templates](/docs/templates) for project-type scaffolds and custom-role blueprints
 - [Adapters](/docs/adapters) if you need to rebind runtimes truthfully

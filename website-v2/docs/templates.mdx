@@ -142,18 +142,102 @@ Each non-generic template also carries a `system_spec_overlay` that replaces the
 
 Registry, workflow-kit, and artifact failures are errors. Unchecked acceptance hints are warnings. Silent tolerance on either would hide governance gaps, but the severity distinction reflects that acceptance hints are guidance obligations, not structural requirements.
 
-### Blueprint-backed templates
+### Blueprint-backed templates — custom roles and phases
 
-`enterprise-app` is intentionally not just another artifact bundle. It is an init-only blueprint-backed template with a custom governed team blueprint:
+`enterprise-app` is intentionally not just another artifact bundle. It is an init-only **blueprint-backed** template that scaffolds a full custom governed team:
 
-- `architect`
-- `security_reviewer`
-- custom phases: `architecture` and `security_review`
-- explicit workflow-kit artifacts: `.planning/ARCHITECTURE.md` and `.planning/SECURITY_REVIEW.md`
+| Role | Phase owned | Gate artifact |
+|---|---|---|
+| `pm` | `planning` | `PM_SIGNOFF.md`, `ROADMAP.md`, `SYSTEM_SPEC.md` |
+| `architect` | `architecture` | `ARCHITECTURE.md` (requires `## Context`, `## Proposed Design`, `## Trade-offs`, `## Risks`) |
+| `dev` | `implementation` | `IMPLEMENTATION_NOTES.md` |
+| `security_reviewer` | `security_review` | `SECURITY_REVIEW.md` (requires `## Threat Model`, `## Findings`, `## Verdict`) |
+| `qa` | `qa` | `acceptance-matrix.md`, `ship-verdict.md`, `RELEASE_NOTES.md` |
+| `eng_director` | — (escalation) | — |
 
-This is the shipped proof that built-in governed templates are no longer locked to `pm`, `dev`, `qa`, and `eng_director`.
+The phase order is: `planning → architecture → implementation → security_review → qa`.
 
-Important boundary:
+This is the shipped proof that built-in governed templates are no longer locked to `pm`, `dev`, `qa`, and `eng_director`. Any well-formed role ID (`^[a-z0-9_-]+$`) is accepted across the config, prompt, and validation surfaces.
+
+#### Scaffolding an enterprise-app repo
+
+```bash
+npx agentxchain init --governed --template enterprise-app --dir my-enterprise -y
+cd my-enterprise
+```
+
+This produces:
+
+```text
+.planning/
+  PM_SIGNOFF.md
+  ROADMAP.md
+  SYSTEM_SPEC.md
+  IMPLEMENTATION_NOTES.md
+  ARCHITECTURE.md          ← architect owns this
+  SECURITY_REVIEW.md       ← security_reviewer owns this
+  acceptance-matrix.md
+  ship-verdict.md
+  RELEASE_NOTES.md
+  integration-boundaries.md   ← enterprise planning artifact
+  data-classification.md      ← enterprise planning artifact
+  risk-register.md             ← enterprise planning artifact
+
+.agentxchain/
+  prompts/
+    pm.md
+    architect.md             ← includes owned phase, gate, and artifact context
+    dev.md
+    security_reviewer.md     ← includes owned phase, gate, and artifact context
+    qa.md
+    eng_director.md
+```
+
+The generated prompt files for custom roles (`architect.md`, `security_reviewer.md`) include their owned phase, exit gate ID, and workflow artifacts so operators can immediately see the contract without cross-referencing the config.
+
+#### Running through the enterprise phases
+
+After planning approval, the `architect` role owns the `architecture` phase:
+
+```bash
+agentxchain step --role architect
+# fill .planning/ARCHITECTURE.md with ## Context, ## Proposed Design, ## Trade-offs, ## Risks
+agentxchain approve-transition
+```
+
+After implementation, the `security_reviewer` role owns the `security_review` phase:
+
+```bash
+agentxchain step --role security_reviewer
+# fill .planning/SECURITY_REVIEW.md with ## Threat Model, ## Findings, ## Verdict
+agentxchain approve-transition
+```
+
+Both `ARCHITECTURE.md` and `SECURITY_REVIEW.md` are structurally validated by `template validate` via `section_check` semantics. The gate will not pass if required sections are missing.
+
+#### Validation proof
+
+```bash
+agentxchain template validate --json
+```
+
+The JSON output includes per-phase workflow-kit proof:
+
+```json
+{
+  "ok": true,
+  "workflow_kit": {
+    "required_files": [".planning/ARCHITECTURE.md", ".planning/SECURITY_REVIEW.md", "..."],
+    "missing": [],
+    "structural_checks": [
+      { "file": ".planning/ARCHITECTURE.md", "sections": ["## Context", "## Proposed Design", "## Trade-offs", "## Risks"], "ok": true },
+      { "file": ".planning/SECURITY_REVIEW.md", "sections": ["## Threat Model", "## Findings", "## Verdict"], "ok": true }
+    ]
+  }
+}
+```
+
+#### Important boundary
 
 - `init --governed --template enterprise-app` is supported and writes the custom team topology
 - `template set enterprise-app` is intentionally rejected because rewriting `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit` inside an existing repo is not additive work
@@ -163,6 +247,14 @@ The error is deliberate:
 ```text
 Error: Template "enterprise-app" defines a custom governed team blueprint.
 Use agentxchain init --governed --template enterprise-app for new repos.
+```
+
+#### Building your own blueprint-backed template
+
+The `enterprise-app` manifest demonstrates the pattern. Any template can carry a `scaffold_blueprint` with custom `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit`. Inspect the shipped manifest for the full contract:
+
+```bash
+agentxchain template list --json | jq '.[] | select(.id == "enterprise-app")'
 ```
 
 ## Apply a template to an existing governed repo
