@@ -1,0 +1,104 @@
+---
+title: "v2.23.0 Release Notes"
+description: "Proposal-authority release: api_proxy proposal authoring, proposal apply/reject, gate-aware completion, live Anthropic proof, and operator-owned cost truth."
+---
+
+# AgentXchain v2.23.0
+
+`2.23.0` turns proposed authority from a half-built idea into a governed product surface.
+
+`2.22.0` proved budget enforcement and escalation recovery. `2.23.0` closes the next credibility gap: cloud-backed agents can now propose governed file changes without pretending they wrote directly into the workspace, operators can explicitly materialize those proposals, gates fail closed until they do, and the full completion path is proven live against a real Anthropic model.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.23.0
+```
+
+## What changed since 2.22.0
+
+### `api_proxy` can now propose governed file changes
+
+`write_authority: "proposed"` is now a real runtime contract for `api_proxy` roles.
+
+Instead of blurring cloud-model output into direct workspace mutation, AgentXchain now materializes proposed files under `.agentxchain/proposed/<turn_id>/`. That gives the operator a governed boundary:
+
+- inspect what the model proposed
+- apply the proposal into the workspace
+- reject the proposal and continue with a different turn
+
+This matters because proposal authority is the honest boundary for many API-backed agents. If the product pretends those agents wrote directly into the repo, the audit trail becomes fiction.
+
+### Proposal-aware gates now reject fake completion
+
+Proposal materialization alone was not enough. The gates had to stop lying too.
+
+`2.23.0` tightens the runtime so:
+
+- implementation-exit gates reject proposal-only state until proposals are applied
+- run-completion gates reject proposal-only files at the final boundary
+- completion-only proposed turns can truthfully request `run_completion_request: true` with a no-op payload instead of inventing fake work delivery
+
+That closes the loophole where a model could appear "done" while all real changes still lived only in `.agentxchain/proposed/`.
+
+### Full proposed-authority completion is now proven live
+
+The hardened live proof now passes end to end against Anthropic Claude Sonnet 4.6:
+
+- run: `run_7b067f892916b799`
+- proposal turn: `turn_78181787ad6ab3a7`
+- completion turn: `turn_0ebc2190d01230ea`
+
+What that live run proves:
+
+- the real provider emitted gate-valid `.planning/IMPLEMENTATION_NOTES.md` content
+- `proposal apply` copied the file into the workspace
+- the completion turn requested `run_completion_request: true` with `proposed_changes: []` and `files_changed: []`
+- the run paused on `pending_run_completion`
+- explicit human approval completed the run
+
+This is not mock-only comfort. It is real provider evidence at the governed boundary.
+
+### Live proof failures are now inspectable
+
+Earlier live reruns were too easy to lose because the temp workspace cleanup removed the rejected payloads.
+
+The proposed-authority proof harness now persists sanitized rejected turn-result payloads under `.planning/LIVE_PROOF_DIAGNOSTICS/` whenever a rerun fails. That means the next failure can be debugged from concrete evidence instead of vague memory about what the model "probably" did.
+
+### Cost truth is now operator-owned
+
+`2.22.0` introduced bundled model costs, but the product boundary was still wrong: maintaining a complete public catalog across providers would turn into permanent drift.
+
+`2.23.0` corrects that boundary:
+
+- `config.budget.cost_rates` overrides bundled defaults
+- bundled rates are explicitly named `BUNDLED_COST_RATES`
+- Anthropic defaults were corrected to the real published values used by the product
+
+AgentXchain now treats bundled rates as defaults, not as the authoritative truth for the entire model market.
+
+## Why this release matters
+
+AgentXchain claims governed multi-agent delivery over long horizons. That claim breaks if cloud-backed agents can only participate through undocumented exceptions or fake direct-write semantics.
+
+`2.23.0` matters because it makes proposal authority honest:
+
+- the write boundary is explicit
+- the operator control surface is real
+- the gates enforce that boundary
+- the live evidence proves the end-to-end path
+
+This is the difference between "API models are supported" as copy and "API models are governed correctly" as a product truth.
+
+## Where to go next
+
+- See [Adapters](/docs/adapters) for the `api_proxy` runtime contract.
+- See [Quickstart](/docs/quickstart) for the governed repo path and approval flow.
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) if you are building a compatible runner or verifier.
+
+## Evidence
+
+- 2476 node tests / 532 suites / 0 failures.
+- 761 Vitest tests / 36 files / 0 failures.
+- Docusaurus production build passes.
+- Live proposed-authority proof: `run_7b067f892916b799`.

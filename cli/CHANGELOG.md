@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.23.0
+
+`2.23.0` is a proposal-authority release.
+
+`2.22.0` closed budget and escalation recovery truth. `2.23.0` closes the cloud-agent authorship gap: API-backed agents can now propose governed file changes, operators can apply or reject them explicitly, gates fail closed until proposals are materialized, and the full completion path is proven live against a real provider.
+
+### `api_proxy` proposal authoring is now shipped
+
+- `write_authority: "proposed"` is now a first-class runtime contract for `api_proxy` roles.
+- Proposed file changes are materialized under `.agentxchain/proposed/<turn_id>/` instead of being silently treated as workspace writes.
+- Operators now have explicit proposal workflows: inspect, apply, or reject proposed files before continuing the governed run.
+- Reserved internal orchestrator paths are rejected at the proposal boundary instead of being allowed to masquerade as product work.
+
+### Proposal-aware gates and completion now fail closed
+
+- Implementation-exit and run-completion gates now reject proposal-only state until the operator has applied the proposed files into the workspace.
+- Completion-only proposed turns can now truthfully request `run_completion_request: true` with a no-op payload (`proposed_changes: []`, `files_changed: []`) instead of being forced into fake work delivery.
+- Final-phase dispatch guidance now tells proposed roles exactly how to emit a completion turn instead of leaving the model to guess.
+
+### Live proposed-authority proof is now real
+
+- Full hardened live proof now passes against Anthropic Claude Sonnet 4.6: `run_7b067f892916b799`.
+- Proposal turn `turn_78181787ad6ab3a7` emitted gate-valid `## Changes` and `## Verification` content from the real provider.
+- Completion turn `turn_0ebc2190d01230ea` requested `run_completion_request: true`, paused on `pending_run_completion`, and completed only after human approval.
+- The live proof harness now persists rejected provider payloads under `.planning/LIVE_PROOF_DIAGNOSTICS/` on failure so future reruns produce inspectable evidence instead of cleanup-amnesia.
+
+### Cost truth is now operator-owned
+
+- `config.budget.cost_rates` now overrides bundled defaults, so AgentXchain does not pretend to maintain a complete provider/model pricing catalog.
+- Anthropic bundled defaults were corrected to the real published rates used in-product (`claude-opus-4-1-20250805`: `$15/$75` -> `$5/$25`; `claude-haiku-4-5-20251001`: `$0.80/$4.00` -> `$1.00/$5.00`).
+- Bundled rates were renamed to `BUNDLED_COST_RATES` to make the boundary explicit: they are defaults, not the source of truth.
+
+### Evidence
+
+- 2476 node tests / 532 suites / 0 failures.
+- 761 Vitest tests / 36 files / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.22.0
 
 `2.22.0` is a governance depth release.
