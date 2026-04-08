@@ -165,6 +165,12 @@ describe('Launch surfaces do not contain disallowed claims', () => {
       assert.doesNotMatch(withoutConstraints, /full live (end.to.end|e2e) proof/i);
       assert.doesNotMatch(withoutConstraints, /production.proven/i);
     });
+
+    it('does not retain the stale pre-MCP-proof constraint language', () => {
+      assert.doesNotMatch(content, /live MCP evidence still does not exist/i);
+      assert.match(content, /All four adapter types are now proven live/i);
+      assert.match(content, /only the `manual` \+ `local_cli` \+ `api_proxy` path has a full governed-run proof/i);
+    });
   });
 });
 
@@ -251,6 +257,33 @@ describe('Website analytics contract', () => {
   });
 });
 
+describe('Scenario D escalation evidence', () => {
+  const report = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
+  const proofExists = existsSync(resolve(ROOT, 'examples', 'live-governed-proof', 'run-escalation-recovery-proof.mjs'));
+
+  it('evidence report contains E2d section', () => {
+    assert.match(report, /E2d.*Scenario D Escalation.*Recovery Proof/);
+  });
+
+  it('E2d section documents retry exhaustion and eng_director intervention', () => {
+    assert.match(report, /escalation:retries-exhausted:dev/);
+    assert.match(report, /eng_director/);
+    assert.match(report, /run_ebf10c05d7419a0c/);
+  });
+
+  it('evidence gap for Scenario D is marked closed', () => {
+    assert.match(report, /~~Scenario D escalation dogfood~~.*CLOSED/);
+  });
+
+  it('allowed claims include escalation recovery', () => {
+    assert.match(report, /Retry exhaustion triggers governed escalation/i);
+  });
+
+  it('proof script exists', () => {
+    assert.ok(proofExists, 'examples/live-governed-proof/run-escalation-recovery-proof.mjs must exist');
+  });
+});
+
 describe('Launch brief references evidence report', () => {
   const brief = read('.planning/LAUNCH_BRIEF.md');
 
@@ -259,7 +292,7 @@ describe('Launch brief references evidence report', () => {
   });
 
   it('includes claim boundary constraints', () => {
-    assert.match(brief, /all adapters proven live/i);
+    assert.match(brief, /All four adapter types are now proven live/i);
     assert.match(brief, /proposed-authority.*proven live/i);
     assert.match(brief, /DEC-PROP-COMPLETION-CONTRACT-001/);
     assert.match(brief, /run_7b067f892916b799/);

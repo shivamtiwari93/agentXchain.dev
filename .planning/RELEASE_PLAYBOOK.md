@@ -166,7 +166,9 @@ Postflight is the release-truth gate. It must prove:
 2. npm registry serves `agentxchain@<semver>`
 3. `dist.tarball` metadata exists
 4. checksum metadata exists
-5. the published tarball installs into an isolated prefix and the installed binary reports the expected version
+5. `npx agentxchain@<semver> --version` resolves from the public registry in an isolated temp environment
+6. the published tarball installs into an isolated prefix and the installed binary reports the expected version
+7. the published runner and adapter exports import from a clean consumer project
 
 Tag existence alone is not release truth.
 

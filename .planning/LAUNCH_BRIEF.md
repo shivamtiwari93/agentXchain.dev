@@ -1,4 +1,4 @@
-# Launch Brief — AgentXchain v2.0.0
+# Launch Brief — AgentXchain
 
 > Single-source launch copy for all distribution surfaces.
 
@@ -78,8 +78,8 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses floor-hundred format: "1000+" (currently 1033 in this launch brief; update when the evidence artifact is refreshed)
-- Do not claim "all adapters proven live" or imply MCP live proof — E2 now proves a full governed run for `manual` + `local_cli` + `api_proxy`, but live MCP evidence still does not exist
+- Test count uses the floor-hundred format from `.planning/LAUNCH_EVIDENCE_REPORT.md`. Do not invent a higher number than the evidence artifact currently supports in public copy.
+- All four adapter types are now proven live, including MCP with a real Anthropic model (`E2`, `E2b`, `E2b+`). The honest narrower boundary is lifecycle depth: only the `manual` + `local_cli` + `api_proxy` path has a full governed-run proof including human-gated completion approval.
 - `api_proxy` proposed-authority full lifecycle including run completion is now proven live against real Anthropic (E2c, `run_7b067f892916b799`). The previous disallowed claim (`DEC-PROP-COMPLETION-CONTRACT-001`) is closed: the product contract bug was fixed in Turn 133, and the hardened live proof passed on 2026-04-08 with gate-valid proposal content, no-op completion, `pending_run_completion` pause, and `approve-completion`
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)

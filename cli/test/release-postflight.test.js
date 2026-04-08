@@ -178,6 +178,34 @@ function createFixture({ version = '2.0.1', createTag = true } = {}) {
     ].join('\n'),
   );
 
+  writeExecutable(
+    join(fakeBinDir, 'npx'),
+    [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      '',
+      'counter_file="${FAKE_COUNTER_DIR:?}/npx-count.txt"',
+      'count=0',
+      'if [[ -f "${counter_file}" ]]; then',
+      '  count="$(cat "${counter_file}")"',
+      'fi',
+      'count=$((count + 1))',
+      'printf "%s" "${count}" > "${counter_file}"',
+      '',
+      'if [[ "${count}" -lt "${FAKE_NPX_AVAILABLE_AFTER:-1}" ]]; then',
+      '  echo "npx resolution failed" >&2',
+      '  exit 1',
+      'fi',
+      '',
+      'if [[ "${FAKE_NPX_FAIL:-0}" == "1" ]]; then',
+      '  echo "npx resolution failed" >&2',
+      '  exit 1',
+      'fi',
+      '',
+      'printf "%s\\n" "${FAKE_NPX_VERSION:-2.0.1}"',
+    ].join('\n'),
+  );
+
   execFileSync('git', ['init'], { cwd: cliDir, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.name', 'test'], { cwd: cliDir, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: cliDir, stdio: 'ignore' });
@@ -241,6 +269,7 @@ describe('release-postflight.sh', () => {
     assert.equal(result.status, 0);
     assert.match(result.stdout, /PASS: Git tag v2\.0\.1 exists locally/);
     assert.match(result.stdout, /PASS: npm registry serves agentxchain@2\.0\.1/);
+    assert.match(result.stdout, /PASS: published npx command resolves and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published runner exports import with interface 0\.2/);
     assert.match(result.stdout, /PASS: published adapter exports import with interface 0\.1/);
@@ -256,17 +285,34 @@ describe('release-postflight.sh', () => {
       fixture.cliDir,
       fixture.fakeBinDir,
       ['--target-version', '2.0.1'],
-      { FAKE_REGISTRY_MISSING: '1', FAKE_INSTALL_FAIL: '1' },
+      { FAKE_REGISTRY_MISSING: '1', FAKE_NPX_FAIL: '1', FAKE_INSTALL_FAIL: '1' },
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /\[3\/6\] Registry tarball metadata/);
-    assert.match(result.stdout, /\[5\/6\] Install smoke/);
-    assert.match(result.stdout, /\[6\/6\] Package export smoke/);
+    assert.match(result.stdout, /\[3\/7\] Registry tarball metadata/);
+    assert.match(result.stdout, /\[5\/7\] npx smoke/);
+    assert.match(result.stdout, /\[6\/7\] Install smoke/);
+    assert.match(result.stdout, /\[7\/7\] Package export smoke/);
     assert.match(result.stdout, /FAIL: npm registry does not serve agentxchain@2\.0\.1/);
+    assert.match(result.stdout, /FAIL: published npx smoke failed/);
     assert.match(result.stdout, /FAIL: published CLI install smoke failed/);
     assert.match(result.stdout, /FAIL: published runner\/adapter exports install smoke failed/);
     assert.match(result.stdout, /POSTFLIGHT FAILED/);
+  });
+
+  it('fails when the published npx command reports the wrong version', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPostflight(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      ['--target-version', '2.0.1'],
+      { FAKE_NPX_VERSION: '2.0.0' },
+    );
+
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: published npx command reported '2\.0\.0', expected '2\.0\.1'/);
   });
 
   it('fails when the published CLI reports the wrong version', () => {
@@ -332,6 +378,7 @@ describe('release-postflight.sh', () => {
         FAKE_VERSION_AVAILABLE_AFTER: '2',
         FAKE_TARBALL_AVAILABLE_AFTER: '2',
         FAKE_CHECKSUM_AVAILABLE_AFTER: '2',
+        FAKE_NPX_AVAILABLE_AFTER: '2',
         FAKE_INSTALL_AVAILABLE_AFTER: '2',
         RELEASE_POSTFLIGHT_RETRY_ATTEMPTS: '3',
         RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS: '0',
@@ -342,11 +389,13 @@ describe('release-postflight.sh', () => {
     assert.match(result.stdout, /INFO: registry version not ready \(attempt 1\/3\)/);
     assert.match(result.stdout, /INFO: registry tarball metadata not ready \(attempt 1\/3\)/);
     assert.match(result.stdout, /INFO: registry checksum metadata not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /INFO: npx smoke not ready \(attempt 1\/3\)/);
     assert.match(result.stdout, /INFO: install smoke not ready \(attempt 1\/3\)/);
+    assert.match(result.stdout, /PASS: published npx command resolves and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
   });
 
-  it('ignores an older ambient agentxchain binary on PATH during install smoke', () => {
+  it('ignores an older ambient agentxchain binary on PATH during npx and install smoke', () => {
     const fixture = createFixture();
     fixtures.push(fixture);
 
@@ -362,6 +411,7 @@ describe('release-postflight.sh', () => {
     );
 
     assert.equal(result.status, 0);
+    assert.match(result.stdout, /PASS: published npx command resolves and reports 2\.0\.1/);
     assert.match(result.stdout, /PASS: published CLI executes and reports 2\.0\.1/);
     assert.doesNotMatch(result.stdout, /0\.8\.7/);
   });

@@ -34,7 +34,7 @@ RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS # optional, default 10
 The script prints:
 
 1. A short header identifying the check as release postflight
-2. Five numbered checks in a stable order
+2. Seven numbered checks in a stable order
 3. A per-check status line using `PASS` or `FAIL`
 4. A summary line with totals
 5. The resolved tarball URL and checksum metadata when available
@@ -50,9 +50,13 @@ The script evaluates these checks in order:
 2. npm registry serves `package@version`
 3. Registry exposes `dist.tarball`
 4. Registry exposes checksum metadata (`dist.integrity` or `dist.shasum`)
-5. Install smoke: `npm exec --yes --package <package@version> -- agentxchain --version`
+5. `npx` smoke: `npx --yes <package@version> --version`
+   - The smoke check must run with an isolated temp `HOME` / npm cache / userconfig so cached global state or private registry config does not poison the result.
+   - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
+6. Install smoke: `npm install --global --prefix <temp-prefix> <dist.tarball>` followed by explicit `<temp-prefix>/bin/agentxchain --version`
    - The smoke check must install the exact `dist.tarball` into an isolated temporary prefix and execute the installed binary by explicit path.
    - Ambient `PATH` entries or previously installed global `agentxchain` binaries must not influence the result.
+7. Package export smoke from a clean consumer project
 
 ---
 
@@ -65,9 +69,10 @@ The script is a **local/networked postflight**. It intentionally depends on regi
 ### Failure Model
 
 - The script is fail-closed: any missing registry signal or install-smoke mismatch exits non-zero.
-- The script continues through all five checks even if early ones fail so the operator gets a complete picture.
+- The script continues through all seven checks even if early ones fail so the operator gets a complete picture.
 - A present git tag is not enough. The release remains incomplete until the registry and executable artifact both agree with the tag.
 - Network-backed checks retry with a bounded budget because registry metadata and install resolution can lag the initial publish by several seconds.
+- `npx` proof and tarball-install proof are intentionally separate. `npx` proves the public registry resolution path users copy from docs. Tarball-install proof proves the exact published artifact executes even when bypassing ambient PATH state.
 
 ### Metadata Output
 
@@ -89,7 +94,9 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 | `npm view <pkg@version> version` returns 404 / auth error / empty output | Mark check as `FAIL`, continue |
 | `dist.tarball` missing | Mark check as `FAIL`, continue |
 | `dist.integrity` missing but `dist.shasum` present | Accept `dist.shasum` as fallback checksum metadata |
+| `npx agentxchain@<version> --version` resolves a cached or wrong package | Mark check as `FAIL`, continue |
 | ambient `agentxchain` exists on runner PATH | Ignore it. Install smoke must execute the temp-prefix binary resolved from the published tarball, not the ambient PATH binary |
+| ambient npm config points to a private registry | Ignore it. `npx` smoke must force `registry=https://registry.npmjs.org/` in isolated temp config |
 | install smoke executes but prints wrong version | Mark check as `FAIL`, continue |
 | install smoke fails entirely | Mark check as `FAIL`, continue |
 | registry metadata appears shortly after publish | Retry bounded by `RELEASE_POSTFLIGHT_RETRY_ATTEMPTS` / `RELEASE_POSTFLIGHT_RETRY_DELAY_SECONDS` before failing |
@@ -102,9 +109,10 @@ When `dist.tarball` and checksum metadata are available, the script prints them 
 1. The script rejects missing `--target-version`.
 2. The script passes when the tag exists, the registry serves the target version, metadata is present, and install smoke returns the expected version.
 3. The script fails when the registry does not yet serve the version and still evaluates the later checks.
-4. The script fails when the installed CLI reports a mismatched version.
-5. The script retries registry metadata and install smoke checks before failing closed.
-6. The script ignores an older ambient `agentxchain` binary on `PATH` and still proves the published tarball.
+4. The script fails when the `npx`-resolved CLI reports a mismatched version.
+5. The script fails when the installed CLI reports a mismatched version.
+6. The script retries registry metadata, `npx` smoke, and install smoke checks before failing closed.
+7. The script ignores an older ambient `agentxchain` binary on `PATH` and still proves both the `npx` path and the published tarball path.
 
 ---
 

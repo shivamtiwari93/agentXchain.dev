@@ -121,6 +121,28 @@
   - Full governed lifecycle through MCP with a real model (single dev turn)
   - MCP with OpenAI or other providers (only Anthropic proven)
 
+### E2d — Scenario D Escalation & Recovery Proof
+
+- **Date**: 2026-04-08
+- **Location**: `examples/live-governed-proof/run-escalation-recovery-proof.mjs`
+- **Run ID**: `run_ebf10c05d7419a0c`
+- **Turn IDs**: `turn_62dc3552e94dc5a9` (dev, rejected twice → escalated), `turn_c88f47a0ca64e8cc` (eng_director, accepted)
+- **Result**: **PASS.** Retry exhaustion → escalation → operator recovery → eng_director intervention proven end-to-end.
+- **What it proves**:
+  - D1: Two rejections exhaust `max_turn_retries=2`, run transitions to `blocked` with `escalation:retries-exhausted:dev`
+  - D1: Escalation state preserves `from_role`, `from_turn_id`, rejection reason, and timestamps
+  - D1: `blocked_reason.recovery.typed_reason = 'retries_exhausted'` with `turn_retained = true`
+  - D1: Failed turn remains in `active_turns` with `status: 'failed'` (not cleared)
+  - D1: `reactivateRun` clears blocked state, nulls escalation, records `escalation_resolved` in decision ledger
+  - D2: After recovery, operator accepts corrected dev result, then assigns `eng_director`
+  - D2: Director turn accepted with objection (protocol requirement for review_only roles)
+  - D2: Director proposes `human` as next role (correct escalation-to-human governance)
+  - Full path: assign dev → reject → retry → reject → escalate → recover → accept fix → director → accept
+- **What it does NOT prove**:
+  - Escalation with real LLM output (uses manual adapter with crafted results)
+  - `on_escalation` hooks firing to external notification systems
+  - Multi-turn director review across multiple deadlock cycles
+
 ### E2c — Live Proposed-Authority Dogfood
 
 - **Date**: 2026-04-07 initial proof, 2026-04-08 contract-fix + semantic-hardening reruns + full pass
@@ -216,6 +238,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "`api_proxy` proposed-authority turns are proven through full governed lifecycle with gate enforcement" | E1 (e2e-api-proxy-proposed-lifecycle, e2e-api-proxy-proposed-authoring, e2e-proposal-aware-gates, e2e-proposal-aware-run-completion) | Four subprocess E2E tests prove: proposal materialization, gate rejection of proposal-only files, proposal apply enabling gate pass, and full lifecycle through implementation and QA with operator approval. |
 | "`api_proxy` proposed-authority lifecycle (staging, materialization, proposal apply) is proven live against real Anthropic" | E2c (`run_9cff2c5a43cb4205`, `run_7b067f892916b799`) | Core lifecycle proven live. |
 | "Full `api_proxy` proposed-authority run completion is proven live against a real provider" | E2c (`run_7b067f892916b799`: proposal turn `turn_78181787ad6ab3a7` + completion turn `turn_0ebc2190d01230ea`, run paused on `pending_run_completion`, `approve-completion` completed the run) | Hardened live proof with gate-valid proposal content, no-op completion, and human-gated approval. |
+| "Retry exhaustion triggers governed escalation with operator recovery and eng_director intervention" | E2d (`run_ebf10c05d7419a0c`: dev rejected twice → `escalation:retries-exhausted:dev` → reactivate → corrected dev accepted → eng_director turn accepted) | Full D1+D2 path proven. Escalation state, recovery descriptor, decision ledger entry, and director governance all verified. |
 | "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
@@ -245,7 +268,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 | ~~Live MCP adapter dogfood~~ | **CLOSED** — E2b proves both MCP transports live through `agentxchain step` CLI | Completed 2026-04-07 |
 | ~~MCP with real AI model~~ | **CLOSED** — E2b+ proves MCP stdio transport with real Anthropic model (`claude-haiku-4-5-20251001`) | Completed 2026-04-08 |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
-| Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
+| ~~Scenario D escalation dogfood~~ | **CLOSED** — E2d proves retry exhaustion → escalation → operator recovery → eng_director intervention (`run_ebf10c05d7419a0c`) | Completed 2026-04-08 |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |
 
 ---
@@ -256,3 +279,4 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. Allowed claims updated to include all four adapters. Evidence gap E2b closed.
+- **2026-04-08 Scenario D**: Escalation & recovery proof (`run_ebf10c05d7419a0c`) exercises retry exhaustion → blocked escalation → operator recovery → eng_director intervention. Evidence gap closed.

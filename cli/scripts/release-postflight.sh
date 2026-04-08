@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Release postflight — run this after publish succeeds.
 # Verifies: release tag exists, npm registry serves the version, metadata is present,
-# the published package can execute its CLI entrypoint, and runner package exports
-# are importable in a clean consumer project.
+# the published package resolves through npx, the published package can execute its
+# CLI entrypoint from the tarball, and runner package exports are importable in a
+# clean consumer project.
 # Usage: bash scripts/release-postflight.sh --target-version <semver> [--tag vX.Y.Z]
 set -uo pipefail
 
@@ -139,6 +140,33 @@ run_install_smoke() {
   return "$version_status"
 }
 
+run_npx_smoke() {
+  local smoke_root
+  local smoke_npmrc
+  local npx_output
+  local npx_status
+
+  smoke_root="$(mktemp -d "${TMPDIR:-/tmp}/agentxchain-npx-postflight.XXXXXX")"
+  mkdir -p "${smoke_root}/home" "${smoke_root}/cache" "${smoke_root}/npm-cache"
+
+  smoke_npmrc="${smoke_root}/.npmrc"
+  echo "registry=https://registry.npmjs.org/" > "$smoke_npmrc"
+
+  npx_output="$(
+    env -u NODE_AUTH_TOKEN \
+      HOME="${smoke_root}/home" \
+      XDG_CACHE_HOME="${smoke_root}/cache" \
+      NPM_CONFIG_CACHE="${smoke_root}/npm-cache" \
+      NPM_CONFIG_USERCONFIG="$smoke_npmrc" \
+      npx --yes "${PACKAGE_NAME}@${TARGET_VERSION}" --version 2>&1
+  )"
+  npx_status=$?
+
+  printf '%s\n' "$npx_output"
+  rm -rf "$smoke_root"
+  return "$npx_status"
+}
+
 run_runner_export_smoke() {
   if [[ -z "$TARBALL_URL" ]]; then
     echo "registry tarball metadata unavailable for runner export smoke" >&2
@@ -261,17 +289,17 @@ run_with_retry() {
 
 echo "AgentXchain v${TARGET_VERSION} Release Postflight"
 echo "====================================="
-echo "Checks release truth after publish: tag, registry visibility, metadata, CLI install smoke, and package export smoke."
+echo "Checks release truth after publish: tag, registry visibility, metadata, npx smoke, CLI install smoke, and package export smoke."
 echo ""
 
-echo "[1/6] Git tag"
+echo "[1/7] Git tag"
 if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
   pass "Git tag ${TAG} exists locally"
 else
   fail "Git tag ${TAG} is missing locally"
 fi
 
-echo "[2/6] Registry version"
+echo "[2/7] Registry version"
 if run_with_retry VERSION_OUTPUT "registry version" equals "${TARGET_VERSION}" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" version; then
   PUBLISHED_VERSION="$(trim_last_line "$VERSION_OUTPUT")"
   if [[ "$PUBLISHED_VERSION" == "$TARGET_VERSION" ]]; then
@@ -284,7 +312,7 @@ else
   printf '%s\n' "$VERSION_OUTPUT" | tail -20
 fi
 
-echo "[3/6] Registry tarball metadata"
+echo "[3/7] Registry tarball metadata"
 if run_with_retry TARBALL_OUTPUT "registry tarball metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.tarball; then
   TARBALL_URL="$(trim_last_line "$TARBALL_OUTPUT")"
   if [[ -n "$TARBALL_URL" ]]; then
@@ -297,7 +325,7 @@ else
   printf '%s\n' "$TARBALL_OUTPUT" | tail -20
 fi
 
-echo "[4/6] Registry checksum metadata"
+echo "[4/7] Registry checksum metadata"
 if run_with_retry INTEGRITY_OUTPUT "registry checksum metadata" nonempty "" npm view "${PACKAGE_NAME}@${TARGET_VERSION}" dist.integrity; then
   REGISTRY_CHECKSUM="$(trim_last_line "$INTEGRITY_OUTPUT")"
 fi
@@ -312,7 +340,20 @@ else
   fail "registry did not return checksum metadata"
 fi
 
-echo "[5/6] Install smoke"
+echo "[5/7] npx smoke"
+if run_with_retry NPX_OUTPUT "npx smoke" nonempty "" run_npx_smoke; then
+  NPX_VERSION="$(trim_last_line "$NPX_OUTPUT")"
+  if [[ "$NPX_VERSION" == "$TARGET_VERSION" ]]; then
+    pass "published npx command resolves and reports ${TARGET_VERSION}"
+  else
+    fail "published npx command reported '${NPX_VERSION}', expected '${TARGET_VERSION}'"
+  fi
+else
+  fail "published npx smoke failed"
+  printf '%s\n' "$NPX_OUTPUT" | tail -20
+fi
+
+echo "[6/7] Install smoke"
 if run_with_retry EXEC_OUTPUT "install smoke" nonempty "" run_install_smoke; then
   EXEC_VERSION="$(trim_last_line "$EXEC_OUTPUT")"
   if [[ "$EXEC_VERSION" == "$TARGET_VERSION" ]]; then
@@ -325,7 +366,7 @@ else
   printf '%s\n' "$EXEC_OUTPUT" | tail -20
 fi
 
-echo "[6/6] Package export smoke"
+echo "[7/7] Package export smoke"
 if run_with_retry RUNNER_EXPORT_OUTPUT "runner export smoke" nonempty "" run_runner_export_smoke; then
   RUNNER_EXPORT_JSON="$(trim_last_line "$RUNNER_EXPORT_OUTPUT")"
   RUNNER_EXPORT_VERSION="$(printf '%s' "$RUNNER_EXPORT_JSON" | node --input-type=module -e "process.stdin.setEncoding('utf8'); let raw=''; process.stdin.on('data', (chunk) => raw += chunk); process.stdin.on('end', () => { const parsed = JSON.parse(raw); console.log(parsed.runner_interface_version || ''); });")"
