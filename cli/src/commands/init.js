@@ -557,9 +557,20 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
   };
 }
 
+const PHASE_DISPLAY_NAMES = Object.freeze({
+  qa: 'QA',
+});
+
+function formatPhaseDisplayName(phaseKey) {
+  if (PHASE_DISPLAY_NAMES[phaseKey]) {
+    return PHASE_DISPLAY_NAMES[phaseKey];
+  }
+  return phaseKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function buildRoadmapPhaseTable(routing, roles) {
   const rows = Object.entries(routing).map(([phaseKey, phaseConfig]) => {
-    const phaseName = phaseKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const phaseName = formatPhaseDisplayName(phaseKey);
     const entryRole = phaseConfig.entry_role;
     const role = roles[entryRole];
     const goal = role?.mandate || phaseName;

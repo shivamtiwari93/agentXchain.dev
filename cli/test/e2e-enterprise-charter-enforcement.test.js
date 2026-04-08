@@ -112,7 +112,7 @@ describe('CLI subprocess E2E — enterprise-app charter enforcement', () => {
       assert.match(roadmap, /\| Architecture \|/);
       assert.match(roadmap, /\| Implementation \|/);
       assert.match(roadmap, /\| Security Review \|/);
-      assert.match(roadmap, /\| Qa \|/);
+      assert.match(roadmap, /\| QA \|/);
       assert.match(roadmap, /Architecture \| Define the system boundary, integration contracts, and technical trade-offs before implementation commits to a design\./);
       assert.match(roadmap, /Security Review \| Challenge data handling, auth boundaries, and exploit paths before work proceeds to final QA\./);
 

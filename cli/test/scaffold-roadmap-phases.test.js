@@ -26,7 +26,7 @@ describe('scaffold ROADMAP.md phase table derived from routing', () => {
     const roadmap = readFileSync(join(dir, '.planning', 'ROADMAP.md'), 'utf8');
     assert.match(roadmap, /\| Planning \|/);
     assert.match(roadmap, /\| Implementation \|/);
-    assert.match(roadmap, /\| Qa \|/);
+    assert.match(roadmap, /\| QA \|/);
     // Must have exactly 3 phase rows (header + separator + 3 rows)
     const rows = roadmap.split('\n').filter((line) => line.startsWith('| ') && !line.startsWith('| Phase') && !line.startsWith('|--'));
     assert.equal(rows.length, 3, `expected 3 phase rows, got ${rows.length}: ${rows.join('; ')}`);
@@ -40,7 +40,7 @@ describe('scaffold ROADMAP.md phase table derived from routing', () => {
     assert.match(roadmap, /\| Architecture \|/);
     assert.match(roadmap, /\| Implementation \|/);
     assert.match(roadmap, /\| Security Review \|/);
-    assert.match(roadmap, /\| Qa \|/);
+    assert.match(roadmap, /\| QA \|/);
     const rows = roadmap.split('\n').filter((line) => line.startsWith('| ') && !line.startsWith('| Phase') && !line.startsWith('|--'));
     assert.equal(rows.length, 5, `expected 5 phase rows, got ${rows.length}: ${rows.join('; ')}`);
   });
@@ -72,6 +72,6 @@ describe('scaffold ROADMAP.md phase table derived from routing', () => {
     const roadmap = readFileSync(join(dir, '.planning', 'ROADMAP.md'), 'utf8');
     const rows = roadmap.split('\n').filter((line) => line.startsWith('| ') && !line.startsWith('| Phase') && !line.startsWith('|--'));
     const phaseNames = rows.map((r) => r.split('|')[1].trim());
-    assert.deepEqual(phaseNames, ['Planning', 'Architecture', 'Implementation', 'Security Review', 'Qa']);
+    assert.deepEqual(phaseNames, ['Planning', 'Architecture', 'Implementation', 'Security Review', 'QA']);
   });
 });
