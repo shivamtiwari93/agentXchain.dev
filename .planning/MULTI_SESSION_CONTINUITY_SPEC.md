@@ -12,13 +12,14 @@ Prove that a governed run survives process boundaries all the way to a truthful 
 2. Terminate the process completely
 3. Resume the same run in **Session B** (fresh process) with full state, history, and decision ledger continuity
 4. Recover from blocked state across sessions
-5. Request final run completion in one session and approve that completion in a later fresh session
+5. Request a phase transition in one session and approve that transition in a later fresh session
+6. Request final run completion in one session and approve that completion in a later fresh session
 
 This is the foundational proof for long-horizon execution — the vision's "lights-out software factory" requires runs that outlive any single process.
 
 ## Interface
 
-No new commands or APIs. This spec validates that the existing `resume`, `accept-turn`, `escalate`, and `status` commands maintain continuity when invoked from separate processes against the same `.agentxchain/` state directory.
+No new commands or APIs. This spec validates that the existing `resume`, `accept-turn`, `status`, `approve-transition`, `escalate`, and `approve-completion` commands maintain continuity when invoked from separate processes against the same `.agentxchain/` state directory.
 
 ## Behavior
 
@@ -46,12 +47,22 @@ No new commands or APIs. This spec validates that the existing `resume`, `accept
 4. Another fresh process runs `agentxchain resume` to recover from blocked
 5. State is `active`, `blocked_on` is cleared, ledger contains both escalation and resolution entries from separate sessions
 
+### Phase Transition Approval Path
+
+1. A governed project is in the `planning` phase with real gate files present and `Approved: YES` in `.planning/PM_SIGNOFF.md`
+2. **Session E** assigns a PM turn, stages a result with `phase_transition_request: "implementation"`, and accepts it
+3. The run pauses with `pending_phase_transition` because `planning_signoff` requires explicit human approval
+4. **Session F** is a fresh process that runs `agentxchain status` and surfaces `agentxchain approve-transition` as the operator action
+5. **Session F** runs `agentxchain approve-transition`
+6. State advances to `implementation`, `pending_phase_transition` is cleared, and `planning_signoff` is marked `passed`
+7. **Session G** is another fresh process that runs `agentxchain resume --role dev` and receives the next implementation turn inside the same `run_id`
+
 ### Final-Phase Completion Path
 
 1. A governed project is positioned in the final `qa` phase with prior phase gates already passed
-2. **Session E** assigns a final QA turn, stages a result with `run_completion_request: true`, and accepts it
+2. **Session H** assigns a final QA turn, stages a result with `run_completion_request: true`, and accepts it
 3. The run pauses with `pending_run_completion` because the final gate requires explicit human approval
-4. **Session F** is a fresh process that runs `agentxchain approve-completion`
+4. **Session I** is a fresh process that runs `agentxchain approve-completion`
 5. The run transitions to `completed` without changing `run_id`
 6. `pending_run_completion` is cleared and the final gate is marked `passed`
 
@@ -87,6 +98,9 @@ Request run completion in one process, then approve it in a different fresh proc
 
 ### AT-SESSION-006: Turn sequence monotonicity
 Turns assigned in later sessions have higher sequence numbers than turns from earlier sessions.
+
+### AT-SESSION-007: Cross-session phase-transition approval
+Request a planning-to-implementation transition in one process, then approve it in a different fresh process. Assert `status` surfaces `agentxchain approve-transition`, the phase advances to `implementation`, `pending_phase_transition` is cleared, and a later fresh process can resume into the same `run_id` with the `dev` role.
 
 ## Open Questions
 

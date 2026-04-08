@@ -6,9 +6,13 @@
  *      - Start run + complete first turn in Session A
  *      - Resume same run + complete second turn in Session B
  *      - Block run in Session C, recover in Session D
- *   2. Completion path:
- *      - Final-phase QA turn requests run completion in Session E
- *      - Fresh process approves completion in Session F
+ *   2. Phase-transition approval path:
+ *      - Planning turn requests transition in Session E
+ *      - Fresh process approves transition in Session F
+ *      - Another fresh process resumes next-phase work in Session G
+ *   3. Completion path:
+ *      - Final-phase QA turn requests run completion in Session H
+ *      - Fresh process approves completion in Session I
  *
  * Every "session" is a separate spawnSync invocation — a fresh process
  * with no shared in-memory state. Continuity lives entirely in
@@ -115,6 +119,15 @@ function stageTurnResult(dir, turn, runId, overrides = {}) {
 
 function makePassingAcceptanceMatrix() {
   return '# Acceptance Matrix\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| 1 | Completion flow | Fresh-session approve-completion finalizes the run | pass | 2026-04-08 | pass |\n';
+}
+
+function markPlanningGateApproved(dir) {
+  writeFileSync(
+    join(dir, '.planning', 'PM_SIGNOFF.md'),
+    '# PM Signoff — Session Continuity Fixture\n\nApproved: YES\n\n## Discovery Checklist\n- [x] Target user defined\n- [x] Core pain point defined\n- [x] Core workflow defined\n- [x] MVP scope defined\n- [x] Out-of-scope list defined\n- [x] Success metric defined\n\n## Notes for team\nPlanning gate intentionally prepared for cross-session phase-transition approval proof.\n',
+  );
+  execSync('git add .planning/PM_SIGNOFF.md', { cwd: dir, stdio: 'ignore' });
+  execSync('git commit -m "approve planning signoff"', { cwd: dir, stdio: 'ignore' });
 }
 
 function createProject() {
@@ -365,5 +378,66 @@ describe('E2E multi-session governed continuity', () => {
       finalHistory.some((entry) => entry.turn_id === qaTurn.turn_id),
       'AT-SESSION-005: history must retain the accepted QA turn that requested completion',
     );
+  });
+
+  it('AT-SESSION-007: phase transitions can be requested and approved across fresh sessions', () => {
+    const dir = createProject();
+    dirs.push(dir);
+    markPlanningGateApproved(dir);
+
+    const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
+    assert.equal(resumePlanning.status, 0, `Transition Session E resume failed: ${resumePlanning.combined}`);
+
+    const planningState = readState(dir);
+    assert.equal(planningState.phase, 'planning', 'Transition Session E: run must start in planning');
+    assert.equal(planningState.status, 'active', 'Transition Session E: run must be active before acceptance');
+    const runId = planningState.run_id;
+    assert.ok(runId, 'Transition Session E: run_id must exist');
+
+    const planningTurn = Object.values(planningState.active_turns || {})[0];
+    assert.ok(planningTurn, 'Transition Session E: active PM turn must exist');
+    assert.equal(planningTurn.assigned_role, 'pm', 'Transition Session E: turn must be assigned to pm');
+
+    stageTurnResult(dir, planningTurn, runId, {
+      summary: 'Planning complete. Requesting transition to implementation.',
+      proposed_next_role: 'human',
+      phase_transition_request: 'implementation',
+    });
+
+    const acceptPlanning = runCli(dir, ['accept-turn']);
+    assert.equal(acceptPlanning.status, 0, `Transition Session E accept-turn failed: ${acceptPlanning.combined}`);
+
+    const pausedState = readState(dir);
+    assert.equal(pausedState.status, 'paused', 'AT-SESSION-007: run must pause for human phase approval');
+    assert.equal(pausedState.run_id, runId, 'AT-SESSION-007: run_id must remain stable before transition approval');
+    assert.equal(pausedState.pending_phase_transition?.from, 'planning', 'AT-SESSION-007: pending transition must start from planning');
+    assert.equal(pausedState.pending_phase_transition?.to, 'implementation', 'AT-SESSION-007: pending transition must target implementation');
+    assert.equal(pausedState.pending_phase_transition?.gate, 'planning_signoff', 'AT-SESSION-007: pending transition must reference planning_signoff');
+    assert.equal(pausedState.pending_phase_transition?.requested_by_turn, planningTurn.turn_id, 'AT-SESSION-007: pending transition must point at the planning turn');
+
+    const status = runCli(dir, ['status']);
+    assert.equal(status.status, 0, `Transition Session F status failed: ${status.combined}`);
+    assert.match(status.combined, /approve-transition/, 'AT-SESSION-007: status must guide the operator to approve-transition');
+    assert.match(status.combined, /planning.*implementation/i, 'AT-SESSION-007: status must show the requested phase change');
+
+    const approveTransition = runCli(dir, ['approve-transition']);
+    assert.equal(approveTransition.status, 0, `Transition Session F approve-transition failed: ${approveTransition.combined}`);
+
+    const transitionedState = readState(dir);
+    assert.equal(transitionedState.status, 'active', 'AT-SESSION-007: fresh-session approve-transition must reactivate the run');
+    assert.equal(transitionedState.phase, 'implementation', 'AT-SESSION-007: phase must advance after approval');
+    assert.equal(transitionedState.run_id, runId, 'AT-SESSION-007: run_id must remain stable after approval');
+    assert.equal(transitionedState.pending_phase_transition, null, 'AT-SESSION-007: pending transition must be cleared after approval');
+    assert.equal(transitionedState.phase_gate_status?.planning_signoff, 'passed', 'AT-SESSION-007: planning gate must be marked passed after approval');
+
+    const resumeImplementation = runCli(dir, ['resume', '--role', 'dev']);
+    assert.equal(resumeImplementation.status, 0, `Transition Session G resume failed: ${resumeImplementation.combined}`);
+
+    const implementationState = readState(dir);
+    assert.equal(implementationState.run_id, runId, 'AT-SESSION-007: later fresh session must stay in the same run');
+    assert.equal(implementationState.phase, 'implementation', 'AT-SESSION-007: later fresh session must remain in implementation');
+    const implementationTurn = Object.values(implementationState.active_turns || {})[0];
+    assert.ok(implementationTurn, 'AT-SESSION-007: later fresh session must assign an implementation turn');
+    assert.equal(implementationTurn.assigned_role, 'dev', 'AT-SESSION-007: later fresh session must assign the dev role');
   });
 });

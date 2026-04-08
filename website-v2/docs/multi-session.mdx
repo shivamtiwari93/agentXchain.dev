@@ -66,6 +66,35 @@ agentxchain resume
 
 The decision ledger records both the escalation and the resolution as separate entries from separate sessions. Use `agentxchain status` at any time to see the current state and the exact recovery action.
 
+## Approve Phase Transitions Across Sessions
+
+Phase exits can also cross session boundaries. A role can request the next phase in one process, and a human can approve that phase transition later from a fresh process:
+
+```bash
+# Session 1: PM finishes planning
+agentxchain resume --role pm
+# Agent stages turn result with phase_transition_request: "implementation"
+agentxchain accept-turn
+# Run pauses with pending_phase_transition set
+```
+
+```bash
+# Session 2: operator returns in a fresh process
+agentxchain status
+# Shows: "Run agentxchain approve-transition to advance"
+
+agentxchain approve-transition
+# Run advances from planning to implementation
+```
+
+```bash
+# Session 3: later fresh process resumes the next phase
+agentxchain resume --role dev
+# Run continues in the same run_id inside the implementation phase
+```
+
+This matters because phase approval is a governance boundary, not a side effect. Fresh-session approval proves the human can keep control even when work spans multiple terminals, reboots, or days.
+
 ## Complete a Run Across Sessions
 
 Run completion in AgentXchain requires explicit operator approval — this is a governance gate, not an automatic transition. The QA agent requests completion, and a human approves it:

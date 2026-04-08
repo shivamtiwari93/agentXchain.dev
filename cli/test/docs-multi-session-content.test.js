@@ -37,6 +37,12 @@ describe('Multi-session continuity docs surface', () => {
     assert.match(DOC, /blocked/i);
   });
 
+  it('documents cross-session phase-transition approval', () => {
+    assert.match(DOC, /phase_transition_request/);
+    assert.match(DOC, /approve-transition/);
+    assert.match(DOC, /planning to implementation/i);
+  });
+
   it('documents cross-session completion', () => {
     assert.match(DOC, /approve-completion/);
     assert.match(DOC, /pending_run_completion/);
