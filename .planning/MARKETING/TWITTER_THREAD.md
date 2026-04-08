@@ -42,11 +42,11 @@ The orchestrator enforces the rules. It doesn't make decisions.
 
 **Tweet 4 (real proof):**
 
-All 4 adapter types proven live with real AI models:
+All 4 adapter types proven live:
 
-- manual (human-in-the-loop)
-- local_cli (Claude Code, any CLI agent)
-- api_proxy (direct LLM API with proposal staging)
+- manual (human-in-the-loop control path)
+- local_cli (Claude Code, any CLI agent, proven with a real model)
+- api_proxy (direct LLM API with proposal staging, proven with a real model)
 - MCP (stdio + streamable HTTP with Anthropic API)
 
 2,486+ tests. 81 conformance fixtures. Protocol v6 spec.
@@ -85,6 +85,9 @@ npx agentxchain init --governed
 GitHub: github.com/shivamtiwari93/agentXchain.dev
 Docs: agentxchain.dev/docs/quickstart
 npm: npmjs.com/package/agentxchain
+
+If npm resolves a stale global install first, run:
+`npx -p agentxchain@2.24.1 -c 'agentxchain demo'`
 
 ---
 

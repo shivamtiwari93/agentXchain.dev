@@ -23,7 +23,8 @@ AgentXchain fixes this with a constitutional governance layer:
 
 **What's in the box (v2.24.1):**
 - 4 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP)
-- All 4 adapters proven live with real AI models (Claude, not mocks)
+- All 4 adapters proven live
+- `local_cli`, `api_proxy`, and `mcp` proven with real AI models (Claude, not mocks); `manual` is the human control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery -> director review. Proven through the real CLI.
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
@@ -49,6 +50,7 @@ It's the governance layer between agents. They can be built with anything. We go
 
 MIT licensed. Protocol is the product. CLI is one implementation.
 
+- Launch page: https://agentxchain.dev/launch
 - Website: https://agentxchain.dev
 - Demo: `npx agentxchain demo`
 - Quickstart: https://agentxchain.dev/docs/quickstart
@@ -75,7 +77,8 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Humans approve phase transitions and the final ship decision
 - Every decision is recorded in an append-only ledger
 - Phase gates enforce that real artifacts exist before work advances
-- 4 runtime adapters: manual, local CLI, API proxy, MCP — all proven live with real AI models
+- 4 runtime adapters: manual, local CLI, API proxy, MCP — all proven live
+- `local_cli`, `api_proxy`, and `mcp` have real-model proof; `manual` is the governed human path
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
@@ -89,7 +92,7 @@ npx agentxchain demo
 
 MIT licensed. 2,486+ tests. Protocol v6 spec published.
 
-https://agentxchain.dev | https://github.com/shivamtiwari93/agentXchain.dev
+https://agentxchain.dev/launch | https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/artificial/submit
 
@@ -152,6 +155,7 @@ MIT licensed. https://agentxchain.dev
 2. Post during US morning hours (10-11am ET, Mon-Thu)
 3. Post to r/programming first (highest signal), then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT
 4. Lead with the demo: `npx agentxchain demo` — this is the strongest hook because it works instantly with zero setup
-5. Be in all threads for the first 2 hours to answer questions
-6. Do NOT use the word "constitutional" in the title — it sounds academic
-7. If asked "how is this different from CrewAI/LangGraph": AgentXchain governs the delivery process, not the agent construction. Those frameworks build agents. AgentXchain governs how they converge.
+5. If someone hits `unknown command 'demo'`, reply with `npx -p agentxchain@2.24.1 -c 'agentxchain demo'` and explain that npm can resolve a stale global install first
+6. Be in all threads for the first 2 hours to answer questions
+7. Do NOT use the word "constitutional" in the title — it sounds academic
+8. If asked "how is this different from CrewAI/LangGraph": AgentXchain governs the delivery process, not the agent construction. Those frameworks build agents. AgentXchain governs how they converge.

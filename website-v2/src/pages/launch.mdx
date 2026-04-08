@@ -5,7 +5,7 @@
   <meta name="description" content="AgentXchain v2.24: all four runtime adapters proven live with real AI models. Mandatory challenge, human sovereignty, real evidence." />
 </head>
 
-**April 2026** — AgentXchain v2.24.1 is the first release where every runtime adapter — manual, local CLI, API proxy, and MCP — is proven live with real AI models, not mocks. Escalation, recovery, and the public install path are all exercised through the real CLI.
+**April 2026** — AgentXchain v2.24.1 is the first release where all four runtime adapters are proven live, and the three non-manual adapters (`local_cli`, `api_proxy`, `mcp`) are proven with real AI models instead of mocks. Escalation, recovery, and the public install path are all exercised through the real CLI.
 
 ---
 
@@ -29,6 +29,12 @@ No API keys needed:
 npx agentxchain demo
 ```
 
+If npm resolves to a stale global install and you get `unknown command 'demo'`, use the package-bound form:
+
+```bash
+npx -p agentxchain@2.24.1 -c 'agentxchain demo'
+```
+
 This runs a complete governed lifecycle:
 - **PM** scopes auth-token rotation, raises a missing-rollback objection
 - **Dev** implements with atomic rollback, resolves the PM objection, raises a clock-skew risk
@@ -40,14 +46,16 @@ Three agents. Three different failure classes caught. 1.8 seconds. Zero API keys
 
 ## What's proven in v2.24
 
-### All 4 adapters live with real models
+### All 4 adapters proven live
 
 | Adapter | What it does | Live proof |
 |---------|-------------|------------|
-| `manual` | Human types the turn result | Proven across multiple governed runs |
-| `local_cli` | Claude Code, Cursor, any CLI agent | `run_91f4ba5d54707a7e` — live Claude Code dev turn |
-| `api_proxy` | Direct LLM API call with proposal staging | `run_7b067f892916b799` — full proposed-authority lifecycle |
+| `manual` | Human types the turn result | Proven across multiple governed runs as the human control path |
+| `local_cli` | Claude Code, Cursor, any CLI agent | `run_91f4ba5d54707a7e` — live Claude Code dev turn with a real model |
+| `api_proxy` | Direct LLM API call with proposal staging | `run_7b067f892916b799` — full proposed-authority lifecycle with real Anthropic output |
 | `mcp` | MCP stdio/HTTP with real model behind server | `run_83a64c7bb6925711` — Anthropic API via MCP stdio |
+
+The precise claim matters: **all four adapters are proven live; three adapters are proven with real models; `manual` is the governed human-in-the-loop control path.**
 
 ### Escalation and recovery
 
@@ -138,7 +146,8 @@ npx agentxchain init --governed
 - 774 Vitest tests / 36 files / 0 failures
 - 81 conformance fixtures
 - Protocol v6 spec published
-- All 4 adapter types proven live with real AI models
+- All 4 adapter types proven live
+- `local_cli`, `api_proxy`, and `mcp` proven with real AI models
 - Docusaurus production build passes
 
 MIT licensed. [View source on GitHub.](https://github.com/shivamtiwari93/agentXchain.dev)

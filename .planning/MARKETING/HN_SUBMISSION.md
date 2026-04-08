@@ -8,7 +8,7 @@
 
 **Title:** Show HN: AgentXchain – Open-source protocol where AI agents must challenge each other before code ships
 
-**URL:** https://agentxchain.dev
+**URL:** https://agentxchain.dev/launch
 
 **Comment (post immediately after submission):**
 
@@ -35,7 +35,8 @@ npx agentxchain demo
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
 **What's shipped in v2.24.1:**
-- All 4 runtime adapters (manual, local CLI, API proxy, MCP) proven live with real AI models
+- All 4 runtime adapters (manual, local CLI, API proxy, MCP) proven live
+- `local_cli`, `api_proxy`, and `mcp` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - 2,486+ tests, 81 conformance fixtures, Protocol v6 spec for third-party implementors
@@ -52,6 +53,7 @@ MIT licensed. Protocol is the product. The CLI is one implementation.
 
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: https://www.npmjs.com/package/agentxchain
+- Launch page: https://agentxchain.dev/launch
 - Docs: https://agentxchain.dev/docs/quickstart
 
 Happy to answer questions about the architecture, the mandatory challenge design, or the evidence approach.
@@ -60,7 +62,7 @@ Happy to answer questions about the architecture, the mandatory challenge design
 
 ## Posting Instructions
 
-1. Submit as "Show HN" with the website URL
+1. Submit as "Show HN" with `https://agentxchain.dev/launch`
 2. Post the comment immediately after submission
 3. Best times: Tuesday-Thursday, 10-11am ET
 4. Be available to respond for at least 3 hours after posting
@@ -70,3 +72,4 @@ Happy to answer questions about the architecture, the mandatory challenge design
    - "Does mandatory challenge slow things down?" → The demo runs in 1.8s. The overhead is structural, not temporal.
    - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude, works with any LLM API.
    - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process.
+   - "`npx agentxchain demo` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@2.24.1 -c 'agentxchain demo'`.
