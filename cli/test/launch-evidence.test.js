@@ -70,10 +70,13 @@ describe('Launch evidence report', () => {
     assert.match(report, /proposal materialization.*gate rejection/i);
   });
 
-  it('records live api_proxy proposed-authority proof as disallowed until real-provider evidence exists', () => {
-    assert.match(report, /proposed-authority is proven live against a real provider/i);
-    assert.match(report, /Current proposed-authority proof is E1-only subprocess E2E against mock providers/i);
-    assert.match(report, /Run a real-provider governed lifecycle with `api_proxy` using `proposed` authority/i);
+  it('records live proposed-authority lifecycle as allowed and run completion as disallowed', () => {
+    // E2c allowed claim: core lifecycle proven live
+    assert.match(report, /proposed-authority lifecycle.*proven live against real Anthropic/i);
+    assert.match(report, /E2c/);
+    // Disallowed claim: run completion not yet proven live
+    assert.match(report, /proposed-authority run completion is proven live against a real provider/i);
+    assert.match(report, /real model did not return `run_completion_request: true`/i);
   });
 
   it('records live MCP dogfood proof for both transports', () => {
@@ -107,10 +110,10 @@ describe('Launch surfaces do not contain disallowed claims', () => {
         assert.doesNotMatch(content, /all adapters proven live/i);
       });
 
-      it('does not imply live api_proxy proposed-authority proof', () => {
+      it('does not claim live proposed-authority run completion', () => {
         if (/proposed-authority|proposal apply|api_proxy/i.test(content)) {
-          assert.doesNotMatch(content, /live .*proposed-authority/i);
-          assert.doesNotMatch(content, /real-provider .*proposed-authority/i);
+          assert.doesNotMatch(content, /proposed-authority run completion.*proven live/i);
+          assert.doesNotMatch(content, /full proposed-authority.*proven live/i);
         }
       });
 
@@ -244,7 +247,7 @@ describe('Launch brief references evidence report', () => {
 
   it('includes claim boundary constraints', () => {
     assert.match(brief, /all adapters proven live/i);
-    assert.match(brief, /live `api_proxy` proposed-authority proof/i);
+    assert.match(brief, /proposed-authority.*run completion.*proven live/i);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });
