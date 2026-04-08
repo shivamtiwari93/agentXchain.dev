@@ -23,8 +23,17 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   const root = mkdtempSync(join(tmpdir(), 'axc-release-bump-'));
   const cliDir = join(root, 'cli');
   const scriptsDir = join(cliDir, 'scripts');
+  const websiteDocsReleaseDir = join(root, 'website-v2', 'docs', 'releases');
+  const websiteDocsDir = join(root, 'website-v2', 'docs');
+  const websitePagesDir = join(root, 'website-v2', 'src', 'pages');
+  const planningDir = join(root, '.planning');
+  const conformanceDir = join(root, '.agentxchain-conformance');
 
   mkdirSync(scriptsDir, { recursive: true });
+  mkdirSync(websiteDocsReleaseDir, { recursive: true });
+  mkdirSync(websitePagesDir, { recursive: true });
+  mkdirSync(planningDir, { recursive: true });
+  mkdirSync(conformanceDir, { recursive: true });
   cpSync(BUMP_SCRIPT, join(scriptsDir, 'release-bump.sh'));
   chmodSync(join(scriptsDir, 'release-bump.sh'), 0o755);
 
@@ -51,6 +60,13 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
       },
     }, null, 2) + '\n',
   );
+  writeFileSync(join(cliDir, 'CHANGELOG.md'), `# Changelog\n\n## ${version}\n\nExisting release notes.\n\n### Evidence\n\n- 10 node tests / 2 suites, 0 failures.\n`);
+  writeFileSync(join(websiteDocsReleaseDir, `v${version.replace(/\./g, '-')}.mdx`), `---\ntitle: "v${version} Release Notes"\n---\n\n# AgentXchain v${version}\n\n## Evidence\n\n- 10 node tests / 2 suites, 0 failures.\n`);
+  writeFileSync(join(root, 'website-v2', 'sidebars.ts'), `'releases/v${version.replace(/\./g, '-')}'\n`);
+  writeFileSync(join(websitePagesDir, 'index.tsx'), `<div className="hero-badge">v${version}</div>\n`);
+  writeFileSync(join(conformanceDir, 'capabilities.json'), JSON.stringify({ version }, null, 2) + '\n');
+  writeFileSync(join(websiteDocsDir, 'protocol-implementor-guide.mdx'), `{"version": "${version}"}\n`);
+  writeFileSync(join(planningDir, 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n`);
 
   execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.name', 'test'], { cwd: root, stdio: 'ignore' });
@@ -198,8 +214,8 @@ describe('Release identity hardening', () => {
 
     it('checks for clean tree before bumping', () => {
       assert.ok(
-        script.includes('git diff --quiet'),
-        'script must check tree cleanliness',
+        script.includes('allowed release surfaces'),
+        'script must check that only allowed release-surface dirt is present',
       );
     });
 
@@ -250,6 +266,7 @@ describe('Release identity hardening', () => {
       const spec = readFileSync(SPEC, 'utf8');
       assert.match(spec, /AT-RIH-005/, 'spec must require subprocess proof for release identity');
       assert.match(spec, /AT-RIH-006/, 'spec must require fail-closed mutation guards');
+      assert.match(spec, /AT-RIH-007/, 'spec must require release-surface inclusion proof');
     });
   });
 
@@ -298,7 +315,7 @@ describe('Release identity hardening', () => {
 
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
       assert.equal(result.status, 1);
-      assert.match(result.stderr, /Working tree is not clean/);
+      assert.match(result.stderr, /changes outside the allowed release surfaces/);
 
       const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
       assert.equal(pkg.version, '2.19.0');
@@ -319,6 +336,35 @@ describe('Release identity hardening', () => {
 
       const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
       assert.equal(pkg.version, '2.19.0');
+    });
+  });
+
+  describe('AT-RIH-007: release-bump.sh includes allowed release-surface edits in the release commit', () => {
+    it('commits target-version release surfaces alongside package version files', () => {
+      const fixture = createReleaseBumpFixture();
+      writeFileSync(join(fixture.cliDir, 'CHANGELOG.md'), '# Changelog\n\n## 2.20.0\n\nPrepared release notes.\n\n### Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n');
+      writeFileSync(join(fixture.root, 'website-v2', 'docs', 'releases', 'v2-20-0.mdx'), '---\ntitle: "v2.20.0 Release Notes"\n---\n\n# AgentXchain v2.20.0\n\n## Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n');
+      writeFileSync(join(fixture.root, 'website-v2', 'sidebars.ts'), "'releases/v2-20-0'\n");
+      writeFileSync(join(fixture.root, 'website-v2', 'src', 'pages', 'index.tsx'), '<div className="hero-badge">v2.20.0</div>\n');
+      writeFileSync(join(fixture.root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: '2.20.0' }, null, 2) + '\n');
+      writeFileSync(join(fixture.root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), '{"version": "2.20.0"}\n');
+      writeFileSync(join(fixture.root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), '# Launch Evidence Report — AgentXchain v2.20.0\n');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const changedFiles = execFileSync('git', ['show', '--name-only', '--format=', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim().split('\n').filter(Boolean);
+
+      assert.ok(changedFiles.includes('cli/CHANGELOG.md'));
+      assert.ok(changedFiles.includes('website-v2/docs/releases/v2-20-0.mdx'));
+      assert.ok(changedFiles.includes('website-v2/sidebars.ts'));
+      assert.ok(changedFiles.includes('website-v2/src/pages/index.tsx'));
+      assert.ok(changedFiles.includes('.agentxchain-conformance/capabilities.json'));
+      assert.ok(changedFiles.includes('website-v2/docs/protocol-implementor-guide.mdx'));
+      assert.ok(changedFiles.includes('.planning/LAUNCH_EVIDENCE_REPORT.md'));
     });
   });
 });

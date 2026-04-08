@@ -23,6 +23,7 @@ The guard reads:
 - `website-v2/src/pages/index.tsx`
 - `.agentxchain-conformance/capabilities.json`
 - `website-v2/docs/protocol-implementor-guide.mdx`
+- `.planning/LAUNCH_EVIDENCE_REPORT.md`
 
 ## Behavior
 
@@ -34,6 +35,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 4. The homepage hero badge shows `v<version>`.
 5. `.agentxchain-conformance/capabilities.json` `version` matches `cli/package.json`.
 6. The protocol implementor guide inline `capabilities.json` example includes the current version string.
+7. `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current release version.
 
 ## Error Cases
 
@@ -50,3 +52,4 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - **AT-CRS-004**: The guard asserts the homepage hero badge shows the current version.
 - **AT-CRS-005**: The guard asserts `.agentxchain-conformance/capabilities.json` matches the package version.
 - **AT-CRS-006**: The guard asserts the protocol implementor guide example shows the current version.
+- **AT-CRS-009**: The guard asserts `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current version.

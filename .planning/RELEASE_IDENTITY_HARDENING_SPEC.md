@@ -8,6 +8,8 @@ Close two release-path defects exposed during the v2.19.0 cut:
 
 2. **Homebrew tap automation degrades to a warning when `HOMEBREW_TAP_TOKEN` is absent.** The CI workflow warns but continues, leaving the canonical tap stale. The operator contract says "Homebrew updates only after npm truth is live" — but it does not say "canonical tap truth is required for release completion." This ambiguity allowed v2.19.0 to require manual tap push.
 
+3. **The release-identity commit can exclude the already-validated target-version public surfaces.** `current-release-surface.test.js` validates changelog, release notes, homepage badge, capabilities, implementor-guide example, and launch evidence title against `AGENTXCHAIN_RELEASE_TARGET_VERSION`, but `release-bump.sh` only staged `package.json` and `package-lock.json`. That forces either a temporary version-drift prep commit or a final release commit that does not actually contain the validated release surfaces.
+
 ## Interface
 
 ### New Script: `cli/scripts/release-bump.sh`
@@ -23,10 +25,19 @@ bash scripts/release-bump.sh --target-version <semver>
 2. Validates `cli/package.json` is not already at target version
 3. Runs `npm version <semver> --no-git-tag-version` to update files only
 4. Also updates `package-lock.json` version field if present
-5. Creates a single commit: `<semver>` (matching npm convention)
-6. Creates an annotated tag: `v<semver>` with message `v<semver>`
-7. Verifies commit and tag exist before exiting
-8. Exit code 0 only if all steps succeed; any failure is fatal
+5. Allows dirty pre-bump changes only in the target-version release-surface whitelist:
+   - `cli/CHANGELOG.md`
+   - `website-v2/docs/releases/v<major>-<minor>-<patch>.mdx`
+   - `website-v2/sidebars.ts`
+   - `website-v2/src/pages/index.tsx`
+   - `.agentxchain-conformance/capabilities.json`
+   - `website-v2/docs/protocol-implementor-guide.mdx`
+   - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+6. Stages those allowed release-surface files together with `package.json` and `package-lock.json`
+7. Creates a single commit: `<semver>` (matching npm convention)
+8. Creates an annotated tag: `v<semver>` with message `v<semver>`
+9. Verifies commit and tag exist before exiting
+10. Exit code 0 only if all steps succeed; any failure is fatal
 
 ### Updated Playbook
 
@@ -46,9 +57,9 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 1. Parse `--target-version <semver>` (required)
 2. `cd` to cli directory (script is in `cli/scripts/`)
 3. Assert `package.json` version ≠ target (prevent double-bump)
-4. Assert clean git tree (fail if dirty — don't create a release commit on top of uncommitted work)
+4. Assert the tree contains no dirty paths outside the release-surface whitelist for the target version
 5. Run `npm version ${TARGET} --no-git-tag-version` — this updates `package.json` only
-6. Stage `package.json` and `package-lock.json`
+6. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist
 7. `git commit -m "${TARGET}"`
 8. `git tag -a "v${TARGET}" -m "v${TARGET}"`
 9. Verify: `git rev-parse "v${TARGET}"` succeeds
@@ -59,7 +70,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 
 - Invalid semver → exit 1 with message
 - Already at target version → exit 1 with message
-- Dirty tree → exit 1 with message
+- Dirty tree outside the release-surface whitelist → exit 1 with message naming the offending files
 - `npm version --no-git-tag-version` fails → exit 1
 - `git commit` fails → exit 1
 - `git tag` fails → exit 1
@@ -72,7 +83,8 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-003`: Playbook lists `postflight:downstream` as a required step, not optional
 - `AT-RIH-004`: Playbook documents the manual Homebrew tap follow-through when CI cannot push
 - `AT-RIH-005`: In a temp git repo rooted above `cli/`, `release-bump.sh --target-version <semver>` updates `package.json` and `package-lock.json`, creates commit `<semver>`, and creates an annotated tag `v<semver>` that dereferences to `HEAD`
-- `AT-RIH-006`: `release-bump.sh` fails before mutating version files when the tree is dirty or the target tag already exists
+- `AT-RIH-006`: `release-bump.sh` fails before mutating version files when the tree contains dirty paths outside the release-surface whitelist or the target tag already exists
+- `AT-RIH-007`: In a temp git repo with target-version release-surface edits staged only in the whitelist, `release-bump.sh --target-version <semver>` includes those release-surface files in the release commit instead of rejecting the tree or omitting them
 
 ## Open Questions
 

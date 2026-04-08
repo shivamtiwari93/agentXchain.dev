@@ -21,6 +21,7 @@ const SIDEBARS = read('website-v2/sidebars.ts');
 const HOME = read('website-v2/src/pages/index.tsx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
+const LAUNCH_EVIDENCE = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
 const CURRENT_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || PACKAGE.version;
 const CURRENT_RELEASE_DOC_ID = `releases/v${CURRENT_VERSION.replace(/\./g, '-')}`;
 const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`;
@@ -66,5 +67,13 @@ describe('current release surface', () => {
     const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
     assert.match(versionBlock, /\d+ node tests/, 'Changelog evidence must include concrete node test count');
     assert.match(versionBlock, /0 failures/, 'Changelog evidence must confirm 0 failures');
+  });
+
+  it('AT-CRS-009: launch evidence title carries the current release version', () => {
+    assert.match(
+      LAUNCH_EVIDENCE,
+      new RegExp(`^# Launch Evidence Report — AgentXchain v${CURRENT_VERSION.replace(/\./g, '\\.')}`, 'm'),
+      'Launch evidence report title must track the current release version',
+    );
   });
 });

@@ -6,6 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLI_DIR="${SCRIPT_DIR}/.."
+REPO_ROOT="$(cd "${CLI_DIR}/.." && pwd)"
 cd "$CLI_DIR"
 
 TARGET_VERSION=""
@@ -46,13 +47,56 @@ fi
 echo "AgentXchain Release Identity: ${TARGET_VERSION}"
 echo "============================================="
 
-# 1. Assert clean tree
-echo "[1/7] Checking git tree cleanliness..."
-if ! git diff --quiet HEAD 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
-  echo "FAIL: Working tree is not clean. Commit or stash changes before creating release identity." >&2
+TARGET_RELEASE_DOC="website-v2/docs/releases/v${TARGET_VERSION//./-}.mdx"
+ALLOWED_RELEASE_PATHS=(
+  "cli/CHANGELOG.md"
+  "${TARGET_RELEASE_DOC}"
+  "website-v2/sidebars.ts"
+  "website-v2/src/pages/index.tsx"
+  ".agentxchain-conformance/capabilities.json"
+  "website-v2/docs/protocol-implementor-guide.mdx"
+  ".planning/LAUNCH_EVIDENCE_REPORT.md"
+)
+
+is_allowed_release_path() {
+  local candidate="$1"
+  local allowed
+  for allowed in "${ALLOWED_RELEASE_PATHS[@]}"; do
+    if [[ "$candidate" == "$allowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+stage_if_present() {
+  local rel_path="$1"
+  if [[ -e "${REPO_ROOT}/${rel_path}" ]]; then
+    git -C "$REPO_ROOT" add -- "$rel_path"
+    return 0
+  fi
+  if git -C "$REPO_ROOT" ls-files --error-unmatch "$rel_path" >/dev/null 2>&1; then
+    git -C "$REPO_ROOT" add -- "$rel_path"
+  fi
+}
+
+# 1. Assert only allowed release-surface dirt is present
+echo "[1/7] Checking release-prep tree state..."
+DISALLOWED_DIRTY=()
+while IFS= read -r status_line; do
+  [[ -z "$status_line" ]] && continue
+  path="${status_line#?? }"
+  if ! is_allowed_release_path "$path"; then
+    DISALLOWED_DIRTY+=("$path")
+  fi
+done < <(git -C "$REPO_ROOT" status --porcelain)
+
+if [[ "${#DISALLOWED_DIRTY[@]}" -gt 0 ]]; then
+  echo "FAIL: Working tree contains changes outside the allowed release surfaces:" >&2
+  printf '  - %s\n' "${DISALLOWED_DIRTY[@]}" >&2
   exit 1
 fi
-echo "  OK: tree is clean"
+echo "  OK: tree contains only allowed release-prep changes"
 
 # 2. Assert not already at target version
 echo "[2/7] Checking current version..."
@@ -78,11 +122,14 @@ echo "  OK: package.json updated to ${TARGET_VERSION}"
 
 # 5. Stage version files
 echo "[5/7] Staging version files..."
-git add package.json
+git add -- package.json
 if [[ -f package-lock.json ]]; then
-  git add package-lock.json
+  git add -- package-lock.json
 fi
-echo "  OK: version files staged"
+for rel_path in "${ALLOWED_RELEASE_PATHS[@]}"; do
+  stage_if_present "$rel_path"
+done
+echo "  OK: version files and allowed release surfaces staged"
 
 # 6. Create release commit
 echo "[6/7] Creating release commit..."

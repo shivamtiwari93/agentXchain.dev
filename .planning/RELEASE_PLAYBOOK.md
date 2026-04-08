@@ -22,7 +22,14 @@ This playbook exists because historical release notes and handoff specs in `.pla
 
 ### Preconditions
 
-- Work from a clean git tree on the intended release commit.
+- Work from a clean git tree, then prepare only the target-version release-surface files before bumping:
+  - `cli/CHANGELOG.md`
+  - `website-v2/docs/releases/v<major>-<minor>-<patch>.mdx`
+  - `website-v2/sidebars.ts`
+  - `website-v2/src/pages/index.tsx`
+  - `.agentxchain-conformance/capabilities.json`
+  - `website-v2/docs/protocol-implementor-guide.mdx`
+  - `.planning/LAUNCH_EVIDENCE_REPORT.md`
 - Have an updated `cli/CHANGELOG.md` entry for the target version.
 - Use the canonical package and workflow:
   - package: `cli/package.json` (`name: agentxchain`)
@@ -102,11 +109,12 @@ npm run bump:release -- --target-version <semver>
 ```
 
 This fail-closed script:
-1. Asserts the tree is clean and the version is not already bumped
+1. Asserts the tree contains no dirty paths outside the target-version release-surface whitelist and the version is not already bumped
 2. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
-3. Creates a commit with message `<semver>`
-4. Creates an annotated tag `v<semver>`
-5. Verifies both commit and tag exist before exiting
+3. Stages the allowed release-surface files together with the version files
+4. Creates a commit with message `<semver>`
+5. Creates an annotated tag `v<semver>`
+6. Verifies both commit and tag exist before exiting
 
 Do not use raw `npm version <semver>` — it may update files without creating git identity when run from a subdirectory. Do not hand-edit the tag or let CI invent the version.
 
@@ -191,7 +199,7 @@ Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror mu
 
 | Condition | Behavior |
 |---|---|
-| Working tree is dirty before release | Stop and clean or commit intentionally before `npm version`. |
+| Working tree contains changes outside the allowed release-surface whitelist before release | Stop and clean or commit the unrelated work before `bump:release`. |
 | `CHANGELOG.md` lacks `## <semver>` | Stop and add the release notes before bumping. |
 | `bump:release` fails | Stop. Do not create the tag manually as a workaround. Fix the issue and rerun `bump:release`. |
 | `HOMEBREW_TAP_TOKEN` is missing before first publish | Workflow fails before npm publication. Configure `HOMEBREW_TAP_TOKEN`, or use a manual release path that completes the canonical tap before claiming release completion. |
