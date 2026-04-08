@@ -125,6 +125,7 @@ The gate returns `gate_failed` — the turn is accepted but the phase transition
 - `AT-CHARTER-015`: Optional artifact with `owned_by` + file exists + no owning role turn → gate fails (file exists so ownership matters)
 - `AT-CHARTER-016`: Multiple artifacts, one owned, one not → owned one checked, unowned one not
 - `AT-CHARTER-017`: Run-completion gate respects `owned_by` the same way as phase-exit gate
+- `AT-CHARTER-E2E-001`: A repo created by `init --governed --template enterprise-app` must rely on scaffolded `ROADMAP.md` and `SYSTEM_SPEC.md` during planning, then block a `dev`-only architecture handoff until an `architect` turn is accepted. The test must not overwrite those scaffolded files before proving runtime behavior.
 
 ## Open Questions
 

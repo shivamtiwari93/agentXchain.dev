@@ -40,17 +40,8 @@ function readJsonl(dir, relPath) {
   return content.split('\n').map((line) => JSON.parse(line));
 }
 
-function writeEnterprisePlanningArtifacts(dir) {
-  mkdirSync(join(dir, '.planning'), { recursive: true });
+function writePlanningSignoff(dir) {
   writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), '# PM Signoff\n\nApproved: YES\n');
-  writeFileSync(
-    join(dir, '.planning', 'ROADMAP.md'),
-    '# Roadmap\n\n## Phases\n\n| Phase | Goal | Status |\n|-------|------|--------|\n| Planning | Align scope and enterprise constraints | Complete |\n| Architecture | Record system boundaries and trade-offs | Pending |\n| Implementation | Build approved work safely | Pending |\n| Security Review | Review auth, data, and threat-model coverage | Pending |\n| QA | Verify ship readiness | Pending |\n'
-  );
-  writeFileSync(
-    join(dir, '.planning', 'SYSTEM_SPEC.md'),
-    '# System Spec\n\n## Purpose\n\nProve charter enforcement on enterprise-app.\n\n## Interface\n\n- planning -> architecture -> implementation -> security_review -> qa\n\n## Acceptance Tests\n\n- [ ] Architecture gate blocks when only dev participates.\n- [ ] Architecture gate passes after an architect turn is accepted.\n'
-  );
 }
 
 function writeArchitectureArtifact(dir, note) {
@@ -109,14 +100,28 @@ function writeTurnResult(dir, state, overrides = {}) {
 }
 
 describe('CLI subprocess E2E — enterprise-app charter enforcement', () => {
-  it('AT-CHARTER-E2E-001: architecture gate blocks a dev-authored artifact until architect participates', () => {
+  it('AT-CHARTER-E2E-001: scaffolded enterprise-app roadmap survives into runtime charter enforcement', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-enterprise-charter-'));
 
     try {
       const init = runCli(dir, ['init', '--governed', '--template', 'enterprise-app', '--dir', '.', '-y']);
       assert.equal(init.status, 0, init.stderr);
 
-      writeEnterprisePlanningArtifacts(dir);
+      const roadmap = readFileSync(join(dir, '.planning', 'ROADMAP.md'), 'utf8');
+      assert.match(roadmap, /\| Planning \|/);
+      assert.match(roadmap, /\| Architecture \|/);
+      assert.match(roadmap, /\| Implementation \|/);
+      assert.match(roadmap, /\| Security Review \|/);
+      assert.match(roadmap, /\| Qa \|/);
+      assert.match(roadmap, /Architecture \| Define the system boundary, integration contracts, and technical trade-offs before implementation commits to a design\./);
+      assert.match(roadmap, /Security Review \| Challenge data handling, auth boundaries, and exploit paths before work proceeds to final QA\./);
+
+      const systemSpec = readFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), 'utf8');
+      assert.match(systemSpec, /## Purpose/);
+      assert.match(systemSpec, /## Interface/);
+      assert.match(systemSpec, /## Acceptance Tests/);
+
+      writePlanningSignoff(dir);
 
       const resumePlanning = runCli(dir, ['resume']);
       assert.equal(resumePlanning.status, 0, resumePlanning.stderr);
