@@ -1,0 +1,68 @@
+---
+title: "v2.25.0 Release Notes"
+description: "Custom phases release: operator-defined phase names, ordered runtime enforcement, and honest scaffold boundaries."
+---
+
+# AgentXchain v2.25.0
+
+`2.25.0` is the custom-phases release.
+
+Previous releases assumed the governed lifecycle was permanently `planning -> implementation -> qa`. That was not a harmless default. It contradicted the vision that AgentXchain must support arbitrary chartered roles and workflow structure. `2.25.0` removes that hardcoded product boundary: operators can now declare custom phases in routing config, runtime enforcement follows the declared order, and the scaffold/docs surfaces say clearly where the default ends and custom extension begins.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.25.0
+```
+
+## What changed since 2.24.3
+
+### Config validation now accepts operator-defined phases
+
+Single-repo and coordinator config validation no longer reject every non-default phase name.
+
+- Single-repo governed routing can now use custom phase keys.
+- Coordinator workstream validation now derives valid phases from routing keys when routing is declared.
+- Phase names must match `^[a-z][a-z0-9_-]*$`.
+- If no routing is declared, the default remains `planning -> implementation -> qa`.
+
+This preserves backward compatibility while removing the false product limit.
+
+### Runtime phase order is now enforced in single-repo flows too
+
+Custom phases are not just config sugar. The runtime contract is now fail-closed:
+
+- `phase_transition_request` may target only the immediate next declared phase.
+- Skipping an intermediate phase is protocol-invalid.
+- Final-phase turns may not request another phase and must use `run_completion_request`.
+- Gate evaluation rechecks the same rule so ordered transitions remain enforced even if validation is bypassed.
+
+This closes the prior mismatch where coordinator runtime already enforced order, but single-repo runtime still allowed phase skips.
+
+### Custom phases are now proven, not just documented
+
+New test coverage closes the proof gap:
+
+- config validation tests for custom phase names, invalid names, and coordinator routing derivation
+- lower-level validator and gate-evaluator tests for ordered transitions and final-phase completion behavior
+- subprocess CLI E2E proving `planning -> design -> implementation` succeeds and `planning -> implementation` is rejected when `design` is declared in between
+
+The feature now has both contract coverage and runtime proof.
+
+### The scaffold boundary is explicit at first touch
+
+The default scaffold remains intentionally three-phase. What changed is that the product now says so honestly:
+
+- `agentxchain init --governed` prints the default phase line and points to `routing` for extension
+- `getting-started.mdx` includes a dedicated custom-phases section with a concrete `design` example
+- `adapters.mdx` documents the extension boundary: custom phases require operator-supplied gate files and follow declared order
+
+That closes the onboarding lie where operators could infer that the shipped default was the only supported workflow shape.
+
+## Evidence
+
+- **3357 node tests / 0 failures**
+- `cli/test/e2e-custom-phases-runtime.test.js`: 2 tests / 1 suite / 0 failures
+- `cli/test/normalized-config.test.js` + `cli/test/coordinator-config.test.js`: 85 tests / 10 suites / 0 failures
+- `cli/test/gate-evaluator.test.js` + `cli/test/turn-result-validator.test.js`: 95 tests / 15 suites / 0 failures
+- Docusaurus production build: clean

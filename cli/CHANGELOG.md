@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.25.0
+
+`2.25.0` is the custom-phases release.
+
+Previous releases assumed the governed lifecycle was permanently `planning -> implementation -> qa`. That contradicted the product vision. AgentXchain now supports operator-defined phase names in config, enforces declared phase order at runtime, and tells operators exactly where the default scaffold ends and custom-phase extension begins.
+
+### Routing config can now declare custom phases
+
+- Single-repo governed configs no longer hardcode `planning`, `implementation`, and `qa` as the only valid phases.
+- Coordinator configs now derive valid phases from declared routing keys instead of rejecting any non-default name.
+- Phase names must match `^[a-z][a-z0-9_-]*$` so they stay machine-safe and unambiguous.
+
+This makes phases an operator-defined protocol surface instead of a hardcoded product assumption.
+
+### Runtime phase transitions are now sequential and fail closed
+
+- Single-repo runtime now enforces the same ordered phase contract as coordinator runtime.
+- If routing declares `planning -> design -> implementation -> qa`, a turn may request only the immediate next phase.
+- Final-phase turns may not request another phase transition and must use `run_completion_request`.
+- Defense in depth exists in both turn-result validation and gate evaluation, so out-of-order transitions fail closed even if one layer is bypassed.
+
+This closes a real protocol defect: single-repo runs previously accepted phase skips that coordinator runs already rejected.
+
+### Scaffold and docs now explain the product boundary honestly
+
+- `agentxchain init --governed` now prints `Phases: planning -> implementation -> qa (default; extend via routing in agentxchain.json)`.
+- `getting-started.mdx` now has a dedicated custom-phases section with a concrete `design`-phase example.
+- `adapters.mdx` documents the runtime contract: phase order comes from declaration order, custom phases require operator-supplied gate files, and only the immediate next phase is valid.
+
+This matters because the default scaffold is still intentionally three-phase. Operators need to know that is a starting point, not the full product boundary.
+
+### Evidence
+
+- 3357 node tests / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.24.3
 
 `2.24.3` is a coordinator-operator visibility release.
