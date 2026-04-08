@@ -7,7 +7,7 @@
 
 The repo has two docs surfaces:
 
-1. **`website-v2/`** — Docusaurus source. Both CI workflows (`deploy-gcs.yml`, `deploy-pages.yml`) build and deploy from `website-v2/build/`.
+1. **`website-v2/`** — Docusaurus source. The repo-owned deploy workflow (`deploy-gcs.yml`) builds and deploys from `website-v2/build/`.
 2. **`website/`** — Committed flat HTML files. **No CI workflow deploys these.** They are dead weight.
 
 Every docs change requires updating both surfaces manually. This is the root cause of the drift GPT flagged in Turn 2 (GPT Turn 2). The flat files are never deployed, yet 5 test files assert against them, creating a maintenance burden for content that serves no production purpose.
@@ -19,7 +19,6 @@ Every docs change requires updating both surfaces manually. This is the root cau
 ### Justification
 
 - `deploy-gcs.yml` deploys `website-v2/build/` to `gs://agentxchain.dev/`
-- `deploy-pages.yml` deploys `website-v2/build/` to GitHub Pages
 - Zero CI workflows reference `website/`
 - Maintaining two manually-synced doc surfaces is a proven drift source
 - The Docusaurus source files contain all the same content and more

@@ -24,7 +24,9 @@ Ship AgentXchain.dev on a mature OSS docs stack that can serve the current publi
 - explicit `agentxchain.dev` (OSS) vs `agentxchain.ai` (cloud) split
 - released version reality (`2.1.1` at the time of this spec update)
 
-**DEC-GCS-DEPLOY-001**: GCS deployment is the primary static hosting path. GitHub Pages remains a fallback/public mirror, not the canonical deployment target.
+**DEC-GCS-DEPLOY-001**: GCS deployment is the canonical static hosting path for `agentxchain.dev`.
+
+**DEC-WEBSITE-DEPLOY-004**: GitHub Pages is retired as an active repo-owned website deploy path. A broken mirror workflow that never serves production traffic is noise, not resilience.
 
 **DEC-GCS-DEPLOY-002**: Cache policy is enforced after sync, not merely implied during sync. Content-hashed Docusaurus assets receive immutable long-cache headers. HTML and all non-hashed mutable objects receive short-cache headers.
 

@@ -10,26 +10,25 @@ Prevent operator drift across repo-native automation surfaces. The canonical pro
 
 - `run-agents.sh`
 - `.github/workflows/deploy-gcs.yml`
-- `.github/workflows/deploy-pages.yml`
 
 ## Behavior
 
 1. `run-agents.sh` must describe `.github/workflows/deploy-gcs.yml` as the canonical production deploy path for `https://agentxchain.dev`.
-2. `run-agents.sh` must describe `.github/workflows/deploy-pages.yml` as the mirror path.
-3. `run-agents.sh` may mention `gh workflow run` / `workflow_dispatch` for manual reruns.
+2. `run-agents.sh` may mention `gh workflow run` / `workflow_dispatch` for manual reruns.
+3. `run-agents.sh` must not describe GitHub Pages as an active deploy path.
 4. `run-agents.sh` must not tell operators to run `deploy-websites.sh` or another missing local helper.
 
 ## Error Cases
 
 - Automation prompt references a deleted local deploy helper.
-- Automation prompt names only one workflow and hides the production/mirror split.
+- Automation prompt invents a second active website deploy path.
 - Automation prompt implies deployment requires a repo-local script when the supported contract is GitHub Actions.
 
 ## Acceptance Tests
 
 1. `run-agents.sh` mentions `.github/workflows/deploy-gcs.yml`.
-2. `run-agents.sh` mentions `.github/workflows/deploy-pages.yml`.
-3. `run-agents.sh` mentions `gh workflow run` or `workflow_dispatch`.
+2. `run-agents.sh` mentions `gh workflow run` or `workflow_dispatch`.
+3. `run-agents.sh` does not mention `.github/workflows/deploy-pages.yml`.
 4. `run-agents.sh` does not mention `deploy-websites.sh`.
 
 ## Open Questions

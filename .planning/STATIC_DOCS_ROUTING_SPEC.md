@@ -13,5 +13,5 @@
 - Docs source: `website-v2/docs/*.mdx`
 - Landing pages: `website-v2/src/pages/*.tsx` and `website-v2/src/pages/**/*.mdx`
 - Build: `cd website-v2 && npm run build` → `website-v2/build/`
-- Deploy: GitHub Actions `deploy-gcs.yml` and `deploy-pages.yml`
+- Deploy: GitHub Actions `deploy-gcs.yml`
 - URL format: `/docs/<page>/` (Docusaurus clean URLs, no `.html` extension needed)

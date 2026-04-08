@@ -6,7 +6,7 @@ Public website and docs for `agentxchain.dev`, built with Docusaurus and deploye
 
 - Landing page aligned to `.planning/VISION.md`
 - Public docs and comparison pages
-- Static build output for GCS and GitHub Pages
+- Static build output for GCS
 
 ## Local development
 
@@ -44,14 +44,3 @@ The GCS workflow enforces:
 - hashed assets under `build/assets/` get immutable long-cache headers
 - HTML and other mutable files get short-cache headers
 - `agentxchain.dev` is the canonical bucket
-
-GitHub Pages remains a mirror through:
-
-```bash
-.github/workflows/deploy-pages.yml
-```
-
-It builds the same `website-v2/build/` output and supports the same two trigger modes:
-
-- pushes to `main` that change `website-v2/**`
-- manual `workflow_dispatch`

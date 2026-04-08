@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -10,12 +10,9 @@ describe('deploy workflow docs truthfulness', () => {
   const humanTasks = read('.planning/HUMAN_TASKS.md');
   const gcsSpec = read('.planning/GCS_DEPLOY_AUTH_SPEC.md');
   const gcsWorkflow = read('.github/workflows/deploy-gcs.yml');
-  const pagesWorkflow = read('.github/workflows/deploy-pages.yml');
 
-  it('keeps HUMAN_TASKS.md truthful about the GitHub Pages build source', () => {
-    assert.match(humanTasks, /website-v2\/build\//);
-    assert.match(humanTasks, /website-v2\/\*\*/);
-    assert.match(humanTasks, /workflow_dispatch/);
+  it('keeps HUMAN_TASKS.md truthful about the single active website deploy path', () => {
+    assert.match(humanTasks, /retired on 2026-04-08/i);
     assert.doesNotMatch(humanTasks, /deploys `website\/`/);
   });
 
@@ -29,13 +26,10 @@ describe('deploy workflow docs truthfulness', () => {
     assert.doesNotMatch(gcsSpec, /Every recent `deploy-gcs\.yml` run failed/i);
   });
 
-  it('matches the real workflow triggers and build output paths', () => {
+  it('matches the real workflow trigger and build output path', () => {
     assert.match(gcsWorkflow, /workflow_dispatch:/);
-    assert.match(pagesWorkflow, /workflow_dispatch:/);
     assert.match(gcsWorkflow, /-\s*'website-v2\/\*\*'/);
-    assert.match(pagesWorkflow, /-\s*'website-v2\/\*\*'/);
     assert.match(gcsWorkflow, /website-v2\/build\//);
-    assert.match(pagesWorkflow, /path: website-v2\/build\//);
   });
 
   it('keeps the clear auth fallback and explicit failure mode in the workflow', () => {
@@ -45,5 +39,9 @@ describe('deploy workflow docs truthfulness', () => {
     assert.match(gcsWorkflow, /Fail when no GCP auth is configured/);
     assert.match(gcsWorkflow, /workload_identity_provider:/);
     assert.match(gcsWorkflow, /credentials_json:/);
+  });
+
+  it('does not keep a dead GitHub Pages deploy workflow around', () => {
+    assert.equal(existsSync(resolve(ROOT, '.github/workflows/deploy-pages.yml')), false);
   });
 });

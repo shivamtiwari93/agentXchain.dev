@@ -14,32 +14,31 @@ Covered files:
 
 - `website-v2/README.md`
 - `.github/workflows/deploy-gcs.yml`
-- `.github/workflows/deploy-pages.yml`
 
 ## Behavior
 
 The README must:
 
 1. Describe `Deploy Website to GCP GCS` (`.github/workflows/deploy-gcs.yml`) as the canonical deployment path for `https://agentxchain.dev`.
-2. Describe `Deploy Website to GitHub Pages` (`.github/workflows/deploy-pages.yml`) as the mirror deployment path.
-3. State that both workflows trigger on pushes to `main` that touch `website-v2/**`.
-4. State that both workflows also support manual `workflow_dispatch`.
-5. Avoid telling operators to run `deploy-websites.sh` when that script is not part of the repo-owned deployment contract.
+2. State that the workflow triggers on pushes to `main` that touch `website-v2/**`.
+3. State that the workflow also supports manual `workflow_dispatch`.
+4. Avoid telling operators to run `deploy-websites.sh` when that script is not part of the repo-owned deployment contract.
+5. Avoid describing GitHub Pages as an active deployment path when it is retired.
 
 ## Error Cases
 
 - README points to `deploy-websites.sh` or another missing local helper as the primary deploy path.
 - README omits the canonical GCS workflow.
-- README implies GitHub Pages is the primary production surface.
+- README implies GitHub Pages is still a live mirror deployment surface.
 - README invents trigger behavior that does not match the workflow files.
 
 ## Acceptance Tests
 
 1. `website-v2/README.md` mentions `.github/workflows/deploy-gcs.yml`.
-2. `website-v2/README.md` mentions `.github/workflows/deploy-pages.yml`.
-3. `website-v2/README.md` mentions both `main` and `workflow_dispatch`.
+2. `website-v2/README.md` mentions both `main` and `workflow_dispatch`.
+3. `website-v2/README.md` does not mention `.github/workflows/deploy-pages.yml`.
 4. `website-v2/README.md` does not mention `deploy-websites.sh`.
-5. The two workflow files still declare `workflow_dispatch`.
+5. `.github/workflows/deploy-gcs.yml` declares `workflow_dispatch`.
 
 ## Open Questions
 
