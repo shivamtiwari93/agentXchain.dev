@@ -12,8 +12,8 @@ Prove that `api_proxy` proposed authority works end-to-end with a **real AI prov
 - `proposal apply` copies real-model-proposed files into the workspace
 - The proof harness now rejects scenario-wrong staged outputs before `acceptTurn` so invalid completion-turn payloads do not get mistaken for proof
 
-**What this does NOT prove:**
-- Live run completion with a real provider is still unproven
+**What this does NOT prove (pending live rerun after 2026-04-08 contract fix):**
+- Live run completion with a real provider was blocked by a product contract bug: the validator rejected no-op completion turns for proposed+api_proxy roles. Fixed in Turn 133 (`DEC-PROP-COMPLETION-CONTRACT-001`). Needs a live rerun to close.
 - Multi-provider proposed authority (requires `OPENAI_API_KEY`)
 - Large-scale or complex file proposals
 - Conflict detection with real provider output (covered by mock E2E)
@@ -65,4 +65,6 @@ node examples/live-governed-proof/run-proposed-authority-proof.mjs [--json]
 
 ## Open Questions
 
-Can a real Anthropic provider satisfy the dedicated completion-turn contract reliably enough to close live completion proof, or does the prompt/adapter boundary need product-level tightening?
+~~Can a real Anthropic provider satisfy the dedicated completion-turn contract reliably enough to close live completion proof, or does the prompt/adapter boundary need product-level tightening?~~
+
+**Resolved (Turn 133):** The answer was "no, because the product contract was broken." Three interacting defects prevented no-op completion turns: (1) the validator required non-empty `proposed_changes` for all completed proposed+api_proxy turns with no exception for `run_completion_request: true`; (2) the prompt told proposed+api_proxy roles "You MUST return proposed changes" without qualifying completion turns; (3) phase/completion guidance existed for authoritative and review_only roles but was missing for proposed roles. All three fixed. Needs a live rerun to confirm.

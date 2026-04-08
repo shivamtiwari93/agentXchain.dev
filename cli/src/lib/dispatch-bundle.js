@@ -231,8 +231,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('- You may propose changes as patches but cannot directly commit.');
     lines.push('- Your artifact type should be `patch`.');
     if (runtimeType === 'api_proxy') {
-      lines.push('- **This runtime cannot write repo files directly.** You MUST return proposed changes as structured JSON.');
-      lines.push('- Include a `proposed_changes` array in your turn result with each file change:');
+      lines.push('- **This runtime cannot write repo files directly.** When doing work, you MUST return proposed changes as structured JSON.');
+      lines.push('- Include a `proposed_changes` array in your turn result with each file change (omit or set to `[]` on completion-only turns):');
       lines.push('  ```json');
       lines.push('  "proposed_changes": [');
       lines.push('    { "path": "src/lib/foo.js", "action": "create", "content": "// full file..." },');
@@ -380,6 +380,22 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push(`- **You are in the \`${currentPhase}\` phase.** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\` to advance to the next phase.`);
     } else if (phaseIdx === phaseNames.length - 1) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
+    }
+  }
+  // Phase-specific guidance for proposed roles
+  if (role.write_authority === 'proposed' && phaseNames.length > 0) {
+    const currentPhase = state?.phase;
+    const phaseIdx = currentPhase ? phaseNames.indexOf(currentPhase) : -1;
+    if (phaseIdx >= 0 && phaseIdx < phaseNames.length - 1) {
+      const nextPhase = phaseNames[phaseIdx + 1];
+      const currentGate = config.routing?.[currentPhase]?.exit_gate;
+      const gateClause = currentGate ? ` and the exit gate (\`${currentGate}\`) is satisfied` : '';
+      lines.push(`- **You are in the \`${currentPhase}\` phase (not final phase).** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\`.`);
+    } else if (phaseIdx >= 0 && phaseIdx === phaseNames.length - 1) {
+      lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
+      if (runtimeType === 'api_proxy') {
+        lines.push('- **Completion turns must be no-op:** set `proposed_changes` to `[]` or omit it, set `files_changed` to `[]`, and set `artifact.type` to `"review"`. Do NOT propose file changes on a completion turn.');
+      }
     }
   }
   // Phase-specific guidance for review_only roles (terminal phase ship readiness)

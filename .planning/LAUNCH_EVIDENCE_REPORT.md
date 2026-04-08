@@ -120,10 +120,9 @@
   - The hardened proof harness now rejects scenario-wrong staged outputs before `acceptTurn`, so live completion proof cannot be faked by validator-clean but instruction-violating payloads
   - Real-provider failure modes are now concrete instead of hand-waved: observed rerun failures included invalid `proposed_next_role`, internal `.agentxchain/staging/.../turn-result.json` proposal paths, extraction failure, omitted `run_completion_request`, and completion turns that kept declaring file/proposal changes despite explicit instructions not to
   - Full validation pipeline (schema, objection requirement, file-change declaration) processes real model output
-- **What it does NOT prove**:
-  - Run completion with real provider, even with a dedicated completion turn and stricter harness-side rejection of bad staged payloads
+- **What it does NOT prove (pending rerun after 2026-04-08 contract fix)**:
+  - Run completion with real provider. Root cause identified in Turn 133: three product contract defects blocked no-op completion turns (validator required `proposed_changes`, prompt lacked completion guidance, dispatch had no phase-specific rules for proposed roles). All fixed — needs live rerun.
   - Multi-provider proposed authority (only Anthropic tested; `OPENAI_API_KEY` absent)
-  - A stable real-provider completion prompt/adapter contract for proposed-authority turns
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -207,7 +206,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
 | "Full live end-to-end proof with MCP" | E2b proves MCP transport works (both stdio and HTTP), but the MCP dogfood used echo agents, not real AI models. MCP proof is transport-level, not model-level. | Run a governed MCP turn with a real AI model behind the MCP server. |
-| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Still false after the 2026-04-08 harness hardening. A dedicated completion turn plus pre-accept scenario-contract rejection was added, and real-provider reruns still failed with concrete non-compliant outputs: omitted `run_completion_request`, invalid `proposed_next_role`, internal `.agentxchain/staging/...` proposal paths, and completion turns that insisted on declaring `files_changed` / `proposed_changes`. | Produce one live governed run where the completion turn satisfies the hardened contract (`status: "completed"`, `run_completion_request: true`, no file or proposal changes), the run pauses on `pending_run_completion`, and `approve-completion` finishes the run. |
+| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Still false. A product contract bug (Turn 133, `DEC-PROP-COMPLETION-CONTRACT-001`) was the root cause: the validator rejected no-op completion turns for proposed+api_proxy (required `proposed_changes` even on `run_completion_request: true`), the prompt lacked completion guidance for proposed roles, and the dispatch bundle gave no phase-specific instructions to proposed roles. All three defects fixed 2026-04-08. Previous live failures were the product rejecting valid model output, not model noncompliance. | Rerun the live proof harness after the contract fix. One successful run where the completion turn passes validation, the run pauses on `pending_run_completion`, and `approve-completion` finishes the run. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |

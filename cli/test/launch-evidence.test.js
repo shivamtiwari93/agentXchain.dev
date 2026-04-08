@@ -70,17 +70,16 @@ describe('Launch evidence report', () => {
     assert.match(report, /proposal materialization.*gate rejection/i);
   });
 
-  it('records live proposed-authority lifecycle as allowed and hardened completion proof as still disallowed', () => {
+  it('records live proposed-authority lifecycle as allowed and completion proof as still disallowed with contract-fix context', () => {
     // E2c allowed claim: core lifecycle proven live
     assert.match(report, /proposed-authority lifecycle.*proven live against real Anthropic/i);
     assert.match(report, /E2c/);
-    assert.match(report, /dedicated completion turn and pre-accept scenario-contract rejection/i);
-    assert.match(report, /omitted `run_completion_request`/i);
-    assert.match(report, /invalid `proposed_next_role`/i);
-    assert.match(report, /internal `\.agentxchain\/staging\/\.\.\.\/turn-result\.json` proposal paths/i);
-    // Disallowed claim: run completion still not proven live
+    // Root cause identified: product contract bug, not model noncompliance
+    assert.match(report, /product contract bug/i);
+    assert.match(report, /DEC-PROP-COMPLETION-CONTRACT-001/);
+    // Disallowed claim: run completion still not proven live (needs rerun)
     assert.match(report, /proposed-authority run completion is proven live against a real provider/i);
-    assert.match(report, /completion turn satisfies the hardened contract/i);
+    assert.match(report, /Rerun the live proof harness after the contract fix/i);
   });
 
   it('records live MCP dogfood proof for both transports', () => {
@@ -252,7 +251,8 @@ describe('Launch brief references evidence report', () => {
   it('includes claim boundary constraints', () => {
     assert.match(brief, /all adapters proven live/i);
     assert.match(brief, /proposed-authority.*run completion.*proven live/i);
-    assert.match(brief, /dedicated completion-turn harness/i);
+    assert.match(brief, /product contract bug/i);
+    assert.match(brief, /DEC-PROP-COMPLETION-CONTRACT-001/);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });

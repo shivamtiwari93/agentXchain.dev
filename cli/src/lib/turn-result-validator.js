@@ -389,7 +389,10 @@ function validateArtifact(tr, config) {
   // Validate proposed_changes for proposed + api_proxy turns
   const runtimeType = config.runtimes?.[tr.runtime_id]?.type;
   if (writeAuthority === 'proposed' && runtimeType === 'api_proxy') {
-    if (tr.status === 'completed' && (!tr.proposed_changes || tr.proposed_changes.length === 0)) {
+    // Completion-request turns are explicitly allowed to have empty proposed_changes —
+    // the turn is signaling run completion, not delivering work.
+    const isCompletionRequest = tr.run_completion_request === true;
+    if (tr.status === 'completed' && (!tr.proposed_changes || tr.proposed_changes.length === 0) && !isCompletionRequest) {
       errors.push('Proposed api_proxy turn completed but proposed_changes is empty or missing.');
     }
   }

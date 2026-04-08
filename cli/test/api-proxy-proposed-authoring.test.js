@@ -245,6 +245,37 @@ describe('api_proxy proposed authoring — turn result validation', () => {
     const result = validateStagedTurnResult(env.tmp, env.state, env.config);
     assert.equal(result.ok, true, `Expected ok but got: ${result.errors?.join('; ')}`);
   });
+  it('completion-request turn with empty proposed_changes passes validation', () => {
+    stageTurnResult(env.tmp, env.turnId, env.runId, {
+      proposed_changes: [],
+      files_changed: [],
+      run_completion_request: true,
+      artifact: { type: 'review' },
+    });
+    const result = validateStagedTurnResult(env.tmp, env.state, env.config);
+    assert.equal(result.ok, true, `Expected ok but got: ${result.errors?.join('; ')}`);
+  });
+
+  it('completion-request turn with omitted proposed_changes passes validation', () => {
+    stageTurnResult(env.tmp, env.turnId, env.runId, {
+      proposed_changes: undefined,
+      files_changed: [],
+      run_completion_request: true,
+      artifact: { type: 'review' },
+    });
+    const result = validateStagedTurnResult(env.tmp, env.state, env.config);
+    assert.equal(result.ok, true, `Expected ok but got: ${result.errors?.join('; ')}`);
+  });
+
+  it('non-completion turn with empty proposed_changes still fails', () => {
+    stageTurnResult(env.tmp, env.turnId, env.runId, {
+      proposed_changes: [],
+      run_completion_request: null,
+    });
+    const result = validateStagedTurnResult(env.tmp, env.state, env.config);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('proposed_changes is empty or missing')));
+  });
 });
 
 describe('api_proxy proposed authoring — review_only with proposed_changes warning', () => {
@@ -280,6 +311,20 @@ describe('api_proxy proposed authoring — dispatch bundle', () => {
       assert.match(prompt, /proposed_changes/, 'Prompt must mention proposed_changes');
       assert.match(prompt, /\.agentxchain\/proposed\//, 'Prompt must mention materialization path');
       assert.match(prompt, /cannot write repo files directly/, 'Prompt must state api_proxy cannot write directly');
+    } finally {
+      rmSync(env.tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('includes completion-turn no-op guidance for proposed + api_proxy in final phase', () => {
+    const env = setupRun('proposed');
+    try {
+      writeDispatchBundle(env.tmp, env.state, env.config);
+      const turnDir = join(env.tmp, getDispatchTurnDir(env.turnId));
+      const promptPath = join(turnDir, 'PROMPT.md');
+      const prompt = readFileSync(promptPath, 'utf8');
+      assert.match(prompt, /Completion turns must be no-op/, 'Prompt must tell proposed roles that completion turns are no-op');
+      assert.match(prompt, /run_completion_request/, 'Prompt must mention run_completion_request');
     } finally {
       rmSync(env.tmp, { recursive: true, force: true });
     }

@@ -80,7 +80,7 @@ Current keywords in `package.json` are adequate:
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
 - Test count uses floor-hundred format: "1000+" (currently 1033 in this launch brief; update when the evidence artifact is refreshed)
 - Do not claim "all adapters proven live" or imply MCP live proof — E2 now proves a full governed run for `manual` + `local_cli` + `api_proxy`, but live MCP evidence still does not exist
-- `api_proxy` proposed-authority core lifecycle (staging, materialization, proposal apply) is now proven live against real Anthropic (E2c). Do not claim full proposed-authority run completion is proven live — even after a dedicated completion-turn harness was added, 2026-04-08 reruns still failed with scenario-wrong provider output
+- `api_proxy` proposed-authority core lifecycle (staging, materialization, proposal apply) is proven live against real Anthropic (E2c). Do not claim full proposed-authority run completion is proven live yet — a product contract bug (three interacting defects in validator, prompt, and dispatch bundle) was the root cause and has been fixed (Turn 133, `DEC-PROP-COMPLETION-CONTRACT-001`), but a successful live rerun has not yet been recorded
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)
 - Do not claim dashboard is "feature-complete" publicly — use "v2.0 observation surface"
