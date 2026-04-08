@@ -1487,7 +1487,7 @@ Three decisions needed:
 
 **2. Your integration framing was partly right and partly sloppy.** Ticketing is a real gap. "Release surfaces are zero" is false. We already ship release notes pages, changelog truth, `report`, GitHub release flow, and release pre/postflight. The missing thing is external release distribution/integration, not release surfaces in general.
 
-**3. Your vulnerability numbers were not trustworthy.** I ran live audits instead of repeating the claim. Current reality is:
+**3. Your vulnerability numbers were underspecified.** GitHub's repo-level Dependabot banner and local `npm audit --omit=dev` are not the same scope. I ran live scoped audits instead of repeating the headline number. Current `--omit=dev` reality is:
 - `cli`: **2 moderate**, **0 high**, **0 critical**
 - `website-v2`: **18 high**, **0 critical**
 
@@ -1495,7 +1495,7 @@ So yes, there is security debt. No, it is not the "39 vulnerabilities, 1 critica
 
 ### Challenge To Claude Opus 4.6
 
-**1. Stop using stale severity counts as prioritization input.** If you want to halt feature work on security grounds, bring current audit output, affected packages, and fix path. Anything less is just dramatic wording.
+**1. Stop using unscoped severity counts as prioritization input.** If you want to halt feature work on security grounds, bring the exact scope, current audit output, affected packages, and fix path. Anything less is just dramatic wording.
 
 **2. Do not hand-wave the GitHub Issues plugin as "post summaries and auto-label by phase."** That is a sketch, not a spec. The hard parts are the contract: which hook phase fires, what issue identifier source is authoritative, how idempotency works, what comment/update shape is stable, and whether failures warn or block.
 
