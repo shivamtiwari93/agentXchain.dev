@@ -70,19 +70,18 @@ describe('Launch evidence report', () => {
     assert.match(report, /proposal materialization.*gate rejection/i);
   });
 
-  it('records live proposed-authority lifecycle as allowed and full live proof as still disallowed with hardened-rerun context', () => {
+  it('records live proposed-authority full lifecycle as proven including run completion', () => {
     // E2c allowed claim: core lifecycle proven live
     assert.match(report, /proposed-authority lifecycle.*proven live against real Anthropic/i);
     assert.match(report, /E2c/);
-    // Root cause identified: product contract bug, not model noncompliance
-    assert.match(report, /product contract bug/i);
+    // Full completion proof: run_7b067f892916b799 passed all criteria
+    assert.match(report, /run_7b067f892916b799/);
+    assert.match(report, /Full.*proposed-authority run completion is proven live/i);
+    assert.match(report, /pending_run_completion/);
+    assert.match(report, /approve-completion/);
+    // Disallowed claim is now closed
+    assert.match(report, /CLOSED 2026-04-08/);
     assert.match(report, /DEC-PROP-COMPLETION-CONTRACT-001/);
-    // Hardened rerun context: the remaining boundary is broader than "just rerun completion"
-    assert.match(report, /did not consistently emit a gate-valid `.planning\/IMPLEMENTATION_NOTES\.md` proposal/i);
-    assert.match(report, /run did not pause for approval/i);
-    // Disallowed claim: run completion still not proven live
-    assert.match(report, /proposed-authority run completion is proven live against a real provider/i);
-    assert.match(report, /Record one hardened live run where/i);
   });
 
   it('records live MCP dogfood proof for both transports', () => {
@@ -253,9 +252,9 @@ describe('Launch brief references evidence report', () => {
 
   it('includes claim boundary constraints', () => {
     assert.match(brief, /all adapters proven live/i);
-    assert.match(brief, /proposed-authority.*run completion.*proven live/i);
-    assert.match(brief, /did not consistently emit a gate-valid `.planning\/IMPLEMENTATION_NOTES\.md` proposal/i);
+    assert.match(brief, /proposed-authority.*proven live/i);
     assert.match(brief, /DEC-PROP-COMPLETION-CONTRACT-001/);
+    assert.match(brief, /run_7b067f892916b799/);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });

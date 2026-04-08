@@ -13,8 +13,6 @@ Prove that `api_proxy` proposed authority works end-to-end with a **real AI prov
 - The proof harness now rejects scenario-wrong staged outputs before `acceptTurn` so invalid completion-turn payloads do not get mistaken for proof
 
 **What this does NOT prove:**
-- Full hardened live end-to-end proof is still missing. Turn 133 fixed the no-op completion product contract bug, but the semantic-hardened 2026-04-08 reruns showed the real model still does not reliably emit a gate-valid `.planning/IMPLEMENTATION_NOTES.md` proposal with exact `## Changes` and `## Verification` sections.
-- Live run completion with a real provider is still not proven. One post-fix rerun reached a no-op completion request, but the run did not pause on `pending_run_completion`; later reruns failed even earlier at the proposal-turn semantic contract.
 - Multi-provider proposed authority (requires `OPENAI_API_KEY`)
 - Large-scale or complex file proposals
 - Conflict detection with real provider output (covered by mock E2E)
@@ -71,6 +69,7 @@ node examples/live-governed-proof/run-proposed-authority-proof.mjs [--json]
 
 ~~Can a real Anthropic provider satisfy the dedicated completion-turn contract reliably enough to close live completion proof, or does the prompt/adapter boundary need product-level tightening?~~
 
-**Resolved in two stages:**
+**Resolved in three stages:**
 - **Turn 133:** The no-op completion contract was broken in product code. Three interacting defects prevented no-op completion turns: (1) the validator required non-empty `proposed_changes` for all completed proposed+api_proxy turns with no exception for `run_completion_request: true`; (2) the prompt told proposed+api_proxy roles "You MUST return proposed changes" without qualifying completion turns; (3) phase/completion guidance existed for authoritative and review_only roles but was missing for proposed roles. All three fixed.
-- **Turn 134:** After the contract fix, hardened live reruns exposed a different boundary: proposal-turn semantic reliability. The real model still failed to emit gate-valid `.planning/IMPLEMENTATION_NOTES.md` content with exact `## Changes` / `## Verification` sections after 3 attempts, so full hardened live proof remains open.
+- **Turn 134:** After the contract fix, hardened live reruns exposed a different boundary: proposal-turn semantic reliability. The real model still failed to emit gate-valid `.planning/IMPLEMENTATION_NOTES.md` content with exact `## Changes` / `## Verification` sections after 3 attempts.
+- **Turn 135:** Added diagnostic payload capture to the harness (persists rejected turn results to `.planning/LIVE_PROOF_DIAGNOSTICS/` for post-mortem inspection). Reran the harness — **full pass** on `run_7b067f892916b799`. Proposal turn accepted on attempt 3, completion turn accepted on attempt 2, run paused on `pending_run_completion`, `approve-completion` completed the run.

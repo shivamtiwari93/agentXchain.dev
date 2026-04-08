@@ -372,18 +372,19 @@ function validateCompletionTurn(turnResult) {
 
 async function dispatchWithRetry(root, config, roleId, validateScenario) {
   let lastError = null;
+  const rejectedPayloads = [];
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const state = loadState(root, config);
     const activeTurn = getActiveTurn(state);
     if (!activeTurn) {
-      return { ok: false, error: `No active turn found for ${roleId} on attempt ${attempt}` };
+      return { ok: false, error: `No active turn found for ${roleId} on attempt ${attempt}`, rejectedPayloads };
     }
     const turnId = activeTurn.turn_id;
 
     const bundleResult = writeDispatchBundle(root, state, config);
     if (!bundleResult.ok) {
-      return { ok: false, error: `writeDispatchBundle failed: ${bundleResult.error}` };
+      return { ok: false, error: `writeDispatchBundle failed: ${bundleResult.error}`, rejectedPayloads };
     }
 
     const dispatchResult = await dispatchApiProxy(root, state, config, {
@@ -392,6 +393,14 @@ async function dispatchWithRetry(root, config, roleId, validateScenario) {
     if (!dispatchResult.ok) {
       const retryableExtractionFailure =
         dispatchResult.classified?.error_class === 'turn_result_extraction_failure';
+      rejectedPayloads.push({
+        attempt,
+        turn_id: turnId,
+        phase: 'dispatch',
+        error_class: dispatchResult.classified?.error_class || 'unknown',
+        message: dispatchResult.classified?.message || dispatchResult.error || 'Unknown dispatch error',
+        raw_text: dispatchResult.classified?.raw_text?.slice(0, 4000) || null,
+      });
       if (retryableExtractionFailure && attempt < MAX_ATTEMPTS) {
         lastError = `${dispatchResult.classified.error_class}: ${dispatchResult.classified.message}`;
         continue;
@@ -399,21 +408,28 @@ async function dispatchWithRetry(root, config, roleId, validateScenario) {
       const detail = dispatchResult.classified
         ? `${dispatchResult.classified.error_class}: ${dispatchResult.classified.message}`
         : dispatchResult.error || 'Unknown dispatch error';
-      return { ok: false, error: `dispatchApiProxy failed: ${detail}` };
+      return { ok: false, error: `dispatchApiProxy failed: ${detail}`, rejectedPayloads };
     }
 
     const stagedTurnResult = readStagedTurnResult(root, turnId);
     const scenarioErrors = validateScenario ? validateScenario(stagedTurnResult) : [];
     if (scenarioErrors.length > 0) {
       lastError = `Scenario contract failed: ${scenarioErrors.join('; ')}`;
+      rejectedPayloads.push({
+        attempt,
+        turn_id: turnId,
+        phase: 'scenario_validation',
+        errors: scenarioErrors,
+        staged_turn_result: sanitizeTurnResult(stagedTurnResult),
+      });
       if (attempt < MAX_ATTEMPTS) {
         const rejectResult = rejectTurn(root, config, null, `Validation retry attempt ${attempt}: ${lastError}`);
         if (!rejectResult.ok) {
-          return { ok: false, error: `rejectTurn failed: ${rejectResult.error}` };
+          return { ok: false, error: `rejectTurn failed: ${rejectResult.error}`, rejectedPayloads };
         }
         continue;
       }
-      return { ok: false, error: `dispatch scenario failed after ${MAX_ATTEMPTS} attempts: ${scenarioErrors.join('; ')}` };
+      return { ok: false, error: `dispatch scenario failed after ${MAX_ATTEMPTS} attempts: ${scenarioErrors.join('; ')}`, rejectedPayloads };
     }
 
     const acceptResult = acceptTurn(root, config);
@@ -433,10 +449,18 @@ async function dispatchWithRetry(root, config, roleId, validateScenario) {
         },
         completion_result: acceptResult.completionResult || null,
         gate_result: acceptResult.gateResult || null,
+        rejectedPayloads,
       };
     }
 
     lastError = acceptResult.error;
+    rejectedPayloads.push({
+      attempt,
+      turn_id: turnId,
+      phase: 'accept',
+      error: acceptResult.error,
+      staged_turn_result: sanitizeTurnResult(stagedTurnResult),
+    });
 
     if (attempt < MAX_ATTEMPTS) {
       const rejectResult = rejectTurn(
@@ -444,12 +468,47 @@ async function dispatchWithRetry(root, config, roleId, validateScenario) {
         `Validation retry attempt ${attempt}: ${acceptResult.error}`
       );
       if (!rejectResult.ok) {
-        return { ok: false, error: `rejectTurn failed: ${rejectResult.error}` };
+        return { ok: false, error: `rejectTurn failed: ${rejectResult.error}`, rejectedPayloads };
       }
     }
   }
 
-  return { ok: false, error: `acceptTurn failed after ${MAX_ATTEMPTS} attempts: ${lastError}` };
+  return { ok: false, error: `acceptTurn failed after ${MAX_ATTEMPTS} attempts: ${lastError}`, rejectedPayloads };
+}
+
+/**
+ * Strip API keys, tokens, and large binary content from turn results before persisting.
+ * Keep everything needed for diagnosis: proposed_changes, files_changed, status, errors.
+ */
+function sanitizeTurnResult(tr) {
+  if (!tr || typeof tr !== 'object') return tr;
+  const sanitized = { ...tr };
+  // Remove potential auth leaks
+  delete sanitized.api_key;
+  delete sanitized.auth_token;
+  // Truncate very large proposed_changes content to keep diagnostics manageable
+  if (Array.isArray(sanitized.proposed_changes)) {
+    sanitized.proposed_changes = sanitized.proposed_changes.map((pc) => ({
+      ...pc,
+      content: typeof pc.content === 'string' && pc.content.length > 2000
+        ? pc.content.slice(0, 2000) + `\n... [truncated at 2000 chars, full length: ${pc.content.length}]`
+        : pc.content,
+    }));
+  }
+  return sanitized;
+}
+
+/**
+ * Persist diagnostic payloads to .planning/LIVE_PROOF_DIAGNOSTICS/ in the real repo
+ * so they survive temp-dir cleanup and can be inspected post-mortem.
+ */
+function persistDiagnostics(diagnosticData) {
+  const diagDir = join(repoRoot, '.planning', 'LIVE_PROOF_DIAGNOSTICS');
+  mkdirSync(diagDir, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `diag-${ts}.json`;
+  writeFileSync(join(diagDir, filename), JSON.stringify(diagnosticData, null, 2) + '\n');
+  return join(diagDir, filename);
 }
 
 async function main() {
@@ -458,6 +517,7 @@ async function main() {
 
   const errors = [];
   const proof = {};
+  const allRejectedPayloads = [];
 
   try {
     // ── 1. Scaffold and init ──────────────────────────────────────────────
@@ -481,9 +541,13 @@ async function main() {
 
     // ── 3. Dispatch to real Anthropic API ─────────────────────────────────
     const devResult = await dispatchWithRetry(root, config, 'dev', validateProposalTurn);
+    if (devResult.rejectedPayloads?.length) {
+      allRejectedPayloads.push({ step: 'proposal_turn', payloads: devResult.rejectedPayloads });
+    }
     if (!devResult.ok) {
       errors.push(devResult.error);
-      return outputResult({ result: 'fail', errors, proof });
+      persistDiagnostics({ timestamp: new Date().toISOString(), step: 'proposal_turn', errors, proof, rejected: allRejectedPayloads });
+      return outputResult({ result: 'fail', errors, proof, diagnostics_persisted: true });
     }
     proof.dev_turn_id = devResult.turn_id;
     proof.dev_attempts = devResult.attempts_used;
@@ -558,9 +622,13 @@ async function main() {
     }
 
     const dev2 = await dispatchWithRetry(root, config, 'dev', validateCompletionTurn);
+    if (dev2.rejectedPayloads?.length) {
+      allRejectedPayloads.push({ step: 'completion_turn', payloads: dev2.rejectedPayloads });
+    }
     if (!dev2.ok) {
       errors.push(`Completion-request turn failed: ${dev2.error}`);
-      return outputResult({ result: 'fail', errors, proof });
+      persistDiagnostics({ timestamp: new Date().toISOString(), step: 'completion_turn', errors, proof, rejected: allRejectedPayloads });
+      return outputResult({ result: 'fail', errors, proof, diagnostics_persisted: true });
     }
 
     proof.completion_turn = {
@@ -593,7 +661,8 @@ async function main() {
       errors.push(
         `Run did not pause for pending run completion after completion-request turn (completion action: ${completionAction}${completionReasons.length ? `; reasons: ${completionReasons.join(' | ')}` : ''}${gateReasons.length ? `; gate reasons: ${gateReasons.join(' | ')}` : ''})`
       );
-      return outputResult({ result: 'fail', errors, proof });
+      persistDiagnostics({ timestamp: new Date().toISOString(), step: 'pending_run_completion_missing', errors, proof, rejected: allRejectedPayloads, state_snapshot: state });
+      return outputResult({ result: 'fail', errors, proof, diagnostics_persisted: true });
     }
 
     // ── 9. Approve run completion ─────────────────────────────────────────
