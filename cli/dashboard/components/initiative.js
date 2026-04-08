@@ -37,7 +37,86 @@ function summarizeBarriers(barriers) {
   return counts;
 }
 
-export function render({ coordinatorState, coordinatorBarriers = {}, barrierLedger = [] }) {
+function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
+  if (!coordinatorBlockers || coordinatorBlockers.ok === false) {
+    return '';
+  }
+
+  const active = coordinatorBlockers.active || {};
+  const blockers = Array.isArray(active.blockers)
+    ? active.blockers.filter((blocker) => blocker?.code !== 'no_next_phase')
+    : [];
+  const hasBlockers = blockers.length > 0;
+  const title = coordinatorBlockers.mode === 'pending_gate' ? 'Approval Snapshot' : 'Blocker Snapshot';
+
+  let html = `<div class="gate-card">
+    <h3>${title}</h3>
+    <dl class="detail-list">`;
+  if (coordinatorBlockers.mode) {
+    html += `<dt>Mode</dt><dd>${esc(coordinatorBlockers.mode)}</dd>`;
+  }
+  if (active.gate_type) {
+    html += `<dt>Type</dt><dd>${esc(active.gate_type)}</dd>`;
+  }
+  if (active.gate_id) {
+    html += `<dt>Gate</dt><dd class="mono">${esc(active.gate_id)}</dd>`;
+  }
+  if (active.current_phase) {
+    html += `<dt>Current</dt><dd>${esc(active.current_phase)}</dd>`;
+  }
+  if (active.target_phase) {
+    html += `<dt>Target</dt><dd>${esc(active.target_phase)}</dd>`;
+  }
+  if (hasBlockers) {
+    html += `<dt>Blockers</dt><dd>${blockers.length}</dd>`;
+  }
+  html += `</dl>`;
+
+  if (coordinatorBlockers.mode === 'pending_gate') {
+    html += `<p class="turn-summary">All coordinator prerequisites are satisfied. Human approval is the remaining action.</p>`;
+  } else if (hasBlockers) {
+    html += `<div class="turn-list">`;
+    for (const blocker of blockers) {
+      html += `<div class="turn-card">
+        <div class="turn-header"><span class="mono">${esc(blocker.code || 'unknown')}</span></div>`;
+      if (blocker.message) {
+        html += `<div class="turn-summary">${esc(blocker.message)}</div>`;
+      }
+      if (blocker.repo_id || blocker.expected_run_id || blocker.actual_run_id) {
+        html += `<dl class="detail-list">`;
+        if (blocker.repo_id) html += `<dt>Repo</dt><dd class="mono">${esc(blocker.repo_id)}</dd>`;
+        if (blocker.expected_run_id) html += `<dt>Expected</dt><dd class="mono">${esc(blocker.expected_run_id)}</dd>`;
+        if (blocker.actual_run_id) html += `<dt>Actual</dt><dd class="mono">${esc(blocker.actual_run_id)}</dd>`;
+        if (blocker.current_phase) html += `<dt>Current Phase</dt><dd>${esc(blocker.current_phase)}</dd>`;
+        if (blocker.required_phase) html += `<dt>Required Phase</dt><dd>${esc(blocker.required_phase)}</dd>`;
+        html += `</dl>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  } else if (coordinatorBlockers.blocked_reason) {
+    html += `<p class="turn-summary">${esc(
+      typeof coordinatorBlockers.blocked_reason === 'string'
+        ? coordinatorBlockers.blocked_reason
+        : JSON.stringify(coordinatorBlockers.blocked_reason)
+    )}</p>`;
+  }
+
+  html += `<div class="gate-action">
+    <p>Inspect full diagnostics:</p>
+    <p><a href="#blockers">Open Blockers view</a></p>
+  </div>
+</div>`;
+
+  return html;
+}
+
+export function render({
+  coordinatorState,
+  coordinatorBarriers = {},
+  barrierLedger = [],
+  coordinatorBlockers = null,
+}) {
   if (!coordinatorState) {
     return `<div class="placeholder"><h2>No Initiative</h2><p>No coordinator run found. Start one with <code class="mono">agentxchain multi init</code></p></div>`;
   }
@@ -80,7 +159,10 @@ export function render({ coordinatorState, coordinatorBarriers = {}, barrierLedg
         </div>
       </div>`;
     }
-    if (coordinatorState.blocked_reason) {
+    const blockerSnapshot = renderCoordinatorAttentionSnapshot(coordinatorBlockers);
+    if (blockerSnapshot) {
+      html += blockerSnapshot;
+    } else if (coordinatorState.blocked_reason) {
       html += `<div class="gate-card">
         <h3>Blocked State</h3>
         <p class="turn-summary">${esc(

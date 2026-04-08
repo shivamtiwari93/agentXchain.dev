@@ -114,6 +114,58 @@ function baseState() {
   };
 }
 
+function writeGovernedRepo(root, projectId, runId) {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: projectId, name: projectId, default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      qa: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+    },
+    gates: {},
+  });
+
+  writeJson(join(root, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: projectId,
+    run_id: runId,
+    status: 'paused',
+    phase: 'implementation',
+    active_turns: {},
+    turn_sequence: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    blocked_on: null,
+    blocked_reason: null,
+    next_recommended_role: null,
+  });
+}
+
 function blockedState() {
   return {
     ...baseState(),
@@ -213,17 +265,17 @@ function coordinatorFixture() {
     state: {
       super_run_id: 'srun_dashboard_e2e',
       status: 'paused',
-      phase: 'integration',
+      phase: 'implementation',
       pending_gate: {
         gate_type: 'phase_transition',
-        gate: 'phase_transition:integration->release',
-        from: 'integration',
-        to: 'release',
+        gate: 'phase_transition:implementation->qa',
+        from: 'implementation',
+        to: 'qa',
         required_repos: ['api', 'web'],
       },
       repo_runs: {
-        api: { run_id: 'run_api_dashboard', status: 'linked', phase: 'integration' },
-        web: { run_id: 'run_web_dashboard', status: 'initialized', phase: 'integration' },
+        api: { run_id: 'run_api_dashboard', status: 'linked', phase: 'implementation' },
+        web: { run_id: 'run_web_dashboard', status: 'initialized', phase: 'implementation' },
       },
     },
     history: [
@@ -231,7 +283,7 @@ function coordinatorFixture() {
       { type: 'turn_dispatched', timestamp: '2026-04-02T12:01:00Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001', role: 'dev', context_ref: 'ctx_api_001' },
       { type: 'acceptance_projection', timestamp: '2026-04-02T12:02:00Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001', summary: 'API integration accepted', files_changed: ['api/src/index.ts'], decisions: [{ statement: 'Promote shared schema' }] },
       { type: 'context_generated', timestamp: '2026-04-02T12:03:00Z', target_repo_id: 'web', workstream_id: 'frontend', upstream_repo_ids: ['api'] },
-      { type: 'phase_transition_requested', timestamp: '2026-04-02T12:04:00Z', gate: 'phase_transition:integration->release', from: 'integration', to: 'release', required_repos: ['api', 'web'] },
+      { type: 'phase_transition_requested', timestamp: '2026-04-02T12:04:00Z', gate: 'phase_transition:implementation->qa', from: 'implementation', to: 'qa', required_repos: ['api', 'web'] },
     ],
     barriers: {
       backend_completion: {
@@ -251,10 +303,54 @@ function coordinatorFixture() {
   };
 }
 
+function coordinatorConfigFixture() {
+  return {
+    schema_version: '0.1',
+    project: {
+      id: 'dashboard-coordinator',
+      name: 'Dashboard Coordinator',
+    },
+    repos: {
+      api: { path: './repos/api', default_branch: 'main', required: true },
+      web: { path: './repos/web', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      implementation_build: {
+        phase: 'implementation',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+      qa_release: {
+        phase: 'qa',
+        repos: ['api', 'web'],
+        entry_repo: 'web',
+        depends_on: ['implementation_build'],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'implementation_build' },
+      qa: { entry_workstream: 'qa_release' },
+    },
+    gates: {
+      initiative_ship: {
+        requires_human_approval: true,
+        requires_repos: ['api', 'web'],
+      },
+    },
+  };
+}
+
 function writeCoordinatorFixture(agentxchainDir) {
   const multiDir = join(agentxchainDir, 'multirepo');
+  const workspaceDir = join(agentxchainDir, '..');
   const data = coordinatorFixture();
   mkdirSync(multiDir, { recursive: true });
+  writeGovernedRepo(join(workspaceDir, 'repos', 'api'), 'api', 'run_api_dashboard');
+  writeGovernedRepo(join(workspaceDir, 'repos', 'web'), 'web', 'run_web_dashboard');
+  writeJson(join(workspaceDir, 'agentxchain-multi.json'), coordinatorConfigFixture());
   writeJson(join(multiDir, 'state.json'), data.state);
   writeJsonl(join(multiDir, 'history.jsonl'), data.history);
   writeJson(join(multiDir, 'barriers.json'), data.barriers);
@@ -517,12 +613,20 @@ describe('Dashboard E2E acceptance', () => {
     const coordinatorHistory = await getJson(port, '/api/coordinator/history');
     const coordinatorBarriers = await getJson(port, '/api/coordinator/barriers');
     const barrierLedger = await getJson(port, '/api/coordinator/barrier-ledger');
+    const coordinatorBlockers = await getJson(port, '/api/coordinator/blockers');
 
-    const initiativeHtml = renderInitiative({ coordinatorState, coordinatorBarriers, barrierLedger });
+    const initiativeHtml = renderInitiative({
+      coordinatorState,
+      coordinatorBarriers,
+      barrierLedger,
+      coordinatorBlockers,
+    });
     const timelineHtml = renderCrossRepo({ coordinatorState, coordinatorHistory });
 
     assert.ok(initiativeHtml.includes('srun_dashboard_e2e'));
     assert.ok(initiativeHtml.includes('agentxchain multi approve-gate'));
+    assert.ok(initiativeHtml.includes('Approval Snapshot'));
+    assert.ok(initiativeHtml.includes('Open Blockers view'));
     assert.ok(initiativeHtml.includes('backend_completion'));
     assert.ok(timelineHtml.includes('Turn Dispatched'));
     assert.ok(timelineHtml.includes('Context Generated'));

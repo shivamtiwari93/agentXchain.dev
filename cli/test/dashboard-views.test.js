@@ -279,6 +279,47 @@ describe('Initiative View', () => {
     assert.ok(html.includes('backend_completion'));
     assert.ok(html.includes('partially_satisfied'));
   });
+
+  it('renders structured coordinator blockers in initiative attention state', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_456',
+        status: 'blocked',
+        phase: 'integration',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        repo_runs: {
+          api: { run_id: 'run_api_999', status: 'linked', phase: 'integration' },
+        },
+      },
+      coordinatorBlockers: {
+        ok: true,
+        mode: 'phase_transition',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        active: {
+          gate_type: 'phase_transition',
+          gate_id: 'phase_transition:integration->release',
+          current_phase: 'integration',
+          target_phase: 'release',
+          blockers: [
+            {
+              code: 'repo_run_id_mismatch',
+              message: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"',
+              repo_id: 'api',
+              expected_run_id: 'run_api_001',
+              actual_run_id: 'run_api_999',
+            },
+          ],
+        },
+      },
+    });
+
+    assert.ok(html.includes('Blocker Snapshot'));
+    assert.ok(html.includes('repo_run_id_mismatch'));
+    assert.ok(html.includes('run_api_001'));
+    assert.ok(html.includes('run_api_999'));
+    assert.ok(html.includes('Open Blockers view'));
+    assert.ok(html.includes('#blockers'));
+  });
 });
 
 describe('Cross-Repo View', () => {
