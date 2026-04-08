@@ -206,6 +206,30 @@ function makeChildRepo(name, agentPath) {
     };
   }
 
+  config.workflow_kit = {
+    phases: {
+      planning: {
+        artifacts: [
+          { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
+          { path: '.planning/ROADMAP.md', semantics: null, required: true },
+        ],
+      },
+      design: {
+        artifacts: [
+          { path: '.planning/DESIGN_REVIEW.md', semantics: null, required: true },
+        ],
+      },
+      implementation: {
+        artifacts: [
+          { path: 'src/output.js', semantics: null, required: true },
+        ],
+      },
+      qa: {
+        artifacts: [],
+      },
+    },
+  };
+
   config.prompts = config.prompts || {};
   config.prompts.architect = '.agentxchain/prompts/architect.md';
 

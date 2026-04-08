@@ -231,6 +231,65 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.ok(result.missing_files.includes('.planning/SYSTEM_SPEC.md'));
   });
 
+  it('AT-WKC-013: existing requires_files still work alongside additive workflow_kit artifacts', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/ARCHITECTURE.md', semantics: null, required: true },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+    writeFileSync(join(root, '.planning', 'ROADMAP.md'), '# Roadmap\n\n## Phases\n\n- Planning\n');
+    writeFileSync(join(root, '.planning', 'SYSTEM_SPEC.md'), '# Spec\n\n## Purpose\n\nx\n\n## Interface\n\nx\n\n## Acceptance Tests\n\nx\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'planning' }),
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.deepEqual(result.missing_files, ['.planning/ARCHITECTURE.md']);
+  });
+
+  it('does not double-count default workflow_kit artifacts that overlap gate requires_files', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
+              { path: '.planning/ROADMAP.md', semantics: null, required: true },
+              { path: '.planning/SYSTEM_SPEC.md', semantics: 'system_spec', required: true },
+            ],
+          },
+        },
+      },
+    });
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'planning' }),
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.deepEqual(result.missing_files, [
+      '.planning/PM_SIGNOFF.md',
+      '.planning/ROADMAP.md',
+      '.planning/SYSTEM_SPEC.md',
+    ]);
+  });
+
   it('Rule 3: gate_failed when verification required but not passed', () => {
     // Create valid implementation notes so the only failure is verification
     mkdirSync(join(root, '.planning'), { recursive: true });
@@ -248,6 +307,156 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.equal(result.action, 'gate_failed');
     assert.equal(result.missing_verification, true);
     assert.ok(result.reasons[0].includes('fail'));
+  });
+
+  it('AT-WKC-020: duplicate-path workflow_kit semantics augment gate files and pass when all checks pass', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          implementation: {
+            artifacts: [
+              {
+                path: '.planning/IMPLEMENTATION_NOTES.md',
+                semantics: 'section_check',
+                semantics_config: { required_sections: ['## Rollback Plan'] },
+                required: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n\n## Rollback Plan\n\nRevert the commit.\n'
+    );
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config,
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+        verification: { status: 'pass' },
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'advance');
+    assert.equal(result.passed, true);
+    assert.deepEqual(result.missing_files, []);
+  });
+
+  it('AT-WKC-021: missing required workflow_kit artifact fails the phase gate', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          implementation: {
+            artifacts: [
+              { path: '.planning/DESIGN_REVIEW.md', semantics: null, required: true },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config,
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+        verification: { status: 'pass' },
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.missing_files.includes('.planning/DESIGN_REVIEW.md'));
+  });
+
+  it('AT-WKC-022: duplicate-path workflow_kit semantics fail without replacing built-in gate semantics', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          implementation: {
+            artifacts: [
+              {
+                path: '.planning/IMPLEMENTATION_NOTES.md',
+                semantics: 'section_check',
+                semantics_config: { required_sections: ['## Rollback Plan'] },
+                required: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(
+      join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+      '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Rollback Plan\n\nRevert the commit.\n'
+    );
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config,
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+        verification: { status: 'pass' },
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('## Verification')));
+  });
+
+  it('AT-WKC-023: missing optional workflow_kit artifact does not block the phase gate', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          implementation: {
+            artifacts: [
+              { path: '.planning/OPTIONAL_ARCH_NOTE.md', semantics: null, required: false },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'), '# Notes\n\n## Changes\n\nBuilt the feature.\n\n## Verification\n\nRun npm test.\n');
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'implementation' }),
+      config,
+      acceptedTurn: makeTurnResult({
+        role: 'dev',
+        runtime_id: 'local-dev',
+        proposed_next_role: 'qa',
+        phase_transition_request: 'qa',
+        verification: { status: 'pass' },
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'advance');
+    assert.equal(result.passed, true);
+    assert.deepEqual(result.missing_files, []);
   });
 
   it('Rule 4: advance when gate passes without human approval', () => {

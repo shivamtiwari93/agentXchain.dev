@@ -72,6 +72,7 @@ function createGovernedProject(overrides = {}) {
       dev: '.agentxchain/prompts/dev.md',
       qa: '.agentxchain/prompts/qa.md',
     },
+    workflow_kit: {},
     rules: {
       challenge_required: true,
       max_turn_retries: 2,

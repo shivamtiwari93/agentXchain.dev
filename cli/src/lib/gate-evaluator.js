@@ -19,7 +19,109 @@
 
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { evaluateWorkflowGateSemantics } from './workflow-gate-semantics.js';
+import {
+  evaluateArtifactSemantics,
+  evaluateWorkflowGateSemantics,
+  getSemanticIdForPath,
+} from './workflow-gate-semantics.js';
+
+function getWorkflowArtifactsForPhase(config, phase) {
+  const artifacts = config?.workflow_kit?.phases?.[phase]?.artifacts;
+  return Array.isArray(artifacts) ? artifacts : [];
+}
+
+function buildEffectiveGateArtifacts(config, gateDef, phase) {
+  const byPath = new Map();
+
+  if (Array.isArray(gateDef?.requires_files)) {
+    for (const filePath of gateDef.requires_files) {
+      byPath.set(filePath, {
+        path: filePath,
+        required: true,
+        useLegacySemantics: true,
+        semanticChecks: [],
+      });
+    }
+  }
+
+  for (const artifact of getWorkflowArtifactsForPhase(config, phase)) {
+    if (!artifact?.path) {
+      continue;
+    }
+
+    const existing = byPath.get(artifact.path) || {
+      path: artifact.path,
+      required: false,
+      useLegacySemantics: false,
+      semanticChecks: [],
+    };
+
+    existing.required = existing.required || artifact.required !== false;
+
+    if (artifact.semantics) {
+      const legacySemanticId = existing.useLegacySemantics ? getSemanticIdForPath(artifact.path) : null;
+      if (artifact.semantics !== legacySemanticId) {
+        existing.semanticChecks.push({
+          semantics: artifact.semantics,
+          semantics_config: artifact.semantics_config || null,
+        });
+      }
+    }
+
+    byPath.set(artifact.path, existing);
+  }
+
+  return [...byPath.values()];
+}
+
+function addMissingFile(result, filePath) {
+  if (!result.missing_files.includes(filePath)) {
+    result.missing_files.push(filePath);
+  }
+}
+
+function prefixSemanticReason(filePath, reason) {
+  if (!reason || reason.includes(filePath)) {
+    return reason;
+  }
+  return `${filePath}: ${reason}`;
+}
+
+function evaluateGateArtifacts({ root, config, gateDef, phase, result }) {
+  const failures = [];
+  const artifacts = buildEffectiveGateArtifacts(config, gateDef, phase);
+
+  for (const artifact of artifacts) {
+    const absPath = join(root, artifact.path);
+    if (!existsSync(absPath)) {
+      if (artifact.required) {
+        addMissingFile(result, artifact.path);
+        failures.push(`Required file missing: ${artifact.path}`);
+      }
+      continue;
+    }
+
+    if (artifact.useLegacySemantics) {
+      const semanticCheck = evaluateWorkflowGateSemantics(root, artifact.path);
+      if (semanticCheck && !semanticCheck.ok) {
+        failures.push(semanticCheck.reason);
+      }
+    }
+
+    for (const semantic of artifact.semanticChecks) {
+      const semanticCheck = evaluateArtifactSemantics(root, {
+        path: artifact.path,
+        semantics: semantic.semantics,
+        semantics_config: semantic.semantics_config,
+      });
+      if (semanticCheck && !semanticCheck.ok) {
+        failures.push(prefixSemanticReason(artifact.path, semanticCheck.reason));
+      }
+    }
+  }
+
+  return failures;
+}
 
 /**
  * Evaluate whether the current phase exit gate is satisfied.
@@ -118,20 +220,13 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
   const failures = [];
 
   // Predicate: requires_files
-  if (gateDef.requires_files && Array.isArray(gateDef.requires_files)) {
-    for (const filePath of gateDef.requires_files) {
-      if (!existsSync(join(root, filePath))) {
-        result.missing_files.push(filePath);
-        failures.push(`Required file missing: ${filePath}`);
-        continue;
-      }
-
-      const semanticCheck = evaluateWorkflowGateSemantics(root, filePath);
-      if (semanticCheck && !semanticCheck.ok) {
-        failures.push(semanticCheck.reason);
-      }
-    }
-  }
+  failures.push(...evaluateGateArtifacts({
+    root,
+    config,
+    gateDef,
+    phase: currentPhase,
+    result,
+  }));
 
   // Predicate: requires_verification_pass
   if (gateDef.requires_verification_pass) {
@@ -240,20 +335,13 @@ export function evaluateRunCompletion({ state, config, acceptedTurn, root }) {
   const result = { ...baseResult, gate_id: gateId };
   const failures = [];
 
-  if (gateDef.requires_files && Array.isArray(gateDef.requires_files)) {
-    for (const filePath of gateDef.requires_files) {
-      if (!existsSync(join(root, filePath))) {
-        result.missing_files.push(filePath);
-        failures.push(`Required file missing: ${filePath}`);
-        continue;
-      }
-
-      const semanticCheck = evaluateWorkflowGateSemantics(root, filePath);
-      if (semanticCheck && !semanticCheck.ok) {
-        failures.push(semanticCheck.reason);
-      }
-    }
-  }
+  failures.push(...evaluateGateArtifacts({
+    root,
+    config,
+    gateDef,
+    phase: currentPhase,
+    result,
+  }));
 
   if (gateDef.requires_verification_pass) {
     const verificationStatus = acceptedTurn.verification?.status;

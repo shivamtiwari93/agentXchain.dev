@@ -183,6 +183,69 @@ describe('evaluateRunCompletion — pure function', () => {
     assert.ok(result.missing_files.length > 0);
   });
 
+  it('fails run completion when a required workflow_kit qa artifact is missing', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          qa: {
+            artifacts: [
+              { path: '.planning/SECURITY_REVIEW.md', semantics: null, required: true },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config,
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.missing_files.includes('.planning/SECURITY_REVIEW.md'));
+  });
+
+  it('keeps built-in release-notes semantics alongside duplicate-path workflow_kit checks during run completion', () => {
+    const config = makeConfig({
+      workflow_kit: {
+        phases: {
+          qa: {
+            artifacts: [
+              {
+                path: '.planning/RELEASE_NOTES.md',
+                semantics: 'section_check',
+                semantics_config: { required_sections: ['## Rollback'] },
+                required: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## Rollback\n\nRevert to previous tag.\n');
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config,
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some((reason) => reason.includes('## User Impact')));
+  });
+
   it('AT-PROP-COMPLETION-001: returns gate_failed when required files exist only in proposal directory', () => {
     // Files exist under .agentxchain/proposed/<turn_id>/ but NOT in the workspace.
     // Run-completion gates must check the workspace, not the proposal directory.

@@ -207,6 +207,16 @@ function makeProject(mockServerUrl) {
     requires_files: ['.planning/ship-verdict.md', '.planning/RELEASE_NOTES.md'],
     // No requires_human_approval — auto-complete for clean test flow
   };
+  config.workflow_kit = {
+    phases: {
+      qa: {
+        artifacts: [
+          { path: '.planning/ship-verdict.md', semantics: 'ship_verdict', required: true },
+          { path: '.planning/RELEASE_NOTES.md', semantics: 'release_notes', required: true },
+        ],
+      },
+    },
+  };
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 

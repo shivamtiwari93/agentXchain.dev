@@ -8,6 +8,14 @@ export const ACCEPTANCE_MATRIX_PATH = '.planning/acceptance-matrix.md';
 export const SHIP_VERDICT_PATH = '.planning/ship-verdict.md';
 export const RELEASE_NOTES_PATH = '.planning/RELEASE_NOTES.md';
 export const RECOVERY_REPORT_PATH = '.agentxchain/multirepo/RECOVERY_REPORT.md';
+const PATH_SEMANTIC_IDS = {
+  [PM_SIGNOFF_PATH]: 'pm_signoff',
+  [SYSTEM_SPEC_PATH]: 'system_spec',
+  [IMPLEMENTATION_NOTES_PATH]: 'implementation_notes',
+  [ACCEPTANCE_MATRIX_PATH]: 'acceptance_matrix',
+  [SHIP_VERDICT_PATH]: 'ship_verdict',
+  [RELEASE_NOTES_PATH]: 'release_notes',
+};
 
 const AFFIRMATIVE_SHIP_VERDICTS = new Set(['YES', 'SHIP', 'SHIP IT']);
 const AFFIRMATIVE_ACCEPTANCE_STATUSES = new Set(['PASS', 'PASSED', 'OK', 'YES']);
@@ -379,6 +387,10 @@ const SEMANTIC_VALIDATORS = {
   release_notes: evaluateReleaseNotes,
   section_check: evaluateSectionCheck,
 };
+
+export function getSemanticIdForPath(relPath) {
+  return PATH_SEMANTIC_IDS[relPath] || null;
+}
 
 /**
  * Evaluate a workflow artifact's semantic constraints by validator ID.

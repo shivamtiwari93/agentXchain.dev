@@ -205,17 +205,26 @@ export function normalizeWorkflowKit(raw, routingPhases) {
 
 ## Validator Behavior
 
-### Gate Evaluation Changes (`coordinator-gates.js` / `governed-state.js`)
+### Gate Evaluation Changes (`gate-evaluator.js` / `governed-state.js`)
 
 When evaluating a phase gate:
 
 1. Look up `config.workflow_kit.phases[currentPhase]`.
-2. If it exists and has artifacts, check each artifact:
-   - If `required: true`, the file must exist.
-   - If `semantics` is non-null, run the corresponding semantic validator.
-   - Collect all failures.
-3. Existing `gates[exitGate].requires_files` checks continue to work. Workflow-kit artifact checks are **additional**, not replacement.
-4. Gate passes only if both `requires_files` and workflow-kit artifacts pass.
+2. Build an **effective artifact set keyed by path** from two sources:
+   - `gates[exitGate].requires_files`
+   - `workflow_kit.phases[currentPhase].artifacts`
+3. If the same path appears in both sources:
+   - existence is checked once
+   - `requires_files` still keeps the file required
+   - semantic checks from both sources apply
+   - identical built-in semantics are deduplicated so default configs do not double-fail
+4. If a workflow-kit artifact path is new for that phase, it is additive:
+   - `required: true` means the file must exist
+   - `required: false` means a missing file does not block the gate
+   - if the file exists and `semantics` is non-null, run the corresponding semantic validator
+5. Gate passes only if the merged `requires_files` + workflow-kit artifact contract passes.
+
+Coordinator scope is intentionally unchanged in Slice 2. Child repos enforce their own repo-local `workflow_kit` during `acceptGovernedTurn()` and run-completion evaluation. The coordinator only observes resulting child repo state; coordinator-level `workflow_kit` remains deferred.
 
 ### Semantic Validator Registry
 
@@ -278,7 +287,7 @@ function evaluateSectionCheck(content, config) {
 1. **No `workflow_kit` in config**: behavior is identical to today. Default artifact map applies.
 2. **Empty `workflow_kit: {}`**: explicitly declares no per-phase artifacts. Gates still use `requires_files` only. This is a valid opt-out.
 3. **Partial `workflow_kit`**: operator declares artifacts for some phases but not others. Un-declared phases get no workflow-kit artifacts (not the defaults). This is explicit-over-implicit.
-4. **Existing `gates.requires_files` entries**: continue to work unchanged. Workflow-kit artifacts are additive.
+4. **Existing `gates.requires_files` entries**: continue to work unchanged. Workflow-kit artifacts are additive, and duplicate paths merge instead of double-counting.
 5. **Semantic validator path independence**: today `evaluateWorkflowGateSemantics` dispatches by file path. After this change, it dispatches by `semantics` ID. The path-based dispatch is kept as a fallback for configs without `workflow_kit` to maintain backward compat for any code that calls it directly.
 
 ### Migration Path
@@ -299,6 +308,7 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 | Artifact missing `path` | Error: "artifact in phase 'planning' requires a path" |
 | Required artifact file missing at gate time | Gate fails: "required artifact '.planning/DESIGN_DOC.md' for phase 'design' does not exist" |
 | Required artifact exists but semantic check fails | Gate fails with semantic validator reason |
+| Same path declared in `requires_files` and `workflow_kit` | Existence is checked once; semantic checks are merged and identical built-in checks are deduped |
 
 ## Acceptance Tests
 
@@ -326,6 +336,7 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-023**: Phase gate with `required: false` artifact that is missing → gate passes.
 - **AT-WKC-024**: `section_check` validator passes when all required sections are present.
 - **AT-WKC-025**: `section_check` validator fails when a section is missing, naming the missing section.
+- **AT-WKC-026**: Duplicate-path artifact declarations merge semantics instead of replacing them; built-in gate semantics still apply alongside explicit `workflow_kit` semantics.
 
 ### Template Validate Integration
 

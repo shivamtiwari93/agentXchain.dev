@@ -199,6 +199,7 @@ function makeProject(mockServerUrl) {
   config.gates.implementation_complete = {
     requires_verification_pass: true,
   };
+  config.workflow_kit = {};
 
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
