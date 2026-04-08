@@ -212,6 +212,12 @@
 
   <!-- Release Notes -->
   <url>
+    <loc>https://agentxchain.dev/docs/releases/v2-27-0</loc>
+    <lastmod>2026-04-08</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://agentxchain.dev/docs/releases/v2-26-0</loc>
     <lastmod>2026-04-08</lastmod>
     <changefreq>yearly</changefreq>
