@@ -684,12 +684,34 @@ async function initGoverned(opts) {
   console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');
+
+  // Readiness hint: tell user which roles work immediately vs which need API keys
+  const allRuntimes = { ...GOVERNED_RUNTIMES, 'local-dev': localDevRuntime };
+  const needsKey = Object.entries(allRuntimes)
+    .filter(([, rt]) => rt.auth_env)
+    .map(([id, rt]) => ({ id, env: rt.auth_env }));
+  if (needsKey.length > 0) {
+    const envVars = [...new Set(needsKey.map(r => r.env))];
+    const roleNames = needsKey.map(r => r.id);
+    const hasKeys = envVars.every(v => process.env[v]);
+    if (hasKeys) {
+      console.log(`  ${chalk.green('Ready:')} all runtimes configured (${envVars.join(', ')} detected)`);
+    } else {
+      console.log(`  ${chalk.yellow('Mixed-mode:')} pm and eng_director work immediately (manual).`);
+      console.log(`  ${chalk.yellow('  ')}${roleNames.join(', ')} need ${chalk.bold(envVars.join(', '))} to dispatch automatically.`);
+      console.log(`  ${chalk.yellow('  ')}Without it, those turns fall back to manual input.`);
+    }
+    console.log('');
+  }
+
   console.log(`  ${chalk.cyan('Next:')}`);
   if (dir !== process.cwd()) {
     console.log(`    ${chalk.bold(`cd ${targetLabel}`)}`);
   }
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);
   console.log(`    ${chalk.bold('agentxchain status')} ${chalk.dim('# inspect phase, gate, and turn state')}`);
+  console.log('');
+  console.log(`  ${chalk.dim('Guide:')} https://agentxchain.dev/docs/getting-started`);
   console.log('');
 }
 

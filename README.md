@@ -33,6 +33,7 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 
 ## Docs
 
+- [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
@@ -390,6 +391,7 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 ## Links
 
 - [Website](https://agentxchain.dev)
+- [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
