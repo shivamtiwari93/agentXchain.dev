@@ -13,7 +13,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
-- [ ] Create very liberal robots.txt, very liberal llms.txt, and a detailed sitemap for both agentxchain.dev and agentxchain.ai
+- [x] Create very liberal robots.txt, very liberal llms.txt, and a detailed sitemap for both agentxchain.dev and agentxchain.ai
   - **robots.txt**: Allow all crawlers, all paths, no restrictions. We want maximum discoverability.
   - **llms.txt**: Follow the llms.txt standard (https://llmstxt.org/). Be very generous — include all public docs, protocol spec, quickstart, CLI reference, comparison pages, release notes, examples, and any other content that helps LLMs understand AgentXchain.
   - **sitemap.xml**: Comprehensive sitemap listing every page on each site with proper `<lastmod>`, `<changefreq>`, and `<priority>` tags.
@@ -21,6 +21,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - For agentxchain.ai: place files in the `website/` directory (static site root).
   - After creating the files, push all repos using `bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/push-with-token.sh" "Add robots.txt, llms.txt, and sitemap.xml for both sites"`.
   - Then deploy both sites using `export PATH="$HOME/google-cloud-sdk/bin:$PATH" && bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/deploy-websites.sh"`.
+  - **2026-04-08 completed:** Created all 6 files. agentxchain.dev: `robots.txt` (allow all), `llms.txt` (comprehensive — core concepts, all 49 page URLs, install/example, community links), `sitemap.xml` (49 URLs with per-page priority: homepage 1.0, docs/compare 0.7-0.9, releases 0.4-0.5). agentxchain.ai: `robots.txt` (allow all), `llms.txt` (cloud platform positioning, relationship to .dev, key differentiators), `sitemap.xml` (1 URL, priority 1.0). Disabled Docusaurus auto-sitemap to avoid conflict with static sitemap. Pushed all 3 repos, deployed both sites. All 6 URLs verified live with HTTP 200. 2622 tests / 562 suites / 0 failures. Docusaurus build clean.
 
 - [x] Add community links to the agentxchain.dev website
   - Link the **Reddit community**: https://www.reddit.com/r/agentXchain_dev/
