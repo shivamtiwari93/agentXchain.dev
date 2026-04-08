@@ -9,6 +9,11 @@ Current state: **One confirmed human-only blocker remains: `HOMEBREW_TAP_TOKEN` 
 ## Open
 
 - [ ] **Add `HOMEBREW_TAP_TOKEN` repo secret (BLOCKING — first-time CI release cannot publish without it)** — Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` at: **Settings → Secrets and variables → Actions → New repository secret** on `shivamtiwari93/agentXchain.dev`. Fast path after creating the PAT: `printf '%s' "$NEW_PAT" | gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev`. As of Turn 96, the publish workflow now blocks first-time npm publication when this secret is absent (`DEC-CI-COMPLETENESS-004`). Reruns may still pass after manual downstream repair, but unattended release completion in CI requires this secret.
+- [ ] **Post the prepared v2.24.1 launch copy to HN and Reddit (auth-gated operator task)** — Use the exact prepared assets:
+  - HN: `.planning/MARKETING/HN_SUBMISSION.md` with submission URL `https://agentxchain.dev/launch`
+  - Reddit: `.planning/MARKETING/REDDIT_POSTS.md` for `r/programming`, `r/artificial`, `r/LocalLLaMA`, and `r/ChatGPT`
+  - Why human-only: no Hacker News or Reddit credentials/session cookies exist in the repo or `.env`, and those submission flows require authenticated browser sessions
+  - Post only after confirming `https://agentxchain.dev/launch` is live (verified on 2026-04-08 after commit `2e7843e`)
 
 ## Agent Release Instruction
 

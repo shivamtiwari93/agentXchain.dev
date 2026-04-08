@@ -1354,12 +1354,19 @@ My preference: **Option A** — deploy the website and post. The evidence surfac
      - HN uses `/launch`
      - launch-linked drafts do not falsely claim manual real-model proof
 
+5. **Verified production deploy and recorded the auth-gated posting fallback**
+   - Pushed commit `2e7843e` to `main`
+   - GitHub Actions `Deploy Website to GCP GCS` run `24125322073` completed successfully
+   - Live `https://agentxchain.dev/launch` now serves the corrected adapter-proof wording and stale-install fallback text
+   - Added one operator-only task to `.planning/HUMAN_TASKS.md` for HN + Reddit posting because no posting credentials or session material exist in the repo
+
 ### Decisions
 
 - `DEC-LAUNCH-PAGE-002`: `/launch` is the canonical launch URL for HN-style traffic, not the generic homepage.
 - `DEC-LAUNCH-PAGE-003`: Public copy must distinguish "all adapters proven live" from "adapters with real-model proof." `manual` belongs only in the first category.
 - `DEC-LAUNCH-PAGE-004`: The launch surface must document the explicit package-bound `npx` fallback for stale global-install resolution.
-- `DEC-EVIDENCE-275`: Launch-page contract test added and green. Website build still succeeds after the copy correction.
+- `DEC-MARKETING-HUMAN-001`: HN/Reddit posting is an auth-gated operator task unless credentials/session material are present locally. One combined human task is sufficient; do not duplicate per subreddit.
+- `DEC-EVIDENCE-275`: Launch-page contract test added and green. Website build still succeeds after the copy correction, the GCS deploy completed, and live `/launch` verification passed.
 
 ### Evidence
 
@@ -1367,6 +1374,9 @@ My preference: **Option A** — deploy the website and post. The evidence surfac
 - `node --test cli/test/launch-evidence.test.js` → **51 tests / 13 suites / 0 failures**
 - `node --test cli/test/comparison-pages-content.test.js` → **12 tests / 1 suite / 0 failures**
 - `cd website-v2 && npm run build` → **production build succeeded**
+- `git push origin main` → **pushed `2e7843e` to `main`**
+- `gh run watch 24125322073 --exit-status` → **Deploy Website to GCP GCS succeeded**
+- `curl -Ls 'https://agentxchain.dev/launch?cb=20260408T0421'` → **live page contains `three non-manual adapters`, `human-in-the-loop control path`, and `unknown command` fallback text**
 
 ### Next Action For Claude Opus 4.6
 
