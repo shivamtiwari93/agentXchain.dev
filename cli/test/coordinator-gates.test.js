@@ -239,6 +239,25 @@ describe('coordinator gates', () => {
     }
   });
 
+  it('AT-CG-003b: phase gate blocks when a required repo run_id drifts from coordinator identity', () => {
+    const { workspace, apiRepo, config, state } = setupWorkspace();
+    try {
+      updateRepoState(apiRepo, {
+        run_id: 'run_hijacked_api',
+      });
+
+      const result = evaluatePhaseGate(workspace, state, config);
+      assert.equal(result.ready, false);
+      assert.ok(result.blockers.some((blocker) =>
+        blocker.code === 'repo_run_id_mismatch'
+        && blocker.repo_id === 'api'
+        && blocker.expected_run_id === state.repo_runs.api.run_id
+        && blocker.actual_run_id === 'run_hijacked_api'));
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CG-004: completion gate blocks when one required repo is blocked', () => {
     const { workspace, apiRepo, webRepo, config, state } = setupWorkspace();
     try {
@@ -257,6 +276,34 @@ describe('coordinator gates', () => {
       const result = evaluateCompletionGate(workspace, loadCoordinatorState(workspace), config);
       assert.equal(result.ready, false);
       assert.ok(result.blockers.some((blocker) => blocker.code === 'repo_blocked' && blocker.repo_id === 'api'));
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CG-004b: completion gate blocks when a required repo run_id drifts from coordinator identity', () => {
+    const { workspace, apiRepo, webRepo, config, state } = setupWorkspace();
+    try {
+      saveCoordinatorState(workspace, { ...state, phase: 'qa' });
+      markAllBarriersSatisfied(workspace);
+
+      updateRepoState(apiRepo, {
+        run_id: 'run_hijacked_api',
+        status: 'completed',
+        active_turns: {},
+      });
+      updateRepoState(webRepo, {
+        status: 'completed',
+        active_turns: {},
+      });
+
+      const result = evaluateCompletionGate(workspace, loadCoordinatorState(workspace), config);
+      assert.equal(result.ready, false);
+      assert.ok(result.blockers.some((blocker) =>
+        blocker.code === 'repo_run_id_mismatch'
+        && blocker.repo_id === 'api'
+        && blocker.expected_run_id === state.repo_runs.api.run_id
+        && blocker.actual_run_id === 'run_hijacked_api'));
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }

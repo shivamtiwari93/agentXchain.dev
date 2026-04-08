@@ -21,6 +21,26 @@ function loadRepoState(repoPath) {
   }
 }
 
+function buildRunIdMismatchBlocker(state, repoId, repoState) {
+  const expectedRunId = state?.repo_runs?.[repoId]?.run_id ?? null;
+  if (!expectedRunId) {
+    return null;
+  }
+
+  const actualRunId = repoState?.run_id ?? null;
+  if (actualRunId === expectedRunId) {
+    return null;
+  }
+
+  return {
+    code: 'repo_run_id_mismatch',
+    repo_id: repoId,
+    expected_run_id: expectedRunId,
+    actual_run_id: actualRunId,
+    message: `Repo "${repoId}" run identity drifted: coordinator expects "${expectedRunId}" but repo has "${actualRunId ?? 'null'}"`,
+  };
+}
+
 function getActiveTurnCount(repoState) {
   if (!repoState?.active_turns || typeof repoState.active_turns !== 'object' || Array.isArray(repoState.active_turns)) {
     return 0;
@@ -68,7 +88,7 @@ function getRequiredReposForPhase(state, config) {
   return [...required];
 }
 
-function buildRepoBlockers(config, repoIds) {
+function buildRepoBlockers(state, config, repoIds) {
   const blockers = [];
 
   for (const repoId of repoIds) {
@@ -81,6 +101,12 @@ function buildRepoBlockers(config, repoIds) {
         repo_id: repoId,
         message: `Repo "${repoId}" is missing .agentxchain/state.json`,
       });
+      continue;
+    }
+
+    const runIdMismatch = buildRunIdMismatchBlocker(state, repoId, repoState);
+    if (runIdMismatch) {
+      blockers.push(runIdMismatch);
       continue;
     }
 
@@ -234,7 +260,7 @@ export function evaluatePhaseGate(workspacePath, state, config, targetPhase) {
   }
 
   const repoIds = getRequiredReposForPhase(state, config);
-  blockers.push(...buildRepoBlockers(config, repoIds));
+  blockers.push(...buildRepoBlockers(state, config, repoIds));
 
   const barriers = readBarriers(workspacePath);
   const barrierState = buildPhaseBarrierState(state, config, barriers);
@@ -388,6 +414,12 @@ export function evaluateCompletionGate(workspacePath, state, config) {
         repo_id: repoId,
         message: `Repo "${repoId}" is missing .agentxchain/state.json`,
       });
+      continue;
+    }
+
+    const runIdMismatch = buildRunIdMismatchBlocker(state, repoId, repoState);
+    if (runIdMismatch) {
+      blockers.push(runIdMismatch);
       continue;
     }
 

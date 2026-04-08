@@ -304,6 +304,36 @@ describe('multi resync CLI', () => {
     }
   });
 
+  it('AT-CLI-MR-007b: multi step fails closed when a child repo run identity drifts', () => {
+    const { workspace, apiRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const apiStatePath = join(apiRepo, '.agentxchain', 'state.json');
+      const apiState = JSON.parse(readFileSync(apiStatePath, 'utf8'));
+      apiState.run_id = 'run_api_reinitialized';
+      writeJson(apiStatePath, apiState);
+
+      const result = runCli(workspace, ['multi', 'step']);
+      assert.notEqual(result.status, 0, 'multi step must fail on child run identity drift');
+      assert.ok(result.stderr.includes('Coordinator resync entered blocked state'), result.stderr);
+      assert.ok(result.stderr.includes('run identity drifted'), result.stderr);
+
+      const coordinatorState = JSON.parse(
+        readFileSync(join(workspace, '.agentxchain', 'multirepo', 'state.json'), 'utf8'),
+      );
+      assert.equal(coordinatorState.status, 'blocked');
+      assert.equal(
+        existsSync(join(workspace, '.agentxchain', 'multirepo', 'RECOVERY_REPORT.md')),
+        true,
+        'identity drift must scaffold recovery instructions',
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CLI-MR-008: multi resync --json --dry-run returns structured output', () => {
     const { workspace } = makeMultiWorkspace();
     try {

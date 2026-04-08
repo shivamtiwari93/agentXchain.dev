@@ -83,6 +83,10 @@ function isAcceptedRepoHistoryEntry(entry) {
   return Boolean(entry.accepted_at) || entry.status === 'accepted';
 }
 
+function buildRunIdMismatchReason(repoId, expectedRunId, actualRunId) {
+  return `Repo "${repoId}" run identity drifted: coordinator expects "${expectedRunId}" but repo has "${actualRunId ?? 'null'}"`;
+}
+
 // ── Divergence Detection ────────────────────────────────────────────────────
 
 /**
@@ -124,13 +128,13 @@ export function detectDivergence(workspacePath, state, config) {
     }
 
     // Run ID mismatch
-    if (repoRun.run_id && repoState.run_id && repoRun.run_id !== repoState.run_id) {
+    if (repoRun.run_id && repoRun.run_id !== (repoState.run_id ?? null)) {
       mismatches.push({
         type: 'run_id_mismatch',
         repo_id: repoId,
         coordinator_run_id: repoRun.run_id,
-        repo_run_id: repoState.run_id,
-        detail: `Coordinator expects run "${repoRun.run_id}" but repo has "${repoState.run_id}"`,
+        repo_run_id: repoState.run_id ?? null,
+        detail: buildRunIdMismatchReason(repoId, repoRun.run_id, repoState.run_id ?? null),
       });
     }
 
@@ -238,6 +242,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
 
   // Step 1: Refresh repo_runs from repo-local authority
   const updatedRepoRuns = { ...state.repo_runs };
+  const runIdMismatches = [];
 
   for (const [repoId, repoRun] of Object.entries(state.repo_runs || {})) {
     const repo = config.repos?.[repoId];
@@ -254,9 +259,11 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
 
     const changes = {};
 
-    // Update run_id if it changed (e.g., repo was re-initialized outside coordinator)
-    if (repoState.run_id && repoState.run_id !== repoRun.run_id) {
-      changes.run_id = repoState.run_id;
+    if (repoRun.run_id && repoRun.run_id !== (repoState.run_id ?? null)) {
+      const reason = buildRunIdMismatchReason(repoId, repoRun.run_id, repoState.run_id ?? null);
+      runIdMismatches.push(reason);
+      errors.push(reason);
+      continue;
     }
 
     // Update status from repo-local authority
@@ -395,7 +402,11 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   let blockedReason = null;
   const pendingGate = state.pending_gate;
 
-  if (pendingGate) {
+  if (runIdMismatches.length > 0) {
+    blockedReason = runIdMismatches.join('; ');
+  }
+
+  if (!blockedReason && pendingGate) {
     const gateCoherent = validatePendingGateCoherence(pendingGate, updatedRepoRuns, config);
     if (!gateCoherent.ok) {
       blockedReason = gateCoherent.reason;

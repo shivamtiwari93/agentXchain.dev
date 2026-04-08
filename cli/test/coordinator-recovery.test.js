@@ -213,6 +213,27 @@ describe('coordinator divergence detection', () => {
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CR-001e: detects run_id mismatch when a child repo drifts to another governed run', () => {
+    const { workspace, apiRepo, config, state } = setupWorkspace();
+    try {
+      const expectedRunId = state.repo_runs.api.run_id;
+      writeJson(join(apiRepo, '.agentxchain/state.json'), {
+        ...JSON.parse(readFileSync(join(apiRepo, '.agentxchain/state.json'), 'utf8')),
+        run_id: 'run_api_reinitialized',
+      });
+
+      const result = detectDivergence(workspace, state, config);
+      assert.equal(result.diverged, true);
+      const mismatch = result.mismatches.find((entry) => entry.type === 'run_id_mismatch');
+      assert.ok(mismatch, 'should detect child run identity drift');
+      assert.equal(mismatch.repo_id, 'api');
+      assert.equal(mismatch.coordinator_run_id, expectedRunId);
+      assert.equal(mismatch.repo_run_id, 'run_api_reinitialized');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('coordinator resync from repo authority', () => {
@@ -413,6 +434,33 @@ describe('coordinator resync from repo authority', () => {
       assert.match(reportContent, /## Impact/);
       assert.match(reportContent, /## Mitigation/);
       assert.match(reportContent, /repo "api" is now blocked/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CR-004b: resync blocks on repo run identity drift instead of adopting a new run_id', () => {
+    const { workspace, apiRepo, config, state } = setupWorkspace();
+    try {
+      const expectedRunId = state.repo_runs.api.run_id;
+      const repoState = JSON.parse(readFileSync(join(apiRepo, '.agentxchain/state.json'), 'utf8'));
+      repoState.run_id = 'run_api_reinitialized';
+      writeJson(join(apiRepo, '.agentxchain/state.json'), repoState);
+
+      const result = resyncFromRepoAuthority(workspace, state, config);
+      assert.equal(result.ok, false, 'resync must fail closed on run identity drift');
+      assert.match(result.blocked_reason, /run identity drifted/);
+      assert.match(result.blocked_reason, /run_api_reinitialized/);
+
+      const finalState = loadCoordinatorState(workspace);
+      assert.equal(finalState.status, 'blocked');
+      assert.equal(finalState.repo_runs.api.run_id, expectedRunId, 'coordinator must preserve original repo run identity');
+
+      const reportPath = join(workspace, RECOVERY_REPORT_PATH);
+      assert.equal(existsSync(reportPath), true, 'blocked resync must scaffold a recovery report');
+      const reportContent = readFileSync(reportPath, 'utf8');
+      assert.match(reportContent, /run identity drifted/);
+      assert.match(reportContent, /run_api_reinitialized/);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
