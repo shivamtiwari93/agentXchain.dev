@@ -1,0 +1,75 @@
+---
+title: AgentXchain vs Warp.dev
+description: "Warp is stronger as an AI-native terminal and coding environment. AgentXchain is stronger for governed multi-agent software delivery on a shared codebase."
+---
+
+# AgentXchain vs Warp.dev
+
+## The short answer
+
+**Choose Warp** if you want an AI-native terminal and coding environment with agent profiles and permissions, Full Terminal Use, Warp Drive rules and shared workflows, session sharing, and Oz-powered local or cloud agent runs.
+
+**Choose AgentXchain** if you need governed software delivery: chartered roles, mandatory challenge, explicit phase gates, append-only decision history, and constitutional human authority over what is allowed to advance or ship.
+
+Warp is much closer to an AI terminal plus coding-agent workspace. AgentXchain is much closer to a delivery constitution for multi-agent work on a repository. Those are adjacent products, not substitutes.
+
+## Comparison
+
+| | Warp.dev | AgentXchain |
+|---|---|---|
+| **Primary job** | AI-native terminal, coding environment, and agent runtime | Governed software delivery |
+| **Agent control model** | Agent profiles, permissions, model selection, command approvals, Full Terminal Use | Role-based turns, objections, and phase gates |
+| **Collaboration surface** | Session sharing, Agent Session Sharing, Warp Drive workflows/rules | Append-only decision ledger, objection trail, governance reports |
+| **Remote execution** | Oz CLI, cloud agents, environments, MCP tools | Governed local runner, multi-repo coordination, connector-based execution |
+| **Human authority** | Approvals and permissions around agent actions | Explicit phase-transition and run-completion approvals |
+| **Mandatory cross-role challenge** | No built-in delivery constitution | Yes, protocol-enforced |
+| **Best fit** | Terminal-first coding workflows for individuals and teams | Auditable convergence on shippable code |
+
+## Choose Warp when
+
+- You want a strong terminal-first developer experience with AI built directly into the shell and editor workflow.
+- You want agent profiles, model choice, command approvals, and Full Terminal Use for interactive tools such as REPLs, servers, editors, or debuggers.
+- You want Warp Drive for shared prompts, notebooks, rules, and project context, including project-scoped `AGENTS.md`.
+- You want session sharing or Agent Session Sharing so teammates can watch and collaborate on live agent activity.
+- You want Oz CLI and cloud agents for background or remote execution in standardized environments.
+
+## Choose AgentXchain when
+
+- Multiple roles must challenge each other structurally instead of operating as one powerful coding assistant.
+- Human authority must be explicit at planning, phase-transition, and completion boundaries.
+- You need accepted work recorded with objections, evidence, and decision history in the repo.
+- Your problem is not "make one coding agent more capable." Your problem is "make multiple agents converge on trustworthy software delivery."
+
+## A concrete workflow difference
+
+Warp is optimized to help an agent operate inside a coding environment. AgentXchain is optimized to govern how multiple roles move a repository toward shippable state.
+
+```bash
+# Warp framing: run an agent in your terminal or in a remote environment
+oz agent run --prompt "trace the failing test and propose a fix"
+oz agent run-cloud --environment <ENV_ID> --prompt "review the latest PR"
+```
+
+```bash
+# AgentXchain framing: govern repository delivery with explicit authority boundaries
+npx agentxchain init --governed
+agentxchain run --max-turns 6
+agentxchain approve-transition
+agentxchain approve-completion
+```
+
+Warp can absolutely provide a better day-to-day coding surface, stronger terminal ergonomics, and useful agent collaboration features. What it does not document as a product is a governed multi-role delivery protocol with mandatory disagreement, append-only delivery ledgers, and constitutional ship gates.
+
+## Using both together
+
+This is the honest layering:
+
+- Warp for the terminal, coding environment, shared prompts/rules, and agent runtime ergonomics
+- AgentXchain for governed repository workflow, challenge structure, and delivery auditability
+
+If your team likes Warp as the place where developers and agents work, AgentXchain can still define the acceptance and authority model for what actually counts as approved delivery.
+
+## Verify the claims
+
+- Read the [Quickstart](/docs/quickstart) for the governed operator loop.
+- Read the [Protocol](/docs/protocol) for turns, objections, gates, and constitutional human authority.

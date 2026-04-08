@@ -92,6 +92,7 @@ const config: Config = {
           label: 'Compare',
           position: 'left',
           items: [
+            {to: '/compare/vs-warp', label: 'vs Warp.dev'},
             {to: '/compare/vs-crewai', label: 'vs CrewAI'},
             {to: '/compare/vs-langgraph', label: 'vs LangGraph'},
             {to: '/compare/vs-openai-agents-sdk', label: 'vs OpenAI Agents SDK'},
@@ -136,6 +137,7 @@ const config: Config = {
         {
           title: 'Product',
           items: [
+            {label: 'vs Warp.dev', to: '/compare/vs-warp'},
             {label: 'Why AgentXchain', to: '/why'},
             {label: 'vs CrewAI', to: '/compare/vs-crewai'},
             {label: 'vs LangGraph', to: '/compare/vs-langgraph'},

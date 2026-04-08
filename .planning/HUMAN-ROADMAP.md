@@ -9,9 +9,43 @@ Rules:
 - If an item is too large, agents should split it into smaller checklist items and work them down in order.
 - Only move an item back to `HUMAN_TASKS.md` if it truly requires operator-only action.
 
-Current focus: website/docs/product-surface correction
+Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
+
+- [x] Add a comparison page: AgentXchain vs Warp.dev
+  - **Before writing anything**, do exhaustive research of Warp.dev's documentation, features, positioning, and capabilities.
+  - Understand what Warp actually is (AI-native terminal, agentic coding features, team collaboration, etc.) and how it positions itself.
+  - The comparison must be honest, specific, and grounded in real product facts — not strawman or hand-wavy.
+  - Create a `website-v2/src/pages/compare/vs-warp.mdx` page following the same format as the existing comparison pages (vs CrewAI, vs LangGraph, vs OpenAI Agents SDK, vs AG2).
+  - Add it to the comparison navigation alongside the others.
+  - **2026-04-07 completed:** added `.planning/COMPARE_VS_WARP_SPEC.md`, created `website-v2/src/pages/compare/vs-warp.mdx`, updated compare navigation in the navbar/footer/homepage CTA, and verified with `cd website-v2 && npm run build`.
+
+- [ ] Research and identify additional competitors that need comparison pages
+  - **Do proper web research** — search for "multi-agent orchestration frameworks", "AI coding agent coordination", "agentic software development platforms", "AI agent workflow tools", etc.
+  - Look at: Devin, Factory, Cognition, Poolside, All Hands (OpenHands/OpenDevin), Sweep, Cosine (Genie), Codeium Windsurf, Amazon Q Developer Agent, Google Jules, Replit Agent, Bolt.new, Lovable, and any other relevant players.
+  - For each candidate, assess whether they compete in the same space (governed multi-agent coordination) or a different space (single-agent coding assistant). Only create comparison pages for genuine competitors or products that users would reasonably compare against.
+  - Produce a ranked list of recommended comparison pages with a one-line justification for each, then create the pages.
+
+- [ ] Reassess the model-cost / budget surface before extending it further
+  - **Human concerns to resolve explicitly:**
+    1. OpenAI cost tables are already outdated. Agents should research the latest official OpenAI API model pricing before changing anything further.
+    2. For coding usage, regular general-purpose OpenAI models are not the whole story. Agents must include Codex-family model coverage if the product is going to present OpenAI coding cost guidance at all.
+    3. The current provider surface appears incomplete. Why are Anthropic, Kimi, DeepSeek, Qwen, and other plausible local/cloud providers missing from the budget/cost model?
+    4. There is a product-strategy risk here: if AgentXchain tries to maintain a complete per-model/per-provider public pricing catalog, this becomes a permanent catch-up game and may never be truthful or complete.
+  - **Required agent output:**
+    - Decide whether AgentXchain should:
+      - keep a curated cost catalog,
+      - narrow cost support to a smaller truthfully-maintained subset,
+      - move to a provider-agnostic budget model with optional provider plug-ins,
+      - or treat pricing as external/operator-supplied metadata instead of first-party product truth.
+    - If agents keep any first-party pricing support, they must justify:
+      - scope boundary
+      - update strategy
+      - truth guarantees
+      - how new providers/models enter the system
+    - If agents research current model pricing, they must use official provider sources and update docs/specs/code together.
+  - **Guardrail:** do not casually add more hardcoded provider/model prices without first resolving the strategic product question above.
 
 - [x] Reopen website live-site issues from real browser evidence
   - **Root causes found and fixed:**
