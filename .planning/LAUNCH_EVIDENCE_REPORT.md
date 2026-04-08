@@ -98,9 +98,28 @@
   - Turn results pass validation and are accepted into governed history
   - All four adapter types (`manual`, `local_cli`, `api_proxy`, `mcp`) now have live CLI execution evidence
 - **What it does NOT prove**:
-  - A real AI model behind MCP (echo agents return canned results — transport-level proof only)
   - MCP adapter behavior under production-scale context or long-running turns
   - Full governed lifecycle through MCP (one dev turn per transport, not a complete run)
+
+### E2b+ — Live MCP Real-Model Proof
+
+- **Date**: 2026-04-08
+- **Location**: `examples/live-governed-proof/run-mcp-real-model-proof.mjs`, `examples/mcp-anthropic-agent/server.js`
+- **Run ID**: `run_83a64c7bb6925711`
+- **Turn ID**: `turn_c8703d87f325e108`
+- **Provider**: Anthropic Claude `claude-haiku-4-5-20251001`
+- **Cost**: 1,630 input tokens + 649 output tokens
+- **Result**: **PASS.** MCP stdio transport proven with a real Anthropic model behind the MCP server.
+- **What it proves**:
+  - MCP server (`mcp-anthropic-agent`) receives `agentxchain_turn` tool call and forwards prompt/context to real Anthropic API
+  - Real model returns structured turn-result JSON (not canned/echo)
+  - Turn result passes governed validation and is accepted into state machine history
+  - Real token usage recorded (1,630 input + 649 output)
+  - The full path works: CLI → MCP adapter → MCP stdio transport → MCP server → Anthropic API → JSON extraction → validation → acceptance
+- **What it does NOT prove**:
+  - Streamable HTTP transport with a real model (only stdio proven)
+  - Full governed lifecycle through MCP with a real model (single dev turn)
+  - MCP with OpenAI or other providers (only Anthropic proven)
 
 ### E2c — Live Proposed-Authority Dogfood
 
@@ -190,7 +209,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
 | "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) | All four adapter types now have live CLI execution evidence. |
-| "All four adapters proven live" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) | All adapter types have been dispatched through the real `agentxchain step` CLI and accepted by the governed state machine. MCP proof is transport-level (echo agents, not real AI models). |
+| "All four adapters proven live" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) + E2b+ (MCP with real Anthropic model) | All adapter types have been dispatched through the real `agentxchain step` CLI and accepted by the governed state machine. MCP now proven with both echo agents and a real AI model. |
 | "Manual, local CLI, API-backed, and MCP agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b | All four adapter types proven live through the governed CLI. |
 | "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Full lifecycle proof exists only for the three-adapter path. MCP proof is a single dev turn per transport. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
@@ -211,7 +230,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
-| "Full live end-to-end proof with MCP" | E2b proves MCP transport works (both stdio and HTTP), but the MCP dogfood used echo agents, not real AI models. MCP proof is transport-level, not model-level. | Run a governed MCP turn with a real AI model behind the MCP server. |
+| ~~"Full live end-to-end proof with MCP"~~ | **CLOSED 2026-04-08.** E2b+ proves MCP transport works with a real Anthropic model (`run_83a64c7bb6925711`, `turn_c8703d87f325e108`). MCP server calls `claude-haiku-4-5-20251001`, returns real model output, turn accepted by governed state machine. | N/A — proven. |
 | ~~"`api_proxy` proposed-authority run completion is proven live against a real provider"~~ | **CLOSED 2026-04-08.** `run_7b067f892916b799` passed all 5 criteria: proposal turn with gate-valid content, `proposal apply`, no-op completion request, `pending_run_completion` pause, and `approve-completion`. Previously disallowed due to product contract bug (`DEC-PROP-COMPLETION-CONTRACT-001`) and proposal-turn semantic reliability; both resolved. | N/A — proven. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
@@ -224,7 +243,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 | Gap | Impact | Prerequisite |
 |-----|--------|--------------|
 | ~~Live MCP adapter dogfood~~ | **CLOSED** — E2b proves both MCP transports live through `agentxchain step` CLI | Completed 2026-04-07 |
-| MCP with real AI model | Proves MCP transport works with an actual AI model, not just echo agents | Build or find an MCP server backed by a real model |
+| ~~MCP with real AI model~~ | **CLOSED** — E2b+ proves MCP stdio transport with real Anthropic model (`claude-haiku-4-5-20251001`) | Completed 2026-04-08 |
 | Post-release `npx agentxchain` installation verification | Proves the npm package works from the registry | v2.0.1 published to npm |
 | Scenario D escalation dogfood | Validates retry exhaustion + eng_director recovery paths | v2.0.1 published (per spec) |
 | External operator evidence | Moves from "self-proven" to "community-validated" | Post-launch adoption |

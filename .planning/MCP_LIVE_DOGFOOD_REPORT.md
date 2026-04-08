@@ -65,12 +65,24 @@
 5. History entries record the correct runtime_id for MCP-dispatched turns
 6. Custom HTTP headers are forwarded for streamable_http transport
 
+## Real Model Proof (2026-04-08)
+
+- **Run ID**: `run_83a64c7bb6925711`
+- **Turn ID**: `turn_c8703d87f325e108`
+- **MCP Server**: `examples/mcp-anthropic-agent/server.js` (calls real Anthropic API)
+- **Provider**: Anthropic Claude `claude-haiku-4-5-20251001`
+- **Transport**: stdio
+- **Tokens**: 1,630 input + 649 output
+- **Result**: Turn accepted by governed state machine. Real model output (not canned/echo).
+- **Proof Script**: `examples/live-governed-proof/run-mcp-real-model-proof.mjs`
+
 ## What This Does NOT Prove
 
-- A real AI model behind MCP (both use echo agents returning canned results)
+- ~~A real AI model behind MCP~~ — **CLOSED 2026-04-08** via `mcp-anthropic-agent` + `run_83a64c7bb6925711`
 - MCP adapter behavior under production-scale context or long-running turns
 - MCP adapter failure recovery (timeout, crash, invalid result from a real model)
 - Full governed lifecycle through MCP (only one dev turn per transport, not a complete run)
+- Streamable HTTP transport with a real model (only stdio proven with real model)
 
 ## Methodology
 

@@ -1,0 +1,14 @@
+{
+  "name": "agentxchain-mcp-anthropic-agent",
+  "version": "1.0.0",
+  "description": "MCP server that implements the agentxchain_turn tool contract backed by a real Anthropic AI model. Proves MCP transport works with real model completions.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  }
+}

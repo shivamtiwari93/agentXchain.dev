@@ -92,6 +92,14 @@ describe('Launch evidence report', () => {
     assert.match(report, /MCP streamable_http transport.*governed dev turn/i);
     assert.match(report, /All four adapter types.*live CLI execution evidence/i);
   });
+
+  it('records live MCP real-model proof', () => {
+    assert.match(report, /E2b\+ — Live MCP Real-Model Proof/);
+    assert.match(report, /run_83a64c7bb6925711/);
+    assert.match(report, /turn_c8703d87f325e108/);
+    assert.match(report, /claude-haiku-4-5-20251001/);
+    assert.match(report, /real Anthropic model/i);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {
