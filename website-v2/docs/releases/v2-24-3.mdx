@@ -1,0 +1,82 @@
+---
+title: "v2.24.3 Release Notes"
+description: "Coordinator-operator visibility release: structured blocker diagnostics from CLI reports through the dashboard."
+---
+
+# AgentXchain v2.24.3
+
+`2.24.3` is a coordinator-operator visibility release.
+
+Previous releases built the coordinator execution surface — multi-repo orchestration, phase gates, blocked-state recovery, and run-identity guards. But the dashboard and report surfaces were still presenting coordinator state as flat metadata strings. `2.24.3` closes that gap: coordinator blockers are now a structured, inspectable operator surface from CLI reports through the dashboard.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.24.3
+```
+
+## What changed since 2.24.2
+
+### Coordinator child run identity guard
+
+Coordinator gates now verify that each child repo's `run_id` matches the expected value from the coordinator's `super_run_id` binding. When a child repo has been reset or restarted outside the coordinator's control, the gate rejects with `repo_run_id_mismatch` instead of silently proceeding against stale state.
+
+This matters because coordinator orchestration spans multiple repos over time. Without identity binding, a coordinator could approve a gate transition based on an old run's artifacts — silently violating the governance contract.
+
+Recovery: `agentxchain multi resume` resyncs the coordinator with current child state.
+
+### `repo_run_id_mismatch` in coordinator reports and CLI
+
+`agentxchain multi step` and governed-run reports now surface `repo_run_id_mismatch` as a structured diagnostic:
+
+- **repo_id**: which child repo drifted
+- **expected run_id**: what the coordinator expected
+- **actual run_id**: what the child repo currently has
+
+Previously this was a flat `blocked_reason` string. Now it is a structured blocker code with inspectable detail, consistent across CLI output and governance reports.
+
+The multi-repo docs (`/docs/multi-repo`) include the new blocker code and recovery path.
+
+### Dashboard coordinator blocker API
+
+New `/api/coordinator/blockers` endpoint computes a normalized blocker snapshot server-side using the existing gate evaluation library (`evaluatePhaseGate`, `evaluateCompletionGate`). No gate logic is duplicated or reimplemented.
+
+The response includes:
+
+- **mode**: `pending_gate`, `phase_transition`, or `run_completion`
+- **gate context**: gate type, gate ID, current and target phase
+- **blocker codes**: `repo_not_ready`, `repo_run_id_mismatch`, `human_barrier`, `no_next_phase`
+- **structured detail** per blocker (repo_id, expected/actual values, current/required phase)
+
+### Dashboard Blockers panel
+
+New **Blockers** view in the dashboard (the eighth top-level view). Pure renderer of `/api/coordinator/blockers` — no client-side gate logic.
+
+Renders:
+
+- Mode badge with color coding
+- Super run ID and coordinator status
+- Active gate detail with blocker list
+- Blocker codes: red for `repo_run_id_mismatch`, yellow for other blockers, dim for `no_next_phase`
+- `repo_run_id_mismatch`: repo_id, expected run_id, actual run_id in structured detail
+- `repo_not_ready`: repo_id, current phase, required phase
+- Mode-aware recovery commands: `multi approve-gate` for pending gates, `multi resume` for identity drift
+- Expandable gate evaluation cards for phase transition and run completion
+
+### Initiative view structured blocker integration
+
+The initiative dashboard view now consumes the computed blocker snapshot instead of flattening coordinator state into a `blocked_reason` string. Coordinator attention state shows:
+
+- Blocker mode and gate context
+- Structured blocker details with color-coded codes
+- Direct link to the full Blockers panel (`#blockers`)
+
+This means the first screen operators see (initiative overview) surfaces the same structured diagnostic as the dedicated panel — no information loss in the summary view.
+
+## Evidence
+
+- **2537 node tests / 546 suites / 0 failures**
+- Coordinator blocker component: 19 tests / 5 suites
+- Dashboard app shell: 35 tests / 6 suites (updated for 8 views)
+- Dashboard E2E: 11 tests / 1 suite (real coordinator workspace)
+- Docusaurus production build: clean

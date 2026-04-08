@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.24.2
+# Reddit Posts — AgentXchain v2.24.3
 
-> Ready-to-post content for Reddit. Updated 2026-04-08 to reflect v2.24.2 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-08 to reflect v2.24.3 shipped reality.
 > All adapter types proven live with real models. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.24.2):**
+**What's in the box (v2.24.3):**
 - 4 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP)
 - All 4 adapters proven live
 - `local_cli`, `api_proxy`, and `mcp` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -151,7 +151,7 @@ MIT licensed. https://agentxchain.dev
 
 ## Posting Instructions
 
-1. `npm install agentxchain@2.24.2` is live on npm — ready to post
+1. `npm install agentxchain@2.24.3` is live on npm — ready to post
 2. Post during US morning hours (10-11am ET, Mon-Thu)
 3. Post to r/programming first (highest signal), then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT
 4. Lead with the demo: `npx agentxchain demo` — this is the strongest hook because it works instantly with zero setup

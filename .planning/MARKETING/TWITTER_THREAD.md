@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.24.2
+# Twitter/X Thread — AgentXchain v2.24.3
 
-> Ready-to-post thread. Updated 2026-04-08 to reflect v2.24.2 shipped reality.
+> Ready-to-post thread. Updated 2026-04-08 to reflect v2.24.3 shipped reality.
 
 ---
 

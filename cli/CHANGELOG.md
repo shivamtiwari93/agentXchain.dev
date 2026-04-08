@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.24.3
+
+`2.24.3` is a coordinator-operator visibility release.
+
+Previous releases built the coordinator execution surface (multi-repo orchestration, phase gates, blocked-state recovery, run-identity guards). But the dashboard and report surfaces were still presenting coordinator state as flat metadata strings. `2.24.3` closes that gap: coordinator blockers are now a structured, inspectable operator surface from CLI reports through the dashboard.
+
+### Coordinator child run identity guard
+
+Coordinator gates now verify that each child repo's `run_id` matches the expected value from the coordinator's `super_run_id` binding. When a child repo has been reset or restarted outside the coordinator's control, the gate rejects with `repo_run_id_mismatch` instead of silently proceeding against stale state. Recovery uses `agentxchain multi resume`.
+
+### `repo_run_id_mismatch` in coordinator reports and CLI
+
+`agentxchain multi step` and governed-run reports now surface `repo_run_id_mismatch` as a structured diagnostic with repo_id, expected run_id, and actual run_id — not a flat prose blocker string. The multi-repo docs include the new blocker code and recovery path.
+
+### Dashboard coordinator blocker API and panel
+
+New `/api/coordinator/blockers` endpoint computes a normalized blocker snapshot server-side using the existing gate evaluation library. Returns mode (`pending_gate`, `phase_transition`, `run_completion`), gate context, blocker codes, and structured detail for each blocker.
+
+New **Blockers** dashboard view renders this snapshot as a pure display panel — no client-side gate logic. Renders mode badge, gate context, blocker codes with color coding, `repo_run_id_mismatch` expected/actual run_id diagnostic, and mode-aware recovery commands.
+
+### Initiative view structured blocker integration
+
+The initiative dashboard view now consumes the computed blocker snapshot instead of flattening coordinator state into a `blocked_reason` string. Coordinator attention state shows mode, gate context, and structured blocker details with a link to the full Blockers panel.
+
+### Evidence
+
+- 2537 node tests / 546 suites / 0 failures.
+- Docusaurus production build passes.
+
 ## 2.24.2
 
 `2.24.2` is an onboarding-truth patch release.
