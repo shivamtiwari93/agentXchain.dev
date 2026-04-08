@@ -73,6 +73,15 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
     };
   }
 
+  const invalidOrderReason = getInvalidPhaseTransitionReason(currentPhase, transitionRequest, routing);
+  if (invalidOrderReason) {
+    return {
+      ...baseResult,
+      action: 'gate_failed',
+      reasons: [invalidOrderReason],
+    };
+  }
+
   // Find the exit gate for the current phase
   const currentRouting = routing[currentPhase];
   if (!currentRouting || !currentRouting.exit_gate) {
@@ -283,6 +292,43 @@ export function evaluateRunCompletion({ state, config, acceptedTurn, root }) {
  */
 export function getPhaseOrder(routing) {
   return Object.keys(routing || {});
+}
+
+/**
+ * Return the next declared phase after the current phase, or null when the
+ * current phase is final or not part of the routing config.
+ *
+ * @param {string} currentPhase
+ * @param {object} routing
+ * @returns {string|null}
+ */
+export function getNextPhase(currentPhase, routing) {
+  const phases = getPhaseOrder(routing || {});
+  const currentIndex = phases.indexOf(currentPhase);
+  if (currentIndex === -1 || currentIndex >= phases.length - 1) {
+    return null;
+  }
+  return phases[currentIndex + 1];
+}
+
+/**
+ * Validate that a requested phase transition follows the declared routing
+ * order. Returns null when the request is valid.
+ *
+ * @param {string} currentPhase
+ * @param {string} requestedPhase
+ * @param {object} routing
+ * @returns {string|null}
+ */
+export function getInvalidPhaseTransitionReason(currentPhase, requestedPhase, routing) {
+  const nextPhase = getNextPhase(currentPhase, routing);
+  if (!nextPhase) {
+    return `phase_transition_request "${requestedPhase}" is invalid in final phase "${currentPhase}"; use run_completion_request instead.`;
+  }
+  if (requestedPhase !== nextPhase) {
+    return `phase_transition_request "${requestedPhase}" is invalid from phase "${currentPhase}"; next phase is "${nextPhase}".`;
+  }
+  return null;
 }
 
 /**

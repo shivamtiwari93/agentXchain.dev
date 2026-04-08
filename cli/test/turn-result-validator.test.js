@@ -455,10 +455,79 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some(e => e.includes('phase_transition_request')));
     });
 
+    it('AT-CP-004: rejects phase_transition_request that skips a declared custom phase', () => {
+      const config = makeConfig();
+      config.roles.architect = {
+        title: 'Architect',
+        mandate: 'Design the system.',
+        write_authority: 'review_only',
+        runtime_class: 'manual',
+        runtime_id: 'manual-architect',
+      };
+      config.runtimes['manual-architect'] = { type: 'manual' };
+      config.routing = {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'architect', 'human'], exit_gate: 'planning_signoff' },
+        design: { entry_role: 'architect', allowed_next_roles: ['architect', 'dev', 'human'], exit_gate: 'design_review' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+        qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'qa_ship_verdict' },
+      };
+      config.gates.design_review = { requires_files: ['.planning/DESIGN_REVIEW.md'] };
+
+      const state = makeState({
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn-0004',
+          assigned_role: 'pm',
+          status: 'running',
+          attempt: 1,
+          runtime_id: 'manual-pm',
+        },
+      });
+      const tr = makeValidTurnResult({
+        role: 'pm',
+        runtime_id: 'manual-pm',
+        files_changed: [],
+        artifact: { type: 'review', ref: null },
+        objections: [{ id: 'OBJ-001', severity: 'low', statement: 'Scope is acceptable.', status: 'raised' }],
+        proposed_next_role: 'human',
+        phase_transition_request: 'implementation',
+      });
+
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, state, config);
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'protocol');
+      assert.equal(res.error_class, 'protocol_error');
+      assert.ok(res.errors.some(e => e.includes('next phase is "design"')));
+    });
+
     it('allows valid phase_transition_request', () => {
       writeStagedResult(makeValidTurnResult({ phase_transition_request: 'qa' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, true);
+    });
+
+    it('AT-CP-008: rejects phase_transition_request in the final phase', () => {
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        files_changed: [],
+        artifact: { type: 'review', ref: null },
+        objections: [{ id: 'OBJ-001', severity: 'medium', statement: 'Final phase must use run completion.', status: 'raised' }],
+        proposed_next_role: 'human',
+        phase_transition_request: 'planning',
+      });
+      const state = makeState({
+        phase: 'qa',
+        current_turn: { turn_id: 'turn-0004', assigned_role: 'qa', status: 'running', attempt: 1, runtime_id: 'api-qa' },
+      });
+
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, state, makeConfig());
+      assert.equal(res.ok, false);
+      assert.equal(res.stage, 'protocol');
+      assert.equal(res.error_class, 'protocol_error');
+      assert.ok(res.errors.some(e => e.includes('use run_completion_request instead')));
     });
 
     it('allows run_completion_request = true for a valid final-phase turn result', () => {

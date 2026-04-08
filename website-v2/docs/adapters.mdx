@@ -138,6 +138,8 @@ The adapter must write a valid turn result to `.agentxchain/staging/<turn_id>/tu
 
 **Required fields:** All fields shown above are required. The `objections` array is required and must be a valid array. For `review_only` roles, the protocol enforces a challenge requirement: at least one objection must be raised. Other roles may submit an empty objections array.
 
+Custom phases are operator-defined, not scaffold-generated. If you extend `routing` with phases like `design` or `security_review`, you must also define their gate files in `gates`, and `phase_transition_request` may only target the immediate next declared phase.
+
 ## manual adapter
 
 The manual adapter is designed for human-in-the-loop workflows where a person reads the dispatch, does the work, and stages the result themselves.
@@ -334,7 +336,7 @@ The adapter sends an argument object containing:
 | `run_id` | Current run identifier |
 | `turn_id` | Current turn identifier |
 | `role` | Assigned role for this turn |
-| `phase` | Current governed phase (default: `planning`, `implementation`, `qa`; custom phases supported via routing config) |
+| `phase` | Current governed phase (default: `planning`, `implementation`, `qa`; custom phases are supported via routing config and advance only in declared order) |
 | `runtime_id` | Runtime identifier from config |
 | `project_root` | Absolute path to the project root |
 | `dispatch_dir` | Absolute path to the dispatch turn directory containing `ASSIGNMENT.json`, `PROMPT.md`, `CONTEXT.md` |

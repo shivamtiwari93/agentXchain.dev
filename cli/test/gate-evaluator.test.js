@@ -157,6 +157,47 @@ describe('evaluatePhaseExit — pure function', () => {
     assert.ok(result.reasons[0].includes('nonexistent'));
   });
 
+  it('Rule 2b: gate_failed when requested phase skips the next declared phase', () => {
+    const config = makeConfig();
+    config.routing = {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'architect', 'human'], exit_gate: 'planning_signoff' },
+      design: { entry_role: 'architect', allowed_next_roles: ['architect', 'dev', 'human'], exit_gate: 'design_review' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'qa_ship_verdict' },
+    };
+    config.gates.design_review = { requires_files: ['.planning/DESIGN_REVIEW.md'] };
+
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'planning' }),
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.passed, false);
+    assert.equal(result.next_phase, null);
+    assert.match(result.reasons[0], /next phase is "design"/);
+  });
+
+  it('Rule 2c: gate_failed when final phase requests another phase', () => {
+    const result = evaluatePhaseExit({
+      state: makeState({ phase: 'qa' }),
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        proposed_next_role: 'human',
+        phase_transition_request: 'planning',
+      }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.passed, false);
+    assert.match(result.reasons[0], /use run_completion_request instead/);
+  });
+
   it('Rule 3: gate_failed when required files are missing', () => {
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'planning' }),
@@ -303,6 +344,15 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('AT-QA-GATE-001: gate_failed when acceptance matrix is still the scaffold placeholder', () => {
+    const config = makeConfig();
+    config.routing = {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'human'], exit_gate: 'planning_signoff' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'human'], exit_gate: 'qa_ship_verdict' },
+      release: { entry_role: 'qa', allowed_next_roles: ['human'], exit_gate: 'release_complete' },
+    };
+    config.gates.release_complete = {};
+
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(
       join(root, '.planning', 'acceptance-matrix.md'),
@@ -313,8 +363,8 @@ describe('evaluatePhaseExit — pure function', () => {
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),
-      config: makeConfig(),
-      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      config,
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'release' }),
       root,
     });
 
@@ -323,6 +373,15 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('AT-QA-GATE-002: gate_failed when any acceptance row is not passing', () => {
+    const config = makeConfig();
+    config.routing = {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'human'], exit_gate: 'planning_signoff' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'human'], exit_gate: 'qa_ship_verdict' },
+      release: { entry_role: 'qa', allowed_next_roles: ['human'], exit_gate: 'release_complete' },
+    };
+    config.gates.release_complete = {};
+
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(
       join(root, '.planning', 'acceptance-matrix.md'),
@@ -333,8 +392,8 @@ describe('evaluatePhaseExit — pure function', () => {
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),
-      config: makeConfig(),
-      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      config,
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'release' }),
       root,
     });
 
@@ -343,6 +402,15 @@ describe('evaluatePhaseExit — pure function', () => {
   });
 
   it('AT-QA-GATE-003: awaiting_human_approval when every acceptance row is passing', () => {
+    const config = makeConfig();
+    config.routing = {
+      planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'human'], exit_gate: 'planning_signoff' },
+      implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'qa', 'human'], exit_gate: 'implementation_complete' },
+      qa: { entry_role: 'qa', allowed_next_roles: ['qa', 'human'], exit_gate: 'qa_ship_verdict' },
+      release: { entry_role: 'qa', allowed_next_roles: ['human'], exit_gate: 'release_complete' },
+    };
+    config.gates.release_complete = {};
+
     mkdirSync(join(root, '.planning'), { recursive: true });
     writeFileSync(join(root, '.planning', 'acceptance-matrix.md'), makePassingAcceptanceMatrix());
     writeFileSync(join(root, '.planning', 'ship-verdict.md'), '## Verdict: YES\n');
@@ -350,8 +418,8 @@ describe('evaluatePhaseExit — pure function', () => {
 
     const result = evaluatePhaseExit({
       state: makeState({ phase: 'qa' }),
-      config: makeConfig(),
-      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'qa' }),
+      config,
+      acceptedTurn: makeTurnResult({ role: 'qa', phase_transition_request: 'release' }),
       root,
     });
 

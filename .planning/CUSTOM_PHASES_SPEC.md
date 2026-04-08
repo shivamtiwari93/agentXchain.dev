@@ -35,7 +35,8 @@ Custom phases use `requires_files` and `requires_verification_pass` gate predica
 1. `normalized-config.js` derives valid phases from `routing` keys when routing is present; falls back to `['planning', 'implementation', 'qa']` when absent.
 2. `coordinator-config.js` derives valid phases from the coordinator's own routing config or from child repo configs; falls back to `['planning', 'implementation', 'qa']` when absent.
 3. Phase order is routing declaration order (already the runtime behavior in `coordinator-gates.js`).
-4. All existing gate evaluation, phase transition, and completion semantics remain unchanged.
+4. `phase_transition_request` must target the immediate next declared phase. Skipping a declared phase is protocol-invalid and must be rejected before acceptance.
+5. Final phases cannot use `phase_transition_request`; they must use `run_completion_request`.
 5. Phase colors in `status.js` use a fallback for unknown phases (e.g., `chalk.white`).
 
 ## Error Cases
@@ -44,6 +45,8 @@ Custom phases use `requires_files` and `requires_verification_pass` gate predica
 |----------|----------|
 | Routing declares custom phase `security_review` | Config validation accepts it |
 | Routing declares phase with invalid characters (spaces, uppercase) | Config validation rejects: `phase name must be lowercase alphanumeric with underscores/hyphens` |
+| Turn in `planning` requests `implementation` while routing declares `planning -> design -> implementation` | Validation rejects: `next phase is "design"` |
+| Turn in final phase requests another phase via `phase_transition_request` | Validation rejects: `use run_completion_request instead` |
 | Coordinator workstream references phase not in any routing config | Config validation rejects: `workstream phase must appear in routing` |
 | No routing configured | Default phases apply; existing behavior unchanged |
 
@@ -53,6 +56,7 @@ Custom phases use `requires_files` and `requires_verification_pass` gate predica
 - AT-CP-002: Config with `routing: { planning, implementation }` (no qa) validates without error
 - AT-CP-003: Phase transition from `design` to `implementation` succeeds when routing declares both
 - AT-CP-004: Phase transition that skips a custom phase is rejected
+- AT-CP-008: Final-phase `phase_transition_request` is rejected and instructs the operator to use `run_completion_request`
 - AT-CP-005: Coordinator workstream with custom phase validates against coordinator routing
 - AT-CP-006: `status` command renders custom phase names with fallback color
 - AT-CP-007: Existing 3-phase configs continue to work identically

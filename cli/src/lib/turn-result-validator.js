@@ -15,6 +15,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { getActiveTurn } from './governed-state.js';
+import { getInvalidPhaseTransitionReason } from './gate-evaluator.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -519,6 +520,15 @@ function validateProtocol(tr, state, config) {
       errors.push(
         `phase_transition_request "${tr.phase_transition_request}" is not a defined phase in routing.`
       );
+    } else if (config.routing && state?.phase) {
+      const invalidOrderReason = getInvalidPhaseTransitionReason(
+        state.phase,
+        tr.phase_transition_request,
+        config.routing
+      );
+      if (invalidOrderReason) {
+        errors.push(invalidOrderReason);
+      }
     }
   }
 
