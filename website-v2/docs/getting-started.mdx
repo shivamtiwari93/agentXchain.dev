@@ -1,0 +1,139 @@
+---
+sidebar_position: 2
+title: Getting Started
+description: "Copy-paste path from demo to your first real governed run, with the default mixed-mode scaffold explained honestly."
+---
+
+# Getting Started
+
+This is the shortest honest path from "I saw the demo" to "I completed a real governed run in my own repo."
+
+The key constraint: the shipped scaffold is mixed-mode by default.
+
+- `pm` uses `manual-pm`
+- `dev` uses `local-dev`
+- `qa` uses `api-qa`
+
+That means:
+
+- `npx agentxchain demo` needs no API keys
+- your first real repo can start with a manual planning turn immediately
+- the default QA leg needs `ANTHROPIC_API_KEY` unless you rebind `qa` to a manual runtime first
+
+If you want artifact-by-artifact detail, read [Your First Governed Turn](/docs/first-turn). This page stays focused on the fastest real command sequence.
+
+## 1. Run the demo first
+
+```bash
+npx agentxchain demo
+```
+
+If npm resolves to a stale global install and you get `unknown command 'demo'`, use the package-bound form:
+
+```bash
+npx -p agentxchain@2.24.1 -c 'agentxchain demo'
+```
+
+The demo proves the governed lifecycle without requiring any setup. Do not skip it if you are evaluating the product.
+
+## 2. Scaffold a real repo
+
+```bash
+mkdir my-first-governed && cd my-first-governed
+npx agentxchain init --governed --template cli-tool -y
+git init
+git add -A
+git commit -m "initial governed scaffold"
+agentxchain template validate
+```
+
+At this point the repo is scaffolded, but the planning gate is intentionally closed. `PM_SIGNOFF.md` starts at `Approved: NO`.
+
+## 3. Start the planning turn
+
+Run the planning-phase entry turn:
+
+```bash
+agentxchain step
+```
+
+The CLI writes a dispatch bundle, prints the manual operator instructions, and waits for `.agentxchain/staging/<turn_id>/turn-result.json`.
+
+Use the printed guidance directly:
+
+- open `.agentxchain/dispatch/turns/<turn_id>/PROMPT.md`
+- update `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, and `.planning/SYSTEM_SPEC.md`
+- write the staged result JSON shown in the terminal
+
+The current manual instructions now include:
+
+- phase-aware gate file hints
+- a minimal `turn-result.json` example with the real `run_id` and `turn_id`
+- the suggested next role
+
+If you want the full artifact anatomy, stop here and read [Your First Governed Turn](/docs/first-turn).
+
+## 4. Open the planning gate
+
+Once `step` detects and accepts the PM turn, advance the phase:
+
+```bash
+agentxchain approve-transition
+git add -A
+git commit -m "accept pm turn and open implementation"
+```
+
+If the command fails, the gate files are still placeholders or `PM_SIGNOFF.md` is not set to `Approved: YES`.
+
+## 5. Run the implementation turn
+
+The default dev runtime is `local_cli`, scaffolded as:
+
+```text
+claude --print --dangerously-skip-permissions
+```
+
+Start the implementation leg:
+
+```bash
+agentxchain step --role dev --verbose
+git add -A
+git commit -m "accept dev turn"
+```
+
+This command only works if your local coding CLI wiring is truthful. If you use another tool, set it during `init` with `--dev-command` and `--dev-prompt-transport`, or update `runtimes.local-dev` before you expect the turn to run.
+
+## 6. Run the QA leg honestly
+
+The shipped scaffold uses `api-qa` for `qa`, so the default path needs an Anthropic key:
+
+```bash
+export ANTHROPIC_API_KEY=...
+agentxchain step --role qa
+```
+
+Before you run QA, make sure these files contain real content:
+
+- `.planning/acceptance-matrix.md`
+- `.planning/ship-verdict.md`
+- `.planning/RELEASE_NOTES.md`
+
+If you do not want API-backed QA yet, rebind `qa` to a manual runtime before you run the turn. Do not pretend the default scaffold is fully no-key end to end.
+
+## 7. Complete the run
+
+If QA accepts and requests completion, finish with the explicit human approval:
+
+```bash
+agentxchain approve-completion
+git add -A
+git commit -m "approve governed completion"
+```
+
+That final approval is constitutional. It exists so humans remain sovereign over what actually ships.
+
+## What to read next
+
+- [Your First Governed Turn](/docs/first-turn) for artifact-level detail
+- [Quickstart](/docs/quickstart) for alternate entry paths and the fully automated `run` path
+- [Adapters](/docs/adapters) if you need to rebind runtimes truthfully

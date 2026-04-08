@@ -39,6 +39,7 @@ describe('agentxchain demo', () => {
 
     // Verify CTA
     assert.match(output, /agentxchain init --governed/);
+    assert.match(output, /https:\/\/agentxchain\.dev\/docs\/getting-started/);
   });
 
   it('returns structured JSON with --json flag', () => {

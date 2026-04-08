@@ -84,7 +84,7 @@ export function printManualDispatchInstructions(state, config, options = {}) {
   lines.push('    "run_completion_request": null');
   lines.push('  }');
   lines.push('');
-  lines.push('  Docs: https://agentxchain.dev/docs/first-turn');
+  lines.push('  Docs: https://agentxchain.dev/docs/getting-started');
   lines.push('');
 
   return lines.join('\n');

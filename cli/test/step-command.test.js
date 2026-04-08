@@ -189,6 +189,31 @@ describe('Manual Adapter', () => {
       const output = printManualDispatchInstructions(state, config);
       assert.ok(output.includes('2'));
     });
+
+    it('includes gate hints, staged result example, next role, and docs link', () => {
+      const state = {
+        run_id: 'run_test123',
+        phase: 'planning',
+        current_turn: {
+          turn_id: 'turn_abc',
+          assigned_role: 'pm',
+          attempt: 1,
+          runtime_id: 'manual-pm',
+        },
+      };
+      const config = makeNormalizedConfig();
+      const output = printManualDispatchInstructions(state, config);
+
+      assert.ok(output.includes('Gate files to update this phase:'));
+      assert.ok(output.includes('.planning/PM_SIGNOFF.md'));
+      assert.ok(output.includes('.planning/ROADMAP.md'));
+      assert.ok(output.includes('.planning/SYSTEM_SPEC.md'));
+      assert.ok(output.includes('Minimal turn-result.json:'));
+      assert.ok(output.includes('"run_id": "run_test123"'));
+      assert.ok(output.includes('"turn_id": "turn_abc"'));
+      assert.ok(output.includes('"proposed_next_role": "dev"'));
+      assert.ok(output.includes('https://agentxchain.dev/docs/getting-started'));
+    });
   });
 
   describe('waitForStagedResult()', () => {
@@ -468,6 +493,22 @@ describe('Step Flow Integration', () => {
       assert.ok(output.includes('MANUAL TURN REQUIRED'));
       assert.ok(output.includes(state.current_turn.turn_id));
       assert.ok(output.includes('PROMPT.md'));
+    });
+
+    it('printManualDispatchInstructions renders guided onboarding details', () => {
+      const root = createAndTrack();
+      setupGovernedProject(root);
+      const config = makeNormalizedConfig();
+
+      initializeGovernedRun(root, config);
+      const assignResult = assignGovernedTurn(root, config, 'pm');
+      const state = assignResult.state;
+
+      const output = printManualDispatchInstructions(state, config);
+      assert.ok(output.includes('Gate files to update this phase:'));
+      assert.ok(output.includes('Minimal turn-result.json:'));
+      assert.ok(output.includes('"proposed_next_role": "dev"'));
+      assert.ok(output.includes('https://agentxchain.dev/docs/getting-started'));
     });
   });
 

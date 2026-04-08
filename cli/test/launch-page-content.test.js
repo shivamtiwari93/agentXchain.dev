@@ -35,6 +35,7 @@ describe('launch page public contract', () => {
     assert.match(LAUNCH_PAGE, /human-in-the-loop control path/);
     assert.doesNotMatch(LAUNCH_PAGE, /manual, local CLI, API proxy, and MCP — is proven live with real AI models/i);
     assert.doesNotMatch(LAUNCH_PAGE, /All 4 adapter types proven live with real AI models/i);
+    assert.doesNotMatch(LAUNCH_PAGE, /all four runtime adapters proven live with real AI models/i);
   });
 });
 
