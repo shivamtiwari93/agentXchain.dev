@@ -59,6 +59,7 @@ const sidebars: SidebarsConfig = {
     'plugins',
     'notifications',
     'recovery',
+    'multi-session',
   ],
 };
 

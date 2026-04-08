@@ -44,6 +44,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
 - [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.
+- [Multi-Session Continuity](https://agentxchain.dev/docs/multi-session): How governed runs survive process boundaries — resume, recover, and complete across separate sessions.
 
 ## Comparison Pages
 

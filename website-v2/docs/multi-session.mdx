@@ -1,0 +1,117 @@
+---
+title: Multi-Session Continuity
+description: "How governed runs survive process boundaries — resume, recover, and complete across separate operator sessions."
+---
+
+# Multi-Session Continuity
+
+Governed runs are not bound to a single process. You can start a run, close your terminal, and resume it hours or days later from a fresh session. State, history, decisions, and turn sequence all persist on disk in `.agentxchain/`.
+
+This is the foundation for long-horizon execution: runs that outlive any single operator session.
+
+## How It Works
+
+AgentXchain stores all run state in three files inside `.agentxchain/`:
+
+| File | Format | Purpose |
+|---|---|---|
+| `state.json` | JSON | Current run status, active turns, phase, gates |
+| `history.jsonl` | JSONL (append-only) | Every turn assignment, acceptance, and state transition |
+| `decision-ledger.jsonl` | JSONL (append-only) | Every governed decision across all turns |
+
+Because state is file-based and append-only, there is no in-memory state to lose when a process exits. Any fresh process that reads the same directory picks up exactly where the last one left off.
+
+## Resume a Run
+
+```bash
+# Session 1: start a run and complete a turn
+agentxchain resume --role pm
+# ... agent does work, stages turn result ...
+agentxchain accept-turn
+
+# Session 1 ends (terminal closed, machine rebooted, etc.)
+```
+
+```bash
+# Session 2: fresh process, same directory
+agentxchain resume --role dev
+# Run continues with the same run_id, full history intact
+```
+
+The `resume` command detects the existing run and assigns a new turn within it. It never creates a duplicate run.
+
+### What Is Preserved Across Sessions
+
+- **`run_id`** — identical across all sessions for the same run
+- **Turn history** — every prior turn's assignment and acceptance
+- **Decision ledger** — every governed decision from every session
+- **Turn sequence** — monotonically increasing; later sessions get higher turn numbers
+- **Phase and gate status** — the run picks up in the same phase with the same gate verdicts
+
+## Recover From Blocked State
+
+If a run is blocked (via escalation, hook failure, or governance barrier), recovery works across sessions:
+
+```bash
+# Session 1: something goes wrong
+agentxchain escalate --reason "Need architecture review before proceeding"
+# Run is now blocked. Session ends.
+```
+
+```bash
+# Session 2: operator returns, resolves the issue
+agentxchain resume
+# Blocked state is cleared, run is active again
+```
+
+The decision ledger records both the escalation and the resolution as separate entries from separate sessions. Use `agentxchain status` at any time to see the current state and the exact recovery action.
+
+## Complete a Run Across Sessions
+
+Run completion in AgentXchain requires explicit operator approval — this is a governance gate, not an automatic transition. The QA agent requests completion, and a human approves it:
+
+```bash
+# Session 1: QA agent finishes final review
+agentxchain resume --role qa
+# Agent stages turn result with run_completion_request: true
+agentxchain accept-turn
+# Run pauses with status: "paused", pending_run_completion set
+```
+
+```bash
+# Session 2: operator reviews and approves
+agentxchain status
+# Shows: "Run completion pending. Use agentxchain approve-completion to finalize."
+
+agentxchain approve-completion
+# Run transitions to "completed". Final gate marked passed.
+```
+
+This separation ensures that no agent can unilaterally complete a governed run. The human retains final authority even when sessions span hours or days.
+
+## Invariants
+
+These guarantees hold across any number of sessions:
+
+1. **Run identity** — `run_id` never changes for a given run, regardless of how many sessions touch it
+2. **Append-only history** — no session truncates or rewrites entries written by a prior session
+3. **Append-only ledger** — same guarantee for the decision ledger
+4. **Monotonic turns** — turn sequence numbers always increase; a later session cannot produce a lower-numbered turn
+5. **State consistency** — `state.json` reflects the cumulative result of all sessions
+
+## Limitations
+
+- **Single operator** — the file-based model assumes one operator at a time. Concurrent access from multiple processes writing simultaneously is not governed. (Future: file locking or hosted runner coordination.)
+- **No remote sync** — continuity is local to the filesystem. If you need to hand off a run to a different machine, copy the entire project directory including `.agentxchain/`.
+
+## Operator Checklist
+
+| Scenario | Command | What happens |
+|---|---|---|
+| Continue work on an existing run | `agentxchain resume --role <role>` | Assigns next turn in same run |
+| Check current state after returning | `agentxchain status` | Shows run state, active turns, recovery actions |
+| Recover from blocked | `agentxchain resume` | Clears block, resumes run |
+| Approve phase transition | `agentxchain approve-transition` | Passes gate, advances phase |
+| Approve run completion | `agentxchain approve-completion` | Finalizes run, marks complete |
+| View full decision trail | `cat .agentxchain/decision-ledger.jsonl` | Every decision across all sessions |
+| View full turn history | `cat .agentxchain/history.jsonl` | Every turn across all sessions |
