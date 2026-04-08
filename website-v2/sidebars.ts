@@ -5,6 +5,7 @@ const sidebars: SidebarsConfig = {
     'quickstart',
     'getting-started',
     'first-turn',
+    'tutorial',
     'cli',
     {
       type: 'category',

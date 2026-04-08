@@ -1,0 +1,459 @@
+---
+sidebar_position: 3
+title: "Tutorial: Install to Completion"
+description: "A complete governed run from scaffold to approve-completion — zero API keys, every command copy-pasteable."
+---
+
+# Tutorial: Install to Completion
+
+This tutorial walks you through **one complete governed lifecycle** — from an empty directory to `approve-completion`. Every command is copy-pasteable. No API keys required. No hand-waving.
+
+**Time:** ~15 minutes. **Prerequisites:** Node.js 18.17+, git, a terminal.
+
+By the end you will have run a governed PM → Dev → QA cycle with real gate enforcement, real artifact checks, and a real governance report.
+
+:::tip Already ran the demo?
+If you ran `npx agentxchain demo`, you saw governance in action with canned data. This tutorial does the same thing manually so you understand every step.
+:::
+
+## Step 1 — Install and verify
+
+```bash
+npx agentxchain@latest --version
+```
+
+You should see a version number (e.g. `2.26.0`). If npm resolves to a stale global install, use:
+
+```bash
+npx -p agentxchain@latest -c 'agentxchain --version'
+```
+
+## Step 2 — Scaffold a governed repo
+
+```bash
+mkdir tutorial-governed && cd tutorial-governed
+npx agentxchain init --governed --template cli-tool -y
+git init && git add -A && git commit -m "initial governed scaffold"
+```
+
+Verify the scaffold is structurally valid:
+
+```bash
+agentxchain template validate
+```
+
+Your repo now has:
+
+- `agentxchain.json` — roles, runtimes, routing, gates
+- `.agentxchain/state.json` — orchestrator-owned run state (status: `idle`)
+- `.agentxchain/prompts/` — role-specific prompt files
+- `.planning/PM_SIGNOFF.md` — starts at **`Approved: NO`** (intentionally blocked)
+- `.planning/ROADMAP.md`, `.planning/SYSTEM_SPEC.md` — planning artifacts
+- `.planning/IMPLEMENTATION_NOTES.md`, `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, `.planning/RELEASE_NOTES.md` — later-phase gate files
+
+### Switch QA to manual (zero API keys)
+
+The default scaffold uses `api-qa` for the QA role, which needs `ANTHROPIC_API_KEY`. For this tutorial, switch to fully manual:
+
+Edit `agentxchain.json` and change the `qa` role's runtime:
+
+```json
+{
+  "roles": {
+    "qa": {
+      "runtime": "manual-qa"
+    }
+  }
+}
+```
+
+Then add the `manual-qa` runtime definition in the `runtimes` section:
+
+```json
+{
+  "runtimes": {
+    "manual-qa": {
+      "type": "manual"
+    }
+  }
+}
+```
+
+Commit the config change:
+
+```bash
+git add agentxchain.json && git commit -m "switch qa to manual for tutorial"
+```
+
+## Step 3 — Start the planning turn
+
+```bash
+agentxchain step
+```
+
+**What happens:** the orchestrator initializes a governed run, assigns the first turn to `pm` (the planning phase entry role), and waits for a result.
+
+You'll see output like:
+
+```
+Initialized governed run: run_e4f2...
+
+MANUAL TURN REQUIRED
+Role: pm
+Turn: turn_a1b2...
+Prompt: .agentxchain/dispatch/turns/turn_a1b2.../PROMPT.md
+Result: .agentxchain/staging/turn_a1b2.../turn-result.json
+```
+
+Note the **turn ID** — you'll need it for the result file.
+
+## Step 4 — Do the PM's work
+
+As the PM, you need to fill in the planning gate files. Open each file and replace the placeholder content.
+
+### `.planning/PM_SIGNOFF.md`
+
+```markdown
+# PM Planning Sign-Off
+
+Approved: YES
+
+## Scope
+Build a URL shortener CLI tool with create, resolve, and list commands.
+
+## Acceptance Criteria
+1. `shorten <url>` creates a short code and prints it
+2. `resolve <code>` prints the original URL or an error
+3. `list` prints all stored mappings
+4. All operations persist to a local JSON file
+```
+
+### `.planning/ROADMAP.md`
+
+Replace the phase table rows with real goals (keep the table structure):
+
+```markdown
+# Roadmap
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| Planning | Define scope, acceptance criteria, and technical constraints | In progress |
+| Implementation | Build the three CLI commands with JSON persistence | Pending |
+| QA | Verify all acceptance criteria against the implementation | Pending |
+
+## Deliverables
+- `shorten.js` — main CLI entry point
+- `store.js` — JSON persistence layer
+- `shorten.test.js` — acceptance tests
+```
+
+### `.planning/SYSTEM_SPEC.md`
+
+Replace the placeholder content with a real spec:
+
+```markdown
+# System Spec
+
+## Overview
+A URL shortener CLI tool. Three commands: `shorten`, `resolve`, `list`.
+
+## Architecture
+- Single-module Node.js CLI
+- JSON file storage at `~/.url-shortener/store.json`
+- Short codes: 6-character random alphanumeric
+
+## Interfaces
+- `shorten <url>` → stdout: `<code>`
+- `resolve <code>` → stdout: `<original_url>` | stderr: `Unknown code`
+- `list` → stdout: `<code> → <url>` (one per line)
+
+## Constraints
+- No external dependencies beyond Node.js stdlib
+- Idempotent: shortening the same URL twice returns the same code
+```
+
+### Stage the PM turn result
+
+Create the result file at the path shown in the terminal output. Replace `<turn_id>` with your actual turn ID:
+
+```bash
+mkdir -p .agentxchain/staging/<turn_id>
+```
+
+Write `.agentxchain/staging/<turn_id>/turn-result.json`:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "<your_run_id>",
+  "turn_id": "<your_turn_id>",
+  "role": "pm",
+  "runtime_id": "manual-pm",
+  "status": "completed",
+  "summary": "Scoped URL shortener CLI: 3 commands, JSON persistence, 4 acceptance criteria.",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "category": "scope",
+      "statement": "MVP: shorten, resolve, list commands with local JSON storage.",
+      "rationale": "Minimal useful surface to prove the governed workflow."
+    }
+  ],
+  "objections": [],
+  "files_changed": [],
+  "artifacts_created": [],
+  "verification": {
+    "status": "pass",
+    "commands": [],
+    "evidence_summary": "Planning review — no code to verify.",
+    "machine_evidence": []
+  },
+  "artifact": { "type": "review", "ref": null },
+  "proposed_next_role": "human",
+  "phase_transition_request": "implementation",
+  "needs_human_reason": null,
+  "cost": { "input_tokens": 0, "output_tokens": 0, "usd": 0 }
+}
+```
+
+:::caution Use your real IDs
+Replace `<your_run_id>` and `<your_turn_id>` with the actual values from `step` output. The orchestrator rejects mismatched IDs.
+:::
+
+The `step` process detects the staged file and accepts the turn automatically.
+
+Commit the planning work:
+
+```bash
+git add -A && git commit -m "complete planning turn"
+```
+
+## Step 5 — Approve the phase transition
+
+The PM's turn result requested `phase_transition_request: "implementation"`. The orchestrator moves the run to `pending_phase_transition`. Now the human approves:
+
+```bash
+agentxchain approve-transition
+```
+
+If this fails, the gate files are still placeholders or `PM_SIGNOFF.md` does not contain `Approved: YES`.
+
+```bash
+git add -A && git commit -m "approve planning → implementation"
+```
+
+## Step 6 — Run the implementation turn
+
+```bash
+agentxchain step
+```
+
+The orchestrator assigns a turn to `dev` (the implementation phase entry role). You'll see the same manual-turn prompt.
+
+### Do the Dev's work
+
+Fill in `.planning/IMPLEMENTATION_NOTES.md`:
+
+```markdown
+# Implementation Notes
+
+## Changes
+- Created `shorten.js` with `shorten`, `resolve`, and `list` commands
+- Created `store.js` for JSON persistence at `~/.url-shortener/store.json`
+- Short codes are 6-character random alphanumeric, idempotent per URL
+
+## Verification
+- `node shorten.js shorten https://example.com` → prints a 6-char code
+- `node shorten.js resolve <code>` → prints `https://example.com`
+- `node shorten.js list` → prints `<code> → https://example.com`
+
+## Technical Decisions
+- Used `crypto.randomBytes` for short code generation
+- Idempotency: hash the URL to check for existing codes before generating
+```
+
+Stage the dev turn result (same pattern — replace IDs):
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "<your_run_id>",
+  "turn_id": "<your_turn_id>",
+  "role": "dev",
+  "runtime_id": "manual-dev",
+  "status": "completed",
+  "summary": "Implemented URL shortener: 3 commands, JSON persistence, idempotent codes.",
+  "decisions": [
+    {
+      "id": "DEC-002",
+      "category": "implementation",
+      "statement": "Used crypto.randomBytes for code generation with URL-hash idempotency.",
+      "rationale": "stdlib-only, collision-resistant, deterministic for repeated URLs."
+    }
+  ],
+  "objections": [],
+  "files_changed": ["shorten.js", "store.js", ".planning/IMPLEMENTATION_NOTES.md"],
+  "artifacts_created": [],
+  "verification": {
+    "status": "pass",
+    "commands": ["node shorten.js shorten https://example.com"],
+    "evidence_summary": "All 3 commands tested manually. Output matches spec.",
+    "machine_evidence": [
+      { "command": "node shorten.js shorten https://example.com", "exit_code": 0, "stdout_excerpt": "a1b2c3" }
+    ]
+  },
+  "artifact": { "type": "commit", "ref": "shorten.js" },
+  "proposed_next_role": "qa",
+  "phase_transition_request": "qa",
+  "needs_human_reason": null,
+  "cost": { "input_tokens": 0, "output_tokens": 0, "usd": 0 }
+}
+```
+
+Commit:
+
+```bash
+git add -A && git commit -m "complete implementation turn"
+```
+
+## Step 7 — Approve transition to QA
+
+```bash
+agentxchain approve-transition
+git add -A && git commit -m "approve implementation → qa"
+```
+
+## Step 8 — Run the QA turn
+
+```bash
+agentxchain step
+```
+
+The orchestrator assigns a turn to `qa`. Fill in the QA gate files:
+
+### `.planning/acceptance-matrix.md`
+
+```markdown
+# Acceptance Matrix
+
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | `shorten <url>` creates a short code | PASS | Manual test: `node shorten.js shorten https://example.com` → `a1b2c3` |
+| 2 | `resolve <code>` prints original URL | PASS | Manual test: `node shorten.js resolve a1b2c3` → `https://example.com` |
+| 3 | `list` prints all mappings | PASS | Manual test: `node shorten.js list` → `a1b2c3 → https://example.com` |
+| 4 | Persists to local JSON | PASS | Verified `~/.url-shortener/store.json` exists after shorten |
+```
+
+### `.planning/ship-verdict.md`
+
+```markdown
+# Ship Verdict
+
+**Verdict: SHIP**
+
+All 4 acceptance criteria pass. No blocking objections. Implementation matches spec.
+```
+
+### `.planning/RELEASE_NOTES.md`
+
+```markdown
+# Release Notes — v0.1.0
+
+## What shipped
+- URL shortener CLI with `shorten`, `resolve`, and `list` commands
+- Local JSON persistence
+- Idempotent short codes per URL
+```
+
+Stage the QA turn result:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "<your_run_id>",
+  "turn_id": "<your_turn_id>",
+  "role": "qa",
+  "runtime_id": "manual-qa",
+  "status": "completed",
+  "summary": "All 4 acceptance criteria pass. Ship verdict: YES.",
+  "decisions": [
+    {
+      "id": "DEC-003",
+      "category": "quality",
+      "statement": "All acceptance criteria verified against the implementation.",
+      "rationale": "Manual testing confirms shorten, resolve, list, and persistence."
+    }
+  ],
+  "objections": [],
+  "files_changed": [],
+  "artifacts_created": [],
+  "verification": {
+    "status": "pass",
+    "commands": [],
+    "evidence_summary": "Review-only turn. Verified against acceptance matrix.",
+    "machine_evidence": []
+  },
+  "artifact": { "type": "review", "ref": null },
+  "proposed_next_role": "human",
+  "run_completion_request": true,
+  "needs_human_reason": null,
+  "cost": { "input_tokens": 0, "output_tokens": 0, "usd": 0 }
+}
+```
+
+Notice `run_completion_request: true` — this tells the orchestrator the QA reviewer thinks the run is ready to ship.
+
+Commit:
+
+```bash
+git add -A && git commit -m "complete QA turn"
+```
+
+## Step 9 — Complete the governed run
+
+The run is now in `pending_run_completion`. The human gives final approval:
+
+```bash
+agentxchain approve-completion
+git add -A && git commit -m "approve governed completion"
+```
+
+That final approval is constitutional. It exists so **humans remain sovereign** over what actually ships.
+
+## Step 10 — Verify
+
+Check the final state:
+
+```bash
+agentxchain status
+```
+
+You should see `status: completed` and all three phases closed.
+
+Generate the governance report:
+
+```bash
+agentxchain report
+```
+
+This produces a structured summary of the run: turns, decisions, gate evaluations, timing, and the complete decision ledger.
+
+## What you just did
+
+You completed a **full governed lifecycle**:
+
+1. **Scaffolded** a governed repo with roles, routing, and gates
+2. **Planned** — PM filled gate files, the orchestrator checked them at phase exit
+3. **Implemented** — Dev wrote code, the orchestrator enforced gate artifacts
+4. **Reviewed** — QA verified acceptance criteria and requested completion
+5. **Approved** — Human gave sovereign approval to ship
+
+Every transition was gated. Every decision was recorded. Every artifact was checked. This is the same protocol that runs with AI agents — you just played all three roles manually.
+
+## What to do next
+
+- [Getting Started](/docs/getting-started) — the fastest path with real AI runtimes
+- [Your First Governed Turn](/docs/first-turn) — artifact-level detail for every file in the scaffold
+- [Templates](/docs/templates) — try `enterprise-app` for custom roles and 5-phase workflows
+- [Multi-Session Continuity](/docs/multi-session) — how to pause and resume governed runs across sessions
+- [Adapters](/docs/adapters) — rebind runtimes to use AI agents instead of manual turns

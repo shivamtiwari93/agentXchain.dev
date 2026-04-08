@@ -28,6 +28,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Quickstart](https://agentxchain.dev/docs/quickstart): Install and run your first governed multi-agent session in under 5 minutes.
 - [Getting Started Tutorial](https://agentxchain.dev/docs/getting-started): Step-by-step guide to setting up governed delivery.
 - [First Turn Guide](https://agentxchain.dev/docs/first-turn): What happens in a governed turn — artifacts, challenge, gates.
+- [Tutorial: Install to Completion](https://agentxchain.dev/docs/tutorial): Complete zero-API-key walkthrough from scaffold to approve-completion — every command copy-pasteable.
 - [CLI Reference](https://agentxchain.dev/docs/cli): Complete command reference for the agentxchain CLI.
 - [Export Schema](https://agentxchain.dev/docs/export-schema): JSON schema for governed run exports.
 - [Governance Report](https://agentxchain.dev/docs/governance-report): Understanding the auto-generated governance report.
