@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   validateGovernedTemplateRegistry,
+  validateGovernedTemplateManifest,
   validateProjectPlanningArtifacts,
   validateAcceptanceHintCompletion,
   validateGovernedWorkflowKit,
@@ -552,5 +553,53 @@ describe('template registry drift detection', () => {
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('open-ended prompt override roles', () => {
+  function baseManifest(overrides = {}) {
+    return {
+      id: 'test-template',
+      display_name: 'Test',
+      description: 'Test template',
+      version: '1',
+      protocol_compatibility: ['1.0'],
+      planning_artifacts: [],
+      acceptance_hints: [],
+      ...overrides,
+    };
+  }
+
+  it('AT-OPEN-ROLES-001: accepts arbitrary role IDs in prompt_overrides', () => {
+    const result = validateGovernedTemplateManifest(baseManifest({
+      prompt_overrides: {
+        security_reviewer: 'Focus on OWASP top 10 and auth boundaries.',
+        tech_writer: 'Ensure all public APIs have usage examples.',
+        'backend-dev': 'Prioritize data integrity and migration safety.',
+      },
+    }));
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join('; ')}`);
+  });
+
+  it('AT-OPEN-ROLES-002: rejects invalid role ID format in prompt_overrides', () => {
+    const result = validateGovernedTemplateManifest(baseManifest({
+      prompt_overrides: {
+        'Invalid Role!': 'Should fail.',
+      },
+    }));
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('invalid role ID')));
+  });
+
+  it('AT-OPEN-ROLES-003: continues to accept default pm/dev/qa roles', () => {
+    const result = validateGovernedTemplateManifest(baseManifest({
+      prompt_overrides: {
+        pm: 'PM guidance.',
+        dev: 'Dev guidance.',
+        qa: 'QA guidance.',
+        eng_director: 'Director guidance.',
+      },
+    }));
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join('; ')}`);
   });
 });

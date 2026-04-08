@@ -13,7 +13,7 @@ export const VALID_GOVERNED_TEMPLATE_IDS = Object.freeze([
   'web-app',
 ]);
 
-const VALID_PROMPT_OVERRIDE_ROLES = new Set(['pm', 'dev', 'qa', 'eng_director']);
+const VALID_ROLE_ID_PATTERN = /^[a-z0-9_-]+$/;
 
 function validatePlanningArtifacts(artifacts, errors) {
   if (!Array.isArray(artifacts)) {
@@ -50,8 +50,8 @@ function validatePromptOverrides(promptOverrides, errors) {
   }
 
   for (const [roleId, content] of Object.entries(promptOverrides)) {
-    if (!VALID_PROMPT_OVERRIDE_ROLES.has(roleId)) {
-      errors.push(`prompt_overrides contains unknown role "${roleId}"`);
+    if (!VALID_ROLE_ID_PATTERN.test(roleId)) {
+      errors.push(`prompt_overrides contains invalid role ID "${roleId}" (must match ${VALID_ROLE_ID_PATTERN})`);
     }
     if (typeof content !== 'string' || !content.trim()) {
       errors.push(`prompt_overrides["${roleId}"] must be a non-empty string`);
