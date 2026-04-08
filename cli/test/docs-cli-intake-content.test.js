@@ -30,7 +30,10 @@ function extractArray(source, constName) {
 
 function extractIntakeSubcommands() {
   const start = CLI_ENTRY.indexOf("const intakeCmd = program");
-  const end = CLI_ENTRY.indexOf('program.parse();');
+  // End at the next top-level command group or program.parse(), whichever comes first
+  const nextCmd = CLI_ENTRY.indexOf('\nconst ', start + 1);
+  const parseEnd = CLI_ENTRY.indexOf('program.parse();');
+  const end = nextCmd >= 0 && nextCmd < parseEnd ? nextCmd : parseEnd;
   assert.ok(start >= 0 && end > start, 'missing intake command block');
   const block = CLI_ENTRY.slice(start, end);
   return [...block.matchAll(/\.command\('([a-z-]+)'\)/g)]

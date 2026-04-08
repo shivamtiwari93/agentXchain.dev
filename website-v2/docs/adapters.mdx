@@ -456,9 +456,10 @@ The api_proxy adapter supports **review_only** and **proposed** write authority 
 - **review_only**: The model returns a structured review verdict. The orchestrator materializes it to `.agentxchain/reviews/`.
 - **proposed**: The model returns a `proposed_changes` array with structured file proposals. The orchestrator materializes them to `.agentxchain/proposed/<turn_id>/` for review — they are not applied to the working tree.
 - Accepted proposal artifacts are rendered into subsequent `review_only` dispatch context so peer reviewers can inspect the staged proposal, not just a filename list.
+- Operators manage proposals with `agentxchain proposal list|diff|apply|reject`. `proposal apply <turn_id>` copies proposed files into the workspace and records a decision-ledger entry. `proposal reject <turn_id> --reason "..."` marks the proposal as rejected. Selective apply is supported with `--file <path>`.
 :::
 
-These restrictions are operational, not academic. An `api_proxy` QA turn can return a structured verdict and request completion, but it cannot directly author `.planning/acceptance-matrix.md` or `.planning/ship-verdict.md`. A `proposed` api_proxy turn can propose code changes, but those proposals are staged for human or peer review, not applied automatically. If your completion gate depends on repo-local files, those files must contain real content from a writable or manual path.
+These restrictions are operational, not academic. An `api_proxy` QA turn can return a structured verdict and request completion, but it cannot directly author `.planning/acceptance-matrix.md` or `.planning/ship-verdict.md`. A `proposed` api_proxy turn can propose code changes, but those proposals are staged for human or peer review, not applied automatically. Operators apply or reject proposals explicitly using `agentxchain proposal apply` or `agentxchain proposal reject`. If your completion gate depends on repo-local files, those files must contain real content from a writable or manual path.
 
 ### How it works
 

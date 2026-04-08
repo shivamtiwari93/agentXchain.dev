@@ -68,6 +68,7 @@ import { resumeCommand } from '../src/commands/resume.js';
 import { escalateCommand } from '../src/commands/escalate.js';
 import { acceptTurnCommand } from '../src/commands/accept-turn.js';
 import { rejectTurnCommand } from '../src/commands/reject-turn.js';
+import { proposalListCommand, proposalDiffCommand, proposalApplyCommand, proposalRejectCommand } from '../src/commands/proposal.js';
 import { stepCommand } from '../src/commands/step.js';
 import { runCommand } from '../src/commands/run.js';
 import { approveTransitionCommand } from '../src/commands/approve-transition.js';
@@ -534,5 +535,35 @@ intakeCmd
   .option('--intent <id>', 'Show detail for a specific intent')
   .option('-j, --json', 'Output as JSON')
   .action(intakeStatusCommand);
+
+// --- Proposal operations ----------------------------------------------------
+
+const proposalCmd = program
+  .command('proposal')
+  .description('Manage proposed changes from api_proxy agents');
+
+proposalCmd
+  .command('list')
+  .description('List all proposals and their status')
+  .action(proposalListCommand);
+
+proposalCmd
+  .command('diff <turn_id>')
+  .description('Show diff between proposed files and current workspace')
+  .option('--file <path>', 'Show diff for a single file only')
+  .action(proposalDiffCommand);
+
+proposalCmd
+  .command('apply <turn_id>')
+  .description('Apply proposed changes to the workspace')
+  .option('--file <path>', 'Apply only a specific file')
+  .option('--dry-run', 'Show what would change without writing')
+  .action(proposalApplyCommand);
+
+proposalCmd
+  .command('reject <turn_id>')
+  .description('Reject a proposal without applying changes')
+  .option('--reason <reason>', 'Reason for rejection (required)')
+  .action(proposalRejectCommand);
 
 program.parse();

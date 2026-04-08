@@ -74,6 +74,7 @@ describe('CLI command map docs contract', () => {
     ['template', ['template list', 'template validate', 'template set']],
     ['multi', ['multi']],
     ['intake', ['intake']],
+    ['proposal', ['proposal']],
   ]);
 
   it('documents every governed-scope top-level command family from the CLI registration', () => {
@@ -99,6 +100,7 @@ describe('CLI command map docs contract', () => {
       'template',
       'multi',
       'intake',
+      'proposal',
     ]);
 
     for (const command of governedCommands) {
