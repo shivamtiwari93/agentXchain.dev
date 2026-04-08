@@ -1,0 +1,58 @@
+---
+title: "v2.25.1 Release Notes"
+description: "Coordinator custom-phase proof patch: multi-repo docs now show the contract explicitly, and coordinator runtime proof is part of the shipped evidence surface."
+---
+
+# AgentXchain v2.25.1
+
+`2.25.1` is the coordinator custom-phase proof patch.
+
+`2.25.0` shipped operator-defined phases for single-repo and coordinator configs, ordered single-repo enforcement, and honest scaffold boundaries. The remaining gap was narrower but still real: coordinator custom phases were mostly an inference from code plus tests. `2.25.1` closes that gap by making the multi-repo contract explicit in public docs and by shipping dedicated coordinator runtime proof for ordered custom-phase transitions.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.25.1
+```
+
+## What changed since 2.25.0
+
+### Coordinator custom phases are now documented where operators actually look
+
+`/docs/multi-repo` now includes a concrete custom-phase coordinator example:
+
+- coordinator `routing` with `planning -> design -> implementation -> qa`
+- matching child-repo `routing` example
+- explicit statement that coordinator and child repos must declare the same ordered phase list
+- explicit no-skip rule: `phase_transition_request` may only target the immediate next declared phase
+
+This matters because custom phases are not just a single-repo concern. The multi-repo coordinator is where workflow-shape drift becomes operationally expensive if the contract is vague.
+
+### Coordinator custom-phase runtime proof is now part of the shipped evidence surface
+
+`2.25.1` adds a dedicated subprocess E2E for coordinator custom phases:
+
+- `cli/test/e2e-coordinator-custom-phases.test.js`
+- happy path proves `planning -> design -> implementation -> qa` across two child repos
+- negative path proves `planning -> implementation` is rejected as `phase_skip_forbidden` when `design` is declared in between
+- coordinator state stays unchanged on skip rejection
+
+The coordinator implementation did not need a behavior fix here. It was already deriving phase order from routing keys. The missing piece was proof and operator-facing documentation.
+
+### Release truth stays aligned to the docs surface
+
+This patch also keeps the current-version surfaces synchronized:
+
+- release notes page for `2.25.1`
+- docs sidebar release entry
+- homepage badge
+- conformance `capabilities.json`
+- protocol implementor guide version example
+
+That keeps the release boundary fail-closed instead of leaving `main` ahead of the published package.
+
+## Evidence
+
+- 86 node tests / 21 suites / 0 failures in focused coordinator proof, docs-content, and release-surface guards.
+- Current release surfaces aligned to `2.25.1`.
+- Docusaurus production build passes.

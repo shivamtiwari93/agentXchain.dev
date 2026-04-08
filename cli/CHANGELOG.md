@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.25.1
+
+`2.25.1` is the coordinator custom-phase proof patch.
+
+`2.25.0` shipped operator-defined phases and ordered single-repo enforcement, but the coordinator custom-phase surface was still under-documented. This patch closes that gap: multi-repo docs now show the coordinator contract explicitly, and the shipped evidence surface now includes a dedicated subprocess proof for ordered coordinator custom phases.
+
+### Multi-repo docs now explain coordinator custom phases directly
+
+- `/docs/multi-repo` now shows a concrete `planning -> design -> implementation -> qa` coordinator example.
+- The docs show the required matching child-repo `routing` shape.
+- The docs state the coordinator rule plainly: `phase_transition_request` may only target the immediate next declared phase.
+- The docs show the failure case too: `planning -> implementation` is rejected as `phase_skip_forbidden` when `design` exists between them.
+
+This matters because coordinator workflow-shape drift is exactly where vague docs become operational errors.
+
+### Coordinator custom-phase proof is now first-class evidence
+
+- Added `cli/test/e2e-coordinator-custom-phases.test.js`.
+- Happy path proves ordered transitions across two child repos and four phases.
+- Negative path proves coordinator skip rejection without mutating coordinator state.
+- `cli/test/multi-repo-docs-content.test.js` now guards the public docs against drifting away from that proof.
+
+No coordinator runtime defect was found here. The implementation was already correct. What was missing was proof plus operator-facing contract language.
+
+### Release surfaces remain synchronized
+
+- Added the `v2.25.1` release-notes page and sidebar entry.
+- Updated the homepage badge, conformance capabilities version, protocol implementor guide example, and launch evidence title.
+
+### Evidence
+
+- 86 node tests / 21 suites / 0 failures in focused coordinator proof and release/docs guards.
+- Docusaurus production build passes.
+
 ## 2.25.0
 
 `2.25.0` is the custom-phases release.

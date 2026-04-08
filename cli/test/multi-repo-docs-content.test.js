@@ -18,6 +18,7 @@ const COORDINATOR_CONFIG = read('cli/src/lib/coordinator-config.js');
 const COORDINATOR_STATE = read('cli/src/lib/coordinator-state.js');
 const COORDINATOR_HOOKS = read('cli/src/lib/coordinator-hooks.js');
 const CROSS_REPO_CONTEXT = read('cli/src/lib/cross-repo-context.js');
+const COORDINATOR_PHASE_E2E = read('cli/test/e2e-coordinator-custom-phases.test.js');
 const SPEC = read('.planning/MULTI_REPO_DOC_PAGE_SPEC.md');
 
 describe('Multi-repo docs surface', () => {
@@ -44,6 +45,13 @@ describe('Multi-repo docs content', () => {
     assert.match(COORDINATOR_CONFIG, /repo_phase_alignment_invalid/);
     assert.match(PAGE, /same ordered routing phases/i);
     assert.match(PAGE, /multi init.*rejects phase-order mismatches/i);
+  });
+
+  it('documents coordinator custom phases and no-skip transitions', () => {
+    assert.match(COORDINATOR_PHASE_E2E, /phase_skip_forbidden/);
+    assert.match(PAGE, /planning -> design -> implementation -> qa/);
+    assert.match(PAGE, /`phase_transition_request` may only target the immediate next declared phase/i);
+    assert.match(PAGE, /planning -> implementation.*phase_skip_forbidden/i);
   });
 
   it('documents the full operator loop including repo-local accept-turn', () => {
@@ -146,6 +154,6 @@ describe('Multi-repo doc spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+Shipped/i);
     assert.match(SPEC, /\/docs\/multi-repo/);
     assert.match(SPEC, /AT-MRD-001/);
-    assert.match(SPEC, /AT-MRD-006/);
+    assert.match(SPEC, /AT-MRD-008/);
   });
 });

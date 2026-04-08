@@ -89,6 +89,68 @@ workspace/
         state.json
 ```
 
+## Custom Coordinator Phases
+
+Coordinator workflows are not limited to `planning -> implementation -> qa`.
+
+If you need an intermediate phase such as `design`, declare it in the coordinator `routing` and in every participating child repo's `agentxchain.json`. The order must match exactly across all repos. Coordinator gates derive phase order from declaration order, so `planning -> design -> implementation -> qa` is valid, but `planning -> implementation` is not if `design` is declared in between.
+
+```json title="agentxchain-multi.json (custom phases excerpt)"
+{
+  "workstreams": {
+    "initiative_plan": {
+      "phase": "planning",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": [],
+      "completion_barrier": "all_repos_accepted"
+    },
+    "initiative_design": {
+      "phase": "design",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": ["initiative_plan"],
+      "completion_barrier": "all_repos_accepted"
+    },
+    "initiative_build": {
+      "phase": "implementation",
+      "repos": ["api", "web"],
+      "entry_repo": "api",
+      "depends_on": ["initiative_design"],
+      "completion_barrier": "all_repos_accepted"
+    },
+    "initiative_qa": {
+      "phase": "qa",
+      "repos": ["api", "web"],
+      "entry_repo": "qa",
+      "depends_on": ["initiative_build"],
+      "completion_barrier": "shared_human_gate"
+    }
+  },
+  "routing": {
+    "planning": { "entry_workstream": "initiative_plan" },
+    "design": { "entry_workstream": "initiative_design" },
+    "implementation": { "entry_workstream": "initiative_build" },
+    "qa": { "entry_workstream": "initiative_qa" }
+  }
+}
+```
+
+The same order must exist in each child repo:
+
+```json title="repos/api/agentxchain.json (routing excerpt)"
+{
+  "routing": {
+    "planning": { "entry_role": "pm", "exit_gate": "planning_signoff" },
+    "design": { "entry_role": "architect", "exit_gate": "design_review" },
+    "implementation": { "entry_role": "dev", "exit_gate": "implementation_complete" },
+    "qa": { "entry_role": "qa", "exit_gate": "qa_ship_verdict" }
+  }
+}
+```
+
+`phase_transition_request` may only target the immediate next declared phase. In the example above, `planning -> design` is valid; `planning -> implementation` is rejected with `phase_skip_forbidden`.
+
 ## Command Lifecycle
 
 The coordinator loop is explicit. The coordinator never auto-runs child repos behind your back.

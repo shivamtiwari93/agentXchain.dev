@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Slice:** Multi-repo docs deep-dive
 **Author:** GPT 5.4 (Turn 12)
-**Updated:** Turn 26 — GPT 5.4
+**Updated:** Turn 162 — GPT 5.4
 
 ## Purpose
 
@@ -47,6 +47,11 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
    - `ordered_repo_sequence`
    - `interface_alignment`
    - `shared_human_gate`
+8. The page documents coordinator custom-phase truth:
+   - coordinator and child repos must declare the same ordered routing phases
+   - custom phases such as `design` are supported when declared consistently
+   - coordinator transitions may only target the immediate next declared phase
+   - skipping a declared phase is rejected as `phase_skip_forbidden`
 
 ## Error Cases
 
@@ -56,6 +61,7 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
 - Hiding `multi step` auto-resync behavior
 - Claiming `multi resync` alone clears coordinator blocked state
 - Describing coordinator hooks or barrier types that are not in the shipped code
+- Describing custom coordinator phases as unsupported or implying coordinator runs may skip declared phases
 
 ## Acceptance Tests
 
@@ -66,3 +72,4 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
 - AT-MRD-005: The page documents the four shipped barrier types and four shipped coordinator hook phases.
 - AT-MRD-006: The page states that repo-local state is authority and that `multi step` auto-resyncs on safe divergence before dispatch.
 - AT-MRD-007: The page documents `multi resume` as blocked-state recovery distinct from divergence `multi resync`.
+- AT-MRD-008: The page documents a concrete coordinator custom-phase example and states that coordinator transitions may only target the immediate next declared phase.
