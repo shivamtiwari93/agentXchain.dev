@@ -54,9 +54,14 @@ function buildEffectiveGateArtifacts(config, gateDef, phase) {
       required: false,
       useLegacySemantics: false,
       semanticChecks: [],
+      owned_by: null,
     };
 
     existing.required = existing.required || artifact.required !== false;
+
+    if (artifact.owned_by && typeof artifact.owned_by === 'string') {
+      existing.owned_by = artifact.owned_by;
+    }
 
     if (artifact.semantics) {
       const legacySemanticId = existing.useLegacySemantics ? getSemanticIdForPath(artifact.path) : null;
@@ -87,7 +92,17 @@ function prefixSemanticReason(filePath, reason) {
   return `${filePath}: ${reason}`;
 }
 
-function evaluateGateArtifacts({ root, config, gateDef, phase, result }) {
+function hasRoleParticipationInPhase(state, phase, roleId) {
+  const history = state?.history;
+  if (!Array.isArray(history)) {
+    return false;
+  }
+  return history.some(
+    turn => turn.phase === phase && turn.role === roleId && turn.status === 'accepted',
+  );
+}
+
+function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) {
   const failures = [];
   const artifacts = buildEffectiveGateArtifacts(config, gateDef, phase);
 
@@ -117,6 +132,13 @@ function evaluateGateArtifacts({ root, config, gateDef, phase, result }) {
       if (semanticCheck && !semanticCheck.ok) {
         failures.push(prefixSemanticReason(artifact.path, semanticCheck.reason));
       }
+    }
+
+    // Charter enforcement: verify owning role participated in this phase
+    if (artifact.owned_by && !hasRoleParticipationInPhase(state, phase, artifact.owned_by)) {
+      failures.push(
+        `"${artifact.path}" requires participation from role "${artifact.owned_by}" in phase "${phase}", but no accepted turn from that role was found`,
+      );
     }
   }
 
@@ -219,13 +241,14 @@ export function evaluatePhaseExit({ state, config, acceptedTurn, root }) {
 
   const failures = [];
 
-  // Predicate: requires_files
+  // Predicate: requires_files + ownership
   failures.push(...evaluateGateArtifacts({
     root,
     config,
     gateDef,
     phase: currentPhase,
     result,
+    state,
   }));
 
   // Predicate: requires_verification_pass
@@ -341,6 +364,7 @@ export function evaluateRunCompletion({ state, config, acceptedTurn, root }) {
     gateDef,
     phase: currentPhase,
     result,
+    state,
   }));
 
   if (gateDef.requires_verification_pass) {

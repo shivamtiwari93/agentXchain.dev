@@ -1155,3 +1155,310 @@ describe('full phase lifecycle', () => {
     assert.ok(accept.state.budget_status.spent_usd > 0);
   });
 });
+
+// ── Charter enforcement: owned_by at gate time ──────────────────────────────
+
+import { evaluateRunCompletion } from '../src/lib/gate-evaluator.js';
+
+describe('evaluatePhaseExit — charter enforcement (owned_by)', () => {
+  let root;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function makeCharterConfig(overrides = {}) {
+    return makeConfig({
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'review_only', runtime_class: 'manual', runtime_id: 'manual-pm' },
+        dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime_class: 'local_cli', runtime_id: 'local-dev' },
+        security_reviewer: { title: 'Security', mandate: 'Review security', write_authority: 'review_only', runtime_class: 'api_proxy', runtime_id: 'api-qa' },
+      },
+      routing: {
+        planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'dev', 'security_reviewer'], exit_gate: 'planning_gate' },
+        implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'security_reviewer'], exit_gate: 'impl_gate' },
+        qa: { entry_role: 'security_reviewer', allowed_next_roles: ['dev', 'security_reviewer'], exit_gate: 'qa_gate' },
+      },
+      gates: {
+        planning_gate: { requires_files: ['.planning/PM_SIGNOFF.md'] },
+        impl_gate: { requires_files: [] },
+        qa_gate: { requires_files: [] },
+      },
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/SECURITY_REVIEW.md', required: true, owned_by: 'security_reviewer' },
+            ],
+          },
+        },
+      },
+      ...overrides,
+    });
+  }
+
+  it('AT-CHARTER-010: artifact with owned_by + accepted turn from that role → gate passes', () => {
+    const config = makeCharterConfig();
+    // Create required files
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review\nLGTM');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [
+        { turn_id: 't1', role: 'security_reviewer', phase: 'planning', status: 'accepted' },
+      ],
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'advance', `Expected advance but got ${result.action}: ${result.reasons.join(', ')}`);
+    assert.equal(result.passed, true);
+  });
+
+  it('AT-CHARTER-011: artifact with owned_by + NO accepted turn from that role → gate fails', () => {
+    const config = makeCharterConfig();
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review\nLGTM');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [], // No turns from security_reviewer
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.passed, false);
+    assert.ok(result.reasons.some(r => r.includes('security_reviewer') && r.includes('participation')));
+  });
+
+  it('AT-CHARTER-012: artifact with owned_by + accepted turn from WRONG role → gate fails', () => {
+    const config = makeCharterConfig();
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review\nLGTM');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [
+        { turn_id: 't1', role: 'dev', phase: 'planning', status: 'accepted' },
+      ],
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some(r => r.includes('security_reviewer')));
+  });
+
+  it('AT-CHARTER-013: artifact without owned_by → gate passes regardless of role', () => {
+    const config = makeCharterConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/SECURITY_REVIEW.md', required: true }, // no owned_by
+            ],
+          },
+        },
+      },
+    });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [
+        { turn_id: 't1', role: 'dev', phase: 'planning', status: 'accepted' },
+      ],
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'advance');
+  });
+
+  it('AT-CHARTER-014: optional artifact with owned_by + file missing → gate passes', () => {
+    const config = makeCharterConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/OPTIONAL_REVIEW.md', required: false, owned_by: 'security_reviewer' },
+            ],
+          },
+        },
+      },
+    });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    // .planning/OPTIONAL_REVIEW.md does NOT exist
+
+    const state = makeState({
+      phase: 'planning',
+      history: [], // no security_reviewer turn
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'advance', `Expected advance (optional + missing) but got ${result.action}: ${result.reasons.join(', ')}`);
+  });
+
+  it('AT-CHARTER-015: optional artifact with owned_by + file exists + no owning role → gate fails', () => {
+    const config = makeCharterConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/OPTIONAL_REVIEW.md', required: false, owned_by: 'security_reviewer' },
+            ],
+          },
+        },
+      },
+    });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/OPTIONAL_REVIEW.md'), '# Optional review content');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [
+        { turn_id: 't1', role: 'dev', phase: 'planning', status: 'accepted' },
+      ],
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    assert.equal(result.action, 'gate_failed');
+    assert.ok(result.reasons.some(r => r.includes('security_reviewer') && r.includes('participation')));
+  });
+
+  it('AT-CHARTER-016: multiple artifacts, one owned one not — only owned one checked', () => {
+    const config = makeCharterConfig({
+      workflow_kit: {
+        phases: {
+          planning: {
+            artifacts: [
+              { path: '.planning/ROADMAP.md', required: true }, // no ownership
+              { path: '.planning/SECURITY_REVIEW.md', required: true, owned_by: 'security_reviewer' },
+            ],
+          },
+        },
+      },
+    });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), 'Approved: YES');
+    writeFileSync(join(root, '.planning/ROADMAP.md'), '# Roadmap');
+    writeFileSync(join(root, '.planning/SECURITY_REVIEW.md'), '# Review');
+
+    const state = makeState({
+      phase: 'planning',
+      history: [
+        { turn_id: 't1', role: 'dev', phase: 'planning', status: 'accepted' },
+      ],
+    });
+
+    const result = evaluatePhaseExit({
+      state,
+      config,
+      acceptedTurn: makeTurnResult({ phase_transition_request: 'implementation' }),
+      root,
+    });
+
+    // Fails because security_reviewer didn't participate
+    assert.equal(result.action, 'gate_failed');
+    assert.equal(result.reasons.length, 1); // only the ownership failure
+    assert.ok(result.reasons[0].includes('security_reviewer'));
+  });
+
+  it('AT-CHARTER-017: run-completion gate respects owned_by', () => {
+    const config = makeCharterConfig({
+      routing: {
+        qa: { entry_role: 'security_reviewer', allowed_next_roles: ['security_reviewer'], exit_gate: 'qa_gate' },
+      },
+      gates: {
+        qa_gate: { requires_files: [] },
+      },
+      workflow_kit: {
+        phases: {
+          qa: {
+            artifacts: [
+              { path: '.planning/FINAL_REVIEW.md', required: true, owned_by: 'security_reviewer' },
+            ],
+          },
+        },
+      },
+    });
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/FINAL_REVIEW.md'), '# Final');
+
+    const stateNoOwner = makeState({
+      phase: 'qa',
+      history: [
+        { turn_id: 't1', role: 'dev', phase: 'qa', status: 'accepted' },
+      ],
+    });
+
+    const fail = evaluateRunCompletion({
+      state: stateNoOwner,
+      config,
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+    assert.equal(fail.action, 'gate_failed');
+    assert.ok(fail.reasons.some(r => r.includes('security_reviewer')));
+
+    const stateWithOwner = makeState({
+      phase: 'qa',
+      history: [
+        { turn_id: 't1', role: 'security_reviewer', phase: 'qa', status: 'accepted' },
+      ],
+    });
+
+    const pass = evaluateRunCompletion({
+      state: stateWithOwner,
+      config,
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+    assert.equal(pass.action, 'complete', `Expected complete but got ${pass.action}: ${pass.reasons.join(', ')}`);
+  });
+});

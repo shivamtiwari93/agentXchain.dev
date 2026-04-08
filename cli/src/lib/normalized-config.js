@@ -472,7 +472,7 @@ export function validateV4Config(data, projectRoot) {
 
   // Workflow Kit (optional but validated if present)
   if (data.workflow_kit !== undefined) {
-    const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing);
+    const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing, data.roles);
     errors.push(...wkValidation.errors);
   }
 
@@ -483,7 +483,7 @@ export function validateV4Config(data, projectRoot) {
  * Validate the workflow_kit config section.
  * Returns { ok, errors, warnings }.
  */
-export function validateWorkflowKitConfig(wk, routing) {
+export function validateWorkflowKitConfig(wk, routing, roles) {
   const errors = [];
   const warnings = [];
 
@@ -573,6 +573,16 @@ export function validateWorkflowKitConfig(wk, routing) {
 
         if (artifact.required !== undefined && typeof artifact.required !== 'boolean') {
           errors.push(`${prefix} required must be a boolean`);
+        }
+
+        if (artifact.owned_by !== undefined && artifact.owned_by !== null) {
+          if (typeof artifact.owned_by !== 'string') {
+            errors.push(`${prefix} owned_by must be a string`);
+          } else if (!/^[a-z0-9_-]+$/.test(artifact.owned_by)) {
+            errors.push(`${prefix} owned_by "${artifact.owned_by}" is not a valid role ID (must be lowercase alphanumeric with hyphens/underscores)`);
+          } else if (roles && typeof roles === 'object' && !roles[artifact.owned_by]) {
+            errors.push(`${prefix} owned_by "${artifact.owned_by}" does not reference a defined role`);
+          }
         }
       }
     }

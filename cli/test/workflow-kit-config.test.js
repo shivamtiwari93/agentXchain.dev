@@ -603,3 +603,111 @@ describe('scaffoldGoverned — workflow_kit artifact scaffold', () => {
     assert.ok(existsSync(join(tmp, '.planning/reviews/design-review.md')), 'should create subdirectories as needed');
   });
 });
+
+// --- Charter enforcement: owned_by validation ---
+
+describe('validateWorkflowKitConfig — owned_by (charter enforcement)', () => {
+  const roles = {
+    dev: { title: 'Dev', mandate: 'Build', write_authority: 'authoritative', runtime: 'r1' },
+    security_reviewer: { title: 'Security', mandate: 'Review security', write_authority: 'review_only', runtime: 'r1' },
+    architect: { title: 'Architect', mandate: 'Design', write_authority: 'review_only', runtime: 'r1' },
+  };
+
+  it('AT-CHARTER-001: valid owned_by referencing existing role passes', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/SECURITY_REVIEW.md', owned_by: 'security_reviewer', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-CHARTER-002: owned_by referencing nonexistent role fails', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/REVIEW.md', owned_by: 'nonexistent_role', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('nonexistent_role') && e.includes('does not reference a defined role')));
+  });
+
+  it('AT-CHARTER-003: owned_by with invalid format fails', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/REVIEW.md', owned_by: 'Invalid Role!', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('Invalid Role!') && e.includes('not a valid role ID')));
+  });
+
+  it('AT-CHARTER-004: no owned_by passes (backward compatible)', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/ROADMAP.md', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-CHARTER-005: multiple artifacts with different owned_by all validated', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: true },
+            { path: '.planning/SECURITY_REVIEW.md', owned_by: 'security_reviewer', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-CHARTER-005b: mixed valid and invalid owned_by reports errors', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: true },
+            { path: '.planning/REVIEW.md', owned_by: 'ghost_role', required: true },
+          ],
+        },
+      },
+    }, { planning: {} }, roles);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('ghost_role')));
+    assert.ok(!result.errors.some(e => e.includes('architect')));
+  });
+
+  it('AT-CHARTER-006: owned_by validation works without roles param', () => {
+    // When roles is not provided, format validation still applies but role existence is not checked
+    const result = validateWorkflowKitConfig({
+      phases: {
+        planning: {
+          artifacts: [
+            { path: '.planning/REVIEW.md', owned_by: 'any_role', required: true },
+          ],
+        },
+      },
+    }, { planning: {} });
+    assert.equal(result.ok, true, 'Format-valid owned_by should pass without roles');
+  });
+});
