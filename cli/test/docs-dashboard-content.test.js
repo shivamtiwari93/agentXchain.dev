@@ -81,7 +81,7 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 7, 'dashboard nav must expose seven top-level views');
+    assert.equal(navViews.length, 8, 'dashboard nav must expose eight top-level views');
     for (const view of navViews) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(
@@ -98,6 +98,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention approve-completion');
     assert.ok(CLI_DOCS.includes('agentxchain multi approve-gate'), 'cli docs must mention coordinator gate approval command');
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
+    assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {

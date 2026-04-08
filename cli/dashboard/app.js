@@ -12,6 +12,7 @@ import { render as renderBlocked } from './components/blocked.js';
 import { render as renderGate } from './components/gate.js';
 import { render as renderInitiative } from './components/initiative.js';
 import { render as renderCrossRepo } from './components/cross-repo.js';
+import { render as renderBlockers } from './components/blockers.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'history', 'audit', 'annotations'], render: renderTimeline },
@@ -21,6 +22,7 @@ const VIEWS = {
   gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger'], render: renderInitiative },
   'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
+  blockers: { fetch: ['coordinatorBlockers'], render: renderBlockers },
 };
 
 const API_MAP = {
@@ -34,6 +36,7 @@ const API_MAP = {
   coordinatorBarriers: '/api/coordinator/barriers',
   barrierLedger: '/api/coordinator/barrier-ledger',
   coordinatorAudit: '/api/coordinator/hooks/audit',
+  coordinatorBlockers: '/api/coordinator/blockers',
 };
 
 const viewState = {

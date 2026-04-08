@@ -445,7 +445,7 @@ agentxchain dashboard [options]
 
 Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
 
-The shipped dashboard surface has seven top-level views:
+The shipped dashboard surface has eight top-level views:
 
 | View | Description |
 |------|-------------|
@@ -456,6 +456,7 @@ The shipped dashboard surface has seven top-level views:
 | **Hooks** | Hook audit log plus persisted hook annotations |
 | **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
+| **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 
