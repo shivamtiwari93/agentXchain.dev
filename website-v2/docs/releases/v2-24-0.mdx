@@ -1,0 +1,96 @@
+---
+title: "v2.24.0 Release Notes"
+description: "Evidence-closure release: real-model MCP proof, escalation and recovery dogfood, and post-release npx verification."
+---
+
+# AgentXchain v2.24.0
+
+`2.24.0` is a credibility release.
+
+`2.23.0` made proposal authority honest. `2.24.0` closes the remaining launch-critical proof gaps by moving more claims out of theory and into executed evidence: MCP is now proven live with a real Anthropic model behind a real MCP server, retry exhaustion and operator recovery are dogfooded through the governed CLI, and release postflight now verifies the public `npx` install path instead of trusting registry metadata alone.
+
+Upgrade:
+
+```bash
+npm install -g agentxchain@2.24.0
+```
+
+## What changed since 2.23.0
+
+### MCP now has real-model proof, not just transport proof
+
+Previous MCP evidence proved the adapter and both transports could carry a governed turn, but it still left the obvious question open: does the path hold when a real model sits behind the MCP server?
+
+`2.24.0` answers that directly:
+
+- `examples/mcp-anthropic-agent/server.js` exposes `agentxchain_turn` over MCP stdio
+- the server forwards prompts and governed context to the Anthropic Messages API
+- `examples/live-governed-proof/run-mcp-real-model-proof.mjs` runs the governed CLI through that server
+- the returned payload is extracted, validated, and accepted by the state machine
+
+That proof passed on `2026-04-08`:
+
+- run: `run_83a64c7bb6925711`
+- turn: `turn_c8703d87f325e108`
+- model: `claude-haiku-4-5-20251001`
+- usage: `1,630` input tokens + `649` output tokens
+
+This is the right scope for a reference MCP server. It is thin, real, and governed. It does not pretend to be an all-purpose model gateway.
+
+### Scenario D escalation and recovery are now exercised through the real CLI
+
+AgentXchain already had escalation logic. The missing proof was operational: what happens when a governed turn actually fails twice, blocks the run, and has to be recovered without losing the decision trail?
+
+`2.24.0` adds a dedicated recovery proof:
+
+- dev turn rejected twice until `max_turn_retries` is exhausted
+- run transitions to `blocked` with `escalation:retries-exhausted:dev`
+- failed turn remains retained in active state
+- operator recovery clears blocked state and records `escalation_resolved`
+- corrected dev work is accepted
+- `eng_director` is assigned and accepted with an objection, preserving the review contract
+
+Proof run:
+
+- run: `run_ebf10c05d7419a0c`
+- dev turn: `turn_62dc3552e94dc5a9`
+- director turn: `turn_c88f47a0ca64e8cc`
+
+This matters because recovery is part of the product, not a support footnote. If the protocol cannot recover from dead-end turns cleanly, it cannot support long-horizon delivery.
+
+### Release truth now includes the public `npx` path
+
+Package metadata alone is not enough. Users do not experience your release as `npm view`. They experience it as `npx agentxchain`.
+
+`2.24.0` hardens release postflight so it now proves:
+
+- the registry serves the exact target version
+- the tarball metadata and checksum exist
+- `npx --yes agentxchain@<version> --version` resolves and executes in an isolated temp environment
+- the published tarball installs correctly into an isolated prefix
+- exported runner and adapter interfaces import cleanly from a consumer project
+
+That closes the last meaningful gap between "the package published" and "a new user can actually run it."
+
+## Why this release matters
+
+AgentXchain claims governed multi-agent delivery. Those claims only hold if the hardest boundaries are proven where they usually fail:
+
+- across runtime adapters
+- across recovery paths
+- across release distribution surfaces
+
+`2.24.0` matters because it converts those boundaries from inferred behavior into executed evidence.
+
+## Where to go next
+
+- See [Adapters](/docs/adapters) for runtime contracts across manual, local CLI, API-backed, and MCP paths.
+- See [Quickstart](/docs/quickstart) for governed repo setup and the first-turn workflow.
+- See [Protocol Implementor Guide](/docs/protocol-implementor-guide) if you are building a compatible runner or verifier.
+
+## Evidence
+
+- 2484 automated tests / 0 failures in release preflight.
+- Docusaurus production build passes.
+- Live MCP real-model proof: `run_83a64c7bb6925711`.
+- Live escalation and recovery proof: `run_ebf10c05d7419a0c`.

@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.24.0
+
+`2.24.0` is an evidence-closure release.
+
+`2.23.0` made proposal authority honest. `2.24.0` closes the remaining launch-critical proof gaps: MCP is now proven live against a real Anthropic model, Scenario D escalation and operator recovery are dogfooded end to end, and release postflight now verifies that `npx agentxchain@<version>` resolves from the public registry instead of assuming npm visibility equals executable truth.
+
+### MCP is now proven through a real model behind a real MCP server
+
+- Added `examples/mcp-anthropic-agent/`, a thin stdio MCP server that exposes `agentxchain_turn` and forwards it to the Anthropic Messages API.
+- Added `examples/live-governed-proof/run-mcp-real-model-proof.mjs`, which drives the governed CLI through the MCP adapter and proves the real provider path.
+- The governed acceptance boundary now has concrete live evidence for: CLI -> MCP adapter -> MCP stdio transport -> MCP server -> Anthropic API -> JSON extraction -> validation -> acceptance.
+
+### Scenario D escalation and recovery are now proven end to end
+
+- Added `examples/live-governed-proof/run-escalation-recovery-proof.mjs`.
+- The proof exercises retry exhaustion, run blocking, retained failed turn state, operator recovery, corrected dev acceptance, and `eng_director` intervention in one continuous governed path.
+- This closes the gap between escalation logic existing in tests and escalation behavior being exercised through the real CLI workflow.
+
+### Release postflight now proves the public `npx` path
+
+- `cli/scripts/release-postflight.sh` now runs an isolated `npx --yes agentxchain@<version> --version` smoke check with temp HOME/cache/npmrc state.
+- Release postflight no longer stops at registry metadata and install smoke. It now verifies that the public package actually resolves and executes the way first-run users will invoke it.
+- `RELEASE_POSTFLIGHT_SPEC.md` and `release-postflight.test.js` were updated to make that contract fail closed.
+
+### Evidence
+
+- 2484 automated tests / 0 failures in release preflight.
+- Docusaurus production build passes.
+
 ## 2.23.0
 
 `2.23.0` is a proposal-authority release.
