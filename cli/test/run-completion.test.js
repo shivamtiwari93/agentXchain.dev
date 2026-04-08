@@ -183,6 +183,53 @@ describe('evaluateRunCompletion — pure function', () => {
     assert.ok(result.missing_files.length > 0);
   });
 
+  it('AT-PROP-COMPLETION-001: returns gate_failed when required files exist only in proposal directory', () => {
+    // Files exist under .agentxchain/proposed/<turn_id>/ but NOT in the workspace.
+    // Run-completion gates must check the workspace, not the proposal directory.
+    const turnId = 'turn_proposed_001';
+    const proposalDir = join(root, '.agentxchain', 'proposed', turnId);
+    mkdirSync(join(proposalDir, '.planning'), { recursive: true });
+    writeFileSync(join(proposalDir, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
+    writeFileSync(join(proposalDir, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(proposalDir, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+    assert.equal(result.action, 'gate_failed', 'Proposal-only files must NOT satisfy run-completion gates');
+    assert.equal(result.passed, false);
+    assert.ok(result.missing_files.length > 0, 'Gate must report files as missing even though they exist in proposal dir');
+    assert.ok(result.missing_files.includes('.planning/acceptance-matrix.md'));
+    assert.ok(result.missing_files.includes('.planning/ship-verdict.md'));
+    assert.ok(result.missing_files.includes('.planning/RELEASE_NOTES.md'));
+  });
+
+  it('AT-PROP-COMPLETION-002: returns awaiting_human_approval after proposal apply copies files to workspace', () => {
+    // Simulate proposal apply: files now exist in the workspace
+    mkdirSync(join(root, '.planning'), { recursive: true });
+    writeFileSync(join(root, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
+    writeFileSync(join(root, '.planning/ship-verdict.md'), '## Verdict: YES\n');
+    writeFileSync(join(root, '.planning/RELEASE_NOTES.md'), '# Release Notes\n\n## User Impact\n\nFeature delivered.\n\n## Verification Summary\n\nAll tests pass.\n');
+
+    // Also keep the proposal directory to prove it doesn't interfere
+    const proposalDir = join(root, '.agentxchain', 'proposed', 'turn_proposed_001');
+    mkdirSync(join(proposalDir, '.planning'), { recursive: true });
+    writeFileSync(join(proposalDir, '.planning/acceptance-matrix.md'), makePassingAcceptanceMatrix());
+
+    const result = evaluateRunCompletion({
+      state: { phase: 'qa' },
+      config: makeConfig(),
+      acceptedTurn: makeTurnResult({ run_completion_request: true }),
+      root,
+    });
+    assert.equal(result.action, 'awaiting_human_approval', 'Gate must pass once files are in workspace');
+    assert.equal(result.passed, true);
+    assert.equal(result.missing_files.length, 0);
+  });
+
   it('returns gate_failed when verification required but not passed', () => {
     const config = makeConfig({
       gates: {
