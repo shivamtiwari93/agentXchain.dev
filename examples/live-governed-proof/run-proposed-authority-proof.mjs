@@ -4,13 +4,13 @@
  * Live proposed-authority proof with a real Anthropic provider.
  *
  * This executes a governed workflow where a dev role with write_authority: "proposed"
- * dispatches to the real Anthropic API (claude-haiku-4-5-20251001) and proves:
+ * dispatches to the real Anthropic API (claude-sonnet-4-6) and proves:
  *   1. Real model returns valid proposed_changes[]
  *   2. Proposals materialized under .agentxchain/proposed/<turn_id>/
- *   3. Gate FAILS before proposal apply (file only in proposed dir)
+ *   3. Proposed files are not treated as workspace truth before proposal apply
  *   4. proposal apply copies files to workspace
- *   5. Gate passes after proposal apply
- *   6. Run completes
+ *   5. A later real-model turn requests run completion after proposal apply
+ *   6. Human-gated run completion succeeds
  *
  * Scope truth:
  *   - proves real-provider proposed-authority lifecycle end-to-end
@@ -36,7 +36,6 @@ const {
   assignTurn,
   acceptTurn,
   rejectTurn,
-  approvePhaseGate,
   approveCompletionGate,
   writeDispatchBundle,
   getTurnStagingResultPath,
@@ -65,7 +64,7 @@ if (missingEnvs.length > 0) {
   process.exit(0);
 }
 
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-sonnet-4-6';
 const MAX_ATTEMPTS = 3;
 
 function getArgValue(flag) {
@@ -118,7 +117,7 @@ function makeConfig() {
     gates: {
       implementation_complete: {
         requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
-        requires_human_approval: false,
+        requires_human_approval: true,
       },
     },
     budget: {
@@ -143,7 +142,7 @@ function makeConfig() {
   };
 }
 
-const DEV_PROMPT = `# Developer Turn — Proposed Authority
+const PROPOSAL_PROMPT = `# Developer Turn — Proposed Authority
 
 You are the developer role in a governed AgentXchain run. You have **proposed** write authority.
 
@@ -153,15 +152,40 @@ You MUST return ONLY a single valid JSON object (no markdown, no explanation, no
 
 Critical requirements:
 1. Include at least one decision and one objection.
-2. files_changed MUST list every file in proposed_changes.
-3. proposed_changes MUST contain the full file content for each proposed file.
+2. files_changed MUST be exactly [".planning/IMPLEMENTATION_NOTES.md"].
+3. proposed_changes MUST be a non-empty array containing exactly one entry for ".planning/IMPLEMENTATION_NOTES.md" with the full file content.
 4. phase_transition_request MUST be null (gate will be checked separately).
 5. run_completion_request MUST be null.
 6. status MUST be "completed".
 7. proposed_next_role MUST be "human".
+8. Do NOT mention, modify, or propose any path under ".agentxchain/", "staging/", "dispatch/", or any internal orchestration file. The ONLY allowed file path is ".planning/IMPLEMENTATION_NOTES.md".
 
 Return exactly this JSON structure (fill in the FILL fields):
 {"schema_version":"1.0","run_id":"FILL_FROM_CONTEXT","turn_id":"FILL_FROM_CONTEXT","role":"dev","runtime_id":"anthropic-dev","status":"completed","summary":"Proposed IMPLEMENTATION_NOTES.md documenting feature implementation.","decisions":[{"id":"DEC-001","category":"implementation","statement":"Created implementation notes with architecture overview.","rationale":"Documents the implementation approach for review."}],"objections":[{"id":"OBJ-001","severity":"low","statement":"Implementation scope is intentionally minimal for proof purposes.","status":"raised"}],"files_changed":[".planning/IMPLEMENTATION_NOTES.md"],"artifacts_created":[],"verification":{"status":"pass","commands":["echo verified"],"evidence_summary":"Implementation notes proposed for review.","machine_evidence":[{"command":"echo verified","exit_code":0}]},"artifact":{"type":"patch","ref":null},"proposed_next_role":"human","phase_transition_request":null,"run_completion_request":null,"needs_human_reason":null,"proposed_changes":[{"path":".planning/IMPLEMENTATION_NOTES.md","action":"create","content":"# Implementation Notes\\n\\n## Overview\\n\\nThis document captures the implementation approach for the governed proof feature.\\n\\n## Architecture\\n\\n- Single-role governed workflow with proposed authority\\n- Developer proposes changes via api_proxy adapter\\n- Operator reviews and applies proposals before gate evaluation\\n\\n## Changes\\n\\n- Added .planning/IMPLEMENTATION_NOTES.md (this file)\\n\\n## Verification\\n\\nAll acceptance criteria satisfied via governed workflow proof.\\n"}],"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
+`;
+
+const COMPLETION_PROMPT = `# Developer Turn — Completion Request
+
+You are the developer role in a governed AgentXchain run. You have **proposed** write authority.
+
+Context:
+- .planning/IMPLEMENTATION_NOTES.md already exists in the workspace.
+- Do NOT propose any new files or edits in this turn.
+- This turn exists only to request governed run completion.
+
+You MUST return ONLY a single valid JSON object (no markdown, no explanation, no code fences).
+
+Critical requirements:
+1. Include at least one decision and one objection.
+2. files_changed MUST be an empty array.
+3. proposed_changes MUST be an empty array.
+4. phase_transition_request MUST be null.
+5. run_completion_request MUST be true.
+6. status MUST be "completed".
+7. proposed_next_role MUST be "dev". Any other value will be rejected by validation.
+
+Return exactly this JSON structure (fill in the FILL fields):
+{"schema_version":"1.0","run_id":"FILL_FROM_CONTEXT","turn_id":"FILL_FROM_CONTEXT","role":"dev","runtime_id":"anthropic-dev","status":"completed","summary":"Requested governed run completion after proposal apply placed IMPLEMENTATION_NOTES.md in the workspace.","decisions":[{"id":"DEC-002","category":"completion","statement":"Requested run completion only after IMPLEMENTATION_NOTES.md was applied into the workspace.","rationale":"Completion must depend on workspace truth, not proposal-directory-only files."}],"objections":[{"id":"OBJ-002","severity":"low","statement":"This proof covers a narrow completion path rather than a broader multi-role workflow.","status":"raised"}],"files_changed":[],"artifacts_created":[],"verification":{"status":"pass","commands":["echo completion-ready"],"evidence_summary":"Workspace contains IMPLEMENTATION_NOTES.md and is ready for governed completion review.","machine_evidence":[{"command":"echo completion-ready","exit_code":0}]},"artifact":{"type":"review","ref":null},"proposed_next_role":"dev","phase_transition_request":null,"run_completion_request":true,"needs_human_reason":null,"proposed_changes":[],"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
 `;
 
 function scaffoldProject(root) {
@@ -193,7 +217,7 @@ function scaffoldProject(root) {
   );
   writeFileSync(join(root, '.agentxchain', 'history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), '');
-  writeFileSync(join(root, '.agentxchain', 'prompts', 'dev.md'), DEV_PROMPT);
+  writeFileSync(join(root, '.agentxchain', 'prompts', 'dev.md'), PROPOSAL_PROMPT);
 
   // Seed planning artifacts that are prerequisites for being in implementation phase
   writeFileSync(
@@ -249,7 +273,76 @@ function outputResult(data) {
   }
 }
 
-async function dispatchWithRetry(root, config, roleId) {
+function writeDevPrompt(root, prompt) {
+  writeFileSync(join(root, '.agentxchain', 'prompts', 'dev.md'), prompt);
+}
+
+function commitAll(root, message) {
+  execSync(`git add -A && git commit -m ${JSON.stringify(message)}`, {
+    cwd: root,
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'proof',
+      GIT_COMMITTER_NAME: 'proof',
+      GIT_AUTHOR_EMAIL: 'proof@test',
+      GIT_COMMITTER_EMAIL: 'proof@test',
+    },
+  });
+}
+
+function readStagedTurnResult(root, turnId) {
+  const stagingPath = join(root, getTurnStagingResultPath(turnId));
+  return JSON.parse(readFileSync(stagingPath, 'utf8'));
+}
+
+function validateProposalTurn(turnResult) {
+  const errors = [];
+  if (turnResult.status !== 'completed') {
+    errors.push(`status must be "completed" (got "${turnResult.status}")`);
+  }
+  if (turnResult.run_completion_request != null) {
+    errors.push('run_completion_request must be null for the proposal turn');
+  }
+  if (!Array.isArray(turnResult.proposed_changes) || turnResult.proposed_changes.length !== 1) {
+    errors.push('proposal turn must contain exactly one proposed change');
+  } else {
+    const [change] = turnResult.proposed_changes;
+    if (change.path !== '.planning/IMPLEMENTATION_NOTES.md') {
+      errors.push(`proposal turn must target only ".planning/IMPLEMENTATION_NOTES.md" (got "${change.path}")`);
+    }
+  }
+  const filesChanged = turnResult.files_changed || [];
+  if (filesChanged.length !== 1 || filesChanged[0] !== '.planning/IMPLEMENTATION_NOTES.md') {
+    errors.push('proposal turn must list only ".planning/IMPLEMENTATION_NOTES.md" in files_changed');
+  }
+  if (filesChanged.some((file) => file.startsWith('.agentxchain/'))) {
+    errors.push('proposal turn must not claim internal .agentxchain paths');
+  }
+  return errors;
+}
+
+function validateCompletionTurn(turnResult) {
+  const errors = [];
+  if (turnResult.status !== 'completed') {
+    errors.push(`status must be "completed" (got "${turnResult.status}")`);
+  }
+  if (turnResult.run_completion_request !== true) {
+    errors.push('completion turn must set run_completion_request to true');
+  }
+  if (turnResult.phase_transition_request != null) {
+    errors.push('completion turn must not request a phase transition');
+  }
+  if ((turnResult.files_changed || []).length !== 0) {
+    errors.push('completion turn must not declare files_changed');
+  }
+  if ((turnResult.proposed_changes || []).length !== 0) {
+    errors.push('completion turn must not declare proposed_changes');
+  }
+  return errors;
+}
+
+async function dispatchWithRetry(root, config, roleId, validateScenario) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -269,10 +362,30 @@ async function dispatchWithRetry(root, config, roleId) {
       skipManifestVerification: true,
     });
     if (!dispatchResult.ok) {
+      const retryableExtractionFailure =
+        dispatchResult.classified?.error_class === 'turn_result_extraction_failure';
+      if (retryableExtractionFailure && attempt < MAX_ATTEMPTS) {
+        lastError = `${dispatchResult.classified.error_class}: ${dispatchResult.classified.message}`;
+        continue;
+      }
       const detail = dispatchResult.classified
         ? `${dispatchResult.classified.error_class}: ${dispatchResult.classified.message}`
         : dispatchResult.error || 'Unknown dispatch error';
       return { ok: false, error: `dispatchApiProxy failed: ${detail}` };
+    }
+
+    const stagedTurnResult = readStagedTurnResult(root, turnId);
+    const scenarioErrors = validateScenario ? validateScenario(stagedTurnResult) : [];
+    if (scenarioErrors.length > 0) {
+      lastError = `Scenario contract failed: ${scenarioErrors.join('; ')}`;
+      if (attempt < MAX_ATTEMPTS) {
+        const rejectResult = rejectTurn(root, config, null, `Validation retry attempt ${attempt}: ${lastError}`);
+        if (!rejectResult.ok) {
+          return { ok: false, error: `rejectTurn failed: ${rejectResult.error}` };
+        }
+        continue;
+      }
+      return { ok: false, error: `dispatch scenario failed after ${MAX_ATTEMPTS} attempts: ${scenarioErrors.join('; ')}` };
     }
 
     const acceptResult = acceptTurn(root, config);
@@ -335,7 +448,7 @@ async function main() {
     proof.assigned_turn_id = assignResult.turn.turn_id;
 
     // ── 3. Dispatch to real Anthropic API ─────────────────────────────────
-    const devResult = await dispatchWithRetry(root, config, 'dev');
+    const devResult = await dispatchWithRetry(root, config, 'dev', validateProposalTurn);
     if (!devResult.ok) {
       errors.push(devResult.error);
       return outputResult({ result: 'fail', errors, proof });
@@ -364,7 +477,7 @@ async function main() {
       return outputResult({ result: 'fail', errors, proof });
     }
 
-    // ── 5. Verify gate FAILS before proposal apply ────────────────────────
+    // ── 5. Verify proposal-only file is not yet workspace truth ───────────
     const implNotesInWorkspace = existsSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'));
     proof.impl_notes_in_workspace_before_apply = implNotesInWorkspace;
 
@@ -381,13 +494,6 @@ async function main() {
       return outputResult({ result: 'fail', errors, proof });
     }
 
-    // Gate should fail — file is in proposed/ but not in workspace
-    const preApplyGate = approvePhaseGate(root, config);
-    proof.gate_before_apply = { ok: preApplyGate.ok, error: preApplyGate.error || null };
-
-    // Gate may or may not have a pending transition to fail on — the key proof
-    // is that the file is NOT in the workspace yet
-
     // ── 6. Apply proposal ─────────────────────────────────────────────────
     const applyResult = applyProposal(root, devResult.turn_id, {});
     proof.proposal_apply = { ok: applyResult.ok, applied_files: applyResult.applied_files || [] };
@@ -398,11 +504,7 @@ async function main() {
     }
 
     // Commit applied files so workspace is clean for next turn
-    execSync('git add -A && git commit -m "apply proposal"', {
-      cwd: root,
-      stdio: 'pipe',
-      env: { ...process.env, GIT_AUTHOR_NAME: 'proof', GIT_COMMITTER_NAME: 'proof', GIT_AUTHOR_EMAIL: 'proof@test', GIT_COMMITTER_EMAIL: 'proof@test' },
-    });
+    commitAll(root, 'apply proposal');
 
     // ── 7. Verify file now in workspace ───────────────────────────────────
     const implNotesAfterApply = existsSync(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'));
@@ -413,86 +515,55 @@ async function main() {
       return outputResult({ result: 'fail', errors, proof });
     }
 
-    // ── 8. Request phase transition via second dev turn ────────────────────
-    // Assign second turn that requests phase transition (or approve gate directly)
-    // Since the gate has no human approval required, we can try approving directly
-    // But first we need the dev to request a phase transition.
-    // Actually, the gate requires_files check should pass now. Let's check state.
+    // ── 8. Request run completion via second dev turn ─────────────────────
+    writeDevPrompt(root, COMPLETION_PROMPT);
+    commitAll(root, 'switch to completion prompt');
+
+    const assign2 = assignTurn(root, config, 'dev');
+    if (!assign2.ok) {
+      errors.push(`Second assignTurn failed: ${assign2.error}`);
+      return outputResult({ result: 'fail', errors, proof });
+    }
+
+    const dev2 = await dispatchWithRetry(root, config, 'dev', validateCompletionTurn);
+    if (!dev2.ok) {
+      errors.push(`Completion-request turn failed: ${dev2.error}`);
+      return outputResult({ result: 'fail', errors, proof });
+    }
+
+    proof.completion_turn = {
+      turn_id: dev2.turn_id,
+      attempts: dev2.attempts_used,
+      usage: dev2.usage,
+      accepted_state: dev2.accepted_state,
+    };
+
+    const historyAfterCompletionRequest = readJsonl(join(root, '.agentxchain', 'history.jsonl'));
+    const completionHistoryEntry = historyAfterCompletionRequest.find((entry) => entry.turn_id === dev2.turn_id) || null;
+    proof.completion_turn_requested_run_completion = Boolean(completionHistoryEntry?.run_completion_request);
+    proof.completion_turn_files_changed = completionHistoryEntry?.files_changed || [];
+    proof.completion_turn_proposed_changes = completionHistoryEntry?.proposed_changes?.length || 0;
+
+    if (!proof.completion_turn_requested_run_completion) {
+      errors.push('Completion-request turn was accepted but did not set run_completion_request: true');
+      return outputResult({ result: 'fail', errors, proof });
+    }
 
     let state = loadState(root, config);
+    proof.pending_run_completion_after_request = state.pending_run_completion || null;
 
-    // If there's a pending phase transition, approve it. Otherwise assign a
-    // second turn to request one.
-    if (state.pending_phase_transition) {
-      const gateResult = approvePhaseGate(root, config);
-      proof.gate_after_apply = { ok: gateResult.ok, error: gateResult.error || null };
-
-      if (!gateResult.ok) {
-        errors.push(`Gate approval failed after proposal apply: ${gateResult.error}`);
-        return outputResult({ result: 'fail', errors, proof });
-      }
-    } else {
-      // No pending transition — the first turn didn't request one (by design).
-      // We need to trigger run completion directly since there's only one phase.
-      // With a single-phase config, completing the implementation gate = run completion.
-
-      // Manually request completion by approving completion if pending,
-      // or mark the run as needing completion
-      proof.gate_after_apply = { note: 'No pending phase transition — will complete run directly' };
+    if (!state.pending_run_completion) {
+      errors.push('Run did not pause for pending run completion after completion-request turn');
+      return outputResult({ result: 'fail', errors, proof });
     }
 
     // ── 9. Approve run completion ─────────────────────────────────────────
-    state = loadState(root, config);
+    const completionResult = approveCompletionGate(root, config);
+    proof.run_completion = { ok: completionResult.ok, error: completionResult.error || null };
 
-    if (state.pending_run_completion) {
-      const completionResult = approveCompletionGate(root, config);
-      proof.run_completion = { ok: completionResult.ok, error: completionResult.error || null };
-
-      if (!completionResult.ok) {
-        errors.push(`Run completion failed: ${completionResult.error}`);
-        return outputResult({ result: 'fail', errors, proof });
-      }
-    } else if (state.status === 'completed') {
-      proof.run_completion = { ok: true, note: 'Run auto-completed after gate approval' };
-    } else {
-      // Run is still active — assign a second turn to request completion
-      proof.needs_second_turn = true;
-
-      const assign2 = assignTurn(root, config, 'dev');
-      if (!assign2.ok) {
-        errors.push(`Second assignTurn failed: ${assign2.error}`);
-        return outputResult({ result: 'fail', errors, proof });
-      }
-
-      const dev2 = await dispatchWithRetry(root, config, 'dev');
-      if (!dev2.ok) {
-        // Second turn dispatch failure is not fatal for the proof —
-        // the key assertions (proposal staging, apply, gate) are already proven.
-        // Record and continue.
-        proof.second_turn = { ok: false, error: dev2.error, note: 'Non-fatal: core proposal lifecycle already proven' };
-      } else {
-        proof.second_turn = {
-          ok: true,
-          turn_id: dev2.turn_id,
-          attempts: dev2.attempts_used,
-          accepted_state: dev2.accepted_state,
-        };
-      }
-
-      // Check final state
-      state = loadState(root, config);
-      if (state.pending_run_completion) {
-        const completionResult = approveCompletionGate(root, config);
-        proof.run_completion = { ok: completionResult.ok, error: completionResult.error || null };
-      } else if (state.pending_phase_transition) {
-        const gateResult = approvePhaseGate(root, config);
-        proof.gate_after_second_turn = { ok: gateResult.ok };
-        state = loadState(root, config);
-        if (state.pending_run_completion) {
-          const completionResult = approveCompletionGate(root, config);
-          proof.run_completion = { ok: completionResult.ok };
-        }
-      }
+    if (!completionResult.ok) {
+      errors.push(`Run completion failed: ${completionResult.error}`);
+      return outputResult({ result: 'fail', errors, proof });
     }
 
     // ── 10. Verify final state ────────────────────────────────────────────
@@ -522,6 +593,9 @@ async function main() {
       !proof.impl_notes_in_workspace_before_apply,
       proof.proposal_apply.ok,
       proof.impl_notes_in_workspace_after_apply,
+      proof.completion_turn_requested_run_completion,
+      proof.run_completion.ok,
+      proof.final_status === 'completed',
     ];
 
     const allCorePassed = coreAssertions.every(Boolean);

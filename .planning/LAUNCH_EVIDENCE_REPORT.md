@@ -104,25 +104,26 @@
 
 ### E2c — Live Proposed-Authority Dogfood
 
-- **Date**: 2026-04-07
+- **Date**: 2026-04-07 initial proof, 2026-04-08 completion-hardening reruns
 - **Location**: `examples/live-governed-proof/run-proposed-authority-proof.mjs`, `.planning/LIVE_PROPOSED_AUTHORITY_PROOF_SPEC.md`
-- **Run ID**: `run_9cff2c5a43cb4205`
-- **Turn IDs**: `turn_34e2c76fd6ff6ec3` (dev, proposed authority), `turn_91f1e8d054387e7f` (second dev turn)
-- **Provider**: Anthropic claude-haiku-4-5-20251001 (real API, not mock)
-- **Cost**: $0.007 (first turn)
-- **Result**: core proposed-authority lifecycle proven live; run completion NOT proven live
+- **Run IDs**: `run_9cff2c5a43cb4205` (historical core lifecycle pass), `run_3c68b1c271cf0002` (latest hardened completion rerun)
+- **Turn IDs**: `turn_34e2c76fd6ff6ec3` (historical proposal turn), `turn_567062fa5b7c9b55` (latest proposal turn)
+- **Provider**: Anthropic Claude (historical proof on `claude-haiku-4-5-20251001`; current harness hardened on `claude-sonnet-4-6`)
+- **Cost**: historical core lifecycle run cost $0.007; hardened Sonnet reruns cost more but still low double-digit cents
+- **Result**: core proposed-authority lifecycle proven live; run completion still NOT proven live even after adding a dedicated completion turn and pre-accept scenario-contract rejection
 - **What it proves**:
   - Real Anthropic model returns valid `proposed_changes[]` with file contents in governed JSON format
   - Proposal materialization under `.agentxchain/proposed/<turn_id>/` works with real model output
   - `IMPLEMENTATION_NOTES.md` confirmed in proposed dir but NOT in workspace before apply
   - `proposal apply` copies real-model-proposed files into the workspace
   - Decision ledger records the proposal-apply entry
-  - Model required 3 attempts for first clean JSON (retries work as designed)
+  - The hardened proof harness now rejects scenario-wrong staged outputs before `acceptTurn`, so live completion proof cannot be faked by validator-clean but instruction-violating payloads
+  - Real-provider failure modes are now concrete instead of hand-waved: observed rerun failures included invalid `proposed_next_role`, internal `.agentxchain/staging/.../turn-result.json` proposal paths, extraction failure, omitted `run_completion_request`, and completion turns that kept declaring file/proposal changes despite explicit instructions not to
   - Full validation pipeline (schema, objection requirement, file-change declaration) processes real model output
 - **What it does NOT prove**:
-  - Run completion with real provider (model did not request `run_completion_request: true`)
+  - Run completion with real provider, even with a dedicated completion turn and stricter harness-side rejection of bad staged payloads
   - Multi-provider proposed authority (only Anthropic tested; `OPENAI_API_KEY` absent)
-  - Gate evaluation after proposal apply with real-provider output (gate was not pending)
+  - A stable real-provider completion prompt/adapter contract for proposed-authority turns
 
 ### E3 — Live API Proxy Preflight Smoke
 
@@ -190,7 +191,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Full lifecycle proof exists only for the three-adapter path. MCP proof is a single dev turn per transport. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
 | "`api_proxy` proposed-authority turns are proven through full governed lifecycle with gate enforcement" | E1 (e2e-api-proxy-proposed-lifecycle, e2e-api-proxy-proposed-authoring, e2e-proposal-aware-gates, e2e-proposal-aware-run-completion) | Four subprocess E2E tests prove: proposal materialization, gate rejection of proposal-only files, proposal apply enabling gate pass, and full lifecycle through implementation and QA with operator approval. |
-| "`api_proxy` proposed-authority lifecycle (staging, materialization, proposal apply) is proven live against real Anthropic" | E2c (real claude-haiku-4-5-20251001, `run_9cff2c5a43cb4205`) | Core lifecycle proven. Run completion NOT proven live — model did not request it. Do not claim full end-to-end proposed-authority run completion with real provider. |
+| "`api_proxy` proposed-authority lifecycle (staging, materialization, proposal apply) is proven live against real Anthropic" | E2c (`run_9cff2c5a43cb4205`) | Core lifecycle proven live. Completion remains disallowed even after 2026-04-08 harness hardening. |
 | "The acceptance boundary can recover a coherent `api_proxy` review payload that omits `status` but includes an explicit transition/completion signal" | E1 (new turn-result-validator normalization tests) + E2 (retained live QA turn `turn_cd88863ae5a8619e`) | Phrase narrowly. This is missing-status recovery, not general malformed-payload forgiveness. |
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
@@ -206,7 +207,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | Disallowed Claim | Why | What Would Fix It |
 |------------------|-----|-------------------|
 | "Full live end-to-end proof with MCP" | E2b proves MCP transport works (both stdio and HTTP), but the MCP dogfood used echo agents, not real AI models. MCP proof is transport-level, not model-level. | Run a governed MCP turn with a real AI model behind the MCP server. |
-| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Proposed-authority proposal staging, materialization, and `proposal apply` are now proven live against real Anthropic (claude-haiku-4-5-20251001) via E2c. Run completion is NOT yet proven live — the real model did not return `run_completion_request: true`, so the run stayed `active`. | Get the real model to request run completion in a live governed run, or add a dedicated completion turn to the proof harness. |
+| "`api_proxy` proposed-authority run completion is proven live against a real provider" | Still false after the 2026-04-08 harness hardening. A dedicated completion turn plus pre-accept scenario-contract rejection was added, and real-provider reruns still failed with concrete non-compliant outputs: omitted `run_completion_request`, invalid `proposed_next_role`, internal `.agentxchain/staging/...` proposal paths, and completion turns that insisted on declaring `files_changed` / `proposed_changes`. | Produce one live governed run where the completion turn satisfies the hardened contract (`status: "completed"`, `run_completion_request: true`, no file or proposal changes), the run pauses on `pending_run_completion`, and `approve-completion` finishes the run. |
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |

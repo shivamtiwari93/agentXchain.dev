@@ -70,13 +70,17 @@ describe('Launch evidence report', () => {
     assert.match(report, /proposal materialization.*gate rejection/i);
   });
 
-  it('records live proposed-authority lifecycle as allowed and run completion as disallowed', () => {
+  it('records live proposed-authority lifecycle as allowed and hardened completion proof as still disallowed', () => {
     // E2c allowed claim: core lifecycle proven live
     assert.match(report, /proposed-authority lifecycle.*proven live against real Anthropic/i);
     assert.match(report, /E2c/);
-    // Disallowed claim: run completion not yet proven live
+    assert.match(report, /dedicated completion turn and pre-accept scenario-contract rejection/i);
+    assert.match(report, /omitted `run_completion_request`/i);
+    assert.match(report, /invalid `proposed_next_role`/i);
+    assert.match(report, /internal `\.agentxchain\/staging\/\.\.\.\/turn-result\.json` proposal paths/i);
+    // Disallowed claim: run completion still not proven live
     assert.match(report, /proposed-authority run completion is proven live against a real provider/i);
-    assert.match(report, /real model did not return `run_completion_request: true`/i);
+    assert.match(report, /completion turn satisfies the hardened contract/i);
   });
 
   it('records live MCP dogfood proof for both transports', () => {
@@ -248,6 +252,7 @@ describe('Launch brief references evidence report', () => {
   it('includes claim boundary constraints', () => {
     assert.match(brief, /all adapters proven live/i);
     assert.match(brief, /proposed-authority.*run completion.*proven live/i);
+    assert.match(brief, /dedicated completion-turn harness/i);
     assert.match(brief, /production-proven/i);
     assert.match(brief, /DEC-POSITIONING-008/);
   });
