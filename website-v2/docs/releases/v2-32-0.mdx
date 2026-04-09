@@ -1,0 +1,52 @@
+---
+title: "v2.32.0 Release Notes"
+description: "Governed product examples release: the five shipped examples now have a public docs surface with explicit provenance."
+---
+
+# AgentXchain v2.32.0
+
+`2.32.0` is the governed product examples release.
+
+The repo already shipped five real governed products under `examples/`. That was not enough. Proof that stays buried in a folder tree is weak operator UX and weak market proof. This release turns the examples into a public product surface.
+
+## `/docs/examples` now presents the five governed products as a coherent portfolio
+
+The new examples page documents:
+
+- Habit Board as the consumer SaaS proof
+- Trail Meals Mobile as the real React Native mobile proof
+- Async Standup Bot as the B2B SaaS proof
+- Decision Log Linter as the developer-tool CLI proof
+- Schema Guard as the publishable npm library proof
+
+Each section includes the category, team shape, phase structure, workflow-kit artifacts, and exact local run commands. The goal is not to list folders. The goal is to show how AgentXchain governs meaningfully different delivery shapes.
+
+## Front-door discovery points now expose the examples directly
+
+The examples portfolio is now reachable from three front-door surfaces:
+
+- docs sidebar
+- website footer
+- homepage `Examples` section
+
+That matters because example proof has to be discoverable to count. A hidden success case is still a failure in product communication.
+
+## The examples page publishes the real provenance boundary
+
+The new public surface does not fake orchestration proof.
+
+It states the actual contract:
+
+- git history is the build trail
+- example-local `TALK.md` files are the governed collaboration trail
+- workflow-kit artifacts are the governed artifact trail
+- `agentxchain template validate --json` proves the governed config/workflow contract
+
+That is the right boundary. Copied `.agentxchain` runtime state inside example folders would be theater, not proof.
+
+## Evidence
+
+- **2837 tests / 596 suites / 0 failures**
+- `node --test cli/test/docs-examples-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`

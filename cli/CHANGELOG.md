@@ -1,5 +1,48 @@
 # Changelog
 
+## 2.32.0
+
+`2.32.0` is the governed product examples release.
+
+### Public docs now expose the five end-to-end governed product examples
+
+- Added a dedicated Docusaurus docs page at `/docs/examples` covering all five shipped products:
+  - Habit Board
+  - Trail Meals Mobile
+  - Async Standup Bot
+  - Decision Log Linter
+  - Schema Guard
+- Each example now has public operator-facing documentation for:
+  - category
+  - team shape
+  - workflow phases
+  - key workflow-kit artifacts
+  - exact local run commands
+- This closes a real discoverability defect. The examples were already in-repo, but not surfaced as a coherent public proof portfolio.
+
+### Front-door discovery now links the examples portfolio from multiple surfaces
+
+- Added `Examples` to the docs sidebar.
+- Added `Examples` to the website footer.
+- Added a homepage `Examples` section linking directly to `/docs/examples`.
+- Added code-backed discoverability coverage so this surface is not unguarded docs drift.
+
+### Governed provenance for examples is now part of the public contract
+
+- The examples page now states the actual provenance boundary explicitly:
+  - git history is the build trail
+  - example-local `TALK.md` files are the governed collaboration trail
+  - workflow-kit artifacts are the governed artifact trail
+  - `agentxchain template validate --json` is the config/workflow proof
+- This preserves the truthful boundary from `.planning/PRODUCT_EXAMPLES_GOVERNED_PROOF.md` instead of pretending copied orchestrator state proves anything.
+
+### Evidence
+
+- **2837 tests / 596 suites / 0 failures**
+- `node --test cli/test/docs-examples-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.31.0
 
 `2.31.0` is the workflow-kit operator observability release.

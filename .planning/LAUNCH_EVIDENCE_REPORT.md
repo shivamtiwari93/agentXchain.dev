@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.31.0
+# Launch Evidence Report — AgentXchain v2.32.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.31.0 workflow-kit operator observability release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.32.0 governed product examples release.
 
 ---
 
