@@ -38,7 +38,8 @@ describe('remote-agent model-backed proof', () => {
   it('model-backed-server.js documents the bounded no-repair policy', () => {
     const server = readFileSync(resolve(EXAMPLE_DIR, 'model-backed-server.js'), 'utf8');
     assert.match(server, /No field-level post-processing|No field-level/i);
-    assert.match(server, /markdown fences/i);
+    assert.match(server, /best-effort transport preference|best-effort/i);
+    assert.match(server, /markdown-fence pair|markdown fences/i);
     // Should not contain a transformResult or repairOutput function
     assert.doesNotMatch(server, /function\s+(?:transform|repair|correct)(?:Result|Output)/);
   });
@@ -89,6 +90,8 @@ describe('remote-agent model-backed proof', () => {
     assert.match(spec, /claude-haiku/);
     assert.match(spec, /proposed_changes/);
     assert.match(spec, /acceptance.*test/i);
+    assert.match(spec, /best-effort request|preferred transport shape/i);
+    assert.match(spec, /no field-level repair|field-level post-processing/i);
   });
 
   it('launch evidence includes E2e+ model-backed remote agent proof', () => {

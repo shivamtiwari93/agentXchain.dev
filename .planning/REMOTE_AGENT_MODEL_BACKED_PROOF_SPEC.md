@@ -83,7 +83,7 @@ The system prompt must teach the model exactly what the turn-result contract req
 7. **Verification**: `{ status: "pass", commands: [...], evidence_summary: "...", machine_evidence: [...] }`
 8. **Artifact**: `{ type: "patch" }` for proposed, `{ type: "review" }` for review_only
 9. **Routing**: `proposed_next_role` must be a valid role or `"human"`
-10. **Response format**: raw JSON only, no markdown fences, no explanatory text
+10. **Response format**: request raw JSON only, no markdown fences, no explanatory text. Fence-free output remains the preferred transport shape, but the acceptance boundary is broader: one outer markdown-fence pair may be stripped if the enclosed JSON is otherwise valid.
 
 ## Proof Script
 
@@ -105,7 +105,7 @@ The proof script (`run-model-proof.mjs`) will:
 2. **P2**: Model-generated dev turn includes valid `proposed_changes[]` that materialize
 3. **P3**: Model-generated QA turn result includes at least one objection (challenge requirement)
 4. **P4**: Model-generated QA review derives a review artifact
-5. **P5**: No field-level post-processing or fixup of model output between Claude response and staging; only outer markdown-fence removal is allowed and must be logged
+5. **P5**: No field-level post-processing or fixup of model output between Claude response and staging; only one outer markdown-fence pair may be removed, and that concession must be logged
 6. **F1**: If the model fails to produce valid JSON, the bridge returns an error and the proof documents the failure mode
 7. **F2**: If the model produces JSON that fails validation, the proof documents which validator stage rejects it
 
@@ -115,6 +115,7 @@ If all acceptance tests pass:
 - A real AI model can produce governed turn results that satisfy the full acceptance pipeline
 - The `remote_agent` adapter is not just plumbing — it can front real model intelligence
 - The turn-result contract is teachable to a model via a single system prompt
+- Fence-free raw JSON remains a best-effort request, not the release-critical invariant; the actual invariant is no field-level repair beyond logged outer-fence stripping
 
 If it fails:
 - Which part of the contract the model cannot reliably satisfy
@@ -127,6 +128,7 @@ If it fails:
 - That this works reliably at scale (single proof run, not statistical)
 - That other models (OpenAI, etc.) can satisfy the contract
 - That the model can handle complex multi-file changes
+- That the model will honor the fence-free transport preference on every call
 
 ## Cost Estimate
 

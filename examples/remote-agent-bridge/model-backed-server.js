@@ -9,10 +9,12 @@
  * returns the model's parsed output.
  *
  * No field-level post-processing or semantic fixups are applied to the
- * model's output. The only concession is optional removal of outer markdown
- * fences if Claude wraps otherwise-valid JSON despite explicit instructions.
- * If Claude produces invalid JSON or a non-compliant turn result, the
- * acceptance pipeline rejects it. This is the honest proof surface.
+ * model's output. The system prompt still requests fence-free raw JSON, but
+ * that is a best-effort transport preference, not the proof boundary.
+ * The only allowed concession is optional removal of one outer markdown-fence
+ * pair if Claude wraps otherwise-valid JSON. If Claude produces invalid JSON
+ * or a non-compliant turn result, the acceptance pipeline rejects it. This is
+ * the honest proof surface.
  *
  * Environment:
  *   ANTHROPIC_API_KEY — required
@@ -32,7 +34,10 @@ const MAX_TOKENS = 4096;
 /**
  * System prompt that teaches Claude the exact turn-result contract.
  * This is the entire bridge's "intelligence" — if the model cannot
- * satisfy the contract from this prompt alone, the proof fails.
+ * satisfy the contract from this prompt alone, the proof fails. We keep
+ * the raw-JSON instruction because fence-free transport is still preferred,
+ * but the acceptance boundary is "no field-level repair," not "never emit
+ * outer markdown fences."
  */
 const SYSTEM_PROMPT = `You are an AI agent operating within the AgentXchain governed software delivery protocol.
 
@@ -201,7 +206,7 @@ async function handleTurn(req, res, apiKey) {
     console.log(`[model-bridge] Model responded (${claudeResult.stopReason}). Usage: ${claudeResult.usage?.input_tokens}in/${claudeResult.usage?.output_tokens}out`);
 
     // Parse the model's response as JSON. The only concession is stripping
-    // outer markdown fences if the model wrapped otherwise-valid JSON.
+    // one outer markdown-fence pair if the model wrapped otherwise-valid JSON.
     let turnResult;
     try {
       // Strip outer markdown fences if the model wraps otherwise-valid JSON.

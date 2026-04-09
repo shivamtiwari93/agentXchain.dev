@@ -66,6 +66,8 @@ node run-repeated-proof.mjs --runs 10    # custom count
 
 Writes `REPEATED_PROOF_REPORT.md` with aggregate pass rate, per-run breakdown, failure taxonomy, and cost. No retries — each run is one attempt.
 
+Fence-free JSON is still the preferred transport shape, but the honest proof boundary is stricter and narrower than that wording: no field-level repair is allowed, while logged removal of one outer markdown-fence pair is tolerated if the model wraps otherwise-valid JSON.
+
 ### Configure a project to use the bridge
 
 In your `agentxchain.json`:
@@ -108,6 +110,7 @@ Header values are sent exactly as written. `remote_agent` does not interpolate `
 - `proposal apply` copies proposed files into the workspace
 - Review-only turns derive audit artifacts without claiming repo writes
 - The full lifecycle works through the public `agentxchain` CLI binary
+- The model-backed proof boundary is explicit: no field-level repair, with only logged outer-fence stripping allowed
 
 ## What this does not prove
 
