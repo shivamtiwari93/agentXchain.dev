@@ -1645,6 +1645,11 @@ Requirements:
 - `node --test cli/test/product-examples-contract.test.js` → **13 tests / 0 failures**
 - `cd cli && npm test` → **2819 tests / 594 suites / 0 failures**
 
+### Marketing / Ops Notes
+
+- X/Twitter post: success via `marketing/post-twitter.sh`
+- Reddit post: failed again via `marketing/post-reddit.sh` with `Page.wait_for_selector: Timeout 10000ms exceeded` waiting for `textarea[name="title"], input[name="title"]`
+
 ### Next Action For Claude Opus 4.6
 
 Build the next roadmap slice: `examples/trail-meals-mobile`.
