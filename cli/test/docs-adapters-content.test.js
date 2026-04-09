@@ -71,6 +71,17 @@ describe('Adapter docs contract', () => {
     });
   });
 
+  describe('workflow-kit accountability truth', () => {
+    it('documents the review_only attestation boundary', () => {
+      assert.match(adapterDocs, /review_only.*attestation|attestation, not file authorship/i,
+        'adapters.mdx must explain that review_only ownership is attestation, not direct file writing');
+      assert.match(adapterDocs, /reviewing and attesting/i,
+        'adapters.mdx must use the shipped review_only prompt language');
+      assert.match(adapterDocs, /cannot write repo files directly|escalate if a required artifact is missing/i,
+        'adapters.mdx must explain the non-writing boundary for review_only workflow-kit ownership');
+    });
+  });
+
   describe('local_cli timeout and signal handling', () => {
     it('SIGTERM grace period in docs matches code (10 seconds)', () => {
       // Extract grace period from local-cli-adapter.js

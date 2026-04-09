@@ -146,6 +146,7 @@ When `workflow_kit` is present, the dispatch bundle splits visibility from accou
 - `CONTEXT.md` renders the full `Workflow Artifacts` table for the current phase so the agent can see the whole contract.
 - `PROMPT.md` renders only the workflow-kit responsibilities assigned to the current role.
 - Ownership resolves from `owned_by` first. If `owned_by` is absent, accountability falls back to the current phase `entry_role`.
+- `review_only` ownership means attestation, not file authorship. Those roles see "reviewing and attesting" guidance in `PROMPT.md`, must confirm the artifact exists and is acceptable, and must escalate if a required artifact is missing because they cannot write repo files directly.
 
 ## manual adapter
 
