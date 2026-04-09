@@ -121,6 +121,29 @@
   - Full governed lifecycle through MCP with a real model (single dev turn)
   - MCP with OpenAI or other providers (only Anthropic proven)
 
+### E2e — Remote Agent Bridge Proof
+
+- **Date**: 2026-04-09
+- **Location**: `examples/remote-agent-bridge/`, `cli/test/e2e-remote-agent-proposed-authoring.test.js`
+- **Proof script**: `examples/remote-agent-bridge/run-proof.mjs`
+- **Result**: **PASS.** Remote agent bridge proven through public CLI boundary.
+- **What it proves**:
+  - `remote_agent` adapter dispatches governed turn envelopes over HTTP to a local bridge server
+  - Bridge server returns valid turn-result JSON with `proposed_changes[]` (dev role)
+  - Acceptance pipeline validates, stages, and materializes proposals under `.agentxchain/proposed/<turn_id>/`
+  - `proposal apply` copies proposed files into the workspace
+  - Review-only QA turns derive audit artifacts under `.agentxchain/reviews/` without claiming repo writes
+  - Challenge requirement enforced: review_only roles must raise at least one objection
+  - Secret header redaction: `authorization`, `x-api-key`, `cookie`, `proxy-authorization` never appear in logs/artifacts
+  - Full lifecycle: `step --role dev` → propose → apply → `step --role qa` → review artifact
+  - Subprocess E2E test (`e2e-remote-agent-proposed-authoring.test.js`) proves the same path through `node:test`
+  - Runnable example server at `examples/remote-agent-bridge/server.js` with health check and configurable auth
+- **What it does NOT prove**:
+  - Real AI model behind the remote bridge (deterministic responses)
+  - Authoritative writes (v1 restricted to `proposed` and `review_only`)
+  - Async polling or webhook completion (v1 is synchronous only)
+  - Production auth, TLS, rate limiting, or multi-tenant hosting
+
 ### E2d — Scenario D Escalation & Recovery Proof
 
 - **Date**: 2026-04-08
@@ -230,9 +253,10 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
-| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) | All four adapter types now have live CLI execution evidence. |
-| "All four adapters proven live" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) + E2b+ (MCP with real Anthropic model) | All adapter types have been dispatched through the real `agentxchain step` CLI and accepted by the governed state machine. MCP now proven with both echo agents and a real AI model. |
-| "Manual, local CLI, API-backed, and MCP agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b | All four adapter types proven live through the governed CLI. |
+| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) + E2e (remote_agent bridge) | All five adapter types now have CLI execution evidence. |
+| "All five adapters proven" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) + E2b+ (MCP with real Anthropic model) + E2e (remote_agent bridge) | All adapter types have been dispatched through `agentxchain step` and accepted by the governed state machine. |
+| "Manual, local CLI, API-backed, MCP, and remote agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b + E2e | All five adapter types proven through the governed CLI. |
+| "`remote_agent` bridge proves connector replaceability over HTTP" | E2e (run-proof.mjs, e2e-remote-agent-proposed-authoring.test.js) | Proposed + review lifecycle proven through public CLI. Authoritative writes deferred to v2. |
 | "A full governed run is proven live for the `manual` + `local_cli` + `api_proxy` path, including human-gated completion approval" | E2 (`run_91f4ba5d54707a7e`, `turn_9710c088069f0ff2`, live `approve-completion`) | Full lifecycle proof exists only for the three-adapter path. MCP proof is a single dev turn per transport. |
 | "`api_proxy` review turns produce real review artifacts and fail closed on phantom review-file claims" | E1 (new governed-state/repo-observer tests) + E2 (live QA-only continuation wrote `.agentxchain/reviews/turn_fd7f82248d8562b3-qa-review.md`) | Phrase narrowly. This is review-artifact truth, not a claim that `api_proxy` writes QA gate files. |
 | "`api_proxy` proposed-authority turns are proven through full governed lifecycle with gate enforcement" | E1 (e2e-api-proxy-proposed-lifecycle, e2e-api-proxy-proposed-authoring, e2e-proposal-aware-gates, e2e-proposal-aware-run-completion) | Four subprocess E2E tests prove: proposal materialization, gate rejection of proposal-only files, proposal apply enabling gate pass, and full lifecycle through implementation and QA with operator approval. |

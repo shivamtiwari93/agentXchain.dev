@@ -91,7 +91,7 @@ describe('Launch evidence report', () => {
     assert.match(report, /turn_5292f4de9e01ea71/);
     assert.match(report, /MCP stdio transport.*governed dev turn/i);
     assert.match(report, /MCP streamable_http transport.*governed dev turn/i);
-    assert.match(report, /All four adapter types.*live CLI execution evidence/i);
+    assert.match(report, /All five adapter types.*CLI execution evidence/i);
   });
 
   it('records live MCP real-model proof', () => {
@@ -100,6 +100,17 @@ describe('Launch evidence report', () => {
     assert.match(report, /turn_c8703d87f325e108/);
     assert.match(report, /claude-haiku-4-5-20251001/);
     assert.match(report, /real Anthropic model/i);
+  });
+
+  it('records remote agent bridge proof', () => {
+    assert.match(report, /E2e — Remote Agent Bridge Proof/);
+    assert.match(report, /remote_agent.*adapter.*dispatches.*governed turn envelopes over HTTP/i);
+    assert.match(report, /proposed_changes/);
+    assert.match(report, /proposal apply/);
+    assert.match(report, /review-only.*QA.*derive audit artifacts/i);
+    assert.match(report, /run-proof\.mjs/);
+    assert.match(report, /e2e-remote-agent-proposed-authoring/);
+    assert.match(report, /connector replaceability/i);
   });
 });
 
