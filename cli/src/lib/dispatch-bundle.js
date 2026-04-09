@@ -621,8 +621,59 @@ function renderContext(state, config, root, turn, role) {
     lines.push('');
   }
 
-  // Phase gate requirements
+  // Workflow-kit artifacts for the current phase
   const phase = state.phase;
+  const wkArtifacts = config?.workflow_kit?.phases?.[phase]?.artifacts;
+  if (Array.isArray(wkArtifacts) && wkArtifacts.length > 0) {
+    lines.push('## Workflow Artifacts');
+    lines.push('');
+    lines.push(`Current phase **${phase}** declares the following artifacts:`);
+    lines.push('');
+    lines.push('| Artifact | Required | Semantics | Owner | Status |');
+    lines.push('|----------|----------|-----------|-------|--------|');
+    const isReviewRole = role?.write_authority === 'review_only';
+    const reviewPreviews = [];
+    for (const art of wkArtifacts) {
+      if (!art?.path) continue;
+      const absPath = join(root, art.path);
+      let exists = false;
+      try { exists = existsSync(absPath); } catch { /* treat as missing */ }
+      const req = art.required !== false ? 'yes' : 'no';
+      const owner = art.owned_by || '—';
+      const status = exists ? 'exists' : 'MISSING';
+      const semCol = art.semantics ? `\`${art.semantics}\`` : '—';
+      lines.push(`| \`${art.path}\` | ${req} | ${semCol} | ${owner} | ${status} |`);
+      if (isReviewRole && exists) {
+        reviewPreviews.push(art);
+      }
+    }
+    lines.push('');
+    if (reviewPreviews.length > 0) {
+      for (const art of reviewPreviews) {
+        const absPath = join(root, art.path);
+        const preview = buildGateFilePreview(absPath);
+        if (preview) {
+          lines.push(`### \`${art.path}\``);
+          lines.push('');
+          const semantic = extractGateFileSemantic(art.path, preview.raw);
+          if (semantic) {
+            lines.push(`**Semantic: ${semantic}**`);
+            lines.push('');
+          }
+          lines.push('```');
+          lines.push(preview.content);
+          lines.push('```');
+          if (preview.truncated) {
+            lines.push('');
+            lines.push(`_Preview truncated after ${GATE_FILE_PREVIEW_MAX_LINES} lines._`);
+          }
+          lines.push('');
+        }
+      }
+    }
+  }
+
+  // Phase gate requirements
   const routing = config.routing?.[phase];
   const exitGate = routing?.exit_gate;
   const gateConfig = exitGate ? config.gates?.[exitGate] : null;

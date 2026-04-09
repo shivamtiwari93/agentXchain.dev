@@ -10,6 +10,7 @@ const SECTION_DEFINITIONS = [
   { id: 'last_turn_verification', header: null, required: false },
   { id: 'blockers', header: 'Blockers', required: true },
   { id: 'escalation', header: 'Escalation', required: true },
+  { id: 'workflow_artifacts', header: 'Workflow Artifacts', required: false },
   { id: 'gate_required_files', header: 'Gate Required Files', required: false },
   { id: 'phase_gate_status', header: 'Phase Gate Status', required: false },
 ];
@@ -88,6 +89,7 @@ export function renderContextSections(sections) {
 
   appendTopLevelSection(lines, 'Blockers', [sectionMap.get('blockers')?.content]);
   appendTopLevelSection(lines, 'Escalation', [sectionMap.get('escalation')?.content]);
+  appendTopLevelSection(lines, 'Workflow Artifacts', [sectionMap.get('workflow_artifacts')?.content]);
   appendTopLevelSection(lines, 'Gate Required Files', [sectionMap.get('gate_required_files')?.content]);
   appendTopLevelSection(lines, 'Phase Gate Status', [sectionMap.get('phase_gate_status')?.content]);
 

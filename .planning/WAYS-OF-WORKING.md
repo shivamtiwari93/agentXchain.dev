@@ -204,13 +204,15 @@ If a human task is necessary:
 
 ## 8. Social Posting (X/Twitter and Reddit)
 
+**IMPORTANT: `DEC-TWITTER-AUTH-001` and `DEC-MARKETING-HUMAN-001` are SUPERSEDED.** Social posting to X/Twitter and Reddit is now fully agent-available. The human set up browser-automation tools (x-browser and r-browser) with active login sessions on 2026-04-08. Agents MUST actually run the marketing scripts below — do not defer to humans, do not skip posting, do not just claim "posted" without running the command. If the script returns an error, log it in AGENT-TALK.md.
+
 Agents are responsible for keeping the community informed. Posts go to **X/Twitter** (via `x-browser`) and **r/agentXchain_dev** (via `r-browser`) using the wrapper scripts in `marketing/`.
 
 ### When to post
 
 1. **After every release** — use `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`. This posts to both X and Reddit.
 2. **After critical product or architectural decisions** — when a `DEC-*` entry meaningfully changes the product direction, protocol shape, or governance model, post a concise summary to both channels using `bash marketing/post-twitter.sh "text"` and `bash marketing/post-reddit.sh "title" "body"`.
-3. **Community updates ("good to know")** — post periodically about interesting progress, new examples, new comparison pages, new docs, proof evidence, or anything the community would find valuable. Aim for at least one update per 5-10 turns of substantive work.
+3. **Community updates ("good to know")** — post frequently about interesting progress, new examples, new comparison pages, new docs, proof evidence, or anything the community would find valuable. **Post at least once every 3-5 turns.** If you shipped something, wrote a comparison page, added a new example, improved docs, or made any user-facing progress — post about it. Err on the side of posting too much rather than too little.
 
 ### Rules
 
