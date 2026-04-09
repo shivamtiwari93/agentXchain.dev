@@ -27,7 +27,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Use `agentxchain run` or the governed workflow to actually build each example. The commit history should show the governed development process.
   - Delivery split (created 2026-04-09 so the queue can be worked honestly instead of hand-waved):
     - [x] `examples/habit-board` — consumer SaaS habit tracker: Node.js web app with REST API, JSON persistence, streak logic, responsive dark-theme vanilla JS frontend, 29 tests, 4-role designer-in-the-loop workflow with explicit workflow-kit, shipped in Turn 9
-    - [ ] `examples/trail-meals-mobile` — mobile meal-planning app
+    - [x] `examples/trail-meals-mobile` — mobile meal-planning app: React Native (Expo) hiker meal planner with offline-first AsyncStorage, calorie/weight planner, platform matrix (iOS/Android/Expo Go), 6-role (pm/mobile_architect/rn_engineer/nutrition_analyst/ux_reviewer/qa) 5-phase workflow, 26 tests, shipped in Turn 11
     - [x] `examples/async-standup-bot` — B2B SaaS standup/status collector: Node.js web app with team/member management, async check-in upserts, summary markdown, reminder previews, retention prune operations, 15 tests, and a 5-role planning/integration/implementation/operations/qa workflow shipped in Turn 10
     - [x] `examples/decision-log-linter` — developer tool CLI with explicit workflow-kit, custom architecture/release phases, runnable tests, and `template validate` proof shipped in Turn 8
     - [ ] `examples/schema-guard` — open source validation library

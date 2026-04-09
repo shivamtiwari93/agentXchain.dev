@@ -1,0 +1,244 @@
+{
+  "schema_version": "1.0",
+  "template": "generic",
+  "project": {
+    "id": "trail-meals-mobile",
+    "name": "Trail Meals Mobile",
+    "default_branch": "main"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Own trip/meal planning scope, user stories, acceptance criteria, and product direction for hiker meal prep.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    },
+    "mobile_architect": {
+      "title": "Mobile Architect",
+      "mandate": "Own platform matrix (iOS/Android/Expo Go), offline-first storage strategy, and navigation architecture.",
+      "write_authority": "review_only",
+      "runtime": "manual-arch"
+    },
+    "rn_engineer": {
+      "title": "React Native Engineer",
+      "mandate": "Implement screens, navigation, offline storage, and platform-specific code using React Native and Expo.",
+      "write_authority": "authoritative",
+      "runtime": "manual-rn"
+    },
+    "nutrition_analyst": {
+      "title": "Nutrition Analyst",
+      "mandate": "Validate calorie/weight formulas, edge cases, unit accuracy, and hiking nutrition requirements.",
+      "write_authority": "review_only",
+      "runtime": "manual-nutrition"
+    },
+    "ux_reviewer": {
+      "title": "UX Reviewer",
+      "mandate": "Review mobile UX patterns: navigation flow, gesture behavior, safe areas, accessibility, and mobile-first design.",
+      "write_authority": "review_only",
+      "runtime": "manual-ux"
+    },
+    "qa": {
+      "title": "QA Engineer",
+      "mandate": "Validate end-to-end correctness, offline scenarios, nutrition math edge cases, and ship readiness.",
+      "write_authority": "review_only",
+      "runtime": "manual-qa"
+    }
+  },
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "manual-arch": { "type": "manual" },
+    "manual-rn": { "type": "manual" },
+    "manual-nutrition": { "type": "manual" },
+    "manual-ux": { "type": "manual" },
+    "manual-qa": { "type": "manual" }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "mobile_architect", "human"],
+      "exit_gate": "planning_signoff"
+    },
+    "architecture": {
+      "entry_role": "mobile_architect",
+      "allowed_next_roles": ["mobile_architect", "rn_engineer", "human"],
+      "exit_gate": "architecture_approved"
+    },
+    "implementation": {
+      "entry_role": "rn_engineer",
+      "allowed_next_roles": ["rn_engineer", "nutrition_analyst", "ux_reviewer", "qa", "human"],
+      "exit_gate": "implementation_complete"
+    },
+    "ux_review": {
+      "entry_role": "ux_reviewer",
+      "allowed_next_roles": ["ux_reviewer", "rn_engineer", "qa", "human"],
+      "exit_gate": "ux_approved"
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["qa", "rn_engineer", "human"],
+      "exit_gate": "qa_ship_verdict"
+    }
+  },
+  "gates": {
+    "planning_signoff": {
+      "requires_files": [
+        ".planning/ROADMAP.md",
+        ".planning/nutrition-model.md"
+      ],
+      "requires_human_approval": true
+    },
+    "architecture_approved": {
+      "requires_files": [
+        ".planning/platform-matrix.md",
+        ".planning/offline-strategy.md"
+      ]
+    },
+    "implementation_complete": {
+      "requires_files": [
+        ".planning/API_CONTRACT.md"
+      ],
+      "requires_verification_pass": true
+    },
+    "ux_approved": {
+      "requires_files": [
+        ".planning/ux-patterns.md"
+      ]
+    },
+    "qa_ship_verdict": {
+      "requires_files": [
+        ".planning/acceptance-matrix.md",
+        ".planning/ship-verdict.md"
+      ],
+      "requires_human_approval": true
+    }
+  },
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "artifacts": [
+          {
+            "path": ".planning/ROADMAP.md",
+            "semantics": null,
+            "required": true,
+            "owned_by": "pm"
+          },
+          {
+            "path": ".planning/nutrition-model.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "pm",
+            "semantics_config": {
+              "required_sections": [
+                "## Calorie Computation",
+                "## Weight Budget",
+                "## Hiking Nutrition Requirements"
+              ]
+            }
+          }
+        ]
+      },
+      "architecture": {
+        "artifacts": [
+          {
+            "path": ".planning/platform-matrix.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "mobile_architect",
+            "semantics_config": {
+              "required_sections": [
+                "## iOS",
+                "## Android",
+                "## Expo Go"
+              ]
+            }
+          },
+          {
+            "path": ".planning/offline-strategy.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "mobile_architect",
+            "semantics_config": {
+              "required_sections": [
+                "## Storage Backend",
+                "## Data Shape",
+                "## Offline Guarantees"
+              ]
+            }
+          }
+        ]
+      },
+      "implementation": {
+        "artifacts": [
+          {
+            "path": ".planning/API_CONTRACT.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "rn_engineer",
+            "semantics_config": {
+              "required_sections": [
+                "## Data Model",
+                "## Storage Interface",
+                "## Computed Fields"
+              ]
+            }
+          }
+        ]
+      },
+      "ux_review": {
+        "artifacts": [
+          {
+            "path": ".planning/ux-patterns.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "ux_reviewer",
+            "semantics_config": {
+              "required_sections": [
+                "## Navigation Pattern",
+                "## Gesture Behavior",
+                "## Safe Areas and Platform Adaptation"
+              ]
+            }
+          }
+        ]
+      },
+      "qa": {
+        "artifacts": [
+          {
+            "path": ".planning/acceptance-matrix.md",
+            "semantics": "acceptance_matrix",
+            "required": true,
+            "owned_by": "qa"
+          },
+          {
+            "path": ".planning/ship-verdict.md",
+            "semantics": "ship_verdict",
+            "required": true,
+            "owned_by": "qa"
+          }
+        ]
+      }
+    }
+  },
+  "prompts": {
+    "pm": ".agentxchain/prompts/pm.md",
+    "mobile_architect": ".agentxchain/prompts/mobile_architect.md",
+    "rn_engineer": ".agentxchain/prompts/rn_engineer.md",
+    "nutrition_analyst": ".agentxchain/prompts/nutrition_analyst.md",
+    "ux_reviewer": ".agentxchain/prompts/ux_reviewer.md",
+    "qa": ".agentxchain/prompts/qa.md"
+  },
+  "budget": {
+    "per_turn_max_usd": 1.0,
+    "per_run_max_usd": 10.0,
+    "on_exceed": "pause_and_escalate"
+  },
+  "retention": {
+    "talk_strategy": "append_only",
+    "history_strategy": "jsonl_append_only"
+  },
+  "rules": {
+    "challenge_required": true,
+    "max_turn_retries": 2,
+    "max_deadlock_cycles": 2
+  }
+}

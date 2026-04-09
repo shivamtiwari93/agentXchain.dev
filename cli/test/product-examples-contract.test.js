@@ -12,6 +12,7 @@ const SPEC_PATH = join(REPO_ROOT, '.planning', 'PRODUCT_EXAMPLES_SPEC.md');
 const DECISION_LOG_DIR = join(REPO_ROOT, 'examples', 'decision-log-linter');
 const HABIT_BOARD_DIR = join(REPO_ROOT, 'examples', 'habit-board');
 const ASYNC_STANDUP_BOT_DIR = join(REPO_ROOT, 'examples', 'async-standup-bot');
+const TRAIL_MEALS_DIR = join(REPO_ROOT, 'examples', 'trail-meals-mobile');
 const README_PATH = join(REPO_ROOT, 'README.md');
 
 function runNode(args, cwd) {
@@ -177,6 +178,62 @@ describe('product examples contract', () => {
     assert.ok(
       readme.includes('[async-standup-bot](examples/async-standup-bot/)'),
       'root README examples table must list the async-standup-bot example',
+    );
+  });
+
+  it('ships the trail-meals-mobile example with governed and product files', () => {
+    for (const relPath of [
+      'README.md',
+      'package.json',
+      'agentxchain.json',
+      'TALK.md',
+      'app.json',
+      'App.js',
+      '.planning/ROADMAP.md',
+      '.planning/platform-matrix.md',
+      '.planning/offline-strategy.md',
+      '.planning/ux-patterns.md',
+      '.planning/nutrition-model.md',
+      '.planning/API_CONTRACT.md',
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      'src/model/trip.js',
+      'src/model/meal.js',
+      'src/model/ingredient.js',
+      'src/model/planner.js',
+      'src/storage/offline-store.js',
+      'src/screens/TripsScreen.js',
+      'src/navigation/AppNavigator.js',
+      'test/planner.test.js',
+      'test/model.test.js',
+      'test/storage.test.js',
+    ]) {
+      assert.ok(existsSync(join(TRAIL_MEALS_DIR, relPath)), `${relPath} must exist in trail-meals-mobile example`);
+    }
+  });
+
+  it('proves the trail-meals-mobile test suite passes', () => {
+    const result = runNode(['--test', 'test/'], TRAIL_MEALS_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+
+  it('proves the trail-meals-mobile workflow-kit contract passes template validate', () => {
+    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], TRAIL_MEALS_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.workflow_kit.ok, true);
+    assert.ok(
+      payload.workflow_kit.required_files.includes('.planning/platform-matrix.md'),
+      'architecture-phase workflow artifact must be part of the validated contract',
+    );
+  });
+
+  it('documents the trail-meals-mobile example on the root README examples table', () => {
+    const readme = readFileSync(README_PATH, 'utf8');
+    assert.ok(
+      readme.includes('[trail-meals-mobile](examples/trail-meals-mobile/)'),
+      'root README examples table must list the trail-meals-mobile example',
     );
   });
 });

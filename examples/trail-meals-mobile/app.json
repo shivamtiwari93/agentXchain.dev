@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Trail Meals",
+    "slug": "trail-meals-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0f0f23"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.agentxchain.trailmeals"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0f0f23"
+      },
+      "package": "dev.agentxchain.trailmeals"
+    },
+    "platforms": ["ios", "android"]
+  }
+}

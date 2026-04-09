@@ -373,6 +373,7 @@ Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_ma
 | [decision-log-linter](examples/decision-log-linter/) | Governed developer-tool example: a real CLI that lints markdown decision logs with explicit workflow-kit, custom architecture phase, and release phase |
 | [habit-board](examples/habit-board/) | Governed consumer SaaS example: a habit tracker web app with REST API, streak logic, responsive UI, and a designer-in-the-loop 4-phase workflow |
 | [async-standup-bot](examples/async-standup-bot/) | Governed B2B SaaS example: a team standup collector with reminder previews, manager summaries, retention operations, and a 5-phase integration/ops workflow |
+| [trail-meals-mobile](examples/trail-meals-mobile/) | Governed mobile app example: a React Native (Expo) hiker meal planner with offline-first AsyncStorage, nutrition math, platform matrix, and a 6-role mobile-specific workflow |
 | [external-runner-starter](examples/external-runner-starter/) | Canonical installed-package starter for external runner authors — `npm install agentxchain` + `import from 'agentxchain/runner-interface'` |
 | [ci-runner-proof](examples/ci-runner-proof/) | Repo-native runner proof in 3 tiers: single-turn primitive, full lifecycle, and `runLoop` composition |
 | [mcp-echo-agent](examples/mcp-echo-agent/) | Reference MCP stdio server implementing `agentxchain_turn` with a validator-clean no-op result |
