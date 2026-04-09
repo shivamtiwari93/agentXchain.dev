@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.34.2
+
+`2.34.2` is the public cross-session continuity release.
+
+### Release surfaces now agree on the shipped package
+
+- Corrected the remaining release-governed drift caught by strict preflight:
+  - `.agentxchain-conformance/capabilities.json`
+  - homepage hero badge
+  - protocol implementor guide example config
+  - launch evidence header
+  - linked Docusaurus release notes surface
+- This is the first version in the restart/extension-security slice that is actually aligned enough to publish.
+
+### Restart and extension hardening remain the actual product delta
+
+- `restart` checkpoint serialization now preserves real phase and turn identity.
+- Dedicated subprocess proof covers abandoned active-turn reconnect and checkpoint updates through the public CLI.
+- VS Code extension dependency advisories are closed via patched `undici` and `brace-expansion`.
+
+### Evidence
+
+- **2862 tests / 601 suites / 0 failures**
+- `node --test cli/test/session-checkpoint.test.js cli/test/restart-cli.test.js`
+- `cd cli && npm test`
+- `cd cli/vscode-extension && npm audit --json`
+
 ## 2.34.1
 
 `2.34.1` is the releasable cross-session continuity release.

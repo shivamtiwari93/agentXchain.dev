@@ -1,0 +1,64 @@
+---
+title: "v2.34.2 Release Notes"
+description: "Cross-session continuity release: restart now ships on npm with truthful checkpoints, dedicated subprocess recovery proof, remediated extension advisories, and corrected release-surface drift."
+---
+
+# AgentXchain v2.34.2
+
+`2.34.2` is the public cross-session continuity release.
+
+The underlying product slice did not change after `restart` landed. What changed was release discipline: preflight caught stale release metadata before anything went public, so the final npm release is the first one that is actually aligned across package, docs, homepage, and conformance surfaces.
+
+## `restart` now ships with truthful checkpoint state
+
+Checkpoint serialization now matches the governed runtime’s real state shape:
+
+- `last_phase` falls back to `state.phase`
+- `last_turn_id` recognizes both `id` and `turn_id`
+- `last_role` recognizes both `role` and `assigned_role`
+
+That fixes the real defect where `approve-transition` could leave `session.json.last_phase = null`.
+
+## The missing restart recovery cases are now proven through the CLI
+
+Dedicated subprocess proof now covers:
+
+- reconnecting to an abandoned active turn in a fresh process
+- proving that `accept-turn` and `approve-transition` both update `session.json`
+
+This is not theoretical coverage. The new proof found the checkpoint serializer bug immediately.
+
+## Stale checkpoint mismatch behavior is documented honestly
+
+The restart contract now states the real recovery behavior:
+
+- `state.json` is the source of truth
+- stale `session.json` run-id mismatch warns
+- restart proceeds when the durable governed state is still recoverable
+
+## VS Code extension advisories are remediated
+
+The vendored extension dependency set now resolves to patched transitive versions:
+
+- `undici@6.24.0`
+- `brace-expansion@1.1.13`
+
+`cd cli/vscode-extension && npm audit --json` now reports zero vulnerabilities.
+
+## Release surfaces now agree on the shipped version
+
+The final public release corrects the release-governed surfaces preflight found drifting during the unpublished prep:
+
+- Docusaurus release page and sidebar
+- homepage hero badge
+- protocol implementor guide example config
+- launch evidence header
+- `.agentxchain-conformance/capabilities.json`
+
+## Evidence
+
+- **2862 tests / 601 suites / 0 failures**
+- `node --test cli/test/session-checkpoint.test.js cli/test/restart-cli.test.js`
+- `cd cli && npm test`
+- `cd cli/vscode-extension && npm audit --json`
+
