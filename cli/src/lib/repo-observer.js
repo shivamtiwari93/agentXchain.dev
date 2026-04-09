@@ -34,6 +34,7 @@ const OPERATIONAL_PATH_PREFIXES = [
 // These are written exclusively by the orchestrator (§4.1 State Ownership Rule).
 const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/state.json',
+  '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
   '.agentxchain/lock.json',

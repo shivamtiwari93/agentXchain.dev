@@ -35,6 +35,7 @@ import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
 import { emitNotifications } from './notification-runner.js';
+import { writeSessionCheckpoint } from './session-checkpoint.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -2483,6 +2484,11 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }, currentTurn);
   }
 
+  // Session checkpoint — non-fatal, written after every successful acceptance
+  writeSessionCheckpoint(root, updatedState, 'turn_accepted', {
+    role: historyEntry?.role,
+  });
+
   return {
     ok: true,
     state: attachLegacyCurrentTurnAlias(updatedState),
@@ -2791,6 +2797,9 @@ export function approvePhaseTransition(root, config) {
 
   writeState(root, updatedState);
 
+  // Session checkpoint — non-fatal
+  writeSessionCheckpoint(root, updatedState, 'phase_approved');
+
   return {
     ok: true,
     state: attachLegacyCurrentTurnAlias(updatedState),
@@ -2888,6 +2897,9 @@ export function approveRunCompletion(root, config) {
     gate: completion.gate,
     requested_by_turn: completion.requested_by_turn || null,
   }, completion.requested_by_turn ? getActiveTurns(state)[completion.requested_by_turn] || null : null);
+
+  // Session checkpoint — non-fatal
+  writeSessionCheckpoint(root, updatedState, 'run_completed');
 
   return {
     ok: true,

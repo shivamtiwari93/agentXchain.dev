@@ -41,6 +41,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
 | `restore` | Migration | Restore governed continuity roots from a prior run export into another checkout of the same repo |
+| `restart` | Turn lifecycle | Restart a governed run from the last checkpoint after a session boundary (terminal close, machine restart, context loss) |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
@@ -212,6 +213,30 @@ The command fails closed unless all of these are true:
 - the target `project.id` matches the export's `project.id`
 
 `restore` is deliberately not a general sync engine. It does **not** migrate arbitrary product source files. If the source export depends on dirty files outside the governed continuity roots (`agentxchain.json`, `.agentxchain/**`, `.planning/**`, `TALK.md`), restore will tell you exactly which paths made the bundle unsafe.
+
+### `restart`
+
+```bash
+agentxchain restart [--role <role>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--role <role>` | routing default | Override the next role assignment |
+
+Restarts a governed run from the last automatic checkpoint after a session boundary: terminal close, machine restart, agent context window exhaustion, or any situation where in-memory session state was lost.
+
+Unlike `resume` (which assumes the caller already has session context), `restart` assumes **no** session context and reconstructs everything from durable state on disk (`.agentxchain/state.json` and `.agentxchain/session.json`).
+
+The runtime automatically writes checkpoint markers at every governance boundary (turn acceptance, phase transition, run completion). When `restart` runs, it:
+
+1. Reads the last checkpoint and current state
+2. Validates the run is resumable (not completed, failed, or blocked)
+3. Reactivates the run if paused
+4. Assigns the next turn from routing (or reconnects to an abandoned active turn)
+5. Writes `.agentxchain/SESSION_RECOVERY.md` — a briefing document for the new session with run identity, checkpoint state, recent decisions, and turn history
+
+This is the cross-session continuity primitive for long-horizon governed runs.
 
 ### `resume`
 

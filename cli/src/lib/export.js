@@ -43,6 +43,7 @@ export const RUN_RESTORE_ROOTS = [
   'agentxchain.json',
   'TALK.md',
   '.agentxchain/state.json',
+  '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
   '.agentxchain/hook-audit.jsonl',

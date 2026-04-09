@@ -76,6 +76,7 @@ import { approveCompletionCommand } from '../src/commands/approve-completion.js'
 import { dashboardCommand } from '../src/commands/dashboard.js';
 import { exportCommand } from '../src/commands/export.js';
 import { restoreCommand } from '../src/commands/restore.js';
+import { restartCommand } from '../src/commands/restart.js';
 import { reportCommand } from '../src/commands/report.js';
 import {
   pluginInstallCommand,
@@ -145,6 +146,12 @@ program
   .description('Restore governed continuity roots from a run export artifact')
   .requiredOption('--input <path>', 'Path to a prior run export artifact')
   .action(restoreCommand);
+
+program
+  .command('restart')
+  .description('Restart a governed run from the last checkpoint (cross-session recovery)')
+  .option('--role <role>', 'Override the next role assignment')
+  .action(restartCommand);
 
 program
   .command('report')
