@@ -1,27 +1,19 @@
-# React + TypeScript + Vite
+# Baby Tracker Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite frontend for the Baby Tracker example project.
 
-Currently, two official plugins are available:
+## Maintained Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `npm run dev` starts the Vite dev server
+- `npm run build` produces the production bundle
+- `npm test` runs the Vitest suite
 
-## Expanding the ESLint configuration
+## Scope
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+This example keeps a deliberately small maintained toolchain:
 
-- Configure the top-level `parserOptions` property like this:
+- Vite for dev/build
+- Vitest + jsdom for the frontend test surface
+- React plugin for Fast Refresh
 
-```js
-   parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-   },
-```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+Linting is intentionally not part of the maintained example workflow until someone owns it as a first-class repo surface.

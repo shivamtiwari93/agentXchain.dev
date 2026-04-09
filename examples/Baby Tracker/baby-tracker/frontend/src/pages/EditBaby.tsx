@@ -5,7 +5,7 @@ import api from '../lib/api';
 
 export default function EditBaby() {
   const { id } = useParams<{ id: string }>();
-  const { babies, fetchBabies, setSelectedBabyId } = useBaby();
+  const { babies, fetchBabies } = useBaby();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');

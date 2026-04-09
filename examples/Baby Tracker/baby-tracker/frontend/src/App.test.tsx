@@ -1,8 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
-import { BabyProvider } from './context/BabyContext';
 import { vi } from 'vitest';
 
 // Mock the API module
@@ -24,7 +22,7 @@ vi.mock('./lib/api', () => {
 describe('App Routing & Smoke Test', () => {
   beforeEach(() => {
     // Clear local storage to ensure unauthenticated state
-    localStorage.clear();
+    window.localStorage.clear();
     window.history.pushState({}, '', '/login');
   });
 

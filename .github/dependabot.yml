@@ -4,8 +4,25 @@ updates:
     directory: "/cli"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "commander"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "inquirer"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "npm"
     directory: "/examples/Baby Tracker/baby-tracker"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "better-sqlite3"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "bcryptjs"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@types/bcryptjs"
+        update-types:
+          - "version-update:semver-major"

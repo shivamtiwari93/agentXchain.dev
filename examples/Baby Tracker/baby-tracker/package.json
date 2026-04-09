@@ -5,6 +5,9 @@
     "backend",
     "frontend"
   ],
+  "overrides": {
+    "picomatch": "2.3.2"
+  },
   "scripts": {
     "test": "npm run test --workspaces --if-present"
   }
