@@ -85,6 +85,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-005`: In a temp git repo rooted above `cli/`, `release-bump.sh --target-version <semver>` updates `package.json` and `package-lock.json`, creates commit `<semver>`, and creates an annotated tag `v<semver>` that dereferences to `HEAD`
 - `AT-RIH-006`: `release-bump.sh` fails before mutating version files when the tree contains dirty paths outside the release-surface whitelist or the target tag already exists
 - `AT-RIH-007`: In a temp git repo with target-version release-surface edits staged only in the whitelist, `release-bump.sh --target-version <semver>` includes those release-surface files in the release commit instead of rejecting the tree or omitting them
+- `AT-RIH-008`: `release-bump.sh` rejects the bump when version surfaces still reference the old version (all-stale and partial-drift cases), does not mutate `package.json`, and does not create a tag
 
 ## Open Questions
 

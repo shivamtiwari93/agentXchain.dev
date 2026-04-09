@@ -91,6 +91,18 @@ function runReleaseBump(cliDir, targetVersion) {
   });
 }
 
+function prepareTargetSurfaces(root, targetVersion) {
+  const vDash = targetVersion.replace(/\./g, '-');
+  writeFileSync(join(root, 'cli', 'CHANGELOG.md'), `# Changelog\n\n## ${targetVersion}\n\nPrepared release notes.\n\n### Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n`);
+  mkdirSync(join(root, 'website-v2', 'docs', 'releases'), { recursive: true });
+  writeFileSync(join(root, 'website-v2', 'docs', 'releases', `v${vDash}.mdx`), `---\ntitle: "v${targetVersion} Release Notes"\n---\n\n# AgentXchain v${targetVersion}\n\n## Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n`);
+  writeFileSync(join(root, 'website-v2', 'sidebars.ts'), `'releases/v${vDash}'\n`);
+  writeFileSync(join(root, 'website-v2', 'src', 'pages', 'index.tsx'), `<div className="hero-badge">v${targetVersion}</div>\n`);
+  writeFileSync(join(root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: targetVersion }, null, 2) + '\n');
+  writeFileSync(join(root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), `{"version": "${targetVersion}"}\n`);
+  writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${targetVersion}\n`);
+}
+
 describe('Release identity hardening', () => {
   describe('AT-RIH-001: release-bump.sh exists and is executable', () => {
     it('script exists', () => {
@@ -233,6 +245,17 @@ describe('Release identity hardening', () => {
       );
     });
 
+    it('runs pre-bump version-surface alignment guard', () => {
+      assert.ok(
+        script.includes('version-surface alignment') || script.includes('version-surface(s) not aligned'),
+        'script must check version-surface alignment before creating release identity',
+      );
+      assert.ok(
+        script.includes('SURFACE_ERRORS'),
+        'script must collect surface errors and fail closed if any are stale',
+      );
+    });
+
     it('verifies the tag is annotated and resolves to the release commit', () => {
       assert.ok(
         script.includes('git cat-file -t "v${TARGET_VERSION}"'),
@@ -273,6 +296,8 @@ describe('Release identity hardening', () => {
   describe('AT-RIH-005: release-bump.sh creates real release identity in a temp repo', () => {
     it('updates version files, creates the release commit, and creates an annotated tag', () => {
       const fixture = createReleaseBumpFixture();
+      // Prepare version surfaces for the target version (pre-bump guard requires this)
+      prepareTargetSurfaces(fixture.root, '2.20.0');
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
 
       assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -336,6 +361,38 @@ describe('Release identity hardening', () => {
 
       const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
       assert.equal(pkg.version, '2.19.0');
+    });
+  });
+
+  describe('AT-RIH-008: release-bump.sh rejects stale version surfaces before creating release identity', () => {
+    it('fails when version surfaces still reference the old version', () => {
+      const fixture = createReleaseBumpFixture();
+      // Do NOT call prepareTargetSurfaces — surfaces still show 2.19.0
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /version-surface.*not aligned/);
+
+      // Verify no mutation happened
+      const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
+      assert.equal(pkg.version, '2.19.0', 'package.json must not be mutated when surfaces are stale');
+
+      const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when surfaces are stale');
+    });
+
+    it('fails when a single surface is stale (partial drift)', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      // Revert just the capabilities.json to old version
+      writeFileSync(join(fixture.root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: '2.19.0' }, null, 2) + '\n');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /capabilities\.json/);
+      assert.match(result.stderr, /version-surface.*not aligned/);
     });
   });
 

@@ -14,10 +14,10 @@ jobs:
       run:
         working-directory: cli
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: cli/package-lock.json
       - run: npm ci
@@ -37,10 +37,10 @@ jobs:
       run:
         working-directory: examples/Baby Tracker/baby-tracker
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: examples/Baby Tracker/baby-tracker/package-lock.json
       - run: npm ci

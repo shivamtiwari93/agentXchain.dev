@@ -25,12 +25,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: 'website-v2/package-lock.json'
 
@@ -45,7 +45,7 @@ jobs:
       - name: Authenticate to GCP
         if: ${{ env.GCP_WIF_PROVIDER != '' && env.GCP_WIF_SERVICE_ACCOUNT != '' }}
         id: auth-wif
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
           service_account: ${{ env.GCP_WIF_SERVICE_ACCOUNT }}
@@ -53,7 +53,7 @@ jobs:
       - name: Authenticate to GCP via service account key
         if: ${{ !(env.GCP_WIF_PROVIDER != '' && env.GCP_WIF_SERVICE_ACCOUNT != '') && env.GCP_SERVICE_ACCOUNT_KEY_JSON != '' }}
         id: auth-key
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ env.GCP_SERVICE_ACCOUNT_KEY_JSON }}
 
@@ -66,7 +66,7 @@ jobs:
           exit 1
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       # GCS bucket: agentxchain.dev in project apps1008com
       # Docusaurus generates content-hashed filenames for JS/CSS bundles
