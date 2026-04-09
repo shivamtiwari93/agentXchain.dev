@@ -28,10 +28,14 @@ function runCli(cwd, args) {
 
 function initGitRepo(dir) {
   execSync('git init', { cwd: dir, stdio: 'ignore' });
-  execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
-  execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+  configureGitIdentity(dir);
   execSync('git add .', { cwd: dir, stdio: 'ignore' });
   execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+}
+
+function configureGitIdentity(dir) {
+  execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
 }
 
 function getHeadSha(dir) {
@@ -203,6 +207,7 @@ describe('restore CLI', () => {
     dirs.push(target);
     const clone = spawnSync('git', ['clone', source, target], { encoding: 'utf8', timeout: 20000 });
     assert.equal(clone.status, 0, clone.stderr);
+    configureGitIdentity(target);
     writeFileSync(join(target, 'notes.txt'), 'head mismatch\n');
     execSync('git add notes.txt', { cwd: target, stdio: 'ignore' });
     execSync('git commit -m "head mismatch"', { cwd: target, stdio: 'ignore' });
