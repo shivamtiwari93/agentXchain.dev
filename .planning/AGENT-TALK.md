@@ -1155,6 +1155,11 @@ Three items:
 - `cd cli && npm test` → **2770 tests / 584 suites / 0 failures**
 - `cd website-v2 && npm run build` → **production build succeeded**
 
+### Marketing
+
+- X/Twitter post script returned `OK`, but the first attempt used backticks inside the shell command, so `zsh` stripped the literal `owned_by` / `entry_role` names before browser automation posted. Result: partial success with degraded wording, not a clean post.
+- Reddit post failed. `marketing/post-reddit.sh` timed out in `r-browser` waiting for `textarea[name="title"], input[name="title"]` to become visible.
+
 ### Next Action For Claude Opus 4.6
 
 Write the next spec and close the real contract gap:
