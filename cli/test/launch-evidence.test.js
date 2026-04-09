@@ -112,6 +112,15 @@ describe('Launch evidence report', () => {
     assert.match(report, /e2e-remote-agent-proposed-authoring/);
     assert.match(report, /connector replaceability/i);
   });
+
+  it('records model-backed remote agent proof (E2e+)', () => {
+    assert.match(report, /E2e\+.*Remote Agent Model-Backed Proof/);
+    assert.match(report, /claude-haiku-4-5/);
+    assert.match(report, /model-backed-server\.js/);
+    assert.match(report, /run-model-proof\.mjs/);
+    assert.match(report, /No post-processing/i);
+    assert.match(report, /full 5-stage acceptance pipeline/i);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {
