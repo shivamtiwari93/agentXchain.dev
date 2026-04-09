@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
     'export-schema',
     'governance-report',
     'templates',
+    'examples',
     {
       type: 'category',
       label: 'Protocol',

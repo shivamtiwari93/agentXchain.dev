@@ -865,6 +865,46 @@ function EndVision() {
   );
 }
 
+function Examples() {
+  const examples = [
+    { name: 'Habit Board', category: 'Consumer SaaS', roles: 4, phases: 4, tests: 29, desc: 'Daily habit tracker with streaks, dark-theme UI, and JSON persistence.' },
+    { name: 'Trail Meals Mobile', category: 'Mobile App', roles: 6, phases: 5, tests: 26, desc: 'React Native meal planner for hikers with offline-first AsyncStorage.' },
+    { name: 'Async Standup Bot', category: 'B2B SaaS', roles: 5, phases: 5, tests: 15, desc: 'Team standup collector with reminders, summaries, and data retention.' },
+    { name: 'Decision Log Linter', category: 'Developer Tool', roles: 5, phases: 5, tests: 8, desc: 'CLI that validates markdown decision logs for structure and integrity.' },
+    { name: 'Schema Guard', category: 'Open Source Library', roles: 5, phases: 5, tests: 19, desc: 'Declarative schema-validation library with composable validators.' },
+  ];
+
+  return (
+    <section style={{ padding: '5rem 0' }}>
+      <div className="container">
+        <span className="section-label text-blue">Proof</span>
+        <h2>Five products. Five categories. Zero human code.</h2>
+        <p className="section-subtitle">
+          Each was built from scratch under AgentXchain governance with distinct
+          team shapes, workflow phases, and governed artifacts.
+        </p>
+        <div className="feature-grid">
+          {examples.map((ex) => (
+            <div className="feature-card" key={ex.name}>
+              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--axc-green-light)', fontWeight: 600 }}>{ex.category}</span>
+              <h3 style={{ margin: '0.5rem 0 0.25rem' }}>{ex.name}</h3>
+              <p style={{ fontSize: '0.9rem' }}>{ex.desc}</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--ifm-font-color-secondary)', margin: 0 }}>
+                {ex.roles} roles &middot; {ex.phases} phases &middot; {ex.tests} tests
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="cta-row" style={{ marginTop: '2rem' }}>
+          <Link className="btn-secondary" to="/docs/examples">
+            Browse all examples &rarr;
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CTA() {
   const iconSrc = useBaseUrl('/img/agentXchain.dev_icon_only_280x280px.png');
   return (
@@ -920,6 +960,7 @@ export default function Home(): React.ReactElement {
       <WhatItIsNot />
       <Outcomes />
       <EndVision />
+      <Examples />
       <CTA />
     </Layout>
   );

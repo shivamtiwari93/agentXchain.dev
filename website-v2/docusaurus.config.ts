@@ -143,6 +143,7 @@ const config: Config = {
             {label: 'Quickstart', to: '/docs/quickstart'},
             {label: 'CLI Reference', to: '/docs/cli'},
             {label: 'Templates', to: '/docs/templates'},
+            {label: 'Examples', to: '/docs/examples'},
             {label: 'Multi-Repo', to: '/docs/multi-repo'},
           ],
         },
