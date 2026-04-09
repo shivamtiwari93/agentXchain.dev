@@ -646,6 +646,7 @@ function buildCoordinatorSubject(artifact) {
       base.hook_summary = extractHookSummary(childExport);
       base.gate_summary = extractGateSummary(childExport);
       base.recovery_summary = extractRecoverySummary(childExport);
+      base.continuity = extractContinuityMetadata(childExport);
       base.blocked_on = childExport.state?.blocked_on || null;
       return base;
     });
@@ -1023,6 +1024,17 @@ export function formatGovernanceReportText(report) {
       if (repo.recovery_summary) {
         repoLines.push(`  Recovery: ${repo.recovery_summary.category || 'unknown'} — ${repo.recovery_summary.typed_reason || 'unknown'} (owner: ${repo.recovery_summary.owner || 'unknown'})`);
       }
+      if (repo.continuity) {
+        repoLines.push('  Continuity:');
+        repoLines.push(`    Session: ${repo.continuity.session_id || 'unknown'}`);
+        repoLines.push(`    Checkpoint: ${repo.continuity.checkpoint_reason || 'unknown'} at ${repo.continuity.last_checkpoint_at || 'n/a'}`);
+        repoLines.push(`    Last turn: ${repo.continuity.last_turn_id || 'none'}`);
+        repoLines.push(`    Last role: ${repo.continuity.last_role || 'unknown'}`);
+        repoLines.push(`    Last phase: ${repo.continuity.last_phase || 'unknown'}`);
+        if (repo.continuity.stale_checkpoint) {
+          repoLines.push(`    WARNING: checkpoint tracks run ${repo.continuity.run_id}, but repo export tracks ${repo.run_id}`);
+        }
+      }
       return repoLines;
     }));
   return lines.join('\n');
@@ -1307,6 +1319,17 @@ export function formatGovernanceReportMarkdown(report) {
     }
     if (repo.recovery_summary) {
       repoLines.push('', '#### Recovery', '', `- Category: \`${repo.recovery_summary.category || 'unknown'}\``, `- Typed reason: \`${repo.recovery_summary.typed_reason || 'unknown'}\``, `- Owner: \`${repo.recovery_summary.owner || 'unknown'}\``, `- Action: \`${repo.recovery_summary.recovery_action || 'n/a'}\``);
+    }
+    if (repo.continuity) {
+      repoLines.push('', '#### Continuity', '');
+      repoLines.push(`- Session: \`${repo.continuity.session_id || 'unknown'}\``);
+      repoLines.push(`- Checkpoint: \`${repo.continuity.checkpoint_reason || 'unknown'}\` at \`${repo.continuity.last_checkpoint_at || 'n/a'}\``);
+      repoLines.push(`- Last turn: \`${repo.continuity.last_turn_id || 'none'}\``);
+      repoLines.push(`- Last role: \`${repo.continuity.last_role || 'unknown'}\``);
+      repoLines.push(`- Last phase: \`${repo.continuity.last_phase || 'unknown'}\``);
+      if (repo.continuity.stale_checkpoint) {
+        repoLines.push(`- **Warning:** checkpoint tracks run \`${repo.continuity.run_id}\`, but repo export tracks \`${repo.run_id}\``);
+      }
     }
     repoLines.push('');
     return repoLines;

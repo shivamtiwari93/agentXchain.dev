@@ -134,6 +134,7 @@ Each `subject.repos[]` row includes:
 - `project_id`
 - `project_name`
 - `error`
+- `continuity`
 
 When `ok` is `true`, child-repo drill-down fields are also present:
 
@@ -142,9 +143,11 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 - `hook_summary` — hook execution summary (`total`, `blocked`, `events`) or `null`
 - `gate_summary` — phase gate outcomes or `[]`
 - `recovery_summary` — blocked recovery context or `null`
+- `continuity` — child session checkpoint metadata or `null`
 - `blocked_on` — current blocked-on value or `null`
 
 These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
+When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
 ### `subject.recovery_report`
 
@@ -195,6 +198,8 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Recovery`
 - `## Continuity`
 - `## Workflow Artifacts`
+
+Coordinator markdown output also uses `#### Continuity` inside each repo detail block when child checkpoints exist.
 
 ### `subject.run.workflow_kit_artifacts`
 

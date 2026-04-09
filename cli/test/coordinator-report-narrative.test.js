@@ -38,7 +38,11 @@ function jsonlFileEntry(dataArray) {
 }
 
 // Build a minimal valid run export for nested repo entries
-function buildRepoExport(repoId, projectName, { historyEntries = [], decisionEntries = [] } = {}) {
+function buildRepoExport(repoId, projectName, {
+  historyEntries = [],
+  decisionEntries = [],
+  checkpoint = null,
+} = {}) {
   const projId = `${repoId}-proj`;
   const runId = `run_${repoId}_001`;
   const repoConfig = {
@@ -87,6 +91,7 @@ function buildRepoExport(repoId, projectName, { historyEntries = [], decisionEnt
     files: {
       'agentxchain.json': jsonFileEntry(repoConfig),
       '.agentxchain/state.json': jsonFileEntry(state),
+      ...(checkpoint ? { '.agentxchain/session.json': jsonFileEntry(checkpoint) } : {}),
       ...(historyEntries.length > 0 ? { '.agentxchain/history.jsonl': jsonlFileEntry(historyEntries) } : {}),
       ...(decisionEntries.length > 0 ? { '.agentxchain/decision-ledger.jsonl': jsonlFileEntry(decisionEntries) } : {}),
     },
@@ -354,12 +359,35 @@ function buildCoordinatorFixture(options = {}) {
             accepted_sequence: 1, accepted_at: '2026-04-06T19:05:00.000Z',
             files_changed: ['src/auth.ts'], decisions: [{ id: 'DEC-101' }],
           }],
+          checkpoint: {
+            session_id: 'sess_api_001',
+            run_id: 'run_api_001',
+            started_at: '2026-04-06T18:50:00.000Z',
+            last_checkpoint_at: '2026-04-06T19:05:00.000Z',
+            last_turn_id: 'turn_api_001',
+            last_phase: 'implementation',
+            last_role: 'dev',
+            run_status: 'completed',
+            checkpoint_reason: 'turn_accepted',
+          },
         }),
       },
       web: {
         ok: true,
         path: './repos/web',
-        export: buildRepoExport('web', 'Web'),
+        export: buildRepoExport('web', 'Web', {
+          checkpoint: {
+            session_id: 'sess_web_001',
+            run_id: 'run_web_stale_999',
+            started_at: '2026-04-06T18:52:00.000Z',
+            last_checkpoint_at: '2026-04-06T19:18:00.000Z',
+            last_turn_id: 'turn_web_002',
+            last_phase: 'implementation',
+            last_role: 'dev',
+            run_status: 'completed',
+            checkpoint_reason: 'manual_checkpoint',
+          },
+        }),
       },
     },
   };
@@ -532,6 +560,73 @@ describe('coordinator report narrative — barrier_summary', () => {
     assert.equal(barriers[1].type, 'shared_human_gate');
     assert.deepEqual(barriers[1].satisfied_repos, []);
     assert.deepEqual(barriers[1].required_repos, ['api']);
+  });
+});
+
+describe('coordinator report continuity', () => {
+  it('AT-COORD-CONT-001: JSON report includes per-repo continuity metadata', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+
+    const apiRepo = result.report.subject.repos.find((repo) => repo.repo_id === 'api');
+    const webRepo = result.report.subject.repos.find((repo) => repo.repo_id === 'web');
+
+    assert.ok(apiRepo?.continuity, 'api repo must include continuity');
+    assert.equal(apiRepo.continuity.session_id, 'sess_api_001');
+    assert.equal(apiRepo.continuity.last_turn_id, 'turn_api_001');
+    assert.equal(apiRepo.continuity.checkpoint_reason, 'turn_accepted');
+    assert.equal(apiRepo.continuity.stale_checkpoint, false);
+
+    assert.ok(webRepo?.continuity, 'web repo must include continuity');
+    assert.equal(webRepo.continuity.session_id, 'sess_web_001');
+    assert.equal(webRepo.continuity.checkpoint_reason, 'manual_checkpoint');
+    assert.equal(webRepo.continuity.stale_checkpoint, true);
+  });
+
+  it('AT-COORD-CONT-002/003/004: text and markdown render repo continuity with stale warning', () => {
+    const fixture = buildCoordinatorFixture();
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /- api: ok, status completed, run run_api_001/);
+    assert.match(text, /Continuity:\n    Session: sess_api_001/);
+    assert.match(text, /Checkpoint: turn_accepted at 2026-04-06T19:05:00.000Z/);
+    assert.match(text, /WARNING: checkpoint tracks run run_web_stale_999, but repo export tracks run_web_001/);
+
+    const markdown = formatGovernanceReportMarkdown(result.report);
+    assert.match(markdown, /### api/);
+    assert.match(markdown, /#### Continuity/);
+    assert.match(markdown, /`sess_api_001`/);
+    assert.match(markdown, /`manual_checkpoint`/);
+    assert.match(markdown, /\*\*Warning:\*\* checkpoint tracks run `run_web_stale_999`, but repo export tracks `run_web_001`/);
+  });
+
+  it('AT-COORD-CONT-005: repos without checkpoints expose null continuity and omit continuity sections', () => {
+    const fixture = buildCoordinatorFixture({
+      repos: {
+        api: {
+          ok: true,
+          path: './repos/api',
+          export: buildRepoExport('api', 'API'),
+        },
+        web: {
+          ok: true,
+          path: './repos/web',
+          export: buildRepoExport('web', 'Web'),
+        },
+      },
+    });
+
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    const repos = result.report.subject.repos;
+    assert.equal(repos.find((repo) => repo.repo_id === 'api')?.continuity ?? null, null);
+    assert.equal(repos.find((repo) => repo.repo_id === 'web')?.continuity ?? null, null);
+
+    const text = formatGovernanceReportText(result.report);
+    const markdown = formatGovernanceReportMarkdown(result.report);
+    assert.ok(!text.includes('  Continuity:'), 'text report must omit repo continuity sections when absent');
+    assert.ok(!markdown.includes('#### Continuity'), 'markdown report must omit repo continuity sections when absent');
   });
 });
 
