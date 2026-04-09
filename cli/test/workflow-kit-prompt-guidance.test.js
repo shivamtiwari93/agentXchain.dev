@@ -109,7 +109,7 @@ describe('workflow-kit prompt guidance', () => {
     const prompt = getPromptMd(root, state);
 
     assert.match(prompt, /## Workflow-Kit Responsibilities/);
-    assert.match(prompt, /You are accountable for these workflow-kit artifacts in phase `planning`:/);
+    assert.match(prompt, /You are accountable for reviewing and attesting to these workflow-kit artifacts in phase `planning`:/);
     assert.match(prompt, /`\.planning\/PM_SIGNOFF\.md`/);
   });
 

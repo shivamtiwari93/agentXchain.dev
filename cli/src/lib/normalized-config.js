@@ -628,6 +628,25 @@ export function validateWorkflowKitConfig(wk, routing, roles) {
             errors.push(`${prefix} owned_by "${artifact.owned_by}" is not a valid role ID (must be lowercase alphanumeric with hyphens/underscores)`);
           } else if (roles && typeof roles === 'object' && !roles[artifact.owned_by]) {
             errors.push(`${prefix} owned_by "${artifact.owned_by}" does not reference a defined role`);
+          } else if (
+            artifact.required !== false &&
+            roles && typeof roles === 'object' &&
+            roles[artifact.owned_by]?.write_authority === 'review_only'
+          ) {
+            // Check if any authoritative/proposed role exists in this phase's routing
+            const phaseRouting = routing?.[phase];
+            const phaseRoles = new Set([
+              ...(phaseRouting?.allowed_next_roles || []),
+              ...(phaseRouting?.entry_role ? [phaseRouting.entry_role] : []),
+            ]);
+            const hasWriter = [...phaseRoles].some(rid =>
+              roles[rid]?.write_authority === 'authoritative' || roles[rid]?.write_authority === 'proposed',
+            );
+            if (!hasWriter) {
+              warnings.push(
+                `${prefix} owned_by "${artifact.owned_by}" is a review_only role in phase "${phase}" with no authoritative or proposed role — nobody can write this required artifact`,
+              );
+            }
           }
         }
       }

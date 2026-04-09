@@ -250,9 +250,14 @@ function renderPrompt(role, roleId, turn, state, config, root) {
 
   const workflowResponsibilities = getWorkflowPromptResponsibilities(config, phase, roleId, root);
   if (workflowResponsibilities.length > 0) {
+    const isReviewOnlyOwner = role.write_authority === 'review_only';
     lines.push('## Workflow-Kit Responsibilities');
     lines.push('');
-    lines.push(`You are accountable for these workflow-kit artifacts in phase \`${phase}\`:`);
+    if (isReviewOnlyOwner) {
+      lines.push(`You are accountable for reviewing and attesting to these workflow-kit artifacts in phase \`${phase}\`:`);
+    } else {
+      lines.push(`You are accountable for producing these workflow-kit artifacts in phase \`${phase}\`:`);
+    }
     lines.push('');
     for (const artifact of workflowResponsibilities) {
       const requiredLabel = artifact.required ? 'required' : 'optional';
@@ -260,7 +265,11 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push(`- \`${artifact.path}\` — ${requiredLabel}; semantics: ${semanticsLabel}; status: ${artifact.status}`);
     }
     lines.push('');
-    lines.push('Do not request phase transition or run completion while a required workflow-kit artifact you own is missing or incomplete.');
+    if (isReviewOnlyOwner) {
+      lines.push('You cannot write repo files directly. Your accountability means you must confirm these artifacts exist, meet quality standards, and satisfy their semantic requirements. If a required artifact you own is missing, escalate to the producing role — do not request phase transition.');
+    } else {
+      lines.push('Do not request phase transition or run completion while a required workflow-kit artifact you own is missing or incomplete.');
+    }
     lines.push('');
   }
 
