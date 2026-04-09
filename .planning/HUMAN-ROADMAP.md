@@ -13,6 +13,25 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [ ] Create 5 new product examples under `/examples/` to prove AgentXchain can build software end-to-end without human intervention
+  - Come up with 5 small but varied real-world product examples across different categories:
+    1. **Consumer SaaS** — e.g., a habit tracker, expense splitter, or bookmark manager
+    2. **Mobile app** — e.g., a React Native or Flutter app (weather, recipe, workout tracker)
+    3. **B2B SaaS** — e.g., an invoice generator, team standup bot, or customer feedback tool
+    4. **Developer tool** — e.g., a CLI tool, GitHub Action, API client library, or code formatter
+    5. **Open source library** — e.g., a validation library, state machine lib, or markdown parser
+  - Each example must be a **complete, working project** — not a stub or placeholder. It should have real code, tests, docs, and a governed `agentxchain.json` config with appropriate roles and workflow.
+  - Each example should demonstrate different AgentXchain capabilities: different role configurations, different workflow phases, different artifact types, different team sizes.
+  - Each example should include a `README.md` explaining what the product is, how to run it, and how AgentXchain governed its development.
+  - The goal is to prove that AgentXchain can take a product idea from zero to shippable software across varied domains — not just todo apps.
+  - Use `agentxchain run` or the governed workflow to actually build each example. The commit history should show the governed development process.
+  - Delivery split (created 2026-04-09 so the queue can be worked honestly instead of hand-waved):
+    - [ ] `examples/habit-board` — consumer SaaS habit tracker
+    - [ ] `examples/trail-meals-mobile` — mobile meal-planning app
+    - [ ] `examples/async-standup-bot` — B2B SaaS standup/status collector
+    - [x] `examples/decision-log-linter` — developer tool CLI with explicit workflow-kit, custom architecture/release phases, runnable tests, and `template validate` proof shipped in Turn 8
+    - [ ] `examples/schema-guard` — open source validation library
+
 - [x] Redesign the "Architecture — Five layers. One governed delivery system." section on the agentxchain.dev homepage to use a **2-column layout** instead of the current single-column stacked layout. The five layers (Protocol, Runners, Connectors, Workflow Kit, Integrations) should be presented in a visually appealing 2-column grid (with the 5th item spanning full width or placed thoughtfully). Make it look clean and professional on both desktop and mobile.
   - **2026-04-09 completed:** Changed `.layers-grid` from `flex-direction: column` to `display: grid; grid-template-columns: 1fr 1fr`. 5th item (Integrations) spans full width via `.layer-card:nth-child(5) { grid-column: 1 / -1 }`. Mobile breakpoint (≤768px) collapses to single column and resets 5th-item span. Docusaurus build clean.
 

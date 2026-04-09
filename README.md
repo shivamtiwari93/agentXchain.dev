@@ -370,6 +370,7 @@ Use `--surface <name>` to isolate one area such as `state_machine`, `dispatch_ma
 | Example | What it shows |
 |---|---|
 | [governed-todo-app](examples/governed-todo-app/) | Governed happy-path example using manual PM, local_cli dev, and api_proxy QA |
+| [decision-log-linter](examples/decision-log-linter/) | Governed developer-tool example: a real CLI that lints markdown decision logs with explicit workflow-kit, custom architecture phase, and release phase |
 | [external-runner-starter](examples/external-runner-starter/) | Canonical installed-package starter for external runner authors — `npm install agentxchain` + `import from 'agentxchain/runner-interface'` |
 | [ci-runner-proof](examples/ci-runner-proof/) | Repo-native runner proof in 3 tiers: single-turn primitive, full lifecycle, and `runLoop` composition |
 | [mcp-echo-agent](examples/mcp-echo-agent/) | Reference MCP stdio server implementing `agentxchain_turn` with a validator-clean no-op result |

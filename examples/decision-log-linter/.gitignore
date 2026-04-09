@@ -1,0 +1,5 @@
+node_modules/
+coverage/
+.agentxchain/dispatch/
+.agentxchain/staging/
+.agentxchain/reviews/
