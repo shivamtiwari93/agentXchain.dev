@@ -248,6 +248,22 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
   }
 
+  const workflowResponsibilities = getWorkflowPromptResponsibilities(config, phase, roleId, root);
+  if (workflowResponsibilities.length > 0) {
+    lines.push('## Workflow-Kit Responsibilities');
+    lines.push('');
+    lines.push(`You are accountable for these workflow-kit artifacts in phase \`${phase}\`:`);
+    lines.push('');
+    for (const artifact of workflowResponsibilities) {
+      const requiredLabel = artifact.required ? 'required' : 'optional';
+      const semanticsLabel = artifact.semantics ? `\`${artifact.semantics}\`` : '—';
+      lines.push(`- \`${artifact.path}\` — ${requiredLabel}; semantics: ${semanticsLabel}; status: ${artifact.status}`);
+    }
+    lines.push('');
+    lines.push('Do not request phase transition or run completion while a required workflow-kit artifact you own is missing or incomplete.');
+    lines.push('');
+  }
+
   // Gate requirements
   if (gateConfig) {
     lines.push('## Phase Exit Gate');
@@ -419,6 +435,47 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     content: lines.join('\n') + '\n',
     warnings,
   };
+}
+
+function getWorkflowPromptResponsibilities(config, phase, roleId, root) {
+  const artifacts = config?.workflow_kit?.phases?.[phase]?.artifacts;
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    return [];
+  }
+
+  const entryRole = config?.routing?.[phase]?.entry_role || null;
+  const responsibilities = [];
+
+  for (const artifact of artifacts) {
+    if (!artifact?.path) {
+      continue;
+    }
+
+    const owner = typeof artifact.owned_by === 'string' && artifact.owned_by
+      ? artifact.owned_by
+      : null;
+    const responsibleRole = owner || entryRole;
+    if (responsibleRole !== roleId) {
+      continue;
+    }
+
+    const absPath = join(root, artifact.path);
+    let exists = false;
+    try {
+      exists = existsSync(absPath);
+    } catch {
+      exists = false;
+    }
+
+    responsibilities.push({
+      path: artifact.path,
+      required: artifact.required !== false,
+      semantics: artifact.semantics || null,
+      status: exists ? 'exists' : 'MISSING',
+    });
+  }
+
+  return responsibilities;
 }
 
 // ── Context Rendering ───────────────────────────────────────────────────────

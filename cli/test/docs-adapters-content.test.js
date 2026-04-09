@@ -391,6 +391,15 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /requires_files alone|do not inherit the built-in/i,
         'adapters.mdx must explain the boundary between gate files and workflow-kit scaffold truth');
     });
+
+    it('AT-WKP-006: docs explain prompt accountability vs context visibility', () => {
+      assert.match(adapterDocs, /PROMPT\.md.*workflow-kit responsibilities|workflow-kit responsibilities.*PROMPT\.md/i,
+        'adapters.mdx must document role-scoped workflow-kit prompt guidance');
+      assert.match(adapterDocs, /CONTEXT\.md.*Workflow Artifacts|Workflow Artifacts.*CONTEXT\.md/i,
+        'adapters.mdx must document the phase-wide workflow artifact table in CONTEXT.md');
+      assert.match(adapterDocs, /owned_by.*entry_role|entry_role.*owned_by/i,
+        'adapters.mdx must explain ownership resolution for workflow-kit prompt guidance');
+    });
   });
 
   describe('config format truth', () => {

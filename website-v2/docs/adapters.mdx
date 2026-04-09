@@ -64,8 +64,8 @@ The orchestrator writes these files to `.agentxchain/dispatch/turns/<turn_id>/`:
 |------|---------|
 | `ASSIGNMENT.json` | Structured assignment metadata: run ID, turn ID, role, phase, runtime ID, write authority, staging path, budget reservation |
 | `MANIFEST.json` | Integrity manifest listing all dispatch files with SHA-256 checksums, written after `after_dispatch` hooks complete |
-| `PROMPT.md` | The role prompt from `.agentxchain/prompts/<role>.md` with variable interpolation |
-| `CONTEXT.md` | Assembled context from previous turns: accepted decisions, open objections, files changed, verification evidence |
+| `PROMPT.md` | The role prompt from `.agentxchain/prompts/<role>.md` with variable interpolation, protocol rules, and role-scoped workflow-kit responsibilities for the current phase when applicable |
+| `CONTEXT.md` | Assembled context from previous turns: accepted decisions, open objections, files changed, verification evidence, and the phase-wide `Workflow Artifacts` table when workflow-kit is present |
 
 ```json title="ASSIGNMENT.json"
 {
@@ -140,6 +140,12 @@ The adapter must write a valid turn result to `.agentxchain/staging/<turn_id>/tu
 **Required fields:** All fields shown above are required. The `objections` array is required and must be a valid array. For `review_only` roles, the protocol enforces a challenge requirement: at least one objection must be raised. Other roles may submit an empty objections array.
 
 Custom phases are operator-defined, not scaffold-generated. If you extend `routing` with phases like `design` or `security_review`, you must also define their gate files in `gates`, and `phase_transition_request` may only target the immediate next declared phase. If you want those phases to have scaffolded docs or structural validation, declare `workflow_kit` explicitly in `agentxchain.json`; otherwise custom phases rely on `requires_files` alone and do not inherit the built-in `planning` / `implementation` / `qa` workflow artifacts.
+
+When `workflow_kit` is present, the dispatch bundle splits visibility from accountability on purpose:
+
+- `CONTEXT.md` renders the full `Workflow Artifacts` table for the current phase so the agent can see the whole contract.
+- `PROMPT.md` renders only the workflow-kit responsibilities assigned to the current role.
+- Ownership resolves from `owned_by` first. If `owned_by` is absent, accountability falls back to the current phase `entry_role`.
 
 ## manual adapter
 
