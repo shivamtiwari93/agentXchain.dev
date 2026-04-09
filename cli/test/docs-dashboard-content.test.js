@@ -71,6 +71,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
     assert.ok(BRIDGE_SERVER.includes('/api/actions/approve-gate'), 'bridge server must expose the approve-gate endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
+    assert.ok(BRIDGE_SERVER.includes('/api/workflow-kit-artifacts'), 'bridge server must expose the workflow-kit artifacts endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
     assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
   });
@@ -81,7 +82,7 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 8, 'dashboard nav must expose eight top-level views');
+    assert.equal(navViews.length, 9, 'dashboard nav must expose nine top-level views');
     for (const view of navViews) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(
@@ -99,6 +100,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('agentxchain multi approve-gate'), 'cli docs must mention coordinator gate approval command');
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
     assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
+    assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {

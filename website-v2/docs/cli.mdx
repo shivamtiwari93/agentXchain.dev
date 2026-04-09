@@ -448,7 +448,7 @@ agentxchain dashboard [options]
 
 Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
 
-The shipped dashboard surface has eight top-level views:
+The shipped dashboard surface has nine top-level views:
 
 | View | Description |
 |------|-------------|
@@ -460,6 +460,7 @@ The shipped dashboard surface has eight top-level views:
 | **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
+| **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
 
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 
@@ -476,7 +477,7 @@ Everything else remains CLI-only. The dashboard does **not** execute arbitrary c
 - `agentxchain step --resume`
 - `agentxchain resume --role ...`
 
-For repo-local runs, the Timeline, Decisions, Hooks, Blocked, and Gates views render governed runtime state from `.agentxchain/`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views.
+For repo-local runs, the Timeline, Decisions, Hooks, Blocked, Gates, and Artifacts views render governed runtime state from `.agentxchain/` and `agentxchain.json`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views.
 
 ## Continuous delivery intake
 

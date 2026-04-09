@@ -13,6 +13,7 @@ import { render as renderGate } from './components/gate.js';
 import { render as renderInitiative } from './components/initiative.js';
 import { render as renderCrossRepo } from './components/cross-repo.js';
 import { render as renderBlockers } from './components/blockers.js';
+import { render as renderArtifacts } from './components/artifacts.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'history', 'audit', 'annotations'], render: renderTimeline },
@@ -23,6 +24,7 @@ const VIEWS = {
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers'], render: renderInitiative },
   'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
   blockers: { fetch: ['coordinatorBlockers'], render: renderBlockers },
+  artifacts: { fetch: ['workflowKitArtifacts'], render: renderArtifacts },
 };
 
 const API_MAP = {
@@ -37,6 +39,7 @@ const API_MAP = {
   barrierLedger: '/api/coordinator/barrier-ledger',
   coordinatorAudit: '/api/coordinator/hooks/audit',
   coordinatorBlockers: '/api/coordinator/blockers',
+  workflowKitArtifacts: '/api/workflow-kit-artifacts',
 };
 
 const viewState = {
