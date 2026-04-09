@@ -402,12 +402,16 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
-/* Five layers */
+/* Five layers — 2-column grid, 5th item spans full width */
 .layers-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-top: 2rem;
+}
+
+.layers-grid .layer-card:nth-child(5) {
+  grid-column: 1 / -1;
 }
 
 .layer-card {
@@ -758,9 +762,11 @@
   .feature-grid,
   .arch-grid,
   .problem-grid,
+  .layers-grid,
   .integrations-grid,
   .outcomes-grid,
   .role-grid { grid-template-columns: 1fr; }
+  .layers-grid .layer-card:nth-child(5) { grid-column: auto; }
   .community-grid { grid-template-columns: 1fr; }
   .steps-grid { grid-template-columns: 1fr 1fr; }
   .platform-grid { grid-template-columns: 1fr; }
