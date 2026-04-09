@@ -285,17 +285,22 @@ describe('Release identity hardening', () => {
       );
     });
 
-    it('checks Homebrew mirror formula as a governed version surface', () => {
+    it('auto-aligns Homebrew mirror formula and README to target version', () => {
       assert.ok(
-        script.includes('homebrew mirror formula') || script.includes('agentxchain.rb'),
-        'pre-bump guard must check the Homebrew mirror formula version',
+        script.includes('Auto-aligning Homebrew mirror') || script.includes('Auto-align Homebrew mirror'),
+        'script must auto-align Homebrew mirror formula and README to the target version',
       );
-    });
-
-    it('checks Homebrew mirror README as a governed version surface', () => {
       assert.ok(
-        script.includes('homebrew mirror README') || script.includes('cli/homebrew/README.md'),
-        'pre-bump guard must check the Homebrew mirror README version metadata',
+        script.includes('agentxchain.rb'),
+        'auto-alignment must reference the Homebrew formula',
+      );
+      assert.ok(
+        script.includes('homebrew/README.md') || script.includes('HOMEBREW_MIRROR_README'),
+        'auto-alignment must reference the Homebrew README',
+      );
+      assert.ok(
+        script.includes('SHA carried from previous version') || script.includes('post-publish'),
+        'script must document that SHA is a post-publish artifact',
       );
     });
 
@@ -439,15 +444,34 @@ describe('Release identity hardening', () => {
       assert.match(result.stderr, /version-surface.*not aligned/);
     });
 
-    it('fails when the mirrored Homebrew README is stale', () => {
+    it('auto-aligns stale Homebrew mirror instead of rejecting the bump', () => {
       const fixture = createReleaseBumpFixture();
       prepareTargetSurfaces(fixture.root, '2.20.0');
+      // Leave Homebrew at old version — the script should auto-align it
+      writeFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), 'class Agentxchain < Formula\n  desc "CLI for AgentXchain governed multi-agent software delivery"\n  homepage "https://agentxchain.dev"\n  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.19.0.tgz"\n  sha256 "1111111111111111111111111111111111111111111111111111111111111111"\n  license "MIT"\nend\n');
       writeFileSync(join(fixture.root, 'cli', 'homebrew', 'README.md'), '# Homebrew distribution for AgentXchain\n\n- version: `2.19.0`\n- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.19.0.tgz`\n');
 
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
-      assert.equal(result.status, 1);
-      assert.match(result.stderr, /homebrew mirror README/);
-      assert.match(result.stderr, /version-surface.*not aligned/);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      // Verify the formula was auto-aligned to the target version URL
+      const formula = readFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), 'utf8');
+      assert.match(formula, /agentxchain-2\.20\.0\.tgz/);
+      // SHA should be carried from old version (not recomputed)
+      assert.match(formula, /1111111111111111111111111111111111111111111111111111111111111111/);
+
+      // Verify the README was auto-aligned
+      const readme = readFileSync(join(fixture.root, 'cli', 'homebrew', 'README.md'), 'utf8');
+      assert.match(readme, /- version: `2\.20\.0`/);
+      assert.match(readme, /agentxchain-2\.20\.0\.tgz/);
+
+      // Verify both files are included in the release commit
+      const changedFiles = execFileSync('git', ['show', '--name-only', '--format=', 'HEAD'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim().split('\n').filter(Boolean);
+      assert.ok(changedFiles.includes('cli/homebrew/agentxchain.rb'));
+      assert.ok(changedFiles.includes('cli/homebrew/README.md'));
     });
   });
 

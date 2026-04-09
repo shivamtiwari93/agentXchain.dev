@@ -121,7 +121,11 @@ echo "  OK: tag v${TARGET_VERSION} does not exist"
 # Ensures all governed version surfaces already reference the target version
 # BEFORE the bump commit is created. This catches stale drift that would
 # otherwise only be discovered after minting local release identities.
-echo "[4/8] Verifying version-surface alignment for ${TARGET_VERSION}..."
+#
+# NOTE: Homebrew mirror formula and README are NOT checked here. They are
+# auto-aligned in step 5 because the registry SHA256 is inherently a
+# post-publish artifact. See DEC-HOMEBREW-SHA-SPLIT-001.
+echo "[4/9] Verifying version-surface alignment for ${TARGET_VERSION}..."
 SURFACE_ERRORS=()
 
 # 4a. CHANGELOG top heading
@@ -164,25 +168,6 @@ if ! grep -qE "^# Launch Evidence Report — AgentXchain v${ESCAPED_VERSION}" "$
   SURFACE_ERRORS+=("LAUNCH_EVIDENCE_REPORT.md title does not carry v${TARGET_VERSION}")
 fi
 
-# 4h. Homebrew mirror formula version
-HOMEBREW_MIRROR="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
-if [[ -f "$HOMEBREW_MIRROR" ]]; then
-  if ! grep -q "agentxchain-${TARGET_VERSION}\.tgz" "$HOMEBREW_MIRROR" 2>/dev/null; then
-    SURFACE_ERRORS+=("homebrew mirror formula does not reference agentxchain-${TARGET_VERSION}.tgz")
-  fi
-fi
-
-# 4i. Homebrew mirror maintainer README version
-HOMEBREW_MIRROR_README="${REPO_ROOT}/cli/homebrew/README.md"
-if [[ -f "$HOMEBREW_MIRROR_README" ]]; then
-  if ! grep -q -- "- version: \`${TARGET_VERSION}\`" "$HOMEBREW_MIRROR_README" 2>/dev/null; then
-    SURFACE_ERRORS+=("homebrew mirror README does not declare version ${TARGET_VERSION}")
-  fi
-  if ! grep -q "agentxchain-${TARGET_VERSION}\.tgz" "$HOMEBREW_MIRROR_README" 2>/dev/null; then
-    SURFACE_ERRORS+=("homebrew mirror README does not reference agentxchain-${TARGET_VERSION}.tgz")
-  fi
-fi
-
 if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "FAIL: ${#SURFACE_ERRORS[@]} version-surface(s) not aligned to ${TARGET_VERSION}:" >&2
   printf '  - %s\n' "${SURFACE_ERRORS[@]}" >&2
@@ -191,15 +176,47 @@ if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "create release identity when governed surfaces are stale." >&2
   exit 1
 fi
-echo "  OK: all 10 governed version surfaces reference ${TARGET_VERSION}"
+echo "  OK: all 7 governed version surfaces reference ${TARGET_VERSION}"
 
-# 5. Update version files (no git operations)
-echo "[5/8] Updating version files..."
+# 5. Auto-align Homebrew mirror to target version
+# The formula URL and README version/tarball are updated automatically.
+# The SHA256 is carried from the previous version — it is inherently a
+# post-publish artifact (npm registry tarballs are not byte-identical to
+# local npm-pack output). sync-homebrew.sh corrects the SHA after publish.
+echo "[5/9] Auto-aligning Homebrew mirror to ${TARGET_VERSION}..."
+HOMEBREW_MIRROR="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
+HOMEBREW_MIRROR_README="${REPO_ROOT}/cli/homebrew/README.md"
+TARBALL_URL="https://registry.npmjs.org/agentxchain/-/agentxchain-${TARGET_VERSION}.tgz"
+HOMEBREW_ALIGNED=false
+
+if [[ -f "$HOMEBREW_MIRROR" ]]; then
+  ESCAPED_URL="$(printf '%s' "$TARBALL_URL" | sed 's/[&/\]/\\&/g')"
+  sed -i.bak -E "s|^([[:space:]]*url \").*(\")|\1${ESCAPED_URL}\2|" "$HOMEBREW_MIRROR"
+  rm -f "${HOMEBREW_MIRROR}.bak"
+  HOMEBREW_ALIGNED=true
+  echo "  OK: formula URL -> ${TARBALL_URL}"
+fi
+
+if [[ -f "$HOMEBREW_MIRROR_README" ]]; then
+  sed -i.bak -E "s|^(- version: \`).*(\`)|\1${TARGET_VERSION}\2|" "$HOMEBREW_MIRROR_README"
+  sed -i.bak -E "s|^(- source tarball: \`).*(\`)|\1${TARBALL_URL}\2|" "$HOMEBREW_MIRROR_README"
+  rm -f "${HOMEBREW_MIRROR_README}.bak"
+  echo "  OK: README version and tarball -> ${TARGET_VERSION}"
+fi
+
+if $HOMEBREW_ALIGNED; then
+  echo "  Note: SHA carried from previous version; sync-homebrew.sh will set the real registry SHA post-publish"
+else
+  echo "  Skipped: no Homebrew mirror files found"
+fi
+
+# 6. Update version files (no git operations)
+echo "[6/9] Updating version files..."
 npm version "$TARGET_VERSION" --no-git-tag-version
 echo "  OK: package.json updated to ${TARGET_VERSION}"
 
-# 6. Stage version files
-echo "[6/8] Staging version files..."
+# 7. Stage version files
+echo "[7/9] Staging version files..."
 git add -- package.json
 if [[ -f package-lock.json ]]; then
   git add -- package-lock.json
@@ -209,8 +226,8 @@ for rel_path in "${ALLOWED_RELEASE_PATHS[@]}"; do
 done
 echo "  OK: version files and allowed release surfaces staged"
 
-# 7. Create release commit
-echo "[7/8] Creating release commit..."
+# 8. Create release commit
+echo "[8/9] Creating release commit..."
 git commit -m "${TARGET_VERSION}"
 RELEASE_SHA=$(git rev-parse HEAD)
 COMMIT_MSG=$(git log -1 --format=%s)
@@ -220,8 +237,8 @@ if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
 fi
 echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
 
-# 8. Create annotated tag
-echo "[8/8] Creating annotated tag..."
+# 9. Create annotated tag
+echo "[9/9] Creating annotated tag..."
 git tag -a "v${TARGET_VERSION}" -m "v${TARGET_VERSION}"
 TAG_SHA=$(git rev-parse "v${TARGET_VERSION}")
 if [[ -z "$TAG_SHA" ]]; then
