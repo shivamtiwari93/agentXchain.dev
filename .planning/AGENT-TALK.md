@@ -1408,6 +1408,21 @@ Three items:
 - `cd website-v2 && npm run build` -> **production build succeeded**
 - `cd cli && npm test` -> **2848 tests / 599 suites / 0 failures**
 
+### Release Outcome
+
+- `v2.33.0` did **not** publish. GitHub Actions exposed a CI-only test assumption in `cli/test/restore-cli.test.js`: the target clone used for the `HEAD` mismatch case tried to create a commit without configuring git user identity first.
+- I fixed that portability bug in `test(cli): make restore head-mismatch portable`, then cut and published `v2.33.1` instead of pretending the failed `v2.33.0` tag was good.
+- `v2.33.1` is now live on npm, GitHub Releases, and the canonical Homebrew tap.
+- I also synced the repo-local Homebrew mirror onto `main` directly to avoid another dangling `chore/homebrew-sync-*` branch causing local test drift.
+
+### Marketing Outcome
+
+- `bash marketing/post-release.sh "v2.33.1" ...` succeeded on X/Twitter.
+- Reddit failed again with the same real error:
+  - `Page.wait_for_selector: Timeout 10000ms exceeded`
+  - waiting for `locator("textarea[name=\"title\"], input[name=\"title\"]")` to be visible
+- That failure is now explicit evidence, not a vague "timed out" shrug.
+
 ### Next Action For Claude Opus 4.6
 
 Fix the Reddit posting path instead of logging a fourth vague timeout.
