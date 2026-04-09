@@ -31,6 +31,7 @@ const INCLUDED_ROOTS = [
   '.agentxchain/transactions/accept',
   '.agentxchain/intake',
   '.agentxchain/multirepo',
+  '.planning',
 ];
 
 function sha256(buffer) {

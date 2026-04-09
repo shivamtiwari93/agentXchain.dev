@@ -471,6 +471,38 @@ function deriveRepoStatusCounts(repoStatuses) {
   return counts;
 }
 
+export function extractWorkflowKitArtifacts(artifact) {
+  const config = artifact.config;
+  if (!config || typeof config !== 'object' || !config.workflow_kit) return null;
+
+  const phase = artifact.summary?.phase || artifact.state?.phase;
+  if (!phase) return null;
+
+  const phaseConfig = config.workflow_kit.phases?.[phase];
+  if (!phaseConfig) return [];
+
+  const artifacts = Array.isArray(phaseConfig.artifacts) ? phaseConfig.artifacts : [];
+  if (artifacts.length === 0) return [];
+
+  const entryRole = config.routing?.[phase]?.entry_role || null;
+  const fileKeys = new Set(Object.keys(artifact.files || {}));
+
+  return artifacts
+    .filter((a) => a && typeof a.path === 'string')
+    .map((a) => {
+      const hasExplicitOwner = typeof a.owned_by === 'string' && a.owned_by.length > 0;
+      return {
+        path: a.path,
+        required: a.required !== false,
+        semantics: a.semantics || null,
+        owned_by: hasExplicitOwner ? a.owned_by : entryRole,
+        owner_resolution: hasExplicitOwner ? 'explicit' : 'entry_role',
+        exists: fileKeys.has(a.path),
+      };
+    })
+    .sort((a, b) => a.path.localeCompare(b.path, 'en'));
+}
+
 function buildRunSubject(artifact) {
   const activeTurns = artifact.summary?.active_turn_ids || [];
   const retainedTurns = artifact.summary?.retained_turn_ids || [];
@@ -518,6 +550,7 @@ function buildRunSubject(artifact) {
       gate_summary: gateSummary,
       intake_links: intakeLinks,
       recovery_summary: recoverySummary,
+      workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
     },
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -810,6 +843,17 @@ export function formatGovernanceReportText(report) {
       lines.push(`  Turn retained: ${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}`);
     }
 
+    if (Array.isArray(run.workflow_kit_artifacts) && run.workflow_kit_artifacts.length > 0) {
+      lines.push('', `Workflow Artifacts (${run.phase || 'unknown'} phase):`);
+      for (const art of run.workflow_kit_artifacts) {
+        const req = art.required ? 'required' : 'optional';
+        const sem = art.semantics || 'none';
+        const owner = art.owned_by ? `${art.owned_by} (${art.owner_resolution})` : 'none';
+        const status = art.exists ? 'exists' : 'missing';
+        lines.push(`  ${art.path} | ${req} | ${sem} | owner: ${owner} | ${status}`);
+      }
+    }
+
     return lines.join('\n');
   }
 
@@ -1064,6 +1108,19 @@ export function formatGovernanceReportMarkdown(report) {
       lines.push(`- Action: \`${run.recovery_summary.recovery_action || 'n/a'}\``);
       lines.push(`- Detail: ${run.recovery_summary.detail || 'n/a'}`);
       lines.push(`- Turn retained: \`${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}\``);
+    }
+
+    if (Array.isArray(run.workflow_kit_artifacts) && run.workflow_kit_artifacts.length > 0) {
+      lines.push('', '## Workflow Artifacts', '');
+      lines.push(`Phase: \`${run.phase || 'unknown'}\``, '');
+      lines.push('| Artifact | Required | Semantics | Owner | Resolution | Status |', '|----------|----------|-----------|-------|------------|--------|');
+      for (const art of run.workflow_kit_artifacts) {
+        const req = art.required ? 'yes' : 'no';
+        const sem = art.semantics ? `\`${art.semantics}\`` : 'none';
+        const owner = art.owned_by ? `\`${art.owned_by}\`` : 'none';
+        const status = art.exists ? 'exists' : '**missing**';
+        lines.push(`| \`${art.path}\` | ${req} | ${sem} | ${owner} | ${art.owner_resolution} | ${status} |`);
+      }
     }
 
     return lines.join('\n');

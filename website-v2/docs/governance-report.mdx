@@ -82,6 +82,7 @@ Run-export reports carry:
 | `subject.run.gate_summary` | Sorted gate outcomes derived from `state.phase_gate_status` |
 | `subject.run.intake_links` | Linked intake intents whose `target_run` matches the exported run |
 | `subject.run.recovery_summary` | Blocked-state recovery owner/action/detail when present |
+| `subject.run.workflow_kit_artifacts` | Workflow-kit artifact status for the current phase, or `null` when workflow_kit is absent from config |
 | `subject.artifacts` | Export-derived evidence counts and intake/coordinator presence flags |
 
 `subject.artifacts` includes:
@@ -191,6 +192,22 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Recovery Report`
 - `## Intake Linkage`
 - `## Recovery`
+- `## Workflow Artifacts`
+
+### `subject.run.workflow_kit_artifacts`
+
+When `workflow_kit` is present in the project config and the current phase declares artifacts, the report includes a `workflow_kit_artifacts` array:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `path` | `string` | Artifact file path from config |
+| `required` | `boolean` | Whether the artifact is required for phase gates |
+| `semantics` | `string \| null` | Semantic validator ID or `null` |
+| `owned_by` | `string \| null` | Resolved owner role |
+| `owner_resolution` | `"explicit" \| "entry_role"` | How ownership was resolved |
+| `exists` | `boolean` | Whether the file is present in the export artifact |
+
+Artifacts are sorted by path. When `workflow_kit` is absent, this field is `null`. When the current phase has zero artifacts, it is `[]` and the section is omitted from text/markdown output.
 
 ## Failure Shapes
 
