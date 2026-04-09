@@ -1,0 +1,244 @@
+{
+  "schema_version": "1.0",
+  "template": "library",
+  "project": {
+    "id": "schema-guard",
+    "name": "Schema Guard",
+    "default_branch": "main"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Freeze consumer-facing scope, package non-goals, and the acceptance bar for a reusable validation library.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    },
+    "api_reviewer": {
+      "title": "API Reviewer",
+      "mandate": "Challenge exported surface area, error semantics, and semver traps before implementation hardens them.",
+      "write_authority": "review_only",
+      "runtime": "manual-api"
+    },
+    "library_engineer": {
+      "title": "Library Engineer",
+      "mandate": "Implement the schema DSL, path-aware errors, typed exports, and repeatable tests without API drift.",
+      "write_authority": "authoritative",
+      "runtime": "manual-library"
+    },
+    "qa": {
+      "title": "QA Engineer",
+      "mandate": "Prove nested validation, composition semantics, error-path truth, and consumer smoke behavior.",
+      "write_authority": "review_only",
+      "runtime": "manual-qa"
+    },
+    "release_engineer": {
+      "title": "Release Engineer",
+      "mandate": "Own package metadata, export-map truth, pack smoke, and release/adoption documentation.",
+      "write_authority": "authoritative",
+      "runtime": "manual-release"
+    }
+  },
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "manual-api": { "type": "manual" },
+    "manual-library": { "type": "manual" },
+    "manual-qa": { "type": "manual" },
+    "manual-release": { "type": "manual" }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "api_reviewer", "human"],
+      "exit_gate": "planning_signoff"
+    },
+    "api_review": {
+      "entry_role": "api_reviewer",
+      "allowed_next_roles": ["api_reviewer", "library_engineer", "human"],
+      "exit_gate": "api_review_ready"
+    },
+    "implementation": {
+      "entry_role": "library_engineer",
+      "allowed_next_roles": ["library_engineer", "qa", "release_engineer", "human"],
+      "exit_gate": "implementation_complete"
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["qa", "library_engineer", "release_engineer", "human"],
+      "exit_gate": "qa_ship_verdict"
+    },
+    "release": {
+      "entry_role": "release_engineer",
+      "allowed_next_roles": ["release_engineer", "human"],
+      "exit_gate": "release_ready"
+    }
+  },
+  "gates": {
+    "planning_signoff": {
+      "requires_files": [
+        ".planning/ROADMAP.md",
+        ".planning/public-api.md"
+      ],
+      "requires_human_approval": true
+    },
+    "api_review_ready": {
+      "requires_files": [
+        ".planning/API_REVIEW.md",
+        ".planning/compatibility-policy.md"
+      ]
+    },
+    "implementation_complete": {
+      "requires_files": [
+        ".planning/IMPLEMENTATION_NOTES.md"
+      ],
+      "requires_verification_pass": true
+    },
+    "qa_ship_verdict": {
+      "requires_files": [
+        ".planning/acceptance-matrix.md",
+        ".planning/ship-verdict.md"
+      ],
+      "requires_human_approval": true
+    },
+    "release_ready": {
+      "requires_files": [
+        ".planning/release-adoption.md",
+        ".planning/package-readiness.md"
+      ],
+      "requires_verification_pass": true
+    }
+  },
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "artifacts": [
+          {
+            "path": ".planning/ROADMAP.md",
+            "semantics": null,
+            "required": true,
+            "owned_by": "pm"
+          },
+          {
+            "path": ".planning/public-api.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "pm",
+            "semantics_config": {
+              "required_sections": [
+                "## Supported Entrypoints",
+                "## Consumer-Facing Surface",
+                "## Breaking-Change Triggers"
+              ]
+            }
+          }
+        ]
+      },
+      "api_review": {
+        "artifacts": [
+          {
+            "path": ".planning/API_REVIEW.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "api_reviewer",
+            "semantics_config": {
+              "required_sections": [
+                "## Stable Exports",
+                "## Rejected Shortcuts",
+                "## Semver Risks"
+              ]
+            }
+          },
+          {
+            "path": ".planning/compatibility-policy.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "api_reviewer",
+            "semantics_config": {
+              "required_sections": [
+                "## Versioning Contract",
+                "## Deprecation And Migration",
+                "## Compatibility Risks"
+              ]
+            }
+          }
+        ]
+      },
+      "implementation": {
+        "artifacts": [
+          {
+            "path": ".planning/IMPLEMENTATION_NOTES.md",
+            "semantics": "implementation_notes",
+            "required": true,
+            "owned_by": "library_engineer"
+          }
+        ]
+      },
+      "qa": {
+        "artifacts": [
+          {
+            "path": ".planning/acceptance-matrix.md",
+            "semantics": "acceptance_matrix",
+            "required": true,
+            "owned_by": "qa"
+          },
+          {
+            "path": ".planning/ship-verdict.md",
+            "semantics": "ship_verdict",
+            "required": true,
+            "owned_by": "qa"
+          }
+        ]
+      },
+      "release": {
+        "artifacts": [
+          {
+            "path": ".planning/release-adoption.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "release_engineer",
+            "semantics_config": {
+              "required_sections": [
+                "## Consumer Smoke Proof",
+                "## Release Notes Inputs",
+                "## Adoption Risks"
+              ]
+            }
+          },
+          {
+            "path": ".planning/package-readiness.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "release_engineer",
+            "semantics_config": {
+              "required_sections": [
+                "## Package Metadata",
+                "## Export Map",
+                "## Pack Smoke"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "prompts": {
+    "pm": ".agentxchain/prompts/pm.md",
+    "api_reviewer": ".agentxchain/prompts/api_reviewer.md",
+    "library_engineer": ".agentxchain/prompts/library_engineer.md",
+    "qa": ".agentxchain/prompts/qa.md",
+    "release_engineer": ".agentxchain/prompts/release_engineer.md"
+  },
+  "budget": {
+    "per_turn_max_usd": 1.0,
+    "per_run_max_usd": 8.0,
+    "on_exceed": "pause_and_escalate"
+  },
+  "retention": {
+    "talk_strategy": "append_only",
+    "history_strategy": "jsonl_append_only"
+  },
+  "rules": {
+    "challenge_required": true,
+    "max_turn_retries": 2,
+    "max_deadlock_cycles": 2
+  }
+}

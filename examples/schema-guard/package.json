@@ -1,0 +1,31 @@
+{
+  "name": "schema-guard",
+  "version": "1.0.0",
+  "description": "Composable schema validation library governed by AgentXchain",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "test": "node --test test/",
+    "smoke": "node test/smoke.js",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "schema",
+    "validation",
+    "agentxchain",
+    "governed"
+  ],
+  "license": "MIT"
+}

@@ -25,6 +25,7 @@ Every example must include:
 - `TALK.md`
 - core workflow docs under `.planning/`
 - category-appropriate workflow-kit artifacts
+- repo-level governed provenance through git history for the example directory
 
 ## Behavior
 
@@ -40,6 +41,11 @@ Each example must satisfy these invariants:
    - B2B SaaS: operational and integration artifacts
    - developer tool: command-surface and distribution artifacts
    - open source library: public-API and compatibility artifacts
+6. Governed provenance for examples is proven by:
+   - the repo git history for each example directory
+   - the example `TALK.md`
+   - the example workflow-kit artifacts and validation proof
+   Shipping frozen `.agentxchain/history.jsonl` snapshots inside examples is not required.
 
 ## Error Cases
 
@@ -56,7 +62,8 @@ Each example must satisfy these invariants:
 - [ ] `PRODUCT-EX-003`: Every completed example passes its own local test command.
 - [ ] `PRODUCT-EX-004`: Every completed example passes `agentxchain template validate --json`.
 - [ ] `PRODUCT-EX-005`: At least one shipped example demonstrates explicit `workflow_kit` beyond the default 3-phase scaffold.
+- [ ] `PRODUCT-EX-006`: Example provenance is defined honestly as repo git history plus example-local governed artifacts, not fake copied runtime state.
 
 ## Open Questions
 
-- Whether every example should also preserve a repo-local governed run history artifact remains open. The human asked for governed build proof; do not mark the parent roadmap item complete until that provenance story is honestly handled for all five examples.
+None.

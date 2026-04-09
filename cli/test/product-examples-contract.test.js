@@ -9,10 +9,12 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const CLI_BIN = join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'PRODUCT_EXAMPLES_SPEC.md');
+const GOVERNED_PROOF_PATH = join(REPO_ROOT, '.planning', 'PRODUCT_EXAMPLES_GOVERNED_PROOF.md');
 const DECISION_LOG_DIR = join(REPO_ROOT, 'examples', 'decision-log-linter');
 const HABIT_BOARD_DIR = join(REPO_ROOT, 'examples', 'habit-board');
 const ASYNC_STANDUP_BOT_DIR = join(REPO_ROOT, 'examples', 'async-standup-bot');
 const TRAIL_MEALS_DIR = join(REPO_ROOT, 'examples', 'trail-meals-mobile');
+const SCHEMA_GUARD_DIR = join(REPO_ROOT, 'examples', 'schema-guard');
 const README_PATH = join(REPO_ROOT, 'README.md');
 
 function runNode(args, cwd) {
@@ -34,8 +36,16 @@ describe('product examples contract', () => {
       'open source library',
       'examples/decision-log-linter',
       'examples/async-standup-bot',
+      'repo git history',
     ]) {
       assert.ok(spec.includes(required), `${required} must appear in PRODUCT_EXAMPLES_SPEC.md`);
+    }
+  });
+
+  it('records the governed provenance contract for product examples', () => {
+    const proofDoc = readFileSync(GOVERNED_PROOF_PATH, 'utf8');
+    for (const required of ['Repo git history', 'TALK.md', 'workflow-kit artifacts', 'git log --oneline -- examples/schema-guard']) {
+      assert.ok(proofDoc.includes(required), `${required} must appear in PRODUCT_EXAMPLES_GOVERNED_PROOF.md`);
     }
   });
 
@@ -234,6 +244,57 @@ describe('product examples contract', () => {
     assert.ok(
       readme.includes('[trail-meals-mobile](examples/trail-meals-mobile/)'),
       'root README examples table must list the trail-meals-mobile example',
+    );
+  });
+
+  it('ships the schema-guard example with governed and product files', () => {
+    for (const relPath of [
+      'README.md',
+      'package.json',
+      'agentxchain.json',
+      'TALK.md',
+      '.planning/ROADMAP.md',
+      '.planning/public-api.md',
+      '.planning/compatibility-policy.md',
+      '.planning/API_REVIEW.md',
+      '.planning/IMPLEMENTATION_NOTES.md',
+      '.planning/release-adoption.md',
+      '.planning/package-readiness.md',
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      'src/index.js',
+      'src/schema.js',
+      'src/index.d.ts',
+      'test/schema.test.js',
+      'test/object.test.js',
+      'test/composition.test.js',
+    ]) {
+      assert.ok(existsSync(join(SCHEMA_GUARD_DIR, relPath)), `${relPath} must exist in schema-guard example`);
+    }
+  });
+
+  it('proves the schema-guard test suite passes', () => {
+    const result = runNode(['--test', 'test/'], SCHEMA_GUARD_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+
+  it('proves the schema-guard workflow-kit contract passes template validate', () => {
+    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], SCHEMA_GUARD_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.workflow_kit.ok, true);
+    assert.ok(
+      payload.workflow_kit.required_files.includes('.planning/package-readiness.md'),
+      'release-phase workflow artifact must be part of the validated contract',
+    );
+  });
+
+  it('documents the schema-guard example on the root README examples table', () => {
+    const readme = readFileSync(README_PATH, 'utf8');
+    assert.ok(
+      readme.includes('[schema-guard](examples/schema-guard/)'),
+      'root README examples table must list the schema-guard example',
     );
   });
 });
