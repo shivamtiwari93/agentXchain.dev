@@ -1,0 +1,68 @@
+---
+title: "v2.31.0 Release Notes"
+description: "Workflow-kit operator observability release: governed reports now expose artifact status directly."
+---
+
+# AgentXchain v2.31.0
+
+`2.31.0` is the workflow-kit operator observability release.
+
+`2.30.0` fixed the agent-facing half of workflow-kit accountability. Agents could see the artifact contract at dispatch time, and `review_only` roles no longer received fake authorship instructions. But operators still had to reconstruct workflow-kit status indirectly from gate failures or export internals. That was incomplete. This release closes the operator-facing half.
+
+## `agentxchain report` now exposes workflow-kit artifact status directly
+
+Governed run reports now include `subject.run.workflow_kit_artifacts` in JSON output.
+
+Each artifact row includes:
+
+- `path`
+- `required`
+- `semantics`
+- `owned_by`
+- `owner_resolution`
+- `exists`
+
+Ownership resolution is explicit so operators can distinguish configured ownership from fallback ownership:
+
+- `explicit` means the artifact declared `owned_by`
+- `entry_role` means ownership fell back to `routing[phase].entry_role`
+
+## Text and markdown reports now render a first-class Workflow Artifacts section
+
+`agentxchain report` no longer hides workflow-kit state inside raw JSON.
+
+- `--format text` prints `Workflow Artifacts (<phase> phase)` with one deterministic line per artifact
+- `--format markdown` renders `## Workflow Artifacts` with a stable table for audit-ready copy/paste
+- both formats omit the section when `workflow_kit` is absent or when the current phase has zero artifacts
+
+This makes the report the authoritative operator-observation path for workflow-kit state.
+
+## Export scope now includes `.planning/`
+
+This is the correct contract, not a convenience hack.
+
+Workflow-kit gates reference governed artifacts such as:
+
+- `.planning/SYSTEM_SPEC.md`
+- `.planning/IMPLEMENTATION_NOTES.md`
+- `.planning/acceptance-matrix.md`
+- `.planning/RELEASE_NOTES.md`
+
+If those files are not present in the export artifact, report-time existence checks become guesswork. `2.31.0` fixes that by including `.planning/` in the governed export scope and continuing to evaluate existence against exported file keys rather than the live repo.
+
+## The JSON contract is explicit about `null` vs `[]`
+
+The report surface now documents a distinction that matters to operators and downstream tooling:
+
+- `workflow_kit_artifacts: null` means `workflow_kit` is absent from config
+- `workflow_kit_artifacts: []` means `workflow_kit` exists but the current phase declares zero artifacts
+
+Text and markdown omit the section in both cases, but JSON preserves the difference.
+
+## Evidence
+
+- **2789 tests / 590 suites / 0 failures**
+- `node --test cli/test/workflow-kit-report.test.js`
+- `node --test cli/test/governance-report-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`

@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.31.0
+
+`2.31.0` is the workflow-kit operator observability release.
+
+### `agentxchain report` now exposes workflow-kit artifact status directly
+
+- Governed run reports now include `subject.run.workflow_kit_artifacts` in JSON output.
+- Each artifact row carries:
+  - `path`
+  - `required`
+  - `semantics`
+  - `owned_by`
+  - `owner_resolution`
+  - `exists`
+- This closes the operator-observability gap left by `2.30.0`: workflow-kit truth is no longer visible only to the active agent prompt/context surfaces.
+
+### Text and markdown reports now render a first-class Workflow Artifacts section
+
+- `agentxchain report --format text` now prints a `Workflow Artifacts (<phase> phase)` section when the current phase declares workflow-kit artifacts.
+- `agentxchain report --format markdown` now renders a `## Workflow Artifacts` section with a stable table for tickets, PRs, and audit trails.
+- The section is omitted when `workflow_kit` is absent or when the current phase declares zero artifacts.
+
+### Export scope now includes `.planning/` because governed artifacts must be observable
+
+- Governed export artifacts now include `.planning/` in the allowed roots.
+- This is not optional polish. Workflow-kit gates explicitly reference governed artifact files under `.planning/`, so report-time existence checks must be able to observe them from the export artifact itself.
+- Report existence is still checked against exported file keys, not the live filesystem, preserving the verified-export contract.
+
+### Docs now state the JSON `null` vs `[]` distinction explicitly
+
+- `subject.run.workflow_kit_artifacts = null` means `workflow_kit` is absent from config.
+- `subject.run.workflow_kit_artifacts = []` means `workflow_kit` exists but the current phase declares zero artifacts.
+- Text/markdown output omits the section in both cases, but the JSON distinction remains part of the operator contract.
+
+### Evidence
+
+- **2789 tests / 590 suites / 0 failures**
+- `node --test cli/test/workflow-kit-report.test.js`
+- `node --test cli/test/governance-report-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.30.0
 
 `2.30.0` is the workflow-kit runtime accountability release.
