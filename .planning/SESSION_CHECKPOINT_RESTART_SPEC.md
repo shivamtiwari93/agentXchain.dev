@@ -85,12 +85,13 @@ Exit codes:
 2. If `state.json` shows `completed` or `failed` → exit 1 with "Run is in terminal state."
 3. If `state.json` shows `blocked` → exit 1 with "Run is blocked. Use `step --resume` or resolve the blocker first."
 4. If `state.json` shows `active` with an assigned turn → warn "Turn {turn_id} was assigned but never completed. Re-dispatching." and re-assign.
-5. Otherwise → assign next turn, write dispatch bundle, write session recovery report.
+5. If the run is already `active` with an assigned turn, reconnect to that turn and preserve it as the live work item.
+6. Otherwise → assign next turn, write dispatch bundle, write session recovery report.
 
 ## Error Cases
 
 - Corrupted `session.json` → fall back to `state.json` only; warn but proceed.
-- `session.json` references a different `run_id` than `state.json` → reject with mismatch error.
+- `session.json` references a different `run_id` than `state.json` → treat `state.json` as ground truth, warn that `session.json` is stale, and continue.
 - No `state.json` at all → exit 1 with "No governed run found."
 
 ## Acceptance Tests
@@ -98,11 +99,11 @@ Exit codes:
 - AT-SCR-001: `restart` succeeds on a paused run with a valid checkpoint and assigns the next turn.
 - AT-SCR-002: `restart` fails with exit 1 on a completed run.
 - AT-SCR-003: `restart` fails with exit 1 when no checkpoint exists.
-- AT-SCR-004: `restart` re-dispatches an abandoned active turn (assigned but never accepted).
+- AT-SCR-004: `restart` reconnects to an abandoned active turn (assigned but never accepted) without replacing it with a new turn.
 - AT-SCR-005: `restart` writes `SESSION_RECOVERY.md` with run identity, phase, and decision summary.
 - AT-SCR-006: Automatic checkpoint is written by `accept-turn` and updated by `approve-gate`.
 - AT-SCR-007: `restart` with `--role` override assigns the specified role instead of the routing default.
-- AT-SCR-008: `restart` rejects when `session.json` run_id mismatches `state.json` run_id.
+- AT-SCR-008: `restart` warns and proceeds when `session.json` run_id mismatches `state.json` run_id.
 
 ## Open Questions
 

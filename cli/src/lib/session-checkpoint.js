@@ -57,14 +57,19 @@ export function writeSessionCheckpoint(root, state, reason, extra = {}) {
       ? existing.session_id
       : generateSessionId();
 
+    const currentTurn = state.current_turn || null;
+    const lastTurnId = currentTurn?.id || currentTurn?.turn_id || state.last_completed_turn_id || null;
+    const lastRole = currentTurn?.role || currentTurn?.assigned_role || extra.role || null;
+    const lastPhase = state.current_phase || state.phase || null;
+
     const checkpoint = {
       session_id: sessionId,
       run_id: state.run_id,
       started_at: existing?.started_at || new Date().toISOString(),
       last_checkpoint_at: new Date().toISOString(),
-      last_turn_id: state.current_turn?.id || state.last_completed_turn_id || null,
-      last_phase: state.current_phase || null,
-      last_role: state.current_turn?.role || extra.role || null,
+      last_turn_id: lastTurnId,
+      last_phase: lastPhase,
+      last_role: lastRole,
       run_status: state.status || null,
       checkpoint_reason: reason,
       agent_context: {
