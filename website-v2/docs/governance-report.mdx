@@ -82,6 +82,7 @@ Run-export reports carry:
 | `subject.run.gate_summary` | Sorted gate outcomes derived from `state.phase_gate_status` |
 | `subject.run.intake_links` | Linked intake intents whose `target_run` matches the exported run |
 | `subject.run.recovery_summary` | Blocked-state recovery owner/action/detail when present |
+| `subject.run.continuity` | Session checkpoint metadata from `.agentxchain/session.json` when present, or `null` |
 | `subject.run.workflow_kit_artifacts` | Workflow-kit artifact status for the current phase, or `null` when workflow_kit is absent from config |
 | `subject.artifacts` | Export-derived evidence counts and intake/coordinator presence flags |
 
@@ -192,6 +193,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Recovery Report`
 - `## Intake Linkage`
 - `## Recovery`
+- `## Continuity`
 - `## Workflow Artifacts`
 
 ### `subject.run.workflow_kit_artifacts`

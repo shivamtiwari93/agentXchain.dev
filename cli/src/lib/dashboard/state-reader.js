@@ -10,6 +10,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, normalize } from 'path';
 
 const STATE_FILE = 'state.json';
+const SESSION_FILE = 'session.json';
 const HISTORY_FILE = 'history.jsonl';
 const LEDGER_FILE = 'decision-ledger.jsonl';
 const HOOK_AUDIT_FILE = 'hook-audit.jsonl';
@@ -23,6 +24,7 @@ const BARRIER_LEDGER_FILE = 'barrier-ledger.jsonl';
  */
 export const RESOURCE_MAP = {
   '/api/state': STATE_FILE,
+  '/api/continuity': SESSION_FILE,
   '/api/history': HISTORY_FILE,
   '/api/ledger': LEDGER_FILE,
   '/api/hooks/audit': HOOK_AUDIT_FILE,

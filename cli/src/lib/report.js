@@ -503,6 +503,30 @@ export function extractWorkflowKitArtifacts(artifact) {
     .sort((a, b) => a.path.localeCompare(b.path, 'en'));
 }
 
+function extractContinuityMetadata(artifact) {
+  const checkpoint = extractFileData(artifact, '.agentxchain/session.json');
+  if (!checkpoint || typeof checkpoint !== 'object') return null;
+
+  const runId = artifact.summary?.run_id || artifact.state?.run_id || null;
+  const staleCheckpoint = !!(
+    checkpoint.run_id
+    && runId
+    && checkpoint.run_id !== runId
+  );
+
+  return {
+    session_id: checkpoint.session_id || null,
+    run_id: checkpoint.run_id || null,
+    started_at: checkpoint.started_at || null,
+    last_checkpoint_at: checkpoint.last_checkpoint_at || null,
+    last_turn_id: checkpoint.last_turn_id || null,
+    last_phase: checkpoint.last_phase || null,
+    last_role: checkpoint.last_role || null,
+    checkpoint_reason: checkpoint.checkpoint_reason || null,
+    stale_checkpoint: staleCheckpoint,
+  };
+}
+
 function buildRunSubject(artifact) {
   const activeTurns = artifact.summary?.active_turn_ids || [];
   const retainedTurns = artifact.summary?.retained_turn_ids || [];
@@ -519,6 +543,7 @@ function buildRunSubject(artifact) {
   const gateSummary = extractGateSummary(artifact);
   const intakeLinks = extractIntakeLinks(artifact);
   const recoverySummary = extractRecoverySummary(artifact);
+  const continuity = extractContinuityMetadata(artifact);
 
   return {
     kind: 'governed_run',
@@ -550,6 +575,7 @@ function buildRunSubject(artifact) {
       gate_summary: gateSummary,
       intake_links: intakeLinks,
       recovery_summary: recoverySummary,
+      continuity,
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
     },
     artifacts: {
@@ -843,6 +869,18 @@ export function formatGovernanceReportText(report) {
       lines.push(`  Turn retained: ${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}`);
     }
 
+    if (run.continuity) {
+      lines.push('', 'Continuity:');
+      lines.push(`  Session: ${run.continuity.session_id || 'unknown'}`);
+      lines.push(`  Checkpoint: ${run.continuity.checkpoint_reason || 'unknown'} at ${run.continuity.last_checkpoint_at || 'n/a'}`);
+      lines.push(`  Last turn: ${run.continuity.last_turn_id || 'none'}`);
+      lines.push(`  Last role: ${run.continuity.last_role || 'unknown'}`);
+      lines.push(`  Last phase: ${run.continuity.last_phase || 'unknown'}`);
+      if (run.continuity.stale_checkpoint) {
+        lines.push(`  WARNING: checkpoint tracks run ${run.continuity.run_id}, but export tracks ${run.run_id}`);
+      }
+    }
+
     if (Array.isArray(run.workflow_kit_artifacts) && run.workflow_kit_artifacts.length > 0) {
       lines.push('', `Workflow Artifacts (${run.phase || 'unknown'} phase):`);
       for (const art of run.workflow_kit_artifacts) {
@@ -1108,6 +1146,18 @@ export function formatGovernanceReportMarkdown(report) {
       lines.push(`- Action: \`${run.recovery_summary.recovery_action || 'n/a'}\``);
       lines.push(`- Detail: ${run.recovery_summary.detail || 'n/a'}`);
       lines.push(`- Turn retained: \`${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}\``);
+    }
+
+    if (run.continuity) {
+      lines.push('', '## Continuity', '');
+      lines.push(`- Session: \`${run.continuity.session_id || 'unknown'}\``);
+      lines.push(`- Checkpoint: \`${run.continuity.checkpoint_reason || 'unknown'}\` at \`${run.continuity.last_checkpoint_at || 'n/a'}\``);
+      lines.push(`- Last turn: \`${run.continuity.last_turn_id || 'none'}\``);
+      lines.push(`- Last role: \`${run.continuity.last_role || 'unknown'}\``);
+      lines.push(`- Last phase: \`${run.continuity.last_phase || 'unknown'}\``);
+      if (run.continuity.stale_checkpoint) {
+        lines.push(`- **Warning:** checkpoint tracks run \`${run.continuity.run_id}\`, but export tracks \`${run.run_id}\``);
+      }
     }
 
     if (Array.isArray(run.workflow_kit_artifacts) && run.workflow_kit_artifacts.length > 0) {

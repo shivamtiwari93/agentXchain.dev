@@ -23,6 +23,7 @@ export const RUN_EXPORT_INCLUDED_ROOTS = [
   'agentxchain.json',
   'TALK.md',
   '.agentxchain/state.json',
+  '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
   '.agentxchain/hook-audit.jsonl',
