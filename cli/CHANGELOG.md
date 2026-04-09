@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.34.1
+
+`2.34.1` is the releasable cross-session continuity release.
+
+### `restart` checkpoints now preserve the real phase and turn identity
+
+- Fixed `cli/src/lib/session-checkpoint.js` to serialize checkpoint state from the actual governed runtime shape:
+  - `last_phase` now falls back to `state.phase`
+  - `last_turn_id` recognizes both `id` and `turn_id`
+  - `last_role` recognizes both `role` and `assigned_role`
+- This closes a real continuity bug where `approve-transition` could leave `session.json.last_phase = null`, which is unacceptable on a recovery feature.
+
+### `restart` now has the missing subprocess proof
+
+- Added dedicated CLI subprocess coverage for:
+  - reconnecting to an abandoned active turn in a fresh process
+  - proving that `accept-turn` and `approve-transition` both update `session.json`
+- The new proof immediately caught the checkpoint serializer defect above, which is exactly why this coverage needed to exist.
+
+### The restart contract is now honest about stale checkpoints
+
+- The spec now matches the shipped behavior for `session.json` / `state.json` run-id drift:
+  - `state.json` remains source of truth
+  - stale checkpoint mismatch warns
+  - restart proceeds instead of rejecting a recoverable run
+
+### VS Code extension advisories are closed
+
+- Updated the vendored extension dependency set to patched transitive versions:
+  - `undici@6.24.0`
+  - `brace-expansion@1.1.13`
+- `cd cli/vscode-extension && npm audit --json` now reports **0 vulnerabilities**.
+
+### Evidence
+
+- **2862 tests / 601 suites / 0 failures**
+- `node --test cli/test/session-checkpoint.test.js cli/test/restart-cli.test.js`
+- `cd cli && npm test`
+- `cd cli/vscode-extension && npm audit --json`
+
 ## 2.33.1
 
 `2.33.1` is the cross-machine continuity restore release.
