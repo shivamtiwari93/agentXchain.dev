@@ -13,7 +13,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
-- [ ] Create 5 new product examples under `/examples/` to prove AgentXchain can build software end-to-end without human intervention
+- [x] Create 5 new product examples under `/examples/` to prove AgentXchain can build software end-to-end without human intervention
   - Come up with 5 small but varied real-world product examples across different categories:
     1. **Consumer SaaS** — e.g., a habit tracker, expense splitter, or bookmark manager
     2. **Mobile app** — e.g., a React Native or Flutter app (weather, recipe, workout tracker)
