@@ -45,9 +45,12 @@ The remote service must return a valid AgentXchain turn-result payload in one sy
 
 1. Reuse the existing dispatch bundle and turn-result validation flow.
 2. Treat the remote connector as synchronous in v1: dispatch, receive, stage, validate, accept.
-3. Fail closed on non-2xx responses, malformed JSON, missing turn-result fields, or timeout.
-4. Persist enough transport metadata for operator evidence without leaking secret header values.
-5. Document this as a connector bridge for governed remote execution, not as a generic hosted orchestration surface.
+3. Restrict v1 write authority to `review_only` and `proposed`. Do not allow `authoritative` until a real workspace-mutation bridge exists.
+4. For `review_only`, derive a review artifact under `.agentxchain/reviews/` on acceptance.
+5. For `proposed`, require `proposed_changes` and materialize the accepted proposal under `.agentxchain/proposed/<turn_id>/`.
+6. Fail closed on non-2xx responses, malformed JSON, missing turn-result fields, or timeout.
+7. Persist enough transport metadata for operator evidence without leaking secret header values.
+8. Document this as a connector bridge for governed remote execution, not as a generic hosted orchestration surface.
 
 ## Error Cases
 
@@ -57,15 +60,19 @@ The remote service must return a valid AgentXchain turn-result payload in one sy
 - Non-2xx response from remote service
 - Response body is not valid JSON
 - Response body is JSON but not a valid turn result
+- `authoritative` role bound to `remote_agent`
 - Secret headers echoed into logs or artifacts
 
 ## Acceptance Tests
 
 1. Config validation accepts valid `remote_agent` runtimes and rejects invalid URLs or headers.
 2. Dispatch posts the governed turn envelope to a local HTTP test server and stages the returned turn result.
-3. Timeout and non-2xx paths fail clearly.
-4. Logs and artifacts record remote target metadata without leaking authorization headers.
-5. Adapter docs describe the remote connector truthfully and distinguish it from MCP transport.
+3. `authoritative` roles are rejected for `remote_agent`; `review_only` and `proposed` are accepted.
+4. Accepted `review_only` turns derive a review artifact; accepted `proposed` turns derive a proposal artifact.
+5. A subprocess E2E proves `agentxchain step` can dispatch to a local remote-agent bridge, accept the turn, and materialize the proposal artifact for `proposal apply`.
+6. Timeout and non-2xx paths fail clearly.
+7. Logs and artifacts record remote target metadata without leaking authorization headers.
+8. Adapter docs describe the remote connector truthfully and distinguish it from MCP transport.
 
 ## Open Questions
 

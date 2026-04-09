@@ -18,6 +18,7 @@
  *   - api_proxy: implemented for synchronous review-only turns and stages
  *     provider-backed JSON before validation/acceptance
  *   - mcp: implemented for synchronous MCP stdio or streamable_http tool dispatch
+ *   - remote_agent: implemented for synchronous HTTP dispatch to external agent services
  */
 
 import chalk from 'chalk';
@@ -49,6 +50,7 @@ import {
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
 import { describeMcpRuntimeTarget, dispatchMcp, resolveMcpTransport } from '../lib/adapters/mcp-adapter.js';
+import { dispatchRemoteAgent, describeRemoteAgentTarget } from '../lib/adapters/remote-agent-adapter.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -504,11 +506,63 @@ export async function stepCommand(opts) {
 
     console.log(chalk.green(`MCP tool completed${mcpResult.toolName ? ` (${mcpResult.toolName})` : ''}. Staged result detected.`));
     console.log('');
+  } else if (runtimeType === 'remote_agent') {
+    console.log(chalk.cyan(`Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
+    console.log(chalk.dim(`Turn: ${turn.turn_id}  Role: ${roleId}  Phase: ${state.phase}`));
+
+    const remoteResult = await dispatchRemoteAgent(root, state, config, {
+      signal: controller.signal,
+      onStatus: (msg) => console.log(chalk.dim(`  ${msg}`)),
+      verifyManifest: true,
+    });
+
+    if (remoteResult.logs?.length) {
+      saveDispatchLogs(root, turn.turn_id, remoteResult.logs);
+    }
+
+    if (remoteResult.aborted) {
+      console.log('');
+      console.log(chalk.yellow('Aborted. Turn remains assigned.'));
+      console.log(chalk.dim('Resume later with: agentxchain step --resume'));
+      console.log(chalk.dim('Or accept/reject manually: agentxchain accept-turn / reject-turn'));
+      process.exit(0);
+    }
+
+    if (!remoteResult.ok) {
+      const blocked = markRunBlocked(root, {
+        blockedOn: `dispatch:remote_agent_failure`,
+        category: 'dispatch_error',
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'Resolve the remote agent dispatch issue, then run agentxchain step --resume',
+          turn_retained: true,
+          detail: remoteResult.error,
+        },
+        turnId: turn.turn_id,
+        hooksConfig,
+        notificationConfig: config,
+      });
+      if (blocked.ok) {
+        state = blocked.state;
+      }
+
+      console.log('');
+      console.log(chalk.red(`Remote agent dispatch failed: ${remoteResult.error}`));
+      console.log(chalk.dim('The turn remains assigned. You can:'));
+      console.log(chalk.dim('  - Fix the issue and retry: agentxchain step --resume'));
+      console.log(chalk.dim('  - Complete manually: edit .agentxchain/staging/turn-result.json'));
+      console.log(chalk.dim('  - Reject: agentxchain reject-turn --reason "remote agent failed"'));
+      process.exit(1);
+    }
+
+    console.log(chalk.green('Remote agent completed. Staged result detected.'));
+    console.log('');
   }
 
   // ── Phase 3: Wait for turn completion ─────────────────────────────────────
 
-  if (runtimeType === 'api_proxy' || runtimeType === 'mcp') {
+  if (runtimeType === 'api_proxy' || runtimeType === 'mcp' || runtimeType === 'remote_agent') {
     // api_proxy and mcp are synchronous — result already staged in Phase 2
   } else if (runtimeType === 'local_cli') {
     // ── Local CLI adapter: spawn subprocess ──

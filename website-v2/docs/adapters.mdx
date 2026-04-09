@@ -1,12 +1,12 @@
 ---
 sidebar_position: 4
 title: Adapters
-description: "Four adapters, one contract. manual, local_cli, mcp, and api_proxy explained."
+description: "Five adapters, one contract. manual, local_cli, mcp, api_proxy, and remote_agent explained."
 ---
 
 # Adapters
 
-Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, or a remote API — it only cares that the result conforms to the protocol.
+Adapters are the bridge between the orchestrator and the agent that does the work. Every adapter implements the same contract: receive a dispatch bundle, produce a staged turn result. The orchestrator does not care whether the work is done by a human, a local subprocess, an MCP stdio server, a remote API, or an external agent service — it only cares that the result conforms to the protocol.
 
 ## Package export
 
@@ -18,6 +18,7 @@ import {
   dispatchLocalCli,
   dispatchApiProxy,
   dispatchMcp,
+  dispatchRemoteAgent,
   printManualDispatchInstructions,
   waitForStagedResult,
   readStagedResult,
@@ -634,16 +635,91 @@ Use an Anthropic runtime when you want local preflight tokenization. Use an Open
 
 If you need to hit a mock or proxy endpoint, add `base_url` to the runtime block. Keep the `provider` field aligned with the endpoint contract you expect the adapter to speak.
 
+## remote_agent adapter
+
+The `remote_agent` adapter dispatches governed turns over HTTP to an external agent service. This is the connector that proves protocol replaceability across non-local execution boundaries — the remote service receives a governed turn envelope and returns a valid turn-result JSON in a single synchronous response.
+
+Unlike `api_proxy` (which speaks a specific provider's API), `remote_agent` posts the full AgentXchain turn envelope and expects the remote service to return a complete turn result. This makes it suitable for any external agent platform that implements the `agentxchain_turn` contract over HTTP.
+
+In v1, `remote_agent` is an honest non-local JSON bridge, not a remote filesystem writer. It supports `review_only` and `proposed` roles. It does **not** support `authoritative` roles because the adapter has no proven local workspace mutation path.
+
+### Request envelope
+
+The adapter POSTs a JSON body containing:
+
+- `run_id`, `turn_id`, `role`, `phase`, `runtime_id` — governed identity
+- `dispatch_dir` — path to the dispatch bundle on the local machine (informational)
+- `prompt` — rendered `PROMPT.md` content
+- `context` — rendered `CONTEXT.md` content
+
+### Response contract
+
+The remote service must return HTTP 200 with `Content-Type: application/json` and a body that is a valid AgentXchain turn result (same schema as any other adapter's staged result).
+
+### Error handling
+
+- Non-2xx → dispatch failure with HTTP status in the error
+- Non-JSON response → dispatch failure
+- JSON but missing turn-result fields → dispatch failure
+- Timeout → dispatch failure with `timedOut: true`
+- Network error → dispatch failure
+
+All failures mark the run as blocked with the turn retained for retry via `agentxchain step --resume`.
+
+### Write-authority boundary
+
+- **`review_only`** is supported. Accepted reviews materialize a derived artifact under `.agentxchain/reviews/<turn_id>-<role>-review.md`.
+- **`proposed`** is supported. Accepted proposals materialize under `.agentxchain/proposed/<turn_id>/` and can be applied with `agentxchain proposal apply`.
+- **`authoritative` is not supported in v1.** If you need direct repo writes, use `local_cli` or add a future connector with an explicit workspace-bridge contract.
+
+### Security
+
+Authorization headers are sent to the remote service but are **never** echoed into dispatch logs or governance artifacts. Headers matching `authorization`, `x-api-key`, `cookie`, and `proxy-authorization` are redacted to `[REDACTED]` in all log output.
+
+### Config
+
+```json
+{
+  "runtimes": {
+    "remote-review": {
+      "type": "remote_agent",
+      "url": "https://agent.example.com/agentxchain/turn",
+      "headers": {
+        "authorization": "Bearer ${REMOTE_AGENT_TOKEN}"
+      },
+      "timeout_ms": 120000
+    }
+  }
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `type` | Yes | — | Must be `"remote_agent"` |
+| `url` | Yes | — | Absolute HTTP or HTTPS URL of the remote agent service |
+| `headers` | No | `{}` | String-to-string request headers |
+| `timeout_ms` | No | `120000` | Request timeout in milliseconds (positive integer) |
+
+### Comparison with other adapters
+
+`remote_agent` is **not** the same as:
+
+- **`api_proxy`** — speaks Anthropic/OpenAI provider APIs; `remote_agent` speaks the AgentXchain turn-result contract directly
+- **`mcp`** — uses the MCP tool protocol over stdio or streamable_http; `remote_agent` uses plain HTTP POST/response
+- **`local_cli`** — spawns a local subprocess; `remote_agent` calls a remote service
+
+Use `remote_agent` when you have an external agent service that can accept governed turn envelopes and return structured turn results over HTTP.
+
 ## Comparison table
 
-| Feature | manual | local_cli | mcp | api_proxy |
-|---------|--------|-----------|-----|-----------|
-| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — MCP tool call runs autonomously | Full — API call runs autonomously |
-| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds to minutes | Seconds |
-| **Cost** | Human time | Tool license + compute | Tool/runtime dependent | API tokens |
-| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | MCP stdio `tools/list` + `tools/call` | HTTP request body |
-| **Retry logic** | N/A | Exit code based | None in v1 | Configurable exponential backoff with jitter |
-| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy |
-| **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table |
-| **Write authority** | Any | Any | Any | `review_only` or `proposed` only |
-| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls |
+| Feature | manual | local_cli | mcp | api_proxy | remote_agent |
+|---------|--------|-----------|-----|-----------|--------------|
+| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — MCP tool call runs autonomously | Full — API call runs autonomously | Full — HTTP call runs autonomously |
+| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds to minutes | Seconds | Seconds to minutes |
+| **Cost** | Human time | Tool license + compute | Tool/runtime dependent | API tokens | Remote service dependent |
+| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | MCP stdio `tools/list` + `tools/call` | HTTP request body | HTTP POST with turn envelope |
+| **Retry logic** | N/A | Exit code based | None in v1 | Configurable exponential backoff with jitter | None in v1 — retry via `step --resume` |
+| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy | Configurable `timeout_ms` (default 120s) |
+| **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table | N/A — remote service reports cost in turn result |
+| **Write authority** | Any | Any | Any | `review_only` or `proposed` only | `review_only` or `proposed` only |
+| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic or OpenAI review calls | External agent services, hosted agent platforms, cross-network governed execution |

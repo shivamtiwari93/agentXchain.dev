@@ -387,14 +387,14 @@ function validateArtifact(tr, config) {
     warnings.push('Authoritative role completed with no files_changed — is this intentional?');
   }
 
-  // Validate proposed_changes for proposed + api_proxy turns
+  // Validate proposed_changes for proposed runtimes that cannot write repo files directly.
   const runtimeType = config.runtimes?.[tr.runtime_id]?.type;
-  if (writeAuthority === 'proposed' && runtimeType === 'api_proxy') {
+  if (writeAuthority === 'proposed' && (runtimeType === 'api_proxy' || runtimeType === 'remote_agent')) {
     // Completion-request turns are explicitly allowed to have empty proposed_changes —
     // the turn is signaling run completion, not delivering work.
     const isCompletionRequest = tr.run_completion_request === true;
     if (tr.status === 'completed' && (!tr.proposed_changes || tr.proposed_changes.length === 0) && !isCompletionRequest) {
-      errors.push('Proposed api_proxy turn completed but proposed_changes is empty or missing.');
+      errors.push(`Proposed ${runtimeType} turn completed but proposed_changes is empty or missing.`);
     }
   }
   if (tr.proposed_changes && Array.isArray(tr.proposed_changes)) {

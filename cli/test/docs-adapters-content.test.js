@@ -442,4 +442,18 @@ describe('Adapter docs contract', () => {
         'comparison table must include the mcp adapter');
     });
   });
+
+  describe('remote_agent authority boundary', () => {
+    it('docs state that remote_agent is review_only/proposed only in v1', () => {
+      assert.match(adapterDocs, /remote_agent.*review_only.*proposed/i,
+        'adapters.mdx must document remote_agent support for review_only/proposed roles');
+      assert.match(adapterDocs, /authoritative.*not supported in v1/i,
+        'adapters.mdx must explicitly reject authoritative remote_agent claims in v1');
+    });
+
+    it('docs mention proposal apply as the remote proposed workflow', () => {
+      assert.match(adapterDocs, /proposal apply/i,
+        'adapters.mdx must explain that remote_agent proposed turns materialize proposals for proposal apply');
+    });
+  });
 });

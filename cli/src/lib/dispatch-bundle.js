@@ -210,7 +210,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('- You may create/modify files under `.planning/` and `.agentxchain/reviews/`.');
     lines.push('- Your artifact type must be `review`.');
     lines.push('- You MUST raise at least one objection (even if minor).');
-    if (runtimeType === 'api_proxy') {
+    if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
       const reviewArtifactPath = getReviewArtifactPath(turn.turn_id, roleId);
       lines.push('- **This runtime cannot write repo files directly.** Do NOT claim `.planning/*` or `.agentxchain/reviews/*` changes you did not actually make.');
       lines.push(`- The orchestrator will materialize your accepted review at \`${reviewArtifactPath}\`.`);
@@ -230,7 +230,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('');
     lines.push('- You may propose changes as patches but cannot directly commit.');
     lines.push('- Your artifact type should be `patch`.');
-    if (runtimeType === 'api_proxy') {
+    if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
       lines.push('- **This runtime cannot write repo files directly.** When doing work, you MUST return proposed changes as structured JSON.');
       lines.push('- Include a `proposed_changes` array in your turn result with each file change (omit or set to `[]` on completion-only turns):');
       lines.push('  ```json');
@@ -393,7 +393,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (not final phase).** When your work is complete${gateClause}, set \`phase_transition_request: "${nextPhase}"\`.`);
     } else if (phaseIdx >= 0 && phaseIdx === phaseNames.length - 1) {
       lines.push(`- **You are in the \`${currentPhase}\` phase (final phase).** When ready to ship, set \`run_completion_request: true\` and \`phase_transition_request: null\`.`);
-      if (runtimeType === 'api_proxy') {
+      if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
         lines.push('- **Completion turns must be no-op:** set `proposed_changes` to `[]` or omit it, set `files_changed` to `[]`, and set `artifact.type` to `"review"`. Do NOT propose file changes on a completion turn.');
       }
     }
@@ -408,7 +408,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
       lines.push('- **If you found genuine blocking issues that prevent shipping:** set `status: "needs_human"` and explain the blockers in `needs_human_reason`.');
       lines.push('- Do NOT use `status: "needs_human"` to mean "human should approve the release." That is what `run_completion_request: true` is for.');
       lines.push('- Do NOT set `phase_transition_request` to the exit gate name.');
-      if (runtimeType === 'api_proxy') {
+      if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
         lines.push('- `run_completion_request: true` does **not** mean this runtime wrote `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, or `.planning/RELEASE_NOTES.md` for you.');
       }
     }

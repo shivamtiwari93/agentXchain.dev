@@ -17,7 +17,7 @@ import { validateNotificationsConfig } from './notification-runner.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
-const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp'];
+const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
 const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
@@ -154,6 +154,42 @@ function validateMcpRuntime(runtimeId, runtime, errors) {
 
   if ('headers' in runtime) {
     errors.push(`Runtime "${runtimeId}": mcp stdio does not accept "headers"`);
+  }
+}
+
+function validateRemoteAgentRuntime(runtimeId, runtime, errors) {
+  // url: required, absolute http(s)
+  if (typeof runtime?.url !== 'string' || !runtime.url.trim()) {
+    errors.push(`Runtime "${runtimeId}": remote_agent requires "url"`);
+  } else {
+    try {
+      const parsed = new URL(runtime.url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        errors.push(`Runtime "${runtimeId}": remote_agent url must use http or https`);
+      }
+    } catch {
+      errors.push(`Runtime "${runtimeId}": remote_agent url must be a valid absolute URL`);
+    }
+  }
+
+  // headers: optional object of string values
+  if ('headers' in runtime) {
+    if (!runtime.headers || typeof runtime.headers !== 'object' || Array.isArray(runtime.headers)) {
+      errors.push(`Runtime "${runtimeId}": remote_agent headers must be an object of string values`);
+    } else {
+      for (const [key, value] of Object.entries(runtime.headers)) {
+        if (typeof value !== 'string') {
+          errors.push(`Runtime "${runtimeId}": remote_agent headers["${key}"] must be a string`);
+        }
+      }
+    }
+  }
+
+  // timeout_ms: optional positive integer
+  if ('timeout_ms' in runtime) {
+    if (!Number.isInteger(runtime.timeout_ms) || runtime.timeout_ms <= 0) {
+      errors.push(`Runtime "${runtimeId}": remote_agent timeout_ms must be a positive integer`);
+    }
   }
 }
 
@@ -391,6 +427,9 @@ export function validateV4Config(data, projectRoot) {
       if (rt.type === 'mcp') {
         validateMcpRuntime(id, rt, errors);
       }
+      if (rt.type === 'remote_agent') {
+        validateRemoteAgentRuntime(id, rt, errors);
+      }
     }
   }
 
@@ -412,11 +451,18 @@ export function validateV4Config(data, projectRoot) {
           errors.push(`Role "${id}" is review_only but uses local_cli runtime "${role.runtime}" — review_only roles should not have authoritative write access`);
         }
       }
-      // api_proxy restriction: only review_only and proposed roles may bind to api_proxy runtimes
+      // api_proxy and remote_agent restriction: only review_only and proposed roles may bind.
+      // These adapters do not have a proven local workspace mutation path in v1.
       if (role.runtime && data.runtimes[role.runtime]) {
         const rt = data.runtimes[role.runtime];
-        if (rt.type === 'api_proxy' && role.write_authority !== 'review_only' && role.write_authority !== 'proposed') {
-          errors.push(`Role "${id}" has write_authority "${role.write_authority}" but uses api_proxy runtime "${role.runtime}" — api_proxy only supports review_only and proposed roles`);
+        if (
+          (rt.type === 'api_proxy' || rt.type === 'remote_agent')
+          && role.write_authority !== 'review_only'
+          && role.write_authority !== 'proposed'
+        ) {
+          errors.push(
+            `Role "${id}" has write_authority "${role.write_authority}" but uses ${rt.type} runtime "${role.runtime}" — ${rt.type} only supports review_only and proposed roles`
+          );
         }
       }
     }

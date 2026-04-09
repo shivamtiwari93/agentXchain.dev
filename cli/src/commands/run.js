@@ -2,7 +2,7 @@
  * agentxchain run — drive a governed run to completion.
  *
  * Thin CLI surface over the runLoop library. Wires runLoop callbacks to:
- *   - Existing adapter system (api_proxy, local_cli, mcp)
+ *   - Existing adapter system (api_proxy, local_cli, mcp, remote_agent)
  *   - Interactive gate prompting (stdin) or auto-approve mode
  *   - Terminal output via chalk
  *
@@ -27,6 +27,7 @@ import {
   resolvePromptTransport,
 } from '../lib/adapters/local-cli-adapter.js';
 import { dispatchMcp, resolveMcpTransport, describeMcpRuntimeTarget } from '../lib/adapters/mcp-adapter.js';
+import { dispatchRemoteAgent, describeRemoteAgentTarget } from '../lib/adapters/remote-agent-adapter.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
@@ -200,6 +201,9 @@ export async function runCommand(opts) {
         const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';
         console.log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
         adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
+      } else if (runtimeType === 'remote_agent') {
+        console.log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
+        adapterResult = await dispatchRemoteAgent(projectRoot, state, cfg, adapterOpts);
       } else {
         return { accept: false, reason: `unknown runtime type "${runtimeType}"` };
       }

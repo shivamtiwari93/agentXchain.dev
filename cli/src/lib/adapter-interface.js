@@ -28,4 +28,10 @@ export {
   describeMcpRuntimeTarget,
 } from './adapters/mcp-adapter.js';
 
+export {
+  dispatchRemoteAgent,
+  describeRemoteAgentTarget,
+  DEFAULT_REMOTE_AGENT_TIMEOUT_MS,
+} from './adapters/remote-agent-adapter.js';
+
 export const ADAPTER_INTERFACE_VERSION = '0.1';

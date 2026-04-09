@@ -60,6 +60,9 @@ describe('Adapter package exports contract', () => {
       'resolveMcpToolName',
       'resolveMcpTransport',
       'describeMcpRuntimeTarget',
+      'dispatchRemoteAgent',
+      'describeRemoteAgentTarget',
+      'DEFAULT_REMOTE_AGENT_TIMEOUT_MS',
     ]) {
       assert.ok(
         ADAPTER_INTERFACE_SRC.includes(symbol),

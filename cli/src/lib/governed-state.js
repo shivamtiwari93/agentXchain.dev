@@ -139,7 +139,10 @@ function renderDerivedReviewArtifact(turnResult, state) {
 }
 
 function materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, baseline = null) {
-  if (turnResult?.artifact?.type !== 'review' || runtimeType !== 'api_proxy') {
+  if (
+    turnResult?.artifact?.type !== 'review'
+    || (runtimeType !== 'api_proxy' && runtimeType !== 'remote_agent')
+  ) {
     return null;
   }
 
@@ -156,7 +159,10 @@ function materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, 
 }
 
 function materializeDerivedProposalArtifact(root, turnResult, state, runtimeType) {
-  if (turnResult?.artifact?.type !== 'patch' || runtimeType !== 'api_proxy') {
+  if (
+    turnResult?.artifact?.type !== 'patch'
+    || (runtimeType !== 'api_proxy' && runtimeType !== 'remote_agent')
+  ) {
     return null;
   }
   if (!Array.isArray(turnResult.proposed_changes) || turnResult.proposed_changes.length === 0) {
