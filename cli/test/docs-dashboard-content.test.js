@@ -21,10 +21,12 @@ const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 
 const CLI_BIN = readFileSync(join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js'), 'utf8');
 const DASHBOARD_COMMAND = readFileSync(join(REPO_ROOT, 'cli', 'src', 'commands', 'dashboard.js'), 'utf8');
 const BRIDGE_SERVER = readFileSync(join(REPO_ROOT, 'cli', 'src', 'lib', 'dashboard', 'bridge-server.js'), 'utf8');
+const STATE_READER = readFileSync(join(REPO_ROOT, 'cli', 'src', 'lib', 'dashboard', 'state-reader.js'), 'utf8');
 const DASHBOARD_APP = readFileSync(join(REPO_ROOT, 'cli', 'dashboard', 'app.js'), 'utf8');
 const DASHBOARD_INDEX = readFileSync(join(REPO_ROOT, 'cli', 'dashboard', 'index.html'), 'utf8');
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
+const DASHBOARD_CONTINUITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONTINUITY_SURFACE_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -66,12 +68,16 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention repo completion approval');
     assert.ok(CLI_DOCS.includes('X-AgentXchain-Token'), 'cli docs must document the local mutation token boundary');
     assert.ok(CLI_DOCS.includes('/api/coordinator/blockers'), 'cli docs must document the coordinator blockers endpoint');
+    assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
+    assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
+    assert.ok(CLI_DOCS.includes('agentxchain restart'), 'cli docs must mention restart guidance in the dashboard surface');
     assert.ok(CLI_DOCS.includes('step --resume'), 'cli docs must document that blocked recovery remains CLI-only');
     assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
     assert.ok(BRIDGE_SERVER.includes('/api/actions/approve-gate'), 'bridge server must expose the approve-gate endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/workflow-kit-artifacts'), 'bridge server must expose the workflow-kit artifacts endpoint');
+    assert.ok(STATE_READER.includes('/api/continuity'), 'dashboard state reader must expose the continuity endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
     assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
   });
@@ -101,6 +107,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
     assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
     assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
+    assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {
@@ -126,5 +133,14 @@ describe('Dashboard discoverability — front-door surfaces', () => {
   it('keeps dashboard discoverable in CLI and root readmes', () => {
     assert.ok(CLI_README.includes('dashboard'), 'cli/README.md must mention dashboard');
     assert.ok(ROOT_README.includes('agentxchain dashboard'), 'root README.md must mention dashboard command');
+  });
+});
+
+describe('Dashboard continuity spec', () => {
+  it('ships a durable spec for the dashboard continuity surface', () => {
+    assert.match(DASHBOARD_CONTINUITY_SPEC, /Dashboard Continuity Surface Spec/);
+    assert.match(DASHBOARD_CONTINUITY_SPEC, /AT-DASH-CONT-001/);
+    assert.match(DASHBOARD_CONTINUITY_SPEC, /GET \/api\/continuity/);
+    assert.match(DASHBOARD_CONTINUITY_SPEC, /Timeline view/);
   });
 });

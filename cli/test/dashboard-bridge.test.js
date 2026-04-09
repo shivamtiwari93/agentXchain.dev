@@ -198,6 +198,15 @@ function createTestFixture() {
     phase: 'development',
     turns: [{ turn_id: 'turn_001', role: 'pm', status: 'accepted' }],
   });
+  writeJson(join(axcDir, 'session.json'), {
+    session_id: 'session_test_001',
+    run_id: 'run_test_001',
+    checkpoint_reason: 'turn_accepted',
+    last_checkpoint_at: '2026-04-09T22:00:00Z',
+    last_turn_id: 'turn_001',
+    last_role: 'pm',
+  });
+  writeFileSync(join(axcDir, 'SESSION_RECOVERY.md'), '# Session Recovery Report\n');
 
   // History
   writeFileSync(join(axcDir, 'history.jsonl'),
@@ -340,6 +349,18 @@ describe('Dashboard Bridge Server', () => {
       assert.ok(Array.isArray(data));
       assert.equal(data.length, 1);
       assert.equal(data[0].turn_id, 'turn_001');
+    });
+
+    it('GET /api/continuity returns computed continuity status', async () => {
+      const res = await httpGet(port, '/api/continuity');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.checkpoint.session_id, 'session_test_001');
+      assert.equal(data.checkpoint.checkpoint_reason, 'turn_accepted');
+      assert.equal(data.stale_checkpoint, false);
+      assert.equal(data.recovery_report_path, '.agentxchain/SESSION_RECOVERY.md');
+      assert.equal(data.restart_recommended, true);
+      assert.ok(!('session_id' in data), 'continuity endpoint must not expose raw checkpoint fields at the top level');
     });
 
     it('GET /api/ledger returns decision-ledger.jsonl as array', async () => {

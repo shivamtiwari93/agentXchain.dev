@@ -1,12 +1,8 @@
-import { existsSync } from 'fs';
-import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
-import { readSessionCheckpoint } from '../lib/session-checkpoint.js';
-
-const SESSION_RECOVERY_PATH = '.agentxchain/SESSION_RECOVERY.md';
+import { getContinuityStatus } from '../lib/continuity-status.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -245,28 +241,6 @@ function renderGovernedStatus(context, opts) {
     console.log(`    ${marker} ${label} — ${role.title} [${role.write_authority}]`);
   }
   console.log('');
-}
-
-function getContinuityStatus(root, state) {
-  const checkpoint = readSessionCheckpoint(root);
-  const recoveryReportPath = existsSync(join(root, SESSION_RECOVERY_PATH))
-    ? SESSION_RECOVERY_PATH
-    : null;
-
-  if (!checkpoint && !recoveryReportPath) return null;
-
-  const staleCheckpoint = !!(
-    checkpoint?.run_id
-    && state?.run_id
-    && checkpoint.run_id !== state.run_id
-  );
-
-  return {
-    checkpoint,
-    stale_checkpoint: staleCheckpoint,
-    recovery_report_path: recoveryReportPath,
-    restart_recommended: !!state && !['blocked', 'completed', 'failed'].includes(state.status),
-  };
 }
 
 function renderContinuityStatus(continuity, state) {

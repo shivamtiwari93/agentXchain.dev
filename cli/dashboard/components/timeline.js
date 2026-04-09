@@ -132,7 +132,41 @@ function renderTurnDetailPanel(turnId, annotations, audit) {
   return html;
 }
 
-export function render({ state, history, annotations, audit }) {
+function renderContinuityPanel(continuity) {
+  if (!continuity) return '';
+
+  const checkpoint = continuity.checkpoint;
+  const checkpointSummary = checkpoint?.last_checkpoint_at
+    ? `${checkpoint.checkpoint_reason || 'unknown'} at ${checkpoint.last_checkpoint_at}`
+    : (checkpoint?.checkpoint_reason || 'No session checkpoint recorded');
+
+  let html = `<div class="section continuity-section"><h3>Continuity</h3><div class="turn-card">`;
+
+  if (checkpoint) {
+    html += `<div class="turn-detail"><span class="detail-label">Session:</span> <span class="mono">${esc(checkpoint.session_id || 'unknown')}</span></div>`;
+    html += `<div class="turn-detail"><span class="detail-label">Checkpoint:</span> ${esc(checkpointSummary)}</div>`;
+    html += `<div class="turn-detail"><span class="detail-label">Last turn:</span> <span class="mono">${esc(checkpoint.last_turn_id || 'none')}</span></div>`;
+    html += `<div class="turn-detail"><span class="detail-label">Last role:</span> ${esc(checkpoint.last_role || 'unknown')}</div>`;
+    if (continuity.stale_checkpoint) {
+      html += `<div class="turn-detail risks"><span class="detail-label">Warning:</span> checkpoint tracks <span class="mono">${esc(checkpoint.run_id || 'unknown')}</span>, but state.json remains source of truth.</div>`;
+    }
+  } else {
+    html += `<div class="turn-detail"><span class="detail-label">Checkpoint:</span> No session checkpoint recorded</div>`;
+  }
+
+  if (continuity.restart_recommended) {
+    html += `<div class="turn-detail"><span class="detail-label">Restart:</span> <span class="mono">agentxchain restart</span></div>`;
+  }
+
+  if (continuity.recovery_report_path) {
+    html += `<div class="turn-detail"><span class="detail-label">Report:</span> <span class="mono">${esc(continuity.recovery_report_path)}</span></div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
+export function render({ state, continuity, history, annotations, audit }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -151,6 +185,8 @@ export function render({ state, history, annotations, audit }) {
       <span class="turn-count">${turnCount} turn${turnCount !== 1 ? 's' : ''} completed</span>
     </div>
   </div>`;
+
+  html += renderContinuityPanel(continuity);
 
   // Active turns
   if (activeTurns.length > 0) {

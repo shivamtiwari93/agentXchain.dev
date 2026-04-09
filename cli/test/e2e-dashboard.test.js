@@ -253,6 +253,15 @@ function fixtureData() {
 function writeFixture(agentxchainDir, state) {
   const data = fixtureData();
   writeJson(join(agentxchainDir, 'state.json'), state);
+  writeJson(join(agentxchainDir, 'session.json'), {
+    session_id: 'session_dashboard_e2e',
+    run_id: state.run_id,
+    checkpoint_reason: 'turn_accepted',
+    last_checkpoint_at: '2026-04-09T22:00:00Z',
+    last_turn_id: 'turn_003',
+    last_role: 'dev',
+  });
+  writeFileSync(join(agentxchainDir, 'SESSION_RECOVERY.md'), '# Session Recovery Report\n');
   writeJsonl(join(agentxchainDir, 'history.jsonl'), data.history);
   writeJsonl(join(agentxchainDir, 'decision-ledger.jsonl'), data.ledger);
   writeJsonl(join(agentxchainDir, 'hook-audit.jsonl'), data.audit);
@@ -434,11 +443,16 @@ describe('Dashboard E2E acceptance', () => {
   it('AT-DASH-001 timeline renders from governed state files', async () => {
     writeFixture(agentxchainDir, baseState());
     const state = await getJson(port, '/api/state');
+    const continuity = await getJson(port, '/api/continuity');
     const history = await getJson(port, '/api/history');
-    const html = renderTimeline({ state, history });
+    const html = renderTimeline({ state, continuity, history });
 
     assert.ok(html.includes('run_dashboard_e2e'));
     assert.ok(html.includes('3 turns completed'));
+    assert.ok(html.includes('Continuity'));
+    assert.ok(html.includes('session_dashboard_e2e'));
+    assert.ok(html.includes('agentxchain restart'));
+    assert.ok(html.includes('.agentxchain/SESSION_RECOVERY.md'));
     assert.ok(html.includes('turn_004'));
     assert.ok(html.includes('Defined auth middleware scope and requested development'));
     assert.ok(html.includes('Implemented RS256 auth flow'));

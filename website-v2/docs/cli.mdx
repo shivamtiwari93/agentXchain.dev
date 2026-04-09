@@ -515,7 +515,7 @@ The shipped dashboard surface has nine top-level views:
 |------|-------------|
 | **Initiative** | Multi-repo coordinator summary: repo runs, pending gate, blocked state, and barrier snapshot |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams |
-| **Timeline** | Repo-local run timeline with active turns, accepted history, and expandable turn-level hook evidence |
+| **Timeline** | Repo-local run timeline with continuity status, active turns, accepted history, and expandable turn-level hook evidence |
 | **Decisions** | Filterable decision ledger for governed turns |
 | **Hooks** | Hook audit log plus persisted hook annotations |
 | **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |
@@ -532,6 +532,8 @@ The dashboard is not a general write surface. It supports exactly one authentica
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus structured blockers such as `repo_run_id_mismatch` with expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand.
+
+For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, and whether `agentxchain restart` is the truthful next continuity action. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
 
 Everything else remains CLI-only. The dashboard does **not** execute arbitrary commands and does **not** perform blocked-state recovery actions such as:
 

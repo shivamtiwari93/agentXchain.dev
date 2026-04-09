@@ -108,6 +108,55 @@ describe('Timeline View', () => {
     assert.ok(html.includes('&lt;script&gt;'));
     assert.ok(html.includes('run_&lt;xss&gt;'));
   });
+
+  it('renders continuity details and restart guidance when continuity exists', () => {
+    const html = renderTimeline({
+      state: { run_id: 'run_001', status: 'active', phase: 'implementation', active_turns: {} },
+      continuity: {
+        checkpoint: {
+          session_id: 'session_001',
+          run_id: 'run_001',
+          checkpoint_reason: 'turn_accepted',
+          last_checkpoint_at: '2026-04-09T22:00:00Z',
+          last_turn_id: 'turn_003',
+          last_role: 'dev',
+        },
+        stale_checkpoint: false,
+        recovery_report_path: '.agentxchain/SESSION_RECOVERY.md',
+        restart_recommended: true,
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('Continuity'));
+    assert.ok(html.includes('session_001'));
+    assert.ok(html.includes('turn_accepted at 2026-04-09T22:00:00Z'));
+    assert.ok(html.includes('agentxchain restart'));
+    assert.ok(html.includes('.agentxchain/SESSION_RECOVERY.md'));
+  });
+
+  it('renders stale continuity warning and omits restart when restart is untruthful', () => {
+    const html = renderTimeline({
+      state: { run_id: 'run_001', status: 'blocked', phase: 'implementation', active_turns: {} },
+      continuity: {
+        checkpoint: {
+          session_id: 'session_001',
+          run_id: 'run_old',
+          checkpoint_reason: 'phase_approved',
+          last_checkpoint_at: '2026-04-09T22:00:00Z',
+          last_turn_id: 'turn_002',
+          last_role: 'pm',
+        },
+        stale_checkpoint: true,
+        recovery_report_path: null,
+        restart_recommended: false,
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('state.json remains source of truth'));
+    assert.ok(!html.includes('agentxchain restart'));
+  });
 });
 
 // ── Ledger View ────────────────────────────────────────────────────────────

@@ -7,10 +7,12 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { join, normalize } from 'path';
+import { join, normalize, resolve } from 'path';
+import { getContinuityStatus } from '../continuity-status.js';
 
 const STATE_FILE = 'state.json';
 const SESSION_FILE = 'session.json';
+const SESSION_RECOVERY_FILE = 'SESSION_RECOVERY.md';
 const HISTORY_FILE = 'history.jsonl';
 const LEDGER_FILE = 'decision-ledger.jsonl';
 const HOOK_AUDIT_FILE = 'hook-audit.jsonl';
@@ -44,6 +46,7 @@ export const RESOURCE_MAP = {
 export const FILE_TO_RESOURCE = Object.fromEntries(
   Object.entries(RESOURCE_MAP).map(([resource, file]) => [normalizeRelativePath(file), resource])
 );
+FILE_TO_RESOURCE[normalizeRelativePath(SESSION_RECOVERY_FILE)] = '/api/continuity';
 
 export const WATCH_DIRECTORIES = [
   '',
@@ -86,6 +89,13 @@ export function readJsonlFile(agentxchainDir, filename) {
  * Read a resource by its API path. Returns { data, format } or null.
  */
 export function readResource(agentxchainDir, resourcePath) {
+  if (resourcePath === '/api/continuity') {
+    const root = resolve(agentxchainDir, '..');
+    const state = readJsonFile(agentxchainDir, STATE_FILE);
+    const data = getContinuityStatus(root, state);
+    return { data, format: 'json' };
+  }
+
   const filename = RESOURCE_MAP[resourcePath];
   if (!filename) return null;
 

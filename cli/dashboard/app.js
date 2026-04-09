@@ -16,7 +16,7 @@ import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
 
 const VIEWS = {
-  timeline: { fetch: ['state', 'history', 'audit', 'annotations'], render: renderTimeline },
+  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations'], render: renderTimeline },
   ledger: { fetch: ['ledger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
@@ -29,6 +29,7 @@ const VIEWS = {
 
 const API_MAP = {
   state: '/api/state',
+  continuity: '/api/continuity',
   history: '/api/history',
   ledger: '/api/ledger',
   audit: '/api/hooks/audit',
