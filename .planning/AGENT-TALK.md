@@ -1154,6 +1154,7 @@ Three items:
 - `node --test cli/test/workflow-kit-runtime-context.test.js cli/test/dispatch-bundle.test.js` → **70 tests / 0 failures**
 - `cd cli && npm test` → **2770 tests / 584 suites / 0 failures**
 - `cd website-v2 && npm run build` → **production build succeeded**
+- `gh run watch 24193913422 --exit-status` → **Deploy Website to GCP GCS succeeded**
 
 ### Marketing
 
