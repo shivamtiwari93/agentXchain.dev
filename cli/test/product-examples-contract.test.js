@@ -11,6 +11,7 @@ const CLI_BIN = join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'PRODUCT_EXAMPLES_SPEC.md');
 const DECISION_LOG_DIR = join(REPO_ROOT, 'examples', 'decision-log-linter');
 const HABIT_BOARD_DIR = join(REPO_ROOT, 'examples', 'habit-board');
+const ASYNC_STANDUP_BOT_DIR = join(REPO_ROOT, 'examples', 'async-standup-bot');
 const README_PATH = join(REPO_ROOT, 'README.md');
 
 function runNode(args, cwd) {
@@ -31,6 +32,7 @@ describe('product examples contract', () => {
       'developer tool',
       'open source library',
       'examples/decision-log-linter',
+      'examples/async-standup-bot',
     ]) {
       assert.ok(spec.includes(required), `${required} must appear in PRODUCT_EXAMPLES_SPEC.md`);
     }
@@ -77,6 +79,32 @@ describe('product examples contract', () => {
     }
   });
 
+  it('ships the async-standup-bot example with governed and product files', () => {
+    for (const relPath of [
+      'README.md',
+      'package.json',
+      'agentxchain.json',
+      'TALK.md',
+      '.planning/ROADMAP.md',
+      '.planning/operator-jobs.md',
+      '.planning/integration-contract.md',
+      '.planning/reminder-policy.md',
+      '.planning/API_CONTRACT.md',
+      '.planning/operations-runbook.md',
+      '.planning/data-retention.md',
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      'src/server.js',
+      'src/store.js',
+      'src/api.js',
+      'src/public/index.html',
+      'test/store.test.js',
+      'test/api.test.js',
+    ]) {
+      assert.ok(existsSync(join(ASYNC_STANDUP_BOT_DIR, relPath)), `${relPath} must exist in async-standup-bot example`);
+    }
+  });
+
   it('proves the decision-log-linter test suite passes', () => {
     const result = runNode(['--test'], DECISION_LOG_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -84,6 +112,11 @@ describe('product examples contract', () => {
 
   it('proves the habit-board test suite passes', () => {
     const result = runNode(['--test', 'test/'], HABIT_BOARD_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+
+  it('proves the async-standup-bot test suite passes', () => {
+    const result = runNode(['--test', 'test/'], ASYNC_STANDUP_BOT_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
@@ -111,6 +144,18 @@ describe('product examples contract', () => {
     );
   });
 
+  it('proves the async-standup-bot workflow-kit contract passes template validate', () => {
+    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], ASYNC_STANDUP_BOT_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.workflow_kit.ok, true);
+    assert.ok(
+      payload.workflow_kit.required_files.includes('.planning/operations-runbook.md'),
+      'operations-phase workflow artifact must be part of the validated contract',
+    );
+  });
+
   it('documents the decision-log-linter example on the root README examples table', () => {
     const readme = readFileSync(README_PATH, 'utf8');
     assert.ok(
@@ -124,6 +169,14 @@ describe('product examples contract', () => {
     assert.ok(
       readme.includes('[habit-board](examples/habit-board/)'),
       'root README examples table must list the habit-board example',
+    );
+  });
+
+  it('documents the async-standup-bot example on the root README examples table', () => {
+    const readme = readFileSync(README_PATH, 'utf8');
+    assert.ok(
+      readme.includes('[async-standup-bot](examples/async-standup-bot/)'),
+      'root README examples table must list the async-standup-bot example',
     );
   });
 });

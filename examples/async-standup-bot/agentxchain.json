@@ -1,0 +1,250 @@
+{
+  "schema_version": "1.0",
+  "template": "generic",
+  "project": {
+    "id": "async-standup-bot",
+    "name": "Async Standup Bot",
+    "default_branch": "main"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Define operator jobs, product scope, and acceptance truth for the standup workflow.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    },
+    "integration_lead": {
+      "title": "Integration Lead",
+      "mandate": "Own reminder payload shape, escalation rules, and team-facing integration contracts.",
+      "write_authority": "review_only",
+      "runtime": "manual-integration"
+    },
+    "platform_engineer": {
+      "title": "Platform Engineer",
+      "mandate": "Implement the service, browser UI, persistence, and summary generation.",
+      "write_authority": "authoritative",
+      "runtime": "manual-platform"
+    },
+    "ops_manager": {
+      "title": "Ops Manager",
+      "mandate": "Own runbook clarity, retention policy, and recovery procedures.",
+      "write_authority": "review_only",
+      "runtime": "manual-ops"
+    },
+    "qa": {
+      "title": "QA Engineer",
+      "mandate": "Challenge end-to-end correctness, missing-member handling, and operational safety.",
+      "write_authority": "review_only",
+      "runtime": "manual-qa"
+    }
+  },
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "manual-integration": { "type": "manual" },
+    "manual-platform": { "type": "manual" },
+    "manual-ops": { "type": "manual" },
+    "manual-qa": { "type": "manual" }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "integration_lead", "human"],
+      "exit_gate": "planning_signoff"
+    },
+    "integration": {
+      "entry_role": "integration_lead",
+      "allowed_next_roles": ["integration_lead", "platform_engineer", "human"],
+      "exit_gate": "integration_ready"
+    },
+    "implementation": {
+      "entry_role": "platform_engineer",
+      "allowed_next_roles": ["platform_engineer", "ops_manager", "qa", "human"],
+      "exit_gate": "implementation_complete"
+    },
+    "operations": {
+      "entry_role": "ops_manager",
+      "allowed_next_roles": ["ops_manager", "platform_engineer", "qa", "human"],
+      "exit_gate": "operations_ready"
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["qa", "platform_engineer", "human"],
+      "exit_gate": "qa_ship_verdict"
+    }
+  },
+  "gates": {
+    "planning_signoff": {
+      "requires_files": [
+        ".planning/ROADMAP.md",
+        ".planning/operator-jobs.md"
+      ],
+      "requires_human_approval": true
+    },
+    "integration_ready": {
+      "requires_files": [
+        ".planning/integration-contract.md",
+        ".planning/reminder-policy.md"
+      ]
+    },
+    "implementation_complete": {
+      "requires_files": [
+        ".planning/API_CONTRACT.md"
+      ],
+      "requires_verification_pass": true
+    },
+    "operations_ready": {
+      "requires_files": [
+        ".planning/operations-runbook.md",
+        ".planning/data-retention.md"
+      ]
+    },
+    "qa_ship_verdict": {
+      "requires_files": [
+        ".planning/acceptance-matrix.md",
+        ".planning/ship-verdict.md"
+      ],
+      "requires_human_approval": true
+    }
+  },
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "artifacts": [
+          {
+            "path": ".planning/ROADMAP.md",
+            "semantics": null,
+            "required": true,
+            "owned_by": "pm"
+          },
+          {
+            "path": ".planning/operator-jobs.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "pm",
+            "semantics_config": {
+              "required_sections": [
+                "## Team Admin",
+                "## Standup Collection",
+                "## Failure Recovery"
+              ]
+            }
+          }
+        ]
+      },
+      "integration": {
+        "artifacts": [
+          {
+            "path": ".planning/integration-contract.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "integration_lead",
+            "semantics_config": {
+              "required_sections": [
+                "## Slack Delivery Shape",
+                "## Team Fields",
+                "## Failure Handling"
+              ]
+            }
+          },
+          {
+            "path": ".planning/reminder-policy.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "integration_lead",
+            "semantics_config": {
+              "required_sections": [
+                "## Reminder Cadence",
+                "## Escalation Rules",
+                "## Quiet Hours"
+              ]
+            }
+          }
+        ]
+      },
+      "implementation": {
+        "artifacts": [
+          {
+            "path": ".planning/API_CONTRACT.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "platform_engineer",
+            "semantics_config": {
+              "required_sections": [
+                "## Endpoints",
+                "## Data Model",
+                "## Error Responses"
+              ]
+            }
+          }
+        ]
+      },
+      "operations": {
+        "artifacts": [
+          {
+            "path": ".planning/operations-runbook.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "ops_manager",
+            "semantics_config": {
+              "required_sections": [
+                "## Daily Operations",
+                "## Incident Checks",
+                "## Retention Tasks"
+              ]
+            }
+          },
+          {
+            "path": ".planning/data-retention.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "ops_manager",
+            "semantics_config": {
+              "required_sections": [
+                "## Retention Window",
+                "## Prune Procedure",
+                "## Audit Notes"
+              ]
+            }
+          }
+        ]
+      },
+      "qa": {
+        "artifacts": [
+          {
+            "path": ".planning/acceptance-matrix.md",
+            "semantics": "acceptance_matrix",
+            "required": true,
+            "owned_by": "qa"
+          },
+          {
+            "path": ".planning/ship-verdict.md",
+            "semantics": "ship_verdict",
+            "required": true,
+            "owned_by": "qa"
+          }
+        ]
+      }
+    }
+  },
+  "prompts": {
+    "pm": ".agentxchain/prompts/pm.md",
+    "integration_lead": ".agentxchain/prompts/integration_lead.md",
+    "platform_engineer": ".agentxchain/prompts/platform_engineer.md",
+    "ops_manager": ".agentxchain/prompts/ops_manager.md",
+    "qa": ".agentxchain/prompts/qa.md"
+  },
+  "budget": {
+    "per_turn_max_usd": 1.0,
+    "per_run_max_usd": 9.0,
+    "on_exceed": "pause_and_escalate"
+  },
+  "retention": {
+    "talk_strategy": "append_only",
+    "history_strategy": "jsonl_append_only"
+  },
+  "rules": {
+    "challenge_required": true,
+    "max_turn_retries": 2,
+    "max_deadlock_cycles": 2
+  }
+}

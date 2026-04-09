@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Async Standup Bot</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <p class="eyebrow">B2B Example</p>
+        <h1>Async Standup Bot</h1>
+        <p class="lede">
+          Create teams, collect async standups, preview reminders, and generate a manager digest without any external services.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Create Team</h2>
+          <form id="team-form" class="stack">
+            <label>Name <input id="team-name" name="name" maxlength="80" required /></label>
+            <label>Channel <input id="team-channel" name="channel" placeholder="#eng-standup" required /></label>
+            <label>Timezone <input id="team-timezone" name="timezone" value="America/Toronto" required /></label>
+            <label>Reminder Hour <input id="team-hour" name="reminderHour" type="number" min="0" max="23" value="10" required /></label>
+            <label>Retention Days <input id="team-retention" name="retentionDays" type="number" min="1" max="365" value="30" required /></label>
+            <button type="submit">Create Team</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Add Member</h2>
+          <form id="member-form" class="stack">
+            <label>Team
+              <select id="member-team" name="teamId"></select>
+            </label>
+            <label>Name <input id="member-name" name="name" required /></label>
+            <label>Timezone <input id="member-timezone" name="timezone" value="America/Toronto" required /></label>
+            <label>Slack Handle <input id="member-slack" name="slackHandle" placeholder="@alex" /></label>
+            <button type="submit">Add Member</button>
+          </form>
+        </article>
+
+        <article class="panel">
+          <h2>Submit Standup</h2>
+          <form id="checkin-form" class="stack">
+            <label>Team
+              <select id="checkin-team" name="teamId"></select>
+            </label>
+            <label>Member
+              <select id="checkin-member" name="memberId"></select>
+            </label>
+            <label>Date <input id="checkin-date" name="date" type="date" required /></label>
+            <label>Yesterday <textarea id="checkin-yesterday" name="yesterday" required></textarea></label>
+            <label>Today <textarea id="checkin-today" name="today" required></textarea></label>
+            <label>Blockers <textarea id="checkin-blockers" name="blockers"></textarea></label>
+            <label>Status
+              <select id="checkin-status" name="status">
+                <option value="green">Green</option>
+                <option value="yellow">Yellow</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </label>
+            <button type="submit">Save Standup</button>
+          </form>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-header">
+            <div>
+              <h2>Team Snapshot</h2>
+              <p id="team-meta" class="meta">No team selected.</p>
+            </div>
+            <div class="inline-fields">
+              <label>Date <input id="report-date" type="date" /></label>
+              <button id="refresh-report" type="button">Refresh Views</button>
+            </div>
+          </div>
+          <div class="snapshot-grid">
+            <section>
+              <h3>Members</h3>
+              <ul id="team-members" class="list"></ul>
+            </section>
+            <section>
+              <h3>Summary</h3>
+              <pre id="summary-output" class="output">Create a team to see the summary.</pre>
+            </section>
+            <section>
+              <h3>Reminder Preview</h3>
+              <ul id="reminder-output" class="list"></ul>
+            </section>
+            <section>
+              <h3>Retention</h3>
+              <form id="prune-form" class="stack">
+                <label>Prune entries before <input id="prune-date" type="date" required /></label>
+                <button type="submit">Prune Historical Standups</button>
+              </form>
+              <p id="prune-result" class="meta"></p>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <p id="status" class="status">Ready.</p>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>

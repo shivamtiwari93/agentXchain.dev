@@ -1,0 +1,13 @@
+{
+  "name": "async-standup-bot",
+  "version": "1.0.0",
+  "description": "B2B SaaS async standup collector governed by AgentXchain",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/",
+    "smoke": "node test/smoke.js"
+  },
+  "keywords": ["standup", "b2b", "agentxchain", "governed"],
+  "license": "MIT"
+}
