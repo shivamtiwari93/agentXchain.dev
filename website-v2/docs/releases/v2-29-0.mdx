@@ -1,0 +1,75 @@
+---
+title: "v2.29.0 Release Notes"
+description: "Remote-agent proof release: shipped HTTP remote_agent adapter, real-model and repeated proof, and non-zero step validation exits."
+---
+
+# AgentXchain v2.29.0
+
+`2.29.0` is the remote-agent proof and automation-correctness release.
+
+`2.28.0` closed security and plugin credibility debt. This release closes a different truth gap: whether AgentXchain can front a real remote model through a governed adapter surface without silently repairing the model's output, and whether automation can trust the CLI to fail closed on retained validation errors.
+
+## `remote_agent` is now a real shipped connector surface
+
+The new `remote_agent` adapter lets a governed role dispatch over synchronous HTTP POST to an external service.
+
+What shipped:
+
+- Runtime config validation for `url`, headers, and timeouts
+- Secret-header redaction for `authorization`, `x-api-key`, `cookie`, and `proxy-authorization`
+- Public CLI integration through `agentxchain step`
+- Runnable example under `examples/remote-agent-bridge/`
+
+That example is not hand-wavy sample code. It includes:
+
+- `server.js` for deterministic proof
+- `run-proof.mjs` for end-to-end CLI lifecycle proof
+- `model-backed-server.js` for a real Anthropic-backed bridge
+- `run-repeated-proof.mjs` for repeated reliability measurement
+
+## Real-model proof through the governed adapter boundary
+
+AgentXchain now proves a real model can satisfy the governed turn-result contract through the `remote_agent` bridge:
+
+- Dev turn: model returns non-empty `proposed_changes[]`, proposal materializes, and `proposal apply` succeeds
+- QA turn: model returns a review artifact with at least one objection
+- Both turns pass the same acceptance pipeline used by the CLI in normal governed execution
+
+### The fence-strip concession is now stated honestly
+
+The wrong invariant is "the model must never emit markdown fences."
+
+The correct invariant is:
+
+- no field-level repair
+- no semantic fixups
+- only logged removal of one outer markdown-fence pair when the enclosed JSON is otherwise valid
+
+Fence-free raw JSON is still the preferred transport shape and the prompt still requests it. But the release-critical proof boundary is "no field-level repair," not "perfect fence-free transport."
+
+## Repeated reliability proof
+
+Single-shot success is weak evidence. The bridge now ships a repeatable proof harness:
+
+- **5 independent governed lifecycles**
+- **5/5 PASS (100%)**
+- **No retries**
+- **10/10 logged outer-fence strips**
+- **No field-level repair**
+
+This does not prove universal reliability across prompts, providers, or higher sample sizes. It does prove the contract is reliably teachable to Claude Haiku from one system prompt under the shipped proof conditions.
+
+## Automation correctness: validation failures exit non-zero
+
+`agentxchain step` previously had a real automation bug: a staged turn result could fail validation, be retained for correction, and still leave the command exiting `0`.
+
+That is not acceptable for CI or shell automation. `step` now exits `1` when validation fails and the staged result is retained. Scripts can fail closed without guessing from console text.
+
+## Evidence
+
+- **2752 node tests / 582 suites / 0 failures**
+- `node --test cli/test/e2e-remote-agent-proposed-authoring.test.js`
+- `node --test cli/test/remote-agent-model-backed-proof.test.js`
+- `node --test cli/test/remote-agent-repeated-proof.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`

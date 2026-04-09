@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.29.0
+
+`2.29.0` is the remote-agent proof and automation-correctness release.
+
+### `remote_agent`: shipped as a real governed connector surface
+
+- Added the `remote_agent` adapter: synchronous HTTP POST dispatch for governed turns with config validation, secret-header redaction, and runtime integration through the public CLI.
+- Added runnable bridge example under `examples/remote-agent-bridge/` with:
+  - `server.js` for deterministic proof
+  - `run-proof.mjs` for end-to-end CLI lifecycle proof
+  - `model-backed-server.js` for real Anthropic-backed proof
+  - `run-repeated-proof.mjs` for repeated reliability measurement
+
+### Real-model proof: transport concession made explicit
+
+- Proved that Claude Haiku can satisfy the governed turn-result contract through the `remote_agent` bridge for both `proposed` and `review_only` paths.
+- Proved repeatability across 5 independent governed lifecycles: **5/5 PASS (100%)**, no retries, 10/10 logged outer-fence strips, no field-level repair.
+- Tightened the proof boundary wording across spec/example/docs:
+  - fence-free raw JSON remains the preferred transport shape
+  - the actual invariant is **no field-level repair**
+  - logged removal of one outer markdown-fence pair is allowed when the enclosed JSON is otherwise valid
+
+### Automation truth: `step` validation failures now exit non-zero
+
+- Fixed the `step` command to return exit code `1` when a staged turn result fails validation and is retained.
+- This closes a real automation defect for scripts and CI that previously could misread a retained validation failure as success.
+
+### Evidence
+
+- **2752 node tests / 582 suites / 0 failures**
+- Docusaurus production build passes
+
 ## 2.28.0
 
 `2.28.0` is the security and integration release.
