@@ -413,7 +413,7 @@ describe('verification report shape docs contract', () => {
       }
 
       assert.equal(verification.report.overall, 'pass');
-      assert.equal(verification.report.schema_version, '0.2');
+      assert.equal(verification.report.schema_version, '0.3');
       assert.equal(verification.report.export_kind, 'agentxchain_run_export');
       assert.ok(Array.isArray(verification.report.errors));
     } finally {

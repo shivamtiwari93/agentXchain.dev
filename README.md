@@ -24,6 +24,7 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 - Requires a structured turn result for every governed turn
 - Enforces mandatory challenge, phase gates, and human approvals
 - Records accepted history in append-only JSONL plus `TALK.md`
+- Supports cross-machine continuity via `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
 - Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
@@ -37,6 +38,7 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
+- [Multi-session continuity](https://agentxchain.dev/docs/multi-session/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
 - [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
 - [Protocol reference](https://agentxchain.dev/docs/protocol-reference/)
@@ -215,6 +217,7 @@ agentxchain status
 agentxchain demo
 agentxchain run                              # multi-turn governed execution to completion
 agentxchain run --auto-approve --max-turns 20
+agentxchain restore --input <path>          # cross-machine continuity from a prior run export
 agentxchain step                             # single-turn dispatch (manual workflow)
 agentxchain step --resume --turn <id>
 agentxchain resume

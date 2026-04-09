@@ -15,7 +15,7 @@ Current export artifact schema:
 
 | Field | Value |
 | --- | --- |
-| `schema_version` | `0.2` |
+| `schema_version` | `0.3` |
 | Run artifact `export_kind` | `agentxchain_run_export` |
 | Coordinator artifact `export_kind` | `agentxchain_coordinator_export` |
 
@@ -48,6 +48,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `files` | Repo-native audit files keyed by relative path |
 | `config` | Raw `agentxchain.json` content |
 | `state` | Parsed `.agentxchain/state.json` content |
+| `workspace` | Source checkout metadata used for cross-machine continuity restore decisions |
 
 ### `project`
 
@@ -82,6 +83,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 When present, the run export collects:
 
 - `agentxchain.json`
+- `TALK.md`
 - `.agentxchain/state.json`
 - `.agentxchain/history.jsonl`
 - `.agentxchain/decision-ledger.jsonl`
@@ -93,8 +95,26 @@ When present, the run export collects:
 - `.agentxchain/transactions/accept/**`
 - `.agentxchain/intake/**`
 - `.agentxchain/multirepo/**`
+- `.agentxchain/reviews/**`
+- `.agentxchain/proposed/**`
+- `.agentxchain/reports/**`
+- `.planning/**`
 
 Missing optional roots are skipped. The exporter snapshots repo-native audit evidence; it does not sweep arbitrary source files into the artifact.
+
+### `workspace.git`
+
+Run exports now include a source-checkout portability block:
+
+| Field | Meaning |
+| --- | --- |
+| `is_repo` | Whether the source export came from a git-backed checkout |
+| `head_sha` | Source `HEAD` commit SHA or `null` |
+| `dirty_paths` | All dirty tracked/staged/untracked paths in the source checkout |
+| `restore_supported` | `true` only when the export is safe to restore into another checkout in this slice |
+| `restore_blockers` | Exact reasons restore is unsafe, typically dirty product files outside the governed continuity roots |
+
+This metadata is for `agentxchain restore`, not protocol conformance. A run export can still be a valid audit artifact when `restore_supported` is `false`.
 
 ## Coordinator Export Shape
 
@@ -162,7 +182,7 @@ Each successful child repo entry then embeds the full governed run export for th
 
 ## Verification Contract
 
-`agentxchain verify export` currently accepts `schema_version: "0.2"` artifacts and checks:
+`agentxchain verify export` currently accepts `schema_version: "0.2"` and `"0.3"` artifacts and checks:
 
 - file-entry integrity by recomputing `bytes` and `sha256` from `content_base64`
 - `data` truth for `json`, `jsonl`, and `text`

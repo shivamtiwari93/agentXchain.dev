@@ -195,7 +195,7 @@ describe('coordinator export CLI', () => {
 
       const exported = JSON.parse(result.stdout);
       assert.equal(exported.export_kind, 'agentxchain_coordinator_export');
-      assert.equal(exported.schema_version, '0.2');
+      assert.equal(exported.schema_version, '0.3');
       assert.equal(exported.coordinator.project_id, 'coord-test');
       assert.equal(exported.coordinator.project_name, 'Coordinator Test');
       assert.equal(exported.coordinator.repo_count, 2);

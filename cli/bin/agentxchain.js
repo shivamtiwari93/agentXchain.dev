@@ -75,6 +75,7 @@ import { approveTransitionCommand } from '../src/commands/approve-transition.js'
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
 import { exportCommand } from '../src/commands/export.js';
+import { restoreCommand } from '../src/commands/restore.js';
 import { reportCommand } from '../src/commands/report.js';
 import {
   pluginInstallCommand,
@@ -138,6 +139,12 @@ program
   .option('--format <format>', 'Export format (json)', 'json')
   .option('--output <path>', 'Write the export artifact to a file instead of stdout')
   .action(exportCommand);
+
+program
+  .command('restore')
+  .description('Restore governed continuity roots from a run export artifact')
+  .requiredOption('--input <path>', 'Path to a prior run export artifact')
+  .action(restoreCommand);
 
 program
   .command('report')

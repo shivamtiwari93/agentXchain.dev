@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -6,7 +7,7 @@ import { loadProjectContext, loadProjectState } from './config.js';
 import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
 import { loadCoordinatorState } from './coordinator-state.js';
 
-const EXPORT_SCHEMA_VERSION = '0.2';
+const EXPORT_SCHEMA_VERSION = '0.3';
 
 const COORDINATOR_INCLUDED_ROOTS = [
   'agentxchain-multi.json',
@@ -18,8 +19,9 @@ const COORDINATOR_INCLUDED_ROOTS = [
   '.agentxchain/multirepo/RECOVERY_REPORT.md',
 ];
 
-const INCLUDED_ROOTS = [
+export const RUN_EXPORT_INCLUDED_ROOTS = [
   'agentxchain.json',
+  'TALK.md',
   '.agentxchain/state.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
@@ -31,8 +33,39 @@ const INCLUDED_ROOTS = [
   '.agentxchain/transactions/accept',
   '.agentxchain/intake',
   '.agentxchain/multirepo',
+  '.agentxchain/reviews',
+  '.agentxchain/proposed',
+  '.agentxchain/reports',
   '.planning',
 ];
+
+export const RUN_RESTORE_ROOTS = [
+  'agentxchain.json',
+  'TALK.md',
+  '.agentxchain/state.json',
+  '.agentxchain/history.jsonl',
+  '.agentxchain/decision-ledger.jsonl',
+  '.agentxchain/hook-audit.jsonl',
+  '.agentxchain/hook-annotations.jsonl',
+  '.agentxchain/notification-audit.jsonl',
+  '.agentxchain/dispatch',
+  '.agentxchain/staging',
+  '.agentxchain/transactions/accept',
+  '.agentxchain/intake',
+  '.agentxchain/multirepo',
+  '.agentxchain/reviews',
+  '.agentxchain/proposed',
+  '.agentxchain/reports',
+  '.planning',
+];
+
+function pathWithinRoots(relPath, roots) {
+  return roots.some((root) => relPath === root || relPath.startsWith(`${root}/`));
+}
+
+export function isRunRestorePath(relPath) {
+  return pathWithinRoots(relPath, RUN_RESTORE_ROOTS);
+}
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -122,6 +155,95 @@ function countDirectoryFiles(files, prefix) {
   return Object.keys(files).filter((path) => path.startsWith(`${prefix}/`)).length;
 }
 
+function isGitRepo(root) {
+  try {
+    execSync('git rev-parse --is-inside-work-tree', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getGitHeadSha(root) {
+  try {
+    return execSync('git rev-parse HEAD', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function getWorkingTreeChanges(root) {
+  try {
+    const tracked = execSync('git diff --name-only HEAD', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const staged = execSync('git diff --name-only --cached', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const untracked = execSync('git ls-files --others --exclude-standard', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+
+    return [...new Set([tracked, staged, untracked]
+      .flatMap((chunk) => chunk.split('\n').filter(Boolean)))]
+      .sort((a, b) => a.localeCompare(b, 'en'));
+  } catch {
+    return [];
+  }
+}
+
+export function buildRunWorkspaceMetadata(root) {
+  if (!isGitRepo(root)) {
+    return {
+      git: {
+        is_repo: false,
+        head_sha: null,
+        dirty_paths: [],
+        restore_supported: false,
+        restore_blockers: ['Export restore requires a git-backed checkout on the source machine.'],
+      },
+    };
+  }
+
+  const headSha = getGitHeadSha(root);
+  const dirtyPaths = getWorkingTreeChanges(root);
+  const restoreBlockers = [];
+
+  if (!headSha) {
+    restoreBlockers.push('Export restore requires a stable git HEAD in the source checkout.');
+  }
+
+  for (const dirtyPath of dirtyPaths) {
+    if (!isRunRestorePath(dirtyPath)) {
+      restoreBlockers.push(`Dirty path outside governed continuity roots: ${dirtyPath}`);
+    }
+  }
+
+  return {
+    git: {
+      is_repo: true,
+      head_sha: headSha,
+      dirty_paths: dirtyPaths,
+      restore_supported: restoreBlockers.length === 0,
+      restore_blockers: restoreBlockers,
+    },
+  };
+}
+
 export function buildRunExport(startDir = process.cwd()) {
   const context = loadProjectContext(startDir);
   if (!context) {
@@ -141,7 +263,7 @@ export function buildRunExport(startDir = process.cwd()) {
   const { root, rawConfig, config, version } = context;
   const state = loadProjectState(root, config);
 
-  const collectedPaths = [...new Set(INCLUDED_ROOTS.flatMap((relPath) => collectPaths(root, relPath)))]
+  const collectedPaths = [...new Set(RUN_EXPORT_INCLUDED_ROOTS.flatMap((relPath) => collectPaths(root, relPath)))]
     .sort((a, b) => a.localeCompare(b, 'en'));
 
   const files = {};
@@ -181,6 +303,7 @@ export function buildRunExport(startDir = process.cwd()) {
         intake_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/intake/')),
         coordinator_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/multirepo/')),
       },
+      workspace: buildRunWorkspaceMetadata(root),
       files,
       config: rawConfig,
       state,

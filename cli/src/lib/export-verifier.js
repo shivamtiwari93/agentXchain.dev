@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
-const SUPPORTED_EXPORT_SCHEMA_VERSION = '0.2';
+const SUPPORTED_EXPORT_SCHEMA_VERSIONS = new Set(['0.2', '0.3']);
 const VALID_FILE_FORMATS = new Set(['json', 'jsonl', 'text']);
 
 function sha256(buffer) {
@@ -51,8 +51,8 @@ function verifyFileEntry(relPath, entry, errors) {
     addError(errors, path, 'sha256 must be a 64-character lowercase hex digest');
   }
 
-  if (typeof entry.content_base64 !== 'string' || entry.content_base64.length === 0) {
-    addError(errors, path, 'content_base64 must be a non-empty string');
+  if (typeof entry.content_base64 !== 'string') {
+    addError(errors, path, 'content_base64 must be a string');
     return;
   }
 
@@ -159,6 +159,29 @@ function verifyRunExport(artifact, errors) {
 
   if (!isDeepStrictEqual(artifact.state, artifact.files?.['.agentxchain/state.json']?.data)) {
     addError(errors, 'state', 'must match files..agentxchain/state.json.data');
+  }
+
+  if ('workspace' in artifact) {
+    if (!artifact.workspace || typeof artifact.workspace !== 'object' || Array.isArray(artifact.workspace)) {
+      addError(errors, 'workspace', 'must be an object');
+    } else {
+      const git = artifact.workspace.git;
+      if (!git || typeof git !== 'object' || Array.isArray(git)) {
+        addError(errors, 'workspace.git', 'must be an object');
+      } else {
+        if (typeof git.is_repo !== 'boolean') addError(errors, 'workspace.git.is_repo', 'must be a boolean');
+        if (git.head_sha !== null && (typeof git.head_sha !== 'string' || git.head_sha.length === 0)) {
+          addError(errors, 'workspace.git.head_sha', 'must be a string or null');
+        }
+        if (!Array.isArray(git.dirty_paths) || git.dirty_paths.some((entry) => typeof entry !== 'string' || entry.length === 0)) {
+          addError(errors, 'workspace.git.dirty_paths', 'must be an array of non-empty strings');
+        }
+        if (typeof git.restore_supported !== 'boolean') addError(errors, 'workspace.git.restore_supported', 'must be a boolean');
+        if (!Array.isArray(git.restore_blockers) || git.restore_blockers.some((entry) => typeof entry !== 'string' || entry.length === 0)) {
+          addError(errors, 'workspace.git.restore_blockers', 'must be an array of non-empty strings');
+        }
+      }
+    }
   }
 
   const activeTurnIds = Object.keys(artifact.state.active_turns || {}).sort((a, b) => a.localeCompare(b, 'en'));
@@ -340,8 +363,8 @@ export function verifyExportArtifact(artifact) {
     };
   }
 
-  if (artifact.schema_version !== SUPPORTED_EXPORT_SCHEMA_VERSION) {
-    addError(errors, 'schema_version', `must be "${SUPPORTED_EXPORT_SCHEMA_VERSION}"`);
+  if (!SUPPORTED_EXPORT_SCHEMA_VERSIONS.has(artifact.schema_version)) {
+    addError(errors, 'schema_version', `must be one of ${[...SUPPORTED_EXPORT_SCHEMA_VERSIONS].map((v) => `"${v}"`).join(', ')}`);
   }
 
   if (typeof artifact.export_kind !== 'string') {

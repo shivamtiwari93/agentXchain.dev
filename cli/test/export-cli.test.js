@@ -147,6 +147,7 @@ function createGovernedProject() {
     super_run_id: 'srun_001',
     status: 'active',
   });
+  writeFileSync(join(root, 'TALK.md'), '# Export Talk\n');
 
   return root;
 }
@@ -178,7 +179,7 @@ describe('export CLI', () => {
       assert.equal(result.status, 0, result.stderr);
 
       const exported = JSON.parse(result.stdout);
-      assert.equal(exported.schema_version, '0.2');
+      assert.equal(exported.schema_version, '0.3');
       assert.equal(exported.export_kind, 'agentxchain_run_export');
       assert.equal(exported.project.id, 'export-test');
       assert.equal(exported.summary.run_id, 'run_export_001');
@@ -205,9 +206,12 @@ describe('export CLI', () => {
         exported.files['.agentxchain/multirepo/state.json'].data.super_run_id,
         'srun_001',
       );
+      assert.equal(exported.files['TALK.md'].data, '# Export Talk\n');
       assert.equal(exported.summary.intake_present, true);
       assert.equal(exported.summary.coordinator_present, true);
       assert.equal(exported.summary.notification_audit_entries, 1);
+      assert.equal(exported.workspace.git.is_repo, false);
+      assert.equal(exported.workspace.git.restore_supported, false);
       assert.equal(
         exported.files['.agentxchain/notification-audit.jsonl'].data[0].event_type,
         'run_blocked',

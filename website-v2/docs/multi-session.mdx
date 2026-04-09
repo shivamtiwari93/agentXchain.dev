@@ -131,7 +131,37 @@ These guarantees hold across any number of sessions:
 ## Limitations
 
 - **Single operator** — the file-based model assumes one operator at a time. Concurrent access from multiple processes writing simultaneously is not governed. (Future: file locking or hosted runner coordination.)
-- **No remote sync** — continuity is local to the filesystem. If you need to hand off a run to a different machine, copy the entire project directory including `.agentxchain/`.
+- **Cross-machine continuity is narrow in this slice** — use export + restore only when the destination is another checkout of the same repo at the same git `HEAD`.
+
+## Restore On Another Machine
+
+You can now move governed continuity state from machine A to machine B without copying the entire directory, but the contract is intentionally strict:
+
+1. The source repo must export a restore-safe run bundle.
+2. The destination must be another checkout of the same repo at the same git `HEAD`.
+3. Dirty source files outside the exported governed roots will block restore.
+
+```bash
+# Machine A
+agentxchain export --output run-export.json
+```
+
+The export artifact includes `workspace.git` metadata showing:
+
+- the source `HEAD`
+- every dirty path
+- whether restore is safe in this slice
+- explicit blockers when it is not
+
+```bash
+# Machine B: same repo, same git HEAD, clean checkout
+agentxchain restore --input /path/to/run-export.json
+agentxchain resume
+```
+
+`restore` replaces the governed continuity roots (`agentxchain.json`, `.agentxchain/**`, `.planning/**`, `TALK.md`) from the export artifact, then `resume` continues inside the same `run_id`.
+
+This is **not** a general source-sync system. If the source workspace changed product files outside those governed roots, the export remains valid for reporting and verification, but restore will fail closed and name the blocking paths.
 
 ## Operator Checklist
 

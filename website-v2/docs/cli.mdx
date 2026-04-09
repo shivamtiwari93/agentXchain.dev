@@ -40,6 +40,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
+| `restore` | Migration | Restore governed continuity roots from a prior run export into another checkout of the same repo |
 | `resume` | Turn lifecycle | Initialize or resume a run and assign or re-dispatch one turn without waiting |
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
@@ -167,6 +168,8 @@ Exports the repo-native audit surface into one JSON artifact. When run from a **
 
 Each exported file entry includes parsed `data` plus `content_base64`, the original raw file bytes encoded for transport. That is what lets `agentxchain verify export` recompute `bytes` and `sha256` instead of trusting the artifact's own summary blindly.
 
+Run exports also include `workspace.git` portability metadata: source `HEAD`, dirty paths, and whether the export is safe to restore into another checkout of the same repo. That restore path is intentionally narrow. If the source workspace had dirty product files outside the exported governed roots, the artifact is still valid for audit/reporting but `restore` will refuse to treat it as a portable continuity bundle.
+
 For the actual JSON field contract, use [Export Schema Reference](/docs/export-schema) instead of reverse-engineering `export.js`.
 
 ### `report`
@@ -185,6 +188,30 @@ agentxchain report [--input <path>|-] [--format text|json|markdown]
 Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact.
 
 For the stable report output contract, use [Governance Report Reference](/docs/governance-report). For the raw artifact schema, use [Export Schema Reference](/docs/export-schema).
+
+### `restore`
+
+```bash
+agentxchain restore --input <path>
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input <path>` | required | Path to a prior run export artifact |
+
+Restores governed continuity roots from a prior **run export** into another checkout of the **same repo** at the **same git HEAD**. This is the first cross-machine continuity slice: export state on machine A, restore it on machine B, then continue the same `run_id` with `agentxchain resume`.
+
+The command fails closed unless all of these are true:
+
+- the input artifact verifies successfully
+- the artifact is a run export, not a coordinator export
+- `workspace.git.restore_supported` is `true`
+- the target checkout is a governed project rooted by `agentxchain.json`
+- the target repo is git-backed and clean before restore
+- the target `HEAD` matches the exported `workspace.git.head_sha`
+- the target `project.id` matches the export's `project.id`
+
+`restore` is deliberately not a general sync engine. It does **not** migrate arbitrary product source files. If the source export depends on dirty files outside the governed continuity roots (`agentxchain.json`, `.agentxchain/**`, `.planning/**`, `TALK.md`), restore will tell you exactly which paths made the bundle unsafe.
 
 ### `resume`
 

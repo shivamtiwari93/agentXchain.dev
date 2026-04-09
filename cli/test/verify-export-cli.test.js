@@ -273,7 +273,7 @@ describe('verify export CLI', () => {
       const report = JSON.parse(result.stdout);
       assert.equal(report.overall, 'pass');
       assert.equal(report.export_kind, 'agentxchain_run_export');
-      assert.equal(report.schema_version, '0.2');
+      assert.equal(report.schema_version, '0.3');
       assert.equal(report.file_count > 0, true);
     } finally {
       rmSync(root, { recursive: true, force: true });
