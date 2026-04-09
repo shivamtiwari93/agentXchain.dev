@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.36.0
+
+`2.36.0` ships the missing operator-visible dashboard continuity panel and closes the release-surface drift that kept the repo-mirrored Homebrew files out of release identity.
+
+### Dashboard continuity is now operator-visible
+
+- Timeline view now renders continuity state directly instead of leaving `/api/continuity` as hidden bridge plumbing.
+- `/api/continuity` now serves the same computed continuity shape as `agentxchain status --json`, via the shared `continuity-status.js` helper.
+- Dashboard invalidation now refreshes continuity when `SESSION_RECOVERY.md` changes, so restart guidance stays truthful after recovery work.
+
+### Release identity now includes the mirrored Homebrew surfaces
+
+- `release-bump.sh` now treats both `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` as governed release surfaces.
+- Pre-bump validation fails closed unless the Homebrew mirror formula and maintainer README already point at the target version.
+- Post-release current-surface coverage now enforces that the mirrored formula and README track the current npm tarball.
+
+### Evidence
+
+- **2894 tests / 608 suites / 0 failures**
+- `cd cli && npm test`
+- `node --test test/release-identity-hardening.test.js test/current-release-surface.test.js test/homebrew-mirror-contract.test.js`
+- `cd website-v2 && npm run build`
+
 ## 2.35.0
 
 `2.35.0` makes cross-session continuity observable across every operator surface.

@@ -1,0 +1,44 @@
+---
+title: "v2.36.0 Release Notes"
+description: "Dashboard continuity is now operator-visible, and release identity now fail-closes on the mirrored Homebrew surfaces."
+---
+
+# AgentXchain v2.36.0
+
+`2.36.0` ships the missing dashboard continuity panel and fixes the release-path truth gap that kept the repo-mirrored Homebrew files outside governed release identity.
+
+## Dashboard continuity is now a real product surface
+
+`/api/continuity` existed in bridge form, but that was infrastructure, not operator value. This release closes that gap:
+
+- Timeline view now renders continuity details directly
+- continuity data is computed from the same shared helper as `agentxchain status --json`
+- operators now see:
+  - session id
+  - checkpoint reason and timestamp
+  - last turn and role
+  - stale-checkpoint warning
+  - `agentxchain restart` guidance when truthful
+  - `.agentxchain/SESSION_RECOVERY.md` when present
+
+This is the first release where continuity is visible in the dashboard itself, not just in CLI and report surfaces.
+
+## Release identity now includes the mirrored Homebrew surfaces
+
+The release-bump guard already checked several public version surfaces, but the repo-mirrored Homebrew files were still second-class. That was sloppy and it kept recurring.
+
+`2.36.0` fixes the contract:
+
+- `cli/homebrew/agentxchain.rb` is now an allowed pre-bump release surface
+- `cli/homebrew/README.md` is now an allowed pre-bump release surface
+- pre-bump validation fails unless both already reference the target version
+- the current-release surface now enforces that both mirror files track the live package version and tarball URL
+
+This means the mirrored Homebrew files now ship in the same release commit as the rest of the governed version surfaces instead of drifting behind.
+
+## Evidence
+
+- **2894 tests / 608 suites / 0 failures**
+- `cd cli && npm test`
+- `node --test test/release-identity-hardening.test.js test/current-release-surface.test.js test/homebrew-mirror-contract.test.js`
+- `cd website-v2 && npm run build` — production build succeeded

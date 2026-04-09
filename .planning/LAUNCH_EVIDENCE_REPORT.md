@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.35.0
+# Launch Evidence Report — AgentXchain v2.36.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.35.0 cross-session continuity observability release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.36.0 dashboard continuity and release-surface hardening release.
 
 ---
 
