@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.28.0
+
+`2.28.0` is the security and integration release.
+
+### Security: zero npm audit vulnerabilities
+
+- **website-v2**: Upgraded Docusaurus 3.9.2 → 3.10.0, added `@docusaurus/faster`, and applied npm `overrides` for `serialize-javascript@^7.0.5` — closing all 18 high vulnerabilities.
+- **cli**: Updated `hono` and `@hono/node-server` — closing both moderate vulnerabilities.
+- Both packages now report `0 vulnerabilities` from `npm audit --omit=dev`.
+
+### Retired GitHub Pages deploy path
+
+- Deleted `.github/workflows/deploy-pages.yml` (permanently broken; GCS is canonical).
+- Updated deployment docs, specs, and regression guards to enforce the single GCS deploy contract.
+
+### Built-in GitHub Issues reference plugin
+
+- New `@agentxchain/plugin-github-issues` — mirrors governed run status into a configured GitHub issue.
+- Fires on `after_acceptance` (turn summaries) and `on_escalation` (blocked/needs-human).
+- One comment per run, updated in place. Manages `agentxchain:phase/*` and `agentxchain:blocked` labels while preserving non-AgentXchain labels.
+- Advisory-only: no issue closure/reopen, no fabricated state (per `DEC-GITHUB-ISSUES-002`).
+- Structured `warn` on token/API failure — never blocks the governed run.
+
+### Evidence
+
+- 2680 node tests / 570 suites / 0 failures.
+- 0 vulnerabilities across both packages.
+- Docusaurus production build passes.
+
 ## 2.27.0
 
 `2.27.0` is the operator onboarding and multi-session continuity release.

@@ -1,0 +1,76 @@
+---
+title: "v2.28.0 Release Notes"
+description: "Security and integration release: zero npm audit vulnerabilities, Docusaurus 3.10.0 upgrade, retired GitHub Pages deploy, and built-in GitHub Issues reference plugin."
+---
+
+# AgentXchain v2.28.0
+
+`2.28.0` is the security and integration release.
+
+`2.27.0` shipped operator onboarding and multi-session continuity. This release closes two different kinds of credibility debt: dependency-chain security vulnerabilities that undermined the "governed delivery" message, and the first real external integration plugin proving the plugin system beyond internal hooks.
+
+## Security: zero npm audit vulnerabilities
+
+All production-scoped vulnerabilities are now resolved across both packages:
+
+- **`website-v2`**: Upgraded Docusaurus from 3.9.2 to 3.10.0 and added `@docusaurus/faster`. Applied npm `overrides` to force `serialize-javascript@^7.0.5` through the transitive chain (`copy-webpack-plugin` / `css-minimizer-webpack-plugin`), closing all 18 high vulnerabilities from the Docusaurus dependency tree.
+- **`cli`**: Updated `hono` and `@hono/node-server` to patched versions, closing both moderate vulnerabilities.
+
+Both `cd cli && npm audit --omit=dev` and `cd website-v2 && npm audit --omit=dev` now report **0 vulnerabilities**.
+
+### Why an override instead of a framework upgrade alone
+
+No version of Docusaurus currently ships with `serialize-javascript >=7.0.5` in its transitive tree. Waiting for upstream would have left the vulnerability open indefinitely. The npm `overrides` field targets exactly the affected transitive dependency without modifying framework behavior.
+
+## Retired GitHub Pages deploy path
+
+The `.github/workflows/deploy-pages.yml` workflow was permanently broken (every recent run was `cancelled` or stuck in `pending`). GCS is the canonical deploy path and has been since `DEC-GCS-DEPLOY-001`. The dead workflow has been deleted. Regression guards now assert its absence.
+
+Updated surfaces:
+- `website-v2/README.md`, deployment specs, and `HUMAN_TASKS.md` all reflect the single GCS deploy contract
+- `deploy-workflow-docs-content.test.js` and `website-deploy-readme-content.test.js` guard against drift
+
+## Built-in GitHub Issues reference plugin
+
+New `@agentxchain/plugin-github-issues` package — the first external integration plugin shipping with AgentXchain.
+
+### What it does
+
+- Mirrors governed run status into **one configured GitHub issue** as a plugin-owned comment
+- Fires on `after_acceptance` (turn summaries) and `on_escalation` (blocked/needs-human)
+- Manages phase and blocked labels (`agentxchain:phase/<name>`, `agentxchain:blocked`) while preserving all non-AgentXchain labels
+- One comment per run, updated in place (idempotent)
+- Structured `warn` on token/API failure — never blocks the governed run
+
+### What it does NOT do
+
+Per `DEC-GITHUB-ISSUES-002`, the v1 integration is advisory-only:
+- No issue closure or reopen (no post-gate hook exists yet)
+- No approval-pending labels (would fabricate state the runtime can't observe)
+- No branch-name or prompt-inferred issue identity (operator-supplied config only)
+
+### Configuration
+
+```json
+{
+  "plugins": {
+    "@agentxchain/plugin-github-issues": {
+      "config": {
+        "repo": "owner/name",
+        "issue_number": 42,
+        "token_env": "GITHUB_TOKEN"
+      }
+    }
+  }
+}
+```
+
+See [`/docs/plugins`](/docs/plugins) for full setup and behavior documentation.
+
+## Evidence
+
+- **2680 node tests / 570 suites / 0 failures**
+- `cd cli && npm audit --omit=dev` → 0 vulnerabilities
+- `cd website-v2 && npm audit --omit=dev` → 0 vulnerabilities
+- Docusaurus production build passes
+- GitHub Issues plugin proven through local fake-GitHub API behavior tests (create/update, label sync, preserved unrelated labels, blocked-label truth, missing-token degradation)

@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.27.0
+# Launch Evidence Report — AgentXchain v2.28.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-08 for the v2.27.0 operator onboarding and multi-session continuity release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-08 for the v2.28.0 security and integration release.
 
 ---
 
