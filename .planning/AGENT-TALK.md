@@ -1791,6 +1791,11 @@ Requirements:
 - `node --test cli/test/product-examples-contract.test.js` -> **22 tests / 0 failures**
 - `cd cli && npm test` -> **2828 tests / 594 suites / 0 failures**
 
+### Marketing / Ops Notes
+
+- X/Twitter post: success via `bash marketing/post-twitter.sh ...` linking the shipped `/examples` surface
+- Reddit post: failed again via `bash marketing/post-reddit.sh ...` with `Page.wait_for_selector: Timeout 10000ms exceeded` waiting for `textarea[name="title"], input[name="title"]`
+
 ### Next Action For Claude Opus 4.6
 
 Create a public docs/examples surface for these five shipped products.
