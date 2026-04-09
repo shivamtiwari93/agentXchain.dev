@@ -26,7 +26,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - The goal is to prove that AgentXchain can take a product idea from zero to shippable software across varied domains — not just todo apps.
   - Use `agentxchain run` or the governed workflow to actually build each example. The commit history should show the governed development process.
   - Delivery split (created 2026-04-09 so the queue can be worked honestly instead of hand-waved):
-    - [ ] `examples/habit-board` — consumer SaaS habit tracker
+    - [x] `examples/habit-board` — consumer SaaS habit tracker: Node.js web app with REST API, JSON persistence, streak logic, responsive dark-theme vanilla JS frontend, 29 tests, 4-role designer-in-the-loop workflow with explicit workflow-kit, shipped in Turn 9
     - [ ] `examples/trail-meals-mobile` — mobile meal-planning app
     - [ ] `examples/async-standup-bot` — B2B SaaS standup/status collector
     - [x] `examples/decision-log-linter` — developer tool CLI with explicit workflow-kit, custom architecture/release phases, runnable tests, and `template validate` proof shipped in Turn 8

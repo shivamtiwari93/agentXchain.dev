@@ -1,0 +1,13 @@
+{
+  "name": "habit-board",
+  "version": "1.0.0",
+  "description": "Consumer SaaS habit tracker — governed by AgentXchain",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/",
+    "smoke": "node test/smoke.js"
+  },
+  "keywords": ["habit-tracker", "agentxchain", "governed"],
+  "license": "MIT"
+}

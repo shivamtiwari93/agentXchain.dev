@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Habit Board</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Habit Board</h1>
+    <p class="tagline">Track your daily habits. Build streaks. Stay consistent.</p>
+  </header>
+
+  <main>
+    <section class="add-habit" aria-label="Add a new habit">
+      <form id="add-form">
+        <input type="text" id="habit-name" placeholder="New habit name..." maxlength="100" required aria-label="Habit name">
+        <input type="color" id="habit-color" value="#6366f1" aria-label="Habit color">
+        <button type="submit">Add Habit</button>
+      </form>
+    </section>
+
+    <section id="habits-list" class="habits-grid" aria-label="Your habits">
+      <p class="empty-state">Loading habits...</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Governed by <a href="https://agentxchain.dev" target="_blank" rel="noopener">AgentXchain</a></p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

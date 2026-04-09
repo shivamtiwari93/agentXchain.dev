@@ -9,7 +9,8 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const CLI_BIN = join(REPO_ROOT, 'cli', 'bin', 'agentxchain.js');
 const SPEC_PATH = join(REPO_ROOT, '.planning', 'PRODUCT_EXAMPLES_SPEC.md');
-const EXAMPLE_DIR = join(REPO_ROOT, 'examples', 'decision-log-linter');
+const DECISION_LOG_DIR = join(REPO_ROOT, 'examples', 'decision-log-linter');
+const HABIT_BOARD_DIR = join(REPO_ROOT, 'examples', 'habit-board');
 const README_PATH = join(REPO_ROOT, 'README.md');
 
 function runNode(args, cwd) {
@@ -48,17 +49,46 @@ describe('product examples contract', () => {
       'src/lint.js',
       'test/cli.test.js',
     ]) {
-      assert.ok(existsSync(join(EXAMPLE_DIR, relPath)), `${relPath} must exist in decision-log-linter example`);
+      assert.ok(existsSync(join(DECISION_LOG_DIR, relPath)), `${relPath} must exist in decision-log-linter example`);
     }
   });
 
-  it('proves the example test suite passes', () => {
-    const result = runNode(['--test'], EXAMPLE_DIR);
+  it('ships the habit-board example with governed and product files', () => {
+    for (const relPath of [
+      'README.md',
+      'package.json',
+      'agentxchain.json',
+      'TALK.md',
+      '.planning/ROADMAP.md',
+      '.planning/user-stories.md',
+      '.planning/ux-flows.md',
+      '.planning/design-decisions.md',
+      '.planning/API_CONTRACT.md',
+      '.planning/acceptance-matrix.md',
+      '.planning/ship-verdict.md',
+      'src/server.js',
+      'src/store.js',
+      'src/api.js',
+      'src/public/index.html',
+      'test/store.test.js',
+      'test/api.test.js',
+    ]) {
+      assert.ok(existsSync(join(HABIT_BOARD_DIR, relPath)), `${relPath} must exist in habit-board example`);
+    }
+  });
+
+  it('proves the decision-log-linter test suite passes', () => {
+    const result = runNode(['--test'], DECISION_LOG_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
   });
 
-  it('proves the example workflow-kit contract passes template validate', () => {
-    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], EXAMPLE_DIR);
+  it('proves the habit-board test suite passes', () => {
+    const result = runNode(['--test', 'test/'], HABIT_BOARD_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  });
+
+  it('proves the decision-log-linter workflow-kit contract passes template validate', () => {
+    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], DECISION_LOG_DIR);
     assert.equal(result.status, 0, result.stderr || result.stdout);
 
     const payload = JSON.parse(result.stdout.trim());
@@ -69,11 +99,31 @@ describe('product examples contract', () => {
     );
   });
 
-  it('documents the new example on the root README examples table', () => {
+  it('proves the habit-board workflow-kit contract passes template validate', () => {
+    const result = runNode([CLI_BIN, 'template', 'validate', '--json'], HABIT_BOARD_DIR);
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+
+    const payload = JSON.parse(result.stdout.trim());
+    assert.equal(payload.workflow_kit.ok, true);
+    assert.ok(
+      payload.workflow_kit.required_files.includes('.planning/user-stories.md'),
+      'planning-phase workflow artifact must be part of the validated contract',
+    );
+  });
+
+  it('documents the decision-log-linter example on the root README examples table', () => {
     const readme = readFileSync(README_PATH, 'utf8');
     assert.ok(
       readme.includes('[decision-log-linter](examples/decision-log-linter/)'),
-      'root README examples table must list the new decision-log-linter example',
+      'root README examples table must list the decision-log-linter example',
+    );
+  });
+
+  it('documents the habit-board example on the root README examples table', () => {
+    const readme = readFileSync(README_PATH, 'utf8');
+    assert.ok(
+      readme.includes('[habit-board](examples/habit-board/)'),
+      'root README examples table must list the habit-board example',
     );
   });
 });

@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "template": "generic",
+  "project": {
+    "id": "habit-board",
+    "name": "Habit Board",
+    "default_branch": "main"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Own user stories, acceptance criteria, and product direction. Ensure the habit tracker solves a real consumer need.",
+      "write_authority": "review_only",
+      "runtime": "manual-pm"
+    },
+    "designer": {
+      "title": "UX Designer",
+      "mandate": "Own user flows, visual design decisions, and accessibility. Ensure the UI is intuitive for daily habit tracking.",
+      "write_authority": "review_only",
+      "runtime": "manual-designer"
+    },
+    "fullstack_dev": {
+      "title": "Fullstack Developer",
+      "mandate": "Implement the HTTP API, persistence layer, streak logic, and responsive frontend.",
+      "write_authority": "authoritative",
+      "runtime": "manual-dev"
+    },
+    "qa": {
+      "title": "QA Engineer",
+      "mandate": "Validate functional correctness, edge cases, streak math, and ship readiness.",
+      "write_authority": "review_only",
+      "runtime": "manual-qa"
+    }
+  },
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "manual-designer": { "type": "manual" },
+    "manual-dev": { "type": "manual" },
+    "manual-qa": { "type": "manual" }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "designer", "human"],
+      "exit_gate": "planning_signoff"
+    },
+    "design": {
+      "entry_role": "designer",
+      "allowed_next_roles": ["designer", "fullstack_dev", "human"],
+      "exit_gate": "design_approved"
+    },
+    "implementation": {
+      "entry_role": "fullstack_dev",
+      "allowed_next_roles": ["fullstack_dev", "qa", "human"],
+      "exit_gate": "implementation_complete"
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["qa", "fullstack_dev", "human"],
+      "exit_gate": "qa_ship_verdict"
+    }
+  },
+  "gates": {
+    "planning_signoff": {
+      "requires_files": [
+        ".planning/ROADMAP.md",
+        ".planning/user-stories.md"
+      ],
+      "requires_human_approval": true
+    },
+    "design_approved": {
+      "requires_files": [
+        ".planning/ux-flows.md",
+        ".planning/design-decisions.md"
+      ]
+    },
+    "implementation_complete": {
+      "requires_files": [
+        ".planning/API_CONTRACT.md"
+      ],
+      "requires_verification_pass": true
+    },
+    "qa_ship_verdict": {
+      "requires_files": [
+        ".planning/acceptance-matrix.md",
+        ".planning/ship-verdict.md"
+      ],
+      "requires_human_approval": true
+    }
+  },
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "artifacts": [
+          {
+            "path": ".planning/ROADMAP.md",
+            "semantics": null,
+            "required": true,
+            "owned_by": "pm"
+          },
+          {
+            "path": ".planning/user-stories.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "pm",
+            "semantics_config": {
+              "required_sections": [
+                "## Core User Stories",
+                "## Acceptance Criteria"
+              ]
+            }
+          }
+        ]
+      },
+      "design": {
+        "artifacts": [
+          {
+            "path": ".planning/ux-flows.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "designer",
+            "semantics_config": {
+              "required_sections": [
+                "## Daily Check-In Flow",
+                "## Habit Management Flow",
+                "## Accessibility"
+              ]
+            }
+          },
+          {
+            "path": ".planning/design-decisions.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "designer",
+            "semantics_config": {
+              "required_sections": [
+                "## Visual Language",
+                "## Responsive Behavior"
+              ]
+            }
+          }
+        ]
+      },
+      "implementation": {
+        "artifacts": [
+          {
+            "path": ".planning/API_CONTRACT.md",
+            "semantics": "section_check",
+            "required": true,
+            "owned_by": "fullstack_dev",
+            "semantics_config": {
+              "required_sections": [
+                "## Endpoints",
+                "## Data Model",
+                "## Error Responses"
+              ]
+            }
+          }
+        ]
+      },
+      "qa": {
+        "artifacts": [
+          {
+            "path": ".planning/acceptance-matrix.md",
+            "semantics": "acceptance_matrix",
+            "required": true,
+            "owned_by": "qa"
+          },
+          {
+            "path": ".planning/ship-verdict.md",
+            "semantics": "ship_verdict",
+            "required": true,
+            "owned_by": "qa"
+          }
+        ]
+      }
+    }
+  },
+  "prompts": {
+    "pm": ".agentxchain/prompts/pm.md",
+    "designer": ".agentxchain/prompts/designer.md",
+    "fullstack_dev": ".agentxchain/prompts/fullstack_dev.md",
+    "qa": ".agentxchain/prompts/qa.md"
+  },
+  "budget": {
+    "per_turn_max_usd": 1.0,
+    "per_run_max_usd": 8.0,
+    "on_exceed": "pause_and_escalate"
+  },
+  "retention": {
+    "talk_strategy": "append_only",
+    "history_strategy": "jsonl_append_only"
+  },
+  "rules": {
+    "challenge_required": true,
+    "max_turn_retries": 2,
+    "max_deadlock_cycles": 2
+  }
+}
