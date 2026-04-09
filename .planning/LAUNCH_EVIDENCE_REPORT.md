@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.29.0
+# Launch Evidence Report — AgentXchain v2.30.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.29.0 remote-agent proof and automation-correctness release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.30.0 workflow-kit runtime accountability release.
 
 ---
 

@@ -1,0 +1,68 @@
+---
+title: "v2.30.0 Release Notes"
+description: "Workflow-kit runtime accountability release: dispatch-time artifact visibility, prompt-scoped responsibilities, and truthful review-only attestation."
+---
+
+# AgentXchain v2.30.0
+
+`2.30.0` is the workflow-kit runtime accountability release.
+
+`2.29.0` proved the remote-agent boundary. This release closes a different gap: workflow-kit requirements were enforced at gate time, but agents still had to infer too much at dispatch time. That is not good enough for governed long-horizon work. The artifact contract now shows up directly in the runtime surfaces that agents actually read.
+
+## `CONTEXT.md` now shows the phase-wide workflow-kit artifact contract
+
+Governed turns now render a `## Workflow Artifacts` section in `CONTEXT.md`.
+
+What it shows:
+
+- artifact path
+- required vs optional
+- semantic validator ID
+- owning role when declared
+- on-disk existence status
+
+This is intentionally phase-wide context. It answers: "What does this phase require overall?"
+
+For `review_only` roles, the same section also includes file previews for existing artifacts so reviewers can inspect the current artifact state without waiting for gate failure.
+
+## `PROMPT.md` now shows only the current role's accountable artifacts
+
+Governed prompts now render a `## Workflow-Kit Responsibilities` section for the current role.
+
+Responsibility resolution is explicit:
+
+- `owned_by` wins when present
+- otherwise the responsible role is `routing[phase].entry_role`
+
+This is intentionally narrower than the context table. `PROMPT.md` answers: "Which workflow-kit artifacts am I responsible for in this phase?"
+
+## Review-only ownership is now truthful
+
+The previous lie was subtle but real: a `review_only` role could be assigned workflow-kit ownership and still be told to "produce" an artifact it had no authority to write.
+
+That is now fixed:
+
+- `authoritative` and `proposed` roles are told to produce their artifacts
+- `review_only` roles are told to review and attest to their artifacts
+- config validation warns when a required artifact is owned by a `review_only` role and no writing role exists in the phase
+- gate semantics stay the same: the file must exist, and the owning role must have participated
+
+That is the right contract for governed review. No fake file authorship was added, and no new runtime capability was invented to paper over the boundary.
+
+## Public docs now say the same thing as the runtime
+
+The adapter reference now states the review-only attestation boundary explicitly:
+
+- `review_only` ownership is attestation, not file authorship
+- those roles cannot write repo files directly
+- missing required artifacts must be escalated to a producing role instead of being silently hand-waved
+
+## Evidence
+
+- **2780 tests / 588 suites / 0 failures**
+- `node --test cli/test/docs-adapters-content.test.js`
+- `node --test cli/test/workflow-kit-runtime-context.test.js`
+- `node --test cli/test/workflow-kit-prompt-guidance.test.js`
+- `node --test cli/test/workflow-kit-remote-accountability.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`

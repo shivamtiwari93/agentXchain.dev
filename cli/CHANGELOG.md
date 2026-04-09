@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.30.0
+
+`2.30.0` is the workflow-kit runtime accountability release.
+
+### Workflow-kit is now visible at dispatch time, not only at gate failure
+
+- `CONTEXT.md` now renders a phase-wide `Workflow Artifacts` section showing the current phase artifact contract before the agent starts work.
+- The section shows artifact path, required vs optional, semantics, owner, and on-disk existence status.
+- `review_only` roles also get artifact previews in `CONTEXT.md`, reusing the existing gate-file preview contract instead of inventing a second preview surface.
+
+### `PROMPT.md` now names the current role's workflow responsibilities explicitly
+
+- `PROMPT.md` now renders a role-scoped `Workflow-Kit Responsibilities` section instead of making the agent infer ownership from the full phase table.
+- Ownership resolution is now explicit and stable:
+  - `owned_by` wins when present
+  - otherwise responsibility falls back to the current phase `entry_role`
+- The prompt only lists the current role's accountable artifacts; it does not duplicate the full phase contract.
+
+### Review-only ownership is attestation, not fake authorship
+
+- `review_only` roles no longer receive misleading "produce this file" guidance for workflow-kit artifacts they cannot write.
+- Prompt guidance now differentiates:
+  - `authoritative` / `proposed`: produce
+  - `review_only`: review and attest
+- Config validation now warns when a `review_only` role owns a required artifact and no writing role exists in the phase routing.
+- Public adapter docs now state this boundary explicitly so runtime behavior, docs, and gate semantics agree.
+
+### Evidence
+
+- **2780 tests / 588 suites / 0 failures**
+- Docusaurus production build passes
+
 ## 2.29.0
 
 `2.29.0` is the remote-agent proof and automation-correctness release.
