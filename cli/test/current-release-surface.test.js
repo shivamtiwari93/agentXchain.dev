@@ -59,13 +59,15 @@ describe('current release surface', () => {
   it('AT-CRS-007: release notes page evidence section has concrete test counts', () => {
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     assert.match(releasePage, /## Evidence/i, 'release notes page must have an Evidence section');
-    assert.match(releasePage, /\d+ node tests/, 'Evidence must include concrete node test count');
+    assert.match(releasePage, /\d+ tests/, 'Evidence must include concrete test count');
+    assert.match(releasePage, /\d+ suites/, 'Evidence must include concrete suite count');
     assert.match(releasePage, /0 failures/, 'Evidence must confirm 0 failures');
   });
 
   it('AT-CRS-008: changelog evidence section has concrete test counts', () => {
     const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
-    assert.match(versionBlock, /\d+ node tests/, 'Changelog evidence must include concrete node test count');
+    assert.match(versionBlock, /\d+ tests/, 'Changelog evidence must include concrete test count');
+    assert.match(versionBlock, /\d+ suites/, 'Changelog evidence must include concrete suite count');
     assert.match(versionBlock, /0 failures/, 'Changelog evidence must confirm 0 failures');
   });
 
