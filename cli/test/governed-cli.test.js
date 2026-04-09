@@ -1001,6 +1001,70 @@ echo '{"verdict":"allow"}'`);
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('step exits non-zero when the staged result fails validation and is retained', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.runtimes['local-dev'] = { type: 'manual' };
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      const invalidTurnResult = {
+        schema_version: '1.0',
+        run_id: 'run_01H',
+        turn_id: 'turn_01H',
+        role: 'dev',
+        runtime_id: 'local-dev',
+        status: 'completed',
+        summary: 'Invalid staged result with no decisions.',
+        decisions: [
+          {
+            id: 'DEC-BAD-001',
+            category: 'implementation',
+            statement: 'Return an invalid decision identifier on purpose.',
+            rationale: 'Force validator failure for exit-code coverage.',
+          },
+        ],
+        objections: [],
+        files_changed: [],
+        artifacts_created: [],
+        verification: {
+          status: 'pass',
+          evidence_summary: 'Checked manually.',
+        },
+        artifact: { type: 'workspace', ref: 'git:def456' },
+        proposed_next_role: 'qa',
+        phase_transition_request: null,
+        run_completion_request: null,
+        needs_human_reason: null,
+        cost: { usd: 0.01 },
+      };
+
+      mkdirSync(join(dir, '.agentxchain', 'staging', 'turn_01H'), { recursive: true });
+      writeFileSync(
+        join(dir, '.agentxchain', 'staging', 'turn_01H', 'turn-result.json'),
+        JSON.stringify(invalidTurnResult, null, 2)
+      );
+
+      const result = runCli(dir, ['step', '--resume']);
+      assert.equal(result.status, 1, 'step must exit non-zero on validation failure');
+
+      const combined = result.stdout + result.stderr;
+      assert.match(combined, /Validation failed:/);
+      assert.match(combined, /decisions\[0\]\.id must match pattern DEC-NNN\./);
+      assert.match(combined, /agentxchain accept-turn/);
+      assert.match(combined, /agentxchain reject-turn/);
+
+      const updatedState = readGovernedState(join(dir, '.agentxchain', 'state.json'));
+      assert.equal(updatedState.status, 'active');
+      assert.equal(updatedState.last_completed_turn_id, 'turn_01G');
+      assert.equal(updatedState.current_turn?.turn_id, 'turn_01H');
+      assert.equal(updatedState.current_turn?.status, 'running');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('governed-only command guards on legacy projects', () => {

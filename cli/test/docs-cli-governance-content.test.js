@@ -199,6 +199,13 @@ describe('CLI governance docs contract — common sequences', () => {
     );
   });
 
+  it('documents that retained validation failures exit non-zero', () => {
+    assert.match(
+      docs,
+      /retained validation-failure path exits non-zero/i
+    );
+  });
+
   it('conflicted-turn recovery uses reject-turn --reassign or accept-turn --resolution human_merge', () => {
     assert.match(stepSource, /reject-turn --turn .* --reassign/);
     assert.match(stepSource, /accept-turn --turn .* --resolution human_merge/);

@@ -6,12 +6,13 @@
  * An HTTP server that fronts a real Claude model (claude-haiku-4-5-20251001)
  * behind the remote_agent adapter protocol. Unlike server.js (which returns
  * hardcoded responses), this server sends each turn envelope to Claude and
- * returns the model's raw output.
+ * returns the model's parsed output.
  *
- * NO post-processing or fixups are applied to the model's output. If Claude
- * produces invalid JSON or a non-compliant turn result, the bridge returns
- * it as-is and the acceptance pipeline will reject it. This is the honest
- * proof surface.
+ * No field-level post-processing or semantic fixups are applied to the
+ * model's output. The only concession is optional removal of outer markdown
+ * fences if Claude wraps otherwise-valid JSON despite explicit instructions.
+ * If Claude produces invalid JSON or a non-compliant turn result, the
+ * acceptance pipeline rejects it. This is the honest proof surface.
  *
  * Environment:
  *   ANTHROPIC_API_KEY — required
@@ -199,10 +200,11 @@ async function handleTurn(req, res, apiKey) {
 
     console.log(`[model-bridge] Model responded (${claudeResult.stopReason}). Usage: ${claudeResult.usage?.input_tokens}in/${claudeResult.usage?.output_tokens}out`);
 
-    // Parse the model's response as JSON — NO fixups
+    // Parse the model's response as JSON. The only concession is stripping
+    // outer markdown fences if the model wrapped otherwise-valid JSON.
     let turnResult;
     try {
-      // Strip markdown fences if the model wraps them despite instructions
+      // Strip outer markdown fences if the model wraps otherwise-valid JSON.
       let text = claudeResult.rawText.trim();
       if (text.startsWith('```')) {
         text = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
@@ -219,7 +221,8 @@ async function handleTurn(req, res, apiKey) {
       return;
     }
 
-    // Return the model's output as-is — the acceptance pipeline validates
+    // Return the parsed model output without field-level modification — the
+    // acceptance pipeline handles validation.
     writeJson(res, 200, turnResult);
 
   } catch (err) {

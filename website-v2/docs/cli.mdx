@@ -232,6 +232,7 @@ agentxchain step [options]
 | `--auto-reject` | `false` | Auto-reject and retry on validation failure |
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
+That retained validation-failure path exits non-zero so automation can distinguish "turn accepted" from "turn needs operator recovery".
 On a valid staged result, `step` auto-accepts the turn immediately. Use `accept-turn` directly when you are fixing a retained failed or conflicted turn, or when you intentionally interrupted a manual step before the CLI detected the staged result.
 
 ### `run`

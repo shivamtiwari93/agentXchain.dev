@@ -816,6 +816,7 @@ export async function stepCommand(opts) {
       console.log(chalk.dim('  - Fix the staged result and run: agentxchain accept-turn'));
       console.log(chalk.dim('  - Reject and retry: agentxchain reject-turn'));
       console.log(chalk.dim('  - Auto-reject on failure: agentxchain step --auto-reject'));
+      process.exit(1);
     }
   }
 }

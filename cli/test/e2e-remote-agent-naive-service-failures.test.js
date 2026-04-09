@@ -294,6 +294,7 @@ describe('remote_agent naive service failures', () => {
     const root = makeProject(mock.url);
 
     const devStep = await runCliAsync(root, ['step', '--role', 'dev']);
+    assert.equal(devStep.status, 1, `invalid dev turn must exit non-zero, got ${devStep.status}`);
     assert.match(devStep.stdout, /Validation failed:/);
     assert.match(devStep.stdout, /decisions\[0\]\.id must match pattern DEC-NNN\./);
 
@@ -312,6 +313,7 @@ describe('remote_agent naive service failures', () => {
 
     const proposalTurnId = await runValidDevTurnAndApply(root);
     const qaStep = await runCliAsync(root, ['step', '--role', 'qa']);
+    assert.equal(qaStep.status, 1, `invalid qa turn must exit non-zero, got ${qaStep.status}`);
     assert.match(qaStep.stdout, /Validation failed:/);
     assert.match(qaStep.stdout, /must raise at least one objection/);
 

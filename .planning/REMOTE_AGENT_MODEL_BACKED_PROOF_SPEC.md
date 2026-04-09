@@ -20,11 +20,12 @@ If the model produces valid output that the acceptance pipeline accepts, this is
 - Bridge server that calls Claude (claude-haiku-4-5-20251001 for cost efficiency) via the Anthropic Messages API
 - System prompt that teaches the model the exact turn-result schema contract
 - Proof script that exercises `agentxchain step --role dev` (proposed) and `agentxchain step --role qa` (review_only) through the model-backed bridge
-- Verification that the acceptance pipeline accepts the model's output without any post-processing fixups
+- Verification that the acceptance pipeline accepts the model's output with no content repair. The only allowed concession is removing outer markdown fences if the model wraps otherwise-valid JSON.
 - Honest recording of whether it passes or fails, and what the failure modes are
 
 ### Out of Scope
 - Retry/repair loops that fix model output before staging (that would be dishonest proof)
+- Field-level post-processing, schema repair, or semantic correction of model output
 - Multi-turn conversation with the model (single request/response per turn)
 - Any model other than Claude (Anthropic API only for v1)
 - Cost optimization beyond using Haiku
@@ -57,7 +58,8 @@ agentxchain step --role dev
 3. Call `https://api.anthropic.com/v1/messages`
 4. Extract the text content from the response
 5. Parse as JSON
-6. Return as-is (no fixups, no post-processing)
+6. If the model wraps the JSON in outer markdown fences, strip only those delimiters and log the concession
+7. Return the parsed JSON without field-level modification
 
 ### Endpoint: `GET /health`
 
@@ -103,7 +105,7 @@ The proof script (`run-model-proof.mjs`) will:
 2. **P2**: Model-generated dev turn includes valid `proposed_changes[]` that materialize
 3. **P3**: Model-generated QA turn result includes at least one objection (challenge requirement)
 4. **P4**: Model-generated QA review derives a review artifact
-5. **P5**: No post-processing or fixup of model output between Claude response and staging
+5. **P5**: No field-level post-processing or fixup of model output between Claude response and staging; only outer markdown-fence removal is allowed and must be logged
 6. **F1**: If the model fails to produce valid JSON, the bridge returns an error and the proof documents the failure mode
 7. **F2**: If the model produces JSON that fails validation, the proof documents which validator stage rejects it
 

@@ -151,16 +151,16 @@
 - **Spec**: `.planning/REMOTE_AGENT_MODEL_BACKED_PROOF_SPEC.md`
 - **Provider**: Anthropic Claude `claude-haiku-4-5-20251001`
 - **Cost**: ~3,000 input + ~2,900 output tokens across 2 turns
-- **Result**: **PASS.** Real Claude model produced governed turn results that passed the full 5-stage acceptance pipeline without any post-processing fixups.
+- **Result**: **PASS.** Real Claude model produced governed turn results that passed the full 5-stage acceptance pipeline with no field-level repair. The proof currently allows logged removal of outer markdown fences when the model wraps otherwise-valid JSON.
 - **What it proves**:
   - Real AI model (Claude Haiku) can satisfy the governed turn-result contract from a single system prompt
-  - Model-backed bridge server (`model-backed-server.js`) calls Anthropic Messages API and returns raw model output
+  - Model-backed bridge server (`model-backed-server.js`) calls Anthropic Messages API and returns parsed model output without field-level modification
   - Dev turn: model generated `proposed_changes[]` with multiple files (service, handler, index, implementation notes)
   - Dev turn: proposal materialized at `.agentxchain/proposed/<turn_id>/` with PROPOSAL.md and SOURCE_SNAPSHOT.json
   - Dev turn: `proposal apply` copied model-generated files into workspace
   - QA turn: model generated review with at least one objection (challenge requirement satisfied)
   - QA turn: review artifact derived on disk at `.agentxchain/reviews/<turn_id>-qa-review.md`
-  - No post-processing or fixups applied between Claude's response and the staging/validation pipeline
+  - No field-level post-processing or semantic fixups applied between Claude's response and the staging/validation pipeline
   - The turn-result contract is teachable to a model — no iterative prompt tuning needed
   - Full lifecycle proven: `step --role dev` → propose → apply → `step --role qa` → review → artifact
 - **What it does NOT prove**:
@@ -168,6 +168,7 @@
   - Statistical reliability (single proof run, not repeated)
   - Other model providers (only Anthropic proven)
   - Authoritative writes (v1 restricted to `proposed` and `review_only`)
+  - Fence-free compliance on every run; the current proof allows logged removal of outer markdown fences if the model ignores the raw-JSON instruction
 
 ### E2d — Scenario D Escalation & Recovery Proof
 

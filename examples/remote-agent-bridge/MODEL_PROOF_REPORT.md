@@ -6,7 +6,7 @@
 
 ## Result
 
-All acceptance tests passed. A real Claude model produced governed turn results that satisfied the full 5-stage acceptance pipeline without any post-processing.
+All acceptance tests passed. A real Claude model produced governed turn results that satisfied the full 5-stage acceptance pipeline with no field-level repair. The only allowed concession is logged markdown-fence removal when the model wraps otherwise-valid JSON.
 
 ## Log
 

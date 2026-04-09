@@ -35,10 +35,10 @@ describe('remote-agent model-backed proof', () => {
     assert.match(server, /claude-haiku-4-5/);
   });
 
-  it('model-backed-server.js documents no-fixup policy', () => {
+  it('model-backed-server.js documents the bounded no-repair policy', () => {
     const server = readFileSync(resolve(EXAMPLE_DIR, 'model-backed-server.js'), 'utf8');
-    // Should explicitly document the no-fixup policy
-    assert.match(server, /NO fixups|no fixups|as-is/i);
+    assert.match(server, /No field-level post-processing|No field-level/i);
+    assert.match(server, /markdown fences/i);
     // Should not contain a transformResult or repairOutput function
     assert.doesNotMatch(server, /function\s+(?:transform|repair|correct)(?:Result|Output)/);
   });
@@ -75,9 +75,11 @@ describe('remote-agent model-backed proof', () => {
     assert.match(proof, /PASSED|FAILED/);
   });
 
-  it('run-model-proof.mjs detects validation failures even when exit code is 0', () => {
+  it('run-model-proof.mjs relies on non-zero step exits for validation failures', () => {
     const proof = readFileSync(resolve(EXAMPLE_DIR, 'run-model-proof.mjs'), 'utf8');
-    assert.match(proof, /Validation failed/);
+    assert.doesNotMatch(proof, /step exits 0 even on validation failure/);
+    assert.match(proof, /dev step failed \(exit/);
+    assert.match(proof, /qa step failed \(exit/);
   });
 
   it('spec exists at .planning/REMOTE_AGENT_MODEL_BACKED_PROOF_SPEC.md', () => {

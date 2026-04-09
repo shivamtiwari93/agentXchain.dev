@@ -118,7 +118,8 @@ describe('Launch evidence report', () => {
     assert.match(report, /claude-haiku-4-5/);
     assert.match(report, /model-backed-server\.js/);
     assert.match(report, /run-model-proof\.mjs/);
-    assert.match(report, /No post-processing/i);
+    assert.match(report, /no field-level repair/i);
+    assert.match(report, /markdown fences/i);
     assert.match(report, /full 5-stage acceptance pipeline/i);
   });
 });
