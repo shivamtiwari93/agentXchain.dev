@@ -1,0 +1,58 @@
+---
+title: "v2.35.0 Release Notes"
+description: "Cross-session continuity observability: checkpoint and restart state now surfaces in agentxchain status, governed reports, coordinator reports, and dashboard API."
+---
+
+# AgentXchain v2.35.0
+
+`2.35.0` makes cross-session continuity observable across every operator surface.
+
+Prior to this release, `restart` and checkpoints existed but operators could not see continuity state without inspecting hidden files. This release wires checkpoint visibility into `status`, governed reports, coordinator reports, and the dashboard bridge — completing the recovery observability story.
+
+## Session status now shows continuity state
+
+`agentxchain status` shows checkpoint metadata directly:
+
+- checkpoint session id, reason, and timestamp
+- last turn, last role, and last phase at checkpoint time
+- stale-checkpoint warning when `session.json` and `state.json` disagree
+- `agentxchain restart` guidance when restart is truthful
+- `SESSION_RECOVERY.md` path when present
+
+`status --json` exposes additive `continuity` metadata for automation consumers.
+
+## Governed reports include continuity
+
+`agentxchain report` now includes a `Continuity` section in both text and markdown formats:
+
+- session id, checkpoint reason, and timing
+- last turn, role, and phase from the checkpoint
+- stale-checkpoint warning when the checkpoint `run_id` does not match the export `run_id`
+- omitted gracefully when no checkpoint exists
+
+The underlying fix: `.agentxchain/session.json` is now in `RUN_EXPORT_INCLUDED_ROOTS`, so checkpoint data flows through the export pipeline into the report surface.
+
+## Coordinator reports surface per-repo continuity
+
+Multi-repo coordinator reports now include per-repo continuity state:
+
+- each successful child repo row includes checkpoint session, reason, timing, and last turn/role/phase
+- stale-checkpoint detection compares child checkpoint `run_id` to child export `run_id` (not coordinator `super_run_id`)
+- missing checkpoints are omitted, not rendered as empty
+
+## Dashboard bridge serves continuity
+
+`/api/continuity` endpoint serves `session.json` through the dashboard bridge. WebSocket invalidation fires automatically when `session.json` changes via the existing `.agentxchain/` file-watcher.
+
+## CI and release infrastructure modernization
+
+- GitHub Actions standardized on `checkout@v6`, `setup-node@v6`, Google Actions `@v3`
+- CI and deploy workflows use Node 22 (LTS); publish uses Node 24 (current)
+- Pre-bump version-surface alignment guard added to `release-bump.sh` — validates all 7 governed surfaces before creating release identity
+- Orphaned release-note pages for unpublished versions deleted
+
+## Evidence
+
+- **2885 tests / 607 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build` — production build succeeded

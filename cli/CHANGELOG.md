@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.35.0
+
+`2.35.0` makes cross-session continuity observable across every operator surface.
+
+### Continuity observability across status, reports, and dashboard
+
+- `agentxchain status` now shows checkpoint session id, reason, timing, last turn/role/phase, stale-checkpoint warnings, and restart guidance.
+- `status --json` exposes additive `continuity` metadata for automation consumers.
+- Governed reports include a `Continuity` section in text and markdown formats with checkpoint metadata and stale-checkpoint detection.
+- `.agentxchain/session.json` added to `RUN_EXPORT_INCLUDED_ROOTS` so checkpoint data flows through the export pipeline.
+- Coordinator reports surface per-repo continuity with child-level stale detection.
+- Dashboard bridge serves `/api/continuity` from `session.json` with WebSocket invalidation.
+
+### CI and release infrastructure modernization
+
+- GitHub Actions standardized on `checkout@v6`, `setup-node@v6`, Google Actions `@v3`.
+- Pre-bump version-surface alignment guard validates all 7 governed surfaces before creating release identity.
+- Orphaned release-note pages for unpublished versions deleted.
+
+### Evidence
+
+- **2885 tests / 607 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.34.2
 
 `2.34.2` is the public cross-session continuity release.
