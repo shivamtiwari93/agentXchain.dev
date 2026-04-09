@@ -33,6 +33,8 @@ bash scripts/release-bump.sh --target-version <semver>
    - `.agentxchain-conformance/capabilities.json`
    - `website-v2/docs/protocol-implementor-guide.mdx`
    - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+   - `cli/homebrew/agentxchain.rb`
+   - `cli/homebrew/README.md`
 6. Stages those allowed release-surface files together with `package.json` and `package-lock.json`
 7. Creates a single commit: `<semver>` (matching npm convention)
 8. Creates an annotated tag: `v<semver>` with message `v<semver>`
@@ -59,12 +61,13 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 3. Assert `package.json` version ≠ target (prevent double-bump)
 4. Assert the tree contains no dirty paths outside the release-surface whitelist for the target version
 5. Run `npm version ${TARGET} --no-git-tag-version` — this updates `package.json` only
-6. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist
-7. `git commit -m "${TARGET}"`
-8. `git tag -a "v${TARGET}" -m "v${TARGET}"`
-9. Verify: `git rev-parse "v${TARGET}"` succeeds
-10. Verify: `git log -1 --format=%s` equals `${TARGET}`
-11. Print success with commit SHA and tag
+6. Fail closed unless every governed version surface already references the target version, including the repo-mirrored Homebrew formula and its maintainer README
+7. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist
+8. `git commit -m "${TARGET}"`
+9. `git tag -a "v${TARGET}" -m "v${TARGET}"`
+10. Verify: `git rev-parse "v${TARGET}"` succeeds
+11. Verify: `git log -1 --format=%s` equals `${TARGET}`
+12. Print success with commit SHA and tag
 
 ### Error Cases
 
@@ -86,6 +89,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-006`: `release-bump.sh` fails before mutating version files when the tree contains dirty paths outside the release-surface whitelist or the target tag already exists
 - `AT-RIH-007`: In a temp git repo with target-version release-surface edits staged only in the whitelist, `release-bump.sh --target-version <semver>` includes those release-surface files in the release commit instead of rejecting the tree or omitting them
 - `AT-RIH-008`: `release-bump.sh` rejects the bump when version surfaces still reference the old version (all-stale and partial-drift cases), does not mutate `package.json`, and does not create a tag
+- `AT-RIH-009`: The repo-mirrored Homebrew formula and `cli/homebrew/README.md` are treated as governed release surfaces: they are allowed pre-bump edits, must already reference the target version, and are staged into the release commit
 
 ## Open Questions
 

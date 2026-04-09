@@ -56,6 +56,8 @@ ALLOWED_RELEASE_PATHS=(
   ".agentxchain-conformance/capabilities.json"
   "website-v2/docs/protocol-implementor-guide.mdx"
   ".planning/LAUNCH_EVIDENCE_REPORT.md"
+  "cli/homebrew/agentxchain.rb"
+  "cli/homebrew/README.md"
 )
 
 is_allowed_release_path() {
@@ -170,6 +172,17 @@ if [[ -f "$HOMEBREW_MIRROR" ]]; then
   fi
 fi
 
+# 4i. Homebrew mirror maintainer README version
+HOMEBREW_MIRROR_README="${REPO_ROOT}/cli/homebrew/README.md"
+if [[ -f "$HOMEBREW_MIRROR_README" ]]; then
+  if ! grep -q -- "- version: \`${TARGET_VERSION}\`" "$HOMEBREW_MIRROR_README" 2>/dev/null; then
+    SURFACE_ERRORS+=("homebrew mirror README does not declare version ${TARGET_VERSION}")
+  fi
+  if ! grep -q "agentxchain-${TARGET_VERSION}\.tgz" "$HOMEBREW_MIRROR_README" 2>/dev/null; then
+    SURFACE_ERRORS+=("homebrew mirror README does not reference agentxchain-${TARGET_VERSION}.tgz")
+  fi
+fi
+
 if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "FAIL: ${#SURFACE_ERRORS[@]} version-surface(s) not aligned to ${TARGET_VERSION}:" >&2
   printf '  - %s\n' "${SURFACE_ERRORS[@]}" >&2
@@ -178,7 +191,7 @@ if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "create release identity when governed surfaces are stale." >&2
   exit 1
 fi
-echo "  OK: all 8 governed version surfaces reference ${TARGET_VERSION}"
+echo "  OK: all 10 governed version surfaces reference ${TARGET_VERSION}"
 
 # 5. Update version files (no git operations)
 echo "[5/8] Updating version files..."

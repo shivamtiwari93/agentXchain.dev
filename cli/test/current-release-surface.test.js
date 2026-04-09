@@ -22,9 +22,12 @@ const HOME = read('website-v2/src/pages/index.tsx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
 const LAUNCH_EVIDENCE = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
+const HOMEBREW_FORMULA = read('cli/homebrew/agentxchain.rb');
+const HOMEBREW_README = read('cli/homebrew/README.md');
 const CURRENT_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || PACKAGE.version;
 const CURRENT_RELEASE_DOC_ID = `releases/v${CURRENT_VERSION.replace(/\./g, '-')}`;
 const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`;
+const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchain-${CURRENT_VERSION}.tgz`;
 
 describe('current release surface', () => {
   it('AT-CRS-001: changelog top heading matches current package version', () => {
@@ -76,6 +79,27 @@ describe('current release surface', () => {
       LAUNCH_EVIDENCE,
       new RegExp(`^# Launch Evidence Report — AgentXchain v${CURRENT_VERSION.replace(/\./g, '\\.')}`, 'm'),
       'Launch evidence report title must track the current release version',
+    );
+  });
+
+  it('AT-CRS-010: Homebrew mirror formula points at the current npm tarball', () => {
+    assert.match(
+      HOMEBREW_FORMULA,
+      new RegExp(`url "${CURRENT_TARBALL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`),
+      'Homebrew mirror formula must track the current npm tarball URL',
+    );
+  });
+
+  it('AT-CRS-011: Homebrew mirror maintainer README tracks the current version and tarball', () => {
+    assert.match(
+      HOMEBREW_README,
+      new RegExp(`- version: \`${CURRENT_VERSION.replace(/\./g, '\\.')}\``),
+      'Homebrew mirror README must track the current version',
+    );
+    assert.match(
+      HOMEBREW_README,
+      new RegExp(`- source tarball: \`${CURRENT_TARBALL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``),
+      'Homebrew mirror README must track the current tarball URL',
     );
   });
 });

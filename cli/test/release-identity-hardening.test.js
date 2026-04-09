@@ -28,12 +28,14 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   const websitePagesDir = join(root, 'website-v2', 'src', 'pages');
   const planningDir = join(root, '.planning');
   const conformanceDir = join(root, '.agentxchain-conformance');
+  const homebrewDir = join(cliDir, 'homebrew');
 
   mkdirSync(scriptsDir, { recursive: true });
   mkdirSync(websiteDocsReleaseDir, { recursive: true });
   mkdirSync(websitePagesDir, { recursive: true });
   mkdirSync(planningDir, { recursive: true });
   mkdirSync(conformanceDir, { recursive: true });
+  mkdirSync(homebrewDir, { recursive: true });
   cpSync(BUMP_SCRIPT, join(scriptsDir, 'release-bump.sh'));
   chmodSync(join(scriptsDir, 'release-bump.sh'), 0o755);
 
@@ -67,6 +69,19 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   writeFileSync(join(conformanceDir, 'capabilities.json'), JSON.stringify({ version }, null, 2) + '\n');
   writeFileSync(join(websiteDocsDir, 'protocol-implementor-guide.mdx'), `{"version": "${version}"}\n`);
   writeFileSync(join(planningDir, 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n`);
+  writeFileSync(join(homebrewDir, 'agentxchain.rb'), `class Agentxchain < Formula
+  desc "CLI for AgentXchain governed multi-agent software delivery"
+  homepage "https://agentxchain.dev"
+  url "https://registry.npmjs.org/agentxchain/-/agentxchain-${version}.tgz"
+  sha256 "1111111111111111111111111111111111111111111111111111111111111111"
+  license "MIT"
+end
+`);
+  writeFileSync(join(homebrewDir, 'README.md'), `# Homebrew distribution for AgentXchain
+
+- version: \`${version}\`
+- source tarball: \`https://registry.npmjs.org/agentxchain/-/agentxchain-${version}.tgz\`
+`);
 
   execFileSync('git', ['init'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.name', 'test'], { cwd: root, stdio: 'ignore' });
@@ -93,6 +108,7 @@ function runReleaseBump(cliDir, targetVersion) {
 
 function prepareTargetSurfaces(root, targetVersion) {
   const vDash = targetVersion.replace(/\./g, '-');
+  const tarballUrl = `https://registry.npmjs.org/agentxchain/-/agentxchain-${targetVersion}.tgz`;
   writeFileSync(join(root, 'cli', 'CHANGELOG.md'), `# Changelog\n\n## ${targetVersion}\n\nPrepared release notes.\n\n### Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n`);
   mkdirSync(join(root, 'website-v2', 'docs', 'releases'), { recursive: true });
   writeFileSync(join(root, 'website-v2', 'docs', 'releases', `v${vDash}.mdx`), `---\ntitle: "v${targetVersion} Release Notes"\n---\n\n# AgentXchain v${targetVersion}\n\n## Evidence\n\n- 11 node tests / 3 suites, 0 failures.\n`);
@@ -101,6 +117,19 @@ function prepareTargetSurfaces(root, targetVersion) {
   writeFileSync(join(root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: targetVersion }, null, 2) + '\n');
   writeFileSync(join(root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), `{"version": "${targetVersion}"}\n`);
   writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${targetVersion}\n`);
+  writeFileSync(join(root, 'cli', 'homebrew', 'agentxchain.rb'), `class Agentxchain < Formula
+  desc "CLI for AgentXchain governed multi-agent software delivery"
+  homepage "https://agentxchain.dev"
+  url "${tarballUrl}"
+  sha256 "2222222222222222222222222222222222222222222222222222222222222222"
+  license "MIT"
+end
+`);
+  writeFileSync(join(root, 'cli', 'homebrew', 'README.md'), `# Homebrew distribution for AgentXchain
+
+- version: \`${targetVersion}\`
+- source tarball: \`${tarballUrl}\`
+`);
 }
 
 describe('Release identity hardening', () => {
@@ -263,6 +292,13 @@ describe('Release identity hardening', () => {
       );
     });
 
+    it('checks Homebrew mirror README as a governed version surface', () => {
+      assert.ok(
+        script.includes('homebrew mirror README') || script.includes('cli/homebrew/README.md'),
+        'pre-bump guard must check the Homebrew mirror README version metadata',
+      );
+    });
+
     it('verifies the tag is annotated and resolves to the release commit', () => {
       assert.ok(
         script.includes('git cat-file -t "v${TARGET_VERSION}"'),
@@ -297,6 +333,7 @@ describe('Release identity hardening', () => {
       assert.match(spec, /AT-RIH-005/, 'spec must require subprocess proof for release identity');
       assert.match(spec, /AT-RIH-006/, 'spec must require fail-closed mutation guards');
       assert.match(spec, /AT-RIH-007/, 'spec must require release-surface inclusion proof');
+      assert.match(spec, /AT-RIH-009/, 'spec must require Homebrew mirror release-surface proof');
     });
   });
 
@@ -401,6 +438,17 @@ describe('Release identity hardening', () => {
       assert.match(result.stderr, /capabilities\.json/);
       assert.match(result.stderr, /version-surface.*not aligned/);
     });
+
+    it('fails when the mirrored Homebrew README is stale', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      writeFileSync(join(fixture.root, 'cli', 'homebrew', 'README.md'), '# Homebrew distribution for AgentXchain\n\n- version: `2.19.0`\n- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.19.0.tgz`\n');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /homebrew mirror README/);
+      assert.match(result.stderr, /version-surface.*not aligned/);
+    });
   });
 
   describe('AT-RIH-007: release-bump.sh includes allowed release-surface edits in the release commit', () => {
@@ -413,6 +461,8 @@ describe('Release identity hardening', () => {
       writeFileSync(join(fixture.root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: '2.20.0' }, null, 2) + '\n');
       writeFileSync(join(fixture.root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), '{"version": "2.20.0"}\n');
       writeFileSync(join(fixture.root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), '# Launch Evidence Report — AgentXchain v2.20.0\n');
+      writeFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), 'class Agentxchain < Formula\n  desc "CLI for AgentXchain governed multi-agent software delivery"\n  homepage "https://agentxchain.dev"\n  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.20.0.tgz"\n  sha256 "3333333333333333333333333333333333333333333333333333333333333333"\n  license "MIT"\nend\n');
+      writeFileSync(join(fixture.root, 'cli', 'homebrew', 'README.md'), '# Homebrew distribution for AgentXchain\n\n- version: `2.20.0`\n- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.20.0.tgz`\n');
 
       const result = runReleaseBump(fixture.cliDir, '2.20.0');
       assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -429,6 +479,8 @@ describe('Release identity hardening', () => {
       assert.ok(changedFiles.includes('.agentxchain-conformance/capabilities.json'));
       assert.ok(changedFiles.includes('website-v2/docs/protocol-implementor-guide.mdx'));
       assert.ok(changedFiles.includes('.planning/LAUNCH_EVIDENCE_REPORT.md'));
+      assert.ok(changedFiles.includes('cli/homebrew/agentxchain.rb'));
+      assert.ok(changedFiles.includes('cli/homebrew/README.md'));
     });
   });
 });
