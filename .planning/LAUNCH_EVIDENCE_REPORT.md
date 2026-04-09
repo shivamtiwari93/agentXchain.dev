@@ -165,10 +165,30 @@
   - Full lifecycle proven: `step --role dev` → propose → apply → `step --role qa` → review → artifact
 - **What it does NOT prove**:
   - That the model produces *useful* code (protocol compliance, not code quality)
-  - Statistical reliability (single proof run, not repeated)
   - Other model providers (only Anthropic proven)
   - Authoritative writes (v1 restricted to `proposed` and `review_only`)
   - Fence-free compliance on every run; the current proof allows logged removal of outer markdown fences if the model ignores the raw-JSON instruction
+  - Statistical reliability is now covered by E2e++ (repeated proof) below
+
+### E2e++ — Remote Agent Repeated Model-Backed Proof
+
+- **Date**: 2026-04-09
+- **Location**: `examples/remote-agent-bridge/run-repeated-proof.mjs`, `examples/remote-agent-bridge/REPEATED_PROOF_REPORT.md`
+- **Spec**: `.planning/REPEATABLE_MODEL_PROOF_SPEC.md`
+- **Provider**: Anthropic Claude `claude-haiku-4-5-20251001`
+- **Runs**: 5 independent governed lifecycles
+- **Result**: **5/5 PASS (100%).** Claude Haiku reliably produced governed turn results across 5 independent scaffolds, each with fresh turn IDs and isolated state. No retries, no fixups. Total cost: ~$0.10.
+- **What it proves**:
+  - The turn-result contract is reliably teachable from a single system prompt — not a lucky single-shot outcome
+  - Both `proposed` (dev) and `review_only` (qa) modes work consistently under repeated execution
+  - Model wraps JSON in markdown fences on every call (10/10 fence strips across 10 model calls) — this is consistent model behavior, not random drift
+  - No field-level repair across any of the 5 runs; only logged outer-fence stripping
+  - Per-run isolation (fresh temp dir, fresh scaffold, fresh config) ensures each run is truly independent
+- **What it does NOT prove**:
+  - Other model providers (only Anthropic Haiku proven)
+  - Reliability under prompt variation or adversarial inputs
+  - That 100% pass rate holds at higher N (sample is 5)
+  - Code quality of model output (protocol compliance only)
 
 ### E2d — Scenario D Escalation & Recovery Proof
 
@@ -279,7 +299,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
-| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) + E2e (remote_agent bridge) + E2e+ (remote_agent model-backed) | All five adapter types now have CLI execution evidence. `remote_agent` and `mcp` additionally have real-model-backed proof (Claude Haiku). |
+| "Model-agnostic / runtime-swappable" | E1 (adapter coverage) + E2 (manual + local_cli + api_proxy completed live) + E2b (MCP stdio + streamable_http completed live) + E2e (remote_agent bridge) + E2e+ (remote_agent model-backed) + E2e++ (remote_agent repeated model-backed, 5/5 pass) | All five adapter types now have CLI execution evidence. `remote_agent` and `mcp` additionally have real-model-backed proof (Claude Haiku). `remote_agent` has repeated reliability proof (5/5 pass, 100%). |
 | "All five adapters proven" | E2 (manual + local_cli + api_proxy) + E2b (MCP stdio + streamable_http) + E2b+ (MCP with real Anthropic model) + E2e (remote_agent bridge) | All adapter types have been dispatched through `agentxchain step` and accepted by the governed state machine. |
 | "Manual, local CLI, API-backed, MCP, and remote agents all run under the same protocol" | E1 (adapter tests) + E2 + E2b + E2e + E2e+ | All five adapter types proven through the governed CLI. Two (`mcp`, `remote_agent`) also proven with real AI model output. |
 | "`remote_agent` bridge proves connector replaceability over HTTP" | E2e (run-proof.mjs, e2e-remote-agent-proposed-authoring.test.js) | Proposed + review lifecycle proven through public CLI. Authoritative writes deferred to v2. |

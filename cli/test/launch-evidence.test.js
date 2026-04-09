@@ -122,6 +122,16 @@ describe('Launch evidence report', () => {
     assert.match(report, /markdown fences/i);
     assert.match(report, /full 5-stage acceptance pipeline/i);
   });
+
+  it('records repeated model-backed remote agent proof (E2e++)', () => {
+    assert.match(report, /E2e\+\+.*Remote Agent Repeated Model-Backed Proof/);
+    assert.match(report, /run-repeated-proof\.mjs/);
+    assert.match(report, /REPEATED_PROOF_REPORT\.md/);
+    assert.match(report, /5\/5 PASS/);
+    assert.match(report, /100%/);
+    assert.match(report, /No retries/i);
+    assert.match(report, /REPEATABLE_MODEL_PROOF_SPEC\.md/);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {

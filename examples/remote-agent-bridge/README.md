@@ -45,6 +45,27 @@ Expected output ends with:
   REMOTE AGENT BRIDGE PROOF — ALL CHECKS PASSED
 ```
 
+### Run the model-backed proof (single run)
+
+Proves a real Claude model can satisfy the governed turn-result contract:
+
+```bash
+source ../../.env  # needs ANTHROPIC_API_KEY
+node run-model-proof.mjs
+```
+
+### Run repeated model-backed proof (reliability)
+
+Runs N independent governed lifecycles with per-run isolation and honest pass/fail reporting:
+
+```bash
+source ../../.env
+node run-repeated-proof.mjs              # default: 5 runs
+node run-repeated-proof.mjs --runs 10    # custom count
+```
+
+Writes `REPEATED_PROOF_REPORT.md` with aggregate pass rate, per-run breakdown, failure taxonomy, and cost. No retries — each run is one attempt.
+
 ### Configure a project to use the bridge
 
 In your `agentxchain.json`:
