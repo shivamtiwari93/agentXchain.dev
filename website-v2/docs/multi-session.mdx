@@ -5,21 +5,37 @@ description: "How governed runs survive process boundaries — resume, recover, 
 
 # Multi-Session Continuity
 
-Governed runs are not bound to a single process. You can start a run, close your terminal, and resume it hours or days later from a fresh session. State, history, decisions, and turn sequence all persist on disk in `.agentxchain/`.
+Governed runs are not bound to a single process. You can start a run, close your terminal, and resume it hours or days later from a fresh session. State, history, decisions, turn sequence, and session checkpoints all persist on disk in `.agentxchain/`.
 
 This is the foundation for long-horizon execution: runs that outlive any single operator session.
 
 ## How It Works
 
-AgentXchain stores all run state in three files inside `.agentxchain/`:
+AgentXchain stores governed continuity state in these files inside `.agentxchain/`:
 
 | File | Format | Purpose |
 |---|---|---|
 | `state.json` | JSON | Current run status, active turns, phase, gates |
 | `history.jsonl` | JSONL (append-only) | Every turn assignment, acceptance, and state transition |
 | `decision-ledger.jsonl` | JSONL (append-only) | Every governed decision across all turns |
+| `session.json` | JSON | Latest checkpoint for cross-session restart |
+| `SESSION_RECOVERY.md` | Markdown | Human-readable restart briefing generated after `agentxchain restart` |
 
 Because state is file-based and append-only, there is no in-memory state to lose when a process exits. Any fresh process that reads the same directory picks up exactly where the last one left off.
+
+## Restart After Losing Session Context
+
+Use `resume` when you still have the run context and just need the next turn. Use `restart` when the session itself is gone: terminal closed, machine rebooted, agent crashed, or context was exhausted.
+
+```bash
+agentxchain status
+# Surfaces the latest continuity checkpoint and whether restart is available
+
+agentxchain restart
+# Rebuilds session context from .agentxchain/state.json + .agentxchain/session.json
+```
+
+`restart` does not guess from memory. It reads the durable governed state, warns if `session.json` is stale relative to `state.json`, and writes `.agentxchain/SESSION_RECOVERY.md` so the next agent session has a briefing document instead of a cold start.
 
 ## Resume a Run
 

@@ -24,6 +24,7 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 - Requires a structured turn result for every governed turn
 - Enforces mandatory challenge, phase gates, and human approvals
 - Records accepted history in append-only JSONL plus `TALK.md`
+- Surfaces checkpointed continuity in `agentxchain status` and rebuilds lost session context with `agentxchain restart`
 - Supports cross-machine continuity via `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
 - Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
@@ -217,6 +218,7 @@ agentxchain status
 agentxchain demo
 agentxchain run                              # multi-turn governed execution to completion
 agentxchain run --auto-approve --max-turns 20
+agentxchain restart                         # rebuild lost session context from .agentxchain/session.json
 agentxchain restore --input <path>          # cross-machine continuity from a prior run export
 agentxchain step                             # single-turn dispatch (manual workflow)
 agentxchain step --resume --turn <id>

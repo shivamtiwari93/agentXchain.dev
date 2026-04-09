@@ -32,6 +32,12 @@ describe('Multi-session continuity docs surface', () => {
     assert.match(DOC, /agentxchain resume/);
   });
 
+  it('documents restart when session context is lost', () => {
+    assert.match(DOC, /agentxchain restart/);
+    assert.match(DOC, /session\.json/);
+    assert.match(DOC, /SESSION_RECOVERY\.md/);
+  });
+
   it('documents blocked recovery across sessions', () => {
     assert.match(DOC, /agentxchain escalate/);
     assert.match(DOC, /blocked/i);
@@ -52,6 +58,7 @@ describe('Multi-session continuity docs surface', () => {
     assert.match(DOC, /state\.json/);
     assert.match(DOC, /history\.jsonl/);
     assert.match(DOC, /decision-ledger\.jsonl/);
+    assert.match(DOC, /session\.json/);
   });
 
   it('documents the invariants', () => {

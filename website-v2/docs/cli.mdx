@@ -152,7 +152,16 @@ agentxchain status [options]
 |------|---------|-------------|
 | `-j, --json` | `false` | Output structured JSON instead of human-readable text |
 
-Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. Does not modify state.
+Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`.
+
+When cross-session continuity artifacts exist, governed status also exposes a `Continuity` section:
+
+- checkpoint session id, reason, time, last turn, and last role from `.agentxchain/session.json`
+- a stale-checkpoint warning when `session.json` and `state.json` disagree on `run_id`
+- restart guidance (`agentxchain restart`) when the run is restartable
+- the `.agentxchain/SESSION_RECOVERY.md` path when a recovery report already exists
+
+`status --json` mirrors that data under a top-level additive `continuity` object. Does not modify state.
 
 ### `export`
 

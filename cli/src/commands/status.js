@@ -1,7 +1,12 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
+import { readSessionCheckpoint } from '../lib/session-checkpoint.js';
+
+const SESSION_RECOVERY_PATH = '.agentxchain/SESSION_RECOVERY.md';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -74,6 +79,7 @@ export async function statusCommand(opts) {
 function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
   const state = loadProjectState(root, config);
+  const continuity = getContinuityStatus(root, state);
 
   if (opts.json) {
     console.log(JSON.stringify({
@@ -82,6 +88,7 @@ function renderGovernedStatus(context, opts) {
       template: config.template || 'generic',
       config,
       state,
+      continuity,
     }, null, 2));
     return;
   }
@@ -100,6 +107,8 @@ function renderGovernedStatus(context, opts) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);
   }
   console.log('');
+
+  renderContinuityStatus(continuity, state);
 
   const activeTurnCount = getActiveTurnCount(state);
   const activeTurns = getActiveTurns(state);
@@ -235,6 +244,64 @@ function renderGovernedStatus(context, opts) {
     const label = isAssigned ? chalk.bold(id) : id;
     console.log(`    ${marker} ${label} — ${role.title} [${role.write_authority}]`);
   }
+  console.log('');
+}
+
+function getContinuityStatus(root, state) {
+  const checkpoint = readSessionCheckpoint(root);
+  const recoveryReportPath = existsSync(join(root, SESSION_RECOVERY_PATH))
+    ? SESSION_RECOVERY_PATH
+    : null;
+
+  if (!checkpoint && !recoveryReportPath) return null;
+
+  const staleCheckpoint = !!(
+    checkpoint?.run_id
+    && state?.run_id
+    && checkpoint.run_id !== state.run_id
+  );
+
+  return {
+    checkpoint,
+    stale_checkpoint: staleCheckpoint,
+    recovery_report_path: recoveryReportPath,
+    restart_recommended: !!state && !['blocked', 'completed', 'failed'].includes(state.status),
+  };
+}
+
+function renderContinuityStatus(continuity, state) {
+  if (!continuity) return;
+
+  console.log(`  ${chalk.dim('Continuity:')}`);
+
+  if (continuity.checkpoint) {
+    const checkpoint = continuity.checkpoint;
+    const checkpointSummary = checkpoint.last_checkpoint_at
+      ? `${checkpoint.checkpoint_reason || 'unknown'} at ${checkpoint.last_checkpoint_at}`
+      : (checkpoint.checkpoint_reason || 'unknown');
+    console.log(`  ${chalk.dim('Session:')}  ${checkpoint.session_id || chalk.dim('unknown')}`);
+    console.log(`  ${chalk.dim('Checkpoint:')} ${checkpointSummary}`);
+    console.log(`  ${chalk.dim('Last turn:')} ${checkpoint.last_turn_id || chalk.dim('none')}`);
+    console.log(`  ${chalk.dim('Last role:')} ${checkpoint.last_role || chalk.dim('unknown')}`);
+    if (continuity.stale_checkpoint) {
+      console.log(
+        `  ${chalk.dim('Warning:')} ${chalk.yellow(
+          `session checkpoint tracks ${checkpoint.run_id}, but state.json tracks ${state?.run_id || 'unknown'}; state.json remains source of truth`
+        )}`
+      );
+    }
+  } else {
+    console.log(`  ${chalk.dim('Checkpoint:')} ${chalk.yellow('No session checkpoint recorded')}`);
+  }
+
+  if (continuity.restart_recommended) {
+    console.log(`  ${chalk.dim('Restart:')} ${chalk.cyan('agentxchain restart')} (rebuild session context from disk)`);
+  }
+
+  if (continuity.recovery_report_path) {
+    console.log(`  ${chalk.dim('Report:')}   ${continuity.recovery_report_path}`);
+  }
+
   console.log('');
 }
 
