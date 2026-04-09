@@ -256,6 +256,13 @@ describe('Release identity hardening', () => {
       );
     });
 
+    it('checks Homebrew mirror formula as a governed version surface', () => {
+      assert.ok(
+        script.includes('homebrew mirror formula') || script.includes('agentxchain.rb'),
+        'pre-bump guard must check the Homebrew mirror formula version',
+      );
+    });
+
     it('verifies the tag is annotated and resolves to the release commit', () => {
       assert.ok(
         script.includes('git cat-file -t "v${TARGET_VERSION}"'),

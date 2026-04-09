@@ -162,6 +162,14 @@ if ! grep -qE "^# Launch Evidence Report — AgentXchain v${ESCAPED_VERSION}" "$
   SURFACE_ERRORS+=("LAUNCH_EVIDENCE_REPORT.md title does not carry v${TARGET_VERSION}")
 fi
 
+# 4h. Homebrew mirror formula version
+HOMEBREW_MIRROR="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
+if [[ -f "$HOMEBREW_MIRROR" ]]; then
+  if ! grep -q "agentxchain-${TARGET_VERSION}\.tgz" "$HOMEBREW_MIRROR" 2>/dev/null; then
+    SURFACE_ERRORS+=("homebrew mirror formula does not reference agentxchain-${TARGET_VERSION}.tgz")
+  fi
+fi
+
 if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "FAIL: ${#SURFACE_ERRORS[@]} version-surface(s) not aligned to ${TARGET_VERSION}:" >&2
   printf '  - %s\n' "${SURFACE_ERRORS[@]}" >&2
@@ -170,7 +178,7 @@ if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "create release identity when governed surfaces are stale." >&2
   exit 1
 fi
-echo "  OK: all 7 governed version surfaces reference ${TARGET_VERSION}"
+echo "  OK: all 8 governed version surfaces reference ${TARGET_VERSION}"
 
 # 5. Update version files (no git operations)
 echo "[5/8] Updating version files..."
