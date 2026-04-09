@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.1",
+  "run_id": null,
+  "project_id": "agentxchain-dev",
+  "status": "idle",
+  "phase": "planning",
+  "accepted_integration_ref": null,
+  "active_turns": {},
+  "turn_sequence": 0,
+  "last_completed_turn_id": null,
+  "blocked_on": null,
+  "blocked_reason": null,
+  "escalation": null,
+  "queued_phase_transition": null,
+  "queued_run_completion": null,
+  "phase_gate_status": {
+    "planning_signoff": "pending",
+    "implementation_complete": "pending",
+    "qa_ship_verdict": "pending"
+  },
+  "budget_reservations": {},
+  "budget_status": {
+    "spent_usd": 0,
+    "remaining_usd": 50
+  }
+}
