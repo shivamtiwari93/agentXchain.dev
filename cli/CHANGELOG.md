@@ -1,5 +1,54 @@
 # Changelog
 
+## 2.33.0
+
+`2.33.0` is the cross-machine continuity restore release.
+
+### Governed runs can now move across checkouts without changing `run_id`
+
+- Added `agentxchain restore --input <path>`.
+- Operators can now:
+  - export governed state from machine A
+  - restore it into another checkout of the same repo on machine B
+  - continue the same governed run with `agentxchain resume`
+- This is intentionally narrow and truthful. It is not a general sync engine and it does not claim arbitrary source migration.
+
+### Run exports now declare whether they are safely restorable
+
+- Run export schema advanced to `0.3`.
+- Export artifacts now include `workspace.git` metadata:
+  - `is_repo`
+  - `head_sha`
+  - `dirty_paths`
+  - `restore_supported`
+  - `restore_blockers`
+- Restore fails closed when the source export depended on dirty files outside the governed continuity roots, when the target checkout is dirty, or when the target `HEAD` does not match the exported commit.
+
+### Continuity exports include the governed state required for honest restore
+
+- Run exports now include the continuity surfaces that matter for multi-machine governed work:
+  - `TALK.md`
+  - `.planning/`
+  - `.agentxchain/reviews/`
+  - `.agentxchain/proposed/`
+  - `.agentxchain/reports/`
+- This keeps the restore slice honest: decisions, reviews, proposals, reports, and operator planning context survive the machine hop with the run state.
+
+### Restore now handles empty exported files correctly
+
+- Fixed a real contract bug during the release turn:
+  - export verification already allowed empty `content_base64`
+  - restore incorrectly rejected it
+- Added round-trip coverage proving empty governed files survive export -> restore.
+
+### Evidence
+
+- **2848 tests / 599 suites / 0 failures**
+- `node --test cli/test/restore-cli.test.js`
+- `node --test cli/test/docs-restore-content.test.js cli/test/docs-cli-command-map-content.test.js cli/test/export-cli.test.js cli/test/verify-export-cli.test.js cli/test/coordinator-export-cli.test.js cli/test/export-schema-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.32.0
 
 `2.32.0` is the governed product examples release.
