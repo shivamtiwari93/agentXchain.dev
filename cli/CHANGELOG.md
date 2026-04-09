@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.33.0
+## 2.33.1
 
-`2.33.0` is the cross-machine continuity restore release.
+`2.33.1` is the cross-machine continuity restore release.
 
 ### Governed runs can now move across checkouts without changing `run_id`
 

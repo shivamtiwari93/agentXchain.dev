@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.33.0
+# Launch Evidence Report — AgentXchain v2.33.1
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.33.0 cross-machine continuity restore release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-09 for the v2.33.1 cross-machine continuity restore release.
 
 ---
 

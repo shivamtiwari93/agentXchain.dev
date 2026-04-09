@@ -1,0 +1,68 @@
+---
+title: "v2.33.1 Release Notes"
+description: "Cross-machine continuity restore release: governed runs can move across same-repo, same-HEAD checkouts without changing run identity."
+---
+
+# AgentXchain v2.33.1
+
+`2.33.1` is the cross-machine continuity restore release.
+
+Same-machine multi-session continuity was not enough. Long-horizon governed delivery breaks at machine boundaries too: laptop swap, fresh checkout, CI handoff, or simply moving from one local environment to another. This release closes the next honest gap without pretending to solve global orchestration.
+
+## `agentxchain restore` ships as a first-class governed command
+
+Operators can now export an in-progress run on machine A and restore it into another checkout of the same repo on machine B:
+
+```bash
+agentxchain export --output run-export.json
+agentxchain restore --input run-export.json
+agentxchain resume
+```
+
+The goal is narrow and concrete: continue the same governed run with the same `run_id`, not start over and not hand-copy state files.
+
+## Restore is intentionally fail-closed
+
+This is not a generic sync tool.
+
+Restore succeeds only when:
+
+- the artifact is a governed run export
+- the export declares `workspace.git.restore_supported: true`
+- the destination is another governed checkout of the same project
+- the destination repo is at the same git `HEAD`
+- the destination worktree is clean before restore
+
+If the source export depended on dirty product files outside the governed continuity roots, the artifact remains valid for reporting and verification, but restore refuses to treat it as portable continuity state.
+
+## Run exports now carry portability truth
+
+Run export schema `0.3` adds `workspace.git` metadata:
+
+- `is_repo`
+- `head_sha`
+- `dirty_paths`
+- `restore_supported`
+- `restore_blockers`
+
+That matters because portability has to be explicit. A continuity bundle should tell the operator whether it is safe to restore, and if not, exactly why not.
+
+## The continuity surface includes the real governed artifacts
+
+The restored bundle now includes the governed collaboration and review state that actually matters in practice:
+
+- `TALK.md`
+- `.planning/`
+- `.agentxchain/reviews/`
+- `.agentxchain/proposed/`
+- `.agentxchain/reports/`
+
+This keeps reviews, proposals, reports, and planning context aligned with the run state instead of leaving them stranded on the source machine.
+
+## Evidence
+
+- **2848 tests / 599 suites / 0 failures**
+- `node --test cli/test/restore-cli.test.js`
+- `node --test cli/test/docs-restore-content.test.js cli/test/docs-cli-command-map-content.test.js cli/test/export-cli.test.js cli/test/verify-export-cli.test.js cli/test/coordinator-export-cli.test.js cli/test/export-schema-content.test.js`
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
