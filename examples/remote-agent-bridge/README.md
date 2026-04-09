@@ -77,6 +77,8 @@ agentxchain step --role dev
 agentxchain proposal apply <turn_id>
 ```
 
+Header values are sent exactly as written. `remote_agent` does not interpolate `${VAR}` placeholders inside `headers`, so generate the final token value before writing `agentxchain.json`.
+
 ## What this proves
 
 - The `remote_agent` adapter dispatches governed turn envelopes over HTTP
@@ -113,6 +115,12 @@ agentxchain proposal apply <turn_id>
 ### Response (turn result)
 
 Must be a valid AgentXchain turn-result JSON. For proposed turns, include `proposed_changes[]`. See the [adapter docs](https://agentxchain.dev/docs/adapters) for the full schema.
+
+## Common validation traps
+
+- `decisions[].id` must match `DEC-NNN`. IDs like `DEC-BRIDGE-20260409` are rejected.
+- `review_only` turns must include at least one objection. An empty `objections` array fails the challenge requirement.
+- `proposed` turns must return `proposed_changes[]`; a prose-only summary is not enough for `proposal apply`.
 
 ## Endpoints
 

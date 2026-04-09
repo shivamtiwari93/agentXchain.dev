@@ -455,5 +455,19 @@ describe('Adapter docs contract', () => {
       assert.match(adapterDocs, /proposal apply/i,
         'adapters.mdx must explain that remote_agent proposed turns materialize proposals for proposal apply');
     });
+
+    it('docs warn about the DEC-NNN and review objection validator traps', () => {
+      assert.match(adapterDocs, /DEC-NNN/i,
+        'adapters.mdx must tell implementors that decision IDs must match DEC-NNN');
+      assert.match(adapterDocs, /review_only.*at least one objection|at least one objection.*review_only/i,
+        'adapters.mdx must document the review_only objection requirement for remote_agent implementors');
+    });
+
+    it('docs do not imply header interpolation that the runtime does not implement', () => {
+      assert.doesNotMatch(adapterDocs, /REMOTE_AGENT_TOKEN/,
+        'adapters.mdx must not imply REMOTE_AGENT_TOKEN header interpolation support');
+      assert.match(adapterDocs, /does not interpolate.*headers|pre-expand secrets/i,
+        'adapters.mdx must state that header values are literal and must be pre-expanded');
+    });
   });
 });

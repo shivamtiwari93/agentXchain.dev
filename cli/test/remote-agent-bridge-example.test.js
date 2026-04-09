@@ -75,4 +75,11 @@ describe('remote-agent-bridge example', () => {
     assert.match(server, /DEC-001/);
     assert.match(server, /DEC-002/);
   });
+
+  it('README.md warns about validator traps and literal header values', () => {
+    const readme = readFileSync(resolve(EXAMPLE_DIR, 'README.md'), 'utf8');
+    assert.match(readme, /DEC-NNN/);
+    assert.match(readme, /at least one objection/i);
+    assert.match(readme, /does not interpolate.*headers|generate the final token value/i);
+  });
 });

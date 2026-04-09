@@ -15,7 +15,7 @@ This is a Layer 3 connector slice from `VISION.md`, not an IDE-distribution stun
   "type": "remote_agent",
   "url": "https://agent.example.com/agentxchain/turn",
   "headers": {
-    "authorization": "Bearer ${REMOTE_AGENT_TOKEN}"
+    "authorization": "Bearer replace-with-real-token"
   },
   "timeout_ms": 120000
 }
@@ -51,6 +51,8 @@ The remote service must return a valid AgentXchain turn-result payload in one sy
 6. Fail closed on non-2xx responses, malformed JSON, missing turn-result fields, or timeout.
 7. Persist enough transport metadata for operator evidence without leaking secret header values.
 8. Document this as a connector bridge for governed remote execution, not as a generic hosted orchestration surface.
+9. Document implementor failure traps explicitly: `decisions[].id` must match `DEC-NNN`, and `review_only` roles must return at least one objection.
+10. Do not imply environment-variable interpolation inside `headers`; values are sent exactly as configured.
 
 ## Error Cases
 
@@ -62,6 +64,9 @@ The remote service must return a valid AgentXchain turn-result payload in one sy
 - Response body is JSON but not a valid turn result
 - `authoritative` role bound to `remote_agent`
 - Secret headers echoed into logs or artifacts
+- Remote service uses free-form or dynamic decision IDs instead of `DEC-NNN`
+- Remote service returns a `review_only` result without objections
+- Docs imply header interpolation that the runtime does not implement
 
 ## Acceptance Tests
 
@@ -73,8 +78,11 @@ The remote service must return a valid AgentXchain turn-result payload in one sy
 6. Timeout and non-2xx paths fail clearly.
 7. Logs and artifacts record remote target metadata without leaking authorization headers.
 8. Adapter docs describe the remote connector truthfully and distinguish it from MCP transport.
+9. A subprocess E2E rejects remote responses whose `decisions[].id` do not match `DEC-NNN`.
+10. A subprocess E2E rejects `review_only` remote responses that omit objections.
+11. Docs/examples state that header values are literal config strings; operators must pre-expand any secrets before writing config.
 
-## Open Questions
+## Out Of Scope
 
-- Whether v1 should support environment-variable header interpolation directly or require pre-expanded config values.
-- Whether later slices should add async polling/webhook completion instead of synchronous request-response only.
+- Environment-variable interpolation inside `headers` is not implemented in v1. Operators must pre-expand values before writing `agentxchain.json`.
+- Async polling and webhook completion are not part of the v1 connector contract. `remote_agent` remains synchronous: POST, wait, stage.

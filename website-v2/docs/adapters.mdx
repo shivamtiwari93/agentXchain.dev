@@ -685,7 +685,7 @@ Authorization headers are sent to the remote service but are **never** echoed in
       "type": "remote_agent",
       "url": "https://agent.example.com/agentxchain/turn",
       "headers": {
-        "authorization": "Bearer ${REMOTE_AGENT_TOKEN}"
+        "authorization": "Bearer replace-with-real-token"
       },
       "timeout_ms": 120000
     }
@@ -699,6 +699,14 @@ Authorization headers are sent to the remote service but are **never** echoed in
 | `url` | Yes | — | Absolute HTTP or HTTPS URL of the remote agent service |
 | `headers` | No | `{}` | String-to-string request headers |
 | `timeout_ms` | No | `120000` | Request timeout in milliseconds (positive integer) |
+
+Header values are sent exactly as configured. The runtime does not interpolate `${VAR}` placeholders inside `headers`; pre-expand secrets before writing `agentxchain.json`.
+
+### Common validation failures
+
+- `decisions[].id` must match `DEC-NNN`. Dynamic IDs like `DEC-BRIDGE-20260409` fail validation even if the rest of the payload is correct.
+- `review_only` roles must raise at least one objection. A QA review with an empty `objections` array is rejected by the protocol challenge requirement.
+- `proposed` remote turns must include `proposed_changes[]`. A summary-only dev response is not enough for acceptance or `proposal apply`.
 
 ### Comparison with other adapters
 
