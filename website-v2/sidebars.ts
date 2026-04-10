@@ -95,7 +95,14 @@ const sidebars: SidebarsConfig = {
         'multi-repo',
       ],
     },
-    'adapters',
+    {
+      type: 'category',
+      label: 'Integration',
+      items: [
+        'integration-guide',
+        'adapters',
+      ],
+    },
     'plugins',
     'notifications',
     'recovery',

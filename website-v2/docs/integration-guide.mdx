@@ -1,0 +1,281 @@
+---
+sidebar_position: 5
+title: Integration Guide
+description: "Connect any agent to AgentXchain governance — HTTP services, MCP servers, or direct LLM APIs."
+---
+
+# Integration Guide
+
+AgentXchain governs the workflow, not the agent. Any agent that can return a truthful turn result through one of these contracts is governable. This page separates what the product supports from what the repo has already proven in public artifacts.
+
+## The invariant
+
+Regardless of which pattern you use, AgentXchain enforces the same governance contract:
+
+- **Schema validation** — every turn result must conform to the protocol schema
+- **Challenge requirements** — review turns must include at least one objection
+- **Phase gates** — artifacts must exist before phase transitions are approved
+- **Decision ledger** — every decision is append-only and auditable
+- **Authority boundaries** — `proposed` turns stage changes; `review_only` turns attest without writes; `authoritative` turns write directly when the adapter/runtime actually supports it
+- **Budget enforcement** — token/cost budgets are tracked and enforced per turn
+
+The adapter is a replaceable bridge. The governance is not.
+
+---
+
+## Pattern 1: HTTP Remote Agent
+
+**Use when:** You have your own agent service — a LangChain pipeline, a custom LLM wrapper, a microservice, or any HTTP endpoint that can accept a turn envelope and return a turn result.
+
+### How it works
+
+```
+┌──────────────┐     POST /turn      ┌──────────────────┐
+│  AgentXchain │ ──────────────────► │  Your HTTP Agent  │
+│  Orchestrator│                      │  (any language)   │
+│              │ ◄────────────────── │                    │
+│              │     turn-result.json │                    │
+└──────────────┘                      └──────────────────┘
+```
+
+AgentXchain sends a JSON envelope with the turn context (run ID, turn ID, role, phase, prompt, context). Your service does the work and returns a turn-result JSON object. AgentXchain validates the result through the full acceptance pipeline.
+
+### Configuration
+
+```json title="agentxchain.json"
+{
+  "runtimes": {
+    "my-agent": {
+      "type": "remote_agent",
+      "url": "http://your-service:8080/turn",
+      "timeout_ms": 60000,
+      "headers": {
+        "authorization": "Bearer your-token"
+      }
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "my-agent",
+      "write_authority": "proposed"
+    }
+  }
+}
+```
+
+### What you build
+
+A single HTTP POST endpoint that:
+1. Receives a JSON envelope with `run_id`, `turn_id`, `role`, `phase`, `prompt`, `context`
+2. Calls your agent/model/pipeline with the prompt and context
+3. Returns a valid turn-result JSON object
+
+The turn-result must include: `schema_version`, `run_id`, `turn_id`, `role`, `runtime_id`, `status`, `summary`, `decisions[]`, `objections[]`, `files_changed[]`, `verification`, `artifact`, `proposed_next_role`.
+
+For `proposed` write authority, also include `proposed_changes[]` with the files your agent wants to create or modify.
+
+### Proof evidence
+
+The [`remote-agent-bridge`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/remote-agent-bridge) example proves this pattern end-to-end:
+
+- **Deterministic proof** (`run-proof.mjs`): A bridge server accepts governed turn envelopes, returns valid turn results, and the full lifecycle (dispatch → acceptance → proposal apply → review) completes through the public CLI.
+- **Model-backed proof** (`run-model-proof.mjs`, `MODEL_PROOF_REPORT.md`): A real Claude Haiku model produces governed turn results over HTTP with no field-level repair. The only allowed concession is logged markdown-fence removal when the model wraps otherwise-valid JSON.
+- **Reliability proof** (`run-repeated-proof.mjs`, `REPEATED_PROOF_REPORT.md`): 5/5 independent governed lifecycles passed with 100% success rate. Each run is one attempt — no retries.
+
+The proof boundary is explicit: the acceptance pipeline validates the model's raw output. If the model produces invalid JSON or a non-compliant turn result, the pipeline rejects it. No semantic fixups are applied.
+
+### Common validation traps
+
+These are real failure modes from model-backed proof runs:
+
+| Trap | What happens | Fix |
+|------|-------------|-----|
+| Bad decision IDs | `DEC-BRIDGE-20260409` is rejected — must match `DEC-NNN` | Use sequential `DEC-001`, `DEC-002`, etc. |
+| Empty objections on review | `review_only` turns with `objections: []` fail the challenge requirement | Always include at least one objection |
+| Missing `proposed_changes` | `proposed` turns without `proposed_changes[]` have nothing for `proposal apply` | Return at least one file with `path`, `action`, and `content` |
+| Wrong `run_id`/`turn_id` | Mismatched IDs fail schema validation | Echo the exact values from the request envelope |
+
+---
+
+## Pattern 2: MCP Server
+
+**Use when:** You want to expose your agent as a [Model Context Protocol](https://modelcontextprotocol.io/) server — either locally via stdio or remotely via `streamable_http`. MCP is ideal when your agent is a long-running process that maintains state across turns.
+
+### How it works
+
+```
+┌──────────────┐    MCP tool call     ┌──────────────────┐
+│  AgentXchain │ ──────────────────► │  Your MCP Server  │
+│  Orchestrator│   agentxchain_turn   │  (stdio or HTTP)  │
+│              │ ◄────────────────── │                    │
+│              │    turn-result JSON  │                    │
+└──────────────┘                      └──────────────────┘
+```
+
+AgentXchain calls the `agentxchain_turn` tool on your MCP server. Your server does the work and returns the turn-result JSON as the tool response.
+
+### Configuration
+
+```json title="agentxchain.json — stdio transport"
+{
+  "runtimes": {
+    "my-mcp-agent": {
+      "type": "mcp",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["path/to/your-server.js"]
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "my-mcp-agent",
+      "write_authority": "proposed"
+    }
+  }
+}
+```
+
+```json title="agentxchain.json — streamable_http transport"
+{
+  "runtimes": {
+    "my-remote-mcp": {
+      "type": "mcp",
+      "transport": "streamable_http",
+      "url": "http://your-server:3001/mcp"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "my-remote-mcp",
+      "write_authority": "proposed"
+    }
+  }
+}
+```
+
+### What you build
+
+An MCP server that registers the `agentxchain_turn` tool with 13 required arguments: `run_id`, `turn_id`, `role`, `phase`, `runtime_id`, `project_root`, `dispatch_dir`, `assignment_path`, `prompt_path`, `context_path`, `staging_path`, `prompt`, `context`.
+
+The tool handler processes the turn and returns a valid turn-result JSON object via `structuredContent` or a text content response containing JSON.
+
+### Supported contract vs shipped proof
+
+- **Contract surface:** MCP runtimes can back `authoritative`, `proposed`, or `review_only` roles. Unlike `remote_agent` and `api_proxy`, the MCP adapter does not impose a write-authority restriction in config validation.
+- **Shipped public proof:** the repo currently proves MCP transport and tool-contract correctness with the echo servers, plus real-model MCP review dispatch with `mcp-anthropic-agent`. The public proof surface is narrower than the contract surface; it does not claim a generic third-party MCP coding benchmark.
+
+### Proof evidence
+
+Two MCP proof examples ship with the repo:
+
+- **[`mcp-echo-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent)**: Reference MCP stdio server implementing the `agentxchain_turn` tool contract. Proves the transport and tool-call lifecycle work correctly.
+- **[`mcp-http-echo-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-http-echo-agent)**: Reference `streamable_http` MCP server proving the same governed tool contract over remote HTTP transport.
+- **[`mcp-anthropic-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-anthropic-agent)**: Real Claude model integration via MCP stdio. The server receives governed turn envelopes via MCP, calls the Anthropic Messages API, and returns the model's output as a governed turn result.
+- **[`governed-todo-app` MCP variant](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app#mcp-dev-variant)**: Proves the real governed project wiring for both stdio and `streamable_http` MCP runtimes. The shipped echo agents are no-op implementations, so this is transport and orchestration proof, not a claim of MCP-authored repo writes.
+
+---
+
+## Pattern 3: API Proxy
+
+**Use when:** You want AgentXchain to call an LLM API directly without building your own service. The built-in `api_proxy` adapter handles prompt formatting, response parsing, token counting, cost tracking, and budget enforcement.
+
+### How it works
+
+```
+┌──────────────┐    API call          ┌──────────────────┐
+│  AgentXchain │ ──────────────────► │  LLM Provider     │
+│  Orchestrator│                      │  (Anthropic,      │
+│  (api_proxy) │ ◄────────────────── │   OpenAI, Google)  │
+│              │    model response    │                    │
+└──────────────┘                      └──────────────────┘
+```
+
+### Configuration
+
+```json title="agentxchain.json — Anthropic"
+{
+  "runtimes": {
+    "claude": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "claude",
+      "write_authority": "proposed"
+    }
+  }
+}
+```
+
+Supported providers: **Anthropic** (Claude models), **OpenAI** (GPT-4o, o3, etc.), **Google** (Gemini 2.5 Pro/Flash).
+
+API keys are read from environment variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`.
+
+### Proof evidence
+
+- **Multi-provider proof**: Anthropic, OpenAI, and Google Gemini have been proven through governed turn lifecycles with config validation, response parsing, and acceptance pipeline validation.
+- **CI automation proof**: Anthropic Haiku is proven in unattended CI for both review-only runner execution and the wider multi-phase planning → implementation → QA proof with proposal application and gate-pass reporting.
+- **Budget enforcement**: Token and cost budgets are tracked per turn and enforced pre-dispatch. Runs that exceed budget limits are blocked with recovery guidance.
+
+This is not a claim that every supported provider has identical live proof depth. Provider-family support exists for Anthropic, OpenAI, and Google. Wider provider coverage still belongs behind `remote_agent` or MCP.
+
+---
+
+## Choosing a pattern
+
+| Consideration | HTTP Remote Agent | MCP Server | API Proxy |
+|--------------|-------------------|------------|-----------|
+| **Build effort** | One HTTP endpoint | MCP SDK integration | Zero (built-in) |
+| **Agent flexibility** | Any language/framework | Any MCP-compatible server | Anthropic, OpenAI, Google |
+| **Custom logic** | Full control | Full control | Model prompt only |
+| **State management** | Stateless per request | Server manages state | Stateless |
+| **Auth / security** | Your own headers/TLS | Process isolation (stdio) or HTTP | API key in env var |
+| **Write authority** | `proposed`, `review_only` | `authoritative`, `proposed`, `review_only` | `proposed`, `review_only` |
+| **Best for** | Existing agent services, microservices, LangChain/LlamaIndex pipelines | Long-running agents, tool-use agents | Quick start, direct LLM usage |
+
+MCP is the broadest adapter contract here, but the shipped public proof is still narrower than that full surface. Do not confuse config support with a published benchmark claim.
+
+### When to build your own connector
+
+Use HTTP Remote Agent or MCP when you need:
+- Custom preprocessing/postprocessing of prompts or results
+- Integration with your own agent framework (LangChain, LlamaIndex, CrewAI agents, custom pipelines)
+- Agent-side state management across turns
+- Custom auth, rate limiting, or observability
+
+Use API Proxy when you just want a model to do governed turns without building infrastructure.
+
+---
+
+## What AgentXchain enforces — regardless of pattern
+
+No matter which integration pattern you use, every turn goes through the same acceptance pipeline:
+
+1. **Manifest verification** — dispatch bundle integrity is checked before the agent sees it
+2. **Schema validation** — turn-result JSON is validated against the protocol schema
+3. **Challenge enforcement** — `review_only` turns must include objections
+4. **Authority enforcement** — `proposed` turns stage changes; `authoritative` turns write directly; `review_only` turns produce attestation artifacts only
+5. **Decision deduplication** — decision IDs are unique per run
+6. **Budget tracking** — token usage and cost are recorded and enforced
+7. **Phase gates** — required artifacts must exist before phase transitions are approved
+8. **Workflow-kit validation** — if workflow-kit is configured, required section headings are checked
+9. **History persistence** — every accepted turn is appended to the decision ledger and run history
+
+The agent does the work. AgentXchain ensures the work is governed.
+
+---
+
+## Next steps
+
+- Read [Adapters](/docs/adapters) for the full runtime contract, request/response fields, and timeout/error details.
+- Read [Examples](/docs/examples) for runnable proof projects, especially `remote-agent-bridge`, `mcp-echo-agent`, `mcp-http-echo-agent`, and `live-governed-proof`.
+- If you are building your own orchestrator instead of using the CLI, continue to [Runner Interface](/docs/runner-interface) and [Build Your Own Runner](/docs/build-your-own-runner).
+
+- **[Adapters reference](/docs/adapters)** — detailed contract documentation for all five adapter types
+- **[Remote Agent Bridge example](/docs/examples/remote-agent-bridge)** — runnable HTTP server with model-backed proof
+- **[MCP Anthropic Agent example](/docs/examples/mcp-anthropic-agent)** — real Claude model via MCP
+- **[Build Your Own Runner](/docs/build-your-own-runner)** — go deeper: build a complete custom runner
+- **[Protocol Implementor Guide](/docs/protocol-implementor-guide)** — for teams building protocol-compatible tools

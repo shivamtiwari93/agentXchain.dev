@@ -42,6 +42,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Remote Verification](https://agentxchain.dev/docs/remote-verification): Verifying governed runs across distributed systems.
 - [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-delivery-intake): The intake lifecycle for continuous delivery.
 - [Multi-Repo Orchestration](https://agentxchain.dev/docs/multi-repo): Coordinating governed runs across multiple repositories.
+- [Integration Guide](https://agentxchain.dev/docs/integration-guide): Connect any agent to AgentXchain governance — HTTP services, MCP servers, or direct LLM APIs. Three proven patterns with real evidence.
 - [Adapters](https://agentxchain.dev/docs/adapters): Provider adapters for Anthropic, OpenAI, and custom LLMs.
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.

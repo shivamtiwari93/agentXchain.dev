@@ -214,6 +214,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://agentxchain.dev/docs/integration-guide</loc>
+    <lastmod>2026-04-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://agentxchain.dev/docs/adapters</loc>
     <lastmod>2026-04-08</lastmod>
     <changefreq>weekly</changefreq>
