@@ -4,8 +4,7 @@ import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
-import { existsSync } from 'fs';
-import { join } from 'path';
+import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -343,39 +342,6 @@ function renderContinuityStatus(continuity, state) {
   }
 
   console.log('');
-}
-
-function deriveWorkflowKitArtifacts(root, config, state) {
-  if (!config.workflow_kit) return null;
-  const phase = state?.phase || null;
-  if (!phase) return null;
-
-  const phaseConfig = config.workflow_kit.phases?.[phase];
-  if (!phaseConfig) return null;
-
-  const artifacts = Array.isArray(phaseConfig.artifacts) ? phaseConfig.artifacts : [];
-  if (artifacts.length === 0) return null;
-
-  const entryRole = config.routing?.[phase]?.entry_role || null;
-
-  return {
-    ok: true,
-    phase,
-    artifacts: artifacts
-      .filter((a) => a && typeof a.path === 'string')
-      .map((a) => {
-        const hasExplicitOwner = typeof a.owned_by === 'string' && a.owned_by.length > 0;
-        return {
-          path: a.path,
-          required: a.required !== false,
-          semantics: a.semantics || null,
-          owned_by: hasExplicitOwner ? a.owned_by : entryRole,
-          owner_resolution: hasExplicitOwner ? 'explicit' : 'entry_role',
-          exists: existsSync(join(root, a.path)),
-        };
-      })
-      .sort((a, b) => a.path.localeCompare(b.path, 'en')),
-  };
 }
 
 function renderWorkflowKitArtifactsSection(wkData) {

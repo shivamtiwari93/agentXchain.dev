@@ -10,9 +10,9 @@
  * See: WORKFLOW_KIT_DASHBOARD_SPEC.md
  */
 
-import { existsSync } from 'fs';
 import { join } from 'path';
-import { loadConfig } from '../config.js';
+import { loadConfig, loadProjectContext, loadProjectState } from '../config.js';
+import { deriveWorkflowKitArtifacts } from '../workflow-kit-artifacts.js';
 import { readJsonFile } from './state-reader.js';
 
 /**
@@ -22,8 +22,10 @@ import { readJsonFile } from './state-reader.js';
  * @returns {{ ok: boolean, status: number, body: object }}
  */
 export function readWorkflowKitArtifacts(workspacePath) {
-  const configResult = loadConfig(workspacePath);
-  if (!configResult) {
+  const context = loadProjectContext(workspacePath);
+  const governedContext = context?.config?.protocol_mode === 'governed' ? context : null;
+  const legacyConfigResult = governedContext ? null : loadConfig(workspacePath);
+  if (!governedContext && !legacyConfigResult) {
     return {
       ok: false,
       status: 404,
@@ -35,8 +37,11 @@ export function readWorkflowKitArtifacts(workspacePath) {
     };
   }
 
-  const agentxchainDir = join(workspacePath, '.agentxchain');
-  const state = readJsonFile(agentxchainDir, 'state.json');
+  const root = governedContext?.root || legacyConfigResult.root;
+  const config = governedContext?.config || legacyConfigResult.config;
+  const state = governedContext
+    ? loadProjectState(root, config)
+    : readJsonFile(join(root, '.agentxchain'), 'state.json');
   if (!state) {
     return {
       ok: false,
@@ -49,7 +54,6 @@ export function readWorkflowKitArtifacts(workspacePath) {
     };
   }
 
-  const config = configResult.config;
   const phase = state.phase || null;
 
   if (!config.workflow_kit) {
@@ -89,8 +93,8 @@ export function readWorkflowKitArtifacts(workspacePath) {
     };
   }
 
-  const artifacts = Array.isArray(phaseConfig.artifacts) ? phaseConfig.artifacts : [];
-  if (artifacts.length === 0) {
+  const snapshot = deriveWorkflowKitArtifacts(root, config, state);
+  if (!snapshot) {
     return {
       ok: true,
       status: 200,
@@ -102,30 +106,13 @@ export function readWorkflowKitArtifacts(workspacePath) {
     };
   }
 
-  const entryRole = config.routing?.[phase]?.entry_role || null;
-
-  const result = artifacts
-    .filter((a) => a && typeof a.path === 'string')
-    .map((a) => {
-      const hasExplicitOwner = typeof a.owned_by === 'string' && a.owned_by.length > 0;
-      return {
-        path: a.path,
-        required: a.required !== false,
-        semantics: a.semantics || null,
-        owned_by: hasExplicitOwner ? a.owned_by : entryRole,
-        owner_resolution: hasExplicitOwner ? 'explicit' : 'entry_role',
-        exists: existsSync(join(workspacePath, a.path)),
-      };
-    })
-    .sort((a, b) => a.path.localeCompare(b.path, 'en'));
-
   return {
     ok: true,
     status: 200,
     body: {
       ok: true,
       phase,
-      artifacts: result,
+      artifacts: snapshot.artifacts,
     },
   };
 }

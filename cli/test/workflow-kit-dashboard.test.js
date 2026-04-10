@@ -23,14 +23,63 @@ const BASE_CONFIG = {
   routing: { planning: { entry_role: 'pm' }, implementation: { entry_role: 'dev' }, qa: { entry_role: 'pm' } },
 };
 
+const GOVERNED_BASE_CONFIG = {
+  schema_version: '1.0',
+  protocol_mode: 'governed',
+  template: 'enterprise-app',
+  project: {
+    id: 'enterprise-test',
+    name: 'Enterprise Test',
+    default_branch: 'main',
+  },
+  roles: {
+    pm: { title: 'PM', mandate: 'Plan', write_authority: 'review_only', runtime: 'manual-pm' },
+    architect: { title: 'Architect', mandate: 'Design', write_authority: 'review_only', runtime: 'manual-architect' },
+  },
+  runtimes: {
+    'manual-pm': { type: 'manual' },
+    'manual-architect': { type: 'manual' },
+  },
+  routing: {
+    planning: { entry_role: 'pm', allowed_next_roles: ['pm', 'architect', 'human'], exit_gate: 'planning_signoff' },
+    architecture: { entry_role: 'architect', allowed_next_roles: ['architect', 'human'], exit_gate: 'architecture_review' },
+  },
+  gates: {
+    planning_signoff: { requires_files: ['.planning/PM_SIGNOFF.md'] },
+    architecture_review: { requires_files: ['.planning/ARCHITECTURE.md'] },
+  },
+  prompts: {
+    pm: '# PM',
+    architect: '# Architect',
+  },
+  rules: {
+    challenge_required: true,
+    max_turn_retries: 2,
+    max_deadlock_cycles: 2,
+  },
+};
+
 function makeTempWorkspace({ config, state, files = [] }) {
   const dir = mkdtempSync(join(tmpdir(), 'wk-dash-'));
   if (config) {
     writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify({ ...BASE_CONFIG, ...config }, null, 2));
   }
   if (state) {
+    const normalizedState = {
+      schema_version: '1.1',
+      run_id: 'run_001',
+      project_id: 'test-project',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {},
+      turn_sequence: 0,
+      phase_gate_status: {},
+      budget_reservations: {},
+      budget_status: { spent_usd: 0, remaining_usd: 50 },
+      ...state,
+    };
     mkdirSync(join(dir, '.agentxchain'), { recursive: true });
-    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2));
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(normalizedState, null, 2));
   }
   for (const f of files) {
     const full = join(dir, f);
@@ -118,6 +167,39 @@ describe('readWorkflowKitArtifacts', () => {
     assert.equal(signoff.owned_by, 'pm'); // entry_role fallback
     assert.equal(signoff.owner_resolution, 'entry_role');
     assert.equal(signoff.exists, false);
+  });
+
+  it('accepts governed enterprise-app config via normalized project context', () => {
+    const dir = makeTempWorkspace({
+      config: {
+        ...GOVERNED_BASE_CONFIG,
+        workflow_kit: {
+          phases: {
+            architecture: {
+              artifacts: [
+                { path: '.planning/ARCHITECTURE.md', required: true, owned_by: 'architect' },
+              ],
+            },
+          },
+        },
+      },
+      state: { schema_version: '1.1', run_id: 'run_001', status: 'active', phase: 'architecture', active_turns: {} },
+      files: ['.planning/ARCHITECTURE.md'],
+    });
+    const result = readWorkflowKitArtifacts(dir);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.ok, true);
+    assert.equal(result.body.phase, 'architecture');
+    assert.deepEqual(result.body.artifacts, [
+      {
+        path: '.planning/ARCHITECTURE.md',
+        required: true,
+        semantics: null,
+        owned_by: 'architect',
+        owner_resolution: 'explicit',
+        exists: true,
+      },
+    ]);
   });
 
   // AT-WKDASH-011

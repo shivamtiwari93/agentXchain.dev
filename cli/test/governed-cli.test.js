@@ -428,10 +428,12 @@ describe('governed CLI support', () => {
       assert.ok(config.roles.security_reviewer);
       assert.ok(config.routing.architecture);
       assert.ok(config.routing.security_review);
+      assert.deepEqual(Object.keys(config.routing), ['planning', 'architecture', 'implementation', 'security_review', 'qa']);
       assert.ok(config.gates.architecture_review);
       assert.ok(config.gates.security_review_signoff);
       assert.ok(config.workflow_kit?.phases?.architecture);
       assert.ok(config.workflow_kit?.phases?.security_review);
+      assert.deepEqual(Object.keys(config.workflow_kit.phases), ['planning', 'architecture', 'implementation', 'security_review', 'qa']);
       assert.equal(config.workflow_kit.phases.architecture.artifacts[0].owned_by, 'architect');
       assert.equal(config.workflow_kit.phases.security_review.artifacts[0].owned_by, 'security_reviewer');
 
