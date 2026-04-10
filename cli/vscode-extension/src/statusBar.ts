@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GOVERNED_MODE_NOTICE, getBlockedDetail, getProjectName, getProjectSurface } from './util';
+import { loadGovernedStatus, summarizeGovernedStatus } from './governedStatus';
 
 export interface StatusBarController {
   refresh(): void;
@@ -12,7 +13,7 @@ export function createStatusBar(context: vscode.ExtensionContext, root: string):
   item.tooltip = 'AgentXchain — click for status';
   context.subscriptions.push(item);
 
-  function refresh() {
+  async function refreshAsync() {
     const surface = getProjectSurface(root);
     const { config, state, lock, mode } = surface;
 
@@ -24,13 +25,23 @@ export function createStatusBar(context: vscode.ExtensionContext, root: string):
     }
 
     if (mode === 'governed') {
-      const phase = state?.phase || 'unknown';
-      const status = state?.status || 'idle';
-      const blocked = getBlockedDetail(state);
-
-      item.text = `$(shield) AXC: governed | ${phase} | ${status}`;
-      item.tooltip = `${getProjectName(config)}\n${GOVERNED_MODE_NOTICE}`;
-      item.backgroundColor = blocked ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+      try {
+        const payload = await loadGovernedStatus(root);
+        const model = summarizeGovernedStatus(payload);
+        item.text = model.text;
+        item.tooltip = model.tooltip;
+        item.backgroundColor = mapToneToBackground(model.tone);
+      } catch (error) {
+        const fallbackBlocked = getBlockedDetail(state);
+        const message = error instanceof Error ? error.message : 'Unable to load governed status.';
+        const phase = state?.phase || 'unknown';
+        const status = state?.status || 'idle';
+        item.text = `$(warning) AXC: governed | ${phase} | ${status}`;
+        item.tooltip = `${getProjectName(config)}\n${message}\n${GOVERNED_MODE_NOTICE}`;
+        item.backgroundColor = fallbackBlocked
+          ? new vscode.ThemeColor('statusBarItem.errorBackground')
+          : new vscode.ThemeColor('statusBarItem.warningBackground');
+      }
       item.show();
       return;
     }
@@ -61,10 +72,24 @@ export function createStatusBar(context: vscode.ExtensionContext, root: string):
     item.show();
   }
 
+  function refresh() {
+    void refreshAsync();
+  }
+
   refresh();
 
   return {
     refresh,
     dispose: () => item.dispose()
   };
+}
+
+function mapToneToBackground(tone: 'default' | 'warning' | 'error') {
+  if (tone === 'warning') {
+    return new vscode.ThemeColor('statusBarItem.warningBackground');
+  }
+  if (tone === 'error') {
+    return new vscode.ThemeColor('statusBarItem.errorBackground');
+  }
+  return undefined;
 }

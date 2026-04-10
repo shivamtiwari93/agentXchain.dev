@@ -1,1 +1,1 @@
-export declare function showStatus(root: string): void;
+export declare function showStatus(root: string): Promise<void>;

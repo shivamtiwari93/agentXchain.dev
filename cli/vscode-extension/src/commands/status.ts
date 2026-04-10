@@ -1,13 +1,12 @@
 import * as vscode from 'vscode';
 import {
-  getBlockedDetail,
   getProjectActors,
   getProjectName,
   getProjectSurface,
-  GOVERNED_MODE_NOTICE,
 } from '../util';
+import { loadGovernedStatus, renderGovernedStatusLines } from '../governedStatus';
 
-export function showStatus(root: string) {
+export async function showStatus(root: string) {
   const surface = getProjectSurface(root);
   const { config, lock, state, mode } = surface;
 
@@ -23,21 +22,15 @@ export function showStatus(root: string) {
   channel.appendLine('─'.repeat(40));
 
   if (mode === 'governed') {
-    const blocked = getBlockedDetail(state);
-    const lines = [
-      `Project: ${getProjectName(config)}`,
-      'Mode: Governed',
-      `Run status: ${state?.status || 'idle'}`,
-      `Phase: ${state?.phase || 'unknown'}`,
-      `Blocked: ${blocked ? `YES — ${blocked}` : 'No'}`,
-      '',
-      GOVERNED_MODE_NOTICE,
-      '',
-      `Roles (${actors.length}):`,
-      ...actors.map(actor => `  ○ ${actor.id} — ${actor.name}`),
-    ];
-    lines.forEach(l => channel.appendLine(l));
-    channel.show();
+    try {
+      const payload = await loadGovernedStatus(root);
+      for (const line of renderGovernedStatusLines(payload)) {
+        channel.appendLine(line);
+      }
+      channel.show();
+    } catch (error) {
+      vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Failed to load governed status.');
+    }
     return;
   }
 

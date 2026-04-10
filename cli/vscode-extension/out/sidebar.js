@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DashboardViewProvider = void 0;
 const util_1 = require("./util");
+const governedStatus_1 = require("./governedStatus");
 class DashboardViewProvider {
     view;
     root;
@@ -13,19 +14,19 @@ class DashboardViewProvider {
     resolveWebviewView(webviewView) {
         this.view = webviewView;
         webviewView.webview.options = { enableScripts: true };
-        this.updateContent();
+        void this.updateContent();
     }
     refresh() {
         if (this.view) {
-            this.updateContent();
+            void this.updateContent();
         }
     }
-    updateContent() {
+    async updateContent() {
         if (!this.view)
             return;
-        this.view.webview.html = this.getHtml((0, util_1.getProjectSurface)(this.root));
+        this.view.webview.html = await this.getHtml((0, util_1.getProjectSurface)(this.root));
     }
-    getHtml(surface) {
+    async getHtml(surface) {
         if (!surface.config) {
             return `<!DOCTYPE html><html><body>
         <p style="padding:16px;color:#888;">No AgentXchain project found.<br>
@@ -42,75 +43,29 @@ class DashboardViewProvider {
         }
         return this.getLegacyHtml(surface);
     }
-    getGovernedHtml(surface) {
-        const projectName = (0, util_1.getProjectName)(surface.config);
-        const phase = surface.state?.phase || 'unknown';
-        const status = surface.state?.status || 'idle';
-        const blockedDetail = (0, util_1.getBlockedDetail)(surface.state);
-        const holderColor = '#3a9ad9';
-        const actors = (0, util_1.getProjectActors)(surface.config);
-        const actorRows = actors.map(actor => `<div class="agent"><span class="dot">○</span> <strong>${escHtml(actor.id)}</strong> <span class="dim">— ${escHtml(actor.name)}</span></div>`).join('\n');
-        const blocked = blockedDetail
-            ? `<div class="blocked">BLOCKED: ${escHtml(blockedDetail)}</div>`
-            : '';
-        return `<!DOCTYPE html>
-<html>
-<head><style>
-  body { font-family: var(--vscode-font-family); padding: 12px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-size: 13px; }
-  h2 { font-size: 14px; margin: 0 0 12px 0; font-weight: 600; }
-  .section { margin-bottom: 16px; }
-  .label { color: var(--vscode-descriptionForeground); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-  .value { font-size: 14px; font-weight: 600; }
-  .holder { color: ${holderColor}; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); border-radius: 6px; padding: 8px 10px; }
-  .agent { padding: 4px 0; }
-  .agent.active { color: var(--vscode-textLink-foreground); font-weight: 600; }
-  .dot { font-size: 10px; }
-  .dim { color: var(--vscode-descriptionForeground); }
-  .note { background: rgba(58,154,217,0.12); border: 1px solid rgba(58,154,217,0.25); color: var(--vscode-foreground); padding: 8px 10px; border-radius: 6px; line-height: 1.45; }
-  .blocked { background: rgba(232,117,42,0.15); border: 1px solid rgba(232,117,42,0.3); color: #e8752a; padding: 6px 10px; border-radius: 6px; font-weight: 600; margin-top: 8px; }
-</style></head>
-<body>
-  <h2>AgentXchain</h2>
-
-  <div class="section">
-    <div class="label">Project</div>
-    <div class="value">${escHtml(projectName)}</div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <div class="label">Mode</div>
-      <div class="value holder">Governed</div>
-    </div>
-    <div class="card">
-      <div class="label">Run status</div>
-      <div class="value">${escHtml(status)}</div>
-    </div>
-    <div class="card">
-      <div class="label">Phase</div>
-      <div class="value">${escHtml(phase)}</div>
-    </div>
-    <div class="card">
-      <div class="label">Control plane</div>
-      <div class="value dim">CLI / browser dashboard</div>
-    </div>
-  </div>
-
-  ${blocked}
-
-  <div class="section" style="margin-top:16px;">
-    <div class="label">Roles (${actors.length})</div>
-    ${actorRows}
-  </div>
-
-  <div class="section">
-    <div class="label">Boundary</div>
-    <div class="note">${escHtml(util_1.GOVERNED_MODE_NOTICE)}</div>
-  </div>
-</body>
-</html>`;
+    async getGovernedHtml(surface) {
+        try {
+            const payload = await (0, governedStatus_1.loadGovernedStatus)(this.root);
+            return (0, governedStatus_1.renderGovernedStatusHtml)(payload, util_1.GOVERNED_MODE_NOTICE);
+        }
+        catch (error) {
+            const projectName = (0, util_1.getProjectName)(surface.config);
+            const blockedDetail = (0, util_1.getBlockedDetail)(surface.state);
+            const blocked = blockedDetail
+                ? `<div style="margin-top:12px;padding:8px 10px;border-radius:6px;background:rgba(232,117,42,0.15);border:1px solid rgba(232,117,42,0.3);color:#e8752a;font-weight:600;">BLOCKED: ${escHtml(blockedDetail)}</div>`
+                : '';
+            return `<!DOCTYPE html><html><body style="font-family: var(--vscode-font-family); padding: 12px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-size: 13px;">
+        <h2 style="font-size:14px;margin:0 0 12px 0;">AgentXchain</h2>
+        <div style="margin-bottom:12px;"><strong>${escHtml(projectName)}</strong></div>
+        <div style="padding:8px 10px;border-radius:6px;background:rgba(232,190,64,0.12);border:1px solid rgba(232,190,64,0.28);line-height:1.45;">
+          ${escHtml(error instanceof Error ? error.message : 'Failed to load governed status.')}
+        </div>
+        ${blocked}
+        <div style="margin-top:12px;padding:8px 10px;border-radius:6px;background:rgba(58,154,217,0.12);border:1px solid rgba(58,154,217,0.25);line-height:1.45;">
+          ${escHtml(util_1.GOVERNED_MODE_NOTICE)}
+        </div>
+      </body></html>`;
+        }
     }
     getLegacyHtml(surface) {
         const projectName = (0, util_1.getProjectName)(surface.config);

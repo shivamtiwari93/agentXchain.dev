@@ -8,6 +8,17 @@ Define what a real governed IDE connector must prove before it can be claimed as
 
 The governed IDE connector is **not a new adapter type**. It is a thin orchestration client that invokes existing CLI commands (`step`, `approve-transition`, `approve-completion`, `status`, `report`, `dashboard`) and renders their output in the IDE. The protocol dispatch path (`step.js` → adapter selection → turn result staging → validation) remains unchanged.
 
+### Current shipped slice
+
+As of 2026-04-10, only the observer foundation is shipped:
+
+- governed project detection
+- governed status via `agentxchain status --json`
+- governed read-only rendering in the VS Code status command, status bar, and sidebar
+- direct-mutation guard coverage proving governed state is not written by the extension
+
+The governed approval, `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
+
 ### What the IDE connector IS
 
 - A governed-state observer that reads `.agentxchain/state.json`, `agentxchain.json`, and session/checkpoint data
@@ -179,7 +190,7 @@ This test must use real subprocess dispatch, not mocked extension host APIs.
 
 ## Open Questions
 
-1. Should the extension support `agentxchain run` (long-running loop) or only `agentxchain step` (single turn)? `run` may block the IDE for extended periods. Consider: run in a terminal panel instead of a background process.
+1. `agentxchain run` must not execute as a hidden background process. If it ships in the IDE, it should open in an integrated terminal panel so long-running governed loops remain operator-visible and killable. The remaining question is whether to ship `run` at all before `step` + approvals are proven.
 2. Should notifications be opt-in or opt-out? Frequent turn completions in a fast run loop could be noisy.
 3. Should the extension expose `proposal list|diff|apply` or keep proposal management CLI-only for now?
 4. JetBrains / other IDE parity: should the spec require a platform-agnostic core that both VS Code and JetBrains extensions consume, or is VS Code-first acceptable?

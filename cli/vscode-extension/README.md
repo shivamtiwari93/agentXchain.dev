@@ -5,7 +5,7 @@ This extension is a compatibility surface, not the primary governed control plan
 ## Current Boundary
 
 - **Legacy mode:** supports lock-based coordination commands (`claim`, `release`, `generate`) for v3-style IDE-window workflows.
-- **Governed mode:** shows read-only status for governed repos detected from `agentxchain.json` / `.agentxchain/state.json`.
+- **Governed mode:** shows read-only status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code.
 - **Not shipped here:** governed gate approvals, governed transition control, or full governed reporting inside VS Code.
 
 For governed projects, use:
@@ -13,6 +13,8 @@ For governed projects, use:
 - `agentxchain status`
 - `agentxchain dashboard`
 - the browser dashboard
+
+Governed mode requires the `agentxchain` CLI to be available on your `PATH`. For local development or tests, you can point the extension at a specific binary with `AGENTXCHAIN_CLI_PATH`.
 
 ## Commands
 

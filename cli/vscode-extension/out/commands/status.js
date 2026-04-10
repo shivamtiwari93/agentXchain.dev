@@ -36,7 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.showStatus = showStatus;
 const vscode = __importStar(require("vscode"));
 const util_1 = require("../util");
-function showStatus(root) {
+const governedStatus_1 = require("../governedStatus");
+async function showStatus(root) {
     const surface = (0, util_1.getProjectSurface)(root);
     const { config, lock, state, mode } = surface;
     if (!config) {
@@ -49,21 +50,16 @@ function showStatus(root) {
     channel.appendLine('AgentXchain Status');
     channel.appendLine('─'.repeat(40));
     if (mode === 'governed') {
-        const blocked = (0, util_1.getBlockedDetail)(state);
-        const lines = [
-            `Project: ${(0, util_1.getProjectName)(config)}`,
-            'Mode: Governed',
-            `Run status: ${state?.status || 'idle'}`,
-            `Phase: ${state?.phase || 'unknown'}`,
-            `Blocked: ${blocked ? `YES — ${blocked}` : 'No'}`,
-            '',
-            util_1.GOVERNED_MODE_NOTICE,
-            '',
-            `Roles (${actors.length}):`,
-            ...actors.map(actor => `  ○ ${actor.id} — ${actor.name}`),
-        ];
-        lines.forEach(l => channel.appendLine(l));
-        channel.show();
+        try {
+            const payload = await (0, governedStatus_1.loadGovernedStatus)(root);
+            for (const line of (0, governedStatus_1.renderGovernedStatusLines)(payload)) {
+                channel.appendLine(line);
+            }
+            channel.show();
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(error instanceof Error ? error.message : 'Failed to load governed status.');
+        }
         return;
     }
     if (!lock) {

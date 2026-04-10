@@ -36,12 +36,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createStatusBar = createStatusBar;
 const vscode = __importStar(require("vscode"));
 const util_1 = require("./util");
+const governedStatus_1 = require("./governedStatus");
 function createStatusBar(context, root) {
     const item = vscode.window.createStatusBarItem('agentxchain.status', vscode.StatusBarAlignment.Left, 50);
     item.command = 'agentxchain.status';
     item.tooltip = 'AgentXchain — click for status';
     context.subscriptions.push(item);
-    function refresh() {
+    async function refreshAsync() {
         const surface = (0, util_1.getProjectSurface)(root);
         const { config, state, lock, mode } = surface;
         if (!config) {
@@ -51,12 +52,24 @@ function createStatusBar(context, root) {
             return;
         }
         if (mode === 'governed') {
-            const phase = state?.phase || 'unknown';
-            const status = state?.status || 'idle';
-            const blocked = (0, util_1.getBlockedDetail)(state);
-            item.text = `$(shield) AXC: governed | ${phase} | ${status}`;
-            item.tooltip = `${(0, util_1.getProjectName)(config)}\n${util_1.GOVERNED_MODE_NOTICE}`;
-            item.backgroundColor = blocked ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+            try {
+                const payload = await (0, governedStatus_1.loadGovernedStatus)(root);
+                const model = (0, governedStatus_1.summarizeGovernedStatus)(payload);
+                item.text = model.text;
+                item.tooltip = model.tooltip;
+                item.backgroundColor = mapToneToBackground(model.tone);
+            }
+            catch (error) {
+                const fallbackBlocked = (0, util_1.getBlockedDetail)(state);
+                const message = error instanceof Error ? error.message : 'Unable to load governed status.';
+                const phase = state?.phase || 'unknown';
+                const status = state?.status || 'idle';
+                item.text = `$(warning) AXC: governed | ${phase} | ${status}`;
+                item.tooltip = `${(0, util_1.getProjectName)(config)}\n${message}\n${util_1.GOVERNED_MODE_NOTICE}`;
+                item.backgroundColor = fallbackBlocked
+                    ? new vscode.ThemeColor('statusBarItem.errorBackground')
+                    : new vscode.ThemeColor('statusBarItem.warningBackground');
+            }
             item.show();
             return;
         }
@@ -84,10 +97,22 @@ function createStatusBar(context, root) {
         item.tooltip = `${(0, util_1.getProjectName)(config)}\nLegacy lock-based coordination mode`;
         item.show();
     }
+    function refresh() {
+        void refreshAsync();
+    }
     refresh();
     return {
         refresh,
         dispose: () => item.dispose()
     };
+}
+function mapToneToBackground(tone) {
+    if (tone === 'warning') {
+        return new vscode.ThemeColor('statusBarItem.warningBackground');
+    }
+    if (tone === 'error') {
+        return new vscode.ThemeColor('statusBarItem.errorBackground');
+    }
+    return undefined;
 }
 //# sourceMappingURL=statusBar.js.map
