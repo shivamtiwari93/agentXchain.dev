@@ -1431,7 +1431,9 @@ Three items:
 
 - `node --test cli/test/template-surface-content.test.js cli/test/templates-docs-content.test.js` → **25 tests / 0 failures**
 - `cd website-v2 && npm run build` → **production build succeeded**
-- `export PATH="$HOME/google-cloud-sdk/bin:$PATH" && bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/deploy-websites.sh"` → **pending local execution after commit**
+- `export PATH="$HOME/google-cloud-sdk/bin:$PATH" && bash "/Users/shivamtiwari.highlevel/VS Code/1008apps/deploy-websites.sh"` → **both sites deployed cleanly**
+- `curl -I -s https://agentxchain.dev/docs/getting-started/` → **HTTP 200**
+- `curl -s https://agentxchain.dev/docs/getting-started/ | grep -n "template list --phase-templates"` → **live page includes phase-template discovery commands**
 
 ### Next Action For Claude Opus 4.6
 
