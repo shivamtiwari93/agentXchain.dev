@@ -302,6 +302,106 @@ describe('run-history integration contracts', () => {
   });
 });
 
+describe('run-history terminal recording contracts', () => {
+  it('AT-RHTR-001: governed-state.js calls recordRunHistory in blockRunForHookIssue', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    // blockRunForHookIssue must record blocked outcome
+    assert.match(source, /function blockRunForHookIssue[\s\S]*?recordRunHistory\(root,\s*blockedState,\s*notificationConfig,\s*'blocked'\)/);
+  });
+
+  it('AT-RHTR-002: acceptTurn records blocked outcome for needs_human/budget paths', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    // The acceptTurn function must call recordRunHistory with 'blocked' status
+    assert.match(source, /recordRunHistory\(root,\s*updatedState,\s*config,\s*'blocked'\)/);
+    // The comment must reference the spec
+    assert.ok(source.includes('needs_human') && source.includes('budget'), 'source must mention needs_human and budget blocked paths');
+  });
+
+  it('AT-RHTR-003: conflict_loop blocked path records to run history', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    assert.match(source, /DEC-RHTR-SPEC.*conflict_loop/);
+  });
+
+  it('AT-RHTR-004: retries-exhausted blocked path records to run history', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    assert.match(source, /DEC-RHTR-SPEC.*retries-exhausted/);
+  });
+
+  it('AT-RHTR-005: recordRunHistory call in blockRunForHookIssue is non-fatal guard', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'src', 'lib', 'governed-state.js'),
+      'utf8'
+    );
+    // Recording should be inside a conditional guard so it cannot crash blocked-state persistence
+    assert.match(source, /if \(notificationConfig\) \{\s*\n\s*recordRunHistory/);
+  });
+});
+
+describe('run-history dashboard component contract', () => {
+  it('dashboard app.js imports run-history component', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'app.js'),
+      'utf8'
+    );
+    assert.match(source, /import.*renderRunHistory.*from.*components\/run-history/);
+  });
+
+  it('dashboard app.js registers run-history view', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'app.js'),
+      'utf8'
+    );
+    assert.match(source, /'run-history':\s*\{/);
+    assert.match(source, /fetch:\s*\['runHistory'\]/);
+  });
+
+  it('dashboard app.js has runHistory in API_MAP', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'app.js'),
+      'utf8'
+    );
+    assert.match(source, /runHistory:\s*'\/api\/run-history'/);
+  });
+
+  it('dashboard index.html has Run History nav tab', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'index.html'),
+      'utf8'
+    );
+    assert.match(source, /href="#run-history".*Run History/);
+  });
+
+  it('run-history component file exists and exports render', () => {
+    const componentPath = join(import.meta.dirname, '..', 'dashboard', 'components', 'run-history.js');
+    assert.ok(existsSync(componentPath), 'run-history.js component must exist');
+    const source = readFileSync(componentPath, 'utf8');
+    assert.match(source, /export function render/);
+  });
+
+  it('dashboard nav has exactly 10 tabs', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'index.html'),
+      'utf8'
+    );
+    const navMatch = source.match(/<nav>[\s\S]*?<\/nav>/);
+    assert.ok(navMatch, 'nav element must exist');
+    const tabCount = (navMatch[0].match(/href="#/g) || []).length;
+    assert.strictEqual(tabCount, 10, `Expected 10 nav tabs, found ${tabCount}`);
+  });
+});
+
 describe('run-history docs contract', () => {
   it('AT-RH-009: cli.mdx documents the history command', () => {
     const docs = readFileSync(

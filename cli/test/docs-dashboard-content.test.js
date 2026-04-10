@@ -89,7 +89,7 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 9, 'dashboard nav must expose nine top-level views');
+    assert.equal(navViews.length, 10, 'dashboard nav must expose ten top-level views');
     for (const view of navViews) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(

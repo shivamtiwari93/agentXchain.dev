@@ -1030,6 +1030,12 @@ function blockRunForHookIssue(root, state, { phase, turnId, hookName, detail, er
     }),
   };
   writeState(root, blockedState);
+
+  // DEC-RHTR-SPEC: Record blocked outcome in cross-run history (non-fatal)
+  if (notificationConfig) {
+    recordRunHistory(root, blockedState, notificationConfig, 'blocked');
+  }
+
   emitBlockedNotification(root, notificationConfig, blockedState, {
     category: typedReason,
     blockedOn: blockedState.blocked_on,
@@ -2095,6 +2101,12 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     });
 
     writeState(root, updatedState);
+
+    // DEC-RHTR-SPEC: Record conflict_loop blocked outcome in cross-run history (non-fatal)
+    if (updatedState.status === 'blocked') {
+      recordRunHistory(root, updatedState, config, 'blocked');
+    }
+
     return {
       ok: false,
       error: `Acceptance conflict detected for turn ${currentTurn.turn_id}`,
@@ -2465,6 +2477,10 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   if (updatedState.status === 'blocked') {
+    // DEC-RHTR-SPEC: Record blocked outcome in cross-run history (non-fatal)
+    // Covers needs_human, budget:exhausted, and any other non-hook blocked states
+    recordRunHistory(root, updatedState, config, 'blocked');
+
     emitBlockedNotification(root, config, updatedState, {
       category: updatedState.blocked_reason?.category || 'needs_human',
       blockedOn: updatedState.blocked_on,
@@ -2694,6 +2710,9 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
   };
 
   writeState(root, updatedState);
+
+  // DEC-RHTR-SPEC: Record retries-exhausted blocked outcome in cross-run history (non-fatal)
+  recordRunHistory(root, updatedState, config, 'blocked');
 
   emitBlockedNotification(root, config, updatedState, {
     category: 'retries_exhausted',

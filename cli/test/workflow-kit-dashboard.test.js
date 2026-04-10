@@ -361,7 +361,7 @@ describe('Artifacts panel render', () => {
 
 describe('Dashboard artifacts integration', () => {
   // AT-WKDASH-010
-  it('dashboard nav includes Artifacts tab (9 views total)', async () => {
+  it('dashboard nav includes Artifacts tab (10 views total)', async () => {
     const { readFileSync } = await import('node:fs');
     const { join: pjoin, dirname } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
@@ -371,7 +371,7 @@ describe('Dashboard artifacts integration', () => {
 
     const indexHtml = readFileSync(pjoin(repoRoot, 'cli', 'dashboard', 'index.html'), 'utf8');
     const navLinks = Array.from(indexHtml.matchAll(/<a href="#([^"]+)"[^>]*>([^<]+)<\/a>/g));
-    assert.equal(navLinks.length, 9, 'dashboard nav must have 9 top-level views');
+    assert.equal(navLinks.length, 10, 'dashboard nav must have 10 top-level views');
 
     const artifactsLink = navLinks.find(([, id]) => id === 'artifacts');
     assert.ok(artifactsLink, 'nav must include #artifacts link');
