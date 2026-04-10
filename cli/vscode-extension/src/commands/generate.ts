@@ -1,11 +1,16 @@
 import * as vscode from 'vscode';
-import { readJson, configPath, AgentConfig } from '../util';
-import { exec } from 'child_process';
+import { getProjectSurface, GOVERNED_MODE_NOTICE } from '../util';
 
 export function runGenerate(root: string) {
-  const config = readJson<AgentConfig>(configPath(root));
-  if (!config) {
+  const surface = getProjectSurface(root);
+  if (!surface.config) {
     vscode.window.showErrorMessage('No agentxchain.json found.');
+    return;
+  }
+  if (surface.mode === 'governed') {
+    vscode.window.showWarningMessage(
+      `${GOVERNED_MODE_NOTICE} The Generate command only scaffolds legacy IDE agent files.`
+    );
     return;
   }
 

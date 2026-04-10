@@ -8,4 +8,6 @@ export declare class DashboardViewProvider implements vscode.WebviewViewProvider
     refresh(): void;
     private updateContent;
     private getHtml;
+    private getGovernedHtml;
+    private getLegacyHtml;
 }

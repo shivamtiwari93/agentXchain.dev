@@ -37,9 +37,13 @@ exports.runGenerate = runGenerate;
 const vscode = __importStar(require("vscode"));
 const util_1 = require("../util");
 function runGenerate(root) {
-    const config = (0, util_1.readJson)((0, util_1.configPath)(root));
-    if (!config) {
+    const surface = (0, util_1.getProjectSurface)(root);
+    if (!surface.config) {
         vscode.window.showErrorMessage('No agentxchain.json found.');
+        return;
+    }
+    if (surface.mode === 'governed') {
+        vscode.window.showWarningMessage(`${util_1.GOVERNED_MODE_NOTICE} The Generate command only scaffolds legacy IDE agent files.`);
         return;
     }
     const terminal = vscode.window.createTerminal({ name: 'AgentXchain', cwd: root });

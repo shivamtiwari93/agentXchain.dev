@@ -37,6 +37,11 @@ exports.releaseLock = releaseLock;
 const vscode = __importStar(require("vscode"));
 const util_1 = require("../util");
 function releaseLock(root) {
+    const surface = (0, util_1.getProjectSurface)(root);
+    if (surface.mode === 'governed') {
+        vscode.window.showWarningMessage(util_1.GOVERNED_MODE_NOTICE);
+        return;
+    }
     const lp = (0, util_1.lockPath)(root);
     const lock = (0, util_1.readJson)(lp);
     if (!lock) {

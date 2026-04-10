@@ -1,7 +1,7 @@
 {
   "name": "agentxchain",
   "displayName": "AgentXchain",
-  "description": "Multi-agent coordination in your IDE. Define a team of AI agents, let them take turns building your project.",
+  "description": "Legacy lock-based AgentXchain IDE compatibility, plus read-only governed project status in VS Code.",
   "version": "0.1.0",
   "publisher": "agentxchain",
   "license": "MIT",

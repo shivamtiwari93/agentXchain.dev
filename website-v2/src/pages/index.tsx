@@ -272,7 +272,7 @@ function FiveLayers() {
       label: 'The organizational edges',
       color: '#A78BFA',
       bg: 'rgba(167,139,250,0.12)',
-      desc: 'IDE extensions (VS Code, Cursor). Real-time dashboard. Webhook notifications. Governance reports. Export & verification. Plugin system. Multi-repo coordination across workstreams.',
+      desc: 'Legacy IDE compatibility (VS Code, Cursor), read-only governed status in-editor, real-time dashboard, webhook notifications, governance reports, export & verification, plugins, and multi-repo coordination.',
       link: '/docs/plugins',
       linkText: 'Plugins & integrations',
     },
@@ -558,18 +558,19 @@ function Integrations() {
     <section style={{ padding: '5rem 0' }}>
       <div className="container">
         <span className="section-label text-green">Ecosystem</span>
-        <h2>IDE extensions, dashboard, plugins, and multi-repo</h2>
+        <h2>IDE compatibility, dashboard, plugins, and multi-repo</h2>
         <p className="section-subtitle">
           AgentXchain meets you where you work. Not just a CLI &mdash; a full
           delivery platform.
         </p>
         <div className="feature-grid integrations-grid">
           <div className="feature-card">
-            <h3>IDE extensions</h3>
+            <h3>Legacy IDE compatibility</h3>
             <p>
-              VS Code and Cursor extensions bring governed workflows into your
-              editor. See turn status, approve gates, and monitor agent activity
-              without leaving your IDE.
+              VS Code and Cursor compatibility is available today for legacy
+              lock-based coordination. Governed repos get read-only status in
+              the IDE, while approvals, reports, and full run control stay in
+              the browser dashboard and CLI.
             </p>
           </div>
           <div className="feature-card">

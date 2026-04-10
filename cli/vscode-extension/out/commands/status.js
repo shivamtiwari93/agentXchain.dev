@@ -37,37 +37,59 @@ exports.showStatus = showStatus;
 const vscode = __importStar(require("vscode"));
 const util_1 = require("../util");
 function showStatus(root) {
-    const lock = (0, util_1.readJson)((0, util_1.lockPath)(root));
-    const state = (0, util_1.readJson)((0, util_1.statePath)(root));
-    const config = (0, util_1.readJson)((0, util_1.configPath)(root));
-    if (!lock || !config) {
+    const surface = (0, util_1.getProjectSurface)(root);
+    const { config, lock, state, mode } = surface;
+    if (!config) {
         vscode.window.showErrorMessage('AgentXchain project files not found.');
         return;
     }
-    const agentIds = Object.keys(config.agents);
+    const actors = (0, util_1.getProjectActors)(config);
+    const channel = vscode.window.createOutputChannel('AgentXchain');
+    channel.clear();
+    channel.appendLine('AgentXchain Status');
+    channel.appendLine('─'.repeat(40));
+    if (mode === 'governed') {
+        const blocked = (0, util_1.getBlockedDetail)(state);
+        const lines = [
+            `Project: ${(0, util_1.getProjectName)(config)}`,
+            'Mode: Governed',
+            `Run status: ${state?.status || 'idle'}`,
+            `Phase: ${state?.phase || 'unknown'}`,
+            `Blocked: ${blocked ? `YES — ${blocked}` : 'No'}`,
+            '',
+            util_1.GOVERNED_MODE_NOTICE,
+            '',
+            `Roles (${actors.length}):`,
+            ...actors.map(actor => `  ○ ${actor.id} — ${actor.name}`),
+        ];
+        lines.forEach(l => channel.appendLine(l));
+        channel.show();
+        return;
+    }
+    if (!lock) {
+        vscode.window.showErrorMessage('Legacy AgentXchain lock.json not found.');
+        return;
+    }
     const holderDisplay = lock.holder
         ? lock.holder === 'human'
             ? 'HUMAN (you)'
-            : `${lock.holder} (${config.agents[lock.holder]?.name || lock.holder})`
+            : `${lock.holder} (${actors.find(actor => actor.id === lock.holder)?.name || lock.holder})`
         : 'FREE';
     const lines = [
-        `Project: ${config.project}`,
+        `Project: ${(0, util_1.getProjectName)(config)}`,
+        'Mode: Legacy lock-based coordination',
         `Phase: ${state?.phase || 'unknown'}`,
         `Lock: ${holderDisplay}`,
         `Turn: ${lock.turn_number}`,
         `Last released by: ${lock.last_released_by || 'none'}`,
         `Blocked: ${state?.blocked ? `YES — ${state.blocked_on}` : 'No'}`,
         '',
-        `Agents (${agentIds.length}):`,
-        ...agentIds.map(id => {
-            const marker = lock.holder === id ? '● ' : '○ ';
-            return `  ${marker}${id} — ${config.agents[id].name}`;
+        `Agents (${actors.length}):`,
+        ...actors.map(actor => {
+            const marker = lock.holder === actor.id ? '● ' : '○ ';
+            return `  ${marker}${actor.id} — ${actor.name}`;
         })
     ];
-    const channel = vscode.window.createOutputChannel('AgentXchain');
-    channel.clear();
-    channel.appendLine('AgentXchain Status');
-    channel.appendLine('─'.repeat(40));
     lines.forEach(l => channel.appendLine(l));
     channel.show();
 }

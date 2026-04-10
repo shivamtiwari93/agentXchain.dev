@@ -42,31 +42,46 @@ function createStatusBar(context, root) {
     item.tooltip = 'AgentXchain — click for status';
     context.subscriptions.push(item);
     function refresh() {
-        const lock = (0, util_1.readJson)((0, util_1.lockPath)(root));
-        const state = (0, util_1.readJson)((0, util_1.statePath)(root));
-        const config = (0, util_1.readJson)((0, util_1.configPath)(root));
-        if (!lock || !config) {
+        const surface = (0, util_1.getProjectSurface)(root);
+        const { config, state, lock, mode } = surface;
+        if (!config) {
             item.text = '$(warning) AXC: no project';
+            item.tooltip = 'No AgentXchain project detected in this workspace.';
             item.show();
             return;
         }
-        const turn = lock.turn_number;
+        if (mode === 'governed') {
+            const phase = state?.phase || 'unknown';
+            const status = state?.status || 'idle';
+            const blocked = (0, util_1.getBlockedDetail)(state);
+            item.text = `$(shield) AXC: governed | ${phase} | ${status}`;
+            item.tooltip = `${(0, util_1.getProjectName)(config)}\n${util_1.GOVERNED_MODE_NOTICE}`;
+            item.backgroundColor = blocked ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+            item.show();
+            return;
+        }
+        if (!lock) {
+            item.text = '$(warning) AXC: legacy lock missing';
+            item.tooltip = 'Legacy AgentXchain project detected, but lock.json is missing.';
+            item.show();
+            return;
+        }
         if (lock.holder === 'human') {
-            item.text = `$(person) AXC: HUMAN Turn ${turn}`;
+            item.text = `$(person) AXC: HUMAN Turn ${lock.turn_number}`;
             item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
         }
         else if (lock.holder) {
-            const name = config.agents[lock.holder]?.name || lock.holder;
-            item.text = `$(sync~spin) AXC: ${lock.holder} Turn ${turn}`;
+            item.text = `$(sync~spin) AXC: ${lock.holder} Turn ${lock.turn_number}`;
             item.backgroundColor = undefined;
         }
         else {
-            item.text = `$(check) AXC: FREE Turn ${turn}`;
+            item.text = `$(check) AXC: FREE Turn ${lock.turn_number}`;
             item.backgroundColor = undefined;
         }
         if (state?.phase) {
             item.text += ` | ${state.phase}`;
         }
+        item.tooltip = `${(0, util_1.getProjectName)(config)}\nLegacy lock-based coordination mode`;
         item.show();
     }
     refresh();

@@ -23,34 +23,116 @@ class DashboardViewProvider {
     updateContent() {
         if (!this.view)
             return;
-        const lock = (0, util_1.readJson)((0, util_1.lockPath)(this.root));
-        const state = (0, util_1.readJson)((0, util_1.statePath)(this.root));
-        const config = (0, util_1.readJson)((0, util_1.configPath)(this.root));
-        this.view.webview.html = this.getHtml(lock, state, config);
+        this.view.webview.html = this.getHtml((0, util_1.getProjectSurface)(this.root));
     }
-    getHtml(lock, state, config) {
-        if (!lock || !config) {
+    getHtml(surface) {
+        if (!surface.config) {
             return `<!DOCTYPE html><html><body>
         <p style="padding:16px;color:#888;">No AgentXchain project found.<br>
         Run <code>npx agentxchain init</code> to get started.</p>
       </body></html>`;
         }
-        const agentIds = Object.keys(config.agents);
-        const holderDisplay = lock.holder
-            ? lock.holder === 'human' ? 'HUMAN (you)' : `${lock.holder}`
+        if (surface.mode === 'governed') {
+            return this.getGovernedHtml(surface);
+        }
+        if (!surface.lock) {
+            return `<!DOCTYPE html><html><body>
+        <p style="padding:16px;color:#888;">Legacy AgentXchain project detected, but <code>lock.json</code> is missing.</p>
+      </body></html>`;
+        }
+        return this.getLegacyHtml(surface);
+    }
+    getGovernedHtml(surface) {
+        const projectName = (0, util_1.getProjectName)(surface.config);
+        const phase = surface.state?.phase || 'unknown';
+        const status = surface.state?.status || 'idle';
+        const blockedDetail = (0, util_1.getBlockedDetail)(surface.state);
+        const holderColor = '#3a9ad9';
+        const actors = (0, util_1.getProjectActors)(surface.config);
+        const actorRows = actors.map(actor => `<div class="agent"><span class="dot">○</span> <strong>${escHtml(actor.id)}</strong> <span class="dim">— ${escHtml(actor.name)}</span></div>`).join('\n');
+        const blocked = blockedDetail
+            ? `<div class="blocked">BLOCKED: ${escHtml(blockedDetail)}</div>`
+            : '';
+        return `<!DOCTYPE html>
+<html>
+<head><style>
+  body { font-family: var(--vscode-font-family); padding: 12px; color: var(--vscode-foreground); background: var(--vscode-sideBar-background); font-size: 13px; }
+  h2 { font-size: 14px; margin: 0 0 12px 0; font-weight: 600; }
+  .section { margin-bottom: 16px; }
+  .label { color: var(--vscode-descriptionForeground); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .value { font-size: 14px; font-weight: 600; }
+  .holder { color: ${holderColor}; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); border-radius: 6px; padding: 8px 10px; }
+  .agent { padding: 4px 0; }
+  .agent.active { color: var(--vscode-textLink-foreground); font-weight: 600; }
+  .dot { font-size: 10px; }
+  .dim { color: var(--vscode-descriptionForeground); }
+  .note { background: rgba(58,154,217,0.12); border: 1px solid rgba(58,154,217,0.25); color: var(--vscode-foreground); padding: 8px 10px; border-radius: 6px; line-height: 1.45; }
+  .blocked { background: rgba(232,117,42,0.15); border: 1px solid rgba(232,117,42,0.3); color: #e8752a; padding: 6px 10px; border-radius: 6px; font-weight: 600; margin-top: 8px; }
+</style></head>
+<body>
+  <h2>AgentXchain</h2>
+
+  <div class="section">
+    <div class="label">Project</div>
+    <div class="value">${escHtml(projectName)}</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Mode</div>
+      <div class="value holder">Governed</div>
+    </div>
+    <div class="card">
+      <div class="label">Run status</div>
+      <div class="value">${escHtml(status)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Phase</div>
+      <div class="value">${escHtml(phase)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Control plane</div>
+      <div class="value dim">CLI / browser dashboard</div>
+    </div>
+  </div>
+
+  ${blocked}
+
+  <div class="section" style="margin-top:16px;">
+    <div class="label">Roles (${actors.length})</div>
+    ${actorRows}
+  </div>
+
+  <div class="section">
+    <div class="label">Boundary</div>
+    <div class="note">${escHtml(util_1.GOVERNED_MODE_NOTICE)}</div>
+  </div>
+</body>
+</html>`;
+    }
+    getLegacyHtml(surface) {
+        const projectName = (0, util_1.getProjectName)(surface.config);
+        const phase = surface.state?.phase || 'unknown';
+        const actorMap = Object.fromEntries((0, util_1.getProjectActors)(surface.config).map(actor => [actor.id, actor]));
+        const agentIds = Object.keys(actorMap);
+        const holderDisplay = surface.lock?.holder
+            ? surface.lock.holder === 'human' ? 'HUMAN (you)' : `${surface.lock.holder}`
             : 'FREE';
-        const holderColor = lock.holder
-            ? lock.holder === 'human' ? '#e8752a' : '#3a9ad9'
+        const holderColor = surface.lock?.holder
+            ? surface.lock.holder === 'human' ? '#e8752a' : '#3a9ad9'
             : '#6bb536';
         const agentRows = agentIds.map(id => {
-            const agent = config.agents[id];
-            const isHolder = lock.holder === id;
+            const agent = actorMap[id];
+            const isHolder = surface.lock?.holder === id;
             const dot = isHolder ? '●' : '○';
             const cls = isHolder ? 'active' : '';
-            return `<div class="agent ${cls}"><span class="dot">${dot}</span> <strong>${id}</strong> <span class="dim">— ${agent.name}</span></div>`;
+            return `<div class="agent ${cls}"><span class="dot">${dot}</span> <strong>${escHtml(id)}</strong> <span class="dim">— ${escHtml(agent.name)}</span></div>`;
         }).join('\n');
-        const phase = state?.phase || 'unknown';
-        const blocked = state?.blocked ? `<div class="blocked">BLOCKED: ${state.blocked_on || 'unknown'}</div>` : '';
+        const blocked = surface.state?.blocked
+            ? `<div class="blocked">BLOCKED: ${escHtml(surface.state.blocked_on || 'unknown')}</div>`
+            : '';
         return `<!DOCTYPE html>
 <html>
 <head><style>
@@ -76,7 +158,7 @@ class DashboardViewProvider {
 
   <div class="section">
     <div class="label">Project</div>
-    <div class="value">${escHtml(config.project)}</div>
+    <div class="value">${escHtml(projectName)}</div>
   </div>
 
   <div class="grid">
@@ -86,7 +168,7 @@ class DashboardViewProvider {
     </div>
     <div class="card">
       <div class="label">Turn</div>
-      <div class="value">${lock.turn_number}</div>
+      <div class="value">${surface.lock?.turn_number ?? 0}</div>
     </div>
     <div class="card">
       <div class="label">Phase</div>
@@ -94,7 +176,7 @@ class DashboardViewProvider {
     </div>
     <div class="card">
       <div class="label">Last</div>
-      <div class="value dim">${escHtml(lock.last_released_by || 'none')}</div>
+      <div class="value dim">${escHtml(surface.lock?.last_released_by || 'none')}</div>
     </div>
   </div>
 
@@ -116,6 +198,6 @@ class DashboardViewProvider {
 }
 exports.DashboardViewProvider = DashboardViewProvider;
 function escHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 //# sourceMappingURL=sidebar.js.map

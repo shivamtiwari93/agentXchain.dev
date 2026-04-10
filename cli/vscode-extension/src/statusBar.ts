@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { readJson, lockPath, statePath, configPath, LockState, ProjectState, AgentConfig } from './util';
+import { GOVERNED_MODE_NOTICE, getBlockedDetail, getProjectName, getProjectSurface } from './util';
 
 export interface StatusBarController {
   refresh(): void;
@@ -13,27 +13,43 @@ export function createStatusBar(context: vscode.ExtensionContext, root: string):
   context.subscriptions.push(item);
 
   function refresh() {
-    const lock = readJson<LockState>(lockPath(root));
-    const state = readJson<ProjectState>(statePath(root));
-    const config = readJson<AgentConfig>(configPath(root));
+    const surface = getProjectSurface(root);
+    const { config, state, lock, mode } = surface;
 
-    if (!lock || !config) {
+    if (!config) {
       item.text = '$(warning) AXC: no project';
+      item.tooltip = 'No AgentXchain project detected in this workspace.';
       item.show();
       return;
     }
 
-    const turn = lock.turn_number;
+    if (mode === 'governed') {
+      const phase = state?.phase || 'unknown';
+      const status = state?.status || 'idle';
+      const blocked = getBlockedDetail(state);
+
+      item.text = `$(shield) AXC: governed | ${phase} | ${status}`;
+      item.tooltip = `${getProjectName(config)}\n${GOVERNED_MODE_NOTICE}`;
+      item.backgroundColor = blocked ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+      item.show();
+      return;
+    }
+
+    if (!lock) {
+      item.text = '$(warning) AXC: legacy lock missing';
+      item.tooltip = 'Legacy AgentXchain project detected, but lock.json is missing.';
+      item.show();
+      return;
+    }
 
     if (lock.holder === 'human') {
-      item.text = `$(person) AXC: HUMAN Turn ${turn}`;
+      item.text = `$(person) AXC: HUMAN Turn ${lock.turn_number}`;
       item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else if (lock.holder) {
-      const name = config.agents[lock.holder]?.name || lock.holder;
-      item.text = `$(sync~spin) AXC: ${lock.holder} Turn ${turn}`;
+      item.text = `$(sync~spin) AXC: ${lock.holder} Turn ${lock.turn_number}`;
       item.backgroundColor = undefined;
     } else {
-      item.text = `$(check) AXC: FREE Turn ${turn}`;
+      item.text = `$(check) AXC: FREE Turn ${lock.turn_number}`;
       item.backgroundColor = undefined;
     }
 
@@ -41,6 +57,7 @@ export function createStatusBar(context: vscode.ExtensionContext, root: string):
       item.text += ` | ${state.phase}`;
     }
 
+    item.tooltip = `${getProjectName(config)}\nLegacy lock-based coordination mode`;
     item.show();
   }
 

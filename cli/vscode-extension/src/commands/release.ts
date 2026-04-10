@@ -1,7 +1,13 @@
 import * as vscode from 'vscode';
-import { readJson, writeJson, lockPath, LockState } from '../util';
+import { readJson, writeJson, lockPath, LockState, getProjectSurface, GOVERNED_MODE_NOTICE } from '../util';
 
 export function releaseLock(root: string) {
+  const surface = getProjectSurface(root);
+  if (surface.mode === 'governed') {
+    vscode.window.showWarningMessage(GOVERNED_MODE_NOTICE);
+    return;
+  }
+
   const lp = lockPath(root);
   const lock = readJson<LockState>(lp);
 
