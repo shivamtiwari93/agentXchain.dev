@@ -16,7 +16,7 @@ import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
 
 const VIEWS = {
-  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations'], render: renderTimeline },
+  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors'], render: renderTimeline },
   ledger: { fetch: ['ledger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
@@ -41,6 +41,7 @@ const API_MAP = {
   coordinatorAudit: '/api/coordinator/hooks/audit',
   coordinatorBlockers: '/api/coordinator/blockers',
   workflowKitArtifacts: '/api/workflow-kit-artifacts',
+  connectors: '/api/connectors',
 };
 
 const viewState = {

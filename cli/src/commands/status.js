@@ -3,6 +3,7 @@ import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState }
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
+import { getConnectorHealth } from '../lib/connector-health.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -76,6 +77,7 @@ function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
   const state = loadProjectState(root, config);
   const continuity = getContinuityStatus(root, state);
+  const connectorHealth = getConnectorHealth(root, config, state);
 
   if (opts.json) {
     console.log(JSON.stringify({
@@ -85,6 +87,7 @@ function renderGovernedStatus(context, opts) {
       config,
       state,
       continuity,
+      connector_health: connectorHealth,
     }, null, 2));
     return;
   }
@@ -105,6 +108,7 @@ function renderGovernedStatus(context, opts) {
   console.log('');
 
   renderContinuityStatus(continuity, state);
+  renderConnectorHealthStatus(connectorHealth);
 
   const activeTurnCount = getActiveTurnCount(state);
   const activeTurns = getActiveTurns(state);
@@ -241,6 +245,48 @@ function renderGovernedStatus(context, opts) {
     console.log(`    ${marker} ${label} — ${role.title} [${role.write_authority}]`);
   }
   console.log('');
+}
+
+function renderConnectorHealthStatus(connectorHealth) {
+  const connectors = Array.isArray(connectorHealth?.connectors)
+    ? connectorHealth.connectors
+    : [];
+  if (connectors.length === 0) {
+    return;
+  }
+
+  console.log(`  ${chalk.dim('Connectors:')}`);
+  for (const connector of connectors) {
+    const stateLabel = formatConnectorState(connector.state);
+    console.log(`    ${stateLabel} ${chalk.bold(connector.runtime_id)} — ${connector.type} (${connector.target})`);
+
+    if (connector.active_turn_ids.length > 0) {
+      console.log(`      ${chalk.dim('Active turns:')} ${connector.active_turn_ids.join(', ')}`);
+    }
+
+    if (connector.last_error) {
+      console.log(`      ${chalk.dim('Last error:')} ${connector.last_error}`);
+    } else if (connector.last_success_at) {
+      console.log(`      ${chalk.dim('Last success:')} ${connector.last_success_at}`);
+    } else if (connector.last_attempt_at) {
+      console.log(`      ${chalk.dim('Last attempt:')} ${connector.last_attempt_at}`);
+    }
+  }
+  console.log('');
+}
+
+function formatConnectorState(state) {
+  switch (state) {
+    case 'healthy':
+      return chalk.green('● healthy');
+    case 'failing':
+      return chalk.red('✗ failing');
+    case 'active':
+      return chalk.yellow('● active');
+    case 'never_used':
+    default:
+      return chalk.dim('○ never_used');
+  }
 }
 
 function renderContinuityStatus(continuity, state) {

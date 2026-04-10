@@ -177,7 +177,60 @@ function renderContinuityPanel(continuity) {
   return html;
 }
 
-export function render({ state, continuity, history, annotations, audit }) {
+function connectorBadge(state) {
+  const colors = {
+    healthy: 'var(--green)',
+    failing: 'var(--red)',
+    active: 'var(--yellow)',
+    never_used: 'var(--text-dim)',
+  };
+  const color = colors[state] || 'var(--text-dim)';
+  return `<span class="badge" style="color:${color};border-color:${color}">${esc(state || 'unknown')}</span>`;
+}
+
+function renderConnectorHealthPanel(connectorsPayload) {
+  const connectors = Array.isArray(connectorsPayload?.connectors)
+    ? connectorsPayload.connectors
+    : [];
+  if (connectors.length === 0) return '';
+
+  let html = `<div class="section"><h3>Connector Health</h3><div class="turn-list">`;
+  for (const connector of connectors) {
+    html += `<div class="turn-card">
+      <div class="turn-header">
+        <span class="mono">${esc(connector.runtime_id)}</span>
+        ${connectorBadge(connector.state)}
+      </div>
+      <div class="turn-detail"><span class="detail-label">Type:</span> ${esc(connector.type || 'unknown')}</div>
+      <div class="turn-detail"><span class="detail-label">Target:</span> <span class="mono">${esc(connector.target || 'unknown')}</span></div>
+      <div class="turn-detail"><span class="detail-label">Reachable:</span> ${esc(connector.reachable || 'unknown')}</div>`;
+
+    if (Array.isArray(connector.active_turn_ids) && connector.active_turn_ids.length > 0) {
+      html += `<div class="turn-detail"><span class="detail-label">Active turns:</span> <span class="mono">${esc(connector.active_turn_ids.join(', '))}</span></div>`;
+    }
+
+    if (connector.last_success_at) {
+      html += `<div class="turn-detail"><span class="detail-label">Last success:</span> ${esc(connector.last_success_at)}</div>`;
+    }
+    if (connector.last_failure_at) {
+      html += `<div class="turn-detail"><span class="detail-label">Last failure:</span> ${esc(connector.last_failure_at)}</div>`;
+    }
+    if (connector.last_error) {
+      html += `<div class="turn-detail risks"><span class="detail-label">Last error:</span> ${esc(connector.last_error)}</div>`;
+    }
+    if (connector.attempts_made != null || connector.latency_ms != null) {
+      const attempts = connector.attempts_made != null ? connector.attempts_made : 'n/a';
+      const latency = connector.latency_ms != null ? `${connector.latency_ms}ms` : 'n/a';
+      html += `<div class="turn-detail"><span class="detail-label">Attempt telemetry:</span> attempts ${esc(attempts)} / latency ${esc(latency)}</div>`;
+    }
+
+    html += `</div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+export function render({ state, continuity, history, annotations, audit, connectors }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -198,6 +251,7 @@ export function render({ state, continuity, history, annotations, audit }) {
   </div>`;
 
   html += renderContinuityPanel(continuity);
+  html += renderConnectorHealthPanel(connectors);
 
   // Active turns
   if (activeTurns.length > 0) {
