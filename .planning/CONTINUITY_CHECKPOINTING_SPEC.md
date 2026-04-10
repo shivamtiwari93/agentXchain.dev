@@ -175,8 +175,11 @@ The contract is fail-closed on ambiguous retained work, not optimistic reassignm
 - `AT-CC-010`: dirty-workspace drift since checkpoint is surfaced in `SESSION_RECOVERY.md` and status continuity output.
 - `AT-CC-011`: irreconcilable retained-turn drift fails closed instead of silently assigning a new turn.
 
+## Follow-On Decisions
+
+- **Turn 36:** Coordinator continuity should not overload the single-repo `.agentxchain/session.json` surface. If coordinator checkpoint parity is added, it should use a dedicated `.agentxchain/multirepo/session.json` contract aligned to coordinator-specific recovery semantics rather than pretending repo-local and coordinator checkpoints are interchangeable.
+- **Turn 36:** `run` should not emit checkpoints on every loop boundary by default. Checkpoints advance when governance state changes recovery semantics: assignment, acceptance, blocked persistence, gate approval, completion, or explicit restart/reconnect. Loop-boundary heartbeats would add churn without improving truthful recovery.
+
 ## Open Questions
 
-- Should coordinator continuity use `.agentxchain/multirepo/session.json` with the same schema, or should coordinator checkpoints remain embedded only in coordinator state/report artifacts?
 - Should checkpoint baseline include a dispatch-bundle checksum in addition to git/workspace metadata?
-- Should `run` emit an explicit checkpoint on every loop boundary, even when no acceptance occurred?

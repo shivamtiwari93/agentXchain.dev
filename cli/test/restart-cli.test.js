@@ -297,4 +297,126 @@ describe('agentxchain restart', () => {
     assert.equal(transitionCheckpoint.checkpoint_reason, 'phase_approved', 'approve-transition should overwrite the checkpoint reason');
     assert.equal(transitionCheckpoint.last_phase, 'implementation', 'phase approval checkpoint should reflect the advanced phase');
   });
+
+  it('AT-CC-001,002,006,010: restart preserves the checkpoint chain and surfaces repo drift', () => {
+    const dir = createRealProject();
+    dirs.push(dir);
+
+    const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
+    assert.equal(resumePlanning.status, 0, `resume planning failed: ${resumePlanning.stdout}\n${resumePlanning.stderr}`);
+
+    const planningState = readState(dir);
+    const runId = planningState.run_id;
+    const planningTurn = Object.values(planningState.active_turns || {})[0];
+    assert.ok(planningTurn, 'planning turn should exist after initial resume');
+
+    const assignmentCheckpoint = readSession(dir);
+    assert.equal(assignmentCheckpoint.run_id, runId, 'turn assignment checkpoint should track the governed run');
+    assert.equal(assignmentCheckpoint.checkpoint_reason, 'turn_assigned', 'resume must checkpoint turn assignment');
+    assert.equal(assignmentCheckpoint.last_turn_id, planningTurn.turn_id, 'turn assignment checkpoint should point at the active turn');
+    assert.deepEqual(assignmentCheckpoint.active_turn_ids, [planningTurn.turn_id], 'turn assignment checkpoint should list the active turn');
+    assert.ok(assignmentCheckpoint.baseline_ref?.git_head, 'checkpoint baseline should capture the current git HEAD');
+
+    stageTurnResult(dir, planningTurn, runId, {
+      proposed_next_role: 'pm',
+    });
+
+    const acceptPlanning = runCli(dir, ['accept-turn']);
+    assert.equal(acceptPlanning.status, 0, `accept planning failed: ${acceptPlanning.stdout}\n${acceptPlanning.stderr}`);
+
+    const acceptanceCheckpoint = readSession(dir);
+    assert.equal(acceptanceCheckpoint.run_id, runId, 'turn acceptance checkpoint should keep the same run_id');
+    assert.equal(acceptanceCheckpoint.checkpoint_reason, 'turn_accepted', 'accept-turn must checkpoint acceptance');
+    assert.equal(acceptanceCheckpoint.last_completed_turn_id, planningTurn.turn_id, 'accept-turn checkpoint should record the completed turn');
+    assert.equal(acceptanceCheckpoint.session_id, assignmentCheckpoint.session_id, 'checkpoint session_id should remain stable within the same run');
+
+    const resumeImplementation = runCli(dir, ['resume', '--role', 'dev']);
+    assert.equal(resumeImplementation.status, 0, `resume implementation failed: ${resumeImplementation.stdout}\n${resumeImplementation.stderr}`);
+
+    const implementationState = readState(dir);
+    const implementationTurn = Object.values(implementationState.active_turns || {})[0];
+    assert.ok(implementationTurn, 'implementation turn should exist before restart');
+
+    const secondAssignmentCheckpoint = readSession(dir);
+    assert.equal(secondAssignmentCheckpoint.checkpoint_reason, 'turn_assigned', 'second resume should write a fresh turn_assigned checkpoint');
+    assert.equal(secondAssignmentCheckpoint.last_turn_id, implementationTurn.turn_id, 'second assignment checkpoint should point at the retained turn');
+    assert.deepEqual(secondAssignmentCheckpoint.active_turn_ids, [implementationTurn.turn_id], 'retained implementation turn should be the only active turn');
+    assert.equal(secondAssignmentCheckpoint.session_id, assignmentCheckpoint.session_id, 'session_id should still be stable before restart reconnect');
+
+    writeFileSync(join(dir, 'repo-drift.txt'), 'repo drift after checkpoint\n');
+    execSync('git add -A && git commit -m "introduce repo drift after checkpoint"', { cwd: dir, stdio: 'ignore' });
+
+    const restart = runCli(dir, ['restart']);
+    assert.equal(restart.status, 0, `restart failed: ${restart.stdout}\n${restart.stderr}`);
+    assert.match(restart.stdout, /Git HEAD has moved since checkpoint/, 'restart should warn when git HEAD drifts after checkpoint');
+    assert.match(restart.stdout, /Reconnected to run/, 'restart should reconnect to the active turn');
+    assert.match(restart.stdout, new RegExp(implementationTurn.turn_id), 'restart output should identify the retained turn');
+
+    const reconnectCheckpoint = readSession(dir);
+    assert.equal(reconnectCheckpoint.checkpoint_reason, 'restart_reconnect', 'restart should checkpoint the reconnect event');
+    assert.equal(reconnectCheckpoint.last_turn_id, implementationTurn.turn_id, 'reconnect checkpoint should preserve the retained turn id');
+    assert.deepEqual(reconnectCheckpoint.active_turn_ids, [implementationTurn.turn_id], 'reconnect checkpoint should preserve active_turn_ids');
+    assert.equal(reconnectCheckpoint.session_id, assignmentCheckpoint.session_id, 'restart reconnect must not mint a new session for the same run');
+
+    const stateAfterRestart = readState(dir);
+    const activeTurnsAfterRestart = Object.values(stateAfterRestart.active_turns || {});
+    assert.equal(activeTurnsAfterRestart.length, 1, 'restart should preserve exactly one retained active turn');
+    assert.equal(activeTurnsAfterRestart[0].turn_id, implementationTurn.turn_id, 'restart should not replace the retained active turn');
+
+    const recoveryReport = readFileSync(join(dir, '.agentxchain/SESSION_RECOVERY.md'), 'utf8');
+    assert.match(recoveryReport, /Git HEAD has moved since checkpoint/, 'recovery report should record repo drift warnings');
+    assert.match(recoveryReport, new RegExp(implementationTurn.turn_id), 'recovery report should identify the retained turn');
+  });
+
+  it('AT-CC-008: restart surfaces pending phase approval without reactivating the run', () => {
+    const dir = createRealProject();
+    dirs.push(dir);
+
+    const resumePlanning = runCli(dir, ['resume', '--role', 'pm']);
+    assert.equal(resumePlanning.status, 0, `resume planning failed: ${resumePlanning.stdout}\n${resumePlanning.stderr}`);
+
+    writePlanningArtifacts(dir);
+
+    const planningState = readState(dir);
+    const runId = planningState.run_id;
+    const planningTurn = Object.values(planningState.active_turns || {})[0];
+    assert.ok(planningTurn, 'planning turn should exist');
+
+    stageTurnResult(dir, planningTurn, runId, {
+      summary: 'Planning complete. Requesting transition to implementation.',
+      proposed_next_role: 'human',
+      phase_transition_request: 'implementation',
+      artifact: { type: 'review', path: '.planning/PM_SIGNOFF.md' },
+    });
+
+    const acceptPlanning = runCli(dir, ['accept-turn']);
+    assert.equal(acceptPlanning.status, 0, `accept planning failed: ${acceptPlanning.stdout}\n${acceptPlanning.stderr}`);
+
+    const pausedState = readState(dir);
+    assert.equal(pausedState.status, 'paused', 'accept-turn should pause for pending phase approval');
+    assert.ok(pausedState.pending_phase_transition, 'pending phase transition should exist before restart');
+
+    const restart = runCli(dir, ['restart']);
+    assert.equal(restart.status, 0, `restart failed: ${restart.stdout}\n${restart.stderr}`);
+    assert.match(restart.stdout, /Pending phase transition: planning → implementation/, 'restart should surface the pending transition');
+    assert.match(restart.stdout, /approve-transition/, 'restart should tell the operator to approve-transition');
+    assert.doesNotMatch(restart.stdout, /Restarted run/, 'restart should not assign a replacement turn while approval is pending');
+
+    const stateAfterRestart = readState(dir);
+    assert.equal(stateAfterRestart.status, 'paused', 'restart must not reactivate a run that is waiting on human phase approval');
+    assert.ok(stateAfterRestart.pending_phase_transition, 'pending phase transition must remain intact after restart');
+    assert.equal(
+      Object.keys(stateAfterRestart.active_turns || {}).length,
+      0,
+      'restart must not assign a new turn while a pending phase approval exists',
+    );
+
+    const checkpointAfterRestart = readSession(dir);
+    assert.equal(checkpointAfterRestart.checkpoint_reason, 'restart_reconnect', 'restart should checkpoint the reconnect even when it only surfaces approval work');
+    assert.equal(checkpointAfterRestart.pending_gate, 'planning_signoff', 'restart checkpoint should preserve the pending gate');
+    assert.equal(checkpointAfterRestart.run_status, 'paused', 'restart checkpoint should preserve the paused run status');
+
+    const recoveryReport = readFileSync(join(dir, '.agentxchain/SESSION_RECOVERY.md'), 'utf8');
+    assert.match(recoveryReport, /approve-transition/, 'recovery report should preserve the exact next operator action');
+  });
 });

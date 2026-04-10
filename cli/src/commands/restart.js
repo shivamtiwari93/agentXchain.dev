@@ -254,17 +254,6 @@ export async function restartCommand(opts) {
     }
   }
 
-  // If paused, reactivate
-  if (state.status === 'paused' || state.status === 'idle') {
-    const reactivated = reactivateGovernedRun(root, state, {
-      reason: 'session_restart',
-    });
-    if (!reactivated.ok) {
-      console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
-      process.exit(1);
-    }
-  }
-
   // If pending gate/completion, do not bypass — surface and exit with recovery
   if (state.pending_phase_transition || state.pending_run_completion) {
     // Write checkpoint for the reconnect
@@ -277,6 +266,17 @@ export async function restartCommand(opts) {
     writeFileSync(recoveryPath, recoveryReport);
     console.log(chalk.dim(`  Recovery report: .agentxchain/SESSION_RECOVERY.md`));
     return;
+  }
+
+  // If paused or idle without a pending approval gate, reactivate.
+  if (state.status === 'paused' || state.status === 'idle') {
+    const reactivated = reactivateGovernedRun(root, state, {
+      reason: 'session_restart',
+    });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
+      process.exit(1);
+    }
   }
 
   // Determine role from option or routing
