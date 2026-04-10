@@ -36,8 +36,7 @@
 
 ### Evidence
 
-- **3175 node tests / 664 suites / 0 failures**
-- **854 Vitest tests / 36 files / 0 failures**
+- **4029 tests / 700 suites / 0 failures** (3175 node + 854 Vitest)
 - Docusaurus production build clean
 
 ## 2.43.0
