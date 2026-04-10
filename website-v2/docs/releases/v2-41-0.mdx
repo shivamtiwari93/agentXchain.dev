@@ -1,0 +1,45 @@
+---
+title: "v2.41.0 Release Notes"
+description: "Governed IDE operator surface: status, approvals, step/run dispatch, report rendering, notifications, restart, and dashboard launch — all CLI-backed via subprocess."
+---
+
+# AgentXchain v2.41.0
+
+`2.41.0` ships the governed IDE operator surface for VS Code. The extension now supports eight governed commands — all backed by CLI subprocess calls, with no direct `.agentxchain/` file writes from the extension. Operators can observe, approve, dispatch, report, restart, and launch the dashboard without leaving the editor.
+
+## Governed IDE commands
+
+Eight new governed-mode commands, all routed through `execCliCommand()`:
+
+- **Status** — renders governed run state from `agentxchain status --json`, including continuity guidance and workflow-kit artifact visibility.
+- **Approve Phase Transition** — modal confirmation dialog showing gate details before invoking `agentxchain approve-transition`.
+- **Approve Run Completion** — modal confirmation dialog before invoking `agentxchain approve-completion`.
+- **Step** — launches `agentxchain step` in an integrated terminal for operator-visible adapter output.
+- **Run** — launches `agentxchain run` in an integrated terminal. Never runs as a hidden background process.
+- **Report** — renders the full governed report (timeline, decisions, workflow-kit artifacts, verification) from `agentxchain export` piped through `agentxchain report --format json`.
+- **Restart** — modal confirmation before invoking `agentxchain restart` for session recovery from checkpoint.
+- **Dashboard** — launches `agentxchain dashboard` in an integrated terminal to open the browser dashboard.
+
+## State-change notifications
+
+A file-watcher on `.agentxchain/state.json`, `session.json`, and `staging/**` drives push notifications:
+
+- **Pending phase transition** — warning notification with an inline "Approve" action.
+- **Pending run completion** — warning notification with an inline "Approve" action.
+- **Blocked state** — error notification with the blocked reason.
+- **Turn completion** — informational notification (suppressed during IDE-launched `agentxchain run` to avoid spam).
+
+Deduplication ensures the same gate or blocked state does not re-notify.
+
+## Architectural boundary
+
+The extension is a thin subprocess client. It never imports governed internals (`run-loop.js`, `step.js`, etc.) or writes to `.agentxchain/` directly. All mutations go through CLI subprocess calls. This is enforced by mutation-boundary guard tests across all eight commands.
+
+Legacy lock-based coordination commands (`claim`, `release`, `generate`) fail closed on governed projects with an explicit boundary message.
+
+## Evidence
+
+- **3083 tests / 648 suites / 0 failures** (Node test runner)
+- **88 IDE-specific tests / 26 suites / 0 failures**
+- Extension compiles and packages as VSIX (65.5 KB, 76 files)
+- `cd website-v2 && npm run build` — production build succeeded

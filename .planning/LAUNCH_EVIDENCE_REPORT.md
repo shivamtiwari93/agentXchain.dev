@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.40.0
+# Launch Evidence Report — AgentXchain v2.41.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.40.0 enterprise workflow-kit operator-evidence release: connector health, status/dashboard artifact ownership, dashboard gate proof, and Homebrew lifecycle hardening.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.41.0 governed IDE operator surface release: eight CLI-backed VS Code commands (status, approvals, step, run, report, restart, dashboard), state-change notifications, and mutation-boundary enforcement.
 
 ---
 

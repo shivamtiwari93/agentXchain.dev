@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.41.0
+
+`2.41.0` ships the governed IDE operator surface for VS Code. Eight governed commands — status, phase/completion approvals, step, run, report, restart, and dashboard launch — all backed by CLI subprocess calls with no direct `.agentxchain/` file writes. State-change notifications drive push alerts for pending gates, blocked states, and turn completions.
+
+### Governed IDE commands
+
+- `agentxchain status` renders governed run state from CLI JSON including continuity and workflow-kit artifact visibility.
+- `approve-transition` and `approve-completion` use modal confirmation dialogs before invoking CLI subprocesses.
+- `step` and `run` launch in integrated terminals for operator-visible adapter output.
+- `report` renders the full governed report from `agentxchain export` piped through `agentxchain report --format json`.
+- `restart` uses modal confirmation before invoking session recovery from checkpoint.
+- `openDashboard` launches `agentxchain dashboard` in an integrated terminal.
+
+### State-change notifications
+
+- File-watcher driven push notifications for pending phase transitions, pending run completions, blocked states, and turn completions.
+- Deduplication prevents repeated notifications for the same gate or blocked state.
+- Turn-completion notifications are suppressed during IDE-launched `agentxchain run` to avoid spam.
+
+### Architectural boundary
+
+- All governed mutations go through `execCliCommand()` — no extension code writes to `.agentxchain/`.
+- Legacy commands (`claim`, `release`, `generate`) fail closed on governed projects.
+- Mutation-boundary guard tests enforce the subprocess-only contract across all eight commands.
+
+### Evidence
+
+- **3083 tests / 648 suites / 0 failures**
+- **88 IDE-specific tests / 26 suites / 0 failures**
+- Extension compiles and packages as VSIX (65.5 KB, 76 files)
+
 ## 2.40.0
 
 `2.40.0` ships the operator-evidence slice that closes the enterprise workflow-kit observation loop: connector health is visible, current-phase artifact ownership is visible in `status` and the dashboard, enterprise-app gate evidence is proven end-to-end, and the Homebrew release path is hardened around the real three-phase lifecycle.
