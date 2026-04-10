@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.39.0
+# Launch Evidence Report — AgentXchain v2.40.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.39.0 workflow-kit phase templates, CLI discovery surface, and front-door documentation release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.40.0 enterprise workflow-kit operator-evidence release: connector health, status/dashboard artifact ownership, dashboard gate proof, and Homebrew lifecycle hardening.
 
 ---
 

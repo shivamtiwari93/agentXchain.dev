@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.40.0
+
+`2.40.0` ships the operator-evidence slice that closes the enterprise workflow-kit observation loop: connector health is visible, current-phase artifact ownership is visible in `status` and the dashboard, enterprise-app gate evidence is proven end-to-end, and the Homebrew release path is hardened around the real three-phase lifecycle.
+
+### Connector and artifact evidence
+
+- `agentxchain status` now shows current-phase workflow-kit artifacts with owner role, ownership resolution, required/optional state, and exists/missing status.
+- `status --json` now exposes `workflow_kit_artifacts` for automation consumers.
+- Dashboard workflow-kit artifact reads now work for governed V4 configs instead of silently failing on enterprise-app projects.
+- Status and dashboard artifact ownership surfaces now share one derivation helper so ownership resolution, existence checks, and sorting do not drift.
+- Timeline and status surfaces now expose connector health evidence for governed runs.
+
+### Enterprise workflow-kit proof
+
+- Full five-phase `enterprise-app` runtime proof now covers planning, architecture, implementation, security_review, and qa with built-in phase templates plus explicit ownership overrides.
+- Dashboard artifact E2E now proves all five enterprise phases render correct ownership and resolution badges.
+- Dashboard gate E2E now proves the planning gate and final completion gate render truthful evidence from the real governed run path.
+- Gate evidence aggregation now falls back to declared `files_changed` when observer-derived `files_changed` is empty, fixing the non-git and pre-baseline artifact case.
+
+### Release-path hardening
+
+- Homebrew follow-through now documents and enforces the three-phase lifecycle: pre-publish, post-publish pre-sync, and post-sync truth.
+- `verify:post-publish` is the executable contract for moving the repo mirror from stale SHA state to registry-backed truth.
+
+### Evidence
+
+- **3836 tests / 620 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.39.0
 
 `2.39.0` ships workflow-kit phase templates: a governed library of reusable phase definitions that expand inside `workflow_kit.phases`, CLI discovery via `template list --phase-templates`, and front-door documentation across READMEs and getting-started.

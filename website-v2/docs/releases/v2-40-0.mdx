@@ -1,0 +1,43 @@
+---
+title: "v2.40.0 Release Notes"
+description: "Enterprise workflow-kit operator evidence: connector health, artifact ownership in status and dashboard, gate-view proof, and Homebrew lifecycle hardening."
+---
+
+# AgentXchain v2.40.0
+
+`2.40.0` closes the operator-evidence gap around enterprise workflow-kit delivery. Governed operators can now see connector health and current-phase artifact ownership directly in `agentxchain status`, the dashboard works for governed V4 enterprise configs, and the dashboard gate view is proven against real five-phase enterprise runs instead of partial fixtures.
+
+## Connector and workflow-kit evidence
+
+Two operator surfaces got materially better:
+
+- **Connector health** now shows up in governed status and timeline surfaces, so operators can see whether a runtime is configured, healthy, or degraded before guessing at dispatch failures.
+- **Workflow-kit artifact ownership** now shows up in `agentxchain status` and `status --json`, including owner role, whether ownership was explicit or inferred from `entry_role`, required/optional state, and whether each artifact exists on disk.
+
+The dashboard now uses governed-aware workflow-kit artifact loading for V4 configs. Before this release, enterprise-app projects could silently lose the Artifacts view because the dashboard path still used the legacy config loader.
+
+## Enterprise-app dashboard proof
+
+This release adds the missing enterprise-app dashboard proof surface:
+
+- Artifacts view proof across all five phases: `planning`, `architecture`, `implementation`, `security_review`, and `qa`
+- Explicit-owner override proof for architecture and security review artifacts
+- Gate-view proof for both the planning signoff gate and the final QA completion gate
+
+The gate renderer also fixes one real evidence bug: when observer-derived `files_changed` is present but empty, it now falls back to declared `files_changed` instead of rendering no files at all. That matters for non-git workspaces and for cases where the observer baseline already includes the artifact files.
+
+## Release-path hardening
+
+The Homebrew release path is now documented and enforced as a three-phase lifecycle:
+
+1. pre-publish bump state
+2. post-publish, pre-sync stale-SHA state
+3. post-sync registry-backed truth
+
+`npm run verify:post-publish -- --target-version <semver>` is now the executable path for moving the repo mirror from Phase 2 to Phase 3.
+
+## Evidence
+
+- **3836 tests / 620 suites / 0 failures** (848 Vitest + 2988 Node)
+- `cd cli && npm test`
+- `cd website-v2 && npm run build` — production build succeeded
