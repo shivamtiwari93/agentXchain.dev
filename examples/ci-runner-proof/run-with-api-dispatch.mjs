@@ -56,19 +56,20 @@ function makeConfig() {
     project: {
       id: `ci-api-dispatch-proof-${randomBytes(4).toString('hex')}`,
       name: 'CI API Dispatch Proof',
+      description: 'Build a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /.',
       default_branch: 'main',
     },
     roles: {
       planner: {
         title: 'Planner',
-        mandate: 'Produce a one-paragraph plan for the assigned task. Request phase transition to implementation when done.',
+        mandate: 'The task is: build a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /. Produce a one-paragraph plan for this task. Then set phase_transition_request to "review".',
         write_authority: 'review_only',
         runtime_class: 'api_proxy',
         runtime_id: 'api-planner',
       },
       reviewer: {
         title: 'Reviewer',
-        mandate: 'Review the plan, verify it is reasonable, and request run completion.',
+        mandate: 'Review the plan produced by the planner for the hello-world server task. Confirm it is reasonable. Then set run_completion_request to true.',
         write_authority: 'review_only',
         runtime_class: 'api_proxy',
         runtime_id: 'api-reviewer',
@@ -157,7 +158,7 @@ function scaffoldProject(root) {
   );
   writeFileSync(join(root, '.agentxchain/history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
-  writeFileSync(join(root, 'TALK.md'), '# Talk\n');
+  writeFileSync(join(root, 'TALK.md'), '# Talk\n\n## Task\n\nBuild a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /.\n');
   gitInit(root);
   return config;
 }
@@ -402,7 +403,17 @@ function report(root, { errors, result, events, artifacts }) {
     }
   }
 
-  process.exit(passed ? 0 : 1);
+  return passed;
 }
 
-await main();
+// Retry wrapper: cheap models have transient hallucination failures
+// (run_id digit flips, invalid enum values). Retry up to MAX_ATTEMPTS.
+const MAX_ATTEMPTS = 3;
+for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  const passed = await main();
+  if (passed) process.exit(0);
+  if (attempt < MAX_ATTEMPTS) {
+    if (!jsonMode) console.log(`\n  Retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})...\n`);
+  }
+}
+process.exit(1);

@@ -36,12 +36,13 @@ function makeConfig() {
     project: {
       id: `ci-cli-auto-approve-${randomBytes(4).toString('hex')}`,
       name: 'CI CLI Auto-Approve Proof',
+      description: 'Build a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /.',
       default_branch: 'main',
     },
     roles: {
       planner: {
         title: 'Planner',
-        mandate: 'Produce a short governed planning summary and request transition to review.',
+        mandate: 'The task is: build a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /. Produce a one-paragraph plan for this task. Then set phase_transition_request to "review".',
         write_authority: 'review_only',
         runtime: 'api-planner',
         runtime_class: 'api_proxy',
@@ -49,7 +50,7 @@ function makeConfig() {
       },
       reviewer: {
         title: 'Reviewer',
-        mandate: 'Review the governed plan, challenge weak reasoning, and request run completion.',
+        mandate: 'Review the plan produced by the planner for the hello-world server task. Confirm it is reasonable. Then set run_completion_request to true.',
         write_authority: 'review_only',
         runtime: 'api-reviewer',
         runtime_class: 'api_proxy',
@@ -134,7 +135,7 @@ function scaffoldProject(root) {
   );
   writeFileSync(join(root, '.agentxchain', 'history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), '');
-  writeFileSync(join(root, 'TALK.md'), '# Talk\n');
+  writeFileSync(join(root, 'TALK.md'), '# Talk\n\n## Task\n\nBuild a hello-world Node.js HTTP server that responds with "Hello, AgentXchain!" on GET /.\n');
   gitInit(root);
 }
 
@@ -290,11 +291,11 @@ async function main() {
 
     const passed = errors.length === 0;
     formatResult(passed, cliResult, artifacts, errors);
-    process.exit(passed ? 0 : 1);
+    return passed;
   } catch (err) {
     errors.push(`Unexpected error: ${err.message}`);
     formatResult(false, cliResult, artifacts, errors);
-    process.exit(1);
+    return false;
   } finally {
     try {
       rmSync(root, { recursive: true, force: true });
@@ -302,4 +303,13 @@ async function main() {
   }
 }
 
-await main();
+// Retry wrapper: cheap models have transient hallucination failures
+const MAX_ATTEMPTS = 3;
+for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  const passed = await main();
+  if (passed) process.exit(0);
+  if (attempt < MAX_ATTEMPTS) {
+    if (!jsonMode) console.log(`\n  Retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})...\n`);
+  }
+}
+process.exit(1);

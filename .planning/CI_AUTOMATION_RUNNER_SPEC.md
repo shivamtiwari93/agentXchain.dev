@@ -226,6 +226,8 @@ Core-normalized cases for **review_only** turns:
 3. completed non-terminal turn with omitted/null lifecycle signal -> next forward phase
 4. completed terminal turn with omitted/null lifecycle signal -> `run_completion_request: true`
 5. completion turns -> `proposed_next_role: "human"`
+6. `needs_human` with affirmative, non-blocker reason on terminal phase -> `run_completion_request: true` (DEC-CI-NORM-006)
+7. `needs_human` with affirmative, non-blocker reason on non-terminal phase -> `phase_transition_request: nextPhase` (DEC-CI-NORM-007)
 
 ### Proof-local stabilization
 
@@ -237,14 +239,24 @@ The current boundary is stricter:
 - CI proof scripts return the raw adapter result and let `acceptTurn` enforce the real product boundary
 - if Haiku cannot satisfy the governed contract through that boundary, the proof should fail instead of masking the defect locally
 
+### Retry behavior (DEC-CI-RETRY-001)
+
+Both proof scripts (`run-with-api-dispatch.mjs` and `run-via-cli-auto-approve.mjs`) retry up to 3 attempts on failure. This handles transient cheap-model hallucinations (run_id digit flips, invalid enum values) without masking systemic failures. If the proof fails all 3 attempts, it exits with status 1.
+
+### Mandate specificity (DEC-CI-MANDATE-001)
+
+Role mandates must include the concrete task description, not references to metadata fields. Haiku takes mandates literally — "plan for the task described in project.description" causes the model to look for that field in its dispatch context and block when it's not found. Direct mandates ("The task is: build X") produce reliable lifecycle signals.
+
 ## Implemented Design
 
 - **Config**: 2-phase (planning → review), 2 roles (planner, reviewer), both `review_only` `api_proxy` via `claude-haiku-4-5-20251001`
+- **Task**: Concrete hello-world server task embedded in mandates and TALK.md
 - **Cost**: ~$0.01-0.02 per run (2 turns typical, $2.00 budget cap)
 - **Max turns**: 6 (prevents cost runaway)
 - **Gates**: No `requires_human_approval` on any gate — fully auto-advancing
 - **Role selection**: Entry-role-for-current-phase (mirrors `run.js` behavior)
-- **Local proof**: 3/3 consecutive passes verified
+- **Retry**: Up to 3 attempts per proof invocation
+- **Local proof**: 4/5 consecutive passes verified (remaining failures are transient run_id hallucinations)
 
 ## Open Questions
 

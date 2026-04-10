@@ -795,10 +795,24 @@ describe('turn-result-validator', () => {
       assert.equal(corrections.length, 0);
     });
 
-    it('AT-TCS-005: does NOT normalize in non-terminal phases', () => {
+    it('AT-TCS-005: normalizes review_only needs_human to phase_transition on non-terminal phases with affirmative reason', () => {
       const tr = makeValidTurnResult({
         status: 'needs_human',
         needs_human_reason: 'Ready to ship, human should approve.',
+        run_completion_request: null,
+      });
+      const ctx = { writeAuthority: 'review_only', phase: 'implementation' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.status, 'completed');
+      assert.equal(normalized.phase_transition_request, 'qa');
+      assert.ok(corrections.length > 0, 'should have corrections');
+      assert.ok(corrections[0].includes('phase_transition_request'));
+    });
+
+    it('AT-TCS-005b: does NOT normalize review_only needs_human on non-terminal phase with blocker reason', () => {
+      const tr = makeValidTurnResult({
+        status: 'needs_human',
+        needs_human_reason: 'Critical security vulnerability found, cannot proceed.',
         run_completion_request: null,
       });
       const ctx = { writeAuthority: 'review_only', phase: 'implementation' };

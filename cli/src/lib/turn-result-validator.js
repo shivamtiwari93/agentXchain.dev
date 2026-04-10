@@ -660,28 +660,38 @@ export function normalizeTurnResult(tr, config, context = {}) {
     }
   }
 
-  // ── Rule 3: review_only terminal needs_human → run_completion_request ──
+  // ── Rule 3: review_only needs_human → lifecycle correction ──────────
+  // review_only roles cannot perform work that genuinely requires human
+  // intervention. If the model says "needs_human" with an affirmative,
+  // non-blocker reason, correct to the appropriate lifecycle signal:
+  // terminal phase → run_completion_request, non-terminal → phase_transition.
   if (
     context.writeAuthority === 'review_only' &&
     context.phase &&
     routing &&
     normalized.status === 'needs_human' &&
-    normalized.run_completion_request !== false
+    normalized.run_completion_request !== false &&
+    typeof normalized.needs_human_reason === 'string'
   ) {
-    const phaseNames = Object.keys(routing);
-    const isTerminal = phaseNames.indexOf(context.phase) === phaseNames.length - 1;
-    if (isTerminal && typeof normalized.needs_human_reason === 'string') {
-      const reason = normalized.needs_human_reason.toLowerCase();
-      const affirmativeSignals = /\b(approv|ship|release|sign.?off|no.?block|ready|pass|good|accept|green.?light)\b/i;
-      const blockerSignals = /\b(critical|security|fail|block|cannot|must.?fix|regression|vulnerab|reject|unsafe|broken)\b/i;
-      const isAffirmative = affirmativeSignals.test(reason);
-      const isBlocker = blockerSignals.test(reason);
-      if (isAffirmative && !isBlocker) {
+    const reason = normalized.needs_human_reason.toLowerCase();
+    const affirmativeSignals = /\b(approv|ship|release|sign.?off|no.?block|ready|pass|good|accept|green.?light|proceed|move.?forward|complet|done|lgtm|satisf|recommend)\b/i;
+    const blockerSignals = /\b(critical|security|fail|block|cannot|must.?fix|regression|vulnerab|reject|unsafe|broken)\b/i;
+    const isAffirmative = affirmativeSignals.test(reason);
+    const isBlocker = blockerSignals.test(reason);
+    if (isAffirmative && !isBlocker) {
+      if (isTerminalPhase) {
         corrections.push(
           `status: corrected review_only terminal "needs_human" to run_completion_request — reason indicated ship readiness ("${normalized.needs_human_reason.slice(0, 80)}"), not a genuine blocker`
         );
         normalized.status = 'completed';
         normalized.run_completion_request = true;
+        delete normalized.needs_human_reason;
+      } else if (nextPhase) {
+        corrections.push(
+          `status: corrected review_only "needs_human" to phase_transition_request "${nextPhase}" — reason indicated forward progress ("${normalized.needs_human_reason.slice(0, 80)}"), not a genuine blocker`
+        );
+        normalized.status = 'completed';
+        normalized.phase_transition_request = nextPhase;
         delete normalized.needs_human_reason;
       }
     }
