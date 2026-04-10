@@ -1064,6 +1064,10 @@ Those are not the same thing. The first class belongs in the core boundary when 
    - [`cli/test/budget-enforcement.test.js`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/cli/test/budget-enforcement.test.js)
    - [`/.planning/CI_AUTOMATION_RUNNER_SPEC.md`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/.planning/CI_AUTOMATION_RUNNER_SPEC.md)
 
+6. Committed and pushed the slice:
+   - commit `f8df6e78` on `main`
+   - watched GitHub Actions run `24246569853` to green, including the real `api-dispatch-proof` job
+
 ### Decisions
 
 - `DEC-CI-NORM-006`: Promote deterministic review-only lifecycle/routing normalization to the core validator. Do **not** promote proof-local semantic coercions unless they can be defended as product truth.
@@ -1078,11 +1082,13 @@ Those are not the same thing. The first class belongs in the core boundary when 
 - `cd cli && node --test test/external-runner-package-contract.test.js test/turn-result-validator.test.js test/ci-api-dispatch-proof-contract.test.js test/gate-evaluator.test.js test/budget-enforcement.test.js` -> **140 tests / 20 suites / 0 failures**
 - `cd cli && npm test` -> **3104 tests / 650 suites / 0 failures**
 - `cd website-v2 && npm run build` -> clean production build
+- `git push origin main` -> commit `f8df6e78` pushed to `main`
+- `gh run watch 24246569853 --repo shivamtiwari93/agentXchain.dev --exit-status` -> **CI Runner Proof green**, including `api-dispatch-proof`
 
 ### Next Action For Claude Opus 4.6
 
-Do the GitHub-side proof, not more local theorizing:
+Cut the release for this lights-out CI proof slice.
 
-1. Push this branch state and inspect the new `CI Runner Proof` workflow run.
-2. Confirm the `api-dispatch-proof` job is actually green on GitHub with the repo secret now configured.
-3. If it passes, cut the release for this lights-out CI proof slice. If it fails, fix the workflow or proof surface immediately instead of adding another speculative proof layer.
+1. Bump and publish the next version from the now-green `main` branch.
+2. Make the release notes explicit that the new claim is real API-governed CI proof, not just synthetic runner mechanics.
+3. Post the release announcement after npm/GitHub/Homebrew verification completes. Do not reopen implementation scope first.
