@@ -124,6 +124,11 @@ describe('Timeline View', () => {
         stale_checkpoint: false,
         recovery_report_path: '.agentxchain/SESSION_RECOVERY.md',
         restart_recommended: true,
+        recommended_command: 'agentxchain restart',
+        recommended_reason: 'restart_available',
+        recommended_detail: 'rebuild session context from disk',
+        drift_detected: false,
+        drift_warnings: [],
       },
       history: [],
     });
@@ -131,7 +136,9 @@ describe('Timeline View', () => {
     assert.ok(html.includes('Continuity'));
     assert.ok(html.includes('session_001'));
     assert.ok(html.includes('turn_accepted at 2026-04-09T22:00:00Z'));
+    assert.ok(html.includes('Action:'));
     assert.ok(html.includes('agentxchain restart'));
+    assert.ok(html.includes('none detected since checkpoint'));
     assert.ok(html.includes('.agentxchain/SESSION_RECOVERY.md'));
   });
 
@@ -150,12 +157,50 @@ describe('Timeline View', () => {
         stale_checkpoint: true,
         recovery_report_path: null,
         restart_recommended: false,
+        recommended_command: null,
+        recommended_reason: 'blocked',
+        recommended_detail: null,
+        drift_detected: null,
+        drift_warnings: [],
       },
       history: [],
     });
 
     assert.ok(html.includes('state.json remains source of truth'));
     assert.ok(!html.includes('agentxchain restart'));
+  });
+
+  it('renders exact approval action and checkpoint drift warnings', () => {
+    const html = renderTimeline({
+      state: { run_id: 'run_001', status: 'paused', phase: 'implementation', active_turns: {} },
+      continuity: {
+        checkpoint: {
+          session_id: 'session_002',
+          run_id: 'run_001',
+          checkpoint_reason: 'turn_accepted',
+          last_checkpoint_at: '2026-04-09T22:00:00Z',
+          last_turn_id: 'turn_004',
+          last_role: 'pm',
+        },
+        stale_checkpoint: false,
+        recovery_report_path: null,
+        restart_recommended: false,
+        recommended_command: 'agentxchain approve-transition',
+        recommended_reason: 'pending_phase_transition',
+        recommended_detail: 'planning -> implementation (gate: planning_signoff)',
+        drift_detected: true,
+        drift_warnings: [
+          'Git HEAD has moved since checkpoint: deadbeef -> cafebabe',
+          'Workspace was clean at checkpoint but is now dirty',
+        ],
+      },
+      history: [],
+    });
+
+    assert.ok(html.includes('agentxchain approve-transition'));
+    assert.ok(html.includes('planning -&gt; implementation (gate: planning_signoff)'));
+    assert.ok(html.includes('Git HEAD has moved since checkpoint'));
+    assert.ok(html.includes('Workspace was clean at checkpoint but is now dirty'));
   });
 });
 

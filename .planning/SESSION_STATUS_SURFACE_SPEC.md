@@ -14,6 +14,8 @@ This slice exposes only what disk proves:
 - whether `.agentxchain/SESSION_RECOVERY.md` exists
 - whether `restart` is a valid next step for the current run state
 
+Actionability and checkpoint-drift truth are extended by `.planning/CONTINUITY_ACTIONABILITY_SPEC.md`.
+
 ## Interface
 
 ### Human-readable status

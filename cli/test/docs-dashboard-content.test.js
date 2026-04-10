@@ -27,6 +27,7 @@ const DASHBOARD_INDEX = readFileSync(join(REPO_ROOT, 'cli', 'dashboard', 'index.
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const DASHBOARD_CONTINUITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONTINUITY_SURFACE_SPEC.md'), 'utf8');
+const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONTINUITY_ACTIONABILITY_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -142,5 +143,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_CONTINUITY_SPEC, /AT-DASH-CONT-001/);
     assert.match(DASHBOARD_CONTINUITY_SPEC, /GET \/api\/continuity/);
     assert.match(DASHBOARD_CONTINUITY_SPEC, /Timeline view/);
+  });
+
+  it('ships a durable spec for continuity actionability', () => {
+    assert.match(CONTINUITY_ACTIONABILITY_SPEC, /Continuity Actionability Spec/);
+    assert.match(CONTINUITY_ACTIONABILITY_SPEC, /AT-CA-003/);
+    assert.match(CONTINUITY_ACTIONABILITY_SPEC, /GET \/api\/continuity/);
+    assert.match(CONTINUITY_ACTIONABILITY_SPEC, /recommended_command/);
   });
 });

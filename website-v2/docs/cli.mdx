@@ -158,7 +158,11 @@ When cross-session continuity artifacts exist, governed status also exposes a `C
 
 - checkpoint session id, reason, time, last turn, and last role from `.agentxchain/session.json`
 - a stale-checkpoint warning when `session.json` and `state.json` disagree on `run_id`
-- restart guidance (`agentxchain restart`) when the run is restartable
+- the exact next continuity command under additive `continuity.recommended_command`
+  - `agentxchain approve-transition` when a phase gate is pending
+  - `agentxchain approve-completion` when run completion is pending
+  - `agentxchain restart` only when restart is the truthful next continuity action
+- checkpoint drift state from `baseline_ref` under additive `continuity.drift_detected` and `continuity.drift_warnings`
 - the `.agentxchain/SESSION_RECOVERY.md` path when a recovery report already exists
 
 `status --json` mirrors that data under a top-level additive `continuity` object. Does not modify state.
@@ -535,7 +539,7 @@ The bridge issues a per-process local mutation token from `GET /api/session`, an
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus structured blockers such as `repo_run_id_mismatch` with expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand.
 
-For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, and whether `agentxchain restart` is the truthful next continuity action. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
+For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, exact recommended continuity command, and checkpoint-drift state. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
 
 Everything else remains CLI-only. The dashboard does **not** execute arbitrary commands and does **not** perform blocked-state recovery actions such as:
 

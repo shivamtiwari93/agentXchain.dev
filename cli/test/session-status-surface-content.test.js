@@ -13,6 +13,7 @@ const README = read('README.md');
 const CLI_DOC = read('website-v2/docs/cli.mdx');
 const MULTI_SESSION_DOC = read('website-v2/docs/multi-session.mdx');
 const SPEC = read('.planning/SESSION_STATUS_SURFACE_SPEC.md');
+const ACTIONABILITY_SPEC = read('.planning/CONTINUITY_ACTIONABILITY_SPEC.md');
 
 describe('session continuity status docs surface', () => {
   it('AT-SSC-004: README surfaces restart in the governed command list', () => {
@@ -24,6 +25,8 @@ describe('session continuity status docs surface', () => {
     assert.match(CLI_DOC, /Continuity/);
     assert.match(CLI_DOC, /stale-checkpoint warning/i);
     assert.match(CLI_DOC, /top-level additive `continuity` object/);
+    assert.match(CLI_DOC, /recommended_command/);
+    assert.match(CLI_DOC, /drift/i);
   });
 
   it('AT-SSC-004: multi-session docs explain restart and recovery artifacts', () => {
@@ -37,5 +40,12 @@ describe('session continuity status docs surface', () => {
     assert.match(SPEC, /AT-SSC-001/);
     assert.match(SPEC, /AT-SSC-004/);
     assert.match(SPEC, /restart_recommended/);
+  });
+
+  it('ships a standalone continuity actionability spec', () => {
+    assert.match(ACTIONABILITY_SPEC, /Continuity Actionability Spec/);
+    assert.match(ACTIONABILITY_SPEC, /AT-CA-001/);
+    assert.match(ACTIONABILITY_SPEC, /recommended_command/);
+    assert.match(ACTIONABILITY_SPEC, /drift_warnings/);
   });
 });

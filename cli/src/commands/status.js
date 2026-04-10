@@ -268,8 +268,21 @@ function renderContinuityStatus(continuity, state) {
     console.log(`  ${chalk.dim('Checkpoint:')} ${chalk.yellow('No session checkpoint recorded')}`);
   }
 
-  if (continuity.restart_recommended) {
-    console.log(`  ${chalk.dim('Restart:')} ${chalk.cyan('agentxchain restart')} (rebuild session context from disk)`);
+  if (continuity.drift_detected === true) {
+    const [firstWarning, ...remainingWarnings] = continuity.drift_warnings || [];
+    if (firstWarning) {
+      console.log(`  ${chalk.dim('Drift:')}    ${chalk.yellow(firstWarning)}`);
+    }
+    for (const warning of remainingWarnings) {
+      console.log(`  ${chalk.dim('         ')} ${chalk.yellow(warning)}`);
+    }
+  } else if (continuity.drift_detected === false) {
+    console.log(`  ${chalk.dim('Drift:')}    ${chalk.green('none detected since checkpoint')}`);
+  }
+
+  if (continuity.recommended_command) {
+    const detail = continuity.recommended_detail ? ` (${continuity.recommended_detail})` : '';
+    console.log(`  ${chalk.dim('Action:')}   ${chalk.cyan(continuity.recommended_command)}${chalk.dim(detail)}`);
   }
 
   if (continuity.recovery_report_path) {

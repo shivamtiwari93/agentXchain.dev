@@ -154,8 +154,19 @@ function renderContinuityPanel(continuity) {
     html += `<div class="turn-detail"><span class="detail-label">Checkpoint:</span> No session checkpoint recorded</div>`;
   }
 
-  if (continuity.restart_recommended) {
-    html += `<div class="turn-detail"><span class="detail-label">Restart:</span> <span class="mono">agentxchain restart</span></div>`;
+  if (continuity.drift_detected === true && Array.isArray(continuity.drift_warnings) && continuity.drift_warnings.length > 0) {
+    html += `<div class="turn-detail risks"><span class="detail-label">Drift:</span><ul>`;
+    for (const warning of continuity.drift_warnings) {
+      html += `<li>${esc(warning)}</li>`;
+    }
+    html += `</ul></div>`;
+  } else if (continuity.drift_detected === false) {
+    html += `<div class="turn-detail"><span class="detail-label">Drift:</span> none detected since checkpoint</div>`;
+  }
+
+  if (continuity.recommended_command) {
+    const detail = continuity.recommended_detail ? ` (${continuity.recommended_detail})` : '';
+    html += `<div class="turn-detail"><span class="detail-label">Action:</span> <span class="mono">${esc(continuity.recommended_command)}</span>${esc(detail)}</div>`;
   }
 
   if (continuity.recovery_report_path) {

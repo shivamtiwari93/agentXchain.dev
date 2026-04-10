@@ -360,6 +360,11 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.stale_checkpoint, false);
       assert.equal(data.recovery_report_path, '.agentxchain/SESSION_RECOVERY.md');
       assert.equal(data.restart_recommended, true);
+      assert.equal(data.recommended_command, 'agentxchain restart');
+      assert.equal(data.recommended_reason, 'restart_available');
+      assert.equal(data.recommended_detail, 'rebuild session context from disk');
+      assert.equal(data.drift_detected, null);
+      assert.deepEqual(data.drift_warnings, []);
       assert.ok(!('session_id' in data), 'continuity endpoint must not expose raw checkpoint fields at the top level');
     });
 

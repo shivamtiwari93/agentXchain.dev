@@ -1,6 +1,6 @@
 import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'node:url';
@@ -82,7 +82,7 @@ describe('governed status continuity surface', () => {
     assert.match(result.stdout, /Checkpoint:\s+turn_accepted at 2026-04-09T21:00:00Z/);
     assert.match(result.stdout, /Last turn:\s+turn-002/);
     assert.match(result.stdout, /Last role:\s+dev/);
-    assert.match(result.stdout, /Restart:\s+agentxchain restart/);
+    assert.match(result.stdout, /Action:\s+agentxchain restart/);
     assert.match(result.stdout, /Report:\s+\.agentxchain\/SESSION_RECOVERY\.md/);
   });
 
@@ -125,6 +125,80 @@ describe('governed status continuity surface', () => {
     assert.equal(payload.continuity.checkpoint.last_turn_id, 'turn-003');
     assert.equal(payload.continuity.stale_checkpoint, false);
     assert.equal(payload.continuity.restart_recommended, true);
+    assert.equal(payload.continuity.recommended_command, 'agentxchain restart');
+    assert.equal(payload.continuity.recommended_reason, 'restart_available');
+    assert.equal(payload.continuity.recommended_detail, 'rebuild session context from disk');
+    assert.equal(payload.continuity.drift_detected, null);
+    assert.deepEqual(payload.continuity.drift_warnings, []);
     assert.equal(payload.continuity.recovery_report_path, null);
+  });
+
+  it('AT-CA-001: pending phase approval exposes approve-transition instead of restart', () => {
+    const dir = setupProject({
+      status: 'paused',
+      active_turns: {},
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+      },
+    });
+    dirs.push(dir);
+
+    writeJson(join(dir, '.agentxchain/session.json'), {
+      session_id: 'session_gate',
+      run_id: 'run_status123',
+      last_checkpoint_at: '2026-04-09T21:20:00Z',
+      last_turn_id: 'turn-003',
+      last_role: 'pm',
+      checkpoint_reason: 'turn_accepted',
+    });
+
+    const result = runCli(dir, ['status', '--json']);
+    assert.equal(result.status, 0, `status --json failed: ${result.stdout}\n${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.continuity.restart_recommended, false);
+    assert.equal(payload.continuity.recommended_command, 'agentxchain approve-transition');
+    assert.equal(payload.continuity.recommended_reason, 'pending_phase_transition');
+    assert.equal(payload.continuity.recommended_detail, 'planning -> implementation (gate: planning_signoff)');
+  });
+
+  it('AT-CA-002: status surfaces checkpoint drift from baseline_ref', () => {
+    const dir = setupProject();
+    dirs.push(dir);
+
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+
+    writeJson(join(dir, '.agentxchain/session.json'), {
+      session_id: 'session_drift',
+      run_id: 'run_status123',
+      last_checkpoint_at: '2026-04-09T21:30:00Z',
+      last_turn_id: 'turn-002',
+      last_role: 'dev',
+      checkpoint_reason: 'turn_assigned',
+      baseline_ref: {
+        git_head: '0000000000000000000000000000000000000000',
+        git_branch: 'feature/drifted',
+        workspace_dirty: false,
+      },
+    });
+
+    writeFileSync(join(dir, 'notes.txt'), 'dirty workspace after checkpoint\n');
+
+    const result = runCli(dir, ['status']);
+    assert.equal(result.status, 0, `status failed: ${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /Drift:\s+Git HEAD has moved since checkpoint/);
+    assert.match(result.stdout, /Branch changed since checkpoint: feature\/drifted -> /);
+    assert.match(result.stdout, /Workspace was clean at checkpoint but is now dirty/);
+
+    const jsonResult = runCli(dir, ['status', '--json']);
+    assert.equal(jsonResult.status, 0, `status --json failed: ${jsonResult.stdout}\n${jsonResult.stderr}`);
+    const payload = JSON.parse(jsonResult.stdout);
+    assert.equal(payload.continuity.drift_detected, true);
+    assert.equal(payload.continuity.drift_warnings.length, 3);
   });
 });

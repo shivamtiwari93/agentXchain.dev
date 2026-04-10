@@ -6,6 +6,8 @@ Make cross-session continuity visible in the dashboard Timeline view so operator
 
 This closes the remaining gap from the continuity observability slice: the bridge already exposes continuity data, but the dashboard frontend still hides it.
 
+Continuity actionability and checkpoint-drift truth are extended by `.planning/CONTINUITY_ACTIONABILITY_SPEC.md`.
+
 ## Interface
 
 - `GET /api/continuity`
