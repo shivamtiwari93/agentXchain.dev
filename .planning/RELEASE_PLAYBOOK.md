@@ -174,26 +174,54 @@ Tag existence alone is not release truth.
 
 ### 6. Sync Homebrew After npm Is Live
 
-Only after postflight passes:
+#### Three-Phase Homebrew Lifecycle
+
+The Homebrew mirror goes through three states during every release. Understanding this lifecycle prevents the recurring confusion about "main is red after release."
+
+| Phase | State | `npm test` | Action |
+|-------|-------|-----------|--------|
+| **Phase 1: Pre-publish** | `release-bump.sh` updates formula URL to new version; SHA is carried from previous version (real but wrong version). | Green with `AGENTXCHAIN_RELEASE_PREFLIGHT=1` (Tier 2 tests skipped). | Push tag → CI publishes to npm. |
+| **Phase 2: Post-publish, pre-sync** | npm is live; repo mirror SHA is stale (previous version's hash). | Green — Tier 1 (internal consistency) passes; Tier 2 (version alignment) passes on URL but SHA is from the wrong version. | Run `verify:post-publish` or `sync:homebrew`. |
+| **Phase 3: Post-sync** | Repo mirror SHA matches the published tarball. | Fully green, no env skip needed. | Commit and push. Main is now truthfully green. |
+
+**The release is not operationally complete until main reaches Phase 3.** A CI-opened Homebrew PR that has not been merged leaves main in Phase 2.
+
+#### Operator Commands
+
+**Option A: Full verification (recommended)**
+
+```bash
+cd cli
+npm run verify:post-publish -- --target-version <semver>
+```
+
+This single command: verifies npm serves the version, runs `sync-homebrew.sh` to update the repo mirror, then runs the full test suite without the preflight skip. If it passes, the mirror is correct and main is green.
+
+**Option B: Manual sync + tap push**
 
 ```bash
 cd cli
 npm run sync:homebrew -- --target-version <semver> --push-tap
 ```
 
-This single command:
+This command:
 1. Fetches the tarball URL and SHA256 from npm registry
 2. Updates the repo mirror formula and README
 3. Pushes the canonical tap (`shivamtiwari93/homebrew-tap`)
 
-In CI, this runs automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, first-time publish is blocked before npm mutation. Reruns can still update the repo mirror without the token, but downstream truth must pass before the workflow can finish green.
+#### CI Behavior
+
+In CI, the publish workflow runs sync automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, first-time publish is blocked before npm mutation. Reruns can still update the repo mirror without the token, but downstream truth must pass before the workflow can finish green.
 The tag workflow requests `pull-requests: write`, creates a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update, and reuses that PR on reruns instead of pushing directly to `main`, since `main` has branch protection requiring reviews. The PR must still be merged manually or via auto-merge as part of the release follow-through.
 Workflow reruns update that same branch with `--force-with-lease` and reuse the open PR instead of failing on duplicate branch or PR creation.
 If PR creation fails after the branch push, the workflow should fail closed. A pushed orphan branch is not release-complete follow-through.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
-Do not update Homebrew against a version that is not yet live on npm.
-Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror must carry the real registry tarball checksum before release follow-through is considered complete.
+#### Invariants
+
+- Do not update Homebrew against a version that is not yet live on npm.
+- Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror must carry the real registry tarball checksum before release follow-through is considered complete.
+- **Main is not green until the repo mirror reaches Phase 3.** The `AGENTXCHAIN_RELEASE_PREFLIGHT=1` env skip is for the pre-publish window only, not a permanent workaround.
 
 ---
 
@@ -225,6 +253,9 @@ Do not commit or push an all-zero placeholder SHA256. The tap and repo mirror mu
 7. The playbook does not rely on deprecated v1/v2 release-specific planning files for current instructions.
 8. The playbook lists `postflight:downstream` as a required step for release completion.
 9. The playbook documents the manual Homebrew tap follow-through when CI cannot push.
+10. The playbook documents the three-phase Homebrew lifecycle (pre-publish, post-publish pre-sync, post-sync) with explicit state transitions.
+11. The playbook provides `verify:post-publish` as the executable contract for Phase 2 → Phase 3 transition.
+12. The playbook states that main is not green until the repo mirror reaches Phase 3.
 
 ---
 
