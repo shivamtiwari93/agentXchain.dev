@@ -27,10 +27,9 @@ describe('IDE compatibility public boundary', () => {
 
   it('keeps homepage copy honest about the IDE surface', () => {
     assert.match(homepage, /Legacy IDE compatibility/);
-    assert.match(homepage, /Governed repos get read-only status in\s+the IDE/);
-    assert.match(homepage, /browser dashboard and CLI/);
-    assert.doesNotMatch(homepage, /approve gates/i);
-    assert.doesNotMatch(homepage, /governed workflows into your\s+editor/i);
+    assert.match(homepage, /CLI-backed status, approvals, step\/run launch, and\s+state-change notifications/i);
+    assert.match(homepage, /browser dashboard\s+and CLI/);
+    assert.doesNotMatch(homepage, /full governed control plane/i);
     assert.doesNotMatch(homepage, /without leaving your IDE/i);
   });
 
@@ -38,11 +37,12 @@ describe('IDE compatibility public boundary', () => {
     assert.match(spec, /## Purpose/);
     assert.match(spec, /## Acceptance Tests/);
     assert.match(spec, /legacy lock-based coordination/i);
-    assert.match(spec, /Governed projects should still get useful read-only status/i);
+    assert.match(spec, /governed VS Code slice is no longer read-only/i);
+    assert.match(spec, /step\/run launch/i);
 
     assert.match(extensionReadme, /Legacy mode/);
     assert.match(extensionReadme, /Governed mode/);
-    assert.match(extensionReadme, /read-only status/i);
+    assert.match(extensionReadme, /Start or Resume Governed Run/i);
   });
 });
 

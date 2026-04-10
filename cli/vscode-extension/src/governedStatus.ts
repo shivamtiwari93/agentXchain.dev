@@ -87,6 +87,11 @@ export interface GovernedStepAction {
   label: 'Dispatch Step' | 'Resume Step';
 }
 
+export interface GovernedRunAction {
+  cliArgs: string[];
+  label: 'Start Run' | 'Resume Run';
+}
+
 export async function loadGovernedStatus(root: string): Promise<GovernedStatusPayload> {
   const { stdout, stderr } = await execCliCommand(root, ['status', '--json']);
   return parseGovernedStatus(stdout, stderr);
@@ -197,6 +202,7 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
   const pendingTransition = state?.pending_phase_transition;
   const pendingCompletion = state?.pending_run_completion;
   const stepAction = getGovernedStepAction(payload);
+  const runAction = getGovernedRunAction(payload);
 
   return `<!DOCTYPE html>
 <html>
@@ -262,6 +268,9 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
     : ''}
   ${stepAction
     ? `<div class="section"><div class="label">${stepAction.label === 'Resume Step' ? 'Recovery action' : 'Next action'}</div><div style="margin-top:8px;"><a class="btn btn-secondary" href="command:agentxchain.step">${escapeHtml(stepAction.label)}</a></div></div>`
+    : ''}
+  ${runAction
+    ? `<div class="section"><div class="label">Run loop</div><div style="margin-top:8px;"><a class="btn btn-secondary" href="command:agentxchain.run">${escapeHtml(runAction.label)}</a></div></div>`
     : ''}
   ${state?.blocked || state?.status === 'blocked'
     ? `<div class="section"><div class="blocked">Blocked reason: ${escapeHtml(state?.blocked_reason || state?.blocked_on || 'unknown')}</div></div>`
@@ -369,6 +378,29 @@ export function getGovernedStepAction(payload: GovernedStatusPayload): GovernedS
   return {
     cliArgs: ['step'],
     label: 'Dispatch Step',
+  };
+}
+
+export function getGovernedRunAction(payload: GovernedStatusPayload): GovernedRunAction | null {
+  const state = payload.state ?? null;
+  if (!state) {
+    return {
+      cliArgs: ['run'],
+      label: 'Start Run',
+    };
+  }
+
+  if (state.pending_phase_transition || state.pending_run_completion) {
+    return null;
+  }
+
+  if (state.blocked || state.status === 'blocked' || state.status === 'completed' || state.status === 'failed') {
+    return null;
+  }
+
+  return {
+    cliArgs: ['run'],
+    label: state.status === 'idle' ? 'Start Run' : 'Resume Run',
   };
 }
 

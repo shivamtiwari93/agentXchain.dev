@@ -38,6 +38,7 @@ const vscode = __importStar(require("vscode"));
 const governedStatus_1 = require("./governedStatus");
 const util_1 = require("./util");
 const notificationState_1 = require("./notificationState");
+const runTerminal_1 = require("./runTerminal");
 class GovernedNotificationService {
     previous = null;
     root;
@@ -87,7 +88,7 @@ class GovernedNotificationService {
             const reason = current.blockedReason || 'unknown reason';
             vscode.window.showErrorMessage(`Governed run blocked: ${reason}`);
         }
-        if (diff.turnCompleted) {
+        if (diff.turnCompleted && !(0, runTerminal_1.hasActiveGovernedRunTerminal)()) {
             const phase = payload.state?.phase || 'unknown';
             vscode.window.showInformationMessage(`Turn ${current.turnSequence} completed (phase: ${phase})`);
         }

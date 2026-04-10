@@ -33,18 +33,35 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerCommands = registerCommands;
+exports.hasActiveGovernedRunTerminal = hasActiveGovernedRunTerminal;
+exports.launchGovernedRunTerminal = launchGovernedRunTerminal;
 const vscode = __importStar(require("vscode"));
-const claim_1 = require("./claim");
-const release_1 = require("./release");
-const status_1 = require("./status");
-const generate_1 = require("./generate");
-const init_1 = require("./init");
-const approve_transition_1 = require("./approve-transition");
-const approve_completion_1 = require("./approve-completion");
-const step_1 = require("./step");
-const run_1 = require("./run");
-function registerCommands(context, root) {
-    context.subscriptions.push(vscode.commands.registerCommand('agentxchain.init', () => (0, init_1.runInit)()), vscode.commands.registerCommand('agentxchain.generate', () => (0, generate_1.runGenerate)(root)), vscode.commands.registerCommand('agentxchain.claim', () => (0, claim_1.claimLock)(root)), vscode.commands.registerCommand('agentxchain.release', () => (0, release_1.releaseLock)(root)), vscode.commands.registerCommand('agentxchain.status', () => (0, status_1.showStatus)(root)), vscode.commands.registerCommand('agentxchain.approveTransition', () => (0, approve_transition_1.approvePhaseTransition)(root)), vscode.commands.registerCommand('agentxchain.approveCompletion', () => (0, approve_completion_1.approveRunCompletion)(root)), vscode.commands.registerCommand('agentxchain.step', () => (0, step_1.runGovernedStep)(root)), vscode.commands.registerCommand('agentxchain.run', () => (0, run_1.runGovernedRun)(root)));
+const governedStatus_1 = require("./governedStatus");
+const GOVERNED_RUN_TERMINAL_NAMES = new Set(['AgentXchain Run', 'AgentXchain Resume']);
+function hasActiveGovernedRunTerminal() {
+    return findActiveGovernedRunTerminal() !== null;
 }
-//# sourceMappingURL=index.js.map
+function launchGovernedRunTerminal(root, action) {
+    const existing = findActiveGovernedRunTerminal();
+    if (existing) {
+        existing.show();
+        return 'reused';
+    }
+    const terminal = vscode.window.createTerminal({
+        name: action.label === 'Start Run' ? 'AgentXchain Run' : 'AgentXchain Resume',
+        cwd: root,
+        env: { NO_COLOR: '1' },
+    });
+    terminal.show();
+    terminal.sendText((0, governedStatus_1.buildCliShellCommand)(action.cliArgs), true);
+    return 'launched';
+}
+function findActiveGovernedRunTerminal() {
+    for (const terminal of vscode.window.terminals) {
+        if (GOVERNED_RUN_TERMINAL_NAMES.has(terminal.name) && terminal.exitStatus == null) {
+            return terminal;
+        }
+    }
+    return null;
+}
+//# sourceMappingURL=runTerminal.js.map

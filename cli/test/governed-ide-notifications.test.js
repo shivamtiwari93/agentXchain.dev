@@ -312,6 +312,22 @@ describe('Governed IDE Notifications — extension wiring', () => {
     );
   });
 
+  it('notifications.ts suppresses turn-completion toasts while an IDE-launched run terminal is active', () => {
+    const notifSrc = readFileSync(
+      join(EXTENSION_ROOT, 'src', 'notifications.ts'),
+      'utf8'
+    );
+    assert.ok(
+      notifSrc.includes("import { hasActiveGovernedRunTerminal } from './runTerminal'"),
+      'notifications.ts must consult active governed run terminals'
+    );
+    assert.match(
+      notifSrc,
+      /diff\.turnCompleted && !hasActiveGovernedRunTerminal\(\)/,
+      'turn-completion notifications must be suppressed while a governed run terminal is active'
+    );
+  });
+
   it('notifications.ts fires approve commands via vscode.commands.executeCommand', () => {
     const notifSrc = readFileSync(
       join(EXTENSION_ROOT, 'src', 'notifications.ts'),
@@ -358,8 +374,8 @@ describe('Governed IDE Notifications — no direct governed state writes', () =>
   });
 });
 
-describe('Governed IDE Notifications — package.json unchanged', () => {
-  it('notification service does not add new commands to package.json', () => {
+describe('Governed IDE Notifications — package.json surface', () => {
+  it('notification service does not add notification-only commands and package.json now includes run', () => {
     const pkg = JSON.parse(readFileSync(join(EXTENSION_ROOT, 'package.json'), 'utf8'));
     const commands = pkg.contributes?.commands ?? [];
     const commandIds = commands.map(c => c.command);
@@ -367,7 +383,8 @@ describe('Governed IDE Notifications — package.json unchanged', () => {
       !commandIds.some(id => id.includes('notification')),
       'notification service must not register new commands — it reuses existing approval commands'
     );
-    assert.equal(commandIds.length, 8, 'should still have exactly 8 commands');
+    assert.equal(commandIds.length, 9, 'should now have exactly 9 commands');
+    assert.ok(commandIds.includes('agentxchain.run'), 'package.json must declare agentxchain.run');
   });
 });
 

@@ -568,9 +568,11 @@ function Integrations() {
             <h3>Legacy IDE compatibility</h3>
             <p>
               VS Code and Cursor compatibility is available today for legacy
-              lock-based coordination. Governed repos get read-only status in
-              the IDE, while approvals, reports, and full run control stay in
-              the browser dashboard and CLI.
+              lock-based coordination. In governed repos, the VS Code extension
+              adds CLI-backed status, approvals, step/run launch, and
+              state-change notifications. Reports, multi-repo operations, and
+              the richer governance view still live in the browser dashboard
+              and CLI.
             </p>
           </div>
           <div className="feature-card">

@@ -4,7 +4,7 @@
 
 Keep the IDE surface truthful.
 
-Today the in-repo VS Code extension is a **legacy lock-based coordination** tool. It is not a full governed-run control plane. Governed projects should still get useful read-only status in the IDE, but the extension must not pretend it can approve gates, drive governed transitions, or replace the browser dashboard / CLI.
+Today the in-repo VS Code extension is still the **legacy lock-based coordination** tool for old v3-style workflows, but the governed VS Code slice is no longer read-only. Governed projects now get CLI-backed status, approvals, step/run launch, and state-change notifications in the IDE. The extension is still not a full governed control plane and must not pretend to replace the browser dashboard or broader CLI.
 
 ## Interface
 
@@ -13,14 +13,18 @@ Today the in-repo VS Code extension is a **legacy lock-based coordination** tool
   - expose shared project-surface helpers for the extension UI
 - `cli/vscode-extension/src/statusBar.ts`
   - show legacy lock-holder state for legacy projects
-  - show governed phase/status in read-only form for governed projects
+  - show governed phase/status for governed projects
 - `cli/vscode-extension/src/sidebar.ts`
-  - render a governed-mode notice instead of a fake legacy dashboard when lock files do not exist
+  - render governed status plus only the CLI-backed actions that are actually valid
 - `cli/vscode-extension/src/commands/{claim,release,generate,status}.ts`
   - `claim`, `release`, and `generate` fail closed with a clear governed-mode boundary message
   - `status` remains available for both modes
+- `cli/vscode-extension/src/commands/{approve-transition,approve-completion,step,run}.ts`
+  - governed actions remain CLI-backed only
+  - approvals use subprocess execution
+  - step/run use integrated terminals for operator-visible output and killability
 - Public docs / marketing
-  - homepage copy must describe the IDE surface as legacy compatibility plus governed read-only status, not in-IDE governed approvals
+  - homepage copy must describe the IDE surface as legacy compatibility plus a bounded governed operator slice, not a full in-IDE replacement for the dashboard / CLI
 
 ## Behavior
 
@@ -37,9 +41,11 @@ Today the in-repo VS Code extension is a **legacy lock-based coordination** tool
 ### Governed extension behavior
 
 - Status bar shows governed mode plus current phase/status when available.
-- Sidebar shows project, mode, phase, run status, blocked reason if present, and a clear note:
-  - governed approvals, reports, and detailed activity remain in CLI/browser surfaces
-- `AgentXchain: Status` shows a read-only governed summary.
+- Sidebar shows project, mode, phase, run status, blocked reason if present, approval buttons when gates are pending, and step/run launch buttons only when the CLI-backed status contract says they are valid.
+- `AgentXchain: Status` shows a governed summary backed by `agentxchain status --json`.
+- `AgentXchain: Approve Phase Transition` and `AgentXchain: Approve Run Completion` remain CLI subprocess wrappers, not direct state mutation paths.
+- `AgentXchain: Step` and `AgentXchain: Run` launch integrated terminals. They do not run hidden background loops.
+- Reports, restart flows, multi-repo operations, and richer governance views remain in browser/CLI surfaces.
 - `AgentXchain: Claim Lock`, `Release Lock`, and `Generate Agent Files` must not mutate or scaffold legacy artifacts inside governed projects.
 
 ### Legacy extension behavior
@@ -57,10 +63,10 @@ Today the in-repo VS Code extension is a **legacy lock-based coordination** tool
 
 1. A temp repo with governed `agentxchain.json` and `.agentxchain/state.json` is detected as `governed`.
 2. A temp repo with legacy `agentxchain.json`, `lock.json`, and `state.json` is detected as `legacy`.
-3. The extension boundary notice explicitly directs governed users to the dashboard / CLI instead of promising in-IDE approvals.
-4. Homepage copy does not claim IDE-based governed approvals or “governed workflows into your editor”.
-5. Homepage copy still mentions the IDE surface, but as legacy compatibility / read-only governed status rather than a full governed control plane.
+3. The extension boundary notice explicitly says governed actions remain CLI-backed and points users to the dashboard / CLI for deeper governed surfaces.
+4. Homepage copy mentions the shipped governed IDE slice honestly: status, approvals, step/run launch, and notifications.
+5. Homepage copy still avoids claiming the IDE is a full governed control plane or a dashboard replacement.
 
 ## Open Questions
 
-- If a first-class governed IDE connector ships later, add a separate spec rather than mutating this boundary silently.
+- `.planning/GOVERNED_IDE_CONNECTOR_SPEC.md` is now the detailed governed contract. This boundary spec remains the high-level honesty guard for legacy-vs-governed positioning and public copy.

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { GovernedStatusPayload, loadGovernedStatus } from './governedStatus';
 import { detectProjectMode } from './util';
 import { GovernedSnapshot, snapshotFromPayload, diffRequiresNotification } from './notificationState';
+import { hasActiveGovernedRunTerminal } from './runTerminal';
 
 export class GovernedNotificationService {
   private previous: GovernedSnapshot | null = null;
@@ -66,7 +67,7 @@ export class GovernedNotificationService {
       vscode.window.showErrorMessage(`Governed run blocked: ${reason}`);
     }
 
-    if (diff.turnCompleted) {
+    if (diff.turnCompleted && !hasActiveGovernedRunTerminal()) {
       const phase = payload.state?.phase || 'unknown';
       vscode.window.showInformationMessage(
         `Turn ${current.turnSequence} completed (phase: ${phase})`
