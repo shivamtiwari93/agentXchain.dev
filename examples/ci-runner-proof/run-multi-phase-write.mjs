@@ -301,6 +301,7 @@ function validateArtifacts(root) {
       sha256: sha256(rawState),
       status: state.status,
       phase: state.phase,
+      phase_gate_status: state.phase_gate_status || {},
     },
     history: {
       valid: history.length >= 3,
@@ -385,6 +386,19 @@ async function main() {
           errors.push(`phase "${phase}" missing from history — not a true 3-phase run`);
         }
       }
+      const expectedGateStatuses = {
+        planning_gate: 'passed',
+        implementation_gate: 'passed',
+        qa_gate: 'passed',
+      };
+      for (const [gateId, expectedStatus] of Object.entries(expectedGateStatuses)) {
+        const actualStatus = artifacts.state.phase_gate_status?.[gateId];
+        if (actualStatus !== expectedStatus) {
+          errors.push(
+            `phase_gate_status.${gateId} expected "${expectedStatus}", got "${actualStatus || 'missing'}"`,
+          );
+        }
+      }
 
       if (!artifacts.ledger.valid) {
         errors.push('decision ledger does not contain at least 3 entries');
@@ -454,6 +468,7 @@ function report(root, { errors, result, events, artifacts }) {
               phases: artifacts.history.phases,
             },
             ledger: { entry_count: artifacts.ledger.entry_count },
+            phase_gate_status: artifacts.state.phase_gate_status,
             gate_artifact: artifacts.gate_artifact,
             proposed_turns: artifacts.proposed_turns,
             cost: artifacts.cost,
@@ -472,7 +487,12 @@ function emitReport({ payload }) {
     console.log(`  Phases:  ${payload.phases.join(' → ')}`);
     console.log(`  Roles:   ${payload.roles.join(' → ')}`);
     console.log(`  Turns:   ${payload.turns_executed} executed`);
-    console.log(`  Gates:   ${payload.gates_approved} approved`);
+    console.log(`  Gate approvals paused-for-human: ${payload.gates_approved}`);
+    console.log(
+      `  Phase gate status: ${Object.entries(payload.artifacts?.phase_gate_status || {})
+        .map(([gateId, status]) => `${gateId}=${status}`)
+        .join(', ') || 'none'}`,
+    );
     console.log(`  Gate artifact: src/server.js (${payload.artifacts?.gate_artifact?.size_bytes || 0} bytes)`);
     console.log(`  Cost:    $${payload.artifacts?.cost?.total_usd?.toFixed(4) || '?'} total`);
     console.log(`  Result:  PASS — 3-phase governed lifecycle with write-owning turn and gate artifact`);

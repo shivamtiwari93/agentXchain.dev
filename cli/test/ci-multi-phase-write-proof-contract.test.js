@@ -11,6 +11,7 @@
  *   7. uses Haiku for cost control with budget guard
  *   8. wired into CI workflow
  *   9. single JSON payload on retry exhaustion
+ *  10. reports gate-pass evidence through phase_gate_status
  */
 
 import { describe, it } from 'node:test';
@@ -125,18 +126,29 @@ describe('CI multi-phase write proof: composition boundary', () => {
       'must validate at least 3 turns with real API cost',
     );
   });
+
+  it('AT-CIMPA-C14: reports auto-advanced gate truth through phase_gate_status', () => {
+    assert.ok(
+      source.includes('phase_gate_status'),
+      'proof payload must report phase_gate_status for auto-advanced gates',
+    );
+    assert.ok(
+      source.includes('implementation_gate') && source.includes('qa_gate'),
+      'proof must validate expected gate ids, not only count paused approvals',
+    );
+  });
 });
 
 describe('CI multi-phase write proof: workflow wiring', () => {
-  it('AT-CIMPA-C14: proof script exists', () => {
+  it('AT-CIMPA-C15: proof script exists', () => {
     assert.ok(existsSync(PROOF_SCRIPT), 'run-multi-phase-write.mjs must exist');
   });
 
-  it('AT-CIMPA-C15: spec exists', () => {
+  it('AT-CIMPA-C16: spec exists', () => {
     assert.ok(existsSync(SPEC_PATH), 'CI_MULTI_PHASE_AUTHORITATIVE_PROOF_SPEC.md must exist');
   });
 
-  it('AT-CIMPA-C16: CI workflow references the proof script', () => {
+  it('AT-CIMPA-C17: CI workflow references the proof script', () => {
     assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(
@@ -145,7 +157,7 @@ describe('CI multi-phase write proof: workflow wiring', () => {
     );
   });
 
-  it('AT-CIMPA-C17: --json emits one parseable payload even after retries', () => {
+  it('AT-CIMPA-C18: --json emits one parseable payload even after retries', () => {
     const result = spawnSync(process.execPath, [PROOF_SCRIPT, '--json'], {
       cwd: REPO_ROOT,
       encoding: 'utf8',

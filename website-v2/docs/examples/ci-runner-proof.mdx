@@ -20,7 +20,7 @@ description: "Repo-native runner proofs plus real-dispatch CI proofs for unatten
 - Composition proof: `runLoop` on top of the primitive layer
 - Real API dispatch proof: `runLoop` + `api_proxy`
 - Operator-surface proof: `agentxchain run --auto-approve` in a real subprocess
-- Multi-phase write proof: 3-phase lifecycle with write-owning (proposed) turn and real gate artifact check
+- Multi-phase write proof: 3-phase lifecycle with write-owning (proposed) turn, real gate artifact check, and explicit `phase_gate_status` proof for auto-advanced gates
 
 ## How AgentXchain Governs This Example
 
@@ -49,3 +49,4 @@ node examples/ci-runner-proof/run-multi-phase-write.mjs
 - Prove the primitive layer before you build higher-level orchestration.
 - Do not call a CLI wrapper a second runner.
 - Keep the CLI proof separate from the runner proof. They defend different failure boundaries.
+- For the multi-phase CI proof, read `phase_gate_status` as the authoritative gate-pass signal. `gates_approved` only counts gates that paused for approval.

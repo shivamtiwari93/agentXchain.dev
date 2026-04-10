@@ -9,6 +9,7 @@ This is the next honest widening of the CI lights-out proof surface. The existin
 1. A `proposed`-authority turn that produces real file content via Haiku
 2. A gate with `requires_files` that checks for that file in the workspace
 3. A 3-phase lifecycle (planning → implementation → qa)
+4. Durable gate-pass evidence via `state.phase_gate_status`, because `gates_approved` only counts paused approvals that flowed through `approveGate`
 
 ## Interface
 
@@ -32,21 +33,21 @@ This is the next honest widening of the CI lights-out proof surface. The existin
   "schema_version": 4,
   "protocol_mode": "governed",
   "routing": {
-    "planning": {
-      "entry_role": "planner",
-      "allowed_next_roles": ["planner", "implementer", "qa_reviewer", "human"],
-      "exit_gate": "planning_gate"
-    },
-    "implementation": {
-      "entry_role": "implementer",
-      "allowed_next_roles": ["planner", "implementer", "qa_reviewer", "human"],
-      "exit_gate": "implementation_gate"
-    },
-    "qa": {
-      "entry_role": "qa_reviewer",
-      "allowed_next_roles": ["planner", "implementer", "qa_reviewer", "human"],
-      "exit_gate": "qa_gate"
-    }
+      "planning": {
+        "entry_role": "planner",
+        "allowed_next_roles": ["planner", "implementer", "qa", "human"],
+        "exit_gate": "planning_gate"
+      },
+      "implementation": {
+        "entry_role": "implementer",
+        "allowed_next_roles": ["planner", "implementer", "qa", "human"],
+        "exit_gate": "implementation_gate"
+      },
+      "qa": {
+        "entry_role": "qa",
+        "allowed_next_roles": ["planner", "implementer", "qa", "human"],
+        "exit_gate": "qa_gate"
+      }
   },
   "gates": {
     "planning_gate": {},
@@ -64,7 +65,7 @@ This is the next honest widening of the CI lights-out proof surface. The existin
       "write_authority": "proposed",
       "runtime_class": "api_proxy"
     },
-    "qa_reviewer": {
+    "qa": {
       "write_authority": "review_only",
       "runtime_class": "api_proxy"
     }
@@ -80,7 +81,7 @@ This is the next honest widening of the CI lights-out proof surface. The existin
 
 2. **Implementation phase** — `implementer` (proposed) receives the plan context and produces `proposed_changes` containing `src/server.js` with real Node.js code. Mandate instructs the model to write a hello-world HTTP server and request phase transition to `qa`. Gate: `requires_files: ["src/server.js"]` — checks that the file exists in the workspace.
 
-3. **QA phase** — `qa_reviewer` (review_only) reviews the implementation. Mandate instructs the model to confirm the server code is reasonable and request run completion.
+3. **QA phase** — `qa` (review_only) reviews the implementation. Mandate instructs the model to confirm the server code is reasonable and request run completion.
 
 ### Proposal Application Strategy
 
@@ -92,7 +93,7 @@ This is honest because:
 - The gate evaluator performs a real workspace file check
 - No semantic coercion of model output
 
-Implementation: in the `dispatch` callback, after reading the staged turn result, if `proposed_changes` exists, copy each file to the workspace root. Then `gitCommitAll()` so the repo-observer baseline is clean. Return `{ accept: true, turnResult }` — the runLoop then runs gate evaluation, finds the file, and advances.
+Implementation: in the `dispatch` callback, after reading the staged turn result, if `proposed_changes` exists, copy each file to the workspace root. Then `gitCommitAll()` so the repo-observer baseline is clean. Return `{ accept: true, turnResult }` — the runLoop then runs gate evaluation, finds the file, and advances. Proof output must report `state.phase_gate_status` so auto-advanced gates are visible even when `gates_approved` remains `0`.
 
 ### Retry
 
@@ -135,7 +136,10 @@ The proof script must not contain any `normalizeTurnResult`, `normalizeCiTurnRes
 ### AT-CIMPA-006: Gate evaluated with requires_files
 The gate `implementation_gate` must use `requires_files: ["src/server.js"]`. The proof must not bypass or mock the gate evaluator.
 
-### AT-CIMPA-007: Single JSON payload on retry exhaustion
+### AT-CIMPA-007: Auto-advanced gate truth is reported explicitly
+The proof payload must include `phase_gate_status` showing `planning_gate`, `implementation_gate`, and `qa_gate` as `passed`. This is the authoritative gate-pass surface for this proof because no gate requires human approval.
+
+### AT-CIMPA-008: Single JSON payload on retry exhaustion
 In `--json` mode with all attempts failing, exactly one top-level JSON document is emitted with `attempts_used` and `attempt_history`.
 
 ## Open Questions
