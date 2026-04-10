@@ -30,8 +30,11 @@ This playbook exists because historical release notes and handoff specs in `.pla
   - `.agentxchain-conformance/capabilities.json`
   - `website-v2/docs/protocol-implementor-guide.mdx`
   - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+  - `website-v2/static/llms.txt`
+  - `website-v2/static/sitemap.xml`
 - Have an updated `cli/CHANGELOG.md` entry for the target version.
-- **Homebrew mirror alignment:** `current-release-surface.test.js` (AT-CRS-010, AT-CRS-011) enforces that the repo-mirror formula URL and README track the target version during preflight. `release-bump.sh` Step 5 auto-aligns these, so the recommended flow is: prepare the 7 manual surfaces above → run `bump:release` (which auto-aligns Homebrew) → run strict preflight. If you run default preflight *before* bump, you must manually align `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` first, or the Homebrew URL tests will fail. See `DEC-RELEASE-PREFLIGHT-004`.
+- **Discovery surface alignment:** `current-release-surface.test.js` (AT-CRS-012, AT-CRS-013) enforces that `website-v2/static/llms.txt` and `website-v2/static/sitemap.xml` list the current release route. If you cut a release without updating those files, the repo will publish incomplete public discovery truth.
+- **Homebrew mirror alignment:** `current-release-surface.test.js` (AT-CRS-010, AT-CRS-011) enforces that the repo-mirror formula URL and README track the target version during preflight. `release-bump.sh` Step 5 auto-aligns these, so the recommended flow is: prepare the 9 manual surfaces above → run `bump:release` (which auto-aligns Homebrew) → run strict preflight. If you run default preflight *before* bump, you must manually align `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` first, or the Homebrew URL tests will fail. See `DEC-RELEASE-PREFLIGHT-004`.
 - Use the canonical package and workflow:
   - package: `cli/package.json` (`name: agentxchain`)
   - workflow: `.github/workflows/publish-npm-on-tag.yml`
@@ -108,7 +111,7 @@ npm run preflight:release -- --target-version <semver>
 
 This is the soft gate. It checks git cleanliness, installs dependencies, runs tests, verifies the changelog heading, checks the package version, and does a pack dry-run. In default mode, dirty tree and pre-bump version mismatch are warnings. Everything else is fail-closed.
 
-**Important:** Default preflight runs `current-release-surface.test.js` with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, which checks all 11 governed surfaces including Homebrew mirror formula URL (AT-CRS-010) and README (AT-CRS-011). If you run default preflight before `bump:release`, the Homebrew mirror must already point at the target version's tarball URL, or AT-CRS-010/011 will fail. The recommended path is to skip default preflight and rely on `bump:release` + strict preflight (Option A in Release Commands).
+**Important:** Default preflight runs `current-release-surface.test.js` with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, which checks all 13 governed surfaces including release discoverability in `llms.txt`/`sitemap.xml` (AT-CRS-012, AT-CRS-013) and Homebrew mirror formula URL/README (AT-CRS-010, AT-CRS-011). If you run default preflight before `bump:release`, the discovery surfaces must already list the target release route and the Homebrew mirror must already point at the target version's tarball URL, or those checks will fail. The recommended path is to skip default preflight and rely on `bump:release` + strict preflight (Option A in Release Commands).
 
 ### 2. Create Release Identity
 
@@ -121,7 +124,7 @@ npm run bump:release -- --target-version <semver>
 
 This fail-closed script:
 1. Asserts the tree contains no dirty paths outside the target-version release-surface whitelist and the version is not already bumped
-2. Verifies all 7 manual governed version surfaces reference the target version
+2. Verifies all 9 manual governed version surfaces reference the target version, including release discoverability in `llms.txt` and `sitemap.xml`
 3. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous version's SHA (which is corrected post-publish by `sync-homebrew.sh`)
 4. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
 5. Stages all version files and allowed release surfaces (including Homebrew)

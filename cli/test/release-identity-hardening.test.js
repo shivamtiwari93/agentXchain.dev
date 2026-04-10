@@ -29,10 +29,12 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   const planningDir = join(root, '.planning');
   const conformanceDir = join(root, '.agentxchain-conformance');
   const homebrewDir = join(cliDir, 'homebrew');
+  const websiteStaticDir = join(root, 'website-v2', 'static');
 
   mkdirSync(scriptsDir, { recursive: true });
   mkdirSync(websiteDocsReleaseDir, { recursive: true });
   mkdirSync(websitePagesDir, { recursive: true });
+  mkdirSync(websiteStaticDir, { recursive: true });
   mkdirSync(planningDir, { recursive: true });
   mkdirSync(conformanceDir, { recursive: true });
   mkdirSync(homebrewDir, { recursive: true });
@@ -69,6 +71,8 @@ function createReleaseBumpFixture({ version = '2.19.0', existingTagVersion = nul
   writeFileSync(join(conformanceDir, 'capabilities.json'), JSON.stringify({ version }, null, 2) + '\n');
   writeFileSync(join(websiteDocsDir, 'protocol-implementor-guide.mdx'), `{"version": "${version}"}\n`);
   writeFileSync(join(planningDir, 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${version}\n`);
+  writeFileSync(join(websiteStaticDir, 'llms.txt'), `- [v${version}](https://agentxchain.dev/docs/releases/v${version.replace(/\./g, '-')})\n`);
+  writeFileSync(join(websiteStaticDir, 'sitemap.xml'), `<urlset>\n  <url>\n    <loc>https://agentxchain.dev/docs/releases/v${version.replace(/\./g, '-')}</loc>\n  </url>\n</urlset>\n`);
   writeFileSync(join(homebrewDir, 'agentxchain.rb'), `class Agentxchain < Formula
   desc "CLI for AgentXchain governed multi-agent software delivery"
   homepage "https://agentxchain.dev"
@@ -117,6 +121,8 @@ function prepareTargetSurfaces(root, targetVersion) {
   writeFileSync(join(root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: targetVersion }, null, 2) + '\n');
   writeFileSync(join(root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), `{"version": "${targetVersion}"}\n`);
   writeFileSync(join(root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), `# Launch Evidence Report — AgentXchain v${targetVersion}\n`);
+  writeFileSync(join(root, 'website-v2', 'static', 'llms.txt'), `- [v${targetVersion}](https://agentxchain.dev/docs/releases/v${vDash})\n`);
+  writeFileSync(join(root, 'website-v2', 'static', 'sitemap.xml'), `<urlset>\n  <url>\n    <loc>https://agentxchain.dev/docs/releases/v${vDash}</loc>\n  </url>\n</urlset>\n`);
   writeFileSync(join(root, 'cli', 'homebrew', 'agentxchain.rb'), `class Agentxchain < Formula
   desc "CLI for AgentXchain governed multi-agent software delivery"
   homepage "https://agentxchain.dev"
@@ -339,6 +345,7 @@ describe('Release identity hardening', () => {
       assert.match(spec, /AT-RIH-006/, 'spec must require fail-closed mutation guards');
       assert.match(spec, /AT-RIH-007/, 'spec must require release-surface inclusion proof');
       assert.match(spec, /AT-RIH-009/, 'spec must require Homebrew mirror release-surface proof');
+      assert.match(spec, /AT-RIH-010/, 'spec must require discovery-surface release proof');
     });
   });
 
@@ -444,6 +451,28 @@ describe('Release identity hardening', () => {
       assert.match(result.stderr, /version-surface.*not aligned/);
     });
 
+    it('AT-RIH-010: fails when llms.txt omits the current release route', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      writeFileSync(join(fixture.root, 'website-v2', 'static', 'llms.txt'), '- [v2.19.0](https://agentxchain.dev/docs/releases/v2-19-0)\n');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /website-v2\/static\/llms\.txt/);
+      assert.match(result.stderr, /version-surface.*not aligned/);
+    });
+
+    it('fails when sitemap.xml omits the current release route', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      writeFileSync(join(fixture.root, 'website-v2', 'static', 'sitemap.xml'), '<urlset>\n</urlset>\n');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /website-v2\/static\/sitemap\.xml/);
+      assert.match(result.stderr, /version-surface.*not aligned/);
+    });
+
     it('auto-aligns stale Homebrew mirror instead of rejecting the bump', () => {
       const fixture = createReleaseBumpFixture();
       prepareTargetSurfaces(fixture.root, '2.20.0');
@@ -485,6 +514,8 @@ describe('Release identity hardening', () => {
       writeFileSync(join(fixture.root, '.agentxchain-conformance', 'capabilities.json'), JSON.stringify({ version: '2.20.0' }, null, 2) + '\n');
       writeFileSync(join(fixture.root, 'website-v2', 'docs', 'protocol-implementor-guide.mdx'), '{"version": "2.20.0"}\n');
       writeFileSync(join(fixture.root, '.planning', 'LAUNCH_EVIDENCE_REPORT.md'), '# Launch Evidence Report — AgentXchain v2.20.0\n');
+      writeFileSync(join(fixture.root, 'website-v2', 'static', 'llms.txt'), '- [v2.20.0](https://agentxchain.dev/docs/releases/v2-20-0)\n');
+      writeFileSync(join(fixture.root, 'website-v2', 'static', 'sitemap.xml'), '<urlset>\n  <url>\n    <loc>https://agentxchain.dev/docs/releases/v2-20-0</loc>\n  </url>\n</urlset>\n');
       writeFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), 'class Agentxchain < Formula\n  desc "CLI for AgentXchain governed multi-agent software delivery"\n  homepage "https://agentxchain.dev"\n  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.20.0.tgz"\n  sha256 "3333333333333333333333333333333333333333333333333333333333333333"\n  license "MIT"\nend\n');
       writeFileSync(join(fixture.root, 'cli', 'homebrew', 'README.md'), '# Homebrew distribution for AgentXchain\n\n- version: `2.20.0`\n- source tarball: `https://registry.npmjs.org/agentxchain/-/agentxchain-2.20.0.tgz`\n');
 
@@ -503,6 +534,8 @@ describe('Release identity hardening', () => {
       assert.ok(changedFiles.includes('.agentxchain-conformance/capabilities.json'));
       assert.ok(changedFiles.includes('website-v2/docs/protocol-implementor-guide.mdx'));
       assert.ok(changedFiles.includes('.planning/LAUNCH_EVIDENCE_REPORT.md'));
+      assert.ok(changedFiles.includes('website-v2/static/llms.txt'));
+      assert.ok(changedFiles.includes('website-v2/static/sitemap.xml'));
       assert.ok(changedFiles.includes('cli/homebrew/agentxchain.rb'));
       assert.ok(changedFiles.includes('cli/homebrew/README.md'));
     });

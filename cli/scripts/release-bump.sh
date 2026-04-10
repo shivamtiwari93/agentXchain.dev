@@ -56,6 +56,8 @@ ALLOWED_RELEASE_PATHS=(
   ".agentxchain-conformance/capabilities.json"
   "website-v2/docs/protocol-implementor-guide.mdx"
   ".planning/LAUNCH_EVIDENCE_REPORT.md"
+  "website-v2/static/llms.txt"
+  "website-v2/static/sitemap.xml"
   "cli/homebrew/agentxchain.rb"
   "cli/homebrew/README.md"
 )
@@ -168,6 +170,17 @@ if ! grep -qE "^# Launch Evidence Report — AgentXchain v${ESCAPED_VERSION}" "$
   SURFACE_ERRORS+=("LAUNCH_EVIDENCE_REPORT.md title does not carry v${TARGET_VERSION}")
 fi
 
+# 4h. llms.txt must list the current release notes route
+CURRENT_RELEASE_ROUTE="/docs/releases/${RELEASE_DOC_ID}"
+if ! grep -q "${CURRENT_RELEASE_ROUTE}" "${REPO_ROOT}/website-v2/static/llms.txt" 2>/dev/null; then
+  SURFACE_ERRORS+=("website-v2/static/llms.txt does not list '${CURRENT_RELEASE_ROUTE}'")
+fi
+
+# 4i. sitemap.xml must list the current release notes route
+if ! grep -q "${CURRENT_RELEASE_ROUTE}" "${REPO_ROOT}/website-v2/static/sitemap.xml" 2>/dev/null; then
+  SURFACE_ERRORS+=("website-v2/static/sitemap.xml does not list '${CURRENT_RELEASE_ROUTE}'")
+fi
+
 if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "FAIL: ${#SURFACE_ERRORS[@]} version-surface(s) not aligned to ${TARGET_VERSION}:" >&2
   printf '  - %s\n' "${SURFACE_ERRORS[@]}" >&2
@@ -176,7 +189,7 @@ if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
   echo "create release identity when governed surfaces are stale." >&2
   exit 1
 fi
-echo "  OK: all 7 governed version surfaces reference ${TARGET_VERSION}"
+echo "  OK: all 9 governed version surfaces reference ${TARGET_VERSION}"
 
 # 5. Auto-align Homebrew mirror to target version
 # The formula URL and README version/tarball are updated automatically.

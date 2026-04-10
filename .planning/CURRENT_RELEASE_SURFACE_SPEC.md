@@ -24,6 +24,8 @@ The guard reads:
 - `.agentxchain-conformance/capabilities.json`
 - `website-v2/docs/protocol-implementor-guide.mdx`
 - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+- `website-v2/static/llms.txt`
+- `website-v2/static/sitemap.xml`
 
 ## Behavior
 
@@ -36,12 +38,15 @@ The guard must enforce these invariants against the current `cli/package.json` v
 5. `.agentxchain-conformance/capabilities.json` `version` matches `cli/package.json`.
 6. The protocol implementor guide inline `capabilities.json` example includes the current version string.
 7. `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current release version.
+8. `website-v2/static/llms.txt` lists the current release-notes route.
+9. `website-v2/static/sitemap.xml` lists the current release-notes route.
 
 ## Error Cases
 
 - If `package.json` is bumped but the release page is missing, the guard fails.
 - If the changelog is updated but the homepage badge or sidebar is stale, the guard fails.
 - If the implementor guide or capabilities example lags the package version, the guard fails.
+- If the current release doc exists but `llms.txt` or `sitemap.xml` omit its public route, the guard fails.
 - If pre-bump release surfaces are validated with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, the guard fails when those surfaces do not match the target version even if `package.json` still points at the previous release.
 
 ## Acceptance Tests
@@ -53,3 +58,5 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - **AT-CRS-005**: The guard asserts `.agentxchain-conformance/capabilities.json` matches the package version.
 - **AT-CRS-006**: The guard asserts the protocol implementor guide example shows the current version.
 - **AT-CRS-009**: The guard asserts `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current version.
+- **AT-CRS-012**: The guard asserts `website-v2/static/llms.txt` lists the current release-notes route.
+- **AT-CRS-013**: The guard asserts `website-v2/static/sitemap.xml` lists the current release-notes route.

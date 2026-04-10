@@ -22,12 +22,15 @@ const HOME = read('website-v2/src/pages/index.tsx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
 const LAUNCH_EVIDENCE = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
+const LLMS = read('website-v2/static/llms.txt');
+const SITEMAP = read('website-v2/static/sitemap.xml');
 const HOMEBREW_FORMULA = read('cli/homebrew/agentxchain.rb');
 const HOMEBREW_README = read('cli/homebrew/README.md');
 const CURRENT_VERSION = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || PACKAGE.version;
 const CURRENT_RELEASE_DOC_ID = `releases/v${CURRENT_VERSION.replace(/\./g, '-')}`;
 const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`;
 const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchain-${CURRENT_VERSION}.tgz`;
+const CURRENT_RELEASE_ROUTE = `/docs/${CURRENT_RELEASE_DOC_ID}`;
 
 describe('current release surface', () => {
   it('AT-CRS-001: changelog top heading matches current package version', () => {
@@ -100,6 +103,22 @@ describe('current release surface', () => {
       HOMEBREW_README,
       new RegExp(`- source tarball: \`${CURRENT_TARBALL_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``),
       'Homebrew mirror README must track the current tarball URL',
+    );
+  });
+
+  it('AT-CRS-012: llms.txt lists the current release-notes route', () => {
+    assert.match(
+      LLMS,
+      new RegExp(CURRENT_RELEASE_ROUTE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'llms.txt must list the current release-notes route',
+    );
+  });
+
+  it('AT-CRS-013: sitemap.xml lists the current release-notes route', () => {
+    assert.match(
+      SITEMAP,
+      new RegExp(CURRENT_RELEASE_ROUTE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'sitemap.xml must list the current release-notes route',
     );
   });
 });

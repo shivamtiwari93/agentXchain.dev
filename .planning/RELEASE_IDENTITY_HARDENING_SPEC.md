@@ -8,7 +8,7 @@ Close two release-path defects exposed during the v2.19.0 cut:
 
 2. **Homebrew tap automation degrades to a warning when `HOMEBREW_TAP_TOKEN` is absent.** The CI workflow warns but continues, leaving the canonical tap stale. The operator contract says "Homebrew updates only after npm truth is live" — but it does not say "canonical tap truth is required for release completion." This ambiguity allowed v2.19.0 to require manual tap push.
 
-3. **The release-identity commit can exclude the already-validated target-version public surfaces.** `current-release-surface.test.js` validates changelog, release notes, homepage badge, capabilities, implementor-guide example, and launch evidence title against `AGENTXCHAIN_RELEASE_TARGET_VERSION`, but `release-bump.sh` only staged `package.json` and `package-lock.json`. That forces either a temporary version-drift prep commit or a final release commit that does not actually contain the validated release surfaces.
+3. **The release-identity commit can exclude the already-validated target-version public surfaces.** `current-release-surface.test.js` validates changelog, release notes, homepage badge, capabilities, implementor-guide example, launch evidence title, and release discoverability through `llms.txt` and `sitemap.xml` against `AGENTXCHAIN_RELEASE_TARGET_VERSION`. If `release-bump.sh` stages only a subset of those surfaces, operators are forced into temporary prep commits or a final release commit that does not actually contain the validated public truth.
 
 ## Interface
 
@@ -33,6 +33,8 @@ bash scripts/release-bump.sh --target-version <semver>
    - `.agentxchain-conformance/capabilities.json`
    - `website-v2/docs/protocol-implementor-guide.mdx`
    - `.planning/LAUNCH_EVIDENCE_REPORT.md`
+   - `website-v2/static/llms.txt`
+   - `website-v2/static/sitemap.xml`
    - `cli/homebrew/agentxchain.rb`
    - `cli/homebrew/README.md`
 6. Auto-aligns the Homebrew mirror formula URL and README version/tarball to the target version. The SHA256 is carried from the previous version because the registry tarball SHA is inherently a post-publish artifact (npm registry tarballs are not byte-identical to local `npm pack` output). `sync-homebrew.sh` corrects the SHA after publish. See `DEC-HOMEBREW-SHA-SPLIT-001`.
@@ -62,7 +64,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 3. Assert `package.json` version ≠ target (prevent double-bump)
 4. Assert the tree contains no dirty paths outside the release-surface whitelist for the target version
 5. Run `npm version ${TARGET} --no-git-tag-version` — this updates `package.json` only
-6. Fail closed unless every governed version surface already references the target version (7 surfaces: changelog, release notes page, sidebar, homepage badge, capabilities, implementor guide, launch evidence)
+6. Fail closed unless every governed version surface already references the target version (9 manual surfaces: changelog, release notes page, sidebar, homepage badge, capabilities, implementor guide, launch evidence, `llms.txt`, `sitemap.xml`)
 7. Auto-align the Homebrew mirror formula URL and README to the target version (SHA carried from previous version; corrected post-publish by `sync-homebrew.sh`)
 8. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist
 9. `git commit -m "${TARGET}"`
@@ -92,6 +94,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-007`: In a temp git repo with target-version release-surface edits staged only in the whitelist, `release-bump.sh --target-version <semver>` includes those release-surface files in the release commit instead of rejecting the tree or omitting them
 - `AT-RIH-008`: `release-bump.sh` rejects the bump when version surfaces still reference the old version (all-stale and partial-drift cases), does not mutate `package.json`, and does not create a tag
 - `AT-RIH-009`: The repo-mirrored Homebrew formula and `cli/homebrew/README.md` are auto-aligned by `release-bump.sh`: the URL and version are updated to the target version automatically, the SHA256 is carried from the previous version (post-publish artifact), and both files are staged into the release commit
+- `AT-RIH-010`: In a temp git repo with target-version discovery-surface edits prepared, `release-bump.sh --target-version <semver>` stages `website-v2/static/llms.txt` and `website-v2/static/sitemap.xml` into the same release commit, and rejects the bump if either omits the current release route
 
 ## Open Questions
 
