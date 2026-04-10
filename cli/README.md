@@ -24,7 +24,7 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 See governance before you scaffold a real repo:
 
 ```bash
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and removes the temp workspace when finished. No API keys, config edits, or manual turn authoring required.
@@ -33,12 +33,13 @@ Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governe
 
 ```bash
 npm install -g agentxchain
+agentxchain --version
 ```
 
-Or run without installing:
+For a zero-install one-off command, use the package-bound form:
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 ## Testing
@@ -62,7 +63,7 @@ Duplicate execution remains intentional for the current 36-file slice until a la
 ### Governed workflow
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
 git add -A
@@ -74,13 +75,13 @@ agentxchain step --role pm
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it during scaffold creation:
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
 ```
 
 If you want template-specific planning artifacts from day one:
 
 ```bash
-npx agentxchain init --governed --template api-service --dir my-agentxchain-project -y
+agentxchain init --governed --template api-service --dir my-agentxchain-project -y
 ```
 
 Built-in governed templates:
@@ -119,8 +120,8 @@ Default governed scaffolding configures QA as `api_proxy` with `ANTHROPIC_API_KE
 For initiatives spanning multiple governed repos, use the coordinator to add cross-repo sequencing and shared gates:
 
 ```bash
-npx agentxchain init --governed --template api-service --dir repos/backend -y
-npx agentxchain init --governed --template web-app --dir repos/frontend -y
+agentxchain init --governed --template api-service --dir repos/backend -y
+agentxchain init --governed --template web-app --dir repos/frontend -y
 agentxchain multi init
 agentxchain multi step --json
 ```

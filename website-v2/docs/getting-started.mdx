@@ -16,7 +16,7 @@ The key constraint: the shipped scaffold is mixed-mode by default.
 
 That means:
 
-- `npx agentxchain demo` needs no API keys
+- `npx --yes -p agentxchain@latest -c "agentxchain demo"` needs no API keys
 - your first real repo can start with a manual planning turn immediately
 - the default QA leg needs `ANTHROPIC_API_KEY` unless you change `roles.qa.runtime` to `manual-qa` first
 
@@ -25,13 +25,7 @@ If you want artifact-by-artifact detail, read [Your First Governed Turn](/docs/f
 ## 1. Run the demo first
 
 ```bash
-npx agentxchain demo
-```
-
-If npm resolves to a stale global install and you get `unknown command 'demo'`, use the package-bound form:
-
-```bash
-npx -p agentxchain@latest -c 'agentxchain demo'
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 The demo proves the governed lifecycle without requiring any setup. Do not skip it if you are evaluating the product.
@@ -39,8 +33,11 @@ The demo proves the governed lifecycle without requiring any setup. Do not skip 
 ## 2. Scaffold a real repo
 
 ```bash
+npm install -g agentxchain
+agentxchain --version
+
 mkdir my-first-governed && cd my-first-governed
-npx agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --dir . -y
 git init
 git add -A
 git commit -m "initial governed scaffold"
@@ -229,7 +226,7 @@ That proves scaffold/config agreement only. It does not mean the phase gate is r
 The default scaffold uses `pm`, `dev`, and `qa`. If your workflow needs additional governed roles like `architect` or `security_reviewer` with dedicated phases and artifact contracts, use the `enterprise-app` template:
 
 ```bash
-npx agentxchain init --governed --template enterprise-app --dir my-enterprise -y
+agentxchain init --governed --template enterprise-app --dir my-enterprise -y
 ```
 
 This scaffolds a 5-phase workflow (`planning → architecture → implementation → security_review → qa`) with 6 roles, custom gate artifacts, and structurally validated docs for each phase. See [Templates — Blueprint-backed templates](/docs/templates#blueprint-backed-templates--custom-roles-and-phases) for the full walkthrough.

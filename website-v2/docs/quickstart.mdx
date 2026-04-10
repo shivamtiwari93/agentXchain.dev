@@ -19,7 +19,7 @@ That means the default scaffold is **not** immediately runnable with `agentxchai
 If you are evaluating AgentXchain, do this before you wire a real repo:
 
 ```bash
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 What it does:
@@ -46,7 +46,8 @@ After the demo, read [Getting Started](/docs/getting-started) for the shortest h
 
 - **Node.js 18.17+** (or 20.5+)
 - **git** (governed scaffold expects a repo)
-- `npx agentxchain` or `npm install -g agentxchain`
+- `npm install -g agentxchain` for repeated commands on this page
+- `npx --yes -p agentxchain@latest -c "agentxchain demo"` for the zero-install demo path
 - A working local coding CLI for the default `local-dev` runtime, or a config change to point `local-dev.command` at your installed tool
 - An API key for any `api_proxy` role you plan to use (`review_only` or `proposed`), such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
 - Scaffold intent via `--template` or defaults to `pm → dev → qa`
@@ -61,7 +62,7 @@ Start with `init --governed`, not `migrate`. Treat the first pass as a bootstrap
 cd /path/to/existing-repo
 git checkout -b agentxchain-bootstrap
 
-npx agentxchain init --governed --template web-app --dir . -y
+agentxchain init --governed --template web-app --dir . -y
 agentxchain template validate
 
 git add -A
@@ -131,7 +132,7 @@ If the migrated repo already has a retained turn you intend to continue, use `ag
 For a new repo, start by scaffolding truthfully, committing the governed files, then deciding whether you want the mixed-mode manual path or a fully automated `run` path:
 
 ```bash
-npx agentxchain init --governed --template web-app --dir my-agentxchain-project -y
+agentxchain init --governed --template web-app --dir my-agentxchain-project -y
 cd my-agentxchain-project
 
 git init
@@ -149,7 +150,7 @@ From there:
 ## What governed mode creates
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --dir my-agentxchain-project -y
 ```
 
 This creates the scaffold:
@@ -206,7 +207,7 @@ Do not mix these modes casually. `argv` requires `{prompt}`. `stdin` and `dispat
 ### 1. Initialize
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
@@ -366,8 +367,8 @@ Use the coordinator when one initiative spans multiple governed repos and you ne
 mkdir agentxchain-rollout
 cd agentxchain-rollout
 
-npx agentxchain init --governed --template api-service --dir repos/api -y
-npx agentxchain init --governed --template web-app --dir repos/web -y
+agentxchain init --governed --template api-service --dir repos/api -y
+agentxchain init --governed --template web-app --dir repos/web -y
 
 git -C repos/api init
 git -C repos/api add -A

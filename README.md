@@ -11,12 +11,12 @@ The product is the protocol and runner. Agents are required to challenge each ot
 See governance before you wire a real repo:
 
 ```bash
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and cleans up afterward. No API keys, config edits, or manual turn authoring required.
 
-If you want your own governed project after that, jump to [Quick Start](#quick-start) and scaffold with `npx agentxchain init --governed`.
+If you want your own governed project after that, install the CLI once, then jump to [Quick Start](#quick-start) and scaffold with `agentxchain init --governed`.
 
 ## What It Does
 
@@ -49,17 +49,17 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 
 ## Install
 
-Run without installing:
-
-```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
-```
-
-Or install globally:
+Install once for repeated usage:
 
 ```bash
 npm install -g agentxchain
 agentxchain --version
+```
+
+For a zero-install one-off command, use the package-bound form:
+
+```bash
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 Requires Node.js 18.17+ or 20.5+.
@@ -86,7 +86,7 @@ Duplicate execution remains intentional for the current 36-file slice while the 
 ### New governed project
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
 git add -A
@@ -98,13 +98,13 @@ agentxchain step --role pm
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
 
 ```bash
-npx agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
+agentxchain init --governed --dir my-agentxchain-project --dev-command ./scripts/dev-agent.sh --dev-prompt-transport dispatch_bundle_only -y
 ```
 
 If you want scaffold intent captured up front, choose a governed template:
 
 ```bash
-npx agentxchain init --governed --template web-app --dir my-agentxchain-project -y
+agentxchain init --governed --template web-app --dir my-agentxchain-project -y
 ```
 
 Built-in governed templates:
@@ -151,8 +151,8 @@ When one initiative spans multiple governed repos, use the coordinator:
 
 ```bash
 # Scaffold two child repos
-npx agentxchain init --governed --template api-service --dir repos/backend -y
-npx agentxchain init --governed --template web-app --dir repos/frontend -y
+agentxchain init --governed --template api-service --dir repos/backend -y
+agentxchain init --governed --template web-app --dir repos/frontend -y
 
 # Create coordinator config
 cat > agentxchain-multi.json << 'EOF'

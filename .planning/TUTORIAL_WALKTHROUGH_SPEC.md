@@ -16,19 +16,21 @@ A single narrative page that takes an operator from install to `approve-completi
 The tutorial walks through a **complete governed lifecycle** using only shipped commands:
 
 1. **Install** — `npx agentxchain@latest --version`
-2. **Scaffold** — `init --governed --template cli-tool --dir . -y`
-3. **Rebind runtimes for a fully manual path** — change `dev` from `local-dev` to `manual-dev`, change `qa` from `api-qa` to `manual-qa`, add `manual-dev`
-4. **Planning turn** — `step` (manual PM), fill gate files, stage result
-5. **Open implementation** — `approve-transition`
-6. **Implementation turn** — `step` (manual dev), write code, stage result
-7. **QA turn** — implementation auto-advances to `qa`; run `step` with `manual-qa`
-8. **Complete the run** — `approve-completion`
-9. **Verify** — `agentxchain status`, `agentxchain export`, `agentxchain report --input`
+2. **Install for repeated usage** — `npm install -g agentxchain` then `agentxchain --version`
+3. **Scaffold** — `init --governed --template cli-tool --dir . -y`
+4. **Rebind runtimes for a fully manual path** — change `dev` from `local-dev` to `manual-dev`, change `qa` from `api-qa` to `manual-qa`, add `manual-dev`
+5. **Planning turn** — `step` (manual PM), fill gate files, stage result
+6. **Open implementation** — `approve-transition`
+7. **Implementation turn** — `step` (manual dev), write code, stage result
+8. **QA turn** — implementation auto-advances to `qa`; run `step` with `manual-qa`
+9. **Complete the run** — `approve-completion`
+10. **Verify** — `agentxchain status`, `agentxchain export`, `agentxchain report --input`
 
 ### Constraints
 
 - Uses `manual-dev` + `manual-qa` so the tutorial is fully manual end to end
 - Every command is copy-pasteable
+- The zero-install demo mention uses the package-bound `npx` form, but the tutorial itself installs the CLI before repeated usage
 - Every expected output is shown (abbreviated where long)
 - Every gate file edit is shown with exact content
 - No hand-waving ("fill in the files") — the tutorial provides the actual content to write

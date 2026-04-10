@@ -6,15 +6,18 @@ description: "Step-by-step: scaffold a governed repo, run your first PM → Dev 
 
 # Your First Governed Turn
 
-You ran `npx agentxchain demo` and saw governance in action. Now do it for real on your own repo. This guide walks through every step, shows you what each artifact looks like, and tells you exactly when to act.
+You ran `npx --yes -p agentxchain@latest -c "agentxchain demo"` and saw governance in action. Now do it for real on your own repo. This guide walks through every step, shows you what each artifact looks like, and tells you exactly when to act.
 
 **Time:** ~10 minutes. **Prerequisites:** Node.js 18.17+, git, a terminal.
 
 ## Step 1 — Scaffold
 
 ```bash
+npm install -g agentxchain
+agentxchain --version
+
 mkdir my-first-governed && cd my-first-governed
-npx agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --dir . -y
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 

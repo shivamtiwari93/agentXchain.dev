@@ -27,8 +27,9 @@ describe('getting-started tutorial docs', () => {
 
   it('documents the real command chain from demo through completion', () => {
     for (const token of [
-      'npx agentxchain demo',
-      'npx agentxchain init --governed --template cli-tool --dir . -y',
+      'npx --yes -p agentxchain@latest -c "agentxchain demo"',
+      'npm install -g agentxchain',
+      'agentxchain init --governed --template cli-tool --dir . -y',
       'agentxchain step',
       'agentxchain approve-transition',
       'agentxchain step --role dev --verbose',

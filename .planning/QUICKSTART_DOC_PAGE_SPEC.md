@@ -36,7 +36,8 @@ website-v2/sidebars.ts
 The page must state:
 
 - Node.js requirement
-- `npx` and global install options
+- package-bound demo via `npx --yes -p agentxchain@latest -c "agentxchain demo"`
+- install-once options for repeated usage
 - the reproducible non-interactive scaffold path: `init --governed -y`
 - the explicit target-directory escape hatch: `--dir <path>`, including `--dir .` for in-place existing-repo bootstrap
 - git repository requirement
@@ -61,7 +62,7 @@ The page must show the real governed scaffold:
 
 The page must walk through:
 
-1. `npx agentxchain init --governed`
+1. `agentxchain init --governed`
 2. documenting `--dir .` for existing repos and explicit `--dir <path>` when the walkthrough later `cd`s into a named directory
 3. documenting the default `local-dev` scaffold contract as `claude --print --dangerously-skip-permissions` with stdin prompt delivery
 4. documenting the scaffold-time override path via `--dev-command` and `--dev-prompt-transport`
@@ -113,6 +114,7 @@ The page must include a short troubleshooting section covering:
 | User expects one command to finish a whole run | State that governed mode is staged and gate-driven. |
 | User bootstraps inside an existing repo | Show `--dir .` instead of relying on interactive folder entry. |
 | User follows a quickstart that later `cd`s into a directory | Use an explicit `--dir <path>` in the scaffold command so the path contract is visible. |
+| User copies a one-off `npx agentxchain ...` command and then runs bare `agentxchain` commands | Install the CLI first or keep every command package-bound; do not silently switch modes. |
 | User does not know where turn artifacts live | Show dispatch and staging paths explicitly. |
 | User does not understand why `run` will not start on the default scaffold | Explain that `pm` defaults to `manual-pm`, so the operator must either rebind that role or use `step`. |
 | User does not understand why `step` stops | Explain that adapters and approvals determine the next action. |

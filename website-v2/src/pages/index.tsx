@@ -52,10 +52,10 @@ function Hero() {
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="/docs/quickstart#path-0-demo">
-            npx agentxchain demo
+            npx --yes -p agentxchain@latest -c "agentxchain demo"
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            npx agentxchain init
+            npm install -g agentxchain
           </Link>
         </div>
         <div className="terminal">
@@ -69,25 +69,17 @@ function Hero() {
             <span className="comment"># See governance first, then scaffold your own repo</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
-            <span className="cmd">npx agentxchain demo</span>
+            <span className="cmd">npx --yes -p agentxchain@latest -c "agentxchain demo"</span>
             <br />
             <span className="output">&nbsp; ✓ PM defined scope and raised 1 objection</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain demo</span>
+            <span className="cmd">npm install -g agentxchain</span>
             <br />
-            <span className="output">&nbsp; ✓ Human approved planning gate</span>
-            <br />
-            <span className="output">&nbsp; ✓ Dev shipped implementation with 3/3 tests passing</span>
-            <br />
-            <span className="output">&nbsp; ✓ QA challenged 1 risk and issued ship verdict YES</span>
-            <br />
-            <span className="output">&nbsp; ✓ Run completed with 5 decisions and 3 objections</span>
-            <br />
-            <span className="output">&nbsp; ✓ Temp workspace removed automatically</span>
+            <span className="output">&nbsp; ✓ Install once for repeated governed commands</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
-            <span className="cmd">npx agentxchain init --governed</span>
+            <span className="cmd">agentxchain init --governed</span>
             <br />
             <span className="output">&nbsp; ✓ Scaffold your own governed repo when you are ready</span>
           </div>
@@ -927,10 +919,10 @@ function CTA() {
         </p>
         <div className="cta-row">
           <Link className="btn-primary" to="/docs/quickstart#path-0-demo">
-            npx agentxchain demo
+            npx --yes -p agentxchain@latest -c "agentxchain demo"
           </Link>
           <Link className="btn-secondary" to="/docs/quickstart">
-            npx agentxchain init
+            npm install -g agentxchain
           </Link>
           <Link className="btn-secondary" to="https://agentxchain.ai">
             Try the cloud &rarr;

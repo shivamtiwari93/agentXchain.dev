@@ -13,26 +13,27 @@ This tutorial walks you through **one complete governed lifecycle** — from an 
 By the end you will have run a governed PM → Dev → QA cycle with real gate enforcement, real artifact checks, and a real governance report.
 
 :::tip Already ran the demo?
-If you ran `npx agentxchain demo`, you saw governance in action with canned data. This tutorial does the same thing manually so you understand every step.
+If you ran `npx --yes -p agentxchain@latest -c "agentxchain demo"`, you saw governance in action with canned data. This tutorial does the same thing manually so you understand every step.
 :::
 
 ## Step 1 — Install and verify
 
 ```bash
-npx agentxchain@latest --version
+npm install -g agentxchain
+agentxchain --version
 ```
 
-You should see a version number (e.g. `2.26.0`). If npm resolves to a stale global install, use:
+You should see a version number (e.g. `2.44.0`). If you only want the zero-install demo path instead of a real install, use:
 
 ```bash
-npx -p agentxchain@latest -c 'agentxchain --version'
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 ## Step 2 — Scaffold a governed repo
 
 ```bash
 mkdir tutorial-governed && cd tutorial-governed
-npx agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --dir . -y
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 

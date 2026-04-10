@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Add a copy-paste getting-started guide that bridges the gap between `npx agentxchain demo` and a first real governed run. The page must teach the real default mixed-mode scaffold honestly instead of assuming users can infer the operator loop from `quickstart` and `first-turn`.
+Add a copy-paste getting-started guide that bridges the gap between the package-bound demo command and a first real governed run. The page must teach the real default mixed-mode scaffold honestly instead of assuming users can infer the operator loop from `quickstart` and `first-turn`.
 
 ## Interface
 
@@ -16,13 +16,14 @@ Add a copy-paste getting-started guide that bridges the gap between `npx agentxc
 ## Behavior
 
 - Teach the flow in this order:
-  1. `npx agentxchain demo`
-  2. `npx agentxchain init --governed ...`
-  3. `agentxchain step`
-  4. `agentxchain approve-transition`
-  5. `agentxchain step --role dev`
-  6. `agentxchain step --role qa`
-  7. `agentxchain approve-completion`
+  1. `npx --yes -p agentxchain@latest -c "agentxchain demo"`
+  2. `npm install -g agentxchain`
+  3. `agentxchain init --governed ...`
+  4. `agentxchain step`
+  5. `agentxchain approve-transition`
+  6. `agentxchain step --role dev`
+  7. `agentxchain step --role qa`
+  8. `agentxchain approve-completion`
 - State the truth boundary:
   - demo needs no API keys
   - the default scaffold is mixed-mode (`manual-pm`, `local-dev`, `api-qa`)
@@ -34,6 +35,7 @@ Add a copy-paste getting-started guide that bridges the gap between `npx agentxc
   - explicit `workflow_kit` controls custom-phase artifact scaffolding and structural validation
   - `agentxchain init --governed --dir . -y` plus `agentxchain template validate` is the operator path after adding explicit `workflow_kit`
 - Manual adapter instructions must point at the new getting-started guide, not only the narrower first-turn page
+- The page must explain that bare `npx agentxchain ...` is not the truthful default for repeat usage
 
 ## Error Cases
 
@@ -44,11 +46,12 @@ Add a copy-paste getting-started guide that bridges the gap between `npx agentxc
 ## Acceptance Tests
 
 1. `website-v2/docs/getting-started.mdx` exists and is wired into `website-v2/sidebars.ts`.
-2. The page includes the real command sequence from demo through `approve-completion`.
+2. The page includes the real command sequence from package-bound demo through `approve-completion`.
 3. The page states the default runtime bindings, the `ANTHROPIC_API_KEY` requirement for default QA, and the built-in `manual-qa` fallback.
-4. The page links to `/docs/first-turn` for artifact-level detail.
-5. Manual adapter output includes gate hints, a turn-result example, a suggested next role, and the new `/docs/getting-started` link.
-6. The page documents explicit `workflow_kit` for custom phases and the re-init plus `template validate` operator path.
+4. The page installs the CLI before switching to repeated bare `agentxchain ...` commands.
+5. The page links to `/docs/first-turn` for artifact-level detail.
+6. Manual adapter output includes gate hints, a turn-result example, a suggested next role, and the new `/docs/getting-started` link.
+7. The page documents explicit `workflow_kit` for custom phases and the re-init plus `template validate` operator path.
 
 ## Open Questions
 

@@ -39,7 +39,7 @@ agentxchain init --governed --template <id>
 For a new governed repo, choose the template up front:
 
 ```bash
-npx agentxchain init --governed --template web-app --dir my-project -y
+agentxchain init --governed --template web-app --dir my-project -y
 cd my-project
 ```
 
@@ -208,7 +208,7 @@ This is the shipped proof that built-in governed templates are no longer locked 
 #### Scaffolding an enterprise-app repo
 
 ```bash
-npx agentxchain init --governed --template enterprise-app --dir my-enterprise -y
+agentxchain init --governed --template enterprise-app --dir my-enterprise -y
 cd my-enterprise
 ```
 
@@ -330,7 +330,7 @@ agentxchain template list --json | jq '.[] | select(.id == "enterprise-app")'
 Then prove the new template end to end instead of trusting the JSON by inspection:
 
 ```bash
-npx agentxchain init --governed --template <id> --dir /tmp/template-proof -y
+agentxchain init --governed --template <id> --dir /tmp/template-proof -y
 cd /tmp/template-proof
 agentxchain template validate --json
 ```

@@ -272,7 +272,7 @@ describe('Templates docs surface', () => {
       'gates',
       'workflow_kit',
       'phase IDs in `routing` and `workflow_kit.phases` must agree',
-      'npx agentxchain init --governed --template <id> --dir /tmp/template-proof -y',
+      'agentxchain init --governed --template <id> --dir /tmp/template-proof -y',
     ]) {
       assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention blueprint authoring term ${term}`);
     }
