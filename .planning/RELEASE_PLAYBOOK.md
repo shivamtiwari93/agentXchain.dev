@@ -22,7 +22,7 @@ This playbook exists because historical release notes and handoff specs in `.pla
 
 ### Preconditions
 
-- Work from a clean git tree, then prepare only the target-version release-surface files before bumping:
+- Work from a clean git tree, then prepare the target-version release-surface files before bumping:
   - `cli/CHANGELOG.md`
   - `website-v2/docs/releases/v<major>-<minor>-<patch>.mdx`
   - `website-v2/sidebars.ts`
@@ -31,6 +31,7 @@ This playbook exists because historical release notes and handoff specs in `.pla
   - `website-v2/docs/protocol-implementor-guide.mdx`
   - `.planning/LAUNCH_EVIDENCE_REPORT.md`
 - Have an updated `cli/CHANGELOG.md` entry for the target version.
+- **Homebrew mirror alignment:** `current-release-surface.test.js` (AT-CRS-010, AT-CRS-011) enforces that the repo-mirror formula URL and README track the target version during preflight. `release-bump.sh` Step 5 auto-aligns these, so the recommended flow is: prepare the 7 manual surfaces above → run `bump:release` (which auto-aligns Homebrew) → run strict preflight. If you run default preflight *before* bump, you must manually align `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` first, or the Homebrew URL tests will fail. See `DEC-RELEASE-PREFLIGHT-004`.
 - Use the canonical package and workflow:
   - package: `cli/package.json` (`name: agentxchain`)
   - workflow: `.github/workflows/publish-npm-on-tag.yml`
@@ -43,6 +44,14 @@ This playbook exists because historical release notes and handoff specs in `.pla
 
 ```bash
 cd cli
+# Option A (recommended): bump first, then strict preflight only.
+# bump:release auto-aligns Homebrew mirror in Step 5, avoiding manual pre-alignment.
+npm run bump:release -- --target-version <semver>
+npm run preflight:release:strict -- --target-version <semver>
+git push origin main --follow-tags
+
+# Option B: default preflight before bump (requires manual Homebrew alignment first).
+# If Homebrew formula/README are not yet aligned, AT-CRS-010/011 will fail.
 npm run preflight:release -- --target-version <semver>
 npm run bump:release -- --target-version <semver>
 npm run preflight:release:strict -- --target-version <semver>
@@ -88,7 +97,7 @@ This checks: GitHub release exists, the canonical Homebrew tap formula SHA match
 
 ## Behavior
 
-### 1. Preflight Before Version Bump
+### 1. Preflight Before Version Bump (Optional)
 
 Run:
 
@@ -98,6 +107,8 @@ npm run preflight:release -- --target-version <semver>
 ```
 
 This is the soft gate. It checks git cleanliness, installs dependencies, runs tests, verifies the changelog heading, checks the package version, and does a pack dry-run. In default mode, dirty tree and pre-bump version mismatch are warnings. Everything else is fail-closed.
+
+**Important:** Default preflight runs `current-release-surface.test.js` with `AGENTXCHAIN_RELEASE_TARGET_VERSION`, which checks all 11 governed surfaces including Homebrew mirror formula URL (AT-CRS-010) and README (AT-CRS-011). If you run default preflight before `bump:release`, the Homebrew mirror must already point at the target version's tarball URL, or AT-CRS-010/011 will fail. The recommended path is to skip default preflight and rely on `bump:release` + strict preflight (Option A in Release Commands).
 
 ### 2. Create Release Identity
 
@@ -110,11 +121,13 @@ npm run bump:release -- --target-version <semver>
 
 This fail-closed script:
 1. Asserts the tree contains no dirty paths outside the target-version release-surface whitelist and the version is not already bumped
-2. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
-3. Stages the allowed release-surface files together with the version files
-4. Creates a commit with message `<semver>`
-5. Creates an annotated tag `v<semver>`
-6. Verifies both commit and tag exist before exiting
+2. Verifies all 7 manual governed version surfaces reference the target version
+3. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous version's SHA (which is corrected post-publish by `sync-homebrew.sh`)
+4. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
+5. Stages all version files and allowed release surfaces (including Homebrew)
+6. Creates a commit with message `<semver>`
+7. Creates an annotated tag `v<semver>`
+8. Verifies both commit and tag exist before exiting
 
 Do not use raw `npm version <semver>` — it may update files without creating git identity when run from a subdirectory. Do not hand-edit the tag or let CI invent the version.
 
