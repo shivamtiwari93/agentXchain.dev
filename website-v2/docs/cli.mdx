@@ -176,6 +176,11 @@ Governed status now also exposes additive connector/runtime diagnostics for non-
 - `status --json` exposes the same data under top-level additive `connector_health.connectors[]`
 - this is **not** a live ping surface; reachability is derived from accepted turns plus staged retry/error artifacts, so `reachable` is evidence-backed (`yes`, `no`, or `unknown`) instead of guessed
 
+Governed status also shows current-phase **workflow-kit artifact ownership** when `workflow_kit.phases` is configured:
+
+- human-readable `status` prints an `Artifacts:` section showing each artifact's path, owner role, ownership resolution (`explicit` vs `entry_role`), required/optional status, and exists/missing indicator
+- `status --json` exposes the same data under top-level additive `workflow_kit_artifacts` with `phase`, `artifacts[]` (each with `path`, `owned_by`, `owner_resolution`, `required`, `semantics`, `exists`)
+
 ### `export`
 
 ```bash

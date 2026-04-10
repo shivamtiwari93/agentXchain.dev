@@ -4,6 +4,8 @@ import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -79,6 +81,8 @@ function renderGovernedStatus(context, opts) {
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
 
+  const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
+
   if (opts.json) {
     console.log(JSON.stringify({
       version,
@@ -88,6 +92,7 @@ function renderGovernedStatus(context, opts) {
       state,
       continuity,
       connector_health: connectorHealth,
+      workflow_kit_artifacts: workflowKitArtifacts,
     }, null, 2));
     return;
   }
@@ -231,6 +236,8 @@ function renderGovernedStatus(context, opts) {
     }
   }
 
+  renderWorkflowKitArtifactsSection(workflowKitArtifacts);
+
   if (state?.budget_status) {
     console.log('');
     console.log(`  ${chalk.dim('Budget:')}   spent $${formatUsd(state.budget_status.spent_usd)} / remaining $${formatUsd(state.budget_status.remaining_usd)}`);
@@ -336,6 +343,58 @@ function renderContinuityStatus(continuity, state) {
   }
 
   console.log('');
+}
+
+function deriveWorkflowKitArtifacts(root, config, state) {
+  if (!config.workflow_kit) return null;
+  const phase = state?.phase || null;
+  if (!phase) return null;
+
+  const phaseConfig = config.workflow_kit.phases?.[phase];
+  if (!phaseConfig) return null;
+
+  const artifacts = Array.isArray(phaseConfig.artifacts) ? phaseConfig.artifacts : [];
+  if (artifacts.length === 0) return null;
+
+  const entryRole = config.routing?.[phase]?.entry_role || null;
+
+  return {
+    ok: true,
+    phase,
+    artifacts: artifacts
+      .filter((a) => a && typeof a.path === 'string')
+      .map((a) => {
+        const hasExplicitOwner = typeof a.owned_by === 'string' && a.owned_by.length > 0;
+        return {
+          path: a.path,
+          required: a.required !== false,
+          semantics: a.semantics || null,
+          owned_by: hasExplicitOwner ? a.owned_by : entryRole,
+          owner_resolution: hasExplicitOwner ? 'explicit' : 'entry_role',
+          exists: existsSync(join(root, a.path)),
+        };
+      })
+      .sort((a, b) => a.path.localeCompare(b.path, 'en')),
+  };
+}
+
+function renderWorkflowKitArtifactsSection(wkData) {
+  if (!wkData || !wkData.artifacts || wkData.artifacts.length === 0) return;
+
+  const artifacts = wkData.artifacts;
+  console.log('');
+  console.log(`  ${chalk.dim('Artifacts:')} (${wkData.phase})`);
+  for (const a of artifacts) {
+    const icon = a.exists ? chalk.green('✓') : (a.required ? chalk.red('✗') : chalk.yellow('○'));
+    const reqLabel = a.required ? '' : chalk.dim(' (optional)');
+    const ownerLabel = a.owned_by
+      ? chalk.dim(` [${a.owned_by}${a.owner_resolution === 'entry_role' ? '*' : ''}]`)
+      : '';
+    console.log(`    ${icon} ${a.path}${ownerLabel}${reqLabel}`);
+  }
+  if (artifacts.some(a => a.owner_resolution === 'entry_role')) {
+    console.log(`    ${chalk.dim('* = ownership inferred from entry_role')}`);
+  }
 }
 
 function formatPhase(phase) {
