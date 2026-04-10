@@ -28,9 +28,12 @@ Public docs:
 5. `node examples/ci-runner-proof/run-via-cli-auto-approve.mjs`
    Proves the actual `agentxchain run --auto-approve` CLI surface can complete an unattended governed run in CI with real API dispatch and governance report output.
 
+6. `node examples/ci-runner-proof/run-multi-phase-write.mjs`
+   Proves a 3-phase governed run (planning → implementation → qa) with a write-owning (proposed) turn, real gate artifact check (`requires_files: ["src/server.js"]`), and proposal application. This is the widest lights-out proof: multi-phase lifecycle, file mutations, and gate-driven phase advancement.
+
 Build your own runner in that order. If the primitive path is not solid, adding `runLoop` only hides the defect.
 
-Tier 5 is not a second runner. It is the operator-surface parity proof that keeps the shipped CLI claim honest.
+Tier 5 is not a second runner. It is the operator-surface parity proof that keeps the shipped CLI claim honest. Tier 6 is the multi-phase widening proof that closes the gap between review-only CI and real governed delivery.
 
 ## Non-negotiable boundary rules
 

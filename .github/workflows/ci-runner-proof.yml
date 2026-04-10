@@ -60,3 +60,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node examples/ci-runner-proof/run-via-cli-auto-approve.mjs --json
+      - name: Run CI multi-phase write proof (text)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-multi-phase-write.mjs
+      - name: Run CI multi-phase write proof (JSON)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-multi-phase-write.mjs --json

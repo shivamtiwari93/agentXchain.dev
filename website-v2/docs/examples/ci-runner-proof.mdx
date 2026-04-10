@@ -20,6 +20,7 @@ description: "Repo-native runner proofs plus real-dispatch CI proofs for unatten
 - Composition proof: `runLoop` on top of the primitive layer
 - Real API dispatch proof: `runLoop` + `api_proxy`
 - Operator-surface proof: `agentxchain run --auto-approve` in a real subprocess
+- Multi-phase write proof: 3-phase lifecycle with write-owning (proposed) turn and real gate artifact check
 
 ## How AgentXchain Governs This Example
 
@@ -39,6 +40,7 @@ node examples/ci-runner-proof/run-to-completion.mjs
 node examples/ci-runner-proof/run-with-run-loop.mjs
 node examples/ci-runner-proof/run-with-api-dispatch.mjs
 node examples/ci-runner-proof/run-via-cli-auto-approve.mjs
+node examples/ci-runner-proof/run-multi-phase-write.mjs
 ```
 
 ## Key Takeaways
