@@ -205,6 +205,16 @@ Important boundaries:
 - `workflow_kit: {}` is an explicit opt-out. That disables per-phase workflow artifacts instead of silently falling back to the default scaffold contract.
 - Built-in phase templates do not guess `owned_by`. If you need role-bound ownership on a custom artifact, declare the artifact explicitly or use a blueprint-backed template like `enterprise-app`.
 
+Use the CLI discovery surface before you hardcode template ids from memory:
+
+```bash
+agentxchain template list
+agentxchain template list --phase-templates
+agentxchain template list --phase-templates --json
+```
+
+That gives you the real shipped governed-template list plus the workflow-kit phase-template artifact contracts. The [Templates](/docs/templates) page explains the same surface in depth.
+
 After adding `workflow_kit` to an existing repo, re-run init in place so missing declared files are scaffolded:
 
 ```bash

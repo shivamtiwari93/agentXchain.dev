@@ -177,6 +177,14 @@ The page must link back to:
 
 Quickstart and CLI docs must also link into `/docs/templates`.
 
+The front-door repo docs and fast-start docs must keep the discovery commands visible:
+
+- `README.md` must link to `/docs/templates` and show `agentxchain template list`
+- `README.md` must show `agentxchain template list --phase-templates`
+- `cli/README.md` must link to `/docs/templates` and show `agentxchain template list`
+- `cli/README.md` must show `agentxchain template list --phase-templates`
+- `website-v2/docs/getting-started.mdx` must show `agentxchain template list --phase-templates`
+
 ### 8. Describe blueprint authoring honestly
 
 The page must not imply operators can drop arbitrary local template manifests into an existing install.
@@ -214,7 +222,9 @@ It must state the real extension path:
 9. The page does not mention `template set --force` or fake conflict-detection semantics.
 10. `website-v2/docs/quickstart.mdx` links to `/docs/templates`.
 11. `website-v2/docs/cli.mdx` links to `/docs/templates`.
-12. The page documents blueprint authoring as a built-in CLI extension path via `cli/src/templates/governed/<id>.json` and `VALID_GOVERNED_TEMPLATE_IDS`, not as an operator runtime command.
+12. `README.md` and `cli/README.md` link to `/docs/templates` and show both `agentxchain template list` and `agentxchain template list --phase-templates`.
+13. `website-v2/docs/getting-started.mdx` shows `agentxchain template list --phase-templates` as part of the custom-phase workflow.
+14. The page documents blueprint authoring as a built-in CLI extension path via `cli/src/templates/governed/<id>.json` and `VALID_GOVERNED_TEMPLATE_IDS`, not as an operator runtime command.
 
 ## Open Questions
 

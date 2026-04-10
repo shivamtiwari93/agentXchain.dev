@@ -9,6 +9,7 @@ const REPO_ROOT = join(__dirname, '..', '..');
 
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
+const GETTING_STARTED_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'getting-started.mdx'), 'utf8');
 const QUICKSTART_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'quickstart.mdx'), 'utf8');
 const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
 const TEMPLATES_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'templates.mdx'), 'utf8');
@@ -23,6 +24,14 @@ describe('Template public surface', () => {
     for (const templateId of ['generic', 'api-service', 'cli-tool', 'library', 'web-app', 'enterprise-app']) {
       assert.ok(ROOT_README.includes(templateId), `root README must mention ${templateId}`);
       assert.ok(CLI_README.includes(templateId), `cli README must mention ${templateId}`);
+    }
+  });
+
+  it('keeps template discovery visible in both READMEs', () => {
+    for (const docSource of [ROOT_README, CLI_README]) {
+      assert.ok(docSource.includes('https://agentxchain.dev/docs/templates/'), 'README surface must link to templates docs');
+      assert.ok(docSource.includes('agentxchain template list'), 'README surface must mention template list');
+      assert.ok(docSource.includes('agentxchain template list --phase-templates'), 'README surface must mention phase-template discovery');
     }
   });
 
@@ -50,5 +59,11 @@ describe('Template public surface', () => {
   it('templates docs document the phase-templates CLI discovery surface', () => {
     assert.ok(TEMPLATES_DOCS.includes('template list --phase-templates'), 'templates docs must show the CLI command for listing phase templates');
     assert.ok(TEMPLATES_DOCS.includes('--json'), 'templates docs must mention JSON output for phase templates');
+  });
+
+  it('getting started docs keep phase-template discovery visible for custom phases', () => {
+    assert.ok(GETTING_STARTED_DOCS.includes('template list --phase-templates'), 'getting started docs must show phase-template discovery');
+    assert.ok(GETTING_STARTED_DOCS.includes('template list --phase-templates --json'), 'getting started docs must mention JSON phase-template discovery');
+    assert.ok(GETTING_STARTED_DOCS.includes('/docs/templates'), 'getting started docs must link to templates docs');
   });
 });

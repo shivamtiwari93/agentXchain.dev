@@ -38,6 +38,7 @@ If you want your own governed project after that, jump to [Quick Start](#quick-s
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Templates](https://agentxchain.dev/docs/templates/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Multi-session continuity](https://agentxchain.dev/docs/multi-session/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
@@ -114,6 +115,15 @@ Built-in governed templates:
 - `library`: adds public-API, compatibility-policy, and release-adoption planning files
 - `web-app`: adds user-flow, UI acceptance, and browser-support planning files
 - `enterprise-app`: adds enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
+
+Inspect the shipped template surfaces instead of guessing:
+
+```bash
+agentxchain template list
+agentxchain template list --phase-templates
+```
+
+`template list` shows governed project templates. `template list --phase-templates` shows the reusable workflow-kit phase-template bundles for `workflow_kit.phases.<phase>.template`. See the [Templates](https://agentxchain.dev/docs/templates/) docs for the full contract and JSON output shape.
 
 `step` writes a turn-scoped dispatch bundle under `.agentxchain/dispatch/turns/<turn_id>/` and tells you where the staged result must be written. For manual turns, fill in `.agentxchain/staging/<turn_id>/turn-result.json`, then accept the turn:
 

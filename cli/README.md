@@ -9,7 +9,9 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 ## Docs
 
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
+- [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Templates](https://agentxchain.dev/docs/templates/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
 - [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
@@ -89,6 +91,15 @@ Built-in governed templates:
 - `library`: public API, compatibility policy, release and adoption checklist
 - `web-app`: user flows, UI acceptance, browser support
 - `enterprise-app`: enterprise planning artifacts plus blueprint-backed `architect` and `security_reviewer` phases
+
+Inspect the shipped template surfaces instead of inferring them from docs:
+
+```bash
+agentxchain template list
+agentxchain template list --phase-templates
+```
+
+`template list` enumerates governed project templates. `template list --phase-templates` enumerates the reusable workflow-kit phase-template bundles you can reference from `workflow_kit.phases.<phase>.template`.
 
 `step` writes a turn-scoped bundle under `.agentxchain/dispatch/turns/<turn_id>/` and expects a staged result at `.agentxchain/staging/<turn_id>/turn-result.json`. Typical continuation:
 
