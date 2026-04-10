@@ -32,6 +32,15 @@ const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`
 const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchain-${CURRENT_VERSION}.tgz`;
 const CURRENT_RELEASE_ROUTE = `/docs/${CURRENT_RELEASE_DOC_ID}`;
 
+function extractEvidenceLine(text, label) {
+  const match = text.match(/^-\s+.*\b\d+\s+tests\b.*\b0 failures\b.*$/m);
+  assert.ok(match, `${label} must include a concrete test-count evidence line with 0 failures`);
+  return match[0]
+    .replace(/\*\*/g, '')
+    .replace(/`/g, '')
+    .trim();
+}
+
 describe('current release surface', () => {
   it('AT-CRS-001: changelog top heading matches current package version', () => {
     const topHeading = CHANGELOG.match(/^##\s+([0-9]+\.[0-9]+\.[0-9]+)$/m);
@@ -65,16 +74,19 @@ describe('current release surface', () => {
   it('AT-CRS-007: release notes page evidence section has concrete test counts', () => {
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     assert.match(releasePage, /## Evidence/i, 'release notes page must have an Evidence section');
-    assert.match(releasePage, /\d+ tests/, 'Evidence must include concrete test count');
-    assert.match(releasePage, /\d+ suites/, 'Evidence must include concrete suite count');
-    assert.match(releasePage, /0 failures/, 'Evidence must confirm 0 failures');
+    extractEvidenceLine(releasePage, 'release notes evidence');
   });
 
-  it('AT-CRS-008: changelog evidence section has concrete test counts', () => {
+  it('AT-CRS-008: changelog and release notes evidence lines stay aligned', () => {
     const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
-    assert.match(versionBlock, /\d+ tests/, 'Changelog evidence must include concrete test count');
-    assert.match(versionBlock, /\d+ suites/, 'Changelog evidence must include concrete suite count');
-    assert.match(versionBlock, /0 failures/, 'Changelog evidence must confirm 0 failures');
+    const releasePage = read(CURRENT_RELEASE_DOC_PATH);
+    const changelogEvidence = extractEvidenceLine(versionBlock, 'changelog evidence');
+    const releaseEvidence = extractEvidenceLine(releasePage, 'release notes evidence');
+    assert.equal(
+      changelogEvidence,
+      releaseEvidence,
+      'top changelog evidence and current release-note evidence must match exactly',
+    );
   });
 
   it('AT-CRS-009: launch evidence title carries the current release version', () => {

@@ -31,7 +31,7 @@
 
 ### Evidence
 
-- 3242 tests / 677 suites / 0 failures
+- Strict release preflight: 4098 tests / 0 failures
 - Docusaurus production build clean
 
 ## 2.44.0
