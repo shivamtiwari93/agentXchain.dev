@@ -10,6 +10,7 @@ import {
   extractTurnResult,
   buildAnthropicRequest,
   buildOpenAiRequest,
+  buildGoogleRequest,
   classifyError,
   classifyHttpError,
   COST_RATES,
@@ -254,6 +255,7 @@ function createAndTrack() {
 const originalFetch = global.fetch;
 const originalAnthropicKey = process.env.ANTHROPIC_API_KEY;
 const originalOpenAiKey = process.env.OPENAI_API_KEY;
+const originalGoogleKey = process.env.GOOGLE_API_KEY;
 
 afterEach(() => {
   for (const dir of tmpDirs) {
@@ -270,6 +272,11 @@ afterEach(() => {
     delete process.env.OPENAI_API_KEY;
   } else {
     process.env.OPENAI_API_KEY = originalOpenAiKey;
+  }
+  if (originalGoogleKey === undefined) {
+    delete process.env.GOOGLE_API_KEY;
+  } else {
+    process.env.GOOGLE_API_KEY = originalGoogleKey;
   }
 });
 
@@ -376,6 +383,32 @@ describe('extractTurnResult', () => {
     assert.equal(result.ok, false);
     assert.ok(result.error.includes('no choices'));
   });
+
+  it('extracts Google Gemini generateContent JSON from candidates', () => {
+    const result = extractTurnResult({
+      candidates: [{
+        content: {
+          parts: [{ text: JSON.stringify(validTurnResult) }],
+        },
+      }],
+    }, 'google');
+    assert.equal(result.ok, true);
+    assert.equal(result.turnResult.role, 'qa');
+  });
+
+  it('fails when Google response has no candidates', () => {
+    const result = extractTurnResult({}, 'google');
+    assert.equal(result.ok, false);
+    assert.ok(result.error.includes('no candidates'));
+  });
+
+  it('fails when Google candidate has no content parts', () => {
+    const result = extractTurnResult({
+      candidates: [{ content: { parts: [] } }],
+    }, 'google');
+    assert.equal(result.ok, false);
+    assert.ok(result.error.includes('no content parts') || result.error.includes('no text'));
+  });
 });
 
 // ── Tests: buildAnthropicRequest ───────────────────────────────────────────
@@ -411,6 +444,23 @@ describe('buildOpenAiRequest', () => {
   });
 });
 
+describe('buildGoogleRequest', () => {
+  it('builds correct Google Gemini generateContent request shape', () => {
+    const req = buildGoogleRequest('# Prompt', '# Context', 'gemini-2.5-pro', 4096);
+    assert.deepEqual(req.systemInstruction, { parts: [{ text: SYSTEM_PROMPT }] });
+    assert.equal(req.contents.length, 1);
+    assert.equal(req.contents[0].role, 'user');
+    assert.equal(req.contents[0].parts[0].text, `# Prompt${SEPARATOR}# Context`);
+    assert.equal(req.generationConfig.maxOutputTokens, 4096);
+    assert.equal(req.generationConfig.responseMimeType, 'application/json');
+  });
+
+  it('handles empty context', () => {
+    const req = buildGoogleRequest('# Prompt only', '', 'gemini-2.5-flash', 2048);
+    assert.equal(req.contents[0].parts[0].text, '# Prompt only');
+  });
+});
+
 // ── Tests: COST_RATES ──────────────────────────────────────────────────────
 
 describe('COST_RATES', () => {
@@ -441,6 +491,23 @@ describe('COST_RATES', () => {
 
   it('computes reasonable cost for gpt-4o', () => {
     const rates = COST_RATES['gpt-4o'];
+    const cost = (8000 / 1_000_000) * rates.input_per_1m + (1500 / 1_000_000) * rates.output_per_1m;
+    assert.ok(cost > 0);
+    assert.ok(cost < 1);
+  });
+
+  it('has rates for supported Google Gemini models', () => {
+    for (const model of ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']) {
+      assert.ok(COST_RATES[model], `missing cost rates for ${model}`);
+      assert.equal(typeof COST_RATES[model].input_per_1m, 'number');
+      assert.equal(typeof COST_RATES[model].output_per_1m, 'number');
+      assert.ok(COST_RATES[model].input_per_1m > 0, `${model} input rate must be positive`);
+      assert.ok(COST_RATES[model].output_per_1m > 0, `${model} output rate must be positive`);
+    }
+  });
+
+  it('computes reasonable cost for gemini-2.5-pro', () => {
+    const rates = COST_RATES['gemini-2.5-pro'];
     const cost = (8000 / 1_000_000) * rates.input_per_1m + (1500 / 1_000_000) * rates.output_per_1m;
     assert.ok(cost > 0);
     assert.ok(cost < 1);
@@ -645,6 +712,39 @@ describe('classifyHttpError', () => {
     assert.equal(err.error_class, 'context_overflow');
     assert.equal(err.retryable, false);
   });
+
+  it('classifies Google UNAUTHENTICATED as auth_failure', () => {
+    const err = classifyHttpError(401, '{"error":{"code":401,"status":"UNAUTHENTICATED","message":"API key not valid"}}', 'google', 'gemini-2.5-pro', 'GOOGLE_API_KEY');
+    assert.equal(err.error_class, 'auth_failure');
+    assert.equal(err.http_status, 401);
+    assert.equal(err.retryable, false);
+    assert.equal(err.provider_error_type, 'UNAUTHENTICATED');
+  });
+
+  it('classifies Google RESOURCE_EXHAUSTED as rate_limited', () => {
+    const err = classifyHttpError(429, '{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"Quota exceeded"}}', 'google', 'gemini-2.5-pro', 'GOOGLE_API_KEY');
+    assert.equal(err.error_class, 'rate_limited');
+    assert.equal(err.retryable, true);
+    assert.equal(err.provider_error_type, 'RESOURCE_EXHAUSTED');
+  });
+
+  it('classifies Google NOT_FOUND as model_not_found', () => {
+    const err = classifyHttpError(404, '{"error":{"code":404,"status":"NOT_FOUND","message":"Model not found"}}', 'google', 'gemini-nonexistent', 'GOOGLE_API_KEY');
+    assert.equal(err.error_class, 'model_not_found');
+    assert.equal(err.retryable, false);
+  });
+
+  it('classifies Google INVALID_ARGUMENT with token message as context_overflow', () => {
+    const err = classifyHttpError(400, '{"error":{"code":400,"status":"INVALID_ARGUMENT","message":"Request payload size exceeds the token limit"}}', 'google', 'gemini-2.5-pro', 'GOOGLE_API_KEY');
+    assert.equal(err.error_class, 'context_overflow');
+    assert.equal(err.retryable, false);
+  });
+
+  it('classifies Google UNAVAILABLE as provider_overloaded', () => {
+    const err = classifyHttpError(503, '{"error":{"code":503,"status":"UNAVAILABLE","message":"Service temporarily unavailable"}}', 'google', 'gemini-2.5-pro', 'GOOGLE_API_KEY');
+    assert.equal(err.error_class, 'provider_overloaded');
+    assert.equal(err.retryable, true);
+  });
 });
 
 describe('dispatchApiProxy', () => {
@@ -754,6 +854,90 @@ describe('dispatchApiProxy', () => {
       output_tokens: 120,
       usd: 0,
     });
+  });
+
+  it('dispatches through Google Gemini generateContent and stages the extracted result', async () => {
+    const root = createAndTrack();
+    const state = makeApiState({
+      current_turn: {
+        turn_id: 'turn_test001',
+        assigned_role: 'qa',
+        status: 'running',
+        attempt: 1,
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 600000).toISOString(),
+        runtime_id: 'api-google',
+      },
+    });
+    const turnResult = {
+      ...makeTurnResult(state),
+      runtime_id: 'api-google',
+    };
+    const config = makeApiConfig({
+      provider: 'google',
+      model: 'gemini-2.5-flash',
+      auth_env: 'GOOGLE_API_KEY',
+    });
+    config.roles.qa.runtime_id = 'api-google';
+    config.runtimes = {
+      'api-google': {
+        type: 'api_proxy',
+        provider: 'google',
+        model: 'gemini-2.5-flash',
+        auth_env: 'GOOGLE_API_KEY',
+        max_output_tokens: 2048,
+        timeout_seconds: 5,
+      },
+    };
+
+    setupDispatchBundle(root);
+    process.env.GOOGLE_API_KEY = 'google-test-key';
+
+    let requestUrl;
+    let requestHeaders;
+    let requestBody;
+    global.fetch = async (url, options) => {
+      requestUrl = url;
+      requestHeaders = options.headers;
+      requestBody = JSON.parse(options.body);
+      return makeJsonResponse(200, {
+        candidates: [{
+          content: {
+            parts: [{ text: JSON.stringify(turnResult) }],
+          },
+        }],
+        usageMetadata: {
+          promptTokenCount: 800,
+          candidatesTokenCount: 150,
+          totalTokenCount: 950,
+        },
+      });
+    };
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, true);
+    // Verify endpoint: model interpolated, API key appended as query param
+    assert.ok(requestUrl.includes('gemini-2.5-flash'));
+    assert.ok(requestUrl.includes('key=google-test-key'));
+    assert.ok(requestUrl.startsWith('https://generativelanguage.googleapis.com/'));
+    // Verify request body shape (Gemini format)
+    assert.ok(requestBody.systemInstruction);
+    assert.equal(requestBody.contents[0].role, 'user');
+    assert.equal(requestBody.generationConfig.maxOutputTokens, 2048);
+    assert.equal(requestBody.generationConfig.responseMimeType, 'application/json');
+    // Verify headers do NOT contain API key (it's in the URL)
+    assert.equal(requestHeaders['Content-Type'], 'application/json');
+    assert.equal(requestHeaders['x-api-key'], undefined);
+    assert.equal(requestHeaders.Authorization, undefined);
+    // Verify usage parsed from Google format
+    assert.deepEqual(result.usage, {
+      input_tokens: 800,
+      output_tokens: 150,
+      usd: 0,
+    });
+
+    const staged = readJson(join(root, stagingResultPath(state)));
+    assert.equal(staged.runtime_id, 'api-google');
   });
 
   it('uses runtime.base_url as the fetch target while preserving provider-specific request formatting', async () => {

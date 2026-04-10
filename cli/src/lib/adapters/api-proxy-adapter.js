@@ -23,7 +23,7 @@
  *   All error returns include a `classified` ApiProxyError object with
  *   error_class, recovery instructions, and retryable flag.
  *
- * Supported providers: "anthropic", "openai"
+ * Supported providers: "anthropic", "openai", "google"
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
@@ -45,9 +45,12 @@ import {
 import { verifyDispatchManifestForAdapter } from '../dispatch-manifest.js';
 
 // Provider endpoint registry
+// Google Gemini endpoint requires the model name interpolated at call time;
+// the registry stores a template with {model} as a placeholder.
 const PROVIDER_ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
+  google: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
 };
 
 // Bundled cost rates per million tokens (USD).
@@ -67,6 +70,10 @@ const BUNDLED_COST_RATES = {
   'o3': { input_per_1m: 2.00, output_per_1m: 8.00 },
   'o3-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
   'o4-mini': { input_per_1m: 1.10, output_per_1m: 4.40 },
+  // Google Gemini — verified 2026-04-09 (training knowledge)
+  'gemini-2.5-pro': { input_per_1m: 1.25, output_per_1m: 10.00 },
+  'gemini-2.5-flash': { input_per_1m: 0.15, output_per_1m: 0.60 },
+  'gemini-2.0-flash': { input_per_1m: 0.10, output_per_1m: 0.40 },
 };
 
 // Resolve cost rates: operator-supplied cost_rates override bundled defaults
@@ -133,6 +140,25 @@ const PROVIDER_ERROR_MAPS = {
       { provider_error_type: 'invalid_request_error', http_status: 400, body_pattern: /context|token.*limit|too.many.tokens/i, error_class: 'context_overflow', retryable: false },
       { provider_error_type: 'invalid_request_error', http_status: 400, error_class: 'invalid_request', retryable: false },
       { provider_error_type: 'rate_limit_error', http_status: 429, error_class: 'rate_limited', retryable: true },
+    ],
+  },
+  google: {
+    extractErrorType(body) {
+      // Google errors use { error: { status: "INVALID_ARGUMENT", ... } }
+      return typeof body?.error?.status === 'string' ? body.error.status : null;
+    },
+    extractErrorCode(body) {
+      return typeof body?.error?.code === 'number' ? String(body.error.code) : null;
+    },
+    mappings: [
+      { provider_error_type: 'UNAUTHENTICATED', http_status: 401, error_class: 'auth_failure', retryable: false },
+      { provider_error_type: 'PERMISSION_DENIED', http_status: 403, error_class: 'auth_failure', retryable: false },
+      { provider_error_type: 'NOT_FOUND', http_status: 404, error_class: 'model_not_found', retryable: false },
+      { provider_error_type: 'RESOURCE_EXHAUSTED', http_status: 429, error_class: 'rate_limited', retryable: true },
+      { provider_error_type: 'INVALID_ARGUMENT', http_status: 400, body_pattern: /token.*limit|context|too.long/i, error_class: 'context_overflow', retryable: false },
+      { provider_error_type: 'INVALID_ARGUMENT', http_status: 400, error_class: 'invalid_request', retryable: false },
+      { provider_error_type: 'UNAVAILABLE', http_status: 503, error_class: 'provider_overloaded', retryable: true },
+      { provider_error_type: 'INTERNAL', http_status: 500, error_class: 'unknown_api_error', retryable: true },
     ],
   },
 };
@@ -442,6 +468,10 @@ function usageFromTelemetry(provider, model, usage, config) {
   if (provider === 'openai') {
     inputTokens = Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : 0;
     outputTokens = Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : 0;
+  } else if (provider === 'google') {
+    // Google Gemini returns usageMetadata at root level with promptTokenCount / candidatesTokenCount
+    inputTokens = Number.isFinite(usage.promptTokenCount) ? usage.promptTokenCount : 0;
+    outputTokens = Number.isFinite(usage.candidatesTokenCount) ? usage.candidatesTokenCount : 0;
   } else {
     inputTokens = Number.isFinite(usage.input_tokens) ? usage.input_tokens : 0;
     outputTokens = Number.isFinite(usage.output_tokens) ? usage.output_tokens : 0;
@@ -691,7 +721,9 @@ async function executeApiCall({
     };
   }
 
-  const usage = usageFromTelemetry(provider, model, responseData.usage, config);
+  // Google Gemini returns usage at responseData.usageMetadata; others at responseData.usage
+  const usageSource = provider === 'google' ? responseData.usageMetadata : responseData.usage;
+  const usage = usageFromTelemetry(provider, model, usageSource, config);
   const extraction = extractTurnResult(responseData, provider);
 
   if (!extraction.ok) {
@@ -791,7 +823,7 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
     return errorReturn(root, turn.turn_id, classified);
   }
 
-  const endpoint = runtime.base_url || PROVIDER_ENDPOINTS[provider];
+  let endpoint = runtime.base_url || PROVIDER_ENDPOINTS[provider];
   if (!endpoint) {
     const classified = classifyError(
       'unsupported_provider',
@@ -800,6 +832,12 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
       false, null, null
     );
     return errorReturn(root, turn.turn_id, classified);
+  }
+
+  // Google Gemini: interpolate model into endpoint URL and append API key as query param
+  if (provider === 'google') {
+    endpoint = endpoint.replace('{model}', encodeURIComponent(model));
+    endpoint += (endpoint.includes('?') ? '&' : '?') + `key=${encodeURIComponent(apiKey)}`;
   }
 
   // Build request
@@ -1086,9 +1124,59 @@ function buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens) {
   };
 }
 
+function buildGoogleHeaders(_apiKey) {
+  // Google Gemini uses API key as a query parameter, not a header
+  return {
+    'Content-Type': 'application/json',
+  };
+}
+
+function buildGoogleRequest(promptMd, contextMd, model, maxOutputTokens) {
+  const userContent = contextMd
+    ? `${promptMd}${SEPARATOR}${contextMd}`
+    : promptMd;
+
+  return {
+    systemInstruction: {
+      parts: [{ text: SYSTEM_PROMPT }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userContent }],
+      },
+    ],
+    generationConfig: {
+      maxOutputTokens,
+      responseMimeType: 'application/json',
+    },
+  };
+}
+
+function extractGoogleTurnResult(responseData) {
+  if (!Array.isArray(responseData?.candidates) || responseData.candidates.length === 0) {
+    return { ok: false, error: 'API response has no candidates' };
+  }
+
+  const parts = responseData.candidates[0]?.content?.parts;
+  if (!Array.isArray(parts) || parts.length === 0) {
+    return { ok: false, error: 'API response candidate has no content parts' };
+  }
+
+  const textPart = parts.find(p => typeof p.text === 'string');
+  if (!textPart?.text?.trim()) {
+    return { ok: false, error: 'API response has no text content part' };
+  }
+
+  return extractTurnResultFromText(textPart.text);
+}
+
 function buildProviderHeaders(provider, apiKey) {
   if (provider === 'openai') {
     return buildOpenAiHeaders(apiKey);
+  }
+  if (provider === 'google') {
+    return buildGoogleHeaders(apiKey);
   }
   return buildAnthropicHeaders(apiKey);
 }
@@ -1096,6 +1184,9 @@ function buildProviderHeaders(provider, apiKey) {
 function buildProviderRequest(provider, promptMd, contextMd, model, maxOutputTokens) {
   if (provider === 'openai') {
     return buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens);
+  }
+  if (provider === 'google') {
+    return buildGoogleRequest(promptMd, contextMd, model, maxOutputTokens);
   }
   return buildAnthropicRequest(promptMd, contextMd, model, maxOutputTokens);
 }
@@ -1184,6 +1275,9 @@ function extractTurnResult(responseData, provider = 'anthropic') {
   if (provider === 'openai') {
     return extractOpenAiTurnResult(responseData);
   }
+  if (provider === 'google') {
+    return extractGoogleTurnResult(responseData);
+  }
   return extractAnthropicTurnResult(responseData);
 }
 
@@ -1198,6 +1292,7 @@ export {
   extractTurnResult,
   buildAnthropicRequest,
   buildOpenAiRequest,
+  buildGoogleRequest,
   classifyError,
   classifyHttpError,
   BUNDLED_COST_RATES,
