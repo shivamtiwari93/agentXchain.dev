@@ -111,7 +111,7 @@ describe('External runner package contract', () => {
 
     assert.equal(json.result, 'pass');
     assert.equal(json.runner, 'external-runner-starter');
-    assert.equal(json.final_status, 'active');
+    assert.equal(json.final_status, 'completed');
     assert.match(json.runner_interface_version, /^[0-9]+\.[0-9]+$/);
     assert.match(json.run_id, /^run_[0-9a-f]+$/);
     assert.match(json.turn_id, /^turn_[0-9a-f]+$/);

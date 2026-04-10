@@ -79,6 +79,7 @@ export function validateStagedTurnResult(root, state, config, opts = {}) {
     const activeTurn = getActiveTurn(state) || state.current_turn;
     if (activeTurn) {
       const roleKey = activeTurn.assigned_role || activeTurn.role;
+      normContext.assignedRole = roleKey;
       const roleConfig = config?.roles?.[roleKey];
       if (roleConfig) {
         normContext.writeAuthority = roleConfig.write_authority;
@@ -562,6 +563,23 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   const normalized = { ...tr };
+  const routing = config?.routing;
+  const phaseNames = routing ? Object.keys(routing) : [];
+  const currentPhase = context.phase;
+  const currentPhaseIndex = currentPhase ? phaseNames.indexOf(currentPhase) : -1;
+  const isKnownPhase = currentPhaseIndex >= 0;
+  const isTerminalPhase = isKnownPhase && currentPhaseIndex === phaseNames.length - 1;
+  const nextPhase = isKnownPhase && currentPhaseIndex + 1 < phaseNames.length
+    ? phaseNames[currentPhaseIndex + 1]
+    : null;
+  const allowedNextRoles = isKnownPhase ? (routing?.[currentPhase]?.allowed_next_roles || []) : [];
+  const assignedRole = context.assignedRole || normalized.role || null;
+  const isReviewOnly = context.writeAuthority === 'review_only';
+
+  const pickAllowedRoleFallback = () => {
+    if (allowedNextRoles.length === 0) return null;
+    return allowedNextRoles.find((role) => role !== assignedRole) || allowedNextRoles[0] || null;
+  };
 
   // ── Rule 0: infer missing status only when intent is unambiguous ──────
   if (!('status' in normalized)) {
@@ -604,7 +622,6 @@ export function normalizeTurnResult(tr, config, context = {}) {
   }
 
   // ── Rule 2: exit-gate-as-phase auto-correction ────────────────────────
-  const routing = config?.routing;
   const gates = config?.gates;
   if (
     typeof normalized.phase_transition_request === 'string' &&
@@ -667,6 +684,80 @@ export function normalizeTurnResult(tr, config, context = {}) {
         normalized.run_completion_request = true;
         delete normalized.needs_human_reason;
       }
+    }
+  }
+
+  // ── Rule 4: infer missing lifecycle signal for completed turns ────────
+  if (
+    isKnownPhase &&
+    isReviewOnly &&
+    normalized.status === 'completed' &&
+    normalized.run_completion_request == null &&
+    !normalized.phase_transition_request
+  ) {
+    if (isTerminalPhase) {
+      normalized.run_completion_request = true;
+      corrections.push(
+        `run_completion_request: inferred true for completed terminal phase "${currentPhase}"`
+      );
+    } else if (nextPhase) {
+      normalized.phase_transition_request = nextPhase;
+      corrections.push(
+        `phase_transition_request: inferred next phase "${nextPhase}" for completed phase "${currentPhase}"`
+      );
+    }
+  }
+
+  // ── Rule 5: correct invalid or non-forward lifecycle requests ─────────
+  if (
+    isKnownPhase &&
+    isReviewOnly &&
+    normalized.status === 'completed' &&
+    typeof normalized.phase_transition_request === 'string' &&
+    !normalized.run_completion_request
+  ) {
+    const requested = normalized.phase_transition_request;
+    const requestedIndex = phaseNames.indexOf(requested);
+    const invalidPhase = !(requested in (routing || {}));
+    const notForward = requestedIndex >= 0 && requestedIndex <= currentPhaseIndex;
+
+    if (invalidPhase || notForward) {
+      if (nextPhase) {
+        normalized.phase_transition_request = nextPhase;
+        corrections.push(
+          `phase_transition_request: corrected "${requested}" to forward phase "${nextPhase}"`
+        );
+      } else if (isTerminalPhase) {
+        normalized.phase_transition_request = null;
+        normalized.run_completion_request = true;
+        corrections.push(
+          `phase_transition_request: corrected terminal/non-forward "${requested}" to run_completion_request: true`
+        );
+      }
+    }
+  }
+
+  // ── Rule 6: repair routing-illegal next-role signals only when safe ───
+  if (isReviewOnly && normalized.run_completion_request === true && !normalized.phase_transition_request) {
+    if (normalized.proposed_next_role !== 'human') {
+      normalized.proposed_next_role = 'human';
+      corrections.push('proposed_next_role: corrected to "human" for run completion');
+    }
+  } else if (
+    isKnownPhase &&
+    isReviewOnly &&
+    normalized.status === 'completed' &&
+    typeof normalized.proposed_next_role === 'string' &&
+    normalized.proposed_next_role !== 'human' &&
+    allowedNextRoles.length > 0 &&
+    !allowedNextRoles.includes(normalized.proposed_next_role)
+  ) {
+    const fallback = pickAllowedRoleFallback();
+    if (fallback) {
+      corrections.push(
+        `proposed_next_role: corrected "${normalized.proposed_next_role}" to allowed role "${fallback}"`
+      );
+      normalized.proposed_next_role = fallback;
     }
   }
 

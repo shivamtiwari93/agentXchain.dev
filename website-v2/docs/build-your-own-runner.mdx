@@ -232,7 +232,7 @@ curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/ex
 node run-one-turn.mjs --json
 ```
 
-Imports from `agentxchain/runner-interface`. Scaffolds a tiny governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. No adapter, no subprocess.
+Imports from `agentxchain/runner-interface`. Scaffolds a tiny governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. The starter uses a one-phase review-only config, so that accepted turn completes the run instead of leaving it active. No adapter, no subprocess.
 
 ### Adapter-backed dispatch (runner-interface + adapter-interface)
 

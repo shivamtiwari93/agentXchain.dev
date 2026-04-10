@@ -34,7 +34,7 @@ node run-adapter-turn.mjs --json
 
 ### `run-one-turn.mjs` — runner-interface only
 
-Imports from `agentxchain/runner-interface`. Manually scaffolds a governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. No adapter, no subprocess, no CLI shell-out.
+Imports from `agentxchain/runner-interface`. Manually scaffolds a governed repo, initializes a run, assigns a turn, stages a result by hand, and accepts it. Because the starter uses a single review-only planning phase, the accepted turn also completes the run. No adapter, no subprocess, no CLI shell-out.
 
 ### `run-adapter-turn.mjs` — runner-interface + adapter-interface
 

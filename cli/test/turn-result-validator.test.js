@@ -432,8 +432,8 @@ describe('turn-result-validator', () => {
       assert.equal(res.ok, true);
     });
 
-    it('rejects proposed_next_role not in routing allowlist', () => {
-      writeStagedResult(makeValidTurnResult({ proposed_next_role: 'pm' }));
+    it('rejects proposed_next_role not in routing allowlist when the turn is not a completed forward-progress turn', () => {
+      writeStagedResult(makeValidTurnResult({ status: 'needs_human', proposed_next_role: 'pm' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.stage, 'protocol');
@@ -447,8 +447,8 @@ describe('turn-result-validator', () => {
       assert.equal(res.ok, true);
     });
 
-    it('rejects invalid phase_transition_request', () => {
-      writeStagedResult(makeValidTurnResult({ phase_transition_request: 'release' }));
+    it('rejects invalid phase_transition_request when the turn is not a completed forward-progress turn', () => {
+      writeStagedResult(makeValidTurnResult({ status: 'needs_human', phase_transition_request: 'release' }));
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, false);
       assert.equal(res.error_class, 'protocol_error');
@@ -511,6 +511,7 @@ describe('turn-result-validator', () => {
       const tr = makeValidTurnResult({
         role: 'qa',
         runtime_id: 'api-qa',
+        status: 'needs_human',
         files_changed: [],
         artifact: { type: 'review', ref: null },
         objections: [{ id: 'OBJ-001', severity: 'medium', statement: 'Final phase must use run completion.', status: 'raised' }],
@@ -659,8 +660,7 @@ describe('turn-result-validator', () => {
       const { normalized, corrections } = normalizeTurnResult(tr, makeConfig());
       assert.equal(normalized.phase_transition_request, null);
       assert.equal(normalized.run_completion_request, true);
-      assert.equal(corrections.length, 1);
-      assert.ok(corrections[0].includes('run_completion_request'));
+      assert.ok(corrections.some((c) => c.includes('run_completion_request')));
     });
 
     it('AT-NORM-004: corrects non-terminal exit gate to next phase name', () => {
@@ -766,8 +766,7 @@ describe('turn-result-validator', () => {
       assert.equal(normalized.status, 'completed');
       assert.equal(normalized.run_completion_request, true);
       assert.equal(normalized.needs_human_reason, undefined);
-      assert.equal(corrections.length, 1);
-      assert.ok(corrections[0].includes('run_completion_request'));
+      assert.ok(corrections.some((c) => c.includes('run_completion_request')));
     });
 
     it('AT-TCS-003: does NOT normalize when reason contains blocker keywords', () => {
@@ -830,6 +829,61 @@ describe('turn-result-validator', () => {
       const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
       assert.equal(normalized.status, 'needs_human');
       assert.equal(corrections.length, 0);
+    });
+
+    it('AT-NORM-007: infers next phase for completed non-terminal turn with no lifecycle signal', () => {
+      const tr = makeValidTurnResult({
+        status: 'completed',
+        phase_transition_request: null,
+        run_completion_request: null,
+      });
+      const ctx = { phase: 'planning', assignedRole: 'pm', writeAuthority: 'review_only' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.phase_transition_request, 'implementation');
+      assert.equal(normalized.run_completion_request, null);
+      assert.ok(corrections.some((c) => c.includes('inferred next phase "implementation"')));
+    });
+
+    it('AT-NORM-008: infers run completion for completed terminal turn with no lifecycle signal', () => {
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        status: 'completed',
+        phase_transition_request: null,
+        run_completion_request: null,
+        proposed_next_role: 'qa',
+      });
+      const ctx = { phase: 'qa', assignedRole: 'qa', writeAuthority: 'review_only' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.phase_transition_request, null);
+      assert.equal(normalized.run_completion_request, true);
+      assert.equal(normalized.proposed_next_role, 'human');
+      assert.ok(corrections.some((c) => c.includes('completed terminal phase "qa"')));
+      assert.ok(corrections.some((c) => c.includes('corrected to "human"')));
+    });
+
+    it('AT-NORM-009: corrects self or backward phase transition to the next forward phase', () => {
+      const tr = makeValidTurnResult({
+        status: 'completed',
+        phase_transition_request: 'planning',
+        run_completion_request: null,
+      });
+      const ctx = { phase: 'planning', assignedRole: 'pm', writeAuthority: 'review_only' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.phase_transition_request, 'implementation');
+      assert.equal(normalized.run_completion_request, null);
+      assert.ok(corrections.some((c) => c.includes('corrected "planning" to forward phase "implementation"')));
+    });
+
+    it('AT-NORM-010: corrects routing-illegal proposed_next_role to an allowed fallback', () => {
+      const tr = makeValidTurnResult({
+        status: 'completed',
+        proposed_next_role: 'hallucinated-role',
+      });
+      const ctx = { phase: 'planning', assignedRole: 'pm', writeAuthority: 'review_only' };
+      const { normalized, corrections } = normalizeTurnResult(tr, makeConfig(), ctx);
+      assert.equal(normalized.proposed_next_role, 'human');
+      assert.ok(corrections.some((c) => c.includes('hallucinated-role')));
     });
   });
 

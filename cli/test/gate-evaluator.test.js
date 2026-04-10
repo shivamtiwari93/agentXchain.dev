@@ -774,7 +774,7 @@ describe('acceptGovernedTurn — gate integration', () => {
     return turnResult;
   }
 
-  it('returns gateResult: null when turn has no phase_transition_request', () => {
+  it('infers forward progress for a completed turn with no phase_transition_request', () => {
     const config = makeConfig();
     const state = setupRun(config, 'planning', 'pm');
     stageTurnResult(state);
@@ -782,8 +782,8 @@ describe('acceptGovernedTurn — gate integration', () => {
     const result = acceptGovernedTurn(root, config);
     assert.ok(result.ok);
     assert.ok(result.gateResult);
-    assert.equal(result.gateResult.action, 'no_request');
-    // Phase should NOT change
+    assert.equal(result.gateResult.action, 'gate_failed');
+    // Phase should NOT change until the inferred next-phase gate passes.
     assert.equal(result.state.phase, 'planning');
   });
 

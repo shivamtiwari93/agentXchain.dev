@@ -208,18 +208,39 @@ If `ANTHROPIC_API_KEY` is not set:
 
 ## CI Reliability: Normalization Layer
 
-Small models (Haiku) produce structured JSON that is semantically correct but often violates strict schema constraints. The proof script includes a `normalizeCiTurnResult()` function that fixes common issues:
+Small models (Haiku) produce structured JSON that is often directionally right but inconsistent at two different layers:
 
-1. **`proposed_next_role` hallucination** — maps invalid role names to routing-legal fallbacks
-2. **Self/backward `phase_transition_request`** — corrects to the next forward phase
-3. **Missing completion request in terminal phase** — auto-injects `run_completion_request: true`
-4. **Missing phase transition in non-terminal phase** — auto-injects transition to next phase
-5. **Invalid decision categories / objection severities** — maps to valid enum values
-6. **Missing required fields** — fills defaults (status, summary, verification, cost)
+1. **Lifecycle/routing drift** — missing forward progression, invalid next-role names, or non-forward phase requests.
+2. **Semantic schema drift** — malformed objection statuses/severities, weakly typed verification objects, or terminal `needs_human` on an otherwise approving review.
 
-This normalization does NOT repair the governed turn result structure — the model's actual content (summary, decisions, objections) is preserved. It only fixes routing/lifecycle signals that the model gets wrong. The governed validator still runs on the normalized result.
+These must not be handled at the same boundary.
 
-**Design decision**: the proof tests real model dispatch capability, not model JSON compliance. The normalizer is the bridge between "model produced meaningful output" and "output passes protocol validation."
+### Core normalization (product behavior)
+
+`cli/src/lib/turn-result-validator.js` owns **unambiguous lifecycle/routing normalization** because that validator is the shared acceptance boundary for `step`, `run`, runner-interface consumers, remote agents, and conformance fixtures.
+
+Core-normalized cases for **review_only** turns:
+
+1. routing-illegal `proposed_next_role` -> allowed fallback
+2. self/backward or invalid `phase_transition_request` -> next forward phase
+3. completed non-terminal turn with omitted/null lifecycle signal -> next forward phase
+4. completed terminal turn with omitted/null lifecycle signal -> `run_completion_request: true`
+5. completion turns -> `proposed_next_role: "human"`
+
+### Proof-local stabilization (CI proof only)
+
+The proof script keeps a **proof-only semantic stabilizer** for low-cost model drift that we do **not** want to promote globally because it changes meaning-bearing fields:
+
+1. invalid decision categories -> `process`
+2. invalid objection severities/statuses -> safe defaults (`critical` -> `blocking`, otherwise fallback)
+3. missing required proof fields -> proof-local defaults
+4. terminal review-only `needs_human` without blocker language -> completion request
+
+This split is intentional:
+
+- product code may repair unambiguous lifecycle mechanics
+- product code must **not** globally rewrite objection semantics just to make a cheap CI model pass
+- the CI proof is allowed to stabilize semantics narrowly because its job is proving real API dispatch through governed execution, not certifying Haiku as a fully compliant production runtime
 
 ## Implemented Design
 
@@ -234,4 +255,4 @@ This normalization does NOT repair the governed turn result structure — the mo
 
 1. **Should we also prove `--auto-approve` via the CLI binary?** The current proof uses `runLoop` directly. A subprocess proof (`agentxchain run --auto-approve`) would prove CLI wiring but is slower. **Deferred**: the `runLoop` proof is sufficient for the lights-out claim.
 
-2. **Should the normalization be moved into the core validator?** Currently it lives only in the CI proof script. If other runners need the same normalization, it should be promoted. **Deferred**: keep it proof-local until a second consumer exists.
+2. **Should semantic proof-local stabilization ever move into product code?** Current answer: no, not without a separate product-facing contract and stronger evidence that the coercions preserve operator intent. Lifecycle/routing normalization already moved to the core validator; semantic coercion remains proof-local by design.

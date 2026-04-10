@@ -4,9 +4,10 @@
  * Guards the API dispatch proof boundary:
  *   1. imports runLoop (not primitive lifecycle operations)
  *   2. imports dispatchApiProxy (real adapter, not synthetic)
- *   3. validates governed artifacts including real API cost
- *   4. is wired into CI workflow
- *   5. uses Haiku for cost control
+ *   3. reuses core turn-result normalization before proof-only stabilization
+ *   4. validates governed artifacts including real API cost
+ *   5. is wired into CI workflow
+ *   6. uses Haiku for cost control
  */
 
 import { describe, it } from 'node:test';
@@ -44,28 +45,35 @@ describe('CI API dispatch proof: composition boundary', () => {
     }
   });
 
-  it('AT-CIAPI-PROOF-004: uses claude-haiku for cost control', () => {
+  it('AT-CIAPI-PROOF-004: reuses core turn-result normalization', () => {
+    assert.ok(
+      source.includes('turn-result-validator.js') && source.includes('normalizeTurnResult'),
+      'must reuse normalizeTurnResult from turn-result-validator.js before proof-only stabilization',
+    );
+  });
+
+  it('AT-CIAPI-PROOF-005: uses claude-haiku for cost control', () => {
     assert.ok(
       source.includes('claude-haiku-4-5-20251001'),
       'must use Haiku model for cost-controlled CI proof',
     );
   });
 
-  it('AT-CIAPI-PROOF-005: validates real API cost (non-zero)', () => {
+  it('AT-CIAPI-PROOF-006: validates real API cost (non-zero)', () => {
     assert.ok(
       source.includes('real_api_calls') || source.includes('cost.usd'),
       'must validate that API calls incurred real cost (distinguishes from synthetic proof)',
     );
   });
 
-  it('AT-CIAPI-PROOF-006: sets budget guard', () => {
+  it('AT-CIAPI-PROOF-007: sets budget guard', () => {
     assert.ok(
       source.includes('per_run_max_usd'),
       'must set a per-run budget to prevent CI cost runaway',
     );
   });
 
-  it('AT-CIAPI-PROOF-007: uses ANTHROPIC_API_KEY for auth', () => {
+  it('AT-CIAPI-PROOF-008: uses ANTHROPIC_API_KEY for auth', () => {
     assert.ok(
       source.includes('ANTHROPIC_API_KEY'),
       'must reference ANTHROPIC_API_KEY for api_proxy auth',
@@ -74,11 +82,11 @@ describe('CI API dispatch proof: composition boundary', () => {
 });
 
 describe('CI API dispatch proof: workflow wiring', () => {
-  it('AT-CIAPI-PROOF-008: proof script exists', () => {
+  it('AT-CIAPI-PROOF-009: proof script exists', () => {
     assert.ok(existsSync(PROOF_SCRIPT), 'run-with-api-dispatch.mjs must exist');
   });
 
-  it('AT-CIAPI-PROOF-009: CI workflow references the proof script', () => {
+  it('AT-CIAPI-PROOF-010: CI workflow references the proof script', () => {
     assert.ok(existsSync(WORKFLOW_PATH), 'ci-runner-proof.yml must exist');
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(
@@ -87,7 +95,7 @@ describe('CI API dispatch proof: workflow wiring', () => {
     );
   });
 
-  it('AT-CIAPI-PROOF-010: CI workflow injects ANTHROPIC_API_KEY secret', () => {
+  it('AT-CIAPI-PROOF-011: CI workflow injects ANTHROPIC_API_KEY secret', () => {
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(
       workflow.includes('ANTHROPIC_API_KEY') && workflow.includes('secrets.ANTHROPIC_API_KEY'),
@@ -95,7 +103,7 @@ describe('CI API dispatch proof: workflow wiring', () => {
     );
   });
 
-  it('AT-CIAPI-PROOF-011: CI workflow restricts to push on main', () => {
+  it('AT-CIAPI-PROOF-012: CI workflow restricts to push on main', () => {
     const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
     assert.ok(
       workflow.includes("github.event_name == 'push'") && workflow.includes("refs/heads/main"),
@@ -103,7 +111,7 @@ describe('CI API dispatch proof: workflow wiring', () => {
     );
   });
 
-  it('AT-CIAPI-PROOF-012: spec exists', () => {
+  it('AT-CIAPI-PROOF-013: spec exists', () => {
     assert.ok(existsSync(SPEC_PATH), 'CI_AUTOMATION_RUNNER_SPEC.md must exist');
   });
 });

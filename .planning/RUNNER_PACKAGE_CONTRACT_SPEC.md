@@ -36,6 +36,7 @@ This slice closes that gap.
    - `npm init -y`
    - `npm install agentxchain`
    - `node run-one-turn.mjs`
+   - The emitted JSON proof must report a terminal `completed` state for the starter's single-phase review-only config.
 4. The starter example must import only through the package exports and must not reference:
    - `cli/src/lib/runner-interface.js`
    - `cli/src/lib/run-loop.js`

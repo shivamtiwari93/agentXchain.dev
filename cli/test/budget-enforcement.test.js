@@ -71,6 +71,7 @@ function makeTurnResult(state, turnId, role, cost = 0.01) {
     artifact: { type: 'review', ref: null },
     proposed_next_role: 'dev',
     phase_transition_request: null,
+    run_completion_request: false,
     needs_human_reason: null,
     cost: { input_tokens: 100, output_tokens: 50, usd: cost },
   };
