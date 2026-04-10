@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.41.0
+# Launch Evidence Report — AgentXchain v2.42.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.41.0 governed IDE operator surface release: eight CLI-backed VS Code commands (status, approvals, step, run, report, restart, dashboard), state-change notifications, and mutation-boundary enforcement.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.42.0 lights-out CI proof release: real API-governed execution in GitHub Actions with model-backed dispatch, review-only lifecycle normalization promoted to core validator, and release discovery surface enforcement.
 
 ---
 

@@ -1,0 +1,47 @@
+---
+title: "v2.42.0 Release Notes"
+description: "Lights-out CI proof: real API-governed execution in GitHub Actions with model-backed dispatch, review-only lifecycle normalization, and release discovery enforcement."
+---
+
+# AgentXchain v2.42.0
+
+`2.42.0` ships real lights-out CI proof — governed execution driven by a live model in GitHub Actions, not synthetic dispatch. This is the first release where the "unattended governed execution" claim is backed by actual API-dispatched turns running in CI without any human terminal.
+
+## Real API-governed CI proof
+
+The CI Runner Proof workflow now includes an `api-dispatch-proof` job that runs `runLoop` + `dispatchApiProxy` with `claude-haiku-4-5-20251001` on every push to `main`. This proves:
+
+- **Real model dispatch** — turns are dispatched to the Anthropic API, not staged to disk.
+- **Governed lifecycle** — phase transitions, completion signals, and run state follow the protocol.
+- **Cost-controlled** — `$2.00` budget cap, 6-turn max, ~$0.01-0.02 per run.
+- **Non-zero API cost validation** — the proof script asserts `api_cost > 0` to distinguish from synthetic runs.
+
+The prior CI proof surface (`run-to-completion.mjs`, `run-with-run-loop.mjs`) tested runner mechanics with synthetic dispatch. Those still run. The new `api-dispatch-proof` job proves the same governed lifecycle with a real model.
+
+## Review-only lifecycle normalization
+
+Deterministic normalization for `review_only` turns is now in the core validator (`turn-result-validator.js`), not proof-local:
+
+- **Phase transition inference** — completed non-terminal `review_only` turns with missing lifecycle signals get the correct forward phase transition.
+- **Run completion inference** — completed terminal `review_only` turns with missing lifecycle signals get `run_completion_request: true`.
+- **Routing correction** — invalid `phase_transition_request` and routing-illegal `proposed_next_role` are corrected for completed review-only turns.
+- **Explicit signals preserved** — explicit `run_completion_request: false` is never overridden.
+
+This makes small-model CI runs reliable without requiring proof-local normalization hacks.
+
+## Release discovery enforcement
+
+`llms.txt` and `sitemap.xml` are now governed release surfaces (`DEC-RELEASE-DISCOVERY-001`):
+
+- Both files are in the `ALLOWED_RELEASE_PATHS` list in `release-bump.sh`.
+- Pre-bump validation fails closed unless both surfaces list the current release route.
+- `current-release-surface.test.js` guards this invariant.
+
+This permanently closes the recurring gap where release notes pages were published but not listed in discovery surfaces.
+
+## Evidence
+
+- **3104 tests / 650 suites / 0 failures** (Node test runner)
+- CI Runner Proof workflow green including `api-dispatch-proof` job (GitHub Actions run `24246569853`)
+- `npm view agentxchain version` verified post-publish
+- `cd website-v2 && npm run build` — production build succeeded

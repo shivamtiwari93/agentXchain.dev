@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.42.0
+
+`2.42.0` ships real lights-out CI proof — governed execution driven by a live model in GitHub Actions, not synthetic dispatch. Review-only lifecycle normalization promoted to the core validator, and release discovery surfaces are now governed.
+
+### Real API-governed CI proof
+
+- `api-dispatch-proof` job runs `runLoop` + `dispatchApiProxy` with `claude-haiku-4-5-20251001` on every push to `main`.
+- Proves real model dispatch, governed lifecycle, and non-zero API cost in CI without human terminal.
+- Cost-controlled: $2.00 budget cap, 6-turn max, ~$0.01-0.02 per run.
+- Prior synthetic proof scripts still run — no regression.
+
+### Review-only lifecycle normalization (core)
+
+- Deterministic lifecycle/routing normalization for `review_only` turns promoted from proof-local to `turn-result-validator.js`.
+- Phase transition inference, run completion inference, routing correction for completed review-only turns.
+- Explicit `run_completion_request: false` is never overridden.
+
+### Release discovery enforcement
+
+- `llms.txt` and `sitemap.xml` added to `ALLOWED_RELEASE_PATHS` in `release-bump.sh`.
+- Pre-bump validation fails closed unless both surfaces list the current release route.
+- `current-release-surface.test.js` guards discoverability invariant.
+
+### Evidence
+
+- **3104 tests / 650 suites / 0 failures**
+- CI Runner Proof workflow green including `api-dispatch-proof` job
+- Docusaurus production build clean
+
 ## 2.41.0
 
 `2.41.0` ships the governed IDE operator surface for VS Code. Eight governed commands — status, phase/completion approvals, step, run, report, restart, and dashboard launch — all backed by CLI subprocess calls with no direct `.agentxchain/` file writes. State-change notifications drive push alerts for pending gates, blocked states, and turn completions.
