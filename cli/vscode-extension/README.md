@@ -7,7 +7,8 @@ This extension provides governed approval actions, governed step dispatch, and p
 - **Legacy mode:** supports lock-based coordination commands (`claim`, `release`, `generate`) for v3-style IDE-window workflows.
 - **Governed mode (observer):** shows read-only status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code. Includes continuity guidance, workflow-kit artifact visibility, and pending gate display.
 - **Governed mode (operator):** supports phase transition approval and run completion approval via CLI subprocess calls (`agentxchain approve-transition`, `agentxchain approve-completion`), plus governed step dispatch in an integrated terminal (`agentxchain step` or `agentxchain step --resume` when the CLI continuity contract recommends it). Approval and step buttons appear in the sidebar dashboard when the governed status payload warrants them.
-- **Not shipped here:** `agentxchain run`, notification fanout, or full governed reporting inside VS Code.
+- **Governed mode (notifications):** automatic VS Code notifications when governed state changes: pending phase transition (with "Approve" action), pending run completion (with "Approve" action), blocked state (error notification with reason), and turn completion (info notification). Notifications are driven by file-watcher state diffs — no polling, no duplicate alerts for already-seen gates.
+- **Not shipped here:** `agentxchain run`, or full governed reporting inside VS Code.
 
 For additional governed operations, use:
 

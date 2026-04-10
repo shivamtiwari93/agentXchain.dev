@@ -5,6 +5,7 @@ import { registerCommands } from './commands/index';
 import { createStatusBar } from './statusBar';
 import { createFileWatchers } from './fileWatcher';
 import { DashboardViewProvider } from './sidebar';
+import { GovernedNotificationService } from './notifications';
 
 export function activate(context: vscode.ExtensionContext) {
   const root = findProjectRoot();
@@ -22,7 +23,16 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider('agentxchain.dashboard', dashboardProvider)
   );
 
-  watchers.onStateChange(() => dashboardProvider.refresh());
+  const notificationService = new GovernedNotificationService(root);
+  context.subscriptions.push({ dispose: () => notificationService.dispose() });
+
+  // Seed notification baseline from current state (no notifications on activation)
+  void notificationService.check();
+
+  watchers.onStateChange(() => {
+    dashboardProvider.refresh();
+    void notificationService.check();
+  });
 
   statusBar.refresh();
 }

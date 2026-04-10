@@ -42,6 +42,7 @@ const index_1 = require("./commands/index");
 const statusBar_1 = require("./statusBar");
 const fileWatcher_1 = require("./fileWatcher");
 const sidebar_1 = require("./sidebar");
+const notifications_1 = require("./notifications");
 function activate(context) {
     const root = findProjectRoot();
     if (!root) {
@@ -52,7 +53,14 @@ function activate(context) {
     const watchers = (0, fileWatcher_1.createFileWatchers)(context, root, statusBar);
     const dashboardProvider = new sidebar_1.DashboardViewProvider(context.extensionUri, root);
     context.subscriptions.push(vscode.window.registerWebviewViewProvider('agentxchain.dashboard', dashboardProvider));
-    watchers.onStateChange(() => dashboardProvider.refresh());
+    const notificationService = new notifications_1.GovernedNotificationService(root);
+    context.subscriptions.push({ dispose: () => notificationService.dispose() });
+    // Seed notification baseline from current state (no notifications on activation)
+    void notificationService.check();
+    watchers.onStateChange(() => {
+        dashboardProvider.refresh();
+        void notificationService.check();
+    });
     statusBar.refresh();
 }
 function deactivate() { }

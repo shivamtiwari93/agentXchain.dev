@@ -61,7 +61,7 @@ export interface ProjectSurface {
 }
 
 export const GOVERNED_MODE_NOTICE =
-  'Governed project detected. This extension keeps governed status read-only while supporting governed approvals and step dispatch through the AgentXchain CLI. Use agentxchain dashboard or the browser dashboard for additional governed operations.';
+  'Governed project detected. This extension keeps governed status read-only while supporting governed approvals, step dispatch, and state-change notifications through the AgentXchain CLI. Use agentxchain dashboard or the browser dashboard for additional governed operations.';
 
 export function readJson<T>(filePath: string): T | null {
   try {

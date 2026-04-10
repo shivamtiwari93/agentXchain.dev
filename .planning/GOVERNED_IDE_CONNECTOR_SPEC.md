@@ -10,7 +10,7 @@ The governed IDE connector is **not a new adapter type**. It is a thin orchestra
 
 ### Current shipped slice
 
-As of 2026-04-10, the observer foundation, approval slice, and single-step dispatch slice are shipped:
+As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, and notification slice are shipped:
 
 - governed project detection
 - governed status via `agentxchain status --json`
@@ -22,8 +22,9 @@ As of 2026-04-10, the observer foundation, approval slice, and single-step dispa
 - governed step dispatch in an integrated terminal via `agentxchain step` or a continuity-driven `agentxchain step --resume`
 - sidebar step action button that appears only when the governed status payload says step dispatch is valid
 - modal confirmation dialogs before approval actions
+- automatic VS Code notifications driven by file-watcher state diffs: pending phase transition (warning + "Approve" action), pending run completion (warning + "Approve" action), blocked state (error with reason), turn completion (info). Pure state-diff logic lives in `notificationState.ts` (no vscode dependency, fully testable). Notification service in `notifications.ts` consumes diffs and fires VS Code notification APIs. Baseline is seeded on activation to prevent spurious alerts.
 - direct-mutation guard coverage proving governed state is not written by the extension
-- 12 approval-specific acceptance tests + 10 existing IDE status tests + governed step tests
+- 12 approval-specific acceptance tests + 10 existing IDE status tests + governed step tests + 28 notification tests
 
 The `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
 
