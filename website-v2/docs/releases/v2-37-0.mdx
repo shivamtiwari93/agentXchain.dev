@@ -1,0 +1,48 @@
+---
+title: "v2.37.0 Release Notes"
+description: "Google Gemini joins governed api_proxy with three-provider proof, hardened Gemini failure handling, Homebrew mirror PR automation, and a new 14-page examples docs library."
+---
+
+# AgentXchain v2.37.0
+
+`2.37.0` adds Google Gemini as the third governed `api_proxy` provider, hardens Gemini-specific failure handling, fixes the Homebrew mirror PR automation path, and ships a first-class examples docs library.
+
+## Google Gemini is now a governed api_proxy provider
+
+AgentXchain now supports three `api_proxy` providers out of the box: **OpenAI**, **Anthropic**, and **Google Gemini**.
+
+The Google connector uses the Gemini `generateContent` endpoint with URL query-param API-key auth and `responseMimeType: "application/json"`. Config validation now accepts `provider: "google"` for `api_proxy` blocks.
+
+The three-provider governed proof demonstrates a real multi-provider workflow: OpenAI PM → Google architect → Anthropic QA, with phase transitions, semantic gate evaluation, and mock-backed governed E2E.
+
+## Gemini-specific failure handling
+
+Gemini responses that are blocked or truncated now surface with provider-specific messages instead of collapsing into generic extraction noise:
+
+- `promptFeedback.blockReason` — surfaces the exact block reason when Gemini refuses a prompt
+- Non-`STOP` `finishReason` — surfaces when Gemini returns no parts, empty text, or `MAX_TOKENS` truncation
+
+This ensures operators get actionable feedback when a Gemini-backed role fails, not opaque parse errors.
+
+## Homebrew mirror PR automation
+
+The publish workflow now creates the Homebrew mirror PR itself instead of leaving an orphan branch for manual cleanup:
+
+- Added `pull-requests: write` to the publish workflow permissions
+- PR creation now fails closed — if `gh pr create` fails after branch push, the workflow fails
+- Manual cherry-pick and manual PR creation are no longer accepted fallback patterns
+
+## Examples docs library
+
+Every shipped example now has its own dedicated docs page under `/docs/examples/`:
+
+- 14 example pages covering consumer SaaS, mobile, B2B, developer tools, open source libraries, governed proofs, MCP agents, and remote conformance
+- `Examples` is a first-class category in the docs sidebar
+- Hub page at `/docs/examples` with navigation to all detail pages
+- `llms.txt` and `sitemap.xml` updated for discoverability
+
+## Evidence
+
+- **2915 tests / 609 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build` — production build succeeded

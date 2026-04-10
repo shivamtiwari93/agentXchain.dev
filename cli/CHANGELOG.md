@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.37.0
+
+`2.37.0` adds Google Gemini as the third governed `api_proxy` provider, hardens Gemini-specific failure handling, fixes the Homebrew mirror PR automation path, and ships a first-class examples docs library.
+
+### Google Gemini as governed api_proxy provider
+
+- Google Gemini is now a supported `api_proxy` provider alongside OpenAI and Anthropic.
+- Uses the Gemini `generateContent` endpoint with URL query-param API-key auth.
+- Config validation accepts `provider: "google"` for `api_proxy` blocks.
+- Three-provider governed proof: OpenAI PM → Google architect → Anthropic QA with real phase transitions and semantic gate evaluation.
+
+### Gemini-specific failure handling
+
+- `promptFeedback.blockReason` now surfaces as a provider-specific extraction-failure message.
+- Non-`STOP` `finishReason` values surface when Gemini returns no parts, empty text, or `MAX_TOKENS` truncation.
+- Blocked/truncated Gemini responses no longer collapse into generic parse noise.
+
+### Homebrew mirror PR automation
+
+- Publish workflow now creates the Homebrew mirror PR itself with `pull-requests: write`.
+- PR creation fails closed — orphan branches are no longer accepted fallback patterns.
+
+### Examples docs library
+
+- 14 example pages under `/docs/examples/` covering all shipped examples.
+- `Examples` is a first-class docs sidebar category.
+- `llms.txt` and `sitemap.xml` updated for new routes.
+
+### Evidence
+
+- **2915 tests / 609 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.36.0
 
 `2.36.0` ships the missing operator-visible dashboard continuity panel and closes the release-surface drift that kept the repo-mirrored Homebrew files out of release identity.

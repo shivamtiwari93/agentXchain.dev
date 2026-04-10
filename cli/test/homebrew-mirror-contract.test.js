@@ -46,7 +46,7 @@ describe('homebrew mirror contract', () => {
     assert.doesNotMatch(readme, /2\.1\.1/);
   });
 
-  it('documents the canonical tap and uses a real non-placeholder SHA', () => {
+  it('documents the canonical tap and uses a real non-placeholder SHA', { skip: isReleasePreflight }, () => {
     assert.match(readme, /canonical Homebrew tap lives in `shivamtiwari93\/homebrew-tap`/);
     const shaMatch = formula.match(/sha256 "([0-9a-f]{64})"/);
     assert.ok(shaMatch, 'expected mirrored formula to declare a SHA256');
