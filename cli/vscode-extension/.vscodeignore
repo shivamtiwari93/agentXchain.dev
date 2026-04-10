@@ -1,0 +1,15 @@
+# Source and build config
+src/**
+tsconfig.json
+.gitignore
+
+# Dev artifacts
+*.vsix
+node_modules/**
+
+# Package metadata not needed in VSIX
+package-lock.json
+CHANGELOG.md
+
+# Duplicate license (LICENSE.txt is the canonical copy)
+LICENSE

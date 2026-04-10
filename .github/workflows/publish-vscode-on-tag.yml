@@ -1,0 +1,75 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - 'vsce-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing extension tag in vsce-vX.Y.Z format
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vsce-publish-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Checkout tagged release
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cli/vscode-extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: cli/vscode-extension
+        run: npm ci
+
+      - name: Compile TypeScript
+        working-directory: cli/vscode-extension
+        run: npm run compile
+
+      - name: Verify version matches tag
+        working-directory: cli/vscode-extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${RELEASE_TAG#vsce-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$TAG_VERSION" != "$PKG_VERSION" ]]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $PKG_VERSION"
+
+      - name: Package VSIX
+        working-directory: cli/vscode-extension
+        run: npx @vscode/vsce package --no-dependencies
+
+      - name: Publish to VS Code Marketplace
+        working-directory: cli/vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${VSCE_PAT:-}" ]]; then
+            echo "::error::VSCE_PAT secret not configured. Cannot publish to VS Code Marketplace."
+            exit 1
+          fi
+          npx @vscode/vsce publish --no-dependencies -p "$VSCE_PAT"
+          echo "Published agentxchain extension to VS Code Marketplace."

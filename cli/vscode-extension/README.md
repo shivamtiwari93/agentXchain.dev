@@ -2,7 +2,7 @@
 
 This extension provides governed approval actions, step/run launch, restart recovery, governance reports, dashboard launch, notifications, and project status inside VS Code.
 
-## Current Boundary
+## Features
 
 - **Legacy mode:** supports lock-based coordination commands (`claim`, `release`, `generate`) for v3-style IDE-window workflows.
 - **Governed mode (observer):** shows read-only status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code. Includes continuity guidance, workflow-kit artifact visibility, and pending gate display.
@@ -17,7 +17,13 @@ For additional governed operations, use:
 - the browser dashboard for deeper multi-repo and long-run views
 - the CLI for proposal workflows and non-IDE automation
 
+## Requirements
+
 Governed mode requires the `agentxchain` CLI to be available on your `PATH`. For local development or tests, you can point the extension at a specific binary with `AGENTXCHAIN_CLI_PATH`.
+
+- VS Code `^1.90.0`
+- An AgentXchain repo with `agentxchain.json` in the workspace
+- The `agentxchain` CLI installed and reachable on `PATH`, or `AGENTXCHAIN_CLI_PATH` set for local development
 
 ## Commands
 

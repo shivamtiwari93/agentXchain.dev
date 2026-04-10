@@ -11,12 +11,17 @@
   },
   "homepage": "https://agentxchain.dev",
   "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#0a0a0a",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
     "AI",
-    "Other"
+    "Other",
+    "Testing"
   ],
   "keywords": [
     "ai",
@@ -30,13 +35,6 @@
     "workspaceContains:**/agentxchain.json"
   ],
   "main": "./out/extension.js",
-  "files": [
-    "out/**",
-    "media/**",
-    "README.md",
-    "package.json",
-    "LICENSE.txt"
-  ],
   "contributes": {
     "commands": [
       {
