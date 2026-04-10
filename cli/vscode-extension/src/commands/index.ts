@@ -9,6 +9,8 @@ import { approveRunCompletion } from './approve-completion';
 import { runGovernedStep } from './step';
 import { runGovernedRun } from './run';
 import { showReport } from './report';
+import { restartGovernedRun } from './restart';
+import { openGovernedDashboard } from './dashboard';
 
 export function registerCommands(context: vscode.ExtensionContext, root: string) {
   context.subscriptions.push(
@@ -21,6 +23,8 @@ export function registerCommands(context: vscode.ExtensionContext, root: string)
     vscode.commands.registerCommand('agentxchain.approveCompletion', () => approveRunCompletion(root)),
     vscode.commands.registerCommand('agentxchain.step', () => runGovernedStep(root)),
     vscode.commands.registerCommand('agentxchain.run', () => runGovernedRun(root)),
-    vscode.commands.registerCommand('agentxchain.report', () => showReport(root))
+    vscode.commands.registerCommand('agentxchain.report', () => showReport(root)),
+    vscode.commands.registerCommand('agentxchain.restart', () => restartGovernedRun(root)),
+    vscode.commands.registerCommand('agentxchain.openDashboard', () => openGovernedDashboard(root))
   );
 }

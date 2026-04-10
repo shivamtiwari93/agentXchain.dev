@@ -1,7 +1,7 @@
 {
   "name": "agentxchain",
   "displayName": "AgentXchain",
-  "description": "AgentXchain IDE integration: governed approvals, step/run launch, notifications, project status, and legacy lock-based coordination in VS Code.",
+  "description": "AgentXchain IDE integration: governed status, approvals, step/run launch, restart, dashboard/report access, notifications, and legacy lock-based coordination in VS Code.",
   "version": "0.1.0",
   "publisher": "agentxchain",
   "license": "MIT",
@@ -30,6 +30,13 @@
     "workspaceContains:**/agentxchain.json"
   ],
   "main": "./out/extension.js",
+  "files": [
+    "out/**",
+    "media/**",
+    "README.md",
+    "package.json",
+    "LICENSE.txt"
+  ],
   "contributes": {
     "commands": [
       {
@@ -71,6 +78,14 @@
       {
         "command": "agentxchain.report",
         "title": "AgentXchain: Show Governance Report"
+      },
+      {
+        "command": "agentxchain.restart",
+        "title": "AgentXchain: Restart Governed Session"
+      },
+      {
+        "command": "agentxchain.openDashboard",
+        "title": "AgentXchain: Open Browser Dashboard"
       }
     ],
     "viewsContainers": {

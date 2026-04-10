@@ -27,7 +27,10 @@ describe('IDE compatibility public boundary', () => {
 
   it('keeps homepage copy honest about the IDE surface', () => {
     assert.match(homepage, /Legacy IDE compatibility/);
-    assert.match(homepage, /CLI-backed status, approvals, step\/run launch, and\s+state-change notifications/i);
+    assert.match(homepage, /CLI-backed status, approvals, step\/run launch/i);
+    assert.match(homepage, /restart\s+recovery/i);
+    assert.match(homepage, /report and dashboard access/i);
+    assert.match(homepage, /state-change\s+notifications/i);
     assert.match(homepage, /browser dashboard\s+and CLI/);
     assert.doesNotMatch(homepage, /full governed control plane/i);
     assert.doesNotMatch(homepage, /without leaving your IDE/i);
@@ -39,10 +42,14 @@ describe('IDE compatibility public boundary', () => {
     assert.match(spec, /legacy lock-based coordination/i);
     assert.match(spec, /governed VS Code slice is no longer read-only/i);
     assert.match(spec, /step\/run launch/i);
+    assert.match(spec, /restart recovery/i);
+    assert.match(spec, /dashboard launch/i);
 
     assert.match(extensionReadme, /Legacy mode/);
     assert.match(extensionReadme, /Governed mode/);
     assert.match(extensionReadme, /Start or Resume Governed Run/i);
+    assert.match(extensionReadme, /Restart Governed Session/i);
+    assert.match(extensionReadme, /Open Browser Dashboard/i);
   });
 });
 
@@ -78,6 +85,8 @@ describe('VS Code extension project-mode detection', () => {
     assert.equal(surface.state.phase, 'implementation');
     assert.match(utilModule.GOVERNED_MODE_NOTICE, /dashboard/i);
     assert.match(utilModule.GOVERNED_MODE_NOTICE, /approvals/i);
+    assert.match(utilModule.GOVERNED_MODE_NOTICE, /restart recovery/i);
+    assert.match(utilModule.GOVERNED_MODE_NOTICE, /dashboard launch/i);
   });
 
   it('detects legacy lock-based projects', () => {

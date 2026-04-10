@@ -61,7 +61,7 @@ export interface ProjectSurface {
 }
 
 export const GOVERNED_MODE_NOTICE =
-  'Governed project detected. This extension keeps governed mutations routed through the AgentXchain CLI while supporting governed status, approvals, step/run launch, governance reports, and state-change notifications. Use agentxchain dashboard or the browser dashboard for multi-repo operations and deeper governed views.';
+  'Governed project detected. This extension keeps governed mutations routed through the AgentXchain CLI while supporting governed status, approvals, step/run launch, restart recovery, governance reports, dashboard launch, and state-change notifications. Use the browser dashboard and CLI for multi-repo operations and deeper governed views.';
 
 export function readJson<T>(filePath: string): T | null {
   try {

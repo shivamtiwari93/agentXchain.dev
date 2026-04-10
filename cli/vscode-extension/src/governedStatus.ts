@@ -47,6 +47,7 @@ export interface ContinuityCheckpoint {
 
 export interface GovernedContinuity {
   checkpoint?: ContinuityCheckpoint | null;
+  restart_recommended?: boolean;
   recommended_command?: string | null;
   recommended_reason?: string | null;
   recommended_detail?: string | null;
@@ -90,6 +91,11 @@ export interface GovernedStepAction {
 export interface GovernedRunAction {
   cliArgs: string[];
   label: 'Start Run' | 'Resume Run';
+}
+
+export interface GovernedRestartAction {
+  cliArgs: string[];
+  label: 'Restart Run';
 }
 
 export async function loadGovernedStatus(root: string): Promise<GovernedStatusPayload> {
@@ -203,6 +209,7 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
   const pendingCompletion = state?.pending_run_completion;
   const stepAction = getGovernedStepAction(payload);
   const runAction = getGovernedRunAction(payload);
+  const restartAction = getGovernedRestartAction(payload);
 
   return `<!DOCTYPE html>
 <html>
@@ -272,6 +279,14 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
   ${runAction
     ? `<div class="section"><div class="label">Run loop</div><div style="margin-top:8px;"><a class="btn btn-secondary" href="command:agentxchain.run">${escapeHtml(runAction.label)}</a></div></div>`
     : ''}
+  <div class="section">
+    <div class="label">Operator surfaces</div>
+    <div style="margin-top:8px;">
+      <a class="btn btn-secondary" href="command:agentxchain.report">Show Report</a>
+      <a class="btn btn-secondary" href="command:agentxchain.openDashboard">Open Dashboard</a>
+      ${restartAction ? `<a class="btn btn-secondary" href="command:agentxchain.restart">${escapeHtml(restartAction.label)}</a>` : ''}
+    </div>
+  </div>
   ${state?.blocked || state?.status === 'blocked'
     ? `<div class="section"><div class="blocked">Blocked reason: ${escapeHtml(state?.blocked_reason || state?.blocked_on || 'unknown')}</div></div>`
     : ''}
@@ -404,6 +419,25 @@ export function getGovernedRunAction(payload: GovernedStatusPayload): GovernedRu
   };
 }
 
+export function getGovernedRestartAction(payload: GovernedStatusPayload): GovernedRestartAction | null {
+  const recommendedArgs = parseRecommendedRestartArgs(payload.continuity?.recommended_command);
+  if (recommendedArgs) {
+    return {
+      cliArgs: recommendedArgs,
+      label: 'Restart Run',
+    };
+  }
+
+  if (payload.continuity?.restart_recommended) {
+    return {
+      cliArgs: ['restart'],
+      label: 'Restart Run',
+    };
+  }
+
+  return null;
+}
+
 export function buildCliShellCommand(cliArgs: string[]): string {
   const cliPath = process.env.AGENTXCHAIN_CLI_PATH?.trim();
   const invocation = resolveCliInvocation(cliPath);
@@ -458,6 +492,19 @@ function parseRecommendedStepArgs(command: string | null | undefined): string[] 
   return tokens.slice(1);
 }
 
+export function parseRecommendedRestartArgs(command: string | null | undefined): string[] | null {
+  if (!command) {
+    return null;
+  }
+
+  const tokens = command.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2 || tokens[0] !== 'agentxchain' || tokens[1] !== 'restart') {
+    return null;
+  }
+
+  return tokens.slice(1);
+}
+
 function formatCliFailure(error: unknown): string {
   const failure = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
   if (failure.code === 'ENOENT') {
@@ -467,7 +514,7 @@ function formatCliFailure(error: unknown): string {
   const stderr = typeof failure.stderr === 'string' ? failure.stderr.trim() : '';
   const stdout = typeof failure.stdout === 'string' ? failure.stdout.trim() : '';
   const detail = stderr || stdout || failure.message || 'unknown CLI failure';
-  return `AgentXchain CLI status failed: ${detail}`;
+  return `AgentXchain CLI command failed: ${detail}`;
 }
 
 function formatBlockedState(state: GovernedState | null): string {

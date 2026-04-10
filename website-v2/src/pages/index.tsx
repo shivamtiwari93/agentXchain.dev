@@ -272,7 +272,7 @@ function FiveLayers() {
       label: 'The organizational edges',
       color: '#A78BFA',
       bg: 'rgba(167,139,250,0.12)',
-      desc: 'Legacy IDE compatibility (VS Code, Cursor), read-only governed status in-editor, real-time dashboard, webhook notifications, governance reports, export & verification, plugins, and multi-repo coordination.',
+      desc: 'Legacy IDE compatibility (VS Code, Cursor), governed status and approvals in-editor, step/run launch, restart recovery, report and dashboard access, notifications, export & verification, plugins, and multi-repo coordination.',
       link: '/docs/plugins',
       linkText: 'Plugins & integrations',
     },
@@ -569,10 +569,10 @@ function Integrations() {
             <p>
               VS Code and Cursor compatibility is available today for legacy
               lock-based coordination. In governed repos, the VS Code extension
-              adds CLI-backed status, approvals, step/run launch, and
-              state-change notifications. Reports, multi-repo operations, and
-              the richer governance view still live in the browser dashboard
-              and CLI.
+              adds CLI-backed status, approvals, step/run launch, restart
+              recovery, report and dashboard access, and state-change
+              notifications. Reports, multi-repo operations, and the richer
+              governance view still live in the browser dashboard and CLI.
             </p>
           </div>
           <div className="feature-card">

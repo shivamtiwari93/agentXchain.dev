@@ -10,7 +10,7 @@ The governed IDE connector is **not a new adapter type**. It is a thin orchestra
 
 ### Current shipped slice
 
-As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, notification slice, run-launch slice, and report rendering slice are shipped:
+As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, notification slice, run-launch slice, report rendering slice, restart slice, and dashboard-launch slice are shipped:
 
 - governed project detection
 - governed status via `agentxchain status --json`
@@ -26,15 +26,16 @@ As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, 
 - modal confirmation dialogs before approval actions
 - automatic VS Code notifications driven by file-watcher state diffs: pending phase transition (warning + "Approve" action), pending run completion (warning + "Approve" action), blocked state (error with reason), turn completion (info). Turn-completion notifications are suppressed while an IDE-launched governed run terminal is active so `agentxchain run` does not generate per-turn toast spam. Pure state-diff logic lives in `notificationState.ts` (no vscode dependency, fully testable). Notification service in `notifications.ts` consumes diffs and fires VS Code notification APIs. Baseline is seeded on activation to prevent spurious alerts.
 - governed report rendering via `agentxchain export` piped to `agentxchain report --format json`, displayed in an OutputChannel with project, run, turn timeline, decisions, workflow-kit artifacts, and verification status. Report logic lives in `governedStatus.ts` (vscode-free, testable). Command wrapper in `commands/report.ts` is a thin VS Code shell.
+- governed restart via `agentxchain restart` subprocess call with modal confirmation and OutputChannel rendering. Restart uses CLI continuity truth when available but remains callable even if `status --json` fails.
+- governed dashboard launch via `agentxchain dashboard` in an integrated terminal. The CLI remains responsible for starting the local bridge server and opening the browser.
 - direct-mutation guard coverage proving governed state is not written by the extension
-- targeted approval/status/step/notification/run/report acceptance coverage in `cli/test/governed-ide-*.test.js`
-
-The `dashboard` and `restart` command surfaces below remain the target contract, not shipped truth.
+- targeted approval/status/step/notification/run/report/restart/dashboard acceptance coverage in `cli/test/governed-ide-*.test.js`
 
 ### What the IDE connector IS
 
 - A governed-state observer that reads governed status from `agentxchain status --json` and renders that CLI truth in the IDE
 - An operator action surface for: viewing status, approving phase transitions, approving run completion, launching one governed step, and launching or resuming a governed run loop
+- An operator recovery and visibility surface for: rendering reports, restarting from checkpoint, and launching the browser dashboard
 - A notification surface for: phase changes, blocked states, escalations, turn completions
 - A governed-turn dispatch trigger that launches `agentxchain step` and `agentxchain run` in integrated terminals
 
@@ -42,7 +43,7 @@ The `dashboard` and `restart` command surfaces below remain the target contract,
 
 - A new adapter/runtime type (no `ide` entry in `VALID_RUNTIME_TYPES`)
 - A direct state mutator (never writes to `.agentxchain/` directly)
-- A replacement for the browser dashboard (complex views like barrier ledger, cross-run analytics, reports, and multi-repo flows remain browser-only)
+- A replacement for the browser dashboard (complex views like barrier ledger, cross-run analytics, and multi-repo flows remain browser-first even though the IDE can launch the dashboard and render one report view)
 - A turn result author (the IDE does not produce `turn-result.json` — the dispatched adapter does)
 
 ## Interface
@@ -57,7 +58,7 @@ The `dashboard` and `restart` command surfaces below remain the target contract,
 | `AgentXchain: Step` | `agentxchain step` | operator action | Launch one governed step in an integrated terminal |
 | `AgentXchain: Run` | `agentxchain run` | operator action | Start or resume a governed run loop |
 | `AgentXchain: Report` | `agentxchain report --format json` | read-only | Show governance report in panel |
-| `AgentXchain: Open Dashboard` | `agentxchain dashboard` | read-only | Launch browser dashboard |
+| `AgentXchain: Open Dashboard` | `agentxchain dashboard` | read-only | Launch browser dashboard through a CLI-owned bridge terminal |
 | `AgentXchain: Restart` | `agentxchain restart` | operator action | Recover from checkpoint |
 
 ### Status Bar
@@ -73,6 +74,8 @@ The `dashboard` and `restart` command surfaces below remain the target contract,
 - Pending actions (approve-transition, approve-completion) as clickable buttons
 - Step dispatch action when the governed CLI truth permits it
 - Run-loop launch action when the governed status permits it
+- Report and dashboard buttons for shipped governed visibility surfaces
+- Restart button when continuity truth recommends `agentxchain restart`
 - Blocked reason if present
 - Workflow-kit artifact status for current phase (exists/missing indicators)
 - Last checkpoint timestamp and recommended recovery command
@@ -181,7 +184,7 @@ The sidebar shows workflow-kit artifacts for the current phase with exists/missi
 
 ### AT-GIDE-011: Checkpoint/continuity visibility
 
-The sidebar shows the last checkpoint timestamp and recommended command from `status --json.continuity`. If a restart is recommended, a "Restart" button appears.
+The sidebar shows the last checkpoint timestamp and recommended command from `status --json.continuity`. If a restart is recommended, a "Restart" button appears. The sidebar also exposes `Show Report` and `Open Dashboard` buttons for the shipped governed visibility surfaces.
 
 ### AT-GIDE-012: Subprocess E2E proof
 
@@ -191,12 +194,14 @@ A test harness must prove the shipped governed IDE surfaces through real CLI sub
 3. Phase transition requested → approve via IDE approval subprocess → phase advances
 4. Run completion requested → approve via IDE approval subprocess → run completes
 5. `report` via IDE helpers → governance report rendered from a real export artifact
+6. `restart` affordance appears only when CLI continuity recommends it, and the command routes through CLI subprocess execution
+7. `dashboard` affordance launches `agentxchain dashboard` through an integrated terminal helper without direct governed-state mutation
 
-Surfaces not yet shipped (dashboard launch, restart) are not part of this test until they are implemented. The proof boundary matches the "Current shipped slice" section above.
+The proof boundary matches the "Current shipped slice" section above.
 
 ## Proof Requirements Before Claiming "Governed IDE Support"
 
-1. All 12 acceptance tests pass
+1. All shipped acceptance tests and command-audit guards pass
 2. Extension compiles and packages (`vsce package`) without errors
 3. No `fs.writeFile`/`fs.writeFileSync`/`fs.mkdirSync` calls target `.agentxchain/` or governed artifacts
 4. Homepage/docs copy updated to describe governed IDE capabilities honestly

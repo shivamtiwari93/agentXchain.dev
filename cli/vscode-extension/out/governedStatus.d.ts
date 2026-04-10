@@ -37,6 +37,7 @@ export interface ContinuityCheckpoint {
 }
 export interface GovernedContinuity {
     checkpoint?: ContinuityCheckpoint | null;
+    restart_recommended?: boolean;
     recommended_command?: string | null;
     recommended_reason?: string | null;
     recommended_detail?: string | null;
@@ -75,6 +76,10 @@ export interface GovernedRunAction {
     cliArgs: string[];
     label: 'Start Run' | 'Resume Run';
 }
+export interface GovernedRestartAction {
+    cliArgs: string[];
+    label: 'Restart Run';
+}
 export declare function loadGovernedStatus(root: string): Promise<GovernedStatusPayload>;
 export declare function parseGovernedStatus(stdout: string, stderr?: string): GovernedStatusPayload;
 export declare function renderGovernedStatusLines(payload: GovernedStatusPayload): string[];
@@ -82,6 +87,7 @@ export declare function renderGovernedStatusHtml(payload: GovernedStatusPayload,
 export declare function summarizeGovernedStatus(payload: GovernedStatusPayload): GovernedStatusBarModel;
 export declare function getGovernedStepAction(payload: GovernedStatusPayload): GovernedStepAction | null;
 export declare function getGovernedRunAction(payload: GovernedStatusPayload): GovernedRunAction | null;
+export declare function getGovernedRestartAction(payload: GovernedStatusPayload): GovernedRestartAction | null;
 export declare function buildCliShellCommand(cliArgs: string[]): string;
 /**
  * Execute an agentxchain CLI command as a subprocess.
@@ -91,6 +97,7 @@ export declare function execCliCommand(root: string, cliArgs: string[], timeoutM
     stdout: string;
     stderr: string;
 }>;
+export declare function parseRecommendedRestartArgs(command: string | null | undefined): string[] | null;
 export interface GovernedReportPayload {
     report_version?: string;
     overall?: string;

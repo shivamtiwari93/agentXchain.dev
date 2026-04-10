@@ -269,8 +269,8 @@ describe('governed IDE report — mutation boundary', () => {
     assert.match(indexSource, /agentxchain\.report/, 'commands/index.ts must register agentxchain.report');
   });
 
-  it('package.json now declares exactly 10 commands', () => {
+  it('package.json now declares exactly 12 commands', () => {
     const pkg = JSON.parse(readFileSync(join(EXTENSION_ROOT, 'package.json'), 'utf8'));
-    assert.equal(pkg.contributes.commands.length, 10, 'must have exactly 10 commands after adding report');
+    assert.equal(pkg.contributes.commands.length, 12, 'must have exactly 12 commands after adding restart and dashboard');
   });
 });

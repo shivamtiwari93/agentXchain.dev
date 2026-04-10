@@ -375,7 +375,7 @@ describe('Governed IDE Notifications — no direct governed state writes', () =>
 });
 
 describe('Governed IDE Notifications — package.json surface', () => {
-  it('notification service does not add notification-only commands and package.json now includes run', () => {
+  it('notification service does not add notification-only commands and package.json now includes the governed surface', () => {
     const pkg = JSON.parse(readFileSync(join(EXTENSION_ROOT, 'package.json'), 'utf8'));
     const commands = pkg.contributes?.commands ?? [];
     const commandIds = commands.map(c => c.command);
@@ -383,9 +383,11 @@ describe('Governed IDE Notifications — package.json surface', () => {
       !commandIds.some(id => id.includes('notification')),
       'notification service must not register new commands — it reuses existing approval commands'
     );
-    assert.equal(commandIds.length, 10, 'should now have exactly 10 commands');
+    assert.equal(commandIds.length, 12, 'should now have exactly 12 commands');
     assert.ok(commandIds.includes('agentxchain.run'), 'package.json must declare agentxchain.run');
     assert.ok(commandIds.includes('agentxchain.report'), 'package.json must declare agentxchain.report');
+    assert.ok(commandIds.includes('agentxchain.restart'), 'package.json must declare agentxchain.restart');
+    assert.ok(commandIds.includes('agentxchain.openDashboard'), 'package.json must declare agentxchain.openDashboard');
   });
 });
 

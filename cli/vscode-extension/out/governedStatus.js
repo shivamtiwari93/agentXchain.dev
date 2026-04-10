@@ -7,8 +7,10 @@ exports.renderGovernedStatusHtml = renderGovernedStatusHtml;
 exports.summarizeGovernedStatus = summarizeGovernedStatus;
 exports.getGovernedStepAction = getGovernedStepAction;
 exports.getGovernedRunAction = getGovernedRunAction;
+exports.getGovernedRestartAction = getGovernedRestartAction;
 exports.buildCliShellCommand = buildCliShellCommand;
 exports.execCliCommand = execCliCommand;
+exports.parseRecommendedRestartArgs = parseRecommendedRestartArgs;
 exports.loadGovernedReport = loadGovernedReport;
 exports.renderReportLines = renderReportLines;
 const child_process_1 = require("child_process");
@@ -107,6 +109,7 @@ function renderGovernedStatusHtml(payload, notice) {
     const pendingCompletion = state?.pending_run_completion;
     const stepAction = getGovernedStepAction(payload);
     const runAction = getGovernedRunAction(payload);
+    const restartAction = getGovernedRestartAction(payload);
     return `<!DOCTYPE html>
 <html>
 <head><style>
@@ -171,6 +174,14 @@ function renderGovernedStatusHtml(payload, notice) {
   ${runAction
         ? `<div class="section"><div class="label">Run loop</div><div style="margin-top:8px;"><a class="btn btn-secondary" href="command:agentxchain.run">${escapeHtml(runAction.label)}</a></div></div>`
         : ''}
+  <div class="section">
+    <div class="label">Operator surfaces</div>
+    <div style="margin-top:8px;">
+      <a class="btn btn-secondary" href="command:agentxchain.report">Show Report</a>
+      <a class="btn btn-secondary" href="command:agentxchain.openDashboard">Open Dashboard</a>
+      ${restartAction ? `<a class="btn btn-secondary" href="command:agentxchain.restart">${escapeHtml(restartAction.label)}</a>` : ''}
+    </div>
+  </div>
   ${state?.blocked || state?.status === 'blocked'
         ? `<div class="section"><div class="blocked">Blocked reason: ${escapeHtml(state?.blocked_reason || state?.blocked_on || 'unknown')}</div></div>`
         : ''}
@@ -283,6 +294,22 @@ function getGovernedRunAction(payload) {
         label: state.status === 'idle' ? 'Start Run' : 'Resume Run',
     };
 }
+function getGovernedRestartAction(payload) {
+    const recommendedArgs = parseRecommendedRestartArgs(payload.continuity?.recommended_command);
+    if (recommendedArgs) {
+        return {
+            cliArgs: recommendedArgs,
+            label: 'Restart Run',
+        };
+    }
+    if (payload.continuity?.restart_recommended) {
+        return {
+            cliArgs: ['restart'],
+            label: 'Restart Run',
+        };
+    }
+    return null;
+}
 function buildCliShellCommand(cliArgs) {
     const cliPath = process.env.AGENTXCHAIN_CLI_PATH?.trim();
     const invocation = resolveCliInvocation(cliPath);
@@ -329,6 +356,16 @@ function parseRecommendedStepArgs(command) {
     }
     return tokens.slice(1);
 }
+function parseRecommendedRestartArgs(command) {
+    if (!command) {
+        return null;
+    }
+    const tokens = command.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length < 2 || tokens[0] !== 'agentxchain' || tokens[1] !== 'restart') {
+        return null;
+    }
+    return tokens.slice(1);
+}
 function formatCliFailure(error) {
     const failure = error;
     if (failure.code === 'ENOENT') {
@@ -337,7 +374,7 @@ function formatCliFailure(error) {
     const stderr = typeof failure.stderr === 'string' ? failure.stderr.trim() : '';
     const stdout = typeof failure.stdout === 'string' ? failure.stdout.trim() : '';
     const detail = stderr || stdout || failure.message || 'unknown CLI failure';
-    return `AgentXchain CLI status failed: ${detail}`;
+    return `AgentXchain CLI command failed: ${detail}`;
 }
 function formatBlockedState(state) {
     if (!state) {
