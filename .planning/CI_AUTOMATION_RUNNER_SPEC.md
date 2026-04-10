@@ -14,7 +14,7 @@ This spec closes the gap between primitive proof and real CI execution.
 |---------|--------|-----|
 | `run-to-completion.mjs` | Shipped | Synthetic dispatch only |
 | `run-with-run-loop.mjs` | Shipped | Synthetic dispatch only |
-| `agentxchain run --auto-approve` | Shipped | Never proven in CI |
+| `agentxchain run --auto-approve` | Shipped | Now proven separately via `CI_CLI_AUTO_APPROVE_PROOF_SPEC.md` |
 | `api_proxy` adapter (Anthropic/OpenAI/Google) | Shipped | Never dispatched in CI |
 | Non-TTY fail-closed gates | Shipped | Only proven by unit test |
 | `ci-runner-proof.yml` workflow | Shipped | Runs synthetic scripts only |
@@ -227,20 +227,15 @@ Core-normalized cases for **review_only** turns:
 4. completed terminal turn with omitted/null lifecycle signal -> `run_completion_request: true`
 5. completion turns -> `proposed_next_role: "human"`
 
-### Proof-local stabilization (CI proof only)
+### Proof-local stabilization
 
-The proof script keeps a **proof-only semantic stabilizer** for low-cost model drift that we do **not** want to promote globally because it changes meaning-bearing fields:
+This proof no longer performs proof-local semantic stabilization.
 
-1. invalid decision categories -> `process`
-2. invalid objection severities/statuses -> safe defaults (`critical` -> `blocking`, otherwise fallback)
-3. missing required proof fields -> proof-local defaults
-4. terminal review-only `needs_human` without blocker language -> completion request
+The current boundary is stricter:
 
-This split is intentional:
-
-- product code may repair unambiguous lifecycle mechanics
-- product code must **not** globally rewrite objection semantics just to make a cheap CI model pass
-- the CI proof is allowed to stabilize semantics narrowly because its job is proving real API dispatch through governed execution, not certifying Haiku as a fully compliant production runtime
+- product code may repair unambiguous lifecycle mechanics in `turn-result-validator.js`
+- CI proof scripts return the raw adapter result and let `acceptTurn` enforce the real product boundary
+- if Haiku cannot satisfy the governed contract through that boundary, the proof should fail instead of masking the defect locally
 
 ## Implemented Design
 
@@ -253,6 +248,6 @@ This split is intentional:
 
 ## Open Questions
 
-1. **Should we also prove `--auto-approve` via the CLI binary?** The current proof uses `runLoop` directly. A subprocess proof (`agentxchain run --auto-approve`) would prove CLI wiring but is slower. **Deferred**: the `runLoop` proof is sufficient for the lights-out claim.
+1. **Should we also prove `--auto-approve` via the CLI binary?** Resolved by the standalone subprocess proof in `.planning/CI_CLI_AUTO_APPROVE_PROOF_SPEC.md`. The `runLoop` proof and the CLI proof defend different boundaries and both are required.
 
 2. **Should semantic proof-local stabilization ever move into product code?** Current answer: no, not without a separate product-facing contract and stronger evidence that the coercions preserve operator intent. Lifecycle/routing normalization already moved to the core validator; semantic coercion remains proof-local by design.

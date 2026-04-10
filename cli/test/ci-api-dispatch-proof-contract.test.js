@@ -4,7 +4,7 @@
  * Guards the API dispatch proof boundary:
  *   1. imports runLoop (not primitive lifecycle operations)
  *   2. imports dispatchApiProxy (real adapter, not synthetic)
- *   3. reuses core turn-result normalization before proof-only stabilization
+ *   3. lets runLoop/acceptTurn own validation instead of proof-local coercion
  *   4. validates governed artifacts including real API cost
  *   5. is wired into CI workflow
  *   6. uses Haiku for cost control
@@ -45,10 +45,16 @@ describe('CI API dispatch proof: composition boundary', () => {
     }
   });
 
-  it('AT-CIAPI-PROOF-004: reuses core turn-result normalization', () => {
-    assert.ok(
-      source.includes('turn-result-validator.js') && source.includes('normalizeTurnResult'),
-      'must reuse normalizeTurnResult from turn-result-validator.js before proof-only stabilization',
+  it('AT-CIAPI-PROOF-004: does not add proof-local turn-result coercion', () => {
+    assert.equal(
+      source.includes('normalizeTurnResult'),
+      false,
+      'proof script must return raw adapter output and let acceptTurn own validation',
+    );
+    assert.equal(
+      source.includes('stabilizeCiProofTurnResult'),
+      false,
+      'proof script must not apply proof-local semantic stabilization',
     );
   });
 

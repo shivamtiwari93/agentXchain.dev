@@ -52,3 +52,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node examples/ci-runner-proof/run-with-api-dispatch.mjs --json
+      - name: Run CI CLI auto-approve proof (text)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-via-cli-auto-approve.mjs
+      - name: Run CI CLI auto-approve proof (JSON)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-via-cli-auto-approve.mjs --json

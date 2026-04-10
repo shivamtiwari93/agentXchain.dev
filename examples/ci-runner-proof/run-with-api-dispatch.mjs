@@ -35,9 +35,6 @@ const { RUNNER_INTERFACE_VERSION, loadState } = await import(
 const { dispatchApiProxy } = await import(
   join(cliRoot, 'src', 'lib', 'adapters', 'api-proxy-adapter.js')
 );
-const { normalizeTurnResult } = await import(
-  join(cliRoot, 'src', 'lib', 'turn-result-validator.js')
-);
 const { finalizeDispatchManifest } = await import(
   join(cliRoot, 'src', 'lib', 'dispatch-manifest.js')
 );
@@ -177,81 +174,6 @@ function readJsonl(path) {
   return content.split('\n').map((line) => JSON.parse(line));
 }
 
-// ── CI Proof Semantic Stabilization ───────────────────────────────────────
-// Core lifecycle/routing normalization now lives in turn-result-validator.js.
-// This proof keeps only the semantic fallback logic we do NOT want globally,
-// because it changes meaning-bearing fields purely to stabilize a low-cost CI
-// proof against small-model JSON drift.
-
-const VALID_CATEGORIES = ['implementation', 'architecture', 'scope', 'process', 'quality', 'release'];
-const VALID_SEVERITIES = ['blocking', 'high', 'medium', 'low'];
-const VALID_STATUSES = ['raised', 'acknowledged', 'resolved', 'escalated', 'resolved_by_human', 'resolved_by_director'];
-const BLOCKER_SIGNALS = /\b(critical|security|fail|block|cannot|must.?fix|regression|vulnerab|reject|unsafe|broken)\b/i;
-
-function stabilizeCiProofTurnResult(turnResult, state, config, turn) {
-  const tr = { ...turnResult };
-  const phase = state.phase;
-  const allPhases = Object.keys(config.routing || {});
-  const isTerminalPhase = allPhases.indexOf(phase) === allPhases.length - 1;
-
-  // Proof-only: cheap review models often emit needs_human at the terminal
-  // phase even when the content is an approval. Keep actual blocker language.
-  if (
-    isTerminalPhase &&
-    config.roles?.[turn.assigned_role]?.write_authority === 'review_only' &&
-    tr.status === 'needs_human'
-  ) {
-    const reason = typeof tr.needs_human_reason === 'string' ? tr.needs_human_reason : '';
-    if (!BLOCKER_SIGNALS.test(reason)) {
-      tr.status = 'completed';
-      tr.run_completion_request = true;
-      tr.phase_transition_request = null;
-      tr.proposed_next_role = 'human';
-      tr.needs_human_reason = null;
-    }
-  }
-
-  // Fix decision categories
-  if (Array.isArray(tr.decisions)) {
-    tr.decisions = tr.decisions.map((d) => ({
-      ...d,
-      category: VALID_CATEGORIES.includes(d.category) ? d.category : 'process',
-    }));
-  }
-
-  // Fix objection severities and statuses
-  if (Array.isArray(tr.objections)) {
-    tr.objections = tr.objections.map((o) => ({
-      ...o,
-      severity: o.severity === 'critical'
-        ? 'blocking'
-        : (VALID_SEVERITIES.includes(o.severity) ? o.severity : 'low'),
-      status: VALID_STATUSES.includes(o.status) ? o.status : 'raised',
-    }));
-  }
-
-  // Ensure required fields exist with valid defaults
-  if (!tr.schema_version) tr.schema_version = '1.0';
-  if (!tr.run_id) tr.run_id = state.run_id;
-  if (!tr.turn_id) tr.turn_id = turn.turn_id;
-  if (!tr.role) tr.role = turn.assigned_role;
-  if (!tr.runtime_id) tr.runtime_id = turn.runtime_id;
-  if (!tr.status || !['completed', 'needs_human'].includes(tr.status)) tr.status = 'completed';
-  if (!tr.summary) tr.summary = `${turn.assigned_role} completed the assigned governed slice.`;
-  if (!Array.isArray(tr.decisions)) tr.decisions = [];
-  if (!Array.isArray(tr.objections)) tr.objections = [];
-  if (!Array.isArray(tr.files_changed)) tr.files_changed = [];
-  if (!Array.isArray(tr.artifacts_created)) tr.artifacts_created = [];
-  if (!tr.verification) {
-    tr.verification = { status: 'pass', commands: ['echo ok'], evidence_summary: 'CI proof pass.', machine_evidence: [{ command: 'echo ok', exit_code: 0 }] };
-  }
-  if (!tr.artifact) tr.artifact = { type: 'review', ref: null };
-  if (tr.needs_human_reason === undefined) tr.needs_human_reason = null;
-  if (!tr.cost) tr.cost = { input_tokens: 0, output_tokens: 0, usd: 0 };
-
-  return tr;
-}
-
 // ── Callbacks ──────────────────────────────────────────────────────────────
 
 function makeCallbacks(root) {
@@ -307,15 +229,6 @@ function makeCallbacks(root) {
       } catch (err) {
         return { accept: false, reason: `failed to parse staged result: ${err.message}` };
       }
-
-      const coreNormalized = normalizeTurnResult(turnResult, cfg, {
-        phase: state.phase,
-        assignedRole: turn.assigned_role,
-        writeAuthority: cfg.roles?.[turn.assigned_role]?.write_authority,
-      });
-
-      // Product-normalized first, proof-only semantic stabilization second.
-      turnResult = stabilizeCiProofTurnResult(coreNormalized.normalized, state, cfg, turn);
 
       // Commit after dispatch so the next turn gets a clean baseline
       gitCommitAll(projectRoot);
