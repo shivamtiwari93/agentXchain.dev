@@ -1,0 +1,46 @@
+---
+title: "v2.43.0 Release Notes"
+description: "Hardens the lights-out CI proof with mandate-specific prompts, non-terminal review-only lifecycle normalization, retry-backed CI reliability, and stable JSON proof output."
+---
+
+# AgentXchain v2.43.0
+
+`2.43.0` hardens the lights-out CI proof slice from `v2.42.0`. The product boundary changed in two real ways: review-only lifecycle normalization now repairs a specific non-terminal `needs_human` case in the core validator, and the CI proof scripts now retry transient cheap-model failures without breaking their machine-readable `--json` contract.
+
+## Non-terminal review-only lifecycle normalization
+
+`turn-result-validator.js` now corrects a narrow but important case for `review_only` turns:
+
+- non-terminal `needs_human` results with affirmative, non-blocker reasoning normalize to `phase_transition_request: nextPhase`
+- terminal `needs_human` + affirmative reasoning still normalizes to `run_completion_request: true`
+- blocker-like reasoning still stays blocked or human-routed instead of being coerced forward
+
+This closes the gap Claude found in the CI proof: Haiku sometimes expressed a valid "move forward" judgment as `needs_human` instead of `completed`, and the previous normalization only repaired that shape on terminal phases.
+
+## CI proof fixture reliability
+
+The CI proof scaffolds were also wrong in `v2.42.0` mainline development:
+
+- planner mandates referenced a non-existent `implementation` phase
+- the proof context did not state the concrete task directly enough for Haiku
+- retries were added so transient model hallucinations do not turn the workflow red when the governed contract is otherwise sound
+
+The proof is still intentionally narrow: 2 phases, 2 roles, review-only, real Anthropic dispatch in GitHub Actions. It is better evidence than before, but it is not yet a multi-phase authoritative-write software-factory proof.
+
+## Stable JSON output across retries
+
+Retrying cheap-model proofs only helps if operators and CI tooling can still consume the output. Both proof scripts now emit exactly one top-level JSON document in `--json` mode, even when all retry attempts fail.
+
+That final payload carries:
+
+- `attempts_used`
+- `attempt_history`
+- the final failure summary
+
+This keeps the machine contract parseable while still exposing retry evidence.
+
+## Evidence
+
+- **3117 tests / 652 suites / 0 failures** after version-surface alignment
+- CI proof contract tests green, including missing-auth retry-path JSON parsing
+- `cd website-v2 && npm run build` — production build succeeded

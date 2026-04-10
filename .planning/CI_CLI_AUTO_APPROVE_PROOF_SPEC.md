@@ -91,6 +91,7 @@ This keeps the proof focused on unattended CLI execution with real model dispatc
    - total cost
    - report paths
    - pass/fail result
+   - retry metadata when multiple attempts were needed, while still emitting exactly one top-level JSON document in `--json` mode
 
 ## Error cases
 
@@ -118,6 +119,7 @@ This keeps the proof focused on unattended CLI execution with real model dispatc
 - `AT-CICLI-005`: the governance export and governance report exist under `.agentxchain/reports/`
 - `AT-CICLI-006`: the GitHub Actions workflow runs the proof on `push` to `main`
 - `AT-CICLI-007`: the proof does not perform proof-local turn-result normalization or semantic coercion
+- `AT-CICLI-008`: `--json` mode emits one parseable payload even when retries are exhausted
 
 ## Open questions
 

@@ -13,6 +13,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { spawnSync } from 'child_process';
 
 const CLI_ROOT = join(import.meta.dirname, '..');
 const REPO_ROOT = join(CLI_ROOT, '..');
@@ -83,5 +84,23 @@ describe('CI CLI auto-approve proof: workflow wiring', () => {
 
   it('AT-CICLI-CONTRACT-010: spec exists', () => {
     assert.ok(existsSync(SPEC_PATH), 'CI_CLI_AUTO_APPROVE_PROOF_SPEC.md must exist');
+  });
+
+  it('AT-CICLI-CONTRACT-011: --json emits one parseable payload even after retries', () => {
+    const result = spawnSync(process.execPath, [PROOF_SCRIPT, '--json'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, ANTHROPIC_API_KEY: '' },
+      timeout: 60000,
+    });
+
+    assert.equal(result.status, 1, 'missing auth should fail the proof');
+    assert.equal(result.stderr.trim(), '', 'failure contract should not depend on stderr parsing');
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.runner, 'ci-cli-auto-approve-proof');
+    assert.equal(payload.result, 'fail');
+    assert.equal(payload.attempts_used, 3);
+    assert.equal(payload.attempt_history.length, 3);
   });
 });

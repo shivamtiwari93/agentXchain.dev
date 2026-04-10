@@ -206,50 +206,48 @@ function runCli(root) {
   );
 }
 
-function formatResult(passed, cliResult, artifacts, errors) {
-  const stdout = cliResult?.stdout || '';
-  const stderr = cliResult?.stderr || '';
+function formatResult(payload) {
   if (jsonMode) {
-    process.stdout.write(
-      JSON.stringify(
-        {
-          runner: 'ci-cli-auto-approve-proof',
-          cli_version: cliPkg.version,
-          cli_path: binPath,
-          result: passed ? 'pass' : 'fail',
-          cli_exit_status: cliResult?.status ?? null,
-          stdout_tail: stdout.trim().split('\n').slice(-12),
-          stderr_tail: stderr.trim().split('\n').slice(-12),
-          artifacts: artifacts
-            ? {
-                state: artifacts.state,
-                history: artifacts.history,
-                ledger: artifacts.ledger,
-                reports: artifacts.reports,
-                cost: artifacts.cost,
-              }
-            : null,
-          errors,
-        },
-        null,
-        2,
-      ),
-    );
-  } else if (passed) {
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+  } else if (payload.result === 'pass') {
     console.log(`CI CLI Auto-Approve Proof — agentxchain v${cliPkg.version}`);
     console.log(`  CLI:     ${binPath}`);
-    console.log(`  Roles:   ${artifacts.history.roles.join(' -> ')}`);
-    console.log(`  Turns:   ${artifacts.history.entry_count} accepted`);
-    console.log(`  Cost:    $${artifacts.cost.total_usd.toFixed(4)} total`);
-    console.log(`  Report:  ${artifacts.reports.report_path}`);
+    console.log(`  Roles:   ${payload.artifacts.history.roles.join(' -> ')}`);
+    console.log(`  Turns:   ${payload.artifacts.history.entry_count} accepted`);
+    console.log(`  Cost:    $${payload.artifacts.cost.total_usd.toFixed(4)} total`);
+    console.log(`  Report:  ${payload.artifacts.reports.report_path}`);
     console.log('  Result:  PASS — CLI completed unattended governed execution via real API dispatch');
   } else {
     console.log(`CI CLI Auto-Approve Proof — agentxchain v${cliPkg.version}`);
     console.log('  Result:  FAIL');
-    for (const error of errors) {
+    for (const error of payload.errors) {
       console.log(`  Error:   ${error}`);
     }
   }
+}
+
+function buildResultPayload(passed, cliResult, artifacts, errors) {
+  const stdout = cliResult?.stdout || '';
+  const stderr = cliResult?.stderr || '';
+  return {
+    runner: 'ci-cli-auto-approve-proof',
+    cli_version: cliPkg.version,
+    cli_path: binPath,
+    result: passed ? 'pass' : 'fail',
+    cli_exit_status: cliResult?.status ?? null,
+    stdout_tail: stdout.trim().split('\n').slice(-12),
+    stderr_tail: stderr.trim().split('\n').slice(-12),
+    artifacts: artifacts
+      ? {
+          state: artifacts.state,
+          history: artifacts.history,
+          ledger: artifacts.ledger,
+          reports: artifacts.reports,
+          cost: artifacts.cost,
+        }
+      : null,
+    errors,
+  };
 }
 
 async function main() {
@@ -290,12 +288,10 @@ async function main() {
     }
 
     const passed = errors.length === 0;
-    formatResult(passed, cliResult, artifacts, errors);
-    return passed;
+    return { passed, payload: buildResultPayload(passed, cliResult, artifacts, errors) };
   } catch (err) {
     errors.push(`Unexpected error: ${err.message}`);
-    formatResult(false, cliResult, artifacts, errors);
-    return false;
+    return { passed: false, payload: buildResultPayload(false, cliResult, artifacts, errors) };
   } finally {
     try {
       rmSync(root, { recursive: true, force: true });
@@ -305,11 +301,35 @@ async function main() {
 
 // Retry wrapper: cheap models have transient hallucination failures
 const MAX_ATTEMPTS = 3;
+const attempts = [];
 for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-  const passed = await main();
-  if (passed) process.exit(0);
+  const outcome = await main();
+  attempts.push({
+    attempt,
+    result: outcome.passed ? 'pass' : 'fail',
+    cli_exit_status: outcome.payload.cli_exit_status,
+    errors: outcome.payload.errors,
+  });
+  if (outcome.passed) {
+    if (jsonMode) {
+      outcome.payload.attempts_used = attempt;
+      outcome.payload.attempt_history = attempts;
+    }
+    formatResult(outcome.payload);
+    process.exit(0);
+  }
   if (attempt < MAX_ATTEMPTS) {
     if (!jsonMode) console.log(`\n  Retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})...\n`);
   }
 }
+formatResult({
+  runner: 'ci-cli-auto-approve-proof',
+  cli_version: cliPkg.version,
+  cli_path: binPath,
+  result: 'fail',
+  cli_exit_status: attempts[attempts.length - 1]?.cli_exit_status ?? null,
+  attempts_used: attempts.length,
+  attempt_history: attempts,
+  errors: attempts[attempts.length - 1]?.errors || ['Proof failed without a captured error.'],
+});
 process.exit(1);

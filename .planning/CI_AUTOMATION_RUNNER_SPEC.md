@@ -243,6 +243,8 @@ The current boundary is stricter:
 
 Both proof scripts (`run-with-api-dispatch.mjs` and `run-via-cli-auto-approve.mjs`) retry up to 3 attempts on failure. This handles transient cheap-model hallucinations (run_id digit flips, invalid enum values) without masking systemic failures. If the proof fails all 3 attempts, it exits with status 1.
 
+`--json` mode must still emit exactly one parseable JSON payload per invocation. Retry history belongs inside that final payload (`attempts_used`, `attempt_history`), not as multiple top-level JSON blobs.
+
 ### Mandate specificity (DEC-CI-MANDATE-001)
 
 Role mandates must include the concrete task description, not references to metadata fields. Haiku takes mandates literally — "plan for the task described in project.description" causes the model to look for that field in its dispatch context and block when it's not found. Direct mandates ("The task is: build X") produce reliable lifecycle signals.

@@ -352,68 +352,91 @@ async function main() {
 
 function report(root, { errors, result, events, artifacts }) {
   const passed = errors.length === 0;
+  const roles = result?.turn_history?.filter((t) => t.accepted).map((t) => t.role) || [];
 
   try {
     rmSync(root, { recursive: true, force: true });
   } catch {}
 
+  return {
+    passed,
+    payload: {
+      runner: 'ci-api-dispatch-proof',
+      runner_interface_version: RUNNER_INTERFACE_VERSION,
+      result: passed ? 'pass' : 'fail',
+      stop_reason: result?.stop_reason || null,
+      turns_executed: result?.turns_executed || 0,
+      roles,
+      gates_approved: result?.gates_approved || 0,
+      turn_history: result?.turn_history || [],
+      event_types: [...new Set(events.map((e) => e.type))],
+      event_count: events.length,
+      artifacts: artifacts
+        ? {
+            state: artifacts.state,
+            history: { entry_count: artifacts.history.entry_count, roles: artifacts.history.roles },
+            ledger: { entry_count: artifacts.ledger.entry_count },
+            cost: artifacts.cost,
+          }
+        : null,
+      errors,
+    },
+  };
+}
+
+function emitReport({ payload }) {
   if (jsonMode) {
-    const roles = result?.turn_history?.filter((t) => t.accepted).map((t) => t.role) || [];
-    process.stdout.write(
-      JSON.stringify(
-        {
-          runner: 'ci-api-dispatch-proof',
-          runner_interface_version: RUNNER_INTERFACE_VERSION,
-          result: passed ? 'pass' : 'fail',
-          stop_reason: result?.stop_reason || null,
-          turns_executed: result?.turns_executed || 0,
-          roles,
-          gates_approved: result?.gates_approved || 0,
-          turn_history: result?.turn_history || [],
-          event_types: [...new Set(events.map((e) => e.type))],
-          event_count: events.length,
-          artifacts: artifacts
-            ? {
-                state: artifacts.state,
-                history: { entry_count: artifacts.history.entry_count, roles: artifacts.history.roles },
-                ledger: { entry_count: artifacts.ledger.entry_count },
-                cost: artifacts.cost,
-              }
-            : null,
-          errors,
-        },
-        null,
-        2,
-      ),
-    );
-  } else if (passed) {
-    const roles = result.turn_history.filter((t) => t.accepted).map((t) => t.role);
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+  } else if (payload.result === 'pass') {
     console.log(`CI API Dispatch Proof — AgentXchain runner-interface v${RUNNER_INTERFACE_VERSION}`);
-    console.log(`  Run:     ${result.state?.run_id || 'unknown'}`);
-    console.log(`  Roles:   ${roles.join(' -> ')}`);
-    console.log(`  Turns:   ${result.turns_executed} executed`);
-    console.log(`  Gates:   ${result.gates_approved} approved`);
-    console.log(`  Cost:    $${artifacts?.cost?.total_usd?.toFixed(4) || '?'} total`);
+    console.log(`  Run:     ${payload.artifacts?.state?.run_id || 'unknown'}`);
+    console.log(`  Roles:   ${payload.roles.join(' -> ')}`);
+    console.log(`  Turns:   ${payload.turns_executed} executed`);
+    console.log(`  Gates:   ${payload.gates_approved} approved`);
+    console.log(`  Cost:    $${payload.artifacts?.cost?.total_usd?.toFixed(4) || '?'} total`);
     console.log(`  Result:  PASS — governed lifecycle completed via real API dispatch`);
   } else {
     console.log(`CI API Dispatch Proof — AgentXchain runner-interface v${RUNNER_INTERFACE_VERSION}`);
     console.log(`  Result:  FAIL`);
-    for (const error of errors) {
+    for (const error of payload.errors) {
       console.log(`  Error:   ${error}`);
     }
   }
-
-  return passed;
 }
 
 // Retry wrapper: cheap models have transient hallucination failures
 // (run_id digit flips, invalid enum values). Retry up to MAX_ATTEMPTS.
 const MAX_ATTEMPTS = 3;
+const attempts = [];
 for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-  const passed = await main();
-  if (passed) process.exit(0);
+  const outcome = await main();
+  attempts.push({
+    attempt,
+    result: outcome.passed ? 'pass' : 'fail',
+    stop_reason: outcome.payload.stop_reason,
+    errors: outcome.payload.errors,
+  });
+  if (outcome.passed) {
+    if (jsonMode) {
+      outcome.payload.attempts_used = attempt;
+      outcome.payload.attempt_history = attempts;
+    }
+    emitReport(outcome);
+    process.exit(0);
+  }
   if (attempt < MAX_ATTEMPTS) {
     if (!jsonMode) console.log(`\n  Retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})...\n`);
   }
 }
+emitReport({
+  payload: {
+    runner: 'ci-api-dispatch-proof',
+    runner_interface_version: RUNNER_INTERFACE_VERSION,
+    result: 'fail',
+    stop_reason: attempts[attempts.length - 1]?.stop_reason || null,
+    attempts_used: attempts.length,
+    attempt_history: attempts,
+    errors: attempts[attempts.length - 1]?.errors || ['Proof failed without a captured error.'],
+  },
+});
 process.exit(1);
