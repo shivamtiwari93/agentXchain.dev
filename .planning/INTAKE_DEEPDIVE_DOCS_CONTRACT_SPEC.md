@@ -89,7 +89,7 @@ The docs describe per-item rejection but not the aggregate failure rule. An oper
 7. Guard must read `VALID_GOVERNED_TEMPLATE_IDS` from `governed-templates.js`
 8. Guard must verify resolve outcome mapping states against implementation
 9. Guard must verify no ghost states in docs state machine
-10. Guard must verify failed-outcome fields (`run_failed_at`) are documented
+10. Guard must verify docs do not advertise nonexistent failed-outcome fields such as `run_failed_at`
 
 ## Files Affected
 

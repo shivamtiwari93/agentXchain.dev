@@ -41,14 +41,19 @@ resolveIntent(root, intentId, options?)
 
 ## State Machine Extension
 
-S5 adds three new states and their transitions:
+S5 adds two live post-execution transitions and one recovery transition:
 
 ```
 executing → blocked        (governed run status === 'blocked')
 executing → completed      (governed run status === 'completed')
-executing → failed         (governed run status === 'failed')
 blocked   → approved       (re-approve after block recovery, reuses intake approve)
 ```
+
+> **Updated 2026-04-10 (DEC-RUN-STATUS-001 / DEC-INTAKE-FAILED-002):**
+> Run-level `failed` is reserved/unreached. `intake resolve` fails closed if
+> `state.status === 'failed'` instead of mapping to intent `failed`. A
+> coordinator completing without satisfying a workstream maps to intent
+> `blocked`, not `failed`.
 
 Updated `VALID_TRANSITIONS`:
 
@@ -58,7 +63,7 @@ Updated `VALID_TRANSITIONS`:
   triaged:   ['approved', 'rejected'],
   approved:  ['planned'],
   planned:   ['executing'],
-  executing: ['blocked', 'completed', 'failed'],
+  executing: ['blocked', 'completed'],  // 'failed' removed per DEC-RUN-STATUS-001
   blocked:   ['approved'],
 }
 ```
@@ -70,17 +75,24 @@ Updated `S1_STATES`:
  'blocked', 'completed', 'failed', 'suppressed', 'rejected']
 ```
 
+`failed` remains in the state union for read tolerance of historical or
+manually-authored intent files. Current first-party intake writers do not emit
+it.
+
 Updated `TERMINAL_STATES`:
 
 ```
 ['suppressed', 'rejected', 'completed', 'failed']
 ```
 
+`failed` remains terminal only as a tolerated legacy/read-only value. The
+shipped resolve path does not transition new intents into it.
+
 ### State Definitions
 
 - **`blocked`**: The governed run linked to this intent is blocked. The intent records the block reason and recovery information from the run. The intent can be re-approved (via existing `intake approve`) after the block is resolved, which transitions it back to `approved` for re-planning and re-execution.
 - **`completed`**: The governed run completed successfully. The intent records the completion timestamp and final run evidence reference. Terminal state — no further transitions.
-- **`failed`**: The governed run reached a non-recoverable failure. The intent records the failure reason. Terminal state — no further transitions.
+- **`failed`**: Reserved legacy/read-tolerant intent value. The shipped S5 resolve path does not produce it; if the governed run reports reserved run-level `failed`, `intake resolve` fails closed instead of mutating the intent.
 
 ---
 
@@ -94,7 +106,7 @@ Updated `TERMINAL_STATES`:
 |---------------------|-------------------|-----------|
 | `blocked` | `executing → blocked` | `state.status === 'blocked'` |
 | `completed` | `executing → completed` | `state.status === 'completed'` |
-| `failed` | `executing → failed` | `state.status === 'failed'` |
+| `failed` | Error (exit 1) | Reserved/unreached per `DEC-RUN-STATUS-001`. Fails closed. |
 | `active` | No transition | Run is still active — intent stays `executing` |
 | `paused` | No transition | Run is paused on a gate — intent stays `executing` |
 | `idle` | Error | Run was reset — mismatched state |
@@ -131,16 +143,7 @@ On transition, `resolveIntent()` copies outcome-relevant fields from the governe
 }
 ```
 
-**For `failed`:**
-```json
-{
-  "run_blocked_on": "state.blocked_on",
-  "run_blocked_reason": "state.blocked_reason.category",
-  "run_failed_at": "ISO timestamp of resolve"
-}
-```
-
-These are additive fields on the intent — they reference run evidence without copying it wholesale.
+These are additive fields on the intent — they reference run evidence without copying it wholesale. There is no shipped `run_failed_at` field because reserved run-level `failed` is rejected instead of being resolved into intake state.
 
 ### 4. No-Op When Run Is Still Active
 
@@ -153,7 +156,7 @@ Every successful state transition appends a history entry:
 ```json
 {
   "from": "executing",
-  "to": "blocked|completed|failed",
+  "to": "blocked|completed",
   "at": "ISO timestamp",
   "reason": "governed run {run_id} reached status {status}",
   "run_id": "the linked run_id",
@@ -205,8 +208,8 @@ Given an intent at `executing` linked to a governed run, when the run is `blocke
 ### AT-V3S5-002: Completed run transitions intent to completed
 Given an intent at `executing` linked to a governed run, when the run is `completed`, then `intake resolve` transitions the intent to `completed` and records `run_completed_at` and `run_final_turn`.
 
-### AT-V3S5-003: Failed run transitions intent to failed
-Given an intent at `executing` linked to a governed run, when the run is `failed`, then `intake resolve` transitions the intent to `failed` and records `run_blocked_on`, `run_blocked_reason`, and `run_failed_at`.
+### AT-V3S5-003: Reserved 'failed' run status is rejected
+Given an intent at `executing` linked to a governed run, when the run has reserved status `failed`, then `intake resolve` fails closed with exit 1 and an error referencing `DEC-RUN-STATUS-001`. The intent is not modified.
 
 ### AT-V3S5-004: Active run returns no-change
 Given an intent at `executing` linked to an active governed run, then `intake resolve` returns `ok: true` with `no_change: true` and the intent stays at `executing`.

@@ -40,8 +40,8 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - dedup key derived from `source` plus sorted `signal`
    - duplicate events are idempotent and return the existing event and intent
 6. Distinguish current shipped states from broader v3 direction:
-   - implemented now: `detected`, `triaged`, `approved`, `planned`, `executing`, `blocked`, `completed`, `failed`, `suppressed`, `rejected`
-   - shipped transitions include `executing -> blocked|completed|failed` and `blocked -> approved`
+   - implemented now: `detected`, `triaged`, `approved`, `planned`, `executing`, `blocked`, `completed`, `failed` (reserved), `suppressed`, `rejected`
+   - shipped transitions include `executing -> blocked|completed` and `blocked -> approved`. Run-level `failed` is reserved per `DEC-RUN-STATUS-001` — intake resolve fails closed on it.
    - broader v3 direction still deferred: `awaiting_release_approval`, `released`, `observing`, `reopened`
 7. Document the planning-artifact contract:
    - `intake approve` is the authorization gate
@@ -61,7 +61,9 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - success records `target_workstream.coordinator_root`, `target_workstream.workstream_id`, and `target_workstream.super_run_id`
    - the coordinator handoff ref lives under `.agentxchain/multirepo/handoffs/<intent_id>.json`
    - the handoff ref is run-bound by `super_run_id` to prevent stale coordinator context bleed-through
-   - coordinator-backed resolution preserves `blocked` when the coordinator blocks and uses `failed` only when the coordinator run ends without satisfying the workstream barrier
+   - coordinator-backed resolution preserves `blocked` when the coordinator blocks
+   - coordinator completion without satisfying the workstream barrier also maps to `blocked` with recovery guidance
+   - reserved coordinator/run-level `failed` fails closed per `DEC-RUN-STATUS-001`
 10. Document the deterministic scan contract:
    - `intake scan` accepts only `ci_failure`, `git_ref_change`, and `schedule`
    - `manual` remains exclusive to `intake record`
@@ -79,7 +81,8 @@ The page must document the shipped intake contract, not the aspirational v3 back
    - `intake resolve` reads coordinator state and barriers for `target_workstream` intents
    - `run_id` must match `intent.target_run`
    - `super_run_id` must match `intent.target_workstream.super_run_id`
-   - `blocked`, `completed`, and `failed` are the shipped run-outcome mappings
+   - `blocked` and `completed` are the shipped run-outcome mappings
+   - run-level `failed` is reserved/unreached and must be documented as fail-closed, not as a live outcome mapping
    - `active` and `paused` return `no_change: true`
    - `completed` creates `.agentxchain/intake/observations/<intent_id>/` as an empty scaffold
 13. Document the re-approval path:

@@ -23,7 +23,8 @@ const VALID_PRIORITIES = ['p0', 'p1', 'p2', 'p3'];
 const EVENT_ID_RE = /^evt_\d+_[0-9a-f]{4}$/;
 const INTENT_ID_RE = /^intent_\d+_[0-9a-f]{4}$/;
 
-// V3-S1 through S5 states
+// V3-S1 through S5 states. `failed` remains read-tolerant for historical/manual
+// intent files, but current first-party intake writers do not transition into it.
 const S1_STATES = new Set(['detected', 'triaged', 'approved', 'planned', 'executing', 'blocked', 'completed', 'failed', 'suppressed', 'rejected']);
 const TERMINAL_STATES = new Set(['suppressed', 'rejected', 'completed', 'failed']);
 
@@ -32,7 +33,7 @@ const VALID_TRANSITIONS = {
   triaged: ['approved', 'rejected'],
   approved: ['planned'],
   planned: ['executing'],
-  executing: ['blocked', 'completed', 'failed'],
+  executing: ['blocked', 'completed'],
   blocked: ['approved'],
 };
 
@@ -864,23 +865,29 @@ function resolveRepoBackedIntent(root, intentPath, dirs, intent) {
   const now = nowISO();
   const previousStatus = intent.status;
 
-  if (state.status === 'blocked' || state.status === 'failed') {
-    const newStatus = state.status === 'blocked' ? 'blocked' : 'failed';
-    intent.status = newStatus;
+  // Run-level 'failed' is reserved/unreached in current governed writers (DEC-RUN-STATUS-001).
+  // Fail closed if encountered — operator must investigate manually.
+  if (state.status === 'failed') {
+    return {
+      ok: false,
+      error: 'governed run has reserved status "failed" which is not emitted by current governed writers. Manual inspection required. See DEC-RUN-STATUS-001.',
+      exitCode: 1,
+    };
+  }
+
+  if (state.status === 'blocked') {
+    intent.status = 'blocked';
     intent.run_blocked_on = state.blocked_on || null;
     intent.run_blocked_reason = state.blocked_reason?.category || null;
     intent.run_blocked_recovery = state.blocked_reason?.recovery?.recovery_action || null;
-    if (newStatus === 'failed') {
-      intent.run_failed_at = now;
-    }
     intent.updated_at = now;
     intent.history.push({
       from: previousStatus,
-      to: newStatus,
+      to: 'blocked',
       at: now,
-      reason: `governed run ${intent.target_run} reached status ${state.status}`,
+      reason: `governed run ${intent.target_run} reached status blocked`,
       run_id: intent.target_run,
-      run_status: state.status,
+      run_status: 'blocked',
     });
 
     safeWriteJson(intentPath, intent);
@@ -888,8 +895,8 @@ function resolveRepoBackedIntent(root, intentPath, dirs, intent) {
       ok: true,
       intent,
       previous_status: previousStatus,
-      new_status: newStatus,
-      run_outcome: state.status,
+      new_status: 'blocked',
+      run_outcome: 'blocked',
       no_change: false,
       exitCode: 0,
     };
@@ -1025,15 +1032,26 @@ function resolveCoordinatorBackedIntent(root, intentPath, dirs, intent) {
     };
   }
 
-  if (coordinatorState.status === 'failed' || coordinatorState.status === 'completed') {
-    intent.status = 'failed';
-    intent.run_failed_at = now;
+  // Coordinator run-level 'failed' is reserved/unreached (DEC-RUN-STATUS-001). Fail closed.
+  if (coordinatorState.status === 'failed') {
+    return {
+      ok: false,
+      error: `coordinator run ${expectedSuperRunId} has reserved status "failed" which is not emitted by current governed writers. Manual inspection required. See DEC-RUN-STATUS-001.`,
+      exitCode: 1,
+    };
+  }
+
+  if (coordinatorState.status === 'completed') {
+    intent.status = 'blocked';
+    intent.run_blocked_on = `coordinator:completed_without_workstream:${workstreamId}`;
+    intent.run_blocked_reason = 'coordinator_completed_without_workstream';
+    intent.run_blocked_recovery = `Coordinator run ${expectedSuperRunId} completed without satisfying workstream ${workstreamId}. Re-approve the intent and start a new run.`;
     intent.updated_at = now;
     intent.history.push({
       from: previousStatus,
-      to: 'failed',
+      to: 'blocked',
       at: now,
-      reason: `coordinator run ${expectedSuperRunId} ended without satisfying workstream ${workstreamId}`,
+      reason: `coordinator run ${expectedSuperRunId} completed without satisfying workstream ${workstreamId}`,
       super_run_id: expectedSuperRunId,
       run_status: coordinatorState.status,
     });
@@ -1043,7 +1061,7 @@ function resolveCoordinatorBackedIntent(root, intentPath, dirs, intent) {
       ok: true,
       intent,
       previous_status: previousStatus,
-      new_status: 'failed',
+      new_status: 'blocked',
       run_outcome: coordinatorState.status,
       no_change: false,
       exitCode: 0,

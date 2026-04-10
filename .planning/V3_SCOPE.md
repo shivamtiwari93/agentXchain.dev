@@ -137,7 +137,6 @@ triaged -> rejected
 executing -> blocked
 blocked -> approved
 executing -> completed
-executing -> failed
 ```
 
 **Deferred later-v3 direction:**
@@ -159,9 +158,9 @@ reopened -> planned
 5. `executing` means an existing governed run owns implementation.
 6. `blocked` means the active run cannot continue without recovery input; the intent may be re-approved after recovery work.
 7. `completed` means the governed run completed successfully and the intake intent closes with recorded run evidence pointers.
-8. `failed` means the governed run reached a non-recoverable failure and the intake intent closes as failed.
+8. `failed` is retained only as a reserved/read-tolerant legacy intent value. The shipped resolve path does not transition new intents into it.
 9. `awaiting_release_approval`, `released`, `observing`, and `reopened` remain deferred later-v3 concepts. They are not part of the shipped CLI truth.
-10. `suppressed`, `rejected`, `completed`, and `failed` are terminal for the current intake surface.
+10. `suppressed`, `rejected`, and `completed` are live terminal states for the current intake surface. Reserved `failed` remains terminal only for tolerated historical/manual records.
 
 ---
 
@@ -299,7 +298,8 @@ The implementation contract for this slice lives in `.planning/V3_S5_INTENT_CLOS
 
 - `agentxchain intake resolve --intent <id>`
 - deterministic linkage from governed run outcomes into intake intent updates
-- shipped outcome mappings: `executing -> blocked`, `executing -> completed`, `executing -> failed`
+- shipped outcome mappings: `executing -> blocked`, `executing -> completed`
+- reserved run-level `failed` fails closed instead of mutating intake state
 - `blocked -> approved` re-approval through the existing `intake approve` command
 - additive intent evidence fields that reference run outcome data instead of copying whole governed state
 - repo-native observation directory scaffolding under `.agentxchain/intake/observations/<intent_id>/`
@@ -356,7 +356,7 @@ If v3 intake work resumes later, the next honest slice is release or observation
 8. `AT-V3-INTAKE-008`: `intake status` writes `loop-state.json` as a cache without becoming the source of truth.
 9. `AT-V3-INTAKE-009`: `intake start` sets `target_run`, `target_turn`, and transitions `planned -> executing` without waiting for turn completion.
 10. `AT-V3-INTAKE-010`: `intake scan` records valid snapshot items through the existing deduplicating `record` path, excludes `manual`, and rejects empty `items` arrays.
-11. `AT-V3-INTAKE-011`: `intake resolve` maps governed `blocked`, `completed`, and `failed` outcomes back onto the linked intent, returns `no_change` for `active` and `paused`, and creates `.agentxchain/intake/observations/<intent_id>/` on `completed`.
+11. `AT-V3-INTAKE-011`: `intake resolve` maps governed `blocked` and `completed` outcomes back onto the linked intent, returns `no_change` for `active` and `paused`, rejects reserved run-level `failed`, and creates `.agentxchain/intake/observations/<intent_id>/` on `completed`.
 
 ---
 
@@ -365,4 +365,4 @@ If v3 intake work resumes later, the next honest slice is release or observation
 1. `schedule` is a first-class event source in v3.0. It is valid input to the repo-native intake surface and to `intake scan`.
 2. Observation evidence belongs in append-only child records under `.agentxchain/intake/observations/`, not by mutating historical intent records.
 3. The fallback template is `generic`. Fail-closed template selection is rejected for unmapped signals because it would block safe intake without adding governance value.
-4. S3 does not relax the governed paused-state contract. `paused` remains approval-held in current `.dev` scope, so intake start does not resume paused runs.
+4. S3 start semantics distinguish paused-with-pending-gate from paused-without-pending-gate. `intake start` still rejects approval-held pauses, but it can resume a paused run that has no pending gate and no active turns.

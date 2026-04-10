@@ -109,7 +109,7 @@ triaged  -> rejected    (terminal)
 
 ### States Deferred Beyond S1
 
-**Shipped in later slices:** `approved`, `planned` (S2), `executing` (S3), `blocked`, `completed`, `failed` (S5), plus `blocked → approved` re-approval (S5).
+**Shipped in later slices:** `approved`, `planned` (S2), `executing` (S3), live execution outcomes `blocked` and `completed` (S5), reserved/read-tolerant `failed` handling (S5), plus `blocked → approved` re-approval (S5).
 
 **Still deferred:** `awaiting_release_approval`, `released`, `observing`, `reopened` — defined in `V3_SCOPE.md` as later-v3 direction.
 

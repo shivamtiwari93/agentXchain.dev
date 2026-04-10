@@ -389,11 +389,11 @@ describe('intake handoff', () => {
     finishedState.status = 'completed';
     writeCoordinatorState(workspace, finishedState);
 
-    const failed = runCli(['intake', 'resolve', '--intent', intentId, '--json'], apiRepo);
-    assert.equal(failed.status, 0, failed.stderr);
-    const failedOut = parseJsonResult(failed, 'resolve failed');
-    assert.equal(failedOut.new_status, 'failed');
-    assert.ok(failedOut.intent.run_failed_at);
+    const blockedByCoord = runCli(['intake', 'resolve', '--intent', intentId, '--json'], apiRepo);
+    assert.equal(blockedByCoord.status, 0, blockedByCoord.stderr);
+    const coordBlockedOut = parseJsonResult(blockedByCoord, 'resolve blocked by coordinator completion');
+    assert.equal(coordBlockedOut.new_status, 'blocked');
+    assert.ok(coordBlockedOut.intent.run_blocked_reason);
   });
 
   it('AT-HANDOFF-009: coordinator dispatch context includes the intake handoff section and filters stale run refs', () => {

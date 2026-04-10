@@ -217,8 +217,8 @@ describe('intake resolve', () => {
     assert.equal(out.intent.run_final_turn, 'turn_final');
   });
 
-  // AT-V3S5-003: failed run transitions intent to failed
-  it('transitions an executing intent to failed when run is failed', () => {
+  // AT-V3S5-003: reserved run-level 'failed' is rejected (DEC-RUN-STATUS-001)
+  it('rejects resolve when governed run has reserved status "failed"', () => {
     const { intentId } = pipelineThroughStart(dir);
 
     setRunStatus(dir, {
@@ -240,16 +240,12 @@ describe('intake resolve', () => {
     });
 
     const result = runCli(['intake', 'resolve', '--intent', intentId, '--json'], dir);
-    assert.equal(result.status, 0, `resolve failed: ${result.stderr}\n${result.stdout}`);
+    assert.equal(result.status, 1, `should fail: ${result.stdout}`);
 
     const out = JSON.parse(result.stdout);
-    assert.equal(out.ok, true);
-    assert.equal(out.new_status, 'failed');
-    assert.equal(out.run_outcome, 'failed');
-    assert.equal(out.intent.status, 'failed');
-    assert.equal(out.intent.run_blocked_on, 'fatal:unrecoverable');
-    assert.equal(out.intent.run_blocked_reason, 'unrecoverable');
-    assert.ok(out.intent.run_failed_at);
+    assert.equal(out.ok, false);
+    assert.ok(out.error.includes('reserved status'));
+    assert.ok(out.error.includes('DEC-RUN-STATUS-001'));
   });
 
   // AT-V3S5-004: active run returns no-change

@@ -413,7 +413,7 @@ For repo-local execution, `intake resolve` reads `.agentxchain/state.json`, veri
 | --- | --- | --- |
 | `blocked` | `executing -> blocked` | Copies `run_blocked_on`, `run_blocked_reason`, and `run_blocked_recovery` onto the intent. All three fields are set from the governed state. |
 | `completed` | `executing -> completed` | Copies `run_completed_at`, `run_final_turn`, and creates `.agentxchain/intake/observations/<intent_id>/` |
-| `failed` | `executing -> failed` | Sets `run_failed_at` on the intent. Does not reopen the run. |
+| `failed` | error (exit 1) | Reserved/unreached status per `DEC-RUN-STATUS-001`. Fails closed — operator must inspect manually. |
 | `active` | no change | Returns `ok: true`, `no_change: true`; the intent stays `executing` |
 | `paused` | no change | Returns `ok: true`, `no_change: true`; approval-held pause is not an intake outcome |
 | `idle` | error | Indicates the governed state was reset or no longer matches the started intent |
@@ -425,9 +425,10 @@ If the intent carries `target_workstream`, `intake resolve` reads coordinator st
 | Coordinator state | Barrier state | Intent transition | Notes |
 | --- | --- | --- | --- |
 | `active` | not satisfied | no change | Returns `ok: true`, `no_change: true`; coordinated work is still in flight |
-| `blocked` | not satisfied | `executing -> blocked` | Preserves recoverability instead of collapsing every coordinator issue into `failed` |
+| `blocked` | not satisfied | `executing -> blocked` | Preserves recoverability instead of collapsing every coordinator issue into terminal states |
 | `active` or `completed` | `satisfied` | `executing -> completed` | Creates `.agentxchain/intake/observations/<intent_id>/` just like repo-local completion |
-| `completed` or `failed` | not satisfied | `executing -> failed` | The coordinator run ended without satisfying the declared workstream |
+| `completed` | not satisfied | `executing -> blocked` | The coordinator completed without satisfying the workstream; intent is blocked with recovery guidance |
+| `failed` | any | error (exit 1) | Reserved/unreached status per `DEC-RUN-STATUS-001`. Fails closed. |
 
 Coordinator-backed intents also record `target_workstream.super_run_id`. If the coordinator workspace is reinitialized and the `super_run_id` no longer matches, `intake resolve` fails fast instead of silently attaching the old intent to a new super-run.
 
@@ -593,7 +594,6 @@ planned -> executing
 planned -> executing (coordinator handoff)
 executing -> blocked
 executing -> completed
-executing -> failed
 blocked -> approved
 ```
 

@@ -51,6 +51,20 @@ Run-level `failed` remains reserved/unreached in the current governed implementa
 - `AT-RTSA-004`: continuity/status surfaces return a reserved-state reason for run-level `failed` instead of treating it as a normal produced terminal outcome.
 - `AT-RTSA-005`: `agentxchain restart` fails closed on run-level `failed` with a reserved-status message.
 
+## Intake Resolve Alignment
+
+Intake resolve (`cli/src/lib/intake.js`) must also respect the run-level terminal status contract:
+
+1. **Repo-backed resolve**: If `state.status === 'failed'`, intake resolve fails closed with an error referencing `DEC-RUN-STATUS-001`. It does not map to intent-level `failed`.
+2. **Coordinator-backed resolve**: If `coordinatorState.status === 'failed'`, intake resolve fails closed. If `coordinatorState.status === 'completed'` but the workstream barrier is unsatisfied, the intent transitions to `blocked` (not `failed`) with recovery guidance.
+3. **Intent-level `failed`**: Retained in `S1_STATES` and `TERMINAL_STATES` for read tolerance of historical intents. No current writer produces it.
+4. **Transition table**: `executing` valid transitions narrowed to `['blocked', 'completed']`. `failed` removed.
+
+### Acceptance Tests
+
+- `AT-V3S5-003` (updated): `intake resolve` rejects reserved `state.status = 'failed'` with exit 1 and error referencing `DEC-RUN-STATUS-001`.
+- `AT-HANDOFF-008` (updated): Coordinator completing without satisfying a workstream maps to intent `blocked`, not `failed`.
+
 ## Open Questions
 
 1. Should a future governed state-machine version make run-level `failed` reachable for unrecoverable corruption or runner-crash semantics, or should all non-success governed outcomes remain `blocked` plus explicit recovery evidence?

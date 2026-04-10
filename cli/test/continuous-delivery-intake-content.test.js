@@ -15,6 +15,9 @@ const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const DOC_SPEC = read('.planning/CONTINUOUS_DELIVERY_INTAKE_DOC_SPEC.md');
 const V3_SCOPE = read('.planning/V3_SCOPE.md');
+const V3_S1_SPEC = read('.planning/V3_S1_INTAKE_SPEC.md');
+const V3_S2_SPEC = read('.planning/V3_S2_APPROVE_PLAN_SPEC.md');
+const V3_S5_SPEC = read('.planning/V3_S5_INTENT_CLOSURE_SPEC.md');
 
 // Code-backed sources: read the implementation directly
 const INTAKE_SRC = read('cli/src/lib/intake.js');
@@ -201,8 +204,8 @@ describe('Intake docs resolve outcome — code-backed verification', () => {
     assert.ok(DOC.includes('run_blocked_recovery'), 'docs must mention run_blocked_recovery');
   });
 
-  it('documents run_failed_at field', () => {
-    assert.ok(DOC.includes('run_failed_at'), 'docs must mention run_failed_at');
+  it('documents that run-level failed is reserved/fail-closed per DEC-RUN-STATUS-001', () => {
+    assert.ok(DOC.includes('DEC-RUN-STATUS-001'), 'docs must reference DEC-RUN-STATUS-001 for reserved failed status');
   });
 
   it('documents run_completed_at and run_final_turn fields', () => {
@@ -211,7 +214,7 @@ describe('Intake docs resolve outcome — code-backed verification', () => {
   });
 
   it('documents all resolve outcome states from implementation', () => {
-    // The implementation handles: blocked, failed, completed, active, paused, idle
+    // The implementation handles: blocked, failed (reserved/fail-closed), completed, active, paused, idle
     for (const state of ['blocked', 'failed', 'completed', 'active', 'paused', 'idle']) {
       assert.ok(
         DOC.includes(`\`${state}\``),
@@ -268,5 +271,19 @@ describe('Intake docs planning specs alignment', () => {
     assert.match(V3_SCOPE, /`schedule` is a first-class event source/i);
     assert.match(V3_SCOPE, /append-only child records under `\.agentxchain\/intake\/observations\/`/i);
     assert.match(V3_SCOPE, /fallback template is `generic`/i);
+    assert.match(V3_SCOPE, /reserved run-level `failed` fails closed/i);
+    assert.match(V3_SCOPE, /paused-with-pending-gate/i);
+    assert.doesNotMatch(V3_SCOPE, /executing -> failed/);
+  });
+
+  it('keeps the intake slice specs aligned on reserved failed semantics', () => {
+    assert.match(V3_S1_SPEC, /reserved\/read-tolerant `failed` handling/i);
+    assert.match(V3_S2_SPEC, /reserved\/read-tolerant `failed` handling/i);
+    assert.match(V3_S5_SPEC, /fails closed if[\s\S]*`state\.status === 'failed'`/);
+    assert.match(V3_S5_SPEC, /There is no shipped `run_failed_at` field/);
+    assert.doesNotMatch(V3_S5_SPEC, /"run_failed_at"/);
+    assert.doesNotMatch(V3_S5_SPEC, /"to": "blocked\|completed\|failed"/);
+    assert.doesNotMatch(DOC_SPEC, /uses `failed` only when the coordinator run ends without satisfying the workstream barrier/);
+    assert.doesNotMatch(DOC_SPEC, /`blocked`, `completed`, and `failed` are the shipped run-outcome mappings/);
   });
 });
