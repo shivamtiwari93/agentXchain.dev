@@ -1,0 +1,55 @@
+---
+title: "v2.38.0 Release Notes"
+description: "Continuity checkpointing contract, truthful restart actionability, pending-gate preservation, and checkpoint-drift detection."
+---
+
+# AgentXchain v2.38.0
+
+`2.38.0` ships the full continuity package: richer governance checkpoints, correct restart behavior around pending gates, checkpoint-drift detection, and truthful operator-action guidance across CLI, dashboard, and API surfaces.
+
+## Continuity checkpointing contract
+
+AgentXchain now writes structured governance checkpoints at six boundary points during a run:
+
+- **Turn assignment** — when a role is dispatched
+- **Turn acceptance** — when a role produces accepted output
+- **Phase approval** — when a phase gate is approved
+- **Run completion** — when a run reaches terminal state
+- **Blocked state** — when a run enters a blocked state
+- **Restart reconnect** — when `restart` reattaches to a checkpoint
+
+Each checkpoint captures `run_id`, `phase`, `turn`, `role`, `baseline_ref` (git HEAD, branch, dirty status), and a monotonic `checkpoint_epoch`. This enables cross-process session recovery with full governance-state context.
+
+## Restart preserves pending gates
+
+`agentxchain restart` no longer bypasses pending phase transitions or pending run completions. When a run has a pending gate, `restart` surfaces the exact approval command the operator needs instead of reactivating the run and silently skipping the gate.
+
+This was a correctness bug: the prior implementation called `reactivateRun()` before checking `pending_phase_transition`, which could resume execution past an unapproved gate.
+
+## Checkpoint-drift detection
+
+Continuity surfaces now compare the checkpoint's `baseline_ref` against the live workspace state. When the checkpoint belongs to the current run and the workspace has diverged (different HEAD, different branch, or dirty working tree), drift warnings are surfaced in:
+
+- `agentxchain status` (CLI)
+- `agentxchain status --json`
+- `/api/continuity` (dashboard bridge)
+- Dashboard Timeline continuity panel
+
+Stale checkpoints (from a different run) intentionally skip drift evaluation — drift from another run's baseline is not actionable guidance.
+
+## Truthful continuity action guidance
+
+The continuity helper now computes exact operator-action recommendations instead of a boolean restart hint:
+
+- `recommended_command` — the exact CLI command the operator should run next
+- `recommended_reason` — why this command is the right next step
+- `recommended_detail` — additional context (e.g., which phase gate is pending)
+- `restart_recommended` — now `true` only when the recommended command is literally `agentxchain restart`, not when an approval command would be correct
+
+This fixes a surface-level lie where `restart_recommended: true` was emitted for runs that needed `approve --phase` or `approve --complete`, misleading both operators and automation consumers.
+
+## Evidence
+
+- **2937 tests / 610 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build` — production build succeeded

@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.37.0
+# Launch Evidence Report — AgentXchain v2.38.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.37.0 Google Gemini provider, Gemini failure hardening, Homebrew PR automation, and examples docs library release.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.38.0 continuity checkpointing, restart correctness, checkpoint-drift detection, and truthful actionability release.
 
 ---
 

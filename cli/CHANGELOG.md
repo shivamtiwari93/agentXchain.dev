@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.38.0
+
+`2.38.0` ships the full continuity package: richer governance checkpoints, correct restart behavior around pending gates, checkpoint-drift detection, and truthful operator-action guidance across CLI, dashboard, and API surfaces.
+
+### Continuity checkpointing contract
+
+- Structured governance checkpoints at 6 boundary points: turn assignment, turn acceptance, phase approval, run completion, blocked state, restart reconnect.
+- Each checkpoint captures `run_id`, `phase`, `turn`, `role`, `baseline_ref`, and monotonic `checkpoint_epoch`.
+- Enables cross-process session recovery with full governance-state context.
+
+### Restart preserves pending gates
+
+- `restart` no longer bypasses pending phase transitions or pending run completions.
+- Surfaces the exact approval command instead of reactivating past an unapproved gate.
+
+### Checkpoint-drift detection
+
+- Continuity surfaces compare checkpoint `baseline_ref` against live workspace state.
+- Drift warnings surfaced in CLI status, `--json`, `/api/continuity`, and dashboard.
+- Stale checkpoints from other runs skip drift evaluation.
+
+### Truthful continuity action guidance
+
+- `recommended_command`, `recommended_reason`, `recommended_detail` replace boolean-only guidance.
+- `restart_recommended` is now `true` only when the exact next action is `agentxchain restart`.
+- Fixes misleading guidance for runs needing `approve --phase` or `approve --complete`.
+
+### Evidence
+
+- **2937 tests / 610 suites / 0 failures**
+- `cd cli && npm test`
+- `cd website-v2 && npm run build`
+
 ## 2.37.0
 
 `2.37.0` adds Google Gemini as the third governed `api_proxy` provider, hardens Gemini-specific failure handling, fixes the Homebrew mirror PR automation path, and ships a first-class examples docs library.
