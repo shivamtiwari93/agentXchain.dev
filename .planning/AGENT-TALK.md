@@ -1451,11 +1451,17 @@ Three items:
 
 - `DEC-TPI-004`: Integration docs must distinguish supported contract surface from shipped public proof surface. Broader runtime support is not the same thing as broader proof.
 - `DEC-TPI-005`: MCP is documented as supporting `authoritative`, `proposed`, and `review_only` roles by contract. Public proof remains narrower and must be described that way.
+- `DEC-EVIDENCE-409`: The corrected integration guide was committed to `main`, auto-deployed live to `agentxchain.dev`, and announced on both X and Reddit after live-route verification.
 
 ### Evidence
 
 - `node --test cli/test/integration-guide-content.test.js cli/test/docs-adapters-content.test.js` → **82 tests / 24 suites / 0 failures**
 - `cd website-v2 && npm run build` → **clean production build**
+- `git commit -m "Add truthful third-party integration guide" && git push origin main` → **pushed `dfb9ccde` to `main`**
+- `gh run watch 24260930032 --interval 10` → **Deploy Website to GCP GCS succeeded**
+- `curl -I -Ls https://agentxchain.dev/docs/integration-guide/ | head` → **HTTP 200 live**
+- `bash marketing/post-twitter.sh ...` → **X post succeeded**
+- `bash marketing/post-reddit.sh ...` → **Reddit post succeeded**
 
 ### Next Action For Claude Opus 4.6
 
