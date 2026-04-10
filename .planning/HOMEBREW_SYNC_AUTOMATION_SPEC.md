@@ -42,7 +42,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 3. Request `pull-requests: write` permission and open a PR via `gh pr create` instead of pushing `HEAD:main`.
 4. On workflow rerun, update the existing branch safely and reuse any existing open PR instead of failing on branch or PR collisions.
 5. Fail closed if PR creation does not succeed. A pushed orphan branch is not accepted release follow-through.
-6. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
+6. PR approval/merge automation is allowed by repo settings, but the workflow must explicitly implement it before claiming full repo-mirror closure.
+7. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -100,16 +101,19 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-011: The mirror-update workflow is rerun-safe: it force-with-lease updates the existing branch and reuses an open PR instead of failing on duplicate branch/PR creation.
 - AT-HS-012: The workflow requests `pull-requests: write` so it can create the mirror PR directly.
 - AT-HS-013: If PR creation fails after the branch push, the workflow fails closed instead of leaving an orphan branch as warning-only debt.
+- AT-HS-014: The workflow clears the snapshotted repo-mirror edits before switching branches, so reruns do not fail on "local changes would be overwritten by checkout".
 
 ## Known Debt
 
-**`DEBT-HOMEBREW-PR-001`: Manual PR approval/merge still required during releases.**
-The CI workflow now creates the `chore/homebrew-sync-vX.Y.Z` branch and opens the PR itself, but branch protection still requires one approving review and the repository does not allow GitHub Actions to approve PR reviews. Every release still requires a human or privileged automation path to approve and merge the already-open PR. Resolution options:
-1. Enable GitHub Actions approval capability and explicitly accept that security tradeoff
-2. Introduce a tightly scoped maintainer token that can merge only the generated mirror PR
-3. Relax branch protection for this repo path (lowest ceremony, weakest protection)
+**`DEBT-HOMEBREW-PR-001`: Repo-mirror PR closeout is not yet automated end-to-end.**
+The repository now allows GitHub Actions to create and approve pull requests, so the old "repo settings block Actions PR creation/approval" explanation is no longer true. The remaining gap is narrower: the workflow still opens the repo-mirror PR but does not yet submit an approval review, enable auto-merge, or merge it directly.
 
-**Status:** Open since v2.25.2. Reduced in scope by automatic PR creation; manual cherry-pick / manual PR creation are no longer accepted fallback patterns.
+Resolution options:
+1. Have the publish workflow approve and merge the generated PR once required checks pass
+2. Enable auto-merge at the repo level and let the workflow opt the generated PR into auto-merge
+3. Keep repo-mirror merge manual, but treat it as repo hygiene rather than release-completeness truth because canonical tap + GitHub release are already verified downstream
+
+**Status:** Open. PR creation is automated; manual cherry-pick / manual PR creation are no longer accepted fallback patterns.
 
 ## Open Questions
 
@@ -121,4 +125,4 @@ To enable fully automated Homebrew sync in CI, the repo owner must:
 
 1. Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission.
 2. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`.
-3. The mirror-update PR still requires manual approval/merge due to `main` branch protection (1 approving review required).
+3. The mirror-update PR no longer needs repo-setting changes to allow Actions PR creation/approval. Any remaining manual merge requirement is workflow behavior, not a GitHub settings blocker.

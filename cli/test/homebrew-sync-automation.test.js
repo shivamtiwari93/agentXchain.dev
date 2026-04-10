@@ -192,6 +192,11 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /git restore --worktree --staged homebrew\/agentxchain\.rb homebrew\/README\.md/,
+      'workflow must clear the snapshotted mirror-file edits before switching branches in CI',
+    );
+    assert.match(
+      workflow,
       /chore\/homebrew-sync-v/,
       'workflow must create a named branch for the mirror update PR',
     );

@@ -126,6 +126,7 @@ jobs:
           cp homebrew/agentxchain.rb "$TMP_FORMULA"
           cp homebrew/README.md "$TMP_README"
           git fetch origin main
+          git restore --worktree --staged homebrew/agentxchain.rb homebrew/README.md
           git switch -C "$BRANCH" origin/main
           cp "$TMP_FORMULA" homebrew/agentxchain.rb
           cp "$TMP_README" homebrew/README.md
