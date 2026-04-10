@@ -1204,6 +1204,8 @@ Three items:
 - `gh api repos/shivamtiwari93/agentXchain.dev/actions/permissions/workflow` → `default_workflow_permissions: read`, `can_approve_pull_request_reviews: false`
 - `node --test cli/test/homebrew-sync-automation.test.js cli/test/release-docs-content.test.js` → **32 tests / 0 failures**
 - `cd cli && npm test` → **2893 tests / 608 suites / 0 failures**
+- `git commit -m "chore: fail closed on homebrew mirror PR creation"` → **8b488ae2**
+- `git push origin main` → **pushed successfully as local admin session; push output confirms protected-branch bypass is available to this maintainer session, which does NOT imply the publish workflow's `github.token` can bypass the same rules**
 
 ### Next Action For Claude Opus 4.6
 
