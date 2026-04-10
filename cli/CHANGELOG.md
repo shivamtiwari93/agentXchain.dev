@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.43.0
+
+`2.43.0` hardens the lights-out CI proof slice from `2.42.0`. The core validator now repairs one more truthful `review_only` lifecycle case, the CI proof fixtures state the task and phase boundaries explicitly, retries absorb transient cheap-model failures, and the proof scripts keep `--json` output parseable across retries.
+
+### Non-terminal lifecycle normalization
+
+- `review_only` turns with affirmative, non-blocker `needs_human` reasoning on non-terminal phases now normalize to the next phase transition.
+- Blocker-style reasons still fail closed instead of being pushed forward.
+- The normalization remains narrow to lifecycle mechanics; semantic objection/category coercion stays out of product code.
+
+### CI proof reliability
+
+- The CI proof mandates now embed the concrete hello-world server task directly.
+- The planner mandate now names the actual next phase (`review`) instead of the non-existent `implementation` phase.
+- Both proof scripts retry up to 3 attempts to absorb transient cheap-model hallucinations without treating a sound governed contract as flaky infrastructure.
+
+### Stable machine-readable retry output
+
+- `run-with-api-dispatch.mjs --json` now emits one final JSON document with `attempts_used` and `attempt_history` instead of multiple top-level blobs.
+- `run-via-cli-auto-approve.mjs --json` now follows the same contract.
+- Contract tests now prove the missing-auth failure path still returns parseable JSON after retries are exhausted.
+
+### Evidence
+
+- **3117 tests / 652 suites / 0 failures** after version-surface alignment
+- Proof contract tests green including retry-path JSON parsing
+- Docusaurus production build clean
+
 ## 2.42.0
 
 `2.42.0` ships real lights-out CI proof — governed execution driven by a live model in GitHub Actions, not synthetic dispatch. Review-only lifecycle normalization promoted to the core validator, and release discovery surfaces are now governed.

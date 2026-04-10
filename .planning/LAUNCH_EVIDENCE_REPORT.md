@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.42.0
+# Launch Evidence Report — AgentXchain v2.43.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.42.0 lights-out CI proof release: real API-governed execution in GitHub Actions with model-backed dispatch, review-only lifecycle normalization promoted to core validator, and release discovery surface enforcement.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.43.0 CI-proof hardening release: mandate-specific CI fixtures, non-terminal review-only lifecycle normalization, retry-backed proof reliability, and stable JSON output across retries.
 
 ---
 

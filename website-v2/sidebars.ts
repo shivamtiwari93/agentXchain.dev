@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Release Notes',
       items: [
+        'releases/v2-43-0',
         'releases/v2-42-0',
         'releases/v2-41-0',
         'releases/v2-40-0',
