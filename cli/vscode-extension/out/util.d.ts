@@ -56,7 +56,7 @@ export interface ProjectSurface {
     state: ProjectState | null;
     lock: LockState | null;
 }
-export declare const GOVERNED_MODE_NOTICE = "Governed project detected. This VS Code extension only supports legacy lock-based coordination commands today. Use agentxchain status, agentxchain dashboard, or the browser dashboard for governed approvals and reports.";
+export declare const GOVERNED_MODE_NOTICE = "Governed project detected. This extension supports phase transition and run completion approvals via CLI subprocess calls. Use agentxchain step, agentxchain dashboard, or the browser dashboard for additional governed operations.";
 export declare function readJson<T>(filePath: string): T | null;
 export declare function writeJson(filePath: string, data: unknown): void;
 export declare function lockPath(root: string): string;

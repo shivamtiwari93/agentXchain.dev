@@ -83,22 +83,8 @@ export interface GovernedStatusBarModel {
 }
 
 export async function loadGovernedStatus(root: string): Promise<GovernedStatusPayload> {
-  const cliPath = process.env.AGENTXCHAIN_CLI_PATH?.trim();
-  const invocation = resolveCliInvocation(cliPath);
-
-  try {
-    const { stdout, stderr } = await execFileAsync(invocation.command, [...invocation.args, 'status', '--json'], {
-      cwd: root,
-      timeout: 60_000,
-      maxBuffer: 1024 * 1024,
-      env: { ...process.env, NO_COLOR: '1' },
-    });
-
-    return parseGovernedStatus(stdout, stderr);
-  } catch (error) {
-    const message = formatCliFailure(error);
-    throw new Error(message);
-  }
+  const { stdout, stderr } = await execCliCommand(root, ['status', '--json']);
+  return parseGovernedStatus(stdout, stderr);
 }
 
 export function parseGovernedStatus(stdout: string, stderr = ''): GovernedStatusPayload {
@@ -222,6 +208,8 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
   .blocked { background: rgba(232,117,42,0.15); border: 1px solid rgba(232,117,42,0.3); color: #e8752a; padding: 8px 10px; border-radius: 6px; font-weight: 600; }
   ul { margin: 6px 0 0 18px; padding: 0; }
   li { margin: 4px 0; }
+  .btn { display: inline-block; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; border: 1px solid var(--vscode-button-border); margin-right: 6px; text-decoration: none; }
+  .btn-primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
 </style></head>
 <body>
   <h2>AgentXchain</h2>
@@ -257,13 +245,13 @@ export function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice:
 
   ${pendingTransition
     ? `<div class="section"><div class="label">Pending phase transition</div><div class="warning">${escapeHtml(
-      `${pendingTransition.from || 'unknown'} -> ${pendingTransition.to || 'unknown'} (${pendingTransition.gate || 'unknown gate'})`
-    )}</div></div>`
+      `${pendingTransition.from || 'unknown'} \u2192 ${pendingTransition.to || 'unknown'} (${pendingTransition.gate || 'unknown gate'})`
+    )}</div><div style="margin-top:8px;"><a class="btn btn-primary" href="command:agentxchain.approveTransition">Approve Transition</a></div></div>`
     : ''}
   ${pendingCompletion
     ? `<div class="section"><div class="label">Pending run completion</div><div class="warning">${escapeHtml(
       pendingCompletion.gate || 'awaiting approval'
-    )}</div></div>`
+    )}</div><div style="margin-top:8px;"><a class="btn btn-primary" href="command:agentxchain.approveCompletion">Approve Completion</a></div></div>`
     : ''}
   ${state?.blocked || state?.status === 'blocked'
     ? `<div class="section"><div class="blocked">Blocked reason: ${escapeHtml(state?.blocked_reason || state?.blocked_on || 'unknown')}</div></div>`
@@ -344,6 +332,27 @@ export function summarizeGovernedStatus(payload: GovernedStatusPayload): Governe
     tooltip: tooltipLines.join('\n'),
     tone,
   };
+}
+
+/**
+ * Execute an agentxchain CLI command as a subprocess.
+ * Used by governed status, approval commands, and future operator actions.
+ */
+export async function execCliCommand(root: string, cliArgs: string[], timeoutMs = 60_000): Promise<{ stdout: string; stderr: string }> {
+  const cliPath = process.env.AGENTXCHAIN_CLI_PATH?.trim();
+  const invocation = resolveCliInvocation(cliPath);
+
+  try {
+    return await execFileAsync(invocation.command, [...invocation.args, ...cliArgs], {
+      cwd: root,
+      timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, NO_COLOR: '1' },
+    });
+  } catch (error) {
+    const message = formatCliFailure(error);
+    throw new Error(message);
+  }
 }
 
 function resolveCliInvocation(cliPath: string | undefined): { command: string; args: string[] } {

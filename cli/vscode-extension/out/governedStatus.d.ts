@@ -72,3 +72,11 @@ export declare function parseGovernedStatus(stdout: string, stderr?: string): Go
 export declare function renderGovernedStatusLines(payload: GovernedStatusPayload): string[];
 export declare function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice: string): string;
 export declare function summarizeGovernedStatus(payload: GovernedStatusPayload): GovernedStatusBarModel;
+/**
+ * Execute an agentxchain CLI command as a subprocess.
+ * Used by governed status, approval commands, and future operator actions.
+ */
+export declare function execCliCommand(root: string, cliArgs: string[], timeoutMs?: number): Promise<{
+    stdout: string;
+    stderr: string;
+}>;

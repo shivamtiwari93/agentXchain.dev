@@ -77,7 +77,7 @@ describe('VS Code extension project-mode detection', () => {
     assert.equal(utilModule.getProjectName(surface.config), 'Governed Repo');
     assert.equal(surface.state.phase, 'implementation');
     assert.match(utilModule.GOVERNED_MODE_NOTICE, /dashboard/i);
-    assert.match(utilModule.GOVERNED_MODE_NOTICE, /approvals and reports/i);
+    assert.match(utilModule.GOVERNED_MODE_NOTICE, /approvals/i);
   });
 
   it('detects legacy lock-based projects', () => {

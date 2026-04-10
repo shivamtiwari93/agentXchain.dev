@@ -46,7 +46,7 @@ exports.getProjectActors = getProjectActors;
 exports.getBlockedDetail = getBlockedDetail;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This VS Code extension only supports legacy lock-based coordination commands today. Use agentxchain status, agentxchain dashboard, or the browser dashboard for governed approvals and reports.';
+exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This extension supports phase transition and run completion approvals via CLI subprocess calls. Use agentxchain step, agentxchain dashboard, or the browser dashboard for additional governed operations.';
 function readJson(filePath) {
     try {
         const raw = fs.readFileSync(filePath, 'utf8');

@@ -10,14 +10,20 @@ The governed IDE connector is **not a new adapter type**. It is a thin orchestra
 
 ### Current shipped slice
 
-As of 2026-04-10, only the observer foundation is shipped:
+As of 2026-04-10, the observer foundation and operator approval slice are shipped:
 
 - governed project detection
 - governed status via `agentxchain status --json`
 - governed read-only rendering in the VS Code status command, status bar, and sidebar
+- `execCliCommand` shared subprocess helper for all CLI-backed commands
+- governed phase transition approval via `agentxchain approve-transition` subprocess call
+- governed run completion approval via `agentxchain approve-completion` subprocess call
+- sidebar approval action buttons that appear contextually when gates are pending
+- modal confirmation dialogs before approval actions
 - direct-mutation guard coverage proving governed state is not written by the extension
+- 12 approval-specific acceptance tests + 10 existing IDE status tests
 
-The governed approval, `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
+The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
 
 ### What the IDE connector IS
 

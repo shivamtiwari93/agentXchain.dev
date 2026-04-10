@@ -1,7 +1,7 @@
 {
   "name": "agentxchain",
   "displayName": "AgentXchain",
-  "description": "Legacy lock-based AgentXchain IDE compatibility, plus read-only governed project status in VS Code.",
+  "description": "AgentXchain IDE integration: governed approval actions, project status, and legacy lock-based coordination in VS Code.",
   "version": "0.1.0",
   "publisher": "agentxchain",
   "license": "MIT",
@@ -51,6 +51,14 @@
       {
         "command": "agentxchain.status",
         "title": "AgentXchain: Show Status"
+      },
+      {
+        "command": "agentxchain.approveTransition",
+        "title": "AgentXchain: Approve Phase Transition"
+      },
+      {
+        "command": "agentxchain.approveCompletion",
+        "title": "AgentXchain: Approve Run Completion"
       }
     ],
     "viewsContainers": {

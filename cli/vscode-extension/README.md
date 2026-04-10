@@ -1,16 +1,17 @@
 # AgentXchain VS Code Extension
 
-This extension is a compatibility surface, not the primary governed control plane.
+This extension provides governed approval actions and project status inside VS Code.
 
 ## Current Boundary
 
 - **Legacy mode:** supports lock-based coordination commands (`claim`, `release`, `generate`) for v3-style IDE-window workflows.
-- **Governed mode:** shows read-only status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code.
-- **Not shipped here:** governed gate approvals, governed transition control, or full governed reporting inside VS Code.
+- **Governed mode (observer):** shows status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code. Includes continuity guidance, workflow-kit artifact visibility, and pending gate display.
+- **Governed mode (operator):** supports phase transition approval and run completion approval via CLI subprocess calls (`agentxchain approve-transition`, `agentxchain approve-completion`). Approval buttons appear in the sidebar dashboard when gates are pending.
+- **Not shipped here:** `agentxchain step`, `agentxchain run`, notification fanout, or full governed reporting inside VS Code.
 
-For governed projects, use:
+For additional governed operations, use:
 
-- `agentxchain status`
+- `agentxchain step`
 - `agentxchain dashboard`
 - the browser dashboard
 
@@ -18,10 +19,13 @@ Governed mode requires the `agentxchain` CLI to be available on your `PATH`. For
 
 ## Commands
 
-- `AgentXchain: Status`
-- `AgentXchain: Claim Lock`
-- `AgentXchain: Release Lock`
-- `AgentXchain: Generate Agent Files`
+- `AgentXchain: Show Status` — display governed or legacy project status
+- `AgentXchain: Approve Phase Transition` — approve a pending phase transition gate (governed only)
+- `AgentXchain: Approve Run Completion` — approve a pending run completion gate (governed only)
+- `AgentXchain: Claim Lock (Human)` — claim the lock in legacy mode
+- `AgentXchain: Release Lock` — release the lock in legacy mode
+- `AgentXchain: Generate Agent Files` — generate agent files in legacy mode
+- `AgentXchain: Init Project` — initialize a new AgentXchain project
 
 `Claim Lock`, `Release Lock`, and `Generate Agent Files` are intentionally limited to legacy lock-based projects.
 
