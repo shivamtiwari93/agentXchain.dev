@@ -1,6 +1,6 @@
 # Continuity / Checkpointing Spec
 
-**Status:** Proposed
+**Status:** Implemented (Turn 35)
 **Scope:** single-repo governed runs first; coordinator parity is follow-on work
 
 ## Purpose

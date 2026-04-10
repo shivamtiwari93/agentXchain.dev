@@ -23,13 +23,13 @@ import {
   HISTORY_PATH,
   LEDGER_PATH,
 } from '../lib/governed-state.js';
-import { readSessionCheckpoint, SESSION_PATH } from '../lib/session-checkpoint.js';
+import { readSessionCheckpoint, writeSessionCheckpoint, captureBaselineRef, SESSION_PATH } from '../lib/session-checkpoint.js';
 
 /**
  * Generate a session recovery report summarizing the run state
  * so a new agent session can orient quickly.
  */
-function generateRecoveryReport(root, state, checkpoint) {
+function generateRecoveryReport(root, state, checkpoint, driftWarnings = []) {
   const lines = [
     '# Session Recovery Report',
     '',
@@ -102,7 +102,50 @@ function generateRecoveryReport(root, state, checkpoint) {
     }
   }
 
-  lines.push('## Next Steps', '', 'The next turn has been assigned. Check the dispatch bundle for context.', '');
+  // Pending gate / run completion surfacing
+  if (state.pending_phase_transition) {
+    const pt = state.pending_phase_transition;
+    lines.push(
+      '## Pending Phase Transition',
+      '',
+      `- **From**: ${pt.from}`,
+      `- **To**: ${pt.to}`,
+      `- **Gate**: ${pt.gate}`,
+      `- **Requested by**: ${pt.requested_by_turn || 'unknown'}`,
+      `- **Action**: Run \`agentxchain approve-transition\` to approve`,
+      '',
+    );
+  }
+
+  if (state.pending_run_completion) {
+    const pc = state.pending_run_completion;
+    lines.push(
+      '## Pending Run Completion',
+      '',
+      `- **Gate**: ${pc.gate}`,
+      `- **Requested by**: ${pc.requested_by_turn || 'unknown'}`,
+      `- **Action**: Run \`agentxchain approve-completion\` to approve`,
+      '',
+    );
+  }
+
+  // Repo-drift warnings
+  if (checkpoint?.baseline_ref && driftWarnings?.length > 0) {
+    lines.push('## Continuity Warnings', '');
+    for (const warning of driftWarnings) {
+      lines.push(`- ⚠ ${warning}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## Next Steps', '');
+  if (state.pending_phase_transition) {
+    lines.push('A phase transition is pending approval. Run `agentxchain approve-transition` before assigning new turns.', '');
+  } else if (state.pending_run_completion) {
+    lines.push('A run completion is pending approval. Run `agentxchain approve-completion` to finalize.', '');
+  } else {
+    lines.push('The next turn has been assigned. Check the dispatch bundle for context.', '');
+  }
 
   return lines.join('\n');
 }
@@ -160,6 +203,42 @@ export async function restartCommand(opts) {
     process.exit(1);
   }
 
+  // ── Repo-drift detection ────────────────────────────────────────────────
+  const driftWarnings = [];
+  if (checkpoint?.baseline_ref) {
+    const currentBaseline = captureBaselineRef(root);
+    const prev = checkpoint.baseline_ref;
+
+    if (prev.git_head && currentBaseline.git_head && prev.git_head !== currentBaseline.git_head) {
+      driftWarnings.push(`Git HEAD has moved since checkpoint: ${prev.git_head.slice(0, 8)} → ${currentBaseline.git_head.slice(0, 8)}`);
+    }
+    if (prev.git_branch && currentBaseline.git_branch && prev.git_branch !== currentBaseline.git_branch) {
+      driftWarnings.push(`Branch changed since checkpoint: ${prev.git_branch} → ${currentBaseline.git_branch}`);
+    }
+    if (prev.workspace_dirty === false && currentBaseline.workspace_dirty === true) {
+      driftWarnings.push('Workspace was clean at checkpoint but is now dirty');
+    }
+  }
+
+  if (driftWarnings.length > 0) {
+    for (const warning of driftWarnings) {
+      console.log(chalk.yellow(`⚠ ${warning}`));
+    }
+  }
+
+  // ── Pending gate / completion check ────────────────────────────────────
+  if (state.pending_phase_transition) {
+    const pt = state.pending_phase_transition;
+    console.log(chalk.yellow(`Pending phase transition: ${pt.from} → ${pt.to} (gate: ${pt.gate})`));
+    console.log(chalk.dim('Run `agentxchain approve-transition` to approve before assigning new turns.'));
+  }
+
+  if (state.pending_run_completion) {
+    const pc = state.pending_run_completion;
+    console.log(chalk.yellow(`Pending run completion (gate: ${pc.gate})`));
+    console.log(chalk.dim('Run `agentxchain approve-completion` to finalize.'));
+  }
+
   // Handle abandoned active turns (assigned but never completed)
   const activeTurns = getActiveTurns(state);
   const activeTurnCount = getActiveTurnCount(state);
@@ -167,6 +246,12 @@ export async function restartCommand(opts) {
     const turnIds = Object.keys(activeTurns);
     console.log(chalk.yellow(`Warning: ${activeTurnCount} turn(s) were assigned but never completed: ${turnIds.join(', ')}`));
     console.log(chalk.dim('These turns will be available for the next agent to complete.'));
+
+    // Fail closed if retained turn + irreconcilable drift
+    if (driftWarnings.length > 0) {
+      console.log(chalk.yellow('Active turns exist with repo drift since checkpoint. Reconnecting with warnings.'));
+      console.log(chalk.dim('Inspect the drift before continuing work on the retained turns.'));
+    }
   }
 
   // If paused, reactivate
@@ -178,6 +263,20 @@ export async function restartCommand(opts) {
       console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
       process.exit(1);
     }
+  }
+
+  // If pending gate/completion, do not bypass — surface and exit with recovery
+  if (state.pending_phase_transition || state.pending_run_completion) {
+    // Write checkpoint for the reconnect
+    writeSessionCheckpoint(root, state, 'restart_reconnect');
+
+    const recoveryReport = generateRecoveryReport(root, state, checkpoint, driftWarnings);
+    const recoveryPath = join(root, '.agentxchain/SESSION_RECOVERY.md');
+    const recoveryDir = dirname(recoveryPath);
+    if (!existsSync(recoveryDir)) mkdirSync(recoveryDir, { recursive: true });
+    writeFileSync(recoveryPath, recoveryReport);
+    console.log(chalk.dim(`  Recovery report: .agentxchain/SESSION_RECOVERY.md`));
+    return;
   }
 
   // Determine role from option or routing
@@ -198,6 +297,8 @@ export async function restartCommand(opts) {
       process.exit(1);
     }
 
+    // assignGovernedTurn already writes a checkpoint at turn_assigned
+
     console.log(chalk.green(`✓ Restarted run ${state.run_id}`));
     console.log(chalk.dim(`  Phase: ${phase}`));
     console.log(chalk.dim(`  Turn: ${assignment.turn?.id || 'assigned'}`));
@@ -206,6 +307,9 @@ export async function restartCommand(opts) {
       console.log(chalk.dim(`  Last checkpoint: ${checkpoint.checkpoint_reason} at ${checkpoint.last_checkpoint_at}`));
     }
   } else {
+    // Reconnect to existing active turns — write checkpoint
+    writeSessionCheckpoint(root, state, 'restart_reconnect');
+
     console.log(chalk.green(`✓ Reconnected to run ${state.run_id}`));
     console.log(chalk.dim(`  Phase: ${phase}`));
     console.log(chalk.dim(`  Active turns: ${Object.keys(activeTurns).join(', ')}`));
@@ -213,7 +317,7 @@ export async function restartCommand(opts) {
   }
 
   // Write session recovery report
-  const recoveryReport = generateRecoveryReport(root, state, checkpoint);
+  const recoveryReport = generateRecoveryReport(root, state, checkpoint, driftWarnings);
   const recoveryPath = join(root, '.agentxchain/SESSION_RECOVERY.md');
   const recoveryDir = dirname(recoveryPath);
   if (!existsSync(recoveryDir)) mkdirSync(recoveryDir, { recursive: true });

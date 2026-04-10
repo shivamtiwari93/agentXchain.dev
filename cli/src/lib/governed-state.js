@@ -1352,6 +1352,11 @@ export function markRunBlocked(root, details) {
 
   writeState(root, updatedState);
 
+  // Session checkpoint — non-fatal, written after blocked state is persisted
+  writeSessionCheckpoint(root, updatedState, 'blocked', {
+    role: turnId ? (getActiveTurns(updatedState)[turnId]?.assigned_role || null) : null,
+  });
+
   emitBlockedNotification(root, details.notificationConfig, updatedState, {
     category: details.category,
     blockedOn: details.blockedOn,
@@ -1753,6 +1758,13 @@ export function assignGovernedTurn(root, config, roleId) {
   };
 
   writeState(root, updatedState);
+
+  // Session checkpoint — non-fatal, written after every successful turn assignment
+  writeSessionCheckpoint(root, updatedState, 'turn_assigned', {
+    role: roleId,
+    dispatch_dir: `.agentxchain/dispatch/turns/${turnId}`,
+  });
+
   const assignedTurn = updatedState.active_turns[turnId];
   const result = { ok: true, state: attachLegacyCurrentTurnAlias(updatedState), turn: assignedTurn };
   if (warnings.length > 0) {
