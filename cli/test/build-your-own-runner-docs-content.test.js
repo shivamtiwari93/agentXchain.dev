@@ -59,6 +59,68 @@ describe('Build your own runner docs surface', () => {
     assert.match(PAGE, /Step 7: Handle gates truthfully/);
   });
 
+  it('AT-BYR-002b: documented operations are real exports from runner-interface.js', async () => {
+    // Fail-closed: import the actual module and verify each documented symbol is a real export
+    const ri = await import('../src/lib/runner-interface.js');
+    const documentedExports = [
+      'loadContext',
+      'loadState',
+      'initRun',
+      'reactivateRun',
+      'assignTurn',
+      'writeDispatchBundle',
+      'getTurnStagingResultPath',
+      'acceptTurn',
+      'rejectTurn',
+      'approvePhaseGate',
+      'approveCompletionGate',
+    ];
+    for (const name of documentedExports) {
+      assert.ok(
+        typeof ri[name] === 'function',
+        `runner-interface must export "${name}" as a function, got ${typeof ri[name]}`,
+      );
+    }
+  });
+
+  it('AT-BYR-002c: documented adapter imports are real exports from adapter-interface.js', async () => {
+    const ai = await import('../src/lib/adapter-interface.js');
+    const documentedAdapterExports = [
+      'dispatchLocalCli',
+      'dispatchApiProxy',
+      'dispatchMcp',
+      'printManualDispatchInstructions',
+      'waitForStagedResult',
+      'readStagedResult',
+    ];
+    for (const name of documentedAdapterExports) {
+      assert.ok(
+        typeof ai[name] === 'function',
+        `adapter-interface must export "${name}" as a function, got ${typeof ai[name]}`,
+      );
+    }
+  });
+
+  it('AT-BYR-002d: return value contracts table names match real exported functions', async () => {
+    const ri = await import('../src/lib/runner-interface.js');
+    // Extract function names from the return value contracts table
+    const tableRows = PAGE.match(/\| `(\w+)\(/g) || [];
+    const tableFunctions = tableRows.map((m) => m.match(/`(\w+)/)[1]);
+    assert.ok(tableFunctions.length >= 9, `expected at least 9 table rows, got ${tableFunctions.length}`);
+    for (const name of tableFunctions) {
+      assert.ok(
+        typeof ri[name] === 'function',
+        `return value table references "${name}" but it is not a function export from runner-interface`,
+      );
+    }
+  });
+
+  it('AT-BYR-002e: Step 2 code example handles null returns from loadContext and loadState', () => {
+    // The code example must include null/failure checks, not blind destructuring
+    assert.match(PAGE, /if \(!ctx\)|if \(ctx === null\)|if \(!ctx\) throw/, 'Step 2 must guard against null loadContext');
+    assert.match(PAGE, /if \(!state\)|if \(state === null\)|if \(!state\) throw/, 'Step 2 must guard against null loadState');
+  });
+
   it('AT-BYR-003: distinguishes primitive and composition proof tiers in the right order', () => {
     for (const doc of [PAGE, README]) {
       assert.match(doc, /examples\/ci-runner-proof\/run-one-turn\.mjs|run-one-turn\.mjs/);
@@ -96,11 +158,32 @@ describe('Build your own runner docs surface', () => {
     assert.match(PAGE, /Adapter-backed dispatch|adapter-interface/i);
   });
 
+  it('AT-BYR-005b: external-consumer starter files exist at documented paths', () => {
+    assert.ok(
+      existsSync(join(REPO_ROOT, 'examples', 'external-runner-starter', 'run-one-turn.mjs')),
+      'manual starter must exist',
+    );
+    assert.ok(
+      existsSync(join(REPO_ROOT, 'examples', 'external-runner-starter', 'run-adapter-turn.mjs')),
+      'adapter starter must exist',
+    );
+  });
+
   it('AT-BYR-005: runner-adoption surfaces link to the tutorial', () => {
     assert.match(RUNNER_INTERFACE_PAGE, /\/docs\/build-your-own-runner/);
     assert.match(QUICKSTART_DOCS, /\/docs\/build-your-own-runner/);
     assert.match(ROOT_README, /https:\/\/agentxchain\.dev\/docs\/build-your-own-runner\//);
     assert.match(CLI_README, /https:\/\/agentxchain\.dev\/docs\/build-your-own-runner\//);
     assert.match(README, /https:\/\/agentxchain\.dev\/docs\/build-your-own-runner\//);
+  });
+
+  it('AT-BYR-006: acceptTurn failure shape includes hook-blocked fields', () => {
+    // The return value contracts table must document that acceptTurn failure can include
+    // state and hookResults (from hook-blocked paths), not just error and validation
+    assert.match(
+      PAGE,
+      /acceptTurn.*\{.*ok: false.*state\?.*hookResults\?/s,
+      'acceptTurn failure shape must include state? and hookResults? for hook-blocked paths',
+    );
   });
 });

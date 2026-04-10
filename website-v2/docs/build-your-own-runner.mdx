@@ -85,9 +85,15 @@ This is a real package export, not a path hack. Do not import `governed-state.js
 Every runner starts by resolving the project root and current governed state:
 
 ```js
-const { root, config } = loadContext(targetDir);
+const ctx = loadContext(targetDir);
+if (!ctx) throw new Error('No governed project found');
+const { root, config } = ctx;
+
 const state = loadState(root, config);
+if (!state) throw new Error('No governed state — run initRun(root, config) first');
 ```
+
+Both return `null` on failure. `loadContext` fails when there is no `agentxchain.json` in the directory tree. `loadState` fails when there is no `.agentxchain/state.json` (the run has not started yet).
 
 At this point your runner knows whether it is looking at:
 
@@ -198,7 +204,7 @@ Every lifecycle operation uses the same `{ ok, error }` pattern. Success returns
 | `initRun(root, config)` | `{ ok: true, state }` | `{ ok: false, error }` |
 | `reactivateRun(root, state, details?)` | `{ ok: true, state }` | `{ ok: false, error }` |
 | `assignTurn(root, config, roleId)` | `{ ok: true, state, turn, warnings? }` | `{ ok: false, error }` |
-| `acceptTurn(root, config, opts?)` | `{ ok: true, state, validation, accepted, gateResult, completionResult, hookResults }` | `{ ok: false, error, error_code?, validation? }` |
+| `acceptTurn(root, config, opts?)` | `{ ok: true, state, validation, accepted, gateResult, completionResult, hookResults }` | `{ ok: false, error, error_code?, validation?, state?, hookResults? }` |
 | `rejectTurn(root, config, result, reason, opts?)` | `{ ok: true, state, escalated, turn }` | `{ ok: false, error }` |
 | `approvePhaseGate(root, config)` | `{ ok: true, state, transition }` | `{ ok: false, error, error_code?, state?, hookResults? }` |
 | `approveCompletionGate(root, config)` | `{ ok: true, state, completion }` | `{ ok: false, error, error_code?, state?, hookResults? }` |
