@@ -82,7 +82,8 @@ function aggregateEvidence(turns) {
         allDecisions.push(dec);
       }
     }
-    const files = turn.observed_artifact?.files_changed || turn.files_changed || [];
+    const observed = turn.observed_artifact?.files_changed;
+    const files = (Array.isArray(observed) && observed.length > 0) ? observed : (turn.files_changed || []);
     for (const f of files) {
       if (!allFiles.includes(f)) {
         allFiles.push(f);

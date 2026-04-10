@@ -1,6 +1,6 @@
 /**
  * Dashboard enterprise-app E2E — proves the dashboard artifact surface
- * exposes correct phase-template-backed ownership and gate readiness
+ * exposes correct phase-template-backed ownership and artifact rendering
  * for all 5 enterprise-app phases.
  *
  * AT-DASH-ENT-001: Planning phase artifacts with pm entry_role ownership
