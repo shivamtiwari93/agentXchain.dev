@@ -1,7 +1,7 @@
 {
   "name": "agentxchain",
   "displayName": "AgentXchain",
-  "description": "AgentXchain IDE integration: governed approval actions, project status, and legacy lock-based coordination in VS Code.",
+  "description": "AgentXchain IDE integration: governed approvals, step dispatch, project status, and legacy lock-based coordination in VS Code.",
   "version": "0.1.0",
   "publisher": "agentxchain",
   "license": "MIT",
@@ -59,6 +59,10 @@
       {
         "command": "agentxchain.approveCompletion",
         "title": "AgentXchain: Approve Run Completion"
+      },
+      {
+        "command": "agentxchain.step",
+        "title": "AgentXchain: Dispatch Governed Step"
       }
     ],
     "viewsContainers": {

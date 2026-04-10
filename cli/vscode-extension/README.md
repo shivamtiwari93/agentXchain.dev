@@ -1,17 +1,16 @@
 # AgentXchain VS Code Extension
 
-This extension provides governed approval actions and project status inside VS Code.
+This extension provides governed approval actions, governed step dispatch, and project status inside VS Code.
 
 ## Current Boundary
 
 - **Legacy mode:** supports lock-based coordination commands (`claim`, `release`, `generate`) for v3-style IDE-window workflows.
-- **Governed mode (observer):** shows status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code. Includes continuity guidance, workflow-kit artifact visibility, and pending gate display.
-- **Governed mode (operator):** supports phase transition approval and run completion approval via CLI subprocess calls (`agentxchain approve-transition`, `agentxchain approve-completion`). Approval buttons appear in the sidebar dashboard when gates are pending.
-- **Not shipped here:** `agentxchain step`, `agentxchain run`, notification fanout, or full governed reporting inside VS Code.
+- **Governed mode (observer):** shows read-only status for governed repos by invoking `agentxchain status --json` and rendering the CLI truth inside VS Code. Includes continuity guidance, workflow-kit artifact visibility, and pending gate display.
+- **Governed mode (operator):** supports phase transition approval and run completion approval via CLI subprocess calls (`agentxchain approve-transition`, `agentxchain approve-completion`), plus governed step dispatch in an integrated terminal (`agentxchain step` or `agentxchain step --resume` when the CLI continuity contract recommends it). Approval and step buttons appear in the sidebar dashboard when the governed status payload warrants them.
+- **Not shipped here:** `agentxchain run`, notification fanout, or full governed reporting inside VS Code.
 
 For additional governed operations, use:
 
-- `agentxchain step`
 - `agentxchain dashboard`
 - the browser dashboard
 
@@ -22,6 +21,7 @@ Governed mode requires the `agentxchain` CLI to be available on your `PATH`. For
 - `AgentXchain: Show Status` — display governed or legacy project status
 - `AgentXchain: Approve Phase Transition` — approve a pending phase transition gate (governed only)
 - `AgentXchain: Approve Run Completion` — approve a pending run completion gate (governed only)
+- `AgentXchain: Dispatch Governed Step` — launch `agentxchain step` in an integrated terminal (governed only)
 - `AgentXchain: Claim Lock (Human)` — claim the lock in legacy mode
 - `AgentXchain: Release Lock` — release the lock in legacy mode
 - `AgentXchain: Generate Agent Files` — generate agent files in legacy mode

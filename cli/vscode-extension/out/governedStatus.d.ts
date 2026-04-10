@@ -67,11 +67,17 @@ export interface GovernedStatusBarModel {
     tooltip: string;
     tone: 'default' | 'warning' | 'error';
 }
+export interface GovernedStepAction {
+    cliArgs: string[];
+    label: 'Dispatch Step' | 'Resume Step';
+}
 export declare function loadGovernedStatus(root: string): Promise<GovernedStatusPayload>;
 export declare function parseGovernedStatus(stdout: string, stderr?: string): GovernedStatusPayload;
 export declare function renderGovernedStatusLines(payload: GovernedStatusPayload): string[];
 export declare function renderGovernedStatusHtml(payload: GovernedStatusPayload, notice: string): string;
 export declare function summarizeGovernedStatus(payload: GovernedStatusPayload): GovernedStatusBarModel;
+export declare function getGovernedStepAction(payload: GovernedStatusPayload): GovernedStepAction | null;
+export declare function buildCliShellCommand(cliArgs: string[]): string;
 /**
  * Execute an agentxchain CLI command as a subprocess.
  * Used by governed status, approval commands, and future operator actions.

@@ -10,7 +10,7 @@ The governed IDE connector is **not a new adapter type**. It is a thin orchestra
 
 ### Current shipped slice
 
-As of 2026-04-10, the observer foundation and operator approval slice are shipped:
+As of 2026-04-10, the observer foundation, approval slice, and single-step dispatch slice are shipped:
 
 - governed project detection
 - governed status via `agentxchain status --json`
@@ -19,18 +19,20 @@ As of 2026-04-10, the observer foundation and operator approval slice are shippe
 - governed phase transition approval via `agentxchain approve-transition` subprocess call
 - governed run completion approval via `agentxchain approve-completion` subprocess call
 - sidebar approval action buttons that appear contextually when gates are pending
+- governed step dispatch in an integrated terminal via `agentxchain step` or a continuity-driven `agentxchain step --resume`
+- sidebar step action button that appears only when the governed status payload says step dispatch is valid
 - modal confirmation dialogs before approval actions
 - direct-mutation guard coverage proving governed state is not written by the extension
-- 12 approval-specific acceptance tests + 10 existing IDE status tests
+- 12 approval-specific acceptance tests + 10 existing IDE status tests + governed step tests
 
-The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
+The `run`, `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
 
 ### What the IDE connector IS
 
-- A governed-state observer that reads `.agentxchain/state.json`, `agentxchain.json`, and session/checkpoint data
+- A governed-state observer that reads governed status from `agentxchain status --json` and renders that CLI truth in the IDE
 - An operator action surface for: viewing status, approving phase transitions, approving run completion, viewing reports, and launching the browser dashboard
 - A notification surface for: phase changes, blocked states, escalations, turn completions
-- A governed-turn dispatch trigger (invokes `agentxchain step` or `agentxchain run` as a subprocess)
+- A governed-turn dispatch trigger that launches `agentxchain step` in an integrated terminal and may later surface `agentxchain run` the same way
 
 ### What the IDE connector is NOT
 
@@ -48,7 +50,7 @@ The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below r
 | `AgentXchain: Status` | `agentxchain status --json` | read-only | Show governed state in a structured panel |
 | `AgentXchain: Approve Phase Transition` | `agentxchain approve-transition` | operator action | Approve a pending phase gate |
 | `AgentXchain: Approve Run Completion` | `agentxchain approve-completion` | operator action | Approve pending run completion |
-| `AgentXchain: Step` | `agentxchain step` | operator action | Dispatch one governed turn |
+| `AgentXchain: Step` | `agentxchain step` | operator action | Launch one governed step in an integrated terminal |
 | `AgentXchain: Run` | `agentxchain run` | operator action | Start or resume a governed run loop |
 | `AgentXchain: Report` | `agentxchain report --format json` | read-only | Show governance report in panel |
 | `AgentXchain: Open Dashboard` | `agentxchain dashboard` | read-only | Launch browser dashboard |
@@ -65,6 +67,7 @@ The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below r
 - Project name, mode, schema version
 - Current phase, run status, turn count
 - Pending actions (approve-transition, approve-completion) as clickable buttons
+- Step dispatch action when the governed CLI truth permits it
 - Blocked reason if present
 - Workflow-kit artifact status for current phase (exists/missing indicators)
 - Last checkpoint timestamp and recommended recovery command
@@ -81,8 +84,8 @@ The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below r
 
 | Event | Trigger | Notification Type |
 |-------|---------|-------------------|
-| Phase transition pending | `state.queued_phase_transition` appears | Warning with "Approve" action button |
-| Run completion pending | `state.queued_run_completion` appears | Warning with "Approve" action button |
+| Phase transition pending | `state.pending_phase_transition` appears | Warning with "Approve" action button |
+| Run completion pending | `state.pending_run_completion` appears | Warning with "Approve" action button |
 | Turn completed | New accepted turn in history | Info |
 | Blocked state | `state.blocked === true` | Error with blocked reason |
 | Escalation | `state.escalation_active === true` | Error with escalation detail |
@@ -91,13 +94,15 @@ The `step`, `run`, `report`, `dashboard`, and `restart` command surfaces below r
 
 ### Subprocess Dispatch
 
-All operator actions execute CLI commands as child processes:
+Approval actions execute CLI commands as child processes:
 
 ```
-spawn('agentxchain', ['step', '--dir', workspaceRoot], { cwd: workspaceRoot })
+spawn('agentxchain', ['approve-transition'], { cwd: workspaceRoot })
 ```
 
 The extension captures stdout/stderr and renders output in an IDE output channel. Exit code 0 = success, non-zero = show error notification.
+
+Step dispatch is different: it launches an integrated terminal and sends the exact CLI command string there. This keeps real runtime output visible and operator-killable while still routing all governed mutations through the CLI.
 
 ### State Polling vs File Watching
 
@@ -122,8 +127,8 @@ The extension captures stdout/stderr and renders output in an IDE output channel
 
 1. **No CLI installed**: Show install guidance with `npm install -g agentxchain`
 2. **CLI version mismatch**: Warn if extension expects features from a newer CLI version
-3. **Subprocess timeout**: 60-second timeout for status/report; no timeout for step/run (long-running)
-4. **Concurrent step**: If `step` is already running (exit code from lock), show "turn in progress" instead of spawning a second
+3. **Subprocess timeout**: 60-second timeout for status/report/approval calls. `step` and `run` are terminal-launched surfaces, not timed subprocess calls.
+4. **Concurrent step**: If `step` is already running or the run is paused on a gate, the extension must not pretend a second dispatch is valid. It should surface the continuity or approval action the CLI already recommends.
 5. **Network filesystem**: File watcher may not fire; fallback polling must be robust
 6. **Corrupted state**: If `state.json` parse fails, show "state unreadable" and offer `agentxchain restart`
 
@@ -139,15 +144,15 @@ A workspace with governed `agentxchain.json` and `.agentxchain/state.json` shows
 
 ### AT-GIDE-003: Phase transition approval
 
-When `state.queued_phase_transition` is set, a notification appears with an "Approve" button. Clicking it runs `agentxchain approve-transition` as a subprocess. After success, the status bar updates to reflect the new phase.
+When `state.pending_phase_transition` is set, a notification appears with an "Approve" button. Clicking it runs `agentxchain approve-transition` as a subprocess. After success, the status bar updates to reflect the new phase.
 
 ### AT-GIDE-004: Run completion approval
 
-When `state.queued_run_completion` is set, a notification appears with an "Approve" button. Clicking it runs `agentxchain approve-completion` as a subprocess. After success, the status bar shows "completed".
+When `state.pending_run_completion` is set, a notification appears with an "Approve" button. Clicking it runs `agentxchain approve-completion` as a subprocess. After success, the status bar shows "completed".
 
 ### AT-GIDE-005: Step dispatch
 
-`AgentXchain: Step` spawns `agentxchain step` as a child process. Output streams to an IDE output channel. Exit code 0 updates the sidebar. Non-zero shows an error notification with the stderr content.
+`AgentXchain: Step` launches `agentxchain step` in an integrated terminal. When continuity recommends `agentxchain step --resume`, the extension launches that exact step command instead. The extension must refuse to surface a step action while a governed approval gate is pending.
 
 ### AT-GIDE-006: Blocked state notification
 
@@ -163,7 +168,7 @@ In a multi-root workspace with one governed and one legacy folder, governed comm
 
 ### AT-GIDE-009: No direct state mutation
 
-The extension never writes to `.agentxchain/`, `agentxchain.json`, or any governed artifact. All mutations go through CLI subprocess calls. This is verifiable by auditing the extension source for `fs.writeFile`, `fs.writeFileSync`, `fs.mkdir`, etc. against governed paths.
+The extension never writes to `.agentxchain/`, `agentxchain.json`, or any governed artifact. All governed mutations go through CLI execution surfaces (subprocess for approvals, integrated terminal for step/run). This is verifiable by auditing the extension source for `fs.writeFile`, `fs.writeFileSync`, `fs.mkdir`, etc. against governed paths.
 
 ### AT-GIDE-010: Workflow-kit artifact visibility
 
@@ -177,7 +182,7 @@ The sidebar shows the last checkpoint timestamp and recommended command from `st
 
 A test harness must prove the full governed lifecycle through the IDE surface:
 1. `init` a governed project
-2. `step` via IDE command → turn dispatched and accepted
+2. `step` via IDE command → integrated terminal launches the CLI step command and the turn is accepted
 3. Phase transition requested → notification appears → approve via IDE → phase advances
 4. Run completion requested → notification appears → approve via IDE → run completes
 5. `report` via IDE command → governance report rendered
@@ -197,6 +202,7 @@ This test must use real subprocess dispatch, not mocked extension host APIs.
 ## Open Questions
 
 1. `agentxchain run` must not execute as a hidden background process. If it ships in the IDE, it should open in an integrated terminal panel so long-running governed loops remain operator-visible and killable. The remaining question is whether to ship `run` at all before `step` + approvals are proven.
-2. Should notifications be opt-in or opt-out? Frequent turn completions in a fast run loop could be noisy.
-3. Should the extension expose `proposal list|diff|apply` or keep proposal management CLI-only for now?
-4. JetBrains / other IDE parity: should the spec require a platform-agnostic core that both VS Code and JetBrains extensions consume, or is VS Code-first acceptable?
+2. Terminal lifecycle for `run`: if VS Code restarts while an integrated-terminal `agentxchain run` process is active, should the extension detect the surviving process and offer a reconnect affordance, or explicitly require the operator to relaunch and resume from CLI continuity state?
+3. Should notifications be opt-in or opt-out? Frequent turn completions in a fast run loop could be noisy.
+4. Should the extension expose `proposal list|diff|apply` or keep proposal management CLI-only for now?
+5. JetBrains / other IDE parity: should the spec require a platform-agnostic core that both VS Code and JetBrains extensions consume, or is VS Code-first acceptable?

@@ -56,7 +56,7 @@ export interface ProjectSurface {
     state: ProjectState | null;
     lock: LockState | null;
 }
-export declare const GOVERNED_MODE_NOTICE = "Governed project detected. This extension supports phase transition and run completion approvals via CLI subprocess calls. Use agentxchain step, agentxchain dashboard, or the browser dashboard for additional governed operations.";
+export declare const GOVERNED_MODE_NOTICE = "Governed project detected. This extension keeps governed status read-only while supporting governed approvals and step dispatch through the AgentXchain CLI. Use agentxchain dashboard or the browser dashboard for additional governed operations.";
 export declare function readJson<T>(filePath: string): T | null;
 export declare function writeJson(filePath: string, data: unknown): void;
 export declare function lockPath(root: string): string;

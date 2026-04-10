@@ -42,7 +42,8 @@ const generate_1 = require("./generate");
 const init_1 = require("./init");
 const approve_transition_1 = require("./approve-transition");
 const approve_completion_1 = require("./approve-completion");
+const step_1 = require("./step");
 function registerCommands(context, root) {
-    context.subscriptions.push(vscode.commands.registerCommand('agentxchain.init', () => (0, init_1.runInit)()), vscode.commands.registerCommand('agentxchain.generate', () => (0, generate_1.runGenerate)(root)), vscode.commands.registerCommand('agentxchain.claim', () => (0, claim_1.claimLock)(root)), vscode.commands.registerCommand('agentxchain.release', () => (0, release_1.releaseLock)(root)), vscode.commands.registerCommand('agentxchain.status', () => (0, status_1.showStatus)(root)), vscode.commands.registerCommand('agentxchain.approveTransition', () => (0, approve_transition_1.approvePhaseTransition)(root)), vscode.commands.registerCommand('agentxchain.approveCompletion', () => (0, approve_completion_1.approveRunCompletion)(root)));
+    context.subscriptions.push(vscode.commands.registerCommand('agentxchain.init', () => (0, init_1.runInit)()), vscode.commands.registerCommand('agentxchain.generate', () => (0, generate_1.runGenerate)(root)), vscode.commands.registerCommand('agentxchain.claim', () => (0, claim_1.claimLock)(root)), vscode.commands.registerCommand('agentxchain.release', () => (0, release_1.releaseLock)(root)), vscode.commands.registerCommand('agentxchain.status', () => (0, status_1.showStatus)(root)), vscode.commands.registerCommand('agentxchain.approveTransition', () => (0, approve_transition_1.approvePhaseTransition)(root)), vscode.commands.registerCommand('agentxchain.approveCompletion', () => (0, approve_completion_1.approveRunCompletion)(root)), vscode.commands.registerCommand('agentxchain.step', () => (0, step_1.runGovernedStep)(root)));
 }
 //# sourceMappingURL=index.js.map

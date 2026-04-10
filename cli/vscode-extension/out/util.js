@@ -46,7 +46,7 @@ exports.getProjectActors = getProjectActors;
 exports.getBlockedDetail = getBlockedDetail;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This extension supports phase transition and run completion approvals via CLI subprocess calls. Use agentxchain step, agentxchain dashboard, or the browser dashboard for additional governed operations.';
+exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This extension keeps governed status read-only while supporting governed approvals and step dispatch through the AgentXchain CLI. Use agentxchain dashboard or the browser dashboard for additional governed operations.';
 function readJson(filePath) {
     try {
         const raw = fs.readFileSync(filePath, 'utf8');

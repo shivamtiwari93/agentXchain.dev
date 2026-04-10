@@ -5,6 +5,8 @@ exports.parseGovernedStatus = parseGovernedStatus;
 exports.renderGovernedStatusLines = renderGovernedStatusLines;
 exports.renderGovernedStatusHtml = renderGovernedStatusHtml;
 exports.summarizeGovernedStatus = summarizeGovernedStatus;
+exports.getGovernedStepAction = getGovernedStepAction;
+exports.buildCliShellCommand = buildCliShellCommand;
 exports.execCliCommand = execCliCommand;
 const child_process_1 = require("child_process");
 const util_1 = require("util");
@@ -100,6 +102,7 @@ function renderGovernedStatusHtml(payload, notice) {
     const blocked = formatBlockedState(state);
     const pendingTransition = state?.pending_phase_transition;
     const pendingCompletion = state?.pending_run_completion;
+    const stepAction = getGovernedStepAction(payload);
     return `<!DOCTYPE html>
 <html>
 <head><style>
@@ -118,6 +121,7 @@ function renderGovernedStatusHtml(payload, notice) {
   li { margin: 4px 0; }
   .btn { display: inline-block; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; border: 1px solid var(--vscode-button-border); margin-right: 6px; text-decoration: none; }
   .btn-primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  .btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
 </style></head>
 <body>
   <h2>AgentXchain</h2>
@@ -156,6 +160,9 @@ function renderGovernedStatusHtml(payload, notice) {
         : ''}
   ${pendingCompletion
         ? `<div class="section"><div class="label">Pending run completion</div><div class="warning">${escapeHtml(pendingCompletion.gate || 'awaiting approval')}</div><div style="margin-top:8px;"><a class="btn btn-primary" href="command:agentxchain.approveCompletion">Approve Completion</a></div></div>`
+        : ''}
+  ${stepAction
+        ? `<div class="section"><div class="label">${stepAction.label === 'Resume Step' ? 'Recovery action' : 'Next action'}</div><div style="margin-top:8px;"><a class="btn btn-secondary" href="command:agentxchain.step">${escapeHtml(stepAction.label)}</a></div></div>`
         : ''}
   ${state?.blocked || state?.status === 'blocked'
         ? `<div class="section"><div class="blocked">Blocked reason: ${escapeHtml(state?.blocked_reason || state?.blocked_on || 'unknown')}</div></div>`
@@ -227,6 +234,36 @@ function summarizeGovernedStatus(payload) {
         tone,
     };
 }
+function getGovernedStepAction(payload) {
+    const state = payload.state ?? null;
+    if (!state) {
+        return null;
+    }
+    if (state.pending_phase_transition || state.pending_run_completion) {
+        return null;
+    }
+    const recommendedStepArgs = parseRecommendedStepArgs(payload.continuity?.recommended_command);
+    if (recommendedStepArgs) {
+        return {
+            cliArgs: recommendedStepArgs,
+            label: recommendedStepArgs.includes('--resume') ? 'Resume Step' : 'Dispatch Step',
+        };
+    }
+    if (state.blocked || state.status === 'blocked' || state.status === 'completed' || state.status === 'failed') {
+        return null;
+    }
+    return {
+        cliArgs: ['step'],
+        label: 'Dispatch Step',
+    };
+}
+function buildCliShellCommand(cliArgs) {
+    const cliPath = process.env.AGENTXCHAIN_CLI_PATH?.trim();
+    const invocation = resolveCliInvocation(cliPath);
+    return [...invocation.command ? [invocation.command] : [], ...invocation.args, ...cliArgs]
+        .map(quoteShellArg)
+        .join(' ');
+}
 /**
  * Execute an agentxchain CLI command as a subprocess.
  * Used by governed status, approval commands, and future operator actions.
@@ -255,6 +292,16 @@ function resolveCliInvocation(cliPath) {
         return { command: process.execPath, args: [cliPath] };
     }
     return { command: cliPath, args: [] };
+}
+function parseRecommendedStepArgs(command) {
+    if (!command) {
+        return null;
+    }
+    const tokens = command.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length < 2 || tokens[0] !== 'agentxchain' || tokens[1] !== 'step') {
+        return null;
+    }
+    return tokens.slice(1);
 }
 function formatCliFailure(error) {
     const failure = error;
@@ -294,5 +341,11 @@ function escapeHtml(value) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+function quoteShellArg(value) {
+    if (/^[A-Za-z0-9_./:=+-]+$/.test(value)) {
+        return value;
+    }
+    return JSON.stringify(value);
 }
 //# sourceMappingURL=governedStatus.js.map

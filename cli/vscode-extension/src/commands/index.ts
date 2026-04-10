@@ -6,6 +6,7 @@ import { runGenerate } from './generate';
 import { runInit } from './init';
 import { approvePhaseTransition } from './approve-transition';
 import { approveRunCompletion } from './approve-completion';
+import { runGovernedStep } from './step';
 
 export function registerCommands(context: vscode.ExtensionContext, root: string) {
   context.subscriptions.push(
@@ -15,6 +16,7 @@ export function registerCommands(context: vscode.ExtensionContext, root: string)
     vscode.commands.registerCommand('agentxchain.release', () => releaseLock(root)),
     vscode.commands.registerCommand('agentxchain.status', () => showStatus(root)),
     vscode.commands.registerCommand('agentxchain.approveTransition', () => approvePhaseTransition(root)),
-    vscode.commands.registerCommand('agentxchain.approveCompletion', () => approveRunCompletion(root))
+    vscode.commands.registerCommand('agentxchain.approveCompletion', () => approveRunCompletion(root)),
+    vscode.commands.registerCommand('agentxchain.step', () => runGovernedStep(root))
   );
 }
