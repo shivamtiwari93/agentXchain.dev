@@ -33,7 +33,13 @@ identically regardless of whether the model is cloud-hosted or local.
 
 ### Request Format
 
-Ollama uses OpenAI-compatible request format. `buildProviderRequest('ollama', ...)` delegates to `buildOpenAiRequest(...)`.
+Ollama uses the OpenAI-compatible `/v1/chat/completions` surface, but the request body is not identical to the OpenAI path.
+
+- Structured output uses `response_format: { "type": "json_object" }`
+- Token limit uses `max_tokens` for Ollama
+- The OpenAI path continues to use `max_completion_tokens`
+
+The adapter must therefore preserve shared message/response extraction behavior without blindly reusing the full OpenAI request body.
 
 ### Auth
 
@@ -57,8 +63,8 @@ No bundled cost rates for `ollama`. Local compute cost is operator-specific. Ope
 2. Config validation does NOT require `auth_env` when provider is `ollama`
 3. Config validation injects default `base_url` when provider is `ollama` and `base_url` is omitted
 4. Adapter skips auth header when no `auth_env` is configured (or env var is unset)
-5. Request format is OpenAI-compatible (messages array, model, max_tokens)
-6. Response extraction uses the same OpenAI text extraction path
+5. Request format is Ollama-compatible Chat Completions: `messages`, `model`, `response_format`, and `max_tokens`
+6. Response extraction uses the same OpenAI-compatible text extraction path
 7. Error classification uses OpenAI-compatible error structure
 8. Connector health check reports `ollama` as a recognized provider
 
@@ -75,6 +81,8 @@ No bundled cost rates for `ollama`. Local compute cost is operator-specific. Ope
 - AT-OLLAMA-002: Config with `provider: "ollama"` and no `auth_env` validates without error
 - AT-OLLAMA-003: Config with `provider: "ollama"` and explicit `auth_env` validates without error
 - AT-OLLAMA-004: `buildProviderRequest('ollama', ...)` produces OpenAI-compatible request body
+- AT-OLLAMA-004b: Ollama request body uses `max_tokens`, not `max_completion_tokens`
+- AT-OLLAMA-004c: Ollama request body preserves `response_format: { type: 'json_object' }`
 - AT-OLLAMA-005: Default endpoint for `ollama` is `http://localhost:11434/v1/chat/completions`
 - AT-OLLAMA-006: No `Authorization` header when `auth_env` is absent
 - AT-OLLAMA-007: `Authorization: Bearer <key>` header when `auth_env` is set and env var populated

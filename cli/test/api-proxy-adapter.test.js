@@ -10,6 +10,7 @@ import {
   extractTurnResult,
   buildAnthropicRequest,
   buildOpenAiRequest,
+  buildOllamaRequest,
   buildGoogleRequest,
   classifyError,
   classifyHttpError,
@@ -470,6 +471,21 @@ describe('buildOpenAiRequest', () => {
     const req = buildOpenAiRequest('# Prompt', '# Context', 'gpt-4o-mini', 2048);
     assert.equal(req.model, 'gpt-4o-mini');
     assert.equal(req.max_completion_tokens, 2048);
+    assert.deepEqual(req.response_format, { type: 'json_object' });
+    assert.equal(req.messages.length, 2);
+    assert.equal(req.messages[0].role, 'developer');
+    assert.equal(req.messages[0].content, SYSTEM_PROMPT);
+    assert.equal(req.messages[1].role, 'user');
+    assert.equal(req.messages[1].content, `# Prompt${SEPARATOR}# Context`);
+  });
+});
+
+describe('buildOllamaRequest', () => {
+  it('builds correct Ollama chat completions request shape', () => {
+    const req = buildOllamaRequest('# Prompt', '# Context', 'llama3.2', 2048);
+    assert.equal(req.model, 'llama3.2');
+    assert.equal(req.max_tokens, 2048);
+    assert.equal(req.max_completion_tokens, undefined);
     assert.deepEqual(req.response_format, { type: 'json_object' });
     assert.equal(req.messages.length, 2);
     assert.equal(req.messages[0].role, 'developer');
@@ -973,6 +989,87 @@ describe('dispatchApiProxy', () => {
 
     const staged = readJson(join(root, stagingResultPath(state)));
     assert.equal(staged.runtime_id, 'api-google');
+  });
+
+  it('dispatches through Ollama chat completions with max_tokens and no auth by default', async () => {
+    const root = createAndTrack();
+    const state = makeApiState({
+      current_turn: {
+        turn_id: 'turn_test001',
+        assigned_role: 'qa',
+        status: 'running',
+        attempt: 1,
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 600000).toISOString(),
+        runtime_id: 'api-ollama',
+      },
+    });
+    const turnResult = {
+      ...makeTurnResult(state),
+      runtime_id: 'api-ollama',
+    };
+    const config = makeApiConfig({
+      provider: 'ollama',
+      model: 'llama3.2',
+    });
+    delete config.runtimes['api-qa'].auth_env;
+    config.roles.qa.runtime_id = 'api-ollama';
+    config.runtimes = {
+      'api-ollama': {
+        type: 'api_proxy',
+        provider: 'ollama',
+        model: 'llama3.2',
+        max_output_tokens: 1024,
+        timeout_seconds: 5,
+      },
+    };
+
+    setupDispatchBundle(root);
+
+    let requestUrl;
+    let requestHeaders;
+    let requestBody;
+    global.fetch = async (url, options) => {
+      requestUrl = url;
+      requestHeaders = options.headers;
+      requestBody = JSON.parse(options.body);
+      return makeJsonResponse(200, {
+        choices: [{
+          message: {
+            content: JSON.stringify(turnResult),
+          },
+        }],
+        usage: {
+          prompt_tokens: 640,
+          completion_tokens: 96,
+        },
+      });
+    };
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, true);
+    assert.equal(requestUrl, 'http://localhost:11434/v1/chat/completions');
+    assert.equal(requestHeaders['Content-Type'], 'application/json');
+    assert.equal(requestHeaders.Authorization, undefined);
+    assert.equal(requestBody.model, 'llama3.2');
+    assert.equal(requestBody.max_tokens, 1024);
+    assert.equal(requestBody.max_completion_tokens, undefined);
+    assert.deepEqual(requestBody.response_format, { type: 'json_object' });
+    assert.equal(requestBody.messages[0].role, 'developer');
+    assert.equal(requestBody.messages[1].role, 'user');
+    assert.deepEqual(result.usage, {
+      input_tokens: 640,
+      output_tokens: 96,
+      usd: 0,
+    });
+
+    const staged = readJson(join(root, stagingResultPath(state)));
+    assert.equal(staged.runtime_id, 'api-ollama');
+    assert.deepEqual(staged.cost, {
+      input_tokens: 640,
+      output_tokens: 96,
+      usd: 0,
+    });
   });
 
   it('surfaces Google prompt blocking as a provider-specific extraction failure', async () => {

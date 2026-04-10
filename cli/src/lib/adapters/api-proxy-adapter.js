@@ -1142,6 +1142,15 @@ function buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens) {
   };
 }
 
+function buildOllamaRequest(promptMd, contextMd, model, maxOutputTokens) {
+  const openAiCompatible = buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens);
+  return {
+    ...openAiCompatible,
+    max_tokens: maxOutputTokens,
+    max_completion_tokens: undefined,
+  };
+}
+
 function buildGoogleHeaders(_apiKey) {
   // Google Gemini uses API key as a query parameter, not a header
   return {
@@ -1243,8 +1252,11 @@ function buildProviderHeaders(provider, apiKey) {
 }
 
 function buildProviderRequest(provider, promptMd, contextMd, model, maxOutputTokens) {
-  if (provider === 'openai' || provider === 'ollama') {
+  if (provider === 'openai') {
     return buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens);
+  }
+  if (provider === 'ollama') {
+    return buildOllamaRequest(promptMd, contextMd, model, maxOutputTokens);
   }
   if (provider === 'google') {
     return buildGoogleRequest(promptMd, contextMd, model, maxOutputTokens);
@@ -1353,14 +1365,17 @@ export {
   extractTurnResult,
   buildAnthropicRequest,
   buildOpenAiRequest,
+  buildOllamaRequest,
   buildGoogleRequest,
   buildOllamaHeaders,
   buildProviderHeaders,
   buildProviderRequest,
   classifyError,
   classifyHttpError,
+  DEFAULT_RETRY_POLICY,
   BUNDLED_COST_RATES,
   BUNDLED_COST_RATES as COST_RATES, // backward compat alias
   getCostRates,
   PROVIDER_ENDPOINTS,
+  RETRYABLE_ERROR_CLASSES,
 };

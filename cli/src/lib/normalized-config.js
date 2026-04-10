@@ -24,7 +24,7 @@ import {
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
-const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai', 'google', 'ollama'];
+export const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai', 'google', 'ollama'];
 const AUTH_OPTIONAL_PROVIDERS = ['ollama'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];

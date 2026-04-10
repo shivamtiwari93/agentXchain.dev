@@ -97,6 +97,14 @@ Same as D1 but in the comparison table row. Says "stdin, file, or arg" for local
 
 Source: `local-cli-adapter.js:89-91`
 
+### D13 — Nested-literal regex extraction is a false proof surface
+
+**Current test weakness:** `docs-adapters-content.test.js` scrapes object literals like `PROVIDER_ENDPOINTS`, `BUNDLED_COST_RATES`, and `DEFAULT_RETRY_POLICY` using lazy regex over source text.
+
+**Why this is weak:** Nested braces inside URLs or nested object values can truncate the match while still letting both sides of an assertion drift together. That is accidental green, not contract proof.
+
+**Required truth source:** Import live exports for adapter constants whenever possible. Use source-text regex only for flat declarations where nested structure cannot silently truncate the match.
+
 ---
 
 ## Acceptance Tests
@@ -114,6 +122,8 @@ Source: `local-cli-adapter.js:89-91`
 11. Comparison table prompt transport values match implementation
 12. `base_url` is documented as an optional endpoint override for supported providers only
 13. Docs do not claim `base_url` creates arbitrary custom provider support
+14. `docs-adapters-content.test.js` imports live adapter constants for provider endpoints and bundled cost rates instead of scraping nested object literals with regex
+15. Any remaining source extraction in `docs-adapters-content.test.js` is limited to flat declarations that cannot be truncated by nested braces
 
 ---
 

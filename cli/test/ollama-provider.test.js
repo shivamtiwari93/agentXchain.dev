@@ -92,12 +92,15 @@ describe('Ollama provider — adapter internals', () => {
   it('AT-OLLAMA-004: buildProviderRequest("ollama") produces OpenAI-compatible body', () => {
     const body = buildProviderRequest('ollama', '# Prompt', '# Context', 'llama3.2', 4096);
     assert.ok(body.model === 'llama3.2', 'model should match');
-    assert.ok(body.max_completion_tokens === 4096, 'max_completion_tokens should be set');
+    assert.ok(body.max_tokens === 4096, 'max_tokens should be set');
+    assert.ok(!('max_completion_tokens' in body) || body.max_completion_tokens === undefined,
+      'ollama request should not rely on max_completion_tokens');
     assert.ok(Array.isArray(body.messages), 'messages should be an array');
     assert.ok(body.messages.length === 2, 'should have system + user message');
     assert.ok(body.messages[0].role === 'developer', 'first message should be developer/system');
     assert.ok(body.messages[1].role === 'user', 'second message should be user');
     assert.ok(body.messages[1].content.includes('# Prompt'), 'user content should include prompt');
+    assert.deepEqual(body.response_format, { type: 'json_object' });
   });
 
   it('AT-OLLAMA-005: default endpoint for ollama is localhost:11434', () => {

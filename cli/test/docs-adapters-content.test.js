@@ -2,6 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  BUNDLED_COST_RATES,
+  DEFAULT_RETRY_POLICY,
+  PROVIDER_ENDPOINTS,
+  RETRYABLE_ERROR_CLASSES,
+} from '../src/lib/adapters/api-proxy-adapter.js';
+import { VALID_API_PROXY_PROVIDERS, VALID_PROMPT_TRANSPORTS } from '../src/lib/normalized-config.js';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
@@ -28,16 +35,8 @@ describe('Adapter docs contract', () => {
   const turnResultValidatorSource = read('cli/src/lib/turn-result-validator.js');
 
   describe('prompt transport modes', () => {
-    // Extract valid transports from normalized-config.js
-    const transportMatch = normalizedConfigSource.match(/VALID_PROMPT_TRANSPORTS\s*=\s*\[([^\]]+)\]/);
-
-    it('normalized-config.js defines VALID_PROMPT_TRANSPORTS', () => {
-      assert.ok(transportMatch, 'VALID_PROMPT_TRANSPORTS found in normalized-config.js');
-    });
-
     it('docs list the correct transport mode names', () => {
-      const validTransports = transportMatch[1].match(/'([^']+)'/g).map(s => s.replace(/'/g, ''));
-      for (const transport of validTransports) {
+      for (const transport of VALID_PROMPT_TRANSPORTS) {
         assert.match(adapterDocs, new RegExp(`\`${transport}\``),
           `adapters.mdx must document transport mode "${transport}"`);
       }
@@ -111,12 +110,7 @@ describe('Adapter docs contract', () => {
 
   describe('api_proxy error classification', () => {
     it('docs list real error classes from implementation', () => {
-      // Extract RETRYABLE_ERROR_CLASSES from api-proxy-adapter.js
-      const retryableMatch = apiProxySource.match(/RETRYABLE_ERROR_CLASSES\s*=\s*\[([\s\S]*?)\]/);
-      assert.ok(retryableMatch, 'RETRYABLE_ERROR_CLASSES found in api-proxy-adapter.js');
-      const retryableClasses = retryableMatch[1].match(/'([^']+)'/g).map(s => s.replace(/'/g, ''));
-
-      for (const errorClass of retryableClasses) {
+      for (const errorClass of RETRYABLE_ERROR_CLASSES) {
         assert.match(adapterDocs, new RegExp(`\`${errorClass}\``),
           `adapters.mdx must document error class "${errorClass}"`);
       }
@@ -150,26 +144,12 @@ describe('Adapter docs contract', () => {
     });
 
     it('default retry policy values match code', () => {
-      const defaultMatch = apiProxySource.match(/DEFAULT_RETRY_POLICY\s*=\s*\{([\s\S]*?)\}/);
-      assert.ok(defaultMatch, 'DEFAULT_RETRY_POLICY found in api-proxy-adapter.js');
-
-      // Check max_attempts
-      const maxAttempts = defaultMatch[1].match(/max_attempts:\s*(\d+)/);
-      assert.ok(maxAttempts, 'max_attempts found in DEFAULT_RETRY_POLICY');
-      assert.match(adapterDocs, new RegExp(`\`max_attempts\`.*${maxAttempts[1]}|max_attempts.*${maxAttempts[1]}`),
-        `adapters.mdx must document max_attempts default as ${maxAttempts[1]}`);
-
-      // Check base_delay_ms
-      const baseDelay = defaultMatch[1].match(/base_delay_ms:\s*(\d+)/);
-      assert.ok(baseDelay, 'base_delay_ms found in DEFAULT_RETRY_POLICY');
-      assert.match(adapterDocs, new RegExp(baseDelay[1]),
-        `adapters.mdx must document base_delay_ms default as ${baseDelay[1]}`);
-
-      // Check jitter
-      const jitter = defaultMatch[1].match(/jitter:\s*'(\w+)'/);
-      assert.ok(jitter, 'jitter found in DEFAULT_RETRY_POLICY');
-      assert.match(adapterDocs, new RegExp(`"${jitter[1]}"|'${jitter[1]}'|\`${jitter[1]}\``),
-        `adapters.mdx must document jitter default as "${jitter[1]}"`);
+      assert.match(adapterDocs, new RegExp(`\`max_attempts\`.*${DEFAULT_RETRY_POLICY.max_attempts}|max_attempts.*${DEFAULT_RETRY_POLICY.max_attempts}`),
+        `adapters.mdx must document max_attempts default as ${DEFAULT_RETRY_POLICY.max_attempts}`);
+      assert.match(adapterDocs, new RegExp(String(DEFAULT_RETRY_POLICY.base_delay_ms)),
+        `adapters.mdx must document base_delay_ms default as ${DEFAULT_RETRY_POLICY.base_delay_ms}`);
+      assert.match(adapterDocs, new RegExp(`"${DEFAULT_RETRY_POLICY.jitter}"|'${DEFAULT_RETRY_POLICY.jitter}'|\`${DEFAULT_RETRY_POLICY.jitter}\``),
+        `adapters.mdx must document jitter default as "${DEFAULT_RETRY_POLICY.jitter}"`);
     });
   });
 
@@ -180,10 +160,7 @@ describe('Adapter docs contract', () => {
     });
 
     it('docs reference real models from the BUNDLED_COST_RATES table', () => {
-      const costRatesMatch = apiProxySource.match(/BUNDLED_COST_RATES\s*=\s*\{([\s\S]*?)\n\}/);
-      assert.ok(costRatesMatch, 'BUNDLED_COST_RATES found in api-proxy-adapter.js');
-      const modelIds = costRatesMatch[1].match(/'([^']+)':/g).map(s => s.replace(/[':]/g, ''));
-      for (const modelId of modelIds) {
+      for (const modelId of Object.keys(BUNDLED_COST_RATES)) {
         assert.match(adapterDocs, new RegExp(`\`${modelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\``),
           `adapters.mdx model-tier section must reference real model "${modelId}" from COST_RATES`);
       }
@@ -208,25 +185,13 @@ describe('Adapter docs contract', () => {
 
   describe('api_proxy supported providers', () => {
     it('normalized-config provider allowlist matches adapter endpoints', () => {
-      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\};/);
-      assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
-      const providers = endpointMatch[1].match(/^\s*(\w+)\s*:/gm).map(s => s.trim().replace(':', '').trim());
-
-      const allowlistMatch = normalizedConfigSource.match(/VALID_API_PROXY_PROVIDERS\s*=\s*\[([^\]]+)\]/);
-      assert.ok(allowlistMatch, 'VALID_API_PROXY_PROVIDERS found in normalized-config.js');
-      const allowlistedProviders = allowlistMatch[1].match(/'([^']+)'/g).map(s => s.replace(/'/g, ''));
-
-      assert.deepEqual(allowlistedProviders.sort(), providers.sort(),
+      const providers = Object.keys(PROVIDER_ENDPOINTS);
+      assert.deepEqual([...VALID_API_PROXY_PROVIDERS].sort(), [...providers].sort(),
         'normalized-config.js must allow exactly the provider families implemented by api-proxy-adapter.js');
     });
 
     it('PROVIDER_ENDPOINTS keys match docs', () => {
-      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\};/);
-      assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
-      // Extract only object keys (word at start of line before colon, not URL colons)
-      const providers = endpointMatch[1].match(/^\s*(\w+)\s*:/gm).map(s => s.trim().replace(':', '').trim());
-
-      for (const provider of providers) {
+      for (const provider of Object.keys(PROVIDER_ENDPOINTS)) {
         assert.match(adapterDocs, new RegExp(provider, 'i'),
           `adapters.mdx must document supported provider "${provider}"`);
       }
