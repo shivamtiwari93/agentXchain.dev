@@ -30,3 +30,25 @@ jobs:
         run: node examples/ci-runner-proof/run-with-run-loop.mjs
       - name: Run CI run-loop composition proof (JSON)
         run: node examples/ci-runner-proof/run-with-run-loop.mjs --json
+
+  api-dispatch-proof:
+    runs-on: ubuntu-latest
+    # Only on push to main — avoids leaking secrets to fork PRs, controls cost
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Install CLI dependencies
+        run: cd cli && npm ci
+      - name: Run CI API dispatch proof (text)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-with-api-dispatch.mjs
+      - name: Run CI API dispatch proof (JSON)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/ci-runner-proof/run-with-api-dispatch.mjs --json
