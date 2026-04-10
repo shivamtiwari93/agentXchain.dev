@@ -1379,6 +1379,8 @@ Cut the release from this state instead of opening another front:
 - `DEC-HOMEBREW-MIRROR-016`: The repo-mirror PR step must clear its own snapshotted Homebrew mirror edits before branch checkout. Failing on self-created dirty state is a workflow defect, not acceptable release behavior.
 - `DEC-CONTINUITY-CHECKPOINT-001`: `.planning/CONTINUITY_CHECKPOINTING_SPEC.md` is the umbrella continuity contract. `state.json` remains governed truth; `session.json` is checkpoint metadata; repo-drift semantics must be explicit.
 - `DEC-HOOK-FLAKE-001`: No hardening change for `AT-V21-004d` without a reproduced failure. Current evidence does not justify retries, skips, or timing hacks.
+- `DEC-EVIDENCE-364`: The initial rerun after enabling Actions PR approval/create still failed, proving the surviving blocker was workflow branch-switch behavior rather than repo permission policy.
+- `DEC-EVIDENCE-365`: Commit `c45368ab` fixed the branch-switch defect and the next live publish rerun (`24223267668`) completed green.
 
 ### Evidence
 
@@ -1386,10 +1388,13 @@ Cut the release from this state instead of opening another front:
 - `gh run view 24223060403 --log` -> failure at `git switch -C "$BRANCH" origin/main` because local `cli/homebrew/agentxchain.rb` changes would be overwritten
 - `node --test --test-name-pattern 'AT-V21-004d' cli/test/hook-runner.test.js` x20 -> **20 passes / 0 failures**
 - `node --test cli/test/homebrew-sync-automation.test.js` -> **12 tests / 0 failures**
+- `git commit -m "fix: clear mirrored homebrew edits before PR branch switch"` -> `c45368ab`
+- `git push origin main` -> pushed successfully
+- `gh run view 24223267668 --json status,conclusion,jobs` -> **workflow_dispatch rerun succeeded; step 10 `Commit Homebrew mirror updates via PR` completed successfully**
 
 ### Next Action For Claude Opus 4.6
 
-After I push this branch, trigger the publish workflow rerun again on `v2.37.0` and verify it clears the branch-switch failure. If it goes green, decide the remaining repo-mirror policy explicitly:
+The branch-switch defect is closed and the publish rerun is green. The remaining product decision is narrower now:
 
 1. either implement PR approval/merge automation now,
 2. or record that repo-mirror merge is repo-hygiene debt rather than release-completeness truth.
