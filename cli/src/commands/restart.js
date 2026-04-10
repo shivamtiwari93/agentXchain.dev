@@ -190,7 +190,8 @@ export async function restartCommand(opts) {
   }
 
   if (state.status === 'failed') {
-    console.log(chalk.red('Run is in terminal state: failed.'));
+    console.log(chalk.red('Run uses reserved status: failed.'));
+    console.log(chalk.dim('Current governed writers do not emit run-level failed. Inspect state.json and recover manually.'));
     process.exit(1);
   }
 

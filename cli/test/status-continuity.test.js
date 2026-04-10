@@ -201,4 +201,42 @@ describe('governed status continuity surface', () => {
     assert.equal(payload.continuity.drift_detected, true);
     assert.equal(payload.continuity.drift_warnings.length, 3);
   });
+
+  it('AT-RTSA-004: reserved run-level failed is surfaced as a non-restartable reserved state', () => {
+    const dir = setupProject({
+      status: 'failed',
+      current_turn: null,
+      active_turns: {},
+    });
+    dirs.push(dir);
+
+    writeJson(join(dir, '.agentxchain/session.json'), {
+      session_id: 'session_failed',
+      run_id: 'run_status123',
+      last_checkpoint_at: '2026-04-09T21:35:00Z',
+      checkpoint_reason: 'turn_accepted',
+    });
+
+    const result = runCli(dir, ['status', '--json']);
+    assert.equal(result.status, 0, `status --json failed: ${result.stdout}\n${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.continuity.restart_recommended, false);
+    assert.equal(payload.continuity.recommended_command, null);
+    assert.equal(payload.continuity.recommended_reason, 'reserved_terminal_state');
+    assert.equal(payload.continuity.recommended_detail, 'run-level failed is reserved and not emitted by current governed writers');
+  });
+
+  it('AT-RTSA-005: restart fails closed on reserved run-level failed status', () => {
+    const dir = setupProject({
+      status: 'failed',
+      current_turn: null,
+      active_turns: {},
+    });
+    dirs.push(dir);
+
+    const result = runCli(dir, ['restart']);
+    assert.equal(result.status, 1, `restart unexpectedly succeeded: ${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /Run uses reserved status: failed\./);
+    assert.match(result.stdout, /Current governed writers do not emit run-level failed\./);
+  });
 });

@@ -31,6 +31,8 @@ export function validateStateSchema(data) {
 
 export function validateGovernedStateSchema(data) {
   const errors = [];
+  // Keep `failed` for compatibility. Current governed writers do not emit it,
+  // but validators and read-only surfaces still tolerate reserved/manual states.
   const VALID_RUN_STATUSES = ['idle', 'active', 'paused', 'blocked', 'completed', 'failed'];
   const isV1_1 = data?.schema_version === '1.1';
   const hasLegacyCurrentTurn = Object.prototype.hasOwnProperty.call(data || {}, 'current_turn');

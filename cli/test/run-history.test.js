@@ -127,6 +127,14 @@ describe('run-history', () => {
       assert.strictEqual(entries[0].blocked_reason, 'Hook my-hook failed validation');
     });
 
+    it('AT-RTSA-003: rejects reserved run-level failed status instead of writing it', () => {
+      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      const result = recordRunHistory(root, makeState({ status: 'failed' }), makeConfig(), 'failed');
+      assert.equal(result.ok, false);
+      assert.match(result.error, /completed or blocked only/);
+      assert.deepStrictEqual(queryRunHistory(root), []);
+    });
+
     it('records phases and roles from history entries', () => {
       writeHistory(root, [
         { role: 'pm', phase: 'planning' },

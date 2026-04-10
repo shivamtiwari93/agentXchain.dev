@@ -28,7 +28,7 @@ type GovernedRunState = {
   schema_version: "1.0";
   run_id: string | null;
   project_id: string;
-  status: "idle" | "active" | "paused" | "completed" | "failed";
+  status: "idle" | "active" | "paused" | "blocked" | "completed" | "failed";
   phase: string;
   accepted_integration_ref?: string | null;
   current_turn: CurrentTurn | null;
@@ -107,7 +107,8 @@ Only `running | retrying | failed` are persisted. The other states are command-f
 |---|---|---|
 | `idle` | `run_id = null`, `current_turn = null` | Scaffolded but not initialized |
 | `active` | `run_id != null`, `current_turn` may be `null` or assigned | Run can assign, dispatch, or accept work |
-| `paused` | `run_id != null` | Human approval, human escalation, or preserved failed turn blocks forward motion |
+| `paused` | `run_id != null` | Human approval or preserved failed turn pauses forward motion |
+| `blocked` | `run_id != null`, `blocked_on` populated | Current non-success terminal/recovery state for governed runs |
 | `completed` | `current_turn = null`, `completed_at` set | Terminal successful run |
 | `failed` | not currently emitted | Reserved for future terminal failure semantics |
 

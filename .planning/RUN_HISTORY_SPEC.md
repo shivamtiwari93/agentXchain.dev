@@ -11,7 +11,7 @@ Run history closes this gap with the minimum viable surface: an append-only loca
 ### Storage
 
 - **File:** `.agentxchain/run-history.jsonl`
-- **Format:** One JSON object per line, appended on every run completion (status `completed`), run blocked (status `blocked`), or run failure.
+- **Format:** One JSON object per line, appended on every run completion (status `completed`) or governed blocked outcome (status `blocked`).
 - **Baseline:** The file is governed infrastructure (same as `history.jsonl`, `decision-ledger.jsonl`). It persists across runs and is NOT reset on `initializeGovernedRun`.
 - **Repo observer:** Exempt from clean-baseline checks (same category as other `.agentxchain/` infrastructure).
 
@@ -26,7 +26,7 @@ Each line contains:
   "project_id": "string",
   "project_name": "string",
   "template": "string",
-  "status": "completed | blocked | failed",
+  "status": "completed | blocked",
   "started_at": "ISO8601",
   "completed_at": "ISO8601 | null",
   "duration_ms": "number | null",
@@ -47,7 +47,7 @@ Each line contains:
 ### CLI Command: `agentxchain history`
 
 ```
-agentxchain history [--limit N] [--json] [--status completed|blocked|failed]
+agentxchain history [--limit N] [--json] [--status completed|blocked]
 ```
 
 - Default: show last 20 runs in a human-readable table
@@ -69,7 +69,7 @@ Recording happens at two points:
 1. `approveRunCompletion()` — when a run successfully completes
 2. `blockRunForHookIssue()` — when a run is blocked (captures the incomplete state)
 
-The recording function reads current state + config to build the history record. It is non-fatal: if recording fails, the run completion/blocking still succeeds.
+The recording function reads current state + config to build the history record. It is non-fatal: if recording fails, the run completion/blocking still succeeds. The writer rejects the reserved run-level status `failed`; first-party governed writers do not emit it today.
 
 ## Behavior
 

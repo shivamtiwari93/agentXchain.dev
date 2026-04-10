@@ -1,6 +1,6 @@
 # Run History Terminal Recording Spec
 
-> Records all terminal outcomes (completed, blocked, failed) in the cross-run history ledger.
+> Records all currently-produced governed terminal outcomes (`completed`, `blocked`) in the cross-run history ledger.
 
 ## Purpose
 
@@ -15,7 +15,7 @@ The run-history ledger (`run-history.jsonl`) must record every terminal outcome,
 
 ## Interface
 
-No new functions. The existing `recordRunHistory(root, state, config, status)` already accepts `'blocked'` as a status value.
+No new functions. The existing `recordRunHistory(root, state, config, status)` records the currently-produced governed terminal statuses: `'completed'` and `'blocked'`.
 
 ## Behavior
 
@@ -23,7 +23,7 @@ No new functions. The existing `recordRunHistory(root, state, config, status)` a
 
 Add `recordRunHistory(root, blockedState, config, 'blocked')` at these terminal blocked-state transitions:
 
-1. **`blockRunForHookIssue()`** — hook tamper or hook block at any lifecycle phase (before_assignment, before_validation, after_validation, before_acceptance, after_acceptance, before_gate). Config must be passed through from the caller.
+1. **`blockRunForHookIssue()`** — hook tamper or hook block at any lifecycle phase (before_assignment, before_validation, after_validation, before_acceptance, after_acceptance, before_gate). The existing `notificationConfig` parameter already carries the full normalized config, despite the misleading name.
 
 2. **`needs_human` blocked state** — set in `acceptTurn()` when `turnResult.status === 'needs_human'`. Record after state is written.
 
@@ -43,14 +43,11 @@ Add `recordRunHistory(root, blockedState, config, 'blocked')` at these terminal 
 
 No schema changes. The existing `0.1` schema already includes `blocked_reason`, `gate_results`, and all fields needed for blocked entries.
 
-### Config Propagation
-
-`blockRunForHookIssue()` currently does not receive the full `config` object. It must be extended to accept `config` so it can pass it to `recordRunHistory()`.
-
 ## Error Cases
 
 - If `recordRunHistory` fails (disk full, permissions), the blocked state is still persisted. The recording failure is silently absorbed.
 - If state is set to `blocked` multiple times in the same run (e.g., resume then block again), each transition appends a new entry. This is correct: the ledger is a log, not a snapshot.
+- If a caller passes the reserved run-level status `'failed'`, the writer rejects it. First-party governed writers do not emit run-level `failed` today.
 
 ## Acceptance Tests
 

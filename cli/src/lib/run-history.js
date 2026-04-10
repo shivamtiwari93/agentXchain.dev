@@ -14,6 +14,7 @@ const RUN_HISTORY_PATH = '.agentxchain/run-history.jsonl';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const SCHEMA_VERSION = '0.1';
+const WRITABLE_TERMINAL_STATUSES = new Set(['completed', 'blocked']);
 
 /**
  * Record a run's summary into the persistent run-history ledger.
@@ -22,11 +23,18 @@ const SCHEMA_VERSION = '0.1';
  * @param {string} root - project root directory
  * @param {object} state - final governed state
  * @param {object} config - normalized config
- * @param {'completed'|'blocked'|'failed'} status - terminal status
+ * @param {'completed'|'blocked'} status - terminal status produced by current governed writers
  * @returns {{ ok: boolean, error?: string }}
  */
 export function recordRunHistory(root, state, config, status) {
   try {
+    if (!WRITABLE_TERMINAL_STATUSES.has(status)) {
+      return {
+        ok: false,
+        error: `Unsupported run-history terminal status: ${status}. Current governed writers emit completed or blocked only.`,
+      };
+    }
+
     const filePath = join(root, RUN_HISTORY_PATH);
     mkdirSync(dirname(filePath), { recursive: true });
 

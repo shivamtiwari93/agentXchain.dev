@@ -34,7 +34,16 @@ function deriveRecommendedContinuityAction(state) {
     };
   }
 
-  if (!['blocked', 'completed', 'failed'].includes(state.status)) {
+  if (state.status === 'failed') {
+    return {
+      recommended_command: null,
+      recommended_reason: 'reserved_terminal_state',
+      recommended_detail: 'run-level failed is reserved and not emitted by current governed writers',
+      restart_recommended: false,
+    };
+  }
+
+  if (!['blocked', 'completed'].includes(state.status)) {
     return {
       recommended_command: 'agentxchain restart',
       recommended_reason: 'restart_available',
