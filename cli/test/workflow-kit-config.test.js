@@ -75,6 +75,22 @@ describe('validateWorkflowKitConfig', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('AT-WKC-001c: accepts same-path explicit override on top of a phase template', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+          artifacts: [
+            { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: true },
+          ],
+        },
+      },
+    }, { architecture: {} }, {
+      architect: { title: 'Architect', mandate: 'Review design', write_authority: 'review_only', runtime: 'manual-architect' },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
   it('AT-WKC-002: warns when workflow_kit phase is not in routing', () => {
     const result = validateWorkflowKitConfig({
       phases: {
@@ -228,7 +244,25 @@ describe('normalizeWorkflowKit', () => {
     assert.equal(result.phases.architecture.artifacts[0].semantics, 'section_check');
   });
 
-  it('AT-WKC-012c: phase templates append explicit artifacts after built-in template artifacts', () => {
+  it('AT-WKC-012c: same-path explicit artifacts override built-in template fields without duplicating the artifact', () => {
+    const result = normalizeWorkflowKit({
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+          artifacts: [
+            { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: false },
+          ],
+        },
+      },
+    }, ['architecture']);
+    assert.equal(result.phases.architecture.artifacts.length, 1);
+    assert.equal(result.phases.architecture.artifacts[0].path, '.planning/ARCHITECTURE.md');
+    assert.equal(result.phases.architecture.artifacts[0].semantics, 'section_check');
+    assert.equal(result.phases.architecture.artifacts[0].owned_by, 'architect');
+    assert.equal(result.phases.architecture.artifacts[0].required, false);
+  });
+
+  it('AT-WKC-012d: phase templates still append new explicit artifacts after template-backed artifacts', () => {
     const result = normalizeWorkflowKit({
       phases: {
         architecture: {
@@ -683,6 +717,33 @@ describe('scaffoldGoverned — workflow_kit artifact scaffold', () => {
     assert.ok(securityContent.includes('## Threat Model'));
     assert.ok(securityContent.includes('## Findings'));
     assert.ok(securityContent.includes('## Verdict'));
+  });
+
+  it('AT-WKC-040e: same-path overrides preserve template headings while adding ownership metadata', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    const workflowKit = {
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+          artifacts: [
+            { path: '.planning/ARCHITECTURE.md', owned_by: 'architect', required: true },
+          ],
+        },
+      },
+    };
+
+    const normalized = normalizeWorkflowKit(workflowKit, ['architecture']);
+    assert.equal(normalized.phases.architecture.artifacts.length, 1);
+    assert.equal(normalized.phases.architecture.artifacts[0].owned_by, 'architect');
+    assert.equal(normalized.phases.architecture.artifacts[0].semantics, 'section_check');
+
+    scaffoldGoverned(tmp, 'Template Project', 'template-project', 'generic', {}, workflowKit);
+
+    const architectureContent = readFileSync(join(tmp, '.planning/ARCHITECTURE.md'), 'utf8');
+    assert.ok(architectureContent.includes('## Context'));
+    assert.ok(architectureContent.includes('## Proposed Design'));
+    assert.ok(architectureContent.includes('## Trade-offs'));
+    assert.ok(architectureContent.includes('## Risks'));
   });
 
   it('AT-WKC-041: without workflow_kit scaffolds default 5+ files unchanged', () => {

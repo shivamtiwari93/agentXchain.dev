@@ -174,14 +174,15 @@ In explicit mode:
 
 - `workflow_kit.required_files` comes from the declared artifact paths plus any gate `requires_files`
 - `workflow_kit.phases.<phase>.template` expands to the built-in artifact bundle for that phase contract
-- when a phase declares both `template` and `artifacts`, the template artifacts are expanded first and the explicit artifacts are appended after them
+- when a phase declares both `template` and `artifacts`, a same-path explicit artifact overrides the built-in template fields instead of duplicating the file contract
+- explicit artifacts with new paths are still appended after the built-in template artifacts
 - `section_check` entries generate structural checks from `required_sections`
 - built-in semantic IDs on canonical files still reuse the shipped structural markers where they exist
 - re-running `agentxchain init --governed --dir . -y` scaffolds newly declared custom artifact files that were not part of the default governed starter
 
 If `workflow_kit` is absent, `template validate` falls back to the built-in scaffold contract. If `workflow_kit: {}` is explicit, that is an opt-out of per-phase workflow artifacts rather than a hidden fallback to the defaults.
 
-Important boundary: built-in phase templates do not infer `owned_by`. If a custom phase needs role-bound artifact authorship, declare the artifact explicitly with `owned_by`, or use a blueprint-backed template like `enterprise-app` that already defines the role topology.
+Important boundary: built-in phase templates do not infer `owned_by`. If a custom phase needs role-bound artifact authorship, declare the same artifact path explicitly with `owned_by` so the template semantics stay intact while ownership is layered on top. `enterprise-app` now uses this exact composition pattern for `ARCHITECTURE.md` and `SECURITY_REVIEW.md`.
 
 Each non-generic template also carries a `system_spec_overlay` that replaces the generic placeholder text in `SYSTEM_SPEC.md` with project-shape-specific guidance. For example, `api-service` prompts for endpoint contracts and error budgets, while `library` prompts for public API surface and compatibility policy. The generic template produces the baseline spec with universal placeholders.
 

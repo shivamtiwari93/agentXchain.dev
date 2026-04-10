@@ -164,7 +164,7 @@ The page must describe the operator-relevant proof surface emitted by `template 
   - `## Verdict:`
 - explicit `workflow_kit` causing `workflow_kit.required_files` and `structural_checks` to come from declared artifacts instead of the default governed scaffold
 - `workflow_kit.phases.<phase>.template` with shipped ids `planning-default`, `implementation-default`, `qa-default`, `architecture-review`, and `security-review`
-- template expansion order: built-in phase-template artifacts first, explicit `artifacts` appended after
+- template composition rule: same-path explicit artifacts override built-in phase-template artifact fields; new-path explicit artifacts append after the built-in artifacts
 - explicit empty `workflow_kit: {}` as an opt-out instead of a fallback to the default scaffold proof
 - the re-init path: `agentxchain init --governed --dir . -y` can scaffold newly declared custom artifact files after an operator adds explicit `workflow_kit`
 

@@ -124,6 +124,26 @@ describe('template validate command', () => {
     }
   });
 
+  it('AT-TEMPLATE-VALIDATE-002C: enterprise-app workflow_kit reuses built-in phase templates with ownership overrides', () => {
+    const { tempRoot, projectDir } = initGovernedProject('enterprise-app');
+    try {
+      const rawConfig = readJson(join(projectDir, 'agentxchain.json'));
+      assert.equal(rawConfig.workflow_kit.phases.planning.template, 'planning-default');
+      assert.equal(rawConfig.workflow_kit.phases.architecture.template, 'architecture-review');
+      assert.equal(rawConfig.workflow_kit.phases.implementation.template, 'implementation-default');
+      assert.equal(rawConfig.workflow_kit.phases.security_review.template, 'security-review');
+      assert.equal(rawConfig.workflow_kit.phases.qa.template, 'qa-default');
+
+      const config = loadGovernedConfig(projectDir);
+      assert.equal(config.workflow_kit.phases.architecture.artifacts[0].owned_by, 'architect');
+      assert.equal(config.workflow_kit.phases.architecture.artifacts[0].semantics, 'section_check');
+      assert.equal(config.workflow_kit.phases.security_review.artifacts[0].owned_by, 'security_reviewer');
+      assert.equal(config.workflow_kit.phases.security_review.artifacts[0].semantics, 'section_check');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('AT-TEMPLATE-VALIDATE-003: treats a missing template field as implicit generic', () => {
     const { tempRoot, projectDir } = initGovernedProject('generic');
     try {

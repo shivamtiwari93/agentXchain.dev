@@ -160,9 +160,10 @@ Phase template ids are:
 Template semantics:
 
 1. `workflow_kit.phases.<phase>.template` is expanded before any explicit `artifacts`.
-2. If both `template` and `artifacts` are present, the expanded template artifacts are concatenated with the explicit artifacts in that order.
-3. Duplicate artifact paths inside the same phase still fail closed after expansion.
-4. Built-in phase templates do not infer `owned_by`; operators who need role-bound authorship still declare the artifact explicitly or use a blueprint-backed governed template.
+2. If both `template` and `artifacts` are present, same-path explicit artifacts override the template-backed artifact fields instead of creating duplicates.
+3. Explicit artifacts with new paths are appended after the template-backed artifacts.
+4. Duplicate explicit artifact paths inside the same phase still fail closed.
+5. Built-in phase templates do not infer `owned_by`; operators who need role-bound authorship still declare the artifact explicitly or use a blueprint-backed governed template.
 
 ### `section_check` — The Generic Parameterized Validator
 
@@ -395,7 +396,8 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-011**: Config with empty `workflow_kit: {}` produces no per-phase artifacts.
 - **AT-WKC-012**: Config with `workflow_kit` declaring only `planning` artifacts leaves other phases artifact-free.
 - **AT-WKC-012b**: `normalizeWorkflowKit()` expands built-in phase templates into normalized artifacts.
-- **AT-WKC-012c**: When `template` and `artifacts` are both present, normalization appends explicit artifacts after expanded template artifacts.
+- **AT-WKC-012c**: When `template` and `artifacts` are both present and share a path, normalization merges the explicit fields onto the template-backed artifact without duplication.
+- **AT-WKC-012d**: When `template` and `artifacts` are both present with new paths, normalization appends those new explicit artifacts after the template-backed artifacts.
 - **AT-WKC-013**: Existing `gates.requires_files` entries still work alongside workflow-kit artifacts.
 - **AT-WKC-014**: Config without `workflow_kit` never produces normalized output with `_explicit: true`.
 

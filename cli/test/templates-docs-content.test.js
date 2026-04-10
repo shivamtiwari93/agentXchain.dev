@@ -227,6 +227,8 @@ describe('Templates docs surface', () => {
       'qa-default',
       'architecture-review',
       'security-review',
+      'same-path explicit artifact overrides the built-in template fields',
+      'explicit artifacts with new paths are still appended',
       'section_check',
       'required_sections',
       'agentxchain init --governed --dir . -y',
@@ -239,6 +241,7 @@ describe('Templates docs surface', () => {
       'explicit `workflow_kit`',
       'workflow_kit.phases.<phase>.template',
       'architecture-review',
+      'same-path explicit artifacts override',
       'operator-declared artifact proof',
       'workflow_kit: {}',
     ]) {

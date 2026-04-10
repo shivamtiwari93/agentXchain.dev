@@ -145,49 +145,33 @@
     "workflow_kit": {
       "phases": {
         "planning": {
-          "artifacts": [
-            { "path": ".planning/PM_SIGNOFF.md", "semantics": "pm_signoff", "required": true },
-            { "path": ".planning/SYSTEM_SPEC.md", "semantics": "system_spec", "required": true },
-            { "path": ".planning/ROADMAP.md", "semantics": null, "required": true }
-          ]
+          "template": "planning-default"
         },
         "architecture": {
+          "template": "architecture-review",
           "artifacts": [
             {
               "path": ".planning/ARCHITECTURE.md",
-              "semantics": "section_check",
               "owned_by": "architect",
-              "semantics_config": {
-                "required_sections": ["## Context", "## Proposed Design", "## Trade-offs", "## Risks"]
-              },
               "required": true
             }
           ]
         },
         "implementation": {
-          "artifacts": [
-            { "path": ".planning/IMPLEMENTATION_NOTES.md", "semantics": "implementation_notes", "required": true }
-          ]
+          "template": "implementation-default"
         },
         "security_review": {
+          "template": "security-review",
           "artifacts": [
             {
               "path": ".planning/SECURITY_REVIEW.md",
-              "semantics": "section_check",
               "owned_by": "security_reviewer",
-              "semantics_config": {
-                "required_sections": ["## Threat Model", "## Findings", "## Verdict"]
-              },
               "required": true
             }
           ]
         },
         "qa": {
-          "artifacts": [
-            { "path": ".planning/acceptance-matrix.md", "semantics": "acceptance_matrix", "required": true },
-            { "path": ".planning/ship-verdict.md", "semantics": "ship_verdict", "required": true },
-            { "path": ".planning/RELEASE_NOTES.md", "semantics": "release_notes", "required": true }
-          ]
+          "template": "qa-default"
         }
       }
     }

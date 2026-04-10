@@ -93,7 +93,33 @@ export function expandWorkflowKitPhaseArtifacts(phaseConfig = {}) {
   const explicitArtifacts = Array.isArray(phaseConfig.artifacts)
     ? cloneJsonCompatible(phaseConfig.artifacts)
     : [];
-  return [...templateArtifacts, ...explicitArtifacts];
+  const mergedArtifacts = templateArtifacts.map((artifact) => cloneJsonCompatible(artifact));
+  const indexByPath = new Map(
+    mergedArtifacts
+      .filter((artifact) => artifact && typeof artifact.path === 'string')
+      .map((artifact, index) => [artifact.path, index]),
+  );
+
+  for (const artifact of explicitArtifacts) {
+    if (!artifact || typeof artifact.path !== 'string') {
+      mergedArtifacts.push(artifact);
+      continue;
+    }
+
+    const existingIndex = indexByPath.get(artifact.path);
+    if (existingIndex === undefined) {
+      indexByPath.set(artifact.path, mergedArtifacts.length);
+      mergedArtifacts.push(artifact);
+      continue;
+    }
+
+    mergedArtifacts[existingIndex] = {
+      ...mergedArtifacts[existingIndex],
+      ...artifact,
+    };
+  }
+
+  return mergedArtifacts;
 }
 
 export function buildDefaultWorkflowKitArtifactsForPhase(phase) {

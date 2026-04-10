@@ -571,6 +571,23 @@ export function validateWorkflowKitConfig(wk, routing, roles) {
         continue;
       }
 
+      if (Array.isArray(phaseConfig.artifacts)) {
+        const explicitSeenPaths = new Set();
+        for (const artifact of phaseConfig.artifacts) {
+          if (!artifact || typeof artifact !== 'object') {
+            continue;
+          }
+          if (typeof artifact.path !== 'string' || !artifact.path.trim()) {
+            continue;
+          }
+          if (explicitSeenPaths.has(artifact.path)) {
+            errors.push(`duplicate artifact path "${artifact.path}" in phase "${phase}"`);
+            continue;
+          }
+          explicitSeenPaths.add(artifact.path);
+        }
+      }
+
       if (phaseConfig.template === undefined && phaseConfig.artifacts === undefined) {
         errors.push(`workflow_kit.phases.${phase} must declare template, artifacts, or both`);
         continue;
