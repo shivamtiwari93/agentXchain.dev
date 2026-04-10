@@ -33,6 +33,12 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
    - start with the single-turn primitive
    - graduate to full lifecycle
    - adopt `runLoop` only after primitive correctness is proven
+   - include a minimal `runLoop(root, config, callbacks, options?)` example that shows the real callback contract:
+     - `selectRole(state, config)`
+     - `dispatch({ turn, state, bundlePath, stagingPath, config, root })`
+     - `approveGate(gateType, state)`
+     - `onEvent(event)` as optional observer hook
+   - show the key result fields runner authors must inspect (`ok`, `stop_reason`, `state`, `turns_executed`)
 5. Document the real failure traps runner authors hit:
    - importing internal helpers directly instead of `agentxchain/runner-interface`
    - shelling out to `agentxchain step` and calling that a second runner
@@ -49,6 +55,7 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
 ## Error Cases
 
 - If docs claim a function name or order that does not match `runner-interface.js`, the guard test must fail.
+- If docs mention `runLoop` but do not show the real callback surface, the guard test must fail.
 - If the tutorial stops at abstract advice and does not name the shipped example files, the guard test must fail.
 - If the example README drifts from the public page or omits the graduated proof path, the guard test must fail.
 
@@ -57,6 +64,7 @@ Make third-party runner adoption executable instead of implicit. `/docs/runner-i
 - `AT-BYR-001`: `/docs/build-your-own-runner` exists, is present in the sidebar, and is listed in the docs surface spec
 - `AT-BYR-002`: the page documents the real runner-interface sequence and operation names
 - `AT-BYR-003`: the page distinguishes the three shipped runner proof tiers and the correct adoption order
+- `AT-BYR-003b`: the page documents the real `runLoop` callback contract and result fields
 - `AT-BYR-004`: the page and example README document the real failure traps and canonical staging path
 - `AT-BYR-005`: README and front-door surfaces link to the tutorial where runner adoption is discussed
 

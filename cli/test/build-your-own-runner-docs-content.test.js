@@ -20,6 +20,7 @@ const QUICKSTART_DOCS = read('website-v2/docs/quickstart.mdx');
 const ROOT_README = read('README.md');
 const CLI_README = read('cli/README.md');
 const RUNNER_INTERFACE = read('cli/src/lib/runner-interface.js');
+const RUN_LOOP = read('cli/src/lib/run-loop.js');
 
 describe('Build your own runner docs surface', () => {
   it('AT-BYR-001: ships the page, sidebar entry, and docs surface declaration', () => {
@@ -133,6 +134,23 @@ describe('Build your own runner docs surface', () => {
 
     assert.match(PAGE, /Start with Tier 1\./);
     assert.match(PAGE, /If Tier 1 is not stable, Tier 3 will only hide your defects/);
+  });
+
+  it('AT-BYR-003b: documents the real runLoop callback contract and result fields', async () => {
+    const runLoopModule = await import('../src/lib/run-loop.js');
+    assert.equal(typeof runLoopModule.runLoop, 'function', 'run-loop export must be a function');
+    assert.match(RUN_LOOP, /callbacks - \{ selectRole, dispatch, approveGate, onEvent\? \}/);
+
+    for (const symbol of ['selectRole', 'dispatch', 'approveGate', 'onEvent', 'stop_reason', 'turns_executed']) {
+      assert.match(PAGE, new RegExp(symbol), `page must document runLoop ${symbol}`);
+    }
+
+    assert.match(PAGE, /runLoop\(root, config, \{/);
+    assert.match(PAGE, /return \{ accept: true, turnResult \}/);
+    assert.match(PAGE, /return \{ accept: false, reason: /);
+    assert.match(PAGE, /console\.log\(result\.stop_reason\)/);
+    assert.match(PAGE, /console\.log\(result\.turns_executed\)/);
+    assert.match(PAGE, /console\.log\(result\.state\.status\)/);
   });
 
   it('AT-BYR-004: documents real failure traps and canonical staging-path truth', () => {

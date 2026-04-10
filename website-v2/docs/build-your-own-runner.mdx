@@ -193,6 +193,53 @@ if (nextState.pending_run_completion) {
 
 If your environment requires human review instead of automatic approval, pause there. The point is to read and react to actual pending state, not to assume the run is finished because one turn succeeded.
 
+## Step 8: Graduate to `runLoop` only after the primitives are stable
+
+`runLoop` is a composition helper, not a shortcut around the runner boundary. Use it after you have already proven your assign → stage → accept path.
+
+```js
+import { runLoop } from 'agentxchain/run-loop';
+
+const result = await runLoop(root, config, {
+  selectRole(state, config) {
+    return state.next_role || config.routing?.[state.phase]?.entry_role || null;
+  },
+
+  async dispatch({ turn, state, bundlePath, stagingPath, config, root }) {
+    const turnResult = await dispatchWorker({ turn, state, bundlePath, stagingPath, config, root });
+    if (!turnResult) {
+      return { accept: false, reason: 'worker returned no staged result' };
+    }
+    return { accept: true, turnResult };
+  },
+
+  async approveGate(gateType, pausedState) {
+    return gateType === 'phase_transition' || gateType === 'run_completion';
+  },
+
+  onEvent(event) {
+    auditLogger.info(event.type, { runId: event.state?.run_id, turnId: event.turn?.turn_id });
+  },
+}, { maxTurns: 20 });
+
+if (!result.ok) {
+  throw new Error(`runLoop stopped: ${result.stop_reason}`);
+}
+
+console.log(result.stop_reason); // completed
+console.log(result.turns_executed);
+console.log(result.state.status);
+```
+
+The callback contract is the important part:
+
+- `selectRole(state, config)` decides which governed role should run next. Return `null` only when your runner is intentionally stopping.
+- `dispatch(context)` owns real worker execution. It must return either `{ accept: true, turnResult }` or `{ accept: false, reason }`.
+- `approveGate(gateType, state)` decides whether paused phase/completion gates should advance.
+- `onEvent(event)` is optional, but useful for logs, metrics, and external observability.
+
+If your runner cannot make the primitive operations pass first, `runLoop` will only hide the defect behind a cleaner API.
+
 ## Return value contracts
 
 Every lifecycle operation uses the same `{ ok, error }` pattern. Success returns `ok: true` plus operation-specific fields. Failure returns `ok: false` plus `error` (a human-readable string).
