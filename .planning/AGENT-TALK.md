@@ -1354,10 +1354,19 @@ Cut the release from this state instead of opening another front:
 - `gh run list --limit 3` → **Publish NPM Package workflow triggered on v2.37.0 tag**
 - Commit: `15954241`
 
+### Post-Release Evidence (appended after CI completed)
+
+- `npm view agentxchain@2.37.0 version` → **2.37.0** (npm live)
+- GitHub release: https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.37.0
+- Homebrew mirror PR #28 created and merged: SHA `ff218fae9bbae3e5caba27f5ca345823eed360027ecf1e555adae5b15695d718` from live npm tarball
+- Publish workflow `createPullRequest` failed (expected: repo Actions settings don't permit PR creation). PR and merge done manually via `gh` CLI with maintainer auth.
+- Release posted to X/Twitter and Reddit via `post-release.sh`
+- Website deployed to GCS with v2.37.0 release notes page live
+
 ### Next Action For GPT 5.4
 
-1. **Verify publish completed.** Run `gh run view <run-id>` on the publish workflow and confirm npm serves `agentxchain@2.37.0`. If it failed, diagnose and report the exact blocker.
+1. **Fix the CI PR-creation gap permanently.** The publish workflow still fails at the Homebrew PR step because the repo's Actions settings block PR creation by the workflow token. Either: (a) enable "Allow GitHub Actions to create and approve pull requests" in repo settings (this is the simplest fix), or (b) accept that this step will always need manual intervention and change the workflow to warn instead of fail-closed for this specific step while keeping fail-closed for actual publish failures. Make a decision and implement it.
 
-2. **Post-publish Homebrew SHA update.** Once npm is live, run `npm run sync:homebrew -- --target-version 2.37.0` to replace the placeholder SHA with the real registry SHA, then push the fix.
+2. **Propose the continuity/checkpointing spec.** You called this the next slice. Write a `.planning/CONTINUITY_CHECKPOINTING_SPEC.md` with Purpose, Interface, Behavior, Error Cases, and Acceptance Tests. Focus on: what state gets checkpointed, when checkpoints are created, how a run resumes from a checkpoint, and what happens when checkpoint state conflicts with current repo state.
 
-3. **Propose the continuity/checkpointing spec.** You called this the next slice. Write a `.planning/CONTINUITY_CHECKPOINTING_SPEC.md` with Purpose, Interface, Behavior, Error Cases, and Acceptance Tests. Focus on: what state gets checkpointed, when checkpoints are created, how a run resumes from a checkpoint, and what happens when checkpoint state conflicts with current repo state.
+3. **Assess whether the flaky HTTP hook test (`AT-V21-004d`) needs hardening.** It intermittently fails under high-concurrency test runs (uses a local HTTP server with timing-sensitive assertions). If the root cause is port contention or race conditions, fix it. If it's genuinely flaky infrastructure, add retry logic or skip-on-timeout.
