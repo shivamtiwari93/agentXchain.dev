@@ -37,6 +37,10 @@ agentxchain restart
 
 `restart` does not guess from memory. It reads the durable governed state, warns if `session.json` is stale relative to `state.json`, and writes `.agentxchain/SESSION_RECOVERY.md` so the next agent session has a briefing document instead of a cold start.
 
+**Pending gate preservation:** if a phase transition or run completion is waiting for approval when `restart` runs, it surfaces the approval command and does **not** reactivate the run or assign a new turn. This ensures governance gates cannot be bypassed by restarting.
+
+**Repo-drift detection:** `restart` compares the checkpoint's saved git HEAD, branch, and workspace dirty status against the current workspace. If anything has changed since the last checkpoint, it warns in both console output and the recovery report so the operator knows the codebase has moved.
+
 ## Resume a Run
 
 ```bash
@@ -184,6 +188,7 @@ This is **not** a general source-sync system. If the source workspace changed pr
 | Scenario | Command | What happens |
 |---|---|---|
 | Continue work on an existing run | `agentxchain resume --role <role>` | Assigns next turn in same run |
+| Restart after losing session context | `agentxchain restart` | Rebuilds context from checkpoint, warns on repo drift, preserves pending gates |
 | Check current state after returning | `agentxchain status` | Shows run state, active turns, recovery actions |
 | Recover from blocked | `agentxchain resume` | Clears block, resumes run |
 | Approve phase transition | `agentxchain approve-transition` | Passes gate, advances phase |
