@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.39.0
+
+`2.39.0` ships workflow-kit phase templates: a governed library of reusable phase definitions that expand inside `workflow_kit.phases`, CLI discovery via `template list --phase-templates`, and front-door documentation across READMEs and getting-started.
+
+### Workflow-kit phase templates
+
+- 5 built-in phase templates: `planning-default`, `implementation-default`, `qa-default`, `architecture-review`, `security-review`.
+- Each template defines artifacts with semantic types, required/optional flags, and section requirements.
+- `workflow_kit.phases.<phase>.template` references expand deterministically: template artifacts first, explicit `artifacts` appended after.
+- Validation fails closed on unknown template IDs without throwing.
+
+### CLI discovery surface
+
+- `agentxchain template list --phase-templates` prints all built-in phase templates with artifact contracts.
+- `agentxchain template list --phase-templates --json` outputs structured JSON for automation.
+- Base `template list` now hints about `--phase-templates`.
+
+### Front-door documentation
+
+- `README.md`, `cli/README.md`, `getting-started.mdx`, `cli.mdx`, and `templates.mdx` all document phase-template discovery.
+
+### Evidence
+
+- 3800 tests / 647 suites / 0 failures (848 Vitest + 2952 Node)
+- Docusaurus production build succeeded
+
 ## 2.38.0
 
 `2.38.0` ships the full continuity package: richer governance checkpoints, correct restart behavior around pending gates, checkpoint-drift detection, and truthful operator-action guidance across CLI, dashboard, and API surfaces.

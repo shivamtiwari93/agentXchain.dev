@@ -1,0 +1,85 @@
+---
+title: "v2.39.0 Release Notes"
+description: "Workflow-kit phase templates: built-in governed phase definitions, CLI discovery surface, and front-door documentation."
+---
+
+# AgentXchain v2.39.0
+
+`2.39.0` ships workflow-kit phase templates — a governed library of reusable phase definitions that expand inside the existing `workflow_kit.phases` contract. Operators can now reference built-in templates by ID instead of hand-writing artifact lists, discover them via the CLI, and get semantics-aware scaffold generation.
+
+## Built-in workflow-kit phase templates
+
+Five built-in phase templates are now available:
+
+- **`planning-default`** — planning summary, scope document, risk assessment
+- **`implementation-default`** — source code, unit tests, integration tests
+- **`qa-default`** — test plan, test results, coverage report
+- **`architecture-review`** — architecture decision record, review checklist, diagram
+- **`security-review`** — threat model, security checklist, vulnerability assessment
+
+Each template defines a set of artifacts with semantic types (`document`, `code`, `test`, `review`), required/optional flags, and section requirements. Templates expand deterministically: built-in artifacts first, then any explicit `artifacts` appended after.
+
+### Usage
+
+Reference a template in `agentxchain.json`:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "planning": {
+        "template": "planning-default"
+      },
+      "implementation": {
+        "template": "implementation-default",
+        "artifacts": [
+          { "path": "docs/api.md", "semantics": "document" }
+        ]
+      }
+    }
+  }
+}
+```
+
+Template artifacts expand first; explicit artifacts append after. Validation fails closed on unknown template IDs without throwing — the phase simply gets no template artifacts.
+
+## CLI discovery surface
+
+Operators can now enumerate all built-in phase templates directly from the CLI:
+
+```bash
+# Human-readable table
+agentxchain template list --phase-templates
+
+# Machine-readable JSON for automation
+agentxchain template list --phase-templates --json
+```
+
+The JSON contract exposes `id`, `description`, and `artifacts[]` (each with `path`, `semantics`, `semantics_config`, `required`) for every built-in template.
+
+The base `template list` command now prints a hint about `--phase-templates` so operators discover the dual-template model.
+
+## Governed scaffold integration
+
+`agentxchain init --governed` now uses the expanded workflow-kit view for:
+
+- Prompt guidance — scaffold prompts reference template-derived artifact expectations
+- Planning summaries — template artifacts appear in generated planning documents
+- Placeholder file generation — template artifact paths are scaffolded as starter files
+
+The raw config on disk retains the template shorthand; expansion happens at runtime.
+
+## Front-door documentation
+
+Phase templates are now documented across all operator-facing surfaces:
+
+- `README.md` and `cli/README.md` — links to templates docs and discovery commands
+- `getting-started.mdx` — phase-template discovery in the quick-start flow
+- `cli.mdx` — command map and detailed `template list` reference
+- `templates.mdx` — full phase-template specification with artifact contracts
+
+## Evidence
+
+- **3800 tests / 647 suites / 0 failures** (848 Vitest + 2952 Node)
+- `cd cli && npm test`
+- `cd website-v2 && npm run build` — production build succeeded
