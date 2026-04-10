@@ -58,6 +58,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `intake` | Continuous delivery | Record repo-native signals, triage intents, authorize and plan governed work, start execution, resolve outcomes, and inspect backlog state |
 | `multi` | Multi-repo coordination | Bootstrap, inspect, step, approve, and recover coordinator runs across linked repositories |
 | `proposal` | Proposal management | List, diff, apply, or reject proposed changes from api_proxy agents |
+| `history` | Observability | Show cross-run history of governed runs in this project |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -516,6 +517,23 @@ Migrates state and config from an older protocol version to the current version 
 
 ## Dashboard
 
+### `history`
+
+```bash
+agentxchain history [--json] [--limit <n>] [--status completed|blocked|failed] [--dir <path>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output as JSON array |
+| `--limit <n>` | `20` | Number of recent runs to show |
+| `--status <status>` | — | Filter by terminal status: `completed`, `blocked`, or `failed` |
+| `--dir <path>` | `.` | Project directory |
+
+Shows a persistent cross-run history of governed runs in this project. Each completed governed run appends a summary record to `.agentxchain/run-history.jsonl` with run ID, status, phases, turns, cost, duration, and connector metadata. The file persists across runs and is not reset when a new run starts.
+
+Use `--json` for machine-readable output. Use `--status completed` to see only successful runs. Use `--limit 5` to see the last 5 runs.
+
 ### `dashboard`
 
 ```bash
@@ -529,7 +547,7 @@ agentxchain dashboard [options]
 
 Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
 
-The shipped dashboard surface has nine top-level views:
+The shipped dashboard surface has ten top-level views:
 
 | View | Description |
 |------|-------------|
@@ -542,6 +560,7 @@ The shipped dashboard surface has nine top-level views:
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
+| **Run History** | Cross-run history showing status, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
 
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 

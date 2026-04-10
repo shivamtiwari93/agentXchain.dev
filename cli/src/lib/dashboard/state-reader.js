@@ -47,6 +47,7 @@ export const FILE_TO_RESOURCE = Object.fromEntries(
   Object.entries(RESOURCE_MAP).map(([resource, file]) => [normalizeRelativePath(file), resource])
 );
 FILE_TO_RESOURCE[normalizeRelativePath(SESSION_RECOVERY_FILE)] = '/api/continuity';
+FILE_TO_RESOURCE[normalizeRelativePath('run-history.jsonl')] = '/api/run-history';
 
 export const WATCH_DIRECTORIES = [
   '',

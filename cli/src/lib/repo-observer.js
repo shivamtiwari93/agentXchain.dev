@@ -40,6 +40,7 @@ const ORCHESTRATOR_STATE_FILES = [
   '.agentxchain/lock.json',
   '.agentxchain/hook-audit.jsonl',
   '.agentxchain/hook-annotations.jsonl',
+  '.agentxchain/run-history.jsonl',
   'TALK.md',
 ];
 

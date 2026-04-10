@@ -36,6 +36,7 @@ import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getRev
 import { runHooks } from './hook-runner.js';
 import { emitNotifications } from './notification-runner.js';
 import { writeSessionCheckpoint } from './session-checkpoint.js';
+import { recordRunHistory } from './run-history.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -2912,6 +2913,9 @@ export function approveRunCompletion(root, config) {
 
   // Session checkpoint — non-fatal
   writeSessionCheckpoint(root, updatedState, 'run_completed');
+
+  // Run history — non-fatal
+  recordRunHistory(root, updatedState, config, 'completed');
 
   return {
     ok: true,

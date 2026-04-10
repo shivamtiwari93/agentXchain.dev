@@ -105,6 +105,7 @@ import { intakeScanCommand } from '../src/commands/intake-scan.js';
 import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
+import { historyCommand } from '../src/commands/history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -255,6 +256,15 @@ program
   .option('-j, --json', 'Output as JSON')
   .option('-v, --verbose', 'Show stack traces on failure')
   .action(demoCommand);
+
+program
+  .command('history')
+  .description('Show cross-run history of governed runs in this project')
+  .option('-j, --json', 'Output as JSON')
+  .option('-l, --limit <n>', 'Number of recent runs to show (default: 20)')
+  .option('-s, --status <status>', 'Filter by status: completed, blocked, failed')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(historyCommand);
 
 program
   .command('validate')
