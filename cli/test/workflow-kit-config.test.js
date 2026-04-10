@@ -13,6 +13,10 @@ import {
 import { evaluateArtifactSemantics } from '../src/lib/workflow-gate-semantics.js';
 import { validateGovernedWorkflowKit } from '../src/lib/governed-templates.js';
 import { scaffoldGoverned } from '../src/commands/init.js';
+import {
+  loadWorkflowKitPhaseTemplate,
+  listWorkflowKitPhaseTemplates,
+} from '../src/lib/workflow-kit-phase-templates.js';
 
 function baseConfig(overrides = {}) {
   return {
@@ -27,6 +31,21 @@ function baseConfig(overrides = {}) {
 // --- validateWorkflowKitConfig ---
 
 describe('validateWorkflowKitConfig', () => {
+  it('AT-WKC-000: ships the built-in workflow-kit phase template registry', () => {
+    const templates = listWorkflowKitPhaseTemplates();
+    assert.deepEqual(
+      templates.map((template) => template.id),
+      ['planning-default', 'implementation-default', 'qa-default', 'architecture-review', 'security-review'],
+    );
+
+    const architecture = loadWorkflowKitPhaseTemplate('architecture-review');
+    assert.equal(architecture.artifacts[0].path, '.planning/ARCHITECTURE.md');
+    assert.deepEqual(
+      architecture.artifacts[0].semantics_config.required_sections,
+      ['## Context', '## Proposed Design', '## Trade-offs', '## Risks'],
+    );
+  });
+
   it('AT-WKC-001: accepts valid workflow_kit with custom phase artifacts', () => {
     const result = validateWorkflowKitConfig({
       phases: {
@@ -42,6 +61,17 @@ describe('validateWorkflowKitConfig', () => {
         },
       },
     }, { planning: {}, design: {}, implementation: {} });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('AT-WKC-001b: accepts valid workflow_kit phase template without explicit artifacts', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+        },
+      },
+    }, { architecture: {} });
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
@@ -85,6 +115,18 @@ describe('validateWorkflowKitConfig', () => {
     }, { planning: {} });
     assert.equal(result.ok, false);
     assert.ok(result.errors.some(e => e.includes('magic_validator') && e.includes('unknown')));
+  });
+
+  it('AT-WKC-004b: rejects unknown workflow-kit phase template id', () => {
+    const result = validateWorkflowKitConfig({
+      phases: {
+        architecture: {
+          template: 'made-up-template',
+        },
+      },
+    }, { architecture: {} });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('made-up-template') && e.includes('unknown')));
   });
 
   it('AT-WKC-005: rejects section_check without required_sections', () => {
@@ -171,6 +213,35 @@ describe('normalizeWorkflowKit', () => {
     assert.ok(result.phases.planning);
     assert.equal(result.phases.implementation, undefined);
     assert.equal(result.phases.qa, undefined);
+  });
+
+  it('AT-WKC-012b: phase templates expand into normalized artifacts', () => {
+    const result = normalizeWorkflowKit({
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+        },
+      },
+    }, ['planning', 'architecture', 'implementation', 'qa']);
+    assert.equal(result.phases.architecture.artifacts.length, 1);
+    assert.equal(result.phases.architecture.artifacts[0].path, '.planning/ARCHITECTURE.md');
+    assert.equal(result.phases.architecture.artifacts[0].semantics, 'section_check');
+  });
+
+  it('AT-WKC-012c: phase templates append explicit artifacts after built-in template artifacts', () => {
+    const result = normalizeWorkflowKit({
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+          artifacts: [
+            { path: '.planning/ADR.md', semantics: null, required: true },
+          ],
+        },
+      },
+    }, ['architecture']);
+    assert.equal(result.phases.architecture.artifacts.length, 2);
+    assert.equal(result.phases.architecture.artifacts[0].path, '.planning/ARCHITECTURE.md');
+    assert.equal(result.phases.architecture.artifacts[1].path, '.planning/ADR.md');
   });
 
   it('defaults required to true when absent', () => {
@@ -580,6 +651,38 @@ describe('scaffoldGoverned — workflow_kit artifact scaffold', () => {
     // No-semantics artifact should have generic placeholder
     const securityContent = readFileSync(join(tmp, '.planning/SECURITY_REVIEW.md'), 'utf8');
     assert.ok(securityContent.includes('Operator fills this in'), 'should have generic placeholder');
+  });
+
+  it('AT-WKC-040d: scaffolds workflow-kit phase-template artifacts with template headings', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'axc-wk-'));
+    const workflowKit = {
+      phases: {
+        architecture: {
+          template: 'architecture-review',
+        },
+        security_review: {
+          template: 'security-review',
+        },
+      },
+    };
+
+    scaffoldGoverned(tmp, 'Template Project', 'template-project', 'generic', {}, workflowKit);
+
+    const architecturePath = join(tmp, '.planning/ARCHITECTURE.md');
+    const securityPath = join(tmp, '.planning/SECURITY_REVIEW.md');
+    assert.ok(existsSync(architecturePath), 'ARCHITECTURE.md should be scaffolded from template');
+    assert.ok(existsSync(securityPath), 'SECURITY_REVIEW.md should be scaffolded from template');
+
+    const architectureContent = readFileSync(architecturePath, 'utf8');
+    assert.ok(architectureContent.includes('## Context'));
+    assert.ok(architectureContent.includes('## Proposed Design'));
+    assert.ok(architectureContent.includes('## Trade-offs'));
+    assert.ok(architectureContent.includes('## Risks'));
+
+    const securityContent = readFileSync(securityPath, 'utf8');
+    assert.ok(securityContent.includes('## Threat Model'));
+    assert.ok(securityContent.includes('## Findings'));
+    assert.ok(securityContent.includes('## Verdict'));
   });
 
   it('AT-WKC-041: without workflow_kit scaffolds default 5+ files unchanged', () => {

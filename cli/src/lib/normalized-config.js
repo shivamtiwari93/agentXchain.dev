@@ -15,6 +15,12 @@
 import { validateHooksConfig } from './hook-runner.js';
 import { validateNotificationsConfig } from './notification-runner.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
+import {
+  buildDefaultWorkflowKitArtifactsForPhase,
+  expandWorkflowKitPhaseArtifacts,
+  isWorkflowKitPhaseTemplateId,
+  VALID_WORKFLOW_KIT_PHASE_TEMPLATE_IDS,
+} from './workflow-kit-phase-templates.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
@@ -26,25 +32,6 @@ export { DEFAULT_PHASES };
 const VALID_PHASE_NAME = /^[a-z][a-z0-9_-]*$/;
 const VALID_SEMANTIC_IDS = ['pm_signoff', 'system_spec', 'implementation_notes', 'acceptance_matrix', 'ship_verdict', 'release_notes', 'section_check'];
 
-/**
- * Default artifact map for phases when workflow_kit is absent from config.
- * Only phases present in this map get default artifacts.
- */
-const DEFAULT_PHASE_ARTIFACTS = {
-  planning: [
-    { path: '.planning/PM_SIGNOFF.md', semantics: 'pm_signoff', required: true },
-    { path: '.planning/SYSTEM_SPEC.md', semantics: 'system_spec', required: true },
-    { path: '.planning/ROADMAP.md', semantics: null, required: true },
-  ],
-  implementation: [
-    { path: '.planning/IMPLEMENTATION_NOTES.md', semantics: 'implementation_notes', required: true },
-  ],
-  qa: [
-    { path: '.planning/acceptance-matrix.md', semantics: 'acceptance_matrix', required: true },
-    { path: '.planning/ship-verdict.md', semantics: 'ship_verdict', required: true },
-    { path: '.planning/RELEASE_NOTES.md', semantics: 'release_notes', required: true },
-  ],
-};
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
 const VALID_API_PROXY_RETRY_CLASSES = [
   'rate_limited',
@@ -566,14 +553,35 @@ export function validateWorkflowKitConfig(wk, routing, roles) {
         continue;
       }
 
-      if (!Array.isArray(phaseConfig.artifacts)) {
+      let templateValid = true;
+      if (phaseConfig.template !== undefined) {
+        if (typeof phaseConfig.template !== 'string' || !phaseConfig.template.trim()) {
+          errors.push(`workflow_kit.phases.${phase}.template must be a non-empty string`);
+          templateValid = false;
+        } else if (!isWorkflowKitPhaseTemplateId(phaseConfig.template)) {
+          errors.push(
+            `workflow_kit.phases.${phase}.template "${phaseConfig.template}" is unknown; valid values: ${VALID_WORKFLOW_KIT_PHASE_TEMPLATE_IDS.join(', ')}`,
+          );
+          templateValid = false;
+        }
+      }
+
+      if (phaseConfig.artifacts !== undefined && !Array.isArray(phaseConfig.artifacts)) {
         errors.push(`workflow_kit.phases.${phase}.artifacts must be an array`);
         continue;
       }
 
+      if (phaseConfig.template === undefined && phaseConfig.artifacts === undefined) {
+        errors.push(`workflow_kit.phases.${phase} must declare template, artifacts, or both`);
+        continue;
+      }
+
       const seenPaths = new Set();
-      for (let i = 0; i < phaseConfig.artifacts.length; i++) {
-        const artifact = phaseConfig.artifacts[i];
+      const expandedArtifacts = templateValid
+        ? expandWorkflowKitPhaseArtifacts(phaseConfig)
+        : Array.isArray(phaseConfig.artifacts) ? phaseConfig.artifacts : [];
+      for (let i = 0; i < expandedArtifacts.length; i++) {
+        const artifact = expandedArtifacts[i];
         const prefix = `workflow_kit.phases.${phase}.artifacts[${i}]`;
 
         if (!artifact || typeof artifact !== 'object') {
@@ -845,7 +853,7 @@ export function getMaxConcurrentTurns(config, phase) {
 
 /**
  * Normalize workflow_kit config.
- * When absent, builds defaults from routing phases using DEFAULT_PHASE_ARTIFACTS.
+ * When absent, builds defaults from routing phases using the built-in phase templates.
  * When present, normalizes artifact entries.
  */
 export function normalizeWorkflowKit(raw, routingPhases) {
@@ -862,7 +870,7 @@ export function normalizeWorkflowKit(raw, routingPhases) {
   if (raw.phases) {
     for (const [phase, phaseConfig] of Object.entries(raw.phases)) {
       phases[phase] = {
-        artifacts: (phaseConfig.artifacts || []).map(a => ({
+        artifacts: expandWorkflowKitPhaseArtifacts(phaseConfig).map(a => ({
           path: a.path,
           semantics: a.semantics || null,
           semantics_config: a.semantics_config || null,
@@ -879,9 +887,10 @@ export function normalizeWorkflowKit(raw, routingPhases) {
 function buildDefaultWorkflowKit(routingPhases) {
   const phases = {};
   for (const phase of routingPhases) {
-    if (DEFAULT_PHASE_ARTIFACTS[phase]) {
+    const templateArtifacts = buildDefaultWorkflowKitArtifactsForPhase(phase);
+    if (templateArtifacts) {
       phases[phase] = {
-        artifacts: DEFAULT_PHASE_ARTIFACTS[phase].map(a => ({ ...a, semantics_config: null })),
+        artifacts: templateArtifacts.map(a => ({ ...a, semantics_config: a.semantics_config || null })),
       };
     }
   }

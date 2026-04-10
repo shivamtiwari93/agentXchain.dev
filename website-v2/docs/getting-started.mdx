@@ -167,12 +167,18 @@ Phase order is derived from the declaration order in `routing`. Transitions can 
 
 Changing `routing` gives you phase order. Changing `gates` tells the orchestrator which files block a transition. Neither one tells AgentXchain what to scaffold or structurally validate for a new phase.
 
-If you want a custom phase to own real workflow docs, declare `workflow_kit` explicitly in `agentxchain.json`:
+If you want a custom phase to own real workflow docs, declare `workflow_kit` explicitly in `agentxchain.json`. You can either reference a built-in phase template or spell out the artifact contract yourself:
 
 ```json
 {
   "workflow_kit": {
     "phases": {
+      "architecture": {
+        "template": "architecture-review"
+      },
+      "security_review": {
+        "template": "security-review"
+      },
       "design": {
         "artifacts": [
           {
@@ -192,9 +198,12 @@ If you want a custom phase to own real workflow docs, declare `workflow_kit` exp
 
 Important boundaries:
 
+- Built-in phase templates are additive shortcuts, not hidden magic. The shipped ids are `planning-default`, `implementation-default`, `qa-default`, `architecture-review`, and `security-review`.
+- `workflow_kit.phases.<phase>.artifacts` still works exactly as before. If you declare both `template` and `artifacts`, AgentXchain expands the built-in template first and then appends your explicit artifacts.
 - If `workflow_kit` is absent, the built-in workflow artifact contract stays limited to `planning`, `implementation`, and `qa`.
 - Custom phases without explicit `workflow_kit` entries can still gate on `requires_files`, but they do not get scaffolded files or structural checks from `template validate`.
 - `workflow_kit: {}` is an explicit opt-out. That disables per-phase workflow artifacts instead of silently falling back to the default scaffold contract.
+- Built-in phase templates do not guess `owned_by`. If you need role-bound ownership on a custom artifact, declare the artifact explicitly or use a blueprint-backed template like `enterprise-app`.
 
 After adding `workflow_kit` to an existing repo, re-run init in place so missing declared files are scaffolded:
 

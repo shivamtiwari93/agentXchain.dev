@@ -130,6 +130,40 @@ interface WorkflowArtifact {
 }
 ```
 
+### Built-in Phase Templates
+
+Explicit `workflow_kit` config may also reference a built-in phase template instead of repeating an artifact list:
+
+```json
+{
+  "workflow_kit": {
+    "phases": {
+      "architecture": {
+        "template": "architecture-review"
+      },
+      "security_review": {
+        "template": "security-review"
+      }
+    }
+  }
+}
+```
+
+Phase template ids are:
+
+- `planning-default`
+- `implementation-default`
+- `qa-default`
+- `architecture-review`
+- `security-review`
+
+Template semantics:
+
+1. `workflow_kit.phases.<phase>.template` is expanded before any explicit `artifacts`.
+2. If both `template` and `artifacts` are present, the expanded template artifacts are concatenated with the explicit artifacts in that order.
+3. Duplicate artifact paths inside the same phase still fail closed after expansion.
+4. Built-in phase templates do not infer `owned_by`; operators who need role-bound authorship still declare the artifact explicitly or use a blueprint-backed governed template.
+
 ### `section_check` — The Generic Parameterized Validator
 
 The only new validator. Takes a `required_sections` array of markdown heading strings. Checks that the file contains all listed headings. This covers the common case where an operator wants "this doc must have these sections" without writing custom code.
@@ -191,13 +225,14 @@ export function normalizeWorkflowKit(raw, routingPhases) {
 2. `workflow_kit.phases` must be an object if present.
 3. Every key in `workflow_kit.phases` must be a valid phase name matching `/^[a-z][a-z0-9_-]*$/`.
 4. Every key in `workflow_kit.phases` must correspond to a phase in `routing` (or defaults). **Warning** (not error) if a workflow_kit phase has no matching routing phase — it means the artifacts exist but no gate checks them.
-5. Each phase value must be an object with an `artifacts` array.
-6. Each artifact must have a `path` (non-empty string, relative, no `..` traversal).
-7. Each artifact `semantics` must be `null` or one of the known validator IDs.
-8. If `semantics` is `"section_check"`, `semantics_config.required_sections` must be a non-empty array of strings.
-9. `required` defaults to `true` when absent.
-10. Duplicate `path` values within the same phase are rejected.
-11. Cross-phase duplicate paths are allowed (same file can serve multiple phases).
+5. Each phase value must be an object with `template`, `artifacts`, or both.
+6. `template` must be a non-empty string and one of the built-in phase template ids when present.
+7. Each artifact must have a `path` (non-empty string, relative, no `..` traversal).
+8. Each artifact `semantics` must be `null` or one of the known validator IDs.
+9. If `semantics` is `"section_check"`, `semantics_config.required_sections` must be a non-empty array of strings.
+10. `required` defaults to `true` when absent.
+11. Duplicate `path` values within the same phase are rejected after template expansion.
+12. Cross-phase duplicate paths are allowed (same file can serve multiple phases).
 
 ### Explicit-vs-default marker
 
@@ -346,9 +381,11 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 ### Config Validation
 
 - **AT-WKC-001**: Config with explicit `workflow_kit` declaring artifacts for custom phases validates without error.
+- **AT-WKC-001b**: Config with `workflow_kit.phases.<phase>.template` and no explicit artifacts validates without error.
 - **AT-WKC-002**: Config with `workflow_kit.phases.foo` where `foo` is not in routing produces a warning.
 - **AT-WKC-003**: Config with artifact path containing `..` is rejected.
 - **AT-WKC-004**: Config with unknown `semantics` value is rejected.
+- **AT-WKC-004b**: Config with unknown workflow-kit phase template id is rejected.
 - **AT-WKC-005**: Config with `section_check` missing `required_sections` is rejected.
 - **AT-WKC-006**: Config with duplicate artifact paths in the same phase is rejected.
 
@@ -357,6 +394,8 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 - **AT-WKC-010**: Config without `workflow_kit` produces identical normalized output to today's behavior.
 - **AT-WKC-011**: Config with empty `workflow_kit: {}` produces no per-phase artifacts.
 - **AT-WKC-012**: Config with `workflow_kit` declaring only `planning` artifacts leaves other phases artifact-free.
+- **AT-WKC-012b**: `normalizeWorkflowKit()` expands built-in phase templates into normalized artifacts.
+- **AT-WKC-012c**: When `template` and `artifacts` are both present, normalization appends explicit artifacts after expanded template artifacts.
 - **AT-WKC-013**: Existing `gates.requires_files` entries still work alongside workflow-kit artifacts.
 - **AT-WKC-014**: Config without `workflow_kit` never produces normalized output with `_explicit: true`.
 
@@ -380,6 +419,7 @@ No migration required. Existing configs without `workflow_kit` get identical beh
 ### Scaffold (governed init)
 
 - **AT-WKC-040**: `agentxchain init --governed` with a config containing `workflow_kit` scaffolds the declared artifact files with appropriate placeholder content.
+- **AT-WKC-040d**: `agentxchain init --governed` with `workflow_kit.phases.<phase>.template` scaffolds the expanded artifact files with the template-required headings.
 - **AT-WKC-041**: `agentxchain init --governed` without `workflow_kit` scaffolds the default 5 files (unchanged behavior).
 - **AT-WKC-042**: Re-running `agentxchain init --governed --dir . -y` after adding explicit `workflow_kit` scaffolds newly declared custom artifact files without treating defaults as explicit custom entries.
 - **AT-WKC-043**: Governed scaffold and template validation continue to treat explicit empty `workflow_kit: {}` as operator intent, not as permission to reactivate default workflow-kit proof.

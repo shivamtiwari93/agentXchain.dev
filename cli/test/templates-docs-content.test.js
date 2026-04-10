@@ -221,6 +221,12 @@ describe('Templates docs surface', () => {
   it('documents explicit workflow_kit custom artifact proof honestly', () => {
     for (const term of [
       'Explicit `workflow_kit` for custom phases',
+      'workflow_kit.phases.<phase>.template',
+      'planning-default',
+      'implementation-default',
+      'qa-default',
+      'architecture-review',
+      'security-review',
       'section_check',
       'required_sections',
       'agentxchain init --governed --dir . -y',
@@ -231,6 +237,8 @@ describe('Templates docs surface', () => {
 
     for (const term of [
       'explicit `workflow_kit`',
+      'workflow_kit.phases.<phase>.template',
+      'architecture-review',
       'operator-declared artifact proof',
       'workflow_kit: {}',
     ]) {

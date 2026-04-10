@@ -18,6 +18,7 @@ This page must document the real product contract:
 - `template list [--json]` exposes the built-in template surface
 - `template validate [--json]` proves the built-in registry, current project template binding, and governed workflow-kit scaffold
 - explicit `workflow_kit` changes `template validate` from default-scaffold proof to operator-declared artifact proof
+- explicit `workflow_kit.phases.<phase>.template` allows built-in phase-template expansion without copying artifact blocks by hand
 - `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
 - blueprint-backed templates may be init-only when they redefine team topology
 - authoring a new blueprint-backed template is a CLI-source extension, not a runtime operator command
@@ -162,6 +163,8 @@ The page must describe the operator-relevant proof surface emitted by `template 
   - `| Req # |`
   - `## Verdict:`
 - explicit `workflow_kit` causing `workflow_kit.required_files` and `structural_checks` to come from declared artifacts instead of the default governed scaffold
+- `workflow_kit.phases.<phase>.template` with shipped ids `planning-default`, `implementation-default`, `qa-default`, `architecture-review`, and `security-review`
+- template expansion order: built-in phase-template artifacts first, explicit `artifacts` appended after
 - explicit empty `workflow_kit: {}` as an opt-out instead of a fallback to the default scaffold proof
 - the re-init path: `agentxchain init --governed --dir . -y` can scaffold newly declared custom artifact files after an operator adds explicit `workflow_kit`
 

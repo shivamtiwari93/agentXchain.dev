@@ -6,7 +6,7 @@ import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
 import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, buildSystemSpecContent } from '../lib/governed-templates.js';
-import { VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
+import { normalizeWorkflowKit, VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = join(__dirname, '../templates');
@@ -628,6 +628,9 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
   const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig);
   const { roles, runtimes, routing, gates, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
+  const scaffoldWorkflowKitConfig = effectiveWorkflowKitConfig
+    ? normalizeWorkflowKit(effectiveWorkflowKitConfig, Object.keys(routing))
+    : null;
   const initialPhase = Object.keys(routing)[0] || 'planning';
   const phaseGateStatus = Object.fromEntries(
     [...new Set(
@@ -709,7 +712,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     const basePrompt = buildGovernedPrompt(roleId, role, {
       routing,
       gates,
-      workflowKitConfig: effectiveWorkflowKitConfig,
+      workflowKitConfig: scaffoldWorkflowKitConfig,
     });
     const prompt = appendPromptOverride(basePrompt, template.prompt_overrides?.[roleId]);
     writeFileSync(join(dir, '.agentxchain', 'prompts', `${roleId}.md`), prompt);
@@ -736,7 +739,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
   // Workflow-kit custom artifacts — only scaffold files from explicit workflow_kit config
   // that are not already handled by the default scaffold above
-  if (effectiveWorkflowKitConfig && effectiveWorkflowKitConfig.phases && typeof effectiveWorkflowKitConfig.phases === 'object') {
+  if (scaffoldWorkflowKitConfig && scaffoldWorkflowKitConfig.phases && typeof scaffoldWorkflowKitConfig.phases === 'object') {
     const defaultScaffoldPaths = new Set([
       '.planning/PM_SIGNOFF.md',
       '.planning/ROADMAP.md',
@@ -747,7 +750,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       '.planning/RELEASE_NOTES.md',
     ]);
 
-    for (const phaseConfig of Object.values(effectiveWorkflowKitConfig.phases)) {
+    for (const phaseConfig of Object.values(scaffoldWorkflowKitConfig.phases)) {
       if (!Array.isArray(phaseConfig.artifacts)) continue;
       for (const artifact of phaseConfig.artifacts) {
         if (!artifact.path || defaultScaffoldPaths.has(artifact.path)) continue;
@@ -782,7 +785,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     }
   }
 
-  return { config, state };
+  return { config, state, scaffoldWorkflowKitConfig };
 }
 
 async function initGoverned(opts) {
@@ -882,7 +885,7 @@ async function initGoverned(opts) {
     }
   }
 
-  const { config } = scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
+  const { config, scaffoldWorkflowKitConfig } = scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));
@@ -897,7 +900,7 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('├──')} reviews/`);
   console.log(`    ${chalk.dim('│')}    ${chalk.dim('└──')} dispatch/`);
   console.log(`    ${chalk.dim('├──')} .planning/`);
-  const planningSummaryLines = buildPlanningSummaryLines(selectedTemplate, config.workflow_kit);
+  const planningSummaryLines = buildPlanningSummaryLines(selectedTemplate, scaffoldWorkflowKitConfig);
   for (const [index, line] of planningSummaryLines.entries()) {
     const branch = index === planningSummaryLines.length - 1 ? '└──' : '├──';
     console.log(`    ${chalk.dim('│')}    ${chalk.dim(branch)} ${line}`);
