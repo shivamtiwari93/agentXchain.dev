@@ -411,6 +411,7 @@ templateCmd
   .command('list')
   .description('List available governed templates')
   .option('-j, --json', 'Output as JSON')
+  .option('--phase-templates', 'List workflow-kit phase templates instead of governed project templates')
   .action(templateListCommand);
 
 templateCmd

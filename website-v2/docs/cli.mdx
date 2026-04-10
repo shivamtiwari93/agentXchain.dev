@@ -34,7 +34,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 |---------|-------|-------------|
 | `demo` | Setup | Run a complete governed lifecycle demo — no API keys or config required |
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
-| `template list` | Setup | Inspect the built-in governed scaffold templates |
+| `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
 | `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
@@ -104,9 +104,12 @@ See [Templates](/docs/templates) for the full scaffold contract instead of guess
 
 ```bash
 agentxchain template list [--json]
+agentxchain template list --phase-templates [--json]
 ```
 
 Prints the built-in governed templates with their descriptions, planning artifacts, prompt override roles, scaffold blueprint roles when present, and acceptance hints. Use this before `template set` when you want the exact built-in surface.
+
+Use `--phase-templates` to list workflow-kit phase templates instead — the reusable artifact bundles you reference via `workflow_kit.phases.<phase>.template` in `agentxchain.json`. The output shows each template's ID, description, artifacts, semantics, and required sections.
 
 ### `template validate`
 

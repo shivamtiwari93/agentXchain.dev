@@ -11,6 +11,7 @@ const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
 const QUICKSTART_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'quickstart.mdx'), 'utf8');
 const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
+const TEMPLATES_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'templates.mdx'), 'utf8');
 
 describe('Template public surface', () => {
   it('documents the governed template flag in both READMEs', () => {
@@ -39,5 +40,15 @@ describe('Template public surface', () => {
     assert.ok(CLI_DOCS.includes('template set'), 'cli docs must mention template set');
     assert.ok(CLI_DOCS.includes('template list'), 'cli docs must mention template list');
     assert.ok(CLI_DOCS.includes('template validate'), 'cli docs must mention template validate');
+  });
+
+  it('cli docs document --phase-templates flag for template list', () => {
+    assert.ok(CLI_DOCS.includes('--phase-templates'), 'cli docs must mention --phase-templates flag');
+    assert.ok(CLI_DOCS.includes('workflow-kit phase templates'), 'cli docs must explain what --phase-templates lists');
+  });
+
+  it('templates docs document the phase-templates CLI discovery surface', () => {
+    assert.ok(TEMPLATES_DOCS.includes('template list --phase-templates'), 'templates docs must show the CLI command for listing phase templates');
+    assert.ok(TEMPLATES_DOCS.includes('--json'), 'templates docs must mention JSON output for phase templates');
   });
 });
