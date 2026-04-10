@@ -383,8 +383,9 @@ describe('Governed IDE Notifications — package.json surface', () => {
       !commandIds.some(id => id.includes('notification')),
       'notification service must not register new commands — it reuses existing approval commands'
     );
-    assert.equal(commandIds.length, 9, 'should now have exactly 9 commands');
+    assert.equal(commandIds.length, 10, 'should now have exactly 10 commands');
     assert.ok(commandIds.includes('agentxchain.run'), 'package.json must declare agentxchain.run');
+    assert.ok(commandIds.includes('agentxchain.report'), 'package.json must declare agentxchain.report');
   });
 });
 

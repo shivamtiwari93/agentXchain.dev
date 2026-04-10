@@ -67,6 +67,10 @@
       {
         "command": "agentxchain.run",
         "title": "AgentXchain: Start or Resume Governed Run"
+      },
+      {
+        "command": "agentxchain.report",
+        "title": "AgentXchain: Show Governance Report"
       }
     ],
     "viewsContainers": {

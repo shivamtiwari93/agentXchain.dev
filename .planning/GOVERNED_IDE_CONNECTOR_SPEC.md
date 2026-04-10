@@ -10,7 +10,7 @@ The governed IDE connector is **not a new adapter type**. It is a thin orchestra
 
 ### Current shipped slice
 
-As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, notification slice, and run-launch slice are shipped:
+As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, notification slice, run-launch slice, and report rendering slice are shipped:
 
 - governed project detection
 - governed status via `agentxchain status --json`
@@ -25,10 +25,11 @@ As of 2026-04-10, the observer foundation, approval slice, step dispatch slice, 
 - sidebar run action button that appears only when the governed status payload says a governed run loop is valid
 - modal confirmation dialogs before approval actions
 - automatic VS Code notifications driven by file-watcher state diffs: pending phase transition (warning + "Approve" action), pending run completion (warning + "Approve" action), blocked state (error with reason), turn completion (info). Turn-completion notifications are suppressed while an IDE-launched governed run terminal is active so `agentxchain run` does not generate per-turn toast spam. Pure state-diff logic lives in `notificationState.ts` (no vscode dependency, fully testable). Notification service in `notifications.ts` consumes diffs and fires VS Code notification APIs. Baseline is seeded on activation to prevent spurious alerts.
+- governed report rendering via `agentxchain export` piped to `agentxchain report --format json`, displayed in an OutputChannel with project, run, turn timeline, decisions, workflow-kit artifacts, and verification status. Report logic lives in `governedStatus.ts` (vscode-free, testable). Command wrapper in `commands/report.ts` is a thin VS Code shell.
 - direct-mutation guard coverage proving governed state is not written by the extension
-- targeted approval/status/step/notification/run acceptance coverage in `cli/test/governed-ide-*.test.js`
+- targeted approval/status/step/notification/run/report acceptance coverage in `cli/test/governed-ide-*.test.js`
 
-The `report`, `dashboard`, and `restart` command surfaces below remain the target contract, not shipped truth.
+The `dashboard` and `restart` command surfaces below remain the target contract, not shipped truth.
 
 ### What the IDE connector IS
 
@@ -184,14 +185,14 @@ The sidebar shows the last checkpoint timestamp and recommended command from `st
 
 ### AT-GIDE-012: Subprocess E2E proof
 
-A test harness must prove the full governed lifecycle through the IDE surface:
+A test harness must prove the shipped governed IDE surfaces through real CLI subprocess dispatch, not mocked extension host APIs:
 1. `init` a governed project
-2. `step` via IDE command → integrated terminal launches the CLI step command and the turn is accepted
-3. Phase transition requested → notification appears → approve via IDE → phase advances
-4. Run completion requested → notification appears → approve via IDE → run completes
-5. `report` via IDE command → governance report rendered
+2. `step` via IDE helpers → CLI step subprocess completes and the turn is accepted
+3. Phase transition requested → approve via IDE approval subprocess → phase advances
+4. Run completion requested → approve via IDE approval subprocess → run completes
+5. `report` via IDE helpers → governance report rendered from a real export artifact
 
-This test must use real subprocess dispatch, not mocked extension host APIs.
+Surfaces not yet shipped (dashboard launch, restart) are not part of this test until they are implemented. The proof boundary matches the "Current shipped slice" section above.
 
 ## Proof Requirements Before Claiming "Governed IDE Support"
 

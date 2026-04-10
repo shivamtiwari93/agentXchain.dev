@@ -46,7 +46,7 @@ exports.getProjectActors = getProjectActors;
 exports.getBlockedDetail = getBlockedDetail;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This extension keeps governed mutations routed through the AgentXchain CLI while supporting governed status, approvals, step/run launch, and state-change notifications. Use agentxchain dashboard or the browser dashboard for reports, multi-repo operations, and deeper governed views.';
+exports.GOVERNED_MODE_NOTICE = 'Governed project detected. This extension keeps governed mutations routed through the AgentXchain CLI while supporting governed status, approvals, step/run launch, governance reports, and state-change notifications. Use agentxchain dashboard or the browser dashboard for multi-repo operations and deeper governed views.';
 function readJson(filePath) {
     try {
         const raw = fs.readFileSync(filePath, 'utf8');

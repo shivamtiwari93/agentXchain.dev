@@ -91,3 +91,80 @@ export declare function execCliCommand(root: string, cliArgs: string[], timeoutM
     stdout: string;
     stderr: string;
 }>;
+export interface GovernedReportPayload {
+    report_version?: string;
+    overall?: string;
+    generated_at?: string;
+    export_kind?: string;
+    verification?: {
+        ok?: boolean;
+        errors?: string[];
+    };
+    subject?: GovernedReportSubject;
+}
+export interface GovernedReportSubject {
+    kind?: string;
+    project?: {
+        id?: string;
+        name?: string;
+        template?: string;
+        protocol_mode?: string;
+        schema_version?: string;
+    };
+    run?: GovernedReportRun;
+    artifacts?: {
+        history_entries?: number;
+        decision_entries?: number;
+        hook_audit_entries?: number;
+        dispatch_artifact_files?: number;
+        staging_artifact_files?: number;
+    };
+}
+export interface GovernedReportRun {
+    run_id?: string;
+    status?: string;
+    phase?: string;
+    blocked_on?: string | null;
+    blocked_reason?: string | null;
+    active_turn_count?: number;
+    retained_turn_count?: number;
+    active_roles?: string[];
+    budget_status?: {
+        spent_usd?: number;
+        remaining_usd?: number;
+    } | null;
+    created_at?: string;
+    completed_at?: string | null;
+    duration_seconds?: number;
+    turns?: GovernedReportTurn[];
+    decisions?: GovernedReportDecision[];
+    workflow_kit_artifacts?: GovernedReportArtifact[];
+}
+export interface GovernedReportTurn {
+    turn_id?: string;
+    role?: string;
+    status?: string;
+    summary?: string;
+    phase?: string;
+    phase_transition?: string | null;
+    files_changed_count?: number;
+    decisions?: string[];
+    objections?: string[];
+    cost_usd?: number | null;
+    accepted_at?: string;
+}
+export interface GovernedReportDecision {
+    id?: string;
+    turn_id?: string | null;
+    role?: string | null;
+    phase?: string | null;
+    statement?: string;
+}
+export interface GovernedReportArtifact {
+    path?: string;
+    required?: boolean;
+    exists?: boolean;
+    owned_by?: string;
+}
+export declare function loadGovernedReport(root: string): Promise<GovernedReportPayload>;
+export declare function renderReportLines(report: GovernedReportPayload): string[];

@@ -493,6 +493,222 @@ function formatCheckpoint(reason?: string | null, timestamp?: string | null): st
   return reason || timestamp || 'unknown';
 }
 
+// --- Report types and helpers (vscode-free, testable) ---
+
+export interface GovernedReportPayload {
+  report_version?: string;
+  overall?: string;
+  generated_at?: string;
+  export_kind?: string;
+  verification?: {
+    ok?: boolean;
+    errors?: string[];
+  };
+  subject?: GovernedReportSubject;
+}
+
+export interface GovernedReportSubject {
+  kind?: string;
+  project?: {
+    id?: string;
+    name?: string;
+    template?: string;
+    protocol_mode?: string;
+    schema_version?: string;
+  };
+  run?: GovernedReportRun;
+  artifacts?: {
+    history_entries?: number;
+    decision_entries?: number;
+    hook_audit_entries?: number;
+    dispatch_artifact_files?: number;
+    staging_artifact_files?: number;
+  };
+}
+
+export interface GovernedReportRun {
+  run_id?: string;
+  status?: string;
+  phase?: string;
+  blocked_on?: string | null;
+  blocked_reason?: string | null;
+  active_turn_count?: number;
+  retained_turn_count?: number;
+  active_roles?: string[];
+  budget_status?: { spent_usd?: number; remaining_usd?: number } | null;
+  created_at?: string;
+  completed_at?: string | null;
+  duration_seconds?: number;
+  turns?: GovernedReportTurn[];
+  decisions?: GovernedReportDecision[];
+  workflow_kit_artifacts?: GovernedReportArtifact[];
+}
+
+export interface GovernedReportTurn {
+  turn_id?: string;
+  role?: string;
+  status?: string;
+  summary?: string;
+  phase?: string;
+  phase_transition?: string | null;
+  files_changed_count?: number;
+  decisions?: string[];
+  objections?: string[];
+  cost_usd?: number | null;
+  accepted_at?: string;
+}
+
+export interface GovernedReportDecision {
+  id?: string;
+  turn_id?: string | null;
+  role?: string | null;
+  phase?: string | null;
+  statement?: string;
+}
+
+export interface GovernedReportArtifact {
+  path?: string;
+  required?: boolean;
+  exists?: boolean;
+  owned_by?: string;
+}
+
+export async function loadGovernedReport(root: string): Promise<GovernedReportPayload> {
+  // Step 1: Export the governed run artifact
+  const exportResult = await execCliCommand(root, ['export'], 120_000);
+  const exportJson = exportResult.stdout.trim();
+  if (!exportJson) {
+    throw new Error('AgentXchain export returned empty output. Is a governed run active?');
+  }
+
+  // Step 2: Write export to temp file, then run report --input <tmpfile> --format json
+  const os = await import('os');
+  const path = await import('path');
+  const fs = await import('fs');
+  const tmpFile = path.join(os.tmpdir(), `axc-report-${Date.now()}.json`);
+  try {
+    fs.writeFileSync(tmpFile, exportJson);
+    const reportResult = await execCliCommand(root, ['report', '--input', tmpFile, '--format', 'json'], 120_000);
+    const parsed = JSON.parse(reportResult.stdout) as GovernedReportPayload;
+    return parsed;
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore cleanup failure */ }
+  }
+}
+
+export function renderReportLines(report: GovernedReportPayload): string[] {
+  const lines: string[] = [];
+  const subject = report.subject;
+  const run = subject?.run;
+
+  lines.push(`Overall: ${report.overall ?? 'unknown'}`);
+  lines.push(`Generated: ${report.generated_at ?? 'unknown'}`);
+  lines.push(`Export kind: ${report.export_kind ?? 'unknown'}`);
+  lines.push('');
+
+  if (report.verification) {
+    lines.push(`Verification: ${report.verification.ok ? 'PASS' : 'FAIL'}`);
+    if (report.verification.errors?.length) {
+      for (const err of report.verification.errors) {
+        lines.push(`  ! ${err}`);
+      }
+    }
+    lines.push('');
+  }
+
+  if (subject?.project) {
+    lines.push('Project');
+    lines.push(`  Name: ${subject.project.name ?? 'unknown'}`);
+    lines.push(`  ID: ${subject.project.id ?? 'unknown'}`);
+    lines.push(`  Template: ${subject.project.template ?? 'generic'}`);
+    lines.push(`  Schema: ${subject.project.schema_version ?? 'unknown'}`);
+    lines.push('');
+  }
+
+  if (run) {
+    lines.push('Run');
+    lines.push(`  Run ID: ${run.run_id ?? 'unknown'}`);
+    lines.push(`  Status: ${run.status ?? 'unknown'}`);
+    lines.push(`  Phase: ${run.phase ?? 'unknown'}`);
+    lines.push(`  Active turns: ${run.active_turn_count ?? 0}`);
+    lines.push(`  Retained turns: ${run.retained_turn_count ?? 0}`);
+    if (run.active_roles?.length) {
+      lines.push(`  Roles: ${run.active_roles.join(', ')}`);
+    }
+    if (run.budget_status) {
+      lines.push(`  Budget: $${(run.budget_status.spent_usd ?? 0).toFixed(4)} spent, $${(run.budget_status.remaining_usd ?? 0).toFixed(4)} remaining`);
+    }
+    if (run.created_at) {
+      lines.push(`  Created: ${run.created_at}`);
+    }
+    if (run.completed_at) {
+      lines.push(`  Completed: ${run.completed_at}`);
+    }
+    if (run.duration_seconds != null) {
+      lines.push(`  Duration: ${run.duration_seconds}s`);
+    }
+    if (run.blocked_on || run.blocked_reason) {
+      lines.push(`  Blocked: ${run.blocked_reason || run.blocked_on || 'YES'}`);
+    }
+    lines.push('');
+
+    if (run.turns?.length) {
+      lines.push('Turn Timeline');
+      for (const turn of run.turns) {
+        const phase = turn.phase ?? '';
+        const transition = turn.phase_transition ? ` [${turn.phase_transition}]` : '';
+        const cost = turn.cost_usd != null ? ` ($${turn.cost_usd.toFixed(4)})` : '';
+        const files = turn.files_changed_count ? ` ${turn.files_changed_count} files` : '';
+        lines.push(`  ${turn.turn_id ?? '?'} | ${turn.role ?? '?'} | ${turn.status ?? '?'} | ${phase}${transition}${files}${cost}`);
+        if (turn.summary) {
+          lines.push(`    ${turn.summary}`);
+        }
+        if (turn.decisions?.length) {
+          for (const d of turn.decisions) {
+            lines.push(`    DEC: ${d}`);
+          }
+        }
+        if (turn.objections?.length) {
+          for (const o of turn.objections) {
+            lines.push(`    OBJ: ${o}`);
+          }
+        }
+      }
+      lines.push('');
+    }
+
+    if (run.decisions?.length) {
+      lines.push('Decision Ledger');
+      for (const dec of run.decisions) {
+        lines.push(`  ${dec.id ?? '?'} (${dec.role ?? '?'}, ${dec.phase ?? '?'}): ${dec.statement ?? ''}`);
+      }
+      lines.push('');
+    }
+
+    if (run.workflow_kit_artifacts?.length) {
+      lines.push('Workflow-Kit Artifacts');
+      for (const artifact of run.workflow_kit_artifacts) {
+        const indicator = artifact.exists ? 'present' : 'MISSING';
+        const required = artifact.required ? 'required' : 'optional';
+        const owner = artifact.owned_by ? ` (${artifact.owned_by})` : '';
+        lines.push(`  ${artifact.path ?? '?'}: ${indicator}, ${required}${owner}`);
+      }
+      lines.push('');
+    }
+  }
+
+  if (subject?.artifacts) {
+    lines.push('Artifact Counts');
+    lines.push(`  History entries: ${subject.artifacts.history_entries ?? 0}`);
+    lines.push(`  Decision entries: ${subject.artifacts.decision_entries ?? 0}`);
+    lines.push(`  Hook audit entries: ${subject.artifacts.hook_audit_entries ?? 0}`);
+    lines.push(`  Dispatch files: ${subject.artifacts.dispatch_artifact_files ?? 0}`);
+    lines.push(`  Staging files: ${subject.artifacts.staging_artifact_files ?? 0}`);
+  }
+
+  return lines;
+}
+
 function formatStderr(stderr: string): string {
   const trimmed = stderr.trim();
   return trimmed ? ` ${trimmed}` : '';
