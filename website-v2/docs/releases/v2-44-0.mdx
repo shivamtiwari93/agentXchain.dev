@@ -1,0 +1,43 @@
+---
+title: "v2.44.0 Release Notes"
+description: "Ships cross-run history, terminal recording at all blocked paths, run-level terminal-state alignment, and multi-phase write-owning CI proof."
+---
+
+# AgentXchain v2.44.0
+
+`v2.44.0` closes three governance gaps at once: operators can now see past governed runs, every blocked path records its outcome, and the run-level terminal-state contract is aligned across intake, continuity, restart, specs, and docs. A new multi-phase write-owning CI proof (Tier 6) also lands.
+
+## Cross-run history surface
+
+Governed runs now persist terminal outcomes to `.agentxchain/run-history.jsonl`. Two new surfaces expose this data:
+
+- **CLI:** `agentxchain history` lists past runs with status, timing, and role summaries.
+- **Dashboard:** the new Run History panel (10th view) renders history in the browser with filtering and drill-down.
+
+The `run-history.js` library provides `listRunHistory()` and `recordRunHistory()` for programmatic consumers and is exported in the library template.
+
+## Terminal recording at all blocked paths
+
+Prior to `v2.44.0`, some blocked-path exits skipped history recording. Now every code path that transitions a run to `blocked` writes the outcome to `run-history.jsonl`. The dashboard state-reader and bridge-server expose history to the observation layer, and `repo-observer.js` includes `run-history.jsonl` in the baseline.
+
+## Run-level terminal-state alignment
+
+Run-level `failed` was advertised across specs, docs, and intake code but never produced by governed writers. This release closes the cross-surface drift:
+
+- `recordRunHistory()` rejects unsupported terminal statuses.
+- `continuity-status.js` returns `reserved_terminal_state` for `failed`.
+- `restart.js` fails closed with an operator-actionable message.
+- `intake resolve` fails closed on governed `failed` runs.
+- Coordinator completion without workstream satisfaction maps to intent `blocked` (recoverable via re-approval) instead of intent `failed` (terminal).
+- `VALID_TRANSITIONS['executing']` narrowed to `['blocked', 'completed']`.
+- All planning specs, intake docs, and state-machine specs now agree with shipped runtime truth.
+
+## Multi-phase write-owning CI proof (Tier 6)
+
+A new proof script (`examples/ci-runner-proof/run-multi-phase-write.mjs`) runs a 3-phase governed execution where the implementation agent writes real files, proving that the governed lifecycle supports authoritative writes across phase boundaries. A dedicated contract test guards the proof boundary.
+
+## Evidence
+
+- **3175 node tests / 664 suites / 0 failures**
+- **854 Vitest tests / 36 files / 0 failures**
+- Docusaurus production build clean

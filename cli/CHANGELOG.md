@@ -1,5 +1,45 @@
 # Changelog
 
+## 2.44.0
+
+`2.44.0` ships cross-run history, terminal recording at all blocked paths, run-level terminal-state alignment, and multi-phase write-owning CI proof.
+
+### Cross-run history surface
+
+- New `agentxchain history` CLI command lists past governed runs with status, timing, and role summaries.
+- New dashboard Run History panel (10th view) renders history in the browser with filtering and drill-down.
+- `run-history.js` library records terminal outcomes to `.agentxchain/run-history.jsonl` and exposes `listRunHistory()` / `recordRunHistory()`.
+- Library template exports `run-history.js` for programmatic consumers.
+
+### Terminal recording at all blocked paths
+
+- Every code path that transitions a run to `blocked` now records the outcome in `run-history.jsonl`.
+- Dashboard state-reader and bridge-server expose history data to the observation layer.
+- `repo-observer.js` baseline includes `run-history.jsonl`.
+
+### Run-level terminal-state alignment
+
+- Governed run-level `failed` is now formally reserved/unreached. Current governed writers emit only `completed` or `blocked`.
+- `recordRunHistory()` rejects unsupported terminal statuses instead of silently legitimizing reserved states.
+- `continuity-status.js` returns `reserved_terminal_state` for run-level `failed`.
+- `restart.js` fails closed with a truthful reserved-status message.
+- `intake resolve` fails closed on governed run-level `failed` with `DEC-RUN-STATUS-001` reference.
+- Coordinator completing without satisfying a workstream maps to intent `blocked` (recoverable) instead of intent `failed` (terminal).
+- `VALID_TRANSITIONS['executing']` narrowed to `['blocked', 'completed']`.
+- Planning specs, intake docs, and state-machine specs aligned to the shipped truth.
+- Regression guards added to `continuous-delivery-intake-content.test.js`.
+
+### Multi-phase write-owning CI proof (Tier 6)
+
+- New `examples/ci-runner-proof/run-multi-phase-write.mjs` proves a 3-phase governed run where the implementation agent writes real files.
+- Contract test `ci-multi-phase-write-proof-contract.test.js` guards the proof boundary.
+
+### Evidence
+
+- **3175 node tests / 664 suites / 0 failures**
+- **854 Vitest tests / 36 files / 0 failures**
+- Docusaurus production build clean
+
 ## 2.43.0
 
 `2.43.0` hardens the lights-out CI proof slice from `2.42.0`. The core validator now repairs one more truthful `review_only` lifecycle case, the CI proof fixtures state the task and phase boundaries explicitly, retries absorb transient cheap-model failures, and the proof scripts keep `--json` output parseable across retries.
