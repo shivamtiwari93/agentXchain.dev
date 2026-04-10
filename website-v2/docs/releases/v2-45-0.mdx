@@ -1,0 +1,66 @@
+---
+title: "v2.45.0 Release Notes"
+description: "Adds Ollama as first-class api_proxy provider for local models with corrected request contract and hardened docs guards."
+---
+
+# AgentXchain v2.45.0
+
+`v2.45.0` adds Ollama as the fourth `api_proxy` provider, enabling governed multi-agent execution with zero cloud dependencies. The release also hardens docs-contract tests by replacing regex source scraping with live-import verification.
+
+## Ollama as first-class api_proxy provider
+
+Ollama is now a recognized `api_proxy` provider alongside Anthropic, OpenAI, and Google. Key characteristics:
+
+- **Auth-optional:** `auth_env` is not required for Ollama. Cloud providers (Anthropic, OpenAI, Google) still require it.
+- **OpenAI-compatible response extraction** with a **provider-specific request builder** (`buildOllamaRequest`). The critical difference: Ollama uses `max_tokens` while OpenAI uses `max_completion_tokens`.
+- **Default endpoint:** `http://localhost:11434/v1/chat/completions` — works out of the box with `ollama serve`.
+- **No bundled cost rates** for local models. Operators supply rates via `budget.cost_rates` if they want cost tracking.
+- **Error classification** mirrors the OpenAI provider error map.
+
+### Configuration
+
+```json
+{
+  "runtime": {
+    "adapter": "api_proxy",
+    "api_proxy": {
+      "provider": "ollama",
+      "model": "llama3.1"
+    }
+  }
+}
+```
+
+No `auth_env` needed. To override the default endpoint:
+
+```json
+{
+  "runtime": {
+    "adapter": "api_proxy",
+    "api_proxy": {
+      "provider": "ollama",
+      "model": "codellama",
+      "endpoint": "http://192.168.1.100:11434/v1/chat/completions"
+    }
+  }
+}
+```
+
+## Build-your-own-connector tutorial
+
+A new step-by-step tutorial walks operators through building a custom HTTP remote agent connector from scratch: request envelope, response contract, validation traps, and auth configuration. The tutorial config is validated against the real config loader — not just string-presence checks.
+
+## Build-your-own-runner docs audit
+
+The runner tutorial was audited against the real runtime. Three defects fixed: unguarded null returns in `loadContext()`/`loadState()`, incomplete `acceptTurn` failure shape (missing `state?` and `hookResults?`), and a new `runLoop` inline usage example (Step 8).
+
+## Hardened docs-contract tests
+
+- Docs guards for adapter pages now import live constants (`PROVIDER_ENDPOINTS`, `BUNDLED_COST_RATES`, `VALID_API_PROXY_PROVIDERS`) instead of regex-scraping nested source literals.
+- The connector tutorial config is validated through `loadNormalizedConfig()`.
+- Runner tutorial function names are verified against real module exports.
+
+## Evidence
+
+- **3242 tests / 677 suites / 0 failures**
+- Docusaurus production build clean

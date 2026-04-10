@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.45.0
+
+`2.45.0` adds Ollama as a first-class `api_proxy` provider for local models, ships the build-your-own-connector tutorial, audits the runner tutorial against the real runtime, and hardens docs-contract tests with live-import verification.
+
+### Ollama as first-class api_proxy provider
+
+- Ollama is the fourth `api_proxy` provider alongside Anthropic, OpenAI, and Google.
+- Auth-optional: `auth_env` is not required. `AUTH_OPTIONAL_PROVIDERS` mechanism supports future auth-optional providers.
+- Provider-specific request builder (`buildOllamaRequest`) uses `max_tokens` (not OpenAI's `max_completion_tokens`).
+- Default endpoint: `http://localhost:11434/v1/chat/completions` — works out of the box with `ollama serve`.
+- No bundled cost rates for local models. Operators supply rates via `budget.cost_rates`.
+- Error classification mirrors OpenAI provider error map.
+
+### Build-your-own-connector tutorial
+
+- New step-by-step tutorial at `/docs/build-your-own-connector` covering request envelope, response contract, validation traps, and auth configuration.
+- Tutorial config validated against real `loadNormalizedConfig()`, not string-presence checks (`DEC-BYOC-004`).
+
+### Build-your-own-runner docs audit
+
+- Unguarded `null` returns in `loadContext()`/`loadState()` fixed with explicit error messages.
+- `acceptTurn` failure shape corrected: added `state?` and `hookResults?` for hook-blocked paths.
+- New Step 8 with inline `runLoop` usage example showing callback contract and result handling.
+
+### Hardened docs-contract tests
+
+- Adapter docs guards import live constants (`PROVIDER_ENDPOINTS`, `BUNDLED_COST_RATES`, `VALID_API_PROXY_PROVIDERS`) instead of regex-scraping nested source literals (`DEC-GUARD-REGEX-002`).
+- Runner docs guards verify function exports against real module imports.
+
+### Evidence
+
+- 3242 tests / 677 suites / 0 failures
+- Docusaurus production build clean
+
 ## 2.44.0
 
 `2.44.0` ships cross-run history, terminal recording at all blocked paths, run-level terminal-state alignment, and multi-phase write-owning CI proof.

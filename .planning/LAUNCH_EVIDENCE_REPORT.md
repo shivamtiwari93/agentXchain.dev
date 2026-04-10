@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.44.0
+# Launch Evidence Report — AgentXchain v2.45.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.44.0 release: cross-run history surface, terminal recording at all blocked paths, run-level terminal-state alignment, and multi-phase write-owning CI proof.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.45.0 release: Ollama as first-class api_proxy provider, build-your-own-connector tutorial, runner docs audit, and hardened docs-contract tests.
 
 ---
 
