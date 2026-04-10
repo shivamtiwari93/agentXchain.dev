@@ -39,9 +39,10 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 **Branch protection constraint (`DEC-HOMEBREW-SYNC-008`):** The `main` branch has branch protection requiring PRs with 1 approving review. `github-actions[bot]` cannot push directly to `main`. The CI workflow must:
 1. Create a feature branch (`chore/homebrew-sync-v<version>`) based on `origin/main`.
 2. Commit the mirror update to that branch.
-3. Open a PR via `gh pr create` instead of pushing `HEAD:main`.
+3. Request `pull-requests: write` permission and open a PR via `gh pr create` instead of pushing `HEAD:main`.
 4. On workflow rerun, update the existing branch safely and reuse any existing open PR instead of failing on branch or PR collisions.
-5. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
+5. Fail closed if PR creation does not succeed. A pushed orphan branch is not accepted release follow-through.
+6. The PR must be manually merged (or auto-merged if enabled) as part of the release checklist.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -82,7 +83,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | `--push-tap` without git access | Exit 1 with "push failed" error. |
 | `--dry-run` | Print planned changes, exit 0 without writing. |
 | CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
-| GitHub token lacks `pull_requests` permission | Branch push succeeds; PR creation emits a `::warning` annotation but does not fail the workflow. The PR must be created manually. |
+| PR creation fails after the branch push | Exit non-zero. Release follow-through is incomplete until the mirror PR exists. |
 
 ## Acceptance Tests
 
@@ -97,17 +98,18 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-009: `--push-tap` still verifies and updates the canonical tap when the repo mirror already matches npm.
 - AT-HS-010: The sync path fails closed on commit/push errors instead of printing a false success.
 - AT-HS-011: The mirror-update workflow is rerun-safe: it force-with-lease updates the existing branch and reuses an open PR instead of failing on duplicate branch/PR creation.
-- AT-HS-012: If the GitHub token lacks `pull_requests` permission, the workflow emits a warning but does not fail. The branch is pushed successfully and the PR can be created manually.
+- AT-HS-012: The workflow requests `pull-requests: write` so it can create the mirror PR directly.
+- AT-HS-013: If PR creation fails after the branch push, the workflow fails closed instead of leaving an orphan branch as warning-only debt.
 
 ## Known Debt
 
-**`DEBT-HOMEBREW-PR-001`: Manual PR merge required during releases.**
-The CI workflow pushes the `chore/homebrew-sync-vX.Y.Z` branch but cannot auto-create or auto-merge the PR because the `GITHUB_TOKEN` lacks `pull_requests` permission. Every release requires a manual `gh pr create` + `gh pr merge --admin` step. This is tracked as operational debt, not an accepted permanent pattern. Resolution options:
-1. Add a PAT with `pull_requests` scope as a repo secret
-2. Enable GitHub Actions auto-merge on the homebrew-tap repo
-3. Remove branch protection from the homebrew-tap `main` branch (lowest ceremony)
+**`DEBT-HOMEBREW-PR-001`: Manual PR approval/merge still required during releases.**
+The CI workflow now creates the `chore/homebrew-sync-vX.Y.Z` branch and opens the PR itself, but branch protection still requires one approving review and the repository does not allow GitHub Actions to approve PR reviews. Every release still requires a human or privileged automation path to approve and merge the already-open PR. Resolution options:
+1. Enable GitHub Actions approval capability and explicitly accept that security tradeoff
+2. Introduce a tightly scoped maintainer token that can merge only the generated mirror PR
+3. Relax branch protection for this repo path (lowest ceremony, weakest protection)
 
-**Status:** Open since v2.25.2. Accepted temporarily per `DEC-RELEASE-V2260-002`.
+**Status:** Open since v2.25.2. Reduced in scope by automatic PR creation; manual cherry-pick / manual PR creation are no longer accepted fallback patterns.
 
 ## Open Questions
 
@@ -119,4 +121,4 @@ To enable fully automated Homebrew sync in CI, the repo owner must:
 
 1. Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission.
 2. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`.
-3. The mirror-update PR still requires manual merge due to `main` branch protection (1 approving review required).
+3. The mirror-update PR still requires manual approval/merge due to `main` branch protection (1 approving review required).

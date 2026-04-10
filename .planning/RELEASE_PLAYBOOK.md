@@ -187,9 +187,9 @@ This single command:
 3. Pushes the canonical tap (`shivamtiwari93/homebrew-tap`)
 
 In CI, this runs automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, first-time publish is blocked before npm mutation. Reruns can still update the repo mirror without the token, but downstream truth must pass before the workflow can finish green.
-The tag workflow creates a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update instead of pushing directly to `main`, since `main` has branch protection requiring PR reviews. The PR must be merged manually or via auto-merge as part of the release follow-through.
+The tag workflow requests `pull-requests: write`, creates a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update, and reuses that PR on reruns instead of pushing directly to `main`, since `main` has branch protection requiring reviews. The PR must still be merged manually or via auto-merge as part of the release follow-through.
 Workflow reruns update that same branch with `--force-with-lease` and reuse the open PR instead of failing on duplicate branch or PR creation.
-If the GitHub token lacks `pull_requests` permission (common with the default `GITHUB_TOKEN` for GitHub Apps), the branch push succeeds but PR creation emits a warning annotation instead of failing the workflow. The PR must be created manually in that case.
+If PR creation fails after the branch push, the workflow should fail closed. A pushed orphan branch is not release-complete follow-through.
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
 Do not update Homebrew against a version that is not yet live on npm.

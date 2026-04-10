@@ -14,6 +14,7 @@ on:
 permissions:
   id-token: write
   contents: write
+  pull-requests: write
 
 concurrency:
   group: npm-publish-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -147,15 +148,12 @@ jobs:
             echo "Homebrew mirror PR already open: #${EXISTING_PR}"
             exit 0
           fi
-          if gh pr create \
+          gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
-            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball." 2>&1; then
-            echo "Created PR for Homebrew mirror update on branch $BRANCH."
-          else
-            echo "::warning::Could not create Homebrew mirror PR (token may lack pull_requests permission). Branch $BRANCH was pushed — create the PR manually or merge the branch."
-          fi
+            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
+          echo "Created PR for Homebrew mirror update on branch $BRANCH."
 
       - name: Create GitHub Release
         if: always() && (steps.registry.outputs.already_published == 'true' || success())

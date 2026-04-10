@@ -45,6 +45,11 @@ describe('homebrew sync automation contract', () => {
       /--push-tap/,
       'publish workflow must use --push-tap flag when token is available',
     );
+    assert.match(
+      workflow,
+      /pull-requests:\s*write/,
+      'publish workflow must grant pull-requests: write so it can open the mirror PR itself',
+    );
   });
 
   it('CI workflow blocks first-time publish before npm mutation when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -217,22 +222,17 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow does not fail if PR creation is denied by token permissions', () => {
+  it('CI workflow fails closed on unexpected PR creation failure', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
-      /::warning::/,
-      'workflow must emit a GitHub Actions warning annotation when PR creation fails',
+      /gh pr create/,
+      'workflow must create the Homebrew mirror PR directly',
     );
-    assert.match(
+    assert.doesNotMatch(
       workflow,
-      /Could not create Homebrew mirror PR/,
-      'warning must explain what failed',
-    );
-    assert.match(
-      workflow,
-      /Branch .* was pushed/,
-      'warning must confirm the branch was pushed even though PR creation failed',
+      /::warning::Could not create Homebrew mirror PR/,
+      'workflow must not treat PR creation failure as an acceptable warning-only outcome',
     );
   });
 });
