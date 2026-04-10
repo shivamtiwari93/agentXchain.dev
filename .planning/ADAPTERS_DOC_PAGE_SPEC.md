@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Public documentation page at `/docs/adapters` explaining how AgentXchain's three adapter types work, what contract they share, what each one does differently, and how to implement a new adapter. Target audience: developers evaluating AgentXchain or building a custom integration.
+Public documentation page at `/docs/adapters` explaining how AgentXchain's five adapter types work, what contract they share, what each one does differently, and how to implement a new adapter. Target audience: developers evaluating AgentXchain or building a custom integration.
 
 ## Interface
 
@@ -40,23 +40,34 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's three
 - When to use: automated dev turns with local coding agents
 
 ### 5. API Proxy Adapter
-- How it works: HTTP call to model provider (supports Anthropic and OpenAI; `base_url` override available)
-- Write authority restriction: review_only roles only in v1
+- How it works: HTTP call to model provider (supports Anthropic, OpenAI, and Google Gemini; `base_url` override available)
+- Write authority restriction: `review_only` and `proposed` only in v1
 - Retry logic: exponential backoff with jitter
-- Preflight tokenization: prevents wasted API calls
+- Preflight tokenization: prevents wasted API calls; `provider_local` remains limited to providers with shipped tokenizer support
 - Cost tracking: provider telemetry is authoritative
 - Audit artifacts: API_REQUEST.json, TOKEN_BUDGET.json, CONTEXT.effective.md
 - Error classification taxonomy
 - When to use: QA/review turns, lightweight review, cost-tracked automation
 
-### 6. Implementing a New Adapter
+### 6. MCP Adapter
+- How it works: synchronous governed turn dispatch through a governed MCP tool contract
+- Transport support: `stdio` and `streamable_http`
+- Write authority restriction: same bounded non-authoritative support as the shipped connector contract
+- When to use: protocol-compatible external agent runtimes that already expose an MCP surface
+
+### 7. Remote Agent Adapter
+- How it works: synchronous HTTP dispatch of a governed turn envelope to an external agent service
+- Write authority restriction: `review_only` and `proposed` only in v1
+- When to use: non-local agent services that implement the AgentXchain turn-result contract
+
+### 8. Implementing a New Adapter
 - What to implement (dispatch, wait, collect)
 - What to read (dispatch bundle)
 - What to write (staging result)
 - What NOT to do (write state, validate, route)
 - Minimal checklist
 
-### 7. Comparison Table
+### 9. Comparison Table
 - Side-by-side: transport, write authority, dispatch mechanism, wait mechanism, timeout, retry, audit artifacts
 
 ## Behavior
@@ -73,10 +84,11 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's three
 ## Acceptance Tests
 
 - [ ] Page loads at `/docs/adapters` with no JS errors
-- [ ] All three adapters documented with accurate dispatch/wait/collect mechanics
+- [ ] All five adapters documented with accurate dispatch/wait/collect mechanics
 - [ ] Shared contract section present with filesystem table
 - [ ] "Implementing a new adapter" section with concrete checklist
 - [ ] Comparison table matches actual adapter capabilities
+- [ ] API proxy provider examples and prose match the supported provider allowlist in config validation
 - [ ] Cross-links: sidebar links to quickstart, protocol spec, CLI spec
 - [ ] Footer matches quickstart footer
 - [ ] Page is responsive at 768px and 375px widths

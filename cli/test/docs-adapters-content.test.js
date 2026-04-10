@@ -207,6 +207,19 @@ describe('Adapter docs contract', () => {
   });
 
   describe('api_proxy supported providers', () => {
+    it('normalized-config provider allowlist matches adapter endpoints', () => {
+      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\}/);
+      assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
+      const providers = endpointMatch[1].match(/^\s*(\w+)\s*:/gm).map(s => s.trim().replace(':', '').trim());
+
+      const allowlistMatch = normalizedConfigSource.match(/VALID_API_PROXY_PROVIDERS\s*=\s*\[([^\]]+)\]/);
+      assert.ok(allowlistMatch, 'VALID_API_PROXY_PROVIDERS found in normalized-config.js');
+      const allowlistedProviders = allowlistMatch[1].match(/'([^']+)'/g).map(s => s.replace(/'/g, ''));
+
+      assert.deepEqual(allowlistedProviders.sort(), providers.sort(),
+        'normalized-config.js must allow exactly the provider families implemented by api-proxy-adapter.js');
+    });
+
     it('PROVIDER_ENDPOINTS keys match docs', () => {
       const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\}/);
       assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
@@ -226,6 +239,15 @@ describe('Adapter docs contract', () => {
         'adapters.mdx must document OpenAI as a supported provider');
       assert.match(adapterDocs, /chat-completions-compatible/i,
         'adapters.mdx must scope OpenAI support to chat-completions-compatible models');
+    });
+
+    it('docs list Google Gemini support when PROVIDER_ENDPOINTS includes it', () => {
+      assert.match(apiProxySource, /google:\s*'https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/\{model\}:generateContent'/,
+        'api-proxy-adapter.js must register the Google Gemini endpoint');
+      assert.match(adapterDocs, /Google runtime for Gemini models|Google.*Gemini|Gemini.*Google/i,
+        'adapters.mdx must document Google Gemini as a supported provider');
+      assert.match(adapterDocs, /API-key-as-query-parameter auth|query parameter/i,
+        'adapters.mdx must document the Google API-key query-parameter auth boundary');
     });
 
     it('docs document base_url as an endpoint override for supported providers only', () => {

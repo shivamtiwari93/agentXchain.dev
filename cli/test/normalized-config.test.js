@@ -206,6 +206,25 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts Google as a valid api_proxy provider', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'google',
+          model: 'gemini-2.5-flash',
+          auth_env: 'GOOGLE_API_KEY',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
   it('accepts a valid api_proxy base_url override', () => {
     const result = validateV4Config({
       schema_version: '1.0',
@@ -638,6 +657,33 @@ describe('validateV4Config', () => {
     });
     assert.equal(result.ok, false);
     assert.ok(result.errors.some(e => e.includes('provider_local') && e.includes('openai')));
+  });
+
+  it('rejects Google preflight tokenization until a provider_local tokenizer exists', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        qa: { title: 'QA', mandate: 'Review', write_authority: 'review_only', runtime: 'api-qa' },
+      },
+      runtimes: {
+        'api-qa': {
+          type: 'api_proxy',
+          provider: 'google',
+          model: 'gemini-2.5-flash',
+          auth_env: 'GOOGLE_API_KEY',
+          max_output_tokens: 4096,
+          context_window_tokens: 1048576,
+          preflight_tokenization: {
+            enabled: true,
+            tokenizer: 'provider_local',
+            safety_margin_tokens: 2048,
+          },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('provider_local') && e.includes('google')));
   });
 });
 

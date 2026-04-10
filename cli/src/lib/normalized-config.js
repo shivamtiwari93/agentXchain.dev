@@ -18,7 +18,7 @@ import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
-const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai'];
+const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai', 'google'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
 const DEFAULT_PHASES = ['planning', 'implementation', 'qa'];
