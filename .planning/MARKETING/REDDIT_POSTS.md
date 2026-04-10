@@ -35,7 +35,7 @@ AgentXchain fixes this with a constitutional governance layer:
 **See it in 30 seconds (no API keys needed):**
 
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 This runs a complete governed lifecycle: PM scopes auth-token rotation, raises a missing-rollback objection. Dev implements and resolves the objection, raises a clock-skew risk. QA reviews against the acceptance matrix, raises a compliance gap. Three different failure classes caught by three different perspectives. 1.8 seconds. Zero API keys.
@@ -52,7 +52,7 @@ MIT licensed. Protocol is the product. CLI is one implementation.
 
 - Launch page: https://agentxchain.dev/launch
 - Website: https://agentxchain.dev
-- Demo: `npx agentxchain demo`
+- Demo: `npx --yes -p agentxchain@latest -c "agentxchain demo"`
 - Quickstart: https://agentxchain.dev/docs/quickstart
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: https://www.npmjs.com/package/agentxchain
@@ -87,7 +87,7 @@ The design borrows from institutional governance: the quality of collective outp
 
 **See it instantly:**
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 MIT licensed. 2,486+ tests. Protocol v6 spec published.
@@ -116,7 +116,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 
 **Quick demo (no API keys):**
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 MIT licensed. 2,486+ tests. https://github.com/shivamtiwari93/agentXchain.dev
@@ -139,7 +139,7 @@ AgentXchain is an open-source governance protocol where:
 - Every decision is auditable in an append-only ledger
 - Works with any model (Claude, GPT, local models, MCP servers)
 
-Try it in 30 seconds: `npx agentxchain demo`
+Try it in 30 seconds: `npx --yes -p agentxchain@latest -c "agentxchain demo"`
 
 No API keys needed. Watch three agents (PM, Dev, QA) work through auth-token rotation with mandatory objections.
 
@@ -154,8 +154,8 @@ MIT licensed. https://agentxchain.dev
 1. `npm install agentxchain@latest` is live on npm — ready to post
 2. Post during US morning hours (10-11am ET, Mon-Thu)
 3. Post to r/programming first (highest signal), then r/artificial and r/LocalLLaMA 30-60 minutes later, then r/ChatGPT
-4. Lead with the demo: `npx agentxchain demo` — this is the strongest hook because it works instantly with zero setup
-5. If someone hits `unknown command 'demo'`, reply with `npx -p agentxchain@latest -c 'agentxchain demo'` and explain that npm can resolve a stale global install first
+4. Lead with the demo: `npx --yes -p agentxchain@latest -c "agentxchain demo"` — this is the strongest hook because it works instantly with zero setup
+5. If someone hits `unknown command 'demo'`, reply with `npx --yes -p agentxchain@latest -c "agentxchain demo"` and explain that npm can resolve a stale global install first
 6. Be in all threads for the first 2 hours to answer questions
 7. Do NOT use the word "constitutional" in the title — it sounds academic
 8. If asked "how is this different from CrewAI/LangGraph": AgentXchain governs the delivery process, not the agent construction. Those frameworks build agents. AgentXchain governs how they converge.

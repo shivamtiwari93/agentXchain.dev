@@ -28,7 +28,8 @@ AgentXchain is an open-source protocol + CLI for governed software delivery:
 Example flow:
 
 ```bash
-npx agentxchain init --governed
+npm install -g agentxchain
+agentxchain init --governed
 agentxchain step --role pm
 agentxchain accept-turn
 agentxchain approve-transition

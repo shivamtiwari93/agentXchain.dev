@@ -30,7 +30,7 @@ class DashboardViewProvider {
         if (!surface.config) {
             return `<!DOCTYPE html><html><body>
         <p style="padding:16px;color:#888;">No AgentXchain project found.<br>
-        Run <code>npx agentxchain init</code> to get started.</p>
+        Run <code>npm install -g agentxchain</code> then <code>agentxchain init</code> to get started.</p>
       </body></html>`;
         }
         if (surface.mode === 'governed') {

@@ -22,6 +22,16 @@ The shorthand `npx agentxchain ...` is not a truthful front-door command in envi
   - `.planning/GETTING_STARTED_TUTORIAL_SPEC.md`
   - `.planning/QUICKSTART_DOC_PAGE_SPEC.md`
   - `.planning/TUTORIAL_WALKTHROUGH_SPEC.md`
+- Extended no-bare-npx surfaces (comparison, launch, marketing, VS Code extension):
+  - `website-v2/src/pages/launch.mdx`
+  - `website-v2/src/pages/compare/vs-*.mdx` (all comparison pages)
+  - `.planning/MARKETING/TWITTER_THREAD.md`
+  - `.planning/MARKETING/REDDIT_POSTS.md`
+  - `.planning/MARKETING/HN_SUBMISSION.md`
+  - `.planning/SHOW_HN_DRAFT.md`
+  - `cli/vscode-extension/src/commands/init.ts`
+  - `cli/vscode-extension/src/commands/generate.ts`
+  - `cli/vscode-extension/src/sidebar.ts`
 - Guard:
   - `cli/test/frontdoor-install-surface.test.js`
 
@@ -44,6 +54,8 @@ The shorthand `npx agentxchain ...` is not a truthful front-door command in envi
 
 4. Front-door surfaces must not advertise bare `npx agentxchain demo` or bare `npx agentxchain init ...` as the default command path.
 
+5. Any public shell block that continues past `init` with additional bare `agentxchain ...` commands must install the CLI first. Do not mix a package-bound one-shot `init` with later bare commands in the same example.
+
 ## Error Cases
 
 - Do not tell users to scaffold with a one-off `npx` command and then immediately switch to bare `agentxchain` unless the page also installs the CLI first.
@@ -56,6 +68,9 @@ The shorthand `npx agentxchain ...` is not a truthful front-door command in envi
 - `AT-NPX-FD-002`: front-door walkthroughs that expect repeated commands include `npm install -g agentxchain`.
 - `AT-NPX-FD-003`: front-door surfaces do not reintroduce bare `npx agentxchain demo`.
 - `AT-NPX-FD-004`: front-door surfaces do not reintroduce bare `npx agentxchain init`.
+- `AT-NPX-FD-005`: comparison, launch, and marketing surfaces do not use bare `npx agentxchain demo`.
+- `AT-NPX-FD-006`: comparison, launch, and marketing surfaces do not use bare `npx agentxchain init`.
+- `AT-NPX-FD-007`: multi-command public shell examples that continue after `init` install the CLI before using bare `agentxchain ...`.
 
 ## Open Questions
 

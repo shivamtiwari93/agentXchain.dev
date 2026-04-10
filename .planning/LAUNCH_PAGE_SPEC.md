@@ -26,9 +26,7 @@ The launch page is not a generic homepage remix. It is the canonical page for la
    - `local_cli`, `api_proxy`, and `mcp` are the adapters with real-model proof
    - `manual` is the human control-path adapter and must not be described as a real-model proof
 3. The page must keep the demo front door strong:
-   - `npx agentxchain demo` remains the primary demo command
-   - the page must document the explicit package-bound fallback for stale global-install resolution:
-     `npx -p agentxchain@2.24.1 -c 'agentxchain demo'`
+   - `npx --yes -p agentxchain@latest -c "agentxchain demo"` is the primary demo command (package-bound per `DEC-NPX-FD-001`)
 4. The Hacker News draft must use `https://agentxchain.dev/launch` as the submission URL, not the generic homepage.
 5. Launch-linked drafts must not repeat the false shorthand that "all four adapters are proven live with real AI models."
 

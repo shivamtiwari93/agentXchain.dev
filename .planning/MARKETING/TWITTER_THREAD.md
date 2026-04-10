@@ -19,7 +19,7 @@ AgentXchain v2.24 is live. Open source. MIT.
 See it work in 30 seconds. No API keys:
 
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 PM scopes auth-token rotation, raises a missing-rollback risk.
@@ -74,12 +74,12 @@ It's the governance layer BETWEEN agents. They can be built with anything. We go
 
 Try it:
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 Then scaffold your own:
 ```
-npx agentxchain init --governed
+npx --yes -p agentxchain@latest -c "agentxchain init --governed"
 ```
 
 GitHub: github.com/shivamtiwari93/agentXchain.dev
@@ -87,7 +87,7 @@ Docs: agentxchain.dev/docs/quickstart
 npm: npmjs.com/package/agentxchain
 
 If npm resolves a stale global install first, run:
-`npx -p agentxchain@latest -c 'agentxchain demo'`
+`npx --yes -p agentxchain@latest -c "agentxchain demo"`
 
 ---
 
@@ -97,4 +97,4 @@ If npm resolves a stale global install first, run:
 - Space tweets 2-3 minutes apart
 - Pin the thread to profile
 - Quote-tweet Tweet 1 with any interesting reply threads
-- Lead with the demo — `npx agentxchain demo` is the strongest hook
+- Lead with the demo — `npx --yes -p agentxchain@latest -c "agentxchain demo"` is the strongest hook

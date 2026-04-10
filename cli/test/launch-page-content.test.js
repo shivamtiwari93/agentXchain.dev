@@ -24,9 +24,9 @@ describe('launch page public contract', () => {
     assert.match(LAUNCH_PAGE, /^# AgentXchain v2\.24/m);
   });
 
-  it('documents the package-bound npx fallback for stale global installs', () => {
-    assert.match(LAUNCH_PAGE, /npx -p agentxchain@2\.24\.1 -c 'agentxchain demo'/);
-    assert.match(LAUNCH_PAGE, /unknown command 'demo'/);
+  it('uses the package-bound demo command per DEC-NPX-FD-001', () => {
+    assert.match(LAUNCH_PAGE, /npx --yes -p agentxchain@latest -c "agentxchain demo"/);
+    assert.doesNotMatch(LAUNCH_PAGE, /^npx agentxchain demo$/m, 'must not use bare npx demo');
   });
 
   it('keeps the adapter proof boundary honest', () => {

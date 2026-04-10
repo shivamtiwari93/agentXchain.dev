@@ -26,13 +26,7 @@ AgentXchain is an open-source governance protocol that turns independent AI agen
 No API keys needed:
 
 ```bash
-npx agentxchain demo
-```
-
-If npm resolves to a stale global install and you get `unknown command 'demo'`, use the package-bound form:
-
-```bash
-npx -p agentxchain@2.24.1 -c 'agentxchain demo'
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 This runs a complete governed lifecycle:
@@ -120,10 +114,11 @@ AgentXchain governs multi-agent delivery with five layers:
 
 ```bash
 # See governance in action (no API keys)
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 
-# Scaffold a governed repo
-npx agentxchain init --governed
+# Install the CLI, then scaffold a governed repo
+npm install -g agentxchain
+agentxchain init --governed
 
 # Walk through your first real governed run
 # https://agentxchain.dev/docs/getting-started

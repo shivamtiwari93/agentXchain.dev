@@ -6,7 +6,7 @@ Give evaluators a one-command path to see governed multi-agent delivery in actio
 No API keys, no git init, no config, no manual turn authoring. Just:
 
 ```bash
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 ## Problem

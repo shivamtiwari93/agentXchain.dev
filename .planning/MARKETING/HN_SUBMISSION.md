@@ -29,7 +29,7 @@ The design borrows from institutional governance: the quality of collective outp
 **30-second demo (no API keys needed):**
 
 ```
-npx agentxchain demo
+npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
@@ -72,4 +72,4 @@ Happy to answer questions about the architecture, the mandatory challenge design
    - "Does mandatory challenge slow things down?" → The demo runs in 1.8s. The overhead is structural, not temporal.
    - "What models does it work with?" → Any model. Protocol is model-agnostic. Proven with Claude, works with any LLM API.
    - "How does this compare to A2A?" → A2A is agent-to-agent messaging. AgentXchain governs the delivery process.
-   - "`npx agentxchain demo` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@latest -c 'agentxchain demo'`.
+   - "`npx --yes -p agentxchain@latest -c "agentxchain demo"` says `unknown command 'demo'`" → This is usually npm resolving a stale global install first. Use `npx -p agentxchain@latest -c 'agentxchain demo'`.

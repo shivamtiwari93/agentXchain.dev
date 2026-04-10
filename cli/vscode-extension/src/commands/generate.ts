@@ -16,5 +16,5 @@ export function runGenerate(root: string) {
 
   const terminal = vscode.window.createTerminal({ name: 'AgentXchain', cwd: root });
   terminal.show();
-  terminal.sendText('npx agentxchain generate');
+  terminal.sendText('npx --yes -p agentxchain@latest -c "agentxchain generate"');
 }
