@@ -41,6 +41,15 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - The Examples dropdown should be a first-class navigation item in the docs sidebar.
   - **2026-04-10 completed:** Added `.planning/EXAMPLES_DOCS_SURFACE_SPEC.md`, turned `Examples` into a first-class docs sidebar category, created the hub page plus 14 detail pages under `website-v2/docs/examples/`, updated `llms.txt` and `sitemap.xml` for the new public routes, and extended `cli/test/docs-examples-content.test.js` to guard the examples docs surface.
 
+- [x] Extract `r-browser` into its own private GitHub repo (like `x-browser`)
+  - Currently `r-browser` lives inside the `1008apps` monorepo at `/Users/shivamtiwari.highlevel/VS Code/1008apps/r-browser/`.
+  - `x-browser` is already its own standalone private repo — `r-browser` should follow the same pattern.
+  - Create a new **private** GitHub repo (e.g., `shivamtiwari93/r-browser` or similar).
+  - Move the `r-browser/` directory contents into the new repo with full history if possible (or a clean initial commit if not).
+  - Ensure `.venv/` is in `.gitignore`, `pyproject.toml` / `setup.py` is correct, and the CLI entry point (`r-browser` command) works after install.
+  - Update any references in `agentXchain.dev` (e.g., `marketing/post-reddit.sh`) to point to the correct path if it changes.
+  - **2026-04-10 completed:** Rewrote `shivamtiwari93/r-browser` from a one-shot initial snapshot to real split history from `1008apps`, added repo-local `.gitignore` (including `.venv/`), removed tracked `src/r_browser/__pycache__/*.pyc`, preserved the latest source/docs changes, verified `pip install -e .` plus `r-browser --help`, and converted `1008apps/r-browser` into a proper git submodule at the same path so `marketing/post-reddit.sh` did not need a path change.
+
 - [x] Redesign the "Architecture — Five layers. One governed delivery system." section on the agentxchain.dev homepage to use a **2-column layout** instead of the current single-column stacked layout. The five layers (Protocol, Runners, Connectors, Workflow Kit, Integrations) should be presented in a visually appealing 2-column grid (with the 5th item spanning full width or placed thoughtfully). Make it look clean and professional on both desktop and mobile.
   - **2026-04-09 completed:** Changed `.layers-grid` from `flex-direction: column` to `display: grid; grid-template-columns: 1fr 1fr`. 5th item (Integrations) spans full width via `.layer-card:nth-child(5) { grid-column: 1 / -1 }`. Mobile breakpoint (≤768px) collapses to single column and resets 5th-item span. Docusaurus build clean.
 
