@@ -3,16 +3,18 @@
 /**
  * Live multi-provider governed proof.
  *
- * This executes a two-phase governed workflow:
+ * This executes a three-phase governed workflow:
  *   1. PM review via OpenAI api_proxy
  *   2. Human approval of planning_signoff
- *   3. QA review via Anthropic api_proxy
- *   4. Human approval of qa_ship_verdict
+ *   3. Architect review via Google Gemini api_proxy
+ *   4. Human approval of implementation_signoff
+ *   5. QA review via Anthropic api_proxy
+ *   6. Human approval of qa_ship_verdict
  *
  * Scope truth:
- *   - proves governed orchestration across two providers
+ *   - proves governed orchestration across three providers
  *   - does not prove provider-authored repo writes
- *   - both api_proxy roles remain review_only by contract
+ *   - all three api_proxy roles remain review_only by contract
  */
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
@@ -46,14 +48,15 @@ const { dispatchApiProxy } = await import(
 const jsonMode = process.argv.includes('--json');
 const openaiBaseUrl = getArgValue('--openai-base-url');
 const anthropicBaseUrl = getArgValue('--anthropic-base-url');
+const googleBaseUrl = getArgValue('--google-base-url');
 
-const REQUIRED_ENVS = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY'];
+const REQUIRED_ENVS = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GOOGLE_API_KEY'];
 const missingEnvs = REQUIRED_ENVS.filter((name) => !process.env[name]);
 
 if (missingEnvs.length > 0) {
   outputResult({
     result: 'skip',
-    reason: `Live multi-provider proof requires ${missingEnvs.join(', ')}`,
+    reason: `Live three-provider proof requires ${missingEnvs.join(', ')}`,
     missing_env: missingEnvs,
   });
   process.exit(0);
@@ -61,11 +64,13 @@ if (missingEnvs.length > 0) {
 
 const MODELS = {
   openai: 'gpt-4o-mini',
+  google: 'gemini-2.0-flash',
   anthropic: 'claude-haiku-4-5-20251001',
 };
 
 const PROVIDER_BY_ROLE = {
   pm: 'openai',
+  architect: 'google',
   qa: 'anthropic',
 };
 
@@ -87,6 +92,14 @@ function makeConfig() {
       max_output_tokens: 2048,
       timeout_seconds: 60,
     },
+    'google-architect': {
+      type: 'api_proxy',
+      provider: 'google',
+      model: MODELS.google,
+      auth_env: 'GOOGLE_API_KEY',
+      max_output_tokens: 2048,
+      timeout_seconds: 60,
+    },
     'anthropic-qa': {
       type: 'api_proxy',
       provider: 'anthropic',
@@ -99,6 +112,10 @@ function makeConfig() {
 
   if (openaiBaseUrl) {
     runtimes['openai-pm'].base_url = openaiBaseUrl;
+  }
+
+  if (googleBaseUrl) {
+    runtimes['google-architect'].base_url = googleBaseUrl;
   }
 
   if (anthropicBaseUrl) {
@@ -121,6 +138,13 @@ function makeConfig() {
         runtime_class: 'api_proxy',
         runtime_id: 'openai-pm',
       },
+      architect: {
+        title: 'Architect',
+        mandate: 'Review seeded implementation artifacts and challenge design quality.',
+        write_authority: 'review_only',
+        runtime_class: 'api_proxy',
+        runtime_id: 'google-architect',
+      },
       qa: {
         title: 'QA',
         mandate: 'Review seeded QA artifacts and challenge ship readiness.',
@@ -133,8 +157,13 @@ function makeConfig() {
     routing: {
       planning: {
         entry_role: 'pm',
-        allowed_next_roles: ['qa', 'human'],
+        allowed_next_roles: ['architect', 'human'],
         exit_gate: 'planning_signoff',
+      },
+      implementation: {
+        entry_role: 'architect',
+        allowed_next_roles: ['qa', 'human'],
+        exit_gate: 'implementation_signoff',
       },
       qa: {
         entry_role: 'qa',
@@ -148,6 +177,13 @@ function makeConfig() {
           '.planning/PM_SIGNOFF.md',
           '.planning/ROADMAP.md',
           '.planning/SYSTEM_SPEC.md',
+        ],
+        requires_human_approval: true,
+      },
+      implementation_signoff: {
+        requires_files: [
+          '.planning/IMPLEMENTATION_NOTES.md',
+          '.planning/ARCHITECTURE_REVIEW.md',
         ],
         requires_human_approval: true,
       },
@@ -192,12 +228,30 @@ Requirements:
 1. Raise at least one objection.
 2. Include at least one decision.
 3. You are review_only, so files_changed and artifacts_created must both be [].
+4. phase_transition_request must be "implementation".
+5. proposed_next_role must be "human".
+6. run_completion_request must be null.
+
+Return exactly one JSON object with this shape:
+{"schema_version":"1.0","run_id":"FILL_FROM_ASSIGNMENT","turn_id":"FILL_FROM_ASSIGNMENT","role":"pm","runtime_id":"openai-pm","status":"completed","summary":"FILL","decisions":[{"id":"DEC-001","category":"scope","statement":"FILL","rationale":"FILL"}],"objections":[{"id":"OBJ-001","severity":"low","statement":"FILL","status":"raised"}],"files_changed":[],"artifacts_created":[],"verification":{"status":"pass","commands":[],"evidence_summary":"Reviewed seeded planning artifacts.","machine_evidence":[]},"artifact":{"type":"review","ref":null},"proposed_next_role":"human","phase_transition_request":"implementation","run_completion_request":null,"needs_human_reason":null,"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
+`;
+
+const ARCHITECT_PROMPT = `# Architect Review Prompt
+
+You are the Architect review role in a governed AgentXchain run.
+
+Review the seeded implementation artifacts and return ONLY valid JSON.
+
+Requirements:
+1. Raise at least one objection.
+2. Include at least one decision.
+3. You are review_only, so files_changed and artifacts_created must both be [].
 4. phase_transition_request must be "qa".
 5. proposed_next_role must be "human".
 6. run_completion_request must be null.
 
 Return exactly one JSON object with this shape:
-{"schema_version":"1.0","run_id":"FILL_FROM_ASSIGNMENT","turn_id":"FILL_FROM_ASSIGNMENT","role":"pm","runtime_id":"openai-pm","status":"completed","summary":"FILL","decisions":[{"id":"DEC-001","category":"scope","statement":"FILL","rationale":"FILL"}],"objections":[{"id":"OBJ-001","severity":"low","statement":"FILL","status":"raised"}],"files_changed":[],"artifacts_created":[],"verification":{"status":"pass","commands":[],"evidence_summary":"Reviewed seeded planning artifacts.","machine_evidence":[]},"artifact":{"type":"review","ref":null},"proposed_next_role":"human","phase_transition_request":"qa","run_completion_request":null,"needs_human_reason":null,"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
+{"schema_version":"1.0","run_id":"FILL_FROM_ASSIGNMENT","turn_id":"FILL_FROM_ASSIGNMENT","role":"architect","runtime_id":"google-architect","status":"completed","summary":"FILL","decisions":[{"id":"DEC-001","category":"architecture","statement":"FILL","rationale":"FILL"}],"objections":[{"id":"OBJ-001","severity":"low","statement":"FILL","status":"raised"}],"files_changed":[],"artifacts_created":[],"verification":{"status":"pass","commands":[],"evidence_summary":"Reviewed seeded implementation artifacts.","machine_evidence":[]},"artifact":{"type":"review","ref":null},"proposed_next_role":"human","phase_transition_request":"qa","run_completion_request":null,"needs_human_reason":null,"cost":{"input_tokens":0,"output_tokens":0,"usd":0}}
 `;
 
 const QA_PROMPT = `# QA Review Prompt
@@ -248,9 +302,11 @@ function scaffoldProject(root) {
   writeFileSync(join(root, '.agentxchain', 'history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain', 'decision-ledger.jsonl'), '');
   writeFileSync(join(root, '.agentxchain', 'prompts', 'pm.md'), PM_PROMPT);
+  writeFileSync(join(root, '.agentxchain', 'prompts', 'architect.md'), ARCHITECT_PROMPT);
   writeFileSync(join(root, '.agentxchain', 'prompts', 'qa.md'), QA_PROMPT);
 
   seedPlanningArtifacts(root);
+  seedImplementationArtifacts(root);
   seedQaArtifacts(root);
 
   return config;
@@ -268,6 +324,17 @@ function seedPlanningArtifacts(root) {
   writeFileSync(
     join(root, '.planning', 'SYSTEM_SPEC.md'),
     '# System Spec\n\n## Purpose\n\nValidate governed multi-provider review orchestration.\n\n## Interface\n\n- PM review on OpenAI\n- QA review on Anthropic\n- Human approval at both gates\n\n## Acceptance Tests\n\n- [ ] PM review pauses for planning_signoff\n- [ ] QA review pauses for qa_ship_verdict\n- [ ] Final state is completed\n'
+  );
+}
+
+function seedImplementationArtifacts(root) {
+  writeFileSync(
+    join(root, '.planning', 'IMPLEMENTATION_NOTES.md'),
+    '# Implementation Notes\n\nArchitecture reviewed and approved for multi-provider governed proof.\n\n## Changes\n\n- Added Google Gemini as third provider in the governed proof workflow\n- Architect role reviews implementation artifacts via Google api_proxy\n- Three-phase routing: planning → implementation → qa\n\n## Verification\n\n- All three providers accept governed turns in sequence\n- Gate files exist and pass semantic validation\n- History records pm, architect, qa in correct order\n'
+  );
+  writeFileSync(
+    join(root, '.planning', 'ARCHITECTURE_REVIEW.md'),
+    '# Architecture Review\n\n## Verdict: APPROVED\n\nThe three-provider governed workflow is structurally sound.\n\n## Providers\n\n- OpenAI (PM): planning review\n- Google Gemini (Architect): implementation review\n- Anthropic (QA): ship readiness review\n'
   );
 }
 
@@ -468,6 +535,7 @@ async function main() {
   const errors = [];
   let runId = null;
   let pmProof = null;
+  let architectProof = null;
   let qaProof = null;
   let finalState = null;
   let history = [];
@@ -476,122 +544,67 @@ async function main() {
   try {
     const config = scaffoldProject(root);
 
-    const runResult = initRun(root, config);
-    if (!runResult.ok) {
-      errors.push(`initRun failed: ${runResult.error}`);
+    const bail = (msg) => {
+      errors.push(msg);
       return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
+        run_id: runId, pm: pmProof, architect: architectProof, qa: qaProof,
+        final_state: finalState, history, ledger,
       });
-    }
+    };
+
+    const runResult = initRun(root, config);
+    if (!runResult.ok) return bail(`initRun failed: ${runResult.error}`);
     runId = runResult.state.run_id;
 
+    // Phase 1: PM review on OpenAI
     pmProof = await executeRole(root, config, 'pm');
-    if (!pmProof.ok) {
-      errors.push(pmProof.error);
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
-    }
+    if (!pmProof.ok) return bail(pmProof.error);
 
-    if (pmProof.artifacts.turn_result?.phase_transition_request !== 'qa') {
-      errors.push('PM turn did not request phase_transition_request: "qa"');
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+    if (pmProof.artifacts.turn_result?.phase_transition_request !== 'implementation') {
+      return bail('PM turn did not request phase_transition_request: "implementation"');
     }
 
     let state = loadState(root, config);
-    if (!state.pending_phase_transition || state.pending_phase_transition.to !== 'qa') {
-      errors.push('Expected pending phase transition to qa after PM acceptance');
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+    if (!state.pending_phase_transition || state.pending_phase_transition.to !== 'implementation') {
+      return bail('Expected pending phase transition to implementation after PM acceptance');
     }
 
     const approvePlanning = approvePhaseGate(root, config);
-    if (!approvePlanning.ok) {
-      errors.push(`approvePhaseGate failed: ${approvePlanning.error}`);
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+    if (!approvePlanning.ok) return bail(`approvePhaseGate (planning) failed: ${approvePlanning.error}`);
+
+    // Phase 2: Architect review on Google Gemini
+    architectProof = await executeRole(root, config, 'architect');
+    if (!architectProof.ok) return bail(architectProof.error);
+
+    if (architectProof.artifacts.turn_result?.phase_transition_request !== 'qa') {
+      return bail('Architect turn did not request phase_transition_request: "qa"');
     }
 
-    qaProof = await executeRole(root, config, 'qa');
-    if (!qaProof.ok) {
-      errors.push(qaProof.error);
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+    state = loadState(root, config);
+    if (!state.pending_phase_transition || state.pending_phase_transition.to !== 'qa') {
+      return bail('Expected pending phase transition to qa after Architect acceptance');
     }
+
+    const approveImplementation = approvePhaseGate(root, config);
+    if (!approveImplementation.ok) return bail(`approvePhaseGate (implementation) failed: ${approveImplementation.error}`);
+
+    // Phase 3: QA review on Anthropic
+    qaProof = await executeRole(root, config, 'qa');
+    if (!qaProof.ok) return bail(qaProof.error);
 
     if (qaProof.artifacts.turn_result?.run_completion_request !== true) {
-      errors.push('QA turn did not request run_completion_request: true');
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+      return bail('QA turn did not request run_completion_request: true');
     }
 
     state = loadState(root, config);
     if (!state.pending_run_completion || state.pending_run_completion.gate !== 'qa_ship_verdict') {
-      errors.push('Expected pending run completion for qa_ship_verdict after QA acceptance');
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
+      return bail('Expected pending run completion for qa_ship_verdict after QA acceptance');
     }
 
     const approveCompletion = approveCompletionGate(root, config);
-    if (!approveCompletion.ok) {
-      errors.push(`approveCompletionGate failed: ${approveCompletion.error}`);
-      return finish(root, errors, {
-        run_id: runId,
-        pm: pmProof,
-        qa: qaProof,
-        final_state: finalState,
-        history,
-        ledger,
-      });
-    }
+    if (!approveCompletion.ok) return bail(`approveCompletionGate failed: ${approveCompletion.error}`);
 
+    // Final validation
     finalState = loadState(root, config);
     history = readJsonl(join(root, '.agentxchain', 'history.jsonl'));
     ledger = readJsonl(join(root, '.agentxchain', 'decision-ledger.jsonl'));
@@ -602,25 +615,29 @@ async function main() {
     if (finalState.phase_gate_status?.planning_signoff !== 'passed') {
       errors.push('planning_signoff gate did not end as passed');
     }
+    if (finalState.phase_gate_status?.implementation_signoff !== 'passed') {
+      errors.push('implementation_signoff gate did not end as passed');
+    }
     if (finalState.phase_gate_status?.qa_ship_verdict !== 'passed') {
       errors.push('qa_ship_verdict gate did not end as passed');
     }
-    if (history.length !== 2) {
-      errors.push(`Expected exactly 2 history entries, got ${history.length}`);
+    if (history.length !== 3) {
+      errors.push(`Expected exactly 3 history entries, got ${history.length}`);
     }
-    if (history.length >= 2) {
+    if (history.length >= 3) {
       const roles = history.map((entry) => entry.role);
-      if (roles[0] !== 'pm' || roles[1] !== 'qa') {
-        errors.push(`Expected history roles [pm, qa], got [${roles.join(', ')}]`);
+      if (roles[0] !== 'pm' || roles[1] !== 'architect' || roles[2] !== 'qa') {
+        errors.push(`Expected history roles [pm, architect, qa], got [${roles.join(', ')}]`);
       }
     }
-    if (ledger.length < 2) {
-      errors.push(`Expected non-empty decision ledger, got ${ledger.length} entries`);
+    if (ledger.length < 3) {
+      errors.push(`Expected at least 3 decision ledger entries, got ${ledger.length}`);
     }
 
     return finish(root, errors, {
       run_id: runId,
       pm: pmProof,
+      architect: architectProof,
       qa: qaProof,
       final_state: {
         status: finalState.status,
@@ -640,6 +657,7 @@ async function main() {
     return finish(root, errors, {
       run_id: runId,
       pm: pmProof,
+      architect: architectProof,
       qa: qaProof,
       final_state: finalState,
       history,
@@ -662,6 +680,7 @@ function finish(root, errors, payload) {
     run_id: payload.run_id || null,
     providers: {
       openai: payload.pm || null,
+      google: payload.architect || null,
       anthropic: payload.qa || null,
     },
     final_state: payload.final_state || null,
@@ -687,8 +706,9 @@ function outputResult(data) {
   const lines = [
     `Live Multi-Provider Governed Proof — AgentXchain runner-interface v${RUNNER_INTERFACE_VERSION}`,
     `  Run:      ${data.run_id || 'none'}`,
-    `  OpenAI:   ${data.providers?.openai?.turn_id || 'FAIL'} (${data.providers?.openai?.usage?.input_tokens || 0} in / ${data.providers?.openai?.usage?.output_tokens || 0} out)`,
-    `  Anthropic:${data.providers?.anthropic?.turn_id || 'FAIL'} (${data.providers?.anthropic?.usage?.input_tokens || 0} in / ${data.providers?.anthropic?.usage?.output_tokens || 0} out)`,
+    `  OpenAI:    ${data.providers?.openai?.turn_id || 'FAIL'} (${data.providers?.openai?.usage?.input_tokens || 0} in / ${data.providers?.openai?.usage?.output_tokens || 0} out)`,
+    `  Google:    ${data.providers?.google?.turn_id || 'FAIL'} (${data.providers?.google?.usage?.input_tokens || 0} in / ${data.providers?.google?.usage?.output_tokens || 0} out)`,
+    `  Anthropic: ${data.providers?.anthropic?.turn_id || 'FAIL'} (${data.providers?.anthropic?.usage?.input_tokens || 0} in / ${data.providers?.anthropic?.usage?.output_tokens || 0} out)`,
     `  Final:    ${data.final_state?.status || 'unknown'} / phase ${data.final_state?.phase || 'unknown'}`,
     `  History:  ${data.history?.entry_count || 0} entries (${(data.history?.roles || []).join(', ')})`,
     `  Ledger:   ${data.ledger?.entry_count || 0} entries`,

@@ -63,7 +63,7 @@ function startOpenAiServer() {
               {
                 id: 'DEC-001',
                 category: 'scope',
-                statement: 'Seeded planning artifacts are sufficient for the QA handoff.',
+                statement: 'Seeded planning artifacts are sufficient for the implementation handoff.',
                 rationale: 'The governed proof only needs honest seeded planning files.',
               },
             ],
@@ -85,7 +85,7 @@ function startOpenAiServer() {
             },
             artifact: { type: 'review', ref: null },
             proposed_next_role: 'human',
-            phase_transition_request: 'qa',
+            phase_transition_request: 'implementation',
             run_completion_request: null,
             needs_human_reason: null,
             cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
@@ -220,6 +220,98 @@ function startAnthropicServer() {
   });
 }
 
+function startGoogleServer() {
+  return new Promise((resolve, reject) => {
+    const requestLog = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          requestLog.push({ headers: { ...req.headers }, body: parsed, url: req.url });
+          const userContent = parsed.contents?.[0]?.parts?.[0]?.text || '';
+          const assignment = parseAssignmentFromContent(userContent);
+          const turnResult = {
+            schema_version: '1.0',
+            run_id: assignment.runId,
+            turn_id: assignment.turnId,
+            role: assignment.roleId,
+            runtime_id: assignment.runtimeId,
+            status: 'completed',
+            summary: 'Google Architect review completed.',
+            decisions: [
+              {
+                id: 'DEC-001',
+                category: 'architecture',
+                statement: 'The three-provider governed proof architecture is sound.',
+                rationale: 'Review-only roles across three providers proves orchestration.',
+              },
+            ],
+            objections: [
+              {
+                id: 'OBJ-001',
+                severity: 'low',
+                statement: 'This still does not prove provider-authored code writes.',
+                status: 'raised',
+              },
+            ],
+            files_changed: [],
+            artifacts_created: [],
+            verification: {
+              status: 'pass',
+              commands: [],
+              evidence_summary: 'Reviewed seeded implementation artifacts.',
+              machine_evidence: [],
+            },
+            artifact: { type: 'review', ref: null },
+            proposed_next_role: 'human',
+            phase_transition_request: 'qa',
+            run_completion_request: null,
+            needs_human_reason: null,
+            cost: { input_tokens: 0, output_tokens: 0, usd: 0 },
+          };
+
+          const response = {
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: JSON.stringify(turnResult, null, 2) }],
+                  role: 'model',
+                },
+                finishReason: 'STOP',
+              },
+            ],
+            usageMetadata: {
+              promptTokenCount: 100,
+              candidatesTokenCount: 200,
+              totalTokenCount: 300,
+            },
+            modelVersion: 'gemini-2.0-flash',
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(response));
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: error.message } }));
+        }
+      });
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      servers.push(server);
+      const address = server.address();
+      // Google endpoint uses model interpolation; the proof script replaces {model} in the URL
+      // We serve all paths on this port so the interpolated URL still hits our server
+      resolve({ url: `http://127.0.0.1:${address.port}/v1beta/models/{model}:generateContent`, requestLog });
+    });
+    server.on('error', reject);
+  });
+}
+
 function runScriptAsync(args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, {
@@ -275,8 +367,9 @@ describe('multi-provider governed proof contract', () => {
     assert.doesNotMatch(source, /execSync/);
   });
 
-  it('uses cheap models for both providers', () => {
+  it('uses cheap models for all three providers', () => {
     assert.match(source, /gpt-4o-mini/);
+    assert.match(source, /gemini-2\.0-flash/);
     assert.match(source, /claude-haiku-4-5-20251001/);
   });
 
@@ -289,6 +382,7 @@ describe('multi-provider governed proof contract', () => {
     const env = { ...process.env };
     delete env.OPENAI_API_KEY;
     delete env.ANTHROPIC_API_KEY;
+    delete env.GOOGLE_API_KEY;
 
     const result = spawnSync(process.execPath, [SCRIPT_PATH, '--json'], {
       cwd: REPO_ROOT,
@@ -299,11 +393,12 @@ describe('multi-provider governed proof contract', () => {
     assert.equal(result.status, 0);
     const parsed = JSON.parse(result.stdout.toString());
     assert.equal(parsed.result, 'skip');
-    assert.deepEqual(parsed.missing_env, ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY']);
+    assert.deepEqual(parsed.missing_env, ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GOOGLE_API_KEY']);
   });
 
-  it('completes a mock-backed two-provider governed run', async () => {
+  it('completes a mock-backed three-provider governed run', async () => {
     const openai = await startOpenAiServer();
+    const google = await startGoogleServer();
     const anthropic = await startAnthropicServer();
 
     const result = await runScriptAsync(
@@ -312,12 +407,15 @@ describe('multi-provider governed proof contract', () => {
         '--json',
         '--openai-base-url',
         openai.url,
+        '--google-base-url',
+        google.url,
         '--anthropic-base-url',
         anthropic.url,
       ],
       {
         ...process.env,
         OPENAI_API_KEY: 'test-openai-key',
+        GOOGLE_API_KEY: 'test-google-key',
         ANTHROPIC_API_KEY: 'test-anthropic-key',
       }
     );
@@ -327,13 +425,17 @@ describe('multi-provider governed proof contract', () => {
     assert.equal(parsed.result, 'pass');
     assert.equal(parsed.final_state.status, 'completed');
     assert.equal(parsed.final_state.phase_gate_status.planning_signoff, 'passed');
+    assert.equal(parsed.final_state.phase_gate_status.implementation_signoff, 'passed');
     assert.equal(parsed.final_state.phase_gate_status.qa_ship_verdict, 'passed');
-    assert.deepEqual(parsed.history.roles, ['pm', 'qa']);
+    assert.deepEqual(parsed.history.roles, ['pm', 'architect', 'qa']);
     assert.equal(parsed.providers.openai.provider, 'openai');
+    assert.equal(parsed.providers.google.provider, 'google');
     assert.equal(parsed.providers.anthropic.provider, 'anthropic');
-    assert.equal(parsed.providers.openai.artifacts.turn_result.phase_transition_request, 'qa');
+    assert.equal(parsed.providers.openai.artifacts.turn_result.phase_transition_request, 'implementation');
+    assert.equal(parsed.providers.google.artifacts.turn_result.phase_transition_request, 'qa');
     assert.equal(parsed.providers.anthropic.artifacts.turn_result.run_completion_request, true);
     assert.equal(openai.requestLog.length, 1);
+    assert.equal(google.requestLog.length, 1);
     assert.equal(anthropic.requestLog.length, 1);
   });
 });
