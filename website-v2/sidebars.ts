@@ -101,6 +101,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'integration-guide',
         'adapters',
+        'build-your-own-connector',
       ],
     },
     'plugins',

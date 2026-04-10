@@ -1,0 +1,462 @@
+---
+sidebar_position: 6
+title: Build Your Own Agent Connector
+description: "Step-by-step: build a minimal HTTP agent connector, wire it into AgentXchain governance, and prove it works."
+---
+
+# Build Your Own Agent Connector
+
+This tutorial walks you through building a minimal HTTP agent connector from scratch. By the end, you will have a running service that accepts governed turn envelopes, returns valid turn results, and passes the full AgentXchain acceptance pipeline.
+
+**Prerequisites:** Node.js 18+, `agentxchain` CLI installed (`npm install -g agentxchain`).
+
+---
+
+## Step 1: Understand the contract
+
+AgentXchain sends your connector a JSON envelope. Your connector does its work and returns a turn-result JSON object. AgentXchain validates the result through the full governance pipeline — schema, challenge requirements, phase gates, decision ledger, and authority boundaries.
+
+```
+┌──────────────┐     POST /turn      ┌──────────────────┐
+│  AgentXchain │ ──────────────────► │  Your Connector   │
+│  Orchestrator│                      │  (any language)   │
+│              │ ◄────────────────── │                    │
+│              │     turn-result JSON │                    │
+└──────────────┘                      └──────────────────┘
+```
+
+### Request envelope
+
+AgentXchain POSTs a JSON body with these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `run_id` | string | The governed run identifier |
+| `turn_id` | string | The current turn identifier |
+| `role` | string | The assigned role (e.g., `dev`, `qa`, `architect`) |
+| `phase` | string | The current workflow phase (e.g., `planning`, `implementation`, `qa`) |
+| `runtime_id` | string | The runtime name from your config |
+| `dispatch_dir` | string | Absolute path to the dispatch bundle directory |
+| `prompt` | string | The rendered PROMPT.md with role-specific instructions |
+| `context` | string | The assembled CONTEXT.md with prior turn history |
+
+### Response contract
+
+Your connector must return a complete turn-result JSON object. Here is the minimal valid shape for a `proposed` (dev) turn:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "run_abc123",
+  "turn_id": "turn_def456",
+  "role": "dev",
+  "runtime_id": "my-connector",
+  "status": "completed",
+  "summary": "Implemented the requested feature.",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "category": "implementation",
+      "statement": "Created the feature module.",
+      "rationale": "Simplest path to meet the requirement."
+    }
+  ],
+  "objections": [],
+  "files_changed": ["src/feature.js"],
+  "artifacts_created": [],
+  "verification": {
+    "status": "pass",
+    "commands": ["npm test"],
+    "evidence_summary": "All tests pass.",
+    "machine_evidence": [
+      { "command": "npm test", "exit_code": 0 }
+    ]
+  },
+  "artifact": { "type": "code", "ref": null },
+  "proposed_next_role": "qa",
+  "phase_transition_request": null,
+  "run_completion_request": null,
+  "needs_human_reason": null,
+  "proposed_changes": [
+    {
+      "path": "src/feature.js",
+      "action": "create",
+      "content": "export const feature = 'delivered';\n"
+    }
+  ],
+  "cost": { "input_tokens": 100, "output_tokens": 150, "usd": 0.005 }
+}
+```
+
+And here is the minimal valid shape for a `review_only` (QA) turn:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "run_abc123",
+  "turn_id": "turn_ghi789",
+  "role": "qa",
+  "runtime_id": "my-connector",
+  "status": "completed",
+  "summary": "Reviewed the proposed changes.",
+  "decisions": [
+    {
+      "id": "DEC-002",
+      "category": "quality",
+      "statement": "Code review passed with minor suggestion.",
+      "rationale": "Implementation is correct; edge case noted."
+    }
+  ],
+  "objections": [
+    {
+      "id": "OBJ-001",
+      "severity": "low",
+      "against_turn_id": "turn_def456",
+      "statement": "Consider adding error handling for null input.",
+      "status": "raised"
+    }
+  ],
+  "files_changed": [],
+  "artifacts_created": [],
+  "verification": {
+    "status": "pass",
+    "commands": ["echo review-ok"],
+    "evidence_summary": "Review completed.",
+    "machine_evidence": [
+      { "command": "echo review-ok", "exit_code": 0 }
+    ]
+  },
+  "artifact": { "type": "review", "ref": null },
+  "proposed_next_role": "dev",
+  "phase_transition_request": null,
+  "run_completion_request": null,
+  "needs_human_reason": null,
+  "cost": { "input_tokens": 80, "output_tokens": 120, "usd": 0.003 }
+}
+```
+
+**Critical:** Echo back the exact `run_id` and `turn_id` from the request. The acceptance pipeline rejects mismatches.
+
+---
+
+## Step 2: Build the server
+
+Create a new directory and write a minimal connector server:
+
+```bash
+mkdir my-connector && cd my-connector
+npm init -y
+```
+
+Add `"type": "module"` to your `package.json`, then create `server.js`:
+
+```javascript title="server.js"
+import { createServer } from 'node:http';
+
+const PORT = 8800;
+
+function buildDevResult(envelope) {
+  return {
+    schema_version: '1.0',
+    run_id: envelope.run_id,
+    turn_id: envelope.turn_id,
+    role: envelope.role,
+    runtime_id: envelope.runtime_id || 'my-connector',
+    status: 'completed',
+    summary: `Implemented changes for ${envelope.phase} phase.`,
+    decisions: [{
+      id: 'DEC-001',
+      category: 'implementation',
+      statement: 'Created the requested feature.',
+      rationale: 'Direct implementation of the assignment.',
+    }],
+    objections: [],
+    files_changed: ['src/feature.js'],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['echo ok'],
+      evidence_summary: 'Build passed.',
+      machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+    },
+    artifact: { type: 'code', ref: null },
+    proposed_next_role: 'qa',
+    phase_transition_request: null,
+    run_completion_request: null,
+    needs_human_reason: null,
+    proposed_changes: [{
+      path: 'src/feature.js',
+      action: 'create',
+      content: '// Built by my-connector\nexport const feature = "delivered";\n',
+    }],
+    cost: { input_tokens: 100, output_tokens: 150, usd: 0.005 },
+  };
+}
+
+function buildQaResult(envelope) {
+  return {
+    schema_version: '1.0',
+    run_id: envelope.run_id,
+    turn_id: envelope.turn_id,
+    role: envelope.role,
+    runtime_id: envelope.runtime_id || 'my-connector',
+    status: 'completed',
+    summary: 'QA review completed with one suggestion.',
+    decisions: [{
+      id: 'DEC-002',
+      category: 'quality',
+      statement: 'Code meets acceptance criteria.',
+      rationale: 'Implementation is correct; minor improvement noted.',
+    }],
+    objections: [{
+      id: 'OBJ-001',
+      severity: 'low',
+      statement: 'Add error handling for edge cases.',
+      status: 'raised',
+    }],
+    files_changed: [],
+    artifacts_created: [],
+    verification: {
+      status: 'pass',
+      commands: ['echo review-ok'],
+      evidence_summary: 'Review passed.',
+      machine_evidence: [{ command: 'echo review-ok', exit_code: 0 }],
+    },
+    artifact: { type: 'review', ref: null },
+    proposed_next_role: 'dev',
+    phase_transition_request: null,
+    run_completion_request: null,
+    needs_human_reason: null,
+    cost: { input_tokens: 80, output_tokens: 120, usd: 0.003 },
+  };
+}
+
+const server = createServer(async (req, res) => {
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ message: 'POST only' }));
+    return;
+  }
+
+  let body = '';
+  req.setEncoding('utf8');
+  for await (const chunk of req) body += chunk;
+
+  let envelope;
+  try {
+    envelope = JSON.parse(body);
+  } catch {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ message: 'Invalid JSON' }));
+    return;
+  }
+
+  console.log(`[connector] ${envelope.role}/${envelope.turn_id}`);
+
+  const result = envelope.role === 'qa'
+    ? buildQaResult(envelope)
+    : buildDevResult(envelope);
+
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(result));
+});
+
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`my-connector listening on http://127.0.0.1:${PORT}`);
+});
+```
+
+Start the server:
+
+```bash
+node server.js
+```
+
+---
+
+## Step 3: Configure AgentXchain
+
+If you do not already have a governed project, scaffold one first:
+
+```bash
+agentxchain init --governed --dir . -y
+```
+
+Then update `agentxchain.json` to point at your connector. If you already have a governed repo, merge these fields into the existing file instead of blindly overwriting it.
+
+```json title="agentxchain.json"
+{
+  "schema_version": 4,
+  "project": {
+    "id": "my-project",
+    "name": "My Project",
+    "default_branch": "main"
+  },
+  "roles": {
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement features",
+      "write_authority": "proposed",
+      "runtime": "my-connector"
+    },
+    "qa": {
+      "title": "QA Reviewer",
+      "mandate": "Review code quality",
+      "write_authority": "review_only",
+      "runtime": "my-connector"
+    }
+  },
+  "runtimes": {
+    "my-connector": {
+      "type": "remote_agent",
+      "url": "http://127.0.0.1:8800",
+      "timeout_ms": 30000
+    }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "dev",
+      "allowed_next_roles": ["qa", "human"]
+    },
+    "implementation": {
+      "entry_role": "dev",
+      "allowed_next_roles": ["qa", "human"]
+    },
+    "qa": {
+      "entry_role": "qa",
+      "allowed_next_roles": ["dev", "human"]
+    }
+  }
+}
+```
+
+**Key points:**
+- `schema_version: 4` plus `project.id` and `project.name` are required for a valid governed config.
+- `type: "remote_agent"` tells AgentXchain to use the HTTP adapter.
+- `url` is the base URL of your server. AgentXchain POSTs to this URL directly.
+- Each role maps to a runtime via `"runtime": "my-connector"`.
+- `write_authority` must be `"proposed"` or `"review_only"` for remote agents. `"authoritative"` is not supported for the `remote_agent` adapter in v1.
+- If you need `authoritative` write authority, use the MCP pattern instead. The HTTP `remote_agent` adapter does not expose direct workspace mutation.
+
+---
+
+## Step 4: Run a governed turn
+
+With your server running in one terminal, execute a governed step in another:
+
+```bash
+agentxchain step
+```
+
+AgentXchain will:
+1. Assign a turn to the next role in the sequence
+2. Write the dispatch bundle to `.agentxchain/dispatch/turns/<turn_id>/`
+3. POST the envelope to `http://127.0.0.1:8800`
+4. Validate the response through the acceptance pipeline
+5. Record the turn in the decision ledger
+
+Check the result:
+
+```bash
+agentxchain status
+```
+
+You should see the turn recorded in governed state and, for the `dev` example above, a staged proposal under `.agentxchain/proposed/<turn_id>/`.
+
+---
+
+## Step 5: Inspect the governance artifacts
+
+After a successful turn, AgentXchain creates these artifacts:
+
+```
+.agentxchain/
+├── state.json              # Current run state
+├── decision-ledger.jsonl   # Append-only decision log
+├── dispatch/turns/<turn_id>/
+│   ├── ASSIGNMENT.json     # What was assigned
+│   ├── PROMPT.md           # Role-specific prompt
+│   └── CONTEXT.md          # Prior turn context
+├── staging/<turn_id>/
+│   └── turn-result.json    # What your connector returned
+└── proposed/<turn_id>/     # Staged proposed changes (if proposed)
+    └── src/feature.js
+```
+
+The `proposed/` directory contains the files from your connector's `proposed_changes[]` array, staged for operator review before they enter the workspace.
+
+---
+
+## Validation traps
+
+These are the most common reasons a connector's turn result gets rejected:
+
+### Trap 1: Bad decision IDs
+
+Decision IDs must match the pattern `DEC-NNN` (numeric suffix). Custom strings like `DEC-FEATURE-1` or `DEC-2024-01` will be rejected.
+
+```json
+// ❌ Rejected
+{ "id": "DEC-FEATURE-1", "statement": "..." }
+
+// ✅ Accepted
+{ "id": "DEC-001", "statement": "..." }
+```
+
+### Trap 2: Missing objections on review_only
+
+If the role has `write_authority: "review_only"`, the turn result **must** include at least one objection. This is the challenge requirement — review turns exist to challenge, not rubber-stamp.
+
+```json
+// ❌ Rejected — review_only with empty objections
+{ "objections": [] }
+
+// ✅ Accepted — at least one objection raised
+{ "objections": [{ "id": "OBJ-001", "severity": "low", ... }] }
+```
+
+### Trap 3: Missing proposed_changes on proposed
+
+If the role has `write_authority: "proposed"`, the turn result **must** include `proposed_changes[]` with at least one entry. Without it, `proposal apply` has nothing to stage.
+
+```json
+// ❌ Rejected — proposed with no changes
+{ "proposed_changes": [] }
+
+// ✅ Accepted — at least one change
+{ "proposed_changes": [{ "path": "src/file.js", "action": "create", "content": "..." }] }
+```
+
+### Trap 4: Identity mismatch
+
+The `run_id` and `turn_id` in your response must exactly match the values from the request envelope. The acceptance pipeline rejects mismatches.
+
+---
+
+## Adding authentication
+
+To require Bearer token auth, add headers to your runtime config:
+
+```json title="agentxchain.json (runtime section)"
+{
+  "my-connector": {
+    "type": "remote_agent",
+    "url": "http://127.0.0.1:8800",
+    "timeout_ms": 30000,
+    "headers": {
+      "authorization": "Bearer my-secret-token"
+    }
+  }
+}
+```
+
+Then validate the token in your server. AgentXchain sends headers exactly as configured. Secret headers (`authorization`, `x-api-key`, `cookie`) are automatically redacted in logs.
+
+---
+
+## Next steps
+
+- See the full [remote-agent-bridge example](/docs/examples/remote-agent-bridge) for a production-quality implementation with auth, health checks, and proof scripts.
+- Read the [Integration Guide](/docs/integration-guide) for the MCP and API Proxy patterns.
+- Read the [Adapters](/docs/adapters) reference for the complete adapter contract.
+- Read [Build Your Own Runner](/docs/build-your-own-runner) to build a custom orchestrator that calls your connector.
