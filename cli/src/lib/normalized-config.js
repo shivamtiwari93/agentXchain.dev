@@ -24,7 +24,8 @@ import {
 
 const VALID_WRITE_AUTHORITIES = ['authoritative', 'proposed', 'review_only'];
 const VALID_RUNTIME_TYPES = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
-const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai', 'google'];
+const VALID_API_PROXY_PROVIDERS = ['anthropic', 'openai', 'google', 'ollama'];
+const AUTH_OPTIONAL_PROVIDERS = ['ollama'];
 export const VALID_PROMPT_TRANSPORTS = ['argv', 'stdin', 'dispatch_bundle_only'];
 const VALID_MCP_TRANSPORTS = ['stdio', 'streamable_http'];
 const DEFAULT_PHASES = ['planning', 'implementation', 'qa'];
@@ -388,7 +389,9 @@ export function validateV4Config(data, projectRoot) {
           errors.push(`Runtime "${id}": api_proxy requires "model" (e.g. "claude-sonnet-4-6")`);
         }
         if (typeof rt.auth_env !== 'string' || !rt.auth_env.trim()) {
-          errors.push(`Runtime "${id}": api_proxy requires "auth_env" (environment variable name for API key)`);
+          if (!AUTH_OPTIONAL_PROVIDERS.includes(rt.provider)) {
+            errors.push(`Runtime "${id}": api_proxy requires "auth_env" (environment variable name for API key)`);
+          }
         }
         if ('base_url' in rt) {
           if (typeof rt.base_url !== 'string' || !rt.base_url.trim()) {

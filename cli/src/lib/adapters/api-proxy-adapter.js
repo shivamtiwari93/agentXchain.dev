@@ -23,7 +23,7 @@
  *   All error returns include a `classified` ApiProxyError object with
  *   error_class, recovery instructions, and retryable flag.
  *
- * Supported providers: "anthropic", "openai", "google"
+ * Supported providers: "anthropic", "openai", "google", "ollama"
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
@@ -51,6 +51,7 @@ const PROVIDER_ENDPOINTS = {
   anthropic: 'https://api.anthropic.com/v1/messages',
   openai: 'https://api.openai.com/v1/chat/completions',
   google: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+  ollama: 'http://localhost:11434/v1/chat/completions',
 };
 
 // Bundled cost rates per million tokens (USD).
@@ -159,6 +160,22 @@ const PROVIDER_ERROR_MAPS = {
       { provider_error_type: 'INVALID_ARGUMENT', http_status: 400, error_class: 'invalid_request', retryable: false },
       { provider_error_type: 'UNAVAILABLE', http_status: 503, error_class: 'provider_overloaded', retryable: true },
       { provider_error_type: 'INTERNAL', http_status: 500, error_class: 'unknown_api_error', retryable: true },
+    ],
+  },
+  // Ollama uses OpenAI-compatible error structure
+  ollama: {
+    extractErrorType(body) {
+      return typeof body?.error?.type === 'string' ? body.error.type : null;
+    },
+    extractErrorCode(body) {
+      return typeof body?.error?.code === 'string' ? body.error.code : null;
+    },
+    mappings: [
+      { provider_error_code: 'invalid_api_key', http_status: 401, error_class: 'auth_failure', retryable: false },
+      { provider_error_code: 'model_not_found', http_status: 404, error_class: 'model_not_found', retryable: false },
+      { provider_error_type: 'invalid_request_error', http_status: 400, body_pattern: /context|token.*limit|too.many.tokens/i, error_class: 'context_overflow', retryable: false },
+      { provider_error_type: 'invalid_request_error', http_status: 400, error_class: 'invalid_request', retryable: false },
+      { provider_error_type: 'rate_limit_error', http_status: 429, error_class: 'rate_limited', retryable: true },
     ],
   },
 };
@@ -465,7 +482,7 @@ function usageFromTelemetry(provider, model, usage, config) {
   let inputTokens = 0;
   let outputTokens = 0;
 
-  if (provider === 'openai') {
+  if (provider === 'openai' || provider === 'ollama') {
     inputTokens = Number.isFinite(usage.prompt_tokens) ? usage.prompt_tokens : 0;
     outputTokens = Number.isFinite(usage.completion_tokens) ? usage.completion_tokens : 0;
   } else if (provider === 'google') {
@@ -811,9 +828,10 @@ export async function dispatchApiProxy(root, state, config, options = {}) {
   const provider = runtime.provider;
   const model = runtime.model;
   const authEnv = runtime.auth_env;
-  const apiKey = process.env[authEnv];
+  const apiKey = authEnv ? process.env[authEnv] : null;
 
-  if (!apiKey) {
+  // Auth is required for cloud providers, optional for local providers (ollama)
+  if (!apiKey && authEnv) {
     const classified = classifyError(
       'missing_credentials',
       `Environment variable "${authEnv}" is not set — required for api_proxy`,
@@ -1203,6 +1221,14 @@ function extractGoogleTurnResult(responseData) {
   return extraction;
 }
 
+function buildOllamaHeaders(apiKey) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
 function buildProviderHeaders(provider, apiKey) {
   if (provider === 'openai') {
     return buildOpenAiHeaders(apiKey);
@@ -1210,11 +1236,14 @@ function buildProviderHeaders(provider, apiKey) {
   if (provider === 'google') {
     return buildGoogleHeaders(apiKey);
   }
+  if (provider === 'ollama') {
+    return buildOllamaHeaders(apiKey);
+  }
   return buildAnthropicHeaders(apiKey);
 }
 
 function buildProviderRequest(provider, promptMd, contextMd, model, maxOutputTokens) {
-  if (provider === 'openai') {
+  if (provider === 'openai' || provider === 'ollama') {
     return buildOpenAiRequest(promptMd, contextMd, model, maxOutputTokens);
   }
   if (provider === 'google') {
@@ -1304,7 +1333,7 @@ function extractOpenAiTurnResult(responseData) {
 }
 
 function extractTurnResult(responseData, provider = 'anthropic') {
-  if (provider === 'openai') {
+  if (provider === 'openai' || provider === 'ollama') {
     return extractOpenAiTurnResult(responseData);
   }
   if (provider === 'google') {
@@ -1325,9 +1354,13 @@ export {
   buildAnthropicRequest,
   buildOpenAiRequest,
   buildGoogleRequest,
+  buildOllamaHeaders,
+  buildProviderHeaders,
+  buildProviderRequest,
   classifyError,
   classifyHttpError,
   BUNDLED_COST_RATES,
   BUNDLED_COST_RATES as COST_RATES, // backward compat alias
   getCostRates,
+  PROVIDER_ENDPOINTS,
 };

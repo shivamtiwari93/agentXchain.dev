@@ -487,8 +487,9 @@ These restrictions are operational, not academic. An `api_proxy` QA turn can ret
 | Anthropic | Supported (Claude Opus, Sonnet, Haiku) |
 | OpenAI | Supported for chat-completions-compatible review models (for example `gpt-4o`, `gpt-4o-mini`) |
 | Google | Supported for Gemini models via the generateContent API (for example `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash`) |
+| Ollama | Supported for local models (Llama, Mistral, Gemma, Phi, etc.) via OpenAI-compatible API — no API key required |
 
-Anthropic, OpenAI, and Google are supported. OpenAI support uses the Chat Completions endpoint with JSON output. Google support uses the Gemini `generateContent` endpoint with `responseMimeType: "application/json"`. The API key is passed as a query parameter per Google's API convention. When Gemini blocks a prompt or halts with a non-`STOP` finish reason, AgentXchain preserves that Google-specific reason in the extraction-failure message instead of collapsing it into a generic parse error. Tool use, background execution, and streaming are out of scope for `api_proxy`.
+Anthropic, OpenAI, Google, and Ollama are supported. OpenAI support uses the Chat Completions endpoint with JSON output. Google support uses the Gemini `generateContent` endpoint with `responseMimeType: "application/json"`. The API key is passed as a query parameter per Google's API convention. When Gemini blocks a prompt or halts with a non-`STOP` finish reason, AgentXchain preserves that Google-specific reason in the extraction-failure message instead of collapsing it into a generic parse error. Ollama support uses the OpenAI-compatible Chat Completions endpoint at `http://localhost:11434/v1/chat/completions` by default, with optional auth. Tool use, background execution, and streaming are out of scope for `api_proxy`.
 
 ### Custom endpoint override
 
@@ -642,12 +643,19 @@ The adapter records token usage from provider telemetry:
       "auth_env": "GOOGLE_API_KEY",
       "max_output_tokens": 4096,
       "timeout_seconds": 120
+    },
+    "local-dev": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "llama3.2",
+      "max_output_tokens": 4096,
+      "timeout_seconds": 180
     }
   }
 }
 ```
 
-Use an Anthropic runtime when you want local preflight tokenization. Use an OpenAI runtime when you want synchronous review-only dispatch to a chat-completions-compatible OpenAI model. Use a Google runtime for Gemini models — the adapter handles the `generateContent` endpoint format, API-key-as-query-parameter auth, and Gemini-specific usage telemetry automatically.
+Use an Anthropic runtime when you want local preflight tokenization. Use an OpenAI runtime when you want synchronous review-only dispatch to a chat-completions-compatible OpenAI model. Use a Google runtime for Gemini models — the adapter handles the `generateContent` endpoint format, API-key-as-query-parameter auth, and Gemini-specific usage telemetry automatically. Use an Ollama runtime for local models — no API key needed, no cloud dependency, and the same governed turn contract as cloud providers.
 
 If you need to hit a mock or proxy endpoint, add `base_url` to the runtime block. Keep the `provider` field aligned with the endpoint contract you expect the adapter to speak.
 
@@ -728,7 +736,7 @@ Header values are sent exactly as configured. The runtime does not interpolate `
 
 `remote_agent` is **not** the same as:
 
-- **`api_proxy`** — speaks Anthropic/OpenAI/Google provider APIs; `remote_agent` speaks the AgentXchain turn-result contract directly
+- **`api_proxy`** — speaks Anthropic/OpenAI/Google/Ollama provider APIs; `remote_agent` speaks the AgentXchain turn-result contract directly
 - **`mcp`** — uses the MCP tool protocol over stdio or streamable_http; `remote_agent` uses plain HTTP POST/response
 - **`local_cli`** — spawns a local subprocess; `remote_agent` calls a remote service
 
@@ -746,4 +754,4 @@ Use `remote_agent` when you have an external agent service that can accept gover
 | **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy | Configurable `timeout_ms` (default 120s) |
 | **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table | N/A — remote service reports cost in turn result |
 | **Write authority** | Any | Any | Any | `review_only` or `proposed` only | `review_only` or `proposed` only |
-| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic, OpenAI, or Google Gemini review calls | External agent services, hosted agent platforms, cross-network governed execution |
+| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic, OpenAI, Google Gemini, or Ollama (local) review calls | External agent services, hosted agent platforms, cross-network governed execution |

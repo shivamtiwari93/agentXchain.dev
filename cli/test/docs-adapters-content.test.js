@@ -208,7 +208,7 @@ describe('Adapter docs contract', () => {
 
   describe('api_proxy supported providers', () => {
     it('normalized-config provider allowlist matches adapter endpoints', () => {
-      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\}/);
+      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\};/);
       assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
       const providers = endpointMatch[1].match(/^\s*(\w+)\s*:/gm).map(s => s.trim().replace(':', '').trim());
 
@@ -221,7 +221,7 @@ describe('Adapter docs contract', () => {
     });
 
     it('PROVIDER_ENDPOINTS keys match docs', () => {
-      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\}/);
+      const endpointMatch = apiProxySource.match(/PROVIDER_ENDPOINTS\s*=\s*\{([\s\S]*?)\};/);
       assert.ok(endpointMatch, 'PROVIDER_ENDPOINTS found in api-proxy-adapter.js');
       // Extract only object keys (word at start of line before colon, not URL colons)
       const providers = endpointMatch[1].match(/^\s*(\w+)\s*:/gm).map(s => s.trim().replace(':', '').trim());
