@@ -1,0 +1,46 @@
+---
+title: Decision Log Linter
+description: "Governed developer-tool example with architecture and release phases."
+---
+
+# Decision Log Linter
+
+`decision-log-linter` is a governed developer-tool example: a CLI that validates markdown decision logs for duplicate IDs, invalid statuses, and missing sections.
+
+## What It Is
+
+- Category: developer tool
+- Product shape: Node.js CLI, parser/linter logic, fixture-backed tests
+- Source: `examples/decision-log-linter`
+
+## Roles And Workflow
+
+- Roles: `pm`, `architect`, `dev`, `qa`, `release_manager`
+- Phases: `planning -> architecture -> implementation -> qa -> release`
+- Distinctive trait: explicit command-surface and release-readiness governance
+
+## How AgentXchain Governed The Build
+
+AgentXchain governs this example with developer-tool-specific artifacts:
+
+- command-surface definition
+- platform-support contract
+- architecture review before implementation
+- QA acceptance artifacts
+- distribution checklist in the release phase
+
+## Run It
+
+```bash
+cd examples/decision-log-linter
+npm install
+npm test
+npm run smoke
+node ./bin/decision-log-linter.js lint ./test/fixtures/good.md
+```
+
+## Key Takeaways
+
+- AgentXchain can govern CLI delivery and release discipline, not only apps.
+- The release phase is explicit instead of being buried as untracked cleanup.
+- This example is a good template for repo-native developer tools.

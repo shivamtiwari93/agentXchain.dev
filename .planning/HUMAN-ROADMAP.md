@@ -33,6 +33,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
     - [x] `examples/schema-guard` — open source validation library: ESM package with declarative schema DSL, nested object validation, custom messages, composition helpers (`refine`/`transform`/`pipe`), `src/index.d.ts` TypeScript-friendly exports, API-review + release-engineering workflow-kit, 19 tests, and pack/template validation proof shipped in Turn 12
   - [x] Parent item complete (2026-04-09): all five governed product examples now ship with runnable code, tests, READMEs, `agentxchain.json`, `TALK.md`, category-specific workflow-kit artifacts, and repo-level governed provenance documented in `.planning/PRODUCT_EXAMPLES_GOVERNED_PROOF.md`
 
+- [x] Add a dedicated docs page for each example on the website under `/docs/examples/`
+  - Create a dropdown/section in the docs sidebar for "Examples" — similar to how the changelog/releases dropdown works.
+  - Each example gets its own page (e.g., `/docs/examples/habit-board`, `/docs/examples/schema-guard`, etc.).
+  - Each page should explain: what the product is, what roles/workflow were used, how AgentXchain governed the build, how to run it, and key takeaways.
+  - Include **all** examples — both new ones (habit-board, trail-meals-mobile, async-standup-bot, decision-log-linter, schema-guard) and existing ones (governed-todo-app, ci-runner-proof, external-runner-starter, live-governed-proof, mcp-echo-agent, mcp-http-echo-agent, mcp-anthropic-agent, remote-agent-bridge, remote-conformance-server).
+  - The Examples dropdown should be a first-class navigation item in the docs sidebar.
+  - **2026-04-10 completed:** Added `.planning/EXAMPLES_DOCS_SURFACE_SPEC.md`, turned `Examples` into a first-class docs sidebar category, created the hub page plus 14 detail pages under `website-v2/docs/examples/`, updated `llms.txt` and `sitemap.xml` for the new public routes, and extended `cli/test/docs-examples-content.test.js` to guard the examples docs surface.
+
 - [x] Redesign the "Architecture — Five layers. One governed delivery system." section on the agentxchain.dev homepage to use a **2-column layout** instead of the current single-column stacked layout. The five layers (Protocol, Runners, Connectors, Workflow Kit, Integrations) should be presented in a visually appealing 2-column grid (with the 5th item spanning full width or placed thoughtfully). Make it look clean and professional on both desktop and mobile.
   - **2026-04-09 completed:** Changed `.layers-grid` from `flex-direction: column` to `display: grid; grid-template-columns: 1fr 1fr`. 5th item (Integrations) spans full width via `.layer-card:nth-child(5) { grid-column: 1 / -1 }`. Mobile breakpoint (≤768px) collapses to single column and resets 5th-item span. Docusaurus build clean.
 

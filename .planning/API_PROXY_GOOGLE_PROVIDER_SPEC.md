@@ -42,6 +42,7 @@ This is a connector-expansion slice inside the existing `api_proxy` contract. It
 - The adapter extracts staged turn result JSON from `candidates[0].content.parts[*].text`
 - `usageMetadata.promptTokenCount` maps to `cost.input_tokens`
 - `usageMetadata.candidatesTokenCount` maps to `cost.output_tokens`
+- `promptFeedback.blockReason` and non-`STOP` `candidates[0].finishReason` must survive into the extraction-failure message so operators can distinguish blocked/truncated Gemini responses from generic JSON drift
 - Bundled cost defaults may be used, but operator-supplied `budget.cost_rates` overrides remain authoritative
 
 ## Behavior
@@ -79,6 +80,8 @@ If a `google` runtime enables `preflight_tokenization`, config validation must f
 - HTTP `503` with `UNAVAILABLE` -> `provider_overloaded`
 - HTTP `500` with `INTERNAL` or unclassified -> `unknown_api_error`
 - Malformed JSON response -> `response_parse_failure`
+- Prompt blocked via `promptFeedback.blockReason` -> `turn_result_extraction_failure` with the Google block reason named in the message
+- Candidate halted with non-`STOP` `finishReason` and no valid turn JSON -> `turn_result_extraction_failure` with the Gemini finish reason named in the message
 - JSON response without extractable turn result -> `turn_result_extraction_failure`
 - `google` + enabled `preflight_tokenization` -> config validation error
 
@@ -95,6 +98,8 @@ If a `google` runtime enables `preflight_tokenization`, config validation must f
 9. Google `INVALID_ARGUMENT` with token-limit text classifies as `context_overflow`.
 10. Adapter docs list Anthropic, OpenAI, and Google as supported providers.
 11. Adapter docs and config validation both preserve the boundary that `provider_local` preflight tokenization is not available for Google.
+12. Gemini prompt blocks surface `promptFeedback.blockReason` in the extraction-failure message.
+13. Gemini non-`STOP` finish reasons surface in the extraction-failure message when no valid turn JSON is extractable.
 
 ## Open Questions
 

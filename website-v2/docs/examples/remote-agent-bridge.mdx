@@ -1,0 +1,51 @@
+---
+title: Remote Agent Bridge
+description: "Runnable HTTP remote_agent example for proposed and review-only governed turns."
+---
+
+# Remote Agent Bridge
+
+`remote-agent-bridge` is the runnable HTTP example for the `remote_agent` adapter. It exercises proposal materialization, proposal apply, and review-only audit behavior through the public CLI.
+
+## What It Is
+
+- Category: remote adapter example
+- Surface: `remote_agent`
+- Source: `examples/remote-agent-bridge`
+
+## Workflow Or Proof Shape
+
+- proposed dev turn returns `proposed_changes`
+- `proposal apply` materializes the proposed files into the workspace
+- review turn returns audit output without claiming repo writes
+- optional model-backed proofs exercise the same bridge with Claude
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by enforcing the same turn-result contract over HTTP:
+
+- the remote service receives a governed turn envelope
+- AgentXchain validates returned proposals and review artifacts
+- proposal apply remains an explicit operator/orchestrator step instead of hidden remote mutation
+
+## Run It
+
+```bash
+cd examples/remote-agent-bridge
+node server.js
+node run-proof.mjs
+```
+
+Optional live-model proofs:
+
+```bash
+source ../../.env
+node run-model-proof.mjs
+node run-repeated-proof.mjs --runs 10
+```
+
+## Key Takeaways
+
+- This is the honest remote-agent example in the repo.
+- It proves remote proposed/review-only execution without pretending remote authoritative writes are solved.
+- Read this before building your own hosted agent bridge.

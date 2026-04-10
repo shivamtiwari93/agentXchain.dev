@@ -1154,21 +1154,53 @@ function buildGoogleRequest(promptMd, contextMd, model, maxOutputTokens) {
 }
 
 function extractGoogleTurnResult(responseData) {
+  const promptBlockReason = responseData?.promptFeedback?.blockReason;
+  if (typeof promptBlockReason === 'string' && promptBlockReason.trim()) {
+    return {
+      ok: false,
+      error: `Google Gemini blocked the prompt before generation (blockReason: ${promptBlockReason})`,
+    };
+  }
+
   if (!Array.isArray(responseData?.candidates) || responseData.candidates.length === 0) {
     return { ok: false, error: 'API response has no candidates' };
   }
 
-  const parts = responseData.candidates[0]?.content?.parts;
+  const candidate = responseData.candidates[0];
+  const finishReason = typeof candidate?.finishReason === 'string'
+    ? candidate.finishReason
+    : null;
+  const parts = candidate?.content?.parts;
   if (!Array.isArray(parts) || parts.length === 0) {
+    if (finishReason && finishReason !== 'STOP') {
+      return {
+        ok: false,
+        error: `Google Gemini candidate has no content parts (finishReason: ${finishReason})`,
+      };
+    }
     return { ok: false, error: 'API response candidate has no content parts' };
   }
 
   const textPart = parts.find(p => typeof p.text === 'string');
   if (!textPart?.text?.trim()) {
+    if (finishReason && finishReason !== 'STOP') {
+      return {
+        ok: false,
+        error: `Google Gemini returned no extractable text (finishReason: ${finishReason})`,
+      };
+    }
     return { ok: false, error: 'API response has no text content part' };
   }
 
-  return extractTurnResultFromText(textPart.text);
+  const extraction = extractTurnResultFromText(textPart.text);
+  if (!extraction.ok && finishReason && finishReason !== 'STOP') {
+    return {
+      ok: false,
+      error: `Google Gemini returned non-extractable turn JSON (finishReason: ${finishReason})`,
+    };
+  }
+
+  return extraction;
 }
 
 function buildProviderHeaders(provider, apiKey) {

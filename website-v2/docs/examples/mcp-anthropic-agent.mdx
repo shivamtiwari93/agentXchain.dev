@@ -1,0 +1,46 @@
+---
+title: MCP Anthropic Agent
+description: "Real-model MCP example backed by Anthropic Messages API."
+---
+
+# MCP Anthropic Agent
+
+`mcp-anthropic-agent` is the real-model MCP example. It exposes the `agentxchain_turn` tool contract over stdio and fulfills it with the Anthropic Messages API instead of echo logic.
+
+## What It Is
+
+- Category: MCP example
+- Transport: stdio
+- Model backing: Anthropic Messages API
+- Source: `examples/mcp-anthropic-agent`
+
+## Workflow Or Proof Shape
+
+- receives governed turn assignments through MCP
+- sends prompt and context to Claude
+- extracts turn-result JSON from the model response
+- injects identity fields back into the result before returning it
+
+## How AgentXchain Governs This Example
+
+AgentXchain still owns the governed lifecycle:
+
+- the MCP server only returns a turn result
+- AgentXchain validates the result, enforces role/phase rules, and stages acceptance artifacts
+- this proves MCP transport works with a real model, not just a canned payload
+
+## Run It
+
+```bash
+cd examples/mcp-anthropic-agent
+npm install
+ANTHROPIC_API_KEY=your-key node server.js
+```
+
+Then bind it as an `mcp` runtime in `agentxchain.json` and dispatch a turn with `agentxchain step`.
+
+## Key Takeaways
+
+- This is the bridge between MCP transport proof and real-model execution.
+- It is useful when you want MCP plus live model output on the same governed turn contract.
+- It does not weaken AgentXchain governance; it only changes the transport/runtime behind the turn.

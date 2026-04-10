@@ -1,0 +1,47 @@
+---
+title: Schema Guard
+description: "Governed npm library example with API review and release engineering."
+---
+
+# Schema Guard
+
+`schema-guard` is a governed open-source library example: a small schema-validation package with nested validation, composable helpers, and TypeScript-friendly exports.
+
+## What It Is
+
+- Category: open-source library
+- Product shape: ESM package, runtime validators, declarations, smoke and pack checks
+- Source: `examples/schema-guard`
+
+## Roles And Workflow
+
+- Roles: `pm`, `api_reviewer`, `library_engineer`, `qa`, `release_engineer`
+- Phases: `planning -> api_review -> implementation -> qa -> release`
+- Distinctive trait: public API review before implementation
+
+## How AgentXchain Governed The Build
+
+AgentXchain governs this example with library-specific artifacts:
+
+- public API review and compatibility policy
+- implementation notes for package internals
+- release-adoption and package-readiness artifacts
+- QA gate proof for runtime and package behavior
+
+This is the example that proves AgentXchain can govern a publishable npm library, not just an application repo.
+
+## Run It
+
+```bash
+cd examples/schema-guard
+npm install
+npm test
+npm run smoke
+npm run pack:check
+```
+
+## Key Takeaways
+
+- AgentXchain can govern API stability and release engineering as explicit work.
+- Library workflows need different gates from apps; this example shows that honestly.
+- The repo ships real package outputs and pack-proof, not library-shaped prose only.

@@ -402,12 +402,47 @@ describe('extractTurnResult', () => {
     assert.ok(result.error.includes('no candidates'));
   });
 
+  it('fails with block reason when Google prompt is blocked before generation', () => {
+    const result = extractTurnResult({
+      promptFeedback: {
+        blockReason: 'SAFETY',
+      },
+    }, 'google');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /blocked the prompt/i);
+    assert.match(result.error, /SAFETY/);
+  });
+
   it('fails when Google candidate has no content parts', () => {
     const result = extractTurnResult({
       candidates: [{ content: { parts: [] } }],
     }, 'google');
     assert.equal(result.ok, false);
     assert.ok(result.error.includes('no content parts') || result.error.includes('no text'));
+  });
+
+  it('fails with finish reason when Google candidate is blocked after generation starts', () => {
+    const result = extractTurnResult({
+      candidates: [{
+        finishReason: 'SAFETY',
+        content: { parts: [] },
+      }],
+    }, 'google');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /finishReason: SAFETY/);
+  });
+
+  it('fails with finish reason when Google truncates JSON output', () => {
+    const result = extractTurnResult({
+      candidates: [{
+        finishReason: 'MAX_TOKENS',
+        content: {
+          parts: [{ text: '{"schema_version":"0.1"' }],
+        },
+      }],
+    }, 'google');
+    assert.equal(result.ok, false);
+    assert.match(result.error, /finishReason: MAX_TOKENS/);
   });
 });
 
@@ -938,6 +973,52 @@ describe('dispatchApiProxy', () => {
 
     const staged = readJson(join(root, stagingResultPath(state)));
     assert.equal(staged.runtime_id, 'api-google');
+  });
+
+  it('surfaces Google prompt blocking as a provider-specific extraction failure', async () => {
+    const root = createAndTrack();
+    const state = makeApiState({
+      current_turn: {
+        turn_id: 'turn_test001',
+        assigned_role: 'qa',
+        status: 'running',
+        attempt: 1,
+        started_at: new Date().toISOString(),
+        deadline_at: new Date(Date.now() + 600000).toISOString(),
+        runtime_id: 'api-google',
+      },
+    });
+    const config = makeApiConfig({
+      provider: 'google',
+      model: 'gemini-2.5-flash',
+      auth_env: 'GOOGLE_API_KEY',
+    });
+    config.roles.qa.runtime_id = 'api-google';
+    config.runtimes = {
+      'api-google': {
+        type: 'api_proxy',
+        provider: 'google',
+        model: 'gemini-2.5-flash',
+        auth_env: 'GOOGLE_API_KEY',
+        max_output_tokens: 2048,
+        timeout_seconds: 5,
+      },
+    };
+
+    setupDispatchBundle(root);
+    process.env.GOOGLE_API_KEY = 'google-test-key';
+
+    global.fetch = async () => makeJsonResponse(200, {
+      promptFeedback: {
+        blockReason: 'SAFETY',
+      },
+    });
+
+    const result = await dispatchApiProxy(root, state, config);
+    assert.equal(result.ok, false);
+    assert.equal(result.classified.error_class, 'turn_result_extraction_failure');
+    assert.match(result.classified.message, /blocked the prompt/i);
+    assert.match(result.classified.message, /SAFETY/);
   });
 
   it('uses runtime.base_url as the fetch target while preserving provider-specific request formatting', async () => {

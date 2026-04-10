@@ -1,0 +1,52 @@
+---
+title: Trail Meals Mobile
+description: "Governed mobile app example: React Native / Expo meal planner with offline-first architecture."
+---
+
+# Trail Meals Mobile
+
+`trail-meals-mobile` is a governed mobile app example: a React Native / Expo meal planner for hikers and campers with offline-first persistence.
+
+## What It Is
+
+- Category: mobile app
+- Product shape: React Native screens, AsyncStorage persistence, business-logic tests
+- Source: `examples/trail-meals-mobile`
+
+## Roles And Workflow
+
+- Roles: `pm`, `mobile_architect`, `rn_engineer`, `nutrition_analyst`, `ux_reviewer`, `qa`
+- Phases: `planning -> architecture -> implementation -> ux_review -> qa`
+- Distinctive trait: domain-specific roles and a dedicated UX review phase
+
+## How AgentXchain Governed The Build
+
+AgentXchain governs this example with artifacts that reflect real mobile delivery instead of generic scaffolding:
+
+- `platform-matrix.md` for iOS / Android / Expo Go constraints
+- `offline-strategy.md` for persistence and no-network operation
+- `nutrition-model.md` for calorie and weight rules
+- `ux-patterns.md` for mobile interaction review
+- QA gate artifacts for pass/fail ship readiness
+
+## Run It
+
+```bash
+cd examples/trail-meals-mobile
+npm install
+node --test test/
+npx expo start
+```
+
+For native builds:
+
+```bash
+npx expo run:ios
+npx expo run:android
+```
+
+## Key Takeaways
+
+- AgentXchain can govern mobile work with domain-specific specialists.
+- Offline-first architecture and platform constraints are first-class governed artifacts.
+- The proof surface is real code plus testable business logic, not screen mockups.

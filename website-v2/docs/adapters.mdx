@@ -488,7 +488,7 @@ These restrictions are operational, not academic. An `api_proxy` QA turn can ret
 | OpenAI | Supported for chat-completions-compatible review models (for example `gpt-4o`, `gpt-4o-mini`) |
 | Google | Supported for Gemini models via the generateContent API (for example `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash`) |
 
-Anthropic, OpenAI, and Google are supported. OpenAI support uses the Chat Completions endpoint with JSON output. Google support uses the Gemini `generateContent` endpoint with `responseMimeType: "application/json"`. The API key is passed as a query parameter per Google's API convention. Tool use, background execution, and streaming are out of scope for `api_proxy`.
+Anthropic, OpenAI, and Google are supported. OpenAI support uses the Chat Completions endpoint with JSON output. Google support uses the Gemini `generateContent` endpoint with `responseMimeType: "application/json"`. The API key is passed as a query parameter per Google's API convention. When Gemini blocks a prompt or halts with a non-`STOP` finish reason, AgentXchain preserves that Google-specific reason in the extraction-failure message instead of collapsing it into a generic parse error. Tool use, background execution, and streaming are out of scope for `api_proxy`.
 
 ### Custom endpoint override
 

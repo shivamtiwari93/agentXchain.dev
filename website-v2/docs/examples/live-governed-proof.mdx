@@ -1,0 +1,53 @@
+---
+title: Live Governed Proof
+description: "Live proof scripts for real model-backed governed execution."
+---
+
+# Live Governed Proof
+
+`live-governed-proof` is a pack of live proof scripts for real model-backed governed execution. It is the example set to read when you want evidence that AgentXchain is governing actual model output instead of only mocks.
+
+## What It Is
+
+- Category: live proof example
+- Surface: `runner-interface`, `api_proxy`, and MCP proof scripts
+- Source: `examples/live-governed-proof`
+
+## Workflow Or Proof Shape
+
+This directory currently contains:
+
+- `run-live-turn.mjs` for one real `api_proxy` governed turn
+- `run-multi-provider-proof.mjs` for OpenAI -> Google -> Anthropic governed flow
+- `run-proposed-authority-proof.mjs` for proposal-authority proof
+- `run-escalation-recovery-proof.mjs` for blocked-state recovery proof
+- `run-mcp-real-model-proof.mjs` for real-model MCP proof
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs these proofs by:
+
+- writing real dispatch bundles
+- validating real turn-result JSON
+- enforcing gate progression and completion rules
+- recording governed artifacts even when the model is live
+
+This is proof infrastructure, not a sample product.
+
+## Run It
+
+```bash
+node examples/live-governed-proof/run-live-turn.mjs --json
+node examples/live-governed-proof/run-multi-provider-proof.mjs --json
+node examples/live-governed-proof/run-proposed-authority-proof.mjs --json
+node examples/live-governed-proof/run-escalation-recovery-proof.mjs --json
+node examples/live-governed-proof/run-mcp-real-model-proof.mjs --json
+```
+
+Credential requirements depend on the script, including `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and `GOOGLE_API_KEY`.
+
+## Key Takeaways
+
+- This is the clearest live-proof surface in the repo.
+- It proves governed execution against real providers, not just static fixtures.
+- Use it to validate runtime truth before making product claims.

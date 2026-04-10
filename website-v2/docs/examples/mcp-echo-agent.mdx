@@ -1,0 +1,44 @@
+---
+title: MCP Echo Agent
+description: "Minimal stdio MCP example implementing the governed turn tool contract."
+---
+
+# MCP Echo Agent
+
+`mcp-echo-agent` is the minimal stdio MCP example. It implements the `agentxchain_turn` tool contract and returns validator-clean no-op results.
+
+## What It Is
+
+- Category: MCP example
+- Transport: stdio
+- Source: `examples/mcp-echo-agent`
+
+## Workflow Or Proof Shape
+
+- one MCP tool: `agentxchain_turn`
+- receives the governed turn assignment and rendered prompt/context
+- returns a valid review-style turn result without modifying files
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by validating the returned turn-result JSON exactly the same way it validates any other governed turn. The server is intentionally simple so the MCP contract is obvious.
+
+## Run It
+
+```bash
+cd examples/mcp-echo-agent
+npm install
+node server.js
+```
+
+Bind it in `agentxchain.json` as an `mcp` runtime and run:
+
+```bash
+agentxchain step
+```
+
+## Key Takeaways
+
+- Start here if you are building a local MCP agent.
+- The example proves transport and governed payload shape, not autonomous work.
+- Replace the echo logic with real work once the contract is clear.

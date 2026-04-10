@@ -36,8 +36,8 @@ AgentXchain should **not** try to maintain a complete per-model/per-provider pub
 
 ### Scope Boundary
 
-- **In scope**: Anthropic Claude family, OpenAI GPT-4o/4.1/o3/o4 family. These are the connectors we ship.
-- **Out of scope for bundled defaults**: DeepSeek, Qwen, Kimi, Mistral, Google Gemini, Cohere, etc. These enter via operator config.
+- **In scope**: Anthropic Claude family, OpenAI GPT-4o/4.1/o3/o4 family, and the narrow Gemini starter set we now ship (`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.0-flash`).
+- **Out of scope for bundled defaults**: DeepSeek, Qwen, Kimi, Mistral, broader Gemini catalog, Cohere, etc. These enter via operator config.
 - **Update strategy**: Bundled rates updated when we verify against official sources. A `// Verified: YYYY-MM-DD` comment marks each rate.
 
 ### Config Shape
@@ -74,3 +74,8 @@ Operator `cost_rates` override bundled defaults for any matching model key.
 - `o3`: $2.00 / $8.00
 - `o3-mini`: $1.10 / $4.40
 - `o4-mini`: $1.10 / $4.40
+
+### Google Gemini (training knowledge, added after the original decision because AgentXchain now ships a Google connector)
+- `gemini-2.5-pro`: $1.25 / $10.00
+- `gemini-2.5-flash`: $0.15 / $0.60
+- `gemini-2.0-flash`: $0.10 / $0.40

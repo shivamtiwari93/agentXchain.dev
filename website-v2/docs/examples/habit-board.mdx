@@ -1,0 +1,49 @@
+---
+title: Habit Board
+description: "Governed consumer SaaS example: habit tracking app with a design phase and explicit workflow-kit artifacts."
+---
+
+# Habit Board
+
+`habit-board` is a governed consumer SaaS example: a daily habit tracker with streak logic, a dark-theme UI, and a JSON-backed REST API.
+
+## What It Is
+
+- Category: consumer SaaS web app
+- Product shape: Node.js server, vanilla frontend, JSON persistence
+- Source: `examples/habit-board`
+
+## Roles And Workflow
+
+- Roles: `pm`, `designer`, `fullstack_dev`, `qa`
+- Phases: `planning -> design -> implementation -> qa`
+- Distinctive trait: this is the clearest designer-in-the-loop example in the repo
+
+## How AgentXchain Governed The Build
+
+AgentXchain governs Habit Board through a non-default team shape and explicit workflow-kit artifacts:
+
+- planning artifacts for roadmap and user stories
+- a dedicated design phase for UX flows and design decisions
+- implementation artifacts for the API contract
+- QA artifacts for the acceptance matrix and ship verdict
+
+This example matters because it proves AgentXchain can govern a consumer product workflow, not just CLI tools or protocol demos.
+
+## Run It
+
+```bash
+cd examples/habit-board
+npm install
+npm test
+npm run smoke
+npm start
+```
+
+Open `http://localhost:3000`.
+
+## Key Takeaways
+
+- AgentXchain supports custom phases beyond the default three-phase scaffold.
+- Governance can include design ownership, not only PM/dev/QA.
+- The example ships a real runnable product, not a placeholder repo.

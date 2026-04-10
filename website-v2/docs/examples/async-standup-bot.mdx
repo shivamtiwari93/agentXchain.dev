@@ -1,0 +1,49 @@
+---
+title: Async Standup Bot
+description: "Governed B2B SaaS example with integration and operations phases."
+---
+
+# Async Standup Bot
+
+`async-standup-bot` is a governed B2B SaaS example: a small team-status collector with async check-ins, reminder previews, summaries, and retention operations.
+
+## What It Is
+
+- Category: B2B SaaS
+- Product shape: Node.js service, browser UI, JSON persistence
+- Source: `examples/async-standup-bot`
+
+## Roles And Workflow
+
+- Roles: `pm`, `integration_lead`, `platform_engineer`, `ops_manager`, `qa`
+- Phases: `planning -> integration -> implementation -> operations -> qa`
+- Distinctive trait: explicit integration and operations phases
+
+## How AgentXchain Governed The Build
+
+AgentXchain governs this example with enterprise-oriented artifacts instead of consumer-product defaults:
+
+- integration contracts for reminder and webhook behavior
+- reminder and escalation policy
+- operations runbook and retention policy
+- API contract and QA gate artifacts
+
+This is the example to read when you want to see how AgentXchain handles integration and operational readiness as part of the governed workflow.
+
+## Run It
+
+```bash
+cd examples/async-standup-bot
+npm install
+npm test
+npm run smoke
+npm start
+```
+
+Open `http://localhost:3000`.
+
+## Key Takeaways
+
+- AgentXchain can govern B2B product delivery, not only UI demos.
+- Operations and integration work can be explicit workflow phases.
+- The governed artifacts reflect enterprise concerns like reminders and data retention.

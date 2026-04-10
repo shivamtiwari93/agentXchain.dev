@@ -1,288 +1,69 @@
 ---
 sidebar_position: 4
 title: Examples
-description: "Five real products built under AgentXchain governance — from consumer apps to npm libraries."
+description: "First-class docs library for governed product examples, runner proofs, MCP examples, and remote execution examples."
 ---
 
-# Governed product examples
+# Examples Library
 
-These are not stubs, templates, or demos. Each is a **complete, working product** built from scratch under AgentXchain governance with real code, real tests, governed workflow-kit artifacts, and a distinct team shape. They prove that AgentXchain can take a product idea from zero to shippable software across varied domains.
+AgentXchain ships two different kinds of examples:
 
-Every example includes:
-- Runnable source code with tests
-- A governed `agentxchain.json` with explicit roles, phases, and workflow-kit artifacts
-- A `TALK.md` capturing the governed collaboration log
-- Planning artifacts specific to the product category
-- Passing `agentxchain template validate --json` proof
+- **governed product examples** that prove AgentXchain can take a real product from idea to runnable software
+- **proof and connector examples** that prove runner, MCP, remote-agent, and remote-verification boundaries honestly
 
----
+This page is the hub. Each example below has its own dedicated docs page under `/docs/examples/*`.
 
-## Consumer SaaS — Habit Board
+Every example page explains:
 
-**A daily habit tracker with streaks, dark-theme UI, and JSON persistence.**
+- what the example is
+- the role/workflow shape or proof surface it uses
+- how AgentXchain governs the build or enforces the contract
+- how to run it
+- key takeaways
 
-| | |
-|---|---|
-| **Category** | Consumer SaaS (web app) |
-| **Template** | `generic` |
-| **Tests** | 29 |
-| **Source** | [`examples/habit-board/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/habit-board) |
+## Governed Product Examples
 
-### Team shape
+| Example | Category | Why It Matters |
+|---|---|---|
+| [Habit Board](/docs/examples/habit-board) | Consumer SaaS | Designer-in-the-loop product workflow with a dedicated design phase |
+| [Trail Meals Mobile](/docs/examples/trail-meals-mobile) | Mobile | React Native / Expo governance with offline-first architecture |
+| [Async Standup Bot](/docs/examples/async-standup-bot) | B2B SaaS | Integration and operations phases as first-class governed work |
+| [Decision Log Linter](/docs/examples/decision-log-linter) | Developer Tool | CLI product with architecture and release phases |
+| [Schema Guard](/docs/examples/schema-guard) | Open Source Library | API review and release engineering for an npm library |
+| [Governed Todo App](/docs/examples/governed-todo-app) | Tutorial App | Minimal PM -> Dev -> QA lifecycle walkthrough |
 
-| Role | Why |
-|---|---|
-| `pm` | Owns user stories, roadmap, and scope decisions |
-| `designer` | Owns UX flows, design decisions, and accessibility |
-| `fullstack_dev` | Implements backend API, frontend UI, and streak logic |
-| `qa` | Writes acceptance matrix and ship verdict |
+## Runner And Live Proof Examples
 
-### Workflow phases
+| Example | Surface | Why It Matters |
+|---|---|---|
+| [CI Runner Proof](/docs/examples/ci-runner-proof) | `runner-interface` | Repo-native proof for non-CLI runner authors |
+| [External Runner Starter](/docs/examples/external-runner-starter) | installed package starter | Canonical starting point for external runner authors |
+| [Live Governed Proof](/docs/examples/live-governed-proof) | live provider proof | Real-model governed execution across shipped runtime paths |
 
-**planning** → **design** → **implementation** → **qa**
+## MCP Examples
 
-The `design` phase is unique to this example — it produces consumer-specific artifacts like user flows, design decisions, and UX patterns before implementation begins.
+| Example | Transport | Why It Matters |
+|---|---|---|
+| [MCP Echo Agent](/docs/examples/mcp-echo-agent) | stdio | Smallest possible governed MCP tool contract |
+| [MCP HTTP Echo Agent](/docs/examples/mcp-http-echo-agent) | streamable HTTP | Remote MCP transport proof |
+| [MCP Anthropic Agent](/docs/examples/mcp-anthropic-agent) | stdio + Anthropic | Real-model MCP execution |
 
-### Key workflow-kit artifacts
+## Remote Execution Examples
 
-- `user-stories.md` — product requirements from user perspective
-- `ux-flows.md` — interaction flows and navigation patterns
-- `design-decisions.md` — visual and UX decisions with rationale
-- `API_CONTRACT.md` — REST endpoint specification
-- `acceptance-matrix.md` — pass/fail test criteria
-- `ship-verdict.md` — final go/no-go decision
+| Example | Surface | Why It Matters |
+|---|---|---|
+| [Remote Agent Bridge](/docs/examples/remote-agent-bridge) | `remote_agent` | Proposal/apply and review-only remote execution |
+| [Remote Conformance Server](/docs/examples/remote-conformance-server) | `verify protocol --remote` | Runnable remote verifier contract |
 
-### Run it
+## Provenance And Governance
 
-```bash
-cd examples/habit-board
-npm install
-node --test test/          # 29 tests
-node src/server.js         # http://localhost:3000
-# Validate governance
-node ../../cli/bin/agentxchain.js template validate --json
-```
+The governed product examples are not stubs. They include real code, tests, workflow-kit artifacts, `TALK.md` provenance, and governed configs with explicit roles and gates.
 
----
+The proof examples are intentionally different: they do not pretend to be full product apps. Their job is to prove the runner, MCP, remote-agent, or verification boundary honestly.
 
-## Mobile App — Trail Meals Mobile
+## Start Here
 
-**A React Native (Expo) meal-planning app for hikers with offline-first persistence.**
-
-| | |
-|---|---|
-| **Category** | Mobile app (React Native / Expo) |
-| **Template** | `generic` |
-| **Tests** | 26 |
-| **Source** | [`examples/trail-meals-mobile/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/trail-meals-mobile) |
-
-### Team shape
-
-| Role | Why |
-|---|---|
-| `pm` | Roadmap and product decisions |
-| `mobile_architect` | Platform matrix, offline strategy, architecture |
-| `rn_engineer` | React Native screens, navigation, AsyncStorage |
-| `nutrition_analyst` | Domain math: calories, weight, per-day budgets |
-| `ux_reviewer` | Mobile UX patterns and interaction review |
-| `qa` | Acceptance matrix and ship verdict |
-
-### Workflow phases
-
-**planning** → **architecture** → **implementation** → **ux_review** → **qa**
-
-This is the only example with 6 roles and includes domain-specific roles (`nutrition_analyst`, `mobile_architect`) plus a dedicated `ux_review` phase.
-
-### Key workflow-kit artifacts
-
-- `platform-matrix.md` — iOS, Android, and Expo Go support targets
-- `offline-strategy.md` — AsyncStorage-backed offline persistence contract
-- `ux-patterns.md` — mobile-specific interaction patterns
-- `nutrition-model.md` — calorie/weight computation rules
-- `acceptance-matrix.md` — pass/fail criteria per platform
-
-### Run it
-
-```bash
-cd examples/trail-meals-mobile
-npm install
-node --test test/          # 26 tests (pure Node.js, no device needed)
-node test/smoke.js         # quick verification
-# Validate governance
-node ../../cli/bin/agentxchain.js template validate --json
-```
-
----
-
-## B2B SaaS — Async Standup Bot
-
-**A team standup/status collector with async check-ins, summaries, reminders, and data retention.**
-
-| | |
-|---|---|
-| **Category** | B2B SaaS |
-| **Template** | `generic` |
-| **Tests** | 15 |
-| **Source** | [`examples/async-standup-bot/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/async-standup-bot) |
-
-### Team shape
-
-| Role | Why |
-|---|---|
-| `pm` | Product roadmap and scope |
-| `integration_lead` | External integration contracts and webhook specs |
-| `platform_engineer` | Core backend, data layer, API surface |
-| `ops_manager` | Operational runbooks, data retention, reminder policies |
-| `qa` | Acceptance testing and ship verdict |
-
-### Workflow phases
-
-**planning** → **integration** → **implementation** → **operations** → **qa**
-
-The `integration` and `operations` phases are unique to this B2B example — reflecting real enterprise concerns around third-party integrations and operational readiness.
-
-### Key workflow-kit artifacts
-
-- `integration-contract.md` — webhook and API integration specs
-- `reminder-policy.md` — notification timing and escalation rules
-- `operations-runbook.md` — operational procedures and incident response
-- `data-retention.md` — data lifecycle and compliance rules
-- `API_CONTRACT.md` — REST endpoint specification
-
-### Run it
-
-```bash
-cd examples/async-standup-bot
-npm install
-node --test test/          # 15 tests
-node test/smoke.js         # quick verification
-node src/server.js         # http://localhost:3000
-# Validate governance
-node ../../cli/bin/agentxchain.js template validate --json
-```
-
----
-
-## Developer Tool — Decision Log Linter
-
-**A CLI that validates markdown decision logs for duplicate IDs, invalid statuses, and missing sections.**
-
-| | |
-|---|---|
-| **Category** | Developer tool (CLI) |
-| **Template** | `cli-tool` |
-| **Tests** | 8 |
-| **Source** | [`examples/decision-log-linter/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/decision-log-linter) |
-
-### Team shape
-
-| Role | Why |
-|---|---|
-| `pm` | Product scope and roadmap |
-| `architect` | Command surface, platform support, architecture |
-| `dev` | Parser, linter logic, and CLI entrypoint |
-| `qa` | Test fixtures and acceptance criteria |
-| `release_manager` | Distribution checklist and packaging proof |
-
-### Workflow phases
-
-**planning** → **architecture** → **implementation** → **qa** → **release**
-
-The `architecture` and `release` phases distinguish this from product-focused examples — reflecting developer-tool concerns around command surface design and distribution readiness.
-
-### Key workflow-kit artifacts
-
-- `command-surface.md` — CLI flags, subcommands, and output contract
-- `platform-support.md` — Node.js version and OS compatibility
-- `ARCHITECTURE.md` — module structure and dependency decisions
-- `distribution-checklist.md` — packaging and installation verification
-
-### Run it
-
-```bash
-cd examples/decision-log-linter
-npm install
-node --test                # 8 tests
-node bin/decision-log-linter.js lint test/fixtures/good.md
-# Validate governance
-node ../../cli/bin/agentxchain.js template validate --json
-```
-
----
-
-## Open Source Library — Schema Guard
-
-**A declarative schema-validation library with composable validators, nested objects, and TypeScript-friendly exports.**
-
-| | |
-|---|---|
-| **Category** | Open source library (npm package) |
-| **Template** | `library` |
-| **Tests** | 19 |
-| **Source** | [`examples/schema-guard/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/schema-guard) |
-
-### Team shape
-
-| Role | Why |
-|---|---|
-| `pm` | Library roadmap and adoption strategy |
-| `api_reviewer` | Public API surface review and breaking change governance |
-| `library_engineer` | Core schema engine, validators, composition helpers |
-| `qa` | Type-level and runtime test coverage |
-| `release_engineer` | ESM export maps, `npm pack` smoke, semver discipline |
-
-### Workflow phases
-
-**planning** → **api_review** → **implementation** → **qa** → **release**
-
-The `api_review` and `release` phases are unique to library governance — ensuring public API stability and distribution readiness before shipping.
-
-### Key workflow-kit artifacts
-
-- `public-api.md` — exported functions, types, and stability guarantees
-- `compatibility-policy.md` — semver rules and breaking change process
-- `API_REVIEW.md` — formal API review notes and approval
-- `release-adoption.md` — adoption guide and migration notes
-- `package-readiness.md` — `npm pack` proof and export map verification
-
-### Run it
-
-```bash
-cd examples/schema-guard
-npm install
-npm test                   # 19 tests
-npm run smoke              # quick verification
-npm run pack:check         # distribution proof
-# Validate governance
-node ../../cli/bin/agentxchain.js template validate --json
-```
-
----
-
-## Governed build proof
-
-Each example's governed provenance is proven by:
-
-1. **Git history** — the repo's commit log for each `examples/<name>/` directory shows the governed development process.
-2. **`TALK.md`** — each example includes a collaboration log capturing the governed turn-by-turn development.
-3. **Workflow-kit artifacts** — the `.planning/` files in each example are real governed artifacts produced during development, not retroactive documentation.
-4. **`template validate --json`** — every example passes AgentXchain's governance validation, proving the `agentxchain.json` config, role definitions, and workflow-kit structure are conformant.
-
-This is the provenance contract defined in [`.planning/PRODUCT_EXAMPLES_GOVERNED_PROOF.md`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/.planning/PRODUCT_EXAMPLES_GOVERNED_PROOF.md).
-
----
-
-## Protocol and runtime proof examples
-
-The repo also includes technical proof artifacts that demonstrate AgentXchain's protocol and runtime capabilities:
-
-| Example | What it proves |
-|---|---|
-| [`ci-runner-proof/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/ci-runner-proof) | Runner interface: single-turn primitives, full lifecycle, and `runLoop` composition |
-| [`governed-todo-app/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/governed-todo-app) | Mixed runtimes: `manual`, `local_cli`, and `api_proxy` in one governed project |
-| [`remote-agent-bridge/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/remote-agent-bridge) | Remote agent HTTP transport: dev turns, proposal apply, QA review |
-| [`mcp-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent) | MCP stdio transport: local subprocess governed turns |
-| [`mcp-http-echo-agent/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-http-echo-agent) | MCP HTTP transport: remote/containerized governed turns |
-| [`remote-conformance-server/`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/remote-conformance-server) | `agentxchain verify protocol --remote` compliance |
-
-These are not products — they are executable reference implementations for runner authors and protocol implementors.
+- If you want the cleanest product walkthrough, start with [Governed Todo App](/docs/examples/governed-todo-app).
+- If you want the strongest product proof, read [Habit Board](/docs/examples/habit-board) and [Schema Guard](/docs/examples/schema-guard).
+- If you are integrating AgentXchain into another runtime, read [CI Runner Proof](/docs/examples/ci-runner-proof), [External Runner Starter](/docs/examples/external-runner-starter), and the MCP examples.
+- If you need live runtime proof, read [Live Governed Proof](/docs/examples/live-governed-proof).

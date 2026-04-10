@@ -1,0 +1,48 @@
+---
+title: MCP HTTP Echo Agent
+description: "Minimal streamable HTTP MCP example for remote governed turn execution."
+---
+
+# MCP HTTP Echo Agent
+
+`mcp-http-echo-agent` is the remote counterpart of the stdio echo agent. It implements `agentxchain_turn` over streamable HTTP.
+
+## What It Is
+
+- Category: MCP example
+- Transport: streamable HTTP
+- Source: `examples/mcp-http-echo-agent`
+
+## Workflow Or Proof Shape
+
+- long-running HTTP MCP server
+- same governed tool contract as the stdio echo agent
+- intended for remote or hosted agent deployments
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by keeping the transport boundary explicit:
+
+- runtime config uses `type: "mcp"` with `transport: "streamable_http"`
+- the adapter sends governed turn payloads over HTTP
+- AgentXchain still owns validation, staging, and acceptance
+
+## Run It
+
+```bash
+cd examples/mcp-http-echo-agent
+npm install
+node server.js
+```
+
+Then bind the runtime in `agentxchain.json` and run:
+
+```bash
+agentxchain step --role dev
+```
+
+## Key Takeaways
+
+- Use this when your MCP agent is not a local subprocess.
+- It proves remote MCP transport honestly without pretending to be a full worker.
+- It is the correct reference for hosted MCP-style execution.

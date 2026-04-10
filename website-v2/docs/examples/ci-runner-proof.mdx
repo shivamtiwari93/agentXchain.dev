@@ -1,0 +1,44 @@
+---
+title: CI Runner Proof
+description: "Repo-native proof scripts for non-CLI runner authors."
+---
+
+# CI Runner Proof
+
+`ci-runner-proof` is not a governed product app. It is a repo-native proof pack for runner authors who need to exercise AgentXchain directly from code instead of shelling out to `agentxchain step`.
+
+## What It Is
+
+- Category: runner proof example
+- Surface: `runner-interface`
+- Source: `examples/ci-runner-proof`
+
+## Workflow Or Proof Shape
+
+- Primitive proof: initialize, assign, stage, accept
+- Full lifecycle proof: PM -> Dev -> QA with approvals and retries
+- Composition proof: `runLoop` on top of the primitive layer
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by keeping the boundary honest:
+
+- the scripts use the public runner interface instead of internal helpers
+- they do not shell out to the CLI
+- they prove the runner boundary continuously inside repo CI
+
+This is a proof example, not a generated governed app. The governance value is the boundary discipline itself.
+
+## Run It
+
+```bash
+node examples/ci-runner-proof/run-one-turn.mjs
+node examples/ci-runner-proof/run-to-completion.mjs
+node examples/ci-runner-proof/run-with-run-loop.mjs
+```
+
+## Key Takeaways
+
+- Use this when you are building a non-CLI runner.
+- Prove the primitive layer before you build higher-level orchestration.
+- Do not call a CLI wrapper a second runner.

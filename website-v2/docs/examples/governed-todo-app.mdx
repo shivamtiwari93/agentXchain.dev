@@ -1,0 +1,50 @@
+---
+title: Governed Todo App
+description: "Minimal governed app example covering the full PM -> Dev -> QA lifecycle."
+---
+
+# Governed Todo App
+
+`governed-todo-app` is the minimal governed app walkthrough. It is the simplest example that still exercises the full PM -> Dev -> QA lifecycle with approvals and orchestrator-owned state.
+
+## What It Is
+
+- Category: minimal governed application example
+- Product shape: scaffolded governed repo and tutorial path
+- Source: `examples/governed-todo-app`
+
+## Roles And Workflow
+
+- Roles: `pm`, `dev`, `qa`, `eng_director`
+- Phases: `planning -> implementation -> qa`
+- Distinctive trait: smallest end-to-end governed lifecycle example in the repo
+
+## How AgentXchain Governed The Build
+
+This example is intentionally close to the default governed model:
+
+- manual PM turn creates the planning artifacts
+- local CLI dev turn performs authoritative implementation
+- API-proxy QA turn reviews the result
+- human approvals govern the planning gate and final ship gate
+
+If you want to understand the baseline governed lifecycle before moving to custom teams or proof harnesses, start here.
+
+## Run It
+
+```bash
+cd examples/governed-todo-app
+git init && git add -A && git commit -m "initial scaffold"
+agentxchain status
+agentxchain step
+agentxchain approve-transition
+agentxchain step
+agentxchain step --role qa
+agentxchain approve-completion
+```
+
+## Key Takeaways
+
+- This is the cleanest starting point for understanding the governed workflow.
+- It demonstrates the default multi-role lifecycle without extra product complexity.
+- The example makes the orchestrator boundary concrete: agents do work, but AgentXchain advances state.

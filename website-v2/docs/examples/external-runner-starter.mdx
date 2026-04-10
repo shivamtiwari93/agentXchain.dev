@@ -1,0 +1,51 @@
+---
+title: External Runner Starter
+description: "Canonical installed-package starter for external runner authors."
+---
+
+# External Runner Starter
+
+`external-runner-starter` is the clean-consumer counterpart to `ci-runner-proof`. It proves what external runner authors import after `npm install agentxchain`.
+
+## What It Is
+
+- Category: runner starter example
+- Surface: `agentxchain/runner-interface` and `agentxchain/adapter-interface`
+- Source: `examples/external-runner-starter`
+
+## Workflow Or Proof Shape
+
+- `run-one-turn.mjs`: manual staging via `runner-interface`
+- `run-adapter-turn.mjs`: real adapter-backed dispatch via `adapter-interface`
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by proving the published package boundary:
+
+- the starter imports from package exports, not repo internals
+- one path proves pure runner lifecycle control
+- one path proves dispatch -> stage -> accept through the shipped adapter surface
+
+This is not a product example with roles/phases. It is a package-boundary proof for integrators.
+
+## Run It
+
+```bash
+npm init -y
+npm install agentxchain
+curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/examples/external-runner-starter/run-one-turn.mjs
+node run-one-turn.mjs --json
+```
+
+Adapter-backed variant:
+
+```bash
+curl -O https://raw.githubusercontent.com/shivamtiwari93/agentXchain.dev/main/examples/external-runner-starter/run-adapter-turn.mjs
+node run-adapter-turn.mjs --json
+```
+
+## Key Takeaways
+
+- This is the canonical starting point for external runner authors.
+- If this starter breaks, the published package boundary is broken.
+- Read this after `ci-runner-proof`, not before it.

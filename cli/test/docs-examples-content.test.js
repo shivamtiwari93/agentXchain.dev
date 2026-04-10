@@ -15,14 +15,12 @@ const EXAMPLES_PAGE = read('website-v2/docs/examples.mdx');
 const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCUSAURUS_CONFIG = read('website-v2/docusaurus.config.ts');
 const HOME_PAGE = read('website-v2/src/pages/index.tsx');
+const LLMS = read('website-v2/static/llms.txt');
+const SITEMAP = read('website-v2/static/sitemap.xml');
 
-const PRODUCT_EXAMPLES = [
-  'habit-board',
-  'trail-meals-mobile',
-  'async-standup-bot',
-  'decision-log-linter',
-  'schema-guard',
-];
+const PRODUCT_EXAMPLES = ['governed-todo-app', 'habit-board', 'trail-meals-mobile', 'async-standup-bot', 'decision-log-linter', 'schema-guard'];
+const PROOF_EXAMPLES = ['ci-runner-proof', 'external-runner-starter', 'live-governed-proof', 'mcp-echo-agent', 'mcp-http-echo-agent', 'mcp-anthropic-agent', 'remote-agent-bridge', 'remote-conformance-server'];
+const ALL_EXAMPLE_SLUGS = [...PRODUCT_EXAMPLES, ...PROOF_EXAMPLES];
 
 const CATEGORY_LABELS = [
   'Consumer SaaS',
@@ -37,39 +35,58 @@ describe('examples docs page content', () => {
     assert.ok(existsSync(join(REPO_ROOT, 'website-v2/docs/examples.mdx')));
   });
 
-  it('AT-EDS-002: page contains all five product example names', () => {
-    for (const name of PRODUCT_EXAMPLES) {
-      assert.match(EXAMPLES_PAGE, new RegExp(name), `missing example: ${name}`);
+  it('AT-EDS-002: hub page links every example detail page', () => {
+    for (const slug of ALL_EXAMPLE_SLUGS) {
+      assert.match(EXAMPLES_PAGE, new RegExp(`/docs/examples/${slug}`), `missing example route: ${slug}`);
     }
   });
 
-  it('AT-EDS-003: page contains category labels', () => {
-    for (const label of CATEGORY_LABELS) {
-      assert.match(EXAMPLES_PAGE, new RegExp(label), `missing category: ${label}`);
-    }
-  });
-
-  it('AT-EDS-004: sidebar includes Examples entry', () => {
+  it('AT-EDS-003: sidebar exposes Examples as a first-class category with all detail pages', () => {
+    assert.match(SIDEBARS, /label:\s*'Examples'/);
     assert.match(SIDEBARS, /'examples'/);
+    for (const slug of ALL_EXAMPLE_SLUGS) {
+      assert.match(SIDEBARS, new RegExp(`'examples/${slug}'`), `missing sidebar doc id for ${slug}`);
+    }
   });
 
-  it('AT-EDS-005: footer includes Examples link', () => {
+  it('AT-EDS-004: footer includes Examples link', () => {
     assert.match(DOCUSAURUS_CONFIG, /label: 'Examples'/);
     assert.match(DOCUSAURUS_CONFIG, /to: '\/docs\/examples'/);
   });
 
-  it('AT-EDS-006: page mentions provenance (TALK.md, git history, template validate)', () => {
-    assert.match(EXAMPLES_PAGE, /TALK\.md/);
-    assert.match(EXAMPLES_PAGE, /[Gg]it history/);
-    assert.match(EXAMPLES_PAGE, /template validate/);
+  it('AT-EDS-005: each detail page exists and documents the core operator headings', () => {
+    for (const slug of ALL_EXAMPLE_SLUGS) {
+      const pagePath = join(REPO_ROOT, 'website-v2', 'docs', 'examples', `${slug}.mdx`);
+      assert.ok(existsSync(pagePath), `missing examples page for ${slug}`);
+      const page = read(`website-v2/docs/examples/${slug}.mdx`);
+      assert.match(page, /## What It Is/);
+      assert.match(page, /## Run It/);
+      assert.match(page, /## Key Takeaways/);
+    }
   });
 
-  it('AT-EDS-007: each example section includes run commands', () => {
-    for (const name of PRODUCT_EXAMPLES) {
-      assert.match(EXAMPLES_PAGE, new RegExp(`examples/${name}`), `missing run path for ${name}`);
+  it('AT-EDS-006: governed product examples document roles and workflow shape', () => {
+    for (const slug of PRODUCT_EXAMPLES) {
+      const page = read(`website-v2/docs/examples/${slug}.mdx`);
+      assert.match(page, /## Roles And Workflow/);
     }
-    assert.match(EXAMPLES_PAGE, /node --test/);
-    assert.match(EXAMPLES_PAGE, /npm test/);
+  });
+
+  it('AT-EDS-007: proof examples document proof shape instead of pretending to be governed product apps', () => {
+    for (const slug of PROOF_EXAMPLES) {
+      const page = read(`website-v2/docs/examples/${slug}.mdx`);
+      assert.match(page, /## Workflow Or Proof Shape/);
+    }
+  });
+
+  it('AT-EDS-008: llms and sitemap include the examples hub and all detail pages', () => {
+    assert.match(LLMS, /https:\/\/agentxchain\.dev\/docs\/examples/);
+    assert.match(SITEMAP, /https:\/\/agentxchain\.dev\/docs\/examples/);
+    for (const slug of ALL_EXAMPLE_SLUGS) {
+      const route = `https://agentxchain.dev/docs/examples/${slug}`;
+      assert.match(LLMS, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.match(SITEMAP, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
   });
 });
 
@@ -79,7 +96,7 @@ describe('examples homepage section', () => {
     assert.match(HOME_PAGE, /\/docs\/examples/);
   });
 
-  it('homepage lists all five product categories', () => {
+  it('homepage lists the five flagship product categories', () => {
     for (const label of CATEGORY_LABELS) {
       assert.match(HOME_PAGE, new RegExp(label), `missing homepage category: ${label}`);
     }

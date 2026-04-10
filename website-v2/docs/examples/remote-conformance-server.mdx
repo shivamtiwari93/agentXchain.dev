@@ -1,0 +1,49 @@
+---
+title: Remote Conformance Server
+description: "Runnable HTTP example for remote protocol verification."
+---
+
+# Remote Conformance Server
+
+`remote-conformance-server` is the runnable HTTP example for `agentxchain verify protocol --remote`. It wraps the shipped reference fixture engine and exposes the exact remote verification endpoints.
+
+## What It Is
+
+- Category: remote verification example
+- Surface: remote protocol conformance
+- Source: `examples/remote-conformance-server`
+
+## Workflow Or Proof Shape
+
+- `GET /conform/capabilities`
+- `POST /conform/execute`
+- one full fixture JSON request in, one `{status, message, actual}` response out
+
+## How AgentXchain Governs This Example
+
+AgentXchain governs this example by keeping the verifier contract repo-native and explicit:
+
+- the verifier still owns the fixture corpus
+- the server only exposes the remote execution boundary
+- this gives implementors a real server to inspect instead of prose-only protocol docs
+
+## Run It
+
+```bash
+cd examples/remote-conformance-server
+node server.js
+agentxchain verify protocol --tier 1 --remote http://127.0.0.1:8788 --format json
+```
+
+With bearer auth:
+
+```bash
+CONFORMANCE_TOKEN=secret123 node server.js
+agentxchain verify protocol --tier 1 --remote http://127.0.0.1:8788 --token secret123 --format json
+```
+
+## Key Takeaways
+
+- This is the reference starting point for remote conformance servers.
+- It proves the remote verifier contract is runnable, not just documented.
+- Use it when implementing protocol verification outside the local repo.
