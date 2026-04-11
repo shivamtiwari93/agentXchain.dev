@@ -27,11 +27,11 @@ describe('timeout-evaluator', () => {
       phase_entered_at: '2026-04-10T01:00:00.000Z',
     };
 
-    it('AT-TIMEOUT-001: turn timeout fires when dispatched_at + limit < now', () => {
+    it('AT-TIMEOUT-001: turn timeout fires when started_at + limit < now', () => {
       const result = evaluateTimeouts({
         config: baseConfig,
         state: baseState,
-        turnResult: { dispatched_at: '2026-04-10T01:00:00.000Z' },
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
         now: '2026-04-10T02:00:00.000Z', // 60 min elapsed, limit 30
       });
       assert.equal(result.exceeded.length, 1);
@@ -75,7 +75,7 @@ describe('timeout-evaluator', () => {
       const result = evaluateTimeouts({
         config,
         state: baseState,
-        turnResult: { dispatched_at: '2026-04-10T01:00:00.000Z' },
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
         now: '2026-04-10T01:20:00.000Z', // 20 min, limit 10
       });
       assert.equal(result.exceeded.length, 0);
@@ -123,7 +123,7 @@ describe('timeout-evaluator', () => {
       const result = evaluateTimeouts({
         config: baseConfig,
         state: baseState,
-        turnResult: { dispatched_at: '2026-04-10T01:00:00.000Z' },
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
         now: '2026-04-10T01:10:00.000Z', // 10 min, all limits much higher
       });
       assert.equal(result.exceeded.length, 0);
@@ -168,11 +168,24 @@ describe('timeout-evaluator', () => {
       const result = evaluateTimeouts({
         config,
         state: baseState,
-        turnResult: { dispatched_at: '2026-04-10T01:00:00.000Z' },
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
         now: '2026-04-10T01:10:00.000Z',
       });
       assert.equal(result.exceeded.length, 1);
       assert.equal(result.exceeded[0].action, 'escalate', 'skip_phase must be downgraded to escalate for turn scope');
+    });
+
+    it('prefers active turn timestamps over staged-result fallbacks', () => {
+      const result = evaluateTimeouts({
+        config: { timeouts: { per_turn_minutes: 5 }, routing: {} },
+        state: baseState,
+        turn: { started_at: '2026-04-10T01:00:00.000Z' },
+        turnResult: { dispatched_at: '2026-04-10T01:09:00.000Z' },
+        now: '2026-04-10T01:10:00.000Z',
+      });
+      assert.equal(result.exceeded.length, 1);
+      assert.equal(result.exceeded[0].scope, 'turn');
+      assert.equal(result.exceeded[0].elapsed_minutes, 10);
     });
   });
 
@@ -283,6 +296,17 @@ describe('timeout-evaluator', () => {
         action: 'escalate',
       });
       assert.ok(reason.recovery.detail.includes('Run timeout'));
+    });
+
+    it('preserves turn_retained when the caller reports active turns', () => {
+      const reason = buildTimeoutBlockedReason({
+        scope: 'run',
+        limit_minutes: 480,
+        elapsed_minutes: 500,
+        exceeded_by_minutes: 20,
+        action: 'escalate',
+      }, { turnRetained: true });
+      assert.equal(reason.recovery.turn_retained, true);
     });
   });
 });

@@ -13,11 +13,12 @@ const VALID_TIMEOUT_ACTIONS = ['escalate', 'warn', 'skip_phase'];
  * @param {object} options
  * @param {object} options.config - Normalized config with optional `timeouts` section
  * @param {object} options.state - Current governed state
- * @param {object} [options.turnResult] - Turn being accepted (for per-turn check)
+ * @param {object} [options.turn] - Active turn metadata being accepted (for per-turn check)
+ * @param {object} [options.turnResult] - Accepted turn result (legacy fallback for tests)
  * @param {Date|string} [options.now] - Override for current time (testing)
  * @returns {{ exceeded: Array<TimeoutResult>, warnings: Array<TimeoutResult> }}
  */
-export function evaluateTimeouts({ config, state, turnResult = null, now = new Date() }) {
+export function evaluateTimeouts({ config, state, turn = null, turnResult = null, now = new Date() }) {
   const timeouts = config.timeouts;
   if (!timeouts) return { exceeded: [], warnings: [] };
 
@@ -26,10 +27,10 @@ export function evaluateTimeouts({ config, state, turnResult = null, now = new D
   const warnings = [];
 
   // Per-turn timeout
-  if (timeouts.per_turn_minutes && turnResult) {
-    const dispatchedAt = turnResult.dispatched_at || turnResult.assigned_at;
-    if (dispatchedAt) {
-      const dispatchMs = new Date(dispatchedAt).getTime();
+  if (timeouts.per_turn_minutes) {
+    const startedAt = turn?.started_at || turn?.assigned_at || turnResult?.dispatched_at || turnResult?.assigned_at;
+    if (startedAt) {
+      const dispatchMs = new Date(startedAt).getTime();
       const limitMs = timeouts.per_turn_minutes * 60 * 1000;
       const elapsedMs = nowMs - dispatchMs;
       if (elapsedMs > limitMs) {
@@ -181,7 +182,7 @@ export function validateTimeoutsConfig(timeouts, routing) {
 
   if ('action' in timeouts) {
     if (!VALID_TIMEOUT_ACTIONS.includes(timeouts.action)) {
-      errors.push(`timeouts.action must be one of: ${VALID_TIMEOUT_ACTIONS.join(', ')}`);
+      errors.push(`timeouts.action must be one of: escalate, warn`);
     }
     if (timeouts.action === 'skip_phase') {
       // skip_phase is only valid as a per-phase override, not as a global default
@@ -212,12 +213,13 @@ export function validateTimeoutsConfig(timeouts, routing) {
 /**
  * Build a blocked_reason descriptor for a timeout.
  */
-export function buildTimeoutBlockedReason(timeoutResult) {
+export function buildTimeoutBlockedReason(timeoutResult, options = {}) {
   const scopeLabel = timeoutResult.scope === 'turn'
     ? 'Turn timeout'
     : timeoutResult.scope === 'phase'
       ? `Phase timeout (${timeoutResult.phase || 'unknown'})`
       : 'Run timeout';
+  const turnRetained = options.turnRetained === true;
 
   return {
     category: 'timeout',
@@ -225,7 +227,7 @@ export function buildTimeoutBlockedReason(timeoutResult) {
       typed_reason: 'timeout',
       owner: 'operator',
       recovery_action: 'agentxchain resume',
-      turn_retained: false,
+      turn_retained: turnRetained,
       detail: `${scopeLabel}: limit was ${timeoutResult.limit_minutes}m, elapsed ${timeoutResult.elapsed_minutes}m (exceeded by ${timeoutResult.exceeded_by_minutes}m)`,
     },
   };

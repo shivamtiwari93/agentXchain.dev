@@ -20,9 +20,10 @@ import { join, dirname } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
-import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
+import { evaluatePhaseExit, evaluateRunCompletion, getNextPhase } from './gate-evaluator.js';
 import { evaluateApprovalPolicy } from './approval-policy.js';
 import { evaluatePolicies } from './policy-evaluator.js';
+import { buildTimeoutBlockedReason, evaluateTimeouts } from './timeout-evaluator.js';
 import {
   captureBaseline,
   observeChanges,
@@ -1048,6 +1049,101 @@ function buildBlockedReason({ category, recovery, turnId, blockedAt = new Date()
   };
 }
 
+function buildTimeoutLedgerEntry(timeoutResult, timestamp, turnId, phase, type = 'timeout') {
+  return {
+    type,
+    scope: timeoutResult.scope,
+    phase: timeoutResult.phase || phase || null,
+    turn_id: turnId || null,
+    limit_minutes: timeoutResult.limit_minutes,
+    elapsed_minutes: timeoutResult.elapsed_minutes,
+    exceeded_by_minutes: timeoutResult.exceeded_by_minutes,
+    action: timeoutResult.action,
+    timestamp,
+  };
+}
+
+function attemptTimeoutPhaseSkip({ root, config, updatedState, nextHistoryEntries, historyEntry, timeoutResult, now }) {
+  const currentPhase = updatedState.phase;
+  const nextPhase = getNextPhase(currentPhase, config.routing || {});
+  if (!nextPhase) {
+    return {
+      ok: false,
+      error: `Phase "${currentPhase}" has no next phase to skip to`,
+    };
+  }
+
+  const syntheticTurn = {
+    ...historyEntry,
+    verification: historyEntry.verification || {},
+    phase_transition_request: nextPhase,
+  };
+  const postAcceptanceState = {
+    ...updatedState,
+    history: nextHistoryEntries,
+  };
+  const gateResult = evaluatePhaseExit({
+    state: postAcceptanceState,
+    config,
+    acceptedTurn: syntheticTurn,
+    root,
+  });
+
+  if (gateResult.action === 'advance') {
+    return {
+      ok: true,
+      gateResult,
+      updatedState: {
+        ...updatedState,
+        phase: gateResult.next_phase,
+        phase_entered_at: now,
+        last_gate_failure: null,
+        phase_gate_status: {
+          ...(updatedState.phase_gate_status || {}),
+          [gateResult.gate_id || 'no_gate']: 'passed',
+        },
+      },
+      ledgerEntry: {
+        ...buildTimeoutLedgerEntry(timeoutResult, now, historyEntry.turn_id, currentPhase, 'timeout_skip'),
+        from_phase: currentPhase,
+        to_phase: gateResult.next_phase,
+        gate_id: gateResult.gate_id || null,
+      },
+    };
+  }
+
+  const reasons = gateResult.action === 'awaiting_human_approval'
+    ? [`Gate "${gateResult.gate_id || 'unknown'}" still requires human approval; timeout skip cannot auto-advance`]
+    : Array.isArray(gateResult.reasons) && gateResult.reasons.length > 0
+      ? gateResult.reasons
+      : ['Timeout skip failed for an unknown reason'];
+  const gateFailure = buildGateFailureRecord({
+    gateType: 'phase_transition',
+    gateResult: {
+      ...gateResult,
+      reasons,
+    },
+    phase: currentPhase,
+    fromPhase: currentPhase,
+    toPhase: nextPhase,
+    requestedByTurn: historyEntry.turn_id,
+    failedAt: now,
+    queuedRequest: false,
+  });
+
+  return {
+    ok: false,
+    gateFailure,
+    ledgerEntry: {
+      ...buildTimeoutLedgerEntry(timeoutResult, now, historyEntry.turn_id, currentPhase, 'timeout_skip_failed'),
+      from_phase: currentPhase,
+      to_phase: nextPhase,
+      gate_id: gateResult.gate_id || null,
+      reasons,
+    },
+  };
+}
+
 function slugifyEscalationReason(reason) {
   if (typeof reason !== 'string') {
     return 'operator';
@@ -1684,9 +1780,12 @@ export function initializeGovernedRun(root, config) {
   }
 
   const runId = generateId('run');
+  const now = new Date().toISOString();
   const updatedState = {
     ...state,
     run_id: runId,
+    created_at: now,
+    phase_entered_at: now,
     status: 'active',
     blocked_on: null,
     blocked_reason: null,
@@ -2400,6 +2499,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     cost: turnResult.cost || {},
     accepted_at: now,
   };
+  const nextHistoryEntries = [...historyEntries, historyEntry];
   // Build ledger entries for the journal
   const ledgerEntries = [];
   if (turnResult.decisions && turnResult.decisions.length > 0) {
@@ -2513,6 +2613,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
   let gateResult = null;
   let completionResult = null;
+  let timeoutResult = null;
   const hasRemainingTurns = Object.keys(remainingTurns).length > 0;
   if (turnResult.status !== 'needs_human') {
     if (hasRemainingTurns) {
@@ -2531,7 +2632,6 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         };
       }
     } else {
-      const nextHistoryEntries = [...historyEntries, historyEntry];
       const postAcceptanceState = {
         ...state,
         active_turns: remainingTurns,
@@ -2649,6 +2749,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
         if (gateResult.action === 'advance') {
           updatedState.phase = gateResult.next_phase;
+          updatedState.phase_entered_at = now;
           updatedState.last_gate_failure = null;
           updatedState.phase_gate_status = {
             ...(updatedState.phase_gate_status || {}),
@@ -2666,6 +2767,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
           if (approvalResult.action === 'auto_approve') {
             updatedState.phase = gateResult.next_phase;
+            updatedState.phase_entered_at = now;
             updatedState.last_gate_failure = null;
             updatedState.phase_gate_status = {
               ...(updatedState.phase_gate_status || {}),
@@ -2723,6 +2825,77 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           updatedState.queued_phase_transition = null;
         }
       }
+    }
+  }
+
+  const timeoutEvaluation = evaluateTimeouts({
+    config,
+    state: updatedState,
+    turn: currentTurn,
+    turnResult,
+    now,
+  });
+  for (const warning of timeoutEvaluation.warnings) {
+    ledgerEntries.push(buildTimeoutLedgerEntry(warning, now, currentTurn.turn_id, updatedState.phase, 'timeout_warning'));
+  }
+
+  if (updatedState.status === 'active' && timeoutEvaluation.exceeded.length > 0) {
+    timeoutResult = timeoutEvaluation.exceeded[0];
+
+    if (timeoutResult.action === 'skip_phase' && timeoutResult.scope === 'phase') {
+      const skipAttempt = attemptTimeoutPhaseSkip({
+        root,
+        config,
+        updatedState,
+        nextHistoryEntries,
+        historyEntry,
+        timeoutResult,
+        now,
+      });
+
+      if (skipAttempt.ok) {
+        updatedState.phase = skipAttempt.updatedState.phase;
+        updatedState.phase_entered_at = skipAttempt.updatedState.phase_entered_at;
+        updatedState.last_gate_failure = skipAttempt.updatedState.last_gate_failure;
+        updatedState.phase_gate_status = skipAttempt.updatedState.phase_gate_status;
+        ledgerEntries.push(skipAttempt.ledgerEntry);
+      } else {
+        const escalatedTimeout = { ...timeoutResult, action: 'escalate' };
+        timeoutResult = escalatedTimeout;
+        updatedState.status = 'blocked';
+        updatedState.blocked_on = `timeout:${escalatedTimeout.scope}`;
+        updatedState.blocked_reason = buildBlockedReason({
+          ...buildTimeoutBlockedReason(escalatedTimeout, {
+            turnRetained: Object.keys(getActiveTurns(updatedState)).length > 0,
+          }),
+          turnId: currentTurn.turn_id,
+          blockedAt: now,
+        });
+        updatedState.last_gate_failure = skipAttempt.gateFailure || null;
+        if (skipAttempt.gateFailure?.gate_id) {
+          updatedState.phase_gate_status = {
+            ...(updatedState.phase_gate_status || {}),
+            [skipAttempt.gateFailure.gate_id]: 'failed',
+          };
+          ledgerEntries.push({
+            type: 'gate_failure',
+            ...skipAttempt.gateFailure,
+          });
+        }
+        ledgerEntries.push(skipAttempt.ledgerEntry);
+        ledgerEntries.push(buildTimeoutLedgerEntry(escalatedTimeout, now, currentTurn.turn_id, updatedState.phase));
+      }
+    } else if (timeoutResult.action === 'escalate') {
+      updatedState.status = 'blocked';
+      updatedState.blocked_on = `timeout:${timeoutResult.scope}`;
+      updatedState.blocked_reason = buildBlockedReason({
+        ...buildTimeoutBlockedReason(timeoutResult, {
+          turnRetained: Object.keys(getActiveTurns(updatedState)).length > 0,
+        }),
+        turnId: currentTurn.turn_id,
+        blockedAt: now,
+      });
+      ledgerEntries.push(buildTimeoutLedgerEntry(timeoutResult, now, currentTurn.turn_id, updatedState.phase));
     }
   }
 
@@ -3146,6 +3319,7 @@ export function approvePhaseTransition(root, config) {
   const updatedState = {
     ...state,
     phase: transition.to,
+    phase_entered_at: new Date().toISOString(),
     status: 'active',
     blocked_on: null,
     blocked_reason: null,

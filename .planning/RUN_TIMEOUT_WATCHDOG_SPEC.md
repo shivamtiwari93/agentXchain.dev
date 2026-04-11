@@ -18,20 +18,21 @@ Today, a governed run has no time awareness. If an agent hangs, takes hours on a
     "per_turn_minutes": 30,
     "per_phase_minutes": 120,
     "per_run_minutes": 480,
-    "action": "escalate"
+    "action": "warn"
   }
 }
 ```
 
 All fields are optional. Omitted fields mean "no timeout."
 
-- `per_turn_minutes`: Maximum wall-clock time for a single turn (dispatch to acceptance/rejection). Evaluated at acceptance time by comparing `dispatched_at` to `now()`.
+- `per_turn_minutes`: Maximum wall-clock time for a single turn (assignment to acceptance/rejection). Evaluated at acceptance time by comparing the active turn `started_at` to `now()`.
 - `per_phase_minutes`: Maximum wall-clock time in a single phase. Evaluated at each turn acceptance by comparing the phase-entry timestamp to `now()`.
 - `per_run_minutes`: Maximum wall-clock time for the entire run. Evaluated at each turn acceptance by comparing `created_at` to `now()`.
 - `action`: What happens when a timeout fires.
   - `"escalate"` (default): Block the run with `blocked_on: "timeout:<scope>"` and a structured recovery descriptor. Operator must intervene.
   - `"warn"`: Log a warning in the decision ledger but allow the run to continue. Surfaces in `status`, `report`, and dashboard.
-  - `"skip_phase"`: (phase timeout only) Auto-advance to the next phase. Only valid for `per_phase_minutes`. Records the skip in the decision ledger.
+
+Global `timeouts.action` only supports `"escalate"` and `"warn"`. `skip_phase` is phase-scoped only and must be declared as a routing override.
 
 ### Per-Phase Override
 
@@ -53,6 +54,8 @@ All fields are optional. Omitted fields mean "no timeout."
 
 Phase-level `timeout_minutes` overrides `timeouts.per_phase_minutes` for that specific phase. Phase-level `timeout_action` overrides `timeouts.action`.
 
+`phase_entered_at` is tracked as a top-level governed-state timestamp. It is set when a run is initialized and refreshed whenever a phase transition is approved or auto-advanced.
+
 ## Behavior
 
 ### Evaluation Points
@@ -62,7 +65,7 @@ Timeouts are evaluated at **governance boundaries** only — not via background 
 1. **Turn acceptance** (`accept-turn`): Check per-turn, per-phase, and per-run timeouts.
 2. **Phase transition approval** (`approve-transition`): Check per-phase and per-run timeouts.
 3. **Run completion approval** (`approve-completion`): Check per-run timeout.
-4. **`status` command**: Report timeout warnings (non-blocking) if any deadline is approaching or exceeded.
+4. **`status` command**: Report timeout warnings and timeout-blocked recovery state from persisted state/ledger data.
 
 This is consistent with the existing checkpoint-at-governance-boundary pattern (`DEC-SESSION-CHECKPOINT-001`).
 
@@ -87,6 +90,7 @@ When `action === "escalate"`:
 2. Set `blocked_on: "timeout:turn"`, `"timeout:phase"`, or `"timeout:run"`.
 3. Record `{ type: "timeout", scope, limit_minutes, exceeded_by_minutes }` in decision ledger.
 4. Recovery action: `agentxchain resume` (clears the timeout block and lets the operator decide whether to continue, skip, or abort).
+5. The accepted turn remains accepted. Timeout enforcement is a post-acceptance governance response, not a validation failure.
 
 When `action === "warn"`:
 
@@ -105,13 +109,15 @@ When `action === "skip_phase"`:
 - `per_turn_minutes` < 1: Config validation error.
 - `per_phase_minutes` < 1: Config validation error.
 - `per_run_minutes` < `per_phase_minutes`: Config validation warning (not error — the run timeout may fire before a phase completes).
-- `timeout_action: "skip_phase"` on `per_turn_minutes` or `per_run_minutes`: Config validation error (skip is only valid for phase scope).
-- Missing `dispatched_at` on turn: Skip turn-level timeout check (defensive — should never happen in governed runs).
+- `timeouts.action: "skip_phase"`: Config validation error. Use `routing.<phase>.timeout_action`.
+- Missing `started_at` on active turn: Skip turn-level timeout check (defensive — should never happen in governed runs).
 - Missing `created_at` on state: Skip run-level timeout check (defensive).
+- Missing `phase_entered_at` on a legacy run already mid-flight: Fall back to `created_at`. This is approximate for non-initial phases and exists for backward compatibility only.
 
 ## Acceptance Tests
 
-- `AT-TIMEOUT-001`: Turn timeout fires at acceptance when `dispatched_at` + `per_turn_minutes` < `now()`. Run blocked with `timeout:turn`.
+- `AT-TIMEOUT-001`: Turn timeout fires at acceptance when `started_at` + `per_turn_minutes` < `now()`. Run blocked with `timeout:turn`.
+- `AT-TIMEOUT-001A`: Accepted work is preserved when `AT-TIMEOUT-001` fires; the timeout blocks the run after history/ledger/state acceptance, not before.
 - `AT-TIMEOUT-002`: Phase timeout fires at acceptance when phase-entry timestamp + `per_phase_minutes` < `now()`. Run blocked with `timeout:phase`.
 - `AT-TIMEOUT-003`: Run timeout fires at acceptance when `created_at` + `per_run_minutes` < `now()`. Run blocked with `timeout:run`.
 - `AT-TIMEOUT-004`: `action: "warn"` logs to decision ledger but does not block.
@@ -121,7 +127,7 @@ When `action === "skip_phase"`:
 - `AT-TIMEOUT-008`: `status` command shows timeout warning when deadline is exceeded.
 - `AT-TIMEOUT-009`: `report` includes timeout events from decision ledger.
 - `AT-TIMEOUT-010`: Recovery from timeout block via `resume` clears the block and allows continuation.
-- `AT-TIMEOUT-011`: Config validation rejects `skip_phase` on non-phase scopes.
+- `AT-TIMEOUT-011`: Config validation rejects `timeouts.action: "skip_phase"` and allows it only as a phase routing override.
 - `AT-TIMEOUT-012`: Blocked recovery descriptor has `typed_reason: 'timeout'` with scope, limit, and recovery action.
 
 ## Open Questions

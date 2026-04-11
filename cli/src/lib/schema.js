@@ -74,6 +74,12 @@ export function validateGovernedStateSchema(data) {
     errors.push(`status must be one of: ${VALID_RUN_STATUSES.join(', ')}`);
   }
   if (typeof data.phase !== 'string' || !data.phase.trim()) errors.push('phase must be a non-empty string');
+  if ('created_at' in data && data.created_at !== null && (typeof data.created_at !== 'string' || !data.created_at.trim())) {
+    errors.push('created_at must be a non-empty string or null');
+  }
+  if ('phase_entered_at' in data && data.phase_entered_at !== null && (typeof data.phase_entered_at !== 'string' || !data.phase_entered_at.trim())) {
+    errors.push('phase_entered_at must be a non-empty string or null');
+  }
 
   if (isV1_1) {
     if (hasLegacyCurrentTurn) {
