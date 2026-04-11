@@ -927,6 +927,18 @@ export function formatGovernanceReportText(report) {
       }
     }
 
+    if (run.approval_policy_events && run.approval_policy_events.length > 0) {
+      lines.push('', 'Approval Policy:');
+      for (const evt of run.approval_policy_events) {
+        const transition = evt.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${evt.from_phase || '?'} -> ${evt.to_phase || '?'}`;
+        const rule = evt.matched_rule ? ` | rule: ${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}` : '';
+        lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
+        if (evt.reason) lines.push(`      reason: ${evt.reason}`);
+      }
+    }
+
     if (run.intake_links && run.intake_links.length > 0) {
       lines.push('', 'Intake Linkage:');
       for (const intake of run.intake_links) {
@@ -1112,6 +1124,15 @@ export function formatGovernanceReportText(report) {
           }
         }
       }
+      if (repo.approval_policy_events && repo.approval_policy_events.length > 0) {
+        repoLines.push('  Approval Policy:');
+        for (const evt of repo.approval_policy_events) {
+          const transition = evt.gate_type === 'run_completion'
+            ? 'run completion'
+            : `${evt.from_phase || '?'} -> ${evt.to_phase || '?'}`;
+          repoLines.push(`    - ${evt.action || 'unknown'}: ${evt.gate_type || 'unknown'} | ${transition} | ${evt.timestamp || 'n/a'}`);
+        }
+      }
       if (repo.hook_summary) {
         repoLines.push(`  Hook Activity: ${repo.hook_summary.total} total, ${repo.hook_summary.blocked} blocked`);
       }
@@ -1240,6 +1261,18 @@ export function formatGovernanceReportMarkdown(report) {
         for (const reason of failure.reasons || []) {
           lines.push(`  - ${reason}`);
         }
+      }
+    }
+
+    if (run.approval_policy_events && run.approval_policy_events.length > 0) {
+      lines.push('', '## Approval Policy', '');
+      for (const evt of run.approval_policy_events) {
+        const transition = evt.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${evt.from_phase || '?'} → ${evt.to_phase || '?'}`;
+        const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
+        lines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
+        if (evt.reason) lines.push(`  - ${evt.reason}`);
       }
     }
 
@@ -1431,6 +1464,17 @@ export function formatGovernanceReportMarkdown(report) {
         for (const reason of failure.reasons || []) {
           repoLines.push(`  - ${reason}`);
         }
+      }
+    }
+    if (repo.approval_policy_events && repo.approval_policy_events.length > 0) {
+      repoLines.push('', '#### Approval Policy', '');
+      for (const evt of repo.approval_policy_events) {
+        const transition = evt.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${evt.from_phase || '?'} → ${evt.to_phase || '?'}`;
+        const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
+        repoLines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
+        if (evt.reason) repoLines.push(`  - ${evt.reason}`);
       }
     }
     if (repo.hook_summary) {

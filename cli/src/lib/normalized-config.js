@@ -15,6 +15,7 @@
 import { validateHooksConfig } from './hook-runner.js';
 import { validateNotificationsConfig } from './notification-runner.js';
 import { validatePolicies, normalizePolicies } from './policy-evaluator.js';
+import { validateTimeoutsConfig } from './timeout-evaluator.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 import {
   buildDefaultWorkflowKitArtifactsForPhase,
@@ -524,6 +525,12 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...validateApprovalPolicy(data.approval_policy, data.routing));
   }
 
+  // Timeouts (optional but validated if present)
+  if (data.timeouts !== undefined) {
+    const timeoutValidation = validateTimeoutsConfig(data.timeouts, data.routing);
+    errors.push(...timeoutValidation.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -846,6 +853,7 @@ export function normalizeV3(raw) {
     budget: null,
     policies: [],
     approval_policy: null,
+    timeouts: null,
     workflow_kit: normalizeWorkflowKit(undefined, DEFAULT_PHASES),
     retention: {
       talk_strategy: 'append_only',
@@ -912,6 +920,7 @@ export function normalizeV4(raw) {
     budget: raw.budget || null,
     policies: normalizePolicies(raw.policies),
     approval_policy: raw.approval_policy || null,
+    timeouts: raw.timeouts || null,
     workflow_kit: normalizeWorkflowKit(raw.workflow_kit, routingPhases),
     retention: raw.retention || {
       talk_strategy: 'append_only',

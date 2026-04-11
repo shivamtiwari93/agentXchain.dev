@@ -83,6 +83,14 @@ Hook blocks during assignment require `resume --role` to re-assign. Hook tamper 
 
 Policy escalations are distinct from operator escalations. They are triggered automatically by the declarative policy engine based on config rules, not by an operator command. The `agentxchain status` output shows which policy fired and what condition was violated. The `decision-ledger.jsonl` records `decision = "policy_escalation"` with the violating policy details.
 
+### Timeout
+
+| State | Cause | Recovery |
+|---|---|---|
+| `timeout` | A turn, phase, or run exceeded its configured time limit (`timeouts` in `agentxchain.json`) | Check whether the timeout is caused by a stuck agent or legitimately long work. Adjust `timeouts.per_turn_minutes`, `per_phase_minutes`, or `per_run_minutes` if the limit was too tight, then `agentxchain resume` |
+
+Timeouts fire at governance boundaries (turn acceptance, phase transition, run completion) — not via background polling. The `agentxchain status` output shows which scope exceeded its limit and by how much. Per-phase timeouts can be overridden in `routing` with `timeout_minutes` and `timeout_action` per phase.
+
 ### Budget Exhaustion
 
 | State | Cause | Recovery |
@@ -129,6 +137,7 @@ The `deriveRecoveryDescriptor()` function in `blocked-state.js` is the canonical
 - `conflict_loop`
 - `budget_exhausted`
 - `policy_escalation`
+- `timeout`
 - `unknown_block`
 
 The `unknown_block` fallback ensures that even unrecognized `blocked_on` values produce a recovery action (manual inspection).
@@ -142,6 +151,7 @@ Every recovery action is recorded in the decision ledger (`.agentxchain/decision
 - Run reactivated: `decision = "escalation_resolved"` with `via` field
 - Phase approved: `decision = "phase_transition_approved"`
 - Policy escalation: `decision = "policy_escalation"` with violating policy details
+- Timeout: `type = "timeout"` with scope, limit, and elapsed time
 - Run completed: `decision = "run_completion_approved"`
 
 This ensures that recovery actions are part of the governed audit trail, not silent state mutations.

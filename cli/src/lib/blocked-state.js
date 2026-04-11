@@ -182,6 +182,17 @@ export function deriveRecoveryDescriptor(state, config = null) {
     };
   }
 
+  if (state.blocked_on.startsWith('timeout:')) {
+    const scope = state.blocked_on.slice('timeout:'.length).trim() || 'unknown';
+    return {
+      typed_reason: 'timeout',
+      owner: 'operator',
+      recovery_action: 'agentxchain resume',
+      turn_retained: false,
+      detail: `${scope} timeout exceeded`,
+    };
+  }
+
   return {
     typed_reason: 'unknown_block',
     owner: 'human',

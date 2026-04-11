@@ -198,6 +198,52 @@ describe('report approval-policy surface', () => {
     assert.equal(decisions[0].statement, 'Use modular architecture.');
   });
 
+  it('renders approval_policy_events in text format', () => {
+    root = createProjectWithApprovalPolicy();
+
+    const exp = spawnSync(process.execPath, [CLI_BIN, 'export', '--format', 'json'], {
+      cwd: root, encoding: 'utf8', timeout: 15000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(exp.status, 0);
+
+    const rep = spawnSync(process.execPath, [CLI_BIN, 'report', '--input', '-', '--format', 'text'], {
+      cwd: root, encoding: 'utf8', timeout: 15000, input: exp.stdout,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(rep.status, 0);
+    const text = rep.stdout;
+
+    assert.ok(text.includes('Approval Policy:'), 'text report must include Approval Policy section');
+    assert.ok(text.includes('auto_approve'), 'text report must show action');
+    assert.ok(text.includes('phase_transition'), 'text report must show gate_type');
+    assert.ok(text.includes('planning -> implementation'), 'text report must show transition');
+    assert.ok(text.includes('run completion'), 'text report must show run completion');
+  });
+
+  it('renders approval_policy_events in markdown format', () => {
+    root = createProjectWithApprovalPolicy();
+
+    const exp = spawnSync(process.execPath, [CLI_BIN, 'export', '--format', 'json'], {
+      cwd: root, encoding: 'utf8', timeout: 15000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(exp.status, 0);
+
+    const rep = spawnSync(process.execPath, [CLI_BIN, 'report', '--input', '-', '--format', 'markdown'], {
+      cwd: root, encoding: 'utf8', timeout: 15000, input: exp.stdout,
+      env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    });
+    assert.equal(rep.status, 0);
+    const md = rep.stdout;
+
+    assert.ok(md.includes('## Approval Policy'), 'markdown report must include Approval Policy heading');
+    assert.ok(md.includes('**auto_approve**'), 'markdown report must bold the action');
+    assert.ok(md.includes('planning → implementation'), 'markdown report must show transition with arrow');
+    assert.ok(md.includes('run completion'), 'markdown report must show run completion');
+    assert.ok(md.includes('rule:'), 'markdown report must show matched rule');
+  });
+
   it('approval_policy_events is empty array when no policy entries exist', () => {
     root = createProjectWithApprovalPolicy();
 
