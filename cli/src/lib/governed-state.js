@@ -62,6 +62,48 @@ function generateId(prefix) {
   return `${prefix}_${randomBytes(8).toString('hex')}`;
 }
 
+function getInitialPhase(config) {
+  return Object.keys(config?.routing || {})[0] || 'planning';
+}
+
+function buildInitialPhaseGateStatus(config) {
+  return Object.fromEntries(
+    [...new Set(
+      Object.values(config?.routing || {})
+        .map((route) => route?.exit_gate)
+        .filter(Boolean)
+    )].map((gateId) => [gateId, 'pending'])
+  );
+}
+
+function buildFreshIdleStateForNewRun(state, config) {
+  return {
+    schema_version: state?.schema_version || GOVERNED_SCHEMA_VERSION,
+    run_id: null,
+    project_id: state?.project_id || config?.project?.id || null,
+    status: 'idle',
+    phase: getInitialPhase(config),
+    accepted_integration_ref: null,
+    active_turns: {},
+    turn_sequence: 0,
+    last_completed_turn_id: null,
+    blocked_on: null,
+    blocked_reason: null,
+    escalation: null,
+    pending_phase_transition: null,
+    pending_run_completion: null,
+    queued_phase_transition: null,
+    queued_run_completion: null,
+    last_gate_failure: null,
+    phase_gate_status: buildInitialPhaseGateStatus(config),
+    budget_reservations: {},
+    budget_status: {
+      spent_usd: 0,
+      remaining_usd: config?.budget?.per_run_max_usd ?? null,
+    },
+  };
+}
+
 function normalizeGateFailure(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -1768,16 +1810,21 @@ export function reactivateGovernedRun(root, state, details = {}) {
  * @returns {{ ok: boolean, error?: string, state?: object }}
  */
 export function initializeGovernedRun(root, config, options = {}) {
-  const state = readState(root);
+  let state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
   }
-  if (state.status === 'completed') {
+  const allowTerminalRestart = options.allow_terminal_restart === true
+    && (state.status === 'completed' || state.status === 'blocked');
+  if (state.status === 'completed' && !allowTerminalRestart) {
     return { ok: false, error: 'Cannot initialize run: this run is already completed. Start a new project or reset state.' };
   }
   const allowBlockedBootstrap = state.status === 'blocked' && state.run_id === null && getActiveTurnCount(state) === 0;
-  if (state.status !== 'idle' && state.status !== 'paused' && !allowBlockedBootstrap) {
+  if (state.status !== 'idle' && state.status !== 'paused' && !allowBlockedBootstrap && !allowTerminalRestart) {
     return { ok: false, error: `Cannot initialize run: status is "${state.status}", expected "idle", "paused", or pre-run "blocked"` };
+  }
+  if (allowTerminalRestart) {
+    state = buildFreshIdleStateForNewRun(state, config);
   }
 
   const runId = generateId('run');

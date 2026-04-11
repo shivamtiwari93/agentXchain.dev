@@ -38,7 +38,7 @@ const DEFAULT_MAX_TURNS = 50;
  * @param {string} root - project root directory
  * @param {object} config - normalized governed config
  * @param {object} callbacks - { selectRole, dispatch, approveGate, onEvent? }
- * @param {object} [options] - { maxTurns?: number }
+ * @param {object} [options] - { maxTurns?: number, provenance?: object, startNewRunFromCompleted?: boolean, startNewRunFromBlocked?: boolean }
  * @returns {Promise<RunLoopResult>}
  */
 export async function runLoop(root, config, callbacks, options = {}) {
@@ -58,8 +58,13 @@ export async function runLoop(root, config, callbacks, options = {}) {
 
   // ── Initialize if idle ──────────────────────────────────────────────────
   let state = loadState(root, config);
-  if (!state || state.status === 'idle') {
+  const shouldRestartCompleted = state?.status === 'completed' && options.startNewRunFromCompleted === true;
+  const shouldRestartBlocked = state?.status === 'blocked' && options.startNewRunFromBlocked === true;
+  if (!state || state.status === 'idle' || shouldRestartCompleted || shouldRestartBlocked) {
     const initOpts = options.provenance ? { provenance: options.provenance } : {};
+    if (shouldRestartCompleted || shouldRestartBlocked) {
+      initOpts.allow_terminal_restart = true;
+    }
     const initResult = initRun(root, config, initOpts);
     if (!initResult.ok) {
       return makeResult(false, 'init_failed', loadState(root, config), turnsExecuted, turnHistory, gatesApproved, [initResult.error]);

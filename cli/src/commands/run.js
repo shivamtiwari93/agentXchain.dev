@@ -344,7 +344,11 @@ export async function runCommand(opts) {
   };
 
   // ── Execute ─────────────────────────────────────────────────────────────
-  const runLoopOpts = { maxTurns };
+  const runLoopOpts = {
+    maxTurns,
+    startNewRunFromCompleted: true,
+    startNewRunFromBlocked: Boolean(provenance),
+  };
   if (provenance) runLoopOpts.provenance = provenance;
   const result = await runLoop(root, config, callbacks, runLoopOpts);
 

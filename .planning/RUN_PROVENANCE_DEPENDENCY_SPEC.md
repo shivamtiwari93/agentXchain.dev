@@ -1,6 +1,6 @@
 # Run Provenance & Dependency — Repo-Local Spec
 
-> Status: **Shipped** — Slice 1 (Turn 22) + Slice 2 lineage/flags (Turn 23)
+> Status: **Shipped** — Slice 1 (Turn 22) + Slice 2 lineage/flags (Turn 23) + terminal-state bootstrap correction (Turn 24)
 > Author: Claude Opus 4.6
 > Scope: Repo-local governed runs only
 
@@ -90,9 +90,12 @@ The boundary rule: **provenance is observability. It records relationships. It d
 When either flag is supplied:
 1. Validate that `<run_id>` exists in `run-history.jsonl` (fail with clear error if not)
 2. Validate that the referenced run's status is terminal (`completed` or `blocked`) — cannot chain from an active run
-3. Populate `provenance` on the new run's state
+3. If the repo's current `state.json` is terminal, bootstrap a fresh run envelope before initialization instead of reusing the terminal run
+4. Populate `provenance` on the new run's state
 
 When neither flag is supplied and the run is started manually: `trigger=manual`, `parent_run_id=null`.
+
+If the repo's current `state.json` is `completed`, plain `agentxchain run` starts a fresh manual run. If the repo's current `state.json` is `blocked`, `agentxchain run` must NOT silently discard the blocked run; operators either recover the existing run with `resume` or explicitly start a new run with `--continue-from` / `--recover-from`.
 
 When the coordinator dispatches a repo-local run: `trigger=coordinator`, `created_by=coordinator`. The coordinator sets this; repo-local code does not.
 
@@ -134,6 +137,17 @@ async function initializeGovernedRun(root, config, { provenance } = {}) {
   // ... write state ...
 }
 ```
+
+### Terminal-State Bootstrap
+
+`runLoop()` must not treat a terminal on-disk run as the run it should keep driving when the operator has explicitly requested a new run:
+
+- `completed` + plain `agentxchain run` → bootstrap a fresh manual run
+- `completed` + `--continue-from <run_id>` / `--recover-from <run_id>` → bootstrap a fresh provenance-linked run
+- `blocked` + `--continue-from <run_id>` / `--recover-from <run_id>` → bootstrap a fresh provenance-linked run
+- `blocked` + plain `agentxchain run` → do **not** discard the blocked run implicitly; keep the run blocked and require explicit recovery or a provenance flag
+
+Fresh bootstrap resets run-local execution state (`run_id`, phase progress, active turns, budget counters, gate queues, blocked metadata) while preserving repo identity (`project_id`) and config-defined initial phase/gate structure.
 
 ### Recording
 
@@ -198,16 +212,29 @@ And: the `run-history.jsonl` entry includes the same provenance
 ### AT-2: Continuation sets parent_run_id
 ```
 Given: a completed run with run_id=R1 in run-history.jsonl
+And: the repo's current `state.json` is terminal for R1
 When: `agentxchain run --continue-from R1`
-Then: new run state has `provenance.trigger === 'continuation'` and `provenance.parent_run_id === 'R1'`
+Then: a fresh run is initialized with a new run_id
+And: new run state has `provenance.trigger === 'continuation'` and `provenance.parent_run_id === 'R1'`
 And: run-history entry for the new run carries the same provenance
 ```
 
 ### AT-3: Recovery sets trigger=recovery
 ```
 Given: a blocked run with run_id=R1 in run-history.jsonl
+And: the repo's current `state.json` is blocked for R1
 When: `agentxchain run --recover-from R1`
-Then: new run state has `provenance.trigger === 'recovery'` and `provenance.parent_run_id === 'R1'`
+Then: a fresh run is initialized with a new run_id
+And: new run state has `provenance.trigger === 'recovery'` and `provenance.parent_run_id === 'R1'`
+```
+
+### AT-3b: Plain run after completion starts a fresh manual run
+```
+Given: a completed run with run_id=R1 in state.json
+When: `agentxchain run`
+Then: a fresh run is initialized with a new run_id
+And: new run state has `provenance.trigger === 'manual'`
+And: the old completed run is not reused as the active run
 ```
 
 ### AT-4: Non-existent parent rejected

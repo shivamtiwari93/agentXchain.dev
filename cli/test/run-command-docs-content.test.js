@@ -39,7 +39,7 @@ describe('run command documentation surface', () => {
   });
 
   it('CLI docs page documents all run flags', () => {
-    for (const flag of ['--role', '--max-turns', '--auto-approve', '--verbose', '--dry-run']) {
+    for (const flag of ['--role', '--max-turns', '--auto-approve', '--verbose', '--dry-run', '--continue-from', '--recover-from']) {
       assert.ok(CLI_DOCS.includes(flag),
         `CLI docs must document ${flag} flag for run command`);
     }

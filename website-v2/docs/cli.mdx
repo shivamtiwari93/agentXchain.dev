@@ -331,11 +331,13 @@ agentxchain run [options]
 | `--verbose` | `false` | Stream adapter subprocess output |
 | `--dry-run` | `false` | Print dispatch plan without executing |
 | `--continue-from <run_id>` | — | Continue from a prior terminal run (sets `trigger=continuation` provenance) |
-| `--recover-from <run_id>` | — | Recover from a prior blocked/failed run (sets `trigger=recovery` provenance) |
+| `--recover-from <run_id>` | — | Recover from a prior blocked run (sets `trigger=recovery` provenance) |
 
 Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed.
 
-**Provenance flags:** `--continue-from` and `--recover-from` are mutually exclusive. Both validate that the referenced run exists in `run-history.jsonl` and is in a terminal state (`completed` or `blocked`). The new run's `state.json` will carry the provenance metadata linking it to the parent run. These flags are metadata — they do not copy phase state or alter routing.
+**Terminal-state behavior:** if the last repo-local run is `completed`, `agentxchain run` starts a fresh manual run instead of reusing the terminal run. If the last repo-local run is `blocked`, `agentxchain run` keeps that run blocked; use `agentxchain resume` to continue the same run, or `--continue-from` / `--recover-from` to start a fresh run linked to a prior terminal parent.
+
+**Provenance flags:** `--continue-from` and `--recover-from` are mutually exclusive. Both validate that the referenced run exists in `run-history.jsonl` and is in a terminal state (`completed` or `blocked`). If the current repo state is terminal, the command bootstraps a fresh run envelope before initializing the new run. The new run's `state.json` will carry the provenance metadata linking it to the parent run. These flags are metadata — they do not copy phase state or alter routing.
 
 ### `accept-turn`
 
