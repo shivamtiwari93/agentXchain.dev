@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Post a release announcement to both X/Twitter and r/agentXchain_dev.
+# Post a release announcement to LinkedIn and r/agentXchain_dev.
 # Usage: bash marketing/post-release.sh "v2.25.1" "One-line summary of what shipped"
+#
+# Channels: LinkedIn (company page) + Reddit (r/agentXchain_dev)
+# X/Twitter is suspended — do not post there.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,13 +12,17 @@ SUMMARY="${2:?Usage: bash marketing/post-release.sh \"v2.25.1\" \"summary\"}"
 DOCS_VERSION="${VERSION//./-}"
 RELEASE_URL="https://agentxchain.dev/docs/releases/${DOCS_VERSION}"
 
-TWEET="AgentXchain ${VERSION} released
+LINKEDIN_TEXT="AgentXchain ${VERSION} released 🚀
 
 ${SUMMARY}
 
-${RELEASE_URL}
+Full release notes: ${RELEASE_URL}
 
-#AgentXchain #AI #MultiAgent #DevTools"
+AgentXchain is a governed multi-agent software delivery protocol — turning AI agents from isolated coders into a governed software team.
+
+#AgentXchain #AI #MultiAgent #DevTools #OpenSource
+
+https://agentxchain.dev"
 
 REDDIT_TITLE="AgentXchain ${VERSION} Released — ${SUMMARY}"
 REDDIT_BODY="${SUMMARY}
@@ -28,11 +35,11 @@ https://agentxchain.dev"
 
 FAILURES=0
 
-echo "=== Posting to X/Twitter ==="
-if bash "${SCRIPT_DIR}/post-twitter.sh" "$TWEET"; then
-  echo "✅ X/Twitter post succeeded"
+echo "=== Posting to LinkedIn (company page) ==="
+if bash "${SCRIPT_DIR}/post-linkedin.sh" "$LINKEDIN_TEXT"; then
+  echo "✅ LinkedIn post succeeded"
 else
-  echo "❌ X/Twitter post failed (exit $?)"
+  echo "❌ LinkedIn post failed (exit $?)"
   FAILURES=$((FAILURES + 1))
 fi
 
@@ -41,7 +48,7 @@ echo "=== Posting to r/agentXchain_dev ==="
 if bash "${SCRIPT_DIR}/post-reddit.sh" "$REDDIT_TITLE" "$REDDIT_BODY"; then
   echo "✅ Reddit post succeeded"
 else
-  echo "❌ Reddit post failed (exit $?) — may be CAPTCHA, check r-browser output above"
+  echo "❌ Reddit post failed (exit $?)"
   FAILURES=$((FAILURES + 1))
 fi
 

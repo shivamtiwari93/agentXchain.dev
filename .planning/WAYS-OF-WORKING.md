@@ -202,23 +202,27 @@ If a human task is necessary:
 
 ---
 
-## 8. Social Posting (X/Twitter and Reddit)
+## 8. Social Posting (LinkedIn and Reddit)
 
-**IMPORTANT: `DEC-TWITTER-AUTH-001` and `DEC-MARKETING-HUMAN-001` are SUPERSEDED.** Social posting to X/Twitter and Reddit is now fully agent-available. The human set up browser-automation tools (x-browser and r-browser) with active login sessions on 2026-04-08. Agents MUST actually run the marketing scripts below — do not defer to humans, do not skip posting, do not just claim "posted" without running the command. If the script returns an error, log it in AGENT-TALK.md.
+**IMPORTANT: `DEC-TWITTER-AUTH-001` and `DEC-MARKETING-HUMAN-001` are SUPERSEDED.** Social posting is fully agent-available. The human set up browser-automation tools (li-browser and r-browser) with active login sessions. Agents MUST actually run the marketing scripts below — do not defer to humans, do not skip posting, do not just claim "posted" without running the command. If the script returns an error, log it in AGENT-TALK.md.
 
-Agents are responsible for keeping the community informed. Posts go to **X/Twitter** (via `x-browser`) and **r/agentXchain_dev** (via `r-browser`) using the wrapper scripts in `marketing/`.
+**X/Twitter is SUSPENDED — do NOT post there.** The `@agentXchain_dev` account is suspended. Do not use `post-twitter.sh` or `x-browser`.
+
+Agents are responsible for keeping the community informed. Posts go to:
+- **LinkedIn** (company page via `li-browser`, company ID `112883208`)
+- **Reddit** (`r/agentXchain_dev` via `r-browser`)
 
 ### When to post
 
-1. **After every release** — use `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`. This posts to both X and Reddit.
-2. **After critical product or architectural decisions** — when a `DEC-*` entry meaningfully changes the product direction, protocol shape, or governance model, post a concise summary to both channels using `bash marketing/post-twitter.sh "text"` and `bash marketing/post-reddit.sh "title" "body"`.
+1. **After every release** — use `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`. This posts to both LinkedIn and Reddit.
+2. **After critical product or architectural decisions** — when a `DEC-*` entry meaningfully changes the product direction, protocol shape, or governance model, post a concise summary to both channels using `bash marketing/post-linkedin.sh "text"` and `bash marketing/post-reddit.sh "title" "body"`.
 3. **Community updates ("good to know")** — post frequently about interesting progress, new examples, new comparison pages, new docs, proof evidence, or anything the community would find valuable. **Post at least once every 3-5 turns.** If you shipped something, wrote a comparison page, added a new example, improved docs, or made any user-facing progress — post about it. Err on the side of posting too much rather than too little.
 
 ### Rules
 
 - Keep posts concise and factual. No hype, no vague claims.
 - Always include a link to the relevant page (release notes, docs, comparison page, etc.).
-- For X/Twitter: include `#AgentXchain` and relevant hashtags. Stay under 280 characters when possible, but longer posts are fine.
+- For LinkedIn: include `#AgentXchain` and relevant hashtags. Write in a professional but approachable tone. Can be longer-form.
 - For Reddit: use a clear descriptive title. Body should explain what changed and why it matters.
 - Do not post about trivial fixes, test-only changes, or spec-only work unless it represents a significant product direction.
 - Do not post duplicate content — if you posted about v2.25.0, do not re-post the same content for v2.25.1 unless the patch has its own noteworthy story.
@@ -226,20 +230,19 @@ Agents are responsible for keeping the community informed. Posts go to **X/Twitt
 
 ### Scripts
 
-- `bash marketing/post-twitter.sh "tweet text"` — post to X/Twitter
+- `bash marketing/post-linkedin.sh "post text"` — post to LinkedIn company page
 - `bash marketing/post-reddit.sh "title" "body"` — post to r/agentXchain_dev
 - `bash marketing/post-release.sh "vX.Y.Z" "summary"` — post to both channels
 
-These scripts use browser automation (x-browser and r-browser). They require a Chrome instance with active login sessions. If a post fails, log the error in AGENT-TALK.md and move on — do not block release work on social posting failures.
+These scripts use browser automation (li-browser and r-browser). They require a Chrome instance with active login sessions. If a post fails, log the error in AGENT-TALK.md and move on — do not block release work on social posting failures. The `post-release.sh` script is resilient — if one channel fails, the other still posts.
+
+### LinkedIn posting (added 2026-04-10)
+
+`li-browser` posts to the AgentXchain company page (ID `112883208`) using the `--system-profile` flag to access the admin's Chrome profile. The `--company-id` flag is passed automatically by `post-linkedin.sh`.
 
 ### Reddit posting (updated 2026-04-10)
 
-`r-browser` now uses **new Reddit** (www.reddit.com) instead of old.reddit.com. Old Reddit forced visible CAPTCHAs on the low-karma `u/agentXchain_dev` account; new Reddit uses invisible reCAPTCHA that auto-passes. Reddit posting is now **working reliably**.
-
-If a post still fails, `r-browser` will return `{"ok": false}` and exit non-zero. The `post-release.sh` script is resilient — a Reddit failure won't prevent the X/Twitter post (and vice versa). If posting fails:
-1. Log the failure in AGENT-TALK.md.
-2. Still post to the other channel.
-3. Do NOT skip posting entirely because one channel failed.
+`r-browser` uses **new Reddit** (www.reddit.com) instead of old.reddit.com. Old Reddit forced visible CAPTCHAs on the low-karma `u/agentXchain_dev` account; new Reddit uses invisible reCAPTCHA that auto-passes. Reddit posting is now **working reliably**.
 
 ---
 

@@ -15,10 +15,12 @@ Current state: **No release blockers.** Local npm auth uses the GitHub Actions t
 
 ## Agent Social Posting Instruction
 
-Agents can and should post to X/Twitter and Reddit directly. **Do not add human tasks for social posting.**
+Agents can and should post to LinkedIn and Reddit directly. **Do not add human tasks for social posting.**
 
-- **X/Twitter**: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser (browser automation via Playwright + CDP, no API keys needed). The Chrome profile at `~/.config/x-browser/chrome-data/` has an active @agentXchain_dev session.
-- **Reddit r/agentXchain_dev**: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation via Playwright + CDP, no API keys needed). The Chrome profile at `~/.config/r-browser/chrome-data/` has an active u/agentXchain_dev session. **Note:** Reddit may show CAPTCHA for low-karma accounts. If the post fails silently, log it in AGENT-TALK.md and move on.
+**X/Twitter is SUSPENDED — do NOT use `post-twitter.sh` or `x-browser`.**
+
+- **LinkedIn (company page)**: run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation via Playwright + CDP, no API keys needed). Posts to the AgentXchain company page (ID `112883208`) using `--system-profile` for admin access.
+- **Reddit r/agentXchain_dev**: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation via Playwright + CDP, no API keys needed). Uses new Reddit (www.reddit.com) which handles CAPTCHA automatically.
 - **Both channels at once**: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`.
 - See WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules).
 - **HN is the only social channel that still requires human action** (no credentials, no API).
