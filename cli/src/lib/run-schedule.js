@@ -4,7 +4,9 @@ import { safeWriteJson } from './safe-write.js';
 import { loadProjectState } from './config.js';
 
 export const SCHEDULE_STATE_PATH = '.agentxchain/schedule-state.json';
+export const DAEMON_STATE_PATH = '.agentxchain/schedule-daemon.json';
 const SCHEDULE_STATE_SCHEMA_VERSION = '0.1';
+const DAEMON_STATE_SCHEMA_VERSION = '0.1';
 
 function parseIsoTime(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -157,4 +159,69 @@ export function evaluateScheduleLaunchEligibility(root, config) {
   }
 
   return { ok: false, status, reason: `run_${status}` };
+}
+
+// ── Daemon Health State ─────────────────────────────────────────────────────
+
+export function readDaemonState(root) {
+  const absPath = join(root, DAEMON_STATE_PATH);
+  if (!existsSync(absPath)) return null;
+  try {
+    return JSON.parse(readFileSync(absPath, 'utf8'));
+  } catch {
+    return { _parse_error: true };
+  }
+}
+
+export function writeDaemonState(root, state) {
+  const absPath = join(root, DAEMON_STATE_PATH);
+  mkdirSync(dirname(absPath), { recursive: true });
+  safeWriteJson(absPath, { schema_version: DAEMON_STATE_SCHEMA_VERSION, ...state });
+}
+
+export function updateDaemonHeartbeat(root, daemonState, cycleResult) {
+  const now = new Date().toISOString();
+  const updated = {
+    ...daemonState,
+    last_heartbeat_at: now,
+    last_cycle_finished_at: now,
+    last_cycle_result: cycleResult.ok ? 'ok' : 'error',
+    last_error: cycleResult.ok ? null : (cycleResult.error || 'cycle failed'),
+  };
+  writeDaemonState(root, updated);
+  return updated;
+}
+
+export function createDaemonState(pid, pollSeconds, scheduleId, maxCycles) {
+  const now = new Date().toISOString();
+  return {
+    pid,
+    started_at: now,
+    last_heartbeat_at: now,
+    last_cycle_started_at: null,
+    last_cycle_finished_at: null,
+    last_cycle_result: null,
+    poll_seconds: pollSeconds,
+    schedule_id: scheduleId || null,
+    max_cycles: maxCycles,
+    last_error: null,
+  };
+}
+
+export function evaluateDaemonStatus(daemonState, now = Date.now()) {
+  if (!daemonState) return { status: 'never_started' };
+  if (daemonState._parse_error) return { status: 'not_running', warning: 'state file is malformed' };
+
+  const heartbeat = parseIsoTime(daemonState.last_heartbeat_at);
+  if (heartbeat === null) return { status: 'not_running', warning: 'no heartbeat recorded' };
+
+  const pollSeconds = typeof daemonState.poll_seconds === 'number' ? daemonState.poll_seconds : 60;
+  const staleAfterSeconds = Math.max(pollSeconds * 3, 30);
+  const ageSeconds = (now - heartbeat) / 1000;
+
+  if (ageSeconds > staleAfterSeconds) {
+    return { status: 'stale', stale_after_seconds: staleAfterSeconds, heartbeat_age_seconds: Math.round(ageSeconds) };
+  }
+
+  return { status: 'running', stale_after_seconds: staleAfterSeconds, heartbeat_age_seconds: Math.round(ageSeconds) };
 }

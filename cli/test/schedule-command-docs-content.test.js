@@ -21,6 +21,7 @@ describe('schedule command docs contract', () => {
     assert.match(CLI_ENTRY, /\.command\('list'\)/);
     assert.match(CLI_ENTRY, /\.command\('run-due'\)/);
     assert.match(CLI_ENTRY, /\.command\('daemon'\)/);
+    assert.match(CLI_ENTRY, /\.command\('status'\)/);
   });
 
   it('documents the schedule command and config contract in cli.mdx', () => {
@@ -28,7 +29,16 @@ describe('schedule command docs contract', () => {
     assert.match(CLI_DOCS, /`every_minutes`/);
     assert.match(CLI_DOCS, /schedule run-due/);
     assert.match(CLI_DOCS, /schedule daemon/);
+    assert.match(CLI_DOCS, /schedule status/);
     assert.match(CLI_DOCS, /trigger: "schedule"/);
+  });
+
+  it('documents the daemon health surface in cli.mdx', () => {
+    assert.match(CLI_DOCS, /Daemon health/i);
+    assert.match(CLI_DOCS, /schedule-daemon\.json/);
+    assert.match(CLI_DOCS, /`running`/);
+    assert.match(CLI_DOCS, /`stale`/);
+    assert.match(CLI_DOCS, /`never_started`/);
   });
 
   it('documents the non-overlap and no-auto-recovery boundary explicitly', () => {

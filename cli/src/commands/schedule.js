@@ -2,9 +2,15 @@ import chalk from 'chalk';
 import { loadProjectContext } from '../lib/config.js';
 import {
   SCHEDULE_STATE_PATH,
+  DAEMON_STATE_PATH,
   listSchedules,
   updateScheduleState,
   evaluateScheduleLaunchEligibility,
+  readDaemonState,
+  writeDaemonState,
+  updateDaemonHeartbeat,
+  createDaemonState,
+  evaluateDaemonStatus,
 } from '../lib/run-schedule.js';
 import { executeGovernedRun } from './run.js';
 
@@ -221,6 +227,78 @@ export async function scheduleRunDueCommand(opts) {
   process.exitCode = result.exitCode;
 }
 
+export async function scheduleStatusCommand(opts) {
+  const context = loadScheduleContext();
+  if (!context) return;
+
+  const raw = readDaemonState(context.root);
+  const evaluation = evaluateDaemonStatus(raw);
+
+  if (opts.json) {
+    const output = {
+      ok: evaluation.status === 'running' || evaluation.status === 'never_started',
+      state_file: DAEMON_STATE_PATH,
+      daemon: {
+        status: evaluation.status,
+        pid: raw?.pid ?? null,
+        started_at: raw?.started_at ?? null,
+        last_heartbeat_at: raw?.last_heartbeat_at ?? null,
+        last_cycle_result: raw?.last_cycle_result ?? null,
+        poll_seconds: raw?.poll_seconds ?? null,
+        stale_after_seconds: evaluation.stale_after_seconds ?? null,
+        last_error: raw?.last_error ?? null,
+      },
+    };
+    if (evaluation.warning) output.daemon.warning = evaluation.warning;
+    console.log(JSON.stringify(output, null, 2));
+    return;
+  }
+
+  // Human-readable output
+  const statusColors = {
+    running: chalk.green,
+    stale: chalk.yellow,
+    not_running: chalk.red,
+    never_started: chalk.dim,
+  };
+  const colorFn = statusColors[evaluation.status] || chalk.white;
+
+  console.log(chalk.bold('Schedule Daemon Status'));
+  console.log(`  State:     ${colorFn(evaluation.status)}`);
+
+  if (evaluation.status === 'never_started') {
+    console.log(chalk.dim('  No daemon state file found. Run `agentxchain schedule daemon` to start.'));
+    return;
+  }
+
+  if (evaluation.warning) {
+    console.log(chalk.yellow(`  Warning:   ${evaluation.warning}`));
+  }
+
+  if (raw?.pid != null) {
+    console.log(`  PID:       ${raw.pid}`);
+  }
+  if (raw?.started_at) {
+    console.log(`  Started:   ${raw.started_at}`);
+  }
+  if (raw?.last_heartbeat_at) {
+    console.log(`  Heartbeat: ${raw.last_heartbeat_at}`);
+  }
+  if (raw?.last_cycle_result) {
+    const resultColor = raw.last_cycle_result === 'ok' ? chalk.green : chalk.red;
+    console.log(`  Last cycle: ${resultColor(raw.last_cycle_result)}`);
+  }
+  if (raw?.poll_seconds != null) {
+    console.log(`  Poll:      ${raw.poll_seconds}s`);
+  }
+  if (evaluation.status === 'stale') {
+    console.log(chalk.yellow(`  ⚠ Heartbeat is ${evaluation.heartbeat_age_seconds}s old (stale after ${evaluation.stale_after_seconds}s)`));
+  }
+  if (raw?.last_error) {
+    console.log(chalk.red(`  Last error: ${raw.last_error}`));
+  }
+}
+
 export async function scheduleDaemonCommand(opts) {
   const context = loadScheduleContext();
   if (!context) return;
@@ -239,16 +317,31 @@ export async function scheduleDaemonCommand(opts) {
   }
 
   let cycle = 0;
+  const daemonState = createDaemonState(process.pid, pollSeconds, opts.schedule || null, maxCycles);
+
+  try {
+    writeDaemonState(context.root, daemonState);
+  } catch (err) {
+    console.error(chalk.red(`Cannot write daemon state: ${err.message}`));
+    process.exitCode = 1;
+    return;
+  }
+
   if (!opts.json) {
     console.log(chalk.bold('AgentXchain Schedule Daemon'));
     console.log(chalk.dim(`  Poll: ${pollSeconds}s`));
     console.log(chalk.dim(`  State: ${SCHEDULE_STATE_PATH}`));
+    console.log(chalk.dim(`  Health: ${DAEMON_STATE_PATH}`));
     console.log('');
   }
 
   while (true) {
     cycle += 1;
+    daemonState.last_cycle_started_at = new Date().toISOString();
     const result = await runDueSchedules(context, opts);
+
+    updateDaemonHeartbeat(context.root, daemonState, result);
+
     if (opts.json) {
       console.log(JSON.stringify({ cycle, ...result }));
     }

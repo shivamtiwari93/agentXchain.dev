@@ -107,7 +107,7 @@ import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
 import { eventsCommand } from '../src/commands/events.js';
-import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand } from '../src/commands/schedule.js';
+import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -287,6 +287,12 @@ scheduleCmd
   .option('--max-cycles <n>', 'Stop after N cycles (test helper)')
   .option('-j, --json', 'Output as JSON')
   .action(scheduleDaemonCommand);
+
+scheduleCmd
+  .command('status')
+  .description('Show daemon health: running, stale, not_running, or never_started')
+  .option('-j, --json', 'Output as JSON')
+  .action(scheduleStatusCommand);
 
 program
   .command('history')

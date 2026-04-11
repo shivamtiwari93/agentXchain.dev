@@ -46,7 +46,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
-| `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, or poll in a local daemon loop |
+| `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, poll in a local daemon loop, or check daemon health |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -347,6 +347,7 @@ Drives a governed run to completion using the `runLoop` library. Continuously as
 agentxchain schedule list [--schedule <id>] [--at <iso8601>] [--json]
 agentxchain schedule run-due [--schedule <id>] [--at <iso8601>] [--json]
 agentxchain schedule daemon [--schedule <id>] [--poll-seconds <n>] [--max-cycles <n>] [--json]
+agentxchain schedule status [--json]
 ```
 
 Repo-local run scheduling is the narrow first step from "tool you invoke" to "system that runs itself." Schedules live in `agentxchain.json` under a top-level `schedules` object:
@@ -386,6 +387,19 @@ Behavior contract:
 - scheduled runs do **not** auto-recover a `blocked` run
 
 The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one.
+
+#### Daemon health
+
+`schedule daemon` writes a heartbeat file at `.agentxchain/schedule-daemon.json` on every cycle. `schedule status` reads this file and reports daemon health:
+
+| Status | Meaning |
+|--------|---------|
+| `running` | Heartbeat is recent (within `poll_seconds * 3` or 30s, whichever is greater) |
+| `stale` | Heartbeat file exists but is older than the staleness threshold |
+| `not_running` | State file exists but is malformed or missing heartbeat data |
+| `never_started` | No daemon state file found |
+
+Use `schedule status --json` for machine-readable output including `pid`, `started_at`, `last_heartbeat_at`, `last_cycle_result`, `poll_seconds`, and `stale_after_seconds`.
 
 ### `accept-turn`
 
