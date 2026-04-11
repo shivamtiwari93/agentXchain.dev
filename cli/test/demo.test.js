@@ -37,9 +37,12 @@ describe('agentxchain demo', () => {
     assert.match(output, /Decisions:\s+5/);
     assert.match(output, /Objections:\s+3/);
 
-    // Verify CTA
-    assert.match(output, /agentxchain init --governed/);
-    assert.match(output, /https:\/\/agentxchain\.dev\/docs\/getting-started/);
+    // Verify handoff routes operators through the governed-ready path
+    assert.match(output, /Next steps:/);
+    assert.match(output, /agentxchain init --governed --goal/);
+    assert.match(output, /agentxchain doctor/);
+    assert.match(output, /agentxchain run/);
+    assert.match(output, /https:\/\/agentxchain\.dev\/docs\/quickstart/);
   });
 
   it('returns structured JSON with --json flag', () => {

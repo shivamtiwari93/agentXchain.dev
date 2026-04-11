@@ -604,9 +604,13 @@ All acceptance criteria met. OBJ-002 (clock skew) noted for follow-up. OBJ-003 (
       console.log('');
       console.log(chalk.dim('  ─'.repeat(26)));
       console.log('');
-      console.log(`  ${chalk.bold('Try it for real:')}  agentxchain init --governed`);
-      console.log(`  ${chalk.bold('Step by step:')}    https://agentxchain.dev/docs/getting-started`);
-      console.log(`  ${chalk.bold('Read more:')}       https://agentxchain.dev/docs/quickstart`);
+      console.log(`  ${chalk.bold('Next steps:')}`);
+      console.log('');
+      console.log(`  ${chalk.dim('1.')} ${chalk.bold('Scaffold')}     agentxchain init --governed --goal "Your project mission"`);
+      console.log(`  ${chalk.dim('2.')} ${chalk.bold('Verify')}       agentxchain doctor`);
+      console.log(`  ${chalk.dim('3.')} ${chalk.bold('First turn')}   agentxchain run`);
+      console.log('');
+      console.log(`  ${chalk.bold('Docs:')}           https://agentxchain.dev/docs/quickstart`);
       console.log('');
     }
 
