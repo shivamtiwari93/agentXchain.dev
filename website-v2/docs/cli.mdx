@@ -46,6 +46,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `escalate` | Turn lifecycle | Raise an operator escalation intentionally and block the run with a recovery contract |
 | `step` | Turn lifecycle | Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome |
 | `run` | Turn lifecycle | Drive a governed run to completion: multi-turn execution with adapter dispatch and gate prompting |
+| `schedule` | Automation | Evaluate repo-local run schedules, execute due governed runs, or poll in a local daemon loop |
 | `accept-turn` | Turn lifecycle | Accept the staged turn result and commit it to history |
 | `reject-turn` | Turn lifecycle | Reject the staged turn result with a reason; turn goes back to pending |
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
@@ -339,6 +340,52 @@ Drives a governed run to completion using the `runLoop` library. Continuously as
 **Terminal-state behavior:** if the last repo-local run is `completed`, `agentxchain run` starts a fresh manual run instead of reusing the terminal run. If the last repo-local run is `blocked`, `agentxchain run` keeps that run blocked; use `agentxchain resume` to continue the same run, or `--continue-from` / `--recover-from` to start a fresh run linked to a prior terminal parent.
 
 **Provenance flags:** `--continue-from` and `--recover-from` are mutually exclusive. Both validate that the referenced run exists in `run-history.jsonl` and is in a terminal state (`completed` or `blocked`). If the current repo state is terminal, the command bootstraps a fresh run envelope before initializing the new run. The new run's `state.json` will carry the provenance metadata linking it to the parent run. These flags are metadata — they do not copy phase state or alter routing.
+
+### `schedule`
+
+```bash
+agentxchain schedule list [--schedule <id>] [--at <iso8601>] [--json]
+agentxchain schedule run-due [--schedule <id>] [--at <iso8601>] [--json]
+agentxchain schedule daemon [--schedule <id>] [--poll-seconds <n>] [--max-cycles <n>] [--json]
+```
+
+Repo-local run scheduling is the narrow first step from "tool you invoke" to "system that runs itself." Schedules live in `agentxchain.json` under a top-level `schedules` object:
+
+```json
+{
+  "schedules": {
+    "nightly_governed_run": {
+      "enabled": true,
+      "every_minutes": 60,
+      "auto_approve": true,
+      "max_turns": 10,
+      "initial_role": "pm",
+      "trigger_reason": "Nightly governed run"
+    }
+  }
+}
+```
+
+| Field | Default | Meaning |
+|------|---------|---------|
+| `enabled` | `true` | Whether the schedule is eligible to run |
+| `every_minutes` | required | Fixed interval cadence in minutes |
+| `auto_approve` | `true` | Whether scheduled runs auto-approve gates |
+| `max_turns` | `50` | Safety limit passed to the governed run |
+| `initial_role` | config-driven | Optional first-turn role override |
+| `trigger_reason` | `schedule:<id>` | Human-readable provenance reason |
+
+Behavior contract:
+
+- `schedule list` shows due status, next due time, and last run/skip metadata from `.agentxchain/schedule-state.json`
+- `schedule run-due` evaluates configured schedules once and runs only the ones currently due
+- `schedule daemon` repeats that same due-run path on a fixed local poll interval
+- scheduled runs use `trigger: "schedule"` provenance instead of pretending they were started manually
+- scheduled runs start only from `idle` or `completed`
+- scheduled runs do **not** attach to an existing `active` or `paused` run
+- scheduled runs do **not** auto-recover a `blocked` run
+
+The skip behavior is deliberate. If a repo is already active, paused on a gate, or blocked for operator recovery, the scheduler records a skip reason and exits cleanly. It does not invent a second run and it does not hijack the current one.
 
 ### `accept-turn`
 

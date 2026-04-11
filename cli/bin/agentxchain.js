@@ -107,6 +107,7 @@ import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
 import { eventsCommand } from '../src/commands/events.js';
+import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand } from '../src/commands/schedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -257,6 +258,35 @@ program
   .option('-j, --json', 'Output as JSON')
   .option('-v, --verbose', 'Show stack traces on failure')
   .action(demoCommand);
+
+const scheduleCmd = program
+  .command('schedule')
+  .description('Run governed schedules for repo-local lights-out execution');
+
+scheduleCmd
+  .command('list')
+  .description('List configured governed schedules and due status')
+  .option('--schedule <id>', 'Show a single schedule')
+  .option('--at <iso8601>', 'Evaluate due status at a fixed time')
+  .option('-j, --json', 'Output as JSON')
+  .action(scheduleListCommand);
+
+scheduleCmd
+  .command('run-due')
+  .description('Execute every due governed schedule once')
+  .option('--schedule <id>', 'Run one configured schedule only')
+  .option('--at <iso8601>', 'Evaluate due status at a fixed time')
+  .option('-j, --json', 'Output as JSON')
+  .action(scheduleRunDueCommand);
+
+scheduleCmd
+  .command('daemon')
+  .description('Poll for due governed schedules and run them locally')
+  .option('--schedule <id>', 'Run one configured schedule only')
+  .option('--poll-seconds <n>', 'Polling interval in seconds', '60')
+  .option('--max-cycles <n>', 'Stop after N cycles (test helper)')
+  .option('-j, --json', 'Output as JSON')
+  .action(scheduleDaemonCommand);
 
 program
   .command('history')

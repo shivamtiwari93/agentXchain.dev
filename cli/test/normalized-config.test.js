@@ -275,6 +275,69 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('accepts a valid schedules block', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+      },
+      schedules: {
+        nightly_governed_run: {
+          every_minutes: 60,
+          auto_approve: true,
+          max_turns: 10,
+          initial_role: 'pm',
+        },
+      },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects schedule with invalid cadence', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+      },
+      schedules: {
+        nightly_governed_run: {
+          every_minutes: 0,
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('every_minutes')));
+  });
+
+  it('rejects schedule referencing unknown initial_role', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+      },
+      schedules: {
+        nightly_governed_run: {
+          every_minutes: 60,
+          initial_role: 'ghost',
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('initial_role')));
+  });
+
   it('rejects unknown notification events', () => {
     const result = validateV4Config({
       schema_version: '1.0',
@@ -766,6 +829,33 @@ describe('normalizeV4', () => {
     // Files
     assert.equal(normalized.files.state, '.agentxchain/state.json');
     assert.equal(normalized.files.history, '.agentxchain/history.jsonl');
+  });
+
+  it('normalizes schedules with lights-out defaults', () => {
+    const normalized = normalizeV4({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        pm: { title: 'PM', mandate: 'Plan', write_authority: 'authoritative', runtime: 'manual-pm' },
+      },
+      runtimes: {
+        'manual-pm': { type: 'manual' },
+      },
+      schedules: {
+        nightly_governed_run: {
+          every_minutes: 60,
+        },
+      },
+    });
+
+    assert.deepEqual(normalized.schedules.nightly_governed_run, {
+      enabled: true,
+      every_minutes: 60,
+      auto_approve: true,
+      max_turns: 50,
+      initial_role: null,
+      trigger_reason: 'schedule:nightly_governed_run',
+    });
   });
 });
 

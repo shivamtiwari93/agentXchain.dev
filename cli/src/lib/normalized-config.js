@@ -34,6 +34,7 @@ const DEFAULT_PHASES = ['planning', 'implementation', 'qa'];
 export { DEFAULT_PHASES };
 const VALID_PHASE_NAME = /^[a-z][a-z0-9_-]*$/;
 const VALID_SEMANTIC_IDS = ['pm_signoff', 'system_spec', 'implementation_notes', 'acceptance_matrix', 'ship_verdict', 'release_notes', 'section_check'];
+const VALID_SCHEDULE_ID = /^[a-z0-9_-]+$/;
 
 const VALID_API_PROXY_RETRY_JITTER = ['none', 'full'];
 const VALID_API_PROXY_RETRY_CLASSES = [
@@ -508,6 +509,12 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...notificationValidation.errors);
   }
 
+  // Schedules (optional but validated if present)
+  if (data.schedules !== undefined) {
+    const scheduleValidation = validateSchedulesConfig(data.schedules, data.roles);
+    errors.push(...scheduleValidation.errors);
+  }
+
   // Workflow Kit (optional but validated if present)
   if (data.workflow_kit !== undefined) {
     const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing, data.roles);
@@ -529,6 +536,57 @@ export function validateV4Config(data, projectRoot) {
   if (data.timeouts !== undefined) {
     const timeoutValidation = validateTimeoutsConfig(data.timeouts, data.routing);
     errors.push(...timeoutValidation.errors);
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+export function validateSchedulesConfig(schedules, roles) {
+  const errors = [];
+
+  if (!schedules || typeof schedules !== 'object' || Array.isArray(schedules)) {
+    errors.push('schedules must be an object');
+    return { ok: false, errors };
+  }
+
+  for (const [scheduleId, schedule] of Object.entries(schedules)) {
+    if (!VALID_SCHEDULE_ID.test(scheduleId)) {
+      errors.push(`Schedule "${scheduleId}" must use lowercase alphanumeric, underscore, or hyphen characters only`);
+      continue;
+    }
+
+    if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) {
+      errors.push(`Schedule "${scheduleId}" must be an object`);
+      continue;
+    }
+
+    if (!Number.isInteger(schedule.every_minutes) || schedule.every_minutes < 1) {
+      errors.push(`Schedule "${scheduleId}": every_minutes must be an integer >= 1`);
+    }
+
+    if ('enabled' in schedule && typeof schedule.enabled !== 'boolean') {
+      errors.push(`Schedule "${scheduleId}": enabled must be a boolean`);
+    }
+
+    if ('auto_approve' in schedule && typeof schedule.auto_approve !== 'boolean') {
+      errors.push(`Schedule "${scheduleId}": auto_approve must be a boolean`);
+    }
+
+    if ('max_turns' in schedule && (!Number.isInteger(schedule.max_turns) || schedule.max_turns < 1)) {
+      errors.push(`Schedule "${scheduleId}": max_turns must be an integer >= 1`);
+    }
+
+    if ('trigger_reason' in schedule && (typeof schedule.trigger_reason !== 'string' || !schedule.trigger_reason.trim())) {
+      errors.push(`Schedule "${scheduleId}": trigger_reason must be a non-empty string when provided`);
+    }
+
+    if ('initial_role' in schedule) {
+      if (typeof schedule.initial_role !== 'string' || !schedule.initial_role.trim()) {
+        errors.push(`Schedule "${scheduleId}": initial_role must be a non-empty string when provided`);
+      } else if (roles && !roles[schedule.initial_role]) {
+        errors.push(`Schedule "${scheduleId}": initial_role "${schedule.initial_role}" is not a defined role`);
+      }
+    }
   }
 
   return { ok: errors.length === 0, errors };
@@ -850,6 +908,7 @@ export function normalizeV3(raw) {
     gates: {},
     hooks: {},
     notifications: {},
+    schedules: {},
     budget: null,
     policies: [],
     approval_policy: null,
@@ -917,6 +976,7 @@ export function normalizeV4(raw) {
     gates: raw.gates || {},
     hooks: raw.hooks || {},
     notifications: raw.notifications || {},
+    schedules: normalizeSchedules(raw.schedules),
     budget: raw.budget || null,
     policies: normalizePolicies(raw.policies),
     approval_policy: raw.approval_policy || null,
@@ -947,6 +1007,26 @@ export function normalizeV4(raw) {
       original_version: 4,
     },
   };
+}
+
+function normalizeSchedules(rawSchedules) {
+  if (!rawSchedules || typeof rawSchedules !== 'object' || Array.isArray(rawSchedules)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawSchedules).map(([scheduleId, schedule]) => [
+      scheduleId,
+      {
+        enabled: schedule?.enabled !== false,
+        every_minutes: schedule?.every_minutes,
+        auto_approve: schedule?.auto_approve !== false,
+        max_turns: schedule?.max_turns ?? 50,
+        initial_role: schedule?.initial_role || null,
+        trigger_reason: schedule?.trigger_reason?.trim() || `schedule:${scheduleId}`,
+      },
+    ]),
+  );
 }
 
 /**

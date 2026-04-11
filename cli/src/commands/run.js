@@ -49,12 +49,18 @@ export async function runCommand(opts) {
     process.exit(1);
   }
 
+  const execution = await executeGovernedRun(context, opts);
+  process.exit(execution.exitCode);
+}
+
+export async function executeGovernedRun(context, opts = {}) {
   const { root, config, rawConfig } = context;
+  const log = opts.log || console.log;
 
   if (config.protocol_mode !== 'governed') {
-    console.log(chalk.red('The run command is only available for governed projects.'));
-    console.log(chalk.dim('Legacy projects use: agentxchain start'));
-    process.exit(1);
+    log(chalk.red('The run command is only available for governed projects.'));
+    log(chalk.dim('Legacy projects use: agentxchain start'));
+    return { exitCode: 1, result: null };
   }
 
   // ── Provenance flag validation ──────────────────────────────────────────
@@ -62,17 +68,21 @@ export async function runCommand(opts) {
   const recoverFrom = opts.recoverFrom;
 
   if (continueFrom && recoverFrom) {
-    console.log(chalk.red('Cannot specify both --continue-from and --recover-from'));
-    process.exit(1);
+    log(chalk.red('Cannot specify both --continue-from and --recover-from'));
+    return { exitCode: 1, result: null };
   }
 
-  let provenance = undefined;
+  let provenance = opts.provenance;
   if (continueFrom || recoverFrom) {
+    if (provenance) {
+      log(chalk.red('Cannot combine internal provenance overrides with --continue-from or --recover-from'));
+      return { exitCode: 1, result: null };
+    }
     const parentId = continueFrom || recoverFrom;
     const validation = validateParentRun(root, parentId);
     if (!validation.ok) {
-      console.log(chalk.red(validation.error));
-      process.exit(1);
+      log(chalk.red(validation.error));
+      return { exitCode: 1, result: null };
     }
     provenance = {
       trigger: continueFrom ? 'continuation' : 'recovery',
@@ -89,21 +99,36 @@ export async function runCommand(opts) {
     : null;
 
   if (overrideResolution?.error) {
-    console.log(chalk.red(overrideResolution.error));
+    log(chalk.red(overrideResolution.error));
     if (overrideResolution.availableRoles.length) {
-      console.log(chalk.dim(`Available roles: ${overrideResolution.availableRoles.join(', ')}`));
+      log(chalk.dim(`Available roles: ${overrideResolution.availableRoles.join(', ')}`));
     }
-    process.exit(1);
+    return { exitCode: 1, result: null };
+  }
+
+  if (opts.requireFreshStart) {
+    const state = loadProjectState(root, config);
+    const allowedStatuses = new Set(opts.allowedFreshStatuses || ['idle', 'completed']);
+    const currentStatus = state?.status || 'missing';
+    if (currentStatus !== 'missing' && !allowedStatuses.has(currentStatus)) {
+      return {
+        exitCode: 0,
+        skipped: true,
+        skipReason: `state_${currentStatus}`,
+        state,
+        result: null,
+      };
+    }
   }
 
   // ── Dry run ───────────────────────────────────────────────────────────────
   if (opts.dryRun) {
     const dryRunState = loadProjectState(root, config);
     const roleId = overrideResolution?.roleId || resolveRole(null, dryRunState, config);
-    console.log(chalk.cyan('Dry run — no execution'));
-    console.log(`  First role:   ${roleId || chalk.dim('(unresolved)')}`);
-    console.log(`  Max turns:    ${maxTurns}`);
-    console.log(`  Gate mode:    ${autoApprove ? 'auto-approve' : 'interactive'}`);
+    log(chalk.cyan('Dry run — no execution'));
+    log(`  First role:   ${roleId || chalk.dim('(unresolved)')}`);
+    log(`  Max turns:    ${maxTurns}`);
+    log(`  Gate mode:    ${autoApprove ? 'auto-approve' : 'interactive'}`);
     const roleIds = Object.keys(config.roles || {});
     for (const rid of roleIds) {
       const role = config.roles[rid];
@@ -111,9 +136,9 @@ export async function runCommand(opts) {
       const rt = config.runtimes?.[rtId];
       const rtType = rt?.type || role.runtime_class || 'manual';
       const supported = rtType !== 'manual';
-      console.log(`  ${supported ? chalk.green('✓') : chalk.red('✗')} ${rid} → ${rtType}${supported ? '' : ' (not supported in run mode)'}`);
+      log(`  ${supported ? chalk.green('✓') : chalk.red('✗')} ${rid} → ${rtType}${supported ? '' : ' (not supported in run mode)'}`);
     }
-    process.exit(0);
+    return { exitCode: 0, result: null };
   }
 
   // ── SIGINT handling ─────────────────────────────────────────────────────
@@ -128,13 +153,13 @@ export async function runCommand(opts) {
     }
     aborted = true;
     controller.abort();
-    console.log(chalk.yellow('\nSIGINT received — finishing current turn, then stopping.'));
+    log(chalk.yellow('\nSIGINT received — finishing current turn, then stopping.'));
   });
 
   // ── Run header ──────────────────────────────────────────────────────────
-  console.log(chalk.cyan.bold('agentxchain run'));
-  console.log(chalk.dim(`  Max turns: ${maxTurns}  Gate mode: ${autoApprove ? 'auto-approve' : 'interactive'}`));
-  console.log('');
+  log(chalk.cyan.bold('agentxchain run'));
+  log(chalk.dim(`  Max turns: ${maxTurns}  Gate mode: ${autoApprove ? 'auto-approve' : 'interactive'}`));
+  log('');
 
   // ── Track first-call for --role override ────────────────────────────────
   let firstSelectRole = true;
@@ -165,7 +190,7 @@ export async function runCommand(opts) {
 
       // Manual adapter is not supported in run mode
       if (runtimeType === 'manual') {
-        console.log(chalk.yellow(`Skipping manual role "${roleId}" — use agentxchain step for manual dispatch.`));
+        log(chalk.yellow(`Skipping manual role "${roleId}" — use agentxchain step for manual dispatch.`));
         return { accept: false, reason: 'manual adapter is not supported in run mode — use agentxchain step' };
       }
 
@@ -204,7 +229,7 @@ export async function runCommand(opts) {
       // ── Route to adapter ──────────────────────────────────────────────
       const adapterOpts = {
         signal: controller.signal,
-        onStatus: (msg) => console.log(chalk.dim(`  ${msg}`)),
+        onStatus: (msg) => log(chalk.dim(`  ${msg}`)),
         verifyManifest: true,
       };
 
@@ -216,18 +241,18 @@ export async function runCommand(opts) {
       let adapterResult;
 
       if (runtimeType === 'api_proxy') {
-        console.log(chalk.dim(`  Dispatching to API proxy: ${runtime?.provider || '?'} / ${runtime?.model || '?'}`));
+        log(chalk.dim(`  Dispatching to API proxy: ${runtime?.provider || '?'} / ${runtime?.model || '?'}`));
         adapterResult = await dispatchApiProxy(projectRoot, state, cfg, adapterOpts);
       } else if (runtimeType === 'mcp') {
         const transport = resolveMcpTransport(runtime);
-        console.log(chalk.dim(`  Dispatching to MCP ${transport}: ${describeMcpRuntimeTarget(runtime)}`));
+        log(chalk.dim(`  Dispatching to MCP ${transport}: ${describeMcpRuntimeTarget(runtime)}`));
         adapterResult = await dispatchMcp(projectRoot, state, cfg, adapterOpts);
       } else if (runtimeType === 'local_cli') {
         const transport = runtime ? resolvePromptTransport(runtime) : 'dispatch_bundle_only';
-        console.log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
+        log(chalk.dim(`  Dispatching to local CLI: ${runtime?.command || '(default)'}  transport: ${transport}`));
         adapterResult = await dispatchLocalCli(projectRoot, state, cfg, adapterOpts);
       } else if (runtimeType === 'remote_agent') {
-        console.log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
+        log(chalk.dim(`  Dispatching to remote agent: ${describeRemoteAgentTarget(runtime)}`));
         adapterResult = await dispatchRemoteAgent(projectRoot, state, cfg, adapterOpts);
       } else {
         return { accept: false, reason: `unknown runtime type "${runtimeType}"` };
@@ -286,14 +311,14 @@ export async function runCommand(opts) {
 
     async approveGate(gateType, state) {
       if (autoApprove) {
-        console.log(chalk.yellow(`  Auto-approved ${gateType} gate`));
+        log(chalk.yellow(`  Auto-approved ${gateType} gate`));
         return true;
       }
 
       // Non-TTY → fail-closed
       if (!process.stdin.isTTY) {
-        console.log(chalk.yellow(`  Gate pause: ${gateType} — stdin is not a TTY, failing closed.`));
-        console.log(chalk.dim('  Use --auto-approve for non-interactive mode.'));
+        log(chalk.yellow(`  Gate pause: ${gateType} — stdin is not a TTY, failing closed.`));
+        log(chalk.dim('  Use --auto-approve for non-interactive mode.'));
         return false;
       }
 
@@ -301,9 +326,9 @@ export async function runCommand(opts) {
         ? state.pending_phase_transition?.target || '(next phase)'
         : 'run completion';
 
-      console.log('');
-      console.log(chalk.yellow.bold(`Gate pause: ${gateType}`));
-      console.log(chalk.dim(`  Phase: ${state.phase} → ${target}`));
+      log('');
+      log(chalk.yellow.bold(`Gate pause: ${gateType}`));
+      log(chalk.dim(`  Phase: ${state.phase} → ${target}`));
 
       const answer = await promptUser(`  Approve? [y/N] `);
       const approved = /^y(es)?$/i.test(answer.trim());
@@ -313,31 +338,31 @@ export async function runCommand(opts) {
     onEvent(event) {
       switch (event.type) {
         case 'turn_assigned':
-          console.log(chalk.cyan(`Turn assigned: ${event.turn?.turn_id} → ${event.role}`));
+          log(chalk.cyan(`Turn assigned: ${event.turn?.turn_id} → ${event.role}`));
           break;
         case 'turn_accepted':
-          console.log(chalk.green(`Turn accepted: ${event.turn?.turn_id}`));
+          log(chalk.green(`Turn accepted: ${event.turn?.turn_id}`));
           break;
         case 'turn_rejected':
-          console.log(chalk.yellow(`Turn rejected: ${event.turn?.turn_id} — ${event.reason || 'no reason'}`));
+          log(chalk.yellow(`Turn rejected: ${event.turn?.turn_id} — ${event.reason || 'no reason'}`));
           break;
         case 'gate_paused':
-          console.log(chalk.yellow(`Gate paused: ${event.gateType}`));
+          log(chalk.yellow(`Gate paused: ${event.gateType}`));
           break;
         case 'gate_approved':
-          console.log(chalk.green(`Gate approved: ${event.gateType}`));
+          log(chalk.green(`Gate approved: ${event.gateType}`));
           break;
         case 'gate_held':
-          console.log(chalk.yellow(`Gate held: ${event.gateType} — run paused`));
+          log(chalk.yellow(`Gate held: ${event.gateType} — run paused`));
           break;
         case 'blocked':
-          console.log(chalk.red(`Run blocked`));
+          log(chalk.red(`Run blocked`));
           break;
         case 'completed':
-          console.log(chalk.green.bold('Run completed'));
+          log(chalk.green.bold('Run completed'));
           break;
         case 'caller_stopped':
-          console.log(chalk.yellow('Run stopped by caller'));
+          log(chalk.yellow('Run stopped by caller'));
           break;
       }
     },
@@ -347,38 +372,38 @@ export async function runCommand(opts) {
   const runLoopOpts = {
     maxTurns,
     startNewRunFromCompleted: true,
-    startNewRunFromBlocked: Boolean(provenance),
+    startNewRunFromBlocked: opts.allowBlockedRestart ?? Boolean(provenance),
   };
   if (provenance) runLoopOpts.provenance = provenance;
   const result = await runLoop(root, config, callbacks, runLoopOpts);
 
   // ── Summary ─────────────────────────────────────────────────────────────
-  console.log('');
-  console.log(chalk.dim('─── Run Summary ───'));
-  console.log(`  Status:  ${result.ok ? chalk.green('completed') : chalk.yellow(result.stop_reason)}`);
-  console.log(`  Turns:   ${result.turns_executed}`);
-  console.log(`  Gates:   ${result.gates_approved} approved`);
-  console.log(`  Errors:  ${result.errors.length ? chalk.red(result.errors.length) : 'none'}`);
+  log('');
+  log(chalk.dim('─── Run Summary ───'));
+  log(`  Status:  ${result.ok ? chalk.green('completed') : chalk.yellow(result.stop_reason)}`);
+  log(`  Turns:   ${result.turns_executed}`);
+  log(`  Gates:   ${result.gates_approved} approved`);
+  log(`  Errors:  ${result.errors.length ? chalk.red(result.errors.length) : 'none'}`);
 
   if (result.errors.length) {
     for (const err of result.errors) {
-      console.log(chalk.red(`    ${err}`));
+      log(chalk.red(`    ${err}`));
     }
   }
 
   if (qaMissingCredentialsFallback) {
-    printManualQaFallback();
+    printManualQaFallback(log);
   }
 
   // Recovery guidance for blocked/rejected states
   if (result.state && (result.stop_reason === 'blocked' || result.stop_reason === 'reject_exhausted' || result.stop_reason === 'dispatch_error')) {
     const recovery = deriveRecoveryDescriptor(result.state);
     if (recovery) {
-      console.log('');
-      console.log(chalk.yellow(`  Recovery: ${recovery.typed_reason}`));
-      console.log(chalk.dim(`  Action:   ${recovery.recovery_action}`));
+      log('');
+      log(chalk.yellow(`  Recovery: ${recovery.typed_reason}`));
+      log(chalk.dim(`  Action:   ${recovery.recovery_action}`));
       if (recovery.detail) {
-        console.log(chalk.dim(`  Detail:   ${recovery.detail}`));
+        log(chalk.dim(`  Detail:   ${recovery.detail}`));
       }
     }
   }
@@ -399,22 +424,25 @@ export async function runCommand(opts) {
         const reportPath = join(reportsDir, `report-${runId}.md`);
         writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
 
-        console.log('');
-        console.log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+        log('');
+        log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
       } else {
-        console.log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
+        log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
       }
     } catch (err) {
-      console.log(chalk.dim(`  Governance report failed: ${err.message}`));
+      log(chalk.dim(`  Governance report failed: ${err.message}`));
     }
   }
 
   // ── Exit code ───────────────────────────────────────────────────────────
   const successReasons = new Set(['completed', 'gate_held', 'caller_stopped', 'max_turns_reached']);
-  if (result.ok || successReasons.has(result.stop_reason)) {
-    process.exit(0);
-  }
-  process.exit(1);
+  return {
+    exitCode: result.ok || successReasons.has(result.stop_reason) ? 0 : 1,
+    result,
+    skipped: false,
+    skipReason: null,
+    provenance: provenance || null,
+  };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -452,10 +480,10 @@ function shouldPrintManualQaFallback({ roleId, runtimeId, classified, rawConfig 
     && rawConfig?.runtimes?.['manual-qa']?.type === 'manual';
 }
 
-function printManualQaFallback() {
-  console.log('');
-  console.log(chalk.dim('  No-key QA fallback:'));
-  console.log(chalk.dim('  - Edit agentxchain.json and change roles.qa.runtime from "api-qa" to "manual-qa"'));
-  console.log(chalk.dim('  - Then recover the retained QA turn with: agentxchain step --resume'));
-  console.log(chalk.dim('  - Guide: https://agentxchain.dev/docs/getting-started'));
+function printManualQaFallback(log = console.log) {
+  log('');
+  log(chalk.dim('  No-key QA fallback:'));
+  log(chalk.dim('  - Edit agentxchain.json and change roles.qa.runtime from "api-qa" to "manual-qa"'));
+  log(chalk.dim('  - Then recover the retained QA turn with: agentxchain step --resume'));
+  log(chalk.dim('  - Guide: https://agentxchain.dev/docs/getting-started'));
 }
