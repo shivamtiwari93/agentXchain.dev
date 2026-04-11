@@ -112,8 +112,21 @@ describe('Build Your Own Connector tutorial', () => {
   it('AT-BYOC-012: includes a governed bootstrap path before config editing', () => {
     const content = readFile(TUTORIAL_PATH);
     assert.ok(
-      content.includes('agentxchain init --governed --dir . -y'),
-      'tutorial must include an explicit governed bootstrap path'
+      content.includes('agentxchain init --governed --goal "Prove a custom connector against the governance pipeline" --dir . -y'),
+      'tutorial must include the governed bootstrap path with project goal'
+    );
+    assert.ok(content.includes('agentxchain doctor'), 'tutorial must run doctor before continuing');
+  });
+
+  it('AT-BYOC-013: documents config --set for scalar follow-up edits after initial connector setup', () => {
+    const content = readFile(TUTORIAL_PATH);
+    assert.ok(
+      content.includes('agentxchain config --set roles.dev.runtime my-connector'),
+      'tutorial must show config --set for scalar runtime follow-up edits'
+    );
+    assert.ok(
+      content.includes('agentxchain config --set runtimes.my-connector.timeout_ms 45000'),
+      'tutorial must show config --set for scalar runtime field updates'
     );
   });
 

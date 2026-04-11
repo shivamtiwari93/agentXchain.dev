@@ -279,7 +279,8 @@ node server.js
 If you do not already have a governed project, scaffold one first:
 
 ```bash
-agentxchain init --governed --dir . -y
+agentxchain init --governed --goal "Prove a custom connector against the governance pipeline" --dir . -y
+agentxchain doctor
 ```
 
 Then update `agentxchain.json` to point at your connector. If you already have a governed repo, merge these fields into the existing file instead of blindly overwriting it.
@@ -337,6 +338,13 @@ Then update `agentxchain.json` to point at your connector. If you already have a
 - Each role maps to a runtime via `"runtime": "my-connector"`.
 - `write_authority` must be `"proposed"` or `"review_only"` for remote agents. `"authoritative"` is not supported for the `remote_agent` adapter in v1.
 - If you need `authoritative` write authority, use the MCP pattern instead. The HTTP `remote_agent` adapter does not expose direct workspace mutation.
+
+For scalar follow-up edits after the initial setup, prefer the governed CLI surface instead of hand-editing JSON again. For example:
+
+```bash
+agentxchain config --set roles.dev.runtime my-connector
+agentxchain config --set runtimes.my-connector.timeout_ms 45000
+```
 
 ---
 
