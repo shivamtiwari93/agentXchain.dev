@@ -976,6 +976,11 @@ async function initGoverned(opts) {
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);
   console.log(`    ${chalk.bold('agentxchain status')} ${chalk.dim('# inspect phase, gate, and turn state')}`);
   console.log('');
+  if (!config?.project?.goal) {
+    console.log(`  ${chalk.dim('Tip:')} Add a project goal to guide agent context:`);
+    console.log(`    ${chalk.bold('agentxchain init --governed --goal "Build a ..."')} ${chalk.dim('# or set project.goal in agentxchain.json')}`);
+    console.log('');
+  }
   console.log(`  ${chalk.dim('Guide:')} https://agentxchain.dev/docs/getting-started`);
   console.log('');
 }

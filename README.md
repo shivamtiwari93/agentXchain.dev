@@ -95,6 +95,14 @@ agentxchain status
 agentxchain step --role pm
 ```
 
+Add a project goal so agents receive mission context in every dispatch bundle:
+
+```bash
+agentxchain init --governed --goal "Build an expense tracker with team splitting" --dir my-project -y
+```
+
+Or set `project.goal` in `agentxchain.json` after scaffold creation.
+
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
 
 ```bash

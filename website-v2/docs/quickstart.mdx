@@ -72,6 +72,8 @@ git commit -m "bootstrap AgentXchain governed scaffold"
 agentxchain step
 ```
 
+**Tip:** pass `--goal "..."` at init time to set a project mission that appears in every dispatch bundle, status output, and governance report. Or set `project.goal` in `agentxchain.json` later.
+
 `step` assigns the PM turn (the planning-phase entry role), writes the dispatch bundle, and polls for the staged result. While `step` is waiting, open a second terminal to write your planning docs and stage the turn result at `.agentxchain/staging/<turn_id>/turn-result.json`. When `step` detects the staged result, it auto-validates and auto-accepts. Then approve the phase transition:
 
 ```bash

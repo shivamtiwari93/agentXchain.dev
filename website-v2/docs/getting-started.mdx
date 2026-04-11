@@ -45,6 +45,15 @@ git add -A
 git commit -m "initial governed scaffold"
 ```
 
+**Optional:** add a project goal so every agent turn receives mission context in its dispatch bundle:
+
+```bash
+# Either pass --goal at init time:
+agentxchain init --governed --template cli-tool --goal "Build a CLI that lints decision logs" --dir . -y
+
+# Or set it later in agentxchain.json under project.goal
+```
+
 `doctor` checks that your config is valid, all configured runtimes are reachable, and the repo state is healthy. If any check fails, fix it before your first turn — it is cheaper to catch missing env vars now than mid-run.
 
 At this point the repo is scaffolded, but the planning gate is intentionally closed. `PM_SIGNOFF.md` starts at `Approved: NO`.
