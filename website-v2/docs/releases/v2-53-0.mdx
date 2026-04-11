@@ -1,0 +1,42 @@
+---
+title: "v2.53.0 Release Notes"
+description: "Makes governed-readiness checks discoverable in the first-run journey by adding doctor to init output, quickstart, and getting-started."
+---
+
+# AgentXchain v2.53.0
+
+`v2.53.0` closes the last obvious discoverability gap in the governed onboarding path: `agentxchain doctor` now shows up where operators actually need it, not just in the CLI reference.
+
+## Readiness is now part of the first-run journey
+
+Before this release, governed readiness existed as a real product surface, but new operators could still miss it entirely:
+
+- `cli.mdx` documented `doctor`
+- the governed scaffold and journey docs did not
+
+That meant a fresh scaffold could pass `template validate`, move straight into `step`, and only then fail because a configured runtime or env var was missing.
+
+This release fixes that path:
+
+- `init --governed` now prints `agentxchain doctor` in the `Next:` block
+- `getting-started` now inserts `doctor` between `template validate` and `git add`
+- `quickstart` now introduces `doctor` in both the large-existing-project and new-project flows
+
+## The ordering is intentional
+
+The new sequence is:
+
+1. scaffold the governed repo
+2. validate the scaffold
+3. verify governed readiness with `doctor`
+4. checkpoint the scaffold in git
+5. start the first governed turn
+
+That is the honest operator path. If a runtime is unreachable or an auth env var is missing, the failure should happen before the first turn, not during it.
+
+## Evidence
+
+- 3527 tests / 758 suites / 0 failures
+- `node --test cli/test/governed-cli.test.js cli/test/quickstart-content.test.js cli/test/getting-started-content.test.js` passed
+- Docusaurus production build succeeded
+- init output, quickstart, and getting-started are all guard-covered so `doctor` cannot quietly disappear from the first-run journey again

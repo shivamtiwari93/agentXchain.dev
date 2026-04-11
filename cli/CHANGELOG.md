@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.53.0
+
+`2.53.0` fixes governed-readiness discoverability so the first-run operator journey is finally honest. `agentxchain doctor` now appears in the scaffold handoff, quickstart, and getting-started flow between scaffold validation and the first governed turn, which means runtime/env failures are surfaced before operators hit them mid-run.
+
+- 3527 tests / 758 suites / 0 failures
+
 ## 2.52.0
 
 `2.52.0` adds a governed readiness doctor for v4 projects and removes a real legacy usability trap. `agentxchain doctor` now answers governed run readiness with config, runtime, state, schedule, and workflow-kit checks on governed repos, while the legacy v3 macOS Accessibility probe is timeout-bounded instead of hanging indefinitely behind `osascript`.

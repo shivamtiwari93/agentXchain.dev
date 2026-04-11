@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.52.0
+# Launch Evidence Report — AgentXchain v2.53.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.52.0 governed-readiness release: governed repos now have a truthful `doctor` surface, the legacy v3 Accessibility probe is timeout-bounded on macOS, and release publication remains gated by tests, pack, and docs-build proof.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.53.0 doctor-discoverability release: init output, quickstart, and getting-started now route operators through `agentxchain doctor` before the first governed turn, so readiness failures surface before runtime, not mid-run.
 
 ---
 
