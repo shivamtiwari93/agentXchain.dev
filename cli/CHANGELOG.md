@@ -8,6 +8,7 @@
 - Dispatch bundles now render `## Project Goal` after current state so every governed turn sees the project mission
 - `status --json` exposes additive `project_goal`, while governance reports preserve the same value at `subject.project.goal`
 - Public CLI and governance-report docs now describe the shipped goal surface truthfully instead of fabricating a `project_goal` report field
+- 13 tests / 6 suites / 0 failures
 - Targeted proof now covers status text, report JSON/text, docs contract alignment, and Docusaurus production build
 
 ## 2.55.0
