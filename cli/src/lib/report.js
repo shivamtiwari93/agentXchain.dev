@@ -140,6 +140,24 @@ function extractGateFailureDigest(artifact) {
     }));
 }
 
+function extractTimeoutEventDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => typeof d?.type === 'string' && d.type.startsWith('timeout'))
+    .map((d) => ({
+      type: d.type,
+      scope: d.scope || null,
+      phase: d.phase || null,
+      turn_id: d.turn_id || null,
+      limit_minutes: typeof d.limit_minutes === 'number' ? d.limit_minutes : null,
+      elapsed_minutes: typeof d.elapsed_minutes === 'number' ? d.elapsed_minutes : null,
+      exceeded_by_minutes: typeof d.exceeded_by_minutes === 'number' ? d.exceeded_by_minutes : null,
+      action: d.action || null,
+      timestamp: d.timestamp || null,
+    }));
+}
+
 function extractHookSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/hook-audit.jsonl');
   if (!Array.isArray(data) || data.length === 0) return null;
@@ -598,6 +616,7 @@ function buildRunSubject(artifact) {
   const decisions = extractDecisionDigest(artifact);
   const approvalPolicyEvents = extractApprovalPolicyDigest(artifact);
   const gateFailures = extractGateFailureDigest(artifact);
+  const timeoutEvents = extractTimeoutEventDigest(artifact);
   const hookSummary = extractHookSummary(artifact);
   const timing = computeTiming(artifact, turns);
   const gateSummary = extractGateSummary(artifact);
@@ -633,6 +652,7 @@ function buildRunSubject(artifact) {
       decisions,
       approval_policy_events: approvalPolicyEvents,
       gate_failures: gateFailures,
+      timeout_events: timeoutEvents,
       hook_summary: hookSummary,
       gate_summary: gateSummary,
       intake_links: intakeLinks,
@@ -707,6 +727,7 @@ function buildCoordinatorSubject(artifact) {
       base.decisions = extractDecisionDigest(childExport);
       base.approval_policy_events = extractApprovalPolicyDigest(childExport);
       base.gate_failures = extractGateFailureDigest(childExport);
+      base.timeout_events = extractTimeoutEventDigest(childExport);
       base.hook_summary = extractHookSummary(childExport);
       base.gate_summary = extractGateSummary(childExport);
       base.recovery_summary = extractRecoverySummary(childExport);
@@ -939,6 +960,20 @@ export function formatGovernanceReportText(report) {
       }
     }
 
+    if (run.timeout_events && run.timeout_events.length > 0) {
+      lines.push('', 'Timeout Events:');
+      for (const evt of run.timeout_events) {
+        const label = evt.type === 'timeout_warning' ? 'warning'
+          : evt.type === 'timeout_skip' ? 'skip'
+          : evt.type === 'timeout_skip_failed' ? 'skip failed'
+          : 'escalation';
+        const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+        const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+        const exceeded = evt.exceeded_by_minutes != null ? `+${evt.exceeded_by_minutes}m` : '';
+        lines.push(`  - ${label} | ${evt.scope || '?'} scope | ${elapsed}/${limit}${exceeded ? ` (${exceeded})` : ''} | action: ${evt.action || 'n/a'} | phase: ${evt.phase || 'n/a'} | at: ${evt.timestamp || 'n/a'}`);
+      }
+    }
+
     if (run.intake_links && run.intake_links.length > 0) {
       lines.push('', 'Intake Linkage:');
       for (const intake of run.intake_links) {
@@ -1133,6 +1168,18 @@ export function formatGovernanceReportText(report) {
           repoLines.push(`    - ${evt.action || 'unknown'}: ${evt.gate_type || 'unknown'} | ${transition} | ${evt.timestamp || 'n/a'}`);
         }
       }
+      if (repo.timeout_events && repo.timeout_events.length > 0) {
+        repoLines.push('  Timeout Events:');
+        for (const evt of repo.timeout_events) {
+          const label = evt.type === 'timeout_warning' ? 'warning'
+            : evt.type === 'timeout_skip' ? 'skip'
+            : evt.type === 'timeout_skip_failed' ? 'skip failed'
+            : 'escalation';
+          const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+          const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+          repoLines.push(`    - ${label}: ${evt.scope || '?'} scope | ${elapsed}/${limit} | action: ${evt.action || 'n/a'} | ${evt.timestamp || 'n/a'}`);
+        }
+      }
       if (repo.hook_summary) {
         repoLines.push(`  Hook Activity: ${repo.hook_summary.total} total, ${repo.hook_summary.blocked} blocked`);
       }
@@ -1273,6 +1320,20 @@ export function formatGovernanceReportMarkdown(report) {
         const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
         lines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
         if (evt.reason) lines.push(`  - ${evt.reason}`);
+      }
+    }
+
+    if (run.timeout_events && run.timeout_events.length > 0) {
+      lines.push('', '## Timeout Events', '');
+      for (const evt of run.timeout_events) {
+        const label = evt.type === 'timeout_warning' ? 'Warning'
+          : evt.type === 'timeout_skip' ? 'Skip'
+          : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
+          : 'Escalation';
+        const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+        const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+        const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
+        lines.push(`- **${label}** (\`${evt.scope || '?'}\` scope) — ${elapsed}/${limit}${exceeded}, action: \`${evt.action || 'n/a'}\`, phase: \`${evt.phase || 'n/a'}\` at \`${evt.timestamp || 'n/a'}\``);
       }
     }
 
@@ -1475,6 +1536,19 @@ export function formatGovernanceReportMarkdown(report) {
         const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
         repoLines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
         if (evt.reason) repoLines.push(`  - ${evt.reason}`);
+      }
+    }
+    if (repo.timeout_events && repo.timeout_events.length > 0) {
+      repoLines.push('', '#### Timeout Events', '');
+      for (const evt of repo.timeout_events) {
+        const label = evt.type === 'timeout_warning' ? 'Warning'
+          : evt.type === 'timeout_skip' ? 'Skip'
+          : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
+          : 'Escalation';
+        const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+        const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+        const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
+        repoLines.push(`- **${label}** (\`${evt.scope || '?'}\` scope) — ${elapsed}/${limit}${exceeded}, action: \`${evt.action || 'n/a'}\`, phase: \`${evt.phase || 'n/a'}\` at \`${evt.timestamp || 'n/a'}\``);
       }
     }
     if (repo.hook_summary) {

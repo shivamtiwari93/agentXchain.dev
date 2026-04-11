@@ -5,6 +5,7 @@ import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/govern
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
+import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -240,6 +241,25 @@ function renderGovernedStatus(context, opts) {
   }
 
   renderWorkflowKitArtifactsSection(workflowKitArtifacts);
+
+  if (config.timeouts && state?.status === 'active') {
+    const activeTurn = getActiveTurn(state);
+    const turnResult = activeTurn ? { role: activeTurn.assigned_role } : undefined;
+    const timeoutEval = evaluateTimeouts({ config, state, turn: activeTurn, turnResult, now: new Date().toISOString() });
+    const allItems = [...timeoutEval.exceeded, ...timeoutEval.warnings];
+    if (allItems.length > 0) {
+      console.log('');
+      console.log(`  ${chalk.dim('Timeouts:')}`);
+      for (const item of allItems) {
+        const isExceeded = timeoutEval.exceeded.includes(item);
+        const elapsed = item.elapsed_minutes != null ? `${item.elapsed_minutes}m` : '?';
+        const limit = item.limit_minutes != null ? `${item.limit_minutes}m` : '?';
+        const icon = isExceeded ? chalk.red('⚠') : chalk.yellow('◷');
+        const label = isExceeded ? chalk.red(`EXCEEDED ${item.scope}`) : chalk.yellow(`${item.scope}`);
+        console.log(`    ${icon} ${label}: ${elapsed}/${limit} (action: ${item.action || 'n/a'})`);
+      }
+    }
+  }
 
   if (state?.budget_status) {
     console.log('');
