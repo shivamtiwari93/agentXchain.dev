@@ -1,0 +1,42 @@
+---
+title: "v2.57.0 Release Notes"
+description: "Terminal governed runs now leave behind durable retrospectives that child runs inherit automatically. Project-goal discoverability improved across all front-door surfaces."
+---
+
+# AgentXchain v2.57.0
+
+`v2.57.0` makes run-to-run continuity concrete. Terminal governed runs now record a deterministic retrospective in `run-history.jsonl`, and child runs created via `--continue-from` or `--recover-from` with `--inherit-context` receive the parent's retrospective directly in `CONTEXT.md`. This release also surfaces `project.goal` across all front-door onboarding paths.
+
+## What changed
+
+### Durable run retrospectives
+
+- Every completed or blocked governed run now records an additive `retrospective` object in `run-history.jsonl` with:
+  - `headline` — what the run accomplished or why it blocked
+  - `terminal_reason` — the governed terminal state (completion, blocked, escalation)
+  - `next_operator_action` — what the operator should do next
+  - `follow_on_hint` — guidance for the next governed run
+- `--inherit-context` carries `parent_retrospective` into the child run's `inherited_context` in `state.json`
+- `CONTEXT.md` renders a `### Parent Retrospective` section so the first child turn sees the parent headline and follow-on/recovery guidance directly
+- Fixed a real bug in accepted-turn inheritance: `buildRecentAcceptedTurnSnapshot()` now correctly matches entries with `status: "completed"` instead of only `status: "accepted"`, which missed most real governed history entries
+
+### Project-goal discoverability
+
+- `agentxchain init --governed` now prints a conditional tip about `--goal` when no project goal is set (suppressed when `--goal` is provided)
+- `README.md`, `quickstart.mdx`, and `getting-started.mdx` now mention `--goal` and `project.goal` so new operators discover the feature from every front-door path
+- 5 discoverability guards (AT-PGD-001 through AT-PGD-005) prevent regression
+
+## Why this matters
+
+Long-horizon governed delivery requires durable handoff between runs. Before this release, a child run inherited parent decisions and recent turns but had no structured summary of what the parent accomplished or why it stopped. Operators reconstructing that context from raw history entries was exactly the kind of manual coordination overhead that AgentXchain exists to eliminate.
+
+The retrospective makes continuity explicit: a blocked run tells its child what recovery action is needed, and a completed run tells its child what to build next.
+
+## Evidence
+
+- 3570 tests / 773 suites / 0 failures
+- 869 vitest / 36 files / 0 failures
+- `node --test cli/test/run-history.test.js` -> 50 tests / 12 suites / 0 failures
+- `node --test cli/test/run-context-inheritance-e2e.test.js cli/test/run-retrospective-content.test.js` -> 11 tests / 3 suites / 0 failures
+- `node --test cli/test/project-goal-discoverability.test.js` -> 5 tests / 2 suites / 0 failures
+- `cd website-v2 && npm run build` -> clean production build

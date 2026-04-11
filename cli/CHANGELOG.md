@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.57.0
+
+`2.57.0` makes run-to-run continuity concrete. Terminal governed runs now record a deterministic `retrospective` in `run-history.jsonl` (headline, terminal reason, next operator action, follow-on hint), and child runs created with `--inherit-context` receive the parent's retrospective directly in `CONTEXT.md`. Also surfaces `project.goal` across all front-door onboarding paths and fixes accepted-turn inheritance to match real governed history entries.
+
+- Terminal governed runs now record an additive `retrospective` object in `run-history.jsonl`
+- `--inherit-context` carries `parent_retrospective` into child run's `inherited_context` and renders it in `CONTEXT.md`
+- Fixed accepted-turn inheritance bug: `buildRecentAcceptedTurnSnapshot()` now correctly matches `status: "completed"` entries
+- `init --governed` now prints a conditional `--goal` tip when no project goal is set
+- `README.md`, `quickstart.mdx`, and `getting-started.mdx` now mention `--goal` and `project.goal`
+- 3570 tests / 773 suites / 0 failures
+- Targeted proof covers run-history retrospectives, inherited-context rendering, project-goal discoverability guards, and Docusaurus production build
+
 ## 2.56.0
 
 `2.56.0` gives governed runs an explicit project-level mission. `project.goal` can now be set at scaffold time, preserved in config normalization, rendered into every dispatched turn's `CONTEXT.md`, and surfaced across `status`, `report`, `export`, and the demo config so agents know what the repo is trying to accomplish before they start arguing about implementation details.

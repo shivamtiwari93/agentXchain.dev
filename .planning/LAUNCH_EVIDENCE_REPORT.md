@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.56.0
+# Launch Evidence Report — AgentXchain v2.57.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.56.0 project-goal release: governed repos can now persist an explicit `project.goal` and surface that mission across dispatch bundles, status, report, export, and the demo path.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.57.0 run-continuity release: terminal governed runs now record durable retrospectives in `run-history.jsonl`, child runs inherit parent retrospectives via `--inherit-context`, and project-goal discoverability is surfaced across all front-door onboarding paths.
 
 ---
 
