@@ -70,7 +70,9 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
    d. Configure a git identity if none exists so CI commits do not fail on an unconfigured runner.
    e. Commit with message `agentxchain <version>`.
    f. Push to `main`.
-   g. Clean up temp directory.
+   g. If the push is rejected, fetch `origin/main` and compare the remote formula against the target tarball URL and SHA.
+   h. Treat the sync as complete only when that post-rejection remote verification proves the canonical tap already matches the target artifact. Otherwise fail closed.
+   i. Clean up temp directory.
 
 ## Error Cases
 
@@ -82,6 +84,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | Formula already matches and `--push-tap` is not set | Exit 0 with "already in sync" message. |
 | Repo mirror matches but canonical tap is stale | Continue and push the canonical tap update. |
 | `--push-tap` without git access | Exit 1 with "push failed" error. |
+| Canonical tap push is rejected because another actor already updated `main` to the same target formula | Fetch the remote, verify URL+SHA match the target artifact, then exit 0 instead of failing the release. |
+| Canonical tap push is rejected and remote `main` still does not match the target artifact | Exit 1. |
 | `--dry-run` | Print planned changes, exit 0 without writing. |
 | CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
 | PR creation fails after the branch push | Exit non-zero. Release follow-through is incomplete until the mirror PR exists. |
@@ -102,6 +106,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-012: The workflow requests `pull-requests: write` so it can create the mirror PR directly.
 - AT-HS-013: If PR creation fails after the branch push, the workflow fails closed instead of leaving an orphan branch as warning-only debt.
 - AT-HS-014: The workflow clears the snapshotted repo-mirror edits before switching branches, so reruns do not fail on "local changes would be overwritten by checkout".
+- AT-HS-015: Canonical tap sync is rerun-safe: a rejected push is treated as success only after fetching the remote and proving the canonical formula already matches the target tarball URL and SHA.
 
 ## Known Debt
 

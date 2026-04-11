@@ -91,6 +91,40 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
+  it('sync script treats canonical tap push rejection as success only after remote verification', () => {
+    const script = read('cli/scripts/sync-homebrew.sh');
+    assert.match(
+      script,
+      /Push rejected by \$\{CANONICAL_TAP_REPO\}; verifying remote state/,
+      'script must explicitly detect rejected canonical tap pushes',
+    );
+    assert.match(
+      script,
+      /git fetch origin main/,
+      'script must fetch the latest canonical tap state before deciding a rejected push is acceptable',
+    );
+    assert.match(
+      script,
+      /git show origin\/main:Formula\/agentxchain\.rb/,
+      'script must inspect the fetched canonical tap formula after a rejected push',
+    );
+    assert.match(
+      script,
+      /canonical_tap_matches_target "\$REMOTE_FORMULA" "\$TARBALL_URL" "\$TARBALL_SHA"/,
+      'script must verify remote formula URL and SHA against the target artifact before accepting a rejected push',
+    );
+    assert.match(
+      script,
+      /Canonical tap already matches target after push rejection — treating sync as complete\./,
+      'script must only treat rejected pushes as success when the remote is already correct',
+    );
+    assert.match(
+      script,
+      /FAIL: could not push to \$\{CANONICAL_TAP_REPO\} and remote tap does not match target artifact/,
+      'script must still fail closed when the rejected push leaves the remote incorrect',
+    );
+  });
+
   it('release playbook references sync:homebrew instead of manual steps', () => {
     const playbook = read('.planning/RELEASE_PLAYBOOK.md');
     assert.match(
@@ -109,6 +143,7 @@ describe('homebrew sync automation contract', () => {
     const spec = read('.planning/HOMEBREW_SYNC_AUTOMATION_SPEC.md');
     assert.match(spec, /AT-HS-001/, 'spec must define acceptance test AT-HS-001');
     assert.match(spec, /AT-HS-011/, 'spec must define acceptance test AT-HS-011');
+    assert.match(spec, /AT-HS-015/, 'spec must define acceptance test AT-HS-015');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
   });
 

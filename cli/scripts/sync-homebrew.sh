@@ -27,6 +27,18 @@ formula_sha() {
   grep -E '^\s*sha256\s+"' "$formula_path" | sed 's/.*sha256 *"\([a-f0-9]*\)".*/\1/' || true
 }
 
+canonical_tap_matches_target() {
+  local formula_path="$1"
+  local expected_url="$2"
+  local expected_sha="$3"
+  [[ -f "$formula_path" ]] || return 1
+  local remote_url
+  local remote_sha
+  remote_url="$(formula_url "$formula_path")"
+  remote_sha="$(formula_sha "$formula_path")"
+  [[ "$remote_url" == "$expected_url" && "$remote_sha" == "$expected_sha" ]]
+}
+
 usage() {
   echo "Usage: bash scripts/sync-homebrew.sh --target-version <semver> [--push-tap] [--dry-run]" >&2
 }
@@ -207,10 +219,21 @@ if $PUSH_TAP; then
       git add Formula/agentxchain.rb
       git commit -m "agentxchain ${TARGET_VERSION}"
       if ! git push origin HEAD:main; then
-        echo "FAIL: could not push to ${CANONICAL_TAP_REPO}" >&2
-        exit 1
+        echo "  Push rejected by ${CANONICAL_TAP_REPO}; verifying remote state..."
+        git fetch origin main >/dev/null 2>&1 || true
+        REMOTE_FORMULA="$(mktemp "${TMPDIR:-/tmp}/homebrew-tap-remote-formula.XXXXXX")"
+        if git show origin/main:Formula/agentxchain.rb >"$REMOTE_FORMULA" 2>/dev/null \
+          && canonical_tap_matches_target "$REMOTE_FORMULA" "$TARBALL_URL" "$TARBALL_SHA"; then
+          rm -f "$REMOTE_FORMULA"
+          echo "  Canonical tap already matches target after push rejection — treating sync as complete."
+        else
+          rm -f "$REMOTE_FORMULA"
+          echo "FAIL: could not push to ${CANONICAL_TAP_REPO} and remote tap does not match target artifact" >&2
+          exit 1
+        fi
+      else
+        echo "  Pushed to ${CANONICAL_TAP_REPO}"
       fi
-      echo "  Pushed to ${CANONICAL_TAP_REPO}"
     fi
   )
 
