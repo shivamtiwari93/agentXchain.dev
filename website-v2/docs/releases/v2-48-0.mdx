@@ -1,0 +1,73 @@
+---
+title: "v2.48.0 Release Notes"
+description: "Adds repo-local run event streaming with CLI reader, docs truth corrections, and E2E proof hardening."
+---
+
+# AgentXchain v2.48.0
+
+`v2.48.0` ships the **repo-local run event stream** — structured lifecycle observability for governed runs without requiring webhooks, dashboards, or browser access.
+
+## Run Event Stream
+
+Governed runs now emit structured JSONL events to `.agentxchain/events.jsonl` at every lifecycle point. Operators can read the event log programmatically or stream it in real time.
+
+### 11 lifecycle event types
+
+| Event | Emitted when |
+|-------|-------------|
+| `run_started` | A governed run initializes |
+| `turn_dispatched` | A turn is assigned to an agent role |
+| `turn_accepted` | A turn artifact passes validation |
+| `turn_rejected` | A turn artifact fails validation |
+| `gate_pending` | A phase gate requires approval |
+| `gate_approved` | A phase gate is approved |
+| `phase_entered` | The run enters a new workflow phase |
+| `run_blocked` | The run cannot continue without intervention |
+| `run_completed` | The run finishes all phases |
+| `escalation_raised` | An operator escalation is created |
+| `escalation_resolved` | An escalation is resolved and the run reactivates |
+
+### CLI command
+
+```bash
+# Read all events
+agentxchain events
+
+# Stream events in real time
+agentxchain events --follow
+
+# Filter by type
+agentxchain events --type run_started --type run_completed
+
+# JSON output for programmatic consumption
+agentxchain events --json
+
+# Events since a timestamp
+agentxchain events --since 2026-04-11T06:00:00Z
+
+# Limit output
+agentxchain events --limit 20
+```
+
+### Design
+
+- **Best-effort, append-only** — event emission never crashes governed operations
+- **Coexists with webhooks** — does not replace the existing notification system; provides a local-first alternative
+- **Export/restore aware** — `events.jsonl` is included in `agentxchain export` and `agentxchain restore`
+- **Orchestrator-owned** — classified as an orchestrator state file in the repo observer
+
+## Docs Truth Corrections
+
+- `history --status` filter now correctly advertises only `completed` and `blocked` (not `failed`) in both CLI help and public docs
+- Run event stream spec aligned to shipped `fs.watchFile()` polling implementation
+
+## Proof Hardening
+
+- Real subprocess E2E for run event lifecycle: completed-run readback, blocked/recovery lineage, and `--follow` creation behavior
+- Provenance terminal-bootstrap E2E retained from v2.47.0
+
+## Evidence
+
+- 3478 tests / 743 suites / 0 failures
+- Docusaurus production build clean
+- Run event subprocess E2E covers lifecycle sequence, recovery lineage, and follow-on-create

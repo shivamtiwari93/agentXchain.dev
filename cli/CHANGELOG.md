@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.48.0
+
+`2.48.0` ships repo-local run event streaming with 11 lifecycle event types, a `agentxchain events` CLI command with `--follow` real-time streaming, docs truth corrections (`history --status` filter), and E2E proof hardening for event lifecycle and provenance terminal-bootstrap.
+
+- 3478 tests / 743 suites / 0 failures
+
 ## 2.47.0
 
 `2.47.0` ships run provenance observability, terminal-state bootstrap fixes for continuation and recovery runs, and CLI help text corrections. Provenance metadata (`trigger`, `parent_run_id`, `trigger_reason`) is now rendered in `status`, `report`, `export`, and `history`.
