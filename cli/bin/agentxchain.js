@@ -249,7 +249,8 @@ program
 
 program
   .command('doctor')
-  .description('Check local environment and first-run readiness')
+  .description('Check governed project readiness (v4) or local environment (v3)')
+  .option('-j, --json', 'Output as JSON')
   .action(doctorCommand);
 
 program

@@ -26,7 +26,6 @@ const LEGACY_COMMANDS = [
   'claim',
   'release',
   'update',
-  'doctor',
 ];
 
 function extractTopLevelCommands() {
@@ -80,6 +79,7 @@ describe('CLI command map docs contract', () => {
     ['proposal', ['proposal']],
     ['history', ['history']],
     ['events', ['events']],
+    ['doctor', ['doctor']],
   ]);
 
   it('documents every governed-scope top-level command family from the CLI registration', () => {
@@ -90,6 +90,7 @@ describe('CLI command map docs contract', () => {
       'restore',
       'restart',
       'report',
+      'doctor',
       'demo',
       'schedule',
       'history',

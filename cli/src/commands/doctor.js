@@ -2,18 +2,257 @@ import { existsSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { join } from 'path';
 import chalk from 'chalk';
-import { loadConfig, loadLock } from '../lib/config.js';
+import { loadConfig, loadLock, findProjectRoot } from '../lib/config.js';
 import { validateProject } from '../lib/validation.js';
 import { getWatchPid } from './watch.js';
+import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
+import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
 
-export async function doctorCommand() {
-  const result = loadConfig();
+export async function doctorCommand(opts = {}) {
+  const root = findProjectRoot(process.cwd());
+  if (!root) {
+    if (opts.json) {
+      console.log(JSON.stringify({ error: 'No agentxchain.json found' }));
+    } else {
+      console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
+    }
+    process.exit(1);
+  }
+
+  // Detect config version to dispatch
+  let rawConfig;
+  try {
+    rawConfig = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+  } catch (err) {
+    if (opts.json) {
+      console.log(JSON.stringify({ error: `agentxchain.json is invalid JSON: ${err.message}` }));
+    } else {
+      console.log(chalk.red(`agentxchain.json is invalid JSON: ${err.message}`));
+    }
+    process.exit(1);
+  }
+
+  const version = detectConfigVersion(rawConfig);
+
+  if (version === 4) {
+    return governedDoctor(root, rawConfig, opts);
+  }
+
+  // Legacy v3 path — existing behavior
+  return legacyDoctor(root, opts);
+}
+
+// ── Governed (v4) Doctor ────────────────────────────────────────────────────
+
+function governedDoctor(root, rawConfig, opts) {
+  const checks = [];
+
+  // 1. Config validation
+  const configResult = loadNormalizedConfig(rawConfig, root);
+  if (configResult.ok) {
+    checks.push({ id: 'config_valid', name: 'Config validation', level: 'pass', detail: 'Config loads and validates' });
+  } else {
+    const errorSummary = configResult.errors.slice(0, 3).join('; ');
+    checks.push({ id: 'config_valid', name: 'Config validation', level: 'fail', detail: errorSummary });
+  }
+
+  const normalized = configResult.normalized;
+
+  // 2. Roles defined
+  const roles = normalized ? Object.keys(normalized.roles || {}) : [];
+  if (roles.length > 0) {
+    checks.push({ id: 'roles_defined', name: 'Roles defined', level: 'pass', detail: `${roles.length} role${roles.length > 1 ? 's' : ''}: ${roles.join(', ')}` });
+  } else {
+    checks.push({ id: 'roles_defined', name: 'Roles defined', level: 'fail', detail: 'No roles defined' });
+  }
+
+  // 3. Runtime reachable — one sub-check per runtime
+  // Use normalized runtimes if available, otherwise fall back to raw config
+  const runtimes = (normalized && normalized.runtimes) || rawConfig.runtimes || {};
+  for (const [rtId, rt] of Object.entries(runtimes)) {
+    const check = checkRuntimeReachable(rtId, rt);
+    checks.push(check);
+  }
+
+  // 4. State directory
+  const stateDir = join(root, '.agentxchain');
+  if (existsSync(stateDir)) {
+    checks.push({ id: 'state_dir', name: 'State directory', level: 'pass', detail: '.agentxchain/ exists' });
+  } else {
+    checks.push({ id: 'state_dir', name: 'State directory', level: 'warn', detail: '.agentxchain/ missing (created on first run)' });
+  }
+
+  // 5. State health
+  const statePath = join(root, '.agentxchain', 'state.json');
+  if (existsSync(statePath)) {
+    try {
+      const stateData = JSON.parse(readFileSync(statePath, 'utf8'));
+      if (stateData.schema_version) {
+        checks.push({ id: 'state_health', name: 'State health', level: 'pass', detail: `schema_version: ${stateData.schema_version}, status: ${stateData.status || 'unknown'}` });
+      } else {
+        checks.push({ id: 'state_health', name: 'State health', level: 'fail', detail: 'State file missing schema_version' });
+      }
+    } catch {
+      checks.push({ id: 'state_health', name: 'State health', level: 'fail', detail: 'State file is malformed JSON' });
+    }
+  } else {
+    checks.push({ id: 'state_health', name: 'State health', level: 'warn', detail: 'No state file yet (first run pending)' });
+  }
+
+  // 6. Schedule health (only when schedules configured)
+  const schedules = normalized?.schedules;
+  const hasSchedules = schedules && typeof schedules === 'object' && Object.keys(schedules).length > 0;
+  if (hasSchedules) {
+    const daemonState = readDaemonState(root);
+    const daemonEval = evaluateDaemonStatus(daemonState);
+    if (daemonEval.status === 'running') {
+      const detail = `Daemon running (last heartbeat ${daemonEval.heartbeat_age_seconds}s ago)`;
+      checks.push({ id: 'schedule_health', name: 'Schedule health', level: 'pass', detail });
+    } else {
+      const detail = `Daemon ${daemonEval.status}${daemonEval.warning ? `: ${daemonEval.warning}` : ''}`;
+      checks.push({ id: 'schedule_health', name: 'Schedule health', level: 'warn', detail });
+    }
+  }
+
+  // 7. Workflow-kit artifacts (current phase)
+  if (normalized?.workflow_kit?.phases) {
+    const currentPhase = getCurrentPhase(root) || Object.keys(normalized.routing || {})[0] || 'planning';
+    const phaseKit = normalized.workflow_kit.phases[currentPhase];
+    if (phaseKit?.artifacts?.length > 0) {
+      const required = phaseKit.artifacts.filter(a => a.required !== false);
+      const missing = required.filter(a => !existsSync(join(root, a.path)));
+      if (missing.length === 0) {
+        checks.push({ id: 'workflow_kit', name: 'Workflow-kit artifacts', level: 'pass', detail: `All ${required.length} required artifacts present for ${currentPhase}` });
+      } else {
+        checks.push({ id: 'workflow_kit', name: 'Workflow-kit artifacts', level: 'warn', detail: `${missing.length}/${required.length} required artifacts missing for ${currentPhase}` });
+      }
+    }
+  }
+
+  // Compute summary
+  const failCount = checks.filter(c => c.level === 'fail').length;
+  const warnCount = checks.filter(c => c.level === 'warn').length;
+  const overall = failCount > 0 ? 'fail' : warnCount > 0 ? 'warn' : 'pass';
+
+  if (opts.json) {
+    const projectId = rawConfig?.project?.id || rawConfig?.project?.name || 'unknown';
+    console.log(JSON.stringify({
+      project: projectId,
+      config_version: 4,
+      overall,
+      checks,
+      fail_count: failCount,
+      warn_count: warnCount,
+    }, null, 2));
+  } else {
+    const projectId = rawConfig?.project?.id || rawConfig?.project?.name || 'unknown';
+    console.log('');
+    console.log(chalk.bold('  AgentXchain Governed Doctor'));
+    console.log(chalk.dim('  ' + '─'.repeat(44)));
+    console.log(chalk.dim(`  Project: ${projectId} (v4)`));
+    console.log('');
+
+    for (const c of checks) {
+      const badge = c.level === 'pass'
+        ? chalk.green('PASS')
+        : c.level === 'warn'
+          ? chalk.yellow('WARN')
+          : chalk.red('FAIL');
+      console.log(`  ${badge}  ${c.name.padEnd(24)} ${chalk.dim(c.detail)}`);
+    }
+
+    console.log('');
+    if (failCount === 0 && warnCount === 0) {
+      console.log(chalk.green('  ✓ Governed project is ready.'));
+    } else if (failCount === 0) {
+      console.log(chalk.yellow(`  Ready with ${warnCount} warning${warnCount > 1 ? 's' : ''}.`));
+    } else {
+      console.log(chalk.red(`  Not ready: ${failCount} failure${failCount > 1 ? 's' : ''}, ${warnCount} warning${warnCount > 1 ? 's' : ''}.`));
+    }
+    console.log('');
+  }
+
+  process.exit(failCount > 0 ? 1 : 0);
+}
+
+function checkRuntimeReachable(rtId, rt) {
+  const base = { id: `runtime_${rtId}`, name: `Runtime: ${rtId}` };
+
+  if (!rt || !rt.type) {
+    return { ...base, level: 'warn', detail: 'No runtime type specified' };
+  }
+
+  switch (rt.type) {
+    case 'manual':
+      return { ...base, level: 'pass', detail: 'Manual runtime (no binary needed)' };
+
+    case 'local_cli': {
+      const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
+      if (!cmd) return { ...base, level: 'warn', detail: 'No command configured' };
+      try {
+        execSync(`command -v ${cmd}`, { stdio: 'ignore' });
+        return { ...base, level: 'pass', detail: `${cmd} binary found` };
+      } catch {
+        return { ...base, level: 'fail', detail: `${cmd} not found in PATH` };
+      }
+    }
+
+    case 'api_proxy': {
+      const envVar = rt.auth_env;
+      if (!envVar) {
+        // ollama and similar providers may not require auth
+        return { ...base, level: 'pass', detail: `${rt.provider || 'unknown'} provider (no auth required)` };
+      }
+      if (process.env[envVar]) {
+        return { ...base, level: 'pass', detail: `${envVar} is set` };
+      }
+      return { ...base, level: 'fail', detail: `${envVar} not set` };
+    }
+
+    case 'mcp': {
+      const transport = rt.transport || 'stdio';
+      if (transport === 'streamable_http') {
+        return { ...base, level: 'warn', detail: 'Remote MCP endpoint (cannot verify at doctor time)' };
+      }
+      const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
+      if (!cmd) return { ...base, level: 'warn', detail: 'No MCP command configured' };
+      try {
+        execSync(`command -v ${cmd}`, { stdio: 'ignore' });
+        return { ...base, level: 'pass', detail: `${cmd} binary found` };
+      } catch {
+        return { ...base, level: 'fail', detail: `${cmd} not found in PATH` };
+      }
+    }
+
+    case 'remote_agent':
+      return { ...base, level: 'warn', detail: 'Remote agent endpoint (cannot verify at doctor time)' };
+
+    default:
+      return { ...base, level: 'warn', detail: `Unknown runtime type: ${rt.type}` };
+  }
+}
+
+function getCurrentPhase(root) {
+  const statePath = join(root, '.agentxchain', 'state.json');
+  if (!existsSync(statePath)) return null;
+  try {
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    return state.current_phase || null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Legacy (v3) Doctor ──────────────────────────────────────────────────────
+
+function legacyDoctor(root, opts) {
+  const result = loadConfig(root);
   if (!result) {
     console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
     process.exit(1);
   }
 
-  const { root, config } = result;
+  const { config } = result;
   const lock = loadLock(root);
   const checks = [];
 
@@ -24,7 +263,7 @@ export async function doctorCommand() {
   checks.push(checkBinary('osascript', 'osascript available (required for auto-nudge, macOS)'));
   checks.push(checkPm(config));
   checks.push(checkValidation(root, config));
-  checks.push(checkWatchProcess());
+  checks.push(checkWatchProcess(root));
   checks.push(checkTrigger(root));
   checks.push(checkAccessibility());
 
@@ -86,13 +325,10 @@ function checkPm(config) {
   return { name: 'PM agent', level: 'warn', detail: 'No explicit PM agent. PM-first onboarding will be less clear.' };
 }
 
-function checkWatchProcess() {
-  const result = loadConfig();
-  if (result) {
-    const pid = getWatchPid(result.root);
-    if (pid) {
-      return { name: 'watch process', level: 'pass', detail: `watch running (PID: ${pid})` };
-    }
+function checkWatchProcess(root) {
+  const pid = getWatchPid(root);
+  if (pid) {
+    return { name: 'watch process', level: 'pass', detail: `watch running (PID: ${pid})` };
   }
   try {
     execSync('pgrep -f "agentxchain.*watch" >/dev/null', { stdio: 'ignore' });

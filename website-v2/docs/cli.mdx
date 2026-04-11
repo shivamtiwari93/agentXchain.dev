@@ -10,7 +10,7 @@ The `agentxchain` CLI is the primary interface for governed multi-agent runs. Ev
 
 The CLI is the primary shipped runner, not the only possible runner. If you are building CI or hosted execution against the declared library boundary instead of shelling out to commands, use [Runner Interface](/docs/runner-interface).
 
-Legacy v3 local-orchestration commands such as `start`, `kickoff`, `watch`, `claim`, `release`, and `doctor` remain in the binary for compatibility. This page is intentionally scoped to the governed surface and the governed-adjacent command families that extend it: templates, plugins, intake, multi-repo coordination, and the local operator dashboard.
+Legacy v3 local-orchestration commands such as `start`, `kickoff`, `watch`, `claim`, and `release` remain in the binary for compatibility. This page is intentionally scoped to the governed surface and the governed-adjacent command families that extend it: templates, plugins, intake, multi-repo coordination, and the local operator dashboard.
 
 ## The two commands people confuse
 
@@ -61,6 +61,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `proposal` | Proposal management | List, diff, apply, or reject proposed changes from api_proxy agents |
 | `history` | Observability | Show cross-run history of governed runs in this project |
 | `events` | Observability | Show repo-local run lifecycle events with optional streaming |
+| `doctor` | Readiness | Check governed project readiness: config validation, runtime reachability, state health, schedule daemon, and workflow-kit artifacts |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -582,6 +583,34 @@ agentxchain migrate [options]
 | `-j, --json` | `false` | Output migration report as JSON |
 
 Migrates state and config from an older protocol version to the current version (v6). Handles schema changes in `agentxchain.json`, `state.json`, and history entries.
+
+## Readiness
+
+### `doctor`
+
+```bash
+agentxchain doctor [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output structured JSON with all check results |
+
+Checks governed project readiness for running turns. On v4 (governed) projects, runs these checks:
+
+| Check | ID | Description |
+|-------|-----|-------------|
+| Config validation | `config_valid` | Loads `agentxchain.json` and validates against the governed schema |
+| Roles defined | `roles_defined` | At least one role exists in the config |
+| Runtime reachable | `runtime_<id>` | Per-runtime: local binaries found, API key env vars set, remote endpoints noted as unverifiable |
+| State directory | `state_dir` | `.agentxchain/` exists |
+| State health | `state_health` | `state.json` parses with a recognized schema version |
+| Schedule health | `schedule_health` | Daemon status when schedules are configured (skipped otherwise) |
+| Workflow-kit artifacts | `workflow_kit` | Required artifacts for the current phase exist on disk |
+
+Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.
+
+On legacy v3 projects, runs the legacy environment checks (Cursor, jq, osascript, watch process, trigger file, PM signoff).
 
 ## Dashboard
 
