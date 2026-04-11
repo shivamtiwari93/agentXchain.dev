@@ -89,8 +89,8 @@ Ordered list of rules. First match wins.
 
 | Condition | Type | Description |
 |---|---|---|
-| `gate_passed` | boolean | Gate structural predicates must have passed. |
-| `roles_participated` | string[] | These role IDs must have at least one accepted turn in the current phase. |
+| `gate_passed` | boolean | Gate structural predicates must have passed. In practice this is defense-in-depth, because the policy only evaluates after the gate already returned `awaiting_human_approval`. |
+| `roles_participated` | string[] | These role IDs must have at least one accepted turn in the current phase. The evaluator sees history after the just-accepted turn is appended, so the current accepted turn counts. |
 
 ## Run completion
 
@@ -105,8 +105,8 @@ Controls auto-approval for the final run completion gate.
 
 | Condition | Type | Description |
 |---|---|---|
-| `gate_passed` | boolean | Completion gate must have passed. |
-| `all_phases_visited` | boolean | Every phase in routing must have been active at least once. |
+| `gate_passed` | boolean | Completion gate must have passed. This is also defense-in-depth for the same reason as phase transitions. |
+| `all_phases_visited` | boolean | Every phase declared in routing must have been active at least once. This is strict: if you declare an optional phase in routing and never visit it, completion will still require human approval. |
 
 ## Invariants
 

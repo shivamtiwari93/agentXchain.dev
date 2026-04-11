@@ -53,14 +53,14 @@ New optional top-level config section in `agentxchain.json`:
     - **`to_phase`** (optional string): target phase. Omit to match any.
     - **`action`**: `"auto_approve"` | `"require_human"` — what to do when rule matches.
     - **`when`** (optional object): additional conditions. All must be true.
-      - **`gate_passed`** (boolean): gate structural predicates must have passed.
-      - **`roles_participated`** (string[]): these role IDs must have at least one accepted turn in the current phase.
+      - **`gate_passed`** (boolean): gate structural predicates must have passed. This is defense-in-depth because the policy only evaluates after the gate already returned `awaiting_human_approval`.
+      - **`roles_participated`** (string[]): these role IDs must have at least one accepted turn in the current phase. Evaluation uses history after the just-accepted turn is appended, so the current turn counts.
 
 - **`run_completion`** (optional object):
   - **`action`**: `"require_human"` | `"auto_approve"` — default: `"require_human"`.
   - **`when`** (optional object): conditions for auto-approval.
-    - **`gate_passed`** (boolean): completion gate must have passed.
-    - **`all_phases_visited`** (boolean): every phase in routing must have been active at least once.
+    - **`gate_passed`** (boolean): completion gate must have passed. This is also defense-in-depth.
+    - **`all_phases_visited`** (boolean): every phase declared in routing must have been active at least once. Optional-but-declared phases still count.
 
 ### Invariants
 
@@ -68,7 +68,7 @@ New optional top-level config section in `agentxchain.json`:
 2. `--auto-approve` on `run` overrides approval_policy entirely (backwards compatible).
 3. If `approval_policy` is absent, behavior is identical to today.
 4. Policy evaluation is pure: `(gateResult, state, config) → "auto_approve" | "require_human"`.
-5. Policy decisions are logged in the decision ledger for auditability.
+5. Policy decisions are logged in the decision ledger for auditability, including the matched rule payload.
 6. `when.gate_passed: true` is the minimum safety condition — it means "only auto-approve if all structural predicates (files, verification, ownership) already passed."
 
 ## Behavior
@@ -88,6 +88,7 @@ This means:
 - Gate predicates (files, verification, ownership) are ALWAYS evaluated first
 - Approval policy can only RELAX the human-approval requirement, never override a gate failure
 - The gate evaluator itself remains pure and unchanged
+- The policy evaluator sees the accepted-turn history snapshot, not the pre-acceptance snapshot
 
 ### New Function
 
@@ -139,13 +140,15 @@ The `approveGate` callback in `run.js` already handles `--auto-approve`. With ap
 5. **AT-AP-005**: `when.roles_participated: ["qa"]` → auto-approve only if QA role has an accepted turn in the current phase.
 6. **AT-AP-006**: `--auto-approve` flag on `run` → overrides approval_policy, approves everything.
 7. **AT-AP-007**: `run_completion.action: "auto_approve"` + `when.gate_passed: true` + `when.all_phases_visited: true` → run completes without human approval when all phases visited and gate passes.
-8. **AT-AP-008**: Policy decision is recorded in decision ledger with `type: "approval_policy"`.
+8. **AT-AP-008**: Policy decision is recorded in decision ledger with `type: "approval_policy"` and the matched rule payload.
 9. **AT-AP-009**: Config validation rejects `action: "skip"` (unknown action).
 10. **AT-AP-010**: Config validation rejects `from_phase: "nonexistent"` when routing is defined.
 11. **AT-AP-011**: Gate that fails structurally → policy is never evaluated, gate failure stands.
 12. **AT-AP-012**: Multiple rules → first match wins.
+13. **AT-AP-013**: CLI subprocess governed flow with approval policy auto-advances `planning → implementation` and auto-completes the run without `approve-transition` or `approve-completion`, while recording both approval-policy ledger entries.
 
 ## Open Questions
 
 1. Should policy auto-approval emit a notification to the dashboard/operator? (Probably yes — `auto_approved_by_policy` flag in state or history.)
 2. Should there be a `when.min_turns_in_phase` condition? (Useful but adds complexity — defer to v2.)
+3. Should run-completion support an `exclude_phases` escape hatch for intentionally optional routing phases? Current behavior is strict by design; document it honestly unless a real operator need appears.
