@@ -20,6 +20,7 @@ import { approvePendingDashboardGate } from './actions.js';
 import { readCoordinatorBlockerSnapshot } from './coordinator-blockers.js';
 import { readWorkflowKitArtifacts } from './workflow-kit-artifacts.js';
 import { readConnectorHealthSnapshot } from './connectors.js';
+import { readTimeoutStatus } from './timeout-status.js';
 import { queryRunHistory } from '../run-history.js';
 
 const MIME_TYPES = {
@@ -290,6 +291,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
 
     if (pathname === '/api/connectors') {
       const result = readConnectorHealthSnapshot(workspacePath);
+      writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/timeouts') {
+      const result = readTimeoutStatus(workspacePath);
       writeJson(res, result.status, result.body);
       return;
     }

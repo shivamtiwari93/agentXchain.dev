@@ -15,6 +15,7 @@ import { render as renderCrossRepo } from './components/cross-repo.js';
 import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
 import { render as renderRunHistory } from './components/run-history.js';
+import { render as renderTimeouts } from './components/timeouts.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors'], render: renderTimeline },
@@ -27,6 +28,7 @@ const VIEWS = {
   blockers: { fetch: ['coordinatorBlockers'], render: renderBlockers },
   artifacts: { fetch: ['workflowKitArtifacts'], render: renderArtifacts },
   'run-history': { fetch: ['runHistory'], render: renderRunHistory },
+  timeouts: { fetch: ['timeouts'], render: renderTimeouts },
 };
 
 const API_MAP = {
@@ -45,6 +47,7 @@ const API_MAP = {
   workflowKitArtifacts: '/api/workflow-kit-artifacts',
   connectors: '/api/connectors',
   runHistory: '/api/run-history',
+  timeouts: '/api/timeouts',
 };
 
 const viewState = {

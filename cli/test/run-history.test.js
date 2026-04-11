@@ -398,7 +398,7 @@ describe('run-history dashboard component contract', () => {
     assert.match(source, /export function render/);
   });
 
-  it('dashboard nav has exactly 10 tabs', () => {
+  it('dashboard nav has exactly 11 tabs', () => {
     const source = readFileSync(
       join(import.meta.dirname, '..', 'dashboard', 'index.html'),
       'utf8'
@@ -406,7 +406,7 @@ describe('run-history dashboard component contract', () => {
     const navMatch = source.match(/<nav>[\s\S]*?<\/nav>/);
     assert.ok(navMatch, 'nav element must exist');
     const tabCount = (navMatch[0].match(/href="#/g) || []).length;
-    assert.strictEqual(tabCount, 10, `Expected 10 nav tabs, found ${tabCount}`);
+    assert.strictEqual(tabCount, 11, `Expected 11 nav tabs, found ${tabCount}`);
   });
 });
 
