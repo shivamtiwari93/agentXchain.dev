@@ -6,6 +6,7 @@ import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
+import { summarizeRunProvenance } from '../lib/run-provenance.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -90,6 +91,7 @@ function renderGovernedStatus(context, opts) {
       template: config.template || 'generic',
       config,
       state,
+      provenance: state?.provenance || null,
       continuity,
       connector_health: connectorHealth,
       workflow_kit_artifacts: workflowKitArtifacts,
@@ -107,6 +109,10 @@ function renderGovernedStatus(context, opts) {
   console.log(`  ${chalk.dim('Template:')} ${config.template || 'generic'}`);
   console.log(`  ${chalk.dim('Phase:')}    ${state?.phase ? formatGovernedPhase(state.phase) : chalk.dim('unknown')}`);
   console.log(`  ${chalk.dim('Run:')}      ${formatRunStatus(state?.status)}`);
+  const provenanceSummary = summarizeRunProvenance(state?.provenance);
+  if (provenanceSummary) {
+    console.log(`  ${chalk.dim('Origin:')}   ${chalk.magenta(provenanceSummary)}`);
+  }
   if (state?.accepted_integration_ref) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);
   }
