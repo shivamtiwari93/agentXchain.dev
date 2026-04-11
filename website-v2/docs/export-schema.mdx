@@ -56,6 +56,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | --- | --- |
 | `id` | `config.project.id` |
 | `name` | `config.project.name` |
+| `goal` | Optional `config.project.goal`, or `null` when unset |
 | `template` | Configured template or implicit `generic` |
 | `protocol_mode` | Exported run protocol mode |
 | `schema_version` | Governed config schema version |
@@ -67,6 +68,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `run_id` | Current governed run id or `null` |
 | `status` | Current run status or `null` |
 | `phase` | Current phase or `null` |
+| `project_goal` | Optional project goal copied from `project.goal`, or `null` when unset |
 | `active_turn_ids` | Sorted keys from `state.active_turns` |
 | `retained_turn_ids` | Sorted keys from `state.retained_turns` |
 | `history_entries` | Count of `.agentxchain/history.jsonl` records |
