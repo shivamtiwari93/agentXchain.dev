@@ -99,6 +99,23 @@ function extractDecisionDigest(artifact) {
     }));
 }
 
+function extractApprovalPolicyDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => d?.type === 'approval_policy')
+    .map((d) => ({
+      gate_type: d.gate_type || null,
+      action: d.action || null,
+      matched_rule: d.matched_rule || null,
+      from_phase: d.from_phase || null,
+      to_phase: d.to_phase || null,
+      reason: d.reason || '',
+      gate_id: d.gate_id || null,
+      timestamp: d.timestamp || null,
+    }));
+}
+
 function extractHookSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/hook-audit.jsonl');
   if (!Array.isArray(data) || data.length === 0) return null;
@@ -408,6 +425,23 @@ function extractCoordinatorDecisionDigest(artifact) {
     }));
 }
 
+function extractCoordinatorApprovalPolicyDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => d?.type === 'approval_policy')
+    .map((d) => ({
+      gate_type: d.gate_type || null,
+      action: d.action || null,
+      matched_rule: d.matched_rule || null,
+      from_phase: d.from_phase || null,
+      to_phase: d.to_phase || null,
+      reason: d.reason || '',
+      gate_id: d.gate_id || null,
+      timestamp: d.timestamp || null,
+    }));
+}
+
 function extractBarrierSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/multirepo/barriers.json');
   if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
@@ -538,6 +572,7 @@ function buildRunSubject(artifact) {
 
   const turns = extractHistoryTimeline(artifact);
   const decisions = extractDecisionDigest(artifact);
+  const approvalPolicyEvents = extractApprovalPolicyDigest(artifact);
   const hookSummary = extractHookSummary(artifact);
   const timing = computeTiming(artifact, turns);
   const gateSummary = extractGateSummary(artifact);
@@ -571,6 +606,7 @@ function buildRunSubject(artifact) {
       duration_seconds: timing.duration_seconds,
       turns,
       decisions,
+      approval_policy_events: approvalPolicyEvents,
       hook_summary: hookSummary,
       gate_summary: gateSummary,
       intake_links: intakeLinks,
@@ -643,6 +679,7 @@ function buildCoordinatorSubject(artifact) {
       const childExport = repoEntry.export;
       base.turns = extractHistoryTimeline(childExport);
       base.decisions = extractDecisionDigest(childExport);
+      base.approval_policy_events = extractApprovalPolicyDigest(childExport);
       base.hook_summary = extractHookSummary(childExport);
       base.gate_summary = extractGateSummary(childExport);
       base.recovery_summary = extractRecoverySummary(childExport);
@@ -656,6 +693,7 @@ function buildCoordinatorSubject(artifact) {
   const barrierSummary = extractBarrierSummary(artifact);
   const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
   const decisionDigest = extractCoordinatorDecisionDigest(artifact);
+  const coordinatorApprovalPolicyEvents = extractCoordinatorApprovalPolicyDigest(artifact);
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
@@ -698,6 +736,7 @@ function buildCoordinatorSubject(artifact) {
     barrier_summary: barrierSummary,
     barrier_ledger_timeline: barrierLedgerTimeline,
     decision_digest: decisionDigest,
+    approval_policy_events: coordinatorApprovalPolicyEvents,
     recovery_report: extractRecoveryReportSummary(artifact),
     repos,
     artifacts: {

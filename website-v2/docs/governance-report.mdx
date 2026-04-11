@@ -77,7 +77,8 @@ Run-export reports carry:
 | `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Run timing summary when available |
 | `subject.run.turns` | Accepted-turn timeline derived from `.agentxchain/history.jsonl` |
-| `subject.run.decisions` | Decision digest derived from `.agentxchain/decision-ledger.jsonl` |
+| `subject.run.decisions` | Decision digest derived from `.agentxchain/decision-ledger.jsonl` (entries with `id` field) |
+| `subject.run.approval_policy_events` | Approval-policy gate actions derived from `.agentxchain/decision-ledger.jsonl` (entries with `type: "approval_policy"`). Each entry includes `gate_type`, `action`, `matched_rule`, `from_phase`/`to_phase`, `reason`, `gate_id`, and `timestamp`. |
 | `subject.run.hook_summary` | Hook execution totals and event breakdown |
 | `subject.run.gate_summary` | Sorted gate outcomes derived from `state.phase_gate_status` |
 | `subject.run.intake_links` | Linked intake intents whose `target_run` matches the exported run |
@@ -119,6 +120,7 @@ Coordinator-export reports carry:
 | `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json` |
 | `subject.barrier_ledger_timeline` | Barrier transition history derived from `.agentxchain/multirepo/barrier-ledger.jsonl` |
 | `subject.decision_digest` | Coordinator-level decision digest derived from `.agentxchain/multirepo/decision-ledger.jsonl`, populated by coordinator init, dispatch, gate, and recovery decisions |
+| `subject.approval_policy_events` | Coordinator-level approval-policy gate actions derived from `.agentxchain/multirepo/decision-ledger.jsonl` |
 | `subject.recovery_report` | Recovery report summary extracted from `.agentxchain/multirepo/RECOVERY_REPORT.md` when present, or `null` when absent |
 | `subject.repos` | Per-repo summary rows for paste-friendly reporting |
 | `subject.artifacts` | Coordinator history and decision counts |
@@ -140,6 +142,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 
 - `turns` — turn timeline extracted from the child repo's embedded export (same shape as governed-run turns)
 - `decisions` — decision digest from the child repo
+- `approval_policy_events` — approval-policy gate actions from the child repo
 - `hook_summary` — hook execution summary (`total`, `blocked`, `events`) or `null`
 - `gate_summary` — phase gate outcomes or `[]`
 - `recovery_summary` — blocked recovery context or `null`
