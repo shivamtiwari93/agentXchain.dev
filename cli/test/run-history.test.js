@@ -483,6 +483,16 @@ describe('run-history docs contract', () => {
     assert.match(docs, /legacy/);
   });
 
+  it('cli.mdx documents only completed and blocked as history status filters', () => {
+    const docs = readFileSync(
+      join(import.meta.dirname, '..', '..', 'website-v2', 'docs', 'cli.mdx'),
+      'utf8'
+    );
+    assert.match(docs, /agentxchain history \[--json\] \[--limit <n>\] \[--status completed\|blocked\]/);
+    assert.match(docs, /Filter by terminal status: `completed` or `blocked`/);
+    assert.doesNotMatch(docs, /Filter by terminal status: `completed`, `blocked`, or `failed`/);
+  });
+
   it('cli.mdx command map includes history', () => {
     const docs = readFileSync(
       join(import.meta.dirname, '..', '..', 'website-v2', 'docs', 'cli.mdx'),

@@ -527,14 +527,14 @@ Migrates state and config from an older protocol version to the current version 
 ### `history`
 
 ```bash
-agentxchain history [--json] [--limit <n>] [--status completed|blocked|failed] [--lineage <run_id>] [--dir <path>]
+agentxchain history [--json] [--limit <n>] [--status completed|blocked] [--lineage <run_id>] [--dir <path>]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--json` | `false` | Output as JSON array |
 | `--limit <n>` | `20` | Number of recent runs to show |
-| `--status <status>` | — | Filter by terminal status: `completed`, `blocked`, or `failed` |
+| `--status <status>` | — | Filter by terminal status: `completed` or `blocked` |
 | `--lineage <run_id>` | — | Show the lineage chain for a specific run by walking `parent_run_id` links |
 | `--dir <path>` | `.` | Project directory |
 

@@ -86,7 +86,7 @@ Returns: `{ ok: boolean, event_id: string }`
 2. **Synchronous write.** `appendFileSync` — same as notification-audit.jsonl pattern.
 3. **No delivery semantics.** This is a local log, not a transport. No retries, no acknowledgement.
 4. **Idempotent emission.** Each event has a unique `event_id`. Duplicate calls produce duplicate entries (caller responsibility to avoid).
-5. **Follow mode.** `--follow` uses `fs.watch()` on the events file with 100ms debounce (same pattern as dashboard file-watcher).
+5. **Follow mode.** `--follow` uses `fs.watchFile()` polling on the events file with a 200ms interval so appended-file updates are detected reliably across platforms, including when the file is created after the watcher starts.
 6. **Coexistence with notifications.** `emitRunEvent` is called alongside `emitNotifications`, not instead of it. They serve different purposes (local log vs external webhook).
 
 ## Error Cases

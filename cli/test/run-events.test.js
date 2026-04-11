@@ -113,8 +113,7 @@ describe('run-events', () => {
     assert.ok(result.event_id.startsWith('evt_'));
   });
 
-  // AT-EVT-008: readRunEvents on missing file returns empty array
-  it('AT-EVT-008: readRunEvents on missing file returns empty array', () => {
+  it('readRunEvents on missing file returns empty array', () => {
     const emptyRoot = mkdtempSync(join(tmpdir(), 'axc-events-empty-'));
     const events = readRunEvents(emptyRoot);
     assert.equal(events.length, 0);
