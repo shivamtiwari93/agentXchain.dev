@@ -634,7 +634,7 @@ agentxchain history [--json] [--limit <n>] [--status completed|blocked] [--linea
 
 Shows a persistent cross-run history of governed runs in this project. Each terminal governed run appends a summary record to `.agentxchain/run-history.jsonl` with run ID, status, phases, turns, cost, duration, connector metadata, and a deterministic terminal retrospective used for later inheritance handoff. The file persists across runs and is not reset when a new run starts.
 
-The default table includes a `Trigger` column when provenance metadata is available on the recorded run, plus a `Ctx` column showing whether the run has a usable inheritance snapshot for `--inherit-context` child runs (`✓` = usable snapshot, `—` = metadata-only lineage). Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
+The default table includes a `Trigger` column when provenance metadata is available on the recorded run, a `Ctx` column showing whether the run has a usable inheritance snapshot for `--inherit-context` child runs (`✓` = usable snapshot, `—` = metadata-only lineage), and a `Headline` column with the terminal retrospective summary for quick operator review. Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
 
 Use `--json` for machine-readable output. Each entry includes a computed `inheritable` boolean so scripts can tell whether a run has a usable inheritance snapshot without inspecting the raw `inheritance_snapshot` arrays manually.
 
@@ -689,7 +689,7 @@ The shipped dashboard surface has twelve top-level views:
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
-| **Run History** | Cross-run history showing status, trigger, context inheritance availability, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
+| **Run History** | Cross-run history showing status, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline for all governed runs in this project from `/api/run-history` |
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
 | **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history with child-turn identity |
 

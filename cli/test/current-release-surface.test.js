@@ -32,10 +32,17 @@ const CURRENT_RELEASE_DOC_PATH = `website-v2/docs/${CURRENT_RELEASE_DOC_ID}.mdx`
 const CURRENT_TARBALL_URL = `https://registry.npmjs.org/agentxchain/-/agentxchain-${CURRENT_VERSION}.tgz`;
 const CURRENT_RELEASE_ROUTE = `/docs/${CURRENT_RELEASE_DOC_ID}`;
 
-function extractEvidenceLine(text, label) {
-  const match = text.match(/^-\s+.*\b\d+\s+tests\b.*\b0 failures\b.*$/m);
-  assert.ok(match, `${label} must include a concrete test-count evidence line with 0 failures`);
-  return match[0]
+function extractAggregateEvidenceLine(text, label) {
+  const matches = [...text.matchAll(/^-\s+.*\b(\d+)\s+tests\b.*\b0 failures\b.*$/gm)];
+  assert.ok(matches.length > 0, `${label} must include a concrete test-count evidence line with 0 failures`);
+  const aggregate = matches.reduce((best, match) => {
+    const count = Number(match[1]);
+    if (!best || count > best.count) {
+      return { count, line: match[0] };
+    }
+    return best;
+  }, null);
+  return aggregate.line
     .replace(/\*\*/g, '')
     .replace(/`/g, '')
     .trim();
@@ -74,18 +81,18 @@ describe('current release surface', () => {
   it('AT-CRS-007: release notes page evidence section has concrete test counts', () => {
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
     assert.match(releasePage, /## Evidence/i, 'release notes page must have an Evidence section');
-    extractEvidenceLine(releasePage, 'release notes evidence');
+    extractAggregateEvidenceLine(releasePage, 'release notes evidence');
   });
 
   it('AT-CRS-008: changelog and release notes evidence lines stay aligned', () => {
     const versionBlock = CHANGELOG.split(/^## \d+\.\d+\.\d+$/m).slice(0, 2).join('');
     const releasePage = read(CURRENT_RELEASE_DOC_PATH);
-    const changelogEvidence = extractEvidenceLine(versionBlock, 'changelog evidence');
-    const releaseEvidence = extractEvidenceLine(releasePage, 'release notes evidence');
+    const changelogEvidence = extractAggregateEvidenceLine(versionBlock, 'changelog evidence');
+    const releaseEvidence = extractAggregateEvidenceLine(releasePage, 'release notes evidence');
     assert.equal(
       changelogEvidence,
       releaseEvidence,
-      'top changelog evidence and current release-note evidence must match exactly',
+      'top changelog aggregate evidence and current release-note aggregate evidence must match exactly',
     );
   });
 

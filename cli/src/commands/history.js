@@ -89,6 +89,7 @@ export async function historyCommand(opts) {
     pad('Cost', 10),
     pad('Duration', 10),
     pad('Date', 20),
+    pad('Headline', 42),
   ].join(' ');
 
   console.log(chalk.bold(header));
@@ -111,6 +112,7 @@ export async function historyCommand(opts) {
     const date = entry.recorded_at
       ? new Date(entry.recorded_at).toLocaleString()
       : '—';
+    const headline = formatHeadline(entry.retrospective?.headline);
 
     console.log([
       pad(idx, 4),
@@ -123,6 +125,7 @@ export async function historyCommand(opts) {
       pad(cost, 10),
       pad(duration, 10),
       pad(date, 20),
+      pad(headline, 42),
     ].join(' '));
   });
 
@@ -162,4 +165,11 @@ function formatDuration(ms) {
   const hrs = Math.floor(mins / 60);
   const remainMins = mins % 60;
   return `${hrs}h ${remainMins}m`;
+}
+
+function formatHeadline(headline) {
+  if (!headline) return '—';
+  const normalized = String(headline).replace(/\s+/g, ' ').trim();
+  if (normalized.length <= 40) return normalized;
+  return `${normalized.slice(0, 39)}…`;
 }

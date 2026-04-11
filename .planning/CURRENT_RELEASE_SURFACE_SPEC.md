@@ -40,7 +40,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 7. `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current release version.
 8. `website-v2/static/llms.txt` lists the current release-notes route.
 9. `website-v2/static/sitemap.xml` lists the current release-notes route.
-10. The current release notes and top changelog section carry the same concrete test-count evidence line for the release.
+10. The current release notes and top changelog section carry the same aggregate concrete test-count evidence line for the release.
 
 ## Error Cases
 
@@ -59,7 +59,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - **AT-CRS-005**: The guard asserts `.agentxchain-conformance/capabilities.json` matches the package version.
 - **AT-CRS-006**: The guard asserts the protocol implementor guide example shows the current version.
 - **AT-CRS-007**: The guard asserts the current release page has an evidence line with a concrete test count and `0 failures`.
-- **AT-CRS-008**: The guard asserts the top changelog evidence line exactly matches the current release page evidence line.
+- **AT-CRS-008**: The guard extracts the aggregate evidence line (highest concrete `N tests ... 0 failures` count) from the top changelog section and current release page, then asserts they match exactly.
 - **AT-CRS-009**: The guard asserts `.planning/LAUNCH_EVIDENCE_REPORT.md` title carries the current version.
 - **AT-CRS-012**: The guard asserts `website-v2/static/llms.txt` lists the current release-notes route.
 - **AT-CRS-013**: The guard asserts `website-v2/static/sitemap.xml` lists the current release-notes route.

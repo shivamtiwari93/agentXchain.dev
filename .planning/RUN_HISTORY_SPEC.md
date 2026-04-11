@@ -65,7 +65,11 @@ agentxchain history [--limit N] [--json] [--status completed|blocked]
 - `--limit N`: show last N runs (default 20)
 - `--status`: filter by terminal status
 
-Output columns (text mode): `#`, `Run ID` (truncated), `Status`, `Phases`, `Turns`, `Cost`, `Duration`, `Date`
+Output columns (text mode): `#`, `Run ID` (truncated), `Status`, `Trigger`, `Ctx`, `Phases`, `Turns`, `Cost`, `Duration`, `Date`, `Headline`
+
+- `Trigger`: provenance trigger label (`manual`, `continuation`, `recovery`, `legacy`, etc.)
+- `Ctx`: whether the run has a usable inheritance snapshot for child runs
+- `Headline`: truncated terminal retrospective headline for quick operator review
 
 ### Dashboard Endpoint: `GET /api/run-history`
 
@@ -127,10 +131,11 @@ The recording function reads current state + config to build the history record.
 - `AT-RH-006`: `initializeGovernedRun()` does not delete or truncate existing `run-history.jsonl`.
 - `AT-RH-007`: `GET /api/run-history` returns a JSON array of history entries.
 - `AT-RH-008`: Recording failure does not prevent run completion.
-- `AT-RH-009`: `agentxchain history` text output includes a readable table with columns for status, turns, cost, and date.
+- `AT-RH-009`: `agentxchain history` text output includes a readable table with columns for status, trigger, context inheritance, turns, cost, date, and retrospective headline.
 - `AT-RH-010`: recorded run-history entries include a bounded `inheritance_snapshot` used by child-run context inheritance.
 
 ## Open Questions
 
 1. Should `run-history.jsonl` be included in `buildRunExport()`? Argument for: cross-run context is valuable for operators reviewing exported artifacts. Argument against: export is per-run, history is cross-run. **Tentative: include it.**
 2. Should blocked runs record immediately or wait for recovery? **Decision: record immediately at block time. If recovery succeeds, a new completion record is appended — operators see both events.**
+3. Should the dashboard add row expansion for the full retrospective rather than only the headline? **Not in this slice. The headline is enough to make the default view discoverable without turning run history into a second report surface.**

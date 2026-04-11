@@ -372,6 +372,37 @@ describe('run-history CLI command contract', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('default table shows retrospective headline column', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeHistory(root, [
+        {
+          role: 'qa',
+          phase: 'qa',
+          status: 'completed',
+          accepted_at: '2026-04-11T15:00:00.000Z',
+          summary: 'Validated the governed release candidate and requested follow-up docs alignment for the operator handoff.',
+        },
+      ]);
+      writeLedger(root, [{ id: 'DEC-001', statement: 'Ship it', role: 'qa', phase: 'qa' }]);
+      recordRunHistory(root, makeState({ run_id: 'run_headline_001' }), makeConfig(), 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--dir', root, '--limit', '1'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_NO_WARNINGS: '1', TZ: 'UTC', NO_COLOR: '1' },
+        timeout: 15000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Headline/);
+      assert.match(result.stdout, /Validated the governed release candidat…/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('run-history integration contracts', () => {
@@ -505,12 +536,13 @@ describe('run-history dashboard component contract', () => {
     assert.match(source, /export function render/);
   });
 
-  it('run-history dashboard component shows the Ctx column and inheritable indicator tooltip', () => {
+  it('run-history dashboard component shows the Ctx and Headline columns plus inheritable indicator tooltip', () => {
     const source = readFileSync(
       join(import.meta.dirname, '..', 'dashboard', 'components', 'run-history.js'),
       'utf8'
     );
     assert.match(source, /<th>Ctx<\/th>/);
+    assert.match(source, /<th>Headline<\/th>/);
     assert.match(source, /Has inheritance snapshot/);
   });
 
@@ -537,6 +569,7 @@ describe('run-history docs contract', () => {
     assert.match(docs, /run-history\.jsonl/);
     assert.match(docs, /`Trigger` column/);
     assert.match(docs, /`Ctx` column/);
+    assert.match(docs, /`Headline` column/);
     assert.match(docs, /`inheritable`/);
     assert.match(docs, /\[ctx\]/);
     assert.match(docs, /legacy/);
@@ -574,7 +607,7 @@ describe('run-history docs contract', () => {
       'utf8'
     );
     assert.match(docs, /\*\*Run History\*\*/);
-    assert.match(docs, /status, trigger, context inheritance availability, phases, turns, cost, and duration/);
+    assert.match(docs, /status, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline/);
   });
 });
 
@@ -635,6 +668,7 @@ describe('history CLI inheritance visibility', () => {
         timeout: 10_000,
       });
       assert.match(result.stdout, /Ctx/);
+      assert.match(result.stdout, /Headline/);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

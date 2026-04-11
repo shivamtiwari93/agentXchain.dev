@@ -68,6 +68,13 @@ function truncateId(id, len = 12) {
   return id.length > len ? id.slice(0, len) + '…' : id;
 }
 
+function truncateHeadline(headline, len = 40) {
+  if (!headline) return '—';
+  const normalized = String(headline).replace(/\s+/g, ' ').trim();
+  if (normalized.length <= len) return normalized;
+  return normalized.slice(0, len - 1) + '…';
+}
+
 function isInheritable(entry) {
   const snap = entry?.inheritance_snapshot;
   if (!snap) return false;
@@ -105,6 +112,7 @@ function renderRow(entry, index) {
     <td>${formatCost(entry.total_cost_usd)}</td>
     <td>${formatDuration(entry.duration_ms)}</td>
     <td>${formatDate(entry.recorded_at || entry.completed_at)}</td>
+    <td title="${esc(entry.retrospective?.headline || '')}">${esc(truncateHeadline(entry.retrospective?.headline))}</td>
   </tr>`;
 }
 
@@ -144,6 +152,7 @@ export function render({ runHistory }) {
           <th>Cost</th>
           <th>Duration</th>
           <th>Date</th>
+          <th>Headline</th>
         </tr>
       </thead>
       <tbody>`;
