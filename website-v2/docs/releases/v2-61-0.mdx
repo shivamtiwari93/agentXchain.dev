@@ -1,0 +1,27 @@
+---
+title: "v2.61.0 Release Notes"
+description: "Fail-closed governed pricing config, truthful pricing repair docs, and connector tutorial bootstrap alignment."
+---
+
+# AgentXchain v2.61.0
+
+`v2.61.0` hardens the governed pricing surface so operators stop falling through truth gaps. Budget and `cost_rates` edits now validate fail-closed, scalar pricing repairs route through `agentxchain config --set`, and the connector tutorial no longer teaches a weaker governed bootstrap path than the rest of the product.
+
+## What Changed
+
+- `validateV4Config()` now rejects malformed or negative `budget.per_turn_max_usd`, `budget.per_run_max_usd`, and malformed `budget.cost_rates.*.{input_per_1m,output_per_1m}` values.
+- `budget.on_exceed` now fails closed unless it matches the shipped behavior: `pause_and_escalate`.
+- Budget recovery docs now point at `agentxchain config --set budget.per_run_max_usd <usd>` and `agentxchain resume` instead of manual JSON editing.
+- Per-model `budget.cost_rates.<model>.<field>` override docs now use `agentxchain config --set ...` for single-model fixes, while bulk multi-model tables remain JSON where that is the clearer operator path.
+- `/docs/build-your-own-connector` now scaffolds with `agentxchain init --governed --goal ...`, runs `agentxchain doctor`, and shows `config --set` for scalar post-setup connector edits.
+
+## Why It Matters
+
+The human roadmap explicitly called out pricing-surface truth as a risk. A governed system cannot claim budget control while accepting `budget.per_turn_max_usd banana` or routing operators to weaker manual-edit paths for ordinary scalar fixes. This release closes that gap without pretending AgentXchain is a complete public pricing catalog: operators still own provider/model rates, but the governed surface now validates them and teaches the real repair path.
+
+## Evidence
+
+- 3599 tests / 778 suites / 0 failures
+- `node --test cli/test/normalized-config.test.js cli/test/config-governed.test.js cli/test/budget-enforcement.test.js cli/test/e2e-budget-recovery.test.js cli/test/docs-recovery-content.test.js cli/test/docs-config-set-guidance.test.js cli/test/build-your-own-connector-content.test.js` -> targeted governed pricing and connector tutorial guards passed
+- `cd website-v2 && npm run build` -> clean production build
+

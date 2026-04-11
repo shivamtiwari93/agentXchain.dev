@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.60.0
+# Launch Evidence Report — AgentXchain v2.61.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.60.0 governed config repair release: governed repos can now use `agentxchain config --set project.goal ...` truthfully, and the public recovery path no longer falls back to manual JSON editing.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.61.0 pricing-surface hardening release: governed budget and `cost_rates` edits now validate fail-closed, scalar pricing repair paths route through `agentxchain config --set`, and the connector tutorial follows the governed `--goal` + `doctor` bootstrap contract.
 
 ---
 

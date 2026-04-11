@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.61.0
+
+`2.61.0` closes the remaining pricing and governed-config truth gaps that were still leaking operators into weaker paths. Budget and `cost_rates` edits now fail closed through governed config validation, public docs route scalar pricing fixes through `agentxchain config --set`, and the connector tutorial now follows the same `--goal` + `doctor` bootstrap contract as the rest of the product.
+
+- Governed config validation now rejects malformed `budget` values and malformed `budget.cost_rates` entries instead of accepting invalid pricing metadata
+- Budget recovery docs now route operators through `agentxchain config --set budget.per_run_max_usd <usd>` instead of hand-editing `agentxchain.json`
+- Public pricing docs now show single-model `budget.cost_rates.<model>.<field>` overrides through `agentxchain config --set`, while leaving bulk multi-model tables in JSON where the CLI path would be materially worse
+- `/docs/build-your-own-connector` now scaffolds with `agentxchain init --governed --goal ...`, runs `agentxchain doctor`, and shows `config --set` for scalar follow-up runtime edits
+- Added regression guards for pricing-path docs alignment and the connector tutorial bootstrap/config path
+- 3599 tests / 778 suites / 0 failures
+- Targeted proof covers governed budget validation, budget-recovery E2E, pricing docs guards, connector tutorial guards, and a clean Docusaurus production build
+
 ## 2.60.0
 
 `2.60.0` fixes a governed operator repair path that was still broken after scaffold. Governed repos can now use `agentxchain config` instead of falling back to manual JSON editing, and the natural `agentxchain config --set <key> <value...>` form finally works for v4 config. The omitted-goal recovery path now points at a real command instead of a hand-edited file.
