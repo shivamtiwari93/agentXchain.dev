@@ -91,6 +91,8 @@ Policy escalations are distinct from operator escalations. They are triggered au
 
 Timeouts fire at governance boundaries (turn acceptance, phase transition, run completion) — not via background polling. The `agentxchain status` output shows which scope exceeded its limit and by how much. Per-phase timeouts can be overridden in `routing` with `timeout_minutes` and `timeout_action` per phase.
 
+For the full config and report/status surface, see [Timeouts](/docs/timeouts).
+
 ### Budget Exhaustion
 
 | State | Cause | Recovery |

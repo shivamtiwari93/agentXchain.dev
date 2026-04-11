@@ -1,0 +1,145 @@
+---
+sidebar_position: 7
+title: Timeouts
+description: "Governed time budgets for turns, phases, and runs."
+---
+
+# Timeouts
+
+Timeouts are the time-budget layer for governed runs. They stop a run from drifting indefinitely when a turn, phase, or full run takes too long.
+
+This is not adapter process timeout tuning. It is governance-level timeout enforcement for **turn, phase, and run** progress.
+
+## Config shape
+
+Add an optional top-level `timeouts` section to `agentxchain.json`:
+
+```json title="agentxchain.json"
+{
+  "timeouts": {
+    "per_turn_minutes": 30,
+    "per_phase_minutes": 120,
+    "per_run_minutes": 480,
+    "action": "warn"
+  }
+}
+```
+
+All fields are optional. Missing fields mean that scope has no timeout.
+
+| Field | Meaning |
+|---|---|
+| `per_turn_minutes` | Maximum wall-clock time for one assigned turn |
+| `per_phase_minutes` | Maximum wall-clock time spent in the current phase |
+| `per_run_minutes` | Maximum wall-clock time for the whole governed run |
+| `action` | Default response when a timeout is exceeded: `escalate` or `warn` |
+
+## Three scopes
+
+### Turn
+
+Turn timeout compares the active turn's `started_at` against the current time at a governance boundary.
+
+Use this when you want to catch a role that is hanging or taking far longer than expected.
+
+### Phase
+
+Phase timeout compares `phase_entered_at` against the current time. This is the right budget for phases that can absorb several turns but still need a hard ceiling.
+
+### Run
+
+Run timeout compares the run `created_at` timestamp against the current time. This is the global ceiling that stops a governed run from stretching without bound.
+
+## Actions
+
+### `escalate`
+
+- Blocks the run with `blocked_on: "timeout:<scope>"`
+- Persists a structured recovery descriptor
+- Records a `type: "timeout"` entry in `.agentxchain/decision-ledger.jsonl`
+- Recovery is `agentxchain resume`
+
+### `warn`
+
+- Does not block the run
+- Records a `type: "timeout_warning"` entry in the decision ledger
+- Surfaces in `agentxchain status` and `agentxchain report`
+
+### `skip_phase`
+
+`skip_phase` is valid for **phase timeouts only**. It is intentionally **routing-only**, not a global timeout action.
+
+```json title="agentxchain.json"
+{
+  "timeouts": {
+    "per_phase_minutes": 120,
+    "action": "warn"
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm", "architect"],
+      "timeout_minutes": 60,
+      "timeout_action": "skip_phase"
+    }
+  }
+}
+```
+
+Why the restriction matters:
+
+- Global `skip_phase` would make no sense for turn or run timeouts
+- Phase skip still runs gate evaluation
+- If the gate fails, the skip fails closed and escalates instead of silently bypassing governance
+
+## Where timeouts evaluate
+
+Timeouts fire at governance boundaries, not through a background daemon:
+
+1. `agentxchain accept-turn`
+2. `agentxchain approve-transition`
+3. `agentxchain approve-completion`
+4. `agentxchain status` for proactive read-only visibility
+
+That means timeout evidence is deterministic and tied to governed state transitions.
+
+## Operator surfaces
+
+### `agentxchain status`
+
+When a run is active and `timeouts` are configured, `agentxchain status` evaluates current timeout pressure without mutating state.
+
+- warnings render with `◷`
+- exceeded scopes render with `⚠`
+- output includes elapsed time, configured limit, and configured action
+
+### `agentxchain report`
+
+Governance reports surface timeout evidence from the decision ledger:
+
+- governed-run reports expose `subject.run.timeout_events`
+- coordinator reports expose top-level `subject.timeout_events`
+- child repo drill-down exposes `subject.repos[].timeout_events`
+
+Text and markdown reports render a dedicated `Timeout Events` section when timeout entries exist.
+
+## Recovery
+
+Escalated timeouts block the run after the accepted work is preserved. The timeout is a governance response, not a pre-acceptance validation failure.
+
+Typical operator flow:
+
+1. Inspect whether the timeout reflects a real stall or simply an unrealistic budget.
+2. Adjust `per_turn_minutes`, `per_phase_minutes`, `per_run_minutes`, or a routing-level phase override if the limit was wrong.
+3. Resume with `agentxchain resume`.
+
+For the broader blocked-state matrix, see [Recovery](/docs/recovery).
+
+## Relationship to other controls
+
+| Mechanism | Purpose | Difference from timeouts |
+|---|---|---|
+| [Policies](/docs/policies) | Turn acceptance rules | Policies constrain accepted work; timeouts constrain elapsed time |
+| [Approval Policy](/docs/approval-policy) | Conditional gate auto-approval | Approval policy relaxes human gates; timeouts enforce time ceilings |
+| Gates | Phase/completion artifact checks | Gates validate readiness; timeouts validate duration |
+| Budget | Spend ceilings | Budget caps cost; timeouts cap wall-clock duration |

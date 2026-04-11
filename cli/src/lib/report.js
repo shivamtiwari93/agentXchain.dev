@@ -140,8 +140,8 @@ function extractGateFailureDigest(artifact) {
     }));
 }
 
-function extractTimeoutEventDigest(artifact) {
-  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+function extractTimeoutEventDigest(artifact, relPath = '.agentxchain/decision-ledger.jsonl') {
+  const data = extractFileData(artifact, relPath);
   if (!Array.isArray(data) || data.length === 0) return [];
   return data
     .filter((d) => typeof d?.type === 'string' && d.type.startsWith('timeout'))
@@ -742,6 +742,7 @@ function buildCoordinatorSubject(artifact) {
   const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
   const decisionDigest = extractCoordinatorDecisionDigest(artifact);
   const coordinatorApprovalPolicyEvents = extractCoordinatorApprovalPolicyDigest(artifact);
+  const coordinatorTimeoutEvents = extractTimeoutEventDigest(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
@@ -785,6 +786,7 @@ function buildCoordinatorSubject(artifact) {
     barrier_ledger_timeline: barrierLedgerTimeline,
     decision_digest: decisionDigest,
     approval_policy_events: coordinatorApprovalPolicyEvents,
+    timeout_events: coordinatorTimeoutEvents,
     recovery_report: extractRecoveryReportSummary(artifact),
     repos,
     artifacts: {
@@ -1024,7 +1026,19 @@ export function formatGovernanceReportText(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest, recovery_report } = report.subject;
+  const {
+    coordinator,
+    run,
+    artifacts,
+    repos,
+    coordinator_timeline,
+    barrier_summary,
+    barrier_ledger_timeline,
+    decision_digest,
+    approval_policy_events,
+    timeout_events,
+    recovery_report,
+  } = report.subject;
   const lines = [
     'AgentXchain Governance Report',
     `Input: ${report.input}`,
@@ -1104,6 +1118,32 @@ export function formatGovernanceReportText(report) {
     lines.push('', 'Coordinator Decisions:');
     for (const d of decision_digest) {
       lines.push(`  - ${d.id} (${d.role || '?'}, ${d.phase || '?'}): ${d.statement}`);
+    }
+  }
+
+  if (approval_policy_events && approval_policy_events.length > 0) {
+    lines.push('', 'Approval Policy:');
+    for (const evt of approval_policy_events) {
+      const transition = evt.gate_type === 'run_completion'
+        ? 'run completion'
+        : `${evt.from_phase || '?'} -> ${evt.to_phase || '?'}`;
+      const rule = evt.matched_rule ? ` | rule: ${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}` : '';
+      lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
+      if (evt.reason) lines.push(`      reason: ${evt.reason}`);
+    }
+  }
+
+  if (timeout_events && timeout_events.length > 0) {
+    lines.push('', 'Timeout Events:');
+    for (const evt of timeout_events) {
+      const label = evt.type === 'timeout_warning' ? 'warning'
+        : evt.type === 'timeout_skip' ? 'skip'
+        : evt.type === 'timeout_skip_failed' ? 'skip failed'
+        : 'escalation';
+      const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+      const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+      const exceeded = evt.exceeded_by_minutes != null ? `+${evt.exceeded_by_minutes}m` : '';
+      lines.push(`  - ${label} | ${evt.scope || '?'} scope | ${elapsed}/${limit}${exceeded ? ` (${exceeded})` : ''} | action: ${evt.action || 'n/a'} | phase: ${evt.phase || 'n/a'} | at: ${evt.timestamp || 'n/a'}`);
     }
   }
 
@@ -1390,7 +1430,19 @@ export function formatGovernanceReportMarkdown(report) {
     return lines.join('\n');
   }
 
-  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest, recovery_report: coordRecoveryReport } = report.subject;
+  const {
+    coordinator,
+    run,
+    artifacts,
+    repos,
+    coordinator_timeline,
+    barrier_summary,
+    barrier_ledger_timeline,
+    decision_digest,
+    approval_policy_events,
+    timeout_events,
+    recovery_report: coordRecoveryReport,
+  } = report.subject;
   const mdLines = [
     '# AgentXchain Governance Report',
     '',
@@ -1471,6 +1523,32 @@ export function formatGovernanceReportMarkdown(report) {
     mdLines.push('', '## Coordinator Decisions', '');
     for (const d of decision_digest) {
       mdLines.push(`- **${d.id}** (${d.role || '?'}, ${d.phase || '?'} phase): ${d.statement}`);
+    }
+  }
+
+  if (approval_policy_events && approval_policy_events.length > 0) {
+    mdLines.push('', '## Approval Policy', '');
+    for (const evt of approval_policy_events) {
+      const transition = evt.gate_type === 'run_completion'
+        ? 'run completion'
+        : `${evt.from_phase || '?'} → ${evt.to_phase || '?'}`;
+      const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
+      mdLines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
+      if (evt.reason) mdLines.push(`  - ${evt.reason}`);
+    }
+  }
+
+  if (timeout_events && timeout_events.length > 0) {
+    mdLines.push('', '## Timeout Events', '');
+    for (const evt of timeout_events) {
+      const label = evt.type === 'timeout_warning' ? 'Warning'
+        : evt.type === 'timeout_skip' ? 'Skip'
+        : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
+        : 'Escalation';
+      const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+      const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+      const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
+      mdLines.push(`- **${label}** (\`${evt.scope || '?'}\` scope) — ${elapsed}/${limit}${exceeded}, action: \`${evt.action || 'n/a'}\`, phase: \`${evt.phase || 'n/a'}\` at \`${evt.timestamp || 'n/a'}\``);
     }
   }
 

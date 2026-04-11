@@ -265,6 +265,7 @@ function buildCoordinatorFixture(options = {}) {
       category: 'architecture',
       statement: 'Use shared auth middleware across repos.',
     },
+    ...(options.coordinatorDecisionEntries || []),
   ];
 
   const barrierLedgerEvents = [
@@ -1295,6 +1296,78 @@ Operator re-ran multi resume after manual inspection.
     assert.match(spec, /AT-RR-RENDER-006/);
     assert.match(spec, /extractRecoveryReportSummary/);
     assert.match(spec, /RECOVERY_REPORT\.md/);
+  });
+
+  it('renders coordinator-level approval policy events in JSON, text, and markdown', () => {
+    const fixture = buildCoordinatorFixture({
+      coordinatorDecisionEntries: [
+        {
+          type: 'approval_policy',
+          gate_type: 'phase_transition',
+          action: 'auto_approve',
+          matched_rule: { from_phase: 'planning', to_phase: 'implementation', action: 'auto_approve' },
+          from_phase: 'planning',
+          to_phase: 'implementation',
+          reason: 'Coordinator auto-approved planning exit.',
+          gate_id: 'coord_gate_001',
+          timestamp: '2026-04-06T19:16:30.000Z',
+        },
+      ],
+    });
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+
+    const events = result.report.subject.approval_policy_events;
+    assert.ok(Array.isArray(events), 'coordinator approval_policy_events should be an array');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].gate_type, 'phase_transition');
+    assert.equal(events[0].from_phase, 'planning');
+    assert.equal(events[0].to_phase, 'implementation');
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Approval Policy:/);
+    assert.match(text, /phase_transition/);
+    assert.match(text, /planning -> implementation/);
+
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /## Approval Policy/);
+    assert.match(md, /planning → implementation/);
+    assert.match(md, /Coordinator auto-approved planning exit/);
+  });
+
+  it('renders coordinator-level timeout events in JSON, text, and markdown', () => {
+    const fixture = buildCoordinatorFixture({
+      coordinatorDecisionEntries: [
+        {
+          type: 'timeout_warning',
+          scope: 'run',
+          phase: 'implementation',
+          limit_minutes: 480,
+          elapsed_minutes: 500,
+          exceeded_by_minutes: 20,
+          action: 'warn',
+          timestamp: '2026-04-06T19:26:00.000Z',
+        },
+      ],
+    });
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+
+    const events = result.report.subject.timeout_events;
+    assert.ok(Array.isArray(events), 'coordinator timeout_events should be an array');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].scope, 'run');
+    assert.equal(events[0].action, 'warn');
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Timeout Events:/);
+    assert.match(text, /run scope/);
+    assert.match(text, /500m\/480m/);
+
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /## Timeout Events/);
+    assert.match(md, /`run` scope/);
+    assert.match(md, /\(\+20m\)/);
   });
 });
 

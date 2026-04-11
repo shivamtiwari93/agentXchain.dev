@@ -1,0 +1,46 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const DOCS_ROOT = resolve(import.meta.dirname, '../../website-v2/docs');
+
+function readDoc(name) {
+  return readFileSync(resolve(DOCS_ROOT, name), 'utf8');
+}
+
+describe('Timeout docs content guard', () => {
+  const content = readDoc('timeouts.mdx');
+
+  it('documents the timeouts config shape and scopes', () => {
+    assert.ok(content.includes('timeouts'), 'must document timeouts config key');
+    assert.ok(content.includes('per_turn_minutes'), 'must document per_turn_minutes');
+    assert.ok(content.includes('per_phase_minutes'), 'must document per_phase_minutes');
+    assert.ok(content.includes('per_run_minutes'), 'must document per_run_minutes');
+    assert.ok(content.includes('turn, phase, and run'), 'must document all timeout scopes');
+  });
+
+  it('documents action semantics and skip_phase constraint', () => {
+    assert.ok(content.includes('escalate'), 'must document escalate action');
+    assert.ok(content.includes('warn'), 'must document warn action');
+    assert.ok(content.includes('skip_phase'), 'must document skip_phase action');
+    assert.ok(content.includes('routing-only'), 'must document skip_phase as routing-only');
+  });
+
+  it('documents operator surfaces and recovery', () => {
+    assert.ok(content.includes('agentxchain status'), 'must document status visibility');
+    assert.ok(content.includes('agentxchain report'), 'must document report visibility');
+    assert.ok(content.includes('agentxchain resume'), 'must document recovery command');
+    assert.ok(content.includes('/docs/recovery'), 'must link to recovery docs');
+  });
+
+  it('is linked from docs navigation and discovery surfaces', () => {
+    const sidebars = readFileSync(resolve(DOCS_ROOT, '../sidebars.ts'), 'utf8');
+    const llms = readFileSync(resolve(DOCS_ROOT, '../static/llms.txt'), 'utf8');
+    const sitemap = readFileSync(resolve(DOCS_ROOT, '../static/sitemap.xml'), 'utf8');
+
+    assert.ok(sidebars.includes("'timeouts'"), 'timeouts must be in sidebars.ts');
+    assert.ok(llms.includes('/docs/timeouts'), 'timeouts must be in llms.txt');
+    assert.ok(sitemap.includes('/docs/timeouts'), 'timeouts must be in sitemap.xml');
+  });
+});

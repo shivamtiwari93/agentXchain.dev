@@ -78,6 +78,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://agentxchain.dev/docs/timeouts</loc>
+    <lastmod>2026-04-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://agentxchain.dev/docs/templates</loc>
     <lastmod>2026-04-08</lastmod>
     <changefreq>weekly</changefreq>

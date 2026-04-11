@@ -57,6 +57,7 @@ const sidebars: SidebarsConfig = {
     'governance-report',
     'policies',
     'approval-policy',
+    'timeouts',
     'templates',
     {
       type: 'category',
