@@ -575,7 +575,7 @@ function attachLegacyCurrentTurnAlias(state) {
 function formatBudgetRecoveryAction(isReadyToResume) {
   return isReadyToResume
     ? 'Run agentxchain resume to assign the next turn'
-    : 'Increase per_run_max_usd in agentxchain.json, then run agentxchain resume';
+    : 'Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume';
 }
 
 function formatBudgetRecoveryDetail(spentUsd, limitUsd, remainingUsd, isReadyToResume) {
@@ -1938,7 +1938,7 @@ export function assignGovernedTurn(root, config, roleId) {
 
   // DEC-BUDGET-ENFORCE-001: Pre-assignment budget exhaustion guard
   if (state.budget_status?.remaining_usd != null && state.budget_status.remaining_usd <= 0) {
-    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase per_run_max_usd in agentxchain.json, then run agentxchain resume` };
+    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume` };
   }
 
   // DEC-PARALLEL-011: Budget reservation
@@ -2675,7 +2675,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         recovery: {
           typed_reason: 'budget_exhausted',
           owner: 'human',
-          recovery_action: 'Increase per_run_max_usd in agentxchain.json, then run agentxchain resume',
+          recovery_action: 'Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume',
           turn_retained: false,
           detail: `Run budget exhausted: spent $${updatedState.budget_status.spent_usd.toFixed(2)} of $${limit.toFixed(2)} limit ($${overBy.toFixed(2)} over)`,
         },

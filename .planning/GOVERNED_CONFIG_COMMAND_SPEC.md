@@ -67,6 +67,8 @@ Those stay v3-only because governed repos use `roles` and `runtimes`, not legacy
 - `AT-CFGG-003`: `config --json` returns governed config instead of rejecting v4 repos
 - `AT-CFGG-004`: invalid governed edits fail closed without mutating `agentxchain.json`
 - `AT-CFGG-005`: plain `config` output works on governed repos
+- `AT-CFGG-006`: invalid scalar budget edits fail closed without mutating governed config
+- `AT-CFGG-007`: valid scalar budget edits save through `config --set`
 - `AT-PGD-001`: `init --governed` without `--goal` points operators at `config --set project.goal`
 - `AT-PGD-003`: getting-started routes omitted-goal recovery through `config --set project.goal`
 - `AT-PGD-004`: quickstart routes omitted-goal recovery through `config --set project.goal`

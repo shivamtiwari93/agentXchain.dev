@@ -61,6 +61,7 @@ const VALID_API_PROXY_PREFLIGHT_FIELDS = [
   'tokenizer',
   'safety_margin_tokens',
 ];
+const VALID_BUDGET_ON_EXCEED = ['pause_and_escalate'];
 
 function validateMcpRuntime(runtimeId, runtime, errors) {
   const transport = typeof runtime?.transport === 'string' && runtime.transport.trim()
@@ -537,6 +538,12 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...policyValidation.errors);
   }
 
+  // Budget (optional but validated if present)
+  if (data.budget !== undefined) {
+    const budgetValidation = validateBudgetConfig(data.budget);
+    errors.push(...budgetValidation.errors);
+  }
+
   // Approval Policy (optional but validated if present)
   if (data.approval_policy !== undefined) {
     errors.push(...validateApprovalPolicy(data.approval_policy, data.routing));
@@ -549,6 +556,80 @@ export function validateV4Config(data, projectRoot) {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+export function validateBudgetConfig(budget) {
+  const errors = [];
+
+  if (budget === null) {
+    return { ok: true, errors };
+  }
+
+  if (!budget || typeof budget !== 'object' || Array.isArray(budget)) {
+    errors.push('budget must be an object');
+    return { ok: false, errors };
+  }
+
+  validateBudgetUsdLimit('budget.per_turn_max_usd', budget.per_turn_max_usd, errors);
+  validateBudgetUsdLimit('budget.per_run_max_usd', budget.per_run_max_usd, errors);
+
+  if (
+    Number.isFinite(budget.per_turn_max_usd) &&
+    Number.isFinite(budget.per_run_max_usd) &&
+    budget.per_turn_max_usd > budget.per_run_max_usd
+  ) {
+    errors.push('budget.per_turn_max_usd must be less than or equal to budget.per_run_max_usd when both are set');
+  }
+
+  if (budget.on_exceed !== undefined) {
+    if (typeof budget.on_exceed !== 'string' || !VALID_BUDGET_ON_EXCEED.includes(budget.on_exceed)) {
+      errors.push(`budget.on_exceed must be one of: ${VALID_BUDGET_ON_EXCEED.join(', ')} (warn is not implemented)`);
+    }
+  }
+
+  if (budget.cost_rates !== undefined) {
+    if (!budget.cost_rates || typeof budget.cost_rates !== 'object' || Array.isArray(budget.cost_rates)) {
+      errors.push('budget.cost_rates must be an object');
+    } else {
+      for (const [model, rates] of Object.entries(budget.cost_rates)) {
+        if (typeof model !== 'string' || !model.trim()) {
+          errors.push('budget.cost_rates model keys must be non-empty strings');
+          continue;
+        }
+        if (!rates || typeof rates !== 'object' || Array.isArray(rates)) {
+          errors.push(`budget.cost_rates.${model} must be an object`);
+          continue;
+        }
+        validateBudgetCostRate(`budget.cost_rates.${model}.input_per_1m`, rates.input_per_1m, errors);
+        validateBudgetCostRate(`budget.cost_rates.${model}.output_per_1m`, rates.output_per_1m, errors);
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+function validateBudgetUsdLimit(path, value, errors) {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    errors.push(`${path} must be a finite number when provided`);
+    return;
+  }
+  if (value <= 0) {
+    errors.push(`${path} must be greater than 0 when provided`);
+  }
+}
+
+function validateBudgetCostRate(path, value, errors) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    errors.push(`${path} must be a finite number`);
+    return;
+  }
+  if (value < 0) {
+    errors.push(`${path} must be greater than or equal to 0`);
+  }
 }
 
 export function validateSchedulesConfig(schedules, roles) {

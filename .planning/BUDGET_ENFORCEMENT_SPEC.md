@@ -63,7 +63,7 @@ Serial governed runs only. Parallel reservation arithmetic already exists and is
   "recovery": {
     "typed_reason": "budget_exhausted",
     "owner": "human",
-    "recovery_action": "Increase per_run_max_usd in agentxchain.json, then run agentxchain resume",
+    "recovery_action": "Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume",
     "turn_retained": false,
     "detail": "Run budget exhausted: spent $52.30 of $50.00 limit ($2.30 over)"
   },
@@ -121,7 +121,7 @@ Advisory only. Does not block.
 
 ### 4. Budget Recovery Reconciliation
 
-If the operator changes `budget.per_run_max_usd` in `agentxchain.json`, the runtime must recompute `budget_status.remaining_usd` from the persisted spend before rendering status or attempting a new assignment. A budget-exhausted run has no retained turn, so the recovery path is `agentxchain resume` once the raised limit leaves enough headroom for the next reservation.
+If the operator changes `budget.per_run_max_usd` through `agentxchain config --set budget.per_run_max_usd <usd>`, the runtime must recompute `budget_status.remaining_usd` from the persisted spend before rendering status or attempting a new assignment. A budget-exhausted run has no retained turn, so the recovery path is `agentxchain resume` once the raised limit leaves enough headroom for the next reservation.
 
 ## Acceptance Tests
 

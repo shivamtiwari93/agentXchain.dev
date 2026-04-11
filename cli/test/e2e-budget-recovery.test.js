@@ -76,7 +76,7 @@ function writeTurnResult(dir, turn, runId, costUsd) {
 }
 
 describe('budget recovery E2E', () => {
-  it('AT-BUDGET-REC-001: operator raises budget in agentxchain.json and resume assigns the next turn', () => {
+  it('AT-BUDGET-REC-001: operator raises budget through config --set and resume assigns the next turn', () => {
     const dir = makeProject();
 
     try {
@@ -105,12 +105,10 @@ describe('budget recovery E2E', () => {
       const blockedStatus = runCli(dir, ['status']);
       assert.equal(blockedStatus.status, 0, blockedStatus.combined);
       assert.match(blockedStatus.stdout, /Reason:\s+budget_exhausted/);
-      assert.match(blockedStatus.stdout, /Increase per_run_max_usd in agentxchain\.json, then run agentxchain resume/);
+      assert.match(blockedStatus.stdout, /agentxchain config --set budget\.per_run_max_usd <usd>, then run agentxchain resume/);
 
-      const configPath = join(dir, 'agentxchain.json');
-      const updatedConfig = JSON.parse(readFileSync(configPath, 'utf8'));
-      updatedConfig.budget.per_run_max_usd = 9.0;
-      writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
+      const updateBudget = runCli(dir, ['config', '--set', 'budget.per_run_max_usd', '9']);
+      assert.equal(updateBudget.status, 0, updateBudget.combined);
 
       const readyStatus = runCli(dir, ['status']);
       assert.equal(readyStatus.status, 0, readyStatus.combined);

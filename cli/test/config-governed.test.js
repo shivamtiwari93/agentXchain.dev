@@ -10,6 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..');
 const CLI_BIN = join(ROOT, 'cli', 'bin', 'agentxchain.js');
 const SPEC = readFileSync(join(ROOT, '.planning', 'GOVERNED_CONFIG_COMMAND_SPEC.md'), 'utf8');
+const BUDGET_SPEC = readFileSync(join(ROOT, '.planning', 'BUDGET_CONFIG_VALIDATION_SPEC.md'), 'utf8');
 
 function runCli(cwd, args) {
   return spawnSync(process.execPath, [CLI_BIN, ...args], {
@@ -99,6 +100,33 @@ describe('governed config command', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('AT-CFGG-006: invalid budget limits fail closed and do not mutate governed config', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'budget.per_turn_max_usd', 'banana']);
+      assert.notEqual(result.status, 0, 'invalid budget edit must fail');
+      assert.match(result.stdout, /Refusing to save invalid config/);
+
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.budget.per_turn_max_usd, 2.0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-007: supported budget edits save through config --set', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--set', 'budget.per_run_max_usd', '75']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.equal(config.budget.per_run_max_usd, 75);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('governed config command spec', () => {
@@ -109,5 +137,15 @@ describe('governed config command spec', () => {
     assert.match(SPEC, /## Acceptance Tests/);
     assert.match(SPEC, /AT-CFGG-001/);
     assert.match(SPEC, /AT-CFGG-005/);
+  });
+
+  it('records the governed budget config validation contract', () => {
+    assert.match(BUDGET_SPEC, /## Purpose/);
+    assert.match(BUDGET_SPEC, /## Interface/);
+    assert.match(BUDGET_SPEC, /## Behavior/);
+    assert.match(BUDGET_SPEC, /## Error Cases/);
+    assert.match(BUDGET_SPEC, /## Acceptance Tests/);
+    assert.match(BUDGET_SPEC, /AT-BCV-001/);
+    assert.match(BUDGET_SPEC, /AT-BCV-006/);
   });
 });

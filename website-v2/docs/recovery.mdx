@@ -97,9 +97,9 @@ For the full config and report/status surface, see [Timeouts](/docs/timeouts).
 
 | State | Cause | Recovery |
 |---|---|---|
-| `budget_exhausted` | Cumulative turn costs exceeded `per_run_max_usd` | Increase `per_run_max_usd` in `agentxchain.json` enough for the next reservation, then `agentxchain resume` |
+| `budget_exhausted` | Cumulative turn costs exceeded `per_run_max_usd` | Increase budget with `agentxchain config --set budget.per_run_max_usd <usd>`, then `agentxchain resume` |
 
-The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit. Because there is no retained turn, budget recovery re-assigns the next turn with `agentxchain resume` instead of replaying work with `step --resume`.
+The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit. Use `agentxchain config --set budget.per_run_max_usd <usd>` for that simple recovery instead of hand-editing JSON. Because there is no retained turn, budget recovery re-assigns the next turn with `agentxchain resume` instead of replaying work with `step --resume`.
 
 ### Other States
 

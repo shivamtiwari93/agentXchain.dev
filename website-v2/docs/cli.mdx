@@ -127,6 +127,12 @@ Version-aware config editing for both legacy and governed repos. On governed rep
 agentxchain config --set project.goal "Ship a governed web app MVP"
 ```
 
+Simple budget repairs use the same path:
+
+```bash
+agentxchain config --set budget.per_run_max_usd 75
+```
+
 Nested keys use dot paths. Values are parsed as strings by default, with `true`, `false`, and numeric literals converted before validation. The command validates the edited config before writing it back, so invalid governed mutations fail closed instead of leaving `agentxchain.json` in a broken state.
 
 Legacy `--add-agent` and `--remove-agent` mutations remain available only on v3 repos. Governed repos use `roles`, `runtimes`, and other structured fields instead.

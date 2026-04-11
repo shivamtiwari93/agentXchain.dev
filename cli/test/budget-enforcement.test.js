@@ -175,6 +175,7 @@ describe('Budget Enforcement — DEC-BUDGET-ENFORCE-001', () => {
     assert.equal(recovery.typed_reason, 'budget_exhausted');
     assert.equal(recovery.owner, 'human');
     assert.ok(recovery.recovery_action.includes('per_run_max_usd'));
+    assert.ok(recovery.recovery_action.includes('agentxchain config --set budget.per_run_max_usd'));
     assert.ok(recovery.recovery_action.includes('agentxchain resume'));
     assert.ok(recovery.detail.includes('$6.00'));
     assert.ok(recovery.detail.includes('$5.00'));

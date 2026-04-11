@@ -125,6 +125,61 @@ describe('validateV4Config', () => {
     assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
   });
 
+  it('rejects non-numeric budget limits', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'test', name: 'Test' },
+      roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: ['claude', '--print'] } },
+      budget: { per_turn_max_usd: 'banana', per_run_max_usd: 10.0 },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('budget.per_turn_max_usd must be a finite number')));
+  });
+
+  it('rejects impossible per-turn budget larger than per-run budget', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'test', name: 'Test' },
+      roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: ['claude', '--print'] } },
+      budget: { per_turn_max_usd: 11.0, per_run_max_usd: 10.0 },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('less than or equal to budget.per_run_max_usd')));
+  });
+
+  it('rejects unsupported budget on_exceed modes', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'test', name: 'Test' },
+      roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: ['claude', '--print'] } },
+      budget: { per_turn_max_usd: 2.0, per_run_max_usd: 10.0, on_exceed: 'warn' },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('warn is not implemented')));
+  });
+
+  it('rejects malformed budget.cost_rates entries', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'test', name: 'Test' },
+      roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
+      runtimes: { 'local-dev': { type: 'local_cli', command: ['claude', '--print'] } },
+      budget: {
+        per_turn_max_usd: 2.0,
+        per_run_max_usd: 10.0,
+        cost_rates: {
+          'gpt-4o': { input_per_1m: -1, output_per_1m: 'oops' },
+        },
+      },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('budget.cost_rates.gpt-4o.input_per_1m')));
+    assert.ok(result.errors.some(e => e.includes('budget.cost_rates.gpt-4o.output_per_1m')));
+  });
+
   it('rejects review_only role with local_cli runtime', () => {
     const result = validateV4Config({
       schema_version: '1.0',

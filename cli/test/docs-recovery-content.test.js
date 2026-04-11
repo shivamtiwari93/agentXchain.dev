@@ -138,9 +138,9 @@ describe('Recovery docs — implementation-backed contracts', () => {
     );
   });
 
-  it('documents budget recovery against agentxchain.json', () => {
+  it('documents budget recovery through config --set', () => {
     assert.match(DOC, /per_run_max_usd/);
-    assert.match(DOC, /agentxchain\.json/);
+    assert.match(DOC, /agentxchain config --set budget\.per_run_max_usd/);
     assert.doesNotMatch(DOC, /\.agentxchain\/config\.json/);
   });
 });

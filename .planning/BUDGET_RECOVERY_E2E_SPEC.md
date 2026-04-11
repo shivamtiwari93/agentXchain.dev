@@ -5,11 +5,11 @@
 
 ## Purpose
 
-Prove that a governed run blocked by `budget_exhausted` can recover through the real CLI after an operator raises the run budget in `agentxchain.json`.
+Prove that a governed run blocked by `budget_exhausted` can recover through the real CLI after an operator raises the run budget with `agentxchain config --set`.
 
 This slice also closes the truth gap in the recovery contract:
 
-- the config file is `agentxchain.json`, not `.agentxchain/config.json`
+- the recovery path should use the shipped config command, not manual JSON editing
 - budget state must reconcile against the current config before operator-facing commands render status or attempt assignment
 - `budget_exhausted` has no retained turn, so the recovery command is `agentxchain resume`, not `step --resume`
 
@@ -22,7 +22,7 @@ This slice also closes the truth gap in the recovery contract:
    - `state.status = "blocked"`
    - `state.blocked_on = "budget:exhausted"`
    - `state.blocked_reason.category = "budget_exhausted"`
-3. The operator increases `budget.per_run_max_usd` in `agentxchain.json`.
+3. The operator increases `budget.per_run_max_usd` with `agentxchain config --set budget.per_run_max_usd <usd>`.
 4. The next CLI load reconciles:
    - `budget_status.remaining_usd = per_run_max_usd - spent_usd`
    - `budget_status.exhausted` cleared when remaining budget is positive
@@ -32,7 +32,7 @@ This slice also closes the truth gap in the recovery contract:
 ### Recovery guidance
 
 - While still exhausted:
-  - `Increase per_run_max_usd in agentxchain.json, then run agentxchain resume`
+  - `Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume`
 - After the config has enough headroom for a new reservation:
   - `Run agentxchain resume to assign the next turn`
 
@@ -71,7 +71,7 @@ The exhausting turn remains accepted. No turn is retained for replay. The run st
 ## Acceptance Tests
 
 1. Accepting a turn over the run limit blocks the run with `budget_exhausted`.
-2. `status` reports the pre-recovery action against `agentxchain.json`.
+2. `status` reports the pre-recovery action through `config --set`.
 3. After raising `per_run_max_usd`, loading state recalculates `remaining_usd` from current config.
 4. After reconciliation, `status` reports resume-ready recovery guidance instead of telling the operator to edit the config again.
 5. `agentxchain resume` succeeds after the raised budget leaves enough headroom for a new reservation.
