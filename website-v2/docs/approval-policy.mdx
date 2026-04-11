@@ -1,0 +1,196 @@
+---
+sidebar_position: 5
+title: Approval Policy
+description: "Conditional auto-approval for phase transitions and run completion — the middle ground between manual gates and --auto-approve."
+---
+
+# Approval Policy
+
+The approval policy is the conditional auto-approval layer for governed gates. It sits between the gate evaluator and the state machine, providing a middle ground between two extremes:
+
+| Mode | Behavior |
+|---|---|
+| `requires_human_approval: true` (no policy) | Always pauses for human approval |
+| `--auto-approve` on `agentxchain run` | Bypasses ALL approval gates |
+| **Approval policy** | Auto-approves specific gates when evidence conditions are met |
+
+For lights-out operation, operators need conditional approval — rules that auto-approve low-risk transitions when structural predicates pass, while still requiring human approval for high-risk transitions like `qa → release`.
+
+## Config shape
+
+The `approval_policy` is an optional top-level section in `agentxchain.json`:
+
+```json title="agentxchain.json"
+{
+  "approval_policy": {
+    "phase_transitions": {
+      "default": "require_human",
+      "rules": [
+        {
+          "from_phase": "planning",
+          "to_phase": "implementation",
+          "action": "auto_approve",
+          "when": {
+            "gate_passed": true
+          }
+        },
+        {
+          "from_phase": "qa",
+          "to_phase": "release",
+          "action": "require_human"
+        }
+      ]
+    },
+    "run_completion": {
+      "action": "auto_approve",
+      "when": {
+        "gate_passed": true,
+        "all_phases_visited": true
+      }
+    }
+  }
+}
+```
+
+## How it works
+
+The approval policy only evaluates when a gate returns `awaiting_human_approval`. It cannot override gate failures — it can only relax the human-approval requirement when all structural predicates (files, verification, ownership) have already passed.
+
+```
+Gate evaluator returns 'awaiting_human_approval'
+  → Approval policy evaluates rules
+    → 'auto_approve': gate advances automatically
+    → 'require_human': gate pauses for human approval
+```
+
+This means:
+- Gate predicates are ALWAYS evaluated first
+- Approval policy can only relax, never override failures
+- The gate evaluator itself remains pure and unchanged
+
+## Phase transition rules
+
+### `phase_transitions.default`
+
+Fallback action when no rule matches. One of `"require_human"` (default) or `"auto_approve"`.
+
+### `phase_transitions.rules`
+
+Ordered list of rules. First match wins.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `from_phase` | string | No | Source phase. Omit to match any source. |
+| `to_phase` | string | No | Target phase. Omit to match any target. |
+| `action` | string | Yes | `"auto_approve"` or `"require_human"` |
+| `when` | object | No | Additional conditions. All must be true for auto-approval. |
+
+### Conditions (`when`)
+
+| Condition | Type | Description |
+|---|---|---|
+| `gate_passed` | boolean | Gate structural predicates must have passed. |
+| `roles_participated` | string[] | These role IDs must have at least one accepted turn in the current phase. |
+
+## Run completion
+
+Controls auto-approval for the final run completion gate.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | `"auto_approve"` or `"require_human"` |
+| `when` | object | No | Conditions for auto-approval. |
+
+### Run completion conditions
+
+| Condition | Type | Description |
+|---|---|---|
+| `gate_passed` | boolean | Completion gate must have passed. |
+| `all_phases_visited` | boolean | Every phase in routing must have been active at least once. |
+
+## Invariants
+
+1. **Only applies to `requires_human_approval` gates.** Gates without that flag already auto-advance — the policy does not affect them.
+2. **`--auto-approve` overrides policy entirely.** The CLI flag is a superset — it approves everything regardless of policy rules. Backwards compatible.
+3. **Absent policy = today's behavior.** If `approval_policy` is not configured, all `requires_human_approval` gates pause for human approval.
+4. **Pure evaluation.** Policy decisions are deterministic: `(gateResult, state, config) → "auto_approve" | "require_human"`.
+5. **Auditable.** Every auto-approval decision is recorded in the decision ledger with `type: "approval_policy"`, the matched rule, and the gate context.
+
+## Examples
+
+### Auto-approve everything except release
+
+```json
+{
+  "approval_policy": {
+    "phase_transitions": {
+      "default": "auto_approve",
+      "rules": [
+        {
+          "from_phase": "qa",
+          "to_phase": "release",
+          "action": "require_human"
+        }
+      ]
+    },
+    "run_completion": {
+      "action": "require_human"
+    }
+  }
+}
+```
+
+### Auto-approve only after QA participation
+
+```json
+{
+  "approval_policy": {
+    "phase_transitions": {
+      "rules": [
+        {
+          "from_phase": "qa",
+          "action": "auto_approve",
+          "when": {
+            "gate_passed": true,
+            "roles_participated": ["qa_engineer"]
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+### Full lights-out with safety conditions
+
+```json
+{
+  "approval_policy": {
+    "phase_transitions": {
+      "default": "auto_approve",
+      "rules": [
+        {
+          "action": "auto_approve",
+          "when": { "gate_passed": true }
+        }
+      ]
+    },
+    "run_completion": {
+      "action": "auto_approve",
+      "when": {
+        "gate_passed": true,
+        "all_phases_visited": true
+      }
+    }
+  }
+}
+```
+
+## Relationship to other mechanisms
+
+| Mechanism | Scope | Approval policy interaction |
+|---|---|---|
+| [Policies](/docs/policies) | Turn acceptance rules | Independent — policies evaluate on acceptance, approval policy evaluates on gate transitions |
+| [Gates](/docs/protocol-reference) | Artifact and approval checks | Approval policy sits downstream — only evaluates after gate returns `awaiting_human_approval` |
+| [Hooks](/docs/plugins) | External commands/endpoints | Independent — hooks fire on lifecycle events, not on gate approval decisions |
+| `--auto-approve` | CLI flag | Overrides approval policy — approves everything |

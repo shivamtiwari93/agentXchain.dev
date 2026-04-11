@@ -18,6 +18,10 @@ They are not the same thing as gates or hooks:
 
 Use policies when you want repo-native, declarative governance. Use hooks when you need external systems or custom logic. Use gates when the rule is about required artifacts, verification proof, or human approval at a workflow boundary.
 
+:::tip Looking for conditional gate auto-approval?
+Policies govern **turn acceptance**. For conditional auto-approval of **phase transitions and run completion**, see [Approval Policy](/docs/approval-policy).
+:::
+
 ## Config shape
 
 Policies live at the top level of `agentxchain.json`:

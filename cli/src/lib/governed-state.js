@@ -21,6 +21,7 @@ import { randomBytes, createHash } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
 import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
+import { evaluateApprovalPolicy } from './approval-policy.js';
 import { evaluatePolicies } from './policy-evaluator.js';
 import {
   captureBaseline,
@@ -2500,16 +2501,45 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           updatedState.queued_run_completion = null;
           updatedState.queued_phase_transition = null;
         } else if (completionResult.action === 'awaiting_human_approval') {
-          updatedState.status = 'paused';
-          updatedState.blocked_on = `human_approval:${completionResult.gate_id}`;
-          updatedState.blocked_reason = null;
-          updatedState.pending_run_completion = {
-            gate: completionResult.gate_id,
-            requested_by_turn: completionSource.turn_id,
-            requested_at: now,
-          };
-          updatedState.queued_run_completion = null;
-          updatedState.queued_phase_transition = null;
+          // Evaluate approval policy — may auto-approve
+          const approvalResult = evaluateApprovalPolicy({
+            gateResult: completionResult,
+            gateType: 'run_completion',
+            state: { ...updatedState, history: nextHistoryEntries },
+            config,
+          });
+
+          if (approvalResult.action === 'auto_approve') {
+            updatedState.status = 'completed';
+            updatedState.completed_at = now;
+            if (completionResult.gate_id) {
+              updatedState.phase_gate_status = {
+                ...(updatedState.phase_gate_status || {}),
+                [completionResult.gate_id]: 'passed',
+              };
+            }
+            updatedState.queued_run_completion = null;
+            updatedState.queued_phase_transition = null;
+            ledgerEntries.push({
+              type: 'approval_policy',
+              gate_type: 'run_completion',
+              action: 'auto_approve',
+              reason: approvalResult.reason,
+              gate_id: completionResult.gate_id,
+              timestamp: now,
+            });
+          } else {
+            updatedState.status = 'paused';
+            updatedState.blocked_on = `human_approval:${completionResult.gate_id}`;
+            updatedState.blocked_reason = null;
+            updatedState.pending_run_completion = {
+              gate: completionResult.gate_id,
+              requested_by_turn: completionSource.turn_id,
+              requested_at: now,
+            };
+            updatedState.queued_run_completion = null;
+            updatedState.queued_phase_transition = null;
+          }
         } else if (state.queued_run_completion) {
           updatedState.queued_run_completion = null;
         }
@@ -2537,16 +2567,43 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           };
           updatedState.queued_phase_transition = null;
         } else if (gateResult.action === 'awaiting_human_approval') {
-          updatedState.status = 'paused';
-          updatedState.blocked_on = `human_approval:${gateResult.gate_id}`;
-          updatedState.blocked_reason = null;
-          updatedState.pending_phase_transition = {
-            from: state.phase,
-            to: gateResult.next_phase,
-            gate: gateResult.gate_id,
-            requested_by_turn: phaseSource.turn_id,
-          };
-          updatedState.queued_phase_transition = null;
+          // Evaluate approval policy — may auto-approve
+          const approvalResult = evaluateApprovalPolicy({
+            gateResult,
+            gateType: 'phase_transition',
+            state: { ...updatedState, history: nextHistoryEntries },
+            config,
+          });
+
+          if (approvalResult.action === 'auto_approve') {
+            updatedState.phase = gateResult.next_phase;
+            updatedState.phase_gate_status = {
+              ...(updatedState.phase_gate_status || {}),
+              [gateResult.gate_id || 'no_gate']: 'passed',
+            };
+            updatedState.queued_phase_transition = null;
+            ledgerEntries.push({
+              type: 'approval_policy',
+              gate_type: 'phase_transition',
+              action: 'auto_approve',
+              from_phase: state.phase,
+              to_phase: gateResult.next_phase,
+              reason: approvalResult.reason,
+              gate_id: gateResult.gate_id,
+              timestamp: now,
+            });
+          } else {
+            updatedState.status = 'paused';
+            updatedState.blocked_on = `human_approval:${gateResult.gate_id}`;
+            updatedState.blocked_reason = null;
+            updatedState.pending_phase_transition = {
+              from: state.phase,
+              to: gateResult.next_phase,
+              gate: gateResult.gate_id,
+              requested_by_turn: phaseSource.turn_id,
+            };
+            updatedState.queued_phase_transition = null;
+          }
         } else if (state.queued_phase_transition) {
           updatedState.queued_phase_transition = null;
         }

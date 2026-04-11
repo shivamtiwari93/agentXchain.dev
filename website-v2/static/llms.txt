@@ -33,6 +33,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Export Schema](https://agentxchain.dev/docs/export-schema): JSON schema for governed run exports.
 - [Governance Report](https://agentxchain.dev/docs/governance-report): Understanding the auto-generated governance report.
 - [Policies](https://agentxchain.dev/docs/policies): Declarative acceptance rules that differ from gates and hooks.
+- [Approval Policy](https://agentxchain.dev/docs/approval-policy): Conditional auto-approval for phase transitions and run completion — the middle ground between manual gates and --auto-approve.
 - [Templates](https://agentxchain.dev/docs/templates): Built-in and custom governed templates (generic, api-service, cli-tool, library, web-app, enterprise-app).
 - [Examples Hub](https://agentxchain.dev/docs/examples): Index of governed product examples, runner proofs, MCP examples, and remote execution examples.
 - [Protocol v6 Reference](https://agentxchain.dev/docs/protocol): Full protocol specification.

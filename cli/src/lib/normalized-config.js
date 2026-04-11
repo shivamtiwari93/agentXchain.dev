@@ -519,6 +519,11 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...policyValidation.errors);
   }
 
+  // Approval Policy (optional but validated if present)
+  if (data.approval_policy !== undefined) {
+    errors.push(...validateApprovalPolicy(data.approval_policy, data.routing));
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -691,6 +696,113 @@ export function validateWorkflowKitConfig(wk, routing, roles) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
+const VALID_APPROVAL_ACTIONS = ['auto_approve', 'require_human'];
+
+/**
+ * Validate the approval_policy config section.
+ * Returns an array of error strings.
+ */
+export function validateApprovalPolicy(ap, routing) {
+  const errors = [];
+  if (ap === null || ap === undefined) return errors;
+  if (typeof ap !== 'object' || Array.isArray(ap)) {
+    errors.push('approval_policy must be an object');
+    return errors;
+  }
+
+  const routingPhases = routing ? Object.keys(routing) : [];
+
+  // phase_transitions
+  if (ap.phase_transitions !== undefined) {
+    const pt = ap.phase_transitions;
+    if (typeof pt !== 'object' || Array.isArray(pt)) {
+      errors.push('approval_policy.phase_transitions must be an object');
+    } else {
+      if (pt.default !== undefined && !VALID_APPROVAL_ACTIONS.includes(pt.default)) {
+        errors.push(`approval_policy.phase_transitions.default must be one of: ${VALID_APPROVAL_ACTIONS.join(', ')}`);
+      }
+      if (pt.rules !== undefined) {
+        if (!Array.isArray(pt.rules)) {
+          errors.push('approval_policy.phase_transitions.rules must be an array');
+        } else {
+          for (let i = 0; i < pt.rules.length; i++) {
+            const rule = pt.rules[i];
+            const prefix = `approval_policy.phase_transitions.rules[${i}]`;
+            if (!rule || typeof rule !== 'object') {
+              errors.push(`${prefix} must be an object`);
+              continue;
+            }
+            if (!VALID_APPROVAL_ACTIONS.includes(rule.action)) {
+              errors.push(`${prefix}.action must be one of: ${VALID_APPROVAL_ACTIONS.join(', ')}`);
+            }
+            if (rule.from_phase !== undefined) {
+              if (typeof rule.from_phase !== 'string') {
+                errors.push(`${prefix}.from_phase must be a string`);
+              } else if (routingPhases.length > 0 && !routingPhases.includes(rule.from_phase)) {
+                errors.push(`${prefix}.from_phase "${rule.from_phase}" does not exist in routing`);
+              }
+            }
+            if (rule.to_phase !== undefined) {
+              if (typeof rule.to_phase !== 'string') {
+                errors.push(`${prefix}.to_phase must be a string`);
+              } else if (routingPhases.length > 0 && !routingPhases.includes(rule.to_phase)) {
+                errors.push(`${prefix}.to_phase "${rule.to_phase}" does not exist in routing`);
+              }
+            }
+            if (rule.when !== undefined) {
+              errors.push(...validateApprovalWhen(rule.when, prefix));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // run_completion
+  if (ap.run_completion !== undefined) {
+    const rc = ap.run_completion;
+    if (typeof rc !== 'object' || Array.isArray(rc)) {
+      errors.push('approval_policy.run_completion must be an object');
+    } else {
+      if (rc.action !== undefined && !VALID_APPROVAL_ACTIONS.includes(rc.action)) {
+        errors.push(`approval_policy.run_completion.action must be one of: ${VALID_APPROVAL_ACTIONS.join(', ')}`);
+      }
+      if (rc.when !== undefined) {
+        errors.push(...validateApprovalWhen(rc.when, 'approval_policy.run_completion'));
+      }
+    }
+  }
+
+  return errors;
+}
+
+function validateApprovalWhen(when, prefix) {
+  const errors = [];
+  if (typeof when !== 'object' || Array.isArray(when) || when === null) {
+    errors.push(`${prefix}.when must be an object`);
+    return errors;
+  }
+  if (when.gate_passed !== undefined && typeof when.gate_passed !== 'boolean') {
+    errors.push(`${prefix}.when.gate_passed must be a boolean`);
+  }
+  if (when.roles_participated !== undefined) {
+    if (!Array.isArray(when.roles_participated)) {
+      errors.push(`${prefix}.when.roles_participated must be an array of role IDs`);
+    } else {
+      for (const r of when.roles_participated) {
+        if (typeof r !== 'string' || !r.trim()) {
+          errors.push(`${prefix}.when.roles_participated entries must be non-empty strings`);
+          break;
+        }
+      }
+    }
+  }
+  if (when.all_phases_visited !== undefined && typeof when.all_phases_visited !== 'boolean') {
+    errors.push(`${prefix}.when.all_phases_visited must be a boolean`);
+  }
+  return errors;
+}
+
 /**
  * Normalize a legacy v3 config into the internal shape.
  * Does NOT modify the original file — this is a read-time transformation.
@@ -733,6 +845,7 @@ export function normalizeV3(raw) {
     notifications: {},
     budget: null,
     policies: [],
+    approval_policy: null,
     workflow_kit: normalizeWorkflowKit(undefined, DEFAULT_PHASES),
     retention: {
       talk_strategy: 'append_only',
@@ -798,6 +911,7 @@ export function normalizeV4(raw) {
     notifications: raw.notifications || {},
     budget: raw.budget || null,
     policies: normalizePolicies(raw.policies),
+    approval_policy: raw.approval_policy || null,
     workflow_kit: normalizeWorkflowKit(raw.workflow_kit, routingPhases),
     retention: raw.retention || {
       talk_strategy: 'append_only',

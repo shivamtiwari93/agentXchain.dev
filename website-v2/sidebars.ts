@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
     'export-schema',
     'governance-report',
     'policies',
+    'approval-policy',
     'templates',
     {
       type: 'category',
