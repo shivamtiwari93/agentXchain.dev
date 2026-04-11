@@ -1,0 +1,45 @@
+---
+title: "v2.52.0 Release Notes"
+description: "Adds the governed readiness doctor and bounds the legacy v3 Accessibility probe so doctor no longer hangs on macOS."
+---
+
+# AgentXchain v2.52.0
+
+`v2.52.0` turns `doctor` into a truthful governed readiness surface for v4 repos and closes a real legacy v3 usability bug on macOS.
+
+## Governed repos now have a real readiness doctor
+
+On governed projects, `agentxchain doctor` now answers the question the old command never could: can this repo actually run governed work?
+
+The governed doctor checks:
+
+- config validity
+- role presence
+- runtime reachability for configured local and API-backed runtimes
+- `.agentxchain/` state health
+- schedule daemon health when schedules are configured
+- workflow-kit artifact readiness for the active or initial phase
+
+It also ships `--json`, so readiness can gate CI or automation without scraping terminal output.
+
+## Legacy v3 doctor no longer hangs on Accessibility prompts
+
+The governed doctor was the primary feature, but there was still an unresolved defect on the legacy path: macOS Accessibility probing could hang behind `osascript`.
+
+This release bounds that probe with a hard timeout. If the Accessibility check does not return promptly, the legacy doctor now warns and continues instead of trapping the operator in a stuck command.
+
+## Operator truth from the real CLI path
+
+This slice was verified on the real CLI path instead of just trusting unit-level checks:
+
+- fresh governed scaffolds fail readiness when required API auth env vars are missing
+- the same scaffold passes once the configured auth env is present
+- corrupt governed state fails specifically on `state_health`
+- a fake hanging `osascript` no longer hangs the legacy doctor
+
+## Evidence
+
+- 3525 tests / 758 suites / 0 failures
+- `node --test cli/test/governed-doctor-e2e.test.js cli/test/legacy-doctor-accessibility.test.js cli/test/docs-cli-command-map-content.test.js` passed
+- real CLI repro confirmed governed `doctor --json` passes with `ANTHROPIC_API_KEY` set and fails on malformed `.agentxchain/state.json`
+- Docusaurus production build succeeded

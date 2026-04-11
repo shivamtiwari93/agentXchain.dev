@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.52.0
+
+`2.52.0` adds a governed readiness doctor for v4 projects and removes a real legacy usability trap. `agentxchain doctor` now answers governed run readiness with config, runtime, state, schedule, and workflow-kit checks on governed repos, while the legacy v3 macOS Accessibility probe is timeout-bounded instead of hanging indefinitely behind `osascript`.
+
+- 3525 tests / 758 suites / 0 failures
+
 ## 2.51.0
 
 `2.51.0` hardens release identity creation so AgentXchain no longer mints a release tag before the local release state is actually proven. `release-bump.sh` now runs inline preflight between the release commit and tag creation, using the real release target for `npm test`, `npm pack --dry-run`, and the Docusaurus production build. If any of those fail, the commit may exist, but the tag does not.
