@@ -1,0 +1,38 @@
+---
+title: "v2.58.0 Release Notes"
+description: "Run-retrospective headlines are now visible across every human-readable history surface, and release evidence matching is hardened."
+---
+
+# AgentXchain v2.58.0
+
+`v2.58.0` makes terminal run handoff visible by default. Retrospective headlines now appear across every human-readable history surface: the main `history` table, the dashboard run-history table, and `history --lineage`. This release also removes a recurring release-process trap by making release-evidence matching semantic instead of positional.
+
+## What changed
+
+### Retrospective headlines everywhere
+
+- `agentxchain history` now includes a `Headline` column so operators can see terminal handoff summaries without switching to `--json`
+- The dashboard run-history table now shows the same headline, with the full value available on hover
+- `history --lineage` now appends the truncated headline for each entry so ancestry review includes the same continuity hint as the table and dashboard
+- Public CLI docs now describe headline visibility for both the standard history table and lineage view
+- `.planning/RUN_HISTORY_SPEC.md` now freezes headline display as part of the durable table and lineage contract
+
+### Release truth hardening
+
+- `cli/test/current-release-surface.test.js` no longer assumes the first evidence bullet is the aggregate proof line
+- The release guard now selects the highest concrete `N tests ... 0 failures` line from both changelog and release notes before comparing them
+- `.planning/CURRENT_RELEASE_SURFACE_SPEC.md` now reflects that semantic matcher contract
+
+## Why this matters
+
+Run retrospectives only help if operators can actually see them. Before this release, the data existed, but one of the three human-readable history surfaces still hid it, and the main discovery path still depended too much on JSON output or inherited context. That was needless friction in the continuity story.
+
+The evidence-matcher fix matters for a different reason: release proof should validate truth, not force documentation into a brittle bullet order just to satisfy a bad regex.
+
+## Evidence
+
+- 3572 tests / 773 suites / 0 failures
+- `node --test cli/test/run-history.test.js` -> 52 tests / 12 suites / 0 failures
+- `node --test cli/test/current-release-surface.test.js` -> 13 tests / 1 suite / 0 failures
+- `node --test cli/test/run-retrospective-content.test.js` -> 4 tests / 2 suites / 0 failures
+- `cd website-v2 && npm run build` -> clean production build

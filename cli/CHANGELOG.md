@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.58.0
+
+`2.58.0` finishes the run-retrospective visibility slice. Operators can now see retrospective headlines across every human-readable history surface instead of needing `--json` or inherited context to discover that a terminal handoff exists. This release also hardens the current-release guard so release evidence compares the real aggregate test-count line semantically, not by brittle bullet position.
+
+- `agentxchain history` now shows a `Headline` column with the terminal retrospective headline
+- Dashboard run history now surfaces the same `Headline` value so continuity is visible in both CLI and browser views
+- `history --lineage` now appends the truncated headline for each ancestor entry, closing the last human-readable continuity gap
+- Public CLI docs and `RUN_HISTORY_SPEC.md` now freeze headline visibility across table, lineage, and dashboard surfaces
+- `current-release-surface.test.js` now compares aggregate evidence lines semantically by highest concrete `N tests ... 0 failures` count
+- 3572 tests / 773 suites / 0 failures
+- Targeted proof covers CLI history table/lineage rendering, dashboard headline visibility, release-surface evidence matching, and Docusaurus production build
+
 ## 2.57.0
 
 `2.57.0` makes run-to-run continuity concrete. Terminal governed runs now record a deterministic `retrospective` in `run-history.jsonl` (headline, terminal reason, next operator action, follow-on hint), and child runs created with `--inherit-context` receive the parent's retrospective directly in `CONTEXT.md`. Also surfaces `project.goal` across all front-door onboarding paths and fixes accepted-turn inheritance to match real governed history entries.

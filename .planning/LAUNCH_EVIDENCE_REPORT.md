@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.57.0
+# Launch Evidence Report — AgentXchain v2.58.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.57.0 run-continuity release: terminal governed runs now record durable retrospectives in `run-history.jsonl`, child runs inherit parent retrospectives via `--inherit-context`, and project-goal discoverability is surfaced across all front-door onboarding paths.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.58.0 history-visibility release: retrospective headlines now appear across every human-readable run-history surface, and release-evidence matching compares the real aggregate proof line semantically instead of relying on bullet order.
 
 ---
 
