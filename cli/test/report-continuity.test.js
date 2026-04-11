@@ -84,6 +84,7 @@ function createProjectWithCheckpoint(opts = {}) {
     phase_gate_status: {},
     budget_status: {},
     protocol_mode: 'governed',
+    provenance: opts.provenance || undefined,
   });
 
   writeJson(join(root, '.agentxchain', 'session.json'), {
@@ -227,6 +228,56 @@ describe('report continuity surface', () => {
       const textResult = runCli(root, ['report', '--input', join(root, 'artifact.json')]);
       assert.equal(textResult.status, 0, textResult.stderr);
       assert.ok(!textResult.stdout.includes('Continuity:'), 'text report must omit Continuity section');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('export includes normalized provenance when present on state', () => {
+    const root = createProjectWithCheckpoint({
+      provenance: {
+        trigger: 'continuation',
+        parent_run_id: 'run_prev_001',
+        trigger_reason: 'Continue after blocked review',
+        created_by: 'operator',
+      },
+    });
+    try {
+      const result = runCli(root, ['export']);
+      assert.equal(result.status, 0, result.stderr);
+      const artifact = JSON.parse(result.stdout);
+      assert.deepEqual(artifact.summary.provenance, {
+        trigger: 'continuation',
+        parent_run_id: 'run_prev_001',
+        trigger_reason: 'Continue after blocked review',
+        intake_intent_id: null,
+        created_by: 'operator',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('text and markdown reports render non-manual provenance', () => {
+    const root = createProjectWithCheckpoint({
+      provenance: {
+        trigger: 'continuation',
+        parent_run_id: 'run_prev_001',
+        trigger_reason: 'Continue after blocked review',
+        created_by: 'operator',
+      },
+    });
+    try {
+      const exportResult = runCli(root, ['export', '--output', 'artifact.json']);
+      assert.equal(exportResult.status, 0, exportResult.stderr);
+
+      const textResult = runCli(root, ['report', '--input', join(root, 'artifact.json')]);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Provenance: continuation from run_prev_001 \("Continue after blocked review"\)/);
+
+      const markdownResult = runCli(root, ['report', '--input', join(root, 'artifact.json'), '--format', 'markdown']);
+      assert.equal(markdownResult.status, 0, markdownResult.stderr);
+      assert.match(markdownResult.stdout, /- Provenance: `continuation from run_prev_001 \("Continue after blocked review"\)`/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

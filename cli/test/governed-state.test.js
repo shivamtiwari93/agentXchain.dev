@@ -248,6 +248,13 @@ describe('initializeGovernedRun', () => {
     assert.ok(result.ok);
     assert.ok(result.state.run_id.startsWith('run_'));
     assert.equal(result.state.status, 'active');
+    assert.deepEqual(result.state.provenance, {
+      trigger: 'manual',
+      parent_run_id: null,
+      trigger_reason: null,
+      intake_intent_id: null,
+      created_by: 'operator',
+    });
   });
 
   it('rejects when status is active', () => {

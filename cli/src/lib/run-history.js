@@ -9,6 +9,7 @@
 
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
+import { normalizeRunProvenance } from './run-provenance.js';
 
 const RUN_HISTORY_PATH = '.agentxchain/run-history.jsonl';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
@@ -79,6 +80,7 @@ export function recordRunHistory(root, state, config, status) {
       gate_results: state?.phase_gate_status || {},
       connector_used: connectorUsed,
       model_used: modelUsed,
+      provenance: normalizeRunProvenance(state?.provenance),
       recorded_at: new Date().toISOString(),
     };
 

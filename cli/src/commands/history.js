@@ -8,6 +8,7 @@ import { resolve } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import chalk from 'chalk';
 import { queryRunHistory } from '../lib/run-history.js';
+import { getRunTriggerLabel } from '../lib/run-provenance.js';
 
 /**
  * @param {object} opts - { json?: boolean, limit?: number, status?: string, dir?: string }
@@ -43,6 +44,7 @@ export async function historyCommand(opts) {
     pad('#', 4),
     pad('Run ID', 14),
     pad('Status', 11),
+    pad('Trigger', 14),
     pad('Phases', 8),
     pad('Turns', 6),
     pad('Cost', 10),
@@ -57,6 +59,7 @@ export async function historyCommand(opts) {
     const idx = String(i + 1);
     const runId = (entry.run_id || '—').slice(0, 12);
     const status = formatStatus(entry.status);
+    const trigger = getRunTriggerLabel(entry.provenance);
     const phases = String(entry.phases_completed?.length || 0);
     const turns = String(entry.total_turns || 0);
     const cost = entry.total_cost_usd != null
@@ -73,6 +76,7 @@ export async function historyCommand(opts) {
       pad(idx, 4),
       pad(runId, 14),
       pad(status, 11),
+      pad(trigger, 14),
       pad(phases, 8),
       pad(turns, 6),
       pad(cost, 10),

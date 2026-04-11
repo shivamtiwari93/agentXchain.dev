@@ -1,11 +1,16 @@
 import { strict as assert } from 'node:assert';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import { recordRunHistory, queryRunHistory, getRunHistoryPath } from '../src/lib/run-history.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 
 function makeTmpDir() {
   const dir = join(tmpdir(), `run-history-test-${randomBytes(6).toString('hex')}`);
@@ -164,6 +169,27 @@ describe('run-history', () => {
       const entries = queryRunHistory(root);
       assert.deepStrictEqual(entries[0].gate_results, { planning_gate: 'passed', qa_gate: 'passed' });
     });
+
+    it('records normalized provenance from governed state', () => {
+      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      recordRunHistory(root, makeState({
+        provenance: {
+          trigger: 'continuation',
+          parent_run_id: 'run_parent_001',
+          trigger_reason: 'Continue after blocked QA review',
+          created_by: 'operator',
+        },
+      }), makeConfig(), 'completed');
+
+      const entries = queryRunHistory(root);
+      assert.deepStrictEqual(entries[0].provenance, {
+        trigger: 'continuation',
+        parent_run_id: 'run_parent_001',
+        trigger_reason: 'Continue after blocked QA review',
+        intake_intent_id: null,
+        created_by: 'operator',
+      });
+    });
   });
 
   describe('queryRunHistory', () => {
@@ -264,6 +290,40 @@ describe('run-history CLI command contract', () => {
       'utf8'
     );
     assert.match(cliSource, /import.*historyCommand.*from.*commands\/history/);
+  });
+
+  it('default table shows trigger column with provenance and legacy fallback', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
+      recordRunHistory(root, makeState({
+        run_id: 'run_legacy_001',
+        provenance: null,
+      }), makeConfig(), 'completed');
+      recordRunHistory(root, makeState({
+        run_id: 'run_cont_001',
+        provenance: {
+          trigger: 'continuation',
+          parent_run_id: 'run_parent_001',
+          created_by: 'operator',
+        },
+      }), makeConfig(), 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--dir', root, '--limit', '2'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_NO_WARNINGS: '1', TZ: 'UTC' },
+        timeout: 15000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Trigger/);
+      assert.match(result.stdout, /continuation/);
+      assert.match(result.stdout, /legacy/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -419,6 +479,8 @@ describe('run-history docs contract', () => {
     assert.match(docs, /### `history`/);
     assert.match(docs, /agentxchain history/);
     assert.match(docs, /run-history\.jsonl/);
+    assert.match(docs, /`Trigger` column/);
+    assert.match(docs, /legacy/);
   });
 
   it('cli.mdx command map includes history', () => {
@@ -443,5 +505,6 @@ describe('run-history docs contract', () => {
       'utf8'
     );
     assert.match(docs, /\*\*Run History\*\*/);
+    assert.match(docs, /status, trigger, phases, turns, cost, and duration/);
   });
 });

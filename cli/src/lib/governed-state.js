@@ -42,6 +42,7 @@ import { runHooks } from './hook-runner.js';
 import { emitNotifications } from './notification-runner.js';
 import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
+import { buildDefaultRunProvenance } from './run-provenance.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -1766,7 +1767,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
  * @param {object} config - normalized config
  * @returns {{ ok: boolean, error?: string, state?: object }}
  */
-export function initializeGovernedRun(root, config) {
+export function initializeGovernedRun(root, config, options = {}) {
   const state = readState(root);
   if (!state) {
     return { ok: false, error: 'No governed state.json found' };
@@ -1781,6 +1782,7 @@ export function initializeGovernedRun(root, config) {
 
   const runId = generateId('run');
   const now = new Date().toISOString();
+  const provenance = buildDefaultRunProvenance(options.provenance);
   const updatedState = {
     ...state,
     run_id: runId,
@@ -1792,7 +1794,8 @@ export function initializeGovernedRun(root, config) {
     budget_status: {
       spent_usd: 0,
       remaining_usd: config.budget?.per_run_max_usd ?? null
-    }
+    },
+    provenance,
   };
 
   writeState(root, updatedState);

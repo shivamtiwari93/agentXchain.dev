@@ -1,4 +1,5 @@
 import { verifyExportArtifact } from './export-verifier.js';
+import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -639,6 +640,7 @@ function buildRunSubject(artifact) {
       phase: artifact.summary?.phase || null,
       blocked_on: artifact.state?.blocked_on || null,
       blocked_reason: artifact.state?.blocked_reason || null,
+      provenance: normalizeRunProvenance(artifact.summary?.provenance || artifact.state?.provenance),
       active_turn_count: activeTurns.length,
       retained_turn_count: retainedTurns.length,
       active_turn_ids: activeTurns,
@@ -898,6 +900,9 @@ export function formatGovernanceReportText(report) {
     }
     if (run.duration_seconds != null) {
       lines.push(`Duration: ${run.duration_seconds}s`);
+    }
+    if (summarizeRunProvenance(run.provenance)) {
+      lines.push(`Provenance: ${summarizeRunProvenance(run.provenance)}`);
     }
 
     lines.push(
@@ -1299,6 +1304,9 @@ export function formatGovernanceReportMarkdown(report) {
     }
     if (run.duration_seconds != null) {
       lines.push(`- Duration: \`${run.duration_seconds}s\``);
+    }
+    if (summarizeRunProvenance(run.provenance)) {
+      lines.push(`- Provenance: \`${summarizeRunProvenance(run.provenance)}\``);
     }
 
     lines.push(

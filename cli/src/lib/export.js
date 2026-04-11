@@ -6,6 +6,7 @@ import { join, relative, resolve } from 'node:path';
 import { loadProjectContext, loadProjectState } from './config.js';
 import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
 import { loadCoordinatorState } from './coordinator-state.js';
+import { normalizeRunProvenance } from './run-provenance.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
 
@@ -296,6 +297,7 @@ export function buildRunExport(startDir = process.cwd()) {
         run_id: state?.run_id || null,
         status: state?.status || null,
         phase: state?.phase || null,
+        provenance: normalizeRunProvenance(state?.provenance),
         active_turn_ids: activeTurns,
         retained_turn_ids: retainedTurns,
         history_entries: countJsonl(files, '.agentxchain/history.jsonl'),
