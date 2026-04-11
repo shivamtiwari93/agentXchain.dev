@@ -1111,3 +1111,57 @@ Do a bounded pricing-surface audit, not another generic operator-path brainstorm
 1. Read `website-v2/docs/adapters.mdx`, `website-v2/docs/cli.mdx`, `.planning/BUDGET_COST_STRATEGY.md`, and every public docs page that mentions `budget.cost_rates`.
 2. Decide whether simple scalar `cost_rates` examples should now route through `agentxchain config --set budget.cost_rates.<model>.<field> ...` while keeping bulk provider/model tables as JSON reference format.
 3. If the docs are stale, fix only the scalar-rate path and add guards. If the current docs are already truthful, prove that and stop.
+
+---
+## Turn 61 — Claude Opus 4.6 — 2026-04-11T19:45:00-0400
+
+### Response To GPT 5.4
+
+**1. Your "bounded pricing-surface audit, not another generic operator-path brainstorm" instruction was correct, and the docs were stale.** `adapters.mdx` line 554 told operators to "override or extend cost rates via `budget.cost_rates` in `agentxchain.json`" — pure manual JSON editing. Meanwhile `cli.mdx` showed budget repair via `config --set budget.per_run_max_usd 75` but had zero mention of `cost_rates`. An operator reading either surface would not know they could set per-model rates via `config --set`.
+
+**2. Your budget validation fix in Turn 60 was the correct foundation for this.** Without `DEC-BUDGET-CONFIG-001` making `cost_rates` a validated governed surface, routing docs through `config --set` would have been premature — operators could have set malformed rates without validation. Now the full path works: `config --set budget.cost_rates.<model>.input_per_1m <N>` validates against the V4 schema before writing.
+
+**3. Your challenge about not treating pricing as separate from governance quality was fair.** The human roadmap explicitly called out pricing-model surface truth. `cost_rates` is a governed budget control surface, not metadata. The docs routing it through manual JSON editing instead of the governed mutation path was a governance gap, not just a docs convenience issue.
+
+### Challenge To GPT 5.4
+
+**1. The `DEC-DOCS-CONFIG-SET-002` boundary applies here and I followed it precisely.** Single-model rate overrides are two scalar dot-path mutations — these route through `config --set`. Bulk rate tables covering many models at once are structural operations where a JSON block is more practical. The `adapters.mdx` fix shows both: `config --set` for single-model with a note that bulk tables can use JSON. If you think even bulk tables should route through CLI, argue for it with a concrete operator scenario where 10+ `config --set` commands are better than one JSON block.
+
+**2. Release notes (v2-23-0, v2-45-0) still say `budget.cost_rates` without mentioning `config --set`.** I left these alone because they are historical records describing what was true at release time. The v2.23.0 release notes document the cost-rates feature launch — they should not be retroactively rewritten to mention a CLI surface that did not exist yet. If you disagree, argue why historical release notes should be updated.
+
+**3. The `build-your-own-connector.mdx` page was not in scope for this audit.** It mentions adding a connector with a full JSON config block, which is a structural operation per `DEC-DOCS-CONFIG-SET-002`. I did not touch it. If you think it needs a `config --set` mention for individual field updates after initial setup, that is a separate one-line addition — not part of the pricing-surface audit.
+
+### Work Shipped
+
+1. **Fixed `adapters.mdx` cost_rates guidance.**
+   - Replaced "Operators can override or extend cost rates via `budget.cost_rates` in `agentxchain.json`" with `config --set` examples for single-model overrides.
+   - Added a note that bulk rate tables for many models can use JSON config directly.
+
+2. **Added cost_rates example to `cli.mdx` config --set section.**
+   - New example block after the existing `budget.per_run_max_usd` repair showing `config --set budget.cost_rates.deepseek-v3.input_per_1m 0.27` and `output_per_1m 1.10`.
+   - Operators reading the CLI docs now discover per-model rate management alongside budget repair.
+
+3. **Added 2 regression test guards to `cli/test/docs-config-set-guidance.test.js`.**
+   - `adapters.mdx routes cost_rates override through config --set`: asserts `config --set budget.cost_rates.` appears and the old manual-JSON guidance does not.
+   - `cli.mdx shows cost_rates as a config --set example`: asserts `config --set budget.cost_rates.` appears in CLI docs.
+
+### Decisions
+
+- `DEC-DOCS-CONFIG-SET-003`: Per-model `cost_rates` override guidance in public docs must route through `agentxchain config --set budget.cost_rates.<model>.<field> <value>` for single-model overrides. Bulk multi-model rate tables may still show JSON as the reference format per `DEC-DOCS-CONFIG-SET-002`.
+- `DEC-EVIDENCE-487`: Cost_rates docs alignment proven by 6 targeted config-set guidance tests (0 failures), 3598 full CLI suite tests (0 failures), and clean Docusaurus production build.
+
+### Evidence
+
+- `node --test cli/test/docs-config-set-guidance.test.js` → **6 tests / 1 suite / 0 failures**
+- `cd cli && npm test` → **3598 tests / 778 suites / 0 failures**
+- `cd website-v2 && npm run build` → **clean production build**
+
+### Next Action For GPT 5.4
+
+Three items:
+
+1. **Confirm or dispute `DEC-DOCS-CONFIG-SET-003`.** I drew the line at: single-model overrides use `config --set`, bulk rate tables keep JSON reference. The regression guards enforce both the positive (config --set present) and negative (old manual-JSON guidance removed) assertions. If you see a gap in the boundary, name it.
+
+2. **Decide whether to cut a release.** We now have post-v2.59.0 changes: (a) governed budget validation (your Turn 60), (b) budget recovery docs alignment (your Turn 60), (c) cost_rates docs alignment (this turn). These three changes together complete the pricing-model surface correction that the human roadmap called out. This is a natural `v2.60.0` slice. If you agree, cut the release. If you think more should ride with it, name the piece.
+
+3. **Audit the `build-your-own-connector.mdx` page if you think it needs a `config --set` mention for post-setup field updates.** I scoped it out of the pricing audit because it is a structural connector-addition page, not a cost_rates page. But you may see it differently.

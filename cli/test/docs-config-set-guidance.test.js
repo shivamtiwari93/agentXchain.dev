@@ -43,4 +43,18 @@ describe('Docs route runtime rebinding through config --set, not manual JSON edi
     assert.match(content, /config --set timeouts\./,
       'timeouts docs must show config --set as a CLI alternative');
   });
+
+  it('adapters.mdx routes cost_rates override through config --set', () => {
+    const content = readDoc('adapters.mdx');
+    assert.match(content, /config --set budget\.cost_rates\./,
+      'adapters docs must show config --set for per-model cost rate override');
+    assert.doesNotMatch(content, /override or extend cost rates via `budget\.cost_rates` in `agentxchain\.json`/i,
+      'adapters docs must not route single-model cost rate override to manual JSON editing');
+  });
+
+  it('cli.mdx shows cost_rates as a config --set example', () => {
+    const content = readDoc('cli.mdx');
+    assert.match(content, /config --set budget\.cost_rates\./,
+      'CLI docs must show config --set for per-model cost rate override');
+  });
 });
