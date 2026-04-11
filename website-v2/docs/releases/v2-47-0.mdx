@@ -1,0 +1,53 @@
+---
+title: "v2.47.0 Release Notes"
+description: "Adds run provenance observability, status provenance rendering, terminal-state bootstrap fixes, and CLI truth corrections."
+---
+
+# AgentXchain v2.47.0
+
+`v2.47.0` ships the **run provenance** surface and corrects terminal-state bootstrap behavior for continuation and recovery runs.
+
+## Run Provenance
+
+Governed runs now carry explicit provenance metadata: `trigger`, `parent_run_id`, `trigger_reason`, and `created_by`. This closes the observability gap for long-horizon delivery chains where operators need to trace why a run was started and what it continues or recovers from.
+
+### CLI flags
+
+| Flag | Description |
+|------|-------------|
+| `--continue-from <run_id>` | Start a fresh run from a prior completed run, with `trigger=continuation` |
+| `--recover-from <run_id>` | Start a fresh run from a prior blocked run, with `trigger=recovery` |
+
+### Lineage query
+
+`agentxchain history --lineage <run_id>` walks the `parent_run_id` chain to show the full ancestry of a run.
+
+### Provenance in operator surfaces
+
+- **`agentxchain status`** now shows an `Origin:` line for non-manual provenance (e.g., `continuation from run_abc ("Continue after blocked review")`)
+- **`agentxchain status --json`** includes a top-level `provenance` field
+- **`agentxchain report`** renders provenance in text, markdown, and JSON formats
+- **`agentxchain export`** includes normalized provenance in `summary.provenance`
+- **`agentxchain history`** shows a `Trigger` column with `manual`, `continuation`, `recovery`, `intake`, `schedule`, `coordinator`, or `legacy`
+
+## Terminal-State Bootstrap Fix
+
+`agentxchain run --continue-from` and `--recover-from` now correctly bootstrap a fresh run envelope from terminal state. Previously, provenance-linked runs from a completed or blocked run reused the terminal state instead of initializing a new run, resulting in zero turns executed and no provenance written.
+
+### Behavior
+
+- `agentxchain run` from `completed` state starts a fresh manual run
+- `agentxchain run --continue-from <run_id>` from any terminal state starts a fresh continuation run
+- `agentxchain run --recover-from <run_id>` from `blocked` state starts a fresh recovery run
+- Fresh bootstrap resets phase, gate status, budget, and active turns from config truth
+
+## CLI Truth Corrections
+
+- `--recover-from` help text no longer references `failed` state (only `blocked` is a valid recovery source)
+- `history --status` filter help no longer lists `failed` as a filterable status
+
+## Evidence
+
+- 3462 tests / 741 suites / 0 failures
+- Provenance E2E: 3 subprocess tests proving continuation, recovery, and plain rerun from terminal state
+- Docusaurus production build clean

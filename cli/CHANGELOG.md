@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.47.0
+
+`2.47.0` ships run provenance observability, terminal-state bootstrap fixes for continuation and recovery runs, and CLI help text corrections. Provenance metadata (`trigger`, `parent_run_id`, `trigger_reason`) is now rendered in `status`, `report`, `export`, and `history`.
+
+- 3462 tests / 741 suites / 0 failures
+
 ## 2.46.2
 
 `2.46.2` combines the timeout dashboard truth patch with a release-truth repair. Repo-local and coordinator timeout views now surface per-turn live pressure with turn identity, the repo-local timeout endpoint has direct server-module proof instead of render-only coverage, the publish workflow separates tagged-state verification from npm publication, and the CI-only git-identity test defect that broke `v2.46.1` is fixed.
