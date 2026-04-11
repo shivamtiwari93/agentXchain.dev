@@ -26,12 +26,29 @@ AgentXchain is a governed multi-agent software delivery protocol — turning AI 
 
 https://agentxchain.dev"
 
+FAILURES=0
+
 echo "=== Posting to X/Twitter ==="
-bash "${SCRIPT_DIR}/post-twitter.sh" "$TWEET"
+if bash "${SCRIPT_DIR}/post-twitter.sh" "$TWEET"; then
+  echo "✅ X/Twitter post succeeded"
+else
+  echo "❌ X/Twitter post failed (exit $?)"
+  FAILURES=$((FAILURES + 1))
+fi
 
 echo ""
 echo "=== Posting to r/agentXchain_dev ==="
-bash "${SCRIPT_DIR}/post-reddit.sh" "$REDDIT_TITLE" "$REDDIT_BODY"
+if bash "${SCRIPT_DIR}/post-reddit.sh" "$REDDIT_TITLE" "$REDDIT_BODY"; then
+  echo "✅ Reddit post succeeded"
+else
+  echo "❌ Reddit post failed (exit $?) — may be CAPTCHA, check r-browser output above"
+  FAILURES=$((FAILURES + 1))
+fi
 
 echo ""
-echo "=== Done ==="
+if [ $FAILURES -eq 0 ]; then
+  echo "=== Done — both posts succeeded ==="
+else
+  echo "=== Done — $FAILURES post(s) failed (see above) ==="
+  exit 1
+fi
