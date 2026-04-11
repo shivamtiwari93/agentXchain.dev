@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.59.0
+
+`2.59.0` fixes the governed-ready front door. The demo handoff now routes operators through `init --governed --goal`, `doctor`, and `run`, and the rest of the public onboarding path stops teaching a weaker bare-init flow. README, npm README, homepage, quickstart, and getting-started now align on the same truth: set mission context at scaffold time, verify readiness before the first turn, and do not re-run `init --governed` in place just to add a goal later.
+
+- `agentxchain demo` now ends with a governed-ready CLI handoff: scaffold with `--goal`, run `doctor`, then start the first governed turn
+- `README.md`, `cli/README.md`, the homepage terminal sample, `quickstart.mdx`, and `getting-started.mdx` now route real-repo onboarding through `agentxchain init --governed --goal ...` plus `agentxchain doctor`
+- `getting-started.mdx` no longer teaches a misleading second `init --governed --goal --dir . -y` rerun after scaffold; operators are told to edit `project.goal` directly if they skipped it
+- Added `.planning/FRONTDOOR_GOVERNED_READY_PATH_SPEC.md` and `cli/test/frontdoor-governed-ready-path.test.js` to freeze the public onboarding contract
+- 3578 tests / 775 suites / 0 failures
+- Targeted proof covers demo/front-door discoverability, governed-ready path docs guards, and a clean Docusaurus production build
+
 ## 2.58.0
 
 `2.58.0` finishes the run-retrospective visibility slice. Operators can now see retrospective headlines across every human-readable history surface instead of needing `--json` or inherited context to discover that a terminal handoff exists. This release also hardens the current-release guard so release evidence compares the real aggregate test-count line semantically, not by brittle bullet position.

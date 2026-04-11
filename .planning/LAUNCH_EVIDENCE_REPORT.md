@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.58.0
+# Launch Evidence Report — AgentXchain v2.59.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.58.0 history-visibility release: retrospective headlines now appear across every human-readable run-history surface, and release-evidence matching compares the real aggregate proof line semantically instead of relying on bullet order.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.59.0 front-door alignment release: demo handoff and public onboarding now route operators through `init --governed --goal`, `doctor`, and the first governed run without teaching a weaker bare-init or re-init path.
 
 ---
 

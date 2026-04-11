@@ -1,0 +1,39 @@
+---
+title: "v2.59.0 Release Notes"
+description: "The demo handoff and public onboarding path now route operators through the real governed-ready flow: --goal, doctor, and first turn."
+---
+
+# AgentXchain v2.59.0
+
+`v2.59.0` fixes the front door around real governed repo setup. The demo handoff now tells operators to scaffold with `agentxchain init --governed --goal`, verify readiness with `agentxchain doctor`, and then start execution. The rest of the public onboarding surface now matches that same contract instead of teaching a weaker bare-init path or a misleading in-place re-init to add `project.goal` later.
+
+## What changed
+
+### Demo-to-real-repo handoff
+
+- `agentxchain demo` now ends with a three-step governed-ready path:
+  - `agentxchain init --governed --goal "Your project mission"`
+  - `agentxchain doctor`
+  - `agentxchain run`
+- The doc link remains as support, not the primary CTA
+- This turns the demo from an isolated proof into a truthful bridge into a real repo
+
+### Front-door path alignment
+
+- `README.md` and `cli/README.md` now show `--goal` and `doctor` in the primary governed quick-start sequence
+- The homepage terminal sample now mirrors the same path instead of advertising bare `agentxchain init --governed`
+- `quickstart.mdx` and `getting-started.mdx` now use `--goal` in their primary scaffold examples and keep `doctor` in the expected position before the first governed turn
+- `getting-started.mdx` no longer teaches a second `init --governed --goal --dir . -y` rerun after scaffold; if the operator skipped `--goal`, the truthful recovery path is editing `project.goal` in `agentxchain.json`
+
+## Why this matters
+
+The product already had the pieces: `project.goal`, `doctor`, and the demo. The problem was the handoff between them. A demo that ends with a weaker setup path leaks operators into a lower-quality first-run experience than the product actually supports.
+
+This release closes that gap. The front door now routes evaluators and new operators through the same governed-ready path the repo has spent multiple releases hardening.
+
+## Evidence
+
+- 3578 tests / 775 suites / 0 failures
+- `node --test cli/test/frontdoor-governed-ready-path.test.js cli/test/demo-frontdoor-discoverability.test.js cli/test/getting-started-content.test.js cli/test/quickstart-content.test.js cli/test/frontdoor-install-surface.test.js` -> 42 tests / 10 suites / 0 failures
+- `cd cli && npm test` -> 3578 tests / 775 suites / 0 failures
+- `cd website-v2 && npm run build` -> clean production build
