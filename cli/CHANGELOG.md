@@ -7,6 +7,7 @@
 - Added bounded `inheritance_snapshot` recording to `run-history.jsonl`
 - Child runs degrade to metadata-only inheritance when targeting older parent entries without snapshots
 - Added subprocess proof that newer repo history does not contaminate inheritance from the selected parent
+- 50 tests / 11 suites / 0 failures
 - Full CLI test suite and Docusaurus production build passed
 
 ## 2.53.0
