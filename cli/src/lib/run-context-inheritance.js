@@ -3,7 +3,7 @@
  *
  * When a child run uses `--inherit-context` with `--continue-from` or
  * `--recover-from`, this module extracts a read-only summary from the
- * parent run's history and decision ledger and attaches it to the child's
+ * selected parent run-history record and attaches it to the child's
  * governed state.
  *
  * The inherited summary is:
@@ -18,12 +18,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const HISTORY_PATH = '.agentxchain/history.jsonl';
-const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const RUN_HISTORY_PATH = '.agentxchain/run-history.jsonl';
-
-const MAX_INHERITED_DECISIONS = 5;
-const MAX_INHERITED_TURNS = 3;
 
 /**
  * Build an inherited context summary from a parent run.
@@ -46,29 +41,12 @@ export function buildInheritedContext(root, parentRunId) {
     };
   }
 
-  // 2. Read decision ledger entries
-  const ledgerEntries = readJsonlSafe(root, LEDGER_PATH);
-  const recentDecisions = ledgerEntries.slice(-MAX_INHERITED_DECISIONS).map(e => ({
-    id: e.id || e.decision_id || null,
-    statement: e.statement || e.description || e.text || null,
-    decided_by: e.decided_by || e.role || null,
-    phase: e.phase || null,
-  }));
+  const snapshot = parentEntry.inheritance_snapshot;
+  const recentDecisions = Array.isArray(snapshot?.recent_decisions) ? snapshot.recent_decisions : [];
+  const acceptedTurns = Array.isArray(snapshot?.recent_accepted_turns) ? snapshot.recent_accepted_turns : [];
 
-  // 3. Read turn history entries
-  const historyEntries = readJsonlSafe(root, HISTORY_PATH);
-  const acceptedTurns = historyEntries
-    .filter(e => e.status === 'accepted')
-    .slice(-MAX_INHERITED_TURNS)
-    .map(e => ({
-      turn_id: e.turn_id || null,
-      role: e.role || null,
-      summary: e.summary || null,
-      phase: e.phase || null,
-    }));
-
-  if (ledgerEntries.length === 0 && historyEntries.length === 0) {
-    warnings.push('Parent run has no turn history or decision ledger — inherited context is metadata only');
+  if (!snapshot) {
+    warnings.push('Parent run has no inheritance snapshot in run-history.jsonl — inherited context is metadata only');
   }
 
   const inherited_context = {
@@ -163,20 +141,6 @@ function findRunHistoryEntry(root, runId) {
     return entries.find(e => e.run_id === runId) || null;
   } catch {
     return null;
-  }
-}
-
-function readJsonlSafe(root, relPath) {
-  const filePath = join(root, relPath);
-  if (!existsSync(filePath)) return [];
-  try {
-    const content = readFileSync(filePath, 'utf8').trim();
-    if (!content) return [];
-    return content.split('\n').filter(Boolean).map(line => {
-      try { return JSON.parse(line); } catch { return null; }
-    }).filter(Boolean);
-  } catch {
-    return [];
   }
 }
 

@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.53.0
+# Launch Evidence Report — AgentXchain v2.54.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.53.0 doctor-discoverability release: init output, quickstart, and getting-started now route operators through `agentxchain doctor` before the first governed turn, so readiness failures surface before runtime, not mid-run.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.54.0 run-context-inheritance correction: child runs now inherit from the selected parent run's recorded snapshot instead of today's repo-global history, so long-horizon continuity stays tied to the chosen parent run.
 
 ---
 

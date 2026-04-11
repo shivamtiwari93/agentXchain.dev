@@ -80,6 +80,13 @@ function readRunHistory(root) {
   return raw.split('\n').filter(Boolean).map((line) => JSON.parse(line));
 }
 
+function writeRunHistory(root, entries) {
+  writeFileSync(
+    join(root, '.agentxchain', 'run-history.jsonl'),
+    `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`,
+  );
+}
+
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2));
 }
@@ -306,7 +313,7 @@ describe('run context inheritance E2E', () => {
     assert.match(result.combined, /Usage:/, 'must provide usage guidance');
   });
 
-  it('AT-RCI-006: malformed/missing parent data degrades to partial inheritance with warnings', () => {
+  it('AT-RCI-006: missing parent inheritance snapshot degrades to metadata-only inheritance with warnings', () => {
     const root = makeProject();
 
     // Run and complete a first run
@@ -314,31 +321,33 @@ describe('run context inheritance E2E', () => {
     assert.equal(firstRun.status, 0);
     const parentRunId = readState(root).run_id;
 
-    // Delete the history and ledger files to simulate missing parent data
-    const historyPath = join(root, '.agentxchain', 'history.jsonl');
-    const ledgerPath = join(root, '.agentxchain', 'decision-ledger.jsonl');
-    if (existsSync(historyPath)) rmSync(historyPath);
-    if (existsSync(ledgerPath)) rmSync(ledgerPath);
+    // Strip the recorded snapshot to simulate an older parent run-history entry.
+    const history = readRunHistory(root);
+    history[0] = {
+      ...history[0],
+      inheritance_snapshot: undefined,
+    };
+    writeRunHistory(root, history);
 
-    // Continue with inherit-context — should still work with partial/warning data
+    // Continue with inherit-context — should still work with metadata-only/warning data
     const continued = runCli(root, [
       'run', '--auto-approve', '--max-turns', '5',
       '--continue-from', parentRunId,
       '--inherit-context',
     ]);
-    assert.equal(continued.status, 0, `continuation with partial data failed:\n${continued.combined}`);
+    assert.equal(continued.status, 0, `continuation with metadata-only inheritance failed:\n${continued.combined}`);
 
     const childState = readState(root);
-    assert.ok(childState.inherited_context, 'inherited_context must be present even with missing data');
+    assert.ok(childState.inherited_context, 'inherited_context must be present even without a snapshot');
     assert.equal(childState.inherited_context.parent_run_id, parentRunId);
+    assert.deepStrictEqual(childState.inherited_context.recent_decisions, []);
+    assert.deepStrictEqual(childState.inherited_context.recent_accepted_turns, []);
 
     // Verify warnings are recorded
-    if (childState.inherited_context.warnings?.length) {
-      assert.ok(
-        childState.inherited_context.warnings.some(w => w.includes('metadata only') || w.includes('no turn history')),
-        'should have a warning about partial inheritance'
-      );
-    }
+    assert.ok(
+      childState.inherited_context.warnings?.some((warning) => warning.includes('metadata only')),
+      'should warn that inheritance degraded to metadata-only'
+    );
   });
 
   it('AT-RCI-007: --recover-from --inherit-context works for blocked parent runs', () => {
@@ -380,5 +389,49 @@ describe('run context inheritance E2E', () => {
 
     const childState = readState(root);
     assert.equal(childState.inherited_context, null, 'inherited_context must be null when --inherit-context is not used');
+  });
+
+  it('AT-RCI-009: inherit-context uses the selected parent run snapshot even when newer repo history exists', () => {
+    const root = makeProject();
+
+    const firstRun = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
+    assert.equal(firstRun.status, 0, `first run failed:\n${firstRun.combined}`);
+    const originalParentRunId = readState(root).run_id;
+
+    const historyAfterParent = readRunHistory(root);
+    assert.equal(historyAfterParent.length, 1, 'expected one parent run-history entry');
+    historyAfterParent[0] = {
+      ...historyAfterParent[0],
+      inheritance_snapshot: {
+        recent_decisions: [
+          { id: 'DEC-PARENT-ONLY', statement: 'Selected parent decision', decided_by: 'pm', phase: 'planning' },
+        ],
+        recent_accepted_turns: [
+          { turn_id: 'turn_parent_only', role: 'pm', summary: 'Selected parent accepted turn', phase: 'planning' },
+        ],
+      },
+    };
+    writeRunHistory(root, historyAfterParent);
+
+    const intermediateRun = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
+    assert.equal(intermediateRun.status, 0, `intermediate run failed:\n${intermediateRun.combined}`);
+
+    const continued = runCli(root, [
+      'run', '--auto-approve', '--max-turns', '5',
+      '--continue-from', originalParentRunId,
+      '--inherit-context',
+    ]);
+    assert.equal(continued.status, 0, `continuation from selected parent failed:\n${continued.combined}`);
+
+    const childState = readState(root);
+    assert.equal(childState.inherited_context.parent_run_id, originalParentRunId);
+    assert.deepStrictEqual(
+      childState.inherited_context.recent_decisions,
+      [{ id: 'DEC-PARENT-ONLY', statement: 'Selected parent decision', decided_by: 'pm', phase: 'planning' }],
+    );
+    assert.deepStrictEqual(
+      childState.inherited_context.recent_accepted_turns,
+      [{ turn_id: 'turn_parent_only', role: 'pm', summary: 'Selected parent accepted turn', phase: 'planning' }],
+    );
   });
 });

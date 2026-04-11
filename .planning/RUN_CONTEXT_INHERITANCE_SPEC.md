@@ -43,8 +43,8 @@ When `--inherit-context` is set, the child run captures a read-only inheritance 
 - parent `phases_completed`
 - parent `roles_used`
 - parent `blocked_reason` when present
-- up to the most recent 5 decision-ledger entries from the parent run
-- up to the most recent 3 accepted turn summaries from the parent run history
+- up to the most recent 5 decision entries from the parent run's recorded `run-history.jsonl` inheritance snapshot
+- up to the most recent 3 accepted turn summaries from the parent run's recorded `run-history.jsonl` inheritance snapshot
 
 This is a summary surface, not a full replay of the parent run.
 
@@ -81,6 +81,12 @@ If the parent run exists but its history or decision ledger is partially missing
 - inheritance degrades to the summary data that can be recovered truthfully
 - warnings are surfaced in `status --json` / `report`
 
+If the selected parent run predates inheritance snapshots in `run-history.jsonl`:
+
+- the child run still starts
+- inheritance degrades to metadata-only
+- the child run must not read today's repo-global `history.jsonl` or `decision-ledger.jsonl` and pretend that data came from the selected parent
+
 ## Error Cases
 
 | Case | Behavior |
@@ -98,7 +104,10 @@ If the parent run exists but its history or decision ledger is partially missing
 - `AT-RCI-003`: `status --json` and `report` expose inherited context when present.
 - `AT-RCI-004`: `export` includes inherited context in the run summary/state surface.
 - `AT-RCI-005`: `--inherit-context` without a provenance flag exits 1 with actionable guidance.
-- `AT-RCI-006`: malformed/missing parent ledger data degrades to partial inheritance with warnings instead of blocking child-run startup.
+- `AT-RCI-006`: parent runs without an `inheritance_snapshot` in `run-history.jsonl` degrade to metadata-only inheritance with warnings instead of blocking child-run startup.
+- `AT-RCI-007`: `run --recover-from <blocked> --inherit-context` stores inherited summary data for blocked parent runs.
+- `AT-RCI-008`: `run --continue-from <completed>` without `--inherit-context` does not attach inherited context.
+- `AT-RCI-009`: when newer repo-global history exists, inheriting from an older parent run still uses that selected parent's recorded snapshot instead of the latest repo state.
 
 ## Non-Scope
 

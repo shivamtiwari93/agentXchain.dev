@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.54.0
+
+`2.54.0` fixes a real long-horizon continuity bug in governed run inheritance. `--inherit-context` now reads a bounded snapshot recorded on the selected parent run's `run-history.jsonl` entry instead of whatever happens to be in the repo's current `history.jsonl` and `decision-ledger.jsonl`. That means inheriting from an older parent run no longer leaks later repo activity into the child run's first-turn context.
+
+- Added bounded `inheritance_snapshot` recording to `run-history.jsonl`
+- Child runs degrade to metadata-only inheritance when targeting older parent entries without snapshots
+- Added subprocess proof that newer repo history does not contaminate inheritance from the selected parent
+- Full CLI test suite and Docusaurus production build passed
+
 ## 2.53.0
 
 `2.53.0` fixes governed-readiness discoverability so the first-run operator journey is finally honest. `agentxchain doctor` now appears in the scaffold handoff, quickstart, and getting-started flow between scaffold validation and the first governed turn, which means runtime/env failures are surfaced before operators hit them mid-run.

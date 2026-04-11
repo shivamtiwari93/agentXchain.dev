@@ -190,6 +190,35 @@ describe('run-history', () => {
         created_by: 'operator',
       });
     });
+
+    it('AT-RH-010: records bounded inheritance snapshot for later child-run context inheritance', () => {
+      writeHistory(root, [
+        { turn_id: 'turn_1', role: 'pm', phase: 'planning', status: 'accepted', summary: 'Planning summary' },
+        { turn_id: 'turn_2', role: 'dev', phase: 'implementation', status: 'accepted', summary: 'Implementation summary' },
+        { turn_id: 'turn_3', role: 'qa', phase: 'qa', status: 'accepted', summary: 'QA summary' },
+        { turn_id: 'turn_4', role: 'pm', phase: 'qa', status: 'rejected', summary: 'Rejected summary should be excluded' },
+      ]);
+      writeLedger(root, [
+        { id: 'DEC-001', statement: 'Decision 1', role: 'pm', phase: 'planning' },
+        { id: 'DEC-002', statement: 'Decision 2', role: 'dev', phase: 'implementation' },
+        { id: 'DEC-003', statement: 'Decision 3', role: 'qa', phase: 'qa' },
+        { id: 'DEC-004', statement: 'Decision 4', role: 'pm', phase: 'qa' },
+        { id: 'DEC-005', statement: 'Decision 5', role: 'pm', phase: 'qa' },
+        { id: 'DEC-006', statement: 'Decision 6', role: 'pm', phase: 'qa' },
+      ]);
+
+      recordRunHistory(root, makeState(), makeConfig(), 'completed');
+
+      const entries = queryRunHistory(root);
+      assert.deepStrictEqual(
+        entries[0].inheritance_snapshot.recent_decisions.map((entry) => entry.id),
+        ['DEC-002', 'DEC-003', 'DEC-004', 'DEC-005', 'DEC-006']
+      );
+      assert.deepStrictEqual(
+        entries[0].inheritance_snapshot.recent_accepted_turns.map((entry) => entry.turn_id),
+        ['turn_1', 'turn_2', 'turn_3']
+      );
+    });
   });
 
   describe('queryRunHistory', () => {

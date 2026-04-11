@@ -16,6 +16,8 @@ const HISTORY_PATH = '.agentxchain/history.jsonl';
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const SCHEMA_VERSION = '0.1';
 const WRITABLE_TERMINAL_STATUSES = new Set(['completed', 'blocked']);
+const MAX_INHERITANCE_DECISIONS = 5;
+const MAX_INHERITANCE_TURNS = 3;
 
 /**
  * Record a run's summary into the persistent run-history ledger.
@@ -81,6 +83,10 @@ export function recordRunHistory(root, state, config, status) {
       connector_used: connectorUsed,
       model_used: modelUsed,
       provenance: normalizeRunProvenance(state?.provenance),
+      inheritance_snapshot: {
+        recent_decisions: buildRecentDecisionSnapshot(ledgerEntries),
+        recent_accepted_turns: buildRecentAcceptedTurnSnapshot(historyEntries),
+      },
       recorded_at: new Date().toISOString(),
     };
 
@@ -264,4 +270,27 @@ function readJsonlSafe(root, relPath) {
   } catch {
     return [];
   }
+}
+
+function buildRecentDecisionSnapshot(entries) {
+  return entries
+    .slice(-MAX_INHERITANCE_DECISIONS)
+    .map((entry) => ({
+      id: entry.id || entry.decision_id || null,
+      statement: entry.statement || entry.description || entry.text || null,
+      decided_by: entry.decided_by || entry.role || null,
+      phase: entry.phase || null,
+    }));
+}
+
+function buildRecentAcceptedTurnSnapshot(entries) {
+  return entries
+    .filter((entry) => entry.status === 'accepted')
+    .slice(-MAX_INHERITANCE_TURNS)
+    .map((entry) => ({
+      turn_id: entry.turn_id || null,
+      role: entry.role || null,
+      summary: entry.summary || null,
+      phase: entry.phase || null,
+    }));
 }

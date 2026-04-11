@@ -1,0 +1,39 @@
+---
+title: "v2.54.0 Release Notes"
+description: "Fixes parent-run context inheritance so child runs inherit from the selected parent snapshot, not later repo-global history."
+---
+
+# AgentXchain v2.54.0
+
+`v2.54.0` fixes a real continuity bug in governed run inheritance. Child runs started with `--continue-from ... --inherit-context` or `--recover-from ... --inherit-context` now inherit from the selected parent run's recorded snapshot instead of whatever happens to be in the repo's current `history.jsonl` and `decision-ledger.jsonl`.
+
+## The bug was real
+
+The previous implementation linked the correct parent run by `run_id`, but it still pulled recent decisions and accepted turns from the repo's live ledgers at child-run startup.
+
+That meant inheritance could drift:
+
+- a parent run finished
+- other repo activity happened later
+- an operator continued from the older parent run
+- the child inherited the newer repo noise instead of the selected parent
+
+That is not a harmless limitation. It is false continuity.
+
+## What changed
+
+This release makes the source of truth explicit:
+
+- `run-history.jsonl` now records a bounded `inheritance_snapshot` when a run reaches `completed` or `blocked`
+- child-run inheritance reads that parent-scoped snapshot from the selected run-history entry
+- older parent entries without snapshots degrade to metadata-only inheritance with warnings
+- inheritance no longer reads today's repo-global ledgers and pretends they came from the selected parent
+
+## Evidence
+
+- Targeted tests passed:
+  - `node --test test/run-history.test.js test/run-context-inheritance-e2e.test.js`
+- Added proof for the actual failure mode:
+  - inheriting from an older parent still uses that parent's recorded snapshot even after a newer run has written fresh repo-global history
+- Docusaurus production build succeeded
+- The guarded release path reruns full CLI preflight before tagging
