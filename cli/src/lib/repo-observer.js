@@ -368,7 +368,7 @@ function getFilteredChanges(root, baseRef, filter) {
  * @returns {object}
  */
 export function buildObservedArtifact(observation, baseline) {
-  return {
+  const artifact = {
     derived_by: 'orchestrator',
     baseline_ref: baseline?.head_ref ? `git:${baseline.head_ref}` : null,
     accepted_ref: observation.head_ref ? `git:${observation.head_ref}` : 'workspace:dirty',
@@ -376,6 +376,13 @@ export function buildObservedArtifact(observation, baseline) {
     file_markers: observation.file_markers || {},
     diff_summary: observation.diff_summary,
   };
+  // Preserve parallel attribution so operators can see which files were
+  // attributed to concurrent siblings and excluded from this turn.
+  const attributed = observation.attributed_to_concurrent_siblings;
+  if (Array.isArray(attributed) && attributed.length > 0) {
+    artifact.attributed_to_concurrent_siblings = attributed;
+  }
+  return artifact;
 }
 
 // ── Verification Normalization ──────────────────────────────────────────────

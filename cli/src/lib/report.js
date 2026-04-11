@@ -78,6 +78,10 @@ function extractHistoryTimeline(artifact) {
       phase: e.phase || null,
       phase_transition: e.phase_transition_request || null,
       files_changed_count: Array.isArray(e.files_changed) ? e.files_changed.length : 0,
+      concurrent_with: Array.isArray(e.concurrent_with) && e.concurrent_with.length > 0 ? e.concurrent_with : undefined,
+      sibling_attributed_files: Array.isArray(e.observed_artifact?.attributed_to_concurrent_siblings) && e.observed_artifact.attributed_to_concurrent_siblings.length > 0
+        ? e.observed_artifact.attributed_to_concurrent_siblings
+        : undefined,
       decisions: Array.isArray(e.decisions) ? e.decisions.map((d) => d?.id || d).filter(Boolean) : [],
       objections: Array.isArray(e.objections) ? e.objections.map((o) => o?.id || o).filter(Boolean) : [],
       cost_usd: typeof e.cost?.total_usd === 'number' ? e.cost.total_usd : null,
@@ -867,7 +871,8 @@ export function formatGovernanceReportText(report) {
         const t = run.turns[i];
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} -> ${t.phase_transition}` : (t.phase || '?');
-        lines.push(`  ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
+        const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling-attributed)` : '';
+        lines.push(`  ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count}${siblingNote} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
       }
     }
 
@@ -1042,7 +1047,8 @@ export function formatGovernanceReportText(report) {
           const t = repo.turns[i];
           const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
           const phase = t.phase_transition ? `${t.phase || '?'} -> ${t.phase_transition}` : (t.phase || '?');
-          repoLines.push(`    ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
+          const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling-attributed)` : '';
+          repoLines.push(`    ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count}${siblingNote} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
         }
       }
       if (repo.decisions && repo.decisions.length > 0) {
@@ -1156,7 +1162,8 @@ export function formatGovernanceReportMarkdown(report) {
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
         const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
-        lines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count} | ${cost} | ${t.accepted_at || 'n/a'} |`);
+        const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
+        lines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${t.accepted_at || 'n/a'} |`);
       }
     }
 
@@ -1336,7 +1343,8 @@ export function formatGovernanceReportMarkdown(report) {
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
         const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
-        repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count} | ${cost} | ${t.accepted_at || 'n/a'} |`);
+        const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
+        repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${t.accepted_at || 'n/a'} |`);
       }
     }
     if (repo.decisions && repo.decisions.length > 0) {
