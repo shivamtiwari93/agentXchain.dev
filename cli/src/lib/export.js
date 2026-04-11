@@ -295,11 +295,13 @@ export function buildRunExport(startDir = process.cwd()) {
       project: {
         id: config.project.id,
         name: config.project.name,
+        goal: config.project.goal || null,
         template: config.template || 'generic',
         protocol_mode: config.protocol_mode,
         schema_version: version,
       },
       summary: {
+        project_goal: config.project.goal || null,
         run_id: state?.run_id || null,
         status: state?.status || null,
         phase: state?.phase || null,

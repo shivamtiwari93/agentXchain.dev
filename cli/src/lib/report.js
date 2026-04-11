@@ -630,6 +630,7 @@ function buildRunSubject(artifact) {
     project: {
       id: artifact.project?.id || null,
       name: artifact.project?.name || null,
+      goal: artifact.project?.goal || null,
       template: artifact.project?.template || 'generic',
       protocol_mode: artifact.project?.protocol_mode || null,
       schema_version: artifact.project?.schema_version || null,
@@ -876,6 +877,7 @@ export function formatGovernanceReportText(report) {
       `Export kind: ${report.export_kind}`,
       'Verification: PASS',
       `Project: ${project.name || 'unknown'} (${project.id || 'unknown'})`,
+      ...(project.goal ? [`Goal: ${project.goal}`] : []),
       `Template: ${project.template}`,
       `Protocol: ${project.protocol_mode || 'unknown'} (config schema ${project.schema_version || 'unknown'})`,
       `Run: ${run.run_id || 'none'}`,
@@ -1285,6 +1287,7 @@ export function formatGovernanceReportMarkdown(report) {
       `- Export kind: \`${report.export_kind}\``,
       '- Verification: `pass`',
       `- Project: ${project.name || 'unknown'} (\`${project.id || 'unknown'}\`)`,
+      ...(project.goal ? [`- Goal: ${project.goal}`] : []),
       `- Template: \`${project.template}\``,
       `- Protocol: \`${project.protocol_mode || 'unknown'}\` (config schema \`${project.schema_version || 'unknown'}\`)`,
       `- Run: \`${run.run_id || 'none'}\``,

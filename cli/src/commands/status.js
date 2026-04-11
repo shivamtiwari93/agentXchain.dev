@@ -89,6 +89,7 @@ function renderGovernedStatus(context, opts) {
       version,
       protocol_mode: config.protocol_mode,
       template: config.template || 'generic',
+      project_goal: config.project?.goal || null,
       config,
       state,
       provenance: state?.provenance || null,
@@ -106,6 +107,9 @@ function renderGovernedStatus(context, opts) {
   console.log('');
 
   console.log(`  ${chalk.dim('Project:')}  ${config.project.name}`);
+  if (config.project.goal) {
+    console.log(`  ${chalk.dim('Goal:')}     ${config.project.goal}`);
+  }
   console.log(`  ${chalk.dim('Protocol:')} ${chalk.cyan(`governed (v${version})`)}`);
   console.log(`  ${chalk.dim('Template:')} ${config.template || 'generic'}`);
   console.log(`  ${chalk.dim('Phase:')}    ${state?.phase ? formatGovernedPhase(state.phase) : chalk.dim('unknown')}`);

@@ -19,7 +19,7 @@ function makeConfig() {
   return {
     schema_version: 4,
     protocol_mode: 'governed',
-    project: { id: 'agentxchain-demo', name: 'AgentXchain Demo', default_branch: 'main' },
+    project: { id: 'agentxchain-demo', name: 'AgentXchain Demo', goal: 'Build an auth token rotation service with expiry, graceful rollover, and audit logging', default_branch: 'main' },
     roles: {
       pm: {
         title: 'Product Manager',

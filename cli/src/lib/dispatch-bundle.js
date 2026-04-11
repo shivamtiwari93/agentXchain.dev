@@ -512,6 +512,15 @@ function renderContext(state, config, root, turn, role) {
   }
   lines.push('');
 
+  // Project goal (when set in agentxchain.json)
+  const projectGoal = config?.project?.goal;
+  if (typeof projectGoal === 'string' && projectGoal.trim()) {
+    lines.push('## Project Goal');
+    lines.push('');
+    lines.push(projectGoal.trim());
+    lines.push('');
+  }
+
   // Inherited context from parent run (when --inherit-context was used)
   if (state.inherited_context) {
     // First turn gets the full rendering; subsequent turns get compact

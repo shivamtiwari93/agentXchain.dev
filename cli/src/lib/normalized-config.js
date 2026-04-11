@@ -340,6 +340,16 @@ export function validateV4Config(data, projectRoot) {
   } else {
     if (typeof data.project.id !== 'string' || !data.project.id.trim()) errors.push('project.id must be a non-empty string');
     if (typeof data.project.name !== 'string' || !data.project.name.trim()) errors.push('project.name must be a non-empty string');
+    // Optional project.goal field
+    if (data.project.goal !== undefined && data.project.goal !== null) {
+      if (typeof data.project.goal !== 'string') {
+        errors.push('project.goal must be a string');
+      } else if (!data.project.goal.trim()) {
+        errors.push('project.goal must be a non-empty string when provided');
+      } else if (data.project.goal.trim().length > 500) {
+        errors.push('project.goal must be 500 characters or fewer');
+      }
+    }
   }
 
   // Roles
@@ -968,6 +978,7 @@ export function normalizeV4(raw) {
     project: {
       id: raw.project?.id || 'unknown',
       name: raw.project?.name || 'Unknown',
+      ...(typeof raw.project?.goal === 'string' && raw.project.goal.trim() ? { goal: raw.project.goal.trim() } : {}),
       default_branch: raw.project?.default_branch || 'main',
     },
     roles,

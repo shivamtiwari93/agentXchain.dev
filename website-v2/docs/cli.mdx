@@ -79,6 +79,7 @@ agentxchain init --governed [--dir <path>] [--template <id>] [--dev-command <par
 | `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app`, `enterprise-app` |
 | `--dev-command <parts...>` | `claude --print --dangerously-skip-permissions` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
 | `--dev-prompt-transport <mode>` | `stdin` | Prompt delivery for the scaffolded `local-dev` runtime: `argv`, `stdin`, or `dispatch_bundle_only` |
+| `--goal <text>` | none | Project goal — persisted in `project.goal` and rendered in every dispatch bundle CONTEXT.md |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
 | `--schema-version <version>` | governed default | Force a specific schema path when needed |
 
@@ -337,7 +338,7 @@ agentxchain run [options]
 | `--recover-from <run_id>` | — | Recover from a prior blocked run (sets `trigger=recovery` provenance) |
 | `--inherit-context` | `false` | Inherit read-only summary context from the parent run (requires `--continue-from` or `--recover-from`) |
 
-Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed.
+Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed. If `project.goal` is set in `agentxchain.json`, every dispatched turn's `CONTEXT.md` includes a `## Project Goal` section so agents know what the project is trying to accomplish.
 
 **Terminal-state behavior:** if the last repo-local run is `completed`, `agentxchain run` starts a fresh manual run instead of reusing the terminal run. If the last repo-local run is `blocked`, `agentxchain run` keeps that run blocked; use `agentxchain resume` to continue the same run, or `--continue-from` / `--recover-from` to start a fresh run linked to a prior terminal parent.
 

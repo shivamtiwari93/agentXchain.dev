@@ -656,12 +656,14 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
         .filter(Boolean)
     )].map((gateId) => [gateId, 'pending'])
   );
+  const projectGoal = runtimeOptions.goal;
   const config = {
     schema_version: '1.0',
     template: template.id,
     project: {
       id: projectId,
       name: projectName,
+      ...(typeof projectGoal === 'string' && projectGoal.trim() ? { goal: projectGoal.trim() } : {}),
       default_branch: 'main'
     },
     roles,

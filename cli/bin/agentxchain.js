@@ -128,6 +128,7 @@ program
   .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, library, web-app, enterprise-app')
   .option('--dev-command <parts...>', 'Governed local-dev command parts. Include {prompt} for argv prompt delivery.')
   .option('--dev-prompt-transport <mode>', 'Governed local-dev prompt transport: argv, stdin, dispatch_bundle_only')
+  .option('--goal <text>', 'Project goal — persisted in config and rendered in every dispatch bundle')
   .option('--schema-version <version>', 'Schema version (3 for legacy, or use --governed for current)')
   .action(initCommand);
 
