@@ -15,19 +15,19 @@ const QUICKSTART = read('website-v2/docs/quickstart.mdx');
 const README = read('README.md');
 
 describe('project goal front-door discoverability (AT-PGD-003 through AT-PGD-005)', () => {
-  it('AT-PGD-003: getting-started.mdx mentions --goal or project.goal', () => {
-    const hasGoal = /--goal/.test(GETTING_STARTED) || /project\.goal/.test(GETTING_STARTED);
-    assert.ok(hasGoal, 'getting-started.mdx must mention --goal or project.goal for discoverability');
+  it('AT-PGD-003: getting-started.mdx mentions --goal and the config recovery path', () => {
+    assert.match(GETTING_STARTED, /--goal/, 'getting-started.mdx must mention --goal for discoverability');
+    assert.match(GETTING_STARTED, /agentxchain config --set project\.goal/, 'getting-started.mdx must show the config recovery path');
   });
 
-  it('AT-PGD-004: quickstart.mdx mentions --goal or project.goal', () => {
-    const hasGoal = /--goal/.test(QUICKSTART) || /project\.goal/.test(QUICKSTART);
-    assert.ok(hasGoal, 'quickstart.mdx must mention --goal or project.goal for discoverability');
+  it('AT-PGD-004: quickstart.mdx mentions --goal and the config recovery path', () => {
+    assert.match(QUICKSTART, /--goal/, 'quickstart.mdx must mention --goal for discoverability');
+    assert.match(QUICKSTART, /agentxchain config --set project\.goal/, 'quickstart.mdx must show the config recovery path');
   });
 
-  it('AT-PGD-005: README.md mentions --goal or project.goal', () => {
-    const hasGoal = /--goal/.test(README) || /project\.goal/.test(README);
-    assert.ok(hasGoal, 'README.md must mention --goal or project.goal for discoverability');
+  it('AT-PGD-005: README.md mentions --goal and the config recovery path', () => {
+    assert.match(README, /--goal/, 'README.md must mention --goal for discoverability');
+    assert.match(README, /agentxchain config --set project\.goal/, 'README.md must show the config recovery path');
   });
 });
 
@@ -39,6 +39,7 @@ describe('project goal init output discoverability (AT-PGD-001 and AT-PGD-002)',
       { encoding: 'utf8', timeout: 15000 }
     ).toString();
     assert.match(out, /--goal/, 'init output without --goal must print a --goal tip');
+    assert.match(out, /agentxchain config --set project\.goal/, 'init output without --goal must print the config recovery path');
   });
 
   it('AT-PGD-002: init --governed --goal "..." does not print the --goal tip', () => {

@@ -17,7 +17,6 @@ const LEGACY_COMMANDS = [
   'start',
   'kickoff',
   'stop',
-  'config',
   'branch',
   'generate',
   'watch',
@@ -54,6 +53,7 @@ describe('CLI command map docs contract', () => {
   const expectedRowMapping = new Map([
     ['demo', ['demo']],
     ['init', ['init']],
+    ['config', ['config']],
     ['status', ['status']],
     ['export', ['export']],
     ['restore', ['restore']],
@@ -90,6 +90,7 @@ describe('CLI command map docs contract', () => {
       'restore',
       'restart',
       'report',
+      'config',
       'doctor',
       'demo',
       'schedule',

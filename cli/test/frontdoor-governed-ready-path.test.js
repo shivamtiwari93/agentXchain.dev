@@ -19,13 +19,14 @@ const GETTING_STARTED = read('website-v2/docs/getting-started.mdx');
 const SPEC = read('.planning/FRONTDOOR_GOVERNED_READY_PATH_SPEC.md');
 
 describe('front-door governed-ready path', () => {
-  it('AT-FDGR-001: repo and npm READMEs route quick start through --goal and doctor', () => {
+  it('AT-FDGR-001: repo and npm READMEs route quick start through --goal, doctor, and config-based goal recovery', () => {
     for (const [label, content] of [
       ['README.md', ROOT_README],
       ['cli/README.md', CLI_README],
     ]) {
       assert.match(content, /agentxchain init --governed --goal/, `${label} must show --goal in the primary scaffold path`);
       assert.match(content, /agentxchain doctor/, `${label} must route operators through doctor before the first turn`);
+      assert.match(content, /agentxchain config --set project\.goal/, `${label} must show config-based goal recovery instead of manual JSON editing`);
     }
   });
 

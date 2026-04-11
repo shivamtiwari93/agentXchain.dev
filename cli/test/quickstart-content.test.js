@@ -104,4 +104,9 @@ describe('quickstart single-repo content contract', () => {
     assert.match(QUICKSTART, /agentxchain doctor/,
       'Quickstart must introduce doctor between scaffold validation and first turn');
   });
+
+  it('documents config --set for omitted project-goal recovery', () => {
+    assert.match(QUICKSTART, /agentxchain config --set project\.goal/,
+      'Quickstart must route omitted-goal recovery through config --set');
+  });
 });

@@ -74,7 +74,7 @@ agentxchain status
 agentxchain step --role pm
 ```
 
-If you skipped `--goal` during scaffold, set `project.goal` in `agentxchain.json` before the first governed turn instead of re-running init in place.
+If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build an API change planner for release teams"` before the first governed turn instead of re-running init in place.
 
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it during scaffold creation:
 

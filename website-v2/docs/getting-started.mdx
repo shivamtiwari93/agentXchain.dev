@@ -45,7 +45,7 @@ git add -A
 git commit -m "initial governed scaffold"
 ```
 
-If you skipped `--goal` during scaffold, set `project.goal` in `agentxchain.json` before the first governed turn. Do not re-run `init --governed` in place just to add the goal.
+If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build a CLI that lints decision logs"` before the first governed turn. Do not re-run `init --governed` in place just to add the goal.
 
 `doctor` checks that your config is valid, all configured runtimes are reachable, and the repo state is healthy. If any check fails, fix it before your first turn — it is cheaper to catch missing env vars now than mid-run.
 

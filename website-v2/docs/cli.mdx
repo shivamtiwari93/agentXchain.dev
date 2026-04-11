@@ -34,6 +34,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 |---------|-------|-------------|
 | `demo` | Setup | Run a complete governed lifecycle demo — no API keys or config required |
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
+| `config` | Setup | Inspect or mutate repo config, including governed `project.goal` recovery after scaffold |
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
 | `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
@@ -104,6 +105,31 @@ agentxchain init --governed --dev-command ./scripts/dev-agent.sh --dev-prompt-tr
 ```
 
 See [Templates](/docs/templates) for the full scaffold contract instead of guessing from command help.
+
+If you skipped `--goal` during scaffold, recover with:
+
+```bash
+agentxchain config --set project.goal "Build a governed CLI that lints decision logs"
+```
+
+Do not re-run `init --governed` in place just to add goal context.
+
+### `config`
+
+```bash
+agentxchain config [--json]
+agentxchain config --set <key> <value...>
+```
+
+Version-aware config editing for both legacy and governed repos. On governed repos, the main operator use is fixing scaffold omissions without hand-editing JSON. The most common example is adding `project.goal` after the repo already exists:
+
+```bash
+agentxchain config --set project.goal "Ship a governed web app MVP"
+```
+
+Nested keys use dot paths. Values are parsed as strings by default, with `true`, `false`, and numeric literals converted before validation. The command validates the edited config before writing it back, so invalid governed mutations fail closed instead of leaving `agentxchain.json` in a broken state.
+
+Legacy `--add-agent` and `--remove-agent` mutations remain available only on v3 repos. Governed repos use `roles`, `runtimes`, and other structured fields instead.
 
 ### `template list`
 

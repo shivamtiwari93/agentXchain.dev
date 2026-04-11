@@ -2,21 +2,33 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
-import { loadConfig, CONFIG_FILE } from '../lib/config.js';
+import { loadProjectContext, CONFIG_FILE } from '../lib/config.js';
 import { validateConfigSchema } from '../lib/schema.js';
+import { validateV4Config } from '../lib/normalized-config.js';
 
 export async function configCommand(opts) {
-  const result = loadConfig();
-  if (!result) {
+  const context = loadProjectContext();
+  if (!context) {
     console.log(chalk.red('  No agentxchain.json found. Run `agentxchain init` first.'));
     process.exit(1);
   }
 
-  const { root, config } = result;
+  const { root, rawConfig, version } = context;
+  const config = rawConfig;
   const configPath = join(root, CONFIG_FILE);
+
+  if (version === 4 && opts.addAgent) {
+    printLegacyOnlyMutationError('--add-agent');
+    return;
+  }
 
   if (opts.addAgent) {
     await addAgent(config, configPath);
+    return;
+  }
+
+  if (version === 4 && opts.removeAgent) {
+    printLegacyOnlyMutationError('--remove-agent');
     return;
   }
 
@@ -26,7 +38,7 @@ export async function configCommand(opts) {
   }
 
   if (opts.set) {
-    setSetting(config, configPath, opts.set);
+    setSetting(config, configPath, opts.set, { version, root });
     return;
   }
 
@@ -35,10 +47,15 @@ export async function configCommand(opts) {
     return;
   }
 
-  printConfig(config);
+  if (version === 4) {
+    printGovernedConfig(config);
+    return;
+  }
+
+  printLegacyConfig(config);
 }
 
-function printConfig(config) {
+function printLegacyConfig(config) {
   console.log('');
   console.log(chalk.bold('  AgentXchain Config'));
   console.log(chalk.dim('  ' + '─'.repeat(40)));
@@ -67,6 +84,32 @@ function printConfig(config) {
   console.log(`    ${chalk.bold('agentxchain config --set <key> <val>')}   Update a setting`);
   console.log(`    ${chalk.bold('agentxchain config --json')}              Output as JSON`);
   console.log('');
+}
+
+function printGovernedConfig(config) {
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Governed Config'));
+  console.log(chalk.dim('  ' + '─'.repeat(40)));
+  console.log('');
+  console.log(`  ${chalk.dim('Project:')}   ${config.project?.name || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Project ID:')} ${config.project?.id || '(unknown)'}`);
+  console.log(`  ${chalk.dim('Goal:')}      ${config.project?.goal || '(not set)'}`);
+  console.log(`  ${chalk.dim('Template:')}  ${config.template || 'generic'}`);
+  console.log(`  ${chalk.dim('Roles:')}     ${Object.keys(config.roles || {}).length}`);
+  console.log(`  ${chalk.dim('Runtimes:')}  ${Object.keys(config.runtimes || {}).length}`);
+  console.log('');
+  console.log(chalk.dim('  Commands:'));
+  console.log(`    ${chalk.bold('agentxchain config --set project.goal "Build a ..."')}  Set mission context without hand-editing JSON`);
+  console.log(`    ${chalk.bold('agentxchain config --set roles.qa.runtime manual-qa')}  Switch a governed role runtime`);
+  console.log(`    ${chalk.bold('agentxchain config --json')}                             Output raw config`);
+  console.log('');
+}
+
+function printLegacyOnlyMutationError(flag) {
+  console.log(chalk.red(`  ${flag} is legacy-only.`));
+  console.log(chalk.dim('  Governed repos use roles and runtimes instead of legacy v3 agents.'));
+  console.log(chalk.dim('  Use `agentxchain config --set <path> <value>` for governed config changes.'));
+  process.exit(1);
 }
 
 async function addAgent(config, configPath) {
@@ -117,16 +160,15 @@ function removeAgent(config, configPath, id) {
   console.log('');
 }
 
-function setSetting(config, configPath, keyValPair) {
-  const parts = keyValPair.split(/\s+/);
-  if (parts.length < 2) {
+function setSetting(config, configPath, keyValPair, context) {
+  const parsed = parseSetInput(keyValPair);
+  if (!parsed) {
     console.log(chalk.red('  Usage: agentxchain config --set <key> <value>'));
-    console.log(chalk.dim('  Example: agentxchain config --set rules.max_consecutive_claims 3'));
+    console.log(chalk.dim('  Example: agentxchain config --set project.goal "Build a governed CLI"'));
     process.exit(1);
   }
 
-  const key = parts[0];
-  const rawVal = parts.slice(1).join(' ');
+  const { key, rawVal } = parsed;
   const segments = key.split('.');
   const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
 
@@ -152,7 +194,7 @@ function setSetting(config, configPath, keyValPair) {
   else if (!isNaN(rawVal) && rawVal !== '') val = Number(rawVal);
 
   target[lastKey] = val;
-  const validation = validateConfigSchema(config);
+  const validation = validateEditedConfig(config, context);
   if (!validation.ok) {
     target[lastKey] = oldVal;
     if (oldVal === undefined) {
@@ -167,4 +209,35 @@ function setSetting(config, configPath, keyValPair) {
   console.log(chalk.green(`  ✓ Set ${chalk.bold(key)} = ${val}`));
   if (oldVal !== undefined) console.log(chalk.dim(`    (was: ${oldVal})`));
   console.log('');
+}
+
+function parseSetInput(input) {
+  if (Array.isArray(input)) {
+    if (input.length >= 2) {
+      return { key: input[0], rawVal: input.slice(1).join(' ') };
+    }
+    if (input.length === 1 && typeof input[0] === 'string') {
+      const parts = input[0].trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return { key: parts[0], rawVal: parts.slice(1).join(' ') };
+      }
+    }
+    return null;
+  }
+
+  if (typeof input === 'string') {
+    const parts = input.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return { key: parts[0], rawVal: parts.slice(1).join(' ') };
+    }
+  }
+
+  return null;
+}
+
+function validateEditedConfig(config, context) {
+  if (context.version === 4) {
+    return validateV4Config(config, context.root);
+  }
+  return validateConfigSchema(config);
 }

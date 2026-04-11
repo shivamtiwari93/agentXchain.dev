@@ -978,7 +978,8 @@ async function initGoverned(opts) {
   console.log('');
   if (!config?.project?.goal) {
     console.log(`  ${chalk.dim('Tip:')} Add a project goal to guide agent context:`);
-    console.log(`    ${chalk.bold('agentxchain init --governed --goal "Build a ..."')} ${chalk.dim('# or set project.goal in agentxchain.json')}`);
+    console.log(`    ${chalk.bold('agentxchain init --governed --goal "Build a ..."')} ${chalk.dim('# preferred during scaffold')}`);
+    console.log(`    ${chalk.bold('agentxchain config --set project.goal "Build a ..."')} ${chalk.dim('# add it later without hand-editing JSON')}`);
     console.log('');
   }
   console.log(`  ${chalk.dim('Guide:')} https://agentxchain.dev/docs/getting-started`);

@@ -77,6 +77,8 @@ describe('getting-started tutorial docs', () => {
   it('does not teach a second in-place init just to add project goal', () => {
     assert.ok(content.includes('Do not re-run `init --governed` in place just to add the goal.'),
       'getting-started must reject the misleading in-place init-for-goal flow');
+    assert.ok(content.includes('agentxchain config --set project.goal'),
+      'getting-started must route omitted-goal recovery through config --set instead of manual JSON edits');
   });
 
   it('links back to first-turn for artifact detail and is surfaced from front-door pages', () => {
