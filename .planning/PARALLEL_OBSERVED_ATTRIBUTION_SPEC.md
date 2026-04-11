@@ -24,7 +24,9 @@ Acceptance integration in `cli/src/lib/governed-state.js`:
 
 - raw repo observation happens first
 - sibling attribution runs before declared-vs-observed comparison
-- conflict detection uses the attributed observation, not the raw union of sibling + current changes
+- conflict detection uses a stricter candidate set built from:
+  - the attributed observation
+  - plus any declared files that still appear in the raw baseline-to-now workspace union
 
 ## Behavior
 
@@ -38,13 +40,19 @@ Acceptance integration in `cli/src/lib/governed-state.js`:
 5. The attributed observation becomes the source for:
    - `compareDeclaredVsObserved(...)`
    - `buildObservedArtifact(...)`
-   - `detectAcceptanceConflict(...)`
+6. Conflict detection does **not** blindly fall back to the raw union. It uses:
+   - all files still present in the attributed observation
+   - plus any file that the current turn declared in `files_changed` and that still exists in the raw observation
+7. This preserves two invariants at once:
+   - sibling-only carry-over files do not trigger false conflicts
+   - a turn that claims an overlapping file cannot evade conflict detection just because the current workspace marker matches the already-accepted sibling
 
 ## Error Cases
 
 1. If a prior history entry has no `file_markers`, attribution falls back to the raw observation for that file.
 2. If a file was changed by a sibling and then changed again by the current turn, the marker mismatch keeps it attributed to the current turn.
 3. If there are no concurrent siblings or no later accepted siblings, attribution is a no-op.
+4. If a declared overlapping file was attributed away because the sibling marker matches, it still remains conflict-eligible as long as that file appears in the raw observation.
 
 ## Acceptance Tests
 
@@ -52,6 +60,7 @@ Acceptance integration in `cli/src/lib/governed-state.js`:
 2. A file changed again after the sibling accepted it stays in the current turn's observed set.
 3. Non-concurrent history entries do not affect attribution.
 4. Parallel approval-policy E2E can now drain a mixed-runtime implementation phase without false `artifact_observation` failure.
+5. Parallel conflict E2E still persists conflict state when a turn declares an overlapping file that is otherwise attributable to an accepted sibling.
 
 ## Open Questions
 

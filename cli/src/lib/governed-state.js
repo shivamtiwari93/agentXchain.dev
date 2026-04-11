@@ -27,6 +27,7 @@ import {
   captureBaseline,
   observeChanges,
   attributeObservedChangesToTurn,
+  buildConflictCandidateFiles,
   classifyObservedChanges,
   buildObservedArtifact,
   normalizeVerification,
@@ -882,8 +883,8 @@ function cleanupTurnArtifacts(root, turnId) {
   } catch { /* best-effort */ }
 }
 
-function detectAcceptanceConflict(targetTurn, observedArtifact, historyEntries) {
-  const observedFiles = [...new Set(getObservedFiles({ observed_artifact: observedArtifact }))];
+function detectAcceptanceConflict(targetTurn, conflictFiles, historyEntries) {
+  const observedFiles = [...new Set(Array.isArray(conflictFiles) ? conflictFiles : [])];
   if (observedFiles.length === 0) {
     return null;
   }
@@ -2206,7 +2207,11 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     };
   }
 
-  const conflict = detectAcceptanceConflict(currentTurn, observedArtifact, historyEntries);
+  const conflict = detectAcceptanceConflict(
+    currentTurn,
+    buildConflictCandidateFiles(rawObservation, observation, turnResult.files_changed || []),
+    historyEntries,
+  );
 
   if (conflict) {
     const detectionCount = (currentTurn.conflict_state?.detection_count || 0) + 1;

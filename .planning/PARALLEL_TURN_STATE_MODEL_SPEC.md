@@ -200,6 +200,7 @@ interface PhaseRouting {
 When accepting turn T:
 
 1. Collect `T.observed_artifact.files_changed` (orchestrator-observed).
+   For parallel turns, this is the conflict candidate set: attributed observed files plus any declared file that still appears in the raw baseline-to-now observation.
 2. Collect all turns accepted AFTER T was assigned: filter `history.jsonl` where `accepted_sequence > T.assigned_sequence`.
 3. Compute the intersection of T's files with each intervening accepted turn's `observed_artifact.files_changed`.
 4. If intersection is non-empty → **conflict**. Acceptance fails with a structured conflict error.

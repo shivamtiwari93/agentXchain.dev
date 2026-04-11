@@ -254,6 +254,37 @@ export function attributeObservedChangesToTurn(observation, currentTurn, history
 }
 
 /**
+ * Build the file set used for acceptance-time conflict detection.
+ *
+ * Parallel attribution removes unchanged sibling files from the current turn's
+ * observed set so declared-vs-observed checks stay truthful. Conflict detection
+ * is stricter: if the agent declared a file that still appears in the raw
+ * baseline-to-now workspace union, that overlap must remain conflict-eligible
+ * even if the current file contents match a sibling's accepted marker.
+ *
+ * @param {object} rawObservation — unfiltered observeChanges() result
+ * @param {object} attributedObservation — result after attributeObservedChangesToTurn()
+ * @param {string[]} declaredFiles — turnResult.files_changed
+ * @returns {string[]}
+ */
+export function buildConflictCandidateFiles(rawObservation, attributedObservation, declaredFiles = []) {
+  const conflictFiles = new Set(
+    Array.isArray(attributedObservation?.files_changed) ? attributedObservation.files_changed : [],
+  );
+  const rawObserved = new Set(
+    Array.isArray(rawObservation?.files_changed) ? rawObservation.files_changed : [],
+  );
+
+  for (const filePath of declaredFiles || []) {
+    if (rawObserved.has(filePath)) {
+      conflictFiles.add(filePath);
+    }
+  }
+
+  return [...conflictFiles].sort();
+}
+
+/**
  * Classify observed file changes into added, modified, and deleted.
  *
  * Uses git diff-filter when a baseline ref is available; falls back to

@@ -10,6 +10,7 @@ import {
   captureBaseline,
   observeChanges,
   attributeObservedChangesToTurn,
+  buildConflictCandidateFiles,
   buildObservedArtifact,
   normalizeVerification,
   compareDeclaredVsObserved,
@@ -470,6 +471,46 @@ describe('attributeObservedChangesToTurn', () => {
 
     assert.ok(attributed.files_changed.includes('src/app.js'));
     assert.ok(attributed.files_changed.includes('docs/integration.md'));
+  });
+});
+
+// ── Tests: buildConflictCandidateFiles ─────────────────────────────────────
+
+describe('buildConflictCandidateFiles', () => {
+  it('re-includes declared overlap files that were attributed to a sibling', () => {
+    const rawObservation = {
+      files_changed: ['.planning/shared.md', 'docs/integration.md'],
+    };
+    const attributedObservation = {
+      files_changed: ['docs/integration.md'],
+      attributed_to_concurrent_siblings: ['.planning/shared.md'],
+    };
+
+    const conflictFiles = buildConflictCandidateFiles(
+      rawObservation,
+      attributedObservation,
+      ['.planning/shared.md', 'TALK.md'],
+    );
+
+    assert.deepEqual(conflictFiles, ['.planning/shared.md', 'docs/integration.md']);
+  });
+
+  it('does not re-introduce sibling-only files the current turn did not declare', () => {
+    const rawObservation = {
+      files_changed: ['.planning/shared.md', 'docs/integration.md'],
+    };
+    const attributedObservation = {
+      files_changed: ['docs/integration.md'],
+      attributed_to_concurrent_siblings: ['.planning/shared.md'],
+    };
+
+    const conflictFiles = buildConflictCandidateFiles(
+      rawObservation,
+      attributedObservation,
+      ['docs/integration.md'],
+    );
+
+    assert.deepEqual(conflictFiles, ['docs/integration.md']);
   });
 });
 
