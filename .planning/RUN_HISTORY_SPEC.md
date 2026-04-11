@@ -133,6 +133,7 @@ The recording function reads current state + config to build the history record.
 - `AT-RH-008`: Recording failure does not prevent run completion.
 - `AT-RH-009`: `agentxchain history` text output includes a readable table with columns for status, trigger, context inheritance, turns, cost, date, and retrospective headline.
 - `AT-RH-010`: recorded run-history entries include a bounded `inheritance_snapshot` used by child-run context inheritance.
+- `AT-RH-011`: `agentxchain history --lineage <run_id>` text output includes the truncated retrospective headline for each ancestor entry.
 
 ## Open Questions
 

@@ -50,8 +50,11 @@ export async function historyCommand(opts) {
       const parentNote = entry.provenance?.parent_run_id
         ? ` from ${entry.provenance.parent_run_id.slice(0, 12)}`
         : '';
+      const headline = entry.retrospective?.headline
+        ? `  ${formatHeadline(entry.retrospective.headline)}`
+        : '';
       const prefix = i === 0 ? '  ' : '  └─ ';
-      console.log(`${prefix}${runId}  ${status}  ${pad(phases, 20)}  ${pad(turns, 10)}  ${pad(cost, 8)}  (${trigger}${parentNote})${ctxMarker}`);
+      console.log(`${prefix}${runId}  ${status}  ${pad(phases, 20)}  ${pad(turns, 10)}  ${pad(cost, 8)}  (${trigger}${parentNote})${ctxMarker}${headline}`);
     });
     return;
   }

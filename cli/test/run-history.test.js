@@ -762,4 +762,44 @@ describe('history CLI inheritance visibility', () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it('AT-IV-005: history --lineage shows retrospective headline', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      scaffoldProject(tmpDir);
+      writeFileSync(join(tmpDir, '.agentxchain', 'run-history.jsonl'), [
+        {
+          run_id: 'run_parent',
+          status: 'completed',
+          phases_completed: ['planning'],
+          total_turns: 2,
+          total_cost_usd: 0.04,
+          provenance: { trigger: 'manual', parent_run_id: null },
+          retrospective: { headline: 'Initial planning completed', terminal_reason: 'completed' },
+          inheritance_snapshot: { recent_decisions: [], recent_accepted_turns: [] },
+        },
+        {
+          run_id: 'run_child',
+          status: 'blocked',
+          phases_completed: ['implementation'],
+          total_turns: 1,
+          total_cost_usd: 0.02,
+          provenance: { trigger: 'continuation', parent_run_id: 'run_parent' },
+          retrospective: { headline: 'Blocked on missing API key', terminal_reason: 'blocked' },
+          inheritance_snapshot: { recent_decisions: [], recent_accepted_turns: [] },
+        },
+      ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--lineage', 'run_child', '--dir', tmpDir], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /run_parent.*Initial planning completed/);
+      assert.match(result.stdout, /run_child.*Blocked on missing API key/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
