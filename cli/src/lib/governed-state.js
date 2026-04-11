@@ -40,6 +40,7 @@ import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
 import { emitNotifications } from './notification-runner.js';
+import { emitRunEvent } from './run-events.js';
 import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
 import { buildDefaultRunProvenance } from './run-provenance.js';
@@ -1751,6 +1752,12 @@ export function raiseOperatorEscalation(root, config, details) {
     detail,
     recovery_action: recoveryAction,
   }, targetTurn);
+  emitRunEvent(root, 'escalation_raised', {
+    run_id: blocked.state.run_id,
+    phase: blocked.state.phase,
+    status: 'blocked',
+    payload: { source: 'operator', reason },
+  });
 
   return {
     ok: true,
@@ -1794,6 +1801,12 @@ export function reactivateGovernedRun(root, state, details = {}) {
       resolved_via: details.via || 'unknown',
       previous_escalation: state.escalation || null,
     }, state.escalation?.from_turn_id ? getActiveTurns(state)[state.escalation.from_turn_id] || getActiveTurn(state) : getActiveTurn(state));
+    emitRunEvent(details.root || root, 'escalation_resolved', {
+      run_id: nextState.run_id,
+      phase: nextState.phase,
+      status: nextState.status,
+      payload: { resolved_via: details.via || 'unknown' },
+    });
   }
 
   return { ok: true, state: attachLegacyCurrentTurnAlias(nextState) };
@@ -1846,6 +1859,12 @@ export function initializeGovernedRun(root, config, options = {}) {
   };
 
   writeState(root, updatedState);
+  emitRunEvent(root, 'run_started', {
+    run_id: runId,
+    phase: updatedState.phase,
+    status: 'active',
+    payload: { provenance: provenance || {} },
+  });
   return { ok: true, state: attachLegacyCurrentTurnAlias(updatedState) };
 }
 
@@ -2050,6 +2069,13 @@ export function assignGovernedTurn(root, config, roleId) {
   };
 
   writeState(root, updatedState);
+
+  emitRunEvent(root, 'turn_dispatched', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: updatedState.status,
+    turn: { turn_id: turnId, role_id: roleId },
+  });
 
   // Session checkpoint — non-fatal, written after every successful turn assignment
   writeSessionCheckpoint(root, updatedState, 'turn_assigned', {
@@ -3027,6 +3053,14 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     }
   }
 
+  // Emit turn_accepted event to local log.
+  emitRunEvent(root, 'turn_accepted', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: updatedState.status,
+    turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+  });
+
   if (updatedState.status === 'blocked') {
     // DEC-RHTR-SPEC: Record blocked outcome in cross-run history (non-fatal)
     // Covers needs_human, budget:exhausted, and any other non-hook blocked states
@@ -3037,6 +3071,13 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       blockedOn: updatedState.blocked_on,
       recovery: updatedState.blocked_reason?.recovery || null,
     }, currentTurn);
+    emitRunEvent(root, 'run_blocked', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: 'blocked',
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      payload: { category: updatedState.blocked_reason?.category || 'needs_human' },
+    });
   }
 
   if (updatedState.pending_phase_transition) {
@@ -3046,6 +3087,16 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       gate: updatedState.pending_phase_transition.gate,
       requested_by_turn: updatedState.pending_phase_transition.requested_by_turn,
     }, currentTurn);
+    emitRunEvent(root, 'gate_pending', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: updatedState.status,
+      payload: {
+        gate_type: 'phase_transition',
+        from: updatedState.pending_phase_transition.from,
+        to: updatedState.pending_phase_transition.to,
+      },
+    });
   }
 
   if (updatedState.pending_run_completion) {
@@ -3054,6 +3105,12 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       requested_by_turn: updatedState.pending_run_completion.requested_by_turn,
       requested_at: updatedState.pending_run_completion.requested_at,
     }, currentTurn);
+    emitRunEvent(root, 'gate_pending', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: updatedState.status,
+      payload: { gate_type: 'run_completion' },
+    });
   }
 
   if (updatedState.status === 'completed') {
@@ -3062,6 +3119,12 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       completed_via: completionResult?.action === 'complete' ? 'accept_turn' : 'accept_turn_direct',
       requested_by_turn: completionResult?.requested_by_turn || turnResult.turn_id,
     }, currentTurn);
+    emitRunEvent(root, 'run_completed', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: 'completed',
+      payload: { completed_at: updatedState.completed_at || now },
+    });
   }
 
   // Session checkpoint — non-fatal, written after every successful acceptance
@@ -3211,6 +3274,13 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     };
 
     writeState(root, updatedState);
+    emitRunEvent(root, 'turn_rejected', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: updatedState.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      payload: { attempt: currentAttempt, retrying: true },
+    });
     return {
       ok: true,
       state: attachLegacyCurrentTurnAlias(updatedState),
@@ -3271,6 +3341,19 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     blockedOn: updatedState.blocked_on,
     recovery: updatedState.blocked_reason?.recovery || null,
   }, updatedState.active_turns[currentTurn.turn_id]);
+  emitRunEvent(root, 'turn_rejected', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'blocked',
+    turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+    payload: { attempt: currentAttempt, retrying: false, escalated: true },
+  });
+  emitRunEvent(root, 'run_blocked', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'blocked',
+    payload: { category: 'retries_exhausted' },
+  });
 
   // Fire on_escalation hooks (advisory-only) after blocked state is persisted.
   const hooksConfig = config?.hooks || {};
@@ -3382,6 +3465,18 @@ export function approvePhaseTransition(root, config) {
   };
 
   writeState(root, updatedState);
+  emitRunEvent(root, 'gate_approved', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'active',
+    payload: { gate_type: 'phase_transition', from: transition.from, to: transition.to },
+  });
+  emitRunEvent(root, 'phase_entered', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'active',
+    payload: { from: transition.from },
+  });
 
   // Session checkpoint — non-fatal
   writeSessionCheckpoint(root, updatedState, 'phase_approved');
@@ -3484,6 +3579,18 @@ export function approveRunCompletion(root, config) {
     gate: completion.gate,
     requested_by_turn: completion.requested_by_turn || null,
   }, completion.requested_by_turn ? getActiveTurns(state)[completion.requested_by_turn] || null : null);
+  emitRunEvent(root, 'gate_approved', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'completed',
+    payload: { gate_type: 'run_completion' },
+  });
+  emitRunEvent(root, 'run_completed', {
+    run_id: updatedState.run_id,
+    phase: updatedState.phase,
+    status: 'completed',
+    payload: { completed_at: updatedState.completed_at },
+  });
 
   // Session checkpoint — non-fatal
   writeSessionCheckpoint(root, updatedState, 'run_completed');

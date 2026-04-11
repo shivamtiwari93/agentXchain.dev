@@ -59,6 +59,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `multi` | Multi-repo coordination | Bootstrap, inspect, step, approve, and recover coordinator runs across linked repositories |
 | `proposal` | Proposal management | List, diff, apply, or reject proposed changes from api_proxy agents |
 | `history` | Observability | Show cross-run history of governed runs in this project |
+| `events` | Observability | Show repo-local run lifecycle events with optional streaming |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -544,6 +545,27 @@ The default table includes a `Trigger` column when provenance metadata is availa
 **Lineage view:** `--lineage <run_id>` walks the `parent_run_id` chain backwards through `run-history.jsonl` and prints the ancestor tree (oldest first). If a parent reference points to a run that no longer exists in history, the chain terminates with a `[broken link]` sentinel. Combine with `--json` for machine-readable lineage output.
 
 Use `--json` for machine-readable output. Use `--status completed` to see only successful runs. Use `--limit 5` to see the last 5 runs.
+
+### `events`
+
+```bash
+agentxchain events [--follow] [--type <type>] [--since <timestamp>] [--json] [--limit <n>] [--dir <path>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--follow, -f` | `false` | Stream events as they occur (tail -f behavior) |
+| `--type <type>` | — | Filter by event type (comma-separated) |
+| `--since <timestamp>` | — | Show events after ISO-8601 timestamp |
+| `--json` | `false` | Output raw JSONL |
+| `--limit <n>` | `50` | Max events to show (0 = all) |
+| `--dir <path>` | `.` | Project directory |
+
+Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`.
+
+Use `--follow` to stream events in real-time as they occur. Use `--type run_blocked,run_completed` to filter by event type. Use `--json` for machine-readable output.
+
+Unlike webhook notifications (configured in `agentxchain.json`), the event log requires no external infrastructure — events are written locally as part of normal governed operation.
 
 ### `dashboard`
 

@@ -106,6 +106,7 @@ import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
+import { eventsCommand } from '../src/commands/events.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -266,6 +267,17 @@ program
   .option('--lineage <run_id>', 'Show lineage chain for a specific run')
   .option('-d, --dir <path>', 'Project directory')
   .action(historyCommand);
+
+program
+  .command('events')
+  .description('Show repo-local run lifecycle events')
+  .option('-f, --follow', 'Stream events as they occur')
+  .option('-t, --type <type>', 'Filter by event type (comma-separated)')
+  .option('--since <timestamp>', 'Show events after ISO-8601 timestamp')
+  .option('-j, --json', 'Output raw JSONL')
+  .option('-l, --limit <n>', 'Max events to show (default: 50, 0 = all)')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(eventsCommand);
 
 program
   .command('validate')

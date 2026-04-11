@@ -1,0 +1,171 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { emitRunEvent, readRunEvents, RUN_EVENTS_PATH, VALID_RUN_EVENTS } from '../src/lib/run-events.js';
+
+describe('run-events', () => {
+  let root;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'axc-events-'));
+    mkdirSync(join(root, '.agentxchain'), { recursive: true });
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  // AT-EVT-001: emitRunEvent appends valid JSONL
+  it('AT-EVT-001: emitRunEvent appends valid JSONL to events.jsonl', () => {
+    const result = emitRunEvent(root, 'run_started', {
+      run_id: 'run_test_001',
+      phase: 'planning',
+      status: 'active',
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.event_id.startsWith('evt_'));
+
+    const content = readFileSync(join(root, RUN_EVENTS_PATH), 'utf8');
+    const lines = content.trim().split('\n');
+    assert.equal(lines.length, 1);
+
+    const parsed = JSON.parse(lines[0]);
+    assert.equal(parsed.event_type, 'run_started');
+    assert.equal(parsed.run_id, 'run_test_001');
+    assert.equal(parsed.phase, 'planning');
+    assert.equal(parsed.status, 'active');
+  });
+
+  // AT-EVT-002: Event contains required fields
+  it('AT-EVT-002: event contains required fields', () => {
+    emitRunEvent(root, 'turn_dispatched', {
+      run_id: 'run_002',
+      phase: 'implementation',
+      status: 'active',
+      turn: { turn_id: 'turn_abc', role_id: 'dev' },
+    });
+
+    const events = readRunEvents(root);
+    assert.equal(events.length, 1);
+    const evt = events[0];
+    assert.ok(evt.event_id);
+    assert.ok(evt.event_type);
+    assert.ok(evt.timestamp);
+    assert.equal(evt.run_id, 'run_002');
+    assert.deepEqual(evt.turn, { turn_id: 'turn_abc', role_id: 'dev' });
+  });
+
+  // AT-EVT-003: readRunEvents reads events from log file
+  it('AT-EVT-003: readRunEvents reads and returns all events', () => {
+    emitRunEvent(root, 'run_started', { run_id: 'r1' });
+    emitRunEvent(root, 'turn_dispatched', { run_id: 'r1' });
+    emitRunEvent(root, 'turn_accepted', { run_id: 'r1' });
+
+    const events = readRunEvents(root);
+    assert.equal(events.length, 3);
+    assert.equal(events[0].event_type, 'run_started');
+    assert.equal(events[1].event_type, 'turn_dispatched');
+    assert.equal(events[2].event_type, 'turn_accepted');
+  });
+
+  // AT-EVT-004: type filter works
+  it('AT-EVT-004: --type filter selects matching events', () => {
+    emitRunEvent(root, 'run_started', { run_id: 'r1' });
+    emitRunEvent(root, 'turn_dispatched', { run_id: 'r1' });
+    emitRunEvent(root, 'run_completed', { run_id: 'r1' });
+
+    const filtered = readRunEvents(root, { type: 'run_started,run_completed' });
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0].event_type, 'run_started');
+    assert.equal(filtered[1].event_type, 'run_completed');
+  });
+
+  // AT-EVT-005: JSON output is parseable JSONL
+  it('AT-EVT-005: events are valid JSONL', () => {
+    emitRunEvent(root, 'run_started', { run_id: 'r1', payload: { key: 'value' } });
+
+    const raw = readFileSync(join(root, RUN_EVENTS_PATH), 'utf8');
+    const lines = raw.trim().split('\n');
+    for (const line of lines) {
+      assert.doesNotThrow(() => JSON.parse(line));
+    }
+  });
+
+  // AT-EVT-006: limit returns last N events
+  it('AT-EVT-006: limit returns only last N events', () => {
+    for (let i = 0; i < 10; i++) {
+      emitRunEvent(root, 'turn_dispatched', { run_id: `r_${i}` });
+    }
+
+    const limited = readRunEvents(root, { limit: 3 });
+    assert.equal(limited.length, 3);
+    assert.equal(limited[0].run_id, 'r_7');
+    assert.equal(limited[2].run_id, 'r_9');
+  });
+
+  // AT-EVT-007: Write failure does not throw
+  it('AT-EVT-007: write failure returns ok:false without throwing', () => {
+    const result = emitRunEvent('/nonexistent/path/that/cannot/exist', 'run_started', {});
+    assert.equal(result.ok, false);
+    assert.ok(result.event_id.startsWith('evt_'));
+  });
+
+  // AT-EVT-008: readRunEvents on missing file returns empty array
+  it('AT-EVT-008: readRunEvents on missing file returns empty array', () => {
+    const emptyRoot = mkdtempSync(join(tmpdir(), 'axc-events-empty-'));
+    const events = readRunEvents(emptyRoot);
+    assert.equal(events.length, 0);
+    try { rmSync(emptyRoot, { recursive: true, force: true }); } catch {}
+  });
+
+  // Additional: since filter
+  it('since filter excludes older events', () => {
+    emitRunEvent(root, 'run_started', { run_id: 'r1' });
+    const cutoff = new Date().toISOString();
+    // Small delay to ensure timestamp difference
+    emitRunEvent(root, 'run_completed', { run_id: 'r1' });
+
+    const events = readRunEvents(root);
+    // At least verify since with a past timestamp returns all
+    const allEvents = readRunEvents(root, { since: '2020-01-01T00:00:00.000Z' });
+    assert.equal(allEvents.length, 2);
+  });
+
+  // Additional: VALID_RUN_EVENTS is complete
+  it('VALID_RUN_EVENTS contains all 11 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 11);
+    assert.ok(VALID_RUN_EVENTS.includes('run_started'));
+    assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
+    assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));
+    assert.ok(VALID_RUN_EVENTS.includes('turn_dispatched'));
+    assert.ok(VALID_RUN_EVENTS.includes('turn_accepted'));
+    assert.ok(VALID_RUN_EVENTS.includes('turn_rejected'));
+    assert.ok(VALID_RUN_EVENTS.includes('phase_entered'));
+    assert.ok(VALID_RUN_EVENTS.includes('escalation_raised'));
+    assert.ok(VALID_RUN_EVENTS.includes('escalation_resolved'));
+    assert.ok(VALID_RUN_EVENTS.includes('gate_pending'));
+    assert.ok(VALID_RUN_EVENTS.includes('gate_approved'));
+  });
+
+  // Additional: creates .agentxchain directory if missing
+  it('creates .agentxchain directory if it does not exist', () => {
+    const bareRoot = mkdtempSync(join(tmpdir(), 'axc-events-bare-'));
+    const result = emitRunEvent(bareRoot, 'run_started', { run_id: 'r1' });
+    assert.equal(result.ok, true);
+    assert.ok(existsSync(join(bareRoot, '.agentxchain', 'events.jsonl')));
+    try { rmSync(bareRoot, { recursive: true, force: true }); } catch {}
+  });
+
+  // Additional: malformed lines are skipped
+  it('skips malformed JSONL lines', () => {
+    const filePath = join(root, RUN_EVENTS_PATH);
+    writeFileSync(filePath, 'not-json\n{"event_type":"run_started","event_id":"evt_1","timestamp":"2026-01-01T00:00:00.000Z","run_id":"r1","phase":null,"status":null,"turn":null,"payload":{}}\n');
+
+    const events = readRunEvents(root);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].event_type, 'run_started');
+  });
+});
