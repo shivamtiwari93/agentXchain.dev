@@ -69,6 +69,11 @@ describe('getting-started tutorial docs', () => {
       'getting-started must document the explicit empty opt-out boundary');
   });
 
+  it('documents doctor as a readiness check in the scaffold flow', () => {
+    assert.ok(content.includes('agentxchain doctor'),
+      'getting-started must introduce doctor between scaffold validation and first turn');
+  });
+
   it('links back to first-turn for artifact detail and is surfaced from front-door pages', () => {
     assert.ok(content.includes('/docs/first-turn'), 'getting-started must link to first-turn');
     assert.ok(quickstart.includes('/docs/getting-started'), 'quickstart must link to getting-started');

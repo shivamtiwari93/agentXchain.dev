@@ -39,10 +39,13 @@ agentxchain --version
 mkdir my-first-governed && cd my-first-governed
 agentxchain init --governed --template cli-tool --dir . -y
 git init
+agentxchain template validate
+agentxchain doctor
 git add -A
 git commit -m "initial governed scaffold"
-agentxchain template validate
 ```
+
+`doctor` checks that your config is valid, all configured runtimes are reachable, and the repo state is healthy. If any check fails, fix it before your first turn — it is cheaper to catch missing env vars now than mid-run.
 
 At this point the repo is scaffolded, but the planning gate is intentionally closed. `PM_SIGNOFF.md` starts at `Approved: NO`.
 

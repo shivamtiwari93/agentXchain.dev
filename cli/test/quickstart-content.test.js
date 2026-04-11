@@ -99,4 +99,9 @@ describe('quickstart single-repo content contract', () => {
   it('documents the events command for observability', () => {
     assert.match(QUICKSTART, /events|event/i);
   });
+
+  it('documents doctor as a readiness check before the first turn', () => {
+    assert.match(QUICKSTART, /agentxchain doctor/,
+      'Quickstart must introduce doctor between scaffold validation and first turn');
+  });
 });

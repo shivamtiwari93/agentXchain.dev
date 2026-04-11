@@ -968,6 +968,7 @@ async function initGoverned(opts) {
     console.log(`    ${chalk.bold('git init')} ${chalk.dim('# initialize the governed repo')}`);
   }
   console.log(`    ${chalk.bold('agentxchain template validate')} ${chalk.dim('# prove the scaffold contract before the first turn')}`);
+  console.log(`    ${chalk.bold('agentxchain doctor')} ${chalk.dim('# verify runtimes, config, and readiness')}`);
   console.log(`    ${chalk.bold('git add -A')} ${chalk.dim('# stage the governed scaffold')}`);
   console.log(`    ${chalk.bold('git commit -m "initial governed scaffold"')} ${chalk.dim('# checkpoint the starting state')}`);
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);

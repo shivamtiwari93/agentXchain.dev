@@ -21,15 +21,16 @@ The governed init summary keeps the existing scaffold/tree output and readiness 
 1. target-directory `cd` guidance when the scaffold target differs from the current working directory
 2. `git init` only when the scaffold target is not already inside a git worktree
 3. `agentxchain template validate` before the first governed turn
-4. `git add -A` and `git commit -m "initial governed scaffold"` before the first governed turn
-5. `agentxchain step` and `agentxchain status`
+4. `agentxchain doctor` to verify runtimes, config, and readiness
+5. `git add -A` and `git commit -m "initial governed scaffold"` before the first governed turn
+6. `agentxchain step` and `agentxchain status`
 
 ## Behavior
 
 1. The CLI detects whether the scaffold target is already inside a git repo by walking upward from the target directory and looking for `.git`.
 2. If no git repo is present, `Next:` includes `git init`.
 3. If a git repo is already present, `Next:` omits `git init` but still recommends `git add -A` and `git commit -m "initial governed scaffold"`.
-4. `Next:` always includes `agentxchain template validate` before `agentxchain step`.
+4. `Next:` always includes `agentxchain template validate` followed by `agentxchain doctor` before `agentxchain step`.
 5. The readiness hints remain truthful:
    - manual roles are named
    - key-backed roles name their required env vars
@@ -50,6 +51,7 @@ The governed init summary keeps the existing scaffold/tree output and readiness 
 - `AT-INIT-NEXT-003`: fresh governed init output includes `git add -A` and `git commit -m "initial governed scaffold"`
 - `AT-INIT-NEXT-004`: fresh governed init output still includes `agentxchain step` and `agentxchain status`
 - `AT-INIT-NEXT-005`: governed init inside an existing git repo omits `git init`
+- `AT-INIT-NEXT-006`: fresh governed init output includes `agentxchain doctor` between `template validate` and `git add`
 
 ## Open Questions
 

@@ -234,6 +234,7 @@ describe('governed CLI support', () => {
       const result = runCli(dir, ['init', '--governed', '-y']);
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /agentxchain template validate/);
+      assert.match(result.stdout, /agentxchain doctor/);
       assert.match(result.stdout, /git init/);
       assert.match(result.stdout, /git add -A/);
       assert.match(result.stdout, /git commit -m "initial governed scaffold"/);
@@ -269,6 +270,7 @@ describe('governed CLI support', () => {
       assert.equal(result.status, 0, result.stderr);
       assert.doesNotMatch(result.stdout, /git init/, 'existing git repos must not be told to git init again');
       assert.match(result.stdout, /agentxchain template validate/);
+      assert.match(result.stdout, /agentxchain doctor/);
       assert.match(result.stdout, /git add -A/);
       assert.match(result.stdout, /git commit -m "initial governed scaffold"/);
     } finally {
