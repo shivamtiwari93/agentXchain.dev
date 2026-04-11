@@ -27,6 +27,15 @@ Add an optional top-level `timeouts` section to `agentxchain.json`:
 
 All fields are optional. Missing fields mean that scope has no timeout.
 
+You can also set timeouts via the CLI instead of editing JSON directly:
+
+```bash
+agentxchain config --set timeouts.per_turn_minutes 30
+agentxchain config --set timeouts.per_phase_minutes 120
+agentxchain config --set timeouts.per_run_minutes 480
+agentxchain config --set timeouts.action warn
+```
+
 | Field | Meaning |
 |---|---|
 | `per_turn_minutes` | Maximum wall-clock time for one assigned turn |

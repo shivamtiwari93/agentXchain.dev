@@ -61,32 +61,15 @@ The default scaffold is mixed-mode:
 
 That is honest for normal usage, but it is the wrong fit for a copy-paste tutorial. For this walkthrough, change `roles.dev.runtime` from `local-dev` to `manual-dev`, change `roles.qa.runtime` from `api-qa` to `manual-qa`, and keep every turn on the same printed prompt flow.
 
-Edit `agentxchain.json` and change the `dev` and `qa` role runtimes:
+Use `agentxchain config --set` to rebind both roles and add the missing manual-dev runtime:
 
-```json
-{
-  "roles": {
-    "dev": {
-      "runtime": "manual-dev"
-    },
-    "qa": {
-      "runtime": "manual-qa"
-    }
-  }
-}
+```bash
+agentxchain config --set roles.dev.runtime manual-dev
+agentxchain config --set roles.qa.runtime manual-qa
+agentxchain config --set runtimes.manual-dev.type manual
 ```
 
-`manual-qa` already exists in the scaffold. Add `manual-dev` to the `runtimes` section:
-
-```json
-{
-  "runtimes": {
-    "manual-dev": {
-      "type": "manual"
-    }
-  }
-}
-```
+`manual-qa` already exists in the scaffold. The third command adds the `manual-dev` runtime entry.
 
 Commit the config change:
 

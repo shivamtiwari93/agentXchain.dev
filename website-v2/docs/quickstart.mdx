@@ -220,24 +220,14 @@ git init && git add -A && git commit -m "initial governed scaffold"
 
 The shipped scaffold defaults to `manual-pm`, so `agentxchain run` will stop immediately unless you rebind the PM role to a non-manual runtime. The smallest honest change is to point `pm` at an `api_proxy` runtime and keep `qa` on `api-qa`.
 
-Minimal example:
+Use `agentxchain config --set` to add the runtime and rebind the role:
 
-```json title="agentxchain.json"
-{
-  "roles": {
-    "pm": {
-      "runtime": "api-pm"
-    }
-  },
-  "runtimes": {
-    "api-pm": {
-      "type": "api_proxy",
-      "provider": "anthropic",
-      "model": "claude-sonnet-4-6",
-      "auth_env": "ANTHROPIC_API_KEY"
-    }
-  }
-}
+```bash
+agentxchain config --set runtimes.api-pm.type api_proxy
+agentxchain config --set runtimes.api-pm.provider anthropic
+agentxchain config --set runtimes.api-pm.model claude-sonnet-4-6
+agentxchain config --set runtimes.api-pm.auth_env ANTHROPIC_API_KEY
+agentxchain config --set roles.pm.runtime api-pm
 ```
 
 If you use another local tool instead of the scaffolded `claude --print --dangerously-skip-permissions` command, prefer setting it during `init` with `--dev-command` and `--dev-prompt-transport`. Editing `runtimes.local-dev` afterward still works, but the point is to scaffold a truthful runtime contract up front. See [Adapters](/docs/adapters) for the runtime contract.
