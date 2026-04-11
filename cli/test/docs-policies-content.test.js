@@ -93,4 +93,16 @@ describe('Policies docs contract', () => {
     assert.match(SPEC, /max_consecutive_same_role/);
     assert.match(ENGINE_SPEC, /would exceed the limit/i);
   });
+
+  it('documents the real cost field used by max_cost_per_turn', () => {
+    assert.match(DOC, /cost\.usd/);
+    assert.match(ENGINE_SPEC, /cost\.usd/);
+  });
+
+  it('documents runtime-aware policy escalation recovery', () => {
+    assert.match(DOC, /retained `manual` turns recover with `agentxchain resume`/i);
+    assert.match(DOC, /retained non-manual turns recover with `agentxchain step --resume`/i);
+    assert.match(ENGINE_SPEC, /retained `manual` turn/i);
+    assert.match(ENGINE_SPEC, /retained non-manual turn/i);
+  });
 });

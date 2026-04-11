@@ -75,6 +75,14 @@ Hook blocks during assignment require `resume --role` to re-assign. Hook tamper 
 | Validation failure (retryable) | `agentxchain reject-turn` then `agentxchain step` |
 | Validation failure (non-retryable) | Manual fix, then `agentxchain accept-turn` |
 
+### Policy Escalations
+
+| State | Cause | Recovery |
+|---|---|---|
+| `policy_escalation` | A declarative policy with `action: "escalate"` fired (e.g., turn cap reached, role monopoly detected) | Resolve the policy condition (e.g., increase the limit in `agentxchain.json`, change routing), then use `agentxchain resume` for retained `manual` turns or cleared runs; use `agentxchain step --resume` for retained non-manual turns |
+
+Policy escalations are distinct from operator escalations. They are triggered automatically by the declarative policy engine based on config rules, not by an operator command. The `agentxchain status` output shows which policy fired and what condition was violated. The `decision-ledger.jsonl` records `decision = "policy_escalation"` with the violating policy details.
+
 ### Budget Exhaustion
 
 | State | Cause | Recovery |
@@ -120,6 +128,7 @@ The `deriveRecoveryDescriptor()` function in `blocked-state.js` is the canonical
 - `hook_tamper`
 - `conflict_loop`
 - `budget_exhausted`
+- `policy_escalation`
 - `unknown_block`
 
 The `unknown_block` fallback ensures that even unrecognized `blocked_on` values produce a recovery action (manual inspection).
@@ -132,6 +141,7 @@ Every recovery action is recorded in the decision ledger (`.agentxchain/decision
 - Escalation resolved: `decision = "escalation_resolved"`
 - Run reactivated: `decision = "escalation_resolved"` with `via` field
 - Phase approved: `decision = "phase_transition_approved"`
+- Policy escalation: `decision = "policy_escalation"` with violating policy details
 - Run completed: `decision = "run_completion_approved"`
 
 This ensures that recovery actions are part of the governed audit trail, not silent state mutations.

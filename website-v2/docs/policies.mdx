@@ -108,7 +108,8 @@ Prevents one role from monopolizing consecutive turns.
 Evaluates the staged turn result's cost metadata.
 
 - Param: `params.limit_usd` number `> 0`
-- Trigger: when `turnResult.cost.total_usd` is present and greater than the configured limit
+- Trigger: when `turnResult.cost.usd` is present and greater than the configured limit
+- Compatibility note: legacy `turnResult.cost.total_usd` is still accepted if `cost.usd` is absent
 - Example use: warn on expensive review turns without blocking delivery
 
 ### `require_status`
@@ -126,7 +127,7 @@ Restricts accepted turn statuses to an allowlist.
 |---|---|
 | `block` | Reject the acceptance attempt with `error_code: "policy_violation"`. The turn stays staged. |
 | `warn` | Accept the turn and return `policy_warnings` in the acceptance result. |
-| `escalate` | Pause the run with `blocked_on: "policy:<id>"`. The turn stays staged. |
+| `escalate` | Block the run with `blocked_on: "policy:<id>"`. The turn stays staged and the recovery descriptor is persisted. |
 
 Policies evaluate in declaration order, but they do not short-circuit. AgentXchain collects every violation first, then applies precedence:
 
@@ -175,4 +176,12 @@ Use gates instead when the condition is about:
 - resume with a different role or phase path if the current streak or cap is the real problem
 - if the staged result is still the right one, retry the acceptance path
 
-For repo-local retained turns, the normal continuation surface remains `agentxchain step --resume` when you need to keep the retained turn moving. If you already have the staged result you want to accept, rerun `agentxchain accept-turn` after correcting the policy condition.
+For retained turns, the continuation surface depends on runtime type. If you already have the staged result you want to accept, rerun `agentxchain accept-turn` after correcting the policy condition.
+
+More specifically:
+
+- retained `manual` turns recover with `agentxchain resume`
+- retained non-manual turns recover with `agentxchain step --resume`
+- cleared/run-level policy escalations recover with `agentxchain resume`
+
+`agentxchain accept-turn` now surfaces the violating policy IDs, messages, and the typed recovery action when an `escalate` policy fires, so operators do not need to inspect raw state to recover.

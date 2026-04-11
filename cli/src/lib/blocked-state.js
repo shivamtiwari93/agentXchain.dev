@@ -4,6 +4,8 @@ import {
   deriveEscalationRecoveryAction,
   deriveHookTamperRecoveryAction,
   deriveNeedsHumanRecoveryAction,
+  derivePolicyEscalationDetail,
+  derivePolicyEscalationRecoveryAction,
   getActiveTurnCount,
 } from './governed-state.js';
 
@@ -48,6 +50,13 @@ function maybeRefreshRecoveryAction(state, config, persistedRecovery, turnRetain
 
   if (typedReason === 'hook_tamper' && isLegacyHookTamperRecoveryAction(currentAction)) {
     return deriveHookTamperRecoveryAction(state, config, {
+      turnRetained,
+      turnId,
+    });
+  }
+
+  if (typedReason === 'policy_escalation') {
+    return derivePolicyEscalationRecoveryAction(state, config, {
       turnRetained,
       turnId,
     });
@@ -155,6 +164,21 @@ export function deriveRecoveryDescriptor(state, config = null) {
       }),
       turn_retained: turnRetained,
       detail: state.blocked_on.slice('dispatch:'.length) || state.blocked_on,
+    };
+  }
+
+  if (state.blocked_on.startsWith('policy:')) {
+    const policyId = state.blocked_on.slice('policy:'.length).trim() || null;
+    return {
+      typed_reason: 'policy_escalation',
+      owner: 'human',
+      recovery_action: derivePolicyEscalationRecoveryAction(state, config, {
+        turnRetained,
+        turnId: state.blocked_reason?.turn_id ?? null,
+        policyId,
+      }),
+      turn_retained: turnRetained,
+      detail: derivePolicyEscalationDetail(state, { policyId }),
     };
   }
 

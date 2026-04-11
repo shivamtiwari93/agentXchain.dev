@@ -351,6 +351,58 @@ export function deriveDispatchRecoveryAction(state, config, options = {}) {
   return `Resolve the dispatch issue, then run ${command}`;
 }
 
+function normalizePolicyId(policyId) {
+  if (typeof policyId !== 'string') {
+    return null;
+  }
+  const trimmed = policyId.trim();
+  return trimmed || null;
+}
+
+function getPolicyIdFromBlockedState(state) {
+  if (typeof state?.blocked_on !== 'string' || !state.blocked_on.startsWith('policy:')) {
+    return null;
+  }
+  return normalizePolicyId(state.blocked_on.slice('policy:'.length));
+}
+
+export function derivePolicyEscalationDetail(state, options = {}) {
+  if (typeof options.detail === 'string' && options.detail.trim()) {
+    return options.detail.trim();
+  }
+
+  if (typeof state?.blocked_reason === 'string' && state.blocked_reason.trim()) {
+    return state.blocked_reason.trim();
+  }
+
+  const policyId = normalizePolicyId(options.policyId) || getPolicyIdFromBlockedState(state);
+  return policyId ? `Policy "${policyId}" triggered` : (state?.blocked_on || 'Policy escalation');
+}
+
+export function derivePolicyEscalationRecoveryAction(state, config, options = {}) {
+  const command = deriveBlockedRecoveryCommand(state, config, {
+    turnRetained: options.turnRetained,
+    turnId: options.turnId,
+  });
+  const policyId = normalizePolicyId(options.policyId) || getPolicyIdFromBlockedState(state);
+  return policyId
+    ? `Resolve policy "${policyId}" condition, then run ${command}`
+    : `Resolve the policy condition, then run ${command}`;
+}
+
+export function readTurnCostUsd(turnResult) {
+  if (!turnResult || typeof turnResult !== 'object') {
+    return null;
+  }
+  if (typeof turnResult.cost?.usd === 'number') {
+    return turnResult.cost.usd;
+  }
+  if (typeof turnResult.cost?.total_usd === 'number') {
+    return turnResult.cost.total_usd;
+  }
+  return null;
+}
+
 export function deriveHookTamperRecoveryAction(state, config, options = {}) {
   const command = deriveBlockedRecoveryCommand(state, config, {
     turnRetained: options.turnRetained,
@@ -1150,6 +1202,13 @@ export function reconcileRecoveryActionsWithConfig(state, config) {
         turnId,
       });
     }
+  } else if (typedReason === 'policy_escalation') {
+    nextAction = derivePolicyEscalationRecoveryAction(state, config, {
+      turnRetained,
+      turnId,
+      policyId: getPolicyIdFromBlockedState(state),
+    });
+    shouldRefresh = currentAction !== nextAction;
   } else if (typedReason === 'conflict_loop') {
     shouldRefresh = isLegacyConflictLoopRecoveryAction(currentAction);
     if (shouldRefresh) {
@@ -1260,6 +1319,25 @@ function inferBlockedReasonFromState(state) {
         detail,
       },
       turnId: activeTurn?.turn_id ?? null,
+    });
+  }
+
+  if (state.blocked_on.startsWith('policy:')) {
+    const policyId = getPolicyIdFromBlockedState(state);
+    return buildBlockedReason({
+      category: 'policy_escalation',
+      recovery: {
+        typed_reason: 'policy_escalation',
+        owner: 'human',
+        recovery_action: derivePolicyEscalationRecoveryAction(state, null, {
+          turnRetained,
+          turnId: activeTurn?.turn_id ?? state.blocked_reason?.turn_id ?? null,
+          policyId,
+        }),
+        turn_retained: turnRetained,
+        detail: derivePolicyEscalationDetail(state, { policyId }),
+      },
+      turnId: activeTurn?.turn_id ?? state.blocked_reason?.turn_id ?? null,
     });
   }
 
@@ -2054,7 +2132,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     currentPhase: state.phase,
     turnRole: turnResult.role,
     turnStatus: turnResult.status,
-    turnCostUsd: turnResult.cost?.total_usd ?? null,
+    turnCostUsd: readTurnCostUsd(turnResult),
     history: historyEntries,
   });
 
@@ -2070,13 +2148,40 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
   if (policyResult.escalations.length > 0) {
     const escalationMessages = policyResult.escalations.map((v) => v.message);
+    const policyId = policyResult.escalations[0].policy_id;
+    const turnRetained = getActiveTurnCount(state) > 0;
+    const recovery = {
+      typed_reason: 'policy_escalation',
+      owner: 'human',
+      recovery_action: derivePolicyEscalationRecoveryAction(state, config, {
+        turnRetained,
+        turnId: currentTurn.turn_id,
+        policyId,
+      }),
+      turn_retained: turnRetained,
+      detail: derivePolicyEscalationDetail(state, {
+        policyId,
+        detail: escalationMessages.join('; '),
+      }),
+    };
     const blockedState = {
       ...state,
       status: 'blocked',
-      blocked_on: `policy:${policyResult.escalations[0].policy_id}`,
-      blocked_reason: `Policy escalation: ${escalationMessages.join('; ')}`,
+      blocked_on: `policy:${policyId}`,
+      blocked_reason: buildBlockedReason({
+        category: 'policy_escalation',
+        recovery,
+        turnId: currentTurn.turn_id,
+        blockedAt: now,
+      }),
     };
     writeState(root, blockedState);
+    recordRunHistory(root, blockedState, config, 'blocked');
+    emitBlockedNotification(root, config, blockedState, {
+      category: 'policy_escalation',
+      blockedOn: blockedState.blocked_on,
+      recovery,
+    }, currentTurn);
     appendJsonl(root, LEDGER_PATH, {
       timestamp: now,
       decision: 'policy_escalation',
@@ -2093,7 +2198,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       ok: false,
       error: `Policy escalation: ${escalationMessages.join('; ')}`,
       error_code: 'policy_escalation',
-      state: blockedState,
+      state: attachLegacyCurrentTurnAlias(blockedState),
       policy_violations: policyResult.violations,
     };
   }

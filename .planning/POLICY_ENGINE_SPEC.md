@@ -100,7 +100,7 @@ Prevents a single role from monopolizing consecutive turns.
 Guards per-turn cost based on the turn result's cost metadata.
 
 - **params**: `{ "limit_usd": number }` (required, > 0)
-- **Evaluation**: Read `turnResult.cost?.total_usd`. If present and > limit_usd, trigger.
+- **Evaluation**: Read `turnResult.cost?.usd`. If absent, fall back to legacy `turnResult.cost?.total_usd` for compatibility. If present and > limit_usd, trigger.
 - **Default message**: `Policy "${id}": turn cost $${cost} exceeds limit $${limit_usd}`
 
 ### `require_status`
@@ -119,14 +119,14 @@ Requires turns to have specific status values.
 |--------|--------|
 | `block` | Reject the turn. Return `{ ok: false, error_code: 'policy_violation' }`. Turn stays staged. |
 | `warn` | Accept the turn but include policy warnings in the acceptance result and ledger. |
-| `escalate` | Pause the run with `blocked_on: "policy:${policy_id}"`. Turn stays staged. |
+| `escalate` | Block the run with `blocked_on: "policy:${policy_id}"`. Turn stays staged. Recovery descriptor persisted with `typed_reason: "policy_escalation"`. |
 
 ### Evaluation Order
 
 1. All policies evaluate in declaration order.
 2. All violations are collected (no short-circuit).
 3. If any `block` violation exists → turn rejected.
-4. If any `escalate` violation exists (and no block) → run paused.
+4. If any `escalate` violation exists (and no block) → run blocked with a persisted recovery descriptor.
 5. Remaining `warn` violations are returned as warnings.
 
 ### Integration Point
@@ -158,13 +158,35 @@ before_validation hooks → validation → after_validation hooks
 - AT-POL-006: `max_cost_per_turn` warns when cost exceeds limit
 - AT-POL-007: `max_cost_per_turn` passes when cost is under limit or absent
 - AT-POL-008: `require_status` blocks disallowed statuses
-- AT-POL-009: `action: "escalate"` pauses the run instead of rejecting
+- AT-POL-009: `action: "escalate"` blocks the run instead of rejecting
 - AT-POL-010: `action: "warn"` accepts the turn with warnings
 - AT-POL-011: Scoped policies skip when phase/role is out of scope
 - AT-POL-012: Multiple violations collected (no short-circuit)
 - AT-POL-013: Unknown rule rejected at config validation
 - AT-POL-014: Config with empty policies array is valid (no-op)
 - AT-POL-015: Policies normalize to empty array when omitted from config
+- AT-POL-016: Retained `manual` policy escalations recommend `agentxchain resume`
+- AT-POL-017: Retained non-manual policy escalations recommend `agentxchain step --resume`
+- AT-POL-018: `max_cost_per_turn` reads `cost.usd` and falls back to legacy `cost.total_usd`
+
+## Recovery
+
+When a policy with `action: "escalate"` fires, the run enters `blocked` state with:
+
+- `blocked_on: "policy:${policy_id}"`
+- `blocked_reason.category: "policy_escalation"`
+- `blocked_reason.recovery.typed_reason: "policy_escalation"`
+- `blocked_reason.recovery.recovery_action`: runtime-aware actionable command
+  - retained `manual` turn: `agentxchain resume`
+  - retained non-manual turn: `agentxchain step --resume`
+  - no retained turn: `agentxchain resume`
+
+The `deriveRecoveryDescriptor()` function in `blocked-state.js` recognizes the `policy:` prefix and produces a `policy_escalation` typed reason. This is a first-class recovery type, not `unknown_block`.
+
+Operator recovery path:
+1. Read the policy violation detail in `agentxchain status`
+2. Resolve the condition (e.g., increase turn cap in `agentxchain.json`, change routing to vary roles)
+3. Run the surfaced command (`agentxchain resume` for retained `manual` turns or cleared turns; `agentxchain step --resume` for retained non-manual turns)
 
 ## Open Questions
 

@@ -331,7 +331,7 @@ describe('evaluatePolicies — require_status', () => {
 // ── evaluatePolicies — actions ───────────────────────────────────────────────
 
 describe('evaluatePolicies — actions', () => {
-  it('AT-POL-009: escalate pauses (not blocks)', () => {
+  it('AT-POL-009: escalate returns an escalation instead of a block', () => {
     const policy = { id: 'esc', rule: 'max_total_turns', params: { limit: 1 }, action: 'escalate' };
     const ctx = makeContext({ history: makeHistory([{}]) });
     const result = evaluatePolicies([policy], ctx);

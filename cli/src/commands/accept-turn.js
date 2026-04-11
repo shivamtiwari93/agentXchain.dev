@@ -23,6 +23,36 @@ export async function acceptTurnCommand(opts = {}) {
     resolutionMode: opts.resolution || 'standard',
   });
   if (!result.ok) {
+    if (result.error_code === 'policy_escalation' || result.error_code === 'policy_violation') {
+      const recovery = result.state ? deriveRecoveryDescriptor(result.state, config) : null;
+      const retainedTurnId = result.state?.blocked_reason?.turn_id || opts.turn || '(unknown)';
+      const policyTitle = result.error_code === 'policy_escalation'
+        ? 'Turn Acceptance Escalated By Policy'
+        : 'Turn Acceptance Blocked By Policy';
+
+      console.log('');
+      console.log(chalk.yellow(`  ${policyTitle}`));
+      console.log(chalk.dim('  ' + '─'.repeat(44)));
+      console.log('');
+      console.log(`  ${chalk.dim('Turn:')}     ${retainedTurnId}`);
+      console.log(`  ${chalk.dim('Error:')}    ${result.error}`);
+      const violations = Array.isArray(result.policy_violations) ? result.policy_violations : [];
+      for (const violation of violations) {
+        console.log(`  ${chalk.dim('Policy:')}   ${violation.policy_id} (${violation.rule})`);
+        console.log(`  ${chalk.dim('Detail:')}   ${violation.message}`);
+      }
+      if (recovery) {
+        console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
+        console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);
+        console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
+        console.log(`  ${chalk.dim('Turn:')}     ${recovery.turn_retained ? 'retained' : 'cleared'}`);
+      } else {
+        console.log(`  ${chalk.dim('Action:')}   Fix the policy condition, then rerun agentxchain accept-turn`);
+      }
+      console.log('');
+      process.exit(1);
+    }
+
     if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
       const recovery = deriveRecoveryDescriptor(result.state);
       const activeTurn = result.state?.current_turn;
