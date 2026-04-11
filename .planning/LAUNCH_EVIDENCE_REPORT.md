@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.54.0
+# Launch Evidence Report — AgentXchain v2.55.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.54.0 run-context-inheritance correction: child runs now inherit from the selected parent run's recorded snapshot instead of today's repo-global history, so long-horizon continuity stays tied to the chosen parent run.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.55.0 inheritance-visibility release: operators can now see which historical runs have usable inheritance snapshots across the CLI table, JSON output, lineage view, and dashboard before constructing `--inherit-context` child runs.
 
 ---
 

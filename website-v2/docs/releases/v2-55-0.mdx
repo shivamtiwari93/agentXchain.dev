@@ -1,0 +1,35 @@
+---
+title: "v2.55.0 Release Notes"
+description: "Makes inheritance-snapshot availability visible across history, lineage, JSON output, and the dashboard."
+---
+
+# AgentXchain v2.55.0
+
+`v2.55.0` makes inheritance visibility operational instead of implicit. Operators no longer need to inspect raw `inheritance_snapshot` arrays to guess whether a historical run can provide real `--inherit-context` input.
+
+## What changed
+
+The visibility surface is now consistent across the operator workflow:
+
+- `agentxchain history` adds a `Ctx` column showing whether a run has a usable inheritance snapshot (`✓`) or only metadata lineage (`—`)
+- `agentxchain history --json` adds a computed `inheritable` boolean for scripts and tooling
+- `agentxchain history --lineage <run_id>` marks inheritable ancestors with `[ctx]`
+- the dashboard Run History table shows the same `Ctx` signal so the browser view does not hide inheritance readiness from operators
+
+## Why this matters
+
+The continuity chain now has a truthful discovery path:
+
+- provenance links parent and child runs
+- `--inherit-context` carries the selected parent's recorded snapshot
+- operators can see which runs actually have usable snapshots before starting a continuation or recovery child run
+
+Without this slice, inheritance was technically present but operationally opaque.
+
+## Evidence
+
+- 70 tests / 16 suites / 0 failures
+- Targeted proof:
+  - `node --test test/run-history.test.js test/run-provenance-lineage.test.js`
+- Coverage now includes the real lineage `[ctx]` marker, the dashboard `Ctx` indicator, and the public CLI docs contract
+- Docusaurus production build succeeded

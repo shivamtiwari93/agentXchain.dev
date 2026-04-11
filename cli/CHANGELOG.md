@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.55.0
+
+`2.55.0` makes run-context inheritance visible before operators construct a child run. `agentxchain history` now shows a `Ctx` signal in the default table, `history --json` exposes a computed `inheritable` boolean, lineage output marks inheritable ancestors with `[ctx]`, and the dashboard run-history view surfaces the same inheritance-snapshot availability.
+
+- Operators can see at a glance which historical runs have usable inheritance snapshots versus metadata-only lineage
+- Public CLI docs now explain the `Ctx` column, `inheritable` JSON field, and lineage `[ctx]` marker
+- Proof coverage now includes dashboard rendering and lineage output instead of pretending the JSON/table tests were enough
+- 70 tests / 16 suites / 0 failures
+- Docusaurus production build passed
+
 ## 2.54.0
 
 `2.54.0` fixes a real long-horizon continuity bug in governed run inheritance. `--inherit-context` now reads a bounded snapshot recorded on the selected parent run's `run-history.jsonl` entry instead of whatever happens to be in the repo's current `history.jsonl` and `decision-ledger.jsonl`. That means inheriting from an older parent run no longer leaks later repo activity into the child run's first-turn context.
