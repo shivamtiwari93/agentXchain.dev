@@ -79,7 +79,7 @@ function makeTurnResult(state, turnId, role, cost = 0.01) {
 
 function initRepo() {
   const dir = makeTmpDir();
-  execSync('git init -q && git add -A && git commit -q -m init --allow-empty', { cwd: dir, stdio: 'ignore' });
+  execSync('git init -q && git config user.email "test@example.com" && git config user.name "Test User" && git add -A && git commit -q -m init --allow-empty', { cwd: dir, stdio: 'ignore' });
   return dir;
 }
 
@@ -92,7 +92,7 @@ describe('Budget Enforcement — DEC-BUDGET-ENFORCE-001', () => {
     dir = makeTmpDir();
     config = makeConfig();
     scaffoldGoverned(dir, 'Budget Test', 'budget-test');
-    try { execSync('git init -q && git add -A && git commit -q -m init --allow-empty', { cwd: dir, stdio: 'ignore' }); } catch {}
+    try { execSync('git init -q && git config user.email "test@example.com" && git config user.name "Test User" && git add -A && git commit -q -m init --allow-empty', { cwd: dir, stdio: 'ignore' }); } catch {}
     initializeGovernedRun(dir, config);
   });
   afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
@@ -242,7 +242,7 @@ describe('Budget Enforcement — DEC-BUDGET-ENFORCE-001', () => {
     const noBudgetDir = makeTmpDir();
     const noBudgetConfig = makeConfig({ per_run_max_usd: undefined });
     scaffoldGoverned(noBudgetDir, 'No Budget Test', 'no-budget-test');
-    try { execSync('git init -q && git add -A && git commit -q -m init --allow-empty', { cwd: noBudgetDir, stdio: 'ignore' }); } catch {}
+    try { execSync('git init -q && git config user.email "test@example.com" && git config user.name "Test User" && git add -A && git commit -q -m init --allow-empty', { cwd: noBudgetDir, stdio: 'ignore' }); } catch {}
     initializeGovernedRun(noBudgetDir, noBudgetConfig);
 
     const assign = assignGovernedTurn(noBudgetDir, noBudgetConfig, 'pm');
