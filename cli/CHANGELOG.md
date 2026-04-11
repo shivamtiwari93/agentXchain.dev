@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.46.0
+
+`2.46.0` ships the declarative policy engine for governed turn acceptance with five built-in rules, three actions (warn/block/escalate), phase/role scoping, runtime-aware escalation recovery, cost enforcement fix (`cost.usd` primary), and policy-specific CLI operator guidance.
+
+### Declarative policy engine
+
+- Five built-in rules: `require_status`, `max_consecutive_same_role`, `require_challenge`, `max_cost_per_turn`, `min_artifacts`.
+- Three actions: `warn` (log and accept), `block` (reject turn), `escalate` (persist blocked state with structured recovery).
+- Optional `phases` and `roles` scoping per rule.
+- Template integration: `enterprise-app` template includes a default policy configuration.
+
+### Policy escalation recovery hardening
+
+- Policy escalation now writes structured `blocked_reason` via `buildBlockedReason()` with `category: 'policy_escalation'` — consistent with all other blocked-state writers.
+- Recovery is runtime-aware: retained `manual` turns → `agentxchain resume`; retained non-manual turns → `agentxchain step --resume`.
+- `accept-turn` renders policy-specific operator guidance with violating policy IDs, rule names, and recovery commands.
+- Run history records policy-blocked transitions. Blocked notifications fire on policy escalation.
+
+### Cost enforcement fix
+
+- `max_cost_per_turn` reads `turnResult.cost.usd` first, falls back to legacy `turnResult.cost.total_usd`.
+
+### Policy docs surface
+
+- Dedicated `/docs/policies` page with sidebar, llms.txt, and sitemap coverage.
+
+### VS Code Marketplace readiness
+
+- Dedicated marketplace readiness test guard (publisher, package.json, .vscodeignore, README).
+
+### Evidence
+
+- 3308 tests / 698 suites / 0 failures
+
 ## 2.45.0
 
 `2.45.0` adds Ollama as a first-class `api_proxy` provider for local models, ships the build-your-own-connector tutorial, audits the runner tutorial against the real runtime, and hardens docs-contract tests with live-import verification.

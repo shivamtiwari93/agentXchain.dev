@@ -1,0 +1,91 @@
+---
+title: "v2.46.0 Release Notes"
+description: "Adds the declarative policy engine for governed turn acceptance, with runtime-aware escalation recovery, cost enforcement, and operator CLI guidance."
+---
+
+# AgentXchain v2.46.0
+
+`v2.46.0` ships the **declarative policy engine** — a first-class governance surface for turn-acceptance rules. Operators can now define policies that constrain agent behavior during governed execution, with proper escalation, recovery, and operator feedback at every layer.
+
+## Declarative Policy Engine
+
+Policies are defined in `agentxchain.json` under the `policies` key. Each policy is a named set of rules evaluated at turn acceptance.
+
+### Five built-in rules
+
+| Rule | Description |
+|------|-------------|
+| `require_status` | Require specific turn status (e.g., only `accepted`, `needs_revision`) |
+| `max_consecutive_same_role` | Cap consecutive turns from the same role |
+| `require_challenge` | Require challenge content in turn artifacts |
+| `max_cost_per_turn` | Enforce per-turn cost ceiling |
+| `min_artifacts` | Require a minimum number of artifacts per turn |
+
+### Three actions
+
+| Action | Behavior |
+|--------|----------|
+| `warn` | Log a warning, accept the turn |
+| `block` | Reject the turn, do not persist state |
+| `escalate` | Persist blocked state with structured recovery descriptor |
+
+### Phase and role scoping
+
+Rules can be scoped to specific phases and/or roles:
+
+```json
+{
+  "policies": {
+    "qa-must-challenge": {
+      "rules": [
+        {
+          "rule": "require_challenge",
+          "action": "block",
+          "phases": ["qa"],
+          "roles": ["qa"]
+        }
+      ]
+    }
+  }
+}
+```
+
+## Runtime-aware escalation recovery
+
+Policy escalations now produce the same structured `blocked_reason` as every other blocked-state writer in the system. This means:
+
+- **`agentxchain status`** shows `policy_escalation` with the violating policy ID and the correct recovery command
+- **Recovery is runtime-aware:** retained `manual` turns surface `agentxchain resume`; retained non-manual turns surface `agentxchain step --resume`
+- **The dashboard** shows policy-blocked states with actionable recovery guidance
+- **Run history** records policy-blocked transitions alongside all other terminal outcomes
+
+Previously, policy escalation wrote a plain-string `blocked_reason`, which caused the recovery system to classify it as `unknown_block`.
+
+## Cost enforcement fix
+
+`max_cost_per_turn` now reads `turnResult.cost.usd` as the primary cost field and falls back to legacy `turnResult.cost.total_usd` for compatibility. Previously it only read `cost.total_usd`, which could silently fail to enforce cost caps on runs using the current cost schema.
+
+## Operator CLI guidance
+
+`agentxchain accept-turn` now renders policy-specific output for both `policy_violation` (block) and `policy_escalation` (escalate) outcomes:
+
+- Violating policy IDs and rule names
+- Violation messages with detail
+- Typed recovery descriptor with owner and exact recovery command
+- Turn retention status
+
+## Policy docs surface
+
+A dedicated [Policies](/docs/policies) page documents configuration, built-in rules, actions, phase/role scoping, and the recovery path. Policies appear in the docs sidebar, `llms.txt`, and `sitemap.xml`.
+
+## VS Code Marketplace readiness
+
+Added a dedicated test guard for marketplace readiness: valid `package.json`, publisher field, `.vscodeignore`, and README. Publisher creation remains a human task.
+
+## Evidence
+
+- **3308 tests / 698 suites / 0 failures**
+- Policy evaluator: 38 tests across 13 suites
+- Policy escalation recovery: 7 unit + 2 runtime integration + 1 subprocess E2E
+- Docs policy content: 12 guards
+- Docusaurus build: clean

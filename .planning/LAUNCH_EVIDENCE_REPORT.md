@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.45.0
+# Launch Evidence Report — AgentXchain v2.46.0
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.45.0 release: Ollama as first-class api_proxy provider, build-your-own-connector tutorial, runner docs audit, and hardened docs-contract tests.
+> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.46.0 release: declarative policy engine with five built-in rules, runtime-aware escalation recovery, cost enforcement fix, policy-specific CLI guidance, and VS Code marketplace readiness guard.
 
 ---
 
