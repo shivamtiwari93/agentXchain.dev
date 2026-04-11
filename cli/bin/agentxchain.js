@@ -407,6 +407,7 @@ program
   .option('--no-report', 'Suppress automatic governance report after run completes')
   .option('--continue-from <run_id>', 'Continue from a prior terminal run (sets trigger=continuation)')
   .option('--recover-from <run_id>', 'Recover from a prior blocked run (sets trigger=recovery)')
+  .option('--inherit-context', 'Inherit read-only summary context from the parent run (requires --continue-from or --recover-from)')
   .action(runCommand);
 
 program

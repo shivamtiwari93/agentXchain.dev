@@ -641,6 +641,7 @@ function buildRunSubject(artifact) {
       blocked_on: artifact.state?.blocked_on || null,
       blocked_reason: artifact.state?.blocked_reason || null,
       provenance: normalizeRunProvenance(artifact.summary?.provenance || artifact.state?.provenance),
+      inherited_context: artifact.summary?.inherited_context || artifact.state?.inherited_context || null,
       active_turn_count: activeTurns.length,
       retained_turn_count: retainedTurns.length,
       active_turn_ids: activeTurns,
@@ -903,6 +904,9 @@ export function formatGovernanceReportText(report) {
     }
     if (summarizeRunProvenance(run.provenance)) {
       lines.push(`Provenance: ${summarizeRunProvenance(run.provenance)}`);
+    }
+    if (run.inherited_context?.parent_run_id) {
+      lines.push(`Inherited from: ${run.inherited_context.parent_run_id} (${run.inherited_context.parent_status || 'unknown'})`);
     }
 
     lines.push(
@@ -1307,6 +1311,9 @@ export function formatGovernanceReportMarkdown(report) {
     }
     if (summarizeRunProvenance(run.provenance)) {
       lines.push(`- Provenance: \`${summarizeRunProvenance(run.provenance)}\``);
+    }
+    if (run.inherited_context?.parent_run_id) {
+      lines.push(`- Inherited from: \`${run.inherited_context.parent_run_id}\` (${run.inherited_context.parent_status || 'unknown'})`);
     }
 
     lines.push(

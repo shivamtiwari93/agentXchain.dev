@@ -17,6 +17,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { getActiveTurn, getActiveTurns } from './governed-state.js';
+import { renderInheritedContextMarkdown } from './run-context-inheritance.js';
 import {
   DISPATCH_INDEX_PATH,
   getDispatchAssignmentPath,
@@ -510,6 +511,16 @@ function renderContext(state, config, root, turn, role) {
     }
   }
   lines.push('');
+
+  // Inherited context from parent run (when --inherit-context was used)
+  if (state.inherited_context) {
+    // First turn gets the full rendering; subsequent turns get compact
+    const isFirstTurn = !state.last_completed_turn_id;
+    const inheritedMd = renderInheritedContextMarkdown(state.inherited_context, !isFirstTurn);
+    if (inheritedMd) {
+      lines.push(inheritedMd);
+    }
+  }
 
   // Last accepted turn summary
   if (state.last_completed_turn_id) {

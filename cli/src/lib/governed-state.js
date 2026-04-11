@@ -1856,6 +1856,7 @@ export function initializeGovernedRun(root, config, options = {}) {
       remaining_usd: config.budget?.per_run_max_usd ?? null
     },
     provenance,
+    inherited_context: options.inherited_context || null,
   };
 
   writeState(root, updatedState);

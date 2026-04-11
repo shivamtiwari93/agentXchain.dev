@@ -304,6 +304,7 @@ export function buildRunExport(startDir = process.cwd()) {
         status: state?.status || null,
         phase: state?.phase || null,
         provenance: normalizeRunProvenance(state?.provenance),
+        inherited_context: state?.inherited_context || null,
         active_turn_ids: activeTurns,
         retained_turn_ids: retainedTurns,
         history_entries: countJsonl(files, '.agentxchain/history.jsonl'),

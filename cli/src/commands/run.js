@@ -33,6 +33,7 @@ import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
+import { buildInheritedContext } from '../lib/run-context-inheritance.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -89,6 +90,25 @@ export async function executeGovernedRun(context, opts = {}) {
       parent_run_id: parentId,
       created_by: 'operator',
     };
+  }
+
+  // ── Inherit-context validation ─────────────────────────────────────────
+  const inheritContext = !!opts.inheritContext;
+  let inheritedContext = null;
+  if (inheritContext) {
+    if (!continueFrom && !recoverFrom) {
+      log(chalk.red('--inherit-context requires --continue-from or --recover-from'));
+      log(chalk.dim('Usage: agentxchain run --continue-from <run_id> --inherit-context'));
+      return { exitCode: 1, result: null };
+    }
+    const parentId = continueFrom || recoverFrom;
+    const inheritance = buildInheritedContext(root, parentId);
+    inheritedContext = inheritance.inherited_context;
+    if (inheritance.warnings?.length) {
+      for (const w of inheritance.warnings) {
+        log(chalk.yellow(`  ⚠ Inheritance: ${w}`));
+      }
+    }
   }
 
   const maxTurns = opts.maxTurns || 50;
@@ -375,6 +395,7 @@ export async function executeGovernedRun(context, opts = {}) {
     startNewRunFromBlocked: opts.allowBlockedRestart ?? Boolean(provenance),
   };
   if (provenance) runLoopOpts.provenance = provenance;
+  if (inheritedContext) runLoopOpts.inheritedContext = inheritedContext;
   const result = await runLoop(root, config, callbacks, runLoopOpts);
 
   // ── Summary ─────────────────────────────────────────────────────────────

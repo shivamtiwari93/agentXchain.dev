@@ -62,6 +62,9 @@ export async function runLoop(root, config, callbacks, options = {}) {
   const shouldRestartBlocked = state?.status === 'blocked' && options.startNewRunFromBlocked === true;
   if (!state || state.status === 'idle' || shouldRestartCompleted || shouldRestartBlocked) {
     const initOpts = options.provenance ? { provenance: options.provenance } : {};
+    if (options.inheritedContext) {
+      initOpts.inherited_context = options.inheritedContext;
+    }
     if (shouldRestartCompleted || shouldRestartBlocked) {
       initOpts.allow_terminal_restart = true;
     }

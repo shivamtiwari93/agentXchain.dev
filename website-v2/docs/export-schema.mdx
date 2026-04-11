@@ -78,6 +78,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `intake_present` | Whether any `.agentxchain/intake/` file exists |
 | `coordinator_present` | Whether any `.agentxchain/multirepo/` file exists inside the governed repo |
 | `provenance` | Run provenance metadata (trigger, parent_run_id, created_by) — `null` when absent |
+| `inherited_context` | Read-only summary inherited from a parent run via `--inherit-context` — `null` when absent |
 
 ### Included governed roots
 

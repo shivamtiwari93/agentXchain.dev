@@ -92,6 +92,7 @@ function renderGovernedStatus(context, opts) {
       config,
       state,
       provenance: state?.provenance || null,
+      inherited_context: state?.inherited_context || null,
       continuity,
       connector_health: connectorHealth,
       workflow_kit_artifacts: workflowKitArtifacts,
@@ -112,6 +113,9 @@ function renderGovernedStatus(context, opts) {
   const provenanceSummary = summarizeRunProvenance(state?.provenance);
   if (provenanceSummary) {
     console.log(`  ${chalk.dim('Origin:')}   ${chalk.magenta(provenanceSummary)}`);
+  }
+  if (state?.inherited_context?.parent_run_id) {
+    console.log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${state.inherited_context.parent_run_id} (${state.inherited_context.parent_status || 'unknown'})`)}`);
   }
   if (state?.accepted_integration_ref) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);
