@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, findProjectRoot } from '../lib/config.js';
@@ -363,12 +363,24 @@ function checkAccessibility() {
   }
 
   try {
-    execSync(
-      'osascript -e \'tell application "System Events" to get name of first process\'',
-      { stdio: 'pipe' }
+    execFileSync(
+      'osascript',
+      ['-e', 'tell application "System Events" to get name of first process'],
+      {
+        stdio: 'pipe',
+        timeout: 1500,
+        killSignal: 'SIGKILL',
+      },
     );
     return { name: 'macOS Accessibility', level: 'pass', detail: 'System Events access available' };
-  } catch {
+  } catch (err) {
+    if (err?.signal === 'SIGKILL' || err?.message?.includes('ETIMEDOUT')) {
+      return {
+        name: 'macOS Accessibility',
+        level: 'warn',
+        detail: 'Accessibility probe timed out. Grant Accessibility to Terminal and Cursor in System Settings.',
+      };
+    }
     return {
       name: 'macOS Accessibility',
       level: 'warn',
