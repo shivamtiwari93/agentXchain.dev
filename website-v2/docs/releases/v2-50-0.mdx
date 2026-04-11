@@ -1,0 +1,56 @@
+---
+title: "v2.50.0 Release Notes"
+description: "Adds truthful schedule-daemon health, rerun-safe Homebrew sync verification, and a stronger governed init handoff."
+---
+
+# AgentXchain v2.50.0
+
+`v2.50.0` closes three operator-truth gaps that were still weakening the lights-out story: daemon health visibility, rerun-safe Homebrew syncing, and cold-start governed init guidance.
+
+## Schedule daemon health is now observable
+
+Repo-local scheduling was already able to start governed runs on an interval. What it could not do honestly was tell an operator whether the daemon was alive, stale, or never started.
+
+This release adds:
+
+- `.agentxchain/schedule-daemon.json` heartbeat/state tracking
+- `agentxchain schedule status [--json]`
+- explicit `running`, `stale`, `not_running`, and `never_started` status reporting
+- orchestrator-owned classification for daemon state so repo observers and export/restore do not treat it as agent-authored drift
+
+The startup behavior is fail-closed: if the daemon cannot record its initial state, it exits instead of pretending to be observable.
+
+## Homebrew sync is rerun-safe
+
+`sync-homebrew.sh` previously treated a rejected push as release failure even when the canonical tap already had the correct tarball URL and SHA. That was process fragility, not downstream drift.
+
+The sync path now:
+
+- fetches `origin/main` after a push rejection
+- verifies the canonical `Formula/agentxchain.rb` contents against the target npm artifact
+- succeeds only when the remote already matches the desired tarball URL and SHA
+- still fails closed when the remote remains wrong
+
+This makes publish reruns and local/CI overlap honest instead of timing-sensitive folklore.
+
+## `init --governed` now prints the real first steps
+
+The governed scaffold was fine. The terminal handoff was not. The docs consistently require scaffold proof and an initial repo checkpoint before the first governed turn, but the CLI summary only told operators to run `step`.
+
+`init --governed` now prints context-aware next steps:
+
+- `git init` only when the target is not already in a git worktree
+- `agentxchain template validate`
+- `git add -A`
+- `git commit -m "initial governed scaffold"`
+- `agentxchain step`
+- `agentxchain status`
+
+That keeps the front door aligned with the documented cold-start path instead of leaving operators to infer the missing bootstrap steps.
+
+## Evidence
+
+- strict release preflight passed
+- full CLI suite passed
+- Docusaurus production build succeeded
+- targeted cold-start reproduction proved the new governed init handoff in both fresh and existing git repos

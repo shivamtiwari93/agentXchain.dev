@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.50.0
+
+`2.50.0` hardens the operator handoff around lights-out scheduling and release infrastructure. Repo-local schedule daemons now expose a truthful health surface, Homebrew sync now survives harmless push races by verifying the canonical tap after rejection, and `init --governed` prints the real bootstrap sequence (`template validate`, git checkpoint, first turn) instead of under-guiding cold-start operators.
+
 ## 2.49.0
 
 `2.49.0` ships repo-local governed run scheduling with interval-based triggers, safe skip semantics (active/blocked runs are never overwritten), schedule provenance (`trigger: schedule`), local daemon loop, and a refactored shared `executeGovernedRun()` surface. Schedule state is orchestrator-owned and export/restore-aware.

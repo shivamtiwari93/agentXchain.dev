@@ -1,4 +1,4 @@
-# Launch Evidence Report — AgentXchain v2.49.0
+# Launch Evidence Report — AgentXchain v2.50.0
 
 > Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.46.2 truth-and-release patch: timeout dashboards now preserve per-turn live pressure with turn identity across repo-local and coordinator views, the publish workflow now separates tagged-state verification from npm publication, and the full suite is green in clean CI conditions.
 
