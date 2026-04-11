@@ -1,0 +1,48 @@
+---
+title: "v2.51.0 Release Notes"
+description: "Adds preflight-before-tag release identity creation so broken release surfaces fail before a tag is minted."
+---
+
+# AgentXchain v2.51.0
+
+`v2.51.0` makes release identity creation honest by proving the local release state before minting the annotated tag.
+
+## Tags are now gated by inline preflight
+
+The old release path could create a local `vX.Y.Z` tag before the release surfaces were fully verified. That was recoverable only if the operator noticed the failure before anything was pushed.
+
+This release changes `release-bump.sh` so the default path now:
+
+- creates the release commit first
+- runs inline preflight before tag creation
+- checks the real release target through `npm test`
+- verifies packaging with `npm pack --dry-run`
+- verifies deployable docs with `cd website-v2 && npm run build`
+- refuses to mint the release tag if any of those checks fail
+
+If inline preflight fails, the operator sees a truthful boundary: the commit exists, but there is no release tag yet.
+
+## Recovery is explicit instead of accidental
+
+There is still a `--skip-preflight` escape hatch, but it is now clearly scoped to recovery scenarios where the operator has already done the relevant validation manually.
+
+The playbook now reduces the release identity flow to two honest options:
+
+- default `bump:release` with inline preflight
+- `bump:release --skip-preflight` only when repairing a known local release state
+
+That removes the old ambiguity where preflight could happen at the wrong point in the identity lifecycle.
+
+## Why the docs build belongs in the gate
+
+This release also freezes an important truth boundary: docs build failures are release blockers.
+
+If the release page, sidebar, or public docs surface cannot build, the release is incomplete even if the package itself can publish. Inline preflight now enforces that instead of treating the website as optional follow-through.
+
+## Evidence
+
+- 3517 tests / 756 suites / 0 failures
+- `node --test cli/test/release-identity-hardening.test.js` passed with the new inline preflight ordering proof
+- strict release preflight passed
+- Docusaurus production build succeeded
+
