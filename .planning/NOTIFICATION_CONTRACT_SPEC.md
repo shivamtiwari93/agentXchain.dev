@@ -164,6 +164,9 @@ This file is exported by `agentxchain export` and verified by `agentxchain verif
 7. `AT-NOTIFY-007`: `approveRunCompletion()` emits `run_completed`.
 8. `AT-NOTIFY-008`: notification delivery failures are audited but do not block the operator command.
 9. `AT-NOTIFY-009`: export artifacts include `.agentxchain/notification-audit.jsonl` and summary count truthfully.
+10. `AT-NOTIFY-010`: a real `agentxchain run --auto-approve` flow with a live webhook collector delivers `phase_transition_pending`, `run_completion_pending`, and `run_completed` payloads with truthful `run.run_id` and project metadata.
+11. `AT-NOTIFY-011`: a real `resume -> escalate -> resume` operator flow delivers `run_blocked`, `operator_escalation_raised`, and `escalation_resolved` payloads for the retained turn on the same run.
+12. `AT-NOTIFY-012`: a real `agentxchain run` still completes when the webhook URL is unreachable, and `.agentxchain/notification-audit.jsonl` records failed deliveries instead of blocking the run.
 
 ---
 
