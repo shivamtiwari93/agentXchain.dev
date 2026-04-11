@@ -223,6 +223,32 @@ describe('publish-from-tag.sh', () => {
     assert.equal(existsSync(userconfigPath), false);
   });
 
+  it('supports explicit caller-owned verification via --skip-preflight', () => {
+    const fixture = createFixture();
+    fixtures.push(fixture);
+
+    const result = runPublish(
+      fixture.cliDir,
+      fixture.fakeBinDir,
+      fixture.stateDir,
+      ['--skip-preflight', 'v1.0.0'],
+      {
+        NPM_TOKEN: 'token',
+        NPM_VIEW_RETRY_DELAY_SECONDS: '0',
+      },
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Skipping strict release preflight because the caller already owns tagged-state verification\./);
+    assert.equal(
+      existsSync(join(fixture.stateDir, 'preflight-args.txt')),
+      false,
+      'skip-preflight mode must not invoke release-preflight.sh',
+    );
+    assert.match(result.stdout, /npm publish ok/);
+    assert.match(result.stdout, /Verified agentxchain@1\.0\.0 on npm/);
+  });
+
   it('skips npm publish on manual reruns when the target version is already on npm', () => {
     const fixture = createFixture();
     fixtures.push(fixture);

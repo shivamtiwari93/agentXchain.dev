@@ -10,7 +10,10 @@ import { execSync } from 'node:child_process';
 function makeTmpGitRepo() {
   const dir = join(tmpdir(), `axc-par-obs-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
-  execSync('git init && git commit --allow-empty -m "init"', { cwd: dir, stdio: 'ignore' });
+  execSync('git init', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.name "agentxchain-test"', { cwd: dir, stdio: 'ignore' });
+  execSync('git config user.email "agentxchain-test@example.com"', { cwd: dir, stdio: 'ignore' });
+  execSync('git commit --allow-empty -m "init"', { cwd: dir, stdio: 'ignore' });
   return dir;
 }
 

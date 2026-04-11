@@ -156,14 +156,15 @@ git push origin main --follow-tags
 That push triggers `.github/workflows/publish-npm-on-tag.yml`. The workflow:
 
 1. checks out the tagged commit, not branch head drift
-2. re-runs strict preflight against the tag version
-3. blocks first-time publish before npm mutation if canonical tap completion is impossible in CI
+2. blocks first-time publish before npm mutation if canonical tap completion is impossible in CI
+3. re-runs strict preflight against the tag version in a dedicated `Re-verify tagged release before publish` step
 4. publishes via trusted publishing by default, falling back to token auth only when configured
-5. skips republish on reruns if npm already serves the exact version
-6. runs `release-postflight.sh` to verify the published artifact
-7. syncs Homebrew formula (repo mirror + canonical tap if `HOMEBREW_TAP_TOKEN` is configured)
-8. creates a GitHub Release via `gh release create` (idempotent — skips if already exists)
-9. runs `release-downstream-truth.sh` as the **completeness gate** — workflow fails if any downstream surface is stale
+5. keeps the publish script fail-closed for direct operator use, but passes `--skip-preflight` in CI because the tagged-state verification already ran in the prior workflow step
+6. skips republish on reruns if npm already serves the exact version
+7. runs `release-postflight.sh` to verify the published artifact
+8. syncs Homebrew formula (repo mirror + canonical tap if `HOMEBREW_TAP_TOKEN` is configured)
+9. creates a GitHub Release via `gh release create` (idempotent — skips if already exists)
+10. runs `release-downstream-truth.sh` as the **completeness gate** — workflow fails if any downstream surface is stale
 
 **A green workflow means the release is complete across all distribution surfaces.** If `HOMEBREW_TAP_TOKEN` is absent on a first publish attempt, the workflow fails before npm publication with an explicit error annotation. On reruns, the workflow can still go green without the token, but only if `release-downstream-truth.sh` proves the canonical Homebrew tap and GitHub Release are already correct (`DEC-CI-COMPLETENESS-004`, `DEC-CI-COMPLETENESS-005`).
 

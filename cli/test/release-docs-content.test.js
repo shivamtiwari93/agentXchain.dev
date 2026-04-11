@@ -112,6 +112,13 @@ describe('release planning surface classification', () => {
       'publish workflow must block first-time publish when canonical tap completion is impossible');
   });
 
+  it('publish workflow separates tagged-state verification from npm publication', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(workflow, /name:\s+Re-verify tagged release before publish/);
+    assert.match(workflow, /bash scripts\/release-preflight\.sh --strict --target-version "\$\{RELEASE_TAG#v\}"/);
+    assert.match(workflow, /bash scripts\/publish-from-tag\.sh --skip-preflight "\$\{RELEASE_TAG\}"/);
+  });
+
   it('cli package exposes the documented postflight script alias', () => {
     const pkg = JSON.parse(read('cli/package.json'));
     assert.equal(pkg.scripts['postflight:release'], 'bash scripts/release-postflight.sh');

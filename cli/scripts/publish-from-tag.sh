@@ -16,10 +16,35 @@ cleanup() {
 trap cleanup EXIT
 
 usage() {
-  echo "Usage: bash scripts/publish-from-tag.sh <vX.Y.Z>" >&2
+  echo "Usage: bash scripts/publish-from-tag.sh [--skip-preflight] <vX.Y.Z>" >&2
 }
 
-TAG="${1:-}"
+SKIP_PREFLIGHT=0
+TAG=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-preflight)
+      SKIP_PREFLIGHT=1
+      shift
+      ;;
+    -*)
+      echo "Error: unknown option '$1'" >&2
+      usage
+      exit 1
+      ;;
+    *)
+      if [[ -n "$TAG" ]]; then
+        echo "Error: release tag must be provided exactly once" >&2
+        usage
+        exit 1
+      fi
+      TAG="$1"
+      shift
+      ;;
+  esac
+done
+
 if [[ -z "$TAG" ]]; then
   echo "Error: release tag is required" >&2
   usage
@@ -55,8 +80,12 @@ if ! [[ "$RETRY_DELAY_SECONDS" =~ ^[0-9]+$ ]]; then
 fi
 
 echo "Publishing ${PACKAGE_NAME}@${RELEASE_VERSION} from ${TAG}"
-echo "Running strict release preflight..."
-bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
+if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then
+  echo "Skipping strict release preflight because the caller already owns tagged-state verification."
+else
+  echo "Running strict release preflight..."
+  bash scripts/release-preflight.sh --strict --target-version "${RELEASE_VERSION}"
+fi
 
 EXISTING_VERSION="$(npm view "${PACKAGE_NAME}@${RELEASE_VERSION}" version 2>/dev/null || true)"
 if [[ "$EXISTING_VERSION" == "$RELEASE_VERSION" ]]; then
