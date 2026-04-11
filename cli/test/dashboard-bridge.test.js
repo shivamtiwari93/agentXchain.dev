@@ -1125,3 +1125,308 @@ describe('WebSocket invalidation', () => {
     assert.match(message.error, /approve-gate/i);
   });
 });
+
+// ── Coordinator Timeout Bridge E2E ────────────────────────────────���────────
+// Isolated fixture + bridge to prove /api/coordinator/timeouts through the
+// HTTP layer without interference from other test suites' state mutations.
+
+describe('Coordinator Timeout Bridge E2E', () => {
+  let root, axcDir, multiDir, reposDir, bridge, port;
+
+  function writeTimeoutFixture() {
+    root = tmpDir();
+    axcDir = join(root, '.agentxchain');
+    multiDir = join(axcDir, 'multirepo');
+    const dashDir = join(root, 'dashboard');
+    reposDir = join(root, 'repos');
+    mkdirSync(multiDir, { recursive: true });
+    mkdirSync(dashDir, { recursive: true });
+
+    // Coordinator config
+    writeJson(join(root, 'agentxchain-multi.json'), {
+      schema_version: '0.1',
+      project: { id: 'timeout-proof', name: 'Timeout Proof' },
+      repos: {
+        api: { path: './repos/api', default_branch: 'main', required: true },
+        web: { path: './repos/web', default_branch: 'main', required: true },
+      },
+      workstreams: {
+        impl: {
+          phase: 'implementation',
+          repos: ['api', 'web'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+      routing: {
+        implementation: { entry_workstream: 'impl' },
+      },
+      gates: {},
+    });
+
+    // Child repos with timeout config
+    for (const repoId of ['api', 'web']) {
+      const repoRoot = join(reposDir, repoId);
+      mkdirSync(join(repoRoot, '.agentxchain'), { recursive: true });
+
+      const timeouts = repoId === 'api'
+        ? { per_turn_minutes: 30, per_phase_minutes: 60, per_run_minutes: 480, action: 'escalate' }
+        : { per_turn_minutes: 15, per_phase_minutes: 120, action: 'warn' };
+
+      writeJson(join(repoRoot, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: repoId, name: repoId, default_branch: 'main' },
+        roles: {
+          dev: {
+            title: 'Developer',
+            mandate: 'Implement safely.',
+            write_authority: 'authoritative',
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'local-dev': {
+            type: 'local_cli',
+            command: ['echo', '{prompt}'],
+            prompt_transport: 'argv',
+          },
+        },
+        routing: {
+          implementation: {
+            entry_role: 'dev',
+            allowed_next_roles: ['dev', 'human'],
+          },
+        },
+        gates: {},
+        timeouts,
+      });
+
+      const activeTurns = repoId === 'api'
+        ? {
+          turn_api_t1: {
+            turn_id: 'turn_api_t1',
+            assigned_role: 'dev',
+            status: 'dispatched',
+            runtime_id: 'local-dev',
+            attempt: 1,
+            assigned_sequence: 1,
+            started_at: new Date(Date.now() - 40 * 60000).toISOString(),
+          },
+        }
+        : {};
+
+      writeJson(join(repoRoot, '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: repoId,
+        run_id: `run_${repoId}_001`,
+        status: 'active',
+        phase: 'implementation',
+        active_turns: activeTurns,
+        turn_sequence: repoId === 'api' ? 1 : 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        phase_entered_at: new Date(Date.now() - 90 * 60000).toISOString(),
+        created_at: new Date(Date.now() - 200 * 60000).toISOString(),
+      });
+    }
+
+    // Coordinator state
+    writeJson(join(multiDir, 'state.json'), {
+      super_run_id: 'srun_timeout_001',
+      status: 'active',
+      phase: 'implementation',
+      pending_gate: null,
+      repo_runs: {
+        api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+        web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+      },
+    });
+
+    // Coordinator ledger with a timeout warning
+    writeFileSync(join(multiDir, 'decision-ledger.jsonl'),
+      JSON.stringify({ type: 'timeout_warning', scope: 'per_turn', phase: 'implementation', turn_id: 'turn_api_t1', elapsed_minutes: 25, limit_minutes: 30, action: 'escalate', timestamp: '2026-04-11T06:00:00Z' }) + '\n'
+    );
+
+    // API repo ledger with a timeout exceeded event
+    writeFileSync(join(reposDir, 'api', '.agentxchain', 'decision-ledger.jsonl'),
+      JSON.stringify({ type: 'timeout_exceeded', scope: 'per_turn', phase: 'implementation', turn_id: 'turn_api_t1', elapsed_minutes: 35, limit_minutes: 30, exceeded_by_minutes: 5, action: 'escalate', timestamp: '2026-04-11T06:10:00Z' }) + '\n'
+    );
+
+    // Dashboard shell
+    writeFileSync(join(dashDir, 'index.html'), '<html><body>Timeout Dashboard</body></html>');
+
+    return { root, axcDir, multiDir, dashDir, reposDir };
+  }
+
+  before(async () => {
+    writeTimeoutFixture();
+    bridge = createBridgeServer({
+      agentxchainDir: axcDir,
+      dashboardDir: join(root, 'dashboard'),
+      port: 0,
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  after(async () => {
+    await bridge.stop();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('returns full coordinator timeout status with child-repo pressure and coordinator events', async () => {
+    const res = await httpGet(port, '/api/coordinator/timeouts');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+
+    // Top-level shape
+    assert.equal(data.ok, true);
+    assert.equal(data.super_run_id, 'srun_timeout_001');
+    assert.equal(data.status, 'active');
+    assert.equal(data.phase, 'implementation');
+    assert.equal(data.blocked_reason, null);
+
+    // Summary
+    assert.equal(data.summary.repo_count, 2);
+    assert.equal(data.summary.configured_repo_count, 2);
+    assert.equal(typeof data.summary.repos_with_live_exceeded, 'number');
+    assert.equal(typeof data.summary.repos_with_live_warnings, 'number');
+    assert.equal(data.summary.coordinator_event_count, 1);
+
+    // Coordinator events from coordinator ledger
+    assert.ok(Array.isArray(data.coordinator_events));
+    assert.equal(data.coordinator_events.length, 1);
+    assert.equal(data.coordinator_events[0].type, 'timeout_warning');
+    assert.equal(data.coordinator_events[0].scope, 'per_turn');
+    assert.equal(data.coordinator_events[0].limit_minutes, 30);
+
+    // Repos array
+    assert.ok(Array.isArray(data.repos));
+    assert.equal(data.repos.length, 2);
+
+    const apiRepo = data.repos.find(r => r.repo_id === 'api');
+    const webRepo = data.repos.find(r => r.repo_id === 'web');
+    assert.ok(apiRepo, 'api repo must be present');
+    assert.ok(webRepo, 'web repo must be present');
+
+    // API repo: timeout configured, has ledger event, active with live data
+    assert.equal(apiRepo.configured, true);
+    assert.ok(apiRepo.config);
+    assert.equal(apiRepo.config.per_turn_minutes, 30);
+    assert.equal(apiRepo.config.per_phase_minutes, 60);
+    assert.equal(apiRepo.config.per_run_minutes, 480);
+    assert.equal(apiRepo.config.action, 'escalate');
+    assert.ok(apiRepo.live, 'active repo with timeouts must have live data');
+    assert.ok(Array.isArray(apiRepo.live.exceeded));
+    assert.ok(Array.isArray(apiRepo.live.warnings));
+    assert.equal(apiRepo.events.length, 1);
+    assert.equal(apiRepo.events[0].type, 'timeout_exceeded');
+    assert.equal(apiRepo.events[0].exceeded_by_minutes, 5);
+    assert.equal(apiRepo.error, null);
+
+    // Web repo: timeout configured, no events, active with live data
+    assert.equal(webRepo.configured, true);
+    assert.ok(webRepo.config);
+    assert.equal(webRepo.config.per_turn_minutes, 15);
+    assert.equal(webRepo.config.per_phase_minutes, 120);
+    assert.equal(webRepo.config.action, 'warn');
+    assert.ok(webRepo.live, 'active repo with timeouts must have live data');
+    assert.equal(webRepo.events.length, 0);
+    assert.equal(webRepo.error, null);
+  });
+
+  it('API repo live pressure reflects per-phase timeout exceeded', async () => {
+    const res = await httpGet(port, '/api/coordinator/timeouts');
+    const data = JSON.parse(res.body);
+    const apiRepo = data.repos.find(r => r.repo_id === 'api');
+
+    // API phase entered 90 minutes ago against 60-minute per_phase limit — should be exceeded
+    assert.ok(apiRepo.live.exceeded.length > 0, 'API repo per-phase should be exceeded (90min > 60min limit)');
+    const exceeded = apiRepo.live.exceeded.find(e => e.scope === 'phase');
+    assert.ok(exceeded, 'per-phase exceeded entry expected');
+    assert.ok(exceeded.elapsed_minutes >= 89, 'elapsed should be ~90 minutes');
+    assert.equal(exceeded.limit_minutes, 60);
+  });
+
+  it('handles missing child repo state gracefully', async () => {
+    // Remove web repo state
+    rmSync(join(reposDir, 'web', '.agentxchain', 'state.json'));
+
+    const res = await httpGet(port, '/api/coordinator/timeouts');
+    assert.equal(res.status, 200);
+    const data = JSON.parse(res.body);
+    assert.equal(data.ok, true);
+    assert.equal(data.repos.length, 2);
+
+    const webRepo = data.repos.find(r => r.repo_id === 'web');
+    assert.ok(webRepo);
+    assert.ok(webRepo.error, 'web repo should report an error when state is missing');
+    assert.equal(webRepo.error.code, 'repo_state_missing');
+    assert.equal(webRepo.configured, true);
+    assert.ok(webRepo.config, 'config should still be readable even without state');
+
+    // Restore for subsequent tests
+    writeJson(join(reposDir, 'web', '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: 'web',
+      run_id: 'run_web_001',
+      status: 'active',
+      phase: 'implementation',
+      active_turns: {},
+      turn_sequence: 0,
+      accepted_count: 0,
+      rejected_count: 0,
+      phase_entered_at: new Date(Date.now() - 10 * 60000).toISOString(),
+      created_at: new Date(Date.now() - 30 * 60000).toISOString(),
+    });
+  });
+
+  it('returns 404 when coordinator config is missing', async () => {
+    const emptyRoot = tmpDir();
+    const emptyAxcDir = join(emptyRoot, '.agentxchain');
+    const emptyDashDir = join(emptyRoot, 'dashboard');
+    mkdirSync(emptyAxcDir, { recursive: true });
+    mkdirSync(emptyDashDir, { recursive: true });
+    writeFileSync(join(emptyDashDir, 'index.html'), '<html></html>');
+
+    const emptyBridge = createBridgeServer({
+      agentxchainDir: emptyAxcDir,
+      dashboardDir: emptyDashDir,
+      port: 0,
+    });
+    const emptyResult = await emptyBridge.start();
+    const emptyPort = emptyResult.port;
+
+    try {
+      const res = await httpGet(emptyPort, '/api/coordinator/timeouts');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, false);
+      assert.equal(data.code, 'coordinator_config_missing');
+    } finally {
+      await emptyBridge.stop();
+      rmSync(emptyRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('reports repo event count in summary across multiple repos', async () => {
+    // Add a timeout event to web repo ledger too
+    writeFileSync(join(reposDir, 'web', '.agentxchain', 'decision-ledger.jsonl'),
+      JSON.stringify({ type: 'timeout_blocked', scope: 'per_phase', phase: 'implementation', elapsed_minutes: 65, limit_minutes: 60, action: 'block', timestamp: '2026-04-11T07:00:00Z' }) + '\n'
+    );
+
+    const res = await httpGet(port, '/api/coordinator/timeouts');
+    const data = JSON.parse(res.body);
+    assert.equal(data.summary.repo_event_count, 2); // 1 api + 1 web
+    assert.equal(data.summary.coordinator_event_count, 1);
+
+    const webRepo = data.repos.find(r => r.repo_id === 'web');
+    assert.equal(webRepo.events.length, 1);
+    assert.equal(webRepo.events[0].type, 'timeout_blocked');
+    assert.equal(webRepo.events[0].scope, 'per_phase');
+  });
+});
