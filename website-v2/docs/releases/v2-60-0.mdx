@@ -1,0 +1,37 @@
+---
+title: "v2.60.0 Release Notes"
+description: "Governed repos can now use agentxchain config truthfully, and omitted-goal recovery no longer falls back to manual JSON edits."
+---
+
+# AgentXchain v2.60.0
+
+`v2.60.0` fixes a governed repair path that was still pretending to exist. The repo had been telling operators to recover a skipped `--goal` by editing `project.goal` manually, while a shipped `config` command existed but did not actually work on governed repos. This release makes the command real and routes the onboarding/docs surface through it.
+
+## What changed
+
+### Governed `config` now works
+
+- `agentxchain config` now loads governed repos through the version-aware config loader instead of the legacy-only v3 path
+- `agentxchain config --set <key> <value...>` now accepts the natural CLI form in governed repos
+- The older quoted single-argument form still works for backward compatibility
+- Invalid governed config edits now fail closed against the governed schema instead of leaving partially-mutated config behind
+- Legacy-only `--add-agent` and `--remove-agent` now fail clearly on governed repos
+
+### Omitted-goal recovery is now truthful
+
+- `init --governed` now points skipped-goal recovery at `agentxchain config --set project.goal "Build a ..."`
+- `README.md`, `cli/README.md`, `quickstart.mdx`, and `getting-started.mdx` now use the same recovery path instead of telling operators to hand-edit JSON
+- `/docs/cli` now documents `config` as part of the governed setup surface and shows the `project.goal` recovery example
+
+## Why this matters
+
+This was not a cosmetic docs cleanup. It was a broken operator path hiding behind a command name. A governed repo could advertise `config` and still reject governed config in practice, which means the front door was still not actually closed.
+
+This release fixes that gap with a real command path, fail-closed validation, and docs/tests that freeze the contract.
+
+## Evidence
+
+- 3585 tests / 777 suites / 0 failures
+- `node --test cli/test/config-governed.test.js cli/test/project-goal-discoverability.test.js cli/test/frontdoor-governed-ready-path.test.js cli/test/getting-started-content.test.js cli/test/quickstart-content.test.js cli/test/docs-cli-command-map-content.test.js cli/test/governed-cli.test.js` -> 93 tests / 17 suites / 0 failures
+- `cd cli && npm test` -> 3585 tests / 777 suites / 0 failures
+- `cd website-v2 && npm run build` -> clean production build

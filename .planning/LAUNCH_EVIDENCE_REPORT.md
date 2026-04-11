@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.59.0
+# Launch Evidence Report — AgentXchain v2.60.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.59.0 front-door alignment release: demo handoff and public onboarding now route operators through `init --governed --goal`, `doctor`, and the first governed run without teaching a weaker bare-init or re-init path.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.60.0 governed config repair release: governed repos can now use `agentxchain config --set project.goal ...` truthfully, and the public recovery path no longer falls back to manual JSON editing.
 
 ---
 

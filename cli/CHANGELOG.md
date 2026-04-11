@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.60.0
+
+`2.60.0` fixes a governed operator repair path that was still broken after scaffold. Governed repos can now use `agentxchain config` instead of falling back to manual JSON editing, and the natural `agentxchain config --set <key> <value...>` form finally works for v4 config. The omitted-goal recovery path now points at a real command instead of a hand-edited file.
+
+- `agentxchain config` now supports governed repos through version-aware config loading instead of rejecting v4 projects as legacy-only
+- `agentxchain config --set <key> <value...>` now accepts the natural CLI form, while the older quoted single-argument form remains backward compatible
+- Invalid governed config edits now fail closed against the governed schema instead of mutating `agentxchain.json` optimistically
+- `init --governed`, `README.md`, `cli/README.md`, `quickstart.mdx`, `getting-started.mdx`, and `/docs/cli` now route omitted-goal recovery through `agentxchain config --set project.goal ...`
+- Added `.planning/GOVERNED_CONFIG_COMMAND_SPEC.md` and `cli/test/config-governed.test.js` to freeze the governed config-mutation contract
+- 3585 tests / 777 suites / 0 failures
+- Targeted proof covers governed config subprocess mutations, front-door/docs guards, governed CLI support, and a clean Docusaurus production build
+
 ## 2.59.0
 
 `2.59.0` fixes the governed-ready front door. The demo handoff now routes operators through `init --governed --goal`, `doctor`, and `run`, and the rest of the public onboarding path stops teaching a weaker bare-init flow. README, npm README, homepage, quickstart, and getting-started now align on the same truth: set mission context at scaffold time, verify readiness before the first turn, and do not re-run `init --governed` in place just to add a goal later.
