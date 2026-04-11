@@ -41,6 +41,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - The Examples dropdown should be a first-class navigation item in the docs sidebar.
   - **2026-04-10 completed:** Added `.planning/EXAMPLES_DOCS_SURFACE_SPEC.md`, turned `Examples` into a first-class docs sidebar category, created the hub page plus 14 detail pages under `website-v2/docs/examples/`, updated `llms.txt` and `sitemap.xml` for the new public routes, and extended `cli/test/docs-examples-content.test.js` to guard the examples docs surface.
 
+- [x] Add the LinkedIn company page link to the agentxchain.dev website alongside the existing X and Reddit links
+  - LinkedIn page: https://www.linkedin.com/company/agentxchain-dev/
+  - Add it everywhere X and Reddit already appear: navbar Community dropdown, footer Community column, homepage community cards.
+  - Use the LinkedIn icon (similar to how X and Reddit have their icons).
+  - Link should open in a new tab.
+  - Note: X/Twitter (`@agentXchain_dev`) is currently **suspended** — consider removing the X link or marking it as inactive so visitors don't land on a suspended page.
+  - **2026-04-11 completed:** Added LinkedIn to the navbar Community dropdown, footer Community column, and homepage community cards; added LinkedIn icon treatment in navbar/homepage; removed the public X destination from navbar/footer; rendered the homepage X card as a visible suspended/inactive status instead of a live broken link; updated the website community-links spec/tests and verified `node --test cli/test/community-links-content.test.js` plus `cd website-v2 && npm run build`.
+
 - [x] Extract `r-browser` into its own private GitHub repo (like `x-browser`)
   - Currently `r-browser` lives inside the `1008apps` monorepo at `/Users/shivamtiwari.highlevel/VS Code/1008apps/r-browser/`.
   - `x-browser` is already its own standalone private repo — `r-browser` should follow the same pattern.

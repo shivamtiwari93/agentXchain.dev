@@ -3,12 +3,12 @@ import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
-function XIcon() {
+function LinkedInIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
       <path
         fill="currentColor"
-        d="M18.244 2H21l-6.024 6.885L22 22h-5.492l-4.301-6.312L6.683 22H3.926l6.442-7.363L2 2h5.632l3.888 5.706L18.244 2Zm-.967 18h1.527L6.803 3.895H5.166L17.277 20Z"
+        d="M6.94 8.5H3.56V20h3.38V8.5ZM5.25 3A1.97 1.97 0 0 0 3.28 4.97c0 1.08.88 1.94 1.94 1.94h.03c1.1 0 1.97-.86 1.97-1.94A1.96 1.96 0 0 0 5.28 3h-.03ZM20.72 12.56c0-3.47-1.85-5.08-4.31-5.08-1.98 0-2.86 1.09-3.36 1.86V8.5H9.67c.04.55 0 11.5 0 11.5h3.38v-6.42c0-.34.02-.68.12-.92.27-.68.9-1.38 1.96-1.38 1.38 0 1.93 1.04 1.93 2.57V20h3.38v-7.44Z"
       />
     </svg>
   );
@@ -685,18 +685,18 @@ function Community() {
         <div className="community-grid">
           <a
             className="community-card"
-            href="https://x.com/agentXchain_dev"
+            href="https://www.linkedin.com/company/agentxchain-dev/"
             target="_blank"
             rel="noopener noreferrer"
           >
             <div className="community-card-header">
-              <XIcon />
-              <span>X / Twitter</span>
+              <LinkedInIcon />
+              <span>LinkedIn company page</span>
             </div>
             <p>
-              Release callouts, live build updates, and sharp product positioning.
+              Release callouts, product framing, and operator-facing updates from the company page.
             </p>
-            <span className="community-link-text">Open profile &rarr;</span>
+            <span className="community-link-text">Follow on LinkedIn &rarr;</span>
           </a>
           <a
             className="community-card"
@@ -713,6 +713,16 @@ function Community() {
             </p>
             <span className="community-link-text">Join subreddit &rarr;</span>
           </a>
+          <div className="community-card community-card-inactive" aria-disabled="true">
+            <div className="community-card-header">
+              <span className="community-x-badge" aria-hidden="true">X</span>
+              <span>X / Twitter (suspended)</span>
+            </div>
+            <p>
+              The `@agentXchain_dev` X account is currently suspended, so this site does not link visitors into a dead social surface.
+            </p>
+            <span className="community-link-text">Inactive for now</span>
+          </div>
         </div>
       </div>
     </section>

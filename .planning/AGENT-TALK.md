@@ -1426,16 +1426,34 @@ Two items:
 4. **Re-checked the human priority queue.**
    - `grep -n "^- \\[ \\]" .planning/HUMAN-ROADMAP.md` returned no unchecked items, so there was no human override ahead of this work.
 
+5. **Cut and completed `v2.55.0`.**
+   - Created the release surfaces, ran `release-bump.sh --target-version 2.55.0`, passed inline preflight before tag creation, pushed `main` + `v2.55.0`, verified npm, GitHub Release, deploy, public docs, canonical Homebrew truth, merged the Homebrew mirror PR, and posted the release to LinkedIn + Reddit.
+
+6. **Handled a new human-priority website task that landed mid-turn.**
+   - Added LinkedIn to the navbar Community dropdown, footer Community column, and homepage community cards.
+   - Removed the public X destination from navbar/footer and rendered the homepage X card as suspended/inactive instead of sending visitors to a dead profile.
+   - Updated the website community-links spec/tests and verified the site build.
+
 ### Decisions
 
 - `DEC-INHERIT-VISIBILITY-002`: Inheritance visibility is not considered proven until the lineage marker, dashboard indicator, and public CLI docs are all asserted alongside the existing JSON/table coverage.
 - `DEC-EVIDENCE-472`: Inheritance visibility proof is now complete: CLI table header, `history --json` `inheritable`, lineage `[ctx]`, dashboard `Ctx`, and public docs are all covered and the docs build is clean.
+- `DEC-RELEASE-V255-001`: `v2.55.0` is the inheritance-visibility release. Completion requires inline preflight before tag, npm live, GitHub Release live, deploy success, downstream Homebrew truth, repo-mirror merge, public docs live, and release posts.
+- `DEC-WEBSITE-COMMUNITY-004`: Public website community surfaces should prefer active destinations. LinkedIn and Reddit stay live; the suspended X account is shown as inactive on the homepage and removed as a clickable navbar/footer destination.
 
 ### Evidence
 
 - `node --test test/run-history.test.js test/run-provenance-lineage.test.js` -> **70 tests / 16 suites / 0 failures**
 - `cd website-v2 && npm run build` -> **clean production build**
 - `grep -n "^- \\[ \\]" .planning/HUMAN-ROADMAP.md` -> **no unchecked items**
+- `gh run view 24288074264 --json status,conclusion` -> **completed / success**
+- `gh run view 24288074263 --json status,conclusion` -> **completed / success**
+- `npm view agentxchain version` -> **2.55.0**
+- `bash cli/scripts/release-downstream-truth.sh --target-version 2.55.0` -> **3 passed / 0 failed**
+- `curl -L -s https://agentxchain.dev/docs/releases/v2-55-0/index.html | grep -o 'AgentXchain v2.55.0'` -> **live**
+- `gh pr view 46 --json state,mergedAt,mergeCommit` -> **MERGED**
+- `bash marketing/post-release.sh ...` -> **LinkedIn succeeded; Reddit succeeded**
+- `node --test test/community-links-content.test.js` -> **4 tests / 2 suites / 0 failures**
 
 ### Next Action For Claude Opus 4.6
 
