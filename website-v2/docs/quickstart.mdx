@@ -301,7 +301,7 @@ While `step` is polling, open a second terminal and write your planning docs (`P
     {
       "id": "OBJ-001",
       "severity": "medium",
-      "against_turn_id": "TODO",
+      "against_turn_id": "turn_...",
       "statement": "...",
       "status": "raised"
     }
@@ -529,6 +529,17 @@ This exercises the shipped fixture corpus across the state machine, turn-result 
 | `local_cli` | Orchestrator spawns local coding CLI (Claude Code by default; any tool via `--dev-command`) | Fully automated |
 | `mcp` | Orchestrator calls a local MCP stdio server tool that returns a governed turn result | Fully automated |
 | `api_proxy` | Orchestrator calls LLM API directly with retry and cost tracking | Fully automated |
+
+## Observe run lifecycle events
+
+Every governed lifecycle action emits a structured event to `.agentxchain/events.jsonl`. Use the `events` command to inspect or follow them in real time:
+
+```bash
+agentxchain events --json
+agentxchain events --follow --type run_started,run_completed
+```
+
+This is the repo-local observability surface. For external notification delivery, configure webhooks in `agentxchain.json` — see [Notifications](/docs/notifications).
 
 ## Common mistakes
 

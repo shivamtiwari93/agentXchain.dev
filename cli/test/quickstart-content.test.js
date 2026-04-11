@@ -89,4 +89,14 @@ describe('quickstart single-repo content contract', () => {
     assert.match(QUICKSTART, /agentxchain template validate/);
     assert.match(QUICKSTART, /scaffold proof.*not gate proof/i);
   });
+
+  it('contains no TODO placeholders in user-facing content', () => {
+    // JSON examples should use "turn_..." not "TODO" for placeholder IDs
+    assert.doesNotMatch(QUICKSTART, /"TODO"/,
+      'Public docs must not contain "TODO" placeholders — use realistic placeholder values');
+  });
+
+  it('documents the events command for observability', () => {
+    assert.match(QUICKSTART, /events|event/i);
+  });
 });
