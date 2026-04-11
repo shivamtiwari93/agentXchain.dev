@@ -92,7 +92,7 @@ Limits total accepted turns across all phases in a run.
 Prevents a single role from monopolizing consecutive turns.
 
 - **params**: `{ "limit": number }` (required, >= 1)
-- **Evaluation**: Count consecutive tail entries in history with the same role as the current turn. If consecutive >= limit, trigger.
+- **Evaluation**: Count consecutive tail entries in history with the same role as the current turn, then add the current turn. If the resulting streak would exceed `limit`, trigger.
 - **Default message**: `Policy "${id}": role "${role}" has ${consecutive} consecutive turns (limit: ${limit})`
 
 ### `max_cost_per_turn`
@@ -107,7 +107,7 @@ Guards per-turn cost based on the turn result's cost metadata.
 
 Requires turns to have specific status values.
 
-- **params**: `{ "allowed": string[] }` (required, non-empty subset of valid statuses)
+- **params**: `{ "allowed": string[] }` (required, non-empty subset of valid turn statuses: `completed`, `blocked`, `needs_human`, `failed`)
 - **Evaluation**: If `turnResult.status` is not in `allowed`, trigger.
 - **Default message**: `Policy "${id}": status "${status}" is not in allowed set [${allowed}]`
 
@@ -144,6 +144,7 @@ before_validation hooks → validation → after_validation hooks
 - Unknown `rule` in policy → config validation error at load time (not runtime)
 - Missing required `params` field → config validation error at load time
 - `params.limit` is 0 or negative → config validation error
+- `require_status.params.allowed` contains an unknown turn status → config validation error
 - `scope.phases` references unknown phase → config validation warning (policy silently skips)
 - Duplicate `id` → config validation error
 
@@ -152,7 +153,7 @@ before_validation hooks → validation → after_validation hooks
 - AT-POL-001: `max_turns_per_phase` blocks when phase turn count >= limit
 - AT-POL-002: `max_turns_per_phase` passes when count < limit
 - AT-POL-003: `max_total_turns` blocks when total >= limit
-- AT-POL-004: `max_consecutive_same_role` blocks when consecutive >= limit
+- AT-POL-004: `max_consecutive_same_role` blocks when the resulting streak would exceed the limit
 - AT-POL-005: `max_consecutive_same_role` passes when a different role intervened
 - AT-POL-006: `max_cost_per_turn` warns when cost exceeds limit
 - AT-POL-007: `max_cost_per_turn` passes when cost is under limit or absent

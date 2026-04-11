@@ -82,6 +82,12 @@ const RULE_EVALUATORS = {
 
 export const VALID_POLICY_RULES = Object.keys(RULE_EVALUATORS);
 export const VALID_POLICY_ACTIONS = ['block', 'warn', 'escalate'];
+export const VALID_POLICY_TURN_STATUSES = [
+  'completed',
+  'blocked',
+  'needs_human',
+  'failed',
+];
 const VALID_ID_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
 /**
@@ -169,6 +175,14 @@ function validatePolicyParams(rule, params, prefix) {
         params.allowed.length === 0
       ) {
         errors.push(`${prefix}: params.allowed must be a non-empty array`);
+      } else {
+        for (const status of params.allowed) {
+          if (!VALID_POLICY_TURN_STATUSES.includes(status)) {
+            errors.push(
+              `${prefix}: params.allowed contains invalid status "${status}"; valid statuses: ${VALID_POLICY_TURN_STATUSES.join(', ')}`,
+            );
+          }
+        }
       }
       break;
   }

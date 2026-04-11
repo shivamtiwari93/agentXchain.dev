@@ -7,6 +7,7 @@ import {
   normalizePolicies,
   VALID_POLICY_RULES,
   VALID_POLICY_ACTIONS,
+  VALID_POLICY_TURN_STATUSES,
 } from '../src/lib/policy-evaluator.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,6 +47,15 @@ describe('policy-evaluator module', () => {
 
   it('exports VALID_POLICY_ACTIONS', () => {
     assert.deepStrictEqual(VALID_POLICY_ACTIONS, ['block', 'warn', 'escalate']);
+  });
+
+  it('exports VALID_POLICY_TURN_STATUSES', () => {
+    assert.deepStrictEqual(VALID_POLICY_TURN_STATUSES, [
+      'completed',
+      'blocked',
+      'needs_human',
+      'failed',
+    ]);
   });
 });
 
@@ -139,6 +149,17 @@ describe('validatePolicies', () => {
       action: 'block',
     }]);
     assert.strictEqual(result.ok, false);
+  });
+
+  it('rejects invalid require_status values', () => {
+    const result = validatePolicies([{
+      id: 'status-filter',
+      rule: 'require_status',
+      params: { allowed: ['completed', 'invented_status'] },
+      action: 'block',
+    }]);
+    assert.strictEqual(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('invalid status "invented_status"')));
   });
 
   it('accepts a valid policy set', () => {

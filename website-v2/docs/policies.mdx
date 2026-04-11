@@ -1,0 +1,178 @@
+---
+sidebar_position: 4
+title: Policies
+description: "Declarative governance rules that evaluate on every turn acceptance."
+---
+
+# Policies
+
+Policies are the declarative governance layer for turn acceptance. They let operators enforce built-in constraints in `agentxchain.json` without writing external hooks.
+
+They are not the same thing as gates or hooks:
+
+| Mechanism | What it controls | When it runs | How it is defined |
+|---|---|---|---|
+| Policies | Built-in acceptance rules such as turn caps, streak limits, and status filters | On every turn acceptance | Top-level `policies` array in `agentxchain.json` |
+| Hooks | External commands or HTTP endpoints | Hook phases such as `before_validation` and `after_acceptance` | Top-level `hooks` config or plugins |
+| Gates | Artifact and approval checks for phase or completion transitions | At phase exit or run completion | Top-level `gates` config |
+
+Use policies when you want repo-native, declarative governance. Use hooks when you need external systems or custom logic. Use gates when the rule is about required artifacts, verification proof, or human approval at a workflow boundary.
+
+## Config shape
+
+Policies live at the top level of `agentxchain.json`:
+
+```json title="agentxchain.json"
+{
+  "policies": [
+    {
+      "id": "phase-turn-cap",
+      "rule": "max_turns_per_phase",
+      "params": { "limit": 15 },
+      "action": "escalate"
+    },
+    {
+      "id": "total-turn-cap",
+      "rule": "max_total_turns",
+      "params": { "limit": 60 },
+      "action": "escalate"
+    },
+    {
+      "id": "no-role-monopoly",
+      "rule": "max_consecutive_same_role",
+      "params": { "limit": 4 },
+      "action": "block"
+    }
+  ]
+}
+```
+
+That example matches the default policy set scaffolded by the `enterprise-app` template. Other built-in templates normalize `policies` to an empty array.
+
+### Policy fields
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | Yes | Unique policy identifier |
+| `rule` | Yes | Built-in rule name |
+| `params` | Depends on rule | Rule-specific parameters |
+| `action` | Yes | `block`, `warn`, or `escalate` |
+| `message` | No | Custom violation message |
+| `scope` | No | Optional phase and role scoping |
+
+### Optional scope
+
+```json
+{
+  "id": "qa-status-only",
+  "rule": "require_status",
+  "params": { "allowed": ["completed", "blocked"] },
+  "action": "block",
+  "scope": {
+    "phases": ["qa"],
+    "roles": ["qa"]
+  }
+}
+```
+
+If `scope` is omitted, the policy applies to every phase and every role.
+
+## Built-in rules
+
+### `max_turns_per_phase`
+
+Caps accepted turns inside the current phase.
+
+- Param: `params.limit` integer `>= 1`
+- Trigger: when the current phase already has `limit` accepted turns in history, so accepting one more would exceed the cap
+- Example use: force an escalation when implementation churn is dragging on
+
+### `max_total_turns`
+
+Caps accepted turns across the entire run.
+
+- Param: `params.limit` integer `>= 1`
+- Trigger: when the run already has `limit` accepted turns in history, so accepting one more would exceed the cap
+- Example use: stop a runaway run before it burns time or budget
+
+### `max_consecutive_same_role`
+
+Prevents one role from monopolizing consecutive turns.
+
+- Param: `params.limit` integer `>= 1`
+- Trigger: when the trailing same-role streak plus the current turn would exceed the limit
+- Example use: stop `dev` from taking five straight accepted turns without real challenge from QA, PM, or architecture
+
+### `max_cost_per_turn`
+
+Evaluates the staged turn result's cost metadata.
+
+- Param: `params.limit_usd` number `> 0`
+- Trigger: when `turnResult.cost.total_usd` is present and greater than the configured limit
+- Example use: warn on expensive review turns without blocking delivery
+
+### `require_status`
+
+Restricts accepted turn statuses to an allowlist.
+
+- Param: `params.allowed` non-empty array of valid turn statuses
+- Valid statuses: `completed`, `blocked`, `needs_human`, `failed`
+- Trigger: when the staged `turnResult.status` is not in the allowlist
+- Example use: forbid `failed` and `needs_human` outcomes for a scoped role in a late QA phase
+
+## Actions
+
+| Action | Runtime effect |
+|---|---|
+| `block` | Reject the acceptance attempt with `error_code: "policy_violation"`. The turn stays staged. |
+| `warn` | Accept the turn and return `policy_warnings` in the acceptance result. |
+| `escalate` | Pause the run with `blocked_on: "policy:<id>"`. The turn stays staged. |
+
+Policies evaluate in declaration order, but they do not short-circuit. AgentXchain collects every violation first, then applies precedence:
+
+1. Any `block` violation rejects the turn.
+2. If there are no blocks but at least one `escalate`, the run becomes blocked.
+3. `warn` violations are advisory and return with the accepted turn.
+
+## Acceptance-flow placement
+
+Policies do not run at dispatch time. They run during acceptance, after the staged result has already passed validation and after `after_validation` hooks, but before conflict detection and state commit.
+
+```text
+before_validation hooks -> validation -> after_validation hooks
+  -> policy evaluation
+  -> conflict detection -> before_acceptance hooks -> state commit
+```
+
+That placement matters:
+
+- policies can evaluate trusted fields such as validated status and cost metadata
+- policies can still prevent the turn from being committed
+- hooks remain the right tool for external side effects or custom logic
+
+## Operator guidance
+
+Use policies for governance rules that should stay declarative and audit-friendly:
+
+- turn-count caps
+- streak limits
+- cost ceilings
+- status filters
+
+Do not abuse hooks for rules the policy engine already knows how to express. External hooks are slower, harder to reason about, and easier to drift. If the rule is "block after too many implementation turns" or "warn when a turn costs too much," that belongs in `policies`, not a shell script.
+
+Use gates instead when the condition is about:
+
+- required planning or release artifacts
+- verification proof at a phase boundary
+- human approval before phase transition or run completion
+
+## Recovery shape
+
+`block` and `escalate` both leave the turn staged. Fix the policy condition first:
+
+- change the config if the limit itself is wrong
+- resume with a different role or phase path if the current streak or cap is the real problem
+- if the staged result is still the right one, retry the acceptance path
+
+For repo-local retained turns, the normal continuation surface remains `agentxchain step --resume` when you need to keep the retained turn moving. If you already have the staged result you want to accept, rerun `agentxchain accept-turn` after correcting the policy condition.
