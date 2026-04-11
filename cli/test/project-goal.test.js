@@ -141,6 +141,18 @@ describe('project.goal — status', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('AT-PG-006c: status text prints Goal line when set', () => {
+    const root = join(tmpDir(), 'p8b');
+    try {
+      run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
+      const r = run(['status'], { cwd: root });
+      assert.equal(r.status, 0, r.stderr || r.stdout);
+      assert.match(r.stdout, /Goal:\s+Build a token rotator/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('project.goal — export', () => {
@@ -153,6 +165,46 @@ describe('project.goal — export', () => {
       const artifact = JSON.parse(r.stdout);
       assert.equal(artifact.project.goal, 'Build a token rotator');
       assert.equal(artifact.summary.project_goal, 'Build a token rotator');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('project.goal — report', () => {
+  it('AT-PG-007: report --format json includes subject.project.goal', () => {
+    const root = join(tmpDir(), 'p9b');
+    const exportPath = join(root, 'export.json');
+    try {
+      run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
+      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+
+      const exportResult = run(['export', '--format', 'json', '--output', exportPath], { cwd: root });
+      assert.equal(exportResult.status, 0, exportResult.stderr || exportResult.stdout);
+
+      const reportResult = run(['report', '--input', exportPath, '--format', 'json'], { cwd: root });
+      assert.equal(reportResult.status, 0, reportResult.stderr || reportResult.stdout);
+
+      const report = JSON.parse(reportResult.stdout);
+      assert.equal(report.subject.project.goal, 'Build a token rotator');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PG-007b: report text prints Goal line when set', () => {
+    const root = join(tmpDir(), 'p9c');
+    const exportPath = join(root, 'export.json');
+    try {
+      run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
+      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+
+      const exportResult = run(['export', '--format', 'json', '--output', exportPath], { cwd: root });
+      assert.equal(exportResult.status, 0, exportResult.stderr || exportResult.stdout);
+
+      const reportResult = run(['report', '--input', exportPath, '--format', 'text'], { cwd: root });
+      assert.equal(reportResult.status, 0, reportResult.stderr || reportResult.stdout);
+      assert.match(reportResult.stdout, /Goal: Build a token rotator/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

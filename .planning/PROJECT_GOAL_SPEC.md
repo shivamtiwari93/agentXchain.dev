@@ -56,7 +56,7 @@ When absent, the section is omitted (no "No goal set" placeholder).
 ### Report (`agentxchain report`)
 
 - Text/markdown: `Goal: <goal text>` in the report header
-- JSON: `project_goal: "<goal text>"` field
+- JSON: nested `subject.project.goal: "<goal text>"` field for governed-run reports
 
 ### Export (`agentxchain export`)
 
@@ -73,7 +73,7 @@ When absent, the section is omitted (no "No goal set" placeholder).
 3. Normalized config preserves `project.goal` when present.
 4. `writeDispatchBundle` renders `## Project Goal` in CONTEXT.md when `config.project.goal` is truthy.
 5. `statusCommand` includes `project_goal` in JSON and text output.
-6. `buildGovernanceReport` includes `project_goal` in report data.
+6. `buildGovernanceReport` includes the goal in governed-run report data at `subject.project.goal`.
 7. `buildRunExport` includes `project_goal` in summary.
 
 ## Error Cases
@@ -91,7 +91,7 @@ When absent, the section is omitted (no "No goal set" placeholder).
 - **AT-PG-004**: Dispatch bundle CONTEXT.md includes `## Project Goal` when goal is set
 - **AT-PG-005**: Dispatch bundle CONTEXT.md omits `## Project Goal` when goal is absent
 - **AT-PG-006**: `status --json` includes `project_goal` field
-- **AT-PG-007**: `report --format json` includes `project_goal` field
+- **AT-PG-007**: `report --format json` includes `subject.project.goal` for governed-run reports
 - **AT-PG-008**: `export` summary includes `project_goal` field
 
 ## Non-Scope

@@ -79,7 +79,7 @@ agentxchain init --governed [--dir <path>] [--template <id>] [--dev-command <par
 | `--template <id>` | `generic` | Governed scaffold template: `generic`, `api-service`, `cli-tool`, `library`, `web-app`, `enterprise-app` |
 | `--dev-command <parts...>` | `claude --print --dangerously-skip-permissions` | Override the scaffolded `local-dev.command` array for the authoritative dev runtime |
 | `--dev-prompt-transport <mode>` | `stdin` | Prompt delivery for the scaffolded `local-dev` runtime: `argv`, `stdin`, or `dispatch_bundle_only` |
-| `--goal <text>` | none | Project goal — persisted in `project.goal` and rendered in every dispatch bundle CONTEXT.md |
+| `--goal <text>` | none | Project goal — persisted in `project.goal`, rendered in every dispatch bundle CONTEXT.md, and surfaced in `status`, `report`, and `export` |
 | `-y, --yes` | `false` | Accept all defaults without prompting |
 | `--schema-version <version>` | governed default | Force a specific schema path when needed |
 
@@ -160,7 +160,7 @@ agentxchain status [options]
 |------|---------|-------------|
 | `-j, --json` | `false` | Output structured JSON instead of human-readable text |
 
-Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`.
+Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. When `project.goal` is set, human-readable status prints `Goal: <text>` under the project name and `status --json` exposes a top-level additive `project_goal` field.
 
 When cross-session continuity artifacts exist, governed status also exposes a `Continuity` section:
 
@@ -216,7 +216,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown]
 | `--input <path>` | `-` | Read the export artifact from a file, or pass `-` to read from stdin |
 | `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
 
-`report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, and per-repo export health.
+`report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. When a governed project has `project.goal`, text/markdown report output renders `Goal: <text>` in the header and `--format json` exposes the same value at `subject.project.goal`. Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, and per-repo export health.
 
 Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact.
 

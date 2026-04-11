@@ -63,7 +63,7 @@ Run-export reports carry:
 
 | Key | Meaning |
 | --- | --- |
-| `subject.project` | Project identity, template, protocol mode, and governed config schema version |
+| `subject.project` | Project identity, optional `goal`, template, protocol mode, and governed config schema version |
 | `subject.run.run_id` | Current run id or `null` |
 | `subject.run.status` | Current run status |
 | `subject.run.phase` | Current run phase |
@@ -98,6 +98,8 @@ Run-export reports carry:
 - `staging_artifact_files`
 - `intake_present`
 - `coordinator_present`
+
+When the governed project config includes `project.goal`, the derived report preserves it at `subject.project.goal`. Human-readable `text` and `markdown` output also render `Goal: <text>` in the report header.
 
 ## `subject.kind = coordinator_workspace`
 
