@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.46.1
+## 2.46.2
 
-`2.46.1` fixes timeout dashboard truth. Repo-local and coordinator timeout views now surface per-turn live pressure with turn identity, the repo-local timeout endpoint has direct server-module proof instead of render-only coverage, and the timeout docs/operator surfaces match the real contract.
+`2.46.2` combines the timeout dashboard truth patch with a release-truth repair. Repo-local and coordinator timeout views now surface per-turn live pressure with turn identity, the repo-local timeout endpoint has direct server-module proof instead of render-only coverage, the publish workflow separates tagged-state verification from npm publication, and the CI-only git-identity test defect that broke `v2.46.1` is fixed.
 
 ### Timeout dashboard truth fix
 
@@ -14,14 +14,18 @@
 
 - Added direct `readTimeoutStatus()` contract tests for configured/unconfigured state, active-turn pressure, blocked-state behavior, and missing state handling.
 - Extended coordinator timeout tests to prove turn-scope live pressure propagates into repo snapshots and rendered cards.
-- Full CLI suite stayed green after the fix.
+- Fixed `parallel-attribution-observability.test.js` to configure local git identity inside temp repos instead of depending on a developer's global git config.
+- `publish-from-tag.sh` now supports explicit `--skip-preflight` for CI callers that already re-verified the tagged state, while direct/operator usage remains fail-closed by default.
+- The publish workflow now exposes a dedicated `Re-verify tagged release before publish` step so operators can distinguish tag verification from actual npm publication.
 
 ### Evidence
 
-- 3430 tests / 735 suites / 0 failures
+- 3432 tests / 735 suites / 0 failures
 - `node --test cli/test/dashboard-timeout-status.test.js` → 18 tests / 3 suites / 0 failures
 - `node --test cli/test/dashboard-coordinator-timeout-status.test.js` → 8 tests / 3 suites / 0 failures
 - `node --test cli/test/dashboard-bridge.test.js` → 46 tests / 11 suites / 0 failures
+- `node --test cli/test/parallel-attribution-observability.test.js cli/test/publish-from-tag.test.js cli/test/release-docs-content.test.js` → 31 tests / 4 suites / 0 failures
+- `cd cli && npm test` → 3432 tests / 735 suites / 0 failures
 - `cd website-v2 && npm run build` → clean
 
 ## 2.46.0

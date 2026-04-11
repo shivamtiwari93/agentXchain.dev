@@ -1,0 +1,62 @@
+---
+title: "v2.46.2 Release Notes"
+description: "Fixes timeout dashboard truth and closes the CI-only release blocker that broke the previous tag attempt."
+---
+
+# AgentXchain v2.46.2
+
+`v2.46.2` is a **truth-and-release patch**. It carries the timeout dashboard fix that should have gone out in `v2.46.1`, and it fixes the CI-only test defect plus publish-workflow opacity that made the failed tag attempt harder to diagnose than it should have been.
+
+## Per-turn timeout pressure now renders truthfully
+
+Both dashboard timeout surfaces now evaluate active turns individually:
+
+- **Repo-local `Timeouts`** evaluates phase/run once, then evaluates each active turn for turn-scope pressure
+- **`Coordinator Timeouts`** does the same for each child repo
+- Live turn-scope rows now include **`turn_id`** and **role identity**, so operators can see which turn is actually over budget
+
+The evaluator contract stayed explicit. We did **not** make `evaluateTimeouts()` infer active turns implicitly. The dashboard now owns the aggregation layer instead of hiding behavior inside the evaluator.
+
+## Repo timeout endpoint proof is now real
+
+The repo-local timeout endpoint had render tests and wiring assertions, but no direct server-module proof. That is why a broken context-loader path survived. `v2.46.2` closes that gap.
+
+### Added proof
+
+- direct `readTimeoutStatus()` tests for:
+  - configured vs not-configured state
+  - active run with per-turn live pressure
+  - blocked run returning empty live arrays while preserving timeout history
+  - missing governed state
+- coordinator timeout tests now prove turn-scope live pressure appears in repo snapshots and rendered cards
+- the existing dashboard bridge and full CLI suites remain green
+
+## Release pipeline truth is better now
+
+The failed `v2.46.1` tag attempt exposed two problems:
+
+- a temp-repo test relied on a developer's global git identity, so it passed locally but failed in clean CI
+- the publish workflow spent most of its time re-running strict preflight inside a step named `Publish tagged release`, which hid the actual state of the run
+
+`v2.46.2` fixes both:
+
+- `parallel-attribution-observability.test.js` now configures git identity inside its temp repo before committing
+- `.github/workflows/publish-npm-on-tag.yml` now runs `Re-verify tagged release before publish` as its own step
+- `publish-from-tag.sh` keeps strict preflight by default for direct/operator usage, but CI now passes `--skip-preflight` only after the tagged-state reverify step has already succeeded
+
+## Docs and operator surface alignment
+
+- [Timeouts](/docs/timeouts) now states that dashboard live-pressure tables preserve turn identity for turn-scope entries
+- [CLI Reference](/docs/cli) now describes per-turn identity in both timeout dashboard views
+- the release playbook now documents the separated tagged-state reverify vs publish contract
+- release metadata, sidebar, `llms.txt`, and `sitemap.xml` are aligned to this patch release
+
+## Evidence
+
+- **3432 tests / 735 suites / 0 failures**
+- `node --test cli/test/dashboard-timeout-status.test.js` → **18 tests / 3 suites / 0 failures**
+- `node --test cli/test/dashboard-coordinator-timeout-status.test.js` → **8 tests / 3 suites / 0 failures**
+- `node --test cli/test/dashboard-bridge.test.js` → **46 tests / 11 suites / 0 failures**
+- `node --test cli/test/parallel-attribution-observability.test.js cli/test/publish-from-tag.test.js cli/test/release-docs-content.test.js` → **31 tests / 4 suites / 0 failures**
+- `cd cli && npm test` → **3432 tests / 735 suites / 0 failures**
+- `cd website-v2 && npm run build` → **clean production build**
