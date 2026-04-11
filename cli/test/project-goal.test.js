@@ -1,15 +1,15 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
+import { gitInit } from '../test-support/git-test-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, '..', 'bin', 'agentxchain.js');
-const GIT_ENV = { ...process.env, GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 'test@test.com', GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 'test@test.com' };
 
 function tmpDir() {
   const d = join(tmpdir(), `axc-goal-${randomBytes(4).toString('hex')}`);
@@ -86,7 +86,7 @@ describe('project.goal — dispatch bundle', () => {
     const root = join(tmpDir(), 'p5');
     try {
       run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a secure token rotation service']);
-      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+      gitInit(root);
       run(['step'], { cwd: root });
       const turnsDir = join(root, '.agentxchain/dispatch/turns');
       assert.ok(existsSync(turnsDir), 'dispatch/turns dir should exist');
@@ -104,7 +104,7 @@ describe('project.goal — dispatch bundle', () => {
     const root = join(tmpDir(), 'p6');
     try {
       run(['init', '--governed', '-y', '--dir', root]);
-      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+      gitInit(root);
       run(['step'], { cwd: root });
       const turnsDir = join(root, '.agentxchain/dispatch/turns');
       const turns = readdirSync(turnsDir).filter(d => d.startsWith('turn_'));
@@ -160,7 +160,7 @@ describe('project.goal — export', () => {
     const root = join(tmpDir(), 'p9');
     try {
       run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
-      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+      gitInit(root);
       const r = run(['export', '--format', 'json'], { cwd: root });
       const artifact = JSON.parse(r.stdout);
       assert.equal(artifact.project.goal, 'Build a token rotator');
@@ -177,7 +177,7 @@ describe('project.goal — report', () => {
     const exportPath = join(root, 'export.json');
     try {
       run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
-      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+      gitInit(root);
 
       const exportResult = run(['export', '--format', 'json', '--output', exportPath], { cwd: root });
       assert.equal(exportResult.status, 0, exportResult.stderr || exportResult.stdout);
@@ -197,7 +197,7 @@ describe('project.goal — report', () => {
     const exportPath = join(root, 'export.json');
     try {
       run(['init', '--governed', '-y', '--dir', root, '--goal', 'Build a token rotator']);
-      execSync('git init && git add -A && git commit -m init', { cwd: root, stdio: 'ignore', env: GIT_ENV });
+      gitInit(root);
 
       const exportResult = run(['export', '--format', 'json', '--output', exportPath], { cwd: root });
       assert.equal(exportResult.status, 0, exportResult.stderr || exportResult.stdout);
