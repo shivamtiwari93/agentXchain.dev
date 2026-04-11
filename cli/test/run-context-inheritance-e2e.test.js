@@ -211,6 +211,11 @@ describe('run context inheritance E2E', () => {
     assert.ok(childState.inherited_context.inherited_at, 'must have inherited_at timestamp');
     assert.ok(Array.isArray(childState.inherited_context.parent_phases_completed));
     assert.ok(Array.isArray(childState.inherited_context.parent_roles_used));
+    assert.ok(childState.inherited_context.recent_accepted_turns.length > 0, 'real runs must inherit accepted-turn summaries');
+    assert.ok(childState.inherited_context.parent_retrospective, 'parent retrospective must be inherited');
+    assert.match(childState.inherited_context.parent_retrospective.headline, /\S/);
+    assert.equal(childState.inherited_context.parent_retrospective.terminal_reason, 'completed');
+    assert.match(childState.inherited_context.parent_retrospective.follow_on_hint, /--continue-from/);
   });
 
   it('AT-RCI-002: child run CONTEXT.md includes Inherited Run Context section', () => {
@@ -237,6 +242,8 @@ describe('run context inheritance E2E', () => {
       assert.match(contextMd, /## Inherited Run Context/, 'must contain Inherited Run Context section');
       assert.match(contextMd, new RegExp(parentRunId), 'must reference parent run_id');
       assert.match(contextMd, /fresh run, not a resumed parent/, 'must include fresh-run reminder');
+      assert.match(contextMd, /### Parent Retrospective/, 'must render the parent retrospective section');
+      assert.match(contextMd, /Follow-on hint:/, 'must render follow-on guidance from the parent retrospective');
     } else {
       // If dispatch bundle was cleaned up, verify through state that inherited_context is present
       // (which means it would have been rendered in CONTEXT.md)
@@ -326,6 +333,7 @@ describe('run context inheritance E2E', () => {
     history[0] = {
       ...history[0],
       inheritance_snapshot: undefined,
+      retrospective: undefined,
     };
     writeRunHistory(root, history);
 
@@ -340,6 +348,7 @@ describe('run context inheritance E2E', () => {
     const childState = readState(root);
     assert.ok(childState.inherited_context, 'inherited_context must be present even without a snapshot');
     assert.equal(childState.inherited_context.parent_run_id, parentRunId);
+    assert.equal(childState.inherited_context.parent_retrospective, null);
     assert.deepStrictEqual(childState.inherited_context.recent_decisions, []);
     assert.deepStrictEqual(childState.inherited_context.recent_accepted_turns, []);
 
@@ -370,6 +379,8 @@ describe('run context inheritance E2E', () => {
     assert.ok(childState.inherited_context, 'inherited_context must be present after recovery');
     assert.equal(childState.inherited_context.parent_run_id, blockedRunId);
     assert.equal(childState.inherited_context.parent_status, 'blocked');
+    assert.equal(childState.inherited_context.parent_retrospective.terminal_reason, 'timeout');
+    assert.equal(childState.inherited_context.parent_retrospective.next_operator_action, 'agentxchain resume');
   });
 
   it('AT-RCI-008: run without --inherit-context does NOT inherit context', () => {

@@ -10,6 +10,7 @@
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { normalizeRunProvenance } from './run-provenance.js';
+import { deriveRecoveryDescriptor } from './blocked-state.js';
 
 const RUN_HISTORY_PATH = '.agentxchain/run-history.jsonl';
 const HISTORY_PATH = '.agentxchain/history.jsonl';
@@ -83,6 +84,12 @@ export function recordRunHistory(root, state, config, status) {
       connector_used: connectorUsed,
       model_used: modelUsed,
       provenance: normalizeRunProvenance(state?.provenance),
+      retrospective: buildRunRetrospective({
+        state,
+        config,
+        status,
+        historyEntries,
+      }),
       inheritance_snapshot: {
         recent_decisions: buildRecentDecisionSnapshot(ledgerEntries),
         recent_accepted_turns: buildRecentAcceptedTurnSnapshot(historyEntries),
@@ -300,7 +307,7 @@ function buildRecentDecisionSnapshot(entries) {
 
 function buildRecentAcceptedTurnSnapshot(entries) {
   return entries
-    .filter((entry) => entry.status === 'accepted')
+    .filter((entry) => entry?.status !== 'rejected' && typeof entry?.turn_id === 'string' && typeof entry?.role === 'string')
     .slice(-MAX_INHERITANCE_TURNS)
     .map((entry) => ({
       turn_id: entry.turn_id || null,
@@ -308,4 +315,58 @@ function buildRecentAcceptedTurnSnapshot(entries) {
       summary: entry.summary || null,
       phase: entry.phase || null,
     }));
+}
+
+function buildRunRetrospective({ state, config, status, historyEntries }) {
+  const acceptedTurns = historyEntries.filter((entry) => entry && typeof entry === 'object');
+  const lastAcceptedTurn = acceptedTurns[acceptedTurns.length - 1] || null;
+  const recovery = status === 'blocked'
+    ? deriveRecoveryDescriptor(state, config)
+    : null;
+
+  return {
+    headline: buildRetrospectiveHeadline({ status, lastAcceptedTurn, recovery, acceptedTurns }),
+    terminal_reason: status === 'completed'
+      ? 'completed'
+      : recovery?.typed_reason || 'blocked',
+    next_operator_action: status === 'blocked'
+      ? recovery?.recovery_action || null
+      : null,
+    follow_on_hint: status === 'completed'
+      ? buildFollowOnHint(state, lastAcceptedTurn)
+      : null,
+  };
+}
+
+function buildRetrospectiveHeadline({ status, lastAcceptedTurn, recovery, acceptedTurns }) {
+  if (status === 'blocked') {
+    if (typeof recovery?.detail === 'string' && recovery.detail.trim()) {
+      return recovery.detail.trim();
+    }
+    if (typeof lastAcceptedTurn?.summary === 'string' && lastAcceptedTurn.summary.trim()) {
+      return `Run blocked after: ${lastAcceptedTurn.summary.trim()}`;
+    }
+    return 'Run blocked.';
+  }
+
+  if (typeof lastAcceptedTurn?.summary === 'string' && lastAcceptedTurn.summary.trim()) {
+    return lastAcceptedTurn.summary.trim();
+  }
+
+  return `Run completed after ${acceptedTurns.length} accepted turn(s).`;
+}
+
+function buildFollowOnHint(state, lastAcceptedTurn) {
+  const runId = state?.run_id;
+  if (typeof runId !== 'string' || !runId.trim()) {
+    return null;
+  }
+
+  const base = `If more scope remains, start a child run with \`agentxchain run --continue-from ${runId} --inherit-context\`.`;
+  const suggestedRole = lastAcceptedTurn?.proposed_next_role;
+  if (typeof suggestedRole === 'string' && suggestedRole.trim() && suggestedRole !== 'human') {
+    return `${base} The last accepted turn suggested \`${suggestedRole}\` next.`;
+  }
+
+  return base;
 }

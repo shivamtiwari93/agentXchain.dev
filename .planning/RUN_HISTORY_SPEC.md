@@ -40,6 +40,12 @@ Each line contains:
   "gate_results": { "gate_id": "passed | pending" },
   "connector_used": "api_proxy | local_cli | manual | remote_agent",
   "model_used": "string | null",
+  "retrospective": {
+    "headline": "string",
+    "terminal_reason": "completed | blocked typed reason",
+    "next_operator_action": "string | null",
+    "follow_on_hint": "string | null"
+  },
   "inheritance_snapshot": {
     "recent_decisions": [{ "id": "string | null", "statement": "string | null", "decided_by": "string | null", "phase": "string | null" }],
     "recent_accepted_turns": [{ "turn_id": "string | null", "role": "string | null", "summary": "string | null", "phase": "string | null" }]
@@ -85,6 +91,7 @@ The recording function reads current state + config to build the history record.
 - Extracts cost from `state.budget_status.spent_usd`
 - Extracts phases from history entries (unique `phase` values)
 - Extracts roles from history entries (unique `role` values)
+- Stores an additive deterministic `retrospective` handoff summary derived from terminal state and accepted-turn history
 - Stores a bounded `inheritance_snapshot` (max 5 decisions, max 3 accepted turns) so later child runs can inherit context from the selected parent run instead of today's repo-global ledger files
 - Non-fatal: catches and warns on any error
 

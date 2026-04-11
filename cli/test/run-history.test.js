@@ -78,8 +78,8 @@ describe('run-history', () => {
   describe('recordRunHistory', () => {
     it('AT-RH-001: creates run-history.jsonl with one entry on completion', () => {
       writeHistory(root, [
-        { role: 'dev', phase: 'planning', accepted_at: '2026-04-10T11:55:00.000Z' },
-        { role: 'qa', phase: 'qa', accepted_at: '2026-04-10T11:58:00.000Z' },
+        { role: 'dev', phase: 'planning', accepted_at: '2026-04-10T11:55:00.000Z', status: 'accepted', summary: 'Implemented the governed slice.' },
+        { role: 'qa', phase: 'qa', accepted_at: '2026-04-10T11:58:00.000Z', status: 'accepted', summary: 'Verified the governed slice and requested release prep.', proposed_next_role: 'release_manager' },
       ]);
       writeLedger(root, [{ category: 'direction' }]);
 
@@ -93,6 +93,11 @@ describe('run-history', () => {
       assert.strictEqual(entries[0].total_turns, 2);
       assert.strictEqual(entries[0].decisions_count, 1);
       assert.ok(entries[0].total_cost_usd > 0);
+      assert.equal(entries[0].retrospective.headline, 'Verified the governed slice and requested release prep.');
+      assert.equal(entries[0].retrospective.terminal_reason, 'completed');
+      assert.equal(entries[0].retrospective.next_operator_action, null);
+      assert.match(entries[0].retrospective.follow_on_hint, /--continue-from run_abc123 --inherit-context/);
+      assert.match(entries[0].retrospective.follow_on_hint, /release_manager/);
     });
 
     it('AT-RH-002: appends second run with different run_id', () => {
@@ -120,8 +125,17 @@ describe('run-history', () => {
       writeHistory(root, [{ role: 'dev', phase: 'planning' }]);
       const state = makeState({
         status: 'blocked',
-        blocked_on: 'hook:after_acceptance:my-hook',
-        blocked_reason: { detail: 'Hook my-hook failed validation' },
+        blocked_on: 'timeout:turn',
+        blocked_reason: {
+          category: 'timeout',
+          recovery: {
+            typed_reason: 'timeout',
+            owner: 'operator',
+            recovery_action: 'agentxchain resume',
+            turn_retained: false,
+            detail: 'turn timeout exceeded',
+          },
+        },
         completed_at: null,
       });
       const result = recordRunHistory(root, state, makeConfig(), 'blocked');
@@ -129,7 +143,11 @@ describe('run-history', () => {
 
       const entries = queryRunHistory(root);
       assert.strictEqual(entries[0].status, 'blocked');
-      assert.strictEqual(entries[0].blocked_reason, 'Hook my-hook failed validation');
+      assert.strictEqual(entries[0].blocked_reason, 'timeout:turn');
+      assert.equal(entries[0].retrospective.headline, 'turn timeout exceeded');
+      assert.equal(entries[0].retrospective.terminal_reason, 'timeout');
+      assert.equal(entries[0].retrospective.next_operator_action, 'agentxchain resume');
+      assert.equal(entries[0].retrospective.follow_on_hint, null);
     });
 
     it('AT-RTSA-003: rejects reserved run-level failed status instead of writing it', () => {

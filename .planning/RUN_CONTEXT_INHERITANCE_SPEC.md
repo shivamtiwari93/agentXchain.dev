@@ -45,6 +45,7 @@ When `--inherit-context` is set, the child run captures a read-only inheritance 
 - parent `blocked_reason` when present
 - up to the most recent 5 decision entries from the parent run's recorded `run-history.jsonl` inheritance snapshot
 - up to the most recent 3 accepted turn summaries from the parent run's recorded `run-history.jsonl` inheritance snapshot
+- the parent run's additive terminal retrospective when available
 
 This is a summary surface, not a full replay of the parent run.
 
@@ -57,6 +58,7 @@ That section must surface:
 - parent run identity and terminal status
 - the most relevant recent decisions
 - the most relevant recent accepted-turn summaries
+- the parent run's terminal retrospective headline and follow-on/recovery guidance when recorded
 - explicit reminder that the child run is a fresh run, not a resumed parent
 
 ### 4. Subsequent turns

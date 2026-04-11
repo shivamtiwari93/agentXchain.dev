@@ -57,6 +57,7 @@ export function buildInheritedContext(root, parentRunId) {
     parent_phases_completed: parentEntry.phases_completed || [],
     parent_roles_used: parentEntry.roles_used || [],
     parent_blocked_reason: parentEntry.blocked_reason || null,
+    parent_retrospective: parentEntry.retrospective || null,
     recent_decisions: recentDecisions,
     recent_accepted_turns: acceptedTurns,
     inherited_at: new Date().toISOString(),
@@ -92,6 +93,20 @@ export function renderInheritedContextMarkdown(inheritedContext, compact = false
     lines.push(`- **Roles used:** ${inheritedContext.parent_roles_used.join(', ')}`);
   }
   lines.push('');
+
+  if (!compact && inheritedContext.parent_retrospective) {
+    lines.push('### Parent Retrospective');
+    lines.push('');
+    lines.push(`- **Headline:** ${inheritedContext.parent_retrospective.headline || 'n/a'}`);
+    lines.push(`- **Terminal reason:** ${inheritedContext.parent_retrospective.terminal_reason || 'unknown'}`);
+    if (inheritedContext.parent_retrospective.next_operator_action) {
+      lines.push(`- **Next operator action:** ${inheritedContext.parent_retrospective.next_operator_action}`);
+    }
+    if (inheritedContext.parent_retrospective.follow_on_hint) {
+      lines.push(`- **Follow-on hint:** ${inheritedContext.parent_retrospective.follow_on_hint}`);
+    }
+    lines.push('');
+  }
 
   if (!compact && inheritedContext.recent_decisions?.length) {
     lines.push('### Recent Decisions');
@@ -153,6 +168,7 @@ function buildPartialContext(parentRunId, parentEntry, decisions, turns, warning
     parent_phases_completed: parentEntry?.phases_completed || [],
     parent_roles_used: parentEntry?.roles_used || [],
     parent_blocked_reason: parentEntry?.blocked_reason || null,
+    parent_retrospective: parentEntry?.retrospective || null,
     recent_decisions: decisions,
     recent_accepted_turns: turns,
     inherited_at: new Date().toISOString(),
