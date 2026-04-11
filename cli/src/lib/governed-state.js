@@ -60,6 +60,50 @@ function generateId(prefix) {
   return `${prefix}_${randomBytes(8).toString('hex')}`;
 }
 
+function normalizeGateFailure(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return {
+    gate_type: value.gate_type === 'run_completion' ? 'run_completion' : 'phase_transition',
+    gate_id: typeof value.gate_id === 'string' && value.gate_id.length > 0 ? value.gate_id : null,
+    phase: typeof value.phase === 'string' && value.phase.length > 0 ? value.phase : 'unknown',
+    from_phase: typeof value.from_phase === 'string' && value.from_phase.length > 0 ? value.from_phase : null,
+    to_phase: typeof value.to_phase === 'string' && value.to_phase.length > 0 ? value.to_phase : null,
+    requested_by_turn: typeof value.requested_by_turn === 'string' && value.requested_by_turn.length > 0 ? value.requested_by_turn : null,
+    failed_at: typeof value.failed_at === 'string' && value.failed_at.length > 0 ? value.failed_at : null,
+    queued_request: value.queued_request === true,
+    reasons: Array.isArray(value.reasons) ? value.reasons.filter((reason) => typeof reason === 'string' && reason.length > 0) : [],
+    missing_files: Array.isArray(value.missing_files) ? value.missing_files.filter((path) => typeof path === 'string' && path.length > 0) : [],
+    missing_verification: value.missing_verification === true,
+  };
+}
+
+function buildGateFailureRecord({
+  gateType,
+  gateResult,
+  phase,
+  fromPhase = null,
+  toPhase = null,
+  requestedByTurn = null,
+  failedAt,
+  queuedRequest,
+}) {
+  return normalizeGateFailure({
+    gate_type: gateType,
+    gate_id: gateResult?.gate_id || null,
+    phase,
+    from_phase: fromPhase,
+    to_phase: toPhase,
+    requested_by_turn: requestedByTurn,
+    failed_at: failedAt,
+    queued_request: queuedRequest,
+    reasons: Array.isArray(gateResult?.reasons) ? gateResult.reasons : [],
+    missing_files: Array.isArray(gateResult?.missing_files) ? gateResult.missing_files : [],
+    missing_verification: gateResult?.missing_verification === true,
+  });
+}
+
 function emitBlockedNotification(root, config, state, details = {}, turn = null) {
   if (!config?.notifications?.webhooks?.length) {
     return;
@@ -611,6 +655,7 @@ function normalizeV1toV1_1(state) {
         : {},
     queued_phase_transition: state.queued_phase_transition ?? null,
     queued_run_completion: state.queued_run_completion ?? null,
+    last_gate_failure: normalizeGateFailure(state.last_gate_failure),
   };
 }
 
@@ -1409,6 +1454,15 @@ export function normalizeGovernedStateShape(state) {
     nextState = {
       ...nextState,
       blocked_reason: null,
+    };
+    changed = true;
+  }
+
+  const normalizedLastGateFailure = normalizeGateFailure(nextState.last_gate_failure);
+  if (JSON.stringify(nextState.last_gate_failure ?? null) !== JSON.stringify(normalizedLastGateFailure)) {
+    nextState = {
+      ...nextState,
+      last_gate_failure: normalizedLastGateFailure,
     };
     changed = true;
   }
@@ -2499,6 +2553,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         if (completionResult.action === 'complete') {
           updatedState.status = 'completed';
           updatedState.completed_at = now;
+          updatedState.last_gate_failure = null;
           if (completionResult.gate_id) {
             updatedState.phase_gate_status = {
               ...(updatedState.phase_gate_status || {}),
@@ -2519,6 +2574,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           if (approvalResult.action === 'auto_approve') {
             updatedState.status = 'completed';
             updatedState.completed_at = now;
+            updatedState.last_gate_failure = null;
             if (completionResult.gate_id) {
               updatedState.phase_gate_status = {
                 ...(updatedState.phase_gate_status || {}),
@@ -2540,6 +2596,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             updatedState.status = 'paused';
             updatedState.blocked_on = `human_approval:${completionResult.gate_id}`;
             updatedState.blocked_reason = null;
+            updatedState.last_gate_failure = null;
             updatedState.pending_run_completion = {
               gate: completionResult.gate_id,
               requested_by_turn: completionSource.turn_id,
@@ -2548,6 +2605,29 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             updatedState.queued_run_completion = null;
             updatedState.queued_phase_transition = null;
           }
+        } else if (completionResult.action === 'gate_failed') {
+          const gateFailure = buildGateFailureRecord({
+            gateType: 'run_completion',
+            gateResult: completionResult,
+            phase: state.phase,
+            fromPhase: state.phase,
+            toPhase: null,
+            requestedByTurn: completionSource?.turn_id || state.queued_run_completion?.requested_by_turn || null,
+            failedAt: now,
+            queuedRequest: Boolean(state.queued_run_completion && !turnResult.run_completion_request),
+          });
+          updatedState.last_gate_failure = gateFailure;
+          if (completionResult.gate_id) {
+            updatedState.phase_gate_status = {
+              ...(updatedState.phase_gate_status || {}),
+              [completionResult.gate_id]: 'failed',
+            };
+          }
+          updatedState.queued_run_completion = null;
+          ledgerEntries.push({
+            type: 'gate_failure',
+            ...gateFailure,
+          });
         } else if (state.queued_run_completion) {
           updatedState.queued_run_completion = null;
         }
@@ -2569,6 +2649,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
         if (gateResult.action === 'advance') {
           updatedState.phase = gateResult.next_phase;
+          updatedState.last_gate_failure = null;
           updatedState.phase_gate_status = {
             ...(updatedState.phase_gate_status || {}),
             [gateResult.gate_id || 'no_gate']: 'passed',
@@ -2585,6 +2666,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
 
           if (approvalResult.action === 'auto_approve') {
             updatedState.phase = gateResult.next_phase;
+            updatedState.last_gate_failure = null;
             updatedState.phase_gate_status = {
               ...(updatedState.phase_gate_status || {}),
               [gateResult.gate_id || 'no_gate']: 'passed',
@@ -2605,6 +2687,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             updatedState.status = 'paused';
             updatedState.blocked_on = `human_approval:${gateResult.gate_id}`;
             updatedState.blocked_reason = null;
+            updatedState.last_gate_failure = null;
             updatedState.pending_phase_transition = {
               from: state.phase,
               to: gateResult.next_phase,
@@ -2613,6 +2696,29 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             };
             updatedState.queued_phase_transition = null;
           }
+        } else if (gateResult.action === 'gate_failed') {
+          const gateFailure = buildGateFailureRecord({
+            gateType: 'phase_transition',
+            gateResult,
+            phase: state.phase,
+            fromPhase: state.phase,
+            toPhase: gateResult.transition_request || state.queued_phase_transition?.to || null,
+            requestedByTurn: phaseSource?.turn_id || state.queued_phase_transition?.requested_by_turn || null,
+            failedAt: now,
+            queuedRequest: Boolean(state.queued_phase_transition && !turnResult.phase_transition_request),
+          });
+          updatedState.last_gate_failure = gateFailure;
+          if (gateResult.gate_id) {
+            updatedState.phase_gate_status = {
+              ...(updatedState.phase_gate_status || {}),
+              [gateResult.gate_id]: 'failed',
+            };
+          }
+          updatedState.queued_phase_transition = null;
+          ledgerEntries.push({
+            type: 'gate_failure',
+            ...gateFailure,
+          });
         } else if (state.queued_phase_transition) {
           updatedState.queued_phase_transition = null;
         }
@@ -3043,6 +3149,7 @@ export function approvePhaseTransition(root, config) {
     status: 'active',
     blocked_on: null,
     blocked_reason: null,
+    last_gate_failure: null,
     pending_phase_transition: null,
     phase_gate_status: {
       ...(state.phase_gate_status || {}),
@@ -3137,6 +3244,7 @@ export function approveRunCompletion(root, config) {
     completed_at: new Date().toISOString(),
     blocked_on: null,
     blocked_reason: null,
+    last_gate_failure: null,
     pending_run_completion: null,
     phase_gate_status: {
       ...(state.phase_gate_status || {}),

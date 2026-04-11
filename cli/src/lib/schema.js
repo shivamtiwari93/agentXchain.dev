@@ -96,6 +96,47 @@ export function validateGovernedStateSchema(data) {
   if ('phase_gate_status' in data && data.phase_gate_status !== null && typeof data.phase_gate_status !== 'object') {
     errors.push('phase_gate_status must be an object');
   }
+  if ('last_gate_failure' in data && data.last_gate_failure !== null) {
+    if (typeof data.last_gate_failure !== 'object' || Array.isArray(data.last_gate_failure)) {
+      errors.push('last_gate_failure must be an object or null');
+    } else {
+      const failure = data.last_gate_failure;
+      const validGateTypes = ['phase_transition', 'run_completion'];
+      if (typeof failure.gate_type !== 'string' || !validGateTypes.includes(failure.gate_type)) {
+        errors.push(`last_gate_failure.gate_type must be one of: ${validGateTypes.join(', ')}`);
+      }
+      if (failure.gate_id !== null && failure.gate_id !== undefined && typeof failure.gate_id !== 'string') {
+        errors.push('last_gate_failure.gate_id must be a string or null');
+      }
+      if (typeof failure.phase !== 'string' || !failure.phase.trim()) {
+        errors.push('last_gate_failure.phase must be a non-empty string');
+      }
+      if (failure.from_phase !== null && failure.from_phase !== undefined && typeof failure.from_phase !== 'string') {
+        errors.push('last_gate_failure.from_phase must be a string or null');
+      }
+      if (failure.to_phase !== null && failure.to_phase !== undefined && typeof failure.to_phase !== 'string') {
+        errors.push('last_gate_failure.to_phase must be a string or null');
+      }
+      if (failure.requested_by_turn !== null && failure.requested_by_turn !== undefined && typeof failure.requested_by_turn !== 'string') {
+        errors.push('last_gate_failure.requested_by_turn must be a string or null');
+      }
+      if (typeof failure.failed_at !== 'string' || !failure.failed_at.trim()) {
+        errors.push('last_gate_failure.failed_at must be a non-empty string');
+      }
+      if (typeof failure.queued_request !== 'boolean') {
+        errors.push('last_gate_failure.queued_request must be a boolean');
+      }
+      if (!Array.isArray(failure.reasons) || failure.reasons.some((reason) => typeof reason !== 'string')) {
+        errors.push('last_gate_failure.reasons must be an array of strings');
+      }
+      if (!Array.isArray(failure.missing_files) || failure.missing_files.some((file) => typeof file !== 'string')) {
+        errors.push('last_gate_failure.missing_files must be an array of strings');
+      }
+      if (typeof failure.missing_verification !== 'boolean') {
+        errors.push('last_gate_failure.missing_verification must be a boolean');
+      }
+    }
+  }
   if ('budget_status' in data && data.budget_status !== null && typeof data.budget_status !== 'object') {
     errors.push('budget_status must be an object');
   }

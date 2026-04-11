@@ -192,6 +192,10 @@ function renderGovernedStatus(context, opts) {
     }
   }
 
+  if (state?.last_gate_failure) {
+    renderLastGateFailure(state.last_gate_failure, config);
+  }
+
   const recovery = deriveRecoveryDescriptor(state, config);
   if (recovery) {
     console.log('');
@@ -361,6 +365,31 @@ function renderWorkflowKitArtifactsSection(wkData) {
   if (artifacts.some(a => a.owner_resolution === 'entry_role')) {
     console.log(`    ${chalk.dim('* = ownership inferred from entry_role')}`);
   }
+}
+
+function renderLastGateFailure(failure, config) {
+  const entryRole = config?.routing?.[failure.phase]?.entry_role || null;
+  const suggestedCommand = entryRole ? `agentxchain assign ${entryRole}` : 'agentxchain assign <role>';
+  const requestLabel = failure.gate_type === 'run_completion'
+    ? 'Run completion'
+    : `${failure.from_phase || failure.phase} -> ${failure.to_phase || 'unknown'}`;
+
+  console.log('');
+  console.log(`  ${chalk.dim('Gate fail:')} ${chalk.red.bold(failure.gate_type === 'run_completion' ? 'RUN COMPLETION' : 'PHASE TRANSITION')}`);
+  console.log(`  ${chalk.dim('Gate:')}     ${failure.gate_id || 'unknown'}`);
+  console.log(`  ${chalk.dim('Request:')}  ${requestLabel}`);
+  console.log(`  ${chalk.dim('Source:')}   ${failure.queued_request ? 'queued drain request' : 'direct request'}`);
+  console.log(`  ${chalk.dim('When:')}     ${failure.failed_at || 'unknown'}`);
+  if (failure.requested_by_turn) {
+    console.log(`  ${chalk.dim('Turn:')}     ${failure.requested_by_turn}`);
+  }
+  if (Array.isArray(failure.reasons) && failure.reasons.length > 0) {
+    console.log(`  ${chalk.dim('Reasons:')}`);
+    for (const reason of failure.reasons) {
+      console.log(`    ${chalk.red('•')} ${reason}`);
+    }
+  }
+  console.log(`  ${chalk.dim('Action:')}   ${chalk.cyan(suggestedCommand)} to keep working in ${failure.phase}`);
 }
 
 function formatPhase(phase) {

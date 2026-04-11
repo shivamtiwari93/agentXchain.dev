@@ -139,6 +139,7 @@ function inflateState(rawState = {}, config) {
     blocked_on: rawState.blocked_on ?? null,
     blocked_reason: rawState.blocked_reason ?? null,
     escalation: rawState.escalation ?? null,
+    last_gate_failure: rawState.last_gate_failure ?? null,
     accepted_sequence: rawState.accepted_sequence ?? 0,
     turn_sequence: rawState.turn_sequence ?? 0,
     budget_reservations: rawState.budget_reservations ?? {},

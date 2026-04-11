@@ -76,6 +76,7 @@ describe('validateGovernedStateSchema', () => {
       escalation: null,
       queued_phase_transition: null,
       queued_run_completion: null,
+      last_gate_failure: null,
       phase_gate_status: {
         planning_signoff: 'pending',
         implementation_complete: 'pending',
@@ -85,6 +86,33 @@ describe('validateGovernedStateSchema', () => {
       budget_status: {
         spent_usd: 0,
         remaining_usd: 50,
+      },
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.errors.length, 0);
+  });
+
+  it('accepts governed state with persisted last_gate_failure', () => {
+    const result = validateGovernedStateSchema({
+      schema_version: '1.1',
+      run_id: 'run_123',
+      project_id: 'test-project',
+      status: 'active',
+      phase: 'planning',
+      active_turns: {},
+      turn_sequence: 2,
+      last_gate_failure: {
+        gate_type: 'phase_transition',
+        gate_id: 'planning_signoff',
+        phase: 'planning',
+        from_phase: 'planning',
+        to_phase: 'implementation',
+        requested_by_turn: 'turn_001',
+        failed_at: '2026-04-11T10:00:00.000Z',
+        queued_request: true,
+        reasons: ['Missing file: .planning/PM_SIGNOFF.md'],
+        missing_files: ['.planning/PM_SIGNOFF.md'],
+        missing_verification: false,
       },
     });
     assert.equal(result.ok, true);

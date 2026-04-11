@@ -120,6 +120,26 @@ function extractApprovalPolicyDigest(artifact) {
     }));
 }
 
+function extractGateFailureDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => d?.type === 'gate_failure')
+    .map((d) => ({
+      gate_type: d.gate_type || null,
+      gate_id: d.gate_id || null,
+      phase: d.phase || null,
+      from_phase: d.from_phase || null,
+      to_phase: d.to_phase || null,
+      requested_by_turn: d.requested_by_turn || null,
+      failed_at: d.failed_at || null,
+      queued_request: d.queued_request === true,
+      reasons: Array.isArray(d.reasons) ? d.reasons : [],
+      missing_files: Array.isArray(d.missing_files) ? d.missing_files : [],
+      missing_verification: d.missing_verification === true,
+    }));
+}
+
 function extractHookSummary(artifact) {
   const data = extractFileData(artifact, '.agentxchain/hook-audit.jsonl');
   if (!Array.isArray(data) || data.length === 0) return null;
@@ -577,6 +597,7 @@ function buildRunSubject(artifact) {
   const turns = extractHistoryTimeline(artifact);
   const decisions = extractDecisionDigest(artifact);
   const approvalPolicyEvents = extractApprovalPolicyDigest(artifact);
+  const gateFailures = extractGateFailureDigest(artifact);
   const hookSummary = extractHookSummary(artifact);
   const timing = computeTiming(artifact, turns);
   const gateSummary = extractGateSummary(artifact);
@@ -611,6 +632,7 @@ function buildRunSubject(artifact) {
       turns,
       decisions,
       approval_policy_events: approvalPolicyEvents,
+      gate_failures: gateFailures,
       hook_summary: hookSummary,
       gate_summary: gateSummary,
       intake_links: intakeLinks,
@@ -684,6 +706,7 @@ function buildCoordinatorSubject(artifact) {
       base.turns = extractHistoryTimeline(childExport);
       base.decisions = extractDecisionDigest(childExport);
       base.approval_policy_events = extractApprovalPolicyDigest(childExport);
+      base.gate_failures = extractGateFailureDigest(childExport);
       base.hook_summary = extractHookSummary(childExport);
       base.gate_summary = extractGateSummary(childExport);
       base.recovery_summary = extractRecoverySummary(childExport);
@@ -890,6 +913,20 @@ export function formatGovernanceReportText(report) {
       }
     }
 
+    if (run.gate_failures && run.gate_failures.length > 0) {
+      lines.push('', 'Gate Failures:');
+      for (const failure of run.gate_failures) {
+        const request = failure.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${failure.from_phase || failure.phase || '?'} -> ${failure.to_phase || '?'}`;
+        const source = failure.queued_request ? 'queued drain' : 'direct';
+        lines.push(`  - ${failure.gate_id || 'unknown'} | ${failure.gate_type || 'unknown'} | request: ${request} | source: ${source} | at: ${failure.failed_at || 'n/a'}`);
+        for (const reason of failure.reasons || []) {
+          lines.push(`      reason: ${reason}`);
+        }
+      }
+    }
+
     if (run.intake_links && run.intake_links.length > 0) {
       lines.push('', 'Intake Linkage:');
       for (const intake of run.intake_links) {
@@ -1063,6 +1100,18 @@ export function formatGovernanceReportText(report) {
           repoLines.push(`    - ${gate.gate_id}: ${gate.status}`);
         }
       }
+      if (repo.gate_failures && repo.gate_failures.length > 0) {
+        repoLines.push('  Gate Failures:');
+        for (const failure of repo.gate_failures) {
+          const request = failure.gate_type === 'run_completion'
+            ? 'run completion'
+            : `${failure.from_phase || failure.phase || '?'} -> ${failure.to_phase || '?'}`;
+          repoLines.push(`    - ${failure.gate_id || 'unknown'}: ${failure.gate_type || 'unknown'} | ${request} | ${failure.queued_request ? 'queued drain' : 'direct'} | ${failure.failed_at || 'n/a'}`);
+          for (const reason of failure.reasons || []) {
+            repoLines.push(`      reason: ${reason}`);
+          }
+        }
+      }
       if (repo.hook_summary) {
         repoLines.push(`  Hook Activity: ${repo.hook_summary.total} total, ${repo.hook_summary.blocked} blocked`);
       }
@@ -1178,6 +1227,19 @@ export function formatGovernanceReportMarkdown(report) {
       lines.push('', '## Gate Outcomes', '');
       for (const gate of run.gate_summary) {
         lines.push(`- \`${gate.gate_id}\`: \`${gate.status}\``);
+      }
+    }
+
+    if (run.gate_failures && run.gate_failures.length > 0) {
+      lines.push('', '## Gate Failures', '');
+      for (const failure of run.gate_failures) {
+        const request = failure.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${failure.from_phase || failure.phase || '?'} → ${failure.to_phase || '?'}`;
+        lines.push(`- \`${failure.gate_id || 'unknown'}\` (${failure.gate_type || 'unknown'}) at \`${failure.failed_at || 'n/a'}\` via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`);
+        for (const reason of failure.reasons || []) {
+          lines.push(`  - ${reason}`);
+        }
       }
     }
 
@@ -1357,6 +1419,18 @@ export function formatGovernanceReportMarkdown(report) {
       repoLines.push('', '#### Gate Outcomes', '');
       for (const gate of repo.gate_summary) {
         repoLines.push(`- \`${gate.gate_id}\`: \`${gate.status}\``);
+      }
+    }
+    if (repo.gate_failures && repo.gate_failures.length > 0) {
+      repoLines.push('', '#### Gate Failures', '');
+      for (const failure of repo.gate_failures) {
+        const request = failure.gate_type === 'run_completion'
+          ? 'run completion'
+          : `${failure.from_phase || failure.phase || '?'} → ${failure.to_phase || '?'}`;
+        repoLines.push(`- \`${failure.gate_id || 'unknown'}\` (${failure.gate_type || 'unknown'}) at \`${failure.failed_at || 'n/a'}\` via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`);
+        for (const reason of failure.reasons || []) {
+          repoLines.push(`  - ${reason}`);
+        }
       }
     }
     if (repo.hook_summary) {

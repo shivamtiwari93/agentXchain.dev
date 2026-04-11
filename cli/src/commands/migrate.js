@@ -218,6 +218,7 @@ export async function migrateCommand(opts) {
     escalation: null,
     queued_phase_transition: null,
     queued_run_completion: null,
+    last_gate_failure: null,
     phase_gate_status: {
       planning_signoff: inferredPhase === 'planning' ? 'pending' : 'passed',
       implementation_complete: inferredPhase === 'qa' ? 'passed' : 'pending',

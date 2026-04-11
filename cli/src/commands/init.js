@@ -692,6 +692,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
     escalation: null,
     queued_phase_transition: null,
     queued_run_completion: null,
+    last_gate_failure: null,
     phase_gate_status: phaseGateStatus,
     budget_reservations: {},
     budget_status: {

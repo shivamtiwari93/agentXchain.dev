@@ -1001,6 +1001,118 @@ describe('acceptGovernedTurn', () => {
     assert.equal(drained.state.phase, 'implementation');
     assert.equal(drained.state.queued_phase_transition, null);
   });
+
+  it('AT-GFV-001/006: queued phase transition gate failure persists context and clears after later success', () => {
+    config.routing.planning.max_concurrent_turns = 2;
+    config.gates.planning_signoff = {
+      requires_files: ['.planning/PM_SIGNOFF.md'],
+      requires_human_approval: false,
+    };
+
+    const firstAssign = assignGovernedTurn(dir, config, 'pm');
+    const secondAssign = assignGovernedTurn(dir, config, 'dev');
+    const firstTurn = firstAssign.state.current_turn;
+    const secondTurnId = Object.keys(secondAssign.state.active_turns).find(id => id !== firstTurn.turn_id);
+    const secondTurn = secondAssign.state.active_turns[secondTurnId];
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstTurn.turn_id), { recursive: true });
+    const firstResult = makeTurnResult(secondAssign.state, firstTurn);
+    firstResult.phase_transition_request = 'implementation';
+    writeFileSync(join(dir, getTurnStagingResultPath(firstTurn.turn_id)), JSON.stringify(firstResult, null, 2));
+
+    const queued = acceptGovernedTurn(dir, config, { turnId: firstTurn.turn_id });
+    assert.ok(queued.ok, queued.error);
+    assert.equal(queued.state.queued_phase_transition?.to, 'implementation');
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
+    writeFileSync(
+      join(dir, getTurnStagingResultPath(secondTurnId)),
+      JSON.stringify(makeTurnResult(queued.state, secondTurn), null, 2),
+    );
+
+    const failedDrain = acceptGovernedTurn(dir, config, { turnId: secondTurnId });
+    assert.ok(failedDrain.ok, failedDrain.error);
+    assert.equal(failedDrain.state.phase, 'planning');
+    assert.equal(failedDrain.state.queued_phase_transition, null);
+    assert.equal(failedDrain.state.phase_gate_status.planning_signoff, 'failed');
+    assert.equal(failedDrain.state.last_gate_failure?.gate_type, 'phase_transition');
+    assert.equal(failedDrain.state.last_gate_failure?.queued_request, true);
+    assert.equal(failedDrain.state.last_gate_failure?.requested_by_turn, firstTurn.turn_id);
+    assert.equal(failedDrain.state.last_gate_failure?.to_phase, 'implementation');
+    assert.match(failedDrain.state.last_gate_failure?.reasons?.[0] || '', /PM_SIGNOFF\.md/);
+
+    const gateFailureLedger = readJsonl(dir, LEDGER_PATH).filter((entry) => entry.type === 'gate_failure');
+    assert.equal(gateFailureLedger.length, 1);
+    assert.equal(gateFailureLedger[0].gate_type, 'phase_transition');
+    assert.equal(gateFailureLedger[0].queued_request, true);
+
+    writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), 'Approved: YES\n');
+
+    const retryAssign = assignGovernedTurn(dir, config, 'pm');
+    const retryTurn = retryAssign.state.current_turn;
+    mkdirSync(join(dir, '.agentxchain', 'staging', retryTurn.turn_id), { recursive: true });
+    const retryResult = makeTurnResult(retryAssign.state, retryTurn);
+    retryResult.phase_transition_request = 'implementation';
+    writeFileSync(join(dir, getTurnStagingResultPath(retryTurn.turn_id)), JSON.stringify(retryResult, null, 2));
+
+    const recovered = acceptGovernedTurn(dir, config, { turnId: retryTurn.turn_id });
+    assert.ok(recovered.ok, recovered.error);
+    assert.equal(recovered.state.phase, 'implementation');
+    assert.equal(recovered.state.last_gate_failure, null);
+    assert.equal(recovered.state.phase_gate_status.planning_signoff, 'passed');
+  });
+
+  it('AT-GFV-002/003: queued run completion gate failure persists context and marks the gate failed', () => {
+    config.routing.qa.max_concurrent_turns = 2;
+    config.gates.qa_ship_verdict = {
+      requires_files: ['.planning/ship-verdict.md'],
+      requires_human_approval: false,
+    };
+
+    const seededState = {
+      ...readJson(dir, STATE_PATH),
+      phase: 'qa',
+      status: 'active',
+      run_id: 'run_gate_failure',
+    };
+    writeFileSync(join(dir, STATE_PATH), JSON.stringify(seededState, null, 2));
+
+    const firstAssign = assignGovernedTurn(dir, config, 'qa');
+    const secondAssign = assignGovernedTurn(dir, config, 'dev');
+    const firstTurn = firstAssign.state.current_turn;
+    const secondTurnId = Object.keys(secondAssign.state.active_turns).find(id => id !== firstTurn.turn_id);
+    const secondTurn = secondAssign.state.active_turns[secondTurnId];
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstTurn.turn_id), { recursive: true });
+    const firstResult = makeTurnResult(secondAssign.state, firstTurn);
+    firstResult.run_completion_request = true;
+    writeFileSync(join(dir, getTurnStagingResultPath(firstTurn.turn_id)), JSON.stringify(firstResult, null, 2));
+
+    const queued = acceptGovernedTurn(dir, config, { turnId: firstTurn.turn_id });
+    assert.ok(queued.ok, queued.error);
+    assert.ok(queued.state.queued_run_completion);
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
+    writeFileSync(
+      join(dir, getTurnStagingResultPath(secondTurnId)),
+      JSON.stringify(makeTurnResult(queued.state, secondTurn), null, 2),
+    );
+
+    const failedDrain = acceptGovernedTurn(dir, config, { turnId: secondTurnId });
+    assert.ok(failedDrain.ok, failedDrain.error);
+    assert.equal(failedDrain.state.status, 'active');
+    assert.equal(failedDrain.state.queued_run_completion, null);
+    assert.equal(failedDrain.state.phase_gate_status.qa_ship_verdict, 'failed');
+    assert.equal(failedDrain.state.last_gate_failure?.gate_type, 'run_completion');
+    assert.equal(failedDrain.state.last_gate_failure?.queued_request, true);
+    assert.equal(failedDrain.state.last_gate_failure?.requested_by_turn, firstTurn.turn_id);
+    assert.match(failedDrain.state.last_gate_failure?.reasons?.[0] || '', /ship-verdict\.md/);
+
+    const gateFailureLedger = readJsonl(dir, LEDGER_PATH).filter((entry) => entry.type === 'gate_failure');
+    assert.equal(gateFailureLedger.length, 1);
+    assert.equal(gateFailureLedger[0].gate_type, 'run_completion');
+    assert.equal(gateFailureLedger[0].phase, 'qa');
+  });
 });
 
 // ── Tests: rejectGovernedTurn ────────────────────────────────────────────────
