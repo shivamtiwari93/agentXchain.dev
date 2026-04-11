@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.56.0
+
+`2.56.0` gives governed runs an explicit project-level mission. `project.goal` can now be set at scaffold time, preserved in config normalization, rendered into every dispatched turn's `CONTEXT.md`, and surfaced across `status`, `report`, `export`, and the demo config so agents know what the repo is trying to accomplish before they start arguing about implementation details.
+
+- Added `agentxchain init --governed --goal "<text>"` to persist an optional `project.goal` string
+- Dispatch bundles now render `## Project Goal` after current state so every governed turn sees the project mission
+- `status --json` exposes additive `project_goal`, while governance reports preserve the same value at `subject.project.goal`
+- Public CLI and governance-report docs now describe the shipped goal surface truthfully instead of fabricating a `project_goal` report field
+- Targeted proof now covers status text, report JSON/text, docs contract alignment, and Docusaurus production build
+
 ## 2.55.0
 
 `2.55.0` makes run-context inheritance visible before operators construct a child run. `agentxchain history` now shows a `Ctx` signal in the default table, `history --json` exposes a computed `inheritable` boolean, lineage output marks inheritable ancestors with `[ctx]`, and the dashboard run-history view surfaces the same inheritance-snapshot availability.

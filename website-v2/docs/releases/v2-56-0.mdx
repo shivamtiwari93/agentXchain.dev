@@ -1,0 +1,29 @@
+---
+title: "v2.56.0 Release Notes"
+description: "Adds project.goal so governed agents see the project mission in dispatch context, status, report, and export surfaces."
+---
+
+# AgentXchain v2.56.0
+
+`v2.56.0` adds project-level mission context to governed delivery. Operators can now set `project.goal`, and every dispatched agent turn sees that mission directly in `CONTEXT.md` instead of inferring it from scattered planning files or stale prior turns.
+
+## What changed
+
+- `agentxchain init --governed --goal "<text>"` persists an optional `project.goal` in `agentxchain.json`
+- dispatch bundles render a `## Project Goal` section directly after `## Current State`
+- `agentxchain status` prints `Goal: <text>` and `status --json` exposes additive `project_goal`
+- `agentxchain report` preserves the goal at `subject.project.goal` and renders `Goal: <text>` in text/markdown output
+- `agentxchain export` includes the goal in both `project.goal` and `summary.project_goal`
+- the built-in demo config now includes a project goal so the front-door experience demonstrates the surface
+
+## Why this matters
+
+Governed agents already knew their role, phase, gate state, and parent context. They still lacked one basic piece of direction: what the project is actually trying to achieve.
+
+That gap matters in long-horizon delivery. A PM, dev, or QA agent can only challenge scope or implementation coherently if the repo carries an explicit mission. `project.goal` keeps that mission repo-native and visible across the core governed surfaces without changing run semantics.
+
+## Evidence
+
+- `node --test cli/test/project-goal.test.js` -> 13 tests / 6 suites / 0 failures
+- `node --test cli/test/docs-project-goal-content.test.js cli/test/governance-report-content.test.js` -> 13 tests / 7 suites / 0 failures
+- `cd website-v2 && npm run build` -> clean production build

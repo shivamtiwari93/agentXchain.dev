@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.55.0
+# Launch Evidence Report — AgentXchain v2.56.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.55.0 inheritance-visibility release: operators can now see which historical runs have usable inheritance snapshots across the CLI table, JSON output, lineage view, and dashboard before constructing `--inherit-context` child runs.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.56.0 project-goal release: governed repos can now persist an explicit `project.goal` and surface that mission across dispatch bundles, status, report, export, and the demo path.
 
 ---
 
