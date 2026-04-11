@@ -65,6 +65,20 @@ function appendAcceptanceHints(baseMatrix, acceptanceHints) {
   return `${baseMatrix}\n\n## Template Guidance\n${hintLines}\n`;
 }
 
+function findGitRoot(startDir) {
+  let current = resolve(startDir);
+  while (true) {
+    if (existsSync(join(current, '.git'))) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) {
+      return null;
+    }
+    current = parent;
+  }
+}
+
 // ── Governed init ───────────────────────────────────────────────────────────
 
 const GOVERNED_ROLES = {
@@ -950,6 +964,12 @@ async function initGoverned(opts) {
   if (dir !== process.cwd()) {
     console.log(`    ${chalk.bold(`cd ${targetLabel}`)}`);
   }
+  if (!findGitRoot(dir)) {
+    console.log(`    ${chalk.bold('git init')} ${chalk.dim('# initialize the governed repo')}`);
+  }
+  console.log(`    ${chalk.bold('agentxchain template validate')} ${chalk.dim('# prove the scaffold contract before the first turn')}`);
+  console.log(`    ${chalk.bold('git add -A')} ${chalk.dim('# stage the governed scaffold')}`);
+  console.log(`    ${chalk.bold('git commit -m "initial governed scaffold"')} ${chalk.dim('# checkpoint the starting state')}`);
   console.log(`    ${chalk.bold('agentxchain step')} ${chalk.dim('# run the first governed turn')}`);
   console.log(`    ${chalk.bold('agentxchain status')} ${chalk.dim('# inspect phase, gate, and turn state')}`);
   console.log('');

@@ -233,6 +233,10 @@ describe('governed CLI support', () => {
     try {
       const result = runCli(dir, ['init', '--governed', '-y']);
       assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /agentxchain template validate/);
+      assert.match(result.stdout, /git init/);
+      assert.match(result.stdout, /git add -A/);
+      assert.match(result.stdout, /git commit -m "initial governed scaffold"/);
       assert.match(result.stdout, /agentxchain step/);
       assert.doesNotMatch(result.stdout, /agentxchain start/);
 
@@ -250,6 +254,23 @@ describe('governed CLI support', () => {
       assert.match(result.stdout, /Mixed-mode:|Ready:/, 'init output must include a readiness hint');
       assert.match(result.stdout, /manual-qa/, 'init output must name the built-in no-key QA fallback');
       assert.match(result.stdout, /getting-started/, 'init output must link to getting-started docs');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed in an existing git repo omits git init guidance', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-existing-git-'));
+    try {
+      const gitInit = spawnSync('git', ['init'], { cwd: dir, encoding: 'utf8' });
+      assert.equal(gitInit.status, 0, gitInit.stderr);
+
+      const result = runCli(dir, ['init', '--governed', '--dir', '.', '-y']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.doesNotMatch(result.stdout, /git init/, 'existing git repos must not be told to git init again');
+      assert.match(result.stdout, /agentxchain template validate/);
+      assert.match(result.stdout, /git add -A/);
+      assert.match(result.stdout, /git commit -m "initial governed scaffold"/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

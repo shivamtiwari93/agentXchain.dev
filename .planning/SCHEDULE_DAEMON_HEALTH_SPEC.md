@@ -96,7 +96,7 @@ JSON output must include:
 | `schedule status` in a non-governed repo | Exit 1 with actionable error |
 | state file missing | Report `never_started` |
 | state file malformed | Report `not_running` with parse warning in human output and structured error in JSON |
-| daemon cannot write state file | Warn and continue only if scheduling can still run; fail closed if initial daemon state cannot be recorded |
+| daemon cannot write initial state file | Exit non-zero and do not keep running an unobservable daemon |
 | heartbeat older than staleness threshold | Report `stale` |
 
 ## Acceptance Tests
