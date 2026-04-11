@@ -24,6 +24,10 @@ import { render as renderGate } from '../dashboard/components/gate.js';
 import { render as renderInitiative } from '../dashboard/components/initiative.js';
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
+import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
+import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // ── escapeHtml correctness ────────────────────────────────────────────────
 
@@ -328,24 +332,35 @@ describe('App Shell — VIEWS registry', () => {
    * handles its expected data shape and returns a string.
    */
 
-  const VIEWS = {
-    timeline: { fetch: ['state', 'history'], render: renderTimeline },
-    ledger: { fetch: ['ledger'], render: renderLedger },
-    hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
-    blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
-    gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
-    initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers'], render: renderInitiative },
-    'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },
-    blockers: { fetch: ['coordinatorBlockers'], render: renderBlockers },
+  const COMPONENTS = {
+    timeline: renderTimeline,
+    ledger: renderLedger,
+    hooks: renderHooks,
+    blocked: renderBlocked,
+    gate: renderGate,
+    initiative: renderInitiative,
+    'cross-repo': renderCrossRepo,
+    blockers: renderBlockers,
+    timeouts: renderTimeouts,
+    'coordinator-timeouts': renderCoordinatorTimeouts,
   };
+  const appSource = readFileSync(join(import.meta.dirname, '..', 'dashboard', 'app.js'), 'utf8');
+  const viewMatch = appSource.match(/const VIEWS = \{([\s\S]*?)\n\};/);
+  assert.ok(viewMatch, 'app.js must define VIEWS');
+  const viewIds = Array.from(
+    viewMatch[1].matchAll(/^\s{2}(?:'([^']+)'|([a-z][a-z-]*))\s*:/gm),
+    ([, quoted, bare]) => quoted || bare,
+  );
 
-  for (const [name, { render }] of Object.entries(VIEWS)) {
+  for (const [name, render] of Object.entries(COMPONENTS)) {
     it(`${name} render returns a string for empty/null input`, () => {
       // Each component must handle null data gracefully
       const data = name === 'ledger' ? { ledger: null } :
                    name === 'hooks' ? { audit: null, annotations: null } :
                    name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null } :
                    name === 'blockers' ? { coordinatorBlockers: null } :
+                   name === 'timeouts' ? { timeouts: null } :
+                   name === 'coordinator-timeouts' ? { coordinatorTimeouts: null } :
                    name === 'cross-repo' ? { coordinatorState: null, coordinatorHistory: [] } :
                    { state: null, history: [] };
       const result = render(data);
@@ -354,22 +369,26 @@ describe('App Shell — VIEWS registry', () => {
     });
   }
 
-  it('all eight views are registered', () => {
-    assert.equal(Object.keys(VIEWS).length, 8);
-    assert.ok(VIEWS.timeline);
-    assert.ok(VIEWS.ledger);
-    assert.ok(VIEWS.hooks);
-    assert.ok(VIEWS.blocked);
-    assert.ok(VIEWS.gate);
-    assert.ok(VIEWS.initiative);
-    assert.ok(VIEWS['cross-repo']);
-    assert.ok(VIEWS.blockers);
+  it('app.js registers the full shipped view set', () => {
+    assert.deepEqual(viewIds, [
+      'timeline',
+      'ledger',
+      'hooks',
+      'blocked',
+      'gate',
+      'initiative',
+      'cross-repo',
+      'blockers',
+      'artifacts',
+      'run-history',
+      'timeouts',
+      'coordinator-timeouts',
+    ]);
   });
 
-  it('each view has a fetch array and a render function', () => {
-    for (const [name, view] of Object.entries(VIEWS)) {
-      assert.ok(Array.isArray(view.fetch), `${name} has fetch array`);
-      assert.equal(typeof view.render, 'function', `${name} has render function`);
+  it('component coverage stays aligned with the rendered shell', () => {
+    for (const name of Object.keys(COMPONENTS)) {
+      assert.ok(viewIds.includes(name), `${name} must exist in app.js VIEWS`);
     }
   });
 });

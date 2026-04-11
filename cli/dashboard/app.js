@@ -16,6 +16,7 @@ import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
 import { render as renderRunHistory } from './components/run-history.js';
 import { render as renderTimeouts } from './components/timeouts.js';
+import { render as renderCoordinatorTimeouts } from './components/coordinator-timeouts.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors'], render: renderTimeline },
@@ -29,6 +30,7 @@ const VIEWS = {
   artifacts: { fetch: ['workflowKitArtifacts'], render: renderArtifacts },
   'run-history': { fetch: ['runHistory'], render: renderRunHistory },
   timeouts: { fetch: ['timeouts'], render: renderTimeouts },
+  'coordinator-timeouts': { fetch: ['coordinatorTimeouts'], render: renderCoordinatorTimeouts },
 };
 
 const API_MAP = {
@@ -48,6 +50,7 @@ const API_MAP = {
   connectors: '/api/connectors',
   runHistory: '/api/run-history',
   timeouts: '/api/timeouts',
+  coordinatorTimeouts: '/api/coordinator/timeouts',
 };
 
 const viewState = {

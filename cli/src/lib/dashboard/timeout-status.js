@@ -17,7 +17,7 @@ import { readJsonFile, readJsonlFile } from './state-reader.js';
  * Mirrors the shape of report.js extractTimeoutEventDigest but operates
  * on in-memory ledger array rather than export artifacts.
  */
-function extractTimeoutEvents(ledgerEntries) {
+export function extractTimeoutEvents(ledgerEntries) {
   if (!Array.isArray(ledgerEntries) || ledgerEntries.length === 0) return [];
   return ledgerEntries
     .filter((d) => typeof d?.type === 'string' && d.type.startsWith('timeout'))
@@ -37,7 +37,7 @@ function extractTimeoutEvents(ledgerEntries) {
 /**
  * Flatten per-phase routing timeout overrides into a display-friendly array.
  */
-function flattenPhaseOverrides(routing) {
+export function flattenPhaseOverrides(routing) {
   if (!routing) return [];
   const overrides = [];
   for (const [phase, route] of Object.entries(routing)) {
@@ -58,7 +58,18 @@ function flattenPhaseOverrides(routing) {
  * @param {string} workspacePath — project root (parent of .agentxchain/)
  * @returns {{ ok: boolean, status: number, body: object }}
  */
-export function readTimeoutStatus(workspacePath) {
+export function buildTimeoutConfigSummary(timeouts, routing) {
+  if (!timeouts) return null;
+  return {
+    per_turn_minutes: timeouts.per_turn_minutes || null,
+    per_phase_minutes: timeouts.per_phase_minutes || null,
+    per_run_minutes: timeouts.per_run_minutes || null,
+    action: timeouts.action || 'escalate',
+    phase_overrides: flattenPhaseOverrides(routing),
+  };
+}
+
+function loadDashboardTimeoutContext(workspacePath) {
   const context = loadProjectContext(workspacePath);
   const governedContext = context?.config?.protocol_mode === 'governed' ? context : null;
   const legacyConfigResult = governedContext ? null : loadConfig(workspacePath);
@@ -74,24 +85,22 @@ export function readTimeoutStatus(workspacePath) {
     };
   }
 
-  const root = governedContext?.root || legacyConfigResult.root;
-  const config = governedContext?.config || legacyConfigResult.config;
-  const agentxchainDir = join(root, '.agentxchain');
-  const state = governedContext
-    ? loadProjectState(root, config)
-    : readJsonFile(agentxchainDir, 'state.json');
-  if (!state) {
-    return {
-      ok: false,
-      status: 404,
-      body: {
-        ok: false,
-        code: 'state_missing',
-        error: 'Run state not found. Run `agentxchain init --governed` first.',
-      },
-    };
+  return {
+    ok: true,
+    root,
+    config,
+    state,
+    agentxchainDir,
+  };
+}
+
+export function readTimeoutStatus(workspacePath) {
+  const contextResult = loadDashboardTimeoutContext(workspacePath);
+  if (!contextResult.ok) {
+    return contextResult;
   }
 
+  const { config, state, agentxchainDir } = contextResult;
   const timeouts = config.timeouts;
   if (!timeouts) {
     return {
@@ -108,13 +117,7 @@ export function readTimeoutStatus(workspacePath) {
   }
 
   // Config summary
-  const configSummary = {
-    per_turn_minutes: timeouts.per_turn_minutes || null,
-    per_phase_minutes: timeouts.per_phase_minutes || null,
-    per_run_minutes: timeouts.per_run_minutes || null,
-    action: timeouts.action || 'escalate',
-    phase_overrides: flattenPhaseOverrides(config.routing),
-  };
+  const configSummary = buildTimeoutConfigSummary(timeouts, config.routing);
 
   // Live timeout evaluation — only meaningful when the run is active
   let live = { exceeded: [], warnings: [] };

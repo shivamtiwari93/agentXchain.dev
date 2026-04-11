@@ -547,7 +547,7 @@ agentxchain dashboard [options]
 
 Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
 
-The shipped dashboard surface has ten top-level views:
+The shipped dashboard surface has twelve top-level views:
 
 | View | Description |
 |------|-------------|
@@ -562,6 +562,7 @@ The shipped dashboard surface has ten top-level views:
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
 | **Run History** | Cross-run history showing status, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, and ledger event history |
+| **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history |
 
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 
@@ -572,6 +573,8 @@ The dashboard is not a general write surface. It supports exactly one authentica
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus structured blockers such as `repo_run_id_mismatch` with expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand.
+
+For coordinator workspaces, the bridge also exposes `GET /api/coordinator/timeouts`, a computed read-only endpoint that aggregates timeout visibility across child repos. The **Coordinator Timeouts** view surfaces child repo timeout config/live pressure alongside any coordinator ledger timeout events.
 
 For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, exact recommended continuity command, and checkpoint-drift state. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
 

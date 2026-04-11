@@ -40,7 +40,7 @@ function extractViewIds(appSource) {
   const match = appSource.match(/const VIEWS = \{([\s\S]*?)\n\};/);
   assert.ok(match, 'app.js must define a VIEWS registry');
   return Array.from(
-    match[1].matchAll(/(?:'([^']+)'|([a-z][a-z-]*))\s*:/g),
+    match[1].matchAll(/^\s{2}(?:'([^']+)'|([a-z][a-z-]*))\s*:/gm),
     ([, quoted, bare]) => quoted || bare,
   );
 }
@@ -89,7 +89,7 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 11, 'dashboard nav must expose eleven top-level views');
+    assert.equal(navViews.length, 12, 'dashboard nav must expose twelve top-level views');
     for (const view of navViews) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(
@@ -108,7 +108,9 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
     assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
     assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
+    assert.ok(CLI_DOCS.includes('Coordinator Timeouts'), 'cli docs must document coordinator timeout view');
     assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/timeouts'), 'cli docs must document coordinator timeouts endpoint');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {
