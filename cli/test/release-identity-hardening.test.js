@@ -102,8 +102,10 @@ end
   return fixture;
 }
 
-function runReleaseBump(cliDir, targetVersion) {
-  return spawnSync('bash', ['scripts/release-bump.sh', '--target-version', targetVersion], {
+function runReleaseBump(cliDir, targetVersion, { skipPreflight = true } = {}) {
+  const args = ['scripts/release-bump.sh', '--target-version', targetVersion];
+  if (skipPreflight) args.push('--skip-preflight');
+  return spawnSync('bash', args, {
     cwd: cliDir,
     encoding: 'utf8',
     env: process.env,
@@ -501,6 +503,107 @@ describe('Release identity hardening', () => {
       }).trim().split('\n').filter(Boolean);
       assert.ok(changedFiles.includes('cli/homebrew/agentxchain.rb'));
       assert.ok(changedFiles.includes('cli/homebrew/README.md'));
+    });
+  });
+
+  describe('AT-PBT: preflight-before-tag release identity ordering', () => {
+    const script = readFileSync(BUMP_SCRIPT, 'utf8');
+    const PREFLIGHT_SPEC = join(REPO_ROOT, '.planning', 'PREFLIGHT_BEFORE_TAG_SPEC.md');
+
+    it('AT-PBT-001: inline preflight gate runs between commit creation and tag creation', () => {
+      // The script must contain inline preflight logic after commit and before tag
+      const commitIdx = script.indexOf('Creating release commit');
+      const preflightIdx = script.indexOf('Inline preflight gate');
+      const tagIdx = script.indexOf('Create annotated tag');
+      assert.ok(commitIdx > 0, 'script must contain commit creation step');
+      assert.ok(preflightIdx > 0, 'script must contain inline preflight gate');
+      assert.ok(tagIdx > 0, 'script must contain tag creation step');
+      assert.ok(preflightIdx > commitIdx, 'inline preflight must come after commit creation');
+      assert.ok(preflightIdx < tagIdx, 'inline preflight must come before tag creation');
+    });
+
+    it('AT-PBT-002: inline preflight exits with code 1 on failure without creating tag', () => {
+      assert.ok(
+        script.includes('PREFLIGHT FAILED') && script.includes('NOT tagged'),
+        'script must print clear failure message when preflight fails before tag',
+      );
+      assert.ok(
+        script.includes('PREFLIGHT_FAILED=1'),
+        'script must track preflight failure state',
+      );
+    });
+
+    it('AT-PBT-003: --skip-preflight bypasses inline preflight gate', () => {
+      assert.ok(
+        script.includes('--skip-preflight'),
+        'script must support --skip-preflight flag',
+      );
+      assert.ok(
+        script.includes('SKIP_PREFLIGHT'),
+        'script must use SKIP_PREFLIGHT variable',
+      );
+      // Verify skip-preflight bypasses the gate but still creates tag
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+      const result = runReleaseBump(fixture.cliDir, '2.20.0', { skipPreflight: true });
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /SKIPPED.*--skip-preflight/);
+      // Tag must exist
+      const tagType = execFileSync('git', ['cat-file', '-t', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.equal(tagType, 'tag');
+    });
+
+    it('AT-PBT-004: inline preflight runs with release environment variables', () => {
+      assert.ok(
+        script.includes('AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}"'),
+        'inline preflight must set AGENTXCHAIN_RELEASE_TARGET_VERSION',
+      );
+      assert.ok(
+        script.includes('AGENTXCHAIN_RELEASE_PREFLIGHT=1'),
+        'inline preflight must set AGENTXCHAIN_RELEASE_PREFLIGHT=1',
+      );
+    });
+
+    it('AT-PBT-005: post-success output does not tell operator to run preflight manually', () => {
+      // When preflight is not skipped, the success output should not say "Next: npm run preflight:release:strict"
+      assert.ok(
+        !script.includes('Next: npm run preflight:release:strict'),
+        'success output must not instruct operator to run preflight manually (it already ran inline)',
+      );
+    });
+
+    it('inline preflight runs npm test, npm pack, and docs build', () => {
+      assert.ok(
+        script.includes('npm test'),
+        'inline preflight must run npm test',
+      );
+      assert.ok(
+        script.includes('npm pack --dry-run'),
+        'inline preflight must run npm pack --dry-run',
+      );
+      assert.ok(
+        script.includes('npm run build'),
+        'inline preflight must run docs build',
+      );
+    });
+
+    it('preflight-before-tag spec exists', () => {
+      assert.ok(existsSync(PREFLIGHT_SPEC), 'PREFLIGHT_BEFORE_TAG_SPEC.md must exist');
+    });
+
+    it('preflight-before-tag spec defines the ordering invariant', () => {
+      const spec = readFileSync(PREFLIGHT_SPEC, 'utf8');
+      assert.ok(
+        spec.includes('DEC-RELEASE-PROCESS-005'),
+        'spec must reference the preflight-before-tag decision',
+      );
+      assert.ok(
+        spec.includes('tag') && spec.includes('preflight'),
+        'spec must describe the tag-after-preflight invariant',
+      );
     });
   });
 

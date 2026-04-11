@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Release identity creation — replaces raw `npm version <semver>`.
 # Creates version bump commit + annotated tag with fail-closed verification.
-# Usage: bash scripts/release-bump.sh --target-version <semver>
+# Usage: bash scripts/release-bump.sh --target-version <semver> [--skip-preflight]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -10,9 +10,10 @@ REPO_ROOT="$(cd "${CLI_DIR}/.." && pwd)"
 cd "$CLI_DIR"
 
 TARGET_VERSION=""
+SKIP_PREFLIGHT=0
 
 usage() {
-  echo "Usage: bash scripts/release-bump.sh --target-version <semver>" >&2
+  echo "Usage: bash scripts/release-bump.sh --target-version <semver> [--skip-preflight]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -30,6 +31,10 @@ while [[ $# -gt 0 ]]; do
       fi
       TARGET_VERSION="$2"
       shift 2
+      ;;
+    --skip-preflight)
+      SKIP_PREFLIGHT=1
+      shift
       ;;
     *)
       usage
@@ -250,8 +255,67 @@ if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
 fi
 echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
 
+# 8.5. Inline preflight gate — tests, pack, and docs build must pass before tag
+if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then
+  echo ""
+  echo "[8.5/10] Inline preflight gate SKIPPED (--skip-preflight)"
+else
+  echo ""
+  echo "[8.5/10] Running inline preflight gate..."
+  echo "  Running test suite..."
+
+  # Install MCP example deps if needed (same as release-preflight.sh)
+  for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../examples/mcp-http-echo-agent"; do
+    if [[ -f "${example_dir}/package.json" && ! -d "${example_dir}/node_modules" ]]; then
+      echo "  Installing deps for $(basename "$example_dir")..."
+      (cd "$example_dir" && env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm install --ignore-scripts --userconfig /dev/null 2>&1) || true
+    fi
+  done
+
+  PREFLIGHT_FAILED=0
+
+  # 8.5a. Full test suite with release env vars
+  if env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test >/dev/null 2>&1; then
+    echo "  OK: test suite passed"
+  else
+    echo "  FAIL: test suite failed" >&2
+    echo "  Re-running with output for diagnostics..." >&2
+    env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test 2>&1 | tail -30 >&2
+    PREFLIGHT_FAILED=1
+  fi
+
+  # 8.5b. npm pack dry-run
+  if npm pack --dry-run >/dev/null 2>&1; then
+    echo "  OK: npm pack --dry-run passed"
+  else
+    echo "  FAIL: npm pack --dry-run failed" >&2
+    PREFLIGHT_FAILED=1
+  fi
+
+  # 8.5c. Docs build
+  if (cd "${REPO_ROOT}/website-v2" && npm run build >/dev/null 2>&1); then
+    echo "  OK: docs build passed"
+  else
+    echo "  FAIL: docs build failed" >&2
+    PREFLIGHT_FAILED=1
+  fi
+
+  if [[ "$PREFLIGHT_FAILED" -eq 1 ]]; then
+    echo "" >&2
+    echo "PREFLIGHT FAILED — release commit created but NOT tagged." >&2
+    echo "  Commit: ${RELEASE_SHA:0:7}" >&2
+    echo "  Fix the failures, amend the commit, and re-run:" >&2
+    echo "    bash scripts/release-bump.sh --target-version ${TARGET_VERSION}" >&2
+    echo "  Or skip preflight if already verified:" >&2
+    echo "    bash scripts/release-bump.sh --target-version ${TARGET_VERSION} --skip-preflight" >&2
+    exit 1
+  fi
+
+  echo "  Inline preflight gate passed — proceeding to tag"
+fi
+
 # 9. Create annotated tag
-echo "[9/9] Creating annotated tag..."
+echo "[9/10] Creating annotated tag..."
 git tag -a "v${TARGET_VERSION}" -m "v${TARGET_VERSION}"
 TAG_SHA=$(git rev-parse "v${TARGET_VERSION}")
 if [[ -z "$TAG_SHA" ]]; then
@@ -276,6 +340,10 @@ echo "Release identity created successfully."
 echo "  Version: ${TARGET_VERSION}"
 echo "  Commit:  ${RELEASE_SHA:0:7}"
 echo "  Tag:     v${TARGET_VERSION}"
+if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then
+  echo ""
+  echo "WARNING: Inline preflight was skipped. Verify before pushing:"
+  echo "  npm run preflight:release:strict -- --target-version ${TARGET_VERSION}"
+fi
 echo ""
-echo "Next: npm run preflight:release:strict -- --target-version ${TARGET_VERSION}"
-echo "Then: git push origin main --follow-tags"
+echo "Next: git push origin main --follow-tags"

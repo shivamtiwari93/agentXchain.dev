@@ -47,16 +47,16 @@ This playbook exists because historical release notes and handoff specs in `.pla
 
 ```bash
 cd cli
-# Option A (recommended): bump first, then strict preflight only.
-# bump:release auto-aligns Homebrew mirror in Step 5, avoiding manual pre-alignment.
+# Option A (recommended): bump with inline preflight gate.
+# bump:release auto-aligns Homebrew mirror, runs inline preflight (tests, pack,
+# docs build) BEFORE creating the tag. If preflight fails, the commit exists but
+# no tag is created — safe to amend and re-run. See DEC-RELEASE-PROCESS-005.
 npm run bump:release -- --target-version <semver>
-npm run preflight:release:strict -- --target-version <semver>
 git push origin main --follow-tags
 
-# Option B: default preflight before bump (requires manual Homebrew alignment first).
-# If Homebrew formula/README are not yet aligned, AT-CRS-010/011 will fail.
-npm run preflight:release -- --target-version <semver>
-npm run bump:release -- --target-version <semver>
+# Option B: bump with skip-preflight (recovery / already-verified scenarios).
+# Only use when preflight has already been verified separately.
+npm run bump:release -- --target-version <semver> --skip-preflight
 npm run preflight:release:strict -- --target-version <semver>
 git push origin main --follow-tags
 ```
