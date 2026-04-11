@@ -547,11 +547,14 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
     Object.keys(roles).map((roleId) => [roleId, `.agentxchain/prompts/${roleId}.md`])
   );
 
+  const policies = cloneJsonCompatible(blueprint?.policies || []);
+
   return {
     roles,
     runtimes,
     routing,
     gates,
+    policies,
     prompts,
     workflowKitConfig: effectiveWorkflowKitConfig,
   };
@@ -627,7 +630,7 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
   const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig);
-  const { roles, runtimes, routing, gates, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
+  const { roles, runtimes, routing, gates, policies, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
   const scaffoldWorkflowKitConfig = effectiveWorkflowKitConfig
     ? normalizeWorkflowKit(effectiveWorkflowKitConfig, Object.keys(routing))
     : null;
@@ -667,6 +670,9 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
       max_deadlock_cycles: 2
     }
   };
+  if (policies && policies.length > 0) {
+    config.policies = policies;
+  }
   if (effectiveWorkflowKitConfig) {
     config.workflow_kit = effectiveWorkflowKitConfig;
   }

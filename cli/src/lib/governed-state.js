@@ -21,6 +21,7 @@ import { randomBytes, createHash } from 'crypto';
 import { safeWriteJson } from './safe-write.js';
 import { validateStagedTurnResult } from './turn-result-validator.js';
 import { evaluatePhaseExit, evaluateRunCompletion } from './gate-evaluator.js';
+import { evaluatePolicies } from './policy-evaluator.js';
 import {
   captureBaseline,
   observeChanges,
@@ -2047,6 +2048,56 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const artifactType = turnResult.artifact?.type || 'review';
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
   const historyEntries = readJsonlEntries(root, HISTORY_PATH);
+
+  // Policy evaluation — declarative governance rules (spec: POLICY_ENGINE_SPEC.md)
+  const policyResult = evaluatePolicies(config.policies || [], {
+    currentPhase: state.phase,
+    turnRole: turnResult.role,
+    turnStatus: turnResult.status,
+    turnCostUsd: turnResult.cost?.total_usd ?? null,
+    history: historyEntries,
+  });
+
+  if (policyResult.blocks.length > 0) {
+    const blockMessages = policyResult.blocks.map((v) => v.message);
+    return {
+      ok: false,
+      error: `Policy violation: ${blockMessages.join('; ')}`,
+      error_code: 'policy_violation',
+      policy_violations: policyResult.violations,
+    };
+  }
+
+  if (policyResult.escalations.length > 0) {
+    const escalationMessages = policyResult.escalations.map((v) => v.message);
+    const blockedState = {
+      ...state,
+      status: 'blocked',
+      blocked_on: `policy:${policyResult.escalations[0].policy_id}`,
+      blocked_reason: `Policy escalation: ${escalationMessages.join('; ')}`,
+    };
+    writeState(root, blockedState);
+    appendJsonl(root, LEDGER_PATH, {
+      timestamp: now,
+      decision: 'policy_escalation',
+      turn_id: currentTurn.turn_id,
+      role: turnResult.role,
+      phase: state.phase,
+      violations: policyResult.escalations.map((v) => ({
+        policy_id: v.policy_id,
+        rule: v.rule,
+        message: v.message,
+      })),
+    });
+    return {
+      ok: false,
+      error: `Policy escalation: ${escalationMessages.join('; ')}`,
+      error_code: 'policy_escalation',
+      state: blockedState,
+      policy_violations: policyResult.violations,
+    };
+  }
+
   const conflict = detectAcceptanceConflict(currentTurn, observedArtifact, historyEntries);
 
   if (conflict) {
@@ -2527,6 +2578,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     completionResult,
     hookResults,
     ...(budgetWarning ? { budget_warning: budgetWarning } : {}),
+    ...(policyResult.warnings.length > 0 ? { policy_warnings: policyResult.warnings } : {}),
   };
 }
 

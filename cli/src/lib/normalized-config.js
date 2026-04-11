@@ -14,6 +14,7 @@
 
 import { validateHooksConfig } from './hook-runner.js';
 import { validateNotificationsConfig } from './notification-runner.js';
+import { validatePolicies, normalizePolicies } from './policy-evaluator.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 import {
   buildDefaultWorkflowKitArtifactsForPhase,
@@ -512,6 +513,12 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...wkValidation.errors);
   }
 
+  // Policies (optional but validated if present)
+  if (data.policies !== undefined) {
+    const policyValidation = validatePolicies(data.policies);
+    errors.push(...policyValidation.errors);
+  }
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -725,6 +732,7 @@ export function normalizeV3(raw) {
     hooks: {},
     notifications: {},
     budget: null,
+    policies: [],
     workflow_kit: normalizeWorkflowKit(undefined, DEFAULT_PHASES),
     retention: {
       talk_strategy: 'append_only',
@@ -789,6 +797,7 @@ export function normalizeV4(raw) {
     hooks: raw.hooks || {},
     notifications: raw.notifications || {},
     budget: raw.budget || null,
+    policies: normalizePolicies(raw.policies),
     workflow_kit: normalizeWorkflowKit(raw.workflow_kit, routingPhases),
     retention: raw.retention || {
       talk_strategy: 'append_only',

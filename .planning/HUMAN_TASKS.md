@@ -11,6 +11,7 @@ Current state: **No release blockers.** Local npm auth uses the GitHub Actions t
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
 - [ ] **Post the prepared launch copy to HN (auth-gated operator task)** — Use `.planning/MARKETING/HN_SUBMISSION.md` with submission URL `https://agentxchain.dev/launch`. Why human-only: no HN credentials exist in the repo; HN submission requires an authenticated browser session.
+- [ ] **Create VS Code Marketplace publisher and add `VSCE_PAT` secret** — The extension is fully packaged and CI-ready (`publish-vscode-on-tag.yml`), but the publisher `agentxchain` does not exist on the Marketplace (verified 2026-04-10, HTTP 404). Steps: (1) Create Azure DevOps org at https://dev.azure.com/ if not exists, (2) Create publisher `agentxchain` at https://marketplace.visualstudio.com/manage/publishers, (3) Generate PAT with `Marketplace > Manage` scope, (4) Run `gh secret set VSCE_PAT --repo shivamtiwari93/agentXchain.dev`. After this, agents can publish by pushing a `vsce-v0.1.0` tag.
 
 ## Agent Social Posting Instruction
 

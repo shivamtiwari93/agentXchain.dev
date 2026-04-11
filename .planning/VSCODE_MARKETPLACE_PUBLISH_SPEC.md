@@ -13,7 +13,8 @@ Publish the AgentXchain VS Code extension to the Visual Studio Marketplace so op
 - 12 commands, governed + legacy mode support
 - Icon: `media/icon.png` (128x128)
 - Repo secret audit on 2026-04-10: `VSCE_PAT` is absent from `gh secret list --repo shivamtiwari93/agentXchain.dev`
-- Publish is therefore blocked on Marketplace credentials and publisher access, not on extension packaging
+- **Publisher verification on 2026-04-10**: `marketplace.visualstudio.com/publishers/agentxchain` returns HTTP 404. The publisher `agentxchain` does **not exist** on the VS Code Marketplace. Zero extensions match "agentxchain" in the Marketplace API.
+- Publish is blocked on two human-only prerequisites: (1) publisher creation and (2) PAT secret
 
 ## Human-Only Prerequisites
 

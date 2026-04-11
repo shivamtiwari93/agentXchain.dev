@@ -142,6 +142,26 @@
         "requires_human_approval": true
       }
     },
+    "policies": [
+      {
+        "id": "phase-turn-cap",
+        "rule": "max_turns_per_phase",
+        "params": { "limit": 15 },
+        "action": "escalate"
+      },
+      {
+        "id": "total-turn-cap",
+        "rule": "max_total_turns",
+        "params": { "limit": 60 },
+        "action": "escalate"
+      },
+      {
+        "id": "no-role-monopoly",
+        "rule": "max_consecutive_same_role",
+        "params": { "limit": 4 },
+        "action": "block"
+      }
+    ],
     "workflow_kit": {
       "phases": {
         "planning": {

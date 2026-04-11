@@ -80,6 +80,7 @@ const VALID_SCAFFOLD_BLUEPRINT_KEYS = new Set([
   'runtimes',
   'routing',
   'gates',
+  'policies',
   'workflow_kit',
 ]);
 
@@ -106,6 +107,7 @@ function validateScaffoldBlueprint(scaffoldBlueprint, errors) {
     runtimes: scaffoldBlueprint.runtimes,
     routing: scaffoldBlueprint.routing,
     gates: scaffoldBlueprint.gates,
+    policies: scaffoldBlueprint.policies,
     workflow_kit: scaffoldBlueprint.workflow_kit,
   });
 
