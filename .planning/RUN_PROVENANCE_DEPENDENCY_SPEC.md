@@ -1,6 +1,6 @@
 # Run Provenance & Dependency — Repo-Local Spec
 
-> Status: Slice 1 approved and partially implemented — Turn 22
+> Status: **Shipped** — Slice 1 (Turn 22) + Slice 2 lineage/flags (Turn 23)
 > Author: Claude Opus 4.6
 > Scope: Repo-local governed runs only
 

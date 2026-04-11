@@ -135,6 +135,115 @@ export function queryRunHistory(root, opts = {}) {
 }
 
 /**
+ * Walk run lineage backwards from a given run_id via parent_run_id links.
+ *
+ * Returns an ordered array (oldest ancestor first) of history entries
+ * forming the lineage chain. If a parent_run_id references a run not
+ * found in history, the chain terminates with a broken_link sentinel.
+ *
+ * @param {string} root - project root directory
+ * @param {string} runId - the run to trace lineage for
+ * @returns {{ ok: boolean, chain?: Array<object>, error?: string }}
+ */
+export function queryRunLineage(root, runId) {
+  const filePath = join(root, RUN_HISTORY_PATH);
+  if (!existsSync(filePath)) {
+    return { ok: false, error: 'No run history found. Run at least one governed run first.' };
+  }
+
+  let content;
+  try {
+    content = readFileSync(filePath, 'utf8').trim();
+  } catch {
+    return { ok: false, error: 'Failed to read run history file.' };
+  }
+  if (!content) {
+    return { ok: false, error: 'No run history found. Run at least one governed run first.' };
+  }
+
+  const entries = content
+    .split('\n')
+    .filter(Boolean)
+    .map(line => { try { return JSON.parse(line); } catch { return null; } })
+    .filter(Boolean);
+
+  // Build lookup by run_id
+  const byId = new Map();
+  for (const entry of entries) {
+    if (entry.run_id) byId.set(entry.run_id, entry);
+  }
+
+  // Find the target entry
+  const target = byId.get(runId);
+  if (!target) {
+    return { ok: false, error: `Run ${runId} not found in run history.` };
+  }
+
+  // Walk backwards collecting ancestors
+  const chain = [target];
+  let current = target;
+  const visited = new Set([runId]);
+
+  while (current.provenance?.parent_run_id) {
+    const parentId = current.provenance.parent_run_id;
+    if (visited.has(parentId)) break; // safety: prevent cycles
+    visited.add(parentId);
+
+    const parent = byId.get(parentId);
+    if (!parent) {
+      chain.unshift({ broken_link: true, missing_run_id: parentId });
+      break;
+    }
+    chain.unshift(parent);
+    current = parent;
+  }
+
+  return { ok: true, chain };
+}
+
+/**
+ * Validate that a run_id exists in history and is in a terminal state.
+ * Used by --continue-from and --recover-from flag validation.
+ *
+ * @param {string} root - project root directory
+ * @param {string} runId - the run_id to validate
+ * @returns {{ ok: boolean, entry?: object, error?: string }}
+ */
+export function validateParentRun(root, runId) {
+  const filePath = join(root, RUN_HISTORY_PATH);
+  if (!existsSync(filePath)) {
+    return { ok: false, error: `Run ${runId} not found in run history` };
+  }
+
+  let content;
+  try {
+    content = readFileSync(filePath, 'utf8').trim();
+  } catch {
+    return { ok: false, error: `Run ${runId} not found in run history` };
+  }
+  if (!content) {
+    return { ok: false, error: `Run ${runId} not found in run history` };
+  }
+
+  const entries = content
+    .split('\n')
+    .filter(Boolean)
+    .map(line => { try { return JSON.parse(line); } catch { return null; } })
+    .filter(Boolean);
+
+  const entry = entries.find(e => e.run_id === runId);
+  if (!entry) {
+    return { ok: false, error: `Run ${runId} not found in run history` };
+  }
+
+  if (!WRITABLE_TERMINAL_STATUSES.has(entry.status)) {
+    return { ok: false, error: `Run ${runId} is still active (status: ${entry.status}). Cannot chain from a non-terminal run.` };
+  }
+
+  return { ok: true, entry };
+}
+
+/**
  * Get the path to the run-history file.
  */
 export function getRunHistoryPath(root) {

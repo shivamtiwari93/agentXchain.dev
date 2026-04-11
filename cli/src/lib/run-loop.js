@@ -59,7 +59,8 @@ export async function runLoop(root, config, callbacks, options = {}) {
   // ── Initialize if idle ──────────────────────────────────────────────────
   let state = loadState(root, config);
   if (!state || state.status === 'idle') {
-    const initResult = initRun(root, config);
+    const initOpts = options.provenance ? { provenance: options.provenance } : {};
+    const initResult = initRun(root, config, initOpts);
     if (!initResult.ok) {
       return makeResult(false, 'init_failed', loadState(root, config), turnsExecuted, turnHistory, gatesApproved, [initResult.error]);
     }

@@ -20,6 +20,7 @@ import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { runLoop } from '../lib/run-loop.js';
 import { buildRunExport } from '../lib/export.js';
 import { buildGovernanceReport, formatGovernanceReportMarkdown } from '../lib/report.js';
+import { validateParentRun } from '../lib/run-history.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import {
   dispatchLocalCli,
@@ -54,6 +55,30 @@ export async function runCommand(opts) {
     console.log(chalk.red('The run command is only available for governed projects.'));
     console.log(chalk.dim('Legacy projects use: agentxchain start'));
     process.exit(1);
+  }
+
+  // ── Provenance flag validation ──────────────────────────────────────────
+  const continueFrom = opts.continueFrom;
+  const recoverFrom = opts.recoverFrom;
+
+  if (continueFrom && recoverFrom) {
+    console.log(chalk.red('Cannot specify both --continue-from and --recover-from'));
+    process.exit(1);
+  }
+
+  let provenance = undefined;
+  if (continueFrom || recoverFrom) {
+    const parentId = continueFrom || recoverFrom;
+    const validation = validateParentRun(root, parentId);
+    if (!validation.ok) {
+      console.log(chalk.red(validation.error));
+      process.exit(1);
+    }
+    provenance = {
+      trigger: continueFrom ? 'continuation' : 'recovery',
+      parent_run_id: parentId,
+      created_by: 'operator',
+    };
   }
 
   const maxTurns = opts.maxTurns || 50;
@@ -319,7 +344,9 @@ export async function runCommand(opts) {
   };
 
   // ── Execute ─────────────────────────────────────────────────────────────
-  const result = await runLoop(root, config, callbacks, { maxTurns });
+  const runLoopOpts = { maxTurns };
+  if (provenance) runLoopOpts.provenance = provenance;
+  const result = await runLoop(root, config, callbacks, runLoopOpts);
 
   // ── Summary ─────────────────────────────────────────────────────────────
   console.log('');

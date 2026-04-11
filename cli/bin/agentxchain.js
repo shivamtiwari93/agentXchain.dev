@@ -263,6 +263,7 @@ program
   .option('-j, --json', 'Output as JSON')
   .option('-l, --limit <n>', 'Number of recent runs to show (default: 20)')
   .option('-s, --status <status>', 'Filter by status: completed, blocked, failed')
+  .option('--lineage <run_id>', 'Show lineage chain for a specific run')
   .option('-d, --dir <path>', 'Project directory')
   .action(historyCommand);
 
@@ -355,6 +356,8 @@ program
   .option('--verbose', 'Stream adapter subprocess output')
   .option('--dry-run', 'Print what would be dispatched without executing')
   .option('--no-report', 'Suppress automatic governance report after run completes')
+  .option('--continue-from <run_id>', 'Continue from a prior terminal run (sets trigger=continuation)')
+  .option('--recover-from <run_id>', 'Recover from a prior blocked/failed run (sets trigger=recovery)')
   .action(runCommand);
 
 program

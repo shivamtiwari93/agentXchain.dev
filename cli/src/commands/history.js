@@ -7,8 +7,8 @@
 import { resolve } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import chalk from 'chalk';
-import { queryRunHistory } from '../lib/run-history.js';
-import { getRunTriggerLabel } from '../lib/run-provenance.js';
+import { queryRunHistory, queryRunLineage } from '../lib/run-history.js';
+import { getRunTriggerLabel, summarizeRunProvenance } from '../lib/run-provenance.js';
 
 /**
  * @param {object} opts - { json?: boolean, limit?: number, status?: string, dir?: string }
@@ -20,6 +20,42 @@ export async function historyCommand(opts) {
     process.exit(1);
   }
 
+  // ── Lineage mode ─────────────────────────────────────────────────────────
+  if (opts.lineage) {
+    const result = queryRunLineage(root, opts.lineage);
+    if (!result.ok) {
+      console.error(chalk.red(result.error));
+      process.exit(1);
+    }
+
+    if (opts.json) {
+      console.log(JSON.stringify(result.chain, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold(`Run Lineage for ${opts.lineage}:`));
+    result.chain.forEach((entry, i) => {
+      if (entry.broken_link) {
+        const prefix = i === 0 ? '  ' : '  └─ ';
+        console.log(chalk.red(`${prefix}[broken link: ${entry.missing_run_id}]`));
+        return;
+      }
+      const runId = (entry.run_id || '—').slice(0, 12);
+      const status = formatStatus(entry.status);
+      const phases = (entry.phases_completed || []).join(',') || '—';
+      const turns = `${entry.total_turns || 0} turns`;
+      const cost = entry.total_cost_usd != null ? `$${entry.total_cost_usd.toFixed(2)}` : '';
+      const trigger = getRunTriggerLabel(entry.provenance);
+      const parentNote = entry.provenance?.parent_run_id
+        ? ` from ${entry.provenance.parent_run_id.slice(0, 12)}`
+        : '';
+      const prefix = i === 0 ? '  ' : '  └─ ';
+      console.log(`${prefix}${runId}  ${status}  ${pad(phases, 20)}  ${pad(turns, 10)}  ${pad(cost, 8)}  (${trigger}${parentNote})`);
+    });
+    return;
+  }
+
+  // ── Standard history view ────────────────────────────────────────────────
   const limit = opts.limit ? parseInt(opts.limit, 10) : 20;
   const entries = queryRunHistory(root, {
     limit,

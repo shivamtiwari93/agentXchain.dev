@@ -330,8 +330,12 @@ agentxchain run [options]
 | `--auto-approve` | `false` | Auto-approve all gates (non-interactive mode) |
 | `--verbose` | `false` | Stream adapter subprocess output |
 | `--dry-run` | `false` | Print dispatch plan without executing |
+| `--continue-from <run_id>` | — | Continue from a prior terminal run (sets `trigger=continuation` provenance) |
+| `--recover-from <run_id>` | — | Recover from a prior blocked/failed run (sets `trigger=recovery` provenance) |
 
 Drives a governed run to completion using the `runLoop` library. Continuously assigns turns, dispatches to adapters, handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). The manual adapter is not supported — use `step` for manual dispatch workflows. When a gate pause is reached, the command prompts interactively on stdin unless `--auto-approve` is set. In non-TTY environments (e.g., CI), gates fail closed unless `--auto-approve` is explicitly passed.
+
+**Provenance flags:** `--continue-from` and `--recover-from` are mutually exclusive. Both validate that the referenced run exists in `run-history.jsonl` and is in a terminal state (`completed` or `blocked`). The new run's `state.json` will carry the provenance metadata linking it to the parent run. These flags are metadata — they do not copy phase state or alter routing.
 
 ### `accept-turn`
 
@@ -520,7 +524,7 @@ Migrates state and config from an older protocol version to the current version 
 ### `history`
 
 ```bash
-agentxchain history [--json] [--limit <n>] [--status completed|blocked|failed] [--dir <path>]
+agentxchain history [--json] [--limit <n>] [--status completed|blocked|failed] [--lineage <run_id>] [--dir <path>]
 ```
 
 | Flag | Default | Description |
@@ -528,11 +532,14 @@ agentxchain history [--json] [--limit <n>] [--status completed|blocked|failed] [
 | `--json` | `false` | Output as JSON array |
 | `--limit <n>` | `20` | Number of recent runs to show |
 | `--status <status>` | — | Filter by terminal status: `completed`, `blocked`, or `failed` |
+| `--lineage <run_id>` | — | Show the lineage chain for a specific run by walking `parent_run_id` links |
 | `--dir <path>` | `.` | Project directory |
 
 Shows a persistent cross-run history of governed runs in this project. Each completed governed run appends a summary record to `.agentxchain/run-history.jsonl` with run ID, status, phases, turns, cost, duration, and connector metadata. The file persists across runs and is not reset when a new run starts.
 
 The default table includes a `Trigger` column when provenance metadata is available on the recorded run. Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
+
+**Lineage view:** `--lineage <run_id>` walks the `parent_run_id` chain backwards through `run-history.jsonl` and prints the ancestor tree (oldest first). If a parent reference points to a run that no longer exists in history, the chain terminates with a `[broken link]` sentinel. Combine with `--json` for machine-readable lineage output.
 
 Use `--json` for machine-readable output. Use `--status completed` to see only successful runs. Use `--limit 5` to see the last 5 runs.
 
