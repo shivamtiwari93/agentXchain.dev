@@ -92,12 +92,16 @@ function renderLiveTable(live) {
   }
 
   let html = `<table class="data-table">
-    <thead><tr><th>Status</th><th>Scope</th><th>Phase</th><th>Elapsed</th><th>Limit</th><th>Exceeded By</th><th>Action</th></tr></thead>
+    <thead><tr><th>Status</th><th>Scope</th><th>Turn</th><th>Phase</th><th>Elapsed</th><th>Limit</th><th>Exceeded By</th><th>Action</th></tr></thead>
     <tbody>`;
   for (const item of exceeded) {
+    const turnLabel = item.turn_id
+      ? `<span class="mono">${esc(item.turn_id)}</span>${item.role_id ? ` <span style="color:var(--text-dim)">(${esc(item.role_id)})</span>` : ''}`
+      : '—';
     html += `<tr style="border-left:3px solid var(--red)">
       <td>${badge('EXCEEDED', 'var(--red)')}</td>
       <td>${scopeLabel(item.scope)}</td>
+      <td>${turnLabel}</td>
       <td>${item.phase ? esc(item.phase) : '—'}</td>
       <td>${item.elapsed_minutes}m</td>
       <td>${item.limit_minutes}m</td>
@@ -106,9 +110,13 @@ function renderLiveTable(live) {
     </tr>`;
   }
   for (const item of warnings) {
+    const turnLabel = item.turn_id
+      ? `<span class="mono">${esc(item.turn_id)}</span>${item.role_id ? ` <span style="color:var(--text-dim)">(${esc(item.role_id)})</span>` : ''}`
+      : '—';
     html += `<tr style="border-left:3px solid var(--yellow)">
       <td>${badge('WARNING', 'var(--yellow)')}</td>
       <td>${scopeLabel(item.scope)}</td>
+      <td>${turnLabel}</td>
       <td>${item.phase ? esc(item.phase) : '—'}</td>
       <td>${item.elapsed_minutes}m</td>
       <td>${item.limit_minutes}m</td>

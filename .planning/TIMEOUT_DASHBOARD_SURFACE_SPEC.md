@@ -25,12 +25,14 @@ Returns:
     "exceeded": [],
     "warnings": [
       {
-        "scope": "phase",
+        "scope": "turn",
         "phase": "implementation",
-        "limit_minutes": 120,
-        "elapsed_minutes": 95,
-        "exceeded_by_minutes": 0,
-        "action": "escalate"
+        "turn_id": "turn_abc",
+        "role_id": "dev",
+        "limit_minutes": 30,
+        "elapsed_minutes": 35,
+        "exceeded_by_minutes": 5,
+        "action": "warn"
       }
     ]
   },
@@ -52,7 +54,7 @@ Returns:
 
 - `configured`: whether `config.timeouts` exists.
 - `config`: the raw timeouts config section (with per-phase routing overrides flattened).
-- `live`: result of `evaluateTimeouts()` against current time and state. Empty arrays when run is not `active`.
+- `live`: dashboard timeout pressure. Phase/run scopes are evaluated once per request. Turn scope is evaluated once per active turn, and turn-scoped rows must include `turn_id` and `role_id`. Empty arrays when run is not `active`.
 - `events`: persisted timeout events from the decision ledger (same shape as `extractTimeoutEventDigest()`).
 
 When no timeouts are configured: `{ ok: true, configured: false, config: null, live: null, events: [] }`.
@@ -67,7 +69,7 @@ Dashboard component: `cli/dashboard/components/timeouts.js`
 Render sections:
 1. **Header** — "Timeouts" with configured/not-configured badge.
 2. **Config Summary** — table showing each scope, limit, and action.
-3. **Live Pressure** — if the run is active, show exceeded (red) and warning (yellow) items with scope, elapsed/limit, and action. Empty-state message when nothing exceeded.
+3. **Live Pressure** — if the run is active, show exceeded (red) and warning (yellow) items with scope, turn identity when scope is `turn`, elapsed/limit, and action. Empty-state message when nothing exceeded.
 4. **Persisted Events** — table of past timeout events from the ledger: type, scope, phase, turn_id, elapsed/limit, action, timestamp. Empty-state message when no events.
 
 ### Server Module
@@ -76,7 +78,8 @@ Render sections:
 
 ## Behavior
 
-- Live evaluation runs `evaluateTimeouts()` against `new Date()` on every request — no caching.
+- Live evaluation runs against `new Date()` on every request — no caching.
+- The dashboard must not silently drop per-turn timeout pressure. It evaluates phase/run once, then evaluates each active turn individually and annotates turn-scoped rows with `turn_id` and `role_id`.
 - Per-phase routing overrides are flattened into `config` for display: `{ phase: "qa", limit_minutes: 60, action: "skip_phase" }`.
 - Events are extracted from `.agentxchain/decision-ledger.jsonl` via `extractTimeoutEventDigest()`.
 - When the run is not `active` (completed, blocked), live pressure returns empty arrays — historical events still render.
@@ -91,16 +94,17 @@ Render sections:
 
 1. `readTimeoutStatus` returns `configured: false` when no timeouts in config.
 2. `readTimeoutStatus` returns `configured: true` with config summary when timeouts exist.
-3. `readTimeoutStatus` returns live exceeded/warnings from `evaluateTimeouts()`.
-4. `readTimeoutStatus` returns persisted events from the decision ledger.
-5. `readTimeoutStatus` returns empty live arrays when state is not `active`.
-6. `readTimeoutStatus` flattens per-phase routing overrides into config display.
-7. Frontend `render()` shows config table, live pressure indicators, and event rows.
-8. Frontend `render()` shows placeholder when no timeouts configured.
-9. Frontend `render()` highlights exceeded items in red, warnings in yellow.
-10. Dashboard nav includes "Timeouts" link.
-11. `app.js` VIEWS includes `timeouts` with correct fetch key and render function.
-12. Bridge server routes `/api/timeouts` to `readTimeoutStatus()`.
+3. `readTimeoutStatus` returns live phase/run exceeded-warnings for active runs.
+4. `readTimeoutStatus` returns turn-scoped live pressure for every active turn and includes `turn_id` / `role_id`.
+5. `readTimeoutStatus` returns persisted events from the decision ledger.
+6. `readTimeoutStatus` returns empty live arrays when state is not `active`.
+7. `readTimeoutStatus` flattens per-phase routing overrides into config display.
+8. Frontend `render()` shows config table, live pressure indicators, turn ids for turn-scoped rows, and event rows.
+9. Frontend `render()` shows placeholder when no timeouts configured.
+10. Frontend `render()` highlights exceeded items in red, warnings in yellow.
+11. Dashboard nav includes "Timeouts" link.
+12. `app.js` VIEWS includes `timeouts` with correct fetch key and render function.
+13. Bridge server routes `/api/timeouts` to `readTimeoutStatus()`.
 
 ## Open Questions
 

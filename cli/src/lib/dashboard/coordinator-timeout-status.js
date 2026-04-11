@@ -2,9 +2,8 @@ import { join } from 'path';
 import { loadProjectContext, loadProjectState } from '../config.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
-import { evaluateTimeouts } from '../timeout-evaluator.js';
 import { readJsonlFile } from './state-reader.js';
-import { buildTimeoutConfigSummary, extractTimeoutEvents } from './timeout-status.js';
+import { buildTimeoutConfigSummary, evaluateDashboardTimeoutPressure, extractTimeoutEvents } from './timeout-status.js';
 
 function getCoordinatorConfigErrorResponse(errors) {
   const issueList = Array.isArray(errors) ? errors : [];
@@ -71,9 +70,9 @@ function readRepoTimeoutSnapshot(repoId, repo, repoRun) {
     };
   }
 
-  const live = configured && state.status === 'active'
-    ? evaluateTimeouts({ config: context.config, state, now: new Date() })
-    : (configured ? emptyLiveTimeouts() : null);
+  const live = configured
+    ? evaluateDashboardTimeoutPressure(context.config, state, new Date())
+    : null;
 
   return {
     repo_id: repoId,

@@ -87,6 +87,7 @@ describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
       const apiState = writeRepo(apiRoot, {
         projectId: 'api',
         timeouts: {
+          per_turn_minutes: 30,
           per_phase_minutes: 60,
           action: 'warn',
         },
@@ -138,6 +139,19 @@ describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
       const mutatedApiState = JSON.parse(readFileSync(apiStatePath, 'utf8'));
       mutatedApiState.created_at = '2026-04-11T00:00:00Z';
       mutatedApiState.phase_entered_at = '2026-04-11T00:00:00Z';
+      mutatedApiState.turn_sequence = 1;
+      mutatedApiState.active_turns = {
+        turn_api_001: {
+          turn_id: 'turn_api_001',
+          assigned_role: 'dev',
+          status: 'active',
+          runtime_id: 'local-dev',
+          attempt: 1,
+          assigned_sequence: 1,
+          assigned_at: '2026-04-11T00:10:00Z',
+          started_at: '2026-04-11T00:10:00Z',
+        },
+      };
       writeJson(apiStatePath, mutatedApiState);
 
       appendFileSync(
@@ -177,6 +191,10 @@ describe('Coordinator Timeouts — readCoordinatorTimeoutStatus', () => {
       assert.equal(result.body.repos[0].repo_id, 'api');
       assert.equal(result.body.repos[0].configured, true);
       assert.ok(result.body.repos[0].live.warnings.length > 0);
+      const turnWarning = result.body.repos[0].live.warnings.find((item) => item.scope === 'turn');
+      assert.ok(turnWarning, 'repo snapshot must include turn-scoped live pressure');
+      assert.equal(turnWarning.turn_id, 'turn_api_001');
+      assert.equal(turnWarning.role_id, 'dev');
       assert.equal(result.body.repos[1].configured, false);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
@@ -301,11 +319,13 @@ describe('Coordinator Timeouts View — render', () => {
               exceeded: [],
               warnings: [
                 {
-                  scope: 'phase',
+                  scope: 'turn',
                   phase: 'implementation',
-                  limit_minutes: 60,
+                  turn_id: 'turn_api_003',
+                  role_id: 'dev',
+                  limit_minutes: 30,
                   elapsed_minutes: 75,
-                  exceeded_by_minutes: 15,
+                  exceeded_by_minutes: 45,
                   action: 'warn',
                 },
               ],
@@ -333,6 +353,8 @@ describe('Coordinator Timeouts View — render', () => {
     assert.ok(html.includes('Coordinator Events'));
     assert.ok(html.includes('Repo Timeout Status'));
     assert.ok(html.includes('run_api_003'));
+    assert.ok(html.includes('turn_api_003'));
+    assert.ok(html.includes('(dev)'));
     assert.ok(html.includes('No <code>timeouts</code> configured in this repo.'));
     assert.ok(html.includes('WARNING'));
   });

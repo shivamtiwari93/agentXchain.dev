@@ -44,11 +44,13 @@ Returns:
         "exceeded": [],
         "warnings": [
           {
-            "scope": "phase",
+            "scope": "turn",
             "phase": "implementation",
-            "limit_minutes": 60,
-            "elapsed_minutes": 75,
-            "exceeded_by_minutes": 15,
+            "turn_id": "turn_api_001",
+            "role_id": "dev",
+            "limit_minutes": 30,
+            "elapsed_minutes": 42,
+            "exceeded_by_minutes": 12,
             "action": "warn"
           }
         ]
@@ -62,7 +64,7 @@ Returns:
 - `summary` is aggregate-only. It does not flatten repo identity into top-level event rows.
 - `coordinator_events` are derived only from `.agentxchain/multirepo/decision-ledger.jsonl`.
 - `repos[].events` are derived from each child repo's `.agentxchain/decision-ledger.jsonl`.
-- `repos[].live` is computed server-side from each child repo's current config/state using `evaluateTimeouts()`.
+- `repos[].live` is computed server-side from each child repo's current config/state. Phase/run scopes are evaluated once per repo, and each active turn adds its own turn-scoped row with `turn_id` and `role_id`.
 
 ### Frontend View
 
@@ -80,6 +82,7 @@ Render sections:
 
 - The endpoint fails closed when coordinator config/state is missing or invalid.
 - Child repo timeout semantics are reused as-is. The dashboard does not invent coordinator-specific timeout rules for repos.
+- The coordinator view must preserve turn identity. Operators need to know which active child-repo turn is over budget; aggregated turn pressure without `turn_id` is insufficient.
 - Repo cards may show `configured: false` when a child repo has no `timeouts` section.
 - Repo cards may show repo-specific error state when a governed child repo exists in coordinator config but its runtime state file is missing.
 
@@ -93,14 +96,15 @@ Render sections:
 ## Acceptance Tests
 
 1. `readCoordinatorTimeoutStatus()` returns aggregate summary plus per-repo snapshots.
-2. Child repos with `timeouts` config surface live exceeded/warning results.
-3. Child repos without `timeouts` config surface `configured: false`.
-4. Coordinator timeout events render separately from child repo events.
-5. Repo-level missing state becomes a repo-card error, not a global endpoint failure.
-6. Dashboard nav includes `Coordinator Timeouts`.
-7. `app.js` registers `coordinator-timeouts` with `/api/coordinator/timeouts`.
-8. Bridge server routes `/api/coordinator/timeouts`.
-9. CLI dashboard docs mention the 12th view and the endpoint.
+2. Child repos with `timeouts` config surface live phase/run exceeded-warning results.
+3. Child repos with active turns surface turn-scoped live rows with `turn_id` / `role_id`.
+4. Child repos without `timeouts` config surface `configured: false`.
+5. Coordinator timeout events render separately from child repo events.
+6. Repo-level missing state becomes a repo-card error, not a global endpoint failure.
+7. Dashboard nav includes `Coordinator Timeouts`.
+8. `app.js` registers `coordinator-timeouts` with `/api/coordinator/timeouts`.
+9. Bridge server routes `/api/coordinator/timeouts`.
+10. CLI dashboard docs mention the 12th view and the endpoint.
 
 ## Open Questions
 

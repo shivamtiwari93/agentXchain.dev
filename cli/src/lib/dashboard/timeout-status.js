@@ -8,9 +8,9 @@
  */
 
 import { join } from 'path';
-import { loadConfig, loadProjectContext, loadProjectState } from '../config.js';
+import { loadProjectContext, loadProjectState } from '../config.js';
 import { evaluateTimeouts } from '../timeout-evaluator.js';
-import { readJsonFile, readJsonlFile } from './state-reader.js';
+import { readJsonlFile } from './state-reader.js';
 
 /**
  * Extract timeout events from raw decision-ledger entries.
@@ -69,11 +69,57 @@ export function buildTimeoutConfigSummary(timeouts, routing) {
   };
 }
 
+function emptyLiveTimeouts() {
+  return { exceeded: [], warnings: [] };
+}
+
+function getActiveTurns(state) {
+  if (!state?.active_turns || typeof state.active_turns !== 'object' || Array.isArray(state.active_turns)) {
+    return [];
+  }
+  return Object.values(state.active_turns).filter((turn) => turn && typeof turn === 'object');
+}
+
+function annotateTurnTimeout(result, state, turn) {
+  return {
+    ...result,
+    phase: result.phase || state?.phase || null,
+    turn_id: turn?.turn_id || null,
+    role_id: turn?.assigned_role || null,
+  };
+}
+
+export function evaluateDashboardTimeoutPressure(config, state, now = new Date()) {
+  if (!config?.timeouts || state?.status !== 'active') {
+    return emptyLiveTimeouts();
+  }
+
+  const base = evaluateTimeouts({ config, state, now });
+  const live = {
+    exceeded: [...base.exceeded],
+    warnings: [...base.warnings],
+  };
+
+  for (const turn of getActiveTurns(state)) {
+    const turnEval = evaluateTimeouts({ config, state, turn, now });
+    for (const item of turnEval.exceeded) {
+      if (item.scope === 'turn') {
+        live.exceeded.push(annotateTurnTimeout(item, state, turn));
+      }
+    }
+    for (const item of turnEval.warnings) {
+      if (item.scope === 'turn') {
+        live.warnings.push(annotateTurnTimeout(item, state, turn));
+      }
+    }
+  }
+
+  return live;
+}
+
 function loadDashboardTimeoutContext(workspacePath) {
   const context = loadProjectContext(workspacePath);
-  const governedContext = context?.config?.protocol_mode === 'governed' ? context : null;
-  const legacyConfigResult = governedContext ? null : loadConfig(workspacePath);
-  if (!governedContext && !legacyConfigResult) {
+  if (!context || context.config?.protocol_mode !== 'governed') {
     return {
       ok: false,
       status: 404,
@@ -81,6 +127,21 @@ function loadDashboardTimeoutContext(workspacePath) {
         ok: false,
         code: 'config_missing',
         error: 'Project config not found. Run `agentxchain init --governed` first.',
+      },
+    };
+  }
+
+  const { root, config } = context;
+  const state = loadProjectState(root, config);
+  const agentxchainDir = join(root, '.agentxchain');
+  if (!state) {
+    return {
+      ok: false,
+      status: 404,
+      body: {
+        ok: false,
+        code: 'state_missing',
+        error: 'Run state not found. Run `agentxchain init --governed` first.',
       },
     };
   }
@@ -120,10 +181,7 @@ export function readTimeoutStatus(workspacePath) {
   const configSummary = buildTimeoutConfigSummary(timeouts, config.routing);
 
   // Live timeout evaluation — only meaningful when the run is active
-  let live = { exceeded: [], warnings: [] };
-  if (state.status === 'active') {
-    live = evaluateTimeouts({ config, state, now: new Date() });
-  }
+  const live = evaluateDashboardTimeoutPressure(config, state, new Date());
 
   // Persisted timeout events from the decision ledger
   const ledger = readJsonlFile(agentxchainDir, 'decision-ledger.jsonl');

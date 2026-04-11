@@ -38,7 +38,7 @@ All fields are optional. Missing fields mean that scope has no timeout.
 
 ### Turn
 
-Turn timeout compares the active turn's `started_at` against the current time at a governance boundary.
+Turn timeout compares each active turn's `started_at` against the current time at a governance boundary.
 
 Use this when you want to catch a role that is hanging or taking far longer than expected.
 
@@ -121,6 +121,7 @@ Governance reports surface timeout evidence from the decision ledger:
 - coordinator reports expose top-level `subject.timeout_events`
 - child repo drill-down exposes `subject.repos[].timeout_events`
 - the dashboard exposes repo-local `Timeouts` and multi-repo `Coordinator Timeouts` views
+- dashboard live-pressure tables preserve turn identity for turn-scope entries (`turn_id` and role), so operators can see exactly which active turn is over budget
 
 Text and markdown reports render a dedicated `Timeout Events` section when timeout entries exist.
 

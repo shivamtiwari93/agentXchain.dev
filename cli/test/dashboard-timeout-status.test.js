@@ -11,8 +11,249 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, rmSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 
+import { loadProjectContext } from '../src/lib/config.js';
+import { initializeGovernedRun } from '../src/lib/governed-state.js';
+import { readTimeoutStatus } from '../src/lib/dashboard/timeout-status.js';
 import { render } from '../dashboard/components/timeouts.js';
+
+function tempDir() {
+  const dir = join(tmpdir(), `axc-timeouts-${randomBytes(6).toString('hex')}`);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function writeJson(filePath, value) {
+  writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
+}
+
+function writeRepo(root, { projectId, timeouts = null, routing = null }) {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, '.agentxchain'), { recursive: true });
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: projectId, name: projectId, default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: routing || {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      qa: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+    },
+    gates: {},
+    ...(timeouts ? { timeouts } : {}),
+  });
+
+  writeJson(join(root, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: projectId,
+    run_id: null,
+    status: 'idle',
+    phase: 'implementation',
+    active_turns: {},
+    turn_sequence: 0,
+    accepted_count: 0,
+    rejected_count: 0,
+    blocked_on: null,
+    blocked_reason: null,
+    next_recommended_role: null,
+  });
+
+  const context = loadProjectContext(root);
+  const initResult = initializeGovernedRun(root, context.config);
+  assert.equal(initResult.ok, true, `repo ${projectId} must initialize`);
+}
+
+// ── Server module tests ───────────────────────────────────────────────────
+
+describe('Timeouts — readTimeoutStatus', () => {
+  it('returns configured false when no timeouts are configured', () => {
+    const workspace = tempDir();
+    try {
+      writeRepo(workspace, { projectId: 'not-configured' });
+      const result = readTimeoutStatus(workspace);
+      assert.equal(result.ok, true);
+      assert.equal(result.status, 200);
+      assert.equal(result.body.configured, false);
+      assert.equal(result.body.config, null);
+      assert.equal(result.body.live, null);
+      assert.deepEqual(result.body.events, []);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('returns live phase and per-turn timeout pressure with turn identity', () => {
+    const workspace = tempDir();
+    try {
+      writeRepo(workspace, {
+        projectId: 'active-timeouts',
+        timeouts: {
+          per_turn_minutes: 30,
+          per_phase_minutes: 60,
+          action: 'warn',
+        },
+      });
+
+      const statePath = join(workspace, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'active';
+      state.phase = 'implementation';
+      state.created_at = new Date(Date.now() - (4 * 60 * 60 * 1000)).toISOString();
+      state.phase_entered_at = new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString();
+      state.turn_sequence = 1;
+      state.active_turns = {
+        turn_timeout_001: {
+          turn_id: 'turn_timeout_001',
+          assigned_role: 'dev',
+          status: 'active',
+          runtime_id: 'local-dev',
+          attempt: 1,
+          assigned_sequence: 1,
+          assigned_at: new Date(Date.now() - (75 * 60 * 1000)).toISOString(),
+          started_at: new Date(Date.now() - (75 * 60 * 1000)).toISOString(),
+        },
+      };
+      writeJson(statePath, state);
+
+      appendFileSync(
+        join(workspace, '.agentxchain', 'decision-ledger.jsonl'),
+        JSON.stringify({
+          type: 'timeout_warning',
+          scope: 'turn',
+          phase: 'implementation',
+          turn_id: 'turn_timeout_001',
+          limit_minutes: 30,
+          elapsed_minutes: 75,
+          exceeded_by_minutes: 45,
+          action: 'warn',
+          timestamp: '2026-04-11T01:00:00Z',
+        }) + '\n',
+      );
+
+      const result = readTimeoutStatus(workspace);
+      assert.equal(result.ok, true);
+      assert.equal(result.status, 200);
+      assert.equal(result.body.configured, true);
+      assert.ok(result.body.live.warnings.some((item) => item.scope === 'phase'));
+      const turnWarning = result.body.live.warnings.find((item) => item.scope === 'turn');
+      assert.ok(turnWarning, 'turn timeout pressure must be present');
+      assert.equal(turnWarning.turn_id, 'turn_timeout_001');
+      assert.equal(turnWarning.role_id, 'dev');
+      assert.equal(turnWarning.phase, 'implementation');
+      assert.equal(result.body.events.length, 1);
+      assert.equal(result.body.events[0].turn_id, 'turn_timeout_001');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('returns empty live arrays for blocked runs while preserving timeout events', () => {
+    const workspace = tempDir();
+    try {
+      writeRepo(workspace, {
+        projectId: 'blocked-timeouts',
+        timeouts: {
+          per_turn_minutes: 30,
+          action: 'escalate',
+        },
+      });
+
+      const statePath = join(workspace, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_on = 'timeout:turn';
+      state.blocked_reason = {
+        category: 'timeout',
+        blocked_at: new Date().toISOString(),
+        turn_id: 'turn_timeout_002',
+        recovery: {
+          typed_reason: 'timeout',
+          owner: 'operator',
+          recovery_action: 'agentxchain resume',
+          turn_retained: true,
+          detail: 'Turn timeout',
+        },
+      };
+      state.active_turns = {
+        turn_timeout_002: {
+          turn_id: 'turn_timeout_002',
+          assigned_role: 'dev',
+          status: 'active',
+          runtime_id: 'local-dev',
+          attempt: 1,
+          assigned_sequence: 1,
+        },
+      };
+      writeJson(statePath, state);
+
+      appendFileSync(
+        join(workspace, '.agentxchain', 'decision-ledger.jsonl'),
+        JSON.stringify({
+          type: 'timeout',
+          scope: 'turn',
+          phase: 'implementation',
+          turn_id: 'turn_timeout_002',
+          limit_minutes: 30,
+          elapsed_minutes: 50,
+          exceeded_by_minutes: 20,
+          action: 'escalate',
+          timestamp: '2026-04-11T02:00:00Z',
+        }) + '\n',
+      );
+
+      const result = readTimeoutStatus(workspace);
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.body.live, { exceeded: [], warnings: [] });
+      assert.equal(result.body.events.length, 1);
+      assert.equal(result.body.events[0].type, 'timeout');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('returns state_missing when governed state is absent', () => {
+    const workspace = tempDir();
+    try {
+      writeRepo(workspace, {
+        projectId: 'missing-state',
+        timeouts: { per_turn_minutes: 30, action: 'warn' },
+      });
+      rmSync(join(workspace, '.agentxchain', 'state.json'));
+
+      const result = readTimeoutStatus(workspace);
+      assert.equal(result.ok, false);
+      assert.equal(result.status, 404);
+      assert.equal(result.body.code, 'state_missing');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+});
 
 // ── Frontend render tests ─────────────────────────────────────────────────
 
@@ -115,6 +356,9 @@ describe('Timeouts View — render', () => {
           exceeded: [
             {
               scope: 'turn',
+              phase: 'implementation',
+              turn_id: 'turn_live_001',
+              role_id: 'dev',
               limit_minutes: 30,
               elapsed_minutes: 45,
               exceeded_by_minutes: 15,
@@ -130,6 +374,8 @@ describe('Timeouts View — render', () => {
     assert.ok(html.includes('45m'));
     assert.ok(html.includes('30m'));
     assert.ok(html.includes('15m'));
+    assert.ok(html.includes('turn_live_001'));
+    assert.ok(html.includes('(dev)'));
     assert.ok(html.includes('var(--red)'));
   });
 

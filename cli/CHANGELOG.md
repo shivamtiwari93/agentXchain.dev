@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.46.1
+
+`2.46.1` fixes timeout dashboard truth. Repo-local and coordinator timeout views now surface per-turn live pressure with turn identity, the repo-local timeout endpoint has direct server-module proof instead of render-only coverage, and the timeout docs/operator surfaces match the real contract.
+
+### Timeout dashboard truth fix
+
+- Repo-local `Timeouts` and coordinator `Coordinator Timeouts` views now evaluate active turns individually instead of silently dropping turn-scope timeout pressure.
+- Turn-scope live rows now carry `turn_id` and `role_id`, so operators can identify the actual over-budget turn instead of seeing anonymous pressure.
+- Phase/run timeout evaluation remains unchanged and is still evaluated once per request.
+
+### Proof hardening
+
+- Added direct `readTimeoutStatus()` contract tests for configured/unconfigured state, active-turn pressure, blocked-state behavior, and missing state handling.
+- Extended coordinator timeout tests to prove turn-scope live pressure propagates into repo snapshots and rendered cards.
+- Full CLI suite stayed green after the fix.
+
+### Evidence
+
+- 3430 tests / 735 suites / 0 failures
+- `node --test cli/test/dashboard-timeout-status.test.js` → 18 tests / 3 suites / 0 failures
+- `node --test cli/test/dashboard-coordinator-timeout-status.test.js` → 8 tests / 3 suites / 0 failures
+- `node --test cli/test/dashboard-bridge.test.js` → 46 tests / 11 suites / 0 failures
+- `cd website-v2 && npm run build` → clean
+
 ## 2.46.0
 
 `2.46.0` ships the declarative policy engine for governed turn acceptance with five built-in rules, three actions (warn/block/escalate), phase/role scoping, runtime-aware escalation recovery, cost enforcement fix (`cost.usd` primary), and policy-specific CLI operator guidance.

@@ -1,0 +1,46 @@
+---
+title: "v2.46.1 Release Notes"
+description: "Fixes timeout dashboard truth: per-turn live pressure now renders with turn identity across repo-local and coordinator views, backed by direct server-module proof."
+---
+
+# AgentXchain v2.46.1
+
+`v2.46.1` is a **truth patch** for the timeout dashboard surface. The recently shipped timeout views showed phase/run pressure correctly, but they silently dropped live turn-scope pressure. That was not a docs problem. It was a product defect.
+
+## Per-turn timeout pressure now renders truthfully
+
+Both dashboard timeout surfaces now evaluate active turns individually:
+
+- **Repo-local `Timeouts`** evaluates phase/run once, then evaluates each active turn for turn-scope pressure
+- **`Coordinator Timeouts`** does the same for each child repo
+- Live turn-scope rows now include **`turn_id`** and **role identity**, so operators can see which turn is actually over budget
+
+The evaluator contract stayed explicit. We did **not** make `evaluateTimeouts()` infer active turns implicitly. The dashboard now owns the aggregation layer instead of hiding behavior inside the evaluator.
+
+## Repo timeout endpoint proof is now real
+
+The repo-local timeout endpoint had render tests and wiring assertions, but no direct server-module proof. That is why a broken context-loader path survived. `v2.46.1` closes that gap.
+
+### Added proof
+
+- direct `readTimeoutStatus()` tests for:
+  - configured vs not-configured state
+  - active run with per-turn live pressure
+  - blocked run returning empty live arrays while preserving timeout history
+  - missing governed state
+- coordinator timeout tests now prove turn-scope live pressure appears in repo snapshots and rendered cards
+- the existing dashboard bridge and full CLI suites remain green
+
+## Docs and operator surface alignment
+
+- [Timeouts](/docs/timeouts) now states that dashboard live-pressure tables preserve turn identity for turn-scope entries
+- [CLI Reference](/docs/cli) now describes per-turn identity in both timeout dashboard views
+- release metadata, sidebar, `llms.txt`, and `sitemap.xml` are aligned to this patch release
+
+## Evidence
+
+- **3430 tests / 735 suites / 0 failures**
+- `node --test cli/test/dashboard-timeout-status.test.js` → **18 tests / 3 suites / 0 failures**
+- `node --test cli/test/dashboard-coordinator-timeout-status.test.js` → **8 tests / 3 suites / 0 failures**
+- `node --test cli/test/dashboard-bridge.test.js` → **46 tests / 11 suites / 0 failures**
+- `cd website-v2 && npm run build` → **clean production build**

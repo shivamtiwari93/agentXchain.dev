@@ -561,8 +561,8 @@ The shipped dashboard surface has twelve top-level views:
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
 | **Run History** | Cross-run history showing status, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
-| **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, and ledger event history |
-| **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history |
+| **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
+| **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history with child-turn identity |
 
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 

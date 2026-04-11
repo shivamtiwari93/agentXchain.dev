@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.46.0
+# Launch Evidence Report — AgentXchain v2.46.1
 
-> Single-source evidence artifact for all launch-facing claims. Updated 2026-04-10 for the v2.46.0 release: declarative policy engine with five built-in rules, runtime-aware escalation recovery, cost enforcement fix, policy-specific CLI guidance, and VS Code marketplace readiness guard.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.46.1 truth patch: timeout dashboards now preserve per-turn live pressure with turn identity across repo-local and coordinator views, backed by direct endpoint proof and a clean full-suite run.
 
 ---
 
