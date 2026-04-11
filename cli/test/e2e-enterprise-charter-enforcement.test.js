@@ -173,7 +173,11 @@ describe('CLI subprocess E2E — enterprise-app charter enforcement', () => {
       assert.equal(state.status, 'active');
       assert.ok(!state.pending_phase_transition, 'wrong-role turn must not create pending transition');
       assert.ok(!state.current_turn, 'accepted turn should clear the active assignment');
-      assert.equal(state.phase_gate_status.architecture_review, 'pending');
+      assert.equal(
+        state.phase_gate_status.architecture_review,
+        'failed',
+        'an evaluated architecture gate that rejects the wrong role must record failed, not pending'
+      );
 
       const historyAfterDev = readJsonl(dir, HISTORY_PATH);
       assert.equal(historyAfterDev.length, 2);

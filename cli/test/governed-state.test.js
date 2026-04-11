@@ -1062,6 +1062,83 @@ describe('acceptGovernedTurn', () => {
     assert.equal(recovered.state.phase_gate_status.planning_signoff, 'passed');
   });
 
+  it('AT-QGVC-001: queued phase transition honors pass verification from durable requester history', () => {
+    config.routing.planning.max_concurrent_turns = 2;
+    config.gates.planning_signoff = {
+      requires_verification_pass: true,
+      requires_human_approval: false,
+    };
+
+    const firstAssign = assignGovernedTurn(dir, config, 'pm');
+    const secondAssign = assignGovernedTurn(dir, config, 'dev');
+    const firstTurn = firstAssign.state.current_turn;
+    const secondTurnId = Object.keys(secondAssign.state.active_turns).find(id => id !== firstTurn.turn_id);
+    const secondTurn = secondAssign.state.active_turns[secondTurnId];
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstTurn.turn_id), { recursive: true });
+    const firstResult = makeTurnResult(secondAssign.state, firstTurn);
+    firstResult.phase_transition_request = 'implementation';
+    writeFileSync(join(dir, getTurnStagingResultPath(firstTurn.turn_id)), JSON.stringify(firstResult, null, 2));
+
+    const queued = acceptGovernedTurn(dir, config, { turnId: firstTurn.turn_id });
+    assert.ok(queued.ok, queued.error);
+    assert.equal(queued.state.queued_phase_transition?.to, 'implementation');
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
+    writeFileSync(
+      join(dir, getTurnStagingResultPath(secondTurnId)),
+      JSON.stringify(makeTurnResult(queued.state, secondTurn), null, 2),
+    );
+
+    const drained = acceptGovernedTurn(dir, config, { turnId: secondTurnId });
+    assert.ok(drained.ok, drained.error);
+    assert.equal(drained.state.phase, 'implementation');
+    assert.equal(drained.state.phase_gate_status.planning_signoff, 'passed');
+    assert.equal(drained.state.last_gate_failure, null);
+  });
+
+  it('AT-QGVC-002/003: queued phase transition fails when durable requester verification is non-passing', () => {
+    config.routing.planning.max_concurrent_turns = 2;
+    config.gates.planning_signoff = {
+      requires_verification_pass: true,
+      requires_human_approval: false,
+    };
+
+    const firstAssign = assignGovernedTurn(dir, config, 'pm');
+    const secondAssign = assignGovernedTurn(dir, config, 'dev');
+    const firstTurn = firstAssign.state.current_turn;
+    const secondTurnId = Object.keys(secondAssign.state.active_turns).find(id => id !== firstTurn.turn_id);
+    const secondTurn = secondAssign.state.active_turns[secondTurnId];
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstTurn.turn_id), { recursive: true });
+    const firstResult = makeTurnResult(secondAssign.state, firstTurn);
+    firstResult.phase_transition_request = 'implementation';
+    firstResult.verification = {
+      status: 'fail',
+      commands: ['exit 1'],
+      evidence_summary: 'Verification failed intentionally for queued-drain proof.',
+      machine_evidence: [{ command: 'exit 1', exit_code: 1 }],
+    };
+    writeFileSync(join(dir, getTurnStagingResultPath(firstTurn.turn_id)), JSON.stringify(firstResult, null, 2));
+
+    const queued = acceptGovernedTurn(dir, config, { turnId: firstTurn.turn_id });
+    assert.ok(queued.ok, queued.error);
+    assert.equal(queued.state.queued_phase_transition?.to, 'implementation');
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
+    writeFileSync(
+      join(dir, getTurnStagingResultPath(secondTurnId)),
+      JSON.stringify(makeTurnResult(queued.state, secondTurn), null, 2),
+    );
+
+    const drained = acceptGovernedTurn(dir, config, { turnId: secondTurnId });
+    assert.ok(drained.ok, drained.error);
+    assert.equal(drained.state.phase, 'planning');
+    assert.equal(drained.state.phase_gate_status.planning_signoff, 'failed');
+    assert.equal(drained.state.last_gate_failure?.missing_verification, true);
+    assert.match(drained.state.last_gate_failure?.reasons?.[0] || '', /Verification status is "fail"/);
+  });
+
   it('AT-GFV-002/003: queued run completion gate failure persists context and marks the gate failed', () => {
     config.routing.qa.max_concurrent_turns = 2;
     config.gates.qa_ship_verdict = {
