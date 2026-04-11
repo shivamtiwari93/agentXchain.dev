@@ -68,6 +68,14 @@ function truncateId(id, len = 12) {
   return id.length > len ? id.slice(0, len) + '…' : id;
 }
 
+function isInheritable(entry) {
+  const snap = entry?.inheritance_snapshot;
+  if (!snap) return false;
+  const hasDecisions = Array.isArray(snap.recent_decisions) && snap.recent_decisions.length > 0;
+  const hasTurns = Array.isArray(snap.recent_accepted_turns) && snap.recent_accepted_turns.length > 0;
+  return hasDecisions || hasTurns;
+}
+
 function renderRow(entry, index) {
   const rowClass = entry.status === 'blocked'
     ? ' style="border-left:3px solid var(--yellow)"'
@@ -83,10 +91,15 @@ function renderRow(entry, index) {
     ? `<div class="blocked-hint" style="font-size:0.85em;color:var(--yellow);margin-top:2px">${esc(typeof entry.blocked_reason === 'string' ? entry.blocked_reason : entry.blocked_reason?.detail || entry.blocked_reason?.category || '')}</div>`
     : '';
 
+  const ctxIndicator = isInheritable(entry)
+    ? `<span title="Has inheritance snapshot — usable by child runs" style="color:var(--green)">✓</span>`
+    : `<span style="color:var(--text-dim)">—</span>`;
+
   return `<tr${rowClass}>
     <td style="color:var(--text-dim)">${index + 1}</td>
     <td class="mono" title="${esc(entry.run_id)}">${esc(truncateId(entry.run_id))}</td>
     <td>${statusBadge(entry.status)}${blockedInfo}</td>
+    <td>${ctxIndicator}</td>
     <td>${phases}</td>
     <td>${entry.total_turns ?? '—'}</td>
     <td>${formatCost(entry.total_cost_usd)}</td>
@@ -125,6 +138,7 @@ export function render({ runHistory }) {
           <th>#</th>
           <th>Run ID</th>
           <th>Status</th>
+          <th>Ctx</th>
           <th>Phases</th>
           <th>Turns</th>
           <th>Cost</th>

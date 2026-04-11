@@ -7,7 +7,7 @@
 import { resolve } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import chalk from 'chalk';
-import { queryRunHistory, queryRunLineage } from '../lib/run-history.js';
+import { queryRunHistory, queryRunLineage, isInheritable } from '../lib/run-history.js';
 import { getRunTriggerLabel, summarizeRunProvenance } from '../lib/run-provenance.js';
 
 /**
@@ -46,11 +46,12 @@ export async function historyCommand(opts) {
       const turns = `${entry.total_turns || 0} turns`;
       const cost = entry.total_cost_usd != null ? `$${entry.total_cost_usd.toFixed(2)}` : '';
       const trigger = getRunTriggerLabel(entry.provenance);
+      const ctxMarker = isInheritable(entry) ? ' [ctx]' : '';
       const parentNote = entry.provenance?.parent_run_id
         ? ` from ${entry.provenance.parent_run_id.slice(0, 12)}`
         : '';
       const prefix = i === 0 ? '  ' : '  └─ ';
-      console.log(`${prefix}${runId}  ${status}  ${pad(phases, 20)}  ${pad(turns, 10)}  ${pad(cost, 8)}  (${trigger}${parentNote})`);
+      console.log(`${prefix}${runId}  ${status}  ${pad(phases, 20)}  ${pad(turns, 10)}  ${pad(cost, 8)}  (${trigger}${parentNote})${ctxMarker}`);
     });
     return;
   }
@@ -63,7 +64,8 @@ export async function historyCommand(opts) {
   });
 
   if (opts.json) {
-    console.log(JSON.stringify(entries, null, 2));
+    const enriched = entries.map(e => ({ ...e, inheritable: isInheritable(e) }));
+    console.log(JSON.stringify(enriched, null, 2));
     return;
   }
 
@@ -81,6 +83,7 @@ export async function historyCommand(opts) {
     pad('Run ID', 14),
     pad('Status', 11),
     pad('Trigger', 14),
+    pad('Ctx', 4),
     pad('Phases', 8),
     pad('Turns', 6),
     pad('Cost', 10),
@@ -96,6 +99,7 @@ export async function historyCommand(opts) {
     const runId = (entry.run_id || '—').slice(0, 12);
     const status = formatStatus(entry.status);
     const trigger = getRunTriggerLabel(entry.provenance);
+    const ctx = isInheritable(entry) ? '✓' : '—';
     const phases = String(entry.phases_completed?.length || 0);
     const turns = String(entry.total_turns || 0);
     const cost = entry.total_cost_usd != null
@@ -113,6 +117,7 @@ export async function historyCommand(opts) {
       pad(runId, 14),
       pad(status, 11),
       pad(trigger, 14),
+      pad(ctx, 4),
       pad(phases, 8),
       pad(turns, 6),
       pad(cost, 10),

@@ -633,11 +633,13 @@ agentxchain history [--json] [--limit <n>] [--status completed|blocked] [--linea
 
 Shows a persistent cross-run history of governed runs in this project. Each completed governed run appends a summary record to `.agentxchain/run-history.jsonl` with run ID, status, phases, turns, cost, duration, and connector metadata. The file persists across runs and is not reset when a new run starts.
 
-The default table includes a `Trigger` column when provenance metadata is available on the recorded run. Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
+The default table includes a `Trigger` column when provenance metadata is available on the recorded run, plus a `Ctx` column showing whether the run has a usable inheritance snapshot for `--inherit-context` child runs (`✓` = usable snapshot, `—` = metadata-only lineage). Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
 
-**Lineage view:** `--lineage <run_id>` walks the `parent_run_id` chain backwards through `run-history.jsonl` and prints the ancestor tree (oldest first). If a parent reference points to a run that no longer exists in history, the chain terminates with a `[broken link]` sentinel. Combine with `--json` for machine-readable lineage output.
+Use `--json` for machine-readable output. Each entry includes a computed `inheritable` boolean so scripts can tell whether a run has a usable inheritance snapshot without inspecting the raw `inheritance_snapshot` arrays manually.
 
-Use `--json` for machine-readable output. Use `--status completed` to see only successful runs. Use `--limit 5` to see the last 5 runs.
+**Lineage view:** `--lineage <run_id>` walks the `parent_run_id` chain backwards through `run-history.jsonl` and prints the ancestor tree (oldest first). Entries with usable inheritance snapshots are marked with `[ctx]`. If a parent reference points to a run that no longer exists in history, the chain terminates with a `[broken link]` sentinel. Combine with `--json` for machine-readable lineage output.
+
+Use `--status completed` to see only successful runs. Use `--limit 5` to see the last 5 runs.
 
 ### `events`
 
@@ -686,7 +688,7 @@ The shipped dashboard surface has twelve top-level views:
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
-| **Run History** | Cross-run history showing status, trigger, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
+| **Run History** | Cross-run history showing status, trigger, context inheritance availability, phases, turns, cost, and duration for all governed runs in this project from `/api/run-history` |
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
 | **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history with child-turn identity |
 

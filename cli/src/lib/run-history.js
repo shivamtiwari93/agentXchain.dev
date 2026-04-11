@@ -250,6 +250,21 @@ export function validateParentRun(root, runId) {
 }
 
 /**
+ * Check whether a run-history entry has a usable inheritance snapshot
+ * (at least one decision or one accepted turn available for child runs).
+ *
+ * @param {object} entry - a run-history record
+ * @returns {boolean}
+ */
+export function isInheritable(entry) {
+  const snap = entry?.inheritance_snapshot;
+  if (!snap) return false;
+  const hasDecisions = Array.isArray(snap.recent_decisions) && snap.recent_decisions.length > 0;
+  const hasTurns = Array.isArray(snap.recent_accepted_turns) && snap.recent_accepted_turns.length > 0;
+  return hasDecisions || hasTurns;
+}
+
+/**
  * Get the path to the run-history file.
  */
 export function getRunHistoryPath(root) {

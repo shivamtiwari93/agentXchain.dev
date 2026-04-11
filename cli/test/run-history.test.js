@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { recordRunHistory, queryRunHistory, getRunHistoryPath } from '../src/lib/run-history.js';
+import { recordRunHistory, queryRunHistory, getRunHistoryPath, isInheritable } from '../src/lib/run-history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -487,6 +487,15 @@ describe('run-history dashboard component contract', () => {
     assert.match(source, /export function render/);
   });
 
+  it('run-history dashboard component shows the Ctx column and inheritable indicator tooltip', () => {
+    const source = readFileSync(
+      join(import.meta.dirname, '..', 'dashboard', 'components', 'run-history.js'),
+      'utf8'
+    );
+    assert.match(source, /<th>Ctx<\/th>/);
+    assert.match(source, /Has inheritance snapshot/);
+  });
+
   it('dashboard nav has exactly 12 tabs', () => {
     const source = readFileSync(
       join(import.meta.dirname, '..', 'dashboard', 'index.html'),
@@ -509,6 +518,9 @@ describe('run-history docs contract', () => {
     assert.match(docs, /agentxchain history/);
     assert.match(docs, /run-history\.jsonl/);
     assert.match(docs, /`Trigger` column/);
+    assert.match(docs, /`Ctx` column/);
+    assert.match(docs, /`inheritable`/);
+    assert.match(docs, /\[ctx\]/);
     assert.match(docs, /legacy/);
   });
 
@@ -544,6 +556,158 @@ describe('run-history docs contract', () => {
       'utf8'
     );
     assert.match(docs, /\*\*Run History\*\*/);
-    assert.match(docs, /status, trigger, phases, turns, cost, and duration/);
+    assert.match(docs, /status, trigger, context inheritance availability, phases, turns, cost, and duration/);
+  });
+});
+
+describe('isInheritable', () => {
+  it('AT-IV-001: returns true when snapshot has decisions', () => {
+    const entry = {
+      inheritance_snapshot: {
+        recent_decisions: [{ id: 'DEC-001', statement: 'test' }],
+        recent_accepted_turns: [],
+      },
+    };
+    assert.strictEqual(isInheritable(entry), true);
+  });
+
+  it('AT-IV-001b: returns true when snapshot has accepted turns', () => {
+    const entry = {
+      inheritance_snapshot: {
+        recent_decisions: [],
+        recent_accepted_turns: [{ turn_id: 'turn_1', role: 'dev' }],
+      },
+    };
+    assert.strictEqual(isInheritable(entry), true);
+  });
+
+  it('AT-IV-002: returns false when snapshot is empty', () => {
+    const entry = {
+      inheritance_snapshot: {
+        recent_decisions: [],
+        recent_accepted_turns: [],
+      },
+    };
+    assert.strictEqual(isInheritable(entry), false);
+  });
+
+  it('AT-IV-002b: returns false when snapshot is missing', () => {
+    assert.strictEqual(isInheritable({}), false);
+    assert.strictEqual(isInheritable(null), false);
+    assert.strictEqual(isInheritable(undefined), false);
+  });
+});
+
+describe('history CLI inheritance visibility', () => {
+  it('AT-IV-003: history text table includes Ctx column header', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      scaffoldProject(tmpDir);
+      writeFileSync(join(tmpDir, '.agentxchain', 'history.jsonl'),
+        JSON.stringify({ turn_id: 'turn_1', role: 'dev', phase: 'planning', status: 'accepted', summary: 'test' }) + '\n');
+      writeFileSync(join(tmpDir, '.agentxchain', 'decision-ledger.jsonl'),
+        JSON.stringify({ id: 'DEC-001', statement: 'test', role: 'dev', phase: 'planning' }) + '\n');
+      const state = { run_id: 'run_ctx_test', completed_at: new Date().toISOString() };
+      const config = { project: { id: 'test', name: 'Test' }, template: 'generic', roles: {} };
+      recordRunHistory(tmpDir, state, config, 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--dir', tmpDir], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      assert.match(result.stdout, /Ctx/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-IV-001c: history --json includes inheritable: true for runs with snapshot data', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      scaffoldProject(tmpDir);
+      writeFileSync(join(tmpDir, '.agentxchain', 'history.jsonl'),
+        JSON.stringify({ turn_id: 'turn_1', role: 'dev', phase: 'planning', status: 'accepted', summary: 'test' }) + '\n');
+      writeFileSync(join(tmpDir, '.agentxchain', 'decision-ledger.jsonl'),
+        JSON.stringify({ id: 'DEC-001', statement: 'test', role: 'dev', phase: 'planning' }) + '\n');
+      const state = { run_id: 'run_json_test', completed_at: new Date().toISOString() };
+      const config = { project: { id: 'test', name: 'Test' }, template: 'generic', roles: {} };
+      recordRunHistory(tmpDir, state, config, 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--json', '--dir', tmpDir], {
+        env: { ...process.env },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      const entries = JSON.parse(result.stdout);
+      assert.strictEqual(entries[0].inheritable, true);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-IV-002c: history --json includes inheritable: false for runs without snapshot data', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      scaffoldProject(tmpDir);
+      // No history.jsonl or decision-ledger.jsonl — empty snapshot
+      const state = { run_id: 'run_empty_test', completed_at: new Date().toISOString() };
+      const config = { project: { id: 'test', name: 'Test' }, template: 'generic', roles: {} };
+      recordRunHistory(tmpDir, state, config, 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--json', '--dir', tmpDir], {
+        env: { ...process.env },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      const entries = JSON.parse(result.stdout);
+      assert.strictEqual(entries[0].inheritable, false);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-IV-004: history --lineage adds [ctx] marker for inheritable runs', () => {
+    const tmpDir = makeTmpDir();
+    try {
+      scaffoldProject(tmpDir);
+      writeFileSync(join(tmpDir, '.agentxchain', 'run-history.jsonl'), [
+        {
+          run_id: 'run_parent',
+          status: 'completed',
+          phases_completed: ['planning'],
+          total_turns: 3,
+          total_cost_usd: 0.05,
+          provenance: { trigger: 'manual', parent_run_id: null },
+          inheritance_snapshot: {
+            recent_decisions: [{ id: 'DEC-001', statement: 'carry this forward' }],
+            recent_accepted_turns: [],
+          },
+        },
+        {
+          run_id: 'run_child',
+          status: 'completed',
+          phases_completed: ['implementation'],
+          total_turns: 2,
+          total_cost_usd: 0.03,
+          provenance: { trigger: 'continuation', parent_run_id: 'run_parent' },
+          inheritance_snapshot: {
+            recent_decisions: [],
+            recent_accepted_turns: [],
+          },
+        },
+      ].map(entry => JSON.stringify(entry)).join('\n') + '\n');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--lineage', 'run_child', '--dir', tmpDir], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /run_parent.*\[ctx\]/);
+      assert.doesNotMatch(result.stdout, /run_child.*\[ctx\]/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
