@@ -26,6 +26,7 @@ import { evaluatePolicies } from './policy-evaluator.js';
 import {
   captureBaseline,
   observeChanges,
+  attributeObservedChangesToTurn,
   classifyObservedChanges,
   buildObservedArtifact,
   normalizeVerification,
@@ -2093,7 +2094,9 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const stagingFile = join(root, resolvedStagingPath);
   const now = new Date().toISOString();
   const baseline = currentTurn.baseline || null;
-  const observation = observeChanges(root, baseline);
+  const rawObservation = observeChanges(root, baseline);
+  const historyEntries = readJsonlEntries(root, HISTORY_PATH);
+  const observation = attributeObservedChangesToTurn(rawObservation, currentTurn, historyEntries);
   const role = config.roles?.[turnResult.role];
   const runtimeId = turnResult.runtime_id;
   const runtime = config.runtimes?.[runtimeId];
@@ -2126,7 +2129,6 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
   const artifactType = turnResult.artifact?.type || 'review';
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
-  const historyEntries = readJsonlEntries(root, HISTORY_PATH);
 
   // Policy evaluation — declarative governance rules (spec: POLICY_ENGINE_SPEC.md)
   const policyResult = evaluatePolicies(config.policies || [], {

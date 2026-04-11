@@ -9,6 +9,7 @@ import { execSync } from 'child_process';
 import {
   captureBaseline,
   observeChanges,
+  attributeObservedChangesToTurn,
   buildObservedArtifact,
   normalizeVerification,
   compareDeclaredVsObserved,
@@ -353,19 +354,122 @@ describe('checkCleanBaseline', () => {
 describe('buildObservedArtifact', () => {
   it('builds correct structure', () => {
     const baseline = { head_ref: 'abc123' };
-    const observation = { head_ref: 'def456', files_changed: ['a.js'], diff_summary: '1 file' };
+    const observation = {
+      head_ref: 'def456',
+      files_changed: ['a.js'],
+      file_markers: { 'a.js': 'sha256:abc' },
+      diff_summary: '1 file',
+    };
     const artifact = buildObservedArtifact(observation, baseline);
     assert.equal(artifact.derived_by, 'orchestrator');
     assert.equal(artifact.baseline_ref, 'git:abc123');
     assert.equal(artifact.accepted_ref, 'git:def456');
     assert.deepEqual(artifact.files_changed, ['a.js']);
+    assert.deepEqual(artifact.file_markers, { 'a.js': 'sha256:abc' });
   });
 
   it('handles null baseline', () => {
-    const observation = { head_ref: 'def456', files_changed: [], diff_summary: null };
+    const observation = { head_ref: 'def456', files_changed: [], file_markers: {}, diff_summary: null };
     const artifact = buildObservedArtifact(observation, null);
     assert.equal(artifact.baseline_ref, null);
     assert.equal(artifact.accepted_ref, 'git:def456');
+  });
+});
+
+// ── Tests: attributeObservedChangesToTurn ──────────────────────────────────
+
+describe('attributeObservedChangesToTurn', () => {
+  let dir;
+  beforeEach(() => { dir = makeTmpGitRepo(); });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('filters unchanged files already accepted by a concurrent sibling', () => {
+    const baseline = captureBaseline(dir);
+
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'app.js'), 'console.log("sibling");\n');
+    const siblingObservation = observeChanges(dir, baseline);
+    const siblingEntry = {
+      turn_id: 'turn_sibling',
+      accepted_sequence: 2,
+      observed_artifact: buildObservedArtifact(siblingObservation, baseline),
+    };
+
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'integration.md'), '# integrator\n');
+
+    const currentTurn = {
+      turn_id: 'turn_current',
+      assigned_sequence: 1,
+      concurrent_with: ['turn_sibling'],
+    };
+    const attributed = attributeObservedChangesToTurn(
+      observeChanges(dir, baseline),
+      currentTurn,
+      [siblingEntry],
+    );
+
+    assert.deepEqual(attributed.files_changed, ['docs/integration.md']);
+    assert.deepEqual(attributed.attributed_to_concurrent_siblings, ['src/app.js']);
+  });
+
+  it('keeps files whose marker changed after the sibling acceptance', () => {
+    const baseline = captureBaseline(dir);
+
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'app.js'), 'console.log("sibling");\n');
+    const siblingObservation = observeChanges(dir, baseline);
+    const siblingEntry = {
+      turn_id: 'turn_sibling',
+      accepted_sequence: 2,
+      observed_artifact: buildObservedArtifact(siblingObservation, baseline),
+    };
+
+    writeFileSync(join(dir, 'src', 'app.js'), 'console.log("current turn changed it again");\n');
+
+    const currentTurn = {
+      turn_id: 'turn_current',
+      assigned_sequence: 1,
+      concurrent_with: ['turn_sibling'],
+    };
+    const attributed = attributeObservedChangesToTurn(
+      observeChanges(dir, baseline),
+      currentTurn,
+      [siblingEntry],
+    );
+
+    assert.ok(attributed.files_changed.includes('src/app.js'));
+    assert.deepEqual(attributed.attributed_to_concurrent_siblings || [], []);
+  });
+
+  it('ignores accepted turns that are not concurrent siblings', () => {
+    const baseline = captureBaseline(dir);
+
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'app.js'), 'console.log("sibling");\n');
+    const siblingObservation = observeChanges(dir, baseline);
+    const unrelatedEntry = {
+      turn_id: 'turn_unrelated',
+      accepted_sequence: 2,
+      observed_artifact: buildObservedArtifact(siblingObservation, baseline),
+    };
+
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'integration.md'), '# integrator\n');
+
+    const currentTurn = {
+      turn_id: 'turn_current',
+      assigned_sequence: 1,
+      concurrent_with: ['turn_other'],
+    };
+    const attributed = attributeObservedChangesToTurn(
+      observeChanges(dir, baseline),
+      currentTurn,
+      [unrelatedEntry],
+    );
+
+    assert.ok(attributed.files_changed.includes('src/app.js'));
+    assert.ok(attributed.files_changed.includes('docs/integration.md'));
   });
 });
 

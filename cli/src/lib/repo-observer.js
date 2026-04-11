@@ -121,6 +121,7 @@ export function observeChanges(root, baseline) {
     // Non-git project — no observation possible
     return {
       files_changed: [],
+      file_markers: {},
       head_ref: null,
       diff_summary: null,
       observation_available: false,
@@ -162,10 +163,93 @@ export function observeChanges(root, baseline) {
 
   return {
     files_changed: actorFiles.sort(),
+    file_markers: buildFileMarkers(root, actorFiles),
     head_ref: currentHead,
     diff_summary: diffSummary,
     observation_available: true,
     kind: 'git_observed',
+  };
+}
+
+export function attributeObservedChangesToTurn(observation, currentTurn, historyEntries = []) {
+  const observedFiles = Array.isArray(observation?.files_changed) ? observation.files_changed : [];
+  if (observedFiles.length === 0) {
+    return observation;
+  }
+
+  const concurrentIds = new Set(
+    Array.isArray(currentTurn?.concurrent_with) ? currentTurn.concurrent_with : [],
+  );
+  if (concurrentIds.size === 0) {
+    return observation;
+  }
+
+  const assignedSequence = Number.isInteger(currentTurn?.assigned_sequence)
+    ? currentTurn.assigned_sequence
+    : 0;
+  const acceptedConcurrentSiblings = (Array.isArray(historyEntries) ? historyEntries : [])
+    .filter((entry) => (
+      Number.isInteger(entry?.accepted_sequence)
+      && entry.accepted_sequence > assignedSequence
+      && concurrentIds.has(entry.turn_id)
+    ))
+    .sort((left, right) => left.accepted_sequence - right.accepted_sequence);
+
+  if (acceptedConcurrentSiblings.length === 0) {
+    return observation;
+  }
+
+  const siblingMarkersByFile = new Map();
+  for (const entry of acceptedConcurrentSiblings) {
+    const siblingFiles = Array.isArray(entry?.observed_artifact?.files_changed)
+      ? entry.observed_artifact.files_changed
+      : Array.isArray(entry?.files_changed)
+        ? entry.files_changed
+        : [];
+    const siblingMarkers = entry?.observed_artifact?.file_markers;
+    if (!siblingMarkers || typeof siblingMarkers !== 'object' || Array.isArray(siblingMarkers)) {
+      continue;
+    }
+    for (const filePath of siblingFiles) {
+      if (typeof siblingMarkers[filePath] === 'string' && siblingMarkers[filePath].length > 0) {
+        siblingMarkersByFile.set(filePath, siblingMarkers[filePath]);
+      }
+    }
+  }
+
+  if (siblingMarkersByFile.size === 0) {
+    return observation;
+  }
+
+  const nextFiles = [];
+  const nextMarkers = {};
+  const attributedToConcurrentSiblings = [];
+  const observationMarkers = observation?.file_markers && typeof observation.file_markers === 'object'
+    ? observation.file_markers
+    : {};
+
+  for (const filePath of observedFiles) {
+    const currentMarker = observationMarkers[filePath];
+    const siblingMarker = siblingMarkersByFile.get(filePath);
+    if (typeof siblingMarker === 'string' && siblingMarker === currentMarker) {
+      attributedToConcurrentSiblings.push(filePath);
+      continue;
+    }
+    nextFiles.push(filePath);
+    if (typeof currentMarker === 'string') {
+      nextMarkers[filePath] = currentMarker;
+    }
+  }
+
+  if (attributedToConcurrentSiblings.length === 0) {
+    return observation;
+  }
+
+  return {
+    ...observation,
+    files_changed: nextFiles,
+    file_markers: nextMarkers,
+    attributed_to_concurrent_siblings: attributedToConcurrentSiblings,
   };
 }
 
@@ -289,6 +373,7 @@ export function buildObservedArtifact(observation, baseline) {
     baseline_ref: baseline?.head_ref ? `git:${baseline.head_ref}` : null,
     accepted_ref: observation.head_ref ? `git:${observation.head_ref}` : 'workspace:dirty',
     files_changed: observation.files_changed,
+    file_markers: observation.file_markers || {},
     diff_summary: observation.diff_summary,
   };
 }
@@ -570,6 +655,14 @@ function getWorkspaceFileMarker(root, filePath) {
   } catch {
     return 'unreadable';
   }
+}
+
+function buildFileMarkers(root, filePaths) {
+  const markers = {};
+  for (const filePath of filePaths || []) {
+    markers[filePath] = getWorkspaceFileMarker(root, filePath);
+  }
+  return markers;
 }
 
 function getUntrackedFiles(root) {
