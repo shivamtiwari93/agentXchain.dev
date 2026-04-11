@@ -16,7 +16,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and cleans up afterward. No API keys, config edits, or manual turn authoring required.
 
-If you want your own governed project after that, install the CLI once, then jump to [Quick Start](#quick-start) and scaffold with `agentxchain init --governed`.
+If you want your own governed project after that, install the CLI once, then jump to [Quick Start](#quick-start) and scaffold with `agentxchain init --governed --goal "Your project mission"` before running `agentxchain doctor`.
 
 ## What It Does
 
@@ -86,22 +86,18 @@ Duplicate execution remains intentional for the current 36-file slice while the 
 ### New governed project
 
 ```bash
-agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --goal "Build an expense tracker with team splitting" --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
+agentxchain template validate
+agentxchain doctor
 git add -A
 git commit -m "initial governed scaffold"
 agentxchain status
 agentxchain step --role pm
 ```
 
-Add a project goal so agents receive mission context in every dispatch bundle:
-
-```bash
-agentxchain init --governed --goal "Build an expense tracker with team splitting" --dir my-project -y
-```
-
-Or set `project.goal` in `agentxchain.json` after scaffold creation.
+If you skipped `--goal` during scaffold, set `project.goal` in `agentxchain.json` before the first governed turn so agents receive mission context in every dispatch bundle.
 
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
 

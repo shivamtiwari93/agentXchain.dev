@@ -29,7 +29,7 @@ describe('getting-started tutorial docs', () => {
     for (const token of [
       'npx --yes -p agentxchain@latest -c "agentxchain demo"',
       'npm install -g agentxchain',
-      'agentxchain init --governed --template cli-tool --dir . -y',
+      'agentxchain init --governed --template cli-tool --goal "Build a CLI that lints decision logs" --dir . -y',
       'agentxchain step',
       'agentxchain approve-transition',
       'agentxchain step --role dev --verbose',
@@ -72,6 +72,11 @@ describe('getting-started tutorial docs', () => {
   it('documents doctor as a readiness check in the scaffold flow', () => {
     assert.ok(content.includes('agentxchain doctor'),
       'getting-started must introduce doctor between scaffold validation and first turn');
+  });
+
+  it('does not teach a second in-place init just to add project goal', () => {
+    assert.ok(content.includes('Do not re-run `init --governed` in place just to add the goal.'),
+      'getting-started must reject the misleading in-place init-for-goal flow');
   });
 
   it('links back to first-turn for artifact detail and is surfaced from front-door pages', () => {

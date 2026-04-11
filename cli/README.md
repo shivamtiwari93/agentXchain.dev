@@ -63,14 +63,18 @@ Duplicate execution remains intentional for the current 36-file slice until a la
 ### Governed workflow
 
 ```bash
-agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --goal "Build an API change planner for release teams" --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init
+agentxchain template validate
+agentxchain doctor
 git add -A
 git commit -m "initial governed scaffold"
 agentxchain status
 agentxchain step --role pm
 ```
+
+If you skipped `--goal` during scaffold, set `project.goal` in `agentxchain.json` before the first governed turn instead of re-running init in place.
 
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it during scaffold creation:
 

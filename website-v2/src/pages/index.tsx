@@ -79,9 +79,14 @@ function Hero() {
             <span className="output">&nbsp; ✓ Install once for repeated governed commands</span>
             <br /><br />
             <span className="prompt">$</span>{' '}
-            <span className="cmd">agentxchain init --governed</span>
+            <span className="cmd">agentxchain init --governed --goal "Ship a governed web app MVP"</span>
             <br />
-            <span className="output">&nbsp; ✓ Scaffold your own governed repo when you are ready</span>
+            <span className="output">&nbsp; ✓ Scaffold with mission context before the first turn</span>
+            <br /><br />
+            <span className="prompt">$</span>{' '}
+            <span className="cmd">agentxchain doctor</span>
+            <br />
+            <span className="output">&nbsp; ✓ Verify runtimes and repo health before you run</span>
           </div>
         </div>
       </div>

@@ -43,7 +43,8 @@ describe('Demo front-door discoverability', () => {
     assert.match(HOMEPAGE, new RegExp(DEMO_CMD.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(HOMEPAGE, />\s*npm install -g agentxchain\s*</);
     assert.match(HOMEPAGE, /See governance first, then scaffold your own repo/);
-    assert.match(HOMEPAGE, /agentxchain init --governed/);
+    assert.match(HOMEPAGE, /agentxchain init --governed --goal/);
+    assert.match(HOMEPAGE, /agentxchain doctor/);
   });
 });
 

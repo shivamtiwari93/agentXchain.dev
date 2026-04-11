@@ -37,7 +37,7 @@ npm install -g agentxchain
 agentxchain --version
 
 mkdir my-first-governed && cd my-first-governed
-agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --goal "Build a CLI that lints decision logs" --dir . -y
 git init
 agentxchain template validate
 agentxchain doctor
@@ -45,14 +45,7 @@ git add -A
 git commit -m "initial governed scaffold"
 ```
 
-**Optional:** add a project goal so every agent turn receives mission context in its dispatch bundle:
-
-```bash
-# Either pass --goal at init time:
-agentxchain init --governed --template cli-tool --goal "Build a CLI that lints decision logs" --dir . -y
-
-# Or set it later in agentxchain.json under project.goal
-```
+If you skipped `--goal` during scaffold, set `project.goal` in `agentxchain.json` before the first governed turn. Do not re-run `init --governed` in place just to add the goal.
 
 `doctor` checks that your config is valid, all configured runtimes are reachable, and the repo state is healthy. If any check fails, fix it before your first turn — it is cheaper to catch missing env vars now than mid-run.
 

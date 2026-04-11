@@ -62,7 +62,7 @@ Start with `init --governed`, not `migrate`. Treat the first pass as a bootstrap
 cd /path/to/existing-repo
 git checkout -b agentxchain-bootstrap
 
-agentxchain init --governed --template web-app --dir . -y
+agentxchain init --governed --template web-app --goal "Stabilize and improve the existing web app" --dir . -y
 agentxchain template validate
 agentxchain doctor
 
@@ -72,7 +72,7 @@ git commit -m "bootstrap AgentXchain governed scaffold"
 agentxchain step
 ```
 
-**Tip:** pass `--goal "..."` at init time to set a project mission that appears in every dispatch bundle, status output, and governance report. Or set `project.goal` in `agentxchain.json` later.
+**Tip:** `--goal "..."` should be part of the primary scaffold command, not an afterthought. If you skipped it, set `project.goal` in `agentxchain.json` before the first governed turn.
 
 `step` assigns the PM turn (the planning-phase entry role), writes the dispatch bundle, and polls for the staged result. While `step` is waiting, open a second terminal to write your planning docs and stage the turn result at `.agentxchain/staging/<turn_id>/turn-result.json`. When `step` detects the staged result, it auto-validates and auto-accepts. Then approve the phase transition:
 
@@ -135,7 +135,7 @@ If the migrated repo already has a retained turn you intend to continue, use `ag
 For a new repo, start by scaffolding truthfully, committing the governed files, then deciding whether you want the mixed-mode manual path or a fully automated `run` path:
 
 ```bash
-agentxchain init --governed --template web-app --dir my-agentxchain-project -y
+agentxchain init --governed --template web-app --goal "Ship a governed web app MVP" --dir my-agentxchain-project -y
 cd my-agentxchain-project
 
 git init
