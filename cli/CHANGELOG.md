@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.49.0
+
+`2.49.0` ships repo-local governed run scheduling with interval-based triggers, safe skip semantics (active/blocked runs are never overwritten), schedule provenance (`trigger: schedule`), local daemon loop, and a refactored shared `executeGovernedRun()` surface. Schedule state is orchestrator-owned and export/restore-aware.
+
+- 3497 tests / 747 suites / 0 failures
+
 ## 2.48.0
 
 `2.48.0` ships repo-local run event streaming with 11 lifecycle event types, a `agentxchain events` CLI command with `--follow` real-time streaming, docs truth corrections (`history --status` filter), and E2E proof hardening for event lifecycle and provenance terminal-bootstrap.

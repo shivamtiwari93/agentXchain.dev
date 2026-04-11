@@ -1,0 +1,79 @@
+---
+title: "v2.49.0 Release Notes"
+description: "Adds repo-local governed run scheduling with interval-based triggers, safe skip semantics, schedule provenance, and local daemon loop."
+---
+
+# AgentXchain v2.49.0
+
+`v2.49.0` ships **repo-local governed run scheduling** — interval-based triggers that move AgentXchain from a tool you invoke to a system that runs itself.
+
+## Run Scheduling
+
+Governed projects can now define schedules in `agentxchain.json` that trigger runs at regular intervals. A local daemon loop checks for due schedules and starts governed runs with explicit `trigger: schedule` provenance.
+
+### Configuration
+
+```json
+{
+  "schedules": {
+    "nightly-qa": {
+      "interval_minutes": 1440,
+      "enabled": true,
+      "auto_approve": true,
+      "max_turns": 10,
+      "trigger_reason": "Nightly QA sweep"
+    },
+    "hourly-lint": {
+      "interval_minutes": 60,
+      "enabled": true,
+      "auto_approve": false,
+      "max_turns": 3,
+      "trigger_reason": "Hourly lint pass"
+    }
+  }
+}
+```
+
+### CLI commands
+
+```bash
+# List all schedules with due status
+agentxchain schedule list
+
+# Run all due schedules once
+agentxchain schedule run-due
+
+# Run a specific due schedule
+agentxchain schedule run-due --schedule nightly-qa
+
+# Start a local daemon that checks for due schedules
+agentxchain schedule daemon
+
+# JSON output for programmatic consumption
+agentxchain schedule list --json
+agentxchain schedule run-due --json
+```
+
+### Safety boundaries
+
+- **Active-run protection** — scheduled runs only start from `idle` or `completed` state. They never attach to an `active` or `paused` run.
+- **Blocked-run respect** — scheduled runs do not auto-recover blocked runs. A blocked run requires explicit operator intervention via `--recover-from`.
+- **Schedule provenance** — every schedule-triggered run carries `trigger: schedule` provenance with the schedule name and trigger reason, visible in `status`, `report`, `export`, and `history`.
+- **Continuity-aware** — `schedule-state.json` is classified as orchestrator-owned state, included in export/restore roots, and tracked by the repo observer.
+
+### Design
+
+- **Interval-based, not cron** — schedules use `interval_minutes` rather than cron expressions. This is the narrow first slice; cron syntax is explicitly out of scope.
+- **Repo-local only** — no hosted schedulers, no cross-repo fan-out, no coordinator-level schedule aggregation.
+- **Machine-readable daemon** — `schedule daemon --json` stays machine-readable by injecting a quiet logger into the shared run execution surface.
+
+## Shared run execution surface
+
+The `run` command's governed execution path has been refactored into `executeGovernedRun(context, opts)` — a reusable surface that supports provenance overrides, fresh-start constraints, and logger injection. This powers both interactive `run` and schedule-triggered runs without code duplication.
+
+## Evidence
+
+- 3497 tests / 747 suites / 0 failures
+- 869 Vitest tests / 36 files / 0 failures
+- Docusaurus production build clean
+- Schedule E2E covers: due listing, schedule-triggered provenance, blocked skip, active skip, daemon one-cycle, single-schedule targeting
