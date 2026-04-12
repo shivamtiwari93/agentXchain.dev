@@ -110,6 +110,9 @@ describe('Governed Doctor E2E', () => {
     const result = runCli(root, ['doctor', '--json']);
     assert.equal(result.status, 0, `Exit code should be 0. stderr: ${result.stderr}`);
     const output = JSON.parse(result.stdout);
+    assert.equal(output.protocol_version, 'v6');
+    assert.equal(output.config_generation, 4);
+    assert.equal(output.config_schema_version, '1.0');
     assert.equal(output.config_version, 4);
     assert.equal(output.overall, 'pass', `Expected overall pass but got: ${JSON.stringify(output.checks, null, 2)}`);
     assert.ok(output.checks.length >= 4, 'Should have at least 4 checks');

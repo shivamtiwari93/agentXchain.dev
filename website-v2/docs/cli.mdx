@@ -682,6 +682,14 @@ Validation modes:
 
 For governed projects, `validate` also checks template-registry integrity and the current project's configured template binding. Returns exit code `0` on success, `1` on validation failure with details.
 
+For governed repos, the output keeps the version axes separate instead of flattening them into one number:
+
+- protocol version: `v6`
+- config generation: `v4`
+- governed config schema: `1.0`
+
+`validate --json` exposes these as `protocol_version`, `config_generation`, and `config_schema_version`. The older `version` field remains as a compatibility alias for config generation.
+
 ### `verify turn`
 
 ```bash
@@ -697,7 +705,7 @@ agentxchain verify turn [turn_id] [--json] [--timeout <ms>]
 
 The command is intentionally narrow:
 
-- it only works on governed v4 repos
+- it only works on governed config-generation v4 repos
 - it targets active turns only, using the staged result at `.agentxchain/staging/<turn_id>/turn-result.json`
 - it validates the staged result before replaying anything
 - it replays only `verification.machine_evidence[].command`
@@ -848,7 +856,7 @@ agentxchain doctor [--json]
 |------|---------|-------------|
 | `--json` | `false` | Output structured JSON with all check results |
 
-Checks governed project readiness for running turns. On v4 (governed) projects, runs these checks:
+Checks governed project readiness for running turns. On governed config-generation v4 projects, runs these checks:
 
 | Check | ID | Description |
 |-------|-----|-------------|
@@ -861,6 +869,14 @@ Checks governed project readiness for running turns. On v4 (governed) projects, 
 | Workflow-kit artifacts | `workflow_kit` | Required artifacts for the current phase exist on disk |
 
 Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.
+
+`doctor --json` also reports the same versioning split explicitly:
+
+- `protocol_version: "v6"`
+- `config_generation: 4`
+- `config_schema_version: "1.0"`
+
+The older `config_version` field remains as a compatibility alias for config generation.
 
 On legacy v3 projects, runs the legacy environment checks (Cursor, jq, osascript, watch process, trigger file, PM signoff).
 

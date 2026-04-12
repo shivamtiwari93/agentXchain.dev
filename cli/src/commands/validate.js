@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import { loadConfig, loadProjectContext } from '../lib/config.js';
 import { validateGovernedProject, validateProject } from '../lib/validation.js';
+import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
 
 export async function validateCommand(opts) {
   const context = loadProjectContext();
@@ -21,9 +22,13 @@ export async function validateCommand(opts) {
       });
 
   if (opts.json) {
+    const governedVersionSurface = context.config.protocol_mode === 'governed'
+      ? getGovernedVersionSurface(context.rawConfig)
+      : {};
     console.log(JSON.stringify({
       ...validation,
       protocol_mode: context.config.protocol_mode,
+      ...governedVersionSurface,
       version: context.version,
     }, null, 2));
   } else {
@@ -31,7 +36,11 @@ export async function validateCommand(opts) {
     console.log(chalk.bold(`  AgentXchain Validate (${mode})`));
     console.log(chalk.dim('  ' + '─'.repeat(44)));
     console.log(chalk.dim(`  Root: ${context.root}`));
-    console.log(chalk.dim(`  Protocol: ${context.config.protocol_mode} (v${context.version})`));
+    if (context.config.protocol_mode === 'governed') {
+      console.log(chalk.dim(`  Protocol: ${context.config.protocol_mode} (${formatGovernedVersionLabel(context.rawConfig)})`));
+    } else {
+      console.log(chalk.dim(`  Protocol: ${context.config.protocol_mode} (v${context.version})`));
+    }
     console.log('');
 
     if (validation.ok) {

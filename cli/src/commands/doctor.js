@@ -7,6 +7,7 @@ import { validateProject } from '../lib/validation.js';
 import { getWatchPid } from './watch.js';
 import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
 import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
+import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -136,9 +137,11 @@ function governedDoctor(root, rawConfig, opts) {
 
   if (opts.json) {
     const projectId = rawConfig?.project?.id || rawConfig?.project?.name || 'unknown';
+    const versionSurface = getGovernedVersionSurface(rawConfig);
     console.log(JSON.stringify({
       project: projectId,
-      config_version: 4,
+      ...versionSurface,
+      config_version: versionSurface.config_generation,
       overall,
       checks,
       fail_count: failCount,
@@ -149,7 +152,8 @@ function governedDoctor(root, rawConfig, opts) {
     console.log('');
     console.log(chalk.bold('  AgentXchain Governed Doctor'));
     console.log(chalk.dim('  ' + '─'.repeat(44)));
-    console.log(chalk.dim(`  Project: ${projectId} (v4)`));
+    console.log(chalk.dim(`  Project: ${projectId}`));
+    console.log(chalk.dim(`  Versioning: ${formatGovernedVersionLabel(rawConfig)}`));
     console.log('');
 
     for (const c of checks) {
