@@ -87,6 +87,7 @@ import {
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
 import { phaseCommand } from '../src/commands/phase.js';
+import { gateCommand } from '../src/commands/gate.js';
 import { roleCommand } from '../src/commands/role.js';
 import { turnShowCommand } from '../src/commands/turn.js';
 import { templateValidateCommand } from '../src/commands/template-validate.js';
@@ -503,6 +504,23 @@ phaseCmd
   .description('Show one governed phase in detail')
   .option('-j, --json', 'Output as JSON')
   .action((phaseId, opts) => phaseCommand('show', phaseId, opts));
+
+const gateCmd = program
+  .command('gate')
+  .description('Inspect governed gate definitions');
+
+gateCmd
+  .command('list')
+  .description('List all defined gates with phase linkage and predicate summary')
+  .option('-j, --json', 'Output as JSON')
+  .action((opts) => gateCommand('list', null, opts));
+
+gateCmd
+  .command('show <gate_id>')
+  .description('Show a single gate contract, predicates, and status')
+  .option('-j, --json', 'Output as JSON')
+  .option('--evaluate', 'Live-evaluate gate predicates against current filesystem')
+  .action((gateId, opts) => gateCommand('show', gateId, opts));
 
 const roleCmd = program
   .command('role')

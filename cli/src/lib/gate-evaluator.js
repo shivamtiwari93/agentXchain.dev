@@ -30,7 +30,7 @@ function getWorkflowArtifactsForPhase(config, phase) {
   return Array.isArray(artifacts) ? artifacts : [];
 }
 
-function buildEffectiveGateArtifacts(config, gateDef, phase) {
+export function getEffectiveGateArtifacts(config, gateDef, phase) {
   const byPath = new Map();
 
   if (Array.isArray(gateDef?.requires_files)) {
@@ -92,7 +92,7 @@ function prefixSemanticReason(filePath, reason) {
   return `${filePath}: ${reason}`;
 }
 
-function hasRoleParticipationInPhase(state, phase, roleId) {
+export function hasRoleParticipationInPhase(state, phase, roleId) {
   const history = state?.history;
   if (!Array.isArray(history)) {
     return false;
@@ -104,7 +104,7 @@ function hasRoleParticipationInPhase(state, phase, roleId) {
 
 function evaluateGateArtifacts({ root, config, gateDef, phase, result, state }) {
   const failures = [];
-  const artifacts = buildEffectiveGateArtifacts(config, gateDef, phase);
+  const artifacts = getEffectiveGateArtifacts(config, gateDef, phase);
 
   for (const artifact of artifacts) {
     const absPath = join(root, artifact.path);

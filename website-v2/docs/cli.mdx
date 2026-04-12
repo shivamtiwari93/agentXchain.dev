@@ -40,6 +40,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
 | `phase list` | Inspection | List governed phases in routing order with current-phase context |
 | `phase show` | Inspection | Inspect one governed phase: routing, gate, next roles, and workflow-kit artifact ownership |
+| `gate list` | Inspection | List all defined gates with phase linkage, predicate summary, and approval requirements |
+| `gate show` | Inspection | Show a single gate's full contract: predicates, phase linkage, status, last failure, and optional live evaluation |
 | `role list` | Inspection | List all defined roles with title, authority, and runtime |
 | `role show` | Inspection | Show detailed information for a single role |
 | `turn show` | Inspection | Inspect an active turn's dispatch bundle and read selected artifacts without raw file browsing |
@@ -283,6 +285,40 @@ These commands expose the governed workflow contract directly instead of forcing
 If `phase` is omitted, `phase show` defaults to the current governed phase from state. If no current phase is available, it falls back to the first routing phase.
 
 This matters because the normalized default workflow-kit is real product behavior even when raw `workflow_kit` is absent. Operators should be able to inspect that default workflow contract explicitly instead of guessing from scaffold files.
+
+### `gate list` / `gate show`
+
+```bash
+agentxchain gate list [--json]
+agentxchain gate show <gate_id> [--json] [--evaluate]
+```
+
+These commands expose the governed gate contract — the predicate definitions, phase linkage, approval requirements, and runtime status — without forcing operators to spelunk through raw `config.gates` JSON.
+
+`gate list` prints all defined gates with their linked phase, effective artifact count, verification requirement, human-approval flag, and current status when available.
+
+`gate show <gate_id>` prints a single gate in detail:
+
+- linked phase (which routing phase references this gate as its `exit_gate`)
+- human-approval requirement
+- verification-pass requirement
+- current status (`pending`, `passed`, `failed`, or none)
+- effective artifacts list
+- workflow-kit additive artifacts merged into the gate contract when the linked phase declares them
+- last gate failure details when available (type, phase, timestamp, reasons, missing files)
+
+The `--evaluate` flag adds live runtime gate semantics: it checks the merged artifact contract the runtime actually enforces, including workflow-kit additive artifacts, path-based semantic validators, artifact ownership participation in the linked phase, and `requires_verification_pass` against the latest accepted turn in that phase. This is a read-only snapshot, not a gate transition attempt.
+
+```bash
+# List all gates
+agentxchain gate list
+
+# Inspect a specific gate
+agentxchain gate show planning_signoff
+
+# Live-evaluate gate readiness
+agentxchain gate show planning_signoff --evaluate --json
+```
 
 ### `status`
 
