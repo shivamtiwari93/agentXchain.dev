@@ -193,7 +193,7 @@ function CoreProblem() {
 
 function Philosophy() {
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-green">Philosophy</span>
         <h2>Trust from protocol, evidence, and governance</h2>
@@ -324,7 +324,7 @@ function FiveLayers() {
 
 function WorkflowKit() {
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-green">Workflow Kit</span>
         <h2>Planning, specs, QA, and evidence &mdash; built into the protocol</h2>
@@ -465,7 +465,7 @@ function HumanSovereignty() {
   ];
 
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-blue">Human sovereignty</span>
         <h2>Lights-out operation without blind trust</h2>
@@ -550,9 +550,7 @@ function HowItWorks() {
                 {s.num}
               </div>
               <h3>{s.title}</h3>
-              <p style={{ fontSize: '0.84rem', color: 'var(--ifm-font-color-secondary)' }}>
-                {s.desc}
-              </p>
+              <p className="step-desc">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -563,7 +561,7 @@ function HowItWorks() {
 
 function Integrations() {
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-green">Ecosystem</span>
         <h2>IDE compatibility, dashboard, plugins, and multi-repo</h2>
@@ -690,7 +688,7 @@ function Comparison() {
 
 function Community() {
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-orange">Community</span>
         <h2>Build in public with other AgentXchain operators</h2>
@@ -752,7 +750,7 @@ function Community() {
 
 function PlatformSplit() {
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-green">Platform</span>
         <h2>Open protocol. Managed cloud. Same governance.</h2>
@@ -843,7 +841,7 @@ function Outcomes() {
   ];
 
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-green">Outcomes</span>
         <h2>Why teams adopt AgentXchain</h2>
@@ -854,7 +852,7 @@ function Outcomes() {
         <div className="feature-grid outcomes-grid">
           {outcomes.map((o) => (
             <div className="feature-card" key={o.title}>
-              <h3 style={{ color: 'var(--axc-green-light)' }}>{o.title}</h3>
+              <h3 className="outcome-title">{o.title}</h3>
               <p>{o.desc}</p>
             </div>
           ))}
@@ -867,7 +865,7 @@ function Outcomes() {
 function EndVision() {
   return (
     <section className="section-alt end-vision">
-      <div className="container" style={{ textAlign: 'center', maxWidth: 700 }}>
+      <div className="container cta-inner">
         <span className="section-label text-blue">The end state</span>
         <h2>Dark software factories</h2>
         <p className="section-subtitle" style={{ maxWidth: 600, margin: '0 auto 2rem' }}>
@@ -901,7 +899,7 @@ function Examples() {
   ];
 
   return (
-    <section style={{ padding: '5rem 0' }}>
+    <section className="section-spaced">
       <div className="container">
         <span className="section-label text-blue">Proof</span>
         <h2>Five products. Five categories. Zero human code.</h2>
@@ -909,13 +907,13 @@ function Examples() {
           Each was built from scratch under AgentXchain governance with distinct
           team shapes, workflow phases, and governed artifacts.
         </p>
-        <div className="feature-grid">
+        <div className="feature-grid examples-grid">
           {examples.map((ex) => (
-            <div className="feature-card" key={ex.name}>
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--axc-green-light)', fontWeight: 600 }}>{ex.category}</span>
-              <h3 style={{ margin: '0.5rem 0 0.25rem' }}>{ex.name}</h3>
-              <p style={{ fontSize: '0.9rem' }}>{ex.desc}</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--ifm-font-color-secondary)', margin: 0 }}>
+            <div className="example-card" key={ex.name}>
+              <span className="example-category">{ex.category}</span>
+              <h3>{ex.name}</h3>
+              <p className="example-desc">{ex.desc}</p>
+              <p className="example-roles">
                 {ex.roles} roles &middot; {ex.phases} phases &middot; {ex.tests} tests
               </p>
             </div>
@@ -934,17 +932,17 @@ function Examples() {
 function CTA() {
   const iconSrc = useBaseUrl('/img/agentXchain.dev_icon_only_280x280px.png');
   return (
-    <section style={{ borderTop: '1px solid var(--ifm-color-emphasis-300)', textAlign: 'center', padding: '5rem 0' }}>
-      <div className="container">
+    <section className="cta-section">
+      <div className="container cta-inner">
         <img
           src={iconSrc}
           alt="AgentXchain"
           width={64}
           height={64}
-          style={{ marginBottom: '1.25rem' }}
+          className="hero-logo"
         />
         <h2>Software is a team sport. Even when the team is AI.</h2>
-        <p style={{ color: 'var(--ifm-font-color-secondary)', marginBottom: '2rem', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+        <p className="section-subtitle">
           One protocol. Define your roles. Route turns through real gates.
           Keep a decision trail you can inspect, audit, and trust.
         </p>

@@ -386,9 +386,92 @@
   max-width: 520px;
 }
 
+/* Utility: consistent section spacing */
+.section-spaced {
+  padding: 5rem 0;
+}
+
 .section-alt {
   background: var(--ifm-background-surface-color, #0B1528);
   padding: 5rem 0;
+}
+
+/* Examples card grid */
+.examples-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+.example-card {
+  background: var(--ifm-card-background-color, #0E1C33);
+  border: 1px solid var(--ifm-color-emphasis-300, #162845);
+  border-radius: 12px;
+  padding: 1.75rem;
+  transition: all 0.25s;
+  text-decoration: none !important;
+  color: inherit;
+  display: block;
+}
+
+.example-card:hover {
+  border-color: var(--axc-blue);
+  transform: translateY(-3px);
+}
+
+.example-category {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--axc-green-light);
+  font-weight: 600;
+}
+
+.example-card h3 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.example-card .example-desc {
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-base);
+}
+
+.example-card .example-roles {
+  font-size: 0.8rem;
+  color: var(--ifm-font-color-secondary);
+  margin: 0;
+}
+
+/* CTA (final call-to-action) section */
+.cta-section {
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+  text-align: center;
+  padding: 5rem 0;
+}
+
+.cta-section .cta-inner {
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cta-section .section-subtitle {
+  max-width: 480px;
+  margin: 0 auto 2rem;
+}
+
+/* Outcomes grid heading color override */
+.outcome-title {
+  color: var(--axc-green-light);
+}
+
+/* Step description utility */
+.step-desc {
+  font-size: 0.84rem;
+  color: var(--ifm-font-color-secondary);
 }
 
 /* Stats row */
@@ -789,6 +872,7 @@
   .layers-grid,
   .integrations-grid,
   .outcomes-grid,
+  .examples-grid,
   .role-grid { grid-template-columns: 1fr; }
   .layers-grid .layer-card:nth-child(5) { grid-column: auto; }
   .community-grid { grid-template-columns: 1fr; }
@@ -797,7 +881,9 @@
   .sovereignty-grid { grid-template-columns: 1fr; }
   .not-grid { grid-template-columns: 1fr; }
   .hero-section { padding: 3rem 0 2rem; }
-  .section-alt { padding: 3rem 0; }
+  .section-alt,
+  .section-spaced,
+  .cta-section { padding: 3rem 0; }
   .comparison-table { font-size: 0.8rem; }
   .comparison-table th,
   .comparison-table td { padding: 0.6rem 0.75rem; }

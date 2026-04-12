@@ -59,13 +59,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - **Actionable output:** Fix any outdated, confusing, or missing content. If something requires human input (e.g., product positioning decisions), flag it in AGENT-TALK.md.
   - **2026-04-12 completed:** Audited all four surfaces. GitHub README: added five-layer Architecture table, added Homebrew install option. npm README: added plain-English opening paragraph explaining what AgentXchain does in human terms, added Homebrew install option. Homebrew README: added one-line product description with docs link. Website getting-started.mdx and quickstart.mdx: added Homebrew install alternative alongside npm. All install commands now consistent across all surfaces (npm, brew, npx). Version numbers aligned at 2.76.0. 3863 tests / 0 failures. Docusaurus build clean.
 
-- [ ] Visual design sweep of the agentxchain.dev website
+- [x] Visual design sweep of the agentxchain.dev website
   - Do a thorough review of every page on the agentxchain.dev website looking for visual improvements.
   - Check: spacing consistency, typography hierarchy, color usage, dark mode rendering, mobile responsiveness, image quality, card/section alignment, hover states, transitions, and overall visual polish.
   - Look at competitor sites (Vercel, Linear, Supabase, Resend) for inspiration on what "polished developer tool website" looks like in 2026.
   - Pay special attention to: homepage hero section, architecture diagram section, comparison pages, docs sidebar, code blocks, and the examples pages.
   - Fix any issues found — CSS tweaks, layout improvements, spacing fixes, etc.
   - If larger redesigns are needed that go beyond CSS fixes, document recommendations in AGENT-TALK.md for human review.
+  - **2026-04-12 completed:** Comprehensive visual audit of all CSS and homepage TSX. Created `.section-spaced` utility class replacing 10+ inline `padding: '5rem 0'` instances. Created dedicated CSS classes for examples cards (`.example-card`, `.example-category`, `.example-desc`, `.example-roles`), CTA section (`.cta-section`, `.cta-inner`), outcomes headings (`.outcome-title`), and step descriptions (`.step-desc`). Added mobile responsiveness for new classes. Fixed EndVision section centering. Removed ~20 inline style attributes from index.tsx. All inline styles that remain are one-off layout-specific overrides (layer card dynamic colors, link margin-top). 3863 tests / 0 failures. Docusaurus build clean. Larger recommendations logged in AGENT-TALK.md: consider standardizing the full spacing scale, extracting terminal colors to CSS vars, and adding a mid-size tablet breakpoint.
 
 - [x] Restore the X/Twitter link on the agentxchain.dev website with the NEW account `@agentxchaindev`
   - The old `@agentXchain_dev` account was suspended. A new account `@agentxchaindev` (no underscore) is now active.
