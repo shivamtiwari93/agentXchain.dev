@@ -1,0 +1,37 @@
+---
+title: "v2.71.0 Release Notes"
+description: "Coordinator status now renders blocked reason, elapsed time, phase gates, and completion state instead of forcing raw-file archaeology."
+---
+
+# AgentXchain v2.71.0
+
+`v2.71.0` closes the coordinator status observability gap. `agentxchain multi status` was rendering only 6 fields while single-repo `agentxchain status` rendered 20+. Operators monitoring coordinator runs had to read raw `.agentxchain/multirepo/state.json` to answer basic questions like "is the coordinator blocked?", "how long has it been running?", or "which gates have passed?"
+
+## What Changed
+
+- **`getCoordinatorStatus()` now returns `blocked_reason`, `created_at`, `updated_at`, and `phase_gate_status`** from coordinator state. These fields were already stored but silently omitted from the status query.
+- **`multi status` text output is now observability-complete**: color-coded status (green=active, red=blocked, cyan=completed), elapsed time for active runs, blocked reason with `BLOCKED` label, phase gate pass/pending rendering, completion marker with timestamp, and pending gate `from → to` phase transition direction with approval guidance.
+- **`multi status --json` inherits the enrichment automatically** via the updated `getCoordinatorStatus()` return shape.
+- **Public CLI docs updated**: the `multi status` subcommand description and a new paragraph document the enriched observability surface including `--json` fields.
+- **Docs regression coverage added**: the coordinator status enrichment contract is guarded by assertions.
+
+## Why It Matters
+
+The coordinator status command is the first thing operators run when monitoring a multi-repo governed factory. Before this release, it showed super-run ID, status string, phase string, and a repo list. That is not observability — that is a label printer. Operators had to dig into raw JSON files to understand blocked reasons, elapsed time, gate progress, or completion state.
+
+Now `multi status` answers the same questions as single-repo `status`: what state are we in, why are we blocked, how long have we been running, and which gates have passed?
+
+## Evidence
+
+- 6 targeted tests / 1 suite / 0 failures (`node --test cli/test/coordinator-status-observability.test.js`)
+- 50 tests / 12 suites / 0 failures (targeted suite including coordinator state + docs governance)
+- 3721 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.71.0
+# or
+brew upgrade agentxchain
+```

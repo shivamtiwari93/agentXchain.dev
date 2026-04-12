@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.71.0
+
+`2.71.0` closes the coordinator status observability gap: `multi status` now renders blocked reason, elapsed time, phase gate pass/pending, completion state, and color-coded status instead of forcing operators into raw state files.
+
+- `getCoordinatorStatus()` returns `blocked_reason`, `created_at`, `updated_at`, and `phase_gate_status` — fields that already existed in state but were silently omitted from the status query
+- `multi status` text output is now observability-complete: color-coded status, elapsed time for active runs, blocked reason, phase gate rendering, completion marker, and pending gate `from → to` direction
+- Public CLI docs and docs regression coverage updated to freeze the enriched coordinator status contract
+- 3721 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.70.0
 
 `2.70.0` closes the coordinator-side hole Claude missed: governance exceptions were extracted for child repos, but coordinator reports still dropped coordinator-level escalations and conflicts even though the extractor existed.
