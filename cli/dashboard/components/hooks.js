@@ -2,6 +2,7 @@
  * Hook Audit view — renders hook-audit.jsonl entries.
  *
  * Pure render function: takes data, returns HTML string. Testable in Node.js.
+ * Supports both repo-local and coordinator hook audit/annotation data.
  */
 
 function esc(str) {
@@ -90,26 +91,82 @@ function collectHookNames(audit) {
   return Array.from(unique).sort();
 }
 
-export function render({ audit, annotations, filter = {} }) {
+function renderAuditTable(entries, filter) {
+  const filtered = filterAudit(entries, filter);
+  let html = `<p class="section-subtitle">${filtered.length} of ${entries.length} hook execution${entries.length !== 1 ? 's' : ''}</p>
+    <table class="data-table">
+      <thead><tr><th>Time</th><th>Phase</th><th>Hook</th><th>Verdict</th><th>Action</th><th>Duration</th></tr></thead>
+      <tbody>`;
+
+  for (const entry of filtered) {
+    const duration = entry.duration_ms != null ? `${entry.duration_ms}ms` : '-';
+    const action = entry.orchestrator_action || entry.action || 'continued';
+    html += `<tr>
+      <td class="mono">${esc(entry.timestamp || '-')}</td>
+      <td class="mono">${esc(getHookPhase(entry))}</td>
+      <td>${esc(getHookName(entry))}</td>
+      <td>${verdictBadge(entry.verdict)}</td>
+      <td class="mono">${esc(action)}</td>
+      <td class="mono">${esc(duration)}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>`;
+  return html;
+}
+
+function renderAnnotationList(entries) {
+  let html = `<p class="section-subtitle">${entries.length} annotation${entries.length !== 1 ? 's' : ''}</p>
+    <div class="annotation-list">`;
+
+  for (const entry of entries) {
+    const annotationText = formatAnnotations(entry);
+    html += `<div class="annotation-card">
+      <span class="mono">${esc(entry.turn_id || '-')}</span>
+      <span class="mono">${esc(getHookName(entry))}</span>
+      <span>${esc(annotationText || JSON.stringify(entry))}</span>
+    </div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+export function render({
+  audit,
+  annotations,
+  coordinatorAudit = null,
+  coordinatorAnnotations = null,
+  filter = {},
+}) {
   const hasAudit = Array.isArray(audit) && audit.length > 0;
   const hasAnnotations = Array.isArray(annotations) && annotations.length > 0;
+  const hasCoordinatorAudit = Array.isArray(coordinatorAudit) && coordinatorAudit.length > 0;
+  const hasCoordinatorAnnotations = Array.isArray(coordinatorAnnotations) && coordinatorAnnotations.length > 0;
+  const hasAnyData = hasAudit || hasAnnotations || hasCoordinatorAudit || hasCoordinatorAnnotations;
+  const hasCoordinatorData = hasCoordinatorAudit || hasCoordinatorAnnotations;
 
-  if (!hasAudit && !hasAnnotations) {
+  if (!hasAnyData) {
     return `<div class="placeholder"><h2>Hook Audit</h2><p>No hook activity recorded.</p></div>`;
   }
 
+  // Build combined audit for shared filter bar
+  const combinedAudit = [
+    ...(Array.isArray(audit) ? audit : []),
+    ...(Array.isArray(coordinatorAudit) ? coordinatorAudit : []),
+  ];
+  const phases = collectHookPhases(combinedAudit);
+  const hookNames = collectHookNames(combinedAudit);
+  const selectedPhase = filter.phase || 'all';
+  const selectedVerdict = filter.verdict || 'all';
+  const selectedHookName = filter.hookName || 'all';
+
   let html = `<div class="hooks-view">`;
 
-  if (hasAudit) {
-    const filtered = filterAudit(audit, filter);
-    const phases = collectHookPhases(audit);
-    const hookNames = collectHookNames(audit);
-    const selectedPhase = filter.phase || 'all';
-    const selectedVerdict = filter.verdict || 'all';
-    const selectedHookName = filter.hookName || 'all';
-
-    html += `<div class="section"><h3>Hook Audit Log</h3>
-      <p class="section-subtitle">${filtered.length} of ${audit.length} hook execution${audit.length !== 1 ? 's' : ''}</p>
+  // Shared filter bar (covers both repo-local and coordinator data)
+  if (hasAudit || hasCoordinatorAudit) {
+    html += `<div class="section"><h3>Hook Audit</h3>
+      <p class="section-subtitle">${hasCoordinatorData ? 'Repo-local and coordinator hook audit surfaces' : 'Hook audit surface'}</p>
       <div class="filter-bar">
         <label class="filter-control">
           <span>Phase</span>
@@ -135,41 +192,37 @@ export function render({ audit, annotations, filter = {} }) {
           </select>
         </label>
       </div>
-      <table class="data-table">
-        <thead><tr><th>Time</th><th>Phase</th><th>Hook</th><th>Verdict</th><th>Action</th><th>Duration</th></tr></thead>
-        <tbody>`;
-
-    for (const entry of filtered) {
-      const duration = entry.duration_ms != null ? `${entry.duration_ms}ms` : '-';
-      const action = entry.orchestrator_action || entry.action || 'continued';
-      html += `<tr>
-        <td class="mono">${esc(entry.timestamp || '-')}</td>
-        <td class="mono">${esc(getHookPhase(entry))}</td>
-        <td>${esc(getHookName(entry))}</td>
-        <td>${verdictBadge(entry.verdict)}</td>
-        <td class="mono">${esc(action)}</td>
-        <td class="mono">${esc(duration)}</td>
-      </tr>`;
-    }
-
-    html += `</tbody></table></div>`;
+    </div>`;
   }
 
+  // Repo-local audit section
+  if (hasAudit) {
+    const sectionTitle = hasCoordinatorData ? 'Repo Hook Audit Log' : 'Hook Audit Log';
+    html += `<div class="section"><h3>${sectionTitle}</h3>`;
+    html += renderAuditTable(audit, filter);
+    html += `</div>`;
+  }
+
+  // Coordinator audit section
+  if (hasCoordinatorAudit) {
+    html += `<div class="section"><h3>Coordinator Hook Audit Log</h3>`;
+    html += renderAuditTable(coordinatorAudit, filter);
+    html += `</div>`;
+  }
+
+  // Repo-local annotations section
   if (hasAnnotations) {
-    html += `<div class="section"><h3>Hook Annotations</h3>
-      <p class="section-subtitle">${annotations.length} annotation${annotations.length !== 1 ? 's' : ''}</p>
-      <div class="annotation-list">`;
+    const sectionTitle = hasCoordinatorData ? 'Repo Hook Annotations' : 'Hook Annotations';
+    html += `<div class="section"><h3>${sectionTitle}</h3>`;
+    html += renderAnnotationList(annotations);
+    html += `</div>`;
+  }
 
-    for (const entry of annotations) {
-      const annotationText = formatAnnotations(entry);
-      html += `<div class="annotation-card">
-        <span class="mono">${esc(entry.turn_id || '-')}</span>
-        <span class="mono">${esc(getHookName(entry))}</span>
-        <span>${esc(annotationText || JSON.stringify(entry))}</span>
-      </div>`;
-    }
-
-    html += `</div></div>`;
+  // Coordinator annotations section
+  if (hasCoordinatorAnnotations) {
+    html += `<div class="section"><h3>Coordinator Hook Annotations</h3>`;
+    html += renderAnnotationList(coordinatorAnnotations);
+    html += `</div>`;
   }
 
   html += `</div>`;

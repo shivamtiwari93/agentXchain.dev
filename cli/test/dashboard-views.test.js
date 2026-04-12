@@ -354,6 +354,88 @@ describe('Hooks View', () => {
     assert.ok(html.includes('Hook Audit Log'));
     assert.ok(html.includes('Hook Annotations'));
   });
+
+  it('renders coordinator audit section when coordinator data exists', () => {
+    const html = renderHooks({
+      audit: [],
+      annotations: [],
+      coordinatorAudit: [
+        { timestamp: '2026-04-12T12:00:00Z', hook_phase: 'before_assignment', hook_name: 'gate-check', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 80 },
+      ],
+      coordinatorAnnotations: [],
+    });
+    assert.ok(html.includes('Coordinator Hook Audit Log'));
+    assert.ok(html.includes('before_assignment'));
+    assert.ok(html.includes('gate-check'));
+    assert.ok(html.includes('80ms'));
+  });
+
+  it('renders coordinator annotations section when coordinator annotations exist', () => {
+    const html = renderHooks({
+      audit: [],
+      annotations: [],
+      coordinatorAudit: [],
+      coordinatorAnnotations: [
+        { turn_id: 'coord_turn_001', hook_name: 'post-accept', annotations: [{ key: 'status', value: 'synced' }] },
+      ],
+    });
+    assert.ok(html.includes('Coordinator Hook Annotations'));
+    assert.ok(html.includes('synced'));
+    assert.ok(html.includes('coord_turn_001'));
+  });
+
+  it('renders separate Repo and Coordinator section titles when both have data', () => {
+    const html = renderHooks({
+      audit: [
+        { timestamp: '2026-04-12T12:00:00Z', hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 50 },
+      ],
+      annotations: [
+        { turn_id: 'turn_001', hook_name: 'sast', annotations: [{ key: 'result', value: 'clean' }] },
+      ],
+      coordinatorAudit: [
+        { timestamp: '2026-04-12T12:00:01Z', hook_phase: 'before_gate', hook_name: 'gate-lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 30 },
+      ],
+      coordinatorAnnotations: [
+        { turn_id: 'coord_turn_001', hook_name: 'post-accept', annotations: [{ key: 'synced', value: 'true' }] },
+      ],
+    });
+    assert.ok(html.includes('Repo Hook Audit Log'));
+    assert.ok(html.includes('Coordinator Hook Audit Log'));
+    assert.ok(html.includes('Repo Hook Annotations'));
+    assert.ok(html.includes('Coordinator Hook Annotations'));
+  });
+
+  it('does not render coordinator sections when coordinator data is null', () => {
+    const html = renderHooks({
+      audit: [
+        { timestamp: '2026-04-12T12:00:00Z', hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 50 },
+      ],
+      annotations: [],
+      coordinatorAudit: null,
+      coordinatorAnnotations: null,
+    });
+    assert.ok(html.includes('Hook Audit Log'));
+    assert.ok(!html.includes('Coordinator'));
+    assert.ok(!html.includes('Repo Hook'));
+  });
+
+  it('filter bar includes phases from both repo and coordinator sources', () => {
+    const html = renderHooks({
+      audit: [
+        { timestamp: '2026-04-12T12:00:00Z', hook_phase: 'before_validation', hook_name: 'lint', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 50 },
+      ],
+      annotations: [],
+      coordinatorAudit: [
+        { timestamp: '2026-04-12T12:00:01Z', hook_phase: 'before_assignment', hook_name: 'gate-check', verdict: 'allow', orchestrator_action: 'continued', duration_ms: 30 },
+      ],
+      coordinatorAnnotations: [],
+    });
+    // Filter bar should include phases from both sources
+    assert.ok(html.includes('before_validation'));
+    assert.ok(html.includes('before_assignment'));
+    assert.ok(html.includes('lint'));
+    assert.ok(html.includes('gate-check'));
+  });
 });
 
 describe('Initiative View', () => {

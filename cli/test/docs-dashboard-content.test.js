@@ -113,6 +113,9 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('Coordinator Timeouts'), 'cli docs must document coordinator timeout view');
     assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
     assert.ok(CLI_DOCS.includes('/api/coordinator/timeouts'), 'cli docs must document coordinator timeouts endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/audit'), 'cli docs must document coordinator hooks audit endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/annotations'), 'cli docs must document coordinator hooks annotations endpoint');
+    assert.ok(CLI_DOCS.includes('coordinator hook audit'), 'cli docs must describe coordinator hook visibility in Hooks view');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {

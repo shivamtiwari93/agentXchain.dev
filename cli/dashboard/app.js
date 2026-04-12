@@ -21,7 +21,7 @@ import { render as renderCoordinatorTimeouts } from './components/coordinator-ti
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors'], render: renderTimeline },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger'], render: renderLedger },
-  hooks: { fetch: ['audit', 'annotations'], render: renderHooks },
+  hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
   gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers'], render: renderInitiative },
@@ -46,6 +46,7 @@ const API_MAP = {
   coordinatorBarriers: '/api/coordinator/barriers',
   barrierLedger: '/api/coordinator/barrier-ledger',
   coordinatorAudit: '/api/coordinator/hooks/audit',
+  coordinatorAnnotations: '/api/coordinator/hooks/annotations',
   coordinatorBlockers: '/api/coordinator/blockers',
   workflowKitArtifacts: '/api/workflow-kit-artifacts',
   connectors: '/api/connectors',
