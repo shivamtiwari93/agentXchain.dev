@@ -24,10 +24,17 @@ describe('marketing release post script', () => {
     assert.ok(!POST_RELEASE.includes('http://'), 'must use HTTPS, not HTTP');
   });
 
-  it('release script delegates to post-linkedin.sh and post-reddit.sh', () => {
+  it('release script delegates to post-twitter.sh, post-linkedin.sh, and post-reddit.sh', () => {
+    assert.ok(POST_RELEASE.includes('post-twitter.sh'));
     assert.ok(POST_RELEASE.includes('post-linkedin.sh'));
     assert.ok(POST_RELEASE.includes('post-reddit.sh'));
-    assert.ok(!POST_RELEASE.includes('post-twitter.sh'));
+  });
+
+  it('release script tracks per-channel failures and exits non-zero after all attempts', () => {
+    assert.ok(POST_RELEASE.includes('FAILURES=0'));
+    assert.ok(POST_RELEASE.includes('FAILURES=$((FAILURES + 1))'));
+    assert.ok(POST_RELEASE.includes('if [ $FAILURES -eq 0 ]; then'));
+    assert.ok(POST_RELEASE.includes('exit 1'));
   });
 });
 

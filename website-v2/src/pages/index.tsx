@@ -29,6 +29,17 @@ function RedditIcon() {
   );
 }
 
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="community-icon">
+      <path
+        fill="currentColor"
+        d="M18.9 3H21l-4.59 5.25L21.8 21h-4.9l-3.84-8.79L8.46 21H6.34l4.91-5.61L2.2 3h5.02l3.48 8.02L18.9 3Zm-1.72 16.55h1.34L6.47 4.37H5.03l12.15 15.18Z"
+      />
+    </svg>
+  );
+}
+
 function Hero() {
   const logoSrc = useBaseUrl('/img/agentXchain.dev_square_250x250px.png');
   return (
@@ -705,6 +716,21 @@ function Community() {
           </a>
           <a
             className="community-card"
+            href="https://x.com/agentxchaindev"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="community-card-header">
+              <XIcon />
+              <span>X / Twitter</span>
+            </div>
+            <p>
+              Fast release callouts, proof snapshots, and product changes as they ship.
+            </p>
+            <span className="community-link-text">Follow @agentxchaindev &rarr;</span>
+          </a>
+          <a
+            className="community-card"
             href="https://www.reddit.com/r/agentXchain_dev/"
             target="_blank"
             rel="noopener noreferrer"
@@ -718,16 +744,6 @@ function Community() {
             </p>
             <span className="community-link-text">Join subreddit &rarr;</span>
           </a>
-          <div className="community-card community-card-inactive" aria-disabled="true">
-            <div className="community-card-header">
-              <span className="community-x-badge" aria-hidden="true">X</span>
-              <span>X / Twitter (suspended)</span>
-            </div>
-            <p>
-              The `@agentXchain_dev` X account is currently suspended, so this site does not link visitors into a dead social surface.
-            </p>
-            <span className="community-link-text">Inactive for now</span>
-          </div>
         </div>
       </div>
     </section>

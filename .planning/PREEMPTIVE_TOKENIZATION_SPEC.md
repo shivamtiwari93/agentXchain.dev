@@ -147,6 +147,7 @@ type TokenBudgetReport = {
       | "last_turn_summary"
       | "last_turn_decisions"
       | "last_turn_objections"
+      | "last_turn_verification"
       | "decision_history"
       | "workflow_artifacts"
       | "blockers"
@@ -201,6 +202,7 @@ v1.1 may compress only context, never the prompt contract itself.
 | *(Summary bullet within Last Accepted Turn)* | `last_turn_summary` | The `**Summary:**` bullet |
 | *(Decisions list within Last Accepted Turn)* | `last_turn_decisions` | The `**Decisions:**` bullet and its sub-items |
 | *(Objections list within Last Accepted Turn)* | `last_turn_objections` | The `**Objections:**` bullet and its sub-items |
+| *(Verification block within Last Accepted Turn)* | `last_turn_verification` | The `### Verification` block from the previous accepted turn |
 | `## Decision History` | `decision_history` | Cumulative accepted decisions from `decision-ledger.jsonl` |
 | `## Blockers` | `blockers` | Present only when `state.blocked_on` is set |
 | `## Escalation` | `escalation` | Present only when `state.escalation` exists |
@@ -208,7 +210,7 @@ v1.1 may compress only context, never the prompt contract itself.
 | `## Gate Required Files` | `gate_required_files` | Present only when phase gate has `requires_files` |
 | `## Phase Gate Status` | `phase_gate_status` | Present only when `state.phase_gate_status` exists |
 
-**Important implementation note:** `budget`, `last_turn_summary`, `last_turn_decisions`, and `last_turn_objections` are sub-sections within their parent headers, not standalone `## ` blocks. The parser must handle this nested structure while preserving the other top-level sections byte-for-byte.
+**Important implementation note:** `budget`, `last_turn_summary`, `last_turn_decisions`, `last_turn_objections`, and `last_turn_verification` are sub-sections within their parent headers, not standalone `## ` blocks. The parser must handle this nested structure while preserving the other top-level sections byte-for-byte.
 
 ### 3a. Compressible Context Sections
 
@@ -222,6 +224,7 @@ The adapter may reduce only these sections:
 - `last_turn_summary`
 - `last_turn_decisions`
 - `last_turn_objections`
+- `last_turn_verification`
 
 Sticky sections that may not be dropped when present:
 
@@ -240,11 +243,12 @@ When the initial estimate exceeds the available input budget, the adapter compre
 2. drop `phase_gate_status`
 3. drop `decision_history`
 4. drop `workflow_artifacts`
-5. drop `gate_required_files`
-6. drop `last_turn_objections`
-7. drop `last_turn_decisions`
-8. truncate `last_turn_summary` to 240 characters
-9. drop `last_turn_summary` entirely but keep `last_turn_header`
+5. drop `last_turn_verification`
+6. drop `gate_required_files`
+7. drop `last_turn_objections`
+8. drop `last_turn_decisions`
+9. truncate `last_turn_summary` to 240 characters
+10. drop `last_turn_summary` entirely but keep `last_turn_header`
 
 After each step, the adapter must re-estimate the full outbound input.
 

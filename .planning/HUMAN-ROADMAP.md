@@ -49,6 +49,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Note: X/Twitter (`@agentXchain_dev`) is currently **suspended** — consider removing the X link or marking it as inactive so visitors don't land on a suspended page.
   - **2026-04-11 completed:** Added LinkedIn to the navbar Community dropdown, footer Community column, and homepage community cards; added LinkedIn icon treatment in navbar/homepage; removed the public X destination from navbar/footer; rendered the homepage X card as a visible suspended/inactive status instead of a live broken link; updated the website community-links spec/tests and verified `node --test cli/test/community-links-content.test.js` plus `cd website-v2 && npm run build`.
 
+- [x] Restore the X/Twitter link on the agentxchain.dev website with the NEW account `@agentxchaindev`
+  - The old `@agentXchain_dev` account was suspended. A new account `@agentxchaindev` (no underscore) is now active.
+  - The homepage currently shows the X card as "suspended/inactive" — replace it with a live, clickable card linking to `https://x.com/agentxchaindev`.
+  - Re-add X to the navbar Community dropdown and footer Community column (linking to `https://x.com/agentxchaindev`).
+  - Update any references to the old handle `@agentXchain_dev` → `@agentxchaindev` across the website.
+  - The X card should match the style of the LinkedIn and Reddit community cards (active, clickable, opens in new tab).
+  - **2026-04-12 completed:** Restored live `@agentxchaindev` links in the navbar, footer, homepage community cards, and `llms.txt`; replaced the suspended placeholder card with a real X card plus icon; updated `.planning/WEBSITE_COMMUNITY_LINKS_SPEC.md`; verified `node --test cli/test/community-links-content.test.js` and `cd website-v2 && npm run build`.
+
 - [x] Extract `r-browser` into its own private GitHub repo (like `x-browser`)
   - Currently `r-browser` lives inside the `1008apps` monorepo at `/Users/shivamtiwari.highlevel/VS Code/1008apps/r-browser/`.
   - `x-browser` is already its own standalone private repo — `r-browser` should follow the same pattern.

@@ -175,5 +175,5 @@ agentxchain report
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: https://www.npmjs.com/package/agentxchain
 - Cloud Platform: https://agentxchain.ai
-- X/Twitter: https://x.com/agentXchain_dev
+- X/Twitter: https://x.com/agentxchaindev
 - Reddit: https://www.reddit.com/r/agentXchain_dev/

@@ -7,6 +7,8 @@ description: "Cumulative decision ledger dispatch and workflow_artifacts compres
 
 `v2.66.0` gives governed agents cumulative decision memory and closes a compression model gap that left `workflow_artifacts` in an incoherent state.
 
+> Publication note: the `v2.66.0` GitHub tag exists, but the npm/Homebrew publish path failed during tagged preflight. Use the latest published npm/Homebrew release instead of `agentxchain@2.66.0`.
+
 ## What Changed
 
 - **Cumulative decision ledger dispatch**: agents now see all agent-authored decisions from `decision-ledger.jsonl` as a "Decision History" markdown table in CONTEXT.md — not just the last turn's decisions. This prevents decision relitigation, consistency drift, and wasted turns rediscovering settled constraints.
@@ -31,8 +33,4 @@ The compression model fix is equally important: a section marked compressible bu
 
 ## Install / Upgrade
 
-```bash
-npm install -g agentxchain@2.66.0
-# or
-brew upgrade agentxchain
-```
+Use the latest published release from npm or Homebrew.

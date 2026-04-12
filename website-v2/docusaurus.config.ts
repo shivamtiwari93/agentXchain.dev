@@ -115,6 +115,11 @@ const config: Config = {
               className: 'navbar-community-link navbar-community-linkedin',
             },
             {
+              href: 'https://x.com/agentxchaindev',
+              label: 'X / Twitter',
+              className: 'navbar-community-link navbar-community-x',
+            },
+            {
               href: 'https://www.reddit.com/r/agentXchain_dev/',
               label: 'Reddit',
               className: 'navbar-community-link navbar-community-reddit',
@@ -185,6 +190,7 @@ const config: Config = {
           title: 'Community',
           items: [
             {label: 'LinkedIn', href: 'https://www.linkedin.com/company/agentxchain-dev/'},
+            {label: 'X / Twitter', href: 'https://x.com/agentxchaindev'},
             {label: 'Reddit', href: 'https://www.reddit.com/r/agentXchain_dev/'},
           ],
         },

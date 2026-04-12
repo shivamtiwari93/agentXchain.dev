@@ -164,6 +164,13 @@ describe('context-section-parser', () => {
       '- **Objections:**',
       '  - OBJ-001 (medium): Retry policy needs operator messaging.',
       '',
+      '### Verification',
+      '',
+      '- **Status:** pass',
+      '- **Commands:**',
+      '  - `npm test`',
+      '- **Evidence summary:** Verified CLI output.',
+      '',
       '## Blockers',
       '',
       '- **Blocked on:** escalation:retries-exhausted:qa',
@@ -196,6 +203,7 @@ describe('context-section-parser', () => {
         'last_turn_summary',
         'last_turn_decisions',
         'last_turn_objections',
+        'last_turn_verification',
         'blockers',
         'escalation',
         'gate_required_files',
@@ -235,7 +243,7 @@ describe('context-section-parser', () => {
     assert.equal(renderContextSections(sections), contextMd);
   });
 
-  it('extracts nested last-turn sections without leaking summary or decisions into the header block', () => {
+  it('extracts nested last-turn sections without leaking summary, decisions, or verification into the header block', () => {
     const contextMd = [
       '# Execution Context',
       '',
@@ -256,6 +264,12 @@ describe('context-section-parser', () => {
       '- **Objections:**',
       '  - OBJ-004 (low): Tighten CLI copy.',
       '',
+      '### Verification',
+      '',
+      '- **Status:** pass',
+      '- **Commands:**',
+      '  - `npm test`',
+      '',
       '',
     ].join('\n');
 
@@ -269,14 +283,17 @@ describe('context-section-parser', () => {
         'last_turn_summary',
         'last_turn_decisions',
         'last_turn_objections',
+        'last_turn_verification',
       ]
     );
     assert.match(getSection(sections, 'last_turn_header').content, /\*\*Turn:\*\*/);
     assert.match(getSection(sections, 'last_turn_header').content, /\*\*Role:\*\*/);
     assert.doesNotMatch(getSection(sections, 'last_turn_header').content, /\*\*Summary:\*\*/);
+    assert.doesNotMatch(getSection(sections, 'last_turn_header').content, /### Verification/);
     assert.match(getSection(sections, 'last_turn_summary').content, /\*\*Summary:\*\*/);
     assert.match(getSection(sections, 'last_turn_decisions').content, /^- \*\*Decisions:\*\*\n  - DEC-010:/);
     assert.match(getSection(sections, 'last_turn_objections').content, /^- \*\*Objections:\*\*\n  - OBJ-004/);
+    assert.match(getSection(sections, 'last_turn_verification').content, /^### Verification\n\n- \*\*Status:\*\* pass/);
     assert.equal(renderContextSections(sections), contextMd);
   });
 });

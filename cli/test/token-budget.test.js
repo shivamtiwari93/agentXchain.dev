@@ -28,6 +28,7 @@ function buildFullContext({
   summary,
   decisions,
   objections,
+  verification,
   blockers,
   gateFiles,
   gateStatus,
@@ -72,6 +73,15 @@ function buildFullContext({
   if (objections !== false) {
     lines.push('- **Objections:**');
     lines.push('  - OBJ-001: Error messages need improvement');
+  }
+  if (verification !== false) {
+    lines.push('');
+    lines.push('### Verification');
+    lines.push('');
+    lines.push('- **Status:** pass');
+    lines.push('- **Commands:**');
+    lines.push('  - `npm test`');
+    lines.push('- **Evidence summary:** Regression suite passed.');
   }
   lines.push('');
   if (blockers) {
@@ -236,10 +246,10 @@ describe('token-budget evaluator', () => {
 
       // Set a very tight budget that requires dropping several sections
       // Keep only sticky sections: current_state, project_goal, inherited_run_context, last_turn_header
-      // Need to drop: budget, phase_gate_status, gate_required_files, objections, decisions
+      // Need to drop: budget, phase_gate_status, verification, gate_required_files, objections, decisions
       const stickyOnly = buildFullContext({
         budgetLines: false, summary: false, decisions: false,
-        objections: false, gateFiles: false, gateStatus: false,
+        objections: false, verification: false, gateFiles: false, gateStatus: false,
       });
       const stickyTokens = countTokens(stickyOnly, 'anthropic');
 
@@ -263,6 +273,32 @@ describe('token-budget evaluator', () => {
           assert.equal(section.final_tokens, 0);
         }
       }
+    });
+
+    it('drops last_turn_verification before gate_required_files under pressure', () => {
+      const contextMd = buildFullContext({ gateFiles: true, gateStatus: true });
+      const systemTokens = countTokens(SYSTEM_PROMPT, 'anthropic');
+      const promptMd = '# Test Prompt\nDo a thing.';
+      const promptTokens = countTokens(promptMd, 'anthropic');
+      const sepTokens = countTokens(SEPARATOR, 'anthropic');
+      const immutable = systemTokens + promptTokens + sepTokens;
+      const withoutVerification = buildFullContext({ verification: false, gateFiles: true, gateStatus: true });
+      const targetTokens = countTokens(withoutVerification, 'anthropic');
+      const slackPastVerificationBoundary = 10;
+
+      const result = evaluateTokenBudget(makeParams({
+        promptMd,
+        contextMd,
+        contextWindowTokens: immutable + targetTokens - slackPastVerificationBoundary + 4096 + 2048,
+        maxOutputTokens: 4096,
+        safetyMarginTokens: 2048,
+      }));
+
+      assert.equal(result.sent_to_provider, true);
+      assert.equal(result.report.sections.find((section) => section.id === 'last_turn_verification')?.action, 'dropped');
+      assert.equal(result.report.sections.find((section) => section.id === 'gate_required_files')?.action, 'kept');
+      assert.ok(!result.effective_context.includes('### Verification'));
+      assert.ok(result.effective_context.includes('## Gate Required Files'));
     });
   });
 
