@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.77.0
+
+`2.77.0` ships three new operator-facing capabilities: live connector health probes (`agentxchain connector check`), per-run cost summary in `audit`/`report`, and multi-axis protocol version surface in `doctor`/`validate`. Also includes the `agentxchain audit` command, Homebrew sync hardening, IDE report simplification, and visual/content polish across all public surfaces.
+
+- New `agentxchain connector check` command with live probes for all runtime types (local_cli, api_proxy, remote_agent, MCP stdio/streamable_http)
+- Per-run cost summary in `agentxchain audit` and `agentxchain report`: total USD, tokens, per-role and per-phase breakdowns
+- `doctor` and `validate` now expose protocol version (v6), config generation (v4), and config schema (1.0) separately
+- New `agentxchain audit` command as first-class live governance audit surface
+- VS Code extension `loadGovernedReport()` replaced double-hop (`export` + `report`) with single `audit --format json` call
+- Homebrew mirror `--admin` merge fallback gated to self-approval deadlock only; non-matching failures fail closed
+- All public install surfaces now show both npm and Homebrew install paths
+- Visual design sweep: 20+ inline styles extracted to CSS classes with mobile responsiveness
+- 3863 tests / 830 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.76.0
 
 `2.76.0` closes two quality debts: incomplete CLI command test coverage and manual Homebrew mirror PR follow-through. Every CLI command now has a dedicated subprocess test suite, and CI now owns the full Homebrew mirror PR lifecycle.

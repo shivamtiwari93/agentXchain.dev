@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.76.0
+# Launch Evidence Report — AgentXchain v2.77.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.76.0 release: complete CLI command test coverage (40/40 testable commands with dedicated subprocess suites), automated Homebrew mirror PR closeout in CI, and governed GitHub Release body backfill.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.77.0 release: live connector health probes, per-run cost summary in audit/report, multi-axis protocol version surface, live governance audit command, Homebrew sync hardening, and visual/content polish across all public surfaces.
 
 ---
 

@@ -1,0 +1,84 @@
+---
+title: "v2.77.0 Release Notes"
+description: "Three new operator capabilities — live connector health probes, per-run cost summary in audit/report, and multi-axis protocol version surface — plus Homebrew sync hardening and visual/content polish."
+---
+
+# AgentXchain v2.77.0
+
+`v2.77.0` ships three new operator-facing capabilities and closes several operational quality gaps that accumulated since v2.76.0.
+
+## What Changed
+
+### Live Connector Health Probes
+
+New command: `agentxchain connector check [runtime_id] [--json] [--timeout <ms>]`
+
+Operators can now validate that their configured connectors are reachable **before** starting a governed run. The probe supports all runtime types:
+
+- **`local_cli` and MCP `stdio`**: verifies the command exists on `PATH`
+- **`api_proxy`**: live provider-shaped request with auth/env/model/endpoint classification
+- **`remote_agent` and MCP `streamable_http`**: live HTTP reachability probe (405-as-reachable handling)
+
+Text mode prints per-connector progress lines with the active timeout budget. JSON mode returns structured results. All governed front-door surfaces (`init --governed`, `demo`, `README`, getting-started) now include `connector check` between `doctor` and the first governed turn.
+
+**Boundary decision (`DEC-DOCTOR-PROBE-BOUNDARY-001`):** `agentxchain doctor` remains a static readiness surface. Live runtime probing belongs exclusively to `connector check`.
+
+### Per-Run Cost Summary
+
+`agentxchain audit` and `agentxchain report` now include a **Cost Summary** section showing:
+
+- Total estimated USD cost
+- Total input/output tokens
+- Per-role and per-phase breakdowns
+- Costed vs uncosted turn counts
+
+The cost summary reuses the existing budget infrastructure (`getCostRates`) and respects operator-supplied `cost_rates` in `agentxchain.json`. Null when no history entries exist.
+
+### Multi-Axis Protocol Version Surface
+
+`agentxchain doctor` and `agentxchain validate` now distinguish three version axes instead of conflating them:
+
+- **Protocol version**: `v6` (the constitutional layer)
+- **Config generation**: `4` (the loader/schema version)
+- **Config schema version**: `1.0` (the governed config contract)
+
+Backward-compatible aliases remain in JSON output. Operator-facing text no longer flattens protocol v6 into bare "v4" shorthand.
+
+### Live Governance Audit Command
+
+New command: `agentxchain audit [--format text|json|markdown]`
+
+First-class live audit surface for the current governed project or coordinator workspace. Replaces the old `export` + `report` double-hop pattern in the VS Code extension — the IDE now calls `audit --format json` as a single subprocess.
+
+### Homebrew Sync Hardening
+
+- The `--admin` merge fallback is now gated to the self-approval deadlock specifically — unapproved PR plus explicit review-required merge error
+- Generic branch-protection, authorization, or admin-override wording no longer triggers privilege escalation
+- Non-matching merge failures cause the workflow to fail closed with the error message
+
+### Visual and Content Polish
+
+- Extracted 20+ inline styles from `index.tsx` into dedicated CSS classes (`.section-spaced`, `.example-card`, `.cta-section`, etc.)
+- Added mobile responsiveness for new classes
+- All public install surfaces (GitHub README, npm README, Homebrew README, getting-started, quickstart) now show both npm and Homebrew install paths
+- npm README opens with plain-English explanation instead of jargon
+
+## Why It Matters
+
+The biggest first-5-minutes failure mode for new operators was "I configured everything, started a run, and it failed because my connector was misconfigured." `connector check` eliminates that. Cost summary answers the post-run question "was that worth it?" And the protocol version surface stops operators from confusing config generation with protocol version — a real source of confusion in governed setups.
+
+## Evidence
+
+- 3863 tests / 830 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` → clean production build
+- Connector probe tests: 15 tests / 5 suites / 0 failures
+- Cost summary tests: 14 tests / 3 suites / 0 failures
+- Protocol version surface tests: 13 tests / 3 suites / 0 failures
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.77.0
+# or
+brew upgrade agentxchain
+```
