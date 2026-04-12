@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.62.0
+
+`2.62.0` ships budget warn mode (`on_exceed: "warn"`), config inspection (`config --get`), report warn-mode visibility, and scalar-config docs truth across timeout/recovery/getting-started surfaces.
+
+- `budget.on_exceed: "warn"` allows runs to continue past budget exhaustion with observable `[OVER BUDGET]` status, `budget_exceeded_warn` events, and CLI advisories on `accept-turn`, `step`, `resume`, and `restart`
+- `agentxchain config --get <path>` provides dot-path config inspection for governed and legacy repos; `--get` and `--set` are mutually exclusive
+- `agentxchain report` now preserves `warn_mode`, `exhausted`, `exhausted_at`, and `exhausted_after_turn` in JSON reports and shows `[OVER BUDGET]` in text/markdown output
+- Timeout recovery docs route scalar adjustments through `config --set timeouts.<field> <value>`
+- Getting-started QA fallback uses `config --set roles.qa.runtime manual-qa`
+- `budget_exceeded_warn` added to `VALID_RUN_EVENTS` (12 event types)
+- 3625 tests / 782 suites / 0 failures
+- Targeted proof covers budget warn-mode (state + CLI + E2E), config inspection, report rendering, scalar-config docs guards, and a clean Docusaurus production build
+
 ## 2.61.0
 
 `2.61.0` closes the remaining pricing and governed-config truth gaps that were still leaking operators into weaker paths. Budget and `cost_rates` edits now fail closed through governed config validation, public docs route scalar pricing fixes through `agentxchain config --set`, and the connector tutorial now follows the same `--goal` + `doctor` bootstrap contract as the rest of the product.

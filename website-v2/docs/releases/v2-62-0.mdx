@@ -1,0 +1,30 @@
+---
+title: "v2.62.0 Release Notes"
+description: "Budget warn mode, config inspection, report warn-mode visibility, and scalar-config docs truth."
+---
+
+# AgentXchain v2.62.0
+
+`v2.62.0` ships the non-blocking budget policy (`on_exceed: "warn"`), the config inspection surface (`config --get`), and fixes the report command so warn-mode budget state is no longer silently stripped from governance reports.
+
+## What Changed
+
+- `budget.on_exceed: "warn"` is now a valid policy. Runs continue past budget exhaustion with observable `[OVER BUDGET]` status, `budget_exceeded_warn` events, and CLI advisories on `accept-turn`, `step`, `resume`, and `restart`.
+- `agentxchain config --get <path>` provides dot-path config inspection for governed and legacy repos. `--get` and `--set` are mutually exclusive.
+- `agentxchain report` now preserves `warn_mode`, `exhausted`, `exhausted_at`, and `exhausted_after_turn` in JSON reports and shows `[OVER BUDGET]` in text and `**[OVER BUDGET]**` in markdown reports.
+- Timeout recovery docs in `timeouts.mdx` and `recovery.mdx` now route scalar adjustments through `agentxchain config --set timeouts.<field> <value>`.
+- Getting-started QA fallback now uses `agentxchain config --set roles.qa.runtime manual-qa` instead of manual JSON editing.
+- `budget_exceeded_warn` added to `VALID_RUN_EVENTS` (now 12 event types).
+
+## Why It Matters
+
+A governed system that blocks on every budget violation forces operators to choose between turning off budgets and losing momentum. `on_exceed: "warn"` gives operators a third option: observe and continue, then adjust budgets between runs. The config inspection surface (`--get`) completes the round-trip so operators can verify budget policy without reading raw JSON.
+
+## Evidence
+
+- 3625 tests / 782 suites / 0 failures
+- Report warn-mode proof: `node --test cli/test/report-cli.test.js` (13 tests including AT-REPORT-008 warn-mode across all formats)
+- Budget warn-mode proof: `node --test cli/test/budget-warn-mode.test.js cli/test/e2e-budget-warn-mode.test.js` (15 tests covering state, CLI, and E2E)
+- Config inspection proof: `node --test cli/test/config-governed.test.js` (20 tests)
+- `cd website-v2 && npm run build` -> clean production build
+

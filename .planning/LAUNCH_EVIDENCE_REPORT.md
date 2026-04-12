@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.61.0
+# Launch Evidence Report — AgentXchain v2.62.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.61.0 pricing-surface hardening release: governed budget and `cost_rates` edits now validate fail-closed, scalar pricing repair paths route through `agentxchain config --set`, and the connector tutorial follows the governed `--goal` + `doctor` bootstrap contract.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.62.0 release: budget warn mode (`on_exceed: "warn"`) for non-blocking budget enforcement, `config --get` for dot-path inspection, report warn-mode visibility fix, and scalar-config docs truth across timeout/recovery surfaces.
 
 ---
 
