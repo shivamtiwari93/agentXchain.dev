@@ -37,7 +37,7 @@ bash scripts/release-bump.sh --target-version <semver>
    - `website-v2/static/sitemap.xml`
    - `cli/homebrew/agentxchain.rb`
    - `cli/homebrew/README.md`
-6. Auto-aligns the Homebrew mirror formula URL and README version/tarball to the target version. The SHA256 is carried from the previous version because the registry tarball SHA is inherently a post-publish artifact (npm registry tarballs are not byte-identical to local `npm pack` output). `sync-homebrew.sh` corrects the SHA after publish. See `DEC-HOMEBREW-SHA-SPLIT-001`.
+6. Auto-aligns the Homebrew mirror formula URL and README version/tarball to the target version. The SHA256 is carried from the previous committed formula because the registry tarball SHA is inherently a post-publish artifact (npm registry tarballs are not byte-identical to local `npm pack` output). Any working-tree SHA edits are overwritten during the bump. `sync-homebrew.sh` corrects the SHA after publish. See `DEC-HOMEBREW-SHA-SPLIT-001`.
 7. Stages those allowed release-surface files together with `package.json` and `package-lock.json`
 7. Creates a single commit: `<semver>` (matching npm convention)
 8. Creates an annotated tag: `v<semver>` with message `v<semver>`
@@ -65,7 +65,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 4. Assert the tree contains no dirty paths outside the release-surface whitelist for the target version
 5. Run `npm version ${TARGET} --no-git-tag-version` — this updates `package.json` only
 6. Fail closed unless every governed version surface already references the target version (9 manual surfaces: changelog, release notes page, sidebar, homepage badge, capabilities, implementor guide, launch evidence, `llms.txt`, `sitemap.xml`)
-7. Auto-align the Homebrew mirror formula URL and README to the target version (SHA carried from previous version; corrected post-publish by `sync-homebrew.sh`)
+7. Auto-align the Homebrew mirror formula URL and README to the target version (SHA carried from the previous committed formula; corrected post-publish by `sync-homebrew.sh`)
 8. Stage `package.json`, `package-lock.json`, and any allowed release-surface files that exist
 9. `git commit -m "${TARGET}"`
 10. `git tag -a "v${TARGET}" -m "v${TARGET}"`
@@ -93,7 +93,7 @@ The release playbook adds an explicit "Canonical Tap Truth" section:
 - `AT-RIH-006`: `release-bump.sh` fails before mutating version files when the tree contains dirty paths outside the release-surface whitelist or the target tag already exists
 - `AT-RIH-007`: In a temp git repo with target-version release-surface edits staged only in the whitelist, `release-bump.sh --target-version <semver>` includes those release-surface files in the release commit instead of rejecting the tree or omitting them
 - `AT-RIH-008`: `release-bump.sh` rejects the bump when version surfaces still reference the old version (all-stale and partial-drift cases), does not mutate `package.json`, and does not create a tag
-- `AT-RIH-009`: The repo-mirrored Homebrew formula and `cli/homebrew/README.md` are auto-aligned by `release-bump.sh`: the URL and version are updated to the target version automatically, the SHA256 is carried from the previous version (post-publish artifact), and both files are staged into the release commit
+- `AT-RIH-009`: The repo-mirrored Homebrew formula and `cli/homebrew/README.md` are auto-aligned by `release-bump.sh`: the URL and version are updated to the target version automatically, the SHA256 is carried from the previous committed formula even if the working tree already contains a different SHA, and both files are staged into the release commit
 - `AT-RIH-010`: In a temp git repo with target-version discovery-surface edits prepared, `release-bump.sh --target-version <semver>` stages `website-v2/static/llms.txt` and `website-v2/static/sitemap.xml` into the same release commit, and rejects the bump if either omits the current release route
 
 ## Open Questions

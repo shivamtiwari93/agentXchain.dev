@@ -310,6 +310,11 @@ describe('Release identity hardening', () => {
         script.includes('SHA carried from previous version') || script.includes('post-publish'),
         'script must document that SHA is a post-publish artifact',
       );
+      assert.ok(
+        script.includes('normalized back to committed pre-publish SHA') ||
+        script.includes('carried from committed pre-publish SHA'),
+        'script must explicitly carry the committed formula SHA instead of trusting working-tree edits',
+      );
     });
 
     it('verifies the tag is annotated and resolves to the release commit', () => {
@@ -338,6 +343,10 @@ describe('Release identity hardening', () => {
       assert.ok(
         spec.includes('HOMEBREW_TAP_TOKEN') && spec.includes('canonical tap'),
         'spec must describe the Homebrew tap automation gap',
+      );
+      assert.ok(
+        spec.includes('working-tree SHA') || spec.includes('previous committed formula'),
+        'spec must describe the Homebrew pre-publish SHA carry invariant',
       );
     });
 
@@ -488,7 +497,7 @@ describe('Release identity hardening', () => {
       // Verify the formula was auto-aligned to the target version URL
       const formula = readFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), 'utf8');
       assert.match(formula, /agentxchain-2\.20\.0\.tgz/);
-      // SHA should be carried from old version (not recomputed)
+      // SHA should be carried from the committed old version (not recomputed)
       assert.match(formula, /1111111111111111111111111111111111111111111111111111111111111111/);
 
       // Verify the README was auto-aligned
@@ -503,6 +512,58 @@ describe('Release identity hardening', () => {
       }).trim().split('\n').filter(Boolean);
       assert.ok(changedFiles.includes('cli/homebrew/agentxchain.rb'));
       assert.ok(changedFiles.includes('cli/homebrew/README.md'));
+    });
+
+    it('AT-HPSG-001: overwrites a hand-edited target-version SHA with the previous committed SHA', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+
+      const formulaPath = join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb');
+      writeFileSync(formulaPath, `class Agentxchain < Formula
+  desc "CLI for AgentXchain governed multi-agent software delivery"
+  homepage "https://agentxchain.dev"
+  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.20.0.tgz"
+  sha256 "3333333333333333333333333333333333333333333333333333333333333333"
+  license "MIT"
+end
+`);
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const formula = readFileSync(formulaPath, 'utf8');
+      assert.match(formula, /agentxchain-2\.20\.0\.tgz/);
+      assert.match(formula, /1111111111111111111111111111111111111111111111111111111111111111/);
+      assert.doesNotMatch(formula, /3333333333333333333333333333333333333333333333333333333333333333/);
+      assert.match(result.stdout, /normalized back to committed pre-publish SHA/);
+    });
+
+    it('AT-HPSG-003: fails closed when the previous committed formula SHA is not parseable', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+
+      writeFileSync(join(fixture.root, 'cli', 'homebrew', 'agentxchain.rb'), `class Agentxchain < Formula
+  desc "CLI for AgentXchain governed multi-agent software delivery"
+  homepage "https://agentxchain.dev"
+  url "https://registry.npmjs.org/agentxchain/-/agentxchain-2.19.0.tgz"
+  sha256 "not-a-real-sha"
+  license "MIT"
+end
+`);
+      execFileSync('git', ['add', 'cli/homebrew/agentxchain.rb'], { cwd: fixture.root, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-m', 'break formula sha'], { cwd: fixture.root, stdio: 'ignore' });
+
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0');
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /HEAD:cli\/homebrew\/agentxchain\.rb does not contain a parseable sha256/);
+
+      const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when committed Homebrew SHA is malformed');
     });
   });
 

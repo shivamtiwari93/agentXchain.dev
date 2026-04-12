@@ -34,7 +34,7 @@ This playbook exists because historical release notes and handoff specs in `.pla
   - `website-v2/static/sitemap.xml`
 - Have an updated `cli/CHANGELOG.md` entry for the target version.
 - **Discovery surface alignment:** `current-release-surface.test.js` (AT-CRS-012, AT-CRS-013) enforces that `website-v2/static/llms.txt` and `website-v2/static/sitemap.xml` list the current release route. If you cut a release without updating those files, the repo will publish incomplete public discovery truth.
-- **Homebrew mirror alignment:** `current-release-surface.test.js` (AT-CRS-010, AT-CRS-011) enforces that the repo-mirror formula URL and README track the target version during preflight. `release-bump.sh` Step 5 auto-aligns these, so the recommended flow is: prepare the 9 manual surfaces above → run `bump:release` (which auto-aligns Homebrew) → run strict preflight. If you run default preflight *before* bump, you must manually align `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` first, or the Homebrew URL tests will fail. See `DEC-RELEASE-PREFLIGHT-004`.
+- **Homebrew mirror alignment:** `current-release-surface.test.js` (AT-CRS-010, AT-CRS-011) enforces that the repo-mirror formula URL and README track the target version during preflight. `release-bump.sh` Step 5 auto-aligns these, so the recommended flow is: prepare the 9 manual surfaces above → run `bump:release` (which auto-aligns Homebrew) → run strict preflight. If you run default preflight *before* bump, you must manually align `cli/homebrew/agentxchain.rb` and `cli/homebrew/README.md` first, or the Homebrew URL tests will fail. Do not substitute a local `npm pack` SHA into the formula during prep; `release-bump.sh` will overwrite the formula SHA with the previous committed value because only the live registry tarball SHA is canonical. See `DEC-RELEASE-PREFLIGHT-004`.
 - Use the canonical package and workflow:
   - package: `cli/package.json` (`name: agentxchain`)
   - workflow: `.github/workflows/publish-npm-on-tag.yml`
@@ -125,7 +125,7 @@ npm run bump:release -- --target-version <semver>
 This fail-closed script:
 1. Asserts the tree contains no dirty paths outside the target-version release-surface whitelist and the version is not already bumped
 2. Verifies all 9 manual governed version surfaces reference the target version, including release discoverability in `llms.txt` and `sitemap.xml`
-3. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous version's SHA (which is corrected post-publish by `sync-homebrew.sh`)
+3. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous committed formula SHA and overwrites any hand-edited working-tree SHA (corrected post-publish by `sync-homebrew.sh`)
 4. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
 5. Stages all version files and allowed release surfaces (including Homebrew)
 6. Creates a commit with message `<semver>`
@@ -197,7 +197,7 @@ The Homebrew mirror goes through three states during every release. Understandin
 
 | Phase | State | `npm test` | Action |
 |-------|-------|-----------|--------|
-| **Phase 1: Pre-publish** | `release-bump.sh` updates formula URL to new version; SHA is carried from previous version (real but wrong version). | Green with `AGENTXCHAIN_RELEASE_PREFLIGHT=1` (Tier 2 tests skipped). | Push tag → CI publishes to npm. |
+| **Phase 1: Pre-publish** | `release-bump.sh` updates formula URL to new version; SHA is carried from the previous committed formula (real but wrong version). Local `npm pack` SHA values are not valid here. | Green with `AGENTXCHAIN_RELEASE_PREFLIGHT=1` (Tier 2 tests skipped). | Push tag → CI publishes to npm. |
 | **Phase 2: Post-publish, pre-sync** | npm is live; repo mirror SHA is stale (previous version's hash). | Green — Tier 1 (internal consistency) passes; Tier 2 (version alignment) passes on URL but SHA is from the wrong version. | Run `verify:post-publish` or `sync:homebrew`. |
 | **Phase 3: Post-sync** | Repo mirror SHA matches the published tarball. | Fully green, no env skip needed. | Commit and push. Main is now truthfully green. |
 

@@ -198,21 +198,53 @@ echo "  OK: all 9 governed version surfaces reference ${TARGET_VERSION}"
 
 # 5. Auto-align Homebrew mirror to target version
 # The formula URL and README version/tarball are updated automatically.
-# The SHA256 is carried from the previous version — it is inherently a
+# The SHA256 is carried from the previous committed formula — it is inherently a
 # post-publish artifact (npm registry tarballs are not byte-identical to
-# local npm-pack output). sync-homebrew.sh corrects the SHA after publish.
+# local npm-pack output). Any working-tree SHA edit is overwritten here.
+# sync-homebrew.sh corrects the SHA after publish.
 echo "[5/9] Auto-aligning Homebrew mirror to ${TARGET_VERSION}..."
 HOMEBREW_MIRROR="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
 HOMEBREW_MIRROR_README="${REPO_ROOT}/cli/homebrew/README.md"
 TARBALL_URL="https://registry.npmjs.org/agentxchain/-/agentxchain-${TARGET_VERSION}.tgz"
 HOMEBREW_ALIGNED=false
+COMMITTED_HOMEBREW_SHA=""
+
+extract_formula_sha() {
+  sed -nE 's|^[[:space:]]*sha256 "([a-f0-9]{64})".*|\1|p' "$1" | head -n 1
+}
 
 if [[ -f "$HOMEBREW_MIRROR" ]]; then
+  COMMITTED_FORMULA_TMP="$(mktemp "${TMPDIR:-/tmp}/agentxchain-homebrew-head.XXXXXX")"
+  if ! git -C "$REPO_ROOT" show "HEAD:cli/homebrew/agentxchain.rb" >"$COMMITTED_FORMULA_TMP" 2>/dev/null; then
+    rm -f "$COMMITTED_FORMULA_TMP"
+    echo "FAIL: could not load HEAD:cli/homebrew/agentxchain.rb to carry the pre-publish SHA" >&2
+    exit 1
+  fi
+  COMMITTED_HOMEBREW_SHA="$(extract_formula_sha "$COMMITTED_FORMULA_TMP")"
+  rm -f "$COMMITTED_FORMULA_TMP"
+  if [[ -z "$COMMITTED_HOMEBREW_SHA" ]]; then
+    echo "FAIL: HEAD:cli/homebrew/agentxchain.rb does not contain a parseable sha256" >&2
+    exit 1
+  fi
+
+  WORKTREE_HOMEBREW_SHA="$(extract_formula_sha "$HOMEBREW_MIRROR")"
+  if [[ -z "$WORKTREE_HOMEBREW_SHA" ]]; then
+    echo "FAIL: cli/homebrew/agentxchain.rb does not contain a parseable sha256" >&2
+    exit 1
+  fi
+
   ESCAPED_URL="$(printf '%s' "$TARBALL_URL" | sed 's/[&/\]/\\&/g')"
+  ESCAPED_SHA="$(printf '%s' "$COMMITTED_HOMEBREW_SHA" | sed 's/[&/\]/\\&/g')"
   sed -i.bak -E "s|^([[:space:]]*url \").*(\")|\1${ESCAPED_URL}\2|" "$HOMEBREW_MIRROR"
+  sed -i.bak -E "s|^([[:space:]]*sha256 \").*(\")|\1${ESCAPED_SHA}\2|" "$HOMEBREW_MIRROR"
   rm -f "${HOMEBREW_MIRROR}.bak"
   HOMEBREW_ALIGNED=true
   echo "  OK: formula URL -> ${TARBALL_URL}"
+  if [[ "$WORKTREE_HOMEBREW_SHA" != "$COMMITTED_HOMEBREW_SHA" ]]; then
+    echo "  OK: formula SHA normalized back to committed pre-publish SHA ${COMMITTED_HOMEBREW_SHA}"
+  else
+    echo "  OK: formula SHA carried from committed pre-publish SHA ${COMMITTED_HOMEBREW_SHA}"
+  fi
 fi
 
 if [[ -f "$HOMEBREW_MIRROR_README" ]]; then
@@ -223,7 +255,7 @@ if [[ -f "$HOMEBREW_MIRROR_README" ]]; then
 fi
 
 if $HOMEBREW_ALIGNED; then
-  echo "  Note: SHA carried from previous version; sync-homebrew.sh will set the real registry SHA post-publish"
+  echo "  Note: local npm pack output is not canonical release truth; sync-homebrew.sh will set the real registry SHA post-publish"
 else
   echo "  Skipped: no Homebrew mirror files found"
 fi
