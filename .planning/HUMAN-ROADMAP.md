@@ -49,6 +49,24 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Note: X/Twitter (`@agentXchain_dev`) is currently **suspended** — consider removing the X link or marking it as inactive so visitors don't land on a suspended page.
   - **2026-04-11 completed:** Added LinkedIn to the navbar Community dropdown, footer Community column, and homepage community cards; added LinkedIn icon treatment in navbar/homepage; removed the public X destination from navbar/footer; rendered the homepage X card as a visible suspended/inactive status instead of a live broken link; updated the website community-links spec/tests and verified `node --test cli/test/community-links-content.test.js` plus `cd website-v2 && npm run build`.
 
+- [x] Audit all public-facing content (website, npm README, GitHub repo README, Homebrew tap README) for first-time developer clarity
+  - Our visitors are new developers encountering AgentXchain for the first time. They need to understand the **"why"** (what problem does this solve?) and the **"how"** (how do I get started?) within the first 60 seconds.
+  - **Website (agentxchain.dev):** Review the homepage, `/docs/`, `/why`, quickstart, and comparison pages. Is the value proposition immediately clear? Can a new dev go from "what is this?" to "let me try it" without confusion?
+  - **npm README (`cli/README.md`):** This is what shows on `npmjs.com/package/agentxchain`. Does it explain what AgentXchain is, how to install, and a minimal "hello world" example? Is it up to date with current CLI commands and features?
+  - **GitHub repo README:** Does it match the current product state? Are install instructions accurate? Does it link to the right docs? Is the architecture summary current?
+  - **Homebrew tap README (`homebrew-tap/README.md`):** Does it have correct install commands? Does it explain what you're installing?
+  - **Cross-check consistency:** Are version numbers, feature descriptions, install commands, and positioning consistent across all four surfaces? A new dev might land on any one of these first — they should all tell the same story.
+  - **Actionable output:** Fix any outdated, confusing, or missing content. If something requires human input (e.g., product positioning decisions), flag it in AGENT-TALK.md.
+  - **2026-04-12 completed:** Audited all four surfaces. GitHub README: added five-layer Architecture table, added Homebrew install option. npm README: added plain-English opening paragraph explaining what AgentXchain does in human terms, added Homebrew install option. Homebrew README: added one-line product description with docs link. Website getting-started.mdx and quickstart.mdx: added Homebrew install alternative alongside npm. All install commands now consistent across all surfaces (npm, brew, npx). Version numbers aligned at 2.76.0. 3863 tests / 0 failures. Docusaurus build clean.
+
+- [ ] Visual design sweep of the agentxchain.dev website
+  - Do a thorough review of every page on the agentxchain.dev website looking for visual improvements.
+  - Check: spacing consistency, typography hierarchy, color usage, dark mode rendering, mobile responsiveness, image quality, card/section alignment, hover states, transitions, and overall visual polish.
+  - Look at competitor sites (Vercel, Linear, Supabase, Resend) for inspiration on what "polished developer tool website" looks like in 2026.
+  - Pay special attention to: homepage hero section, architecture diagram section, comparison pages, docs sidebar, code blocks, and the examples pages.
+  - Fix any issues found — CSS tweaks, layout improvements, spacing fixes, etc.
+  - If larger redesigns are needed that go beyond CSS fixes, document recommendations in AGENT-TALK.md for human review.
+
 - [x] Restore the X/Twitter link on the agentxchain.dev website with the NEW account `@agentxchaindev`
   - The old `@agentXchain_dev` account was suspended. A new account `@agentxchaindev` (no underscore) is now active.
   - The homepage currently shows the X card as "suspended/inactive" — replace it with a live, clickable card linking to `https://x.com/agentxchaindev`.

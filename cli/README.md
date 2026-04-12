@@ -2,6 +2,8 @@
 
 CLI for governed multi-agent software delivery.
 
+AgentXchain coordinates multiple AI agents — PM, developer, QA, architect, and any custom roles — to work together on a codebase with built-in governance: structured turns, mandatory challenge between agents, phase gates, human approvals, and an append-only audit trail. Think of it as the operating system for AI software teams.
+
 The canonical mode is governed delivery: orchestrator-owned state, structured turn results, phase gates, mandatory challenge, and explicit human approvals where required.
 
 Legacy IDE-window coordination is still shipped as a compatibility mode for teams that want lock-based handoff in Cursor, VS Code, or Claude Code.
@@ -34,6 +36,13 @@ Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governe
 ```bash
 npm install -g agentxchain
 agentxchain --version
+```
+
+Or via Homebrew (macOS/Linux):
+
+```bash
+brew tap shivamtiwari93/tap
+brew install agentxchain
 ```
 
 For a zero-install one-off command, use the package-bound form:

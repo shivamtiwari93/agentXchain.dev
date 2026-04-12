@@ -1,5 +1,7 @@
 # Homebrew distribution for AgentXchain
 
+AgentXchain is a CLI that coordinates multiple AI agents to build software together with governance, phase gates, and audit trails. Learn more at [agentxchain.dev](https://agentxchain.dev).
+
 ## For users
 
 ```bash

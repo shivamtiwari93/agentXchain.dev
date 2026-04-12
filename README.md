@@ -33,6 +33,20 @@ If you want your own governed project after that, install the CLI once, then jum
 - Bridges repo-local intake to multi-repo coordinator workstreams via `intake handoff`
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
+## Architecture
+
+AgentXchain is organized in five layers:
+
+| Layer | What it does |
+|-------|-------------|
+| **Protocol** | Turn-scoped dispatch, structured results, validation, append-only history, decision ledger, phase gates, recovery rules |
+| **Runners** | Execution engines that apply the protocol — local CLI runner, CI runners, future hosted runner |
+| **Connectors** | Bridges to agent runtimes — local coding agents, cloud AI, model APIs, IDE surfaces (VS Code, Cursor, Claude Code) |
+| **Workflow Kit** | Opinionated operating model for planning, specs, implementation, QA, release, escalation, and recovery |
+| **Integrations** | Dashboards, notifications, ticketing, compliance hooks, and release surfaces |
+
+The protocol is the durable layer. Runners enforce it. Connectors bridge to agents. The workflow kit makes it opinionated. Integrations connect it to your organization.
+
 ## Docs
 
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
@@ -49,14 +63,19 @@ If you want your own governed project after that, install the CLI once, then jum
 
 ## Install
 
-Install once for repeated usage:
-
 ```bash
 npm install -g agentxchain
 agentxchain --version
 ```
 
-For a zero-install one-off command, use the package-bound form:
+Or via Homebrew (macOS/Linux):
+
+```bash
+brew tap shivamtiwari93/tap
+brew install agentxchain
+```
+
+For a zero-install one-off:
 
 ```bash
 npx --yes -p agentxchain@latest -c "agentxchain demo"
