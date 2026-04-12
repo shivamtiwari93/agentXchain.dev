@@ -112,6 +112,7 @@ import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
 import { eventsCommand } from '../src/commands/events.js';
+import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -265,6 +266,17 @@ program
   .description('Check governed project readiness (v4) or local environment (v3)')
   .option('-j, --json', 'Output as JSON')
   .action(doctorCommand);
+
+const connectorCmd = program
+  .command('connector')
+  .description('Probe governed runtime connectors directly');
+
+connectorCmd
+  .command('check [runtime_id]')
+  .description('Run live connector probes for all non-manual runtimes or one named runtime')
+  .option('-j, --json', 'Output as JSON')
+  .option('--timeout <ms>', 'Per-probe timeout in milliseconds', '8000')
+  .action(connectorCheckCommand);
 
 program
   .command('demo')

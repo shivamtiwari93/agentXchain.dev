@@ -85,6 +85,7 @@ describe('CLI command map docs contract', () => {
     ['history', ['history']],
     ['events', ['events']],
     ['doctor', ['doctor']],
+    ['connector', ['connector check']],
   ]);
 
   it('documents every governed-scope top-level command family from the CLI registration', () => {
@@ -98,6 +99,7 @@ describe('CLI command map docs contract', () => {
       'report',
       'config',
       'doctor',
+      'connector',
       'demo',
       'schedule',
       'history',

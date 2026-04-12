@@ -118,7 +118,10 @@ describe('Remote verification docs — HTTP contract alignment with implementati
   });
 
   it('documents the default timeout from the CLI registration', () => {
-    const timeoutDefault = CLI_ENTRY.match(/--timeout.*?'(\d+)'/);
+    const verifyProtocolBlock = CLI_ENTRY.match(
+      /verifyCmd[\s\S]*?\.command\('protocol'\)[\s\S]*?\.option\('--timeout <ms>'.*?'(\d+)'\)/
+    );
+    const timeoutDefault = verifyProtocolBlock ? [verifyProtocolBlock[0], verifyProtocolBlock[1]] : null;
     assert.ok(timeoutDefault, 'CLI must register --timeout with a default');
     assert.match(DOCS_PAGE, new RegExp(timeoutDefault[1]),
       `docs must mention the default timeout ${timeoutDefault[1]}`);

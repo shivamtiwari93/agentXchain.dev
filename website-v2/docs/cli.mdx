@@ -71,7 +71,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `proposal` | Proposal management | List, diff, apply, or reject proposed changes from api_proxy agents |
 | `history` | Observability | Show cross-run history of governed runs in this project |
 | `events` | Observability | Show repo-local run lifecycle events with optional streaming |
-| `doctor` | Readiness | Check governed project readiness: config validation, runtime reachability, state health, schedule daemon, and workflow-kit artifacts |
+| `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
+| `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
 | `dashboard` | Visualization | Launch a local web dashboard for observation plus narrow gate approvals |
 
 ## Turn lifecycle commands
@@ -856,19 +857,21 @@ agentxchain doctor [--json]
 |------|---------|-------------|
 | `--json` | `false` | Output structured JSON with all check results |
 
-Checks governed project readiness for running turns. On governed config-generation v4 projects, runs these checks:
+Checks governed project readiness for running turns. `doctor` is a static readiness check, not a live transport probe. On governed config-generation v4 projects, it runs these checks:
 
 | Check | ID | Description |
 |-------|-----|-------------|
 | Config validation | `config_valid` | Loads `agentxchain.json` and validates against the governed schema |
 | Roles defined | `roles_defined` | At least one role exists in the config |
-| Runtime reachable | `runtime_<id>` | Per-runtime: local binaries found, API key env vars set, remote endpoints noted as unverifiable |
+| Runtime prerequisites | `runtime_<id>` | Per-runtime: local binaries found, required API key env vars set, remote endpoints noted as unverifiable |
 | State directory | `state_dir` | `.agentxchain/` exists |
 | State health | `state_health` | `state.json` parses with a recognized schema version |
 | Schedule health | `schedule_health` | Daemon status when schedules are configured (skipped otherwise) |
 | Workflow-kit artifacts | `workflow_kit` | Required artifacts for the current phase exist on disk |
 
 Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.
+
+Use `agentxchain connector check` when you want a real live probe against configured API, MCP HTTP, or remote-agent endpoints before the first governed turn.
 
 `doctor --json` also reports the same versioning split explicitly:
 
@@ -879,6 +882,26 @@ Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass 
 The older `config_version` field remains as a compatibility alias for config generation.
 
 On legacy v3 projects, runs the legacy environment checks (Cursor, jq, osascript, watch process, trigger file, PM signoff).
+
+### `connector check`
+
+```bash
+agentxchain connector check [runtime_id] [--json] [--timeout <ms>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `[runtime_id]` | all non-manual runtimes | Probe one configured runtime only |
+| `--json` | `false` | Output structured JSON instead of text |
+| `--timeout <ms>` | `8000` | Per-probe timeout in milliseconds |
+
+Runs active connector probes for governed non-manual runtimes. Unlike `doctor`, this command makes real probe attempts where the transport allows it:
+
+- `local_cli` and MCP `stdio`: command presence on `PATH`
+- `api_proxy`: live minimal API request using the configured provider/model/auth
+- MCP `streamable_http` and `remote_agent`: live HTTP probe to the configured endpoint
+
+Successful probes return exit code 0. Any connector failure returns exit code 1. Command or project-boundary errors return exit code 2.
 
 ## Dashboard
 
