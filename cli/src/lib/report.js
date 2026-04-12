@@ -149,6 +149,67 @@ function formatDurationCompact(ms) {
   return `${hrs}h ${remainMins}m`;
 }
 
+function formatTokenCount(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'n/a';
+  return value.toLocaleString('en-US');
+}
+
+export function computeCostSummary(turns) {
+  if (!Array.isArray(turns) || turns.length === 0) return null;
+
+  let totalUsd = 0;
+  let costedTurnCount = 0;
+  let hasAnyTokens = false;
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  const roleMap = new Map();
+  const phaseMap = new Map();
+
+  for (const t of turns) {
+    const costUsd = typeof t.cost_usd === 'number' && Number.isFinite(t.cost_usd) ? t.cost_usd : 0;
+    const hasFiniteCost = typeof t.cost_usd === 'number' && Number.isFinite(t.cost_usd);
+    if (hasFiniteCost) {
+      totalUsd += costUsd;
+      costedTurnCount++;
+    }
+
+    const inTok = typeof t.input_tokens === 'number' && Number.isFinite(t.input_tokens) ? t.input_tokens : 0;
+    const outTok = typeof t.output_tokens === 'number' && Number.isFinite(t.output_tokens) ? t.output_tokens : 0;
+    if (t.input_tokens != null || t.output_tokens != null) hasAnyTokens = true;
+    totalInputTokens += inTok;
+    totalOutputTokens += outTok;
+
+    // Aggregate by role
+    const role = t.role || 'unknown';
+    if (!roleMap.has(role)) roleMap.set(role, { role, usd: 0, turns: 0, input_tokens: 0, output_tokens: 0 });
+    const roleEntry = roleMap.get(role);
+    roleEntry.usd += costUsd;
+    roleEntry.turns++;
+    roleEntry.input_tokens += inTok;
+    roleEntry.output_tokens += outTok;
+
+    // Aggregate by phase
+    const phase = t.phase || 'unknown';
+    if (!phaseMap.has(phase)) phaseMap.set(phase, { phase, usd: 0, turns: 0 });
+    const phaseEntry = phaseMap.get(phase);
+    phaseEntry.usd += costUsd;
+    phaseEntry.turns++;
+  }
+
+  const byRole = [...roleMap.values()].sort((a, b) => a.role.localeCompare(b.role, 'en'));
+  const byPhase = [...phaseMap.values()].sort((a, b) => a.phase.localeCompare(b.phase, 'en'));
+
+  return {
+    total_usd: totalUsd,
+    total_input_tokens: hasAnyTokens ? totalInputTokens : null,
+    total_output_tokens: hasAnyTokens ? totalOutputTokens : null,
+    turn_count: turns.length,
+    costed_turn_count: costedTurnCount,
+    by_role: byRole,
+    by_phase: byPhase,
+  };
+}
+
 function formatTurnTimelineTime(turn) {
   const acceptedAt = turn.accepted_at || 'n/a';
   const duration = formatDurationCompact(turn.duration_ms);
@@ -188,6 +249,8 @@ function extractHistoryTimeline(artifact) {
       decisions: Array.isArray(e.decisions) ? e.decisions.map((d) => d?.id || d).filter(Boolean) : [],
       objections: Array.isArray(e.objections) ? e.objections.map((o) => o?.id || o).filter(Boolean) : [],
       cost_usd: typeof e.cost?.total_usd === 'number' ? e.cost.total_usd : null,
+      input_tokens: typeof e.cost?.input_tokens === 'number' && Number.isFinite(e.cost.input_tokens) ? e.cost.input_tokens : null,
+      output_tokens: typeof e.cost?.output_tokens === 'number' && Number.isFinite(e.cost.output_tokens) ? e.cost.output_tokens : null,
       started_at: e.started_at || null,
       duration_ms: typeof e.duration_ms === 'number' ? e.duration_ms : null,
       accepted_at: e.accepted_at || null,
@@ -808,6 +871,7 @@ function buildRunSubject(artifact) {
       retained_turn_ids: retainedTurns,
       active_roles: activeRoles,
       budget_status: normalizeBudgetStatus(artifact.state?.budget_status),
+      cost_summary: computeCostSummary(turns),
       created_at: timing.created_at,
       completed_at: timing.completed_at,
       duration_seconds: timing.duration_seconds,
@@ -1085,6 +1149,30 @@ export function formatGovernanceReportText(report) {
       `Intake artifacts: ${yesNo(artifacts.intake_present)}`,
       `Coordinator artifacts: ${yesNo(artifacts.coordinator_present)}`,
     );
+
+    if (run.cost_summary) {
+      const cs = run.cost_summary;
+      lines.push('', 'Cost Summary:');
+      lines.push(`  Total: ${formatUsd(cs.total_usd)} across ${cs.turn_count} turn${cs.turn_count !== 1 ? 's' : ''} (${cs.costed_turn_count} with cost data)`);
+      if (cs.total_input_tokens != null || cs.total_output_tokens != null) {
+        lines.push(`  Tokens: ${formatTokenCount(cs.total_input_tokens)} input / ${formatTokenCount(cs.total_output_tokens)} output`);
+      }
+      if (cs.by_role.length > 0) {
+        lines.push('  By role:');
+        for (const r of cs.by_role) {
+          const tokens = r.input_tokens || r.output_tokens
+            ? `, ${formatTokenCount(r.input_tokens)} in / ${formatTokenCount(r.output_tokens)} out`
+            : '';
+          lines.push(`    ${r.role}: ${formatUsd(r.usd)} (${r.turns} turn${r.turns !== 1 ? 's' : ''}${tokens})`);
+        }
+      }
+      if (cs.by_phase.length > 0) {
+        lines.push('  By phase:');
+        for (const p of cs.by_phase) {
+          lines.push(`    ${p.phase}: ${formatUsd(p.usd)} (${p.turns} turn${p.turns !== 1 ? 's' : ''})`);
+        }
+      }
+    }
 
     if (run.turns && run.turns.length > 0) {
       lines.push('', 'Turn Timeline:');
@@ -1518,6 +1606,27 @@ export function formatGovernanceReportMarkdown(report) {
       `- Intake artifacts: \`${yesNo(artifacts.intake_present)}\``,
       `- Coordinator artifacts: \`${yesNo(artifacts.coordinator_present)}\``,
     );
+
+    if (run.cost_summary) {
+      const cs = run.cost_summary;
+      lines.push('', '## Cost Summary', '');
+      lines.push(`**Total:** ${formatUsd(cs.total_usd)} across ${cs.turn_count} turn${cs.turn_count !== 1 ? 's' : ''} (${cs.costed_turn_count} with cost data)`);
+      if (cs.total_input_tokens != null || cs.total_output_tokens != null) {
+        lines.push(`**Tokens:** ${formatTokenCount(cs.total_input_tokens)} input / ${formatTokenCount(cs.total_output_tokens)} output`);
+      }
+      if (cs.by_role.length > 0) {
+        lines.push('', '| Role | Cost | Turns | Input Tokens | Output Tokens |', '|------|------|-------|--------------|---------------|');
+        for (const r of cs.by_role) {
+          lines.push(`| ${r.role} | ${formatUsd(r.usd)} | ${r.turns} | ${formatTokenCount(r.input_tokens)} | ${formatTokenCount(r.output_tokens)} |`);
+        }
+      }
+      if (cs.by_phase.length > 0) {
+        lines.push('', '| Phase | Cost | Turns |', '|-------|------|-------|');
+        for (const p of cs.by_phase) {
+          lines.push(`| ${p.phase} | ${formatUsd(p.usd)} | ${p.turns} |`);
+        }
+      }
+    }
 
     if (run.turns && run.turns.length > 0) {
       lines.push('', '## Turn Timeline', '', '| # | Role | Phase | Summary | Files | Cost | Time |', '|---|------|-------|---------|-------|------|------|');

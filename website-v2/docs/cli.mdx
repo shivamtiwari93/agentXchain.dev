@@ -392,7 +392,7 @@ agentxchain audit [--format text|json|markdown]
 |------|---------|-------------|
 | `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
 
-`audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses.
+`audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses. The output includes a **Cost Summary** section with per-run totals, per-role cost breakdown, per-phase cost breakdown, and token counts when cost data is available.
 
 That boundary matters:
 
