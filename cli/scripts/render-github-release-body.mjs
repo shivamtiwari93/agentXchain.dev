@@ -81,10 +81,12 @@ function getPreviousVersionTag(repoRoot, version) {
     { cwd: repoRoot, encoding: 'utf8' },
   );
 
-  return output
-    .split('\n')
-    .map((line) => line.trim())
-    .find((tag) => tag && tag !== currentTag) || null;
+  const tags = output.split('\n').map((line) => line.trim()).filter(Boolean);
+  const currentIndex = tags.indexOf(currentTag);
+  if (currentIndex === -1 || currentIndex === tags.length - 1) {
+    return null;
+  }
+  return tags[currentIndex + 1];
 }
 
 function renderBody({ version, repo, summary, evidence, previousTag }) {
