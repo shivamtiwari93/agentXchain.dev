@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.67.0
+# Launch Evidence Report — AgentXchain v2.68.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.67.0 release: active-turn timing inspection, accepted-turn timing in governance reports, and corrected operator-surface timing docs.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.68.0 release: rejection-event audit detail in the event stream, regression-proof `events` rendering, and corrected operator-facing docs/specs.
 
 ---
 

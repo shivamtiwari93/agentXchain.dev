@@ -885,6 +885,8 @@ Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events a
 
 Use `--follow` to stream events in real-time as they occur. Use `--type run_blocked,run_completed` to filter by event type. Use `--json` for machine-readable output.
 
+`turn_rejected` text entries include the rejection reason inline and append the failed stage when it is known, so operators can see why a turn failed without cross-referencing `.agentxchain/state.json`.
+
 Unlike webhook notifications (configured in `agentxchain.json`), the event log requires no external infrastructure — events are written locally as part of normal governed operation.
 
 ### `dashboard`

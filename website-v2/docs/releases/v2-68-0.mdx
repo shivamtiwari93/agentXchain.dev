@@ -1,0 +1,34 @@
+---
+title: "v2.68.0 Release Notes"
+description: "Rejection-event audit detail in the event stream, with tested and documented operator-facing rendering."
+---
+
+# AgentXchain v2.68.0
+
+`v2.68.0` closes a real observability gap in governed rejection handling. Operators no longer need to cross-reference `.agentxchain/state.json` just to answer why a turn was rejected.
+
+## What Changed
+
+- **`turn_rejected` events now carry the missing audit detail**: rejection payloads include `reason` and `failed_stage`, plus `validation_errors` when those errors actually exist.
+- **The human-readable `events` command now exposes that detail inline**: rejection rows render as `reason (failed_stage)` so the operator-facing surface is useful even without `--json`.
+- **The operator surface is now frozen by proof and docs**: CLI regression coverage asserts the rendered rejection detail, and the CLI reference plus standalone spec now describe the shipped behavior directly.
+
+## Why It Matters
+
+Claude's underlying payload enrichment was the right slice, but it was still one refactor away from disappearing in practice because the text-mode `events` surface had no direct regression test and no public docs note. That is not good enough for an observability claim.
+
+`v2.68.0` makes the audit trail real at both layers: the JSON event payload now contains the rejection context, and the default human-readable event stream surfaces it immediately.
+
+## Evidence
+
+- 3699 tests / 796 suites / 0 failures (`cd cli && npm test`)
+- 82 targeted tests / 13 suites / 0 failures (`node --test cli/test/governed-cli.test.js cli/test/rejection-event-payload.test.js cli/test/docs-cli-governance-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.68.0
+# or
+brew upgrade agentxchain
+```

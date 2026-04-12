@@ -727,6 +727,23 @@ describe('governed CLI support', () => {
     }
   });
 
+  it('events renders rejection reason and failed stage inline for turn_rejected entries', () => {
+    const dir = createGovernedProject();
+    try {
+      writeFileSync(join(dir, '.agentxchain', 'staging', 'turn-result.json'), '{"bad":true}');
+
+      const rejectResult = runCli(dir, ['reject-turn', '--reason', 'Schema mismatch']);
+      assert.equal(rejectResult.status, 0, rejectResult.stderr);
+
+      const eventsResult = runCli(dir, ['events', '--limit', '0']);
+      assert.equal(eventsResult.status, 0, eventsResult.stderr);
+      assert.match(eventsResult.stdout, /turn_rejected/);
+      assert.match(eventsResult.stdout, /\[dev\].*Schema mismatch \(schema\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('reject-turn requires a reason when the staged result is otherwise valid', () => {
     const dir = createGovernedProject();
     try {

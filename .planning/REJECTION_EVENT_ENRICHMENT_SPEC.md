@@ -53,6 +53,7 @@ No new commands or config. The `turn_rejected` event payload is enriched:
 - [x] Retry `turn_rejected` event carries `reason`, `failed_stage`, and `validation_errors`
 - [x] Escalation `turn_rejected` event carries `reason`, `failed_stage`, and `validation_errors`
 - [x] Empty `validation_errors` are omitted from the event payload
+- [x] `agentxchain events` text output renders rejection `reason` and `failed_stage` inline for `turn_rejected`
 - [x] Existing reject/retry E2E tests pass without regression
 
 ## Trust Assumption

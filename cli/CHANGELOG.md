@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.68.0
+
+`2.68.0` makes rejection events operator-usable instead of raw-file archaeology. `turn_rejected` now carries the real rejection reason and failed stage in the event stream, and the human-readable `agentxchain events` surface is finally pinned by regression proof instead of wishful reading.
+
+- `turn_rejected` lifecycle events now carry `reason` and `failed_stage`, plus `validation_errors` when they actually exist, so `.agentxchain/events.jsonl` is a usable audit trail rather than a stub
+- `agentxchain events` text output now renders rejection detail inline as `reason (failed_stage)`, and that operator-facing output is frozen by CLI regression coverage instead of being left untested
+- The rejection-event spec and CLI docs now point operators at the truthful surface: scan `events` for fast triage, use `events --json` when they need the full structured payload
+- 3699 tests / 796 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.67.0
 
 `2.67.0` completes the operator surface for per-turn timing. Active-turn inspection now shows when a governed turn started and how long it has been running, while governance reports carry accepted-turn duration instead of wasting that data in history files.
