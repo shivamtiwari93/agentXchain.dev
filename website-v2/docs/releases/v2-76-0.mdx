@@ -1,0 +1,64 @@
+---
+title: "v2.76.0 Release Notes"
+description: "Complete CLI command test coverage — all 40 testable commands now have dedicated subprocess proof suites — plus automated Homebrew mirror PR closeout in CI."
+---
+
+# AgentXchain v2.76.0
+
+`v2.76.0` closes two quality debts that accumulated over the past several releases: incomplete CLI command test coverage and manual Homebrew mirror PR follow-through.
+
+## What Changed
+
+### CLI Command Coverage Completeness
+
+Every CLI command now has a dedicated subprocess test suite. The 6-turn coverage grind (Turns 104-109) added direct proof for 10 previously uncovered commands:
+
+- **`stop`** — 5 tests: live watch PID teardown, stale PID cleanup, Claude Code session teardown, Cursor manual-close guidance, missing project guard
+- **`events`** — 10 tests: all flags (`--type`, `--since`, `--limit`, `--json`, `--dir`), empty/populated states, filter hints, `turn_rejected` detail rendering
+- **`supervise`** — 6 tests: project guard, watch spawn, banner content, graceful SIGTERM shutdown, unexpected child exit, interval flag
+- **`branch`** — 7 tests: inspection, explicit override writes, `--use-current`, `--unset`, argument exclusivity, invalid branch names, missing project
+- **`rebind`** — 7 tests: project guard, empty agents, all-agent rebind, single-agent filter, unknown agent, autonudge reset, summary output
+- **`watch`** — 6 tests: project guard, empty agents, banner content, PID file write, SIGTERM shutdown, daemon mode
+- **`generate`** — 5 tests: project guard, empty agents, file generation, agent listing, location output
+- **`start`** — 10 tests: selection errors, PM-first kickoff gating, dry-run selection, VS Code guidance, Cursor kickoff launch, Claude Code session persistence
+- **`update`** — 5 tests: version display, up-to-date path, update path, view failure, install failure (via stub `npm` binary)
+- **`kickoff`** — 4 tests: guard paths and PM selection (interactive `inquirer` paths documented as untestable via subprocess)
+
+**Final tally: 40/40 testable commands with direct subprocess suites, 3822 tests / 819 suites / 0 failures.**
+
+### Automated Homebrew Mirror PR Closeout
+
+The `publish-npm-on-tag.yml` workflow now owns the Homebrew repo-mirror PR lifecycle end-to-end:
+
+- Records the mirror PR number for rerun resilience
+- Submits an approval review when the PR is awaiting approval
+- Enables squash auto-merge with branch deletion
+- Polls for `MERGED` state and fails closed if the PR never merges
+
+Previously, the workflow created the PR and stopped — leaving operators to manually approve and merge. Now CI completes the full cycle or fails explicitly.
+
+### GitHub Release Body Automation
+
+- Fixed `getPreviousVersionTag()` in the release body renderer: was returning the highest non-current tag instead of the actual previous version (positional lookup fix)
+- Backfilled governed release bodies for v2.30.0 through v2.75.0 with: public docs URL, npm URL, summary paragraph, aggregate evidence line, and correct compare link
+
+## Why It Matters
+
+CLI command coverage is the foundation of operator trust. If a command can silently break without any test noticing, operators cannot rely on the tool. With this release, every command that ships has a subprocess-level proof suite that exercises its real binary, not just its internal functions.
+
+The Homebrew mirror automation means release completeness is no longer gated on a human remembering to merge a PR. CI either completes the full cycle or fails — there is no silent partial state.
+
+## Evidence
+
+- 3822 tests / 819 suites / 0 failures (`cd cli && npm test`)
+- 40/40 testable CLI commands have dedicated subprocess suites
+- `cd website-v2 && npm run build` -> clean production build
+- Homebrew sync automation tests: 14 tests / 1 suite / 0 failures
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.76.0
+# or
+brew upgrade agentxchain
+```

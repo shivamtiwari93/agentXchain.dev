@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.76.0
+
+`2.76.0` closes two quality debts: incomplete CLI command test coverage and manual Homebrew mirror PR follow-through. Every CLI command now has a dedicated subprocess test suite, and CI now owns the full Homebrew mirror PR lifecycle.
+
+- All 40 testable CLI commands now have dedicated subprocess test suites — 10 new suites added across `stop`, `events`, `supervise`, `branch`, `rebind`, `watch`, `generate`, `start`, `update`, and `kickoff`
+- The `publish-npm-on-tag.yml` workflow now records the Homebrew mirror PR number, submits an approval review, enables squash auto-merge with branch deletion, and polls for `MERGED` — failing closed if the PR never merges
+- Fixed `getPreviousVersionTag()` in the GitHub Release body renderer: positional lookup replaces `.find(tag !== current)` which returned the wrong tag
+- Backfilled governed release bodies for v2.30.0 through v2.75.0 with public docs URL, npm URL, summary paragraph, evidence line, and correct compare link
+- 3822 tests / 819 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.75.0
 
 `2.75.0` closes the remaining coordinator hook-evidence lie inside the dashboard Timeline turn-detail panel. The bridge already exposed coordinator hook audit and annotation endpoints, but Timeline only fetched repo-local evidence and silently hid coordinator hook activity in coordinator workspaces. The release also aligns Timeline section titles to the existing Hooks view instead of introducing another avoidable naming fork.
