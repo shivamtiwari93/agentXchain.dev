@@ -8,8 +8,8 @@
 - Mixed workspaces now render separate `Repo Hook Audit Log` / `Coordinator Hook Audit Log` and `Repo Hook Annotations` / `Coordinator Hook Annotations` sections, matching the established Hooks view vocabulary instead of inventing a second label set
 - Repo-only workspaces remain backward compatible: Timeline still renders a single unprefixed `Hook Audit Log` / `Hook Annotations` section when no coordinator evidence exists
 - Public CLI docs now state that Timeline turn detail surfaces coordinator hook audit and annotations alongside repo-local hook data
+- 3754 tests / 808 suites / 0 failures (`cd cli && npm test`)
 - Focused dashboard proof passed: `node --test cli/test/timeline-coordinator-hooks.test.js cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`
-- Full CLI test suite passed after updating the stale drill-down assertion that still expected the old section title: `cd cli && npm test`
 - `cd website-v2 && npm run build` clean
 
 ## 2.74.0

@@ -1,10 +1,9 @@
 import { before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { importCompiledVsCodeExtensionModule } from './helpers/vscode-extension-test-helpers.js';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 
@@ -57,11 +56,7 @@ describe('VS Code extension project-mode detection', () => {
   let utilModule;
 
   before(async () => {
-    execFileSync('npm', ['run', 'compile'], {
-      cwd: join(ROOT, 'cli', 'vscode-extension'),
-      stdio: 'ignore',
-    });
-    utilModule = await import(pathToFileURL(join(ROOT, 'cli', 'vscode-extension', 'out', 'util.js')).href);
+    utilModule = await importCompiledVsCodeExtensionModule('util.js');
   });
 
   it('detects governed projects and exposes governed boundary guidance', () => {

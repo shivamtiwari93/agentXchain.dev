@@ -1,11 +1,11 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { scaffoldGoverned } from '../src/commands/init.js';
+import { importCompiledVsCodeExtensionModule } from './helpers/vscode-extension-test-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
@@ -18,14 +18,10 @@ const tempDirs = [];
 const originalCliPath = process.env.AGENTXCHAIN_CLI_PATH;
 
 before(async () => {
-  execFileSync('npm', ['run', 'compile'], {
-    cwd: EXTENSION_ROOT,
-    stdio: 'ignore',
-  });
   process.env.AGENTXCHAIN_CLI_PATH = CLI_BIN;
   // notificationState.js has no vscode dependency — safe to import in tests
-  notificationStateModule = await import(pathToFileURL(join(EXTENSION_ROOT, 'out', 'notificationState.js')).href);
-  governedStatusModule = await import(pathToFileURL(join(EXTENSION_ROOT, 'out', 'governedStatus.js')).href);
+  notificationStateModule = await importCompiledVsCodeExtensionModule('notificationState.js');
+  governedStatusModule = await importCompiledVsCodeExtensionModule('governedStatus.js');
 });
 
 after(() => {
