@@ -2590,7 +2590,9 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     accepted_sequence: acceptedSequence,
     concurrent_with: Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
     cost: turnResult.cost || {},
+    ...(currentTurn.started_at ? { started_at: currentTurn.started_at } : {}),
     accepted_at: now,
+    ...(currentTurn.started_at ? { duration_ms: Math.max(0, new Date(now).getTime() - new Date(currentTurn.started_at).getTime()) } : {}),
   };
   const nextHistoryEntries = [...historyEntries, historyEntry];
   // Build ledger entries for the journal
@@ -3081,11 +3083,17 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   // Emit turn_accepted event to local log.
+  const turnAcceptedPayload = {};
+  if (currentTurn.started_at) {
+    turnAcceptedPayload.started_at = currentTurn.started_at;
+    turnAcceptedPayload.duration_ms = Math.max(0, new Date(now).getTime() - new Date(currentTurn.started_at).getTime());
+  }
   emitRunEvent(root, 'turn_accepted', {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
     status: updatedState.status,
     turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+    payload: turnAcceptedPayload,
   });
 
   if (updatedState.status === 'blocked') {

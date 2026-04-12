@@ -141,7 +141,16 @@ function renderGovernedStatus(context, opts) {
       const statusLabel = turn.status === 'conflicted'
         ? chalk.red('conflicted')
         : turn.status;
-      console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]`);
+      let elapsedTag = '';
+      if (turn.started_at) {
+        const elMs = Date.now() - new Date(turn.started_at).getTime();
+        if (elMs >= 0) {
+          const s = Math.floor(elMs / 1000);
+          const m = Math.floor(s / 60);
+          elapsedTag = m > 0 ? ` — ${m}m ${s % 60}s` : ` — ${s}s`;
+        }
+      }
+      console.log(`    ${marker} ${turn.turn_id} — ${chalk.bold(turn.assigned_role)} (${statusLabel}) [attempt ${turn.attempt}]${elapsedTag}`);
       if (turn.status === 'conflicted' && turn.conflict_state) {
         const cs = turn.conflict_state;
         const files = cs.conflict_error?.conflicting_files || [];
@@ -161,6 +170,16 @@ function renderGovernedStatus(context, opts) {
     console.log(`  ${chalk.dim('Role:')}     ${chalk.bold(singleActiveTurn.assigned_role)} (${singleActiveTurn.status})`);
     console.log(`  ${chalk.dim('Runtime:')}  ${singleActiveTurn.runtime_id}`);
     console.log(`  ${chalk.dim('Attempt:')}  ${singleActiveTurn.attempt}`);
+    if (singleActiveTurn.started_at) {
+      const elapsedMs = Date.now() - new Date(singleActiveTurn.started_at).getTime();
+      if (elapsedMs >= 0) {
+        const secs = Math.floor(elapsedMs / 1000);
+        const mins = Math.floor(secs / 60);
+        const remainSecs = secs % 60;
+        const elapsed = mins > 0 ? `${mins}m ${remainSecs}s` : `${remainSecs}s`;
+        console.log(`  ${chalk.dim('Elapsed:')}  ${elapsed}`);
+      }
+    }
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
       const cs = singleActiveTurn.conflict_state;
       const files = cs.conflict_error?.conflicting_files || [];
