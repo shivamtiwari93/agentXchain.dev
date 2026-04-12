@@ -39,7 +39,7 @@ agentxchain init --governed --template <id>
 For a new governed repo, choose the template up front:
 
 ```bash
-agentxchain init --governed --template web-app --dir my-project -y
+agentxchain init --governed --template web-app --goal "Build a governed web application" --dir my-project -y
 cd my-project
 ```
 
@@ -208,7 +208,7 @@ This is the shipped proof that built-in governed templates are no longer locked 
 #### Scaffolding an enterprise-app repo
 
 ```bash
-agentxchain init --governed --template enterprise-app --dir my-enterprise -y
+agentxchain init --governed --template enterprise-app --goal "Enterprise delivery with extended team topology" --dir my-enterprise -y
 cd my-enterprise
 ```
 

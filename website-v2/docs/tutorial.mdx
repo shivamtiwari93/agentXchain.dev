@@ -33,14 +33,15 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 ```bash
 mkdir tutorial-governed && cd tutorial-governed
-agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --goal "Build a CLI that lints decision logs" --dir . -y
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 
-Verify the scaffold is structurally valid:
+Verify the scaffold is structurally valid and the environment is ready:
 
 ```bash
 agentxchain template validate
+agentxchain doctor
 ```
 
 Your repo now has:

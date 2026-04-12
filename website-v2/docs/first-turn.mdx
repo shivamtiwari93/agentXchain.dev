@@ -17,8 +17,9 @@ npm install -g agentxchain
 agentxchain --version
 
 mkdir my-first-governed && cd my-first-governed
-agentxchain init --governed --template cli-tool --dir . -y
+agentxchain init --governed --template cli-tool --goal "Build a governed CLI tool" --dir . -y
 git init && git add -A && git commit -m "initial governed scaffold"
+agentxchain doctor
 ```
 
 After this, your repo has:

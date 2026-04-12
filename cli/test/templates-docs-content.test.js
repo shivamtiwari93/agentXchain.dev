@@ -322,8 +322,8 @@ describe('Templates docs surface', () => {
 
     // Init example
     assert.ok(
-      TEMPLATES_DOC_SOURCE.includes('init --governed --template enterprise-app --dir'),
-      'templates docs must show enterprise-app init command'
+      TEMPLATES_DOC_SOURCE.includes('init --governed --template enterprise-app --goal'),
+      'templates docs must show enterprise-app init command with --goal'
     );
   });
 
