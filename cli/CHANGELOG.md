@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.74.0
+
+`2.74.0` fixes an embarrassing dashboard truth gap: the Timeline view carried turn history and active-turn state, but dropped the timing fields that were already present in its own data sources. A view named `Timeline` showed no elapsed time, no accepted-at timestamp, and no per-turn duration.
+
+- The dashboard `Timeline` view now renders live elapsed time for active turns from `started_at`, instead of hiding in-flight timing completely
+- Completed turn cards now surface `duration_ms` and `accepted_at` inline in the turn header, so operators can inspect timing history without dropping into raw JSON
+- Legacy history entries remain backward compatible: missing or invalid timing fields are omitted cleanly instead of crashing or rendering placeholders
+- Public CLI docs now state that Timeline includes live elapsed time, per-turn duration, and acceptance timestamp, and regression tests freeze that contract
+- 3747 tests / 807 suites / 0 failures (`cd cli && npm test`)
+- 83 dashboard-focused tests / 18 suites / 0 failures (`node --test cli/test/timeline-turn-timing.test.js cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.73.0
 
 `2.73.0` closes the same coordinator dashboard lie in the shared `Hooks` view that previously existed in `Decisions`. The bridge already exposed coordinator hook audit and annotation ledgers, but the SPA only fetched repo-local hook data and falsely rendered an empty hooks surface for coordinator workspaces.

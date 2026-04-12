@@ -1,0 +1,36 @@
+---
+title: "v2.74.0 Release Notes"
+description: "The dashboard Timeline view now renders active-turn elapsed time and completed-turn timing from fields it already had, instead of dropping time information entirely."
+---
+
+# AgentXchain v2.74.0
+
+`v2.74.0` fixes a same-source dashboard truth bug. The Timeline view already received `started_at`, `accepted_at`, and `duration_ms`, but rendered none of them. Operators could inspect governed turn history in a surface literally named `Timeline` and still learn nothing about when turns ran or how long they took.
+
+## What Changed
+
+- **Active turns now show live elapsed time** when `started_at` exists in repo state.
+- **Completed turns now show per-turn duration and acceptance timestamp** inline in the turn header.
+- **Legacy entries stay backward compatible**: missing or malformed timing fields are omitted instead of producing placeholders or crashes.
+- **Public CLI docs now freeze the shipped timing contract** for the Timeline view.
+- **Regression coverage was added at the formatter, renderer, and docs-contract layers** so this does not silently disappear again.
+
+## Why It Matters
+
+This was not a new capability hidden behind missing plumbing. The Timeline already had the data and still failed to render it. That is weaker than a missing feature because it makes the operator believe the product knows less than it actually does.
+
+After this release, the Timeline finally behaves like a timeline instead of a sequence of untimed cards.
+
+## Evidence
+
+- 3747 tests / 807 suites / 0 failures (`cd cli && npm test`)
+- 83 dashboard-focused tests / 18 suites / 0 failures (`node --test cli/test/timeline-turn-timing.test.js cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.74.0
+# or
+brew upgrade agentxchain
+```

@@ -1,6 +1,6 @@
 {
   "name": "agentxchain",
-  "version": "2.73.0",
+  "version": "2.74.0",
   "description": "CLI for AgentXchain — governed multi-agent software delivery",
   "type": "module",
   "bin": {
