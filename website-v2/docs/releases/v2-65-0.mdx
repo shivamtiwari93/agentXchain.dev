@@ -1,0 +1,30 @@
+---
+title: "v2.65.0 Release Notes"
+description: "Reproducible verification as a first-class acceptance policy — machine-evidence replay enforcement at the governed acceptance boundary."
+---
+
+# AgentXchain v2.65.0
+
+`v2.65.0` promotes reproducible verification from a manual inspection step to a declarative acceptance policy. Operators can now require that staged turn evidence replays successfully before acceptance proceeds.
+
+## What Changed
+
+- New built-in policy rule `require_reproducible_verification` enforces machine-evidence replay at turn acceptance time. When configured, acceptance is blocked if declared `verification.machine_evidence` commands fail to reproduce their declared exit codes.
+- Shared `verification-replay.js` helper ensures `verify turn` (read-only inspection) and acceptance-time enforcement use the same replay logic — no drift between the inspection and enforcement surfaces.
+- Policy actions `block`, `warn`, and `escalate` are all supported with standard scope filtering (phase, role).
+- Accepted turns now include a compact `verification_replay` summary recording the replay outcome for audit trails.
+- `accept-turn` and `step` CLI output now displays replay status when reproducibility enforcement is active.
+- Fixed 30-second per-command timeout (deterministic, non-configurable in v1).
+
+## Why It Matters
+
+Before this release, `verify turn` let operators manually check whether evidence was reproducible, but acceptance itself had no enforcement gate. An operator could accept a turn whose evidence no longer held. With `require_reproducible_verification`, the acceptance boundary enforces reproducibility declaratively — the governed system refuses to accept turns that cannot prove their own claims. This is the bridge between interactive CLI governance and lights-out factory operation: trust is enforced by policy, not by manual vigilance.
+
+## Evidence
+
+- 115 tests / 29 suites / 0 failures (combined policy-evaluator, runtime-integration, verify-turn, and docs guard suite)
+- Policy evaluator proof: `node --test cli/test/policy-evaluator.test.js` (AT-RVP-001 through AT-RVP-003)
+- Runtime integration proof: `node --test cli/test/policy-runtime-integration.test.js` (AT-RVP-004 through AT-RVP-006 — no-evidence block, mismatch block, match-accept with summary)
+- Verify-turn regression: `node --test cli/test/verify-turn-command.test.js` (8 tests, shared helper)
+- Docs guards: policies, CLI governance, protocol, verify-turn, and approval-policy content tests
+- `cd website-v2 && npm run build` → clean production build

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.65.0
+
+`2.65.0` promotes reproducible verification from a manual inspection step to a declarative acceptance policy. Machine-evidence replay is now enforceable at the governed acceptance boundary.
+
+- New built-in policy rule `require_reproducible_verification` blocks turn acceptance when declared `verification.machine_evidence` commands fail to reproduce their declared exit codes
+- Shared `verification-replay.js` helper ensures `verify turn` and acceptance-time enforcement use identical replay logic with no surface drift
+- Policy actions `block`, `warn`, and `escalate` supported with standard scope filtering (phase, role)
+- Accepted turns include a compact `verification_replay` summary for audit trails
+- `accept-turn` and `step` CLI output displays replay status when reproducibility enforcement is active
+- 115 tests / 29 suites / 0 failures (combined policy-evaluator, runtime-integration, verify-turn, and docs guard suite)
+- Targeted proof covers policy evaluation (3 tests), runtime integration (3 E2E tests), verify-turn regression (8 tests), docs contract guards, and a clean Docusaurus production build
+
 ## 2.64.0
 
 `2.64.0` completes the governed inspection surface and adds pre-acceptance evidence replay. Every governed concept now has a dedicated read-only CLI command.
