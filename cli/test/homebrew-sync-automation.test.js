@@ -317,8 +317,13 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /gh pr merge "\$PR_NUMBER" --squash --delete-branch(?!.*--admin)/,
+      'workflow must attempt regular merge first without admin override',
+    );
+    assert.match(
+      workflow,
       /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
-      'workflow must merge the mirror PR with admin override and clean up the branch',
+      'workflow must fall back to admin merge only when regular merge fails',
     );
     assert.match(
       workflow,

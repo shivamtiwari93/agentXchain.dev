@@ -395,29 +395,12 @@ function formatCheckpoint(reason, timestamp) {
     return reason || timestamp || 'unknown';
 }
 async function loadGovernedReport(root) {
-    // Step 1: Export the governed run artifact
-    const exportResult = await execCliCommand(root, ['export'], 120_000);
-    const exportJson = exportResult.stdout.trim();
-    if (!exportJson) {
-        throw new Error('AgentXchain export returned empty output. Is a governed run active?');
+    const auditResult = await execCliCommand(root, ['audit', '--format', 'json'], 120_000);
+    const json = auditResult.stdout.trim();
+    if (!json) {
+        throw new Error('AgentXchain audit returned empty output. Is a governed run active?');
     }
-    // Step 2: Write export to temp file, then run report --input <tmpfile> --format json
-    const os = await import('os');
-    const path = await import('path');
-    const fs = await import('fs');
-    const tmpFile = path.join(os.tmpdir(), `axc-report-${Date.now()}.json`);
-    try {
-        fs.writeFileSync(tmpFile, exportJson);
-        const reportResult = await execCliCommand(root, ['report', '--input', tmpFile, '--format', 'json'], 120_000);
-        const parsed = JSON.parse(reportResult.stdout);
-        return parsed;
-    }
-    finally {
-        try {
-            fs.unlinkSync(tmpFile);
-        }
-        catch { /* ignore cleanup failure */ }
-    }
+    return JSON.parse(json);
 }
 function renderReportLines(report) {
     const lines = [];

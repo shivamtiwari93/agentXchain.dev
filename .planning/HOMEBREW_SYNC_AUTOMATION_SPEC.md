@@ -118,6 +118,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 
 `DEC-HOMEBREW-SYNC-009`: Repo-mirror PR closeout is automated end-to-end in the publish workflow. The workflow records the PR number, approves the PR when needed, enables squash auto-merge with branch deletion, and fails closed if the PR never reaches `MERGED`.
 
+`DEC-HOMEBREW-SYNC-010`: The workflow must attempt regular `gh pr merge --squash --delete-branch` first. Only if that fails (typically due to self-approval branch protection) should it fall back to `gh pr merge --squash --delete-branch --admin`. The `--admin` flag is a privilege escalation and must not be the default merge path.
+
 ## Open Questions
 
 None.

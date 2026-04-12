@@ -235,11 +235,22 @@ describe('governed IDE report — renderReportLines', () => {
 });
 
 describe('governed IDE report — mutation boundary', () => {
-  it('report logic in governedStatus.ts does not write governed files directly', () => {
+  it('loadGovernedReport uses a single audit subprocess call, not export+report double-hop', () => {
     const gsSource = readFileSync(join(EXTENSION_ROOT, 'src', 'governedStatus.ts'), 'utf8');
-    // The loadGovernedReport function writes only to os.tmpdir(), not .agentxchain/
-    assert.match(gsSource, /tmpdir/, 'temp file must use os.tmpdir, not governed paths');
-    assert.match(gsSource, /unlinkSync/, 'temp file must be cleaned up');
+    assert.match(gsSource, /execCliCommand\(root, \['audit', '--format', 'json'\]/, 'must use execCliCommand with audit --format json');
+    assert.doesNotMatch(gsSource, /execCliCommand\(root, \['export'\]/, 'must not use separate export subprocess');
+    assert.doesNotMatch(gsSource, /execCliCommand\(root, \['report'/, 'must not use separate report subprocess');
+  });
+
+  it('loadGovernedReport does not use temp files or fs writes', () => {
+    const gsSource = readFileSync(join(EXTENSION_ROOT, 'src', 'governedStatus.ts'), 'utf8');
+    // Extract the loadGovernedReport function body
+    const fnStart = gsSource.indexOf('export async function loadGovernedReport');
+    const fnEnd = gsSource.indexOf('\nexport ', fnStart + 1);
+    const fnBody = gsSource.slice(fnStart, fnEnd > -1 ? fnEnd : undefined);
+    assert.doesNotMatch(fnBody, /tmpdir/, 'loadGovernedReport must not use temp files');
+    assert.doesNotMatch(fnBody, /writeFileSync/, 'loadGovernedReport must not write files');
+    assert.doesNotMatch(fnBody, /unlinkSync/, 'loadGovernedReport must not clean up temp files');
   });
 
   it('report command wrapper does not import fs or write any files', () => {
@@ -248,12 +259,6 @@ describe('governed IDE report — mutation boundary', () => {
     assert.doesNotMatch(reportSource, /writeJson/, 'report command must not use writeJson');
     assert.doesNotMatch(reportSource, /mkdirSync/, 'report command must not create directories');
     assert.doesNotMatch(reportSource, /import.*\bfs\b/, 'report command must not import fs');
-  });
-
-  it('loadGovernedReport uses execCliCommand for both export and report subprocess calls', () => {
-    const gsSource = readFileSync(join(EXTENSION_ROOT, 'src', 'governedStatus.ts'), 'utf8');
-    assert.match(gsSource, /execCliCommand\(root, \['export'\]/, 'must use execCliCommand for export');
-    assert.match(gsSource, /execCliCommand\(root, \['report'/, 'must use execCliCommand for report');
   });
 
   it('package.json declares the governed report command and commands/index.ts registers it', () => {

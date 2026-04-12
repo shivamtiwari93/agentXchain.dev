@@ -199,7 +199,10 @@ jobs:
           else
             echo "Homebrew mirror PR #${PR_NUMBER} already has an approval."
           fi
-          gh pr merge "$PR_NUMBER" --squash --delete-branch --admin
+          if ! gh pr merge "$PR_NUMBER" --squash --delete-branch 2>/dev/null; then
+            echo "::warning::Regular merge failed (likely self-approval branch protection). Falling back to --admin merge."
+            gh pr merge "$PR_NUMBER" --squash --delete-branch --admin
+          fi
           for attempt in $(seq 1 12); do
             PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
             if [[ "$PR_STATE" == "MERGED" ]]; then
