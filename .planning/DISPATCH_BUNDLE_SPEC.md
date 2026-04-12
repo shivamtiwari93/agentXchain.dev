@@ -80,6 +80,7 @@ type AssignmentBundle = {
 - current run state summary
 - budget spent / remaining when available
 - last accepted turn summary, decisions, and objections when history exists
+- cumulative decision history from `decision-ledger.jsonl` (agent-authored decisions only, up to 50 most recent, rendered as a markdown table with ID/Phase/Role/Statement columns)
 - current blocker or escalation when present
 - gate-required file existence checks for the current phase
 - phase gate status table
@@ -191,13 +192,14 @@ The bundle therefore carries retry context forward without mutating assignment i
 7. `PROMPT.md` includes gate requirements for the current phase.
 8. `PROMPT.md` includes retry context when `attempt > 1`.
 9. `CONTEXT.md` includes run state, budget, gate-required files, and gate status.
-10. Writing a new bundle removes stale files from the previous bundle.
-11. Existing custom prompt files are injected under `## Role-Specific Instructions`.
-12. Missing custom prompt files do not break bundle generation.
-13. The JSON template inside `PROMPT.md` carries the live `run_id`, `turn_id`, `role`, and `runtime_id`.
-14. The prompt documents both `phase_transition_request` and `run_completion_request` as mutually exclusive.
-15. Unreadable custom prompt files return a warning while preserving bundle generation.
-16. Unreadable `history.jsonl` returns a warning while preserving bundle generation.
+10. `CONTEXT.md` includes cumulative decision history from `decision-ledger.jsonl` when agent-authored decisions exist.
+11. Writing a new bundle removes stale files from the previous bundle.
+12. Existing custom prompt files are injected under `## Role-Specific Instructions`.
+13. Missing custom prompt files do not break bundle generation.
+14. The JSON template inside `PROMPT.md` carries the live `run_id`, `turn_id`, `role`, and `runtime_id`.
+15. The prompt documents both `phase_transition_request` and `run_completion_request` as mutually exclusive.
+16. Unreadable custom prompt files return a warning while preserving bundle generation.
+17. Unreadable `history.jsonl` returns a warning while preserving bundle generation.
 
 ---
 

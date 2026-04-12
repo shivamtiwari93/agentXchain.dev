@@ -228,13 +228,14 @@ describe('context-compressor', () => {
   });
 
   it('exports COMPRESSION_STEPS matching the spec order', () => {
-    assert.equal(COMPRESSION_STEPS.length, 7);
+    assert.equal(COMPRESSION_STEPS.length, 8);
     assert.deepEqual(COMPRESSION_STEPS[0], { id: 'budget', action: 'drop' });
     assert.deepEqual(COMPRESSION_STEPS[1], { id: 'phase_gate_status', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[2], { id: 'gate_required_files', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[3], { id: 'last_turn_objections', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[4], { id: 'last_turn_decisions', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[5], { id: 'last_turn_summary', action: 'truncate', max_chars: 240 });
-    assert.deepEqual(COMPRESSION_STEPS[6], { id: 'last_turn_summary', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[2], { id: 'decision_history', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[3], { id: 'gate_required_files', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[4], { id: 'last_turn_objections', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[5], { id: 'last_turn_decisions', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[6], { id: 'last_turn_summary', action: 'truncate', max_chars: 240 });
+    assert.deepEqual(COMPRESSION_STEPS[7], { id: 'last_turn_summary', action: 'drop' });
   });
 });

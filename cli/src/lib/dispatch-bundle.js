@@ -30,6 +30,8 @@ import {
 } from './turn-paths.js';
 
 const HISTORY_PATH = '.agentxchain/history.jsonl';
+const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
+const DECISION_HISTORY_MAX_ENTRIES = 50;
 const FILE_PREVIEW_MAX_FILES = 5;
 const FILE_PREVIEW_MAX_LINES = 120;
 const PROPOSAL_SUMMARY_MAX_LINES = 80;
@@ -691,6 +693,12 @@ function renderContext(state, config, root, turn, role) {
     }
   }
 
+  // Cumulative decision history from the decision ledger
+  const decisionHistoryLines = renderDecisionHistory(root, warnings);
+  if (decisionHistoryLines.length > 0) {
+    lines.push(...decisionHistoryLines);
+  }
+
   // Blockers / escalation
   if (state.blocked_on) {
     lines.push('## Blockers');
@@ -1100,6 +1108,68 @@ function writeDispatchIndex(root, state, warningsByTurn = {}) {
       2,
     ) + '\n',
   );
+}
+
+/**
+ * Read agent-authored decisions from the decision ledger and render as a
+ * markdown section for CONTEXT.md.
+ *
+ * Returns an array of markdown lines (including the ## header) or an empty
+ * array when there are no agent-authored decisions.
+ */
+function renderDecisionHistory(root, warnings = []) {
+  const ledgerPath = join(root, LEDGER_PATH);
+  if (!existsSync(ledgerPath)) return [];
+
+  let content;
+  try {
+    content = readFileSync(ledgerPath, 'utf8').trim();
+  } catch (err) {
+    warnings.push(`Failed to read ${LEDGER_PATH}: ${err.message}`);
+    return [];
+  }
+  if (!content) return [];
+
+  // Parse all lines, skip malformed ones
+  const rawLines = content.split('\n');
+  const agentDecisions = [];
+  for (const line of rawLines) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line);
+      // Agent-authored decisions have an `id` field; system entries do not
+      if (entry.id) {
+        agentDecisions.push(entry);
+      }
+    } catch {
+      warnings.push(`Skipped malformed decision-ledger line`);
+    }
+  }
+
+  if (agentDecisions.length === 0) return [];
+
+  const totalCount = agentDecisions.length;
+  const displayed = totalCount > DECISION_HISTORY_MAX_ENTRIES
+    ? agentDecisions.slice(totalCount - DECISION_HISTORY_MAX_ENTRIES)
+    : agentDecisions;
+
+  const lines = [];
+  lines.push('## Decision History');
+  lines.push('');
+  lines.push('| ID | Phase | Role | Statement |');
+  lines.push('|----|-------|------|-----------|');
+  for (const d of displayed) {
+    // Escape pipes in statement to avoid breaking the table
+    const stmt = (d.statement || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+    lines.push(`| ${d.id} | ${d.phase || ''} | ${d.role || ''} | ${stmt} |`);
+  }
+  if (totalCount > DECISION_HISTORY_MAX_ENTRIES) {
+    lines.push('');
+    lines.push(`_Showing ${DECISION_HISTORY_MAX_ENTRIES} of ${totalCount} decisions. Full ledger at ${LEDGER_PATH}._`);
+  }
+  lines.push('');
+
+  return lines;
 }
 
 function readLastHistoryEntry(root, warnings = []) {

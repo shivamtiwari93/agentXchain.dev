@@ -8,6 +8,7 @@ const SECTION_DEFINITIONS = [
   { id: 'last_turn_decisions', header: null, required: false },
   { id: 'last_turn_objections', header: null, required: false },
   { id: 'last_turn_verification', header: null, required: false },
+  { id: 'decision_history', header: 'Decision History', required: false },
   { id: 'blockers', header: 'Blockers', required: true },
   { id: 'escalation', header: 'Escalation', required: true },
   { id: 'workflow_artifacts', header: 'Workflow Artifacts', required: false },
@@ -87,6 +88,7 @@ export function renderContextSections(sections) {
     sectionMap.get('last_turn_verification')?.content,
   ]);
 
+  appendTopLevelSection(lines, 'Decision History', [sectionMap.get('decision_history')?.content]);
   appendTopLevelSection(lines, 'Blockers', [sectionMap.get('blockers')?.content]);
   appendTopLevelSection(lines, 'Escalation', [sectionMap.get('escalation')?.content]);
   appendTopLevelSection(lines, 'Workflow Artifacts', [sectionMap.get('workflow_artifacts')?.content]);
