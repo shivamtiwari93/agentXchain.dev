@@ -322,8 +322,8 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /review is required|approving review|branch protection|not authorized to merge/,
-      'workflow must gate admin fallback on branch-protection/self-approval error patterns only',
+      /\[\[ "\$REVIEW_DECISION" != "APPROVED" \]\].*review is required\|approving review\|required approving review\|1 approving review/s,
+      'workflow must gate admin fallback on an unapproved PR plus explicit review-required merge errors',
     );
     // The grep predicate must NOT contain overbroad patterns that match non-deadlock failures
     const grepLine = workflow.split('\n').find(l => l.includes('grep -qiE') && l.includes('review is required'));
@@ -331,6 +331,18 @@ describe('homebrew sync automation contract', () => {
     assert.ok(
       !grepLine.includes('is not clean'),
       'admin-fallback grep must not contain "is not clean" — it matches unrelated mergeability failures (DEC-HOMEBREW-SYNC-010)',
+    );
+    assert.ok(
+      !grepLine.includes('branch protection'),
+      'admin-fallback grep must not contain generic "branch protection" wording — that is broader than the self-approval deadlock',
+    );
+    assert.ok(
+      !grepLine.includes('not authorized to merge'),
+      'admin-fallback grep must not treat generic authorization failures as self-approval deadlock',
+    );
+    assert.ok(
+      !grepLine.includes('admin override'),
+      'admin-fallback grep must not depend on generic admin-override wording',
     );
     assert.match(
       workflow,
