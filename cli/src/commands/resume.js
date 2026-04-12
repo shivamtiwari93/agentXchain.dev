@@ -259,6 +259,7 @@ export async function resumeCommand(opts) {
     console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
     process.exit(1);
   }
+  printAssignmentWarnings(assignResult);
   state = assignResult.state;
 
   // Write dispatch bundle
@@ -412,6 +413,12 @@ function printDispatchHookFailure({ turnId, roleId, hookName, error, hookResults
 function printDispatchBundleWarnings(bundleResult) {
   for (const warning of bundleResult.warnings || []) {
     console.log(chalk.yellow(`Dispatch bundle warning: ${warning}`));
+  }
+}
+
+function printAssignmentWarnings(assignResult) {
+  for (const warning of assignResult.warnings || []) {
+    console.log(chalk.yellow(`Warning: ${warning}`));
   }
 }
 

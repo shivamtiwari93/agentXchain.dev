@@ -166,6 +166,9 @@ export async function acceptTurnCommand(opts = {}) {
   if (accepted?.cost?.usd != null) {
     console.log(`  ${chalk.dim('Cost:')}     $${formatUsd(accepted.cost.usd)}`);
   }
+  if (result.budget_warning) {
+    console.log(`  ${chalk.yellow('Budget warning:')} ${result.budget_warning}`);
+  }
   console.log('');
 
   const recovery = deriveRecoveryDescriptor(result.state);

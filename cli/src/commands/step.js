@@ -293,6 +293,7 @@ export async function stepCommand(opts) {
         console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
         process.exit(1);
       }
+      printAssignmentWarnings(assignResult);
       state = assignResult.state;
 
       const bundleResult = writeDispatchBundle(root, state, config);
@@ -945,6 +946,12 @@ function printRecoverySummary(state, heading) {
 function printDispatchBundleWarnings(bundleResult) {
   for (const warning of bundleResult.warnings || []) {
     console.log(chalk.yellow(`Dispatch bundle warning: ${warning}`));
+  }
+}
+
+function printAssignmentWarnings(assignResult) {
+  for (const warning of assignResult.warnings || []) {
+    console.log(chalk.yellow(`Warning: ${warning}`));
   }
 }
 

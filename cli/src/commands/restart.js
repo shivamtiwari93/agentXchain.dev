@@ -297,6 +297,9 @@ export async function restartCommand(opts) {
       console.log(chalk.red(`Failed to assign turn: ${assignment.error}`));
       process.exit(1);
     }
+    for (const warning of assignment.warnings || []) {
+      console.log(chalk.yellow(`Warning: ${warning}`));
+    }
 
     // assignGovernedTurn already writes a checkpoint at turn_assigned
 
