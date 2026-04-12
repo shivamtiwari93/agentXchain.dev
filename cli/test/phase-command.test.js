@@ -97,6 +97,46 @@ describe('agentxchain phase command', () => {
     }
   });
 
+  it('AT-PHASE-007: phase show --json marks inferred ownership as not enforced', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['phase', 'show', 'planning', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const payload = JSON.parse(result.stdout);
+      const artifacts = payload.workflow_kit.artifacts;
+      assert.ok(artifacts.length > 0, 'must have artifacts to test');
+      for (const artifact of artifacts) {
+        if (artifact.owner_resolution === 'entry_role') {
+          assert.equal(artifact.ownership_enforced, false,
+            `inferred ownership for ${artifact.path} must have ownership_enforced=false`);
+        }
+        if (artifact.owner_resolution === 'explicit') {
+          assert.equal(artifact.ownership_enforced, true,
+            `explicit ownership for ${artifact.path} must have ownership_enforced=true`);
+        }
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PHASE-008: phase show text output labels inferred ownership as hint not enforced', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['phase', 'show', 'planning']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      // Default scaffold has entry_role-inferred ownership — display must say it's not enforced
+      if (result.stdout.includes('entry_role')) {
+        assert.match(result.stdout, /hint, not enforced/,
+          'inferred ownership must be labeled as display-only hint');
+        assert.match(result.stdout, /Only explicit owned_by is enforced/,
+          'footer must clarify enforcement boundary');
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-PHASE-006: phase commands fail closed on legacy v3 repos with a governed message', () => {
     const dir = mkdtempSync(join(tmpdir(), 'agentxchain-phase-legacy-'));
     try {

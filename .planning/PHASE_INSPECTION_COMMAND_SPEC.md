@@ -48,7 +48,7 @@ If `phase` is omitted, the command defaults to the current governed phase from s
 - per-phase timeout override and max concurrent turns when configured
 - workflow-kit source (`default`, `explicit`, or `not_declared`)
 - explicit workflow-kit template id when declared
-- workflow-kit artifacts with owner, ownership resolution, required/optional status, semantics, and filesystem presence
+- workflow-kit artifacts with owner, ownership resolution, `ownership_enforced` flag, required/optional status, semantics, and filesystem presence
 
 ## Behavior
 
@@ -58,6 +58,7 @@ If `phase` is omitted, the command defaults to the current governed phase from s
 4. When raw `workflow_kit` is absent, the command must still expose the normalized default workflow-kit artifacts for standard phases.
 5. When `workflow_kit` is explicit but a phase has no declared entry, the command must report `workflow_source: "not_declared"` instead of pretending defaults apply.
 6. The command is read-only. No config or state mutation.
+7. **Ownership enforcement boundary (DEC-OWNERSHIP-BOUNDARY-001):** Only explicit `owned_by` is enforced at gate evaluation. When `owned_by` is inferred from `entry_role`, `phase show` must display it as a display-only hint with `ownership_enforced: false` in JSON and "(hint, not enforced)" in text output. This aligns the display surface with the runtime gate evaluator contract.
 
 ## Error Cases
 
@@ -74,6 +75,8 @@ If `phase` is omitted, the command defaults to the current governed phase from s
 - **AT-PHASE-004:** `phase show <phase> --json` exposes explicit workflow-kit template and artifact ownership for template-defined phases.
 - **AT-PHASE-005:** `phase show <unknown>` exits `1` with available phase ids.
 - **AT-PHASE-006:** phase commands fail closed on legacy v3 repos with a clear governed/v4 message.
+- **AT-PHASE-007:** `phase show --json` marks inferred ownership as `ownership_enforced: false` and explicit ownership as `ownership_enforced: true`.
+- **AT-PHASE-008:** `phase show` text output labels inferred ownership as "hint, not enforced" with a footer clarifying the enforcement boundary.
 
 ## Open Questions
 

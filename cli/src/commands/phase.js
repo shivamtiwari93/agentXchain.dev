@@ -97,15 +97,17 @@ function showPhase(requestedPhaseId, { root, config, rawConfig, state, phaseIds,
   console.log(`  ${chalk.dim('Artifacts:')}`);
   for (const artifact of phase.workflow_kit.artifacts) {
     const icon = artifact.exists ? chalk.green('✓') : (artifact.required ? chalk.red('✗') : chalk.yellow('○'));
-    const owner = artifact.owned_by
-      ? `${artifact.owned_by}${artifact.owner_resolution === 'entry_role' ? '*' : ''}`
-      : 'none';
+    const ownerLabel = artifact.owner_resolution === 'explicit'
+      ? artifact.owned_by
+      : artifact.owner_resolution === 'entry_role'
+        ? `${chalk.dim(artifact.owned_by + ' (hint, not enforced)')}`
+        : 'none';
     const semantics = artifact.semantics || 'none';
     const required = artifact.required ? 'required' : 'optional';
-    console.log(`    ${icon} ${artifact.path} [${required}] [owner: ${owner}] [semantics: ${semantics}]`);
+    console.log(`    ${icon} ${artifact.path} [${required}] [owner: ${ownerLabel}] [semantics: ${semantics}]`);
   }
   if (phase.workflow_kit.artifacts.some((artifact) => artifact.owner_resolution === 'entry_role')) {
-    console.log(`    ${chalk.dim('* = ownership inferred from entry_role')}`);
+    console.log(`    ${chalk.dim('Hint: inferred ownership from entry_role is display-only. Only explicit owned_by is enforced at gate evaluation.')}`);
   }
   console.log('');
 }
@@ -132,6 +134,7 @@ function buildPhaseRecord(root, config, rawConfig, state, phaseId) {
       semantics: artifact.semantics || null,
       owned_by: ownedBy,
       owner_resolution: hasExplicitOwner ? 'explicit' : (ownedBy ? 'entry_role' : 'unowned'),
+      ownership_enforced: hasExplicitOwner,
       exists: existsSync(join(root, artifact.path)),
     };
   });

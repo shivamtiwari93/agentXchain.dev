@@ -280,7 +280,9 @@ These commands expose the governed workflow contract directly instead of forcing
 - per-phase timeout override and max concurrent turns when configured
 - workflow-kit source (`default`, `explicit`, or `not_declared`)
 - explicit workflow-kit template id when declared
-- workflow artifacts with owner, ownership resolution, required/optional status, semantics, and filesystem presence
+- workflow artifacts with owner, ownership resolution, enforcement status, required/optional status, semantics, and filesystem presence
+
+**Ownership enforcement boundary:** Only explicit `owned_by` fields are enforced at gate evaluation. When ownership is inferred from `entry_role`, `phase show` labels it as a display-only hint (`ownership_enforced: false` in JSON, "(hint, not enforced)" in text). This prevents operators from assuming inferred ownership will block phase advancement when it will not.
 
 If `phase` is omitted, `phase show` defaults to the current governed phase from state. If no current phase is available, it falls back to the first routing phase.
 
