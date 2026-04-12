@@ -91,6 +91,7 @@ cd my-agentxchain-project
 git init
 agentxchain template validate
 agentxchain doctor
+agentxchain connector check
 git add -A
 git commit -m "initial governed scaffold"
 agentxchain status

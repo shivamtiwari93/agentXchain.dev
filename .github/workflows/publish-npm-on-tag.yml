@@ -202,7 +202,7 @@ jobs:
           MERGE_ERR="$(gh pr merge "$PR_NUMBER" --squash --delete-branch 2>&1)" && MERGE_OK=true || MERGE_OK=false
           if [[ "$MERGE_OK" == "true" ]]; then
             echo "Homebrew mirror PR #${PR_NUMBER} merge initiated."
-          elif echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|branch protection|not authorized to merge|is not clean|admin override'; then
+          elif echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|branch protection|not authorized to merge|admin override'; then
             echo "::warning::Regular merge blocked by branch protection (self-approval deadlock). Falling back to --admin merge."
             echo "::warning::Merge error was: ${MERGE_ERR}"
             gh pr merge "$PR_NUMBER" --squash --delete-branch --admin

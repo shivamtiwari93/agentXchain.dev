@@ -41,6 +41,7 @@ describe('agentxchain demo', () => {
     assert.match(output, /Next steps:/);
     assert.match(output, /agentxchain init --governed --goal/);
     assert.match(output, /agentxchain doctor/);
+    assert.match(output, /agentxchain connector check/);
     assert.match(output, /agentxchain run/);
     assert.match(output, /https:\/\/agentxchain\.dev\/docs\/quickstart/);
   });
