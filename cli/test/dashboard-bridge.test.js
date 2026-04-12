@@ -249,6 +249,10 @@ function createTestFixture() {
     JSON.stringify({ type: 'turn_dispatched', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001' }) + '\n' +
     JSON.stringify({ type: 'acceptance_projection', repo_id: 'api', workstream_id: 'backend', summary: 'API accepted', repo_turn_id: 'turn_api_001' }) + '\n'
   );
+  writeFileSync(join(multiDir, 'decision-ledger.jsonl'),
+    JSON.stringify({ turn: 'coord_001', role: 'architect', decision: 'Freeze integration boundary', timestamp: '2026-04-12T12:00:00Z' }) + '\n' +
+    JSON.stringify({ turn: 'coord_002', role: 'pm', decision: 'Escalate gate approval', timestamp: '2026-04-12T12:05:00Z' }) + '\n'
+  );
   writeJson(join(multiDir, 'barriers.json'), {
     backend_completion: {
       workstream_id: 'backend',
@@ -400,6 +404,16 @@ describe('Dashboard Bridge Server', () => {
       const data = JSON.parse(res.body);
       assert.equal(data.super_run_id, 'srun_test_001');
       assert.equal(data.pending_gate.gate_type, 'phase_transition');
+    });
+
+    it('GET /api/coordinator/ledger returns multirepo decision-ledger.jsonl as array', async () => {
+      const res = await httpGet(port, '/api/coordinator/ledger');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      assert.equal(data.length, 2);
+      assert.equal(data[0].decision, 'Freeze integration boundary');
+      assert.equal(data[1].role, 'pm');
     });
 
     it('GET /api/coordinator/barriers returns barrier snapshot', async () => {

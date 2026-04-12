@@ -281,6 +281,33 @@ describe('Ledger View', () => {
     assert.ok(html.includes('user&#39;s'));
     assert.ok(!html.includes("value=\"pm's\""));
   });
+
+  it('renders coordinator decisions when only coordinator context exists', () => {
+    const html = renderLedger({
+      coordinatorState: { super_run_id: 'srun_001' },
+      coordinatorLedger: [
+        { turn: 'coord-1', role: 'architect', decision: 'Freeze repo contract', timestamp: '2026-04-12T16:00:00Z' },
+      ],
+    });
+
+    assert.ok(html.includes('Coordinator Decision Ledger'));
+    assert.ok(html.includes('Freeze repo contract'));
+    assert.ok(!html.includes('No decisions recorded yet.'));
+  });
+
+  it('renders both repo-local and coordinator sections when both ledgers exist', () => {
+    const html = renderLedger({
+      state: { run_id: 'run_001' },
+      ledger: [{ turn: 1, agent: 'pm', decision: 'Approve scope' }],
+      coordinatorState: { super_run_id: 'srun_001' },
+      coordinatorLedger: [{ turn: 'coord-1', role: 'architect', decision: 'Sync repos' }],
+    });
+
+    assert.ok(html.includes('Repo Decision Ledger'));
+    assert.ok(html.includes('Coordinator Decision Ledger'));
+    assert.ok(html.includes('Approve scope'));
+    assert.ok(html.includes('Sync repos'));
+  });
 });
 
 // ── Hooks View ─────────────────────────────────────────────────────────────

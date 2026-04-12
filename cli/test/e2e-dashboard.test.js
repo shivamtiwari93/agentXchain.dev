@@ -294,6 +294,10 @@ function coordinatorFixture() {
       { type: 'context_generated', timestamp: '2026-04-02T12:03:00Z', target_repo_id: 'web', workstream_id: 'frontend', upstream_repo_ids: ['api'] },
       { type: 'phase_transition_requested', timestamp: '2026-04-02T12:04:00Z', gate: 'phase_transition:implementation->qa', from: 'implementation', to: 'qa', required_repos: ['api', 'web'] },
     ],
+    ledger: [
+      { turn: 'coord-1', role: 'architect', decision: 'Freeze shared API schema', timestamp: '2026-04-02T12:00:30Z' },
+      { turn: 'coord-2', role: 'pm', decision: 'Approve integration handoff', timestamp: '2026-04-02T12:03:30Z' },
+    ],
     barriers: {
       backend_completion: {
         workstream_id: 'backend',
@@ -362,6 +366,7 @@ function writeCoordinatorFixture(agentxchainDir) {
   writeJson(join(workspaceDir, 'agentxchain-multi.json'), coordinatorConfigFixture());
   writeJson(join(multiDir, 'state.json'), data.state);
   writeJsonl(join(multiDir, 'history.jsonl'), data.history);
+  writeJsonl(join(multiDir, 'decision-ledger.jsonl'), data.ledger);
   writeJson(join(multiDir, 'barriers.json'), data.barriers);
   writeJsonl(join(multiDir, 'barrier-ledger.jsonl'), data.barrierLedger);
   writeJsonl(join(multiDir, 'hook-audit.jsonl'), data.audit);
@@ -665,5 +670,24 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(gateHtml.includes('API integration accepted'));
     assert.ok(blockedHtml.includes('coordinator_hook_violation'));
     assert.ok(blockedHtml.includes('release-guard'));
+  });
+
+  it('AT-DASH-MR-003 renders coordinator decisions in the shared Decisions view', async () => {
+    writeCoordinatorFixture(agentxchainDir);
+
+    const coordinatorState = await getJson(port, '/api/coordinator/state');
+    const coordinatorLedger = await getJson(port, '/api/coordinator/ledger');
+
+    const ledgerHtml = renderLedger({
+      state: null,
+      ledger: null,
+      coordinatorState,
+      coordinatorLedger,
+      filter: { agent: 'all', query: '' },
+    });
+
+    assert.ok(ledgerHtml.includes('Coordinator Decision Ledger'));
+    assert.ok(ledgerHtml.includes('Freeze shared API schema'));
+    assert.ok(ledgerHtml.includes('Approve integration handoff'));
   });
 });

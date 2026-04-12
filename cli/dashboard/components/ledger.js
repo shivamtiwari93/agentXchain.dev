@@ -79,12 +79,7 @@ function hasObjections(entry) {
   return Array.isArray(entry.objections) && entry.objections.length > 0;
 }
 
-export function render({ ledger, filter = {} }) {
-  if (!ledger || ledger.length === 0) {
-    return `<div class="placeholder"><h2>Decision Ledger</h2><p>No decisions recorded yet.</p></div>`;
-  }
-
-  const filtered = filterEntries(ledger, filter);
+function renderFilterBar(ledger, filter) {
   const selectedAgent = filter.agent || 'all';
   const selectedPhase = filter.phase || 'all';
   const dateFrom = filter.dateFrom || '';
@@ -93,56 +88,57 @@ export function render({ ledger, filter = {} }) {
   const agents = collectAgents(ledger);
   const phases = collectPhases(ledger);
 
-  let html = `<div class="ledger-view">
-    <div class="section"><h3>Decision Ledger</h3>
-    <p class="section-subtitle">${filtered.length} of ${ledger.length} decision${ledger.length !== 1 ? 's' : ''} shown</p>
-    <div class="filter-bar">
-      <label class="filter-control">
-        <span>Agent</span>
-        <select data-view-control="ledger-agent">
-          <option value="all"${selectedAgent === 'all' ? ' selected' : ''}>All roles</option>
-          ${agents.map((agent) => `<option value="${esc(agent)}"${selectedAgent === agent ? ' selected' : ''}>${esc(agent)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="filter-control">
-        <span>Phase</span>
-        <select data-view-control="ledger-phase">
-          <option value="all"${selectedPhase === 'all' ? ' selected' : ''}>All phases</option>
-          ${phases.map((p) => `<option value="${esc(p)}"${selectedPhase === p ? ' selected' : ''}>${esc(p)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="filter-control">
-        <span>Search</span>
-        <input
-          type="search"
-          data-view-control="ledger-query"
-          value="${esc(query)}"
-          placeholder="Filter by role or decision"
-          autocomplete="off"
-        >
-      </label>
-      <label class="filter-control">
-        <span>From</span>
-        <input
-          type="date"
-          data-view-control="ledger-date-from"
-          value="${esc(dateFrom)}"
-          autocomplete="off"
-        >
-      </label>
-      <label class="filter-control">
-        <span>To</span>
-        <input
-          type="date"
-          data-view-control="ledger-date-to"
-          value="${esc(dateTo)}"
-          autocomplete="off"
-        >
-      </label>
-    </div>
-    <table class="data-table">
-      <thead><tr><th>Turn</th><th>Agent</th><th>Decision</th><th>Timestamp</th></tr></thead>
-      <tbody>`;
+  return `<div class="filter-bar">
+    <label class="filter-control">
+      <span>Agent</span>
+      <select data-view-control="ledger-agent">
+        <option value="all"${selectedAgent === 'all' ? ' selected' : ''}>All roles</option>
+        ${agents.map((agent) => `<option value="${esc(agent)}"${selectedAgent === agent ? ' selected' : ''}>${esc(agent)}</option>`).join('')}
+      </select>
+    </label>
+    <label class="filter-control">
+      <span>Phase</span>
+      <select data-view-control="ledger-phase">
+        <option value="all"${selectedPhase === 'all' ? ' selected' : ''}>All phases</option>
+        ${phases.map((p) => `<option value="${esc(p)}"${selectedPhase === p ? ' selected' : ''}>${esc(p)}</option>`).join('')}
+      </select>
+    </label>
+    <label class="filter-control">
+      <span>Search</span>
+      <input
+        type="search"
+        data-view-control="ledger-query"
+        value="${esc(query)}"
+        placeholder="Filter by role or decision"
+        autocomplete="off"
+      >
+    </label>
+    <label class="filter-control">
+      <span>From</span>
+      <input
+        type="date"
+        data-view-control="ledger-date-from"
+        value="${esc(dateFrom)}"
+        autocomplete="off"
+      >
+    </label>
+    <label class="filter-control">
+      <span>To</span>
+      <input
+        type="date"
+        data-view-control="ledger-date-to"
+        value="${esc(dateTo)}"
+        autocomplete="off"
+      >
+    </label>
+  </div>`;
+}
+
+function renderLedgerTable(entries, filter) {
+  const filtered = filterEntries(entries, filter);
+  let html = `<table class="data-table">
+    <thead><tr><th>Turn</th><th>Agent</th><th>Decision</th><th>Timestamp</th></tr></thead>
+    <tbody>`;
 
   if (filtered.length === 0) {
     html += `<tr><td colspan="4">No decisions match the current filters.</td></tr>`;
@@ -160,6 +156,65 @@ export function render({ ledger, filter = {} }) {
     }
   }
 
-  html += `</tbody></table></div></div>`;
+  html += `</tbody></table>`;
+  return { html, filteredCount: filtered.length };
+}
+
+function buildSections({ ledger, coordinatorLedger, state, coordinatorState }) {
+  const sections = [];
+  const hasRepoContext = Boolean(state) || (Array.isArray(ledger) && ledger.length > 0);
+  const hasCoordinatorContext = Boolean(coordinatorState) || (Array.isArray(coordinatorLedger) && coordinatorLedger.length > 0);
+
+  if (hasRepoContext) {
+    sections.push({
+      title: hasCoordinatorContext ? 'Repo Decision Ledger' : 'Decision Ledger',
+      entries: Array.isArray(ledger) ? ledger : [],
+      emptyMessage: 'No repo-local decisions recorded yet.',
+    });
+  }
+
+  if (hasCoordinatorContext) {
+    sections.push({
+      title: hasRepoContext ? 'Coordinator Decision Ledger' : 'Coordinator Decision Ledger',
+      entries: Array.isArray(coordinatorLedger) ? coordinatorLedger : [],
+      emptyMessage: 'No coordinator decisions recorded yet.',
+    });
+  }
+
+  return sections;
+}
+
+export function render({
+  ledger,
+  coordinatorLedger = null,
+  state = null,
+  coordinatorState = null,
+  filter = {},
+}) {
+  const sections = buildSections({ ledger, coordinatorLedger, state, coordinatorState });
+  if (sections.length === 0) {
+    return `<div class="placeholder"><h2>Decision Ledger</h2><p>No decisions recorded yet.</p></div>`;
+  }
+
+  const combinedLedger = sections.flatMap((section) => section.entries);
+  let html = `<div class="ledger-view">
+    <div class="section"><h3>Decisions</h3>
+    <p class="section-subtitle">${sections.length === 1 ? 'Decision ledger surface' : 'Repo-local and coordinator decision ledgers'}</p>
+    ${renderFilterBar(combinedLedger, filter)}
+    </div>`;
+
+  for (const section of sections) {
+    const { html: tableHtml, filteredCount } = renderLedgerTable(section.entries, filter);
+    html += `<div class="section"><h3>${section.title}</h3>
+      <p class="section-subtitle">${filteredCount} of ${section.entries.length} decision${section.entries.length !== 1 ? 's' : ''} shown</p>`;
+    if (section.entries.length === 0) {
+      html += `<div class="placeholder compact"><p>${section.emptyMessage}</p></div>`;
+    } else {
+      html += tableHtml;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
   return html;
 }
