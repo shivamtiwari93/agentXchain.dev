@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.62.0
+# Launch Evidence Report — AgentXchain v2.63.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.62.0 release: budget warn mode (`on_exceed: "warn"`) for non-blocking budget enforcement, `config --get` for dot-path inspection, report warn-mode visibility fix, and scalar-config docs truth across timeout/recovery surfaces.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-11 for the v2.63.0 release: budget warn mode (`on_exceed: "warn"`) for non-blocking budget enforcement, `config --get` for dot-path inspection, report warn-mode visibility fix, and scalar-config docs truth across timeout/recovery surfaces.
 
 ---
 

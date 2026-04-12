@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.62.0
+## 2.63.0
 
-`2.62.0` ships budget warn mode (`on_exceed: "warn"`), config inspection (`config --get`), report warn-mode visibility, and scalar-config docs truth across timeout/recovery/getting-started surfaces.
+`2.63.0` ships budget warn mode (`on_exceed: "warn"`), config inspection (`config --get`), report warn-mode visibility, and scalar-config docs truth across timeout/recovery/getting-started surfaces.
 
 - `budget.on_exceed: "warn"` allows runs to continue past budget exhaustion with observable `[OVER BUDGET]` status, `budget_exceeded_warn` events, and CLI advisories on `accept-turn`, `step`, `resume`, and `restart`
 - `agentxchain config --get <path>` provides dot-path config inspection for governed and legacy repos; `--get` and `--set` are mutually exclusive
