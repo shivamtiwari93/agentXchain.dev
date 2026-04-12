@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.64.0
+# Launch Evidence Report — AgentXchain v2.65.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.64.0 release: phase inspection, gate inspection with runtime-truthful evaluation, ownership enforcement boundary, and verify turn replay.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.65.0 release: reproducible verification as a first-class acceptance policy, machine-evidence replay enforcement at the governed acceptance boundary.
 
 ---
 
