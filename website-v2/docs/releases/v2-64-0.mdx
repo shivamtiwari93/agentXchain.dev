@@ -1,0 +1,31 @@
+---
+title: "v2.64.0 Release Notes"
+description: "Phase inspection, gate inspection with runtime-truthful evaluation, ownership enforcement boundary, and verify turn replay."
+---
+
+# AgentXchain v2.64.0
+
+`v2.64.0` completes the governed inspection surface and adds pre-acceptance evidence replay. Every governed concept now has a dedicated read-only CLI command, and operators can verify staged turn evidence before accepting.
+
+## What Changed
+
+- `agentxchain phase list` and `phase show [phase]` inspect governed workflow routing: phase order, entry roles, exit gates, workflow-kit artifacts, next-role constraints, and per-phase timeout overrides. Default workflow-kit artifacts are surfaced when no explicit `workflow_kit` is declared. `--json` supported.
+- `agentxchain gate list` and `gate show <gate_id>` inspect governed gate contracts: linked phase, required artifacts, human-approval flags, verification status, and last failure details. `gate show --evaluate` provides a live readiness snapshot using runtime gate semantics (merged workflow-kit artifacts, semantic validators, explicit ownership participation, latest accepted-turn verification). `--json` supported.
+- `agentxchain verify turn [turn_id]` replays a staged turn's declared `verification.machine_evidence` commands and compares actual exit codes to declared exit codes. Reports `match`, `mismatch`, or `not_reproducible` without mutating state. Validates the staged result structure before replay. `--json` and `--timeout <ms>` supported.
+- `phase show` now distinguishes explicit `owned_by` (enforced at gate evaluation) from `entry_role`-inferred ownership (display hint only). JSON output includes `ownership_enforced` boolean; text output labels inferred ownership as `"(hint, not enforced)"`.
+- Gate inspection uses the runtime's effective gate contract: `gates.requires_files` merged with additive `workflow_kit` artifacts, semantic validators, and explicit artifact ownership — not a weaker approximation.
+
+## Why It Matters
+
+Before this release, operators could inspect config, status, roles, and active turns, but the governed workflow itself (phases, gates) was raw-JSON territory. `config --get routing` is not a real operator surface. With this release, every governed concept — config, status, roles, turns, phases, gates, proposals, events, history, reports, and exports — has a first-party CLI inspection command.
+
+The `verify turn` command closes the gap between structural validation (`validate --mode turn`) and acceptance (`accept-turn`). Operators can now replay declared machine evidence and see whether the current workspace reproduces the agent's claimed results before committing to acceptance.
+
+## Evidence
+
+- 59 tests / 13 suites / 0 failures (combined inspection + verify-turn suite)
+- Phase proof: `node --test cli/test/phase-command.test.js` (8 tests including ownership boundary assertions)
+- Gate proof: `node --test cli/test/gate-command.test.js` (9 tests including semantic evaluation and workflow-kit additive artifacts)
+- Verify-turn proof: `node --test cli/test/verify-turn-command.test.js` (8 tests covering match, mismatch, not_reproducible, reproduced failure, multi-turn targeting, validation short-circuit, legacy fail-closed)
+- Docs proof: phase, gate, turn, and verify-turn docs contract tests plus command-map guards
+- `cd website-v2 && npm run build` -> clean production build

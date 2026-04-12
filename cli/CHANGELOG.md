@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.64.0
+
+`2.64.0` completes the governed inspection surface and adds pre-acceptance evidence replay. Every governed concept now has a dedicated read-only CLI command.
+
+- `agentxchain phase list` and `phase show [phase]` inspect governed workflow routing with phase order, entry roles, exit gates, workflow-kit artifacts, and next-role constraints
+- `agentxchain gate list` and `gate show <gate_id>` inspect governed gate contracts with `--evaluate` for live readiness snapshots using runtime gate semantics (merged workflow-kit artifacts, semantic validators, explicit ownership participation)
+- `agentxchain verify turn [turn_id]` replays staged turn `verification.machine_evidence` commands and compares actual exit codes to declared exit codes, reporting match/mismatch/not_reproducible without mutating state
+- `phase show` now distinguishes explicit `owned_by` (enforced) from `entry_role`-inferred ownership (display hint only) with `ownership_enforced` boolean in JSON
+- 59 tests / 13 suites / 0 failures (combined inspection + verify-turn suite)
+- Targeted proof covers phase inspection (8 tests), gate inspection (9 tests including semantic evaluation), verify-turn (8 tests), docs contract guards, and a clean Docusaurus production build
+
 ## 2.63.0
 
 `2.63.0` ships two new operator inspection surfaces — `agentxchain role` and `agentxchain turn` — plus Homebrew release-path hardening.
