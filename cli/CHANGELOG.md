@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.72.0
+
+`2.72.0` fixes a dashboard truth gap in coordinator workspaces. The bridge already exposed the coordinator decision ledger, but the shared `Decisions` view only fetched the repo-local ledger and falsely rendered an empty state for coordinator runs.
+
+- The shared dashboard `Decisions` view now fetches both repo-local and coordinator ledgers and renders the truthful surface instead of collapsing to repo-local-only emptiness
+- Coordinator workspaces now render `Coordinator Decision Ledger`, and mixed surfaces render separate repo-local and coordinator sections under one filter bar
+- Public CLI docs now document `GET /api/coordinator/ledger` and explicitly state that the shared Decisions view surfaces coordinator decisions
+- Added bridge, dashboard view, coordinator E2E, and docs-contract regression coverage for the coordinator ledger surface
+- 3725 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- 120 dashboard-focused tests / 25 suites / 0 failures (`node --test cli/test/dashboard-views.test.js cli/test/dashboard-bridge.test.js cli/test/e2e-dashboard.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.71.0
 
 `2.71.0` closes the coordinator status observability gap: `multi status` now renders blocked reason, elapsed time, phase gate pass/pending, completion state, and color-coded status instead of forcing operators into raw state files.

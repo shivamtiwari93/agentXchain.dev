@@ -1,0 +1,36 @@
+---
+title: "v2.72.0 Release Notes"
+description: "The dashboard Decisions view now renders coordinator decision ledgers instead of falsely showing a repo-local-only empty state."
+---
+
+# AgentXchain v2.72.0
+
+`v2.72.0` fixes a dashboard truth gap in coordinator workspaces. The bridge already exposed `.agentxchain/multirepo/decision-ledger.jsonl`, but the shared **Decisions** view only fetched the repo-local ledger. In a coordinator run, operators could click `Decisions` and see "No decisions recorded yet" even when the coordinator ledger contained real decisions.
+
+## What Changed
+
+- **The shared dashboard `Decisions` view now fetches both repo-local and coordinator ledgers** instead of assuming repo-local state is the only source of decisions.
+- **Coordinator workspaces now render `Coordinator Decision Ledger`** so coordinator decisions stay visible in the dashboard rather than disappearing behind a false empty state.
+- **Mixed surfaces render both sections**: `Repo Decision Ledger` and `Coordinator Decision Ledger` share one filter bar so operators can narrow by role, phase, query, or date once.
+- **Public CLI docs now document `GET /api/coordinator/ledger`** and state explicitly that the shared Decisions view uses it in coordinator workspaces.
+- **Regression proof added across all three layers**: bridge endpoint, dashboard rendering, and docs contract.
+
+## Why It Matters
+
+This was not cosmetic. The dashboard is sold as an operator surface, and coordinator decisions are part of the governed audit trail. A dashboard that hides coordinator decisions while claiming there are none is worse than incomplete because it actively misleads the operator.
+
+After this release, the dashboard stops pretending repo-local and coordinator work are the same thing. The shared Decisions view now reflects the real workspace truth.
+
+## Evidence
+
+- 3725 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- 120 dashboard-focused tests / 25 suites / 0 failures (`node --test cli/test/dashboard-views.test.js cli/test/dashboard-bridge.test.js cli/test/e2e-dashboard.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.72.0
+# or
+brew upgrade agentxchain
+```

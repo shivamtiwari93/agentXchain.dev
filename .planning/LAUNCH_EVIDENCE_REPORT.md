@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.71.0
+# Launch Evidence Report — AgentXchain v2.72.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.71.0 release: coordinator reports now surface coordinator-level governance exceptions in JSON, text, and markdown, with docs and coordinator narrative proof aligned to the shipped audit surface.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.72.0 release: the dashboard Decisions view now surfaces coordinator decision ledgers truthfully via the shared operator surface instead of collapsing to a false repo-local empty state.
 
 ---
 
