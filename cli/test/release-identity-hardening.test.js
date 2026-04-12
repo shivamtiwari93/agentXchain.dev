@@ -397,6 +397,8 @@ describe('Release identity hardening', () => {
       }).trim();
       assert.equal(tagTarget, headSha, 'annotated tag must dereference to HEAD');
       assert.match(result.stdout, /Release identity created successfully/);
+      assert.match(result.stdout, /Phase 1.*stale SHA/i, 'success banner must remind operator of Phase 1 stale-SHA state');
+      assert.match(result.stdout, /sync-homebrew/, 'success banner must mention sync-homebrew.sh for Phase 3');
     });
   });
 

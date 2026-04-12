@@ -1,0 +1,28 @@
+---
+title: "v2.63.0 Release Notes"
+description: "Role inspection, turn/dispatch inspection, Homebrew SHA prep guard, and release-bump Phase 1 reminder."
+---
+
+# AgentXchain v2.63.0
+
+`v2.63.0` ships two new operator inspection surfaces — `agentxchain role` and `agentxchain turn` — plus Homebrew release-path hardening.
+
+## What Changed
+
+- `agentxchain role list` and `role show <role_id>` provide dedicated read-only inspection of governed role definitions with `--json` support. Color-coded authority levels (green=authoritative, yellow=proposed, dim=review_only). Fails closed on ungoverned and legacy v3 repos.
+- `agentxchain turn show [turn_id]` inspects active governed turn dispatch bundles — assignment, prompt, context, and manifest artifacts. Defaults to the single active turn. Supports `--artifact <name>` for raw artifact output and `--json` for structured metadata. Fails closed on no-active-turn, multi-active-without-id, and unknown artifacts.
+- `release-bump.sh` now carries the Homebrew SHA deterministically from `HEAD:cli/homebrew/agentxchain.rb` instead of trusting the working tree. Hand-edited target-version SHAs are normalized back to the committed value.
+- `release-bump.sh` success banner now explicitly reminds operators that the Homebrew mirror is in Phase 1 (stale SHA) until `sync-homebrew.sh` runs post-publish.
+
+## Why It Matters
+
+Every major governed concept — templates, plugins, proposals, events, history — already had a dedicated CLI surface. Roles and active turn dispatch did not. Operators had to use `config --get roles` (raw JSON dump) or manually inspect `.agentxchain/dispatch/turns/` files. These two commands close the operator-surface asymmetry so every governed concept is inspectable through first-party CLI commands.
+
+## Evidence
+
+- 64 tests / 18 suites / 0 failures (combined role + turn + release-identity suite)
+- Role proof: `node --test cli/test/role-command.test.js` (7 tests including AT-ROLE-007 legacy v3 rejection)
+- Turn proof: `node --test cli/test/turn-command.test.js` (6 E2E subprocess tests)
+- Docs proof: `node --test cli/test/docs-cli-command-map-content.test.js cli/test/docs-turn-command-content.test.js` (10 tests)
+- `cd website-v2 && npm run build` -> clean production build
+

@@ -378,4 +378,7 @@ if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then
   echo "  npm run preflight:release:strict -- --target-version ${TARGET_VERSION}"
 fi
 echo ""
+echo "Homebrew mirror is in Phase 1 (stale SHA from previous version)."
+echo "After npm publish completes, run sync-homebrew.sh to reach Phase 3."
+echo ""
 echo "Next: git push origin main --follow-tags"

@@ -38,6 +38,9 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
 | `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
+| `role list` | Inspection | List all defined roles with title, authority, and runtime |
+| `role show` | Inspection | Show detailed information for a single role |
+| `turn show` | Inspection | Inspect an active turn's dispatch bundle and read selected artifacts without raw file browsing |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
@@ -207,6 +210,51 @@ agentxchain template set <id> [--yes] [--dry-run]
 Annotates an existing governed project with a template. This command is additive by design: it updates the config `template` field, creates missing planning artifacts, appends prompt guidance once, appends template guidance to `acceptance-matrix.md` once, and records the change in `.agentxchain/decision-ledger.jsonl`. It does **not** overwrite operator-authored planning docs or replace existing template-guidance blocks.
 
 Blueprint-backed templates are the explicit exception. `template set enterprise-app` fails closed because rewriting `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit` inside an existing repo is not an additive mutation. Use `init --governed --template enterprise-app` for new repos instead. See [Templates](/docs/templates) for the full mutation semantics.
+
+### `role list`
+
+```bash
+agentxchain role list [--json]
+```
+
+Lists all governed roles with their title, write authority, and runtime. Use `--json` for machine-readable output with all role fields (`id`, `title`, `mandate`, `write_authority`, `runtime`).
+
+### `role show`
+
+```bash
+agentxchain role show <role_id> [--json]
+```
+
+Shows detailed information for a single role: title, mandate, write authority, and runtime. Exits 1 with available role IDs if the requested role does not exist.
+
+### `turn show`
+
+```bash
+agentxchain turn show [turn_id] [--artifact <name>] [--json]
+```
+
+Inspects the active governed turn and its dispatch bundle under `.agentxchain/dispatch/turns/<turn_id>/`. If exactly one active turn exists, you can omit `turn_id`. If multiple active turns exist, pass the `turn_id` explicitly so the operator target is unambiguous.
+
+Without `--artifact`, the command prints turn metadata plus the dispatch paths for `ASSIGNMENT.json`, `PROMPT.md`, `CONTEXT.md`, and `MANIFEST.json`. This is the first-party inspection path for the live turn contract; operators should not have to browse raw repo paths just to answer "what was this turn told?" or "where is the staged result supposed to go?"
+
+Use `--artifact` to print one artifact directly:
+
+- `assignment` — machine-readable turn envelope
+- `prompt` — generated `PROMPT.md`
+- `context` — generated `CONTEXT.md`
+- `manifest` — dispatch bundle manifest with file hashes and sizes
+
+Allowed artifact ids are `assignment`, `prompt`, `context`, or `manifest`.
+
+Examples:
+
+```bash
+agentxchain turn show
+agentxchain turn show turn_1234abcd --artifact prompt
+agentxchain turn show --artifact assignment --json
+```
+
+`--json` returns structured turn metadata by default. When combined with `--artifact assignment` or `--artifact manifest`, it returns the parsed JSON artifact content instead of raw filesystem output.
 
 ### `status`
 

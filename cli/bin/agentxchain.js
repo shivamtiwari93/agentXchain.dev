@@ -86,6 +86,8 @@ import {
 } from '../src/commands/plugin.js';
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
+import { roleCommand } from '../src/commands/role.js';
+import { turnShowCommand } from '../src/commands/turn.js';
 import { templateValidateCommand } from '../src/commands/template-validate.js';
 import {
   multiInitCommand,
@@ -484,6 +486,33 @@ templateCmd
   .description('Validate the built-in governed template registry and current project template binding')
   .option('-j, --json', 'Output as JSON')
   .action(templateValidateCommand);
+
+const roleCmd = program
+  .command('role')
+  .description('Inspect governed role definitions');
+
+roleCmd
+  .command('list')
+  .description('List all defined roles with title, authority, and runtime')
+  .option('-j, --json', 'Output as JSON')
+  .action((opts) => roleCommand('list', null, opts));
+
+roleCmd
+  .command('show <role_id>')
+  .description('Show detailed information for a single role')
+  .option('-j, --json', 'Output as JSON')
+  .action((roleId, opts) => roleCommand('show', roleId, opts));
+
+const turnCmd = program
+  .command('turn')
+  .description('Inspect active governed turn dispatch bundles');
+
+turnCmd
+  .command('show [turn_id]')
+  .description('Show a selected active turn and its dispatch artifacts')
+  .option('--artifact <name>', 'Print one artifact: assignment, prompt, context, or manifest')
+  .option('-j, --json', 'Output as JSON')
+  .action(turnShowCommand);
 
 const multiCmd = program
   .command('multi')
