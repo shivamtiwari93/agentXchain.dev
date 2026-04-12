@@ -41,7 +41,7 @@ A new `## Decision History` section in `CONTEXT.md`, placed after "Last Accepted
 
 - **Max entries**: 50 most recent agent-authored decisions. If more exist, include the 50 most recent and add a note: `_Showing 50 of N decisions. Full ledger at .agentxchain/decision-ledger.jsonl._`
 - **Filter**: Only include entries with an `id` field (agent-authored). Exclude system entries (gate failures, escalations, policy actions, conflict resolutions).
-- **Compression**: Decision History is compressible context. In `context-compressor.js`, it should be dropped before objections but after gate status (priority: gate files > objections > decisions > gate status > budget).
+- **Compression**: Decision History is compressible context. In `context-compressor.js`, it is dropped after `phase_gate_status` and before `gate_required_files`, `last_turn_objections`, and `last_turn_decisions`.
 - **Empty ledger**: If no agent-authored decisions exist, omit the section entirely.
 
 ## Behavior

@@ -20,8 +20,18 @@ function makeParams(overrides = {}) {
   };
 }
 
-// Helper: build a realistic CONTEXT.md with all sections
-function buildFullContext({ budgetLines, summary, decisions, objections, blockers, gateFiles, gateStatus } = {}) {
+// Helper: build a realistic CONTEXT.md with the current section set
+function buildFullContext({
+  budgetLines,
+  projectGoal,
+  inheritedContext,
+  summary,
+  decisions,
+  objections,
+  blockers,
+  gateFiles,
+  gateStatus,
+} = {}) {
   const lines = [];
   lines.push('# Execution Context');
   lines.push('');
@@ -34,6 +44,19 @@ function buildFullContext({ budgetLines, summary, decisions, objections, blocker
     lines.push('- **Budget remaining:** $9.95');
   }
   lines.push('');
+  if (projectGoal !== false) {
+    lines.push('## Project Goal');
+    lines.push('');
+    lines.push(projectGoal || 'Ship a governed implementation without losing context under token pressure.');
+    lines.push('');
+  }
+  if (inheritedContext !== false) {
+    lines.push('## Inherited Run Context');
+    lines.push('');
+    lines.push('- **Parent run:** run_parent');
+    lines.push('- **Parent status:** completed');
+    lines.push('');
+  }
   lines.push('## Last Accepted Turn');
   lines.push('');
   lines.push('- Turn: turn_002');
@@ -140,6 +163,36 @@ describe('token-budget evaluator', () => {
   });
 
   describe('fit after compression', () => {
+    it('preserves Project Goal and Inherited Run Context when compression is required', () => {
+      const contextMd = buildFullContext({ gateFiles: true, gateStatus: true });
+      const systemTokens = countTokens(SYSTEM_PROMPT, 'anthropic');
+      const promptMd = '# Test Prompt\nDo a thing.';
+      const promptTokens = countTokens(promptMd, 'anthropic');
+      const sepTokens = countTokens(SEPARATOR, 'anthropic');
+      const contextTokens = countTokens(contextMd, 'anthropic');
+      const immutable = systemTokens + promptTokens + sepTokens;
+      const budgetSection = '- **Budget spent:** $0.05\n- **Budget remaining:** $9.95';
+      const budgetTokens = countTokens(budgetSection, 'anthropic');
+      const tightBudget = immutable + contextTokens - Math.max(1, Math.floor(budgetTokens / 2));
+
+      const result = evaluateTokenBudget(makeParams({
+        promptMd,
+        contextMd,
+        contextWindowTokens: tightBudget + 4096 + 2048,
+        maxOutputTokens: 4096,
+        safetyMarginTokens: 2048,
+      }));
+
+      assert.equal(result.sent_to_provider, true);
+      assert.ok(result.effective_context.includes('## Project Goal'));
+      assert.ok(result.effective_context.includes('## Inherited Run Context'));
+      assert.ok(result.effective_context.includes('Ship a governed implementation without losing context under token pressure.'));
+      assert.ok(result.effective_context.includes('- **Parent run:** run_parent'));
+      assert.equal(result.report.sections.find((section) => section.id === 'project_goal')?.action, 'kept');
+      assert.equal(result.report.sections.find((section) => section.id === 'inherited_run_context')?.action, 'kept');
+      assert.equal(result.report.sections.find((section) => section.id === 'budget')?.action, 'dropped');
+    });
+
     it('drops budget lines first when just over budget', () => {
       const contextMd = buildFullContext({ gateFiles: true, gateStatus: true });
       // Compute token counts to find a tight budget
@@ -182,7 +235,7 @@ describe('token-budget evaluator', () => {
       const immutable = systemTokens + promptTokens + sepTokens;
 
       // Set a very tight budget that requires dropping several sections
-      // Keep only sticky sections: current_state, last_turn_header
+      // Keep only sticky sections: current_state, project_goal, inherited_run_context, last_turn_header
       // Need to drop: budget, phase_gate_status, gate_required_files, objections, decisions
       const stickyOnly = buildFullContext({
         budgetLines: false, summary: false, decisions: false,

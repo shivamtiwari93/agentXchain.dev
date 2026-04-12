@@ -8,7 +8,7 @@ import {
 import { parseContextSections } from '../src/lib/context-section-parser.js';
 
 /**
- * Build a full CONTEXT.md string with all 10 section IDs present.
+ * Build a full CONTEXT.md string with the current section set.
  */
 function makeFullContextMd() {
   return [
@@ -22,6 +22,15 @@ function makeFullContextMd() {
     '- **Integration ref:** git:abc123',
     '- **Budget spent:** $12.34',
     '- **Budget remaining:** $37.66',
+    '',
+    '## Project Goal',
+    '',
+    'Ship a governed release pipeline without silent context loss.',
+    '',
+    '## Inherited Run Context',
+    '',
+    '- **Parent run:** run_100',
+    '- **Parent status:** completed',
     '',
     '## Last Accepted Turn',
     '',
@@ -165,7 +174,14 @@ describe('context-compressor', () => {
     assert.equal(result.exhausted, true);
 
     // Sticky sections must survive all compression
-    const stickyIds = ['current_state', 'last_turn_header', 'blockers', 'escalation'];
+    const stickyIds = [
+      'current_state',
+      'project_goal',
+      'inherited_run_context',
+      'last_turn_header',
+      'blockers',
+      'escalation',
+    ];
     for (const id of stickyIds) {
       const action = getAction(result, id);
       assert.ok(action, `${id} should have an action entry`);
@@ -220,6 +236,8 @@ describe('context-compressor', () => {
 
     // Only sticky sections should remain
     assert.ok(reparsedIds.includes('current_state'));
+    assert.ok(reparsedIds.includes('project_goal'));
+    assert.ok(reparsedIds.includes('inherited_run_context'));
     assert.ok(reparsedIds.includes('last_turn_header'));
     assert.ok(reparsedIds.includes('blockers'));
     assert.ok(reparsedIds.includes('escalation'));

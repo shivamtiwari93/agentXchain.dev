@@ -86,6 +86,60 @@ function getSection(sections, id) {
 }
 
 describe('context-section-parser', () => {
+  it('round-trips Project Goal and Inherited Run Context as sticky sections', () => {
+    const contextMd = [
+      '# Execution Context',
+      '',
+      '## Current State',
+      '',
+      '- **Run:** run_123',
+      '- **Status:** active',
+      '- **Phase:** implementation',
+      '- **Integration ref:** git:abc123',
+      '',
+      '## Project Goal',
+      '',
+      'Ship a governed release pipeline that keeps mission context intact.',
+      '',
+      '## Inherited Run Context',
+      '',
+      '> **This is a fresh run, not a resumed parent.** The context below is a read-only summary from the parent run to provide continuity.',
+      '',
+      '- **Parent run:** run_parent',
+      '- **Parent status:** completed',
+      '',
+      '### Parent Retrospective',
+      '',
+      '- **Headline:** The previous run closed the release gap.',
+      '',
+      '## Last Accepted Turn',
+      '',
+      '- **Turn:** turn_456',
+      '- **Role:** pm',
+      '- **Summary:** Defined MVP scope and froze the release gate.',
+      '',
+      '',
+    ].join('\n');
+
+    const sections = parseContextSections(contextMd);
+
+    assert.deepEqual(
+      sections.map((section) => section.id),
+      [
+        'current_state',
+        'project_goal',
+        'inherited_run_context',
+        'last_turn_header',
+        'last_turn_summary',
+      ]
+    );
+    assert.equal(getSection(sections, 'project_goal').required, true);
+    assert.equal(getSection(sections, 'inherited_run_context').required, true);
+    assert.match(getSection(sections, 'project_goal').content, /mission context intact/);
+    assert.match(getSection(sections, 'inherited_run_context').content, /Parent Retrospective/);
+    assert.equal(renderContextSections(sections), contextMd);
+  });
+
   it('parses all defined section ids and round-trips a complete context document', () => {
     const contextMd = [
       '# Execution Context',

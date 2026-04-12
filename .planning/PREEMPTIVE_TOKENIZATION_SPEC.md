@@ -141,10 +141,14 @@ type TokenBudgetReport = {
     id:
       | "current_state"
       | "budget"
+      | "project_goal"
+      | "inherited_run_context"
       | "last_turn_header"
       | "last_turn_summary"
       | "last_turn_decisions"
       | "last_turn_objections"
+      | "decision_history"
+      | "workflow_artifacts"
       | "blockers"
       | "escalation"
       | "gate_required_files"
@@ -191,22 +195,27 @@ v1.1 may compress only context, never the prompt contract itself.
 |---|---|---|
 | `## Current State` | `current_state` | Contains budget lines as sub-bullets when `budget_status` exists |
 | *(budget lines within Current State)* | `budget` | Not a standalone header — extracted from `current_state` bullet items matching `Budget spent` / `Budget remaining` |
+| `## Project Goal` | `project_goal` | Sticky mission context from `agentxchain.json project.goal` |
+| `## Inherited Run Context` | `inherited_run_context` | Sticky continuity summary from `--inherit-context` |
 | `## Last Accepted Turn` | `last_turn_header` | The header line plus `Turn:` and `Role:` bullets |
 | *(Summary bullet within Last Accepted Turn)* | `last_turn_summary` | The `**Summary:**` bullet |
 | *(Decisions list within Last Accepted Turn)* | `last_turn_decisions` | The `**Decisions:**` bullet and its sub-items |
 | *(Objections list within Last Accepted Turn)* | `last_turn_objections` | The `**Objections:**` bullet and its sub-items |
+| `## Decision History` | `decision_history` | Cumulative accepted decisions from `decision-ledger.jsonl` |
 | `## Blockers` | `blockers` | Present only when `state.blocked_on` is set |
 | `## Escalation` | `escalation` | Present only when `state.escalation` exists |
+| `## Workflow Artifacts` | `workflow_artifacts` | Present only when the current workflow-kit phase declares artifacts |
 | `## Gate Required Files` | `gate_required_files` | Present only when phase gate has `requires_files` |
 | `## Phase Gate Status` | `phase_gate_status` | Present only when `state.phase_gate_status` exists |
 
-**Important implementation note:** `budget`, `last_turn_summary`, `last_turn_decisions`, and `last_turn_objections` are sub-sections within their parent headers, not standalone `## ` blocks. The parser must handle this nested structure.
+**Important implementation note:** `budget`, `last_turn_summary`, `last_turn_decisions`, and `last_turn_objections` are sub-sections within their parent headers, not standalone `## ` blocks. The parser must handle this nested structure while preserving the other top-level sections byte-for-byte.
 
 ### 3a. Compressible Context Sections
 
 The adapter may reduce only these sections:
 
 - `budget` (budget lines within Current State)
+- `decision_history`
 - `gate_required_files`
 - `phase_gate_status`
 - `last_turn_summary`
@@ -216,6 +225,8 @@ The adapter may reduce only these sections:
 Sticky sections that may not be dropped when present:
 
 - `current_state` (minus budget lines, which are independently compressible)
+- `project_goal`
+- `inherited_run_context`
 - `last_turn_header` (`turn_id` and `role` only, when a last accepted turn exists)
 - `blockers`
 - `escalation`
@@ -226,11 +237,12 @@ When the initial estimate exceeds the available input budget, the adapter compre
 
 1. drop `budget` (remove budget lines from within Current State)
 2. drop `phase_gate_status`
-3. drop `gate_required_files`
-4. drop `last_turn_objections`
-5. drop `last_turn_decisions`
-6. truncate `last_turn_summary` to 240 characters
-7. drop `last_turn_summary` entirely but keep `last_turn_header`
+3. drop `decision_history`
+4. drop `gate_required_files`
+5. drop `last_turn_objections`
+6. drop `last_turn_decisions`
+7. truncate `last_turn_summary` to 240 characters
+8. drop `last_turn_summary` entirely but keep `last_turn_header`
 
 After each step, the adapter must re-estimate the full outbound input.
 
