@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.66.1
+# Launch Evidence Report — AgentXchain v2.67.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.66.1 release: release-path repair, explicit verification compression, and restored live X/Twitter website links.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.67.0 release: active-turn timing inspection, accepted-turn timing in governance reports, and corrected operator-surface timing docs.
 
 ---
 

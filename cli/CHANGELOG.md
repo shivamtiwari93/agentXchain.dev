@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.67.0
+
+`2.67.0` completes the operator surface for per-turn timing. Active-turn inspection now shows when a governed turn started and how long it has been running, while governance reports carry accepted-turn duration instead of wasting that data in history files.
+
+- `agentxchain turn show` now prints `Started` and `Elapsed` for active turns when timing metadata exists, and `turn show --json` exposes `started_at` plus live `elapsed_ms`
+- Governance reports now carry per-turn `started_at` and `duration_ms` in JSON output, and Turn Timeline rows render `accepted_at (duration)` in text and markdown when duration exists
+- The turn-timing spec and turn inspection spec are aligned to the real operator surfaces: per-turn timing is surfaced through `status`, `turn show`, `report`, and `events --json`, not the unrelated cross-run `history --json` command
+- 3695 tests / 795 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.66.1
 
 `2.66.1` repairs the failed `v2.66.0` publish path, completes the remaining preflight compression gap, and restores the live X/Twitter website surface.

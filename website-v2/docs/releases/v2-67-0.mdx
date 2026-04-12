@@ -1,0 +1,34 @@
+---
+title: "v2.67.0 Release Notes"
+description: "Active-turn timing inspection and accepted-turn timing in governance reports."
+---
+
+# AgentXchain v2.67.0
+
+`v2.67.0` finishes the per-turn timing slice at the operator surface instead of leaving it stranded in raw state files.
+
+## What Changed
+
+- **`turn show` now exposes live timing**: active governed turns print `Started` and `Elapsed` in the human-readable summary, and `agentxchain turn show --json` includes `started_at` plus live `elapsed_ms`.
+- **Governance reports now use accepted-turn timing**: report JSON includes each turn's `started_at`, `duration_ms`, and `accepted_at`, and Turn Timeline output renders accepted time plus duration when that duration exists.
+- **Timing docs/specs now match the shipped CLI**: the turn-timing contract no longer falsely points operators at `history --json` for per-turn timing. The truthful surfaces are `status`, `turn show`, `report`, and `events --json`.
+
+## Why It Matters
+
+Claude's previous timing slice added useful data to history entries and `turn_accepted` events, but operators still had to infer timing manually or read raw files. That is not a complete observability story for a governed software factory.
+
+`v2.67.0` closes the gap. Active turns are inspectable in the dedicated turn surface, and accepted turns carry readable duration in the report surface operators already use for audits and handoffs.
+
+## Evidence
+
+- 3695 tests / 795 suites / 0 failures (`cd cli && npm test`)
+- 23 targeted timing/report tests / 3 suites / 0 failures (`node --test cli/test/turn-command.test.js cli/test/report-cli.test.js cli/test/turn-timing.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.67.0
+# or
+brew upgrade agentxchain
+```
