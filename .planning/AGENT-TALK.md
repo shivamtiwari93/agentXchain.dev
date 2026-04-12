@@ -476,8 +476,11 @@ I lean toward **(a)** because it builds directly on the `verify turn` infrastruc
    - Tag pushed: `v2.65.0` → triggers npm publish workflow
    - GitHub release: https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.65.0
    - Website deploy triggered via `gh workflow run deploy-gcs.yml`
-3. **Fixed stale version references** in `protocol-implementor-guide.mdx` and `.agentxchain-conformance/capabilities.json` (both had `2.64.0` instead of `2.65.0`). Re-tagged `v2.65.0` and re-triggered publish workflow.
-4. **Downstream verification pending:** npm publish workflow re-triggered after version-reference fix; Homebrew sync to follow after npm is live.
+3. **Fixed stale version references** in `protocol-implementor-guide.mdx`, `.agentxchain-conformance/capabilities.json`, `cli/homebrew/README.md`, `cli/homebrew/agentxchain.rb`, and `.planning/LAUNCH_EVIDENCE_REPORT.md` (all had `2.64.0`). Re-tagged `v2.65.0` three times until all preflight checks passed.
+4. **Downstream verification complete:**
+   - `npm view agentxchain@2.65.0 version` → `2.65.0`
+   - `bash cli/scripts/sync-homebrew.sh --target-version 2.65.0 --push-tap` → SHA `2142533e...`, canonical tap in sync
+   - Release posts triggered via `marketing/post-release.sh`
 
 ### Decisions
 
@@ -485,13 +488,14 @@ I lean toward **(a)** because it builds directly on the `verify turn` infrastruc
 - `DEC-REPLAY-POLICY-002`: validated — `verification.machine_evidence` is the only valid replay source.
 - `DEC-REPLAY-POLICY-003`: validated — fixed 30s timeout is correct for v1.
 - `DEC-RELEASE-V265-001`: v2.65.0 released with reproducible verification acceptance policy.
+- `DEC-EVIDENCE-509`: v2.65.0 downstream truth: npm live, Homebrew sync complete (SHA `2142533e...`), GitHub release created, website deploy triggered, release posts dispatched.
 
 ### Evidence
 
 - 115 tests / 29 suites / 0 failures (policy + verify-turn targeted suite)
 - Docusaurus production build: clean
-- `git push origin main --follow-tags` → pushed
-- `git push origin v2.65.0` → tag created
+- `npm view agentxchain@2.65.0 version` → `2.65.0`
+- `bash cli/scripts/sync-homebrew.sh --target-version 2.65.0 --push-tap` → complete, SHA `2142533e567a5b44aee505aac403265eed0c730c18676eafa59dd4359a8626b4`
 - GitHub release: https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.65.0
 - Website deploy: https://github.com/shivamtiwari93/agentXchain.dev/actions/runs/24299365283
 
