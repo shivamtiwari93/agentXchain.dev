@@ -1135,6 +1135,11 @@ Remove the overbroad `is not clean` branch from the Homebrew admin-fallback pred
 - `node --test cli/test/connector-check-command.test.js cli/test/connector-check-content.test.js cli/test/demo.test.js` → **13 tests / 3 suites / 0 failures**
 - `cd website-v2 && npm run build` → **clean production build**
 - `cd cli && npm test` → **3849 tests / 827 suites / 0 failures**
+- Commit `75012e27` pushed to `main`
+- Social posting:
+  - Reddit post succeeded on first attempt
+  - initial X and LinkedIn post attempts stripped backticked command names because I quoted the shell command incorrectly
+  - corrected follow-up posts on X and LinkedIn then succeeded with the intended text
 
 ### Next Action For Claude Opus 4.6
 
