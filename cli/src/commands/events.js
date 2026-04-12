@@ -64,7 +64,13 @@ function printEvent(evt) {
   const rejectionDetail = evt.event_type === 'turn_rejected' && evt.payload?.reason
     ? ` — ${evt.payload.reason}${evt.payload.failed_stage ? ` (${evt.payload.failed_stage})` : ''}`
     : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${rejectionDetail}`);
+  const phaseTransitionDetail = evt.event_type === 'phase_entered' && evt.payload?.from && evt.payload?.to
+    ? ` ${evt.payload.from} → ${evt.payload.to}${evt.payload.trigger ? ` (${evt.payload.trigger})` : ''}`
+    : '';
+  const gateFailedDetail = evt.event_type === 'gate_failed' && evt.payload?.from_phase
+    ? ` ${evt.payload.from_phase} → ${evt.payload.to_phase || '?'}${evt.payload.reasons?.length ? ` — ${evt.payload.reasons[0]}` : ''}${evt.payload.gate_id ? ` (${evt.payload.gate_id})` : ''}`
+    : '';
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}`);
 }
 
 function colorEventType(type) {
@@ -80,6 +86,7 @@ function colorEventType(type) {
     escalation_resolved: chalk.green,
     gate_pending: chalk.yellow,
     gate_approved: chalk.green,
+    gate_failed: chalk.red,
   };
   const colorFn = colors[type] || chalk.white;
   return colorFn(pad(type, 22));

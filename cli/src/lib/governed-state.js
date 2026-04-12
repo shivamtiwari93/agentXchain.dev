@@ -2853,6 +2853,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         });
 
         if (gateResult.action === 'advance') {
+          const prevPhase = updatedState.phase;
           updatedState.phase = gateResult.next_phase;
           updatedState.phase_entered_at = now;
           updatedState.last_gate_failure = null;
@@ -2861,6 +2862,18 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             [gateResult.gate_id || 'no_gate']: 'passed',
           };
           updatedState.queued_phase_transition = null;
+          emitRunEvent(root, 'phase_entered', {
+            run_id: updatedState.run_id,
+            phase: updatedState.phase,
+            status: updatedState.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            payload: {
+              from: prevPhase,
+              to: gateResult.next_phase,
+              gate_id: gateResult.gate_id || 'no_gate',
+              trigger: 'auto',
+            },
+          });
         } else if (gateResult.action === 'awaiting_human_approval') {
           // Evaluate approval policy — may auto-approve
           const approvalResult = evaluateApprovalPolicy({
@@ -2871,6 +2884,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           });
 
           if (approvalResult.action === 'auto_approve') {
+            const prevPhase = updatedState.phase;
             updatedState.phase = gateResult.next_phase;
             updatedState.phase_entered_at = now;
             updatedState.last_gate_failure = null;
@@ -2889,6 +2903,18 @@ function _acceptGovernedTurnLocked(root, config, opts) {
               reason: approvalResult.reason,
               gate_id: gateResult.gate_id,
               timestamp: now,
+            });
+            emitRunEvent(root, 'phase_entered', {
+              run_id: updatedState.run_id,
+              phase: updatedState.phase,
+              status: updatedState.status,
+              turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+              payload: {
+                from: prevPhase,
+                to: gateResult.next_phase,
+                gate_id: gateResult.gate_id || 'no_gate',
+                trigger: 'auto_approved',
+              },
             });
           } else {
             updatedState.status = 'paused';
@@ -2925,6 +2951,18 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           ledgerEntries.push({
             type: 'gate_failure',
             ...gateFailure,
+          });
+          emitRunEvent(root, 'gate_failed', {
+            run_id: updatedState.run_id,
+            phase: updatedState.phase,
+            status: updatedState.status,
+            turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+            payload: {
+              gate_id: gateResult.gate_id || 'no_gate',
+              from_phase: state.phase,
+              to_phase: gateResult.transition_request || state.queued_phase_transition?.to || null,
+              reasons: gateFailure.reasons || [],
+            },
           });
         } else if (state.queued_phase_transition) {
           updatedState.queued_phase_transition = null;
@@ -3540,7 +3578,12 @@ export function approvePhaseTransition(root, config) {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
     status: 'active',
-    payload: { from: transition.from },
+    payload: {
+      from: transition.from,
+      to: transition.to,
+      gate_id: transition.gate || 'no_gate',
+      trigger: 'human_approved',
+    },
   });
 
   // Session checkpoint — non-fatal

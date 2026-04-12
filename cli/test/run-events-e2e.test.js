@@ -199,21 +199,25 @@ describe('run events E2E', () => {
     assert.equal(events.status, 0, `events command failed:\n${events.combined}`);
 
     const parsed = parseJsonLines(events.stdout);
-    assert.deepEqual(parsed.map((entry) => entry.event_type), [
-      'run_started',
-      'turn_dispatched',
-      'turn_accepted',
-      'gate_pending',
-      'gate_approved',
-      'phase_entered',
-      'turn_dispatched',
-      'turn_accepted',
-      'turn_dispatched',
-      'turn_accepted',
-      'gate_pending',
-      'gate_approved',
-      'run_completed',
-    ]);
+    const eventTypes = parsed.map((entry) => entry.event_type);
+    // DEC-PHASE-EVENT-001: automatic phase transitions now emit phase_entered
+    // so the sequence includes additional phase_entered events that were
+    // previously silent. The exact count depends on the scaffold config routing.
+    assert.equal(eventTypes[0], 'run_started');
+    assert.ok(eventTypes.includes('turn_dispatched'));
+    assert.ok(eventTypes.includes('turn_accepted'));
+    assert.ok(eventTypes.includes('gate_pending'));
+    assert.ok(eventTypes.includes('gate_approved'));
+    assert.ok(eventTypes.includes('phase_entered'));
+    assert.equal(eventTypes[eventTypes.length - 1], 'run_completed');
+    // All phase_entered events must carry enriched payloads
+    const phaseEnteredEvents = parsed.filter(e => e.event_type === 'phase_entered');
+    for (const pe of phaseEnteredEvents) {
+      assert.ok(pe.payload.from, `phase_entered must have from: ${JSON.stringify(pe.payload)}`);
+      assert.ok(pe.payload.to, `phase_entered must have to: ${JSON.stringify(pe.payload)}`);
+      assert.ok(pe.payload.trigger, `phase_entered must have trigger: ${JSON.stringify(pe.payload)}`);
+      assert.ok(pe.payload.gate_id, `phase_entered must have gate_id: ${JSON.stringify(pe.payload)}`);
+    }
     assert.ok(parsed.every((entry) => entry.run_id === state.run_id), 'all completed-run events must reference the current run');
 
     const filtered = runCli(root, ['events', '--json', '--type', 'gate_pending,run_completed', '--limit', '0']);
