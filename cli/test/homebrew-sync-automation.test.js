@@ -322,8 +322,18 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /review is required|approving review|branch protection|not authorized to merge/,
+      'workflow must gate admin fallback on branch-protection/self-approval error patterns only',
+    );
+    assert.match(
+      workflow,
+      /Regular merge failed for unexpected reason/,
+      'workflow must fail closed on non-deadlock merge failures instead of falling back to admin',
+    );
+    assert.match(
+      workflow,
       /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
-      'workflow must fall back to admin merge only when regular merge fails',
+      'workflow must fall back to admin merge only when self-approval deadlock is detected',
     );
     assert.match(
       workflow,

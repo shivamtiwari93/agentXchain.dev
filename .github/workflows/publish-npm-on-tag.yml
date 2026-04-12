@@ -199,9 +199,16 @@ jobs:
           else
             echo "Homebrew mirror PR #${PR_NUMBER} already has an approval."
           fi
-          if ! gh pr merge "$PR_NUMBER" --squash --delete-branch 2>/dev/null; then
-            echo "::warning::Regular merge failed (likely self-approval branch protection). Falling back to --admin merge."
+          MERGE_ERR="$(gh pr merge "$PR_NUMBER" --squash --delete-branch 2>&1)" && MERGE_OK=true || MERGE_OK=false
+          if [[ "$MERGE_OK" == "true" ]]; then
+            echo "Homebrew mirror PR #${PR_NUMBER} merge initiated."
+          elif echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|branch protection|not authorized to merge|is not clean|admin override'; then
+            echo "::warning::Regular merge blocked by branch protection (self-approval deadlock). Falling back to --admin merge."
+            echo "::warning::Merge error was: ${MERGE_ERR}"
             gh pr merge "$PR_NUMBER" --squash --delete-branch --admin
+          else
+            echo "::error::Regular merge failed for unexpected reason: ${MERGE_ERR}"
+            exit 1
           fi
           for attempt in $(seq 1 12); do
             PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
