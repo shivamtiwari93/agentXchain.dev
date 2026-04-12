@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scaffoldGoverned } from '../src/commands/init.js';
-import { importCompiledVsCodeExtensionModule } from './helpers/vscode-extension-test-helpers.js';
+import { importCompiledVsCodeExtensionModule } from '../test-support/vscode-extension-test-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');

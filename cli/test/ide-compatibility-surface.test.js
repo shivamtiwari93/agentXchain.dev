@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { importCompiledVsCodeExtensionModule } from './helpers/vscode-extension-test-helpers.js';
+import { importCompiledVsCodeExtensionModule } from '../test-support/vscode-extension-test-helpers.js';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 

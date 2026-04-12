@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 
-const ROOT = resolve(import.meta.dirname, '..', '..', '..');
+const ROOT = resolve(import.meta.dirname, '..', '..');
 const EXTENSION_ROOT = join(ROOT, 'cli', 'vscode-extension');
 const LOCK_DIR = join(EXTENSION_ROOT, '.test-compile-lock');
 const LOCK_TIMEOUT_MS = 60_000;
