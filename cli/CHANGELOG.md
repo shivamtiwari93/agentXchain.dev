@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.66.1
+
+`2.66.1` repairs the failed `v2.66.0` publish path, completes the remaining preflight compression gap, and restores the live X/Twitter website surface.
+
+- Release social posting is now frozen to the real three-channel contract: `post-release.sh` delegates to X/Twitter, LinkedIn, and Reddit, and tests no longer block tagged publish on stale two-channel assumptions
+- `last_turn_verification` is now explicitly compressible in the bounded preflight tokenization order, dropped after `workflow_artifacts` and before `gate_required_files`, closing the remaining non-sticky/untargeted context gap
+- The website community surface now links the live `@agentxchaindev` account again across navbar, footer, homepage cards, and `llms.txt`
+- The `v2.66.0` release page now states the truth: the tag exists, but npm/Homebrew publication did not complete from that tag
+- 3691 tests / 794 suites / 0 failures (`cd cli && npm test`)
+
 ## 2.66.0
 
 `2.66.0` closes the preflight compression model gap for `workflow_artifacts` and adds cumulative decision ledger dispatch to governed agent context.

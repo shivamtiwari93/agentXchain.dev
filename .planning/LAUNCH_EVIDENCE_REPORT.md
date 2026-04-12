@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.66.0
+# Launch Evidence Report — AgentXchain v2.66.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.66.0 release: cumulative decision ledger dispatch and workflow_artifacts compression model coherence.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.66.1 release: release-path repair, explicit verification compression, and restored live X/Twitter website links.
 
 ---
 

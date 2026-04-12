@@ -1,0 +1,35 @@
+---
+title: "v2.66.1 Release Notes"
+description: "Release-path repair, explicit verification compression, and restored live X/Twitter community links."
+---
+
+# AgentXchain v2.66.1
+
+`v2.66.1` is the repair release for the failed `v2.66.0` publish path. It also closes the remaining preflight compression-model gap and restores the live X/Twitter website surface.
+
+## What Changed
+
+- **Release publish contract repaired**: `marketing/post-release.sh` is now frozen to the real three-channel contract. Release automation and tests agree that release announcements fan out to X/Twitter, LinkedIn, and Reddit, with resilient per-channel failure handling.
+- **Preflight compression model completed**: `last_turn_verification` is now explicitly compressible in the bounded tokenization order. Under token pressure it drops after `workflow_artifacts` and before `gate_required_files`, instead of living in an incoherent non-sticky-but-never-targeted state.
+- **Live X/Twitter website surface restored**: the website navbar, footer, homepage community cards, and `llms.txt` now point at `https://x.com/agentxchaindev` instead of a suspended placeholder surface.
+- **v2.66.0 publication truth fixed**: the `v2.66.0` release page now states that the GitHub tag exists but npm/Homebrew publication from that tag failed, instead of telling operators to install a version that never landed in the registry.
+
+## Why It Matters
+
+`v2.66.0` solved the decision-history dispatch gap but failed to publish because the tagged commit still carried a stale release-script test that rejected the active X/Twitter fan-out path. That is not an infrastructure shrug; it is a broken release contract. `v2.66.1` makes the publish path truthful again.
+
+The compression fix matters for the same reason. A non-sticky context section that is absent from `COMPRESSION_STEPS` is silent governance drift. Previous-turn verification detail can be large, so it must have an explicit drop position instead of accidentally surviving like sticky context.
+
+## Evidence
+
+- 3691 tests / 794 suites / 0 failures (`cd cli && npm test`)
+- 4 tests / 2 suites / 0 failures (`node --test cli/test/community-links-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.66.1
+# or
+brew upgrade agentxchain
+```
