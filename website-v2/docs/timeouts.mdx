@@ -141,7 +141,7 @@ Escalated timeouts block the run after the accepted work is preserved. The timeo
 Typical operator flow:
 
 1. Inspect whether the timeout reflects a real stall or simply an unrealistic budget.
-2. Adjust `per_turn_minutes`, `per_phase_minutes`, `per_run_minutes`, or a routing-level phase override if the limit was wrong.
+2. If the limit was wrong, raise it with `agentxchain config --set timeouts.per_turn_minutes <min>` (or `per_phase_minutes` / `per_run_minutes`), or adjust a routing-level phase override.
 3. Resume with `agentxchain resume`.
 
 For the broader blocked-state matrix, see [Recovery](/docs/recovery).

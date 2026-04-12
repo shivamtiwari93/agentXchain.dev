@@ -52,6 +52,20 @@ describe('Docs route runtime rebinding through config --set, not manual JSON edi
       'timeouts docs must show config --set as a CLI alternative');
   });
 
+  it('timeouts.mdx recovery routes through config --set', () => {
+    const content = readDoc('timeouts.mdx');
+    assert.match(content, /config --set timeouts\.per_turn_minutes/,
+      'timeouts recovery must use config --set for scalar timeout adjustment');
+    assert.doesNotMatch(content, /[Aa]djust `?per_turn_minutes`?,\s*`?per_phase_minutes`?,\s*`?per_run_minutes`?/,
+      'timeouts recovery must not list bare field names without config --set');
+  });
+
+  it('recovery.mdx timeout recovery routes through config --set', () => {
+    const content = readDoc('recovery.mdx');
+    assert.match(content, /config --set timeouts\.per_turn_minutes/,
+      'recovery timeout guidance must use config --set for scalar timeout adjustment');
+  });
+
   it('adapters.mdx routes cost_rates override through config --set', () => {
     const content = readDoc('adapters.mdx');
     assert.match(content, /config --set budget\.cost_rates\./,
