@@ -3,11 +3,13 @@ import { spawnSync } from 'node:child_process';
 export const DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS = 30_000;
 
 export function replayVerificationMachineEvidence({ root, verification, timeoutMs = DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS }) {
+  const verifiedAt = new Date().toISOString();
   const machineEvidence = Array.isArray(verification?.machine_evidence)
     ? verification.machine_evidence
     : [];
 
   const payload = {
+    verified_at: verifiedAt,
     timeout_ms: timeoutMs,
     overall: 'not_reproducible',
     replayed_commands: 0,
@@ -59,6 +61,7 @@ export function summarizeVerificationReplay(payload) {
   }
 
   return {
+    verified_at: payload.verified_at || null,
     overall: payload.overall,
     replayed_commands: payload.replayed_commands || 0,
     matched_commands: payload.matched_commands || 0,

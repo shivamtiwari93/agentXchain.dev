@@ -167,7 +167,10 @@ export async function acceptTurnCommand(opts = {}) {
     console.log(`  ${chalk.dim('Cost:')}     $${formatUsd(accepted.cost.usd)}`);
   }
   if (accepted?.verification_replay) {
-    console.log(`  ${chalk.dim('Replay:')}   ${accepted.verification_replay.overall} (${accepted.verification_replay.matched_commands}/${accepted.verification_replay.replayed_commands})`);
+    const verifiedAt = accepted.verification_replay.verified_at
+      ? ` at ${accepted.verification_replay.verified_at}`
+      : '';
+    console.log(`  ${chalk.dim('Replay:')}   ${accepted.verification_replay.overall} (${accepted.verification_replay.matched_commands}/${accepted.verification_replay.replayed_commands})${verifiedAt}`);
   }
   if (result.budget_warning) {
     console.log(`  ${chalk.yellow('Budget warning:')} ${result.budget_warning}`);

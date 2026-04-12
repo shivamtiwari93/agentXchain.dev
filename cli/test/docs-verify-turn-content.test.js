@@ -26,6 +26,7 @@ describe('verify turn docs contract', () => {
     assert.match(CLI_DOCS, /verification\.commands/i);
     assert.match(CLI_DOCS, /verification\.evidence_summary/i);
     assert.match(CLI_DOCS, /not executable proof on their own/i);
+    assert.match(CLI_DOCS, /Replay is not a sandbox/i);
     assert.match(CLI_DOCS, /does not mutate state, gate status, history, or ledgers/i);
   });
 

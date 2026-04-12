@@ -123,6 +123,7 @@ describe('agentxchain verify turn command', () => {
       assert.equal(payload.overall, 'match');
       assert.equal(payload.replayed_commands, 1);
       assert.equal(payload.matched_commands, 1);
+      assert.match(payload.verified_at || '', /^\d{4}-\d{2}-\d{2}T/);
       assert.equal(payload.commands[0].declared_exit_code, 0);
       assert.equal(payload.commands[0].actual_exit_code, 0);
       assert.equal(payload.commands[0].matched, true);

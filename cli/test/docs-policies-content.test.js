@@ -13,6 +13,7 @@ describe('policies docs reproducible verification guard', () => {
   it('documents require_reproducible_verification as a built-in rule', () => {
     assert.match(DOC, /require_reproducible_verification/);
     assert.match(DOC, /verification\.machine_evidence/);
+    assert.match(DOC, /trusted agent-authored execution intent/i);
     assert.match(DOC, /verify turn/);
   });
 
@@ -20,5 +21,7 @@ describe('policies docs reproducible verification guard', () => {
     assert.match(SPEC, /require_reproducible_verification/);
     assert.match(SPEC, /verify turn/i);
     assert.match(SPEC, /acceptance/i);
+    assert.match(SPEC, /verified_at/);
+    assert.match(SPEC, /trusted execution surface/i);
   });
 });

@@ -132,6 +132,7 @@ Requires the staged turn's declared machine-evidence commands to reproduce in th
 - Params: none in v1
 - Replay source: `verification.machine_evidence[].command`
 - Replay contract: actual exit code must match the declared `verification.machine_evidence[].exit_code`
+- Replay execution model: AgentXchain runs those declared commands in the local repo shell. Treat `machine_evidence` as trusted agent-authored execution intent, not untrusted user input.
 - Trigger: when no machine-evidence commands were declared (`not_reproducible`) or when one or more replayed commands drift from their declared exit codes (`mismatch`)
 - Example use: block automated acceptance unless the same proof that powers `agentxchain verify turn` still matches at commit time
 

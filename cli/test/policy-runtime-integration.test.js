@@ -196,6 +196,7 @@ describe('policy runtime integration', () => {
       assert.equal(result.ok, true, result.error);
       assert.equal(result.accepted?.verification_replay?.overall, 'match');
       assert.equal(result.accepted?.verification_replay?.replayed_commands, 1);
+      assert.match(result.accepted?.verification_replay?.verified_at || '', /^\d{4}-\d{2}-\d{2}T/);
       assert.equal(result.verification_replay?.matched_commands, 1);
     } finally {
       rmSync(dir, { recursive: true, force: true });

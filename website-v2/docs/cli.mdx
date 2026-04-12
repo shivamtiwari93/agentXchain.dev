@@ -703,6 +703,8 @@ This is a current-workspace reproducibility check, not a historical time machine
 
 If you want reproducibility to become an acceptance requirement instead of a manual check, add the `require_reproducible_verification` rule under top-level `policies` in `agentxchain.json`. That reuses the same replay contract during `accept-turn`, `step`, and `run`.
 
+Replay is not a sandbox. AgentXchain executes the staged `verification.machine_evidence[].command` strings in the repo root shell, so this surface assumes staged turn data is trusted agent-authored execution intent.
+
 ## Protocol conformance
 
 ### `verify protocol`

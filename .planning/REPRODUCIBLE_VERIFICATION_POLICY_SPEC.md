@@ -53,6 +53,8 @@ New built-in policy rule in the existing top-level `policies` array:
    - `warn` allows acceptance but returns advisory warnings
 7. `verify turn` must use the same replay helper so the inspection surface and the enforcement surface cannot drift.
 8. Successful acceptance under this rule should expose a compact `verification_replay` summary on the accepted turn result so operators can see that reproducibility was actually enforced.
+9. The compact replay summary includes `verified_at` so audit trails can answer when the most recent acceptance-time replay actually ran.
+10. Replay executes the declared `verification.machine_evidence[].command` strings through the local shell in the repo root. This is a deliberate v1 trust assumption: staged turn data is treated as trusted agent-authored execution intent, not untrusted user input.
 
 ## Error Cases
 
@@ -65,6 +67,10 @@ New built-in policy rule in the existing top-level `policies` array:
 - Command timeout / spawn error:
   - replay result is `mismatch`
   - policy can block or escalate
+- Command string is malicious or unsafe:
+  - out of scope for v1 policy enforcement
+  - replay still executes it because staged `machine_evidence` is a trusted execution surface today
+  - future isolation/sandboxing is a separate runtime-hardening slice, not a reason to pretend replay is side-effect-free
 - No matching reproducibility policy configured:
   - acceptance behavior is unchanged from today
 - Historical accepted turns:
@@ -78,10 +84,12 @@ New built-in policy rule in the existing top-level `policies` array:
 4. `AT-RVP-004`: runtime acceptance with `action: "block"` and no `machine_evidence` fails with `error_code: "policy_violation"`.
 5. `AT-RVP-005`: runtime acceptance with `action: "block"` and replay mismatch fails with `error_code: "policy_violation"`.
 6. `AT-RVP-006`: runtime acceptance with `action: "block"` and replay match succeeds and records `accepted.verification_replay.overall === "match"`.
-7. `AT-RVP-007`: `verify turn` uses the same shared replay helper and still reports `match`, `mismatch`, and `not_reproducible` with the existing CLI contract.
-8. `AT-RVP-008`: public docs explain that policies can now enforce reproducible verification at turn acceptance, while `verify turn` remains the read-only inspection surface.
+7. `AT-RVP-007`: successful replay records `accepted.verification_replay.verified_at` as an ISO-8601 timestamp.
+8. `AT-RVP-008`: `verify turn` uses the same shared replay helper and still reports `match`, `mismatch`, and `not_reproducible` with the existing CLI contract.
+9. `AT-RVP-009`: public docs explain that policies can now enforce reproducible verification at turn acceptance, while `verify turn` remains the read-only inspection surface.
 
 ## Open Questions
 
 1. Should a future slice allow policy-level replay timeout overrides, or is the fixed 30s timeout sufficient until operators report real pressure?
 2. Should acceptance reports/renderers surface `verification_replay` more prominently once operators start using the rule in production?
+3. When runtime isolation arrives, should replay move from "trusted local shell execution" to a sandboxed runner contract with explicit side-effect boundaries?

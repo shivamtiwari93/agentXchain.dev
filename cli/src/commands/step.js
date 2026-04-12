@@ -1024,7 +1024,10 @@ function printAcceptSummary(result) {
     console.log(`  ${chalk.dim('Cost:')}     $${(accepted.cost.usd || 0).toFixed(2)}`);
   }
   if (accepted?.verification_replay) {
-    console.log(`  ${chalk.dim('Replay:')}   ${accepted.verification_replay.overall} (${accepted.verification_replay.matched_commands}/${accepted.verification_replay.replayed_commands})`);
+    const verifiedAt = accepted.verification_replay.verified_at
+      ? ` at ${accepted.verification_replay.verified_at}`
+      : '';
+    console.log(`  ${chalk.dim('Replay:')}   ${accepted.verification_replay.overall} (${accepted.verification_replay.matched_commands}/${accepted.verification_replay.replayed_commands})${verifiedAt}`);
   }
   console.log('');
 
