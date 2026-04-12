@@ -779,6 +779,47 @@ describe('report CLI', () => {
     }
   });
 
+  it('AT-REPORT-008: report surfaces warn-mode budget state across all formats', () => {
+    const root = createGovernedProject();
+    try {
+      // Patch state to include warn-mode budget fields
+      const statePath = join(root, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.budget_status = {
+        spent_usd: 12.50,
+        remaining_usd: -2.50,
+        warn_mode: true,
+        exhausted: true,
+        exhausted_at: '2026-04-11T20:00:00.000Z',
+        exhausted_after_turn: 'turn_001',
+      };
+      writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
+
+      const artifactPath = exportArtifact(root, 'warn-artifact.json');
+
+      // Text format must show [OVER BUDGET]
+      const textResult = runCli(root, ['report', '--input', artifactPath]);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Budget: spent \$12\.50, remaining \$-2\.50 \[OVER BUDGET\]/);
+
+      // JSON format must preserve warn_mode and exhaustion fields
+      const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+      assert.equal(report.subject.run.budget_status.warn_mode, true);
+      assert.equal(report.subject.run.budget_status.exhausted, true);
+      assert.equal(report.subject.run.budget_status.exhausted_at, '2026-04-11T20:00:00.000Z');
+      assert.equal(report.subject.run.budget_status.exhausted_after_turn, 'turn_001');
+
+      // Markdown format must show **[OVER BUDGET]**
+      const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(mdResult.status, 0, mdResult.stderr);
+      assert.match(mdResult.stdout, /Budget: spent \$12\.50, remaining \$-2\.50 \*\*\[OVER BUDGET\]\*\*/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-REPORT-007: unreadable input returns command-error shape', () => {
     const root = createGovernedProject();
     try {

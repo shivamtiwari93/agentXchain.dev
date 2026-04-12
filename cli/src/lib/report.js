@@ -45,6 +45,19 @@ function normalizeBudgetStatus(budgetStatus) {
   if (Number.isFinite(budgetStatus.remaining_usd)) {
     normalized.remaining_usd = budgetStatus.remaining_usd;
   }
+  // DEC-BUDGET-WARN-004: preserve warn-mode and exhaustion fields
+  if (budgetStatus.warn_mode === true) {
+    normalized.warn_mode = true;
+  }
+  if (budgetStatus.exhausted === true) {
+    normalized.exhausted = true;
+  }
+  if (budgetStatus.exhausted_at) {
+    normalized.exhausted_at = budgetStatus.exhausted_at;
+  }
+  if (budgetStatus.exhausted_after_turn) {
+    normalized.exhausted_after_turn = budgetStatus.exhausted_after_turn;
+  }
 
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
@@ -890,8 +903,9 @@ export function formatGovernanceReportText(report) {
     ];
 
     if (run.budget_status) {
+      const warnTag = run.budget_status.warn_mode ? ' [OVER BUDGET]' : '';
       lines.push(
-        `Budget: spent ${formatUsd(run.budget_status.spent_usd)}, remaining ${formatUsd(run.budget_status.remaining_usd)}`,
+        `Budget: spent ${formatUsd(run.budget_status.spent_usd)}, remaining ${formatUsd(run.budget_status.remaining_usd)}${warnTag}`,
       );
     }
 
@@ -1300,7 +1314,8 @@ export function formatGovernanceReportMarkdown(report) {
     ];
 
     if (run.budget_status) {
-      lines.push(`- Budget: spent ${formatUsd(run.budget_status.spent_usd)}, remaining ${formatUsd(run.budget_status.remaining_usd)}`);
+      const warnTag = run.budget_status.warn_mode ? ' **[OVER BUDGET]**' : '';
+      lines.push(`- Budget: spent ${formatUsd(run.budget_status.spent_usd)}, remaining ${formatUsd(run.budget_status.remaining_usd)}${warnTag}`);
     }
 
     if (run.created_at) {
