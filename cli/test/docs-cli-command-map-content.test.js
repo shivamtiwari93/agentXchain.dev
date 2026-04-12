@@ -60,7 +60,7 @@ describe('CLI command map docs contract', () => {
     ['restart', ['restart']],
     ['report', ['report']],
     ['validate', ['validate']],
-    ['verify', ['verify protocol', 'verify export']],
+    ['verify', ['verify turn', 'verify protocol', 'verify export']],
     ['migrate', ['migrate']],
     ['resume', ['resume']],
     ['escalate', ['escalate']],
@@ -145,6 +145,7 @@ describe('CLI command map docs contract', () => {
   });
 
   it('documents verify as verify protocol rather than the ambiguous parent command', () => {
+    assert.ok(commandMapRows.includes('verify turn'));
     assert.ok(commandMapRows.includes('verify protocol'));
     assert.ok(commandMapRows.includes('verify export'));
     assert.ok(!commandMapRows.includes('verify'));
@@ -167,6 +168,7 @@ describe('CLI command map spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-CMAP-001/);
     assert.match(SPEC, /AT-CMAP-005/);
+    assert.match(SPEC, /verify turn/);
     assert.match(SPEC, /verify protocol/);
   });
 });

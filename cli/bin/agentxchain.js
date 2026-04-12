@@ -59,7 +59,7 @@ import { generateCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
-import { verifyExportCommand, verifyProtocolCommand } from '../src/commands/verify.js';
+import { verifyExportCommand, verifyProtocolCommand, verifyTurnCommand } from '../src/commands/verify.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
@@ -332,7 +332,14 @@ program
 
 const verifyCmd = program
   .command('verify')
-  .description('Verify protocol conformance targets');
+  .description('Verify governed turns, export artifacts, and protocol conformance targets');
+
+verifyCmd
+  .command('turn [turn_id]')
+  .description('Replay a staged turn\'s declared machine-evidence commands and compare exit codes')
+  .option('-j, --json', 'Output as JSON')
+  .option('--timeout <ms>', 'Per-command replay timeout in milliseconds', '30000')
+  .action(verifyTurnCommand);
 
 verifyCmd
   .command('protocol')

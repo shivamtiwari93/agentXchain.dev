@@ -1,4 +1,10 @@
 import chalk from 'chalk';
+import { spawnSync } from 'node:child_process';
+import { loadProjectContext, loadProjectState } from '../lib/config.js';
+import { getActiveTurns } from '../lib/governed-state.js';
+import { normalizeVerification } from '../lib/repo-observer.js';
+import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
+import { getTurnStagingResultPath } from '../lib/turn-paths.js';
 import { resolve } from 'node:path';
 import { loadExportArtifact, verifyExportArtifact } from '../lib/export-verifier.js';
 import { verifyProtocolConformance } from '../lib/protocol-conformance.js';
@@ -95,6 +101,85 @@ export async function verifyExportCommand(opts) {
   process.exit(result.ok ? 0 : 1);
 }
 
+export async function verifyTurnCommand(turnId, opts = {}) {
+  const context = loadProjectContext();
+  if (!context) {
+    console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
+    process.exit(2);
+  }
+
+  if (context.config.protocol_mode !== 'governed' || context.version !== 4) {
+    console.log(chalk.red('verify turn is only available in governed v4 projects.'));
+    process.exit(2);
+  }
+
+  const timeoutMs = Number.parseInt(String(opts.timeout || '30000'), 10);
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    console.log(chalk.red('verify turn requires a positive integer --timeout in milliseconds.'));
+    process.exit(2);
+  }
+
+  const { root, config } = context;
+  const state = loadProjectState(root, config);
+  const activeTurns = getActiveTurns(state);
+  const selectedTurnId = resolveTargetTurnId(turnId, activeTurns);
+  const selectedTurn = activeTurns[selectedTurnId];
+  const stagingPath = getTurnStagingResultPath(selectedTurnId);
+  const validationState = {
+    ...state,
+    active_turns: {
+      [selectedTurnId]: selectedTurn,
+    },
+  };
+  const validation = validateStagedTurnResult(root, validationState, config, { stagingPath });
+
+  if (!validation.ok) {
+    emitTurnValidationFailure(validation, opts.json);
+    process.exit(1);
+  }
+
+  const turnResult = validation.turnResult;
+  const runtimeType = config.runtimes?.[selectedTurn.runtime_id]?.type || 'manual';
+  const declaredStatus = turnResult.verification?.status || 'skipped';
+  const normalizedStatus = normalizeVerification(turnResult.verification, runtimeType).status;
+  const machineEvidence = Array.isArray(turnResult.verification?.machine_evidence)
+    ? turnResult.verification.machine_evidence
+    : [];
+
+  const payload = {
+    turn_id: selectedTurnId,
+    role: selectedTurn.assigned_role,
+    runtime_id: selectedTurn.runtime_id,
+    runtime_type: runtimeType,
+    staging_path: stagingPath,
+    declared_status: declaredStatus,
+    normalized_status: normalizedStatus,
+    validation: {
+      ok: true,
+      warnings: validation.warnings || [],
+    },
+    timeout_ms: timeoutMs,
+    overall: 'not_reproducible',
+    replayed_commands: 0,
+    matched_commands: 0,
+    commands: [],
+  };
+
+  if (machineEvidence.length === 0) {
+    payload.reason = 'No verification.machine_evidence commands were declared. commands/evidence_summary are not executable proof.';
+    emitTurnVerification(payload, opts.json);
+    process.exit(1);
+  }
+
+  payload.commands = machineEvidence.map((entry, index) => replayEvidenceCommand(root, entry, index, timeoutMs));
+  payload.replayed_commands = payload.commands.length;
+  payload.matched_commands = payload.commands.filter((entry) => entry.matched).length;
+  payload.overall = payload.commands.every((entry) => entry.matched) ? 'match' : 'mismatch';
+
+  emitTurnVerification(payload, opts.json);
+  process.exit(payload.overall === 'match' ? 0 : 1);
+}
+
 function printProtocolReport(report) {
   console.log('');
   console.log(chalk.bold('  AgentXchain Protocol Conformance'));
@@ -161,4 +246,144 @@ function printExportReport(report) {
   }
 
   console.log('');
+}
+
+function resolveTargetTurnId(requestedTurnId, activeTurns) {
+  const turnIds = Object.keys(activeTurns);
+
+  if (requestedTurnId) {
+    if (!activeTurns[requestedTurnId]) {
+      console.log(chalk.red(`Unknown active turn: ${requestedTurnId}`));
+      if (turnIds.length > 0) {
+        console.log(chalk.dim(`  Available: ${turnIds.join(', ')}`));
+      }
+      process.exit(2);
+    }
+    return requestedTurnId;
+  }
+
+  if (turnIds.length === 0) {
+    console.log(chalk.red('No active turn found.'));
+    process.exit(2);
+  }
+
+  if (turnIds.length > 1) {
+    console.log(chalk.red('Multiple active turns are present. Re-run with `agentxchain verify turn <turn_id>`.'));
+    console.log(chalk.dim(`  Available: ${turnIds.join(', ')}`));
+    process.exit(2);
+  }
+
+  return turnIds[0];
+}
+
+function emitTurnValidationFailure(validation, jsonMode) {
+  const payload = {
+    overall: 'validation_failed',
+    validation: {
+      ok: false,
+      stage: validation.stage,
+      error_class: validation.error_class,
+      errors: validation.errors || [],
+      warnings: validation.warnings || [],
+    },
+  };
+
+  if (jsonMode) {
+    console.log(JSON.stringify(payload, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log(chalk.red('  Turn Verification Blocked By Validation'));
+  console.log(chalk.dim('  ' + '─'.repeat(44)));
+  console.log(`  ${chalk.dim('Stage:')}    ${validation.stage || 'unknown'}`);
+  console.log(`  ${chalk.dim('Reason:')}   ${validation.error_class || 'validation_error'}`);
+  for (const error of validation.errors || []) {
+    console.log(`  ${chalk.dim('Error:')}    ${error}`);
+  }
+  if ((validation.warnings || []).length > 0) {
+    console.log('');
+    for (const warning of validation.warnings || []) {
+      console.log(`  ${chalk.dim('Warning:')}  ${warning}`);
+    }
+  }
+  console.log('');
+}
+
+function replayEvidenceCommand(root, entry, index, timeoutMs) {
+  const result = spawnSync(entry.command, {
+    cwd: root,
+    encoding: 'utf8',
+    shell: true,
+    timeout: timeoutMs,
+    maxBuffer: 1024 * 1024,
+  });
+
+  const timedOut = result.error?.code === 'ETIMEDOUT';
+  const actualExitCode = Number.isInteger(result.status) ? result.status : null;
+  const errorMessage = result.error?.message || null;
+
+  return {
+    index,
+    command: entry.command,
+    declared_exit_code: entry.exit_code,
+    actual_exit_code: actualExitCode,
+    matched: actualExitCode === entry.exit_code,
+    timed_out: timedOut,
+    signal: result.signal || null,
+    error: errorMessage,
+  };
+}
+
+function emitTurnVerification(payload, jsonMode) {
+  if (jsonMode) {
+    console.log(JSON.stringify(payload, null, 2));
+    return;
+  }
+
+  console.log('');
+  console.log(chalk.bold(`  Verify Turn: ${chalk.cyan(payload.turn_id)}`));
+  console.log(chalk.dim('  ' + '─'.repeat(44)));
+  console.log(`  ${chalk.dim('Role:')}       ${payload.role}`);
+  console.log(`  ${chalk.dim('Runtime:')}    ${payload.runtime_id} (${payload.runtime_type})`);
+  console.log(`  ${chalk.dim('Staging:')}    ${payload.staging_path}`);
+  console.log(`  ${chalk.dim('Declared:')}   ${payload.declared_status}`);
+  console.log(`  ${chalk.dim('Normalized:')} ${payload.normalized_status}`);
+  console.log(`  ${chalk.dim('Outcome:')}    ${formatOutcome(payload.overall)}`);
+
+  for (const warning of payload.validation?.warnings || []) {
+    console.log(`  ${chalk.dim('Warning:')}    ${warning}`);
+  }
+
+  if (payload.reason) {
+    console.log(`  ${chalk.dim('Reason:')}     ${payload.reason}`);
+    console.log('');
+    return;
+  }
+
+  console.log('');
+  for (const command of payload.commands || []) {
+    const marker = command.matched ? chalk.green('match') : chalk.red('mismatch');
+    console.log(`  [${marker}] ${command.command}`);
+    console.log(`    declared=${command.declared_exit_code} actual=${command.actual_exit_code == null ? 'null' : command.actual_exit_code}`);
+    if (command.signal) {
+      console.log(`    signal=${command.signal}`);
+    }
+    if (command.timed_out) {
+      console.log('    timed_out=true');
+    }
+    if (command.error) {
+      console.log(`    error=${command.error}`);
+    }
+  }
+
+  console.log('');
+  console.log(chalk.dim('  Replay uses the current workspace and shell environment. It verifies declared exit-code reproducibility, not historical stdout/stderr identity.'));
+  console.log('');
+}
+
+function formatOutcome(outcome) {
+  if (outcome === 'match') return chalk.green('match');
+  if (outcome === 'mismatch') return chalk.red('mismatch');
+  return chalk.yellow('not_reproducible');
 }

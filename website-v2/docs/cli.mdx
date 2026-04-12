@@ -60,6 +60,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `approve-transition` | Approval | Approve a phase transition gate (e.g., planning to implementation) |
 | `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
 | `validate` | Validation | Validate config, state, or full run integrity |
+| `verify turn` | Validation | Replay a staged turn's declared machine-evidence commands and compare actual exit codes |
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
@@ -654,6 +655,51 @@ Validation modes:
 | `full` | Everything in `kickoff` + `turn`, plus history integrity, decision ledger consistency, phase sequence validity, and state file coherence |
 
 For governed projects, `validate` also checks template-registry integrity and the current project's configured template binding. Returns exit code `0` on success, `1` on validation failure with details.
+
+### `verify turn`
+
+```bash
+agentxchain verify turn [turn_id] [--json] [--timeout <ms>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output structured replay results |
+| `--timeout <ms>` | `30000` | Per-command replay timeout in milliseconds |
+
+`validate --mode turn` proves the staged result is structurally acceptable. `verify turn` answers the next question: does the staged turn's declared verification evidence still reproduce in the current workspace?
+
+The command is intentionally narrow:
+
+- it only works on governed v4 repos
+- it targets active turns only, using the staged result at `.agentxchain/staging/<turn_id>/turn-result.json`
+- it validates the staged result before replaying anything
+- it replays only `verification.machine_evidence[].command`
+- it compares actual exit codes to declared `verification.machine_evidence[].exit_code`
+- it does not compare stdout/stderr text
+- it does not mutate state, gate status, history, or ledgers
+
+`verification.commands` and `verification.evidence_summary` are not executable proof on their own. If `machine_evidence` is absent, the command exits non-zero with `overall: "not_reproducible"` instead of pretending the turn was verified.
+
+Typical use:
+
+```bash
+# active turn only
+agentxchain verify turn
+
+# target one retained turn explicitly
+agentxchain verify turn turn_abc123 --json
+```
+
+Exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Every replayed command exited with the declared exit code (`overall: "match"`) |
+| `1` | Replay drifted, timed out, errored, or the staged turn had no replayable `machine_evidence` |
+| `2` | Command/input/config error |
+
+This is a current-workspace reproducibility check, not a historical time machine. A mismatch can come from false agent reporting, later repo drift, or environment drift. The contract is still useful because the staged turn only records command strings plus exit codes.
 
 ## Protocol conformance
 
