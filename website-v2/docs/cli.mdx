@@ -881,11 +881,13 @@ agentxchain events [--follow] [--type <type>] [--since <timestamp>] [--json] [--
 | `--limit <n>` | `50` | Max events to show (0 = all) |
 | `--dir <path>` | `.` | Project directory |
 
-Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`.
+Shows repo-local run lifecycle events from `.agentxchain/events.jsonl`. Events are emitted automatically during governed runs at key lifecycle transitions: `run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`.
 
 Use `--follow` to stream events in real-time as they occur. Use `--type run_blocked,run_completed` to filter by event type. Use `--json` for machine-readable output.
 
 `turn_rejected` text entries include the rejection reason inline and append the failed stage when it is known, so operators can see why a turn failed without cross-referencing `.agentxchain/state.json`.
+
+`phase_entered` text entries show the transition as `from → to (trigger)`, where `trigger` distinguishes direct automatic gate passes, auto-approved policy transitions, and explicit human approvals. `gate_failed` text entries show the blocked transition plus the first failure reason and gate ID inline, so operators can diagnose a rejected phase change without digging into `.agentxchain/decision-ledger.jsonl`.
 
 Unlike webhook notifications (configured in `agentxchain.json`), the event log requires no external infrastructure — events are written locally as part of normal governed operation.
 

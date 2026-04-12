@@ -228,6 +228,26 @@ describe('CLI governance docs contract — common sequences', () => {
   });
 });
 
+describe('CLI governance docs contract — events observability', () => {
+  it('documents the full governed event set including gate_failed', () => {
+    assert.match(
+      docs,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`/,
+    );
+  });
+
+  it('documents inline text rendering for phase_entered and gate_failed', () => {
+    assert.match(
+      docs,
+      /`phase_entered` text entries show the transition as `from → to \(trigger\)`/i,
+    );
+    assert.match(
+      docs,
+      /`gate_failed` text entries show the blocked transition plus the first failure reason and gate ID inline/i,
+    );
+  });
+});
+
 describe('CLI governance docs contract — approval commands have no flag tables', () => {
   for (const cmd of ['approve-transition', 'approve-completion']) {
     it(`${cmd} docs state "No flags"`, () => {
