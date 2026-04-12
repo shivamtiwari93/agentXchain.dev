@@ -254,8 +254,8 @@ const GOVERNANCE_EVENT_TYPES = new Set([
   'escalation_resolved',
 ]);
 
-function extractGovernanceEventDigest(artifact) {
-  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+function extractGovernanceEventDigest(artifact, relPath = '.agentxchain/decision-ledger.jsonl') {
+  const data = extractFileData(artifact, relPath);
   if (!Array.isArray(data) || data.length === 0) return [];
   return data
     .filter((d) => typeof d?.decision === 'string' && GOVERNANCE_EVENT_TYPES.has(d.decision))
@@ -296,21 +296,6 @@ function extractGovernanceEventDigest(artifact) {
       }
       return base;
     })
-    .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
-}
-
-function extractGovernanceEventDigestFromCoordinator(artifact) {
-  const data = extractFileData(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
-  if (!Array.isArray(data) || data.length === 0) return [];
-  return data
-    .filter((d) => typeof d?.decision === 'string' && GOVERNANCE_EVENT_TYPES.has(d.decision))
-    .map((d) => ({
-      type: d.decision,
-      timestamp: d.timestamp || null,
-      turn_id: d.turn_id || null,
-      role: d.role || null,
-      phase: d.phase || null,
-    }))
     .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
 }
 
@@ -922,6 +907,7 @@ function buildCoordinatorSubject(artifact) {
   const barrierLedgerTimeline = extractBarrierLedgerTimeline(artifact);
   const decisionDigest = extractCoordinatorDecisionDigest(artifact);
   const coordinatorApprovalPolicyEvents = extractCoordinatorApprovalPolicyDigest(artifact);
+  const coordinatorGovernanceEvents = extractGovernanceEventDigest(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
   const coordinatorTimeoutEvents = extractTimeoutEventDigest(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
@@ -966,6 +952,7 @@ function buildCoordinatorSubject(artifact) {
     barrier_ledger_timeline: barrierLedgerTimeline,
     decision_digest: decisionDigest,
     approval_policy_events: coordinatorApprovalPolicyEvents,
+    governance_events: coordinatorGovernanceEvents,
     timeout_events: coordinatorTimeoutEvents,
     recovery_report: extractRecoveryReportSummary(artifact),
     repos,
@@ -1232,6 +1219,7 @@ export function formatGovernanceReportText(report) {
     barrier_ledger_timeline,
     decision_digest,
     approval_policy_events,
+    governance_events,
     timeout_events,
     recovery_report,
   } = report.subject;
@@ -1326,6 +1314,14 @@ export function formatGovernanceReportText(report) {
       const rule = evt.matched_rule ? ` | rule: ${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}` : '';
       lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
       if (evt.reason) lines.push(`      reason: ${evt.reason}`);
+    }
+  }
+
+  if (governance_events && governance_events.length > 0) {
+    lines.push('', 'Governance Events:');
+    for (const evt of governance_events) {
+      lines.push(`  - ${evt.type} | ${evt.role || '?'} | ${evt.phase || '?'} | at: ${evt.timestamp || 'n/a'}`);
+      renderGovernanceEventDetailText(lines, evt, '      ');
     }
   }
 
@@ -1659,6 +1655,7 @@ export function formatGovernanceReportMarkdown(report) {
     barrier_ledger_timeline,
     decision_digest,
     approval_policy_events,
+    governance_events,
     timeout_events,
     recovery_report: coordRecoveryReport,
   } = report.subject;
@@ -1754,6 +1751,14 @@ export function formatGovernanceReportMarkdown(report) {
       const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
       mdLines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
       if (evt.reason) mdLines.push(`  - ${evt.reason}`);
+    }
+  }
+
+  if (governance_events && governance_events.length > 0) {
+    mdLines.push('', '## Governance Events', '');
+    for (const evt of governance_events) {
+      mdLines.push(`- **${evt.type}** (\`${evt.role || '?'}\`, \`${evt.phase || '?'}\` phase) at \`${evt.timestamp || 'n/a'}\``);
+      renderGovernanceEventDetailMarkdown(mdLines, evt);
     }
   }
 

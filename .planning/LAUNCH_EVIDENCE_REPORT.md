@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.69.0
+# Launch Evidence Report — AgentXchain v2.70.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.69.0 release: full phase-transition event visibility, first-class `gate_failed` lifecycle events, and corrected operator-facing CLI docs for the governed event stream.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.70.0 release: coordinator reports now surface coordinator-level governance exceptions in JSON, text, and markdown, with docs and coordinator narrative proof aligned to the shipped audit surface.
 
 ---
 

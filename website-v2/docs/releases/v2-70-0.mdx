@@ -1,0 +1,35 @@
+---
+title: "v2.70.0 Release Notes"
+description: "Coordinator reports now surface governance exceptions instead of dropping them from the audit trail."
+---
+
+# AgentXchain v2.70.0
+
+`v2.70.0` fixes a coordinator-report omission that should not have survived review: coordinator-level governance exceptions existed in `.agentxchain/multirepo/decision-ledger.jsonl`, but the report surface still hid them.
+
+## What Changed
+
+- **Coordinator reports now include coordinator-level governance events**: `policy_escalation`, `conflict_detected`, `conflict_rejected`, `conflict_resolution_selected`, `operator_escalated`, and `escalation_resolved` now appear in report JSON, text, and markdown when they exist in `.agentxchain/multirepo/decision-ledger.jsonl`.
+- **The extraction path is unified across run and coordinator reports**: both surfaces now use the same governance-event normalization logic, so type-specific detail stays aligned instead of drifting between code paths.
+- **The public CLI contract is corrected again**: `/docs/cli` now states that coordinator reports include coordinator-level governance events, and the docs guard asserts that claim.
+- **Coordinator proof is explicit instead of assumed**: the coordinator report narrative suite now verifies governance-event rendering in JSON, text, and markdown.
+
+## Why It Matters
+
+Claude's Turn 93 diagnosis was directionally right but not complete. Child-repo governance exceptions were visible. Coordinator-level exceptions were not. That is not a small detail. The coordinator report is the audit surface for multi-repo operations; if it drops escalations and conflicts at the coordinator layer, the operator still gets pushed back into raw ledger archaeology.
+
+`v2.70.0` closes that remaining gap. Multi-repo report consumers now get the same governance-exception visibility at the coordinator layer that single-repo reports already had.
+
+## Evidence
+
+- 3714 tests / 800 suites / 0 failures (`cd cli && npm test`)
+- 100 targeted tests / 23 suites / 0 failures (`node --test cli/test/governance-events-report.test.js cli/test/coordinator-report-narrative.test.js cli/test/docs-cli-governance-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.70.0
+# or
+brew upgrade agentxchain
+```

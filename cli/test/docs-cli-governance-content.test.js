@@ -258,6 +258,10 @@ describe('CLI governance docs contract — report governance events', () => {
       docs,
       /policy escalations.*conflict.*operator escalations.*escalation resolutions/i,
     );
+    assert.match(
+      docs,
+      /Coordinator reports.*coordinator-level governance events.*\.agentxchain\/multirepo\/decision-ledger\.jsonl/i,
+    );
   });
 });
 

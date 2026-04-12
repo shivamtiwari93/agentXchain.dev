@@ -1335,6 +1335,42 @@ Operator re-ran multi resume after manual inspection.
     assert.match(md, /Coordinator auto-approved planning exit/);
   });
 
+  it('renders coordinator-level governance events in JSON, text, and markdown', () => {
+    const fixture = buildCoordinatorFixture({
+      coordinatorDecisionEntries: [
+        {
+          timestamp: '2026-04-06T19:18:00.000Z',
+          decision: 'operator_escalated',
+          role: 'pm',
+          phase: 'implementation',
+          blocked_on: 'human_review',
+          escalation: { reason: 'Coordinator needs architecture signoff before dispatching web.' },
+        },
+      ],
+    });
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, 'report built successfully');
+
+    const events = result.report.subject.governance_events;
+    assert.ok(Array.isArray(events), 'coordinator governance_events should be an array');
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, 'operator_escalated');
+    assert.equal(events[0].role, 'pm');
+    assert.equal(events[0].phase, 'implementation');
+    assert.equal(events[0].blocked_on, 'human_review');
+    assert.equal(events[0].reason, 'Coordinator needs architecture signoff before dispatching web.');
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Governance Events:/);
+    assert.match(text, /operator_escalated/);
+    assert.match(text, /Coordinator needs architecture signoff before dispatching web/);
+
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /## Governance Events/);
+    assert.match(md, /operator_escalated/);
+    assert.match(md, /human_review/);
+  });
+
   it('renders coordinator-level timeout events in JSON, text, and markdown', () => {
     const fixture = buildCoordinatorFixture({
       coordinatorDecisionEntries: [

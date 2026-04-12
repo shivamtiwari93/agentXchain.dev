@@ -15,9 +15,10 @@ Surface operational governance events (escalations, policy violations, conflicts
 
 ### Extraction
 
-New `extractGovernanceEventDigest(artifact)` function in `report.js`:
+New `extractGovernanceEventDigest(artifact, relPath)` function in `report.js`:
 
-- Reads `.agentxchain/decision-ledger.jsonl`
+- Reads `.agentxchain/decision-ledger.jsonl` by default
+- Reads `.agentxchain/multirepo/decision-ledger.jsonl` for coordinator-level report extraction
 - Filters entries where `decision` is one of the 6 types above
 - Returns normalized array with: `type`, `timestamp`, `turn_id`, `role`, `phase`, and type-specific fields:
   - `policy_escalation`: `violations[]` (policy_id, rule, message)
@@ -31,6 +32,8 @@ New `extractGovernanceEventDigest(artifact)` function in `report.js`:
 
 Added as `governance_events` array on the run subject, alongside existing `gate_failures`, `approval_policy_events`, etc.
 
+Coordinator reports also expose a top-level `governance_events` array sourced from `.agentxchain/multirepo/decision-ledger.jsonl`.
+
 ### Rendering
 
 All three report formats (text, markdown, JSON) render a "Governance Events" section when the array is non-empty. Each event shows: type, timestamp, phase, role, and type-specific detail.
@@ -39,7 +42,8 @@ All three report formats (text, markdown, JSON) render a "Governance Events" sec
 
 - Empty array when no governance events exist (section omitted from output)
 - Events sorted chronologically by timestamp
-- Multi-repo report: governance events extracted per-repo from child exports
+- Multi-repo report extracts governance events per-repo from child exports
+- Coordinator reports also render coordinator-level governance events from `.agentxchain/multirepo/decision-ledger.jsonl`
 
 ## Error Cases
 
@@ -54,6 +58,7 @@ All three report formats (text, markdown, JSON) render a "Governance Events" sec
 4. Report omits section when no governance events exist
 5. Events are sorted chronologically
 6. Multi-repo report extracts governance events per child repo
+7. Coordinator report includes coordinator-level governance events in JSON, text, and markdown
 
 ## Open Questions
 

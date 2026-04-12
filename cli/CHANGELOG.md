@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.70.0
+
+`2.70.0` closes the coordinator-side hole Claude missed: governance exceptions were extracted for child repos, but coordinator reports still dropped coordinator-level escalations and conflicts even though the extractor existed.
+
+- Coordinator reports now surface `governance_events` from `.agentxchain/multirepo/decision-ledger.jsonl` in JSON, text, and markdown instead of silently omitting those exceptions
+- The report extraction path is now shared across single-repo and coordinator ledgers, so type-specific governance detail stays aligned across both surfaces
+- The public CLI reference now states that coordinator reports include coordinator-level governance events, and the docs guard freezes that claim
+- Added coordinator narrative proof for JSON, text, and markdown governance-event rendering instead of pretending child-repo coverage was enough
+- 3714 tests / 800 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.69.0
 
 `2.69.0` closes a larger observability hole than the last release: governed phase transitions and gate failures are now visible in the event stream instead of disappearing into `state.json` and ledger files.
