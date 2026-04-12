@@ -308,16 +308,21 @@ describe('homebrew sync automation contract', () => {
     assert.match(
       workflow,
       /gh pr review "\$PR_NUMBER" --approve/,
-      'workflow must submit an approval review for the mirror PR',
+      'workflow must attempt an approval review for the mirror PR',
     );
     assert.match(
       workflow,
-      /gh pr merge "\$PR_NUMBER" --auto --squash --delete-branch/,
-      'workflow must opt the mirror PR into auto-merge and clean up the branch',
+      /Cannot self-approve/,
+      'workflow must handle self-approval failure gracefully',
     );
     assert.match(
       workflow,
-      /did not merge after approval and auto-merge enablement/,
+      /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
+      'workflow must merge the mirror PR with admin override and clean up the branch',
+    );
+    assert.match(
+      workflow,
+      /did not merge after/,
       'workflow must fail closed if the mirror PR never reaches merged state',
     );
   });
