@@ -86,6 +86,7 @@ import {
 } from '../src/commands/plugin.js';
 import { templateSetCommand } from '../src/commands/template-set.js';
 import { templateListCommand } from '../src/commands/template-list.js';
+import { phaseCommand } from '../src/commands/phase.js';
 import { roleCommand } from '../src/commands/role.js';
 import { turnShowCommand } from '../src/commands/turn.js';
 import { templateValidateCommand } from '../src/commands/template-validate.js';
@@ -486,6 +487,22 @@ templateCmd
   .description('Validate the built-in governed template registry and current project template binding')
   .option('-j, --json', 'Output as JSON')
   .action(templateValidateCommand);
+
+const phaseCmd = program
+  .command('phase')
+  .description('Inspect governed workflow phases');
+
+phaseCmd
+  .command('list')
+  .description('List governed phases in routing order')
+  .option('-j, --json', 'Output as JSON')
+  .action((opts) => phaseCommand('list', null, opts));
+
+phaseCmd
+  .command('show [phase]')
+  .description('Show one governed phase in detail')
+  .option('-j, --json', 'Output as JSON')
+  .action((phaseId, opts) => phaseCommand('show', phaseId, opts));
 
 const roleCmd = program
   .command('role')

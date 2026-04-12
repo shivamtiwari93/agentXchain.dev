@@ -38,6 +38,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
 | `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
+| `phase list` | Inspection | List governed phases in routing order with current-phase context |
+| `phase show` | Inspection | Inspect one governed phase: routing, gate, next roles, and workflow-kit artifact ownership |
 | `role list` | Inspection | List all defined roles with title, authority, and runtime |
 | `role show` | Inspection | Show detailed information for a single role |
 | `turn show` | Inspection | Inspect an active turn's dispatch bundle and read selected artifacts without raw file browsing |
@@ -255,6 +257,32 @@ agentxchain turn show --artifact assignment --json
 ```
 
 `--json` returns structured turn metadata by default. When combined with `--artifact assignment` or `--artifact manifest`, it returns the parsed JSON artifact content instead of raw filesystem output.
+
+### `phase list` / `phase show`
+
+```bash
+agentxchain phase list [--json]
+agentxchain phase show [phase] [--json]
+```
+
+These commands expose the governed workflow contract directly instead of forcing operators to reverse-engineer `routing` and `workflow_kit` through raw config dumps.
+
+`phase list` prints phases in routing order and marks the current phase when governed state is available. Each row summarizes the entry role, exit gate, next phase, and workflow artifact count.
+
+`phase show` prints one phase in detail:
+
+- entry role
+- exit gate and current gate status when available
+- next phase
+- allowed next roles
+- per-phase timeout override and max concurrent turns when configured
+- workflow-kit source (`default`, `explicit`, or `not_declared`)
+- explicit workflow-kit template id when declared
+- workflow artifacts with owner, ownership resolution, required/optional status, semantics, and filesystem presence
+
+If `phase` is omitted, `phase show` defaults to the current governed phase from state. If no current phase is available, it falls back to the first routing phase.
+
+This matters because the normalized default workflow-kit is real product behavior even when raw `workflow_kit` is absent. Operators should be able to inspect that default workflow contract explicitly instead of guessing from scaffold files.
 
 ### `status`
 
