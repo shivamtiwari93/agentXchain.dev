@@ -265,6 +265,19 @@ describe('CLI governance docs contract — report governance events', () => {
   });
 });
 
+describe('CLI governance docs contract — coordinator status observability', () => {
+  it('documents coordinator status enrichment: elapsed, blocked, gates, timing fields', () => {
+    assert.match(
+      docs,
+      /multi status.*elapsed time.*blocked reason.*phase gate/i,
+    );
+    assert.match(
+      docs,
+      /blocked_reason.*created_at.*updated_at.*phase_gate_status/,
+    );
+  });
+});
+
 describe('CLI governance docs contract — approval commands have no flag tables', () => {
   for (const cmd of ['approve-transition', 'approve-completion']) {
     it(`${cmd} docs state "No flags"`, () => {

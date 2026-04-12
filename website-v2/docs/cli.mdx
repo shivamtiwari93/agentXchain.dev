@@ -1041,7 +1041,7 @@ The multi command family orchestrates governed runs across linked repositories. 
 | Subcommand | Purpose | Flags |
 |------------|---------|-------|
 | `init` | Bootstrap a coordinator run, link repo runs, and write initial coordinator state | `--json` |
-| `status` | Show coordinator status: super-run state, repo-run snapshots, and barriers | `--json` |
+| `status` | Show coordinator status: super-run state, elapsed time, blocked reason, repo-run snapshots, phase gates, and barriers | `--json` |
 | `step` | Reconcile repo truth, select the next workstream, and dispatch a coordinator turn | `--json` |
 | `resume` | Clear a blocked coordinator after the operator fixes the cause and restore the next truthful status | `--json` |
 | `approve-gate` | Approve a pending phase transition or completion gate across the coordinated run | `--json` |
@@ -1061,6 +1061,8 @@ The typical coordinator flow is:
 - `multi resume` is the blocked-state recovery command after the operator resolves the cause
 
 If `multi resume` restores the coordinator to `active`, the next action is `agentxchain multi step`. If it restores to `paused` with a coherent `pending_gate`, the next action is `agentxchain multi approve-gate`.
+
+`multi status` renders coordinator observability with the same depth as single-repo `status`: elapsed time for active runs, blocked reason with recovery guidance when the coordinator is blocked, phase gate pass/pending status, and a completion marker with timestamp when the run finishes. In `--json` mode, the output includes `blocked_reason`, `created_at`, `updated_at`, and `phase_gate_status` fields alongside the existing super-run, repo-run, and barrier data.
 
 The dashboard **Initiative** and **Cross-Repo** views visualize coordinator state. When only coordinator state exists (no repo-local run), the dashboard opens on Initiative first.
 

@@ -10,6 +10,7 @@
  *   multi resync       — detect divergence and rebuild coordinator state from repo authority
  */
 
+import chalk from 'chalk';
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
 import {
   initializeCoordinatorRun,
@@ -105,11 +106,44 @@ export async function multiStatusCommand(options) {
   }
 
   console.log(`Super Run:    ${status.super_run_id}`);
-  console.log(`Status:       ${status.status}`);
+  console.log(`Status:       ${formatCoordinatorStatus(status.status)}`);
   console.log(`Phase:        ${status.phase}`);
 
+  // Elapsed time for active runs
+  if (status.created_at && status.status === 'active') {
+    const elapsedMs = Date.now() - new Date(status.created_at).getTime();
+    if (elapsedMs >= 0) {
+      const secs = Math.floor(elapsedMs / 1000);
+      const mins = Math.floor(secs / 60);
+      const remainSecs = secs % 60;
+      const elapsed = mins > 0 ? `${mins}m ${remainSecs}s` : `${remainSecs}s`;
+      console.log(`Elapsed:      ${elapsed}`);
+    }
+  }
+
+  // Blocked state with reason
+  if (status.status === 'blocked') {
+    const reason = (typeof status.blocked_reason === 'string' && status.blocked_reason.trim())
+      ? status.blocked_reason.trim()
+      : 'unknown reason';
+    console.log(`Blocked:      ${chalk.red.bold('BLOCKED')} — ${reason}`);
+  }
+
+  // Pending gate with phase transition direction
   if (status.pending_gate) {
-    console.log(`Pending Gate: ${status.pending_gate.gate} (${status.pending_gate.gate_type})`);
+    const pg = status.pending_gate;
+    const fromTo = pg.from && pg.to ? ` ${pg.from} → ${pg.to}` : '';
+    console.log(`Pending Gate: ${pg.gate} (${pg.gate_type})${fromTo}`);
+    console.log(`Action:       Run ${chalk.cyan('agentxchain multi approve-gate')} to advance`);
+  }
+
+  // Completed state
+  if (status.status === 'completed') {
+    console.log('');
+    console.log(`  ${chalk.green.bold('✓ Coordinator run completed')}`);
+    if (status.updated_at) {
+      console.log(`  ${chalk.dim('Completed:')} ${status.updated_at}`);
+    }
   }
 
   console.log('');
@@ -119,6 +153,17 @@ export async function multiStatusCommand(options) {
     console.log(`  ${repoId}: ${info.status || 'unknown'}${phase} (run: ${info.run_id})`);
   }
 
+  // Phase gate status
+  const gateEntries = Object.entries(status.phase_gate_status || {});
+  if (gateEntries.length > 0) {
+    console.log('');
+    console.log('Gates:');
+    for (const [gate, gateStatus] of gateEntries) {
+      const icon = gateStatus === 'passed' ? chalk.green('✓') : chalk.dim('○');
+      console.log(`  ${icon} ${gate}: ${gateStatus}`);
+    }
+  }
+
   const barrierEntries = Object.entries(barriers || {});
   if (barrierEntries.length > 0) {
     console.log('');
@@ -126,6 +171,15 @@ export async function multiStatusCommand(options) {
     for (const [barrierId, barrier] of barrierEntries) {
       console.log(`  ${barrierId}: ${barrier.status} (${barrier.type})`);
     }
+  }
+}
+
+function formatCoordinatorStatus(status) {
+  switch (status) {
+    case 'active': return chalk.green(status);
+    case 'blocked': return chalk.red.bold(status);
+    case 'completed': return chalk.cyan(status);
+    default: return status;
   }
 }
 

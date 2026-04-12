@@ -401,6 +401,10 @@ export function getCoordinatorStatus(workspacePath) {
     repo_runs: state.repo_runs,
     pending_barriers: pendingBarriers,
     pending_gate: state.pending_gate ?? null,
+    blocked_reason: state.blocked_reason ?? null,
+    created_at: state.created_at ?? null,
+    updated_at: state.updated_at ?? null,
+    phase_gate_status: state.phase_gate_status ?? null,
   };
 }
 
