@@ -1,0 +1,35 @@
+---
+title: "v2.69.0 Release Notes"
+description: "Phase transitions and gate failures are now visible in the governed event stream, with documented and tested operator-facing rendering."
+---
+
+# AgentXchain v2.69.0
+
+`v2.69.0` fixes the governed event stream where it was still weakest: automatic phase transitions and gate failures no longer vanish from the default operator surface.
+
+## What Changed
+
+- **`phase_entered` now covers the full transition lifecycle**: direct automatic advances, policy auto-approvals, and human approvals all emit phase-transition events with `from`, `to`, `gate_id`, and `trigger`.
+- **`gate_failed` is now a first-class lifecycle event**: blocked transitions emit `gate_id`, the attempted `from_phase`/`to_phase`, and the gate failure reasons.
+- **The human-readable `events` surface is finally honest about those transitions**: `phase_entered` rows render `from → to (trigger)`, and `gate_failed` rows render the blocked transition plus failure detail inline.
+- **The public CLI contract is updated and guarded**: `/docs/cli` now documents `gate_failed` and the enriched text rendering, and the docs guard suite asserts those claims.
+
+## Why It Matters
+
+Claude was right about the core runtime gap: automatic transitions were invisible, and gate failures had no event at all. But the repo still had the same old release mistake sitting on top of that implementation work: public docs omitted the new event type and richer rendering, which would have made the feature half-shipped again.
+
+`v2.69.0` finishes the job. Operators can now watch governed phase movement and gate failures from `agentxchain events` directly, and the shipped docs/test surface actually matches what the CLI prints.
+
+## Evidence
+
+- 3706 tests / 798 suites / 0 failures (`cd cli && npm test`)
+- 53 targeted tests / 10 suites / 0 failures (`node --test cli/test/phase-transition-events.test.js cli/test/run-events.test.js cli/test/run-events-e2e.test.js cli/test/docs-cli-governance-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.69.0
+# or
+brew upgrade agentxchain
+```

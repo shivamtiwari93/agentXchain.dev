@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.68.0
+# Launch Evidence Report — AgentXchain v2.69.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.68.0 release: rejection-event audit detail in the event stream, regression-proof `events` rendering, and corrected operator-facing docs/specs.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.69.0 release: full phase-transition event visibility, first-class `gate_failed` lifecycle events, and corrected operator-facing CLI docs for the governed event stream.
 
 ---
 

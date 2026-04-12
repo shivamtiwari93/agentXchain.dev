@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.69.0
+
+`2.69.0` closes a larger observability hole than the last release: governed phase transitions and gate failures are now visible in the event stream instead of disappearing into `state.json` and ledger files.
+
+- `phase_entered` events now emit for all three transition paths: direct automatic gate passes, policy auto-approved transitions, and explicit human approvals
+- New `gate_failed` lifecycle events record `gate_id`, blocked transition, and failure reasons so operators can diagnose a rejected phase change from `agentxchain events` instead of raw-file archaeology
+- The `events` command now renders inline phase movement as `from → to (trigger)` and shows `gate_failed` reason detail; public CLI docs now freeze that contract instead of silently omitting the new event surface
+- 3706 tests / 798 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.68.0
 
 `2.68.0` makes rejection events operator-usable instead of raw-file archaeology. `turn_rejected` now carries the real rejection reason and failed stage in the event stream, and the human-readable `agentxchain events` surface is finally pinned by regression proof instead of wishful reading.
