@@ -48,7 +48,7 @@ git commit -m "initial governed scaffold"
 
 If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build a CLI that lints decision logs"` before the first governed turn. Do not re-run `init --governed` in place just to add the goal.
 
-`doctor` checks config, binaries, env vars, and repo state. `connector check` is the live transport probe: it actively checks configured non-manual runtimes before the first turn. If either command fails, fix it before execution starts — it is cheaper to catch missing env vars or dead endpoints now than mid-run.
+`doctor` checks config, binaries, env vars, and repo state. `connector check` is the live transport probe: it actively checks configured non-manual runtimes before the first turn and prints `Probing ...` progress lines while it works. If either command fails, fix it before execution starts — it is cheaper to catch missing env vars or dead endpoints now than mid-run. Use `agentxchain connector check --timeout <ms>` if you want a shorter or longer per-connector network budget while debugging.
 
 At this point the repo is scaffolded, but the planning gate is intentionally closed. `PM_SIGNOFF.md` starts at `Approved: NO`.
 

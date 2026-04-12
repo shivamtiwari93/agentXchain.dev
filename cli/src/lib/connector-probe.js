@@ -307,6 +307,7 @@ export async function probeConnectorRuntime(runtimeId, runtime, options = {}) {
 export async function probeConfiguredConnectors(config, options = {}) {
   const timeoutMs = Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS;
   const requestedRuntimeId = options.runtimeId || null;
+  const onProbeStart = typeof options.onProbeStart === 'function' ? options.onProbeStart : null;
 
   const runtimeEntries = Object.entries(config?.runtimes || {})
     .filter(([, runtime]) => PROBEABLE_RUNTIME_TYPES.has(runtime?.type))
@@ -322,12 +323,14 @@ export async function probeConfiguredConnectors(config, options = {}) {
       };
     }
     const [runtimeId, runtime] = match;
+    onProbeStart?.(runtimeId, runtime);
     const connector = await probeConnectorRuntime(runtimeId, runtime, { timeoutMs });
     return summarizeResults([connector], timeoutMs);
   }
 
   const connectors = [];
   for (const [runtimeId, runtime] of runtimeEntries) {
+    onProbeStart?.(runtimeId, runtime);
     connectors.push(await probeConnectorRuntime(runtimeId, runtime, { timeoutMs }));
   }
   return summarizeResults(connectors, timeoutMs);

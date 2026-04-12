@@ -901,6 +901,8 @@ Runs active connector probes for governed non-manual runtimes. Unlike `doctor`, 
 - `api_proxy`: live minimal API request using the configured provider/model/auth
 - MCP `streamable_http` and `remote_agent`: live HTTP probe to the configured endpoint
 
+Text output prints a `Probing <runtime_id>...` line before each check starts so slow endpoints do not leave the terminal looking hung. Use `--timeout` to lower or raise the per-connector wait budget when debugging reachability problems.
+
 Successful probes return exit code 0. Any connector failure returns exit code 1. Command or project-boundary errors return exit code 2.
 
 ## Dashboard

@@ -9,16 +9,21 @@ function printJson(result, exitCode) {
 }
 
 function printText(result, exitCode) {
-  console.log('');
-  console.log(chalk.bold('  AgentXchain Connector Check'));
-  console.log(chalk.dim('  ' + '─'.repeat(44)));
-  console.log('');
-
   if (result.connectors.length === 0) {
+    console.log('');
+    console.log(chalk.bold('  AgentXchain Connector Check'));
+    console.log(chalk.dim('  ' + '─'.repeat(44)));
+    console.log('');
     console.log(`  ${chalk.green('PASS')}  No non-manual runtimes are configured`);
     console.log('');
     process.exit(exitCode);
   }
+
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Connector Check'));
+  console.log(chalk.dim('  ' + '─'.repeat(44)));
+  console.log(`  ${chalk.dim(`Timeout: ${result.timeout_ms}ms per connector`)}`);
+  console.log('');
 
   for (const connector of result.connectors) {
     const badge = connector.level === 'pass' ? chalk.green('PASS') : chalk.red('FAIL');
@@ -85,6 +90,9 @@ export async function connectorCheckCommand(runtimeId, options = {}) {
   const result = await probeConfiguredConnectors(context.config, {
     runtimeId: runtimeId || null,
     timeoutMs,
+    onProbeStart: options.json ? null : (probeRuntimeId, runtime) => {
+      console.log(`  ${chalk.dim('…')} Probing ${chalk.bold(probeRuntimeId)} ${chalk.dim(`(${runtime.type})`)}`);
+    },
   });
 
   if (!result.ok && result.error) {

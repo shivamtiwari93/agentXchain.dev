@@ -100,6 +100,12 @@ The command output also includes:
 - `pass_count`
 - `fail_count`
 
+### Text UX
+
+- Text-mode output must print a progress line before each live probe starts so operators are not left staring at a silent terminal during slow network checks.
+- The progress line must include the runtime ID and runtime type.
+- JSON output remains structured-only and must not include streaming progress noise.
+
 ### Exit codes
 
 | Exit code | Meaning |
@@ -128,6 +134,8 @@ The command output also includes:
 - `AT-CCP-006`: runtime filter checks only the named runtime and unknown runtime IDs fail closed.
 - `AT-CCP-007`: `remote_agent` or HTTP MCP 405 response counts as reachable transport success.
 - `AT-CCP-008`: CLI docs distinguish `doctor` static readiness from `connector check` live probing.
+- `AT-CCP-009`: governed front-door guidance (`init --governed`, `demo`, `README`) includes `connector check` between `doctor` and the first governed turn.
+- `AT-CCP-010`: text-mode `connector check` prints a per-runtime progress line before each probe starts, while `--json` output stays progress-free.
 
 ## Open Questions
 

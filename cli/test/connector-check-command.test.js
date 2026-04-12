@@ -117,4 +117,31 @@ describe('agentxchain connector check', () => {
     const unknownOutput = JSON.parse(unknown.stdout);
     assert.match(unknownOutput.error, /Unknown connector runtime/);
   });
+
+  it('AT-CCP-010: text mode prints per-runtime progress while --json stays progress-free', () => {
+    const root = createProject((config) => {
+      config.runtimes = {
+        'manual-pm': config.runtimes['manual-pm'],
+        'local-dev': config.runtimes['local-dev'],
+        'manual-qa': { type: 'manual' },
+        'manual-director': config.runtimes['manual-director'],
+      };
+      config.roles.pm.runtime = 'manual-pm';
+      config.roles.dev.runtime = 'local-dev';
+      config.roles.qa.runtime = 'manual-qa';
+      config.roles.qa.write_authority = 'review_only';
+      config.roles.eng_director.runtime = 'manual-director';
+    });
+
+    const textResult = runCli(root, ['connector', 'check']);
+    assert.equal(textResult.status, 0, textResult.stdout);
+    assert.match(textResult.stdout, /Probing local-dev \(local_cli\)/);
+    assert.match(textResult.stdout, /Timeout: 8000ms per connector/);
+
+    const jsonResult = runCli(root, ['connector', 'check', '--json']);
+    assert.equal(jsonResult.status, 0, jsonResult.stdout);
+    assert.doesNotMatch(jsonResult.stdout, /Probing local-dev/);
+    const output = JSON.parse(jsonResult.stdout);
+    assert.equal(output.timeout_ms, 8000);
+  });
 });

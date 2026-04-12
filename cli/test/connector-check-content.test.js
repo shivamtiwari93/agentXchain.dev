@@ -21,9 +21,11 @@ describe('connector check docs/content surface', () => {
     assert.match(CLI_DOCS, /Use `agentxchain connector check` when you want a real live probe/i);
     assert.match(GETTING_STARTED, /agentxchain connector check/);
     assert.match(GETTING_STARTED, /`doctor` checks config, binaries, env vars, and repo state/i);
+    assert.match(CLI_DOCS, /Text output prints a `Probing <runtime_id>\.\.\.` line before each check starts/i);
+    assert.match(GETTING_STARTED, /prints `Probing \.\.\.` progress lines/i);
   });
 
-  it('governed front door surfaces include connector check between doctor and first turn', () => {
+  it('AT-CCP-009: governed front door surfaces include connector check between doctor and first turn', () => {
     // init.js next-step output
     assert.match(INIT_CMD, /agentxchain connector check/,
       'init --governed next-step output must include connector check');
@@ -39,5 +41,7 @@ describe('connector check docs/content surface', () => {
     assert.match(PROBE_SPEC, /Connector Probe Command Spec/);
     assert.match(PROBE_SPEC, /AT-CCP-001/);
     assert.match(PROBE_SPEC, /AT-CCP-008/);
+    assert.match(PROBE_SPEC, /AT-CCP-009/);
+    assert.match(PROBE_SPEC, /AT-CCP-010/);
   });
 });
