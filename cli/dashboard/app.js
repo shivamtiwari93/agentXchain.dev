@@ -19,7 +19,7 @@ import { render as renderTimeouts } from './components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from './components/coordinator-timeouts.js';
 
 const VIEWS = {
-  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors'], render: renderTimeline },
+  timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },

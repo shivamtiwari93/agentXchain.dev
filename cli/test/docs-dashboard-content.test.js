@@ -141,6 +141,13 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('per-turn duration'), 'cli docs must describe per-turn duration for completed turns');
     assert.ok(CLI_DOCS.includes('acceptance timestamp'), 'cli docs must describe acceptance timestamp in timeline');
   });
+
+  it('documents timeline coordinator hook evidence parity', () => {
+    const timelineRow = CLI_DOCS.split('\n').find(l => l.includes('**Timeline**'));
+    assert.ok(timelineRow, 'cli docs must have a Timeline row');
+    assert.ok(timelineRow.includes('coordinator hook audit'), 'Timeline row must describe coordinator hook audit visibility');
+    assert.ok(timelineRow.includes('coordinator hook annotations') || timelineRow.includes('/api/coordinator/hooks/annotations'), 'Timeline row must describe coordinator hook annotations visibility');
+  });
 });
 
 describe('Dashboard discoverability — front-door surfaces', () => {

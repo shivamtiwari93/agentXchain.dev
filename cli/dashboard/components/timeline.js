@@ -114,52 +114,74 @@ function roleBadge(role) {
   return `<span class="badge" style="color:${color};border-color:${color}">${esc(role)}</span>`;
 }
 
-function renderTurnDetailPanel(turnId, annotations, audit) {
+function renderAuditSection(title, auditEntries) {
+  if (auditEntries.length === 0) return '';
+  let html = `<div class="turn-detail"><span class="detail-label">${esc(title)} (${auditEntries.length}):</span>
+    <table class="data-table">
+      <thead><tr><th>Phase</th><th>Hook</th><th>Verdict</th></tr></thead>
+      <tbody>`;
+  for (const entry of auditEntries) {
+    const phase = entry.hook_phase || entry.phase || '';
+    const hook = entry.hook_name || entry.hook || entry.name || '';
+    html += `<tr>
+      <td class="mono">${esc(phase)}</td>
+      <td>${esc(hook)}</td>
+      <td>${esc(entry.verdict || '')}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function renderAnnotationSection(title, annotationEntries) {
+  if (annotationEntries.length === 0) return '';
+  let html = `<div class="turn-detail"><span class="detail-label">${esc(title)} (${annotationEntries.length}):</span><ul>`;
+  for (const ann of annotationEntries) {
+    const hookName = ann.hook_name || ann.hook || ann.name || '';
+    if (Array.isArray(ann.annotations)) {
+      for (const a of ann.annotations) {
+        html += `<li>${esc(hookName)}: ${esc(a.key || '')} = ${esc(a.value || '')}</li>`;
+      }
+    } else {
+      const text = ann.annotation || ann.message || '';
+      html += `<li>${esc(hookName)}: ${esc(text)}</li>`;
+    }
+  }
+  html += `</ul></div>`;
+  return html;
+}
+
+function renderTurnDetailPanel(turnId, annotations, audit, coordinatorAnnotations, coordinatorAudit) {
   const turnAnnotations = Array.isArray(annotations)
     ? annotations.filter((a) => a.turn_id === turnId)
     : [];
   const turnAudit = Array.isArray(audit)
     ? audit.filter((a) => a.turn_id === turnId)
     : [];
+  const turnCoordAnnotations = Array.isArray(coordinatorAnnotations)
+    ? coordinatorAnnotations.filter((a) => a.turn_id === turnId)
+    : [];
+  const turnCoordAudit = Array.isArray(coordinatorAudit)
+    ? coordinatorAudit.filter((a) => a.turn_id === turnId)
+    : [];
 
-  if (turnAnnotations.length === 0 && turnAudit.length === 0) {
+  const hasRepo = turnAnnotations.length > 0 || turnAudit.length > 0;
+  const hasCoord = turnCoordAnnotations.length > 0 || turnCoordAudit.length > 0;
+
+  if (!hasRepo && !hasCoord) {
     return `<div class="turn-detail-panel"><p class="turn-detail">No hook evidence for this turn.</p></div>`;
   }
 
+  const dual = hasRepo && hasCoord;
   let html = `<div class="turn-detail-panel">`;
 
-  if (turnAudit.length > 0) {
-    html += `<div class="turn-detail"><span class="detail-label">Hook Audit (${turnAudit.length}):</span>
-      <table class="data-table">
-        <thead><tr><th>Phase</th><th>Hook</th><th>Verdict</th></tr></thead>
-        <tbody>`;
-    for (const entry of turnAudit) {
-      const phase = entry.hook_phase || entry.phase || '';
-      const hook = entry.hook_name || entry.hook || entry.name || '';
-      html += `<tr>
-        <td class="mono">${esc(phase)}</td>
-        <td>${esc(hook)}</td>
-        <td>${esc(entry.verdict || '')}</td>
-      </tr>`;
-    }
-    html += `</tbody></table></div>`;
-  }
+  // Repo-local hook evidence
+  html += renderAuditSection(dual ? 'Repo Hook Audit' : 'Hook Audit', turnAudit);
+  html += renderAnnotationSection(dual ? 'Repo Annotations' : 'Annotations', turnAnnotations);
 
-  if (turnAnnotations.length > 0) {
-    html += `<div class="turn-detail"><span class="detail-label">Annotations (${turnAnnotations.length}):</span><ul>`;
-    for (const ann of turnAnnotations) {
-      const hookName = ann.hook_name || ann.hook || ann.name || '';
-      if (Array.isArray(ann.annotations)) {
-        for (const a of ann.annotations) {
-          html += `<li>${esc(hookName)}: ${esc(a.key || '')} = ${esc(a.value || '')}</li>`;
-        }
-      } else {
-        const text = ann.annotation || ann.message || '';
-        html += `<li>${esc(hookName)}: ${esc(text)}</li>`;
-      }
-    }
-    html += `</ul></div>`;
-  }
+  // Coordinator hook evidence
+  html += renderAuditSection(dual ? 'Coordinator Hook Audit' : 'Hook Audit', turnCoordAudit);
+  html += renderAnnotationSection(dual ? 'Coordinator Annotations' : 'Annotations', turnCoordAnnotations);
 
   html += `</div>`;
   return html;
@@ -265,7 +287,7 @@ function renderConnectorHealthPanel(connectorsPayload) {
 
 export { formatDuration, computeElapsed, formatTimestamp };
 
-export function render({ state, continuity, history, annotations, audit, connectors }) {
+export function render({ state, continuity, history, annotations, audit, connectors, coordinatorAudit = null, coordinatorAnnotations = null }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -353,7 +375,7 @@ export function render({ state, continuity, history, annotations, audit, connect
         html += `<div class="turn-detail"><span class="detail-label">Verification:</span> ${esc(verificationSummary)}</div>`;
       }
 
-      html += renderTurnDetailPanel(entry.turn_id, annotations, audit);
+      html += renderTurnDetailPanel(entry.turn_id, annotations, audit, coordinatorAnnotations, coordinatorAudit);
 
       html += `</div>`;
     }
