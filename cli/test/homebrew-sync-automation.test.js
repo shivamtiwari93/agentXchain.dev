@@ -170,7 +170,7 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow creates GitHub Release after postflight', () => {
+  it('CI workflow creates and repairs GitHub Release after postflight', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
@@ -179,13 +179,23 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /render-github-release-body\.mjs/,
+      'workflow must render a governed GitHub Release body from the release page',
+    );
+    assert.match(
+      workflow,
       /gh release create/,
       'workflow must use gh release create',
     );
     assert.match(
       workflow,
-      /gh release view.*tagName.*skipping creation/s,
-      'workflow must be idempotent — skip if release already exists',
+      /gh release edit/,
+      'workflow must repair existing release bodies on rerun',
+    );
+    assert.match(
+      workflow,
+      /gh release view.*tagName.*updated release body/s,
+      'workflow must be idempotent and update the existing release body instead of skipping',
     );
   });
 

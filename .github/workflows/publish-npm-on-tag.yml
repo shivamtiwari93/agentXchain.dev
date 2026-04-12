@@ -170,15 +170,23 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${RELEASE_TAG}"
+          NOTES_FILE="$(mktemp)"
+          node cli/scripts/render-github-release-body.mjs \
+            --target-version "${RELEASE_TAG#v}" \
+            --repo "${GITHUB_REPOSITORY}" > "$NOTES_FILE"
           if gh release view "$TAG" --json tagName -q '.tagName' >/dev/null 2>&1; then
-            echo "GitHub Release $TAG already exists — skipping creation."
+            gh release edit "$TAG" \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE"
+            echo "GitHub Release $TAG already exists — updated release body."
           else
             gh release create "$TAG" \
               --title "$TAG" \
-              --generate-notes \
+              --notes-file "$NOTES_FILE" \
               --verify-tag
             echo "Created GitHub Release $TAG."
           fi
+          rm -f "$NOTES_FILE"
 
       - name: Verify release completeness
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
