@@ -3331,7 +3331,13 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
       phase: updatedState.phase,
       status: updatedState.status,
       turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
-      payload: { attempt: currentAttempt, retrying: true },
+      payload: {
+        attempt: currentAttempt,
+        retrying: true,
+        reason: rejectionContext.reason,
+        failed_stage: rejectionContext.failed_stage,
+        ...(rejectionContext.validation_errors?.length ? { validation_errors: rejectionContext.validation_errors } : {}),
+      },
     });
     return {
       ok: true,
@@ -3398,7 +3404,14 @@ export function rejectGovernedTurn(root, config, validationResult, reasonOrOptio
     phase: updatedState.phase,
     status: 'blocked',
     turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
-    payload: { attempt: currentAttempt, retrying: false, escalated: true },
+    payload: {
+      attempt: currentAttempt,
+      retrying: false,
+      escalated: true,
+      reason: rejectionContext.reason,
+      failed_stage: rejectionContext.failed_stage,
+      ...(rejectionContext.validation_errors?.length ? { validation_errors: rejectionContext.validation_errors } : {}),
+    },
   });
   emitRunEvent(root, 'run_blocked', {
     run_id: updatedState.run_id,

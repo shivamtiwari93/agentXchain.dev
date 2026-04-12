@@ -61,7 +61,10 @@ function printEvent(evt) {
   const runId = evt.run_id ? evt.run_id.slice(0, 12) : '—';
   const phase = evt.phase || '—';
   const turnInfo = evt.turn?.role_id ? ` [${evt.turn.role_id}]` : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}`);
+  const rejectionDetail = evt.event_type === 'turn_rejected' && evt.payload?.reason
+    ? ` — ${evt.payload.reason}${evt.payload.failed_stage ? ` (${evt.payload.failed_stage})` : ''}`
+    : '';
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${rejectionDetail}`);
 }
 
 function colorEventType(type) {
