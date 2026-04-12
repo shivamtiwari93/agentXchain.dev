@@ -55,6 +55,39 @@ function renderList(items, type) {
     .join('');
 }
 
+function formatDuration(ms) {
+  if (ms == null || ms < 0 || !Number.isFinite(ms)) return null;
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function computeElapsed(startedAt) {
+  if (!startedAt) return null;
+  try {
+    const start = new Date(startedAt).getTime();
+    if (Number.isNaN(start)) return null;
+    return Math.max(0, Date.now() - start);
+  } catch {
+    return null;
+  }
+}
+
+function formatTimestamp(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleString();
+  } catch {
+    return null;
+  }
+}
+
 function statusBadge(status) {
   const colors = {
     running: 'var(--green)',
@@ -230,6 +263,8 @@ function renderConnectorHealthPanel(connectorsPayload) {
   return html;
 }
 
+export { formatDuration, computeElapsed, formatTimestamp };
+
 export function render({ state, continuity, history, annotations, audit, connectors }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
@@ -257,11 +292,14 @@ export function render({ state, continuity, history, annotations, audit, connect
   if (activeTurns.length > 0) {
     html += `<div class="section"><h3>Active Turns</h3><div class="turn-list">`;
     for (const turn of activeTurns) {
+      const elapsedMs = computeElapsed(turn.started_at);
+      const elapsedStr = formatDuration(elapsedMs);
       html += `<div class="turn-card active">
         <div class="turn-header">
           ${roleBadge(getRole(turn))}
           <span class="mono">${esc(turn.turn_id)}</span>
           <span class="turn-status">${esc(turn.status || 'assigned')}</span>
+          ${elapsedStr ? `<span class="turn-timing">Elapsed: ${esc(elapsedStr)}</span>` : ''}
         </div>
       </div>`;
     }
@@ -281,10 +319,14 @@ export function render({ state, continuity, history, annotations, audit, connect
         || entry.verification?.evidence_summary
         || null;
 
+      const durationStr = formatDuration(entry.duration_ms);
+      const acceptedStr = formatTimestamp(entry.accepted_at);
       html += `<div class="turn-card" data-turn-expand="${esc(entry.turn_id)}">
         <div class="turn-header">
           ${roleBadge(getRole(entry))}
           <span class="mono">${esc(entry.turn_id)}</span>
+          ${durationStr ? `<span class="turn-timing">${esc(durationStr)}</span>` : ''}
+          ${acceptedStr ? `<span class="turn-timestamp">${esc(acceptedStr)}</span>` : ''}
         </div>`;
 
       if (entry.summary) {

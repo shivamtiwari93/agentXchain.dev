@@ -910,7 +910,7 @@ The shipped dashboard surface has twelve top-level views:
 |------|-------------|
 | **Initiative** | Multi-repo coordinator summary: repo runs, pending gate, blocked state, and barrier snapshot |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams |
-| **Timeline** | Repo-local run timeline with continuity status, connector health, active turns, accepted history, and expandable turn-level hook evidence |
+| **Timeline** | Repo-local run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, and expandable turn-level hook evidence |
 | **Decisions** | Filterable decision ledger for governed turns; in coordinator workspaces it renders the coordinator decision ledger from `/api/coordinator/ledger` instead of a false empty state |
 | **Hooks** | Hook audit log plus persisted hook annotations; in coordinator workspaces it renders coordinator hook audit from `/api/coordinator/hooks/audit` and coordinator hook annotations from `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |

@@ -135,6 +135,12 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('expandable turn-level hook evidence'), 'cli docs must describe timeline drill-down');
     assert.ok(!CLI_DOCS.includes('| **Turn detail** |'), 'turn detail must not be documented as a separate top-level view');
   });
+
+  it('documents timeline turn timing surfaces', () => {
+    assert.ok(CLI_DOCS.includes('elapsed time'), 'cli docs must describe active turn elapsed time in timeline');
+    assert.ok(CLI_DOCS.includes('per-turn duration'), 'cli docs must describe per-turn duration for completed turns');
+    assert.ok(CLI_DOCS.includes('acceptance timestamp'), 'cli docs must describe acceptance timestamp in timeline');
+  });
 });
 
 describe('Dashboard discoverability — front-door surfaces', () => {
