@@ -141,6 +141,15 @@ Simple budget repairs use the same path:
 agentxchain config --set budget.per_run_max_usd 75
 ```
 
+Switch the budget enforcement policy between hard-stop and advisory modes:
+
+```bash
+agentxchain config --set budget.on_exceed warn
+agentxchain config --set budget.on_exceed pause_and_escalate
+```
+
+`pause_and_escalate` (default) blocks the run when budget is exhausted. `warn` lets the run continue past budget with observable warnings in `status`, events, and notifications — useful for lights-out or daemon-scheduled runs where blocking requires human intervention.
+
 Override or add per-model cost rates for budget tracking:
 
 ```bash

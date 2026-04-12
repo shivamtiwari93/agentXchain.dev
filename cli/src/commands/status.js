@@ -277,7 +277,10 @@ function renderGovernedStatus(context, opts) {
 
   if (state?.budget_status) {
     console.log('');
-    console.log(`  ${chalk.dim('Budget:')}   spent $${formatUsd(state.budget_status.spent_usd)} / remaining $${formatUsd(state.budget_status.remaining_usd)}`);
+    const budgetLabel = state.budget_status.warn_mode
+      ? `spent $${formatUsd(state.budget_status.spent_usd)} / remaining $${formatUsd(state.budget_status.remaining_usd)} ${chalk.yellow('[OVER BUDGET]')}`
+      : `spent $${formatUsd(state.budget_status.spent_usd)} / remaining $${formatUsd(state.budget_status.remaining_usd)}`;
+    console.log(`  ${chalk.dim('Budget:')}   ${budgetLabel}`);
   }
 
   console.log('');

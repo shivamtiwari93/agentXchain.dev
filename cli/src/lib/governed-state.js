@@ -1936,13 +1936,19 @@ export function assignGovernedTurn(root, config, roleId) {
     return { ok: false, error: `Cannot assign turn: ${activeCount} active turn(s) already at capacity (max_concurrent_turns = ${maxConcurrent})` };
   }
 
-  // DEC-BUDGET-ENFORCE-001: Pre-assignment budget exhaustion guard
-  if (state.budget_status?.remaining_usd != null && state.budget_status.remaining_usd <= 0) {
-    return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume` };
-  }
-
   // DEC-PARALLEL-011: Budget reservation
   const warnings = [];
+
+  // DEC-BUDGET-ENFORCE-001 + DEC-BUDGET-WARN-001: Pre-assignment budget exhaustion guard
+  if (state.budget_status?.remaining_usd != null && state.budget_status.remaining_usd <= 0) {
+    const onExceed = config.budget?.on_exceed || 'pause_and_escalate';
+    if (onExceed === 'warn') {
+      // Allow assignment but add a warning
+      warnings.push(`Budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Run continues in warn mode per on_exceed policy.`);
+    } else {
+      return { ok: false, error: `Cannot assign turn: run budget exhausted (spent $${(state.budget_status.spent_usd || 0).toFixed(2)} of $${((state.budget_status.spent_usd || 0) + state.budget_status.remaining_usd).toFixed(2)} limit). Increase budget with agentxchain config --set budget.per_run_max_usd <usd>, then run agentxchain resume` };
+    }
+  }
   const reservations = { ...(state.budget_reservations || {}) };
   const turnId = generateId('turn');
   const estimatedCost = estimateTurnBudget(config, roleId);
@@ -1950,7 +1956,8 @@ export function assignGovernedTurn(root, config, roleId) {
   if (estimatedCost > 0 && state.budget_status?.remaining_usd != null) {
     const alreadyReserved = Object.values(reservations).reduce((sum, r) => sum + (r.reserved_usd || 0), 0);
     const available = state.budget_status.remaining_usd - alreadyReserved;
-    if (estimatedCost > available) {
+    const onExceedReserve = config.budget?.on_exceed || 'pause_and_escalate';
+    if (estimatedCost > available && onExceedReserve !== 'warn') {
       return { ok: false, error: `Cannot assign turn: estimated cost $${estimatedCost.toFixed(2)} exceeds available budget $${available.toFixed(2)} (after reservations)` };
     }
     reservations[turnId] = {
@@ -2617,6 +2624,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     accepted_integration_ref: derivedRef,
     next_recommended_role: deriveNextRecommendedRole(turnResult, state, config),
     budget_status: {
+      ...(state.budget_status || {}),
       spent_usd: (state.budget_status?.spent_usd || 0) + costUsd,
       remaining_usd: state.budget_status?.remaining_usd != null
         ? state.budget_status.remaining_usd - costUsd
@@ -2657,7 +2665,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   if (turnReservation && costUsd > turnReservation.reserved_usd) {
     budgetWarning = `Actual cost $${costUsd.toFixed(2)} exceeded reservation $${turnReservation.reserved_usd.toFixed(2)} for this turn`;
   }
-  // Budget exhaustion enforcement
+  // Budget exhaustion enforcement (DEC-BUDGET-ENFORCE-001 + DEC-BUDGET-WARN-001)
   if (
     updatedState.budget_status.remaining_usd != null &&
     updatedState.budget_status.remaining_usd <= 0 &&
@@ -2665,9 +2673,9 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     updatedState.status !== 'completed'
   ) {
     const onExceed = config.budget?.on_exceed || 'pause_and_escalate';
+    const limit = (updatedState.budget_status.spent_usd + updatedState.budget_status.remaining_usd);
+    const overBy = Math.abs(updatedState.budget_status.remaining_usd);
     if (onExceed === 'pause_and_escalate') {
-      const limit = (updatedState.budget_status.spent_usd + updatedState.budget_status.remaining_usd);
-      const overBy = Math.abs(updatedState.budget_status.remaining_usd);
       updatedState.status = 'blocked';
       updatedState.blocked_on = 'budget:exhausted';
       updatedState.blocked_reason = buildBlockedReason({
@@ -2685,6 +2693,15 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       updatedState.budget_status.exhausted = true;
       updatedState.budget_status.exhausted_at = now;
       updatedState.budget_status.exhausted_after_turn = currentTurn.turn_id;
+    } else if (onExceed === 'warn') {
+      // DEC-BUDGET-WARN-001: Do not block — mark exhaustion and emit warning
+      if (!updatedState.budget_status.exhausted) {
+        updatedState.budget_status.exhausted = true;
+        updatedState.budget_status.exhausted_at = now;
+        updatedState.budget_status.exhausted_after_turn = currentTurn.turn_id;
+      }
+      updatedState.budget_status.warn_mode = true;
+      budgetWarning = `Budget exhausted: spent $${updatedState.budget_status.spent_usd.toFixed(2)} of $${limit.toFixed(2)} limit ($${overBy.toFixed(2)} over). Run continues in warn mode.`;
     }
   }
 
@@ -3078,6 +3095,22 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       status: 'blocked',
       turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
       payload: { category: updatedState.blocked_reason?.category || 'needs_human' },
+    });
+  }
+
+  // DEC-BUDGET-WARN-001: Emit budget_exceeded_warn event when warn mode triggers
+  if (updatedState.budget_status?.warn_mode && budgetWarning) {
+    emitRunEvent(root, 'budget_exceeded_warn', {
+      run_id: updatedState.run_id,
+      phase: updatedState.phase,
+      status: updatedState.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      payload: {
+        spent_usd: updatedState.budget_status.spent_usd,
+        limit_usd: updatedState.budget_status.spent_usd + updatedState.budget_status.remaining_usd,
+        remaining_usd: updatedState.budget_status.remaining_usd,
+        warning: budgetWarning,
+      },
     });
   }
 

@@ -101,6 +101,8 @@ For the full config and report/status surface, see [Timeouts](/docs/timeouts).
 
 The turn that exhausts the budget IS accepted — its work is preserved. Only subsequent turns are blocked until the operator raises the budget limit. Use `agentxchain config --set budget.per_run_max_usd <usd>` for that simple recovery instead of hand-editing JSON. Because there is no retained turn, budget recovery re-assigns the next turn with `agentxchain resume` instead of replaying work with `step --resume`.
 
+To prevent hard stops on budget exhaustion, switch to warn mode with `agentxchain config --set budget.on_exceed warn`. In warn mode the run continues past budget with observable warnings in `status`, events, and notifications instead of blocking.
+
 ### Other States
 
 | Condition | Recovery |

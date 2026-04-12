@@ -61,7 +61,7 @@ const VALID_API_PROXY_PREFLIGHT_FIELDS = [
   'tokenizer',
   'safety_margin_tokens',
 ];
-const VALID_BUDGET_ON_EXCEED = ['pause_and_escalate'];
+const VALID_BUDGET_ON_EXCEED = ['pause_and_escalate', 'warn'];
 
 function validateMcpRuntime(runtimeId, runtime, errors) {
   const transport = typeof runtime?.transport === 'string' && runtime.transport.trim()
@@ -583,7 +583,7 @@ export function validateBudgetConfig(budget) {
 
   if (budget.on_exceed !== undefined) {
     if (typeof budget.on_exceed !== 'string' || !VALID_BUDGET_ON_EXCEED.includes(budget.on_exceed)) {
-      errors.push(`budget.on_exceed must be one of: ${VALID_BUDGET_ON_EXCEED.join(', ')} (warn is not implemented)`);
+      errors.push(`budget.on_exceed must be one of: ${VALID_BUDGET_ON_EXCEED.join(', ')}`);
     }
   }
 

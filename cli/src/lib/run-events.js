@@ -23,6 +23,7 @@ export const VALID_RUN_EVENTS = [
   'escalation_resolved',
   'gate_pending',
   'gate_approved',
+  'budget_exceeded_warn',
 ];
 
 /**

@@ -155,10 +155,10 @@ describe('validateV4Config', () => {
       project: { id: 'test', name: 'Test' },
       roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local-dev' } },
       runtimes: { 'local-dev': { type: 'local_cli', command: ['claude', '--print'] } },
-      budget: { per_turn_max_usd: 2.0, per_run_max_usd: 10.0, on_exceed: 'warn' },
+      budget: { per_turn_max_usd: 2.0, per_run_max_usd: 10.0, on_exceed: 'abort' },
     });
     assert.equal(result.ok, false);
-    assert.ok(result.errors.some(e => e.includes('warn is not implemented')));
+    assert.ok(result.errors.some(e => e.includes('on_exceed must be one of')));
   });
 
   it('rejects malformed budget.cost_rates entries', () => {
