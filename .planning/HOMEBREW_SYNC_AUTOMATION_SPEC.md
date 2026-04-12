@@ -34,7 +34,7 @@ Usage: bash scripts/sync-homebrew.sh --target-version <semver> [--push-tap] [--d
 
 ### CI Integration: `.github/workflows/publish-npm-on-tag.yml`
 
-Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEBREW_TAP_TOKEN` secret is available. If the secret is not configured, emit a warning but do not fail the workflow — the sync can be run locally as a fallback.
+Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEBREW_TAP_TOKEN` secret is available. First-time publish attempts still fail before npm mutation when the token is absent; reruns may proceed without it only if downstream truth is already complete.
 
 **Branch protection constraint (`DEC-HOMEBREW-SYNC-008`):** The `main` branch has branch protection requiring PRs with 1 approving review. `github-actions[bot]` cannot push directly to `main`. The CI workflow must:
 1. Create a feature branch (`chore/homebrew-sync-v<version>`) based on `origin/main`.
@@ -42,8 +42,9 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 3. Request `pull-requests: write` permission and open a PR via `gh pr create` instead of pushing `HEAD:main`.
 4. On workflow rerun, update the existing branch safely and reuse any existing open PR instead of failing on branch or PR collisions.
 5. Fail closed if PR creation does not succeed. A pushed orphan branch is not accepted release follow-through.
-6. PR approval/merge automation is allowed by repo settings, but the workflow must explicitly implement it before claiming full repo-mirror closure.
-7. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
+6. Submit an approval review for the generated PR when it is still awaiting approval.
+7. Enable auto-merge (squash + delete branch) on the generated PR and fail closed if the PR never reaches `MERGED`.
+8. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -89,6 +90,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | `--dry-run` | Print planned changes, exit 0 without writing. |
 | CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
 | PR creation fails after the branch push | Exit non-zero. Release follow-through is incomplete until the mirror PR exists. |
+| PR approval submission fails | Exit non-zero. Repo-mirror closeout is incomplete. |
+| Auto-merge cannot be enabled or the PR never reaches `MERGED` | Exit non-zero. The workflow may not claim repo-mirror completion while `main` remains stale. |
 
 ## Acceptance Tests
 
@@ -107,18 +110,13 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-013: If PR creation fails after the branch push, the workflow fails closed instead of leaving an orphan branch as warning-only debt.
 - AT-HS-014: The workflow clears the snapshotted repo-mirror edits before switching branches, so reruns do not fail on "local changes would be overwritten by checkout".
 - AT-HS-015: Canonical tap sync is rerun-safe: a rejected push is treated as success only after fetching the remote and proving the canonical formula already matches the target tarball URL and SHA.
+- AT-HS-016: The workflow records the generated Homebrew mirror PR number and reuses that identifier in later closeout steps.
+- AT-HS-017: The workflow submits an approval review for the generated Homebrew mirror PR before merge.
+- AT-HS-018: The workflow enables auto-merge for the generated Homebrew mirror PR and fails closed if the PR does not reach `MERGED`.
 
-## Known Debt
+## Decisions
 
-**`DEBT-HOMEBREW-PR-001`: Repo-mirror PR closeout is not yet automated end-to-end.**
-The repository now allows GitHub Actions to create and approve pull requests, so the old "repo settings block Actions PR creation/approval" explanation is no longer true. The remaining gap is narrower: the workflow still opens the repo-mirror PR but does not yet submit an approval review, enable auto-merge, or merge it directly.
-
-Resolution options:
-1. Have the publish workflow approve and merge the generated PR once required checks pass
-2. Enable auto-merge at the repo level and let the workflow opt the generated PR into auto-merge
-3. Keep repo-mirror merge manual, but treat it as repo hygiene rather than release-completeness truth because canonical tap + GitHub release are already verified downstream
-
-**Status:** Open. PR creation is automated; manual cherry-pick / manual PR creation are no longer accepted fallback patterns.
+`DEC-HOMEBREW-SYNC-009`: Repo-mirror PR closeout is automated end-to-end in the publish workflow. The workflow records the PR number, approves the PR when needed, enables squash auto-merge with branch deletion, and fails closed if the PR never reaches `MERGED`.
 
 ## Open Questions
 
@@ -130,4 +128,4 @@ To enable fully automated Homebrew sync in CI, the repo owner must:
 
 1. Create a fine-grained GitHub PAT scoped to `shivamtiwari93/homebrew-tap` with `contents: write` permission.
 2. Add it as a repo secret named `HOMEBREW_TAP_TOKEN` on `shivamtiwari93/agentXchain.dev`.
-3. The mirror-update PR no longer needs repo-setting changes to allow Actions PR creation/approval. Any remaining manual merge requirement is workflow behavior, not a GitHub settings blocker.
+3. The mirror-update PR no longer needs repo-setting changes to allow Actions PR creation/approval. The workflow now owns approval and merge behavior directly.

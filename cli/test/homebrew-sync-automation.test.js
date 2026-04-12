@@ -144,7 +144,9 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /AT-HS-001/, 'spec must define acceptance test AT-HS-001');
     assert.match(spec, /AT-HS-011/, 'spec must define acceptance test AT-HS-011');
     assert.match(spec, /AT-HS-015/, 'spec must define acceptance test AT-HS-015');
+    assert.match(spec, /AT-HS-018/, 'spec must define acceptance test AT-HS-018');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
+    assert.match(spec, /DEC-HOMEBREW-SYNC-009/, 'spec must declare decision DEC-HOMEBREW-SYNC-009');
   });
 
   it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -283,6 +285,40 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /::warning::Could not create Homebrew mirror PR/,
       'workflow must not treat PR creation failure as an acceptable warning-only outcome',
+    );
+  });
+
+  it('CI workflow auto-closes the Homebrew mirror PR after creation', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /id:\s*homebrew_pr/,
+      'workflow must expose the mirror PR step output for follow-on automation',
+    );
+    assert.match(
+      workflow,
+      /pr_number=.*GITHUB_OUTPUT/s,
+      'workflow must record the Homebrew mirror PR number for later steps',
+    );
+    assert.match(
+      workflow,
+      /Approve and merge Homebrew mirror PR/,
+      'workflow must have a dedicated PR closeout step',
+    );
+    assert.match(
+      workflow,
+      /gh pr review "\$PR_NUMBER" --approve/,
+      'workflow must submit an approval review for the mirror PR',
+    );
+    assert.match(
+      workflow,
+      /gh pr merge "\$PR_NUMBER" --auto --squash --delete-branch/,
+      'workflow must opt the mirror PR into auto-merge and clean up the branch',
+    );
+    assert.match(
+      workflow,
+      /did not merge after approval and auto-merge enablement/,
+      'workflow must fail closed if the mirror PR never reaches merged state',
     );
   });
 });

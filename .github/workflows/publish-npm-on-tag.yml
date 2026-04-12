@@ -115,6 +115,7 @@ jobs:
           bash scripts/sync-homebrew.sh --target-version "${RELEASE_TAG#v}" $PUSH_FLAG
 
       - name: Commit Homebrew mirror updates via PR
+        id: homebrew_pr
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
         working-directory: cli
         shell: bash
@@ -122,6 +123,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          echo "pr_number=" >> "$GITHUB_OUTPUT"
           if git diff --quiet homebrew/; then
             echo "Homebrew mirror already in sync — no commit needed."
             exit 0
@@ -153,6 +155,7 @@ jobs:
           EXISTING_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)"
           if [[ -n "$EXISTING_PR" ]]; then
             echo "Homebrew mirror PR already open: #${EXISTING_PR}"
+            echo "pr_number=${EXISTING_PR}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           gh pr create \
@@ -160,7 +163,52 @@ jobs:
             --head "$BRANCH" \
             --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
             --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
+          PR_NUMBER="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "::error::Homebrew mirror PR creation did not yield an open PR number."
+            exit 1
+          fi
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "Created PR for Homebrew mirror update on branch $BRANCH."
+
+      - name: Approve and merge Homebrew mirror PR
+        if: always() && (steps.registry.outputs.already_published == 'true' || success()) && steps.homebrew_pr.outputs.pr_number != ''
+        working-directory: cli
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${{ steps.homebrew_pr.outputs.pr_number }}"
+          PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
+          if [[ "$PR_STATE" == "MERGED" ]]; then
+            echo "Homebrew mirror PR #${PR_NUMBER} already merged."
+            exit 0
+          fi
+          if [[ "$PR_STATE" != "OPEN" ]]; then
+            echo "::error::Homebrew mirror PR #${PR_NUMBER} is ${PR_STATE}, not OPEN."
+            exit 1
+          fi
+          REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
+          if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
+            gh pr review "$PR_NUMBER" --approve --body "Automated approval for governed Homebrew mirror sync."
+          else
+            echo "Homebrew mirror PR #${PR_NUMBER} already has an approval."
+          fi
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          for attempt in $(seq 1 12); do
+            PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
+            if [[ "$PR_STATE" == "MERGED" ]]; then
+              echo "Homebrew mirror PR #${PR_NUMBER} merged."
+              exit 0
+            fi
+            if [[ "$attempt" -lt 12 ]]; then
+              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/12)..."
+              sleep 5
+            fi
+          done
+          echo "::error::Homebrew mirror PR #${PR_NUMBER} did not merge after approval and auto-merge enablement."
+          exit 1
 
       - name: Create GitHub Release
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
