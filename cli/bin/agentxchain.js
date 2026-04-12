@@ -192,6 +192,7 @@ program
   .description('View or edit project configuration')
   .option('--add-agent', 'Add a new agent interactively')
   .option('--remove-agent <id>', 'Remove an agent by ID')
+  .option('--get <path>', 'Read a config value (e.g. --get project.goal)')
   .option('--set <path_and_value...>', 'Set a config value (e.g. --set project.goal "Build a governed CLI")')
   .option('-j, --json', 'Output config as JSON')
   .action(configCommand);

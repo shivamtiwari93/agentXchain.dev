@@ -10,6 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..', '..');
 const CLI_BIN = join(ROOT, 'cli', 'bin', 'agentxchain.js');
 const SPEC = readFileSync(join(ROOT, '.planning', 'GOVERNED_CONFIG_COMMAND_SPEC.md'), 'utf8');
+const GET_SPEC = readFileSync(join(ROOT, '.planning', 'CONFIG_GET_COMMAND_SPEC.md'), 'utf8');
 const BUDGET_SPEC = readFileSync(join(ROOT, '.planning', 'BUDGET_CONFIG_VALIDATION_SPEC.md'), 'utf8');
 
 function runCli(cwd, args) {
@@ -127,6 +128,56 @@ describe('governed config command', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('AT-CFGGET-001: config --get project.goal prints a governed scalar value', () => {
+    const dir = createGovernedProject();
+    try {
+      const set = runCli(dir, ['config', '--set', 'project.goal', 'Ship', 'a', 'governed', 'CLI']);
+      assert.equal(set.status, 0, set.stderr || set.stdout);
+
+      const result = runCli(dir, ['config', '--get', 'project.goal']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.equal(result.stdout.trim(), 'Ship a governed CLI');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGGET-002: config --get roles.qa --json prints structured JSON for an object path', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--get', 'roles.qa', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const value = JSON.parse(result.stdout);
+      const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+      assert.deepEqual(value, config.roles.qa);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGGET-003: config --get missing.path fails closed with a clear missing-path error', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--get', 'missing.path']);
+      assert.notEqual(result.status, 0, 'missing config path must fail');
+      assert.match(result.stdout, /Config path not found: missing\.path/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGGET-004: config --get and --set together fail as mutually exclusive', () => {
+    const dir = createGovernedProject();
+    try {
+      const result = runCli(dir, ['config', '--get', 'project.goal', '--set', 'project.goal', 'Ship']);
+      assert.notEqual(result.status, 0, 'ambiguous config invocation must fail');
+      assert.match(result.stdout, /--get and --set are mutually exclusive/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('governed config command spec', () => {
@@ -147,5 +198,15 @@ describe('governed config command spec', () => {
     assert.match(BUDGET_SPEC, /## Acceptance Tests/);
     assert.match(BUDGET_SPEC, /AT-BCV-001/);
     assert.match(BUDGET_SPEC, /AT-BCV-006/);
+  });
+
+  it('records the config --get inspection contract', () => {
+    assert.match(GET_SPEC, /## Purpose/);
+    assert.match(GET_SPEC, /## Interface/);
+    assert.match(GET_SPEC, /## Behavior/);
+    assert.match(GET_SPEC, /## Error Cases/);
+    assert.match(GET_SPEC, /## Acceptance Tests/);
+    assert.match(GET_SPEC, /AT-CFGGET-001/);
+    assert.match(GET_SPEC, /AT-CFGGET-005/);
   });
 });

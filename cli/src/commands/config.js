@@ -17,6 +17,12 @@ export async function configCommand(opts) {
   const config = rawConfig;
   const configPath = join(root, CONFIG_FILE);
 
+  if (opts.get && opts.set) {
+    console.log(chalk.red('  --get and --set are mutually exclusive.'));
+    console.log(chalk.dim('  Inspect a value with `agentxchain config --get <path>` or change it with `agentxchain config --set <path> <value>`.'));
+    process.exit(1);
+  }
+
   if (version === 4 && opts.addAgent) {
     printLegacyOnlyMutationError('--add-agent');
     return;
@@ -34,6 +40,11 @@ export async function configCommand(opts) {
 
   if (opts.removeAgent) {
     removeAgent(config, configPath, opts.removeAgent);
+    return;
+  }
+
+  if (opts.get) {
+    getSetting(config, opts.get, { json: opts.json });
     return;
   }
 
@@ -81,6 +92,7 @@ function printLegacyConfig(config) {
   console.log(chalk.dim('  Commands:'));
   console.log(`    ${chalk.bold('agentxchain config --add-agent')}        Add a new agent`);
   console.log(`    ${chalk.bold('agentxchain config --remove-agent <id>')} Remove an agent`);
+  console.log(`    ${chalk.bold('agentxchain config --get <key>')}         Read one config value`);
   console.log(`    ${chalk.bold('agentxchain config --set <key> <val>')}   Update a setting`);
   console.log(`    ${chalk.bold('agentxchain config --json')}              Output as JSON`);
   console.log('');
@@ -99,6 +111,7 @@ function printGovernedConfig(config) {
   console.log(`  ${chalk.dim('Runtimes:')}  ${Object.keys(config.runtimes || {}).length}`);
   console.log('');
   console.log(chalk.dim('  Commands:'));
+  console.log(`    ${chalk.bold('agentxchain config --get project.goal')}              Read one config value without opening JSON`);
   console.log(`    ${chalk.bold('agentxchain config --set project.goal "Build a ..."')}  Set mission context without hand-editing JSON`);
   console.log(`    ${chalk.bold('agentxchain config --set roles.qa.runtime manual-qa')}  Switch a governed role runtime`);
   console.log(`    ${chalk.bold('agentxchain config --json')}                             Output raw config`);
@@ -169,10 +182,8 @@ function setSetting(config, configPath, keyValPair, context) {
   }
 
   const { key, rawVal } = parsed;
-  const segments = key.split('.');
-  const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
-
-  if (segments.some(segment => forbiddenKeys.has(segment))) {
+  const segments = parseKeyPath(key);
+  if (!segments) {
     console.log(chalk.red('  Refusing to write reserved object path.'));
     process.exit(1);
   }
@@ -211,6 +222,35 @@ function setSetting(config, configPath, keyValPair, context) {
   console.log('');
 }
 
+function getSetting(config, key, opts = {}) {
+  const segments = parseKeyPath(key);
+  if (!segments) {
+    console.log(chalk.red('  Refusing to read reserved object path.'));
+    process.exit(1);
+  }
+
+  let value = config;
+  for (const segment of segments) {
+    if (value === null || typeof value !== 'object' || !(segment in value)) {
+      console.log(chalk.red(`  Config path not found: ${key}`));
+      process.exit(1);
+    }
+    value = value[segment];
+  }
+
+  if (opts.json) {
+    console.log(JSON.stringify(value, null, 2));
+    return;
+  }
+
+  if (value !== null && typeof value === 'object') {
+    console.log(JSON.stringify(value, null, 2));
+    return;
+  }
+
+  console.log(String(value));
+}
+
 function parseSetInput(input) {
   if (Array.isArray(input)) {
     if (input.length >= 2) {
@@ -233,6 +273,19 @@ function parseSetInput(input) {
   }
 
   return null;
+}
+
+function parseKeyPath(input) {
+  if (typeof input !== 'string' || input.trim() === '') {
+    return null;
+  }
+
+  const segments = input.split('.');
+  const forbiddenKeys = new Set(['__proto__', 'prototype', 'constructor']);
+  if (segments.some(segment => segment === '' || forbiddenKeys.has(segment))) {
+    return null;
+  }
+  return segments;
 }
 
 function validateEditedConfig(config, context) {

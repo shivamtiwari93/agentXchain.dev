@@ -118,6 +118,7 @@ Do not re-run `init --governed` in place just to add goal context.
 
 ```bash
 agentxchain config [--json]
+agentxchain config --get <key> [--json]
 agentxchain config --set <key> <value...>
 ```
 
@@ -125,6 +126,13 @@ Version-aware config editing for both legacy and governed repos. On governed rep
 
 ```bash
 agentxchain config --set project.goal "Ship a governed web app MVP"
+```
+
+When you need to inspect one value instead of dumping the whole file, use `--get`:
+
+```bash
+agentxchain config --get project.goal
+agentxchain config --get roles.qa --json
 ```
 
 Simple budget repairs use the same path:
@@ -141,6 +149,8 @@ agentxchain config --set budget.cost_rates.deepseek-v3.output_per_1m 1.10
 ```
 
 Nested keys use dot paths. Values are parsed as strings by default, with `true`, `false`, and numeric literals converted before validation. The command validates the edited config before writing it back, so invalid governed mutations fail closed instead of leaving `agentxchain.json` in a broken state.
+
+`config --get <key>` uses the same dot-path traversal. Plain output is script-friendly: scalar values print directly, while object paths print pretty JSON. Add `--json` when you need JSON output even for scalar values.
 
 Legacy `--add-agent` and `--remove-agent` mutations remain available only on v3 repos. Governed repos use `roles`, `runtimes`, and other structured fields instead.
 

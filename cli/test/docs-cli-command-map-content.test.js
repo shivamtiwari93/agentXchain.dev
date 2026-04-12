@@ -147,6 +147,11 @@ describe('CLI command map docs contract', () => {
     assert.match(CLI_DOCS, /remain in the binary for compatibility/i);
     assert.match(CLI_DOCS, /this page is intentionally scoped to the governed surface/i);
   });
+
+  it('documents config --get as the narrow config inspection path', () => {
+    assert.match(CLI_DOCS, /agentxchain config --get <key>/);
+    assert.match(CLI_DOCS, /use `--get`/i);
+  });
 });
 
 describe('CLI command map spec alignment', () => {
