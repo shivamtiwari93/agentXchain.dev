@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Post a release announcement to LinkedIn and r/agentXchain_dev.
+# Post a release announcement to X/Twitter, LinkedIn, and Reddit.
 # Usage: bash marketing/post-release.sh "v2.25.1" "One-line summary of what shipped"
 #
-# Channels: LinkedIn (company page) + Reddit (r/agentXchain_dev)
-# X/Twitter is suspended — do not post there.
+# Channels: X/Twitter (@agentxchaindev) + LinkedIn (company page) + Reddit (r/agentXchain_dev)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,6 +10,14 @@ VERSION="${1:?Usage: bash marketing/post-release.sh \"v2.25.1\" \"summary\"}"
 SUMMARY="${2:?Usage: bash marketing/post-release.sh \"v2.25.1\" \"summary\"}"
 DOCS_VERSION="${VERSION//./-}"
 RELEASE_URL="https://agentxchain.dev/docs/releases/${DOCS_VERSION}"
+
+TWEET="AgentXchain ${VERSION} released 🚀
+
+${SUMMARY}
+
+${RELEASE_URL}
+
+#AgentXchain #AI #MultiAgent #DevTools"
 
 LINKEDIN_TEXT="AgentXchain ${VERSION} released 🚀
 
@@ -35,6 +42,15 @@ https://agentxchain.dev"
 
 FAILURES=0
 
+echo "=== Posting to X/Twitter (@agentxchaindev) ==="
+if bash "${SCRIPT_DIR}/post-twitter.sh" "$TWEET"; then
+  echo "✅ X/Twitter post succeeded"
+else
+  echo "❌ X/Twitter post failed (exit $?)"
+  FAILURES=$((FAILURES + 1))
+fi
+
+echo ""
 echo "=== Posting to LinkedIn (company page) ==="
 if bash "${SCRIPT_DIR}/post-linkedin.sh" "$LINKEDIN_TEXT"; then
   echo "✅ LinkedIn post succeeded"
@@ -54,7 +70,7 @@ fi
 
 echo ""
 if [ $FAILURES -eq 0 ]; then
-  echo "=== Done — both posts succeeded ==="
+  echo "=== Done — all 3 posts succeeded ==="
 else
   echo "=== Done — $FAILURES post(s) failed (see above) ==="
   exit 1

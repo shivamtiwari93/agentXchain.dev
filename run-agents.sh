@@ -63,10 +63,11 @@ GIT & RELEASES — DO THESE, DO NOT DELEGATE TO HUMANS:
 - Create GitHub releases — use gh CLI or git commands
 - DO NOT write a script and then say "human should run this." YOU run it.
 
-MARKETING — DO THESE, DO NOT JUST DRAFT (X/Twitter is SUSPENDED — do NOT use post-twitter.sh):
+MARKETING — DO THESE, DO NOT JUST DRAFT:
+- Post to X/Twitter (@agentxchaindev): run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser with --system-profile (browser automation, no API keys needed)
 - Post to LinkedIn (company page): run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation, no API keys needed)
 - Post to Reddit r/agentXchain_dev: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation, no API keys needed)
-- Post release announcements to both: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`
+- Post release announcements to all three: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`
 - Read WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules)
 - Create and publish blog posts: write them as website pages and deploy
 - Create and publish release announcements as website pages under the `/docs/` route, then link them from the docs/marketing surface where appropriate

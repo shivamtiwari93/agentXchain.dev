@@ -1,0 +1,38 @@
+---
+title: "v2.66.0 Release Notes"
+description: "Cumulative decision ledger dispatch and workflow_artifacts compression model coherence — agents now see the full governed decision trail."
+---
+
+# AgentXchain v2.66.0
+
+`v2.66.0` gives governed agents cumulative decision memory and closes a compression model gap that left `workflow_artifacts` in an incoherent state.
+
+## What Changed
+
+- **Cumulative decision ledger dispatch**: agents now see all agent-authored decisions from `decision-ledger.jsonl` as a "Decision History" markdown table in CONTEXT.md — not just the last turn's decisions. This prevents decision relitigation, consistency drift, and wasted turns rediscovering settled constraints.
+- **Decision history filtering**: only entries with an `id` field (agent-authored) are included. System entries (gate failures, escalations, policy actions) are excluded. Maximum 50 entries with truncation note.
+- **`workflow_artifacts` compression coherence**: `workflow_artifacts` is now explicitly in the 9-step bounded compression order, dropped after `decision_history` and before `gate_required_files`. Previously it had `required: false` but was absent from COMPRESSION_STEPS, effectively behaving as sticky despite being marked compressible.
+- **Sticky context preservation**: `project_goal` and `inherited_run_context` are preserved as sticky sections through full preflight compression — they cannot be silently dropped under token pressure.
+- **Compression order (9 steps)**: budget → phase_gate_status → decision_history → workflow_artifacts → gate_required_files → last_turn_objections → last_turn_decisions → truncate last_turn_summary → drop last_turn_summary.
+
+## Why It Matters
+
+VISION.md lists "explicit decision history" as a core governance property. Before this release, agents only saw the last turn's decisions — an agent in turn 10 had no visibility into decisions from turns 1-8. This caused relitigation, contradictions, and wasted governance cycles.
+
+The compression model fix is equally important: a section marked compressible but never targeted for compression creates silent model incoherence. Under extreme token pressure, `workflow_artifacts` survived all compression steps as if it were sticky. Now the compression model is internally consistent — every non-sticky section has an explicit place in the bounded drop order.
+
+## Evidence
+
+- 56 tests / 14 suites / 0 failures (combined context-compressor, context-section-parser, token-budget, decision-history, and workflow-kit runtime context suite)
+- Decision history dispatch: 10 dedicated tests covering presence, truncation, system-entry filtering, missing/empty ledger, column format, chronological order, malformed JSON handling, pipe escaping, and section positioning
+- Compression model: 11 tests covering exact step order, sticky section preservation, truncation, and COMPRESSION_STEPS export validation
+- Token budget: 16 tests covering fit/compress/overflow paths with the updated section model
+- `cd website-v2 && npm run build` → clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.66.0
+# or
+brew upgrade agentxchain
+```

@@ -16,6 +16,7 @@ const COMPRESSION_STEPS = [
   { id: 'budget', action: 'drop' },
   { id: 'phase_gate_status', action: 'drop' },
   { id: 'decision_history', action: 'drop' },
+  { id: 'workflow_artifacts', action: 'drop' },
   { id: 'gate_required_files', action: 'drop' },
   { id: 'last_turn_objections', action: 'drop' },
   { id: 'last_turn_decisions', action: 'drop' },

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.66.0
+
+`2.66.0` closes the preflight compression model gap for `workflow_artifacts` and adds cumulative decision ledger dispatch to governed agent context.
+
+- Cumulative agent-authored decisions from `decision-ledger.jsonl` are now dispatched in CONTEXT.md as a "Decision History" markdown table, so agents see the full governed decision trail — not just the last turn's decisions
+- Decision history filters to agent-authored entries only (those with `id` field), caps at 50 most recent, and handles missing/empty/malformed ledger gracefully
+- `workflow_artifacts` is now explicitly compressible in the preflight compression model — dropped after `decision_history` and before `gate_required_files` under token pressure
+- Previously, `workflow_artifacts` had `required: false` but was not in COMPRESSION_STEPS, making it behave as sticky despite being marked compressible
+- `project_goal` and `inherited_run_context` are preserved as sticky sections that survive full preflight compression
+- Decision history is compressible context, dropped in the bounded compression order after `phase_gate_status` and before `workflow_artifacts`
+- 56 tests / 14 suites / 0 failures (combined compression, parser, token-budget, decision-history, and workflow-kit suite)
+
 ## 2.65.0
 
 `2.65.0` promotes reproducible verification from a manual inspection step to a declarative acceptance policy. Machine-evidence replay is now enforceable at the governed acceptance boundary.

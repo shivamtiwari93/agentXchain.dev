@@ -43,6 +43,13 @@ function makeFullContextMd() {
     '- **Objections:**',
     '  - OBJ-001 (medium): Retry policy needs operator messaging.',
     '',
+    '## Decision History',
+    '',
+    '| ID | Phase | Role | Statement |',
+    '|----|-------|------|-----------|',
+    '| DEC-001 | planning | pm | Use PostgreSQL for persistence |',
+    '| DEC-002 | planning | architect | REST over GraphQL for v1 API |',
+    '',
     '## Blockers',
     '',
     '- **Blocked on:** escalation:retries-exhausted:qa',
@@ -51,6 +58,13 @@ function makeFullContextMd() {
     '',
     '- **From:** qa',
     '- **Reason:** retries_exhausted',
+    '',
+    '## Workflow Artifacts',
+    '',
+    '| Artifact | Required | Semantics | Owner | Status |',
+    '|----------|----------|-----------|-------|--------|',
+    '| `.planning/spec.md` | yes | `design_spec` | architect | exists |',
+    '| `.planning/test-plan.md` | yes | `test_plan` | qa | MISSING |',
     '',
     '## Gate Required Files',
     '',
@@ -109,7 +123,7 @@ describe('context-compressor', () => {
     assert.equal(result.exhausted, true);
 
     // Verify the non-kept actions follow spec order
-    const expectedDropped = ['budget', 'phase_gate_status', 'gate_required_files', 'last_turn_objections', 'last_turn_decisions', 'last_turn_summary'];
+    const expectedDropped = ['budget', 'phase_gate_status', 'decision_history', 'workflow_artifacts', 'gate_required_files', 'last_turn_objections', 'last_turn_decisions', 'last_turn_summary'];
     for (const id of expectedDropped) {
       const action = getAction(result, id);
       assert.ok(action, `action for ${id} should exist`);
@@ -120,19 +134,21 @@ describe('context-compressor', () => {
     }
   });
 
-  it('drops phase_gate_status second and gate_required_files third', () => {
+  it('drops phase_gate_status second, decision_history third, workflow_artifacts fourth, gate_required_files fifth', () => {
     const sections = parseContextSections(makeFullContextMd());
     let calls = 0;
     const result = compressContextSections(sections, () => {
       calls += 1;
-      // Fit after 3 steps: drop budget, drop phase_gate_status, drop gate_required_files
-      return calls > 3;
+      // Fit after 5 steps: drop budget, phase_gate_status, decision_history, workflow_artifacts, gate_required_files
+      return calls > 5;
     });
 
     assert.equal(result.exhausted, false);
-    assert.equal(result.steps_applied, 3);
+    assert.equal(result.steps_applied, 5);
     assert.equal(getAction(result, 'budget').action, 'dropped');
     assert.equal(getAction(result, 'phase_gate_status').action, 'dropped');
+    assert.equal(getAction(result, 'decision_history').action, 'dropped');
+    assert.equal(getAction(result, 'workflow_artifacts').action, 'dropped');
     assert.equal(getAction(result, 'gate_required_files').action, 'dropped');
     assert.equal(getAction(result, 'last_turn_objections').action, 'kept');
   });
@@ -142,8 +158,8 @@ describe('context-compressor', () => {
     let calls = 0;
     const result = compressContextSections(sections, () => {
       calls += 1;
-      // Fit after 6 steps (budget, phase_gate, gate_req, objections, decisions, truncate summary)
-      return calls > 6;
+      // Fit after 8 steps (budget, phase_gate, decision_history, workflow_artifacts, gate_req, objections, decisions, truncate summary)
+      return calls > 8;
     });
 
     assert.equal(result.exhausted, false);
@@ -158,8 +174,8 @@ describe('context-compressor', () => {
     let calls = 0;
     const result = compressContextSections(sections, () => {
       calls += 1;
-      // Fit after 7 steps (all compression steps including dropping summary)
-      return calls > 7;
+      // Fit after 9 steps (all compression steps including dropping summary)
+      return calls > 9;
     });
 
     assert.equal(result.exhausted, false);
@@ -242,18 +258,21 @@ describe('context-compressor', () => {
     assert.ok(reparsedIds.includes('blockers'));
     assert.ok(reparsedIds.includes('escalation'));
     assert.ok(!reparsedIds.includes('budget'));
+    assert.ok(!reparsedIds.includes('decision_history'));
+    assert.ok(!reparsedIds.includes('workflow_artifacts'));
     assert.ok(!reparsedIds.includes('phase_gate_status'));
   });
 
   it('exports COMPRESSION_STEPS matching the spec order', () => {
-    assert.equal(COMPRESSION_STEPS.length, 8);
+    assert.equal(COMPRESSION_STEPS.length, 9);
     assert.deepEqual(COMPRESSION_STEPS[0], { id: 'budget', action: 'drop' });
     assert.deepEqual(COMPRESSION_STEPS[1], { id: 'phase_gate_status', action: 'drop' });
     assert.deepEqual(COMPRESSION_STEPS[2], { id: 'decision_history', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[3], { id: 'gate_required_files', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[4], { id: 'last_turn_objections', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[5], { id: 'last_turn_decisions', action: 'drop' });
-    assert.deepEqual(COMPRESSION_STEPS[6], { id: 'last_turn_summary', action: 'truncate', max_chars: 240 });
-    assert.deepEqual(COMPRESSION_STEPS[7], { id: 'last_turn_summary', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[3], { id: 'workflow_artifacts', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[4], { id: 'gate_required_files', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[5], { id: 'last_turn_objections', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[6], { id: 'last_turn_decisions', action: 'drop' });
+    assert.deepEqual(COMPRESSION_STEPS[7], { id: 'last_turn_summary', action: 'truncate', max_chars: 240 });
+    assert.deepEqual(COMPRESSION_STEPS[8], { id: 'last_turn_summary', action: 'drop' });
   });
 });

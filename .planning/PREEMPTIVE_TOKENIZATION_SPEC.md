@@ -216,6 +216,7 @@ The adapter may reduce only these sections:
 
 - `budget` (budget lines within Current State)
 - `decision_history`
+- `workflow_artifacts`
 - `gate_required_files`
 - `phase_gate_status`
 - `last_turn_summary`
@@ -238,11 +239,12 @@ When the initial estimate exceeds the available input budget, the adapter compre
 1. drop `budget` (remove budget lines from within Current State)
 2. drop `phase_gate_status`
 3. drop `decision_history`
-4. drop `gate_required_files`
-5. drop `last_turn_objections`
-6. drop `last_turn_decisions`
-7. truncate `last_turn_summary` to 240 characters
-8. drop `last_turn_summary` entirely but keep `last_turn_header`
+4. drop `workflow_artifacts`
+5. drop `gate_required_files`
+6. drop `last_turn_objections`
+7. drop `last_turn_decisions`
+8. truncate `last_turn_summary` to 240 characters
+9. drop `last_turn_summary` entirely but keep `last_turn_header`
 
 After each step, the adapter must re-estimate the full outbound input.
 

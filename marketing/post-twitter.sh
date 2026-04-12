@@ -7,4 +7,4 @@ XBROWSER_DIR="/Users/shivamtiwari.highlevel/VS Code/1008apps/x-browser"
 TEXT="${1:?Usage: bash marketing/post-twitter.sh \"tweet text\"}"
 
 source "${XBROWSER_DIR}/.venv/bin/activate"
-x-browser --min-delay 2 --max-delay 5 tweet post "$TEXT"
+x-browser --system-profile --min-delay 2 --max-delay 5 tweet post "$TEXT"
