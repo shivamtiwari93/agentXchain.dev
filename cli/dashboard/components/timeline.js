@@ -176,12 +176,12 @@ function renderTurnDetailPanel(turnId, annotations, audit, coordinatorAnnotation
   let html = `<div class="turn-detail-panel">`;
 
   // Repo-local hook evidence
-  html += renderAuditSection(dual ? 'Repo Hook Audit' : 'Hook Audit', turnAudit);
-  html += renderAnnotationSection(dual ? 'Repo Annotations' : 'Annotations', turnAnnotations);
+  html += renderAuditSection(dual ? 'Repo Hook Audit Log' : 'Hook Audit Log', turnAudit);
+  html += renderAnnotationSection(dual ? 'Repo Hook Annotations' : 'Hook Annotations', turnAnnotations);
 
   // Coordinator hook evidence
-  html += renderAuditSection(dual ? 'Coordinator Hook Audit' : 'Hook Audit', turnCoordAudit);
-  html += renderAnnotationSection(dual ? 'Coordinator Annotations' : 'Annotations', turnCoordAnnotations);
+  html += renderAuditSection(dual ? 'Coordinator Hook Audit Log' : 'Hook Audit Log', turnCoordAudit);
+  html += renderAnnotationSection(dual ? 'Coordinator Hook Annotations' : 'Hook Annotations', turnCoordAnnotations);
 
   html += `</div>`;
   return html;

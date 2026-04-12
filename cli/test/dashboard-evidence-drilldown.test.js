@@ -56,14 +56,14 @@ describe('AT-V21-007: Turn detail panels with hook evidence', () => {
 
   it('shows audit count per turn in detail panel', () => {
     const html = renderTimeline({ state, history, annotations, audit });
-    assert.ok(html.includes('Hook Audit (2)'));
-    assert.ok(html.includes('Hook Audit (1)'));
+    assert.ok(html.includes('Hook Audit Log (2)'));
+    assert.ok(html.includes('Hook Audit Log (1)'));
   });
 
   it('shows annotation count per turn in detail panel', () => {
     const html = renderTimeline({ state, history, annotations, audit });
-    assert.ok(html.includes('Annotations (2)'));
-    assert.ok(html.includes('Annotations (1)'));
+    assert.ok(html.includes('Hook Annotations (2)'));
+    assert.ok(html.includes('Hook Annotations (1)'));
   });
 
   it('renders detail panel with no evidence message when no hooks for a turn', () => {

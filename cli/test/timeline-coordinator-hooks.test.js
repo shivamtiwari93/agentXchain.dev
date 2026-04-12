@@ -76,10 +76,10 @@ describe('Timeline coordinator hook evidence', () => {
       coordinatorAudit: COORD_AUDIT,
       coordinatorAnnotations: COORD_ANNOTATIONS,
     });
-    assert.ok(html.includes('Repo Hook Audit'), 'must show repo-prefixed audit title');
-    assert.ok(html.includes('Coordinator Hook Audit'), 'must show coordinator-prefixed audit title');
-    assert.ok(html.includes('Repo Annotations'), 'must show repo-prefixed annotations title');
-    assert.ok(html.includes('Coordinator Annotations'), 'must show coordinator-prefixed annotations title');
+    assert.ok(html.includes('Repo Hook Audit Log'), 'must show repo-prefixed audit title');
+    assert.ok(html.includes('Coordinator Hook Audit Log'), 'must show coordinator-prefixed audit title');
+    assert.ok(html.includes('Repo Hook Annotations'), 'must show repo-prefixed annotations title');
+    assert.ok(html.includes('Coordinator Hook Annotations'), 'must show coordinator-prefixed annotations title');
   });
 
   it('renders without coordinator sections when coordinator data is null', () => {
@@ -91,9 +91,9 @@ describe('Timeline coordinator hook evidence', () => {
       coordinatorAudit: null,
       coordinatorAnnotations: null,
     });
-    assert.ok(html.includes('Hook Audit'), 'must show unprefixed audit title');
-    assert.ok(!html.includes('Coordinator Hook Audit'), 'must not show coordinator audit section');
-    assert.ok(!html.includes('Coordinator Annotations'), 'must not show coordinator annotations section');
+    assert.ok(html.includes('Hook Audit Log'), 'must show unprefixed audit title');
+    assert.ok(!html.includes('Coordinator Hook Audit Log'), 'must not show coordinator audit section');
+    assert.ok(!html.includes('Coordinator Hook Annotations'), 'must not show coordinator annotations section');
     assert.ok(html.includes('lint-check'), 'must show repo-local audit data');
     assert.ok(html.includes('coverage'), 'must show repo-local annotation data');
   });
