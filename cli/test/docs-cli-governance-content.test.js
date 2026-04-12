@@ -248,6 +248,19 @@ describe('CLI governance docs contract — events observability', () => {
   });
 });
 
+describe('CLI governance docs contract — report governance events', () => {
+  it('documents governance events in the report command description', () => {
+    assert.match(
+      docs,
+      /Governance Events.*section.*decision ledger.*governance events/i,
+    );
+    assert.match(
+      docs,
+      /policy escalations.*conflict.*operator escalations.*escalation resolutions/i,
+    );
+  });
+});
+
 describe('CLI governance docs contract — approval commands have no flag tables', () => {
   for (const cmd of ['approve-transition', 'approve-completion']) {
     it(`${cmd} docs state "No flags"`, () => {

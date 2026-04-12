@@ -20,6 +20,76 @@ function summarizeBlockedOn(blockedOn) {
   return 'present';
 }
 
+function renderGovernanceEventDetailText(lines, evt, indent) {
+  switch (evt.type) {
+    case 'policy_escalation':
+      for (const v of evt.violations || []) {
+        lines.push(`${indent}violation: ${v.policy_id || '?'} / ${v.rule || '?'} — ${v.message || 'n/a'}`);
+      }
+      break;
+    case 'conflict_detected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`${indent}files: ${evt.conflicting_files.join(', ')}`);
+      }
+      if (evt.overlap_ratio != null) {
+        lines.push(`${indent}overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
+      }
+      break;
+    case 'conflict_rejected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`${indent}files: ${evt.conflicting_files.join(', ')}`);
+      }
+      break;
+    case 'conflict_resolution_selected':
+      if (evt.resolution_method) {
+        lines.push(`${indent}resolution: ${evt.resolution_method}`);
+      }
+      break;
+    case 'operator_escalated':
+      if (evt.reason) lines.push(`${indent}reason: ${evt.reason}`);
+      if (evt.blocked_on) lines.push(`${indent}blocked_on: ${evt.blocked_on}`);
+      break;
+    case 'escalation_resolved':
+      if (evt.resolved_via) lines.push(`${indent}resolved via: ${evt.resolved_via}`);
+      if (evt.previous_blocked_on) lines.push(`${indent}was blocked on: ${evt.previous_blocked_on}`);
+      break;
+  }
+}
+
+function renderGovernanceEventDetailMarkdown(lines, evt) {
+  switch (evt.type) {
+    case 'policy_escalation':
+      for (const v of evt.violations || []) {
+        lines.push(`  - Violation: \`${v.policy_id || '?'}\` / \`${v.rule || '?'}\` — ${v.message || 'n/a'}`);
+      }
+      break;
+    case 'conflict_detected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`  - Files: ${evt.conflicting_files.map((f) => `\`${f}\``).join(', ')}`);
+      }
+      if (evt.overlap_ratio != null) {
+        lines.push(`  - Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
+      }
+      break;
+    case 'conflict_rejected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`  - Files: ${evt.conflicting_files.map((f) => `\`${f}\``).join(', ')}`);
+      }
+      break;
+    case 'conflict_resolution_selected':
+      if (evt.resolution_method) lines.push(`  - Resolution: \`${evt.resolution_method}\``);
+      break;
+    case 'operator_escalated':
+      if (evt.reason) lines.push(`  - Reason: ${evt.reason}`);
+      if (evt.blocked_on) lines.push(`  - Blocked on: \`${evt.blocked_on}\``);
+      break;
+    case 'escalation_resolved':
+      if (evt.resolved_via) lines.push(`  - Resolved via: \`${evt.resolved_via}\``);
+      if (evt.previous_blocked_on) lines.push(`  - Was blocked on: \`${evt.previous_blocked_on}\``);
+      break;
+  }
+}
+
 function summarizeBlockedState(run) {
   const blockedReason = run?.blocked_reason;
   if (blockedReason && typeof blockedReason === 'object' && !Array.isArray(blockedReason)) {
@@ -173,6 +243,75 @@ function extractGateFailureDigest(artifact) {
       missing_files: Array.isArray(d.missing_files) ? d.missing_files : [],
       missing_verification: d.missing_verification === true,
     }));
+}
+
+const GOVERNANCE_EVENT_TYPES = new Set([
+  'policy_escalation',
+  'conflict_detected',
+  'conflict_rejected',
+  'conflict_resolution_selected',
+  'operator_escalated',
+  'escalation_resolved',
+]);
+
+function extractGovernanceEventDigest(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => typeof d?.decision === 'string' && GOVERNANCE_EVENT_TYPES.has(d.decision))
+    .map((d) => {
+      const base = {
+        type: d.decision,
+        timestamp: d.timestamp || null,
+        turn_id: d.turn_id || null,
+        role: d.role || null,
+        phase: d.phase || null,
+      };
+      switch (d.decision) {
+        case 'policy_escalation':
+          base.violations = Array.isArray(d.violations) ? d.violations.map((v) => ({
+            policy_id: v.policy_id || null,
+            rule: v.rule || null,
+            message: v.message || null,
+          })) : [];
+          break;
+        case 'conflict_detected':
+          base.conflicting_files = Array.isArray(d.conflict?.files) ? d.conflict.files : [];
+          base.overlap_ratio = typeof d.conflict?.overlap_ratio === 'number' ? d.conflict.overlap_ratio : null;
+          break;
+        case 'conflict_rejected':
+          base.conflicting_files = Array.isArray(d.conflict?.files) ? d.conflict.files : [];
+          break;
+        case 'conflict_resolution_selected':
+          base.resolution_method = d.conflict?.resolution || null;
+          break;
+        case 'operator_escalated':
+          base.blocked_on = d.blocked_on || null;
+          base.reason = d.escalation?.reason || null;
+          break;
+        case 'escalation_resolved':
+          base.resolved_via = d.resolved_via || null;
+          base.previous_blocked_on = d.blocked_on || null;
+          break;
+      }
+      return base;
+    })
+    .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+}
+
+function extractGovernanceEventDigestFromCoordinator(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/multirepo/decision-ledger.jsonl');
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return data
+    .filter((d) => typeof d?.decision === 'string' && GOVERNANCE_EVENT_TYPES.has(d.decision))
+    .map((d) => ({
+      type: d.decision,
+      timestamp: d.timestamp || null,
+      turn_id: d.turn_id || null,
+      role: d.role || null,
+      phase: d.phase || null,
+    }))
+    .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
 }
 
 function extractTimeoutEventDigest(artifact, relPath = '.agentxchain/decision-ledger.jsonl') {
@@ -658,6 +797,7 @@ function buildRunSubject(artifact) {
   const intakeLinks = extractIntakeLinks(artifact);
   const recoverySummary = extractRecoverySummary(artifact);
   const continuity = extractContinuityMetadata(artifact);
+  const governanceEvents = extractGovernanceEventDigest(artifact);
 
   return {
     kind: 'governed_run',
@@ -689,6 +829,7 @@ function buildRunSubject(artifact) {
       turns,
       decisions,
       approval_policy_events: approvalPolicyEvents,
+      governance_events: governanceEvents,
       gate_failures: gateFailures,
       timeout_events: timeoutEvents,
       hook_summary: hookSummary,
@@ -764,6 +905,7 @@ function buildCoordinatorSubject(artifact) {
       base.turns = extractHistoryTimeline(childExport);
       base.decisions = extractDecisionDigest(childExport);
       base.approval_policy_events = extractApprovalPolicyDigest(childExport);
+      base.governance_events = extractGovernanceEventDigest(childExport);
       base.gate_failures = extractGateFailureDigest(childExport);
       base.timeout_events = extractTimeoutEventDigest(childExport);
       base.hook_summary = extractHookSummary(childExport);
@@ -1005,6 +1147,14 @@ export function formatGovernanceReportText(report) {
         const rule = evt.matched_rule ? ` | rule: ${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}` : '';
         lines.push(`  - ${evt.action || 'unknown'} | ${evt.gate_type || 'unknown'} | ${transition}${rule} | at: ${evt.timestamp || 'n/a'}`);
         if (evt.reason) lines.push(`      reason: ${evt.reason}`);
+      }
+    }
+
+    if (run.governance_events && run.governance_events.length > 0) {
+      lines.push('', 'Governance Events:');
+      for (const evt of run.governance_events) {
+        lines.push(`  - ${evt.type} | ${evt.role || '?'} | ${evt.phase || '?'} | at: ${evt.timestamp || 'n/a'}`);
+        renderGovernanceEventDetailText(lines, evt, '      ');
       }
     }
 
@@ -1254,6 +1404,13 @@ export function formatGovernanceReportText(report) {
           repoLines.push(`    - ${evt.action || 'unknown'}: ${evt.gate_type || 'unknown'} | ${transition} | ${evt.timestamp || 'n/a'}`);
         }
       }
+      if (repo.governance_events && repo.governance_events.length > 0) {
+        repoLines.push('  Governance Events:');
+        for (const evt of repo.governance_events) {
+          repoLines.push(`    - ${evt.type} | ${evt.role || '?'} | ${evt.phase || '?'} | at: ${evt.timestamp || 'n/a'}`);
+          renderGovernanceEventDetailText(repoLines, evt, '        ');
+        }
+      }
       if (repo.timeout_events && repo.timeout_events.length > 0) {
         repoLines.push('  Timeout Events:');
         for (const evt of repo.timeout_events) {
@@ -1414,6 +1571,14 @@ export function formatGovernanceReportMarkdown(report) {
         const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
         lines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
         if (evt.reason) lines.push(`  - ${evt.reason}`);
+      }
+    }
+
+    if (run.governance_events && run.governance_events.length > 0) {
+      lines.push('', '## Governance Events', '');
+      for (const evt of run.governance_events) {
+        lines.push(`- **${evt.type}** (\`${evt.role || '?'}\`, \`${evt.phase || '?'}\` phase) at \`${evt.timestamp || 'n/a'}\``);
+        renderGovernanceEventDetailMarkdown(lines, evt);
       }
     }
 
@@ -1668,6 +1833,13 @@ export function formatGovernanceReportMarkdown(report) {
         const rule = evt.matched_rule ? ` — rule: \`${typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule}\`` : '';
         repoLines.push(`- **${evt.action || 'unknown'}** (${evt.gate_type || 'unknown'}) ${transition}${rule} at \`${evt.timestamp || 'n/a'}\``);
         if (evt.reason) repoLines.push(`  - ${evt.reason}`);
+      }
+    }
+    if (repo.governance_events && repo.governance_events.length > 0) {
+      repoLines.push('', '#### Governance Events', '');
+      for (const evt of repo.governance_events) {
+        repoLines.push(`- **${evt.type}** (\`${evt.role || '?'}\`, \`${evt.phase || '?'}\` phase) at \`${evt.timestamp || 'n/a'}\``);
+        renderGovernanceEventDetailMarkdown(repoLines, evt);
       }
     }
     if (repo.timeout_events && repo.timeout_events.length > 0) {
