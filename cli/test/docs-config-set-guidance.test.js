@@ -38,6 +38,14 @@ describe('Docs route runtime rebinding through config --set, not manual JSON edi
       'quickstart must show config --set for PM runtime rebind');
   });
 
+  it('getting-started.mdx uses config --set for QA runtime fallback', () => {
+    const content = readDoc('getting-started.mdx');
+    assert.match(content, /config --set roles\.qa\.runtime manual-qa/,
+      'getting-started must show config --set for QA runtime fallback');
+    assert.doesNotMatch(content, /[Ee]dit `agentxchain\.json` and change.*roles\.qa\.runtime/i,
+      'getting-started must not tell operators to hand-edit JSON for QA runtime fallback');
+  });
+
   it('timeouts.mdx mentions config --set as an alternative', () => {
     const content = readDoc('timeouts.mdx');
     assert.match(content, /config --set timeouts\./,

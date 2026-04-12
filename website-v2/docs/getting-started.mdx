@@ -122,17 +122,11 @@ Before you run QA, make sure these files contain real content:
 
 If you do not want API-backed QA yet, use the built-in manual fallback before you run the turn:
 
-```json
-{
-  "roles": {
-    "qa": {
-      "runtime": "manual-qa"
-    }
-  }
-}
+```bash
+agentxchain config --set roles.qa.runtime manual-qa
 ```
 
-Edit `agentxchain.json` and change `roles.qa.runtime` from `api-qa` to `manual-qa`. Do not pretend the default scaffold is fully no-key end to end.
+Do not hand-edit `agentxchain.json` for this scalar change. Use the governed config mutation path so the update is validated before the next turn. Do not pretend the default scaffold is fully no-key end to end.
 
 ## 7. Complete the run
 
