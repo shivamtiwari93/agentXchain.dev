@@ -192,6 +192,10 @@ describe('CLI governance docs contract — common sequences', () => {
       docs,
       /step detects the staged result, validates it, and auto-accepts it/i
     );
+    assert.match(
+      docs,
+      /unless a configured acceptance policy blocks or escalates the commit/i
+    );
     assert.match(docs, /agentxchain approve-transition/);
     assert.doesNotMatch(
       docs,

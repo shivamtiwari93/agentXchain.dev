@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import { spawnSync } from 'node:child_process';
 import { loadProjectContext, loadProjectState } from '../lib/config.js';
 import { getActiveTurns } from '../lib/governed-state.js';
 import { normalizeVerification } from '../lib/repo-observer.js';
@@ -8,6 +7,10 @@ import { getTurnStagingResultPath } from '../lib/turn-paths.js';
 import { resolve } from 'node:path';
 import { loadExportArtifact, verifyExportArtifact } from '../lib/export-verifier.js';
 import { verifyProtocolConformance } from '../lib/protocol-conformance.js';
+import {
+  DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS,
+  replayVerificationMachineEvidence,
+} from '../lib/verification-replay.js';
 
 export async function verifyProtocolCommand(opts, command) {
   const requestedTier = Number.parseInt(String(opts.tier || '1'), 10);
@@ -113,7 +116,7 @@ export async function verifyTurnCommand(turnId, opts = {}) {
     process.exit(2);
   }
 
-  const timeoutMs = Number.parseInt(String(opts.timeout || '30000'), 10);
+  const timeoutMs = Number.parseInt(String(opts.timeout || String(DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS)), 10);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) {
     console.log(chalk.red('verify turn requires a positive integer --timeout in milliseconds.'));
     process.exit(2);
@@ -142,10 +145,6 @@ export async function verifyTurnCommand(turnId, opts = {}) {
   const runtimeType = config.runtimes?.[selectedTurn.runtime_id]?.type || 'manual';
   const declaredStatus = turnResult.verification?.status || 'skipped';
   const normalizedStatus = normalizeVerification(turnResult.verification, runtimeType).status;
-  const machineEvidence = Array.isArray(turnResult.verification?.machine_evidence)
-    ? turnResult.verification.machine_evidence
-    : [];
-
   const payload = {
     turn_id: selectedTurnId,
     role: selectedTurn.assigned_role,
@@ -159,22 +158,12 @@ export async function verifyTurnCommand(turnId, opts = {}) {
       warnings: validation.warnings || [],
     },
     timeout_ms: timeoutMs,
-    overall: 'not_reproducible',
-    replayed_commands: 0,
-    matched_commands: 0,
-    commands: [],
+    ...replayVerificationMachineEvidence({
+      root,
+      verification: turnResult.verification,
+      timeoutMs,
+    }),
   };
-
-  if (machineEvidence.length === 0) {
-    payload.reason = 'No verification.machine_evidence commands were declared. commands/evidence_summary are not executable proof.';
-    emitTurnVerification(payload, opts.json);
-    process.exit(1);
-  }
-
-  payload.commands = machineEvidence.map((entry, index) => replayEvidenceCommand(root, entry, index, timeoutMs));
-  payload.replayed_commands = payload.commands.length;
-  payload.matched_commands = payload.commands.filter((entry) => entry.matched).length;
-  payload.overall = payload.commands.every((entry) => entry.matched) ? 'match' : 'mismatch';
 
   emitTurnVerification(payload, opts.json);
   process.exit(payload.overall === 'match' ? 0 : 1);
@@ -308,31 +297,6 @@ function emitTurnValidationFailure(validation, jsonMode) {
     }
   }
   console.log('');
-}
-
-function replayEvidenceCommand(root, entry, index, timeoutMs) {
-  const result = spawnSync(entry.command, {
-    cwd: root,
-    encoding: 'utf8',
-    shell: true,
-    timeout: timeoutMs,
-    maxBuffer: 1024 * 1024,
-  });
-
-  const timedOut = result.error?.code === 'ETIMEDOUT';
-  const actualExitCode = Number.isInteger(result.status) ? result.status : null;
-  const errorMessage = result.error?.message || null;
-
-  return {
-    index,
-    command: entry.command,
-    declared_exit_code: entry.exit_code,
-    actual_exit_code: actualExitCode,
-    matched: actualExitCode === entry.exit_code,
-    timed_out: timedOut,
-    signal: result.signal || null,
-    error: errorMessage,
-  };
 }
 
 function emitTurnVerification(payload, jsonMode) {

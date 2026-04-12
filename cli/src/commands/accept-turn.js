@@ -166,6 +166,9 @@ export async function acceptTurnCommand(opts = {}) {
   if (accepted?.cost?.usd != null) {
     console.log(`  ${chalk.dim('Cost:')}     $${formatUsd(accepted.cost.usd)}`);
   }
+  if (accepted?.verification_replay) {
+    console.log(`  ${chalk.dim('Replay:')}   ${accepted.verification_replay.overall} (${accepted.verification_replay.matched_commands}/${accepted.verification_replay.replayed_commands})`);
+  }
   if (result.budget_warning) {
     console.log(`  ${chalk.yellow('Budget warning:')} ${result.budget_warning}`);
   }

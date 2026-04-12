@@ -492,7 +492,7 @@ agentxchain step [options]
 
 The primary command for advancing a run. Creates a turn, writes the dispatch bundle, invokes the adapter, waits for a staged result, validates the result schema, and records it. If validation fails, the turn is marked `failed` with a `retained` disposition.
 That retained validation-failure path exits non-zero so automation can distinguish "turn accepted" from "turn needs operator recovery".
-On a valid staged result, `step` auto-accepts the turn immediately. Use `accept-turn` directly when you are fixing a retained failed or conflicted turn, or when you intentionally interrupted a manual step before the CLI detected the staged result.
+On a valid staged result, `step` auto-accepts the turn immediately unless a configured acceptance policy blocks or escalates the commit. Use `accept-turn` directly when you are fixing a retained failed or conflicted turn, or when you intentionally interrupted a manual step before the CLI detected the staged result.
 
 ### `run`
 
@@ -700,6 +700,8 @@ Exit codes:
 | `2` | Command/input/config error |
 
 This is a current-workspace reproducibility check, not a historical time machine. A mismatch can come from false agent reporting, later repo drift, or environment drift. The contract is still useful because the staged turn only records command strings plus exit codes.
+
+If you want reproducibility to become an acceptance requirement instead of a manual check, add the `require_reproducible_verification` rule under top-level `policies` in `agentxchain.json`. That reuses the same replay contract during `accept-turn`, `step`, and `run`.
 
 ## Protocol conformance
 

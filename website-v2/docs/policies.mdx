@@ -12,7 +12,7 @@ They are not the same thing as gates or hooks:
 
 | Mechanism | What it controls | When it runs | How it is defined |
 |---|---|---|---|
-| Policies | Built-in acceptance rules such as turn caps, streak limits, and status filters | On every turn acceptance | Top-level `policies` array in `agentxchain.json` |
+| Policies | Built-in acceptance rules such as turn caps, streak limits, status filters, and reproducibility enforcement | On every turn acceptance | Top-level `policies` array in `agentxchain.json` |
 | Hooks | External commands or HTTP endpoints | Hook phases such as `before_validation` and `after_acceptance` | Top-level `hooks` config or plugins |
 | Gates | Artifact and approval checks for phase or completion transitions | At phase exit or run completion | Top-level `gates` config |
 
@@ -125,6 +125,16 @@ Restricts accepted turn statuses to an allowlist.
 - Trigger: when the staged `turnResult.status` is not in the allowlist
 - Example use: forbid `failed` and `needs_human` outcomes for a scoped role in a late QA phase
 
+### `require_reproducible_verification`
+
+Requires the staged turn's declared machine-evidence commands to reproduce in the current workspace before acceptance.
+
+- Params: none in v1
+- Replay source: `verification.machine_evidence[].command`
+- Replay contract: actual exit code must match the declared `verification.machine_evidence[].exit_code`
+- Trigger: when no machine-evidence commands were declared (`not_reproducible`) or when one or more replayed commands drift from their declared exit codes (`mismatch`)
+- Example use: block automated acceptance unless the same proof that powers `agentxchain verify turn` still matches at commit time
+
 ## Actions
 
 | Action | Runtime effect |
@@ -163,6 +173,7 @@ Use policies for governance rules that should stay declarative and audit-friendl
 - streak limits
 - cost ceilings
 - status filters
+- reproducible verification requirements
 
 Do not abuse hooks for rules the policy engine already knows how to express. External hooks are slower, harder to reason about, and easier to drift. If the rule is "block after too many implementation turns" or "warn when a turn costs too much," that belongs in `policies`, not a shell script.
 
@@ -181,6 +192,12 @@ Use gates instead when the condition is about:
 - if the staged result is still the right one, retry the acceptance path
 
 For retained turns, the continuation surface depends on runtime type. If you already have the staged result you want to accept, rerun `agentxchain accept-turn` after correcting the policy condition.
+
+For reproducibility policies, the fastest diagnosis path is:
+
+1. Run `agentxchain verify turn [turn_id]` to inspect the current replay result.
+2. Fix the workspace or the staged `verification.machine_evidence` declaration.
+3. Retry `agentxchain accept-turn` or `agentxchain step --resume`.
 
 More specifically:
 

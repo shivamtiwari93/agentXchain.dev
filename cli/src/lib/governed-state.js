@@ -44,6 +44,10 @@ import { emitRunEvent } from './run-events.js';
 import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
 import { buildDefaultRunProvenance } from './run-provenance.js';
+import {
+  replayVerificationMachineEvidence,
+  summarizeVerificationReplay,
+} from './verification-replay.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -2367,6 +2371,9 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const normalizedVerification = normalizeVerification(turnResult.verification, runtimeType);
   const artifactType = turnResult.artifact?.type || 'review';
   const derivedRef = deriveAcceptedRef(observation, artifactType, state.accepted_integration_ref);
+  const verificationReplay = (config.policies || []).some((policy) => policy?.rule === 'require_reproducible_verification')
+    ? replayVerificationMachineEvidence({ root, verification: turnResult.verification })
+    : null;
 
   // Policy evaluation — declarative governance rules (spec: POLICY_ENGINE_SPEC.md)
   const policyResult = evaluatePolicies(config.policies || [], {
@@ -2375,6 +2382,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     turnStatus: turnResult.status,
     turnCostUsd: readTurnCostUsd(turnResult),
     history: historyEntries,
+    verificationReplay,
   });
 
   if (policyResult.blocks.length > 0) {
@@ -2572,6 +2580,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     artifacts_created: turnResult.artifacts_created || [],
     verification: turnResult.verification || {},
     normalized_verification: normalizedVerification,
+    ...(verificationReplay ? { verification_replay: summarizeVerificationReplay(verificationReplay) } : {}),
     artifact: turnResult.artifact || {},
     observed_artifact: observedArtifact,
     proposed_next_role: turnResult.proposed_next_role,
@@ -3176,6 +3185,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     hookResults,
     ...(budgetWarning ? { budget_warning: budgetWarning } : {}),
     ...(policyResult.warnings.length > 0 ? { policy_warnings: policyResult.warnings } : {}),
+    ...(verificationReplay ? { verification_replay: summarizeVerificationReplay(verificationReplay) } : {}),
   };
 }
 

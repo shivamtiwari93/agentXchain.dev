@@ -43,6 +43,7 @@ describe('policy-evaluator module', () => {
     assert.ok(VALID_POLICY_RULES.includes('max_consecutive_same_role'));
     assert.ok(VALID_POLICY_RULES.includes('max_cost_per_turn'));
     assert.ok(VALID_POLICY_RULES.includes('require_status'));
+    assert.ok(VALID_POLICY_RULES.includes('require_reproducible_verification'));
   });
 
   it('exports VALID_POLICY_ACTIONS', () => {
@@ -169,9 +170,18 @@ describe('validatePolicies', () => {
       { id: 'cost-guard', rule: 'max_cost_per_turn', params: { limit_usd: 5.00 }, action: 'warn' },
       { id: 'no-monopoly', rule: 'max_consecutive_same_role', params: { limit: 3 }, action: 'block' },
       { id: 'status-filter', rule: 'require_status', params: { allowed: ['completed'] }, action: 'block' },
+      { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
     ]);
     assert.strictEqual(result.ok, true);
     assert.strictEqual(result.errors.length, 0);
+  });
+
+  it('AT-RVP-001: accepts require_reproducible_verification as a valid built-in rule', () => {
+    const result = validatePolicies([
+      { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' },
+    ]);
+    assert.equal(result.ok, true);
+    assert.equal(result.errors.length, 0);
   });
 });
 
@@ -325,6 +335,49 @@ describe('evaluatePolicies — require_status', () => {
     const ctx = makeContext({ turnStatus: 'completed' });
     const result = evaluatePolicies([policy], ctx);
     assert.strictEqual(result.ok, true);
+  });
+});
+
+describe('evaluatePolicies — require_reproducible_verification', () => {
+  const policy = { id: 'replay-proof', rule: 'require_reproducible_verification', action: 'block' };
+
+  it('AT-RVP-002: triggers when verification replay is not reproducible', () => {
+    const result = evaluatePolicies([policy], makeContext({
+      verificationReplay: {
+        overall: 'not_reproducible',
+        reason: 'No verification.machine_evidence commands were declared.',
+        replayed_commands: 0,
+        matched_commands: 0,
+      },
+    }));
+    assert.equal(result.ok, false);
+    assert.equal(result.blocks.length, 1);
+    assert.match(result.blocks[0].message, /machine_evidence/i);
+  });
+
+  it('AT-RVP-003: triggers when verification replay mismatches declared exit codes', () => {
+    const result = evaluatePolicies([policy], makeContext({
+      verificationReplay: {
+        overall: 'mismatch',
+        replayed_commands: 2,
+        matched_commands: 1,
+      },
+    }));
+    assert.equal(result.ok, false);
+    assert.equal(result.blocks.length, 1);
+    assert.match(result.blocks[0].message, /1\/2 commands matched/i);
+  });
+
+  it('passes when verification replay matches', () => {
+    const result = evaluatePolicies([policy], makeContext({
+      verificationReplay: {
+        overall: 'match',
+        replayed_commands: 1,
+        matched_commands: 1,
+      },
+    }));
+    assert.equal(result.ok, true);
+    assert.equal(result.violations.length, 0);
   });
 });
 

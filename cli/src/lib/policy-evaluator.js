@@ -78,6 +78,32 @@ const RULE_EVALUATORS = {
     }
     return { triggered: false, message: '' };
   },
+
+  require_reproducible_verification: (_params, ctx) => {
+    const replay = ctx.verificationReplay;
+    if (!replay) {
+      return {
+        triggered: true,
+        message: 'verification replay context is missing at acceptance time',
+      };
+    }
+
+    if (replay.overall === 'match') {
+      return { triggered: false, message: '' };
+    }
+
+    if (replay.overall === 'not_reproducible') {
+      return {
+        triggered: true,
+        message: replay.reason || 'verification.machine_evidence did not provide executable proof',
+      };
+    }
+
+    return {
+      triggered: true,
+      message: `verification replay mismatch: ${replay.matched_commands || 0}/${replay.replayed_commands || 0} commands matched declared exit codes`,
+    };
+  },
 };
 
 export const VALID_POLICY_RULES = Object.keys(RULE_EVALUATORS);
@@ -183,6 +209,12 @@ function validatePolicyParams(rule, params, prefix) {
             );
           }
         }
+      }
+      break;
+
+    case 'require_reproducible_verification':
+      if (params != null && typeof params !== 'object') {
+        errors.push(`${prefix}: params must be an object when provided`);
       }
       break;
   }

@@ -23,7 +23,7 @@ function makeProject(policy) {
   return dir;
 }
 
-function writeTurnResult(dir, turn, runId, cost) {
+function writeTurnResult(dir, turn, runId, cost, verificationOverrides = {}) {
   const result = {
     schema_version: '1.0',
     run_id: runId,
@@ -41,6 +41,7 @@ function writeTurnResult(dir, turn, runId, cost) {
       commands: ['echo ok'],
       evidence_summary: 'Fixture verification passed.',
       machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+      ...verificationOverrides,
     },
     artifact: { type: 'review', ref: null },
     proposed_next_role: 'pm',
@@ -104,6 +105,98 @@ describe('policy runtime integration', () => {
       assert.equal(result.ok, false);
       assert.equal(result.error_code, 'policy_violation');
       assert.match(result.error, /turn cost \$0\.02 exceeds limit \$0\.01/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-RVP-004: blocks acceptance when reproducible verification policy has no machine evidence', () => {
+    const dir = makeProject({
+      id: 'replay-proof',
+      rule: 'require_reproducible_verification',
+      action: 'block',
+    });
+
+    try {
+      const context = loadProjectContext(dir);
+      assert.ok(context, 'expected project context');
+      const init = initializeGovernedRun(dir, context.config);
+      assert.ok(init.ok, init.error);
+      const assign = assignGovernedTurn(dir, context.config, 'pm');
+      assert.ok(assign.ok, assign.error);
+      const turn = Object.values(assign.state.active_turns || {})[0];
+      assert.ok(turn, 'expected turn assignment');
+
+      writeTurnResult(dir, turn, assign.state.run_id, { usd: 0.001 }, {
+        machine_evidence: [],
+        commands: ['npm test'],
+        evidence_summary: 'Narrative only.',
+      });
+      const result = acceptGovernedTurn(dir, context.config);
+      assert.equal(result.ok, false);
+      assert.equal(result.error_code, 'policy_violation');
+      assert.match(result.error, /machine_evidence/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-RVP-005: blocks acceptance when reproducible verification replay mismatches', () => {
+    const dir = makeProject({
+      id: 'replay-proof',
+      rule: 'require_reproducible_verification',
+      action: 'block',
+    });
+
+    try {
+      const context = loadProjectContext(dir);
+      assert.ok(context, 'expected project context');
+      const init = initializeGovernedRun(dir, context.config);
+      assert.ok(init.ok, init.error);
+      const assign = assignGovernedTurn(dir, context.config, 'pm');
+      assert.ok(assign.ok, assign.error);
+      const turn = Object.values(assign.state.active_turns || {})[0];
+      assert.ok(turn, 'expected turn assignment');
+
+      writeTurnResult(dir, turn, assign.state.run_id, { usd: 0.001 }, {
+        machine_evidence: [{ command: 'node -e "process.exit(1)"', exit_code: 0 }],
+        evidence_summary: 'False positive fixture.',
+      });
+      const result = acceptGovernedTurn(dir, context.config);
+      assert.equal(result.ok, false);
+      assert.equal(result.error_code, 'policy_violation');
+      assert.match(result.error, /commands matched declared exit codes/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-RVP-006: accepts and records replay summary when reproducible verification matches', () => {
+    const dir = makeProject({
+      id: 'replay-proof',
+      rule: 'require_reproducible_verification',
+      action: 'block',
+    });
+
+    try {
+      const context = loadProjectContext(dir);
+      assert.ok(context, 'expected project context');
+      const init = initializeGovernedRun(dir, context.config);
+      assert.ok(init.ok, init.error);
+      const assign = assignGovernedTurn(dir, context.config, 'pm');
+      assert.ok(assign.ok, assign.error);
+      const turn = Object.values(assign.state.active_turns || {})[0];
+      assert.ok(turn, 'expected turn assignment');
+
+      writeTurnResult(dir, turn, assign.state.run_id, { usd: 0.001 }, {
+        machine_evidence: [{ command: 'node -e "process.exit(0)"', exit_code: 0 }],
+        evidence_summary: 'Executable proof recorded.',
+      });
+      const result = acceptGovernedTurn(dir, context.config);
+      assert.equal(result.ok, true, result.error);
+      assert.equal(result.accepted?.verification_replay?.overall, 'match');
+      assert.equal(result.accepted?.verification_replay?.replayed_commands, 1);
+      assert.equal(result.verification_replay?.matched_commands, 1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

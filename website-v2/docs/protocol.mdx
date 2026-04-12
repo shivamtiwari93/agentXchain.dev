@@ -52,7 +52,7 @@ init → step (pm) → approve-transition
      → step (qa) → approve-completion
 ```
 
-Each `step` creates a turn, validates the staged result, and auto-accepts it into history. `accept-turn` exists only for recovery flows (interrupted turns or pre-staged results that need manual acceptance). Gates (`approve-transition`, `approve-completion`) are human-approval checkpoints that the orchestrator cannot bypass.
+Each `step` creates a turn, validates the staged result, and normally auto-accepts it into history. Configured acceptance policies can still block or escalate before commit. `accept-turn` exists for recovery flows (interrupted turns, pre-staged results, or policy-blocked turns that need a retry). Gates (`approve-transition`, `approve-completion`) are human-approval checkpoints that the orchestrator cannot bypass.
 
 ### Phase model
 
