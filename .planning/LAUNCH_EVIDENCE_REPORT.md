@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.74.0
+# Launch Evidence Report — AgentXchain v2.75.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.74.0 release: the dashboard Timeline view now surfaces active-turn elapsed time plus completed-turn duration and acceptance timestamp from fields it already had, instead of dropping turn timing entirely.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.75.0 release: the dashboard Timeline turn-detail panel now surfaces coordinator hook audit and annotations truthfully, with section titles aligned to the shared Hooks view instead of drifting into a second naming scheme.
 
 ---
 

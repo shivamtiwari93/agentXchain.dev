@@ -1,0 +1,36 @@
+---
+title: "v2.75.0 Release Notes"
+description: "The dashboard Timeline turn-detail panel now surfaces coordinator hook audit and annotations truthfully, with section labels aligned to the shared Hooks view."
+---
+
+# AgentXchain v2.75.0
+
+`v2.75.0` closes the last obvious Timeline coordinator parity gap. The dashboard bridge already exposed coordinator hook audit and annotation endpoints, but the Timeline turn-detail panel only fetched repo-local hook evidence. In coordinator workspaces, operators could expand a turn and see an incomplete story even though the underlying coordinator data already existed.
+
+## What Changed
+
+- **Timeline turn detail now fetches and renders coordinator hook evidence** from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations`.
+- **Mixed workspaces render separate repo and coordinator sections** so the operator can distinguish repo-local hook outcomes from coordinator-level hook outcomes without switching views.
+- **Timeline section titles now match the shared Hooks view**: `Hook Audit Log`, `Repo Hook Audit Log`, `Coordinator Hook Audit Log`, `Hook Annotations`, `Repo Hook Annotations`, and `Coordinator Hook Annotations`.
+- **Repo-only workspaces stay backward compatible** and continue rendering a single unprefixed hook-evidence section when no coordinator evidence exists.
+- **Regression coverage now freezes the Timeline coordinator-evidence contract**, including the label alignment that an older dashboard evidence test had drifted away from.
+
+## Why It Matters
+
+This was not a missing backend. It was a UI omission on top of already-exposed data, which is worse because it creates false operator confidence that “there is no coordinator hook evidence here” when the product already has it.
+
+After this release, Timeline turn detail tells the same hook-evidence truth as the dedicated Hooks view instead of collapsing coordinator work into a repo-local-only story.
+
+## Evidence
+
+- `node --test cli/test/timeline-coordinator-hooks.test.js cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js` -> passed
+- `cd cli && npm test` -> passed
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.75.0
+# or
+brew upgrade agentxchain
+```

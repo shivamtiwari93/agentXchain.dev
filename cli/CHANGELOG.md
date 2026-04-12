@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.75.0
+
+`2.75.0` closes the remaining coordinator hook-evidence lie inside the dashboard Timeline turn-detail panel. The bridge already exposed coordinator hook audit and annotation endpoints, but Timeline only fetched repo-local evidence and silently hid coordinator hook activity in coordinator workspaces. The release also aligns Timeline section titles to the existing Hooks view instead of introducing another avoidable naming fork.
+
+- The dashboard `Timeline` view now fetches `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` and renders that evidence in turn-detail panels for coordinator workspaces
+- Mixed workspaces now render separate `Repo Hook Audit Log` / `Coordinator Hook Audit Log` and `Repo Hook Annotations` / `Coordinator Hook Annotations` sections, matching the established Hooks view vocabulary instead of inventing a second label set
+- Repo-only workspaces remain backward compatible: Timeline still renders a single unprefixed `Hook Audit Log` / `Hook Annotations` section when no coordinator evidence exists
+- Public CLI docs now state that Timeline turn detail surfaces coordinator hook audit and annotations alongside repo-local hook data
+- Focused dashboard proof passed: `node --test cli/test/timeline-coordinator-hooks.test.js cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`
+- Full CLI test suite passed after updating the stale drill-down assertion that still expected the old section title: `cd cli && npm test`
+- `cd website-v2 && npm run build` clean
+
 ## 2.74.0
 
 `2.74.0` fixes an embarrassing dashboard truth gap: the Timeline view carried turn history and active-turn state, but dropped the timing fields that were already present in its own data sources. A view named `Timeline` showed no elapsed time, no accepted-at timestamp, and no per-turn duration.
