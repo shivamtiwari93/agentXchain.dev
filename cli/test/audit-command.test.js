@@ -1,0 +1,321 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import {
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
+const tempDirs = new Set();
+
+function writeJson(filePath, value) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n');
+}
+
+function writeJsonl(filePath, entries) {
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n');
+}
+
+function runCli(cwd, args, extra = {}) {
+  return spawnSync(process.execPath, [CLI_BIN, ...args], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 15000,
+    env: { ...process.env, NODE_NO_WARNINGS: '1' },
+    ...extra,
+  });
+}
+
+function createGovernedProject() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-audit-'));
+  tempDirs.add(root);
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: 'audit-test', name: 'Audit Test', goal: 'Ship a first-class audit command', default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev'],
+      },
+    },
+    budget: {
+      per_run_max_usd: 10.0,
+      per_turn_max_usd: 2.0,
+    },
+    gates: {},
+    hooks: {},
+  });
+
+  writeJson(join(root, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'audit-test',
+    run_id: 'run_audit_001',
+    status: 'blocked',
+    phase: 'implementation',
+    active_turns: {
+      turn_001: {
+        turn_id: 'turn_001',
+        assigned_role: 'dev',
+        status: 'running',
+        attempt: 1,
+        runtime_id: 'local-dev',
+        assigned_sequence: 1,
+        started_at: '2026-04-12T15:00:00.000Z',
+      },
+    },
+    retained_turns: {},
+    turn_sequence: 1,
+    blocked_on: 'human_approval:planning_signoff',
+    blocked_reason: {
+      category: 'human_approval',
+      blocked_at: '2026-04-12T15:00:45.000Z',
+      turn_id: 'turn_001',
+      gate: 'planning_signoff',
+      recovery: {
+        typed_reason: 'human_approval',
+        owner: 'human',
+        recovery_action: 'agentxchain approve-transition',
+        turn_retained: true,
+        detail: 'Waiting on planning gate approval.',
+      },
+    },
+    phase_gate_status: {
+      planning_signoff: 'pending',
+    },
+    budget_status: { spent_usd: 0.85, remaining_usd: 9.15 },
+    protocol_mode: 'governed',
+    created_at: '2026-04-12T14:59:00.000Z',
+  });
+
+  writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+    {
+      turn_id: 'turn_001',
+      role: 'dev',
+      status: 'running',
+      summary: 'Implemented the first audit slice',
+      decisions: [{ id: 'DEC-AUDIT-001' }],
+      objections: [],
+      files_changed: ['cli/src/commands/audit.js'],
+      cost: { total_usd: 0.85 },
+      started_at: '2026-04-12T15:00:00.000Z',
+      duration_ms: 45000,
+      accepted_at: '2026-04-12T15:00:45.000Z',
+      accepted_sequence: 1,
+    },
+  ]);
+
+  writeJsonl(join(root, '.agentxchain', 'decision-ledger.jsonl'), [
+    {
+      id: 'DEC-AUDIT-001',
+      turn_id: 'turn_001',
+      role: 'dev',
+      phase: 'implementation',
+      statement: 'Add a live audit command for governed projects.',
+    },
+  ]);
+
+  return root;
+}
+
+function createCoordinatorWorkspace() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-audit-coord-'));
+  tempDirs.add(root);
+
+  writeJson(join(root, 'agentxchain-multi.json'), {
+    schema_version: '0.1',
+    project: { id: 'coord-audit', name: 'Coordinator Audit' },
+    repos: {
+      app: { path: './repos/app', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      default: {
+        repos: ['app'],
+      },
+    },
+  });
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_audit_001',
+    status: 'active',
+    phase: 'implementation',
+    repo_runs: {
+      app: {
+        status: 'active',
+        run_id: 'run_app_001',
+      },
+    },
+  });
+
+  writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [
+    {
+      type: 'repo_initialized',
+      repo_id: 'app',
+      timestamp: '2026-04-12T15:10:00.000Z',
+      message: 'Initialized child repo.',
+    },
+  ]);
+
+  writeJsonl(join(root, '.agentxchain', 'multirepo', 'decision-ledger.jsonl'), [
+    {
+      id: 'DEC-COORD-AUDIT-001',
+      statement: 'Track the app repo as active.',
+      timestamp: '2026-04-12T15:10:05.000Z',
+    },
+  ]);
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'barriers.json'), {});
+
+  const childRoot = join(root, 'repos', 'app');
+  writeJson(join(childRoot, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: 'child-app', name: 'Child App', default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev'],
+      },
+    },
+    budget: {
+      per_run_max_usd: 10.0,
+      per_turn_max_usd: 2.0,
+    },
+    gates: {},
+    hooks: {},
+  });
+
+  writeJson(join(childRoot, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'child-app',
+    run_id: 'run_app_001',
+    status: 'active',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 0,
+    blocked_on: null,
+    phase_gate_status: {},
+    budget_status: {},
+    protocol_mode: 'governed',
+  });
+
+  writeJsonl(join(childRoot, '.agentxchain', 'history.jsonl'), [
+    { turn_id: 'turn_001', role: 'dev', status: 'completed', accepted_sequence: 1 },
+  ]);
+
+  writeJsonl(join(childRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+    { id: 'DEC-APP-001', role: 'dev', phase: 'implementation', statement: 'Child repo ready.' },
+  ]);
+
+  return root;
+}
+
+function cleanup() {
+  for (const dir of [...tempDirs]) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {}
+    tempDirs.delete(dir);
+  }
+}
+
+describe('agentxchain audit', () => {
+  it('AT-AUDIT-002: governed project audit renders a live governance report', () => {
+    const root = createGovernedProject();
+    const result = runCli(root, ['audit']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /AgentXchain Governance Report/);
+    assert.match(result.stdout, /Project: Audit Test \(audit-test\)/);
+    assert.match(result.stdout, /Goal: Ship a first-class audit command/);
+    assert.match(result.stdout, /Verification: PASS/);
+    assert.match(result.stdout, /Input: .*axc-audit-/);
+  });
+
+  it('AT-AUDIT-003: governed project audit --format json returns governed_run contract', () => {
+    const root = createGovernedProject();
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.overall, 'pass');
+    assert.equal(parsed.subject.kind, 'governed_run');
+    assert.equal(parsed.subject.project.goal, 'Ship a first-class audit command');
+    assert.match(parsed.input, /axc-audit-/);
+  });
+
+  it('AT-AUDIT-004: coordinator workspace audit returns coordinator_workspace contract', () => {
+    const root = createCoordinatorWorkspace();
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.overall, 'pass');
+    assert.equal(parsed.subject.kind, 'coordinator_workspace');
+    assert.equal(parsed.subject.coordinator.project_name, 'Coordinator Audit');
+    assert.equal(parsed.subject.run.repo_ok_count, 1);
+  });
+
+  it('AT-AUDIT-005: unsupported format fails closed', () => {
+    const root = createGovernedProject();
+    const result = runCli(root, ['audit', '--format', 'yaml']);
+
+    assert.equal(result.status, 2, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stderr, /Unsupported audit format "yaml"/);
+  });
+
+  it('AT-AUDIT-006: running outside a governed surface fails closed', () => {
+    const root = mkdtempSync(join(tmpdir(), 'axc-audit-missing-'));
+    tempDirs.add(root);
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 2, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.overall, 'error');
+    assert.match(parsed.message, /No governed project found|No agentxchain-multi\.json found/);
+  });
+});
+
+process.on('exit', cleanup);

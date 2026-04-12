@@ -47,6 +47,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `turn show` | Inspection | Inspect an active turn's dispatch bundle and read selected artifacts without raw file browsing |
 | `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
+| `audit` | Inspection | Render the governance audit directly from live repo state |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
 | `restore` | Migration | Restore governed continuity roots from a prior run export into another checkout of the same repo |
 | `restart` | Turn lifecycle | Restart a governed run from the last checkpoint after a session boundary (terminal close, machine restart, context loss) |
@@ -380,6 +381,27 @@ Run exports also include `workspace.git` portability metadata: source `HEAD`, di
 
 For the actual JSON field contract, use [Export Schema Reference](/docs/export-schema) instead of reverse-engineering `export.js`.
 
+### `audit`
+
+```bash
+agentxchain audit [--format text|json|markdown]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
+
+`audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses.
+
+That boundary matters:
+
+- `audit` is for live local inspection
+- `report` is for a verified export artifact you already have
+
+Do not blur those two commands. If you need a portable artifact for handoff, restore, or offline review, use `export` and keep the artifact. If you need an immediate governance audit for the current repo, use `audit`.
+
+For the stable output contract, use [Governance Audit Reference](/docs/governance-audit). `report` remains the export-artifact path, documented at [Governance Report Reference](/docs/governance-report).
+
 ### `report`
 
 ```bash
@@ -394,6 +416,8 @@ agentxchain report [--input <path>|-] [--format text|json|markdown]
 `report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. When a governed project has `project.goal`, text/markdown report output renders `Goal: <text>` in the header and `--format json` exposes the same value at `subject.project.goal`. Reports include a **Governance Events** section when the decision ledger contains operational governance events — policy escalations, conflict detections/rejections/resolutions, operator escalations, and escalation resolutions. These events are extracted from `decision-ledger.jsonl`, sorted chronologically, and rendered in all three formats with type-specific detail (violation rules, conflicting files, resolution methods). Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, per-repo export health, and coordinator-level governance events from `.agentxchain/multirepo/decision-ledger.jsonl`.
 
 Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact.
+
+If you want the same report contract from **live repo state** instead of an existing export file, use `agentxchain audit`.
 
 For the stable report output contract, use [Governance Report Reference](/docs/governance-report). For the raw artifact schema, use [Export Schema Reference](/docs/export-schema).
 

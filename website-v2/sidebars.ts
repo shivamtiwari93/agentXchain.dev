@@ -86,6 +86,7 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'export-schema',
+    'governance-audit',
     'governance-report',
     'policies',
     'approval-policy',

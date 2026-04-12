@@ -75,6 +75,7 @@ import { approveTransitionCommand } from '../src/commands/approve-transition.js'
 import { approveCompletionCommand } from '../src/commands/approve-completion.js';
 import { dashboardCommand } from '../src/commands/dashboard.js';
 import { exportCommand } from '../src/commands/export.js';
+import { auditCommand } from '../src/commands/audit.js';
 import { restoreCommand } from '../src/commands/restore.js';
 import { restartCommand } from '../src/commands/restart.js';
 import { reportCommand } from '../src/commands/report.js';
@@ -148,6 +149,12 @@ program
   .option('--format <format>', 'Export format (json)', 'json')
   .option('--output <path>', 'Write the export artifact to a file instead of stdout')
   .action(exportCommand);
+
+program
+  .command('audit')
+  .description('Render a governance audit directly from the current governed project or coordinator workspace')
+  .option('--format <format>', 'Output format: text, json, or markdown', 'text')
+  .action(auditCommand);
 
 program
   .command('restore')

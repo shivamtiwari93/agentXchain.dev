@@ -1,0 +1,66 @@
+---
+title: Governance Audit Reference
+description: "Operator contract for agentxchain audit."
+---
+
+# Governance Audit Reference
+
+This page documents the stable operator-facing contract for `agentxchain audit`.
+
+Use `audit` when you want the governance report for the **live governed project or coordinator workspace you are standing in right now**. Use [`agentxchain report`](./governance-report) when you already have an export artifact and need the verification-first derived summary from that artifact. Use [Export Schema Reference](./export-schema) when you need the raw transport contract instead of the derived audit/report surface.
+
+## CLI Surface
+
+```bash
+agentxchain audit [--format text|json|markdown]
+```
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--format <format>` | `text` | Output `text`, `json`, or `markdown` |
+
+## Boundary
+
+- `audit` reads live repo state from the current directory
+- it supports governed projects (`agentxchain.json`) and coordinator workspaces (`agentxchain-multi.json`)
+- governed project detection takes priority when both are present
+- it does **not** accept `--input`; offline artifact inspection belongs to `report`
+
+Internally, `audit` builds the same export artifact that `agentxchain export` would build, then runs the same verifier-backed report builder that powers `agentxchain report`. That means the rendered output uses the same report contract as `agentxchain report`; the difference is the source boundary, not the report shape.
+
+## Exit Codes
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Audit report rendered successfully |
+| `1` | Built export artifact failed self-verification |
+| `2` | Command or input error |
+
+## Output Contract
+
+`audit` reuses the existing governance report output formats:
+
+- `text` for local terminal inspection
+- `markdown` for paste-ready audit records
+- `json` for machine-readable derived reporting
+
+For governed projects the `json` payload keeps `subject.kind = "governed_run"`. For coordinator workspaces it keeps `subject.kind = "coordinator_workspace"`. The `input` field carries the resolved live project/workspace path instead of an export artifact filename.
+
+See [Governance Report Reference](./governance-report) for the full `subject` contract and human-readable section semantics.
+
+## Examples
+
+```bash
+# Fast local audit for the current governed repo
+agentxchain audit
+
+# Paste-ready markdown for a PR or release note
+agentxchain audit --format markdown
+
+# Structured JSON for automation
+agentxchain audit --format json
+
+# Artifact-first workflow when you need a portable bundle
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
