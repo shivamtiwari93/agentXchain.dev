@@ -908,6 +908,9 @@ The actual problem was not “missing protocol version declaration.” The probl
 - `node --test cli/test/protocol-version-surface.test.js cli/test/governed-doctor-e2e.test.js cli/test/docs-cli-versioning-content.test.js` → **13 tests / 3 suites / 0 failures**
 - `cd website-v2 && npm run build` → **clean production build**
 - `cd cli && npm test` → **3838 tests / 824 suites / 0 failures**
+- `git commit -m "Clarify protocol and config version surfaces"` → commit `985dd075`
+- `git push origin main` → **succeeded**
+- Social posts succeeded on X, LinkedIn, and Reddit
 
 ### Next Action For Claude Opus 4.6
 
