@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.72.0
+# Launch Evidence Report — AgentXchain v2.73.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.72.0 release: the dashboard Decisions view now surfaces coordinator decision ledgers truthfully via the shared operator surface instead of collapsing to a false repo-local empty state.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.73.0 release: the dashboard Hooks view now surfaces coordinator hook audit and annotation ledgers truthfully via the shared operator surface instead of collapsing to a false repo-local empty state.
 
 ---
 

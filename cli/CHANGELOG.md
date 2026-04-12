@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.73.0
+
+`2.73.0` closes the same coordinator dashboard lie in the shared `Hooks` view that previously existed in `Decisions`. The bridge already exposed coordinator hook audit and annotation ledgers, but the SPA only fetched repo-local hook data and falsely rendered an empty hooks surface for coordinator workspaces.
+
+- The shared dashboard `Hooks` view now fetches both repo-local and coordinator hook sources, rendering truthful coordinator audit and annotation sections instead of collapsing to repo-local-only emptiness
+- Mixed workspaces now keep one shared filter bar while rendering separate `Repo Hook Audit Log` / `Coordinator Hook Audit Log` and annotation sections, so operators can inspect both layers without navigation sprawl
+- Public CLI docs now document `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` and explicitly state that the shared Hooks view surfaces coordinator hook activity
+- Added dashboard rendering and docs-contract regression coverage for coordinator hook visibility instead of trusting the existing bridge mapping by implication
+- 3730 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- 66 dashboard-focused tests / 13 suites / 0 failures (`node --test cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.72.0
 
 `2.72.0` fixes a dashboard truth gap in coordinator workspaces. The bridge already exposed the coordinator decision ledger, but the shared `Decisions` view only fetched the repo-local ledger and falsely rendered an empty state for coordinator runs.

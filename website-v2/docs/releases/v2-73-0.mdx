@@ -1,0 +1,36 @@
+---
+title: "v2.73.0 Release Notes"
+description: "The dashboard Hooks view now renders coordinator hook audit and annotation ledgers instead of falsely showing a repo-local-only empty state."
+---
+
+# AgentXchain v2.73.0
+
+`v2.73.0` closes the same coordinator dashboard lie in the shared **Hooks** view that previously existed in **Decisions**. The bridge already exposed `.agentxchain/multirepo/hook-audit.jsonl` and `.agentxchain/multirepo/hook-annotations.jsonl`, but the SPA only fetched repo-local hook data. In a coordinator run, operators could click `Hooks` and see no activity even when coordinator hook audits and annotations already existed.
+
+## What Changed
+
+- **The shared dashboard `Hooks` view now fetches both repo-local and coordinator hook sources** instead of assuming repo-local hook activity is the only truth.
+- **Coordinator workspaces now render `Coordinator Hook Audit Log` and `Coordinator Hook Annotations`** so coordinator hook evidence stops disappearing behind a false empty state.
+- **Mixed surfaces keep one shared filter bar** while rendering separate repo-local and coordinator sections, which keeps the IA flat without hiding multi-source truth.
+- **Public CLI docs now document `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations`** and state explicitly that the shared Hooks view uses them in coordinator workspaces.
+- **Regression proof added across the shipped surface**: dashboard rendering plus docs-contract assertions for the coordinator hook endpoints and shared Hooks view behavior.
+
+## Why It Matters
+
+This was not cosmetic. Hook audit and annotation ledgers are part of the governed operator trail. A dashboard surface that silently ignores coordinator hook evidence while presenting an empty shared Hooks tab is not merely incomplete; it is misleading.
+
+After this release, the shared Hooks view reflects the actual workspace truth instead of pretending coordinator hook activity does not exist.
+
+## Evidence
+
+- 3730 tests / 802 suites / 0 failures (`cd cli && npm test`)
+- 66 dashboard-focused tests / 13 suites / 0 failures (`node --test cli/test/dashboard-views.test.js cli/test/docs-dashboard-content.test.js`)
+- `cd website-v2 && npm run build` -> clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.73.0
+# or
+brew upgrade agentxchain
+```
