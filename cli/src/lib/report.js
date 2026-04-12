@@ -66,6 +66,25 @@ function formatUsd(value) {
   return typeof value === 'number' ? `$${value.toFixed(2)}` : 'n/a';
 }
 
+function formatDurationCompact(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return null;
+  if (ms < 1000) return `${ms}ms`;
+  const secs = Math.floor(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  const mins = Math.floor(secs / 60);
+  const remainSecs = secs % 60;
+  if (mins < 60) return `${mins}m ${remainSecs}s`;
+  const hrs = Math.floor(mins / 60);
+  const remainMins = mins % 60;
+  return `${hrs}h ${remainMins}m`;
+}
+
+function formatTurnTimelineTime(turn) {
+  const acceptedAt = turn.accepted_at || 'n/a';
+  const duration = formatDurationCompact(turn.duration_ms);
+  return duration ? `${acceptedAt} (${duration})` : acceptedAt;
+}
+
 function formatStatusCounts(statusCounts) {
   const entries = Object.entries(statusCounts || {}).sort(([left], [right]) => left.localeCompare(right, 'en'));
   if (entries.length === 0) return 'none';
@@ -99,6 +118,8 @@ function extractHistoryTimeline(artifact) {
       decisions: Array.isArray(e.decisions) ? e.decisions.map((d) => d?.id || d).filter(Boolean) : [],
       objections: Array.isArray(e.objections) ? e.objections.map((o) => o?.id || o).filter(Boolean) : [],
       cost_usd: typeof e.cost?.total_usd === 'number' ? e.cost.total_usd : null,
+      started_at: e.started_at || null,
+      duration_ms: typeof e.duration_ms === 'number' ? e.duration_ms : null,
       accepted_at: e.accepted_at || null,
     }));
 }
@@ -943,7 +964,7 @@ export function formatGovernanceReportText(report) {
         const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
         const phase = t.phase_transition ? `${t.phase || '?'} -> ${t.phase_transition}` : (t.phase || '?');
         const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling-attributed)` : '';
-        lines.push(`  ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count}${siblingNote} | cost: ${cost} | ${t.accepted_at || 'n/a'}`);
+        lines.push(`  ${i + 1}. [${t.role}] ${t.summary || '(no summary)'} | phase: ${phase} | files: ${t.files_changed_count}${siblingNote} | cost: ${cost} | ${formatTurnTimelineTime(t)}`);
       }
     }
 
@@ -1353,7 +1374,7 @@ export function formatGovernanceReportMarkdown(report) {
         const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
         const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
         const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
-        lines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${t.accepted_at || 'n/a'} |`);
+        lines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${formatTurnTimelineTime(t).replace(/\|/g, '\\|')} |`);
       }
     }
 
@@ -1611,7 +1632,7 @@ export function formatGovernanceReportMarkdown(report) {
         const phase = t.phase_transition ? `${t.phase || '?'} → ${t.phase_transition}` : (t.phase || '?');
         const summary = (t.summary || '(no summary)').replace(/\|/g, '\\|');
         const siblingNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
-        repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${t.accepted_at || 'n/a'} |`);
+        repoLines.push(`| ${i + 1} | ${t.role} | ${phase} | ${summary} | ${t.files_changed_count}${siblingNote} | ${cost} | ${formatTurnTimelineTime(t).replace(/\|/g, '\\|')} |`);
       }
     }
     if (repo.decisions && repo.decisions.length > 0) {

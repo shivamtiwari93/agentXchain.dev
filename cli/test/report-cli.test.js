@@ -129,14 +129,14 @@ function createGovernedProject() {
       turn_id: 'turn_000', role: 'qa', status: 'failed',
       summary: 'Ran quality checks on initial scaffold',
       decisions: [], objections: [], files_changed: ['test/qa.js'],
-      cost: { total_usd: 0.05 }, accepted_at: '2026-04-03T00:01:00.000Z', accepted_sequence: 1,
+      cost: { total_usd: 0.05 }, started_at: '2026-04-03T00:00:20.000Z', duration_ms: 40000, accepted_at: '2026-04-03T00:01:00.000Z', accepted_sequence: 1,
     },
     {
       turn_id: 'turn_001', role: 'dev', status: 'running',
       summary: 'Implemented report command',
       decisions: [{ id: 'DEC-001' }], objections: [],
       files_changed: ['src/report.js', 'src/cli.js'], phase_transition_request: 'qa',
-      cost: { total_usd: 0.12 }, accepted_at: '2026-04-03T00:02:00.000Z', accepted_sequence: 2,
+      cost: { total_usd: 0.12 }, started_at: '2026-04-03T00:01:05.000Z', duration_ms: 55000, accepted_at: '2026-04-03T00:02:00.000Z', accepted_sequence: 2,
     },
   ]);
   writeJsonl(join(root, '.agentxchain', 'decision-ledger.jsonl'), [
@@ -348,6 +348,7 @@ describe('report CLI', () => {
       assert.match(textResult.stdout, /intent_1234_abcd/);
       assert.match(textResult.stdout, /Recovery:/);
       assert.match(textResult.stdout, /Action: agentxchain step --resume/);
+      assert.match(textResult.stdout, /2026-04-03T00:02:00\.000Z \(55s\)/);
 
       const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
       assert.equal(jsonResult.status, 0, jsonResult.stderr);
@@ -360,6 +361,10 @@ describe('report CLI', () => {
       assert.equal(report.subject.project.id, 'report-test');
       assert.equal(report.subject.run.active_turn_count, 1);
       assert.deepEqual(report.subject.run.active_roles, ['dev']);
+      assert.equal(report.subject.run.turns[0].started_at, '2026-04-03T00:00:20.000Z');
+      assert.equal(report.subject.run.turns[0].duration_ms, 40000);
+      assert.equal(report.subject.run.turns[1].started_at, '2026-04-03T00:01:05.000Z');
+      assert.equal(report.subject.run.turns[1].duration_ms, 55000);
       assert.deepEqual(report.subject.run.gate_summary, [
         { gate_id: 'implementation_complete', status: 'passed' },
         { gate_id: 'planning_signoff', status: 'pending' },
@@ -407,6 +412,7 @@ describe('report CLI', () => {
       assert.match(result.stdout, /\| 2 \| dev /, 'second timeline row must be dev turn');
       assert.match(result.stdout, /Implemented report command/, 'timeline must include turn summary');
       assert.match(result.stdout, /\$0\.12/, 'timeline must include cost');
+      assert.match(result.stdout, /2026-04-03T00:02:00\.000Z \(55s\)/, 'timeline must include accepted time plus duration when present');
 
       // AT-RQ-002: Decisions section
       assert.match(result.stdout, /## Decisions/, 'markdown must include Decisions section');

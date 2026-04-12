@@ -119,6 +119,7 @@ function buildArtifactIndex(root, turnId) {
 }
 
 function buildTurnPayload(turnId, turn, state, artifacts, assignment) {
+  const elapsedMs = getElapsedMs(turn.started_at);
   return {
     turn_id: turnId,
     run_id: state.run_id || assignment?.run_id || null,
@@ -127,6 +128,8 @@ function buildTurnPayload(turnId, turn, state, artifacts, assignment) {
     runtime: turn.runtime_id,
     status: turn.status,
     attempt: turn.attempt,
+    started_at: turn.started_at || null,
+    elapsed_ms: elapsedMs,
     dispatch_dir: getDispatchTurnDir(turnId),
     staging_result_path: assignment?.staging_result_path || null,
     active_turn_count: getActiveTurnCount(state),
@@ -140,6 +143,7 @@ function buildTurnPayload(turnId, turn, state, artifacts, assignment) {
 }
 
 function printTurnSummary(turnId, turn, state, artifacts, assignment) {
+  const elapsedMs = getElapsedMs(turn.started_at);
   console.log('');
   console.log(chalk.bold(`  Turn: ${chalk.cyan(turnId)}`));
   console.log(chalk.dim('  ' + '─'.repeat(44)));
@@ -149,6 +153,12 @@ function printTurnSummary(turnId, turn, state, artifacts, assignment) {
   console.log(`  ${chalk.dim('Runtime:')}  ${turn.runtime_id}`);
   console.log(`  ${chalk.dim('Status:')}   ${turn.status}`);
   console.log(`  ${chalk.dim('Attempt:')}  ${turn.attempt}`);
+  if (turn.started_at) {
+    console.log(`  ${chalk.dim('Started:')}  ${turn.started_at}`);
+  }
+  if (elapsedMs != null) {
+    console.log(`  ${chalk.dim('Elapsed:')}  ${formatElapsed(elapsedMs)}`);
+  }
   console.log(`  ${chalk.dim('Dispatch:')} ${getDispatchTurnDir(turnId)}`);
   if (assignment?.staging_result_path) {
     console.log(`  ${chalk.dim('Staging:')}  ${assignment.staging_result_path}`);
@@ -207,4 +217,23 @@ function readJsonArtifact(absPath) {
   } catch {
     return null;
   }
+}
+
+function getElapsedMs(startedAt) {
+  if (typeof startedAt !== 'string') {
+    return null;
+  }
+  const started = Date.parse(startedAt);
+  if (!Number.isFinite(started)) {
+    return null;
+  }
+  const elapsed = Date.now() - started;
+  return elapsed >= 0 ? elapsed : null;
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }

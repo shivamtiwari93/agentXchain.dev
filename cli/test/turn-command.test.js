@@ -44,6 +44,8 @@ describe('agentxchain turn show command', () => {
       const result = runCli(dir, ['turn', 'show']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
       assert.match(result.stdout, new RegExp(`Turn: .*${turnId}`));
+      assert.match(result.stdout, /Started:/);
+      assert.match(result.stdout, /Elapsed:/);
       assert.match(result.stdout, /ASSIGNMENT\.json/);
       assert.match(result.stdout, /PROMPT\.md/);
       assert.match(result.stdout, /CONTEXT\.md/);
@@ -60,6 +62,9 @@ describe('agentxchain turn show command', () => {
       const payload = JSON.parse(result.stdout);
       assert.equal(payload.turn_id, turnId);
       assert.equal(payload.role, 'pm');
+      assert.equal(typeof payload.started_at, 'string');
+      assert.equal(typeof payload.elapsed_ms, 'number');
+      assert.ok(payload.elapsed_ms >= 0);
       assert.equal(payload.artifacts.assignment.exists, true);
       assert.equal(payload.artifacts.prompt.exists, true);
       assert.equal(payload.artifacts.context.exists, true);

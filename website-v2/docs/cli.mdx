@@ -242,6 +242,8 @@ Inspects the active governed turn and its dispatch bundle under `.agentxchain/di
 
 Without `--artifact`, the command prints turn metadata plus the dispatch paths for `ASSIGNMENT.json`, `PROMPT.md`, `CONTEXT.md`, and `MANIFEST.json`. This is the first-party inspection path for the live turn contract; operators should not have to browse raw repo paths just to answer "what was this turn told?" or "where is the staged result supposed to go?"
 
+When the active turn has timing metadata, the summary also shows when the turn started and how long it has been running so operators can spot stuck or slow turns without opening raw state files.
+
 Use `--artifact` to print one artifact directly:
 
 - `assignment` — machine-readable turn envelope
@@ -259,7 +261,7 @@ agentxchain turn show turn_1234abcd --artifact prompt
 agentxchain turn show --artifact assignment --json
 ```
 
-`--json` returns structured turn metadata by default. When combined with `--artifact assignment` or `--artifact manifest`, it returns the parsed JSON artifact content instead of raw filesystem output.
+`--json` returns structured turn metadata by default, including `started_at` and live `elapsed_ms` when available. When combined with `--artifact assignment` or `--artifact manifest`, it returns the parsed JSON artifact content instead of raw filesystem output.
 
 ### `phase list` / `phase show`
 

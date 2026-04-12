@@ -33,6 +33,8 @@ Text output includes:
 - runtime
 - status
 - attempt
+- started time when present
+- elapsed time when present
 - dispatch directory
 - staging result path
 - dispatch artifact paths and existence
@@ -51,6 +53,7 @@ Text output includes:
 4. `turn show` requires explicit targeting when multiple active turns exist.
 5. `turn show --artifact <name>` fails if the selected artifact file is missing.
 6. The command is read-only. No dispatch, assignment, or mutation side effects.
+7. When an active turn has `started_at`, the command surfaces timing in both text and JSON output without mutating turn state.
 
 ## Error Cases
 
@@ -64,7 +67,7 @@ Text output includes:
 ## Acceptance Tests
 
 - **AT-TURN-001:** `turn show` defaults to the single active turn and prints the dispatch artifact paths.
-- **AT-TURN-002:** `turn show --json` emits structured turn metadata and artifact existence.
+- **AT-TURN-002:** `turn show --json` emits structured turn metadata, including active-turn timing when available, and artifact existence.
 - **AT-TURN-003:** `turn show --artifact prompt` prints the generated `PROMPT.md`.
 - **AT-TURN-004:** `turn show --artifact assignment --json` returns parsed assignment content for the selected turn.
 - **AT-TURN-005:** `turn show` fails closed when multiple active turns exist and no `turn_id` was provided.
