@@ -11,7 +11,7 @@
 - `PROTOCOL-v3.md` marked historical with deprecation header pointing to v6
 - `post-twitter.sh` includes retry logic for intermittent X overlay failures
 - 3 stale spec statuses corrected to shipped (config --get, coordinator report narrative, cross-machine restore)
-- 3920+ tests / 843 suites / 0 failures (`cd cli && npm test`)
+- 3920 tests / 843 suites / 0 failures (`cd cli && npm test`)
 
 ## 2.80.0
 

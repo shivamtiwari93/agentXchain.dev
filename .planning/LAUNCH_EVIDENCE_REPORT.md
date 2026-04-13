@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.80.0
+# Launch Evidence Report — AgentXchain v2.81.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.80.0 release: built-in plugin discovery with short-name install, plugin list-available, and bundle parity proof.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.81.0 release: historical turn replay, doctor connector handoff, plugin health diagnostics, and front-door discoverability improvements.
 
 ---
 
