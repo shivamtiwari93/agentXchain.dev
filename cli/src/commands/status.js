@@ -1,4 +1,6 @@
 import chalk from 'chalk';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
@@ -267,9 +269,29 @@ function renderGovernedStatus(context, opts) {
   if (state?.phase_gate_status) {
     console.log('');
     console.log(`  ${chalk.dim('Gates:')}`);
+    const activePhase = state.phase;
+    const activeRouting = config.routing?.[activePhase];
+    const activeExitGate = activeRouting?.exit_gate || null;
     for (const [gate, status] of Object.entries(state.phase_gate_status)) {
       const icon = status === 'passed' ? chalk.green('✓') : chalk.dim('○');
       console.log(`    ${icon} ${gate}: ${status}`);
+      if (status !== 'passed' && gate === activeExitGate && config.gates?.[gate]) {
+        const gateDef = config.gates[gate];
+        if (Array.isArray(gateDef.requires_files) && gateDef.requires_files.length > 0) {
+          const fileChecks = gateDef.requires_files.map(f => {
+            const exists = existsSync(join(root, f));
+            const short = f.replace(/^\.planning\//, '');
+            return exists ? chalk.green(short) : chalk.red(short);
+          });
+          console.log(`      ${chalk.dim('Files:')} ${fileChecks.join(chalk.dim(', '))}`);
+        }
+        const reqs = [];
+        if (gateDef.requires_human_approval) reqs.push('human approval');
+        if (gateDef.requires_verification_pass) reqs.push('verification pass');
+        if (reqs.length > 0) {
+          console.log(`      ${chalk.dim('Needs:')} ${reqs.join(', ')}`);
+        }
+      }
     }
   }
 
