@@ -31,6 +31,7 @@ If you want your own governed project after that, install the CLI once, then jum
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work
 - Bridges repo-local intake to multi-repo coordinator workstreams via `intake handoff`
+- Adds repo-local lights-out scheduling with `schedule list`, `schedule run-due`, `schedule daemon`, and `schedule status`
 - Adds governed plugin install/list/remove commands for packaging hook integrations without forking core config
 
 ## Architecture
@@ -52,6 +53,7 @@ The protocol is the durable layer. Runners enforce it. Connectors bridge to agen
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - [Templates](https://agentxchain.dev/docs/templates/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Multi-session continuity](https://agentxchain.dev/docs/multi-session/)
@@ -369,6 +371,15 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `intake resolve`: close an intent based on execution outcome
 
 See [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-delivery-intake/) for the full lifecycle.
+
+### Repo-local automation
+
+- `schedule list`: inspect configured schedules, due status, and recent run/skip metadata
+- `schedule run-due`: evaluate schedules once and run only the ones currently due
+- `schedule daemon`: poll locally and launch due governed runs on cadence
+- `schedule status`: inspect daemon heartbeat and health from `.agentxchain/schedule-daemon.json`
+
+See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/) for the repo-local daemon contract. This is not coordinator-wide or hosted automation.
 
 ### Shared project utilities
 

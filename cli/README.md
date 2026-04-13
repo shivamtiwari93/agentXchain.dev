@@ -13,6 +13,7 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
+- [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - [Templates](https://agentxchain.dev/docs/templates/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
@@ -174,6 +175,7 @@ agentxchain step
 | `multi init\|status\|step\|resume\|approve-gate\|resync` | Run the multi-repo coordinator lifecycle, including blocked-state recovery via `multi resume` |
 | `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
 | `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
+| `schedule list\|run-due\|daemon\|status` | Run repo-local lights-out scheduling: inspect schedules, execute due runs, poll in a local daemon loop, or check daemon heartbeat |
 | `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
 
 ### Shared utilities
