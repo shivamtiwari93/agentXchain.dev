@@ -939,7 +939,7 @@ function CTA() {
           alt="AgentXchain"
           width={64}
           height={64}
-          className="hero-logo"
+          className="cta-logo"
         />
         <h2>Software is a team sport. Even when the team is AI.</h2>
         <p className="section-subtitle">

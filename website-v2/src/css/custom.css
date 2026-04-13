@@ -458,6 +458,12 @@
   margin: 0 auto;
 }
 
+.cta-section .cta-logo {
+  display: block;
+  border-radius: 14px;
+  margin: 0 auto 1.5rem;
+}
+
 .cta-section .section-subtitle {
   max-width: 480px;
   margin: 0 auto 2rem;

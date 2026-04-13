@@ -13,6 +13,57 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [x] Fix logo alignment in the end-of-page CTA section (above footer) on the agentxchain.dev homepage — completed 2026-04-12: replaced CTA reuse of `.hero-logo` with CTA-specific `.cta-logo`, added `.planning/WEBSITE_HOMEPAGE_CTA_LOGO_ALIGNMENT_SPEC.md`, added `cli/test/homepage-cta-logo-content.test.js`, and verified the built homepage centers the icon at desktop (`1440x1200`, delta `0px`) and mobile (`390x844`, delta `0px`) widths.
+  - The AgentXchain logo/icon in the section just above the footer ("Software is a team sport. Even when the team is AI.") is **left-aligned** instead of **center-aligned**.
+  - The logo should be horizontally centered to match the centered text and buttons below it.
+  - This is likely a CSS issue — check the `.hero-logo` or equivalent class in that section. The previous visual design sweep may have inadvertently broken the centering.
+  - Verify the fix on both desktop and mobile viewports.
+
+- [ ] Publish the AgentXchain VS Code extension to the Marketplace
+  - The publisher `agentXchain.dev` (ID `agentXchaindev`) is created and the `VSCE_PAT` secret is set on the GitHub repo.
+  - The extension is fully packaged in `cli/vscode-extension/` and CI workflow `publish-vscode-on-tag.yml` is ready.
+  - Verify the extension package is complete (icon, README, correct publisher name in `package.json`, feature descriptions).
+  - Push a `vsce-v0.1.0` tag to trigger the CI publish workflow.
+  - Verify the extension appears on the VS Code Marketplace and is installable.
+  - Add a link to the Marketplace listing on the agentxchain.dev website (docs, homepage, or getting-started page).
+
+- [ ] Create polished integration guides for all supported agent platforms, local model runners, and API providers
+  - AgentXchain is agent/IDE/LLM agnostic by design. The 5 adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) already support virtually every connection pattern. What's missing is **polished, first-class onboarding documentation** so developers know exactly how to use AgentXchain with their preferred platform.
+  - Create a docs section (e.g., `/docs/integrations/`) with a guide for each platform below. Each guide should cover: what the platform is, which adapter connects it, step-by-step setup, a minimal working example, and any platform-specific gotchas.
+  
+  **IDE / Agent Platforms:**
+  1. Claude Code — `local_cli` via `claude -p`
+  2. OpenAI Codex CLI — `local_cli` via `codex`
+  3. Cursor — `local_cli`
+  4. VS Code (+ Copilot, Cline, etc.) — Extension + `local_cli`
+  5. Windsurf (Codeium) — `local_cli`
+  6. Google Jules — `api_proxy` (Google)
+  7. Devin — `remote_agent` (HTTP)
+  
+  **Local Model Runners:**
+  8. Ollama — `api_proxy` via `localhost:11434/v1`
+  9. MLX (Apple) — `api_proxy` via `mlx-lm.server`
+  
+  **API Providers (with latest coding models as of April 2026):**
+  10. Anthropic — Claude Opus 4.6, Claude Sonnet 4.6, Claude Haiku 4.5
+  11. OpenAI — GPT-5.4, GPT-5.3-Codex, GPT-5.2-Codex, GPT-OSS-120B, GPT-OSS-20B
+  12. Google — Gemini 3.1 Pro, Gemini 3.0 Flash, Gemini 3.1 Flash-Lite, Gemma 4
+  13. DeepSeek — DeepSeek-V3.2, DeepSeek-R2, DeepSeek Coder-V3
+  14. Mistral AI — Devstral 2 (123B), Devstral Small 2 (24B), Codestral, Leanstral
+  15. xAI — Grok 4.20 Beta 2, Grok 4.1 Fast, Grok Code Fast 1
+  16. Amazon — Nova 2 Pro, Nova 2 Lite, Nova Premier
+  17. Qwen (Alibaba) — Qwen3-Coder-480B-A35B, Qwen3-Coder-30B-A3B, Qwen3-Coder-Next, Qwen3.6-Plus
+  18. Groq — inference platform hosting GPT-OSS-120B, Kimi K2, Qwen3 32B, Llama 4 Scout, Llama 3.3 70B, Codestral Mamba
+  19. Cohere — Command A Reasoning, Command A, Command R+
+  
+  **MCP / Protocol Native:**
+  20. Any MCP-compatible agent — `mcp` (stdio)
+  
+  - Add an Integrations dropdown or section in the docs sidebar, similar to the existing Examples section.
+  - Each guide should be standalone — a developer using only Ollama + Cursor should be able to follow just those two guides without reading anything else.
+  - Cross-link from the homepage architecture section (Layer 5 — Integrations) to the new docs section.
+  - Keep model lists factual and current. If a model hasn't launched yet (DeepSeek V4, Grok 5), don't include it in the guide.
+
 - [x] Create 5 new product examples under `/examples/` to prove AgentXchain can build software end-to-end without human intervention
   - Come up with 5 small but varied real-world product examples across different categories:
     1. **Consumer SaaS** — e.g., a habit tracker, expense splitter, or bookmark manager
