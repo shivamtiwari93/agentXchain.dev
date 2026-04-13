@@ -2,9 +2,16 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
+const { integrationSections } = await import(
+  pathToFileURL(resolve(ROOT, 'website-v2/src/data/integrations.mjs')).href
+);
+const indexEntry = (title) => integrationSections
+  .flatMap((section) => section.items)
+  .find((item) => item.title === title);
 
 // ---------------------------------------------------------------------------
 // FA-1 / FA-2 / FA-3: Amazon Bedrock must not pretend direct API key auth works
@@ -94,8 +101,8 @@ describe('Google Jules guide factual accuracy', () => {
   });
 
   it('FA-JULES-006: integrations index must clarify that the current path is not a native Jules connector', () => {
-    assert.match(index, /Google Jules.*Gemini path today.*not yet shipped/i,
-      'Integrations index must clarify the Jules entry instead of labeling it as a direct adapter integration');
+    assert.equal(indexEntry('Google Jules')?.summary, 'Gemini path today; native Jules connector not yet shipped',
+      'Integrations index data must clarify the Jules entry instead of labeling it as a direct adapter integration');
   });
 });
 
@@ -104,7 +111,6 @@ describe('Google Jules guide factual accuracy', () => {
 // ---------------------------------------------------------------------------
 describe('Cursor guide factual accuracy', () => {
   const guide = read('website-v2/docs/integrations/cursor.mdx');
-  const index = read('website-v2/docs/integrations/index.mdx');
 
   it('FA-CURSOR-001: must state that native Cursor connector is not shipped', () => {
     assert.match(guide, /does not currently ship a native Cursor connector/i,
@@ -134,8 +140,8 @@ describe('Cursor guide factual accuracy', () => {
   });
 
   it('FA-CURSOR-006: integrations index must clarify no native connector', () => {
-    assert.match(index, /Cursor.*no native.*connector|Cursor.*separate CLI agent/i,
-      'Integrations index must clarify the Cursor entry is not a direct adapter integration');
+    assert.equal(indexEntry('Cursor')?.summary, 'Editor + separate CLI agent; no native Cursor connector yet',
+      'Integrations index data must clarify the Cursor entry is not a direct adapter integration');
   });
 });
 
@@ -144,7 +150,6 @@ describe('Cursor guide factual accuracy', () => {
 // ---------------------------------------------------------------------------
 describe('Windsurf guide factual accuracy', () => {
   const guide = read('website-v2/docs/integrations/windsurf.mdx');
-  const index = read('website-v2/docs/integrations/index.mdx');
 
   it('FA-WINDSURF-001: must state that native Windsurf connector is not shipped', () => {
     assert.match(guide, /does not currently ship a native Windsurf connector/i,
@@ -175,8 +180,30 @@ describe('Windsurf guide factual accuracy', () => {
   });
 
   it('FA-WINDSURF-006: integrations index must clarify no native connector', () => {
-    assert.match(index, /Windsurf.*no native.*connector|Windsurf.*separate CLI agent/i,
-      'Integrations index must clarify the Windsurf entry is not a direct adapter integration');
+    assert.equal(indexEntry('Windsurf (Codeium)')?.summary, 'Editor + separate CLI agent; no native Windsurf connector yet',
+      'Integrations index data must clarify the Windsurf entry is not a direct adapter integration');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integrations index must render from shared metadata, not a hand-written list
+// ---------------------------------------------------------------------------
+describe('Integrations index source of truth', () => {
+  const index = read('website-v2/docs/integrations/index.mdx');
+
+  it('FA-INDEX-001: index imports the shared integrations data module', () => {
+    assert.match(index, /integrationSections.*@site\/src\/data\/integrations\.mjs/,
+      'Integrations index must import shared integrations metadata');
+  });
+
+  it('FA-INDEX-002: index renders the shared integrations component', () => {
+    assert.match(index, /<IntegrationsIndexSections sections=\{integrationSections\} \/>/,
+      'Integrations index must render the shared integrations index component');
+  });
+
+  it('FA-INDEX-003: index no longer contains the old hand-written Cursor bullet', () => {
+    assert.doesNotMatch(index, /- \[Cursor\]\(\/docs\/integrations\/cursor\)/,
+      'Integrations index must not keep the old hand-written bullet list');
   });
 });
 
