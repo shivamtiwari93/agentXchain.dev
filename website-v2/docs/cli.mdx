@@ -62,6 +62,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `approve-completion` | Approval | Approve run completion — the final human gate before a run closes |
 | `validate` | Validation | Validate config, state, or full run integrity |
 | `verify turn` | Validation | Replay a staged turn's declared machine-evidence commands and compare actual exit codes |
+| `replay turn` | Validation | Replay an accepted turn's declared machine-evidence commands from history |
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
@@ -740,6 +741,57 @@ This is a current-workspace reproducibility check, not a historical time machine
 If you want reproducibility to become an acceptance requirement instead of a manual check, add the `require_reproducible_verification` rule under top-level `policies` in `agentxchain.json`. That reuses the same replay contract during `accept-turn`, `step`, and `run`.
 
 Replay is not a sandbox. AgentXchain executes the staged `verification.machine_evidence[].command` strings in the repo root shell, so this surface assumes staged turn data is trusted agent-authored execution intent.
+
+### `replay turn`
+
+```bash
+agentxchain replay turn [turn_id] [--json] [--timeout <ms>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json` | `false` | Output structured replay results |
+| `--timeout <ms>` | `30000` | Per-command replay timeout in milliseconds |
+
+`replay turn` is the historical counterpart to `verify turn`.
+
+- `verify turn` replays the **staged active turn** before acceptance
+- `replay turn` replays an **already accepted turn** from `.agentxchain/history.jsonl`
+
+The command is intentionally narrow:
+
+- it only works on governed config-generation v4 repos
+- it targets accepted turns from repo-local history, not coordinator workspaces
+- it defaults to the most recent accepted turn when no `turn_id` is provided
+- it accepts full accepted-turn ids or unique prefixes and fails closed on ambiguity
+- it replays only `verification.machine_evidence[].command`
+- it compares actual exit codes to declared `verification.machine_evidence[].exit_code`
+- it does not compare stdout/stderr text
+- it does not mutate state, gate status, history, or ledgers
+
+`verification.commands` and `verification.evidence_summary` are still not executable proof on their own. If the accepted turn recorded no `machine_evidence`, the command exits non-zero with `overall: "not_reproducible"`.
+
+Typical use:
+
+```bash
+# replay the latest accepted turn
+agentxchain replay turn
+
+# replay one accepted turn explicitly
+agentxchain replay turn turn_abc123 --json
+```
+
+Exit codes:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Every replayed command exited with the declared exit code (`overall: "match"`) |
+| `1` | Replay drifted, timed out, errored, or the accepted turn had no replayable `machine_evidence` |
+| `2` | Command/input/config error |
+
+This is still a current-workspace reproducibility check, not a time machine. A mismatch can mean the original acceptance was wrong, or that the repo/environment has drifted since the turn was accepted. The historical acceptance-time `verification_replay` summary, when present, is shown for comparison but does not control the current command result.
+
+Replay is not a sandbox. AgentXchain executes the accepted turn's `verification.machine_evidence[].command` strings in the repo root shell, so this surface assumes accepted turn history is trusted governed execution intent.
 
 ## Protocol conformance
 

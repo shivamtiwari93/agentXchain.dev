@@ -60,6 +60,7 @@ import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
 import { verifyExportCommand, verifyProtocolCommand, verifyTurnCommand } from '../src/commands/verify.js';
+import { replayTurnCommand } from '../src/commands/replay.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
@@ -387,6 +388,17 @@ verifyCmd
   .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
   .option('--format <format>', 'Output format: text or json', 'text')
   .action(verifyExportCommand);
+
+const replayCmd = program
+  .command('replay')
+  .description('Replay accepted governed evidence against the current workspace');
+
+replayCmd
+  .command('turn [turn_id]')
+  .description('Replay an accepted turn\'s declared machine-evidence commands from history')
+  .option('-j, --json', 'Output as JSON')
+  .option('--timeout <ms>', 'Per-command replay timeout in milliseconds', '30000')
+  .action(replayTurnCommand);
 
 program
   .command('migrate')
