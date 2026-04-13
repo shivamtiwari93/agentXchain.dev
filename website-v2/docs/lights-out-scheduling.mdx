@@ -163,7 +163,7 @@ Scheduled runs follow strict safety rules:
 
 2. **No hijacking.** If a run is `blocked` (waiting for operator recovery), the scheduler does not auto-recover it. A human must explicitly recover blocked runs.
 
-3. **Start from clean state only.** Scheduled runs start only from `idle` or `completed` status.
+3. **Start from clean state only.** Scheduled runs start only from a fresh repo with no run state yet, or from `idle` / `completed` status.
 
 4. **Provenance tracking.** Scheduled runs use `trigger: "schedule"` in run history, so you can always distinguish scheduled runs from manual ones.
 
@@ -194,11 +194,13 @@ Example configuration:
 }
 ```
 
-## Combining with multi-repo
+## Multi-repo boundary
 
-For multi-repo coordination, run the daemon from the coordinator workspace (rooted by `agentxchain-multi.json`). Scheduled runs in the coordinator can trigger `multi step` commands that fan out to child repos.
+This scheduling surface is **repo-local only**. It runs inside a governed project rooted by `agentxchain.json`. It does **not** run from a coordinator workspace rooted by `agentxchain-multi.json`, and it does not fan out across child repos for you.
 
-See [Multi-Repo Orchestration](/docs/multi-repo) for the coordinator setup.
+If you need multi-repo automation today, schedule each child governed repo independently, then reconcile coordinator state separately with `agentxchain multi step`.
+
+See [Multi-Repo Orchestration](/docs/multi-repo) for the coordinator surface. Do not treat `schedule daemon` as a coordinator scheduler. That capability does not ship today.
 
 ## Monitoring scheduled runs
 
@@ -268,6 +270,7 @@ Scheduling is repo-local and daemon-based. It is not:
 
 - a hosted orchestration service (that is the future `.ai` surface)
 - a distributed job queue
+- a coordinator-workspace scheduler
 - a replacement for CI/CD pipelines
 - an auto-recovery mechanism for blocked runs
 
