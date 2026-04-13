@@ -1,0 +1,61 @@
+---
+title: "v2.81.0 Release Notes"
+description: "Historical turn replay, doctor connector handoff, plugin health checks, and front-door discoverability improvements."
+---
+
+# AgentXchain v2.81.0
+
+`v2.81.0` ships historical turn replay for audit and drift detection, smarter doctor output that surfaces connector check guidance, plugin health diagnostics in doctor, and improved front-door discoverability for validation commands.
+
+## What Changed
+
+### Historical Turn Replay (`replay turn`)
+
+New command for auditing accepted turns from governed history:
+
+```bash
+agentxchain replay turn              # replay the latest accepted turn
+agentxchain replay turn abc123       # replay a specific turn by ID or unique prefix
+agentxchain replay turn --json       # structured output for automation
+```
+
+`replay turn` re-executes the machine-evidence commands declared in an accepted turn's `verification` payload against the current workspace. It reports `match`, `mismatch`, or `not_reproducible` without mutating any state. This closes the gap between `verify turn` (staged turns) and post-acceptance audit.
+
+See the [CLI Reference](/docs/cli#replay-turn) for full details.
+
+### Doctor Connector Handoff
+
+`agentxchain doctor` now prints a next-step hint to run `agentxchain connector check` when:
+
+- all static checks pass, and
+- configured runtimes include types that need live probing (`api_proxy`, `remote_agent`, or MCP `streamable_http`)
+
+Local-only setups (`manual`, `local_cli`) are not nagged. The doctor remains a static diagnostic — it does not absorb live connector probes.
+
+### Plugin Health Checks in Doctor
+
+`agentxchain doctor` now includes plugin health diagnostics:
+
+- validates installed plugin manifests
+- checks plugin hook bindings
+- reports broken or misconfigured plugins alongside other doctor checks
+
+### Discoverability Improvements
+
+- `verify turn` and `replay turn` are now listed in both READMEs and `llms.txt`
+- `PROTOCOL-v3.md` at repo root is marked historical with a deprecation header pointing to v6
+- `post-twitter.sh` includes retry logic for intermittent X overlay failures
+
+## Evidence
+
+- `cd cli && npm test` — 3,920+ tests / 0 failures
+- `cd website-v2 && npm run build` — clean production build
+- All acceptance tests from `REPLAY_TURN_COMMAND_SPEC.md` pass
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.81.0
+# or
+brew upgrade agentxchain
+```
