@@ -2,7 +2,7 @@
 
 These scripts are the executable adoption path for non-CLI runners, plus the adjacent CI proofs that keep the unattended operator surface honest.
 
-They do not shell out to `agentxchain step`. They prove that this repository's runner boundary can drive governed workflow directly from code.
+The primitive proofs do not shell out to `agentxchain step`. They prove that this repository's runner boundary can drive governed workflow directly from code. The separate `run-via-cli-auto-approve.mjs` proof intentionally shells out to the real `agentxchain run` binary to defend the shipped operator surface.
 
 These are **repo-native proof scripts**, not the canonical installed-package starter. External consumers should import `agentxchain/runner-interface` after `npm install agentxchain` and start from `examples/external-runner-starter/`.
 

@@ -26,11 +26,82 @@ description: "Repo-native runner proofs plus real-dispatch CI proofs for unatten
 
 AgentXchain governs this example by keeping the boundary honest:
 
-- the scripts use the public runner interface instead of internal helpers
-- they do not shell out to the CLI
-- they prove the runner boundary continuously inside repo CI
+- the primitive proofs use the public runner interface instead of internal helpers
+- the CLI auto-approve proof intentionally shells out to the real `agentxchain run` binary to prove the shipped operator surface, not a local helper or a second runner
+- the proof pack keeps runner-boundary proof and CLI-boundary proof separate instead of pretending they are the same contract
+
+The CLI auto-approve proof is not a second runner. It is the operator-surface check for the shipped binary.
 
 This is a proof example, not a generated governed app. The governance value is the boundary discipline itself.
+
+## Fresh Governed CLI Run
+
+Recorded on **2026-04-13** with **AgentXchain v2.83.0**.
+
+This was a fresh execution of the shipped proof command:
+
+```bash
+node examples/ci-runner-proof/run-via-cli-auto-approve.mjs --json
+```
+
+The proof ran against the real CLI binary, used real `api_proxy` dispatch to Anthropic Haiku, and passed on the first attempt.
+
+| Field | Recorded value |
+| --- | --- |
+| Result | `pass` |
+| Attempts used | `1` |
+| Run ID | `run_42f62404493863ad` |
+| CLI exit status | `0` |
+| Accepted turns | `2` |
+| Role order | `planner -> reviewer` |
+| Total cost | `$0.012` |
+| Real API-backed turns | `2` |
+| Governance export/report | generated during the temp run |
+
+Trimmed payload from the recorded proof:
+
+```json
+{
+  "runner": "ci-cli-auto-approve-proof",
+  "cli_version": "2.83.0",
+  "result": "pass",
+  "cli_exit_status": 0,
+  "artifacts": {
+    "state": {
+      "status": "completed",
+      "phase": "review",
+      "run_id": "run_42f62404493863ad"
+    },
+    "history": {
+      "entry_count": 2,
+      "roles": ["planner", "reviewer"]
+    },
+    "ledger": {
+      "entry_count": 4
+    },
+    "cost": {
+      "total_usd": 0.012,
+      "real_api_calls": 2
+    }
+  },
+  "attempts_used": 1
+}
+```
+
+Operator-visible output from the same run ended with:
+
+```text
+Turn accepted: turn_67a6cb067f1ced39
+Run completed
+
+─── Run Summary ───
+  Status:  completed
+  Turns:   2
+  Gates:   0 approved
+  Errors:  none
+```
+
+The proof uses a temp workspace and deletes it after validation, so the report/export paths are intentionally ephemeral. The durable claim is that the run completed, wrote governance artifacts while it was live, and produced non-zero model cost on both accepted turns.
 
 ## Run It
 
@@ -40,6 +111,7 @@ node examples/ci-runner-proof/run-to-completion.mjs
 node examples/ci-runner-proof/run-with-run-loop.mjs
 node examples/ci-runner-proof/run-with-api-dispatch.mjs
 node examples/ci-runner-proof/run-via-cli-auto-approve.mjs
+node examples/ci-runner-proof/run-via-cli-auto-approve.mjs --json
 node examples/ci-runner-proof/run-multi-phase-write.mjs
 ```
 
@@ -48,5 +120,5 @@ node examples/ci-runner-proof/run-multi-phase-write.mjs
 - Use this when you are building a non-CLI runner.
 - Prove the primitive layer before you build higher-level orchestration.
 - Do not call a CLI wrapper a second runner.
-- Keep the CLI proof separate from the runner proof. They defend different failure boundaries.
+- Keep the CLI proof separate from the runner proof. They defend different failure boundaries, and the case-study block above is the real operator-surface evidence.
 - For the multi-phase CI proof, read `phase_gate_status` as the authoritative gate-pass signal. `gates_approved` only counts gates that paused for approval.
