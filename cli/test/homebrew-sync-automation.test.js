@@ -147,9 +147,11 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /AT-HS-018/, 'spec must define acceptance test AT-HS-018');
     assert.match(spec, /AT-HS-019/, 'spec must define acceptance test AT-HS-019');
     assert.match(spec, /AT-HS-020/, 'spec must define acceptance test AT-HS-020');
+    assert.match(spec, /AT-HS-022/, 'spec must define acceptance test AT-HS-022');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
     assert.match(spec, /DEC-HOMEBREW-SYNC-009/, 'spec must declare decision DEC-HOMEBREW-SYNC-009');
     assert.match(spec, /DEC-HOMEBREW-SYNC-011/, 'spec must declare decision DEC-HOMEBREW-SYNC-011');
+    assert.match(spec, /DEC-HOMEBREW-SYNC-013/, 'spec must declare decision DEC-HOMEBREW-SYNC-013');
   });
 
   it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -381,6 +383,43 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /did not merge after auto-merge handling/,
       'workflow must warn explicitly if the mirror PR never reaches merged state',
+    );
+  });
+
+  it('CI workflow closes superseded Homebrew mirror PRs after determining the current PR', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /Ensuring no superseded Homebrew mirror PRs remain open\./,
+      'workflow must explicitly reconcile older Homebrew mirror PRs after the current release PR is known',
+    );
+    assert.match(
+      workflow,
+      /gh pr list --base main --state open --json number,headRefName/,
+      'workflow must inspect open PR head refs when reconciling stale Homebrew sync PRs',
+    );
+    assert.match(
+      workflow,
+      /startswith\("chore\/homebrew-sync-v"\)/,
+      'workflow must filter stale Homebrew sync PRs by the release-sync branch prefix',
+    );
+    assert.ok(
+      workflow.includes(`select(.headRefName != "'"$BRANCH"'")`),
+      'workflow must exclude the current release branch from stale-PR cleanup',
+    );
+    assert.ok(
+      workflow.includes(`"\\(.number)\\t\\(.headRefName)"`),
+      'workflow must keep the stale PR number and branch name together for closeout logging',
+    );
+    assert.match(
+      workflow,
+      /gh pr close "\$STALE_NUMBER" --comment "Superseded by #\$\{CURRENT_PR\} for v\$\{RELEASE_TAG#v\}\."/,
+      'workflow must close superseded mirror PRs with an explicit replacement comment',
+    );
+    assert.match(
+      workflow,
+      /::warning::Could not close superseded Homebrew mirror PR #\$\{STALE_NUMBER\}/,
+      'workflow must warn clearly if stale PR cleanup fails instead of silently leaving drift',
     );
   });
 });

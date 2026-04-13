@@ -1,9 +1,13 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { evaluateWorkflowGateSemantics, RELEASE_NOTES_PATH } from '../src/lib/workflow-gate-semantics.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
 
 describe('Release notes gate semantics', () => {
   let root;
@@ -85,10 +89,9 @@ describe('Release notes gate semantics', () => {
   });
 
   it('AT-RELEASE-GATE-007: spec guard - RELEASE_ARTIFACT_GATE_SPEC.md exists', () => {
-    const specPath = join(process.cwd(), '..', '.planning', 'RELEASE_ARTIFACT_GATE_SPEC.md');
-    const altPath = join(process.cwd(), '.planning', 'RELEASE_ARTIFACT_GATE_SPEC.md');
+    const specPath = join(REPO_ROOT, '.planning', 'RELEASE_ARTIFACT_GATE_SPEC.md');
     assert.ok(
-      existsSync(specPath) || existsSync(altPath),
+      existsSync(specPath),
       'RELEASE_ARTIFACT_GATE_SPEC.md must exist in .planning/'
     );
   });

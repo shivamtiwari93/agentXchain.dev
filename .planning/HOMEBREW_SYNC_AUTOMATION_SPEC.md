@@ -47,6 +47,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 8. If regular merge fails because checks or approval requirements are still unmet, attempt to enable auto-merge (squash + delete branch) and poll for `MERGED`.
 9. If the PR still remains open because `github-actions` cannot self-approve or other mergeability requirements stay unmet, emit an explicit warning with the PR URL and continue the release. Repo-mirror follow-up is required, but canonical downstream truth is already handled by the canonical tap sync plus the final downstream verification gate.
 10. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
+11. Once the current release's mirror PR is known, the workflow must close any older open `chore/homebrew-sync-v*` PRs as superseded so release automation does not accumulate stale mirror PR debt across versions.
 
 **Auth requirements for canonical tap push:**
 - Requires a PAT with `contents: write` on `shivamtiwari93/homebrew-tap`, stored as `HOMEBREW_TAP_TOKEN` secret.
@@ -119,6 +120,7 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-019: If the generated Homebrew mirror PR still remains open after the workflow's approval attempt and auto-merge handling, the workflow emits an explicit warning with the PR URL instead of failing the release.
 - AT-HS-020: The workflow never invokes `gh pr merge --admin` for the mirror PR closeout path.
 - AT-HS-021: PR creation still fails closed, but unexpected mirror closeout failures after the PR exists are warning-only because repo-mirror convergence is not part of canonical downstream truth.
+- AT-HS-022: Once the current release's mirror PR exists, the workflow closes any older open `chore/homebrew-sync-v*` PRs as superseded so stale mirror PRs do not accumulate across releases.
 
 ## Decisions
 
@@ -129,6 +131,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 `DEC-HOMEBREW-SYNC-011`: The workflow must attempt regular `gh pr merge --squash --delete-branch` first. If merge is blocked because requirements are still unmet, it enables `gh pr merge --auto --squash --delete-branch` when possible. The workflow must never invoke `gh pr merge --admin` from CI for this PR closeout path.
 
 `DEC-HOMEBREW-SYNC-012`: Repo-mirror PR closeout is best-effort once the PR exists. Canonical downstream truth is the GitHub Release plus the canonical Homebrew tap, not the repo-local mirror PR merge state. If the mirror PR remains open because `github-actions` cannot self-approve or auto-merge does not converge, the workflow must warn with the PR URL and continue instead of failing an otherwise-complete release.
+
+`DEC-HOMEBREW-SYNC-013`: The publish workflow must treat older open `chore/homebrew-sync-v*` PRs as superseded once a newer release's mirror PR exists. Closing those stale PRs is part of automation hygiene; otherwise the protected-branch mirror path silently accumulates false-open follow-up debt.
 
 ## Open Questions
 

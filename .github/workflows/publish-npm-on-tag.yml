@@ -153,23 +153,38 @@ jobs:
             git push origin "$BRANCH"
           fi
           EXISTING_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          CURRENT_PR="$EXISTING_PR"
           if [[ -n "$EXISTING_PR" ]]; then
             echo "Homebrew mirror PR already open: #${EXISTING_PR}"
-            echo "pr_number=${EXISTING_PR}" >> "$GITHUB_OUTPUT"
+          else
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
+              --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
+            CURRENT_PR="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+            if [[ -z "$CURRENT_PR" ]]; then
+              echo "::error::Homebrew mirror PR creation did not yield an open PR number."
+              exit 1
+            fi
+            echo "Created PR for Homebrew mirror update on branch $BRANCH."
+          fi
+          echo "pr_number=${CURRENT_PR}" >> "$GITHUB_OUTPUT"
+          echo "Ensuring no superseded Homebrew mirror PRs remain open."
+          STALE_PRS="$(gh pr list --base main --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("chore/homebrew-sync-v")) | select(.headRefName != "'"$BRANCH"'") | "\(.number)\t\(.headRefName)"' 2>/dev/null || true)"
+          if [[ -z "$STALE_PRS" ]]; then
+            echo "No superseded Homebrew mirror PRs detected."
             exit 0
           fi
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore: sync Homebrew formula for v${RELEASE_TAG#v}" \
-            --body "Automated Homebrew mirror sync after npm publish of v${RELEASE_TAG#v}. Updates \`cli/homebrew/agentxchain.rb\` URL and SHA256 to match the live npm tarball."
-          PR_NUMBER="$(gh pr list --base main --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
-          if [[ -z "$PR_NUMBER" ]]; then
-            echo "::error::Homebrew mirror PR creation did not yield an open PR number."
-            exit 1
-          fi
-          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo "Created PR for Homebrew mirror update on branch $BRANCH."
+          while IFS=$'\t' read -r STALE_NUMBER STALE_BRANCH; do
+            if [[ -z "${STALE_NUMBER:-}" ]]; then
+              continue
+            fi
+            echo "Closing superseded Homebrew mirror PR #${STALE_NUMBER} (${STALE_BRANCH})."
+            if ! gh pr close "$STALE_NUMBER" --comment "Superseded by #${CURRENT_PR} for v${RELEASE_TAG#v}."; then
+              echo "::warning::Could not close superseded Homebrew mirror PR #${STALE_NUMBER} (${STALE_BRANCH})."
+            fi
+          done <<< "$STALE_PRS"
 
       - name: Close out Homebrew mirror PR
         id: homebrew_mirror_closeout

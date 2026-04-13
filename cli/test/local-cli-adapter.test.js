@@ -418,6 +418,7 @@ describe('local-cli-adapter', () => {
       const root = createAndTrack();
       const state = makeState();
       const turnResult = makeValidTurnResult(state);
+      const stagingDir = join(root, '.agentxchain', 'staging', state.current_turn.turn_id);
 
       // Create a subdirectory
       const subDir = join(root, 'workspace');
@@ -427,8 +428,8 @@ describe('local-cli-adapter', () => {
       const scriptContent = `
         const fs = require('fs');
         const path = require('path');
-        const root = path.resolve(process.cwd(), '..');
-        const stagingDir = path.join(root, ${JSON.stringify(join('.agentxchain', 'staging', state.current_turn.turn_id))});
+        fs.writeFileSync(path.join(process.cwd(), 'cwd-proof.txt'), 'workspace cwd');
+        const stagingDir = ${JSON.stringify(stagingDir)};
         fs.mkdirSync(stagingDir, { recursive: true });
         fs.writeFileSync(
           path.join(stagingDir, 'turn-result.json'),
@@ -446,6 +447,7 @@ describe('local-cli-adapter', () => {
 
       const result = await dispatchLocalCli(root, state, config);
       assert.equal(result.ok, true);
+      assert.equal(readFileSync(join(subDir, 'cwd-proof.txt'), 'utf8'), 'workspace cwd');
     });
 
     it('supports string command with separate args', async () => {

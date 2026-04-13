@@ -1,9 +1,13 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { evaluateWorkflowGateSemantics, IMPLEMENTATION_NOTES_PATH } from '../src/lib/workflow-gate-semantics.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
 
 describe('Implementation gate semantics', () => {
   let root;
@@ -115,11 +119,9 @@ describe('Implementation gate semantics', () => {
   });
 
   it('spec guard: IMPLEMENTATION_EXIT_GATE_SPEC.md exists', () => {
-    const specPath = join(process.cwd(), '..', '.planning', 'IMPLEMENTATION_EXIT_GATE_SPEC.md');
-    const altPath = join(process.cwd(), '.planning', 'IMPLEMENTATION_EXIT_GATE_SPEC.md');
-    // Try both potential paths (running from cli/ or from repo root)
+    const specPath = join(REPO_ROOT, '.planning', 'IMPLEMENTATION_EXIT_GATE_SPEC.md');
     assert.ok(
-      existsSync(specPath) || existsSync(altPath),
+      existsSync(specPath),
       'IMPLEMENTATION_EXIT_GATE_SPEC.md must exist in .planning/'
     );
   });
