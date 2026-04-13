@@ -235,6 +235,14 @@ export async function multiStepCommand(options) {
       // Fire on_escalation for the blocked resync
       fireEscalationHook(workspacePath, configResult.config, state, resync.blocked_reason || 'resync failure');
       console.error(`Coordinator resync entered blocked state: ${resync.blocked_reason || 'unknown reason'}`);
+      for (const mismatch of resync.mismatch_details || []) {
+        const codeTag = mismatch.code ? `[${mismatch.code}] ` : '';
+        console.error(`  - ${codeTag}${mismatch.message}`);
+        if (mismatch.code === 'repo_run_id_mismatch') {
+          console.error(`    expected: ${mismatch.expected_run_id}`);
+          console.error(`    actual:   ${mismatch.actual_run_id}`);
+        }
+      }
       process.exitCode = 1;
       return;
     }

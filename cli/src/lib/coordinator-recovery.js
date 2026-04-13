@@ -239,6 +239,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
   const resyncedRepos = [];
   const projectedAcceptances = [];
   const barrierChanges = [];
+  const mismatchDetails = [];
 
   // Step 1: Refresh repo_runs from repo-local authority
   const updatedRepoRuns = { ...state.repo_runs };
@@ -262,6 +263,13 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
     if (repoRun.run_id && repoRun.run_id !== (repoState.run_id ?? null)) {
       const reason = buildRunIdMismatchReason(repoId, repoRun.run_id, repoState.run_id ?? null);
       runIdMismatches.push(reason);
+      mismatchDetails.push({
+        code: 'repo_run_id_mismatch',
+        repo_id: repoId,
+        expected_run_id: repoRun.run_id,
+        actual_run_id: repoState.run_id ?? null,
+        message: reason,
+      });
       errors.push(reason);
       continue;
     }
@@ -447,6 +455,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
     resynced_repos: [...new Set(resyncedRepos)],
     projected_acceptances: projectedAcceptances,
     barrier_changes: barrierChanges,
+    mismatch_details: mismatchDetails,
     errors,
     blocked_reason: blockedReason || undefined,
   };
