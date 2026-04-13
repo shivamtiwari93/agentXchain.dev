@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +9,10 @@ const REPO_ROOT = join(__dirname, '..', '..');
 
 function read(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
+}
+
+function readBinary(relPath) {
+  return readFileSync(join(REPO_ROOT, relPath));
 }
 
 function readJson(relPath) {
@@ -22,6 +26,9 @@ const CHANGELOG = read(`${EXTENSION_DIR}/CHANGELOG.md`);
 const VSCODEIGNORE = read(`${EXTENSION_DIR}/.vscodeignore`);
 const WORKFLOW = read(WORKFLOW_PATH);
 const PACKAGE = readJson(`${EXTENSION_DIR}/package.json`);
+const ICON_RELATIVE_PATH = `${EXTENSION_DIR}/media/icon.png`;
+const ICON_PATH = join(REPO_ROOT, ICON_RELATIVE_PATH);
+const ICON = readBinary(ICON_RELATIVE_PATH);
 
 describe('VS Code marketplace readiness', () => {
   it('AT-VSMP-001: extension packaging surface exists', () => {
@@ -80,5 +87,16 @@ describe('VS Code marketplace readiness', () => {
     assert.match(WORKFLOW, /VSCE_PAT secret not configured\. Cannot publish to VS Code Marketplace\./i);
     assert.match(WORKFLOW, /npx @vscode\/vsce package --no-dependencies/i);
     assert.match(WORKFLOW, /npx @vscode\/vsce publish --no-dependencies -p "\$VSCE_PAT"/i);
+  });
+
+  it('AT-VSMP-007: packaged icon is a real 128x128 branded PNG asset, not a tiny placeholder', () => {
+    assert.ok(existsSync(ICON_PATH), `${ICON_RELATIVE_PATH} must exist`);
+    assert.equal(ICON.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'icon must be a PNG');
+    assert.equal(ICON.readUInt32BE(16), 128, 'icon width must be 128px');
+    assert.equal(ICON.readUInt32BE(20), 128, 'icon height must be 128px');
+    assert.ok(
+      statSync(ICON_PATH).size > 5000,
+      'icon must be materially larger than the previous 306-byte placeholder asset',
+    );
   });
 });

@@ -2,6 +2,12 @@
 
 All notable changes to the AgentXchain VS Code extension.
 
+## [0.1.1] — 2026-04-12
+
+### Fixed
+
+- Replaced the broken Marketplace placeholder icon with the website's AgentXchain brand mark as a real 128x128 PNG so the Marketplace listing and VS Code extension sidebar render the correct logo.
+
 ## [0.1.0] — 2026-04-10
 
 ### Added
