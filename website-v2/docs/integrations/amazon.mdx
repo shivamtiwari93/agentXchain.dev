@@ -1,21 +1,43 @@
 ---
 title: Amazon Bedrock
-description: "Connect Amazon Nova models to AgentXchain via Bedrock's OpenAI-compatible API."
+description: "Connect Amazon Nova models to AgentXchain via a Bedrock-to-OpenAI proxy."
 ---
 
 # Amazon Bedrock
 
-[Amazon Bedrock](https://aws.amazon.com/bedrock/) provides managed access to foundation models including Amazon's Nova family. AgentXchain connects via `api_proxy` using Bedrock's OpenAI-compatible inference endpoint.
+[Amazon Bedrock](https://aws.amazon.com/bedrock/) provides managed access to foundation models including Amazon's Nova family. AgentXchain connects via `api_proxy` through an **OpenAI-compatible proxy** that handles Bedrock's AWS SigV4 authentication.
 
 ## Which adapter?
 
-**`api_proxy`** with `provider: "openai"` and a custom `base_url` pointing to your Bedrock endpoint.
+**`api_proxy`** with `provider: "openai"` and a `base_url` pointing to a **local proxy** that translates OpenAI-format requests into SigV4-signed Bedrock calls.
+
+:::caution Bedrock does not accept API keys directly
+Bedrock uses AWS IAM (SigV4 request signing), not Bearer token or API key authentication. The AgentXchain `api_proxy` adapter sends `Authorization: Bearer <key>` headers, which Bedrock rejects. You **must** run a local proxy that accepts OpenAI-compatible requests and translates them into signed Bedrock calls.
+:::
 
 ## Prerequisites
 
-- An AWS account with Bedrock model access enabled
-- Bedrock API credentials
+- An AWS account with Bedrock model access enabled for Nova models
+- AWS credentials configured (`AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`, or an IAM role / SSO session)
+- A local OpenAI-compatible proxy for Bedrock (see below)
 - `agentxchain` CLI installed
+
+## Proxy setup
+
+You need a proxy that accepts OpenAI-format `POST /v1/chat/completions` requests with Bearer auth and forwards them as SigV4-signed Bedrock `Converse` or `InvokeModel` calls. Two proven options:
+
+### Option A: LiteLLM proxy (recommended)
+
+```bash
+pip install litellm
+litellm --model bedrock/amazon.nova-pro-v2 --port 4000
+```
+
+LiteLLM reads your AWS credentials from the environment (`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` or `~/.aws/credentials`) and exposes `http://localhost:4000/v1/chat/completions`.
+
+### Option B: Bedrock Access Gateway
+
+AWS provides [Bedrock Access Gateway](https://github.com/aws-samples/bedrock-access-gateway), a self-hosted Lambda + API Gateway that exposes an OpenAI-compatible API backed by Bedrock. Deploy it into your AWS account and use the resulting API Gateway URL as `base_url`.
 
 ## Configuration
 
@@ -25,9 +47,9 @@ description: "Connect Amazon Nova models to AgentXchain via Bedrock's OpenAI-com
     "nova-dev": {
       "type": "api_proxy",
       "provider": "openai",
-      "model": "amazon.nova-2-pro",
-      "auth_env": "BEDROCK_API_KEY",
-      "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/amazon.nova-2-pro/converse"
+      "model": "bedrock/amazon.nova-pro-v2",
+      "auth_env": "LITELLM_API_KEY",
+      "base_url": "http://localhost:4000/v1/chat/completions"
     }
   },
   "roles": {
@@ -40,12 +62,19 @@ description: "Connect Amazon Nova models to AgentXchain via Bedrock's OpenAI-com
 }
 ```
 
+If your proxy does not require an API key, set `auth_env` to any non-empty environment variable — the adapter requires it but the proxy can ignore it.
+
 ## Minimal working example
 
 ```bash
+# 1. Start the proxy (in a separate terminal)
+litellm --model bedrock/amazon.nova-pro-v2 --port 4000
+
+# 2. Scaffold and run
 agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
 cd my-project
 # Replace the scaffolded runtime wiring in agentxchain.json with the Bedrock config above.
+export LITELLM_API_KEY="sk-placeholder"
 agentxchain connector check
 agentxchain doctor
 agentxchain run
@@ -55,31 +84,34 @@ If you prefer the guided interactive scaffold, run `agentxchain init --governed`
 
 ## Available models
 
-| Model | Best for |
-|-------|----------|
-| `amazon.nova-2-pro` | Most capable Nova model |
-| `amazon.nova-2-lite` | Fast, cost-effective |
-| `amazon.nova-premier` | Premium reasoning |
+| Model | Bedrock model ID | Best for |
+|-------|-----------------|----------|
+| Nova 2 Pro | `amazon.nova-pro-v2` | Most capable Nova model |
+| Nova 2 Lite | `amazon.nova-lite-v2` | Fast, cost-effective |
+| Nova Premier | `amazon.nova-premier` | Premium reasoning |
+
+The exact model ID string depends on your proxy. LiteLLM uses `bedrock/<model-id>`. Check your proxy's documentation.
 
 ## Verify the connection
 
 ```bash
-export BEDROCK_API_KEY="..."
+export LITELLM_API_KEY="sk-placeholder"
 agentxchain connector check
 ```
 
 ## Gotchas
 
-- **Authentication**: Bedrock uses AWS IAM credentials, not simple API keys. You may need a wrapper script that signs requests with AWS SigV4. The simplest approach is to use a local proxy that handles AWS auth and exposes an OpenAI-compatible endpoint.
-- **Region-specific endpoints**: Bedrock endpoints are region-specific. Update `base_url` to match your region.
+- **No direct API key auth**: Bedrock uses AWS SigV4 signing, not API keys or Bearer tokens. The proxy handles this translation. Do not point `base_url` directly at a `bedrock-runtime.*.amazonaws.com` URL — it will fail.
+- **Proxy must be running**: The proxy must be started before `connector check` or `run`. If you stop the proxy, AgentXchain will fail to reach the runtime.
+- **Region**: Ensure your AWS credentials and proxy target the same region where your Nova models are enabled.
 - **Model access**: Nova models must be explicitly enabled in your AWS account via the Bedrock console before use.
-- **Cost rates**: Supply operator-specific rates:
+- **Cost rates**: Bedrock pricing varies by region. Supply operator-specific rates:
 
 ```json
 {
   "budget": {
     "cost_rates": {
-      "amazon.nova-2-pro": { "input_per_million": 0.80, "output_per_million": 3.20 }
+      "bedrock/amazon.nova-pro-v2": { "input_per_million": 0.80, "output_per_million": 3.20 }
     }
   }
 }

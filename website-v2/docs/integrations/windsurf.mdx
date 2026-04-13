@@ -38,6 +38,19 @@ description: "Connect Windsurf's CLI to AgentXchain for governed coding."
 }
 ```
 
+## Minimal working example
+
+```bash
+agentxchain init --governed --template api-service --goal "Build a REST API" --dir my-project -y
+cd my-project
+# Replace the scaffolded runtime wiring in agentxchain.json with the Windsurf config above.
+agentxchain connector check
+agentxchain doctor
+agentxchain run
+```
+
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Windsurf config above before `agentxchain connector check`.
+
 ## Verify the connection
 
 ```bash

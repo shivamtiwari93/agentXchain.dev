@@ -103,6 +103,19 @@ The MCP server must expose a tool (default name: `agentxchain_turn`) that accept
 
 The tool must return a valid AgentXchain turn result JSON.
 
+## Minimal working example
+
+```bash
+agentxchain init --governed --template api-service --goal "Build an API with an MCP agent" --dir my-project -y
+cd my-project
+# Replace the scaffolded runtime wiring in agentxchain.json with the MCP config above.
+agentxchain connector check
+agentxchain doctor
+agentxchain run
+```
+
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the MCP config above before `agentxchain connector check`.
+
 ## Examples in the repo
 
 - [`examples/mcp-echo-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent) — minimal stdio MCP server
