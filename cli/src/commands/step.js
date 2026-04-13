@@ -51,6 +51,7 @@ import {
 } from '../lib/adapters/local-cli-adapter.js';
 import { describeMcpRuntimeTarget, dispatchMcp, resolveMcpTransport } from '../lib/adapters/mcp-adapter.js';
 import { dispatchRemoteAgent, describeRemoteAgentTarget } from '../lib/adapters/remote-agent-adapter.js';
+import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -325,6 +326,8 @@ export async function stepCommand(opts) {
   const runtime = config.runtimes?.[runtimeId];
   const runtimeType = runtime?.type || role?.runtime_class || 'manual';
   const hooksConfig = config.hooks || {};
+
+  printStepRunContext({ root, state, config });
 
   if (bundleWritten && hooksConfig.after_dispatch?.length > 0) {
     const afterDispatchHooks = runHooks(root, hooksConfig, 'after_dispatch', {
@@ -943,6 +946,53 @@ function printRecoverySummary(state, heading) {
   if (recovery.detail) {
     console.log(`  ${chalk.dim('Detail:')} ${recovery.detail}`);
   }
+}
+
+function printStepRunContext({ root, state, config }) {
+  console.log('');
+  console.log(chalk.cyan.bold('agentxchain step'));
+  console.log(`  ${chalk.dim('Run:')}      ${state?.run_id || '(uninitialized)'}`);
+  console.log(`  ${chalk.dim('Phase:')}    ${state?.phase || '(unknown)'}`);
+
+  const provenanceSummary = summarizeRunProvenance(state?.provenance);
+  if (provenanceSummary) {
+    console.log(`  ${chalk.dim('Origin:')}   ${chalk.magenta(provenanceSummary)}`);
+  }
+
+  if (state?.inherited_context?.parent_run_id) {
+    console.log(
+      `  ${chalk.dim('Inherits:')} ${chalk.magenta(
+        `parent ${state.inherited_context.parent_run_id} (${state.inherited_context.parent_status || 'unknown'})`
+      )}`
+    );
+  }
+
+  const activeGate = config?.routing?.[state?.phase]?.exit_gate || null;
+  if (activeGate) {
+    const gateStatus = state?.phase_gate_status?.[activeGate] || 'pending';
+    console.log(`  ${chalk.dim('Gate:')}     ${activeGate} (${gateStatus})`);
+
+    if (gateStatus !== 'passed') {
+      const gateDef = config?.gates?.[activeGate];
+      if (Array.isArray(gateDef?.requires_files) && gateDef.requires_files.length > 0) {
+        const fileChecks = gateDef.requires_files.map((filePath) => {
+          const exists = existsSync(join(root, filePath));
+          const shortPath = filePath.replace(/^\.planning\//, '');
+          return exists ? chalk.green(shortPath) : chalk.red(shortPath);
+        });
+        console.log(`  ${chalk.dim('Files:')}    ${fileChecks.join(chalk.dim(', '))}`);
+      }
+
+      const requirements = [];
+      if (gateDef?.requires_human_approval) requirements.push('human approval');
+      if (gateDef?.requires_verification_pass) requirements.push('verification pass');
+      if (requirements.length > 0) {
+        console.log(`  ${chalk.dim('Needs:')}    ${requirements.join(', ')}`);
+      }
+    }
+  }
+
+  console.log('');
 }
 
 function printDispatchBundleWarnings(bundleResult) {
