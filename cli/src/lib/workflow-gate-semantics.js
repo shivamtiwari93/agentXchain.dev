@@ -56,6 +56,31 @@ function evaluatePmSignoff(content) {
   return { ok: true };
 }
 
+const SYSTEM_SPEC_SCAFFOLD_PLACEHOLDER = /^\(.*\)$/;
+const SYSTEM_SPEC_ACCEPTANCE_SCAFFOLD = /^- \[ \] Name the executable checks/;
+
+function isSystemSpecPlaceholderLine(line) {
+  return SYSTEM_SPEC_SCAFFOLD_PLACEHOLDER.test(line) || SYSTEM_SPEC_ACCEPTANCE_SCAFFOLD.test(line);
+}
+
+function hasSectionRealContent(content, sectionHeader, isPlaceholderFn) {
+  const lines = content.split(/\r?\n/);
+  const headerIndex = lines.findIndex((line) => line.trim().startsWith(sectionHeader));
+  if (headerIndex === -1) {
+    return { found: false, hasContent: false };
+  }
+
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('## ')) break;
+    if (!line) continue;
+    if (isPlaceholderFn(line)) continue;
+    return { found: true, hasContent: true };
+  }
+
+  return { found: true, hasContent: false };
+}
+
 function evaluateSystemSpec(content) {
   const requiredSections = ['## Purpose', '## Interface', '## Acceptance Tests'];
   const missingSections = requiredSections.filter((section) => !content.includes(section));
@@ -64,6 +89,21 @@ function evaluateSystemSpec(content) {
     return {
       ok: false,
       reason: `.planning/SYSTEM_SPEC.md must define ${missingSections.join(', ')} before planning can exit.`,
+    };
+  }
+
+  const placeholderSections = [];
+  for (const section of requiredSections) {
+    const result = hasSectionRealContent(content, section, isSystemSpecPlaceholderLine);
+    if (result.found && !result.hasContent) {
+      placeholderSections.push(section);
+    }
+  }
+
+  if (placeholderSections.length > 0) {
+    return {
+      ok: false,
+      reason: `${placeholderSections.join(' and ')} in .planning/SYSTEM_SPEC.md still contains only scaffold placeholder text. Replace placeholder content with real spec content before planning can exit.`,
     };
   }
 
@@ -362,6 +402,15 @@ function evaluateShipVerdict(content) {
   return { ok: true };
 }
 
+const SECTION_CHECK_SCAFFOLD_PLACEHOLDERS = [
+  /^\(Content here\.\)$/i,
+  /^\(Operator fills this in\.\)$/i,
+];
+
+function isSectionCheckPlaceholderLine(line) {
+  return SECTION_CHECK_SCAFFOLD_PLACEHOLDERS.some((re) => re.test(line));
+}
+
 function evaluateSectionCheck(content, config) {
   if (!config?.required_sections?.length) {
     return { ok: true };
@@ -375,6 +424,22 @@ function evaluateSectionCheck(content, config) {
       reason: `Document must contain sections: ${missing.join(', ')}`,
     };
   }
+
+  const placeholderSections = [];
+  for (const section of config.required_sections) {
+    const result = hasSectionRealContent(content, section, isSectionCheckPlaceholderLine);
+    if (result.found && !result.hasContent) {
+      placeholderSections.push(section);
+    }
+  }
+
+  if (placeholderSections.length > 0) {
+    return {
+      ok: false,
+      reason: `Sections still contain only scaffold placeholder text: ${placeholderSections.join(', ')}. Replace placeholder content before this gate can pass.`,
+    };
+  }
+
   return { ok: true };
 }
 
