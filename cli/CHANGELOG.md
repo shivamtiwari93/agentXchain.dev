@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.78.0
+
+`2.78.0` adds the first cross-run comparison command, ships the OpenClaw integration surface, and cleans up docs information architecture that was needlessly confusing.
+
+- New `agentxchain diff <left_run_id> <right_run_id>` command for comparing recorded governed runs from `.agentxchain/run-history.jsonl`
+- `diff` supports unique run-id prefixes, fails closed on ambiguous references, and compares scalar fields, numeric deltas, phases, roles, and gate status changes
+- New OpenClaw integration guide at `/docs/integrations/openclaw` with honest `local_cli` truth and explicit `remote_agent` boundary
+- New `plugins/openclaw-agentxchain/` package exposing `agentxchain_step`, `agentxchain_accept_turn`, and `agentxchain_approve_transition`
+- Docs sidebar renamed `Integration` → `Connectors` and `Integrations` → `Platform Guides`
+- 3878 tests / 835 suites / 0 failures (`cd cli && npm test`)
+- Local release proof included the new diff command tests, OpenClaw plugin tests, full `cd cli && npm test`, and a clean `cd website-v2 && npm run build`
+
 ## 2.77.0
 
 `2.77.0` ships three new operator-facing capabilities: live connector health probes (`agentxchain connector check`), per-run cost summary in `audit`/`report`, and multi-axis protocol version surface in `doctor`/`validate`. Also includes the `agentxchain audit` command, Homebrew sync hardening, IDE report simplification, and visual/content polish across all public surfaces.

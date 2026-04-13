@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.77.0
+# Launch Evidence Report — AgentXchain v2.78.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.77.0 release: live connector health probes, per-run cost summary in audit/report, multi-axis protocol version surface, live governance audit command, Homebrew sync hardening, and visual/content polish across all public surfaces.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.78.0 release: cross-run diffing, OpenClaw integration surfaces, and the clarified docs navigation split between Connectors and Platform Guides.
 
 ---
 

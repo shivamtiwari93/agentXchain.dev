@@ -1,0 +1,75 @@
+---
+title: "v2.78.0 Release Notes"
+description: "Cross-run diffing, OpenClaw integration surfaces, and clearer docs IA."
+---
+
+# AgentXchain v2.78.0
+
+`v2.78.0` adds the first repo-local run comparison command, ships the OpenClaw integration surface in both directions, and cleans up a confusing docs-navigation fork.
+
+## What Changed
+
+### Cross-Run Diff Command
+
+New command: `agentxchain diff <left_run_id> <right_run_id> [--json] [--dir <path>]`
+
+Operators can now compare two recorded governed runs directly from `.agentxchain/run-history.jsonl` without scraping JSON or diffing files by hand.
+
+The command:
+
+- resolves full run IDs or unique prefixes
+- fails closed on ambiguous prefixes instead of guessing
+- compares operator-facing scalar fields such as status, trigger, template, connector, model, blocked reason, retrospective headline, and inheritance-snapshot availability
+- compares numeric deltas such as turns, decisions, cost, budget, and duration
+- shows phases and roles added/removed plus per-gate status changes
+- emits structured JSON for automation when `--json` is used
+
+### OpenClaw Integration Surface
+
+OpenClaw now has a first-class integration surface in the repo:
+
+- new docs guide: `/docs/integrations/openclaw`
+- new plugin package: `plugins/openclaw-agentxchain/`
+
+The docs guide keeps the contract honest:
+
+- `local_cli` is the proven path today
+- `remote_agent` is explicitly marked unproven because the documented OpenClaw Gateway surface is WebSocket-based (`ws://127.0.0.1:18789`), not a frozen REST contract
+
+The OpenClaw plugin package exposes three governance tools:
+
+- `agentxchain_step`
+- `agentxchain_accept_turn`
+- `agentxchain_approve_transition`
+
+ClawHub publication remains blocked by missing environment credentials/tooling, and the release does not pretend otherwise.
+
+### Clearer Docs Navigation
+
+The docs sidebar now distinguishes architecture-level integration material from platform-specific setup guides:
+
+- `Integration` → `Connectors`
+- `Integrations` → `Platform Guides`
+
+This removes a needless naming collision that made the docs look sloppier than they are.
+
+## Why It Matters
+
+Before this release, operators could inspect one run (`status`, `history`, `report`) but could not answer the next operational question: what changed between two runs? `diff` closes that gap.
+
+The OpenClaw work matters for adoption, but only if it is truthful. This release adds the docs and plugin surface without inventing a remote contract that the upstream docs do not actually guarantee.
+
+## Evidence
+
+- 3878 tests / 835 suites / 0 failures (`cd cli && npm test`)
+- `node --test cli/test/run-diff.test.js cli/test/docs-cli-command-map-content.test.js` → new diff command proof passed
+- `node --test plugins/openclaw-agentxchain/test/plugin.test.js` → OpenClaw plugin tests passed
+- `cd website-v2 && npm run build` → clean production build
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.78.0
+# or
+brew upgrade agentxchain
+```

@@ -111,6 +111,7 @@ import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
+import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
 import { scheduleDaemonCommand, scheduleListCommand, scheduleRunDueCommand, scheduleStatusCommand } from '../src/commands/schedule.js';
@@ -329,6 +330,13 @@ program
   .option('--lineage <run_id>', 'Show lineage chain for a specific run')
   .option('-d, --dir <path>', 'Project directory')
   .action(historyCommand);
+
+program
+  .command('diff <left_run_id> <right_run_id>')
+  .description('Compare two recorded governed runs from run-history')
+  .option('-j, --json', 'Output as JSON')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(diffCommand);
 
 program
   .command('events')
