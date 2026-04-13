@@ -145,8 +145,11 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /AT-HS-011/, 'spec must define acceptance test AT-HS-011');
     assert.match(spec, /AT-HS-015/, 'spec must define acceptance test AT-HS-015');
     assert.match(spec, /AT-HS-018/, 'spec must define acceptance test AT-HS-018');
+    assert.match(spec, /AT-HS-019/, 'spec must define acceptance test AT-HS-019');
+    assert.match(spec, /AT-HS-020/, 'spec must define acceptance test AT-HS-020');
     assert.match(spec, /DEC-HOMEBREW-SYNC-001/, 'spec must declare decision DEC-HOMEBREW-SYNC-001');
     assert.match(spec, /DEC-HOMEBREW-SYNC-009/, 'spec must declare decision DEC-HOMEBREW-SYNC-009');
+    assert.match(spec, /DEC-HOMEBREW-SYNC-011/, 'spec must declare decision DEC-HOMEBREW-SYNC-011');
   });
 
   it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -322,10 +325,10 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /\[\[ "\$REVIEW_DECISION" != "APPROVED" \]\].*review is required\|approving review\|required approving review\|1 approving review/s,
-      'workflow must gate admin fallback on an unapproved PR plus explicit review-required merge errors',
+      /required status check\|is expected\|add the --auto flag\|after all the requirements have been met/,
+      'workflow must recognize the pending-checks case that should arm auto-merge',
     );
-    // The grep predicate must NOT contain overbroad patterns that match non-deadlock failures
+    // The approval-deadlock predicate must stay narrow.
     const grepLine = workflow.split('\n').find(l => l.includes('grep -qiE') && l.includes('review is required'));
     assert.ok(grepLine, 'workflow must have a grep-based error pattern gate');
     assert.ok(
@@ -342,17 +345,27 @@ describe('homebrew sync automation contract', () => {
     );
     assert.ok(
       !grepLine.includes('admin override'),
-      'admin-fallback grep must not depend on generic admin-override wording',
+      'approval-deadlock grep must not depend on generic admin-override wording',
+    );
+    assert.match(
+      workflow,
+      /still requires an approving review and github-actions cannot self-approve PRs it created/,
+      'workflow must fail closed with an explicit self-approval deadlock when approval is still required',
+    );
+    assert.match(
+      workflow,
+      /gh pr merge "\$PR_NUMBER" --auto --squash --delete-branch/,
+      'workflow must enable auto-merge when required checks are still pending',
+    );
+    assert.doesNotMatch(
+      workflow,
+      /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
+      'workflow must never use admin merge for the mirror PR closeout path',
     );
     assert.match(
       workflow,
       /Regular merge failed for unexpected reason/,
-      'workflow must fail closed on non-deadlock merge failures instead of falling back to admin',
-    );
-    assert.match(
-      workflow,
-      /gh pr merge "\$PR_NUMBER" --squash --delete-branch --admin/,
-      'workflow must fall back to admin merge only when self-approval deadlock is detected',
+      'workflow must still fail closed on unexpected merge failures',
     );
     assert.match(
       workflow,

@@ -193,8 +193,10 @@ jobs:
           if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
             if gh pr review "$PR_NUMBER" --approve --body "Automated approval for governed Homebrew mirror sync." 2>/dev/null; then
               echo "Homebrew mirror PR #${PR_NUMBER} approved."
+              REVIEW_DECISION="APPROVED"
             else
-              echo "::warning::Cannot self-approve PR #${PR_NUMBER} (same actor created it). Proceeding to merge without explicit approval."
+              echo "::warning::Cannot self-approve PR #${PR_NUMBER} (same actor created it). Continuing with explicit mergeability checks."
+              REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
             fi
           else
             echo "Homebrew mirror PR #${PR_NUMBER} already has an approval."
@@ -202,23 +204,32 @@ jobs:
           MERGE_ERR="$(gh pr merge "$PR_NUMBER" --squash --delete-branch 2>&1)" && MERGE_OK=true || MERGE_OK=false
           if [[ "$MERGE_OK" == "true" ]]; then
             echo "Homebrew mirror PR #${PR_NUMBER} merge initiated."
-          elif [[ "$REVIEW_DECISION" != "APPROVED" ]] && echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|required approving review|1 approving review|base branch policy prohibits the merge|not mergeable'; then
-            echo "::warning::Regular merge blocked by approval requirement (self-approval deadlock). Falling back to --admin merge."
+          elif echo "$MERGE_ERR" | grep -qiE 'required status check|is expected|add the --auto flag|after all the requirements have been met'; then
+            if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
+              echo "::error::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created."
+              echo "::error::Merge error was: ${MERGE_ERR}"
+              exit 1
+            fi
+            echo "::warning::Regular merge is waiting on required checks. Enabling auto-merge for Homebrew mirror PR #${PR_NUMBER}."
             echo "::warning::Merge error was: ${MERGE_ERR}"
-            gh pr merge "$PR_NUMBER" --squash --delete-branch --admin
+            gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          elif [[ "$REVIEW_DECISION" != "APPROVED" ]] && echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|required approving review|1 approving review'; then
+            echo "::error::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created."
+            echo "::error::Merge error was: ${MERGE_ERR}"
+            exit 1
           else
             echo "::error::Regular merge failed for unexpected reason: ${MERGE_ERR}"
             exit 1
           fi
-          for attempt in $(seq 1 12); do
+          for attempt in $(seq 1 36); do
             PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
             if [[ "$PR_STATE" == "MERGED" ]]; then
               echo "Homebrew mirror PR #${PR_NUMBER} merged."
               exit 0
             fi
-            if [[ "$attempt" -lt 12 ]]; then
-              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/12)..."
-              sleep 5
+            if [[ "$attempt" -lt 36 ]]; then
+              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/36)..."
+              sleep 10
             fi
           done
           echo "::error::Homebrew mirror PR #${PR_NUMBER} did not merge after approval and auto-merge enablement."
