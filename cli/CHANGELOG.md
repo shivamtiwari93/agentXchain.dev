@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.81.0
+
+`2.81.0` ships historical turn replay for audit and drift detection, smarter doctor output with connector handoff hints and plugin health diagnostics.
+
+- New `agentxchain replay turn` command: replay an accepted turn's machine-evidence commands from history for audit and drift detection
+- `agentxchain doctor` now hints to run `connector check` when configured runtimes need live probing
+- `agentxchain doctor` now includes plugin health diagnostics (manifest validation, hook binding checks)
+- `verify turn` and `replay turn` added to both READMEs and `llms.txt` for front-door discoverability
+- `PROTOCOL-v3.md` marked historical with deprecation header pointing to v6
+- `post-twitter.sh` includes retry logic for intermittent X overlay failures
+- 3 stale spec statuses corrected to shipped (config --get, coordinator report narrative, cross-machine restore)
+- 3920+ tests / 843 suites / 0 failures (`cd cli && npm test`)
+
 ## 2.80.0
 
 `2.80.0` ships built-in plugin discovery: bundled plugins install by short name, `plugin list-available` shows what ships with the CLI, and a parity guard ensures bundled copies stay identical to source.
