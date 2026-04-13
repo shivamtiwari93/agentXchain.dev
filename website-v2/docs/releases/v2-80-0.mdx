@@ -1,0 +1,55 @@
+---
+title: "v2.80.0 Release Notes"
+description: "Built-in plugin discovery: short-name install, plugin list-available, and bundle parity proof."
+---
+
+# AgentXchain v2.80.0
+
+`v2.80.0` ships built-in plugin discovery — bundled plugins install by short name, a new `plugin list-available` command shows what ships with the CLI, and a parity guard ensures bundled copies never drift from source.
+
+## What Changed
+
+### Built-In Plugin Discovery
+
+Before this release, `agentxchain plugin install slack-notify` failed for every npm and Homebrew user. The plugin system was documented and advertised, but the actual install path required cloning the repo and pointing at a local directory. This is now fixed:
+
+- **Short-name resolution**: `agentxchain plugin install slack-notify` resolves to the bundled copy shipped with the CLI package. No npm scope, no repo clone, no manual path.
+- **`plugin list-available`**: New command that shows all bundled plugins with descriptions and one-line install commands.
+- **Bundled plugins**: `slack-notify`, `json-report`, and `github-issues` ship inside `cli/builtin-plugins/` and are included in every npm tarball and Homebrew bottle.
+
+### Plugin Docs Updated
+
+All plugin documentation pages now recommend short-name install as the primary path:
+
+```bash
+agentxchain plugin install slack-notify
+agentxchain plugin install json-report
+agentxchain plugin install github-issues
+```
+
+The CLI reference page includes `list-available` in the plugin command table.
+
+### Bundle Parity Guard
+
+Two new proof tests ensure the bundled plugin mechanism stays honest:
+
+- **AT-PLUGIN-BUILTIN-007**: Runs `npm pack --json --dry-run` and verifies the tarball includes all bundled plugin files
+- **AT-PLUGIN-BUILTIN-008**: Asserts `cli/builtin-plugins/*` remains byte-identical to the corresponding `plugins/*` source trees
+
+If either side drifts, the test suite catches it before release.
+
+## Evidence
+
+- 3902 tests / 840 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` — clean production build
+- `agentxchain plugin list-available` — shows 3 plugins with short names
+- `agentxchain plugin install slack-notify --json` — installs from bundled path, source type `builtin`
+- `npm pack --json --dry-run` — tarball includes `builtin-plugins/` directory
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.80.0
+# or
+brew upgrade agentxchain
+```

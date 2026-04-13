@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.80.0
+
+`2.80.0` ships built-in plugin discovery: bundled plugins install by short name, `plugin list-available` shows what ships with the CLI, and a parity guard ensures bundled copies stay identical to source.
+
+- New `agentxchain plugin list-available` command showing all bundled plugins with descriptions and install commands
+- Short-name plugin install: `agentxchain plugin install slack-notify` resolves to the bundled copy before npm fallback
+- Built-in plugins (`slack-notify`, `json-report`, `github-issues`) bundled in `cli/builtin-plugins/` and included in npm tarball
+- Plugin docs updated to recommend short-name install as the primary path
+- CLI docs updated with `list-available` in the plugin command table
+- Bundle parity test: `AT-PLUGIN-BUILTIN-008` asserts `cli/builtin-plugins/*` stays byte-identical to `plugins/*` source trees
+- Tarball proof test: `AT-PLUGIN-BUILTIN-007` validates `npm pack --json --dry-run` includes bundled plugin files
+- 3902 tests / 840 suites / 0 failures (`cd cli && npm test`)
+- Local release proof: builtin discovery tests, bundle parity guard, tarball inclusion proof, full test suite, clean Docusaurus build
+
 ## 2.79.0
 
 `2.79.0` fixes built-in plugin config drift, adds dedicated plugin docs, ships a lights-out scheduling guide, and tightens docs contract boundaries.
