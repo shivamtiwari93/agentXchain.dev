@@ -1,20 +1,25 @@
----
 title: Google Jules
-description: "Connect Google Jules to AgentXchain via the Google API proxy adapter."
+description: "Google Jules does not have a native AgentXchain connector yet; use the Gemini API path today."
 ---
 
 # Google Jules
 
-[Google Jules](https://labs.google/jules) is Google's AI coding agent. Since Jules operates as a cloud service backed by Gemini models, it connects to AgentXchain via the `api_proxy` adapter using Google's Generative AI API.
+[Google Jules](https://jules.google/) is Google's hosted coding agent. Jules now has its own product surfaces, including the web app, the [Jules Tools CLI](https://jules.google/docs/cli/reference/), and the [Jules REST API](https://jules.google/docs/api/reference/). AgentXchain does **not** currently ship a native Jules connector for those surfaces.
+
+This guide documents the **closest supported path today**: run Google models inside AgentXchain via the Gemini / Google Generative AI `api_proxy` provider. That gives you Google model access in governed runs, but it is **not the same thing as connecting to the Jules product directly**.
 
 ## Which adapter?
 
-**`api_proxy`** with `provider: "google"` — AgentXchain sends governed turn prompts directly to Google's Generative AI API using the same Gemini models that power Jules.
+**Supported today:** `api_proxy` with `provider: "google"` — AgentXchain sends governed turn prompts to the Google Generative AI API at `generativelanguage.googleapis.com`.
+
+**Not shipped yet:** a native Jules adapter for the Jules CLI or Jules REST API (`https://jules.googleapis.com/v1alpha`).
 
 ## Prerequisites
 
 - A Google AI API key (`GOOGLE_API_KEY`) — get one from [Google AI Studio](https://aistudio.google.com/)
 - `agentxchain` CLI installed
+
+If you are trying to automate the **actual Jules product**, that is a different auth surface. The Jules REST API uses a Jules-generated API key (commonly exported as `JULES_API_KEY`) from `jules.google.com/settings`, not the Google AI Studio key used below.
 
 ## Configuration
 
@@ -70,6 +75,18 @@ The connector probe sends a test request to the Google Generative AI API to veri
 
 ## Gotchas
 
-- **Jules vs. Gemini API**: Jules is a cloud-hosted agent product; this integration uses the Gemini API directly. You get the same underlying models but not Jules' full agent orchestration — AgentXchain provides the orchestration layer instead.
+- **Jules vs. Gemini API**: do not collapse these into one thing. Jules has its own hosted session model, CLI, and REST API. The current AgentXchain integration here is the Gemini API path only.
+- **Different auth surfaces**: the shipped `provider: "google"` path uses `GOOGLE_API_KEY` with the Google Generative AI API. Jules REST API calls use `x-goog-api-key: $JULES_API_KEY` against `https://jules.googleapis.com/v1alpha`.
+- **Different workflow model**: Jules runs cloud sessions against connected repositories and exposes plans, activities, and artifacts. AgentXchain's current `api_proxy` Google adapter is a prompt/response runtime, not a native Jules session bridge.
 - **API endpoint**: AgentXchain uses `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`. If you need a different endpoint (e.g., Vertex AI), use the `base_url` field to override.
 - **Vertex AI**: For enterprise Google Cloud setups using Vertex AI instead of the public API, set `base_url` to your Vertex endpoint and use the appropriate auth mechanism.
+
+## If you need the real Jules product
+
+Use this guide only if your actual goal is "run Google-hosted models inside AgentXchain." If you need Jules itself, use one of Google's official Jules surfaces instead:
+
+- [Jules web app](https://jules.google/)
+- [Jules Tools CLI](https://jules.google/docs/cli/reference/)
+- [Jules REST API](https://jules.google/docs/api/reference/)
+
+AgentXchain should treat direct Jules integration as a separate future connector slice. It is not already covered by `provider: "google"`.

@@ -62,6 +62,44 @@ describe('Devin guide factual accuracy', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Jules guide must not pretend Gemini API == direct Jules integration
+// ---------------------------------------------------------------------------
+describe('Google Jules guide factual accuracy', () => {
+  const guide = read('website-v2/docs/integrations/google-jules.mdx');
+  const index = read('website-v2/docs/integrations/index.mdx');
+
+  it('FA-JULES-001: must state that direct Jules integration is not yet shipped', () => {
+    assert.match(guide, /does \*\*not\*\* currently ship a native Jules connector|not shipped yet|not currently ship/i,
+      'Jules guide must explicitly say that native Jules integration is not currently shipped');
+  });
+
+  it('FA-JULES-002: must name the Gemini / Google Generative AI path as the supported current path', () => {
+    assert.match(guide, /closest supported path today|Generative AI API|generativelanguage\.googleapis\.com/i,
+      'Jules guide must name the Gemini / Google Generative AI path as the currently supported path');
+  });
+
+  it('FA-JULES-003: must mention Jules REST API or Jules Tools CLI as separate official surfaces', () => {
+    assert.match(guide, /Jules REST API|Jules Tools CLI|jules\.google\/docs\/api\/reference|jules\.google\/docs\/cli\/reference/i,
+      'Jules guide must mention the official Jules API or CLI as separate surfaces');
+  });
+
+  it('FA-JULES-004: must distinguish GOOGLE_API_KEY from JULES_API_KEY auth', () => {
+    assert.match(guide, /GOOGLE_API_KEY[\s\S]*JULES_API_KEY|JULES_API_KEY[\s\S]*GOOGLE_API_KEY/i,
+      'Jules guide must distinguish Gemini auth from Jules auth');
+  });
+
+  it('FA-JULES-005: must not claim provider google is a direct Jules connector', () => {
+    assert.doesNotMatch(guide, /connects to AgentXchain via the `api_proxy` adapter using Google's Generative AI API/i,
+      'Jules guide must not claim that provider google directly connects the Jules product');
+  });
+
+  it('FA-JULES-006: integrations index must clarify that the current path is not a native Jules connector', () => {
+    assert.match(index, /Google Jules.*Gemini path today.*not yet shipped/i,
+      'Integrations index must clarify the Jules entry instead of labeling it as a direct adapter integration');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // FA-5: All guides must have governed bootstrap example
 // ---------------------------------------------------------------------------
 const ALL_GUIDES = [
