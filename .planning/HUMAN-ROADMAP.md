@@ -13,6 +13,33 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [x] Fix the VS Code extension logo/icon on the Marketplace — completed 2026-04-12: replaced the 306-byte placeholder `cli/vscode-extension/media/icon.png` with the website brand mark resized to a real 128x128 PNG (17,596 bytes), added `.planning/VSCODE_MARKETPLACE_ICON_FIX_SPEC.md` plus `AT-VSMP-007` in `cli/test/vscode-marketplace-readiness.test.js`, bumped the extension from `0.1.0` to `0.1.1`, pushed tag `vsce-v0.1.1`, and verified the public Marketplace `latest` VSIX and icon endpoints serve `0.1.1` with the corrected 128x128 icon asset.
+  - The AgentXchain VS Code extension icon is broken or displaying incorrectly on the VS Code Marketplace listing.
+  - Ensure the extension has a proper, clean icon that matches the AgentXchain branding (the X logo used on the website).
+  - The icon must meet VS Code Marketplace requirements (128x128 PNG, square, transparent or solid background).
+  - Update `package.json` in `cli/vscode-extension/` with the correct `icon` field pointing to the image.
+  - After fixing, bump the extension version and push a new `vsce-v*` tag to republish.
+  - Verify the icon renders correctly on the Marketplace listing page and in the VS Code Extensions sidebar.
+
+- [ ] Add OpenClaw integration (both directions)
+  - Delivery split added 2026-04-12 so this stops being a vague blob:
+  - [x] Research official OpenClaw plugin/gateway docs and freeze a repo spec — completed 2026-04-12 in `.planning/OPENCLAW_INTEGRATION_SPEC.md` using `docs.openclaw.ai/plugins/building-plugins`, `docs.openclaw.ai/plugins/sdk-overview`, and `docs.openclaw.ai/gateway/remote`
+  - [ ] Add `website-v2/docs/integrations/openclaw.mdx` with a verified `local_cli` setup path and a `remote_agent` section only if the actual gateway contract is proven
+  - [ ] Build the OpenClaw plugin package exposing `agentxchain_step`, `agentxchain_accept_turn`, and `agentxchain_approve_transition`
+  - [ ] Publish the plugin to ClawHub or log the exact publish blocker if the environment lacks the required account surface
+  - **OpenClaw as a governed agent in AgentXchain:** Connect via `local_cli` (CLI) or `remote_agent` (Gateway REST API on port 18789). Create a docs guide under `/docs/integrations/openclaw/` covering setup, adapter config, and a working example.
+  - **AgentXchain as an OpenClaw plugin:** Build a TypeScript plugin for OpenClaw's plugin system that exposes AgentXchain governance (step, accept-turn, approve-transition) as OpenClaw skills. Publish to ClawHub marketplace if possible.
+  - OpenClaw has 100K+ GitHub stars and is one of the most widely used AI agent platforms — this integration has high visibility value.
+  - Research OpenClaw's plugin SDK docs (docs.openclaw.ai/plugins/building-plugins) before building.
+
+- [ ] Fix confusing docs sidebar nomenclature: "INTEGRATION" vs "INTEGRATIONS"
+  - The docs sidebar currently has two separate menu sections: one called **"INTEGRATION"** and another called **"INTEGRATIONS"** — this is confusing for new visitors.
+  - Come up with better, distinct names that clearly differentiate the two sections. For example:
+    - The architecture/protocol-level integration docs could be called **"Architecture"**, **"Protocol"**, or **"Core Concepts"**
+    - The platform-specific guides (how to use AgentXchain with Cursor, Ollama, etc.) could be called **"Guides"**, **"Platform Guides"**, or **"Connect Your Tools"**
+  - Whatever naming is chosen, it should be immediately obvious what each section contains without having to click into it.
+  - Update the sidebar config, any cross-links, and the sitemap/llms.txt accordingly.
+
 - [x] Fix logo alignment in the end-of-page CTA section (above footer) on the agentxchain.dev homepage — completed 2026-04-12: replaced CTA reuse of `.hero-logo` with CTA-specific `.cta-logo`, added `.planning/WEBSITE_HOMEPAGE_CTA_LOGO_ALIGNMENT_SPEC.md`, added `cli/test/homepage-cta-logo-content.test.js`, and verified the built homepage centers the icon at desktop (`1440x1200`, delta `0px`) and mobile (`390x844`, delta `0px`) widths.
   - The AgentXchain logo/icon in the section just above the footer ("Software is a team sport. Even when the team is AI.") is **left-aligned** instead of **center-aligned**.
   - The logo should be horizontally centered to match the centered text and buttons below it.
