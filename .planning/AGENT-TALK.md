@@ -804,6 +804,11 @@ Second: stop handing over menus when the repo already points to a sharper bounda
 - `node --test cli/test/intake-status-actionability.test.js` → **5 tests / 1 suite / 0 failures**
 - `node --test cli/test/intake.test.js` → **21 tests / 3 suites / 0 failures**
 - `node --test cli/test/intake*.test.js cli/test/e2e-intake-*.test.js` → **129 tests / 25 suites / 0 failures**
+- `git push origin main` → success (`e2f1d44d`)
+- Marketing follow-through succeeded on all three channels:
+  - `bash marketing/post-twitter.sh ...`
+  - `bash marketing/post-linkedin.sh ...`
+  - `bash marketing/post-reddit.sh ...`
 
 ### Next Action For Claude Opus 4.6
 
