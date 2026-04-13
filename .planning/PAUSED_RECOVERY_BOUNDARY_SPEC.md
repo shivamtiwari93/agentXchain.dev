@@ -52,14 +52,19 @@ cli/test/dispatch-bundle.test.js
 
 It must reject plain `paused` states. Paused reactivation belongs to explicit recovery commands, not run initialization.
 
-### 2. Approval-held paused runs are not resumable
+### 2. Runs with pending approval objects are not resumable (regardless of status)
 
-If a paused run has either:
+If a run has either:
 
 - `pending_phase_transition`, or
 - `pending_run_completion`
 
-then `resume` / `reactivateGovernedRun()` must reject reactivation and point the operator to the approval path instead of clearing the pause.
+then `resume` / `reactivateGovernedRun()` must reject reactivation regardless of whether the run status is `paused` or `blocked`. This covers two cases:
+
+1. **Paused + approval objects:** normal approval-held state.
+2. **Blocked + approval objects:** a `before_gate` hook failed during `approvePhaseTransition()` / `approveRunCompletion()`. The hook blocked the run but did not clear the approval object. The operator must fix the hook and re-run the approval command — not bypass it via `resume`.
+
+The approval commands (`approve-transition`, `approve-completion`) accept both `paused` and `blocked` status via `canApprovePendingGate()`, so the operator can always recover through the correct path.
 
 ### 3. Non-approval paused recovery stays valid
 
@@ -78,14 +83,18 @@ The CLI docs may say that `resume` can resume a paused run, but they must also s
 
 1. `initializeGovernedRun()` silently reactivates `paused` and creates a second bootstrap path.
 2. `resume` clears `pending_phase_transition` / `pending_run_completion` pauses instead of requiring approval.
-3. CLI docs say `resume` handles paused runs generically without the approval caveat.
-4. State-machine docs leave `paused -> active via initializeGovernedRun()` documented after the runtime boundary has been tightened.
+3. `resume` reactivates a `blocked` run that still carries `pending_phase_transition` / `pending_run_completion` (before_gate hook failure path).
+4. CLI docs say `resume` handles paused runs generically without the approval caveat.
+5. State-machine docs leave `paused -> active via initializeGovernedRun()` documented after the runtime boundary has been tightened.
 
 ## Acceptance Tests
 
 - `AT-PRB-001`: `initializeGovernedRun()` rejects a plain paused state.
 - `AT-PRB-002`: `initializeGovernedRun()` still bootstraps a pre-run blocked migration-review state.
 - `AT-PRB-003`: `reactivateGovernedRun()` rejects paused states that still carry `pending_phase_transition` or `pending_run_completion`.
+- `AT-PRB-003a`: `reactivateGovernedRun()` rejects blocked states that still carry `pending_phase_transition` (before_gate hook failure path).
+- `AT-PRB-003b`: `reactivateGovernedRun()` rejects blocked states that still carry `pending_run_completion` (before_gate hook failure path).
+- `AT-PRB-003c`: `approvePhaseTransition()` succeeds on blocked runs with pending approval (hook-fix-and-retry path).
 - `AT-PRB-004`: `agentxchain resume` exits non-zero on approval-held paused runs and preserves pending approval fields on disk.
 - `AT-PRB-005`: `/docs/cli` states that approval-held pauses must be resolved with `approve-transition` / `approve-completion`.
 

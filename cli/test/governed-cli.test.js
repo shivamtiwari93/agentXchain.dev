@@ -1255,7 +1255,7 @@ describe('concurrent step invocation detection', () => {
       const result = runCli(dir, ['resume']);
       assert.equal(result.status, 1, 'resume should fail when paused for approval');
       const combined = result.stdout + result.stderr;
-      assert.match(combined, /paused for approval/i);
+      assert.match(combined, /awaiting approval/i);
       assert.match(combined, /approve-transition/);
 
       const finalState = readGovernedState(statePath);
@@ -1283,7 +1283,7 @@ describe('concurrent step invocation detection', () => {
       const result = runCli(dir, ['resume']);
       assert.equal(result.status, 1, 'resume should fail when completion approval is pending');
       const combined = result.stdout + result.stderr;
-      assert.match(combined, /paused for approval/i);
+      assert.match(combined, /awaiting approval/i);
       assert.match(combined, /approve-completion/);
 
       const finalState = readGovernedState(statePath);

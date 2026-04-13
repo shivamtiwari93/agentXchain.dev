@@ -99,8 +99,8 @@ export async function resumeCommand(opts) {
     process.exit(1);
   }
 
-  if (state.status === 'paused' && (state.pending_phase_transition || state.pending_run_completion)) {
-    printRecoverySummary(state, 'This run is paused for approval.');
+  if (state.pending_phase_transition || state.pending_run_completion) {
+    printRecoverySummary(state, 'This run is awaiting approval.');
     process.exit(1);
   }
 

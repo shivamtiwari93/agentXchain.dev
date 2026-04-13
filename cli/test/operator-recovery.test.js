@@ -604,7 +604,7 @@ describe('operator recovery surfaces', () => {
     try {
       const result = runCli(dir, ['step']);
       assert.equal(result.status, 1);
-      assert.match(result.stdout, /paused for approval/i);
+      assert.match(result.stdout, /awaiting approval/i);
       assert.match(result.stdout, /agentxchain approve-transition/);
     } finally {
       rmSync(dir, { recursive: true, force: true });

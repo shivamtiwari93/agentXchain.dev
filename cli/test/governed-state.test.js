@@ -341,6 +341,44 @@ describe('reactivateGovernedRun', () => {
     assert.equal(result.ok, false);
     assert.match(result.error, /awaiting approval/);
   });
+
+  it('rejects blocked runs that still carry pending approval objects (hook-failure path)', () => {
+    // Simulates: approve-transition fires a before_gate hook that fails,
+    // blockRunForHookIssue sets status='blocked' but preserves pending_phase_transition.
+    // reactivateGovernedRun must still reject — otherwise resume bypasses the approval gate.
+    const state = readJson(dir, '.agentxchain/state.json');
+    state.run_id = 'run_hook_blocked';
+    state.status = 'blocked';
+    state.blocked_on = 'hook:before_gate:lint_gate';
+    state.pending_phase_transition = {
+      from: 'planning',
+      to: 'implementation',
+      gate: 'planning_signoff',
+      requested_by_turn: 'turn_456',
+    };
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+
+    const result = reactivateGovernedRun(dir, state);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /awaiting approval/);
+  });
+
+  it('rejects blocked runs with pending_run_completion (hook-failure path)', () => {
+    const state = readJson(dir, '.agentxchain/state.json');
+    state.run_id = 'run_completion_blocked';
+    state.status = 'blocked';
+    state.blocked_on = 'hook:before_gate:security_check';
+    state.pending_run_completion = {
+      gate: 'final_review',
+      requested_by_turn: 'turn_789',
+      requested_at: new Date().toISOString(),
+    };
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+
+    const result = reactivateGovernedRun(dir, state);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /awaiting approval/);
+  });
 });
 
 // ── Tests: assignGovernedTurn ────────────────────────────────────────────────
@@ -2118,6 +2156,37 @@ echo '{"verdict":"allow"}'`);
     const result = approvePhaseTransition(dir);
     assert.ok(result.ok);
     assert.equal(result.state.phase, 'implementation');
+  });
+
+  it('approve-transition succeeds on blocked run with pending approval (hook-fix-and-retry)', () => {
+    // Simulates: approve-transition failed due to before_gate hook, run is now blocked
+    // with pending_phase_transition preserved. Operator fixes the hook, re-runs approve-transition.
+    // canApprovePendingGate accepts both 'paused' and 'blocked', so this must succeed.
+    const state = {
+      run_id: 'run_hook_retry',
+      project_id: 'test',
+      schema_version: '1.0',
+      status: 'blocked',
+      phase: 'planning',
+      current_turn: null,
+      blocked_on: 'hook:before_gate:compliance_check',
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+        requested_by_turn: 'turn_abc',
+      },
+    };
+    writeFileSync(join(dir, STATE_PATH), JSON.stringify(state));
+    writeFileSync(join(dir, HISTORY_PATH), '');
+
+    // No hooks configured = operator removed the broken hook
+    const result = approvePhaseTransition(dir);
+    assert.ok(result.ok, 'Blocked run with pending approval should be approvable after hook fix');
+    assert.equal(result.state.status, 'active');
+    assert.equal(result.state.phase, 'implementation');
+    assert.equal(result.state.pending_phase_transition, null);
+    assert.equal(result.state.blocked_on, null);
   });
 });
 

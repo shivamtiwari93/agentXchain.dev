@@ -1777,8 +1777,8 @@ export function reactivateGovernedRun(root, state, details = {}) {
   if (state.status !== 'blocked' && state.status !== 'paused') {
     return { ok: false, error: `Cannot reactivate run: status is "${state.status}", expected "blocked" or "paused".` };
   }
-  if (state.status === 'paused' && (state.pending_phase_transition || state.pending_run_completion)) {
-    return { ok: false, error: 'Cannot reactivate run: this paused run is awaiting approval. Use approve-transition or approve-completion.' };
+  if (state.pending_phase_transition || state.pending_run_completion) {
+    return { ok: false, error: 'Cannot reactivate run: this run is awaiting approval. Use approve-transition or approve-completion.' };
   }
 
   const now = new Date().toISOString();
