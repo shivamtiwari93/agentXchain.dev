@@ -38,6 +38,7 @@ import {
 } from '../lib/turn-paths.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
+import { summarizeRunProvenance } from '../lib/run-provenance.js';
 
 export async function resumeCommand(opts) {
   const context = loadProjectContext();
@@ -128,6 +129,7 @@ export async function resumeCommand(opts) {
 
     const turnStatus = retainedTurn.status;
     if (turnStatus === 'failed' || turnStatus === 'retrying') {
+      printResumeRunContext({ root, state, config });
       console.log(chalk.yellow(`Re-dispatching failed turn: ${retainedTurn.turn_id}`));
       console.log(`  Role:    ${retainedTurn.assigned_role}`);
       console.log(`  Attempt: ${retainedTurn.attempt}`);
@@ -187,6 +189,7 @@ export async function resumeCommand(opts) {
       process.exit(1);
     }
 
+    printResumeRunContext({ root, state, config });
     console.log(chalk.yellow(`Re-dispatching blocked turn: ${retainedTurn.turn_id}`));
     console.log(`  Role:    ${retainedTurn.assigned_role}`);
     console.log(`  Attempt: ${retainedTurn.attempt}`);
@@ -251,6 +254,9 @@ export async function resumeCommand(opts) {
     console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
   }
 
+  // Print run-context header before dispatch
+  printResumeRunContext({ root, state, config });
+
   // Resolve target role
   const roleId = resolveTargetRole(opts, state, config);
   if (!roleId) {
@@ -301,6 +307,53 @@ export async function resumeCommand(opts) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function printResumeRunContext({ root, state, config }) {
+  console.log('');
+  console.log(chalk.cyan.bold('agentxchain resume'));
+  console.log(`  ${chalk.dim('Run:')}      ${state?.run_id || '(uninitialized)'}`);
+  console.log(`  ${chalk.dim('Phase:')}    ${state?.phase || '(unknown)'}`);
+
+  const provenanceSummary = summarizeRunProvenance(state?.provenance);
+  if (provenanceSummary) {
+    console.log(`  ${chalk.dim('Origin:')}   ${chalk.magenta(provenanceSummary)}`);
+  }
+
+  if (state?.inherited_context?.parent_run_id) {
+    console.log(
+      `  ${chalk.dim('Inherits:')} ${chalk.magenta(
+        `parent ${state.inherited_context.parent_run_id} (${state.inherited_context.parent_status || 'unknown'})`
+      )}`
+    );
+  }
+
+  const activeGate = config?.routing?.[state?.phase]?.exit_gate || null;
+  if (activeGate) {
+    const gateStatus = state?.phase_gate_status?.[activeGate] || 'pending';
+    console.log(`  ${chalk.dim('Gate:')}     ${activeGate} (${gateStatus})`);
+
+    if (gateStatus !== 'passed') {
+      const gateDef = config?.gates?.[activeGate];
+      if (Array.isArray(gateDef?.requires_files) && gateDef.requires_files.length > 0) {
+        const fileChecks = gateDef.requires_files.map((filePath) => {
+          const exists = existsSync(join(root, filePath));
+          const shortPath = filePath.replace(/^\.planning\//, '');
+          return exists ? chalk.green(shortPath) : chalk.red(shortPath);
+        });
+        console.log(`  ${chalk.dim('Files:')}    ${fileChecks.join(chalk.dim(', '))}`);
+      }
+
+      const requirements = [];
+      if (gateDef?.requires_human_approval) requirements.push('human approval');
+      if (gateDef?.requires_verification_pass) requirements.push('verification pass');
+      if (requirements.length > 0) {
+        console.log(`  ${chalk.dim('Needs:')}    ${requirements.join(', ')}`);
+      }
+    }
+  }
+
+  console.log('');
+}
 
 function resolveTargetRole(opts, state, config) {
   const phase = state.phase;
