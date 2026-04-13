@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.83.0
+# Launch Evidence Report — AgentXchain v2.84.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.83.0 release: actionable gate detail in `status`, actionable `intake status`, and provenance-aware run-context headers across `run`, `step`, and `resume`.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.84.0 release: remote gate-warning parity in `validate`, workflow-backed governed-todo proof in CI, and explicit `api_proxy` model-compatibility/extraction contract evidence.
 
 ---
 

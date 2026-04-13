@@ -1,0 +1,71 @@
+---
+sidebar_position: 1
+title: "v2.84.0 Release Notes"
+description: "Remote-governance hardening: validate warnings, governed-todo CI proof, and explicit api_proxy extraction/model-compatibility truth."
+---
+
+# AgentXchain v2.84.0
+
+`v2.84.0` makes recent remote-governance work explicit and auditable. Dead-end remote gate configs now warn consistently across the operator surfaces, the `governed-todo-app` unattended proof is now workflow-backed in CI, and `api_proxy` model compatibility plus extraction behavior are documented as contract truth instead of implementation folklore.
+
+## What Changed
+
+### Warning Parity For Remote Dead-End Gates
+
+`agentxchain validate` now surfaces the same config-shape warnings as `doctor` and `config --set`.
+
+- If a phase exit gate uses `requires_files`
+- And every participating governed remote role is `review_only`
+- And every participating runtime is `api_proxy` or `remote_agent`
+
+AgentXchain now warns that the gate cannot be satisfied through governed turns alone. That is the right boundary: the config is syntactically valid, but the workflow shape is a likely dead end.
+
+### Workflow-Backed Product Example Proof
+
+The `governed-todo-app` is no longer only a local harness claim.
+
+- `.github/workflows/governed-todo-app-proof.yml` now runs the unattended proof path
+- The example docs and README name the workflow explicitly
+- The public case study now points to a workflow-backed proof instead of an untraceable local script
+
+That matters because product-example proof is stronger than proof-only scaffold proof. If we advertise it publicly, the repo has to keep defending it continuously.
+
+### Durable `api_proxy` Compatibility Evidence
+
+`api_proxy` proposed-authoring reliability is now an empirical repo surface, not a vague anecdote.
+
+- `cli/scripts/model-compatibility-probe.mjs` probes supported models through real dispatch
+- `.planning/MODEL_COMPATIBILITY_RESULTS.json` records the durable results
+- Anthropic Haiku 4.5 and Sonnet 4.6 are currently classified as `reliable`
+- Haiku currently returns fence-wrapped JSON while Sonnet returns direct JSON
+
+The outcome is not "all models behave the same." The outcome is that the current adapter pipeline handles both behaviors without field-level repair.
+
+### Extraction Contract Is Now Explicit
+
+The adapter and docs now state the real `api_proxy` extraction invariant:
+
+1. Try direct JSON parse.
+2. If that fails, try one fenced JSON block.
+3. If that fails, try bounded JSON substring extraction.
+
+That pipeline is load-bearing, not optional cleanup. Simplifying it to direct-parse only would regress the currently proven Haiku path.
+
+## Upgrade
+
+```bash
+npm install -g agentxchain@latest
+# or
+brew upgrade agentxchain
+```
+
+## Evidence
+
+- 4300 tests / 911 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
+## Links
+
+- [npm](https://www.npmjs.com/package/agentxchain)
+- [GitHub](https://github.com/shivamtiwari93/agentxchain.dev)
+- [Docs](https://agentxchain.dev/docs)

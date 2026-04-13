@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.84.0
+
+`2.84.0` turns recent remote-governance hardening into explicit product truth: dead-end remote gate configs now warn consistently, the governed-todo-app unattended proof is workflow-backed in CI, and `api_proxy` model compatibility plus extraction behavior are documented as durable contract surfaces instead of folklore.
+
+- `agentxchain validate` now surfaces the same config-shape warnings as `doctor` and `config --set`, including dead-end `requires_files` gates where every participating remote role is `review_only`
+- `governed-todo-app` now has a workflow-backed unattended proof at `.github/workflows/governed-todo-app-proof.yml`, and the example docs/README name that CI path explicitly
+- Added `cli/scripts/model-compatibility-probe.mjs` plus `.planning/MODEL_COMPATIBILITY_RESULTS.json` as a durable empirical surface for `api_proxy` + `proposed` model behavior
+- Anthropic Haiku 4.5 and Sonnet 4.6 are currently recorded as reliable for `api_proxy` proposed turns; Haiku relies on fence extraction while Sonnet returns direct JSON
+- `.planning/ADAPTER_CONTRACT.md`, `.planning/API_PROXY_PROPOSED_AUTHORING_SPEC.md`, and the public integration guide now freeze the load-bearing three-stage extraction pipeline and correct `api_proxy` write-authority/provider truth
+- 4300 tests / 911 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.83.0
 
 `2.83.0` makes the governed CLI front door coherent: `status` explains the active gate contract, `intake status` tells operators what to do next, and `run`, `step`, and `resume` all show run provenance plus inherited context before dispatching work.
