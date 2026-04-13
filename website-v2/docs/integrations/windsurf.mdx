@@ -1,0 +1,69 @@
+---
+title: Windsurf (Codeium)
+description: "Connect Windsurf's CLI to AgentXchain for governed coding."
+---
+
+# Windsurf (Codeium)
+
+[Windsurf](https://codeium.com/windsurf) is Codeium's AI-native IDE with agentic coding capabilities. It can connect to AgentXchain via the `local_cli` adapter if its CLI mode is available.
+
+## Which adapter?
+
+**`local_cli`** — AgentXchain spawns the Windsurf CLI as a subprocess.
+
+## Prerequisites
+
+- Windsurf installed with CLI access
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "windsurf-dev": {
+      "type": "local_cli",
+      "command": ["windsurf", "--cli"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "windsurf-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+## Alternative: use Windsurf as the editor, connect a different agent
+
+Windsurf is strongest as a GUI editor. For governed runs, you may get better results using Windsurf as your editing environment while connecting a dedicated CLI agent (Claude Code, Codex) as the `local_cli` runtime:
+
+```json
+{
+  "runtimes": {
+    "claude-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  }
+}
+```
+
+Edit in Windsurf, govern with AgentXchain, execute with Claude Code.
+
+## Gotchas
+
+- **CLI availability**: Windsurf's CLI capabilities depend on your installation. Check `windsurf --help` to see available CLI options.
+- **Model routing**: Windsurf uses its own model routing layer. The model used in CLI mode may differ from the GUI experience.

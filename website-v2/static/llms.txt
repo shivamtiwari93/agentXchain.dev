@@ -48,6 +48,15 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Integration Guide](https://agentxchain.dev/docs/integration-guide): Connect any agent to AgentXchain governance — HTTP services, MCP servers, or direct LLM APIs. Three proven patterns with real evidence.
 - [Adapters](https://agentxchain.dev/docs/adapters): Provider adapters for Anthropic, OpenAI, and custom LLMs.
 - [Build Your Own Connector](https://agentxchain.dev/docs/build-your-own-connector): Step-by-step tutorial to build a minimal HTTP agent connector, wire it into governance, and prove it works.
+- [Integrations Hub](https://agentxchain.dev/docs/integrations): Platform-specific setup guides for all supported IDEs, model runners, and API providers.
+- [Claude Code Integration](https://agentxchain.dev/docs/integrations/claude-code): Connect Claude Code via local_cli adapter.
+- [OpenAI Codex CLI Integration](https://agentxchain.dev/docs/integrations/openai-codex-cli): Connect Codex CLI via local_cli adapter.
+- [VS Code Integration](https://agentxchain.dev/docs/integrations/vscode): Official VS Code extension + local CLI agents.
+- [Ollama Integration](https://agentxchain.dev/docs/integrations/ollama): Run local models via Ollama's OpenAI-compatible API.
+- [Anthropic Integration](https://agentxchain.dev/docs/integrations/anthropic): Claude Opus 4.6, Sonnet 4.6, Haiku 4.5 via api_proxy.
+- [OpenAI Integration](https://agentxchain.dev/docs/integrations/openai): GPT-5.4, GPT-5.3-Codex, GPT-OSS via api_proxy.
+- [Google Integration](https://agentxchain.dev/docs/integrations/google): Gemini 3.1 Pro, Flash, Gemma 4 via api_proxy.
+- [MCP Integration](https://agentxchain.dev/docs/integrations/mcp): Any MCP-compatible agent via stdio or Streamable HTTP.
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
 - [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.

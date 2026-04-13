@@ -1,0 +1,106 @@
+---
+title: Ollama
+description: "Run AgentXchain with local models via Ollama."
+---
+
+# Ollama
+
+[Ollama](https://ollama.com) runs open-source LLMs locally on your machine. It exposes an OpenAI-compatible API at `localhost:11434`, which AgentXchain connects to via the `api_proxy` adapter.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "ollama"` — AgentXchain sends governed turn prompts to Ollama's local OpenAI-compatible endpoint.
+
+## Prerequisites
+
+- Ollama installed (`brew install ollama` or download from [ollama.com](https://ollama.com))
+- A model pulled (`ollama pull qwen3:32b` or your preferred coding model)
+- Ollama server running (`ollama serve`)
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "ollama-dev": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "qwen3:32b",
+      "auth_env": "OLLAMA_API_KEY"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "ollama-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Auth note
+
+Ollama doesn't require an API key by default. Set a dummy value:
+
+```bash
+export OLLAMA_API_KEY="ollama"
+```
+
+The `auth_env` field is required by the adapter contract, but Ollama ignores the value.
+
+## Recommended coding models
+
+| Model | Size | Best for |
+|-------|------|----------|
+| `qwen3-coder:32b` | 32B | Best local coding model |
+| `deepseek-coder-v3:33b` | 33B | Strong code generation |
+| `codestral:22b` | 22B | Fast Mistral coding model |
+| `llama4-scout:17b` | 17B | Meta's efficient coding model |
+
+## Verify the connection
+
+```bash
+ollama serve &  # ensure server is running
+export OLLAMA_API_KEY="ollama"
+agentxchain connector check
+```
+
+## Minimal working example
+
+```bash
+ollama pull qwen3:32b
+ollama serve &
+export OLLAMA_API_KEY="ollama"
+
+mkdir my-project && cd my-project
+agentxchain init --governed --template cli-tool --goal "Build a file renamer" -y
+git init && git add -A && git commit -m "initial scaffold"
+agentxchain run
+```
+
+## Custom endpoint
+
+If Ollama runs on a different host or port:
+
+```json
+{
+  "runtimes": {
+    "ollama-remote": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "qwen3:32b",
+      "auth_env": "OLLAMA_API_KEY",
+      "base_url": "http://192.168.1.100:11434/v1/chat/completions"
+    }
+  }
+}
+```
+
+## Gotchas
+
+- **Model size vs. quality**: Larger models produce better governed turn results but are slower. For QA/review roles, smaller models (7B-14B) may suffice. For implementation roles, use 32B+ models.
+- **Context window**: Most Ollama models have 4K-32K context windows. AgentXchain dispatch bundles can be large. Check your model's context limit and set `budget.max_tokens_per_turn` accordingly.
+- **No internet required**: Ollama runs entirely locally. This is ideal for air-gapped environments or privacy-sensitive codebases.
+- **GPU memory**: Ensure you have enough VRAM for your chosen model. 32B models typically need 20GB+ VRAM.

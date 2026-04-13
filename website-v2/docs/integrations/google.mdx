@@ -1,0 +1,100 @@
+---
+title: Google
+description: "Connect Google Gemini models to AgentXchain via the Generative AI API."
+---
+
+# Google
+
+[Google](https://ai.google.dev/) provides the Gemini model family. AgentXchain connects via the `api_proxy` adapter using Google's Generative AI API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "google"` — AgentXchain sends governed turn prompts to Google's `generateContent` endpoint.
+
+## Prerequisites
+
+- A Google AI API key — get one from [Google AI Studio](https://aistudio.google.com/)
+- `GOOGLE_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "gemini-dev": {
+      "type": "api_proxy",
+      "provider": "google",
+      "model": "gemini-3.1-pro",
+      "auth_env": "GOOGLE_API_KEY"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "gemini-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `gemini-3.1-pro` | Most capable — complex coding, long context |
+| `gemini-3.0-flash` | Fast balanced model |
+| `gemini-3.1-flash-lite` | High-volume, cost-sensitive roles |
+
+### Gemma (open-weight)
+
+Google's open-weight Gemma models can be run locally via [Ollama](/docs/integrations/ollama):
+
+```bash
+ollama pull gemma4
+```
+
+```json
+{
+  "runtimes": {
+    "gemma-dev": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "gemma4",
+      "auth_env": "OLLAMA_API_KEY"
+    }
+  }
+}
+```
+
+## Vertex AI (enterprise)
+
+For Google Cloud enterprise deployments using Vertex AI:
+
+```json
+{
+  "runtimes": {
+    "vertex-dev": {
+      "type": "api_proxy",
+      "provider": "google",
+      "model": "gemini-3.1-pro",
+      "auth_env": "GOOGLE_API_KEY",
+      "base_url": "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT/locations/us-central1/publishers/google/models/gemini-3.1-pro:generateContent"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export GOOGLE_API_KEY="AIza..."
+agentxchain connector check
+```
+
+## Gotchas
+
+- **API key vs. OAuth**: The `auth_env` approach uses API keys (simplest). For Vertex AI with service accounts, you may need a wrapper that exchanges OAuth tokens.
+- **Long context**: Gemini Pro supports very large context windows (1M+ tokens), making it well-suited for large dispatch bundles with extensive codebase context.
+- **Safety filters**: Google's API applies safety filters that may block certain prompts. If a governed turn fails with a safety filter block, the adapter reports it as an extraction failure with the block reason.

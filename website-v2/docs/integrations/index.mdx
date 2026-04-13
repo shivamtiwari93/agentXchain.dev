@@ -1,0 +1,57 @@
+---
+sidebar_position: 1
+title: Integrations
+description: "Connect AgentXchain to any IDE, agent platform, local model runner, or API provider."
+---
+
+# Integrations
+
+AgentXchain is agent/IDE/LLM agnostic by design. The five adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) support virtually every connection pattern. These guides show you exactly how to connect your preferred platform.
+
+## How it works
+
+Every agent connects through a **runtime** configured in your `agentxchain.json`. Each runtime uses one of five adapter types:
+
+| Adapter | When to use | Transport |
+|---------|------------|-----------|
+| `manual` | Human-in-the-loop roles | Operator reads prompt, writes result file |
+| `local_cli` | Local CLI tools (Claude Code, Codex, Cursor) | Subprocess stdin/argv |
+| `api_proxy` | Direct LLM API calls | HTTP to provider endpoint |
+| `mcp` | MCP-compatible agent servers | stdio or Streamable HTTP |
+| `remote_agent` | External agent services (Devin, custom) | HTTP POST/response |
+
+Pick the guide for your platform below. Each is standalone — you only need the guides relevant to your setup.
+
+---
+
+## IDE / Agent Platforms
+
+- [Claude Code](/docs/integrations/claude-code) — `local_cli` via `claude -p`
+- [OpenAI Codex CLI](/docs/integrations/openai-codex-cli) — `local_cli` via `codex`
+- [Cursor](/docs/integrations/cursor) — `local_cli`
+- [VS Code](/docs/integrations/vscode) — Extension + `local_cli`
+- [Windsurf (Codeium)](/docs/integrations/windsurf) — `local_cli`
+- [Google Jules](/docs/integrations/google-jules) — `api_proxy` (Google)
+- [Devin](/docs/integrations/devin) — `remote_agent` (HTTP)
+
+## Local Model Runners
+
+- [Ollama](/docs/integrations/ollama) — `api_proxy` via `localhost:11434/v1`
+- [MLX (Apple Silicon)](/docs/integrations/mlx) — `api_proxy` via `mlx-lm.server`
+
+## API Providers
+
+- [Anthropic](/docs/integrations/anthropic) — Claude Opus 4.6, Sonnet 4.6, Haiku 4.5
+- [OpenAI](/docs/integrations/openai) — GPT-5.4, GPT-5.3-Codex, GPT-OSS
+- [Google](/docs/integrations/google) — Gemini 3.1 Pro, Flash, Gemma 4
+- [DeepSeek](/docs/integrations/deepseek) — V3.2, R2, Coder-V3
+- [Mistral AI](/docs/integrations/mistral) — Devstral 2, Codestral, Leanstral
+- [xAI](/docs/integrations/xai) — Grok 4.20 Beta 2, Grok Code Fast 1
+- [Amazon Bedrock](/docs/integrations/amazon) — Nova 2 Pro, Nova 2 Lite, Nova Premier
+- [Qwen (Alibaba)](/docs/integrations/qwen) — Qwen3-Coder-480B, Qwen3.6-Plus
+- [Groq](/docs/integrations/groq) — Ultra-fast inference for GPT-OSS, Qwen3, Llama 4
+- [Cohere](/docs/integrations/cohere) — Command A Reasoning, Command R+
+
+## Protocol Native
+
+- [MCP (Model Context Protocol)](/docs/integrations/mcp) — Any MCP-compatible agent via stdio or HTTP

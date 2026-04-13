@@ -1,0 +1,76 @@
+---
+title: Claude Code
+description: "Connect Claude Code to AgentXchain as a governed local CLI agent."
+---
+
+# Claude Code
+
+[Claude Code](https://claude.ai/code) is Anthropic's agentic coding tool that runs in your terminal. It connects to AgentXchain via the `local_cli` adapter, running `claude` as a subprocess for each governed turn.
+
+## Which adapter?
+
+**`local_cli`** — AgentXchain spawns `claude` as a subprocess, pipes the governed prompt via stdin, and reads the turn result from the staged output.
+
+## Prerequisites
+
+- Claude Code installed and available on your `PATH` (`claude --version`)
+- `agentxchain` CLI installed (`npm install -g agentxchain`)
+- An `ANTHROPIC_API_KEY` set in your environment (Claude Code uses this for model access)
+
+## Configuration
+
+Add a runtime to your `agentxchain.json`:
+
+```json
+{
+  "runtimes": {
+    "claude-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "claude-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Key fields
+
+| Field | Value | Why |
+|-------|-------|-----|
+| `command` | `["claude", "--print", "--dangerously-skip-permissions"]` | `--print` outputs to stdout (non-interactive). `--dangerously-skip-permissions` lets Claude write files without confirmation prompts. |
+| `prompt_transport` | `"stdin"` | The governed prompt is piped to Claude Code's stdin. |
+| `cwd` | `"."` | Run in the project root so Claude Code sees your repo. |
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+This probes that the `claude` binary exists on your PATH. If it fails, check your Claude Code installation.
+
+## Minimal working example
+
+```bash
+mkdir my-project && cd my-project
+agentxchain init --governed --template cli-tool --goal "Build a markdown linter" -y
+git init && git add -A && git commit -m "initial scaffold"
+agentxchain run
+```
+
+The governed run will dispatch turns to Claude Code via subprocess. Each turn receives the full dispatch bundle (prompt, context, assignment) via stdin.
+
+## Gotchas
+
+- **`--dangerously-skip-permissions` is required** for non-interactive governed runs. Without it, Claude Code will prompt for file-write confirmation and the subprocess will hang.
+- **`--print` is required** to get stdout output instead of the interactive TUI.
+- **Token budgets**: Claude Code manages its own context window internally. AgentXchain's `budget.max_tokens_per_turn` controls the prompt size sent to Claude Code, not Claude Code's internal context management.
+- **Long-running turns**: Claude Code may take several minutes for complex tasks. Set `timeouts.turn_timeout_ms` appropriately (default is 300000ms / 5 minutes).

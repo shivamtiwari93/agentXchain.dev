@@ -1,0 +1,97 @@
+---
+title: DeepSeek
+description: "Connect DeepSeek coding models to AgentXchain."
+---
+
+# DeepSeek
+
+[DeepSeek](https://deepseek.com) builds high-performance coding models. AgentXchain connects via `api_proxy` using DeepSeek's OpenAI-compatible API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "openai"` and a custom `base_url` — DeepSeek's API is OpenAI-compatible.
+
+## Prerequisites
+
+- A DeepSeek API key — get one from [platform.deepseek.com](https://platform.deepseek.com/)
+- `DEEPSEEK_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "deepseek-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "deepseek-coder-v3",
+      "auth_env": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com/v1/chat/completions"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "deepseek-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `deepseek-v3.2` | General-purpose, strong reasoning |
+| `deepseek-r2` | Deep reasoning, complex architecture |
+| `deepseek-coder-v3` | Optimized for code generation |
+
+## Local via Ollama
+
+DeepSeek models are open-weight and can run locally:
+
+```bash
+ollama pull deepseek-coder-v3:33b
+```
+
+```json
+{
+  "runtimes": {
+    "deepseek-local": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "deepseek-coder-v3:33b",
+      "auth_env": "OLLAMA_API_KEY"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+agentxchain connector check
+```
+
+## Budget configuration
+
+DeepSeek models are not in the bundled cost defaults. Supply rates via operator config:
+
+```json
+{
+  "budget": {
+    "cost_rates": {
+      "deepseek-coder-v3": { "input_per_million": 0.14, "output_per_million": 0.28 }
+    }
+  }
+}
+```
+
+## Gotchas
+
+- **OpenAI-compatible**: DeepSeek uses OpenAI's API format. Set `provider: "openai"` with a `base_url` override.
+- **Pricing**: DeepSeek models are significantly cheaper than comparable proprietary models. Good for high-volume governed runs.
+- **Rate limits**: DeepSeek applies rate limits. Check your account tier.

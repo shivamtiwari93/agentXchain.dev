@@ -1,0 +1,77 @@
+---
+title: VS Code
+description: "Use AgentXchain inside VS Code with the official extension and local CLI agents."
+---
+
+# VS Code
+
+VS Code connects to AgentXchain in two ways: the **official VS Code extension** for in-editor governance (status, approvals, notifications) and a **local CLI agent** (Claude Code, Codex, Copilot CLI, or Cline) for the actual coding work.
+
+## The extension
+
+The [AgentXchain VS Code extension](https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain) adds governed operations directly inside VS Code:
+
+- **Status sidebar**: live run state, turn history, pending gates
+- **Approval actions**: approve phase transitions and run completions without leaving the editor
+- **Step/run launch**: dispatch governed steps or start runs from the command palette
+- **Notifications**: real-time alerts when gates open, turns complete, or runs block
+- **Reports**: full governance report rendered in-editor
+- **Dashboard launch**: open the browser dashboard from VS Code
+
+### Install the extension
+
+Search for "AgentXchain" in the VS Code Extensions panel, or install from the [Marketplace](https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain).
+
+The extension activates automatically when it detects an `agentxchain.json` in your workspace.
+
+## The coding agent
+
+The extension provides governance UI, but the actual coding work is done by a local CLI agent. Configure any of these as your `local_cli` runtime:
+
+- [Claude Code](/docs/integrations/claude-code) — `claude --print`
+- [OpenAI Codex CLI](/docs/integrations/openai-codex-cli) — `codex --full-auto`
+- [Cline](https://github.com/cline/cline) — Cline's CLI mode
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line) — `gh copilot`
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "manual-pm": {
+      "type": "manual"
+    },
+    "local-dev": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    },
+    "api-qa": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    }
+  },
+  "roles": {
+    "pm": { "runtime": "manual-pm", "mandate": "Define requirements", "authority": "authoritative" },
+    "dev": { "runtime": "local-dev", "mandate": "Implement features", "authority": "proposed" },
+    "qa": { "runtime": "api-qa", "mandate": "Review and test", "authority": "review_only" }
+  }
+}
+```
+
+## Workflow
+
+1. Open your governed project in VS Code
+2. The AgentXchain sidebar activates, showing current run state
+3. Use the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) to run AgentXchain commands
+4. Approve phase transitions and completions via notification popups or the sidebar
+5. Monitor turn progress in the sidebar dashboard
+
+## Gotchas
+
+- **Extension requires the CLI**: The extension calls `agentxchain` CLI commands under the hood. Install the CLI first (`npm install -g agentxchain`).
+- **Multi-root workspaces**: The extension activates for the first workspace folder containing `agentxchain.json`.
+- **Notifications are file-watcher driven**: State changes are detected by watching `.agentxchain/` directory changes — no polling.

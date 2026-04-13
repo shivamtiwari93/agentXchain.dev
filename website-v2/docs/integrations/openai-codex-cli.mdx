@@ -1,0 +1,68 @@
+---
+title: OpenAI Codex CLI
+description: "Connect OpenAI Codex CLI to AgentXchain as a governed local agent."
+---
+
+# OpenAI Codex CLI
+
+[Codex CLI](https://github.com/openai/codex) is OpenAI's open-source agentic coding tool. It connects to AgentXchain via the `local_cli` adapter.
+
+## Which adapter?
+
+**`local_cli`** — AgentXchain spawns `codex` as a subprocess for each governed turn.
+
+## Prerequisites
+
+- Codex CLI installed (`npm install -g @openai/codex`)
+- `OPENAI_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "codex-dev": {
+      "type": "local_cli",
+      "command": ["codex", "--quiet", "--full-auto"],
+      "cwd": ".",
+      "prompt_transport": "argv"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "codex-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Key fields
+
+| Field | Value | Why |
+|-------|-------|-----|
+| `command` | `["codex", "--quiet", "--full-auto"]` | `--quiet` suppresses interactive output. `--full-auto` allows file writes without confirmation. |
+| `prompt_transport` | `"argv"` | The prompt is passed as a command-line argument. Use `"stdin"` if your Codex version supports piped input. |
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+## Minimal working example
+
+```bash
+mkdir my-project && cd my-project
+agentxchain init --governed --template cli-tool --goal "Build a JSON schema validator" -y
+git init && git add -A && git commit -m "initial scaffold"
+agentxchain run
+```
+
+## Gotchas
+
+- **`--full-auto` is required** for non-interactive governed execution. Without it, Codex will prompt for approval on file changes.
+- **Model selection**: Codex CLI defaults to a Codex-optimized model. You can override with `--model gpt-5.4` if needed, but the default is usually better for coding tasks.
+- **Working directory**: Codex CLI operates on the current working directory. The `cwd` field ensures it runs in your project root.

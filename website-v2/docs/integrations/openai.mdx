@@ -1,0 +1,113 @@
+---
+title: OpenAI
+description: "Connect OpenAI models (GPT-5.4, GPT-5.3-Codex, GPT-OSS) to AgentXchain."
+---
+
+# OpenAI
+
+[OpenAI](https://openai.com) provides the GPT model family. AgentXchain connects via the `api_proxy` adapter using the Chat Completions API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "openai"` — AgentXchain sends governed turn prompts to OpenAI's Chat Completions endpoint.
+
+## Prerequisites
+
+- An OpenAI API key — get one from [platform.openai.com](https://platform.openai.com/)
+- `OPENAI_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "gpt-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "gpt-5.4",
+      "auth_env": "OPENAI_API_KEY"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "gpt-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `gpt-5.4` | Most capable — complex coding, architecture |
+| `gpt-5.3-codex` | Optimized for code generation |
+| `gpt-5.2-codex` | Code generation, lower cost |
+| `gpt-oss-120b` | Open-weight, self-hostable |
+| `gpt-oss-20b` | Lightweight open-weight model |
+
+## Codex-family models
+
+For coding-specific tasks, use the Codex-optimized models:
+
+```json
+{
+  "runtimes": {
+    "codex-impl": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "gpt-5.3-codex",
+      "auth_env": "OPENAI_API_KEY"
+    }
+  }
+}
+```
+
+## Custom endpoint (Azure OpenAI)
+
+For Azure OpenAI Service deployments:
+
+```json
+{
+  "runtimes": {
+    "azure-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "your-deployment-name",
+      "auth_env": "AZURE_OPENAI_API_KEY",
+      "base_url": "https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-01"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export OPENAI_API_KEY="sk-..."
+agentxchain connector check
+```
+
+## Budget configuration
+
+To supply custom cost rates for models not in the bundled defaults:
+
+```json
+{
+  "budget": {
+    "max_cost_per_run": 10.00,
+    "cost_rates": {
+      "gpt-5.4": { "input_per_million": 5.00, "output_per_million": 15.00 }
+    }
+  }
+}
+```
+
+## Gotchas
+
+- **Model naming**: OpenAI model names change frequently. Check the [OpenAI models page](https://platform.openai.com/docs/models) for current model IDs.
+- **GPT-OSS models**: The open-weight GPT-OSS models can also be self-hosted via Ollama or other inference platforms. See the [Ollama guide](/docs/integrations/ollama) or [Groq guide](/docs/integrations/groq).
+- **Rate limits**: OpenAI applies tiered rate limits. For governed runs with many sequential turns, you may hit rate limits on lower tiers.

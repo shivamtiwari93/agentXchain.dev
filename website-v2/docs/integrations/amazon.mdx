@@ -1,0 +1,73 @@
+---
+title: Amazon Bedrock
+description: "Connect Amazon Nova models to AgentXchain via Bedrock's OpenAI-compatible API."
+---
+
+# Amazon Bedrock
+
+[Amazon Bedrock](https://aws.amazon.com/bedrock/) provides managed access to foundation models including Amazon's Nova family. AgentXchain connects via `api_proxy` using Bedrock's OpenAI-compatible inference endpoint.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "openai"` and a custom `base_url` pointing to your Bedrock endpoint.
+
+## Prerequisites
+
+- An AWS account with Bedrock model access enabled
+- Bedrock API credentials
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "nova-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "amazon.nova-2-pro",
+      "auth_env": "BEDROCK_API_KEY",
+      "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com/model/amazon.nova-2-pro/converse"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "nova-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `amazon.nova-2-pro` | Most capable Nova model |
+| `amazon.nova-2-lite` | Fast, cost-effective |
+| `amazon.nova-premier` | Premium reasoning |
+
+## Verify the connection
+
+```bash
+export BEDROCK_API_KEY="..."
+agentxchain connector check
+```
+
+## Gotchas
+
+- **Authentication**: Bedrock uses AWS IAM credentials, not simple API keys. You may need a wrapper script that signs requests with AWS SigV4. The simplest approach is to use a local proxy that handles AWS auth and exposes an OpenAI-compatible endpoint.
+- **Region-specific endpoints**: Bedrock endpoints are region-specific. Update `base_url` to match your region.
+- **Model access**: Nova models must be explicitly enabled in your AWS account via the Bedrock console before use.
+- **Cost rates**: Supply operator-specific rates:
+
+```json
+{
+  "budget": {
+    "cost_rates": {
+      "amazon.nova-2-pro": { "input_per_million": 0.80, "output_per_million": 3.20 }
+    }
+  }
+}
+```

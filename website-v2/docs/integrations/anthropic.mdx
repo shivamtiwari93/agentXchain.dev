@@ -1,0 +1,110 @@
+---
+title: Anthropic
+description: "Connect Anthropic's Claude models to AgentXchain via the API proxy adapter."
+---
+
+# Anthropic
+
+[Anthropic](https://anthropic.com) builds the Claude model family. AgentXchain connects to the Anthropic API via the `api_proxy` adapter for direct model access in governed turns.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "anthropic"` — AgentXchain sends governed turn prompts to the Anthropic Messages API.
+
+## Prerequisites
+
+- An Anthropic API key — get one from [console.anthropic.com](https://console.anthropic.com/)
+- `ANTHROPIC_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "claude-qa": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    }
+  },
+  "roles": {
+    "qa": {
+      "runtime": "claude-qa",
+      "mandate": "Review code, find bugs, verify correctness",
+      "authority": "review_only"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | ID | Input (per 1M) | Output (per 1M) | Best for |
+|-------|----|----------------|-----------------|----------|
+| Claude Opus 4.6 | `claude-opus-4-6` | $5.00 | $25.00 | Complex architecture, deep reasoning |
+| Claude Sonnet 4.6 | `claude-sonnet-4-6` | $3.00 | $15.00 | Balanced coding + review (recommended default) |
+| Claude Haiku 4.5 | `claude-haiku-4-5-20251001` | $1.00 | $5.00 | Fast review, linting, high-volume QA |
+
+## Multi-role example
+
+Use different Claude models for different roles to optimize cost and quality:
+
+```json
+{
+  "runtimes": {
+    "opus-architect": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-opus-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    },
+    "sonnet-dev": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-6",
+      "auth_env": "ANTHROPIC_API_KEY"
+    },
+    "haiku-qa": {
+      "type": "api_proxy",
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "auth_env": "ANTHROPIC_API_KEY"
+    }
+  },
+  "roles": {
+    "architect": { "runtime": "opus-architect", "mandate": "Design system architecture", "authority": "review_only" },
+    "dev": { "runtime": "sonnet-dev", "mandate": "Implement features", "authority": "proposed" },
+    "qa": { "runtime": "haiku-qa", "mandate": "Review and test", "authority": "review_only" }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+agentxchain connector check
+```
+
+The connector probe sends a test request to verify your API key and model access.
+
+## Budget configuration
+
+AgentXchain has bundled cost rates for all Claude models. Budget enforcement works automatically:
+
+```json
+{
+  "budget": {
+    "max_cost_per_run": 5.00,
+    "warn_cost_per_run": 3.00
+  }
+}
+```
+
+## Gotchas
+
+- **200K context window**: Claude models support large contexts, which is helpful for large dispatch bundles. AgentXchain automatically manages prompt construction within token limits.
+- **Rate limits**: Anthropic applies per-account rate limits. For high-volume governed runs with many turns, consider requesting higher limits via the Anthropic console.
+- **Streaming**: AgentXchain uses single-request (non-streaming) API calls. The full response is returned at once.

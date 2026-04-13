@@ -1,0 +1,126 @@
+---
+title: MCP (Model Context Protocol)
+description: "Connect any MCP-compatible agent to AgentXchain via stdio or Streamable HTTP."
+---
+
+# MCP (Model Context Protocol)
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is an open standard for connecting AI agents to tools and data sources. AgentXchain's `mcp` adapter connects to any MCP-compatible server, making it the most flexible integration path.
+
+## Which adapter?
+
+**`mcp`** — AgentXchain acts as an MCP client, connecting to your MCP server via stdio (subprocess) or Streamable HTTP.
+
+## How it works
+
+1. AgentXchain starts your MCP server (stdio) or connects to it (HTTP)
+2. Lists available tools on the server
+3. Calls the `agentxchain_turn` tool with the turn arguments
+4. Extracts the turn result from the tool response
+
+## Transport: stdio
+
+For MCP servers that run as local subprocesses:
+
+```json
+{
+  "runtimes": {
+    "mcp-dev": {
+      "type": "mcp",
+      "transport": "stdio",
+      "command": ["node", "mcp-server.js"],
+      "cwd": "./mcp-servers",
+      "tool_name": "agentxchain_turn"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "mcp-dev",
+      "mandate": "Implement features",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Key fields (stdio)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `command` | Yes | Command to start the MCP server (string or array) |
+| `cwd` | No | Working directory for the server process |
+| `tool_name` | No | MCP tool to invoke (default: `agentxchain_turn`) |
+
+## Transport: Streamable HTTP
+
+For remote MCP servers:
+
+```json
+{
+  "runtimes": {
+    "mcp-remote": {
+      "type": "mcp",
+      "transport": "streamable_http",
+      "url": "https://mcp-server.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      },
+      "tool_name": "agentxchain_turn"
+    }
+  }
+}
+```
+
+### Key fields (Streamable HTTP)
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `url` | Yes | HTTP endpoint for the MCP server |
+| `headers` | No | HTTP headers (auth, etc.) |
+| `tool_name` | No | MCP tool to invoke (default: `agentxchain_turn`) |
+
+## Tool contract
+
+The MCP server must expose a tool (default name: `agentxchain_turn`) that accepts these arguments:
+
+```json
+{
+  "run_id": "run-abc123",
+  "turn_id": "turn-001",
+  "role": "dev",
+  "phase": "implementation",
+  "runtime_id": "mcp-dev",
+  "project_root": "/path/to/project",
+  "dispatch_dir": ".agentxchain/dispatch/turns/turn-001/",
+  "assignment_path": ".agentxchain/dispatch/turns/turn-001/assignment.json",
+  "prompt_path": ".agentxchain/dispatch/turns/turn-001/prompt.md",
+  "context_path": ".agentxchain/dispatch/turns/turn-001/context.json",
+  "staging_path": ".agentxchain/staging/turn-result.json",
+  "prompt": "...",
+  "context": "..."
+}
+```
+
+The tool must return a valid AgentXchain turn result JSON.
+
+## Examples in the repo
+
+- [`examples/mcp-echo-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-echo-agent) — minimal stdio MCP server
+- [`examples/mcp-http-echo-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-http-echo-agent) — Streamable HTTP MCP server
+- [`examples/mcp-anthropic-agent`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/examples/mcp-anthropic-agent) — MCP server backed by Claude API
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+For stdio: verifies the command binary exists on PATH.
+For Streamable HTTP: verifies the URL is reachable.
+
+## Gotchas
+
+- **Tool name**: If your MCP server uses a different tool name than `agentxchain_turn`, set the `tool_name` field explicitly.
+- **stdio lifecycle**: For stdio transport, AgentXchain starts a new MCP server subprocess for each turn and terminates it after the turn completes.
+- **Response format**: The MCP tool response must contain valid turn result JSON. The adapter extracts JSON from the tool's text content blocks.
+- **MCP SDK**: Use the official MCP SDK to build servers. See [modelcontextprotocol.io](https://modelcontextprotocol.io/) for implementation guides.

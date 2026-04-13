@@ -281,8 +281,8 @@ function FiveLayers() {
       color: '#A78BFA',
       bg: 'rgba(167,139,250,0.12)',
       desc: 'Legacy IDE compatibility (VS Code, Cursor), governed status and approvals in-editor, step/run launch, restart recovery, report and dashboard access, notifications, export & verification, plugins, and multi-repo coordination.',
-      link: '/docs/plugins',
-      linkText: 'Plugins & integrations',
+      link: '/docs/integrations',
+      linkText: 'Integration guides',
     },
   ];
 

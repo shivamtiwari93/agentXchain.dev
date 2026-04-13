@@ -1,0 +1,84 @@
+---
+title: Mistral AI
+description: "Connect Mistral coding models (Devstral, Codestral, Leanstral) to AgentXchain."
+---
+
+# Mistral AI
+
+[Mistral AI](https://mistral.ai) builds efficient coding models including the Devstral and Codestral families. AgentXchain connects via `api_proxy` using Mistral's OpenAI-compatible API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "openai"` and a custom `base_url` — Mistral's API is OpenAI-compatible.
+
+## Prerequisites
+
+- A Mistral API key — get one from [console.mistral.ai](https://console.mistral.ai/)
+- `MISTRAL_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "mistral-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "devstral-2-123b",
+      "auth_env": "MISTRAL_API_KEY",
+      "base_url": "https://api.mistral.ai/v1/chat/completions"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "mistral-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Params | Best for |
+|-------|--------|----------|
+| `devstral-2-123b` | 123B | Most capable coding model |
+| `devstral-small-2-24b` | 24B | Fast, efficient coding |
+| `codestral-latest` | — | Code generation and completion |
+| `leanstral` | — | Lean/mathematical reasoning |
+
+## Local via Ollama
+
+Mistral's smaller models run well locally:
+
+```bash
+ollama pull devstral-small:24b
+```
+
+```json
+{
+  "runtimes": {
+    "devstral-local": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "devstral-small:24b",
+      "auth_env": "OLLAMA_API_KEY"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export MISTRAL_API_KEY="..."
+agentxchain connector check
+```
+
+## Gotchas
+
+- **OpenAI-compatible**: Use `provider: "openai"` with `base_url` pointing to `api.mistral.ai`.
+- **Model naming**: Check Mistral's documentation for exact model IDs — they may include version suffixes.
+- **Devstral vs. Codestral**: Devstral is Mistral's agentic coding model family; Codestral is optimized for code completion. For governed turns that require agentic behavior (reading files, making decisions), Devstral is the better choice.

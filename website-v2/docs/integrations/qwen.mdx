@@ -1,0 +1,85 @@
+---
+title: Qwen (Alibaba)
+description: "Connect Alibaba's Qwen3-Coder models to AgentXchain."
+---
+
+# Qwen (Alibaba)
+
+[Qwen](https://qwenlm.github.io/) is Alibaba's open-weight model family, including the Qwen3-Coder series optimized for software development. AgentXchain connects via `api_proxy` using Alibaba's DashScope API or locally via Ollama.
+
+## Which adapter?
+
+**`api_proxy`** — either via DashScope cloud API (`provider: "openai"` with `base_url`) or locally via [Ollama](/docs/integrations/ollama).
+
+## Cloud API (DashScope)
+
+### Prerequisites
+
+- A DashScope API key — get one from [dashscope.aliyuncs.com](https://dashscope.aliyuncs.com/)
+- `DASHSCOPE_API_KEY` set in your environment
+
+### Configuration
+
+```json
+{
+  "runtimes": {
+    "qwen-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "qwen3-coder-480b-a35b",
+      "auth_env": "DASHSCOPE_API_KEY",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "qwen-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Params | Best for |
+|-------|--------|----------|
+| `qwen3-coder-480b-a35b` | 480B (35B active) | Most capable, MoE architecture |
+| `qwen3-coder-30b-a3b` | 30B (3B active) | Efficient local deployment |
+| `qwen3-coder-next` | — | Latest experimental |
+| `qwen3.6-plus` | — | General-purpose reasoning |
+
+## Local via Ollama
+
+Qwen's smaller coder models are excellent for local use:
+
+```bash
+ollama pull qwen3-coder:30b
+```
+
+```json
+{
+  "runtimes": {
+    "qwen-local": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "qwen3-coder:30b",
+      "auth_env": "OLLAMA_API_KEY"
+    }
+  }
+}
+```
+
+## Verify the connection
+
+```bash
+export DASHSCOPE_API_KEY="sk-..."
+agentxchain connector check
+```
+
+## Gotchas
+
+- **MoE architecture**: The 480B model uses Mixture of Experts (only 35B active parameters per token), making it efficient despite the large total parameter count.
+- **DashScope region**: The API endpoint is hosted in China. Latency may be higher from other regions.
+- **Local deployment**: The 30B-A3B variant is one of the best coding models for local deployment via Ollama, requiring only ~8GB of memory with 4-bit quantization.

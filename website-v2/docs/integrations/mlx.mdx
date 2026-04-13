@@ -1,0 +1,79 @@
+---
+title: MLX (Apple Silicon)
+description: "Run AgentXchain with local models on Apple Silicon via MLX."
+---
+
+# MLX (Apple Silicon)
+
+[MLX](https://github.com/ml-explore/mlx) is Apple's machine learning framework optimized for Apple Silicon. Combined with [mlx-lm](https://github.com/ml-explore/mlx-examples/tree/main/llms/mlx_lm), it can serve local models with an OpenAI-compatible API that AgentXchain connects to via `api_proxy`.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "ollama"` (OpenAI-compatible) — MLX's server exposes the same API format.
+
+## Prerequisites
+
+- Apple Silicon Mac (M1/M2/M3/M4)
+- Python 3.10+ with `mlx-lm` installed (`pip install mlx-lm`)
+- A model downloaded (e.g., `mlx-community/Qwen3-Coder-30B-A3B-4bit`)
+- `agentxchain` CLI installed
+
+## Start the MLX server
+
+```bash
+mlx_lm.server --model mlx-community/Qwen3-Coder-30B-A3B-4bit --port 8080
+```
+
+This serves an OpenAI-compatible API at `http://localhost:8080/v1/chat/completions`.
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "mlx-dev": {
+      "type": "api_proxy",
+      "provider": "ollama",
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-4bit",
+      "auth_env": "MLX_API_KEY",
+      "base_url": "http://localhost:8080/v1/chat/completions"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "mlx-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+Set a dummy API key (MLX server doesn't require auth):
+
+```bash
+export MLX_API_KEY="mlx"
+```
+
+## Verify the connection
+
+```bash
+mlx_lm.server --model mlx-community/Qwen3-Coder-30B-A3B-4bit --port 8080 &
+export MLX_API_KEY="mlx"
+agentxchain connector check
+```
+
+## Recommended models
+
+| Model | Params | Unified Memory |
+|-------|--------|---------------|
+| `mlx-community/Qwen3-Coder-30B-A3B-4bit` | 30B (3B active) | ~8GB |
+| `mlx-community/deepseek-coder-v3-16b-4bit` | 16B | ~10GB |
+| `mlx-community/codestral-22B-v0.1-4bit` | 22B | ~14GB |
+
+## Gotchas
+
+- **Apple Silicon only**: MLX does not run on Intel Macs or Linux.
+- **Unified memory**: Models share memory with the rest of the system. Leave headroom for your IDE and other tools.
+- **Quantization**: 4-bit quantized models are the practical choice for most Apple Silicon Macs. Full-precision models require significantly more memory.
+- **Provider field**: Use `"ollama"` as the provider since MLX's server implements the OpenAI-compatible API format. The `base_url` override points to the actual MLX endpoint.

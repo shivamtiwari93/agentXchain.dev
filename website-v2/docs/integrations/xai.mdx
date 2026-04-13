@@ -1,0 +1,72 @@
+---
+title: xAI
+description: "Connect xAI Grok models to AgentXchain."
+---
+
+# xAI
+
+[xAI](https://x.ai) builds the Grok model family. AgentXchain connects via `api_proxy` using xAI's OpenAI-compatible API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "openai"` and a custom `base_url`.
+
+## Prerequisites
+
+- An xAI API key — get one from [console.x.ai](https://console.x.ai/)
+- `XAI_API_KEY` set in your environment
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "grok-dev": {
+      "type": "api_proxy",
+      "provider": "openai",
+      "model": "grok-4.20-beta-2",
+      "auth_env": "XAI_API_KEY",
+      "base_url": "https://api.x.ai/v1/chat/completions"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "grok-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `grok-4.20-beta-2` | Most capable, complex reasoning |
+| `grok-4.1-fast` | Fast, balanced performance |
+| `grok-code-fast-1` | Optimized for code generation |
+
+## Verify the connection
+
+```bash
+export XAI_API_KEY="xai-..."
+agentxchain connector check
+```
+
+## Gotchas
+
+- **OpenAI-compatible**: Use `provider: "openai"` with `base_url` pointing to `api.x.ai`.
+- **Beta models**: Some Grok models are in beta. Check xAI's documentation for availability and rate limits.
+- **Cost rates**: Supply operator-specific rates since xAI models are not in the bundled defaults:
+
+```json
+{
+  "budget": {
+    "cost_rates": {
+      "grok-4.20-beta-2": { "input_per_million": 3.00, "output_per_million": 15.00 }
+    }
+  }
+}
+```

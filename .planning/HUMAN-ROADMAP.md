@@ -28,7 +28,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Add a link to the Marketplace listing on the agentxchain.dev website (docs, homepage, or getting-started page).
   - **2026-04-13 completed:** Fixed publisher ID in `package.json` from `agentxchain` to `agentXchaindev` (matching the registered Marketplace publisher). Pushed `vsce-v0.1.0` tag, CI publish workflow succeeded (all steps green including "Publish to VS Code Marketplace"). Extension live at `https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain`. Added Marketplace link to homepage Integrations section, getting-started page, and quickstart prerequisites. Updated marketplace readiness test assertion. Docusaurus build clean.
 
-- [ ] Create polished integration guides for all supported agent platforms, local model runners, and API providers
+- [x] Create polished integration guides for all supported agent platforms, local model runners, and API providers
   - AgentXchain is agent/IDE/LLM agnostic by design. The 5 adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) already support virtually every connection pattern. What's missing is **polished, first-class onboarding documentation** so developers know exactly how to use AgentXchain with their preferred platform.
   - Create a docs section (e.g., `/docs/integrations/`) with a guide for each platform below. Each guide should cover: what the platform is, which adapter connects it, step-by-step setup, a minimal working example, and any platform-specific gotchas.
   
@@ -64,6 +64,7 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - Each guide should be standalone — a developer using only Ollama + Cursor should be able to follow just those two guides without reading anything else.
   - Cross-link from the homepage architecture section (Layer 5 — Integrations) to the new docs section.
   - Keep model lists factual and current. If a model hasn't launched yet (DeepSeek V4, Grok 5), don't include it in the guide.
+  - **2026-04-13 completed:** Created 20 standalone integration guides in `website-v2/docs/integrations/`: 7 IDE/agent platform guides (Claude Code, OpenAI Codex CLI, Cursor, VS Code, Windsurf, Google Jules, Devin), 2 local model runner guides (Ollama, MLX), 10 API provider guides (Anthropic, OpenAI, Google, DeepSeek, Mistral AI, xAI, Amazon Bedrock, Qwen, Groq, Cohere), and 1 protocol-native guide (MCP). Each guide covers: what the platform is, which adapter connects it, step-by-step setup with exact `agentxchain.json` config, a minimal working example, and platform-specific gotchas. Added `Integrations` category to docs sidebar with nested subcategories. Updated homepage Layer 5 link, sitemap.xml (21 new URLs), and llms.txt (9 key integration entries). 3866 tests / 831 suites / 0 failures. Docusaurus build clean.
 
 - [x] Create 5 new product examples under `/examples/` to prove AgentXchain can build software end-to-end without human intervention
   - Come up with 5 small but varied real-world product examples across different categories:

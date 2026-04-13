@@ -1,0 +1,84 @@
+---
+title: Devin
+description: "Connect Devin to AgentXchain as a governed remote agent."
+---
+
+# Devin
+
+[Devin](https://devin.ai) is Cognition's autonomous AI software engineer. It operates as a remote cloud service, making it a natural fit for AgentXchain's `remote_agent` adapter.
+
+## Which adapter?
+
+**`remote_agent`** — AgentXchain POSTs a turn envelope (prompt, context, assignment) to Devin's HTTP endpoint and receives a turn result back.
+
+## Prerequisites
+
+- A Devin API account with HTTP endpoint access
+- API key or bearer token for authentication
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "devin-dev": {
+      "type": "remote_agent",
+      "url": "https://api.devin.ai/v1/turn",
+      "timeout_ms": 600000,
+      "headers": {
+        "Authorization": "Bearer YOUR_DEVIN_API_KEY"
+      }
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "devin-dev",
+      "mandate": "Implement features end-to-end",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Key fields
+
+| Field | Value | Why |
+|-------|-------|-----|
+| `url` | Devin's turn endpoint | The HTTP endpoint that accepts turn envelopes |
+| `timeout_ms` | `600000` (10 minutes) | Devin may take longer for complex tasks since it runs autonomously |
+| `headers` | Auth bearer token | Required for API authentication |
+
+## How the turn envelope works
+
+AgentXchain POSTs this JSON to Devin's endpoint:
+
+```json
+{
+  "run_id": "run-abc123",
+  "turn_id": "turn-001",
+  "role": "dev",
+  "phase": "implementation",
+  "runtime_id": "devin-dev",
+  "dispatch_dir": ".agentxchain/dispatch/turns/turn-001/",
+  "prompt": "...",
+  "context": "..."
+}
+```
+
+Devin must return a valid turn result JSON conforming to the AgentXchain protocol schema.
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+The connector probe performs a GET request to verify the endpoint is reachable.
+
+## Gotchas
+
+- **Devin's API surface**: Check Devin's current API documentation for the exact endpoint URL and authentication method. The URL shown above is illustrative.
+- **Long timeouts**: Devin operates autonomously and may spend significant time on complex tasks. Set `timeout_ms` high enough to avoid premature timeout.
+- **Turn result format**: Devin's response must conform to the AgentXchain turn result schema (`schema_version`, `role`, `status`, `artifacts`, `decisions`, etc.). If Devin's native output format differs, you may need a thin translation layer between Devin and AgentXchain.
+- **Authority**: Use `"authority": "proposed"` so AgentXchain validates Devin's output before applying changes. This keeps governance intact even with an autonomous agent.

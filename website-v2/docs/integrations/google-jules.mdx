@@ -1,0 +1,62 @@
+---
+title: Google Jules
+description: "Connect Google Jules to AgentXchain via the Google API proxy adapter."
+---
+
+# Google Jules
+
+[Google Jules](https://labs.google/jules) is Google's AI coding agent. Since Jules operates as a cloud service backed by Gemini models, it connects to AgentXchain via the `api_proxy` adapter using Google's Generative AI API.
+
+## Which adapter?
+
+**`api_proxy`** with `provider: "google"` — AgentXchain sends governed turn prompts directly to Google's Generative AI API using the same Gemini models that power Jules.
+
+## Prerequisites
+
+- A Google AI API key (`GOOGLE_API_KEY`) — get one from [Google AI Studio](https://aistudio.google.com/)
+- `agentxchain` CLI installed
+
+## Configuration
+
+```json
+{
+  "runtimes": {
+    "google-dev": {
+      "type": "api_proxy",
+      "provider": "google",
+      "model": "gemini-3.1-pro",
+      "auth_env": "GOOGLE_API_KEY"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "google-dev",
+      "mandate": "Implement features using best practices",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+## Available models
+
+| Model | Best for |
+|-------|----------|
+| `gemini-3.1-pro` | Complex coding tasks, architecture decisions |
+| `gemini-3.0-flash` | Fast iteration, simple tasks |
+| `gemini-3.1-flash-lite` | High-volume, cost-sensitive roles (QA, linting) |
+
+## Verify the connection
+
+```bash
+export GOOGLE_API_KEY="your-key-here"
+agentxchain connector check
+```
+
+The connector probe sends a test request to the Google Generative AI API to verify your key and model access.
+
+## Gotchas
+
+- **Jules vs. Gemini API**: Jules is a cloud-hosted agent product; this integration uses the Gemini API directly. You get the same underlying models but not Jules' full agent orchestration — AgentXchain provides the orchestration layer instead.
+- **API endpoint**: AgentXchain uses `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`. If you need a different endpoint (e.g., Vertex AI), use the `base_url` field to override.
+- **Vertex AI**: For enterprise Google Cloud setups using Vertex AI instead of the public API, set `base_url` to your Vertex endpoint and use the appropriate auth mechanism.
