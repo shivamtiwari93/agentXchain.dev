@@ -161,7 +161,7 @@ describe('agentxchain restart', () => {
     assert.ok(result.stdout.includes('terminal state'), `Expected terminal state, got: ${result.stdout}`);
   });
 
-  it('AT-SCR-003: fails with exit 1 when no governed run (no state.json)', () => {
+  it('AT-RESTART-MSG-001: restart missing-state guidance recommends run, not resume', () => {
     const dir = mkdtempSync(join(tmpdir(), 'axc-restart-nostate-'));
     scaffoldGoverned(dir, 'No State', 'no-state');
     // Remove the scaffolded state.json to simulate "no governed run"
@@ -171,6 +171,8 @@ describe('agentxchain restart', () => {
     const result = runCli(dir, ['restart']);
     assert.notEqual(result.status, 0, 'should fail when no state');
     assert.ok(result.stdout.includes('No governed run'), `Expected no-run error, got: ${result.stdout}`);
+    assert.match(result.stdout, /agentxchain run/, 'restart should recommend run as the bootstrap path');
+    assert.doesNotMatch(result.stdout, /agentxchain resume/, 'restart must not recommend resume without state.json');
   });
 
   it('AT-SCR-005: writes SESSION_RECOVERY.md with run identity and phase', () => {

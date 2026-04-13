@@ -215,4 +215,19 @@ describe('agentxchain run — integration', () => {
     assert.ok(!existsSync(reportPath), 'governance report must not be written when --no-report is set');
     assert.doesNotMatch(result.stdout, /Governance report:/, 'CLI output must not claim a report was written');
   });
+
+  it('AT-RESTART-MSG-002: run bootstraps a governed project when state.json is missing', () => {
+    const root = makeProject();
+    rmSync(join(root, '.agentxchain/state.json'), { force: true });
+
+    const result = runCli(root, ['run', '--auto-approve', '--max-turns', '5']);
+
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    assert.match(result.stdout, /Run completed/, 'Expected run completion after bootstrapping missing state');
+
+    const statePath = join(root, '.agentxchain/state.json');
+    assert.ok(existsSync(statePath), 'state.json should be recreated by run');
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.equal(state.status, 'completed', 'bootstrapped run should complete successfully');
+  });
 });

@@ -167,7 +167,7 @@ export async function restartCommand(opts) {
   // Load state
   const statePath = join(root, STATE_PATH);
   if (!existsSync(statePath)) {
-    console.log(chalk.red('No governed run found. Use `agentxchain resume` or `agentxchain run` to start.'));
+    console.log(chalk.red('No governed run found. Use `agentxchain run` to start a governed run.'));
     process.exit(1);
   }
 

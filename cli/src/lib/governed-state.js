@@ -1835,7 +1835,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
 export function initializeGovernedRun(root, config, options = {}) {
   let state = readState(root);
   if (!state) {
-    return { ok: false, error: 'No governed state.json found' };
+    state = buildFreshIdleStateForNewRun(null, config);
   }
   const allowTerminalRestart = options.allow_terminal_restart === true
     && (state.status === 'completed' || state.status === 'blocked');
