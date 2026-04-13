@@ -100,6 +100,47 @@ describe('Google Jules guide factual accuracy', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Windsurf guide must not pretend a native Windsurf connector exists
+// ---------------------------------------------------------------------------
+describe('Windsurf guide factual accuracy', () => {
+  const guide = read('website-v2/docs/integrations/windsurf.mdx');
+  const index = read('website-v2/docs/integrations/index.mdx');
+
+  it('FA-WINDSURF-001: must state that native Windsurf connector is not shipped', () => {
+    assert.match(guide, /does not currently ship a native Windsurf connector/i,
+      'Windsurf guide must explicitly say no native Windsurf connector is shipped');
+  });
+
+  it('FA-WINDSURF-002: must not show windsurf --cli as a working command in primary config', () => {
+    // The speculative future section may mention it, but the primary config must not
+    const primarySection = guide.split(/## Future/i)[0];
+    assert.doesNotMatch(primarySection, /"windsurf",\s*"--cli"/,
+      'Primary config must not show windsurf --cli as a working command');
+  });
+
+  it('FA-WINDSURF-003: primary config must use a proven CLI agent (Claude Code or Codex)', () => {
+    assert.match(guide, /"claude"|"codex"/,
+      'Windsurf guide primary config must use a proven CLI agent');
+  });
+
+  it('FA-WINDSURF-004: must state Windsurf is GUI-first with no headless CLI', () => {
+    assert.match(guide, /GUI-first|GUI-only|does not expose.*headless/i,
+      'Windsurf guide must state that Windsurf is a GUI-first IDE');
+  });
+
+  it('FA-WINDSURF-005: speculative future CLI section must be labeled as not working today', () => {
+    const futureSection = guide.split(/## Future/i)[1] || '';
+    assert.match(futureSection, /speculative|not a working config today/i,
+      'Future CLI section must be labeled as speculative');
+  });
+
+  it('FA-WINDSURF-006: integrations index must clarify no native connector', () => {
+    assert.match(index, /Windsurf.*no native.*connector|Windsurf.*separate CLI agent/i,
+      'Integrations index must clarify the Windsurf entry is not a direct adapter integration');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // FA-5: All guides must have governed bootstrap example
 // ---------------------------------------------------------------------------
 const ALL_GUIDES = [

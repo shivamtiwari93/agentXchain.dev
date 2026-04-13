@@ -1,36 +1,57 @@
 ---
 title: Windsurf (Codeium)
-description: "Connect Windsurf's CLI to AgentXchain for governed coding."
+description: "Use Windsurf as your editor while AgentXchain governs a CLI agent runtime."
 ---
 
 # Windsurf (Codeium)
 
-[Windsurf](https://codeium.com/windsurf) is Codeium's AI-native IDE with agentic coding capabilities. It can connect to AgentXchain via the `local_cli` adapter if its CLI mode is available.
+[Windsurf](https://codeium.com/windsurf) is Codeium's AI-native IDE built on a VS Code fork, with agentic coding capabilities in its GUI (Cascade).
 
-## Which adapter?
+**AgentXchain does not currently ship a native Windsurf connector.** Windsurf is a GUI-first IDE — it does not expose a documented headless CLI mode for programmatic agent interaction. The `local_cli` adapter cannot spawn Windsurf as a subprocess today.
 
-**`local_cli`** — AgentXchain spawns the Windsurf CLI as a subprocess.
+The closest supported path is to **use Windsurf as your editing environment** while connecting a separate CLI agent as the governed runtime.
 
-## Prerequisites
+## Recommended setup: Windsurf as editor + CLI agent runtime
 
-- Windsurf installed with CLI access
-- `agentxchain` CLI installed
+Edit your code in Windsurf. Run AgentXchain in Windsurf's integrated terminal with a proven CLI agent handling the governed turns.
 
-## Configuration
+### Configuration (Claude Code as runtime)
 
 ```json
 {
   "runtimes": {
-    "windsurf-dev": {
+    "claude-dev": {
       "type": "local_cli",
-      "command": ["windsurf", "--cli"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
   },
   "roles": {
     "dev": {
-      "runtime": "windsurf-dev",
+      "runtime": "claude-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Configuration (OpenAI Codex CLI as runtime)
+
+```json
+{
+  "runtimes": {
+    "codex-dev": {
+      "type": "local_cli",
+      "command": ["codex", "--approval-mode", "full-auto"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "codex-dev",
       "mandate": "Implement features and fix bugs",
       "authority": "proposed"
     }
@@ -43,30 +64,31 @@ description: "Connect Windsurf's CLI to AgentXchain for governed coding."
 ```bash
 agentxchain init --governed --template api-service --goal "Build a REST API" --dir my-project -y
 cd my-project
-# Replace the scaffolded runtime wiring in agentxchain.json with the Windsurf config above.
+# Edit agentxchain.json to use one of the CLI runtime configs above.
 agentxchain connector check
 agentxchain doctor
 agentxchain run
 ```
 
-If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Windsurf config above before `agentxchain connector check`.
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with your chosen CLI runtime config before running `agentxchain connector check`.
 
-## Verify the connection
+## Using Windsurf's built-in AI alongside AgentXchain
 
-```bash
-agentxchain connector check
-```
+Windsurf's Cascade (agentic mode) and autocomplete work inside the editor while AgentXchain governs the structured delivery process in the terminal. They are complementary:
 
-## Alternative: use Windsurf as the editor, connect a different agent
+- **Windsurf Cascade** — ad-hoc coding assistance within the editor
+- **AgentXchain** — governed multi-agent turns, role enforcement, artifact tracking, phase gates
 
-Windsurf is strongest as a GUI editor. For governed runs, you may get better results using Windsurf as your editing environment while connecting a dedicated CLI agent (Claude Code, Codex) as the `local_cli` runtime:
+## Future: if Windsurf adds a headless CLI
+
+If Windsurf ships a documented headless CLI mode in the future, the generic `local_cli` adapter would support it with a config like:
 
 ```json
 {
   "runtimes": {
-    "claude-dev": {
+    "windsurf-dev": {
       "type": "local_cli",
-      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "command": ["windsurf", "<future-cli-flag>"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
@@ -74,9 +96,10 @@ Windsurf is strongest as a GUI editor. For governed runs, you may get better res
 }
 ```
 
-Edit in Windsurf, govern with AgentXchain, execute with Claude Code.
+This is speculative and not a working config today. Check [Windsurf's documentation](https://docs.codeium.com) for the latest CLI capabilities.
 
 ## Gotchas
 
-- **CLI availability**: Windsurf's CLI capabilities depend on your installation. Check `windsurf --help` to see available CLI options.
-- **Model routing**: Windsurf uses its own model routing layer. The model used in CLI mode may differ from the GUI experience.
+- **No headless CLI mode**: Windsurf's AI capabilities (Cascade, Tab, Chat) are GUI-only. You cannot spawn Windsurf as a subprocess for governed turns.
+- **Terminal works fine**: Windsurf's integrated terminal runs `agentxchain` commands normally — the limitation is only about using Windsurf *as* the agent runtime.
+- **Model routing**: Windsurf uses its own model routing layer (Codeium infrastructure). The models available in Windsurf are separate from the models you configure in your AgentXchain runtime.
