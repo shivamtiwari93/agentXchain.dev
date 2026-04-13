@@ -100,6 +100,46 @@ describe('Google Jules guide factual accuracy', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cursor guide must not pretend a native Cursor connector exists
+// ---------------------------------------------------------------------------
+describe('Cursor guide factual accuracy', () => {
+  const guide = read('website-v2/docs/integrations/cursor.mdx');
+  const index = read('website-v2/docs/integrations/index.mdx');
+
+  it('FA-CURSOR-001: must state that native Cursor connector is not shipped', () => {
+    assert.match(guide, /does not currently ship a native Cursor connector/i,
+      'Cursor guide must explicitly say no native Cursor connector is shipped');
+  });
+
+  it('FA-CURSOR-002: must not show cursor --cli as a working command in primary config', () => {
+    const primarySection = guide.split(/## Future/i)[0];
+    assert.doesNotMatch(primarySection, /"cursor",\s*"--cli"/,
+      'Primary config must not show cursor --cli as a working command');
+  });
+
+  it('FA-CURSOR-003: primary config must use a proven CLI agent (Claude Code or Codex)', () => {
+    assert.match(guide, /"claude"|"codex"/,
+      'Cursor guide primary config must use a proven CLI agent');
+  });
+
+  it('FA-CURSOR-004: must state Cursor is GUI-first with no headless CLI mode', () => {
+    assert.match(guide, /GUI-only|does not expose.*headless/i,
+      'Cursor guide must state that Cursor AI features are GUI-only');
+  });
+
+  it('FA-CURSOR-005: speculative future CLI section must be labeled as not working today', () => {
+    const futureSection = guide.split(/## Future/i)[1] || '';
+    assert.match(futureSection, /speculative|not a working config today/i,
+      'Future CLI section must be labeled as speculative');
+  });
+
+  it('FA-CURSOR-006: integrations index must clarify no native connector', () => {
+    assert.match(index, /Cursor.*no native.*connector|Cursor.*separate CLI agent/i,
+      'Integrations index must clarify the Cursor entry is not a direct adapter integration');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Windsurf guide must not pretend a native Windsurf connector exists
 // ---------------------------------------------------------------------------
 describe('Windsurf guide factual accuracy', () => {

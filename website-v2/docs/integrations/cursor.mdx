@@ -1,37 +1,35 @@
 ---
 title: Cursor
-description: "Connect Cursor's CLI mode to AgentXchain for governed coding turns."
+description: "Use Cursor as your editor while AgentXchain governs a CLI agent runtime."
 ---
 
 # Cursor
 
-[Cursor](https://cursor.com) is an AI-native code editor. While Cursor is primarily a GUI application, it exposes a CLI interface that AgentXchain can use via the `local_cli` adapter for governed turns.
+[Cursor](https://cursor.com) is an AI-native code editor built on a VS Code fork, with agentic coding capabilities in its GUI (Composer, agent mode).
 
-## Which adapter?
+**AgentXchain does not currently ship a native Cursor connector.** Cursor's strongest AI features are GUI-only. The `cursor` CLI command opens files and the editor, but it does not expose a documented headless mode for programmatic agent interaction. The `local_cli` adapter cannot spawn Cursor as a governed subprocess today.
 
-**`local_cli`** — AgentXchain spawns the Cursor CLI as a subprocess.
+The closest supported path is to **use Cursor as your editing environment** while connecting a separate CLI agent as the governed runtime.
 
-## Prerequisites
+## Recommended setup: Cursor as editor + CLI agent runtime
 
-- Cursor installed with CLI available on your PATH (`cursor --version`)
-- Cursor's CLI mode configured (install the `cursor` shell command from Cursor's command palette)
-- `agentxchain` CLI installed
+Edit your code in Cursor. Run AgentXchain in Cursor's integrated terminal with a proven CLI agent handling the governed turns.
 
-## Configuration
+### Configuration (Claude Code as runtime)
 
 ```json
 {
   "runtimes": {
-    "cursor-dev": {
+    "claude-dev": {
       "type": "local_cli",
-      "command": ["cursor", "--cli"],
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
       "cwd": ".",
       "prompt_transport": "stdin"
     }
   },
   "roles": {
     "dev": {
-      "runtime": "cursor-dev",
+      "runtime": "claude-dev",
       "mandate": "Implement features following project conventions",
       "authority": "proposed"
     }
@@ -39,10 +37,26 @@ description: "Connect Cursor's CLI mode to AgentXchain for governed coding turns
 }
 ```
 
-## Verify the connection
+### Configuration (OpenAI Codex CLI as runtime)
 
-```bash
-agentxchain connector check
+```json
+{
+  "runtimes": {
+    "codex-dev": {
+      "type": "local_cli",
+      "command": ["codex", "--approval-mode", "full-auto"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "codex-dev",
+      "mandate": "Implement features following project conventions",
+      "authority": "proposed"
+    }
+  }
+}
 ```
 
 ## Minimal working example
@@ -50,6 +64,8 @@ agentxchain connector check
 ```bash
 agentxchain init --governed --template web-app --goal "Build a bookmarks manager" --dir my-project -y
 cd my-project
+# Edit agentxchain.json to use one of the CLI runtime configs above.
+agentxchain connector check
 agentxchain doctor
 agentxchain run
 ```
@@ -60,8 +76,35 @@ Or use the **guided interactive path** (prompts for template, name, goal, and fo
 agentxchain init --governed
 ```
 
+## Using Cursor's built-in AI alongside AgentXchain
+
+Cursor's Composer, Chat, and agent mode work inside the editor while AgentXchain governs the structured delivery process in the terminal. They are complementary:
+
+- **Cursor AI** — ad-hoc coding assistance within the editor (autocomplete, refactoring, chat)
+- **AgentXchain** — governed multi-agent turns, role enforcement, artifact tracking, phase gates
+
+## Future: if Cursor adds a headless CLI mode
+
+If Cursor ships a documented headless CLI mode for agentic coding in the future, the generic `local_cli` adapter would support it with a config like:
+
+```json
+{
+  "runtimes": {
+    "cursor-dev": {
+      "type": "local_cli",
+      "command": ["cursor", "<future-cli-flag>"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  }
+}
+```
+
+This is speculative and not a working config today. Check [Cursor's documentation](https://docs.cursor.com) for the latest CLI capabilities.
+
 ## Gotchas
 
-- **CLI availability varies by OS**: On macOS, install the shell command from Cursor's command palette (`Cursor: Install 'cursor' command in PATH`). On Linux, the AppImage may need a wrapper script.
-- **Cursor's agentic mode**: Cursor's strongest coding capabilities are in its GUI agent mode. The CLI interface provides a more limited subset. For maximum capability, consider using Cursor as the editor while connecting a different agent (Claude Code, Codex) as the `local_cli` runtime.
-- **Background model**: Cursor uses its own model routing. The model used for CLI turns may differ from what you see in the GUI.
+- **No headless CLI mode**: Cursor's AI capabilities (Composer, agent mode, Chat) are GUI-only. You cannot spawn Cursor as a subprocess for governed turns.
+- **CLI opens the editor**: `cursor` on the command line opens the Cursor GUI or a file in the editor — it does not start a headless coding session.
+- **Terminal works fine**: Cursor's integrated terminal runs `agentxchain` commands normally — the limitation is only about using Cursor *as* the agent runtime.
+- **Model routing**: Cursor uses its own model routing layer. The models available in Cursor are separate from the models you configure in your AgentXchain runtime.
