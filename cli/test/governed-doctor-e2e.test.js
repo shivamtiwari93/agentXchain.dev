@@ -20,7 +20,7 @@ const CLI_BIN = join(cliRoot, 'bin', 'agentxchain.js');
 const MOCK_AGENT = join(cliRoot, 'test-support', 'mock-agent.mjs');
 const tempDirs = [];
 
-function makeGoverned({ schedules, breakConfig, removeAuthEnv } = {}) {
+function makeGoverned({ schedules, breakConfig, removeAuthEnv, liveProbeRuntime } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-gd-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Doctor E2E', `doctor-e2e-${Date.now()}`);
@@ -57,6 +57,39 @@ function makeGoverned({ schedules, breakConfig, removeAuthEnv } = {}) {
     // Point one role to it with review_only (api_proxy requires non-authoritative)
     const firstRoleId = Object.keys(config.roles)[0];
     config.roles[firstRoleId].runtime = 'api-test';
+    config.roles[firstRoleId].write_authority = 'review_only';
+  }
+
+  if (liveProbeRuntime === 'api_proxy') {
+    config.runtimes['api-live'] = {
+      type: 'api_proxy',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      auth_env: 'AXC_DOCTOR_LIVE_PROBE_KEY',
+    };
+    const firstRoleId = Object.keys(config.roles)[0];
+    config.roles[firstRoleId].runtime = 'api-live';
+    config.roles[firstRoleId].write_authority = 'review_only';
+  }
+
+  if (liveProbeRuntime === 'remote_agent') {
+    config.runtimes['remote-live'] = {
+      type: 'remote_agent',
+      endpoint: 'https://example.com/agent',
+    };
+    const firstRoleId = Object.keys(config.roles)[0];
+    config.roles[firstRoleId].runtime = 'remote-live';
+    config.roles[firstRoleId].write_authority = 'review_only';
+  }
+
+  if (liveProbeRuntime === 'mcp_http') {
+    config.runtimes['mcp-live'] = {
+      type: 'mcp',
+      transport: 'streamable_http',
+      endpoint: 'https://example.com/mcp',
+    };
+    const firstRoleId = Object.keys(config.roles)[0];
+    config.roles[firstRoleId].runtime = 'mcp-live';
     config.roles[firstRoleId].write_authority = 'review_only';
   }
 
@@ -214,5 +247,40 @@ describe('Governed Doctor E2E', () => {
     const output = JSON.parse(result.stdout);
     assert.ok(output.error, 'Should have error field');
     assert.ok(output.error.includes('No agentxchain.json'), `Error should mention missing config: ${output.error}`);
+  });
+
+  it('AT-GD-008: json output recommends connector check for live-probe runtimes', () => {
+    const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
+    const result = runCli(root, ['doctor', '--json'], {
+      env: { AXC_DOCTOR_LIVE_PROBE_KEY: 'test-key' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.connector_probe_recommended, true);
+    assert.deepEqual(output.connector_probe_runtime_ids, ['api-live']);
+    assert.match(output.connector_probe_detail, /connector check/);
+  });
+
+  it('AT-GD-009: text output prints connector-check handoff when readiness passes', () => {
+    const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
+    const result = runCli(root, ['doctor'], {
+      env: { AXC_DOCTOR_LIVE_PROBE_KEY: 'test-key' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Next: run `agentxchain connector check`/);
+  });
+
+  it('AT-GD-010: local-only runtimes do not recommend connector check', () => {
+    const root = makeGoverned();
+    const jsonResult = runCli(root, ['doctor', '--json']);
+    assert.equal(jsonResult.status, 0, jsonResult.stderr);
+    const output = JSON.parse(jsonResult.stdout);
+    assert.equal(output.connector_probe_recommended, false);
+    assert.deepEqual(output.connector_probe_runtime_ids, []);
+    assert.equal(output.connector_probe_detail, null);
+
+    const textResult = runCli(root, ['doctor']);
+    assert.equal(textResult.status, 0, textResult.stderr);
+    assert.doesNotMatch(textResult.stdout, /connector check/);
   });
 });

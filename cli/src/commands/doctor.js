@@ -75,6 +75,7 @@ function governedDoctor(root, rawConfig, opts) {
     const check = checkRuntimeReachable(rtId, rt);
     checks.push(check);
   }
+  const connectorProbe = getConnectorProbeRecommendation(runtimes);
 
   // 4. State directory
   const stateDir = join(root, '.agentxchain');
@@ -228,6 +229,9 @@ function governedDoctor(root, rawConfig, opts) {
       ...versionSurface,
       config_version: versionSurface.config_generation,
       overall,
+      connector_probe_recommended: connectorProbe.recommended,
+      connector_probe_runtime_ids: connectorProbe.runtimeIds,
+      connector_probe_detail: connectorProbe.detail,
       checks,
       fail_count: failCount,
       warn_count: warnCount,
@@ -257,6 +261,9 @@ function governedDoctor(root, rawConfig, opts) {
       console.log(chalk.yellow(`  Ready with ${warnCount} warning${warnCount > 1 ? 's' : ''}.`));
     } else {
       console.log(chalk.red(`  Not ready: ${failCount} failure${failCount > 1 ? 's' : ''}, ${warnCount} warning${warnCount > 1 ? 's' : ''}.`));
+    }
+    if (failCount === 0 && connectorProbe.recommended) {
+      console.log(chalk.dim(`  Next: ${connectorProbe.detail}`));
     }
     console.log('');
   }
@@ -319,6 +326,35 @@ function checkRuntimeReachable(rtId, rt) {
     default:
       return { ...base, level: 'warn', detail: `Unknown runtime type: ${rt.type}` };
   }
+}
+
+function getConnectorProbeRecommendation(runtimes) {
+  const runtimeIds = [];
+
+  for (const [rtId, rt] of Object.entries(runtimes || {})) {
+    if (!rt || typeof rt !== 'object') continue;
+    if (rt.type === 'api_proxy' || rt.type === 'remote_agent') {
+      runtimeIds.push(rtId);
+      continue;
+    }
+    if (rt.type === 'mcp' && (rt.transport || 'stdio') === 'streamable_http') {
+      runtimeIds.push(rtId);
+    }
+  }
+
+  if (runtimeIds.length === 0) {
+    return {
+      recommended: false,
+      runtimeIds: [],
+      detail: null,
+    };
+  }
+
+  return {
+    recommended: true,
+    runtimeIds,
+    detail: 'run `agentxchain connector check` to live-probe api / remote HTTP runtimes before the first governed turn.',
+  };
 }
 
 function getCurrentPhase(root) {

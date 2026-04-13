@@ -19,6 +19,8 @@ describe('connector check docs/content surface', () => {
     assert.match(CLI_DOCS, /`connector check` \| Readiness \| Run live connector probes/);
     assert.match(CLI_DOCS, /`doctor` is a static readiness check/i);
     assert.match(CLI_DOCS, /Use `agentxchain connector check` when you want a real live probe/i);
+    assert.match(CLI_DOCS, /connector_probe_recommended/);
+    assert.match(CLI_DOCS, /text mode prints a next-step hint to run `agentxchain connector check`/i);
     assert.match(GETTING_STARTED, /agentxchain connector check/);
     assert.match(GETTING_STARTED, /`doctor` checks config, binaries, env vars, and repo state/i);
     assert.match(CLI_DOCS, /Text output prints a `Probing <runtime_id>\.\.\.` line before each check starts/i);

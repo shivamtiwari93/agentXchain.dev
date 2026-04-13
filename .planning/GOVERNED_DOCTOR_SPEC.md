@@ -85,6 +85,30 @@ One sub-check per runtime defined in config:
   - **warn**: some missing (expected before first turn in a new project)
 - If no workflow_kit configured: skip
 
+### 8. Plugin health (`plugin_<name>`)
+
+- Only checked when plugins are installed in `rawConfig.plugins`
+- Per plugin:
+  - install path exists
+  - manifest file exists and parses
+  - relative hook files declared by the manifest exist
+  - env-backed config values warn when their env vars are unset
+- **pass**: plugin is structurally intact and any referenced env vars are present
+- **warn**: plugin is structurally intact but one or more referenced env vars are missing
+- **fail**: install path, manifest, or hook files are missing/corrupt
+
+### 9. Connector handoff metadata
+
+- `doctor` remains a static readiness surface. It does **not** perform live connector probes.
+- When configured runtimes include `api_proxy`, `remote_agent`, or MCP `streamable_http`, `doctor --json` reports:
+  - `connector_probe_recommended`
+  - `connector_probe_runtime_ids`
+  - `connector_probe_detail`
+- Human-readable output prints a next-step hint to run `agentxchain connector check` only when:
+  - no doctor checks failed, and
+  - at least one configured runtime still needs a live probe beyond static readiness
+- No handoff hint is printed for local-only runtime sets (`manual`, `local_cli`, MCP `stdio`)
+
 ## Output Format
 
 ### Human-readable (default)
@@ -112,6 +136,9 @@ One sub-check per runtime defined in config:
   "project": "my-project",
   "config_version": 4,
   "overall": "fail",
+  "connector_probe_recommended": true,
+  "connector_probe_runtime_ids": ["api-main"],
+  "connector_probe_detail": "Run `agentxchain connector check` to live-probe api / remote HTTP runtimes before the first governed turn.",
   "checks": [
     {
       "id": "config_valid",
@@ -134,6 +161,7 @@ One sub-check per runtime defined in config:
 - API key env var unset → runtime_reachable check fails for that runtime
 - `.agentxchain/state.json` malformed → state_health check fails
 - Schedule daemon stale → schedule_health check warns
+- `api_proxy` / `remote_agent` / HTTP MCP runtimes configured → doctor reports connector-probe handoff metadata instead of silently implying live reachability
 
 ## Acceptance Tests
 
@@ -144,6 +172,9 @@ One sub-check per runtime defined in config:
 - **AT-GD-005**: `agentxchain doctor --json` on a legacy v3 project runs legacy checks, not governed checks
 - **AT-GD-006**: `agentxchain doctor --json` on a governed project with schedules configured but no daemon returns `schedule_health` as `warn`
 - **AT-GD-007**: `agentxchain doctor` in a directory with no config exits code 1
+- **AT-GD-008**: `agentxchain doctor --json` exposes connector-probe recommendation metadata for runtimes that need live probing beyond static readiness
+- **AT-GD-009**: text-mode `agentxchain doctor` prints a `connector check` next-step hint when no checks fail and live-probe runtimes are configured
+- **AT-GD-010**: local-only runtime sets do not trigger connector-probe recommendation metadata or text hints
 
 ## Non-Scope
 
@@ -151,6 +182,7 @@ One sub-check per runtime defined in config:
 - Plugin readiness — the plugin system has its own lifecycle
 - Coordinator/multi-repo readiness — the coordinator has its own status surface
 - Modifying or upgrading the legacy v3 doctor checks
+- Folding live connector probes into `doctor` itself; that behavior remains owned by `agentxchain connector check`
 
 ## Decision
 

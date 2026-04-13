@@ -875,6 +875,11 @@ Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass 
 
 Use `agentxchain connector check` when you want a real live probe against configured API, MCP HTTP, or remote-agent endpoints before the first governed turn.
 
+When `doctor` sees runtimes that still need live probing beyond static readiness (`api_proxy`, `remote_agent`, MCP `streamable_http`), it exposes that handoff explicitly:
+
+- text mode prints a next-step hint to run `agentxchain connector check` after readiness passes
+- `--json` adds `connector_probe_recommended`, `connector_probe_runtime_ids`, and `connector_probe_detail`
+
 `doctor --json` also reports the same versioning split explicitly:
 
 - `protocol_version: "v6"`
