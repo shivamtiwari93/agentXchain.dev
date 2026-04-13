@@ -70,7 +70,7 @@ after(() => {
 });
 
 describe('governed status gate-failure surface', () => {
-  it('AT-GFV-004: status shows persisted queued-drain gate failure and recovery direction', () => {
+  it('AT-SGFA-001: status shows a truthful governed recovery command for persisted gate failures', () => {
     const dir = setupProject();
     dirs.push(dir);
 
@@ -83,10 +83,11 @@ describe('governed status gate-failure surface', () => {
     assert.match(result.stdout, /Turn:\s+turn_abc123/);
     assert.match(result.stdout, /Missing file: \.planning\/PM_SIGNOFF\.md/);
     assert.match(result.stdout, /Verification status is "missing"/);
-    assert.match(result.stdout, /Action:\s+agentxchain assign pm to keep working in planning/);
+    assert.match(result.stdout, /Action:\s+agentxchain step --role pm to keep working in planning/);
+    assert.doesNotMatch(result.stdout, /agentxchain assign/);
   });
 
-  it('status --json preserves last_gate_failure for automation surfaces', () => {
+  it('AT-SGFA-003: status --json preserves last_gate_failure for automation surfaces', () => {
     const dir = setupProject();
     dirs.push(dir);
 

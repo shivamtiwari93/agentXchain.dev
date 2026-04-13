@@ -425,7 +425,7 @@ function renderWorkflowKitArtifactsSection(wkData) {
 
 function renderLastGateFailure(failure, config) {
   const entryRole = config?.routing?.[failure.phase]?.entry_role || null;
-  const suggestedCommand = entryRole ? `agentxchain assign ${entryRole}` : 'agentxchain assign <role>';
+  const suggestedCommand = entryRole ? `agentxchain step --role ${entryRole}` : 'agentxchain step --role <role>';
   const requestLabel = failure.gate_type === 'run_completion'
     ? 'Run completion'
     : `${failure.from_phase || failure.phase} -> ${failure.to_phase || 'unknown'}`;
