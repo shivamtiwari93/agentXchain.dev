@@ -1,0 +1,70 @@
+---
+title: "v2.79.0 Release Notes"
+description: "Built-in plugin config parity, dedicated plugin docs, lights-out scheduling guide, and docs contract tightening."
+---
+
+# AgentXchain v2.79.0
+
+`v2.79.0` fixes built-in plugin config drift, adds dedicated docs pages for all shipped plugins, ships a first-class lights-out scheduling guide, and tightens docs contract boundaries against implementation.
+
+## What Changed
+
+### Built-In Plugin Config Parity
+
+The `plugin-slack-notify` and `plugin-json-report` packages advertised install-time config in their manifests and docs, but their runtime code ignored that config entirely. This is now fixed:
+
+- **Slack**: `webhook_env` override and `mention` config are now honored at runtime
+- **JSON report**: `report_dir` config is now honored, with path-escape rejection to prevent writes outside the governed project root
+
+### Dedicated Plugin Docs
+
+Each shipped built-in plugin now has a dedicated public docs page:
+
+- `/docs/plugins/slack-notify` — Slack webhook notifications
+- `/docs/plugins/json-report` — JSON governance reports
+- `/docs/plugins/github-issues` — GitHub Issues integration
+
+These pages document setup, config, and runtime behavior for each plugin individually, rather than burying everything in the generic plugins overview page.
+
+### Lights-Out Scheduling Guide
+
+New first-class guide at `/docs/lights-out-scheduling` covering:
+
+- When to use scheduling (nightly reviews, CI triage, intake processing)
+- Configuration reference with all `schedules` fields
+- Daemon operation (start, background, monitor)
+- Health monitoring and safety behavior
+- Intake and multi-repo coordination patterns
+- Three operational patterns: nightly review, hourly CI triage, weekly maintenance
+
+The guide explicitly documents the shipped scope boundary: scheduling is repo-local governed projects only, not coordinator-workspace fan-out.
+
+### Docs Contract Tightening
+
+- Fixed schedule eligibility documentation to include `missing` state (fresh projects with no state file), matching the implementation in `run-schedule.js`
+- Fixed lights-out scheduling guide to remove a false multi-repo coordinator claim
+- Added regression guards cross-checking docs against implementation for schedule eligibility and lights-out boundaries
+- Fixed Reddit post formatting: `post-reddit.sh` now converts literal `\n` to real newlines via `printf '%b'`
+- Fixed RVP spec drift: `--max-turns 1` → `--max-turns 5` to match shipped subprocess E2E tests
+
+## Why It Matters
+
+Built-in plugins are part of the governed delivery surface. When their manifests and docs promise config that runtime ignores, operators lose trust in the governance contract. This release closes that gap and establishes regression guards so plugin config parity cannot silently drift again.
+
+The lights-out scheduling guide documents the product's strategic end state — dark software factories — as a first-class operator surface rather than leaving it buried in CLI reference entries.
+
+## Evidence
+
+- 3,894 tests / 838 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` → clean production build
+- Plugin config parity tests: `AT-BUILTIN-PLUGIN-006` (Slack), `AT-BUILTIN-PLUGIN-007` (JSON report)
+- Schedule/lights-out regression guards: 12 tests / 4 suites / 0 failures
+- Reproducible verification E2E: 2 tests / 1 suite / 0 failures
+
+## Install / Upgrade
+
+```bash
+npm install -g agentxchain@2.79.0
+# or
+brew upgrade agentxchain
+```

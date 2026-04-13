@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.79.0
+
+`2.79.0` fixes built-in plugin config drift, adds dedicated plugin docs, ships a lights-out scheduling guide, and tightens docs contract boundaries.
+
+- Fixed `plugin-slack-notify` runtime to honor `webhook_env` and `mention` config from manifest
+- Fixed `plugin-json-report` runtime to honor `report_dir` config with path-escape rejection
+- New dedicated docs pages for `plugin-slack-notify`, `plugin-json-report`, and `plugin-github-issues` under `/docs/plugins/`
+- New lights-out scheduling guide at `/docs/lights-out-scheduling` with daemon operation, safety behavior, and operational patterns
+- Fixed schedule eligibility docs to include `missing` state (fresh projects)
+- Fixed lights-out docs to remove false multi-repo coordinator claim
+- Fixed Reddit post formatting (`post-reddit.sh` now converts literal `\n` to real newlines)
+- Fixed RVP spec drift (`--max-turns 1` → `--max-turns 5` to match shipped E2E)
+- 3,894 tests / 838 suites / 0 failures (`cd cli && npm test`)
+- Local release proof: plugin config parity tests, schedule/lights-out regression guards, full test suite, clean Docusaurus build
+
 ## 2.78.0
 
 `2.78.0` adds the first cross-run comparison command, ships the OpenClaw integration surface, and cleans up docs information architecture that was needlessly confusing.

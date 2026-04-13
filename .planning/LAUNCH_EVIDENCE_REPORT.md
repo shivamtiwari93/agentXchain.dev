@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.78.0
+# Launch Evidence Report — AgentXchain v2.79.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-12 for the v2.78.0 release: cross-run diffing, OpenClaw integration surfaces, and the clarified docs navigation split between Connectors and Platform Guides.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.79.0 release: built-in plugin config parity, dedicated plugin docs, lights-out scheduling guide, and docs contract tightening.
 
 ---
 
