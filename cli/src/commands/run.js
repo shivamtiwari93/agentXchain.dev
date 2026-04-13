@@ -32,6 +32,7 @@ import { dispatchRemoteAgent, describeRemoteAgentTarget } from '../lib/adapters/
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest } from '../lib/dispatch-manifest.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { buildInheritedContext } from '../lib/run-context-inheritance.js';
 import {
@@ -179,6 +180,24 @@ export async function executeGovernedRun(context, opts = {}) {
   // ── Run header ──────────────────────────────────────────────────────────
   log(chalk.cyan.bold('agentxchain run'));
   log(chalk.dim(`  Max turns: ${maxTurns}  Gate mode: ${autoApprove ? 'auto-approve' : 'interactive'}`));
+  if (provenance) {
+    const provenanceSummary = summarizeRunProvenance(provenance);
+    if (provenanceSummary) {
+      log(`  ${chalk.dim('Origin:')}    ${chalk.magenta(provenanceSummary)}`);
+    }
+  }
+  if (inheritedContext) {
+    const ic = inheritedContext;
+    const phasesCount = ic.parent_phases_completed?.length || 0;
+    const decisionsCount = ic.recent_decisions?.length || 0;
+    const turnsCount = ic.recent_accepted_turns?.length || 0;
+    const parts = [];
+    if (phasesCount) parts.push(`${phasesCount} phase${phasesCount !== 1 ? 's' : ''}`);
+    if (decisionsCount) parts.push(`${decisionsCount} decision${decisionsCount !== 1 ? 's' : ''}`);
+    if (turnsCount) parts.push(`${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`);
+    const detail = parts.length ? ` — ${parts.join(', ')}` : '';
+    log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${ic.parent_run_id} (${ic.parent_status || 'unknown'})${detail}`)}`);
+  }
   log('');
 
   // ── Track first-call for --role override ────────────────────────────────
