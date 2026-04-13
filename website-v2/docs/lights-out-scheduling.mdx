@@ -1,0 +1,274 @@
+---
+title: Lights-Out Scheduling
+description: "Run governed AI agents on a schedule without human intervention. Configure repo-local schedules, start the daemon, and let AgentXchain drive autonomous software delivery."
+---
+
+# Lights-Out Scheduling
+
+Lights-out scheduling turns AgentXchain from a tool you invoke into a system that runs itself. You configure schedules in `agentxchain.json`, start the daemon, and governed runs execute on cadence without a human typing `agentxchain run`.
+
+This is the narrow, repo-local first step toward the strategic end state: **dark software factories** where governed agent teams operate over long horizons with human oversight, not human steering.
+
+## When to use scheduling
+
+Use scheduling when you want agents to:
+
+- run nightly code reviews, refactoring passes, or maintenance sweeps
+- execute governed test/QA cycles on a fixed cadence
+- process accumulated intake signals (CI failures, git changes) without waiting for a human to trigger a run
+- keep a governed project moving forward while the team sleeps
+
+Scheduling is **not** a replacement for `agentxchain run`. It is the autonomous layer on top of it. Everything the daemon does, you could do manually — the daemon just does it on a clock.
+
+## Configuration
+
+Schedules live in `agentxchain.json` under a top-level `schedules` object:
+
+```json
+{
+  "project": "my-project",
+  "roles": { ... },
+  "workflow": { ... },
+  "schedules": {
+    "nightly_review": {
+      "enabled": true,
+      "every_minutes": 1440,
+      "auto_approve": true,
+      "max_turns": 10,
+      "initial_role": "qa",
+      "trigger_reason": "Nightly governed code review"
+    },
+    "hourly_intake_sweep": {
+      "enabled": true,
+      "every_minutes": 60,
+      "auto_approve": true,
+      "max_turns": 5,
+      "trigger_reason": "Process accumulated intake signals"
+    }
+  }
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `enabled` | `true` | Whether the schedule is eligible to run |
+| `every_minutes` | **required** | Fixed interval cadence in minutes |
+| `auto_approve` | `true` | Whether scheduled runs auto-approve gates |
+| `max_turns` | `50` | Safety limit passed to the governed run |
+| `initial_role` | config-driven | Optional first-turn role override |
+| `trigger_reason` | `schedule:<id>` | Human-readable provenance recorded in run history |
+
+You can define multiple schedules with different cadences. Each schedule is identified by its key (e.g., `nightly_review`, `hourly_intake_sweep`).
+
+## Checking schedule status
+
+Before starting the daemon, verify your schedule configuration:
+
+```bash
+# List all configured schedules with due status
+agentxchain schedule list
+
+# Check a specific schedule
+agentxchain schedule list --schedule nightly_review
+
+# Machine-readable output
+agentxchain schedule list --json
+```
+
+The list command shows:
+- whether each schedule is enabled
+- when it was last run
+- when it is next due
+- any skip reasons from the last evaluation
+
+## Running due schedules
+
+You can run due schedules without starting the daemon:
+
+```bash
+# Evaluate all schedules once and run any that are due
+agentxchain schedule run-due
+
+# Run only a specific schedule if it is due
+agentxchain schedule run-due --schedule nightly_review
+```
+
+This is useful for:
+- cron-based execution (run `agentxchain schedule run-due` from a system cron job)
+- CI-triggered runs (run it from a GitHub Action or other CI system)
+- manual one-off evaluation
+
+## Starting the daemon
+
+The daemon polls for due schedules on a fixed interval and runs them automatically:
+
+```bash
+# Start with default 60-second poll interval
+agentxchain schedule daemon
+
+# Custom poll interval
+agentxchain schedule daemon --poll-seconds 300
+
+# Limit the number of poll cycles (useful for testing)
+agentxchain schedule daemon --max-cycles 10
+
+# Run only a specific schedule
+agentxchain schedule daemon --schedule nightly_review
+```
+
+The daemon runs in the foreground. To run it in the background:
+
+```bash
+# Background with nohup
+nohup agentxchain schedule daemon --poll-seconds 300 > schedule.log 2>&1 &
+
+# Or use tmux/screen for a persistent session
+tmux new-session -d -s agentxchain-daemon 'agentxchain schedule daemon --poll-seconds 300'
+```
+
+## Daemon health monitoring
+
+The daemon writes a heartbeat file at `.agentxchain/schedule-daemon.json` on every poll cycle. Check its health:
+
+```bash
+agentxchain schedule status
+```
+
+| Status | Meaning |
+|--------|---------|
+| `running` | Heartbeat is recent (within `poll_seconds * 3` or 30 seconds, whichever is greater) |
+| `stale` | Heartbeat file exists but is older than the staleness threshold |
+| `not_running` | State file exists but is malformed or missing heartbeat data |
+| `never_started` | No daemon state file found |
+
+For automation:
+
+```bash
+agentxchain schedule status --json
+```
+
+Returns `pid`, `started_at`, `last_heartbeat_at`, `last_cycle_result`, `poll_seconds`, and `stale_after_seconds`.
+
+The `doctor` command also checks daemon health when schedules are configured:
+
+```bash
+agentxchain doctor
+```
+
+## Safety behavior
+
+Scheduled runs follow strict safety rules:
+
+1. **No double-runs.** If the project is already `active` or `paused`, the scheduler records a skip reason and moves on. It does not start a second concurrent run.
+
+2. **No hijacking.** If a run is `blocked` (waiting for operator recovery), the scheduler does not auto-recover it. A human must explicitly recover blocked runs.
+
+3. **Start from clean state only.** Scheduled runs start only from `idle` or `completed` status.
+
+4. **Provenance tracking.** Scheduled runs use `trigger: "schedule"` in run history, so you can always distinguish scheduled runs from manual ones.
+
+5. **Budget enforcement.** If `budget.on_limit` is `pause_and_escalate`, a scheduled run that exhausts its budget will block and escalate — the daemon will skip it on subsequent cycles until an operator intervenes. If `budget.on_limit` is `warn`, the run continues past budget with observable warnings.
+
+## Combining with intake
+
+Scheduling pairs naturally with the [continuous delivery intake](/docs/continuous-delivery-intake) surface. A common pattern:
+
+1. **Intake records signals continuously** — CI failures, git ref changes, manual records
+2. **A scheduled run processes accumulated intents** — the initial role triages, plans, and executes work from the intake backlog
+3. **The daemon ensures this happens on cadence** — no human needs to remember to run it
+
+Example configuration:
+
+```json
+{
+  "schedules": {
+    "process_intake": {
+      "enabled": true,
+      "every_minutes": 120,
+      "auto_approve": true,
+      "max_turns": 15,
+      "initial_role": "pm",
+      "trigger_reason": "Process intake backlog every 2 hours"
+    }
+  }
+}
+```
+
+## Combining with multi-repo
+
+For multi-repo coordination, run the daemon from the coordinator workspace (rooted by `agentxchain-multi.json`). Scheduled runs in the coordinator can trigger `multi step` commands that fan out to child repos.
+
+See [Multi-Repo Orchestration](/docs/multi-repo) for the coordinator setup.
+
+## Monitoring scheduled runs
+
+After the daemon runs governed cycles, inspect the results:
+
+```bash
+# See run history including scheduled runs
+agentxchain history
+
+# Filter for schedule-triggered runs
+agentxchain events --json | grep '"trigger":"schedule"'
+
+# Compare two scheduled runs
+agentxchain diff <run_id_1> <run_id_2>
+```
+
+## Operational patterns
+
+### Nightly code review
+
+```json
+{
+  "schedules": {
+    "nightly_review": {
+      "every_minutes": 1440,
+      "initial_role": "qa",
+      "max_turns": 8,
+      "trigger_reason": "Nightly code quality review"
+    }
+  }
+}
+```
+
+### Hourly CI failure triage
+
+```json
+{
+  "schedules": {
+    "ci_triage": {
+      "every_minutes": 60,
+      "initial_role": "pm",
+      "max_turns": 5,
+      "trigger_reason": "Triage CI failures from intake"
+    }
+  }
+}
+```
+
+### Weekly maintenance sweep
+
+```json
+{
+  "schedules": {
+    "weekly_maintenance": {
+      "every_minutes": 10080,
+      "initial_role": "dev",
+      "max_turns": 20,
+      "trigger_reason": "Weekly dependency updates and cleanup"
+    }
+  }
+}
+```
+
+## What this is not
+
+Scheduling is repo-local and daemon-based. It is not:
+
+- a hosted orchestration service (that is the future `.ai` surface)
+- a distributed job queue
+- a replacement for CI/CD pipelines
+- an auto-recovery mechanism for blocked runs
+
+It is the simplest possible path from "I run `agentxchain run` manually" to "AgentXchain runs governed cycles on its own." Everything more sophisticated belongs in the managed cloud layer.

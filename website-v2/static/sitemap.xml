@@ -238,6 +238,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://agentxchain.dev/docs/lights-out-scheduling</loc>
+    <lastmod>2026-04-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://agentxchain.dev/docs/integration-guide</loc>
     <lastmod>2026-04-10</lastmod>
     <changefreq>monthly</changefreq>

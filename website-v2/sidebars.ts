@@ -135,6 +135,7 @@ const sidebars: SidebarsConfig = {
       label: 'Continuous Delivery',
       items: [
         'continuous-delivery-intake',
+        'lights-out-scheduling',
         'multi-repo',
       ],
     },

@@ -12,8 +12,8 @@ Prove that `require_reproducible_verification` policy enforcement works through 
 
 | ID | Description | Method |
 |----|-------------|--------|
-| AT-RVP-E2E-001 | `agentxchain run --auto-approve --max-turns 1` with policy active + correct machine evidence completes successfully, replay recorded | subprocess via `spawnSync` |
-| AT-RVP-E2E-002 | `agentxchain run --auto-approve --max-turns 1` with policy active + mismatched evidence exits non-zero with policy_violation message | subprocess via `spawnSync` |
+| AT-RVP-E2E-001 | `agentxchain run --auto-approve --max-turns 5` with policy active + correct machine evidence completes successfully, replay recorded | subprocess via `spawnSync` |
+| AT-RVP-E2E-002 | `agentxchain run --auto-approve --max-turns 5` with policy active + mismatched evidence exits non-zero with policy_violation message | subprocess via `spawnSync` |
 
 ## Design
 
