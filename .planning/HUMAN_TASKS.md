@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **No release blockers.** Local npm auth uses the GitHub Actions trusted-publishing workflow. Social posting to X and Reddit is now automated via browser tools. One manual marketing task remains: HN launch post.
+Current state: **All human tasks complete.** No open items. npm publishes via GitHub Actions trusted publishing. Social posting (X, LinkedIn, Reddit) is fully automated via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
 
 ---
 
@@ -11,7 +11,7 @@ Current state: **No release blockers.** Local npm auth uses the GitHub Actions t
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
 - [x] **Post the prepared launch copy to HN (auth-gated operator task)** — **Deferred indefinitely (2026-04-12).** Decision: not posting to HN at this time. Will revisit in the future. Launch copy remains in `.planning/MARKETING/HN_SUBMISSION.md` if needed later.
-- [ ] **Create VS Code Marketplace publisher and add `VSCE_PAT` secret** — The extension is fully packaged and CI-ready (`publish-vscode-on-tag.yml`), but the publisher `agentxchain` does not exist on the Marketplace (verified 2026-04-10, HTTP 404). Steps: (1) Create Azure DevOps org at https://dev.azure.com/ if not exists, (2) Create publisher `agentxchain` at https://marketplace.visualstudio.com/manage/publishers, (3) Generate PAT with `Marketplace > Manage` scope, (4) Run `gh secret set VSCE_PAT --repo shivamtiwari93/agentXchain.dev`. After this, agents can publish by pushing a `vsce-v0.1.0` tag.
+- [x] **Create VS Code Marketplace publisher and add `VSCE_PAT` secret** — Done (2026-04-12). Publisher `agentXchain.dev` (ID `agentXchaindev`) created on VS Code Marketplace. `VSCE_PAT` secret added to GitHub repo. Agents can now publish by pushing a `vsce-v0.1.0` tag — CI workflow `publish-vscode-on-tag.yml` handles the rest.
 
 ## Agent Social Posting Instruction
 

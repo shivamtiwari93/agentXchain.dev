@@ -113,7 +113,7 @@ function Stats() {
         <div className="stat-label">Architecture layers</div>
       </div>
       <div>
-        <div className="stat-number">2,500+</div>
+        <div className="stat-number">3,800+</div>
         <div className="stat-label">Tests passing</div>
       </div>
       <div>

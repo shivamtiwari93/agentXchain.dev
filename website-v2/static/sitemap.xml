@@ -60,6 +60,12 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://agentxchain.dev/docs/governance-audit</loc>
+    <lastmod>2026-04-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://agentxchain.dev/docs/governance-report</loc>
     <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
@@ -654,6 +660,12 @@
   <url>
     <loc>https://agentxchain.dev/docs/releases/v2-46-2</loc>
     <lastmod>2026-04-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://agentxchain.dev/docs/releases/v2-46-1</loc>
+    <lastmod>2026-04-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
