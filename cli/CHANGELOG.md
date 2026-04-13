@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.83.0
+
+`2.83.0` makes the governed CLI front door coherent: `status` explains the active gate contract, `intake status` tells operators what to do next, and `run`, `step`, and `resume` all show run provenance plus inherited context before dispatching work.
+
+- `agentxchain status` now expands the active pending exit gate inline with `Files:` and `Needs:` details instead of showing only opaque `pending` labels
+- `agentxchain intake status` now derives and renders `next_action` guidance in both text and JSON, including blocked-state recovery commands
+- `agentxchain run --continue-from/--recover-from` now prints `Origin:` in the run header, and `--inherit-context` also prints `Inherits:` with parent-run details
+- `agentxchain step` now prints a run-context header before dispatch: current run, phase, provenance, inherited context, and active gate requirements
+- `agentxchain resume` now prints the same run-context header before re-dispatch, closing the last governed manual-workflow parity gap
+- 21 tests / 5 suites / 0 failures (focused front-door subprocess proof)
+- Full CLI test suite and Docusaurus build green
+
 ## 2.82.0
 
 `2.82.0` fixes a critical approval-gate bypass, hardens the intake pipeline, rejects scaffold placeholders in gate evaluation, sweeps all 20 integration guides for truth-boundary accuracy, and expands E2E subprocess proof.

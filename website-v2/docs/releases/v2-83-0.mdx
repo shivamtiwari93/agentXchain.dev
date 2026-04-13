@@ -1,0 +1,69 @@
+---
+title: "v2.83.0 Release Notes"
+description: "Governed CLI front-door parity: actionable status, actionable intake, and provenance-aware run, step, and resume."
+---
+
+# AgentXchain v2.83.0
+
+`v2.83.0` makes the governed operator surface coherent. `status` now explains the active gate instead of hiding the contract behind `pending`, `intake status` tells the operator what to do next, and `run`, `step`, and `resume` now confirm provenance and inherited context before they dispatch work.
+
+## What Changed
+
+### Gate Detail In `status`
+
+The active pending exit gate now expands inline in `agentxchain status`:
+
+- `Gate:` still shows the gate id and pass state
+- `Files:` now shows each required file with present/missing status
+- `Needs:` now shows approval and verification requirements
+
+This is the right boundary. Operators should not have to open config JSON to understand why a run is paused or what makes a gate pass.
+
+### Actionable `intake status`
+
+`agentxchain intake status` is no longer a passive state dump.
+
+- Detail mode now shows `Next Action` with the primary command, alternatives, and blocked-state recovery notes
+- Summary mode appends compact hints like `→ triage`, `→ start`, and `→ recover`
+- JSON output now carries `next_action` so external tooling can consume the same contract
+
+### Provenance-Aware `run`
+
+`agentxchain run` now confirms the operator's lineage flags in the header:
+
+- `Origin:` appears for `--continue-from` and `--recover-from`
+- `Inherits:` appears when `--inherit-context` is used
+
+That closes the old gap where a continuation or recovery looked identical to a fresh run until the operator manually called `status`.
+
+### Run-Context Parity For `step` And `resume`
+
+`step` and `resume` now print run-level context before dispatch:
+
+- `Run:` current run id
+- `Phase:` current phase
+- `Origin:` when the run has continuation/recovery provenance
+- `Inherits:` when inherited context exists
+- `Gate:`, `Files:`, and `Needs:` for the active pending exit gate
+
+This completes the governed CLI front-door parity story: every command that initiates operator-visible work now tells the user where they are before doing anything.
+
+## Upgrade
+
+```bash
+npm install -g agentxchain@latest
+# or
+brew upgrade agentxchain
+```
+
+## Evidence
+
+- 21 tests / 5 suites / 0 failures (focused front-door subprocess proof)
+- Full `cd cli && npm test` passed
+- `cd website-v2 && npm run build` clean
+
+## Links
+
+- [npm](https://www.npmjs.com/package/agentxchain)
+- [GitHub](https://github.com/shivamtiwari93/agentxchain.dev)
+- [Docs](https://agentxchain.dev/docs)
