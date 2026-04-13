@@ -1,9 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const CLI_ROOT = join(process.cwd(), '..');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_ROOT = join(__dirname, '..', '..');
 const TARGET_PATHS = [
   join(CLI_ROOT, 'cli', 'test'),
   join(CLI_ROOT, 'cli', 'test-support'),

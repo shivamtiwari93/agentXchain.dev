@@ -1,11 +1,13 @@
 import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = join(process.cwd(), '..');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
 const CLI_DIR = join(REPO_ROOT, 'cli');
 const PLAYBOOK = join(REPO_ROOT, '.planning', 'RELEASE_PLAYBOOK.md');
 const SPEC = join(REPO_ROOT, '.planning', 'RELEASE_IDENTITY_HARDENING_SPEC.md');

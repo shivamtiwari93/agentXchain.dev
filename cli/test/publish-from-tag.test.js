@@ -2,10 +2,12 @@ import { after, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = join(process.cwd(), '..');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..', '..');
 const SOURCE_SCRIPT = join(REPO_ROOT, 'cli', 'scripts', 'publish-from-tag.sh');
 
 function writeExecutable(path, content) {
