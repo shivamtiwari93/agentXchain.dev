@@ -153,7 +153,7 @@ Alternative config (command + args separated):
 
 **Transport:** HTTP API call (single request/response, synchronous within `step`)
 
-**Write authority support:** `review_only` ONLY in v1. The adapter enforces this restriction — attempting to dispatch an `authoritative` or `proposed` role via `api_proxy` returns an error.
+**Write authority support:** `review_only` and `proposed`. The adapter rejects `authoritative` because `api_proxy` has no tool-use or direct filesystem write path.
 
 **Dispatch phase:**
 - Reads `PROMPT.md` + `CONTEXT.md` from the dispatch bundle
@@ -171,7 +171,8 @@ Alternative config (command + args separated):
 **Collect phase:**
 - Parses API response
 - Persists raw response to `.agentxchain/staging/provider-response.json`
-- Extracts structured turn result JSON from response text (tries: raw parse → markdown fence extraction → JSON boundary detection)
+- Extracts structured turn result JSON from response text via a required three-stage pipeline: raw parse → markdown fence extraction → JSON boundary detection
+- This extraction pipeline is a contract invariant, not optional cleanup. Providers may still wrap otherwise-valid JSON in markdown fences, so the adapter may extract an enclosing JSON envelope but must not perform field-level repair.
 - Overwrites `cost` field with provider telemetry (authoritative for billing)
 - Stages extracted result at `.agentxchain/staging/<turn_id>/turn-result.json`
 
@@ -187,16 +188,12 @@ Alternative config (command + args separated):
 }
 ```
 
-**Supported providers:** `anthropic` (v1). Adding a new provider requires implementing `buildHeaders()` and `buildRequest()` for that provider's API format.
+**Supported providers:** `anthropic`, `openai`, `google`, `ollama`. Adding a new provider still requires implementing provider-specific headers, request formatting, response extraction, and error classification.
 
 **Cost tracking:**
-Provider telemetry is authoritative. The adapter computes cost from token counts using hardcoded rates:
+Provider telemetry is authoritative when returned by the upstream provider. The adapter also ships bundled per-model default rates so budgets and reports still work across supported providers when operator overrides are absent.
 
-| Model | Input (per 1M tokens) | Output (per 1M tokens) |
-|-------|----------------------|------------------------|
-| `claude-sonnet-4-6` | $3.00 | $15.00 |
-| `claude-opus-4-6` | $15.00 | $75.00 |
-| `claude-haiku-4-5-20251001` | $0.80 | $4.00 |
+Examples include Anthropic Claude, OpenAI GPT/o-series, and Google Gemini entries. Operators may override rates via `budget.cost_rates` in `agentxchain.json`.
 
 **Recovery on failure:**
 - Missing API key: `RecoveryDescriptor.typed_reason = "dispatch_error"`, recovery action names the specific env var

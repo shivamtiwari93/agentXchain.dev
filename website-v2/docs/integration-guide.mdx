@@ -212,19 +212,22 @@ Two MCP proof examples ship with the repo:
 }
 ```
 
-Supported providers: **Anthropic** (Claude models), **OpenAI** (GPT-4o, o3, etc.), **Google** (Gemini 2.5 Pro/Flash).
+Supported providers: **Anthropic** (Claude models), **OpenAI** (GPT-4o, o3, etc.), **Google** (Gemini 2.5 Pro/Flash), and **Ollama** (local OpenAI-compatible endpoint).
 
-API keys are read from environment variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`.
+API keys are read from environment variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`. Ollama is local-first and typically uses no auth key.
 
 `api_proxy` is valid for `review_only` and `proposed` roles, but that distinction matters operationally. A phase whose exit gate uses `requires_files` needs at least one turn that can actually materialize files. If every participating remote role is `review_only`, AgentXchain now warns because the gate cannot be satisfied through governed turns alone.
+
+The response-extraction contract is also explicit: `api_proxy` first tries direct JSON parse, then one fenced JSON block, then bounded JSON substring extraction. That pipeline is load-bearing, not optional cleanup. The current compatibility probe shows Anthropic Haiku 4.5 returning fence-wrapped JSON while Sonnet 4.6 returns direct JSON; both are accepted with no field-level repair because the adapter only extracts the outer envelope.
 
 ### Proof evidence
 
 - **Multi-provider proof**: Anthropic, OpenAI, and Google Gemini have been proven through governed turn lifecycles with config validation, response parsing, and acceptance pipeline validation.
+- **Model-compatibility proof**: Anthropic Haiku 4.5 and Sonnet 4.6 both classify as reliable for `api_proxy` + `proposed`. Haiku currently relies on fence extraction; Sonnet returns direct JSON. The durable probe results live in `.planning/MODEL_COMPATIBILITY_RESULTS.json`.
 - **CI automation proof**: Anthropic Haiku is proven in unattended CI for both review-only runner execution and the wider multi-phase planning → implementation → QA proof with proposal application and gate-pass reporting.
 - **Budget enforcement**: Token and cost budgets are tracked per turn and enforced pre-dispatch. Runs that exceed budget limits are blocked with recovery guidance.
 
-This is not a claim that every supported provider has identical live proof depth. Provider-family support exists for Anthropic, OpenAI, and Google. Wider provider coverage still belongs behind `remote_agent` or MCP.
+This is not a claim that every supported provider has identical live proof depth. Provider-family support exists for Anthropic, OpenAI, Google, and Ollama, but the published live proof depth is currently deepest on Anthropic. Wider provider coverage still belongs behind `remote_agent` or MCP until real probes are recorded.
 
 ---
 

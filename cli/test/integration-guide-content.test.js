@@ -47,7 +47,7 @@ describe('Integration guide content contract', () => {
     it('documents API Proxy pattern', () => {
       assert.match(guide, /API Proxy/i, 'must mention API Proxy');
       assert.match(guide, /"type":\s*"api_proxy"/, 'must show api_proxy config');
-      assert.match(guide, /Anthropic.*OpenAI.*Google/s, 'must mention all three providers');
+      assert.match(guide, /Anthropic.*OpenAI.*Google.*Ollama/s, 'must mention bundled api_proxy providers');
     });
   });
 
@@ -106,6 +106,16 @@ describe('Integration guide content contract', () => {
     assert.match(guide, /requires_files/i, 'must warn about impossible requires_files gates');
     assert.match(guide, /review_only.*api_proxy|api_proxy.*review_only|review_only.*remote_agent|remote_agent.*review_only/i,
       'must connect requires_files warning to remote review_only roles');
+  });
+
+  it('AT-TPI-004B: documents api_proxy extraction invariant and live compatibility evidence', () => {
+    assert.match(guide, /direct JSON parse, then one fenced JSON block, then bounded JSON substring extraction/i,
+      'guide must document the three-stage extraction pipeline');
+    assert.match(guide, /load-bearing, not optional cleanup/i,
+      'guide must describe extraction as a contract invariant');
+    assert.match(guide, /Haiku 4\.5.*fence/i, 'guide must record the Haiku fence-extraction result');
+    assert.match(guide, /Sonnet 4\.6.*direct JSON/i, 'guide must record the Sonnet direct-JSON result');
+    assert.match(guide, /MODEL_COMPATIBILITY_RESULTS\.json/, 'guide must point to the durable probe results');
   });
 
   it('AT-TPI-005: registered in sidebars.ts', () => {

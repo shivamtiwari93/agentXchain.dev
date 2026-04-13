@@ -81,7 +81,7 @@ Operator can then review, apply with `cp`, or reject.
 1. **Config validation:** `normalized-config.js` accepts `api_proxy` + `proposed` (not just `review_only`).
 2. **Dispatch bundle:** For `api_proxy` + `proposed` turns, PROMPT.md includes proposed-authoring instructions telling the model to return `proposed_changes[]` in its JSON response.
 3. **Adapter dispatch:** `api-proxy-adapter.js` accepts both `review_only` and `proposed` roles. No change to the HTTP request/response path — the structured JSON is the same transport.
-4. **Turn result extraction:** The existing JSON extraction from model response works unchanged. `proposed_changes` is a new optional top-level field.
+4. **Turn result extraction:** `api_proxy` extracts governed turn JSON through a required three-stage envelope pipeline: raw parse, then fenced JSON extraction, then bounded JSON substring detection. This may unwrap an enclosing markdown/code-fence envelope, but it must not perform field-level repair. `proposed_changes` remains a normal top-level field inside that extracted JSON object.
 5. **Turn result validation:** `turn-result-validator.js` validates `proposed_changes` structure when present (each entry has `path`, `action`, optional `content`). `patch` artifact type is now allowed for api_proxy + proposed.
 6. **Materialization:** `governed-state.js` gets a new `materializeDerivedProposalArtifact()` function that writes proposed files to `.agentxchain/proposed/<turn_id>/`.
 7. **Review path:** Subsequent review_only turns see the proposal in their dispatch context and can approve/reject.
