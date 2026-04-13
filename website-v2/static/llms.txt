@@ -20,6 +20,9 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - Multi-repo orchestration with coordinator pattern
 - Continuous delivery intake lifecycle (record → triage → plan → execute → verify → resolve)
 - Historical turn replay and audit (`verify turn` for staged, `replay turn` for accepted history)
+- Full governed inspection family: `audit` (live governance report), `diff` (run comparison), `report`, `events` (lifecycle stream), `history` (accepted turns)
+- Role/phase/gate introspection: `role list/show`, `turn show`, `phase list/show`, `gate list/show --evaluate`
+- Project health: `doctor` (static health check with plugin/schedule/connector handoff), `connector check` (live probes)
 - Human-sovereign approvals and escalation
 - Provider-agnostic: works with any LLM (Anthropic, OpenAI, local models)
 - Dashboard observation and governance reporting

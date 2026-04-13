@@ -270,7 +270,24 @@ agentxchain template validate                  # prove scaffold + workflow-kit c
 agentxchain template validate --json            # machine-readable proof with workflow_kit block
 agentxchain multi resume                        # clear a blocked coordinator after operator recovery
 agentxchain plugin list
-agentxchain plugin install ./my-plugin
+agentxchain plugin list-available
+agentxchain plugin install slack-notify
+agentxchain run                              # multi-turn governed execution to completion
+agentxchain audit                            # live governance audit report
+agentxchain diff <left> <right>              # compare two governed runs
+agentxchain report                           # generate governance report
+agentxchain events                           # inspect lifecycle event stream
+agentxchain history                          # query accepted-turn history
+agentxchain role list                        # list configured roles and charters
+agentxchain role show <role>                 # inspect a single role's configuration
+agentxchain turn show                        # inspect the active turn in detail
+agentxchain phase list                       # list configured phases
+agentxchain phase show <phase>               # inspect a single phase's configuration
+agentxchain gate list                        # list configured gates
+agentxchain gate show <gate> --evaluate      # evaluate a gate's pass/fail state
+agentxchain doctor                           # governed project health check
+agentxchain connector check                  # live health probes for configured connectors
+agentxchain export                           # export run state for cross-machine continuity
 ```
 
 ### `agentxchain run`
@@ -380,6 +397,24 @@ See [Continuous Delivery Intake](https://agentxchain.dev/docs/continuous-deliver
 - `schedule status`: inspect daemon heartbeat and health from `.agentxchain/schedule-daemon.json`
 
 See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/) for the repo-local daemon contract. This is not coordinator-wide or hosted automation.
+
+### Governed inspection and audit
+
+- `audit`: live governance audit report with cost summary, decision history, and artifact inventory
+- `diff <left> <right>`: compare two governed runs side by side (phase, decisions, artifacts, timing)
+- `report`: generate a governance report for the current run
+- `events`: inspect the lifecycle event stream (turns, phases, gates, governance events)
+- `history`: query accepted-turn history from append-only JSONL
+- `role list`: list all configured roles with their charters, runtimes, and phase assignments
+- `role show <role>`: inspect a single role's full configuration
+- `turn show`: inspect the active turn in detail (assignment, artifacts, timing, verification)
+- `phase list`: list configured phases with gate requirements and advancement rules
+- `phase show <phase>`: inspect a single phase's configuration and current state
+- `gate list`: list all configured gates with their types and phase boundaries
+- `gate show <gate> --evaluate`: evaluate a gate's current pass/fail state against live project state
+- `doctor`: governed project health check (config, roles, runtimes, state, schedules, plugins, workflow-kit)
+- `connector check`: live health probes for all configured connectors (api_proxy, remote_agent, MCP)
+- `export`: export run state for cross-machine continuity via `restore`
 
 ### Shared project utilities
 

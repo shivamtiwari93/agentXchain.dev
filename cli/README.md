@@ -176,7 +176,22 @@ agentxchain step
 | `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
 | `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
 | `schedule list\|run-due\|daemon\|status` | Run repo-local lights-out scheduling: inspect schedules, execute due runs, poll in a local daemon loop, or check daemon heartbeat |
-| `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins backed by `agentxchain-plugin.json` manifests |
+| `plugin install\|list\|list-available\|remove` | Install, discover, or remove governed hook plugins; `list-available` shows bundled built-in plugins installable by short name |
+| `run [--auto-approve] [--max-turns N] [--dry-run]` | Drive a governed run from start to completion — dispatches turns, handles gates, manages rejection/retry |
+| `audit [--format json]` | Live governance audit report with cost summary, decision history, and artifact inventory |
+| `diff <left> <right>` | Compare two governed runs side by side (phase, decisions, artifacts, timing) |
+| `report` | Generate a governance report for the current run |
+| `events [--type <type>] [--limit N]` | Inspect the lifecycle event stream (turns, phases, gates, governance events) |
+| `history [--limit N] [--role <role>]` | Query accepted-turn history from append-only JSONL |
+| `role list\|show` | List all configured roles or inspect a single role's charter, runtime, and phase assignment |
+| `turn show` | Inspect the active turn in detail (assignment, artifacts, timing, verification) |
+| `phase list\|show` | List configured phases or inspect a single phase's gate requirements and state |
+| `gate list\|show [--evaluate]` | List configured gates or evaluate a gate's current pass/fail state |
+| `doctor [--json]` | Governed project health check: config, roles, runtimes, state, schedules, plugins, workflow-kit, connector handoff |
+| `connector check [--json]` | Live health probes for all configured connectors (api_proxy, remote_agent, MCP stdio/streamable_http) |
+| `export [--output <path>]` | Export run state for cross-machine continuity |
+| `restore --input <path>` | Restore run state from a prior export on a same-repo, same-commit checkout |
+| `restart` | Rebuild lost session context from `.agentxchain/session.json` |
 
 ### Shared utilities
 
