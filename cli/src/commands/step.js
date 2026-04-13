@@ -60,7 +60,6 @@ import {
   getTurnStagingResultPath,
 } from '../lib/turn-paths.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
-import { safeWriteJson } from '../lib/safe-write.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
@@ -231,10 +230,12 @@ export async function stepCommand(opts) {
       const turnStatus = pausedTurn?.status;
       if (turnStatus === 'failed' || turnStatus === 'retrying') {
         console.log(chalk.yellow(`Re-dispatching failed turn: ${pausedTurn.turn_id}`));
-        state.status = 'active';
-        state.blocked_on = null;
-        state.blocked_reason = null;
-        safeWriteJson(join(root, STATE_PATH), state);
+        const reactivated = reactivateGovernedRun(root, state, { via: 'step --resume', notificationConfig: config });
+        if (!reactivated.ok) {
+          console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
+          process.exit(1);
+        }
+        state = reactivated.state;
         skipAssignment = true;
 
         const bundleResult = writeDispatchBundle(root, state, config);
@@ -270,11 +271,12 @@ export async function stepCommand(opts) {
     }
 
     if (!skipAssignment && state.status === 'paused' && state.run_id) {
-      state.status = 'active';
-      state.blocked_on = null;
-      state.blocked_reason = null;
-      state.escalation = null;
-      safeWriteJson(join(root, STATE_PATH), state);
+      const reactivated = reactivateGovernedRun(root, state, { via: 'step', notificationConfig: config });
+      if (!reactivated.ok) {
+        console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
+        process.exit(1);
+      }
+      state = reactivated.state;
       console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
     }
 

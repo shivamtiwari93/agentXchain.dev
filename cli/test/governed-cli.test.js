@@ -1236,6 +1236,63 @@ describe('concurrent step invocation detection', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('resume rejects paused runs awaiting phase approval', () => {
+    const dir = createGovernedProject();
+    try {
+      const statePath = join(dir, '.agentxchain', 'state.json');
+      const state = readGovernedState(statePath);
+      state.status = 'paused';
+      state.active_turns = {};
+      state.pending_phase_transition = {
+        from: 'implementation',
+        to: 'qa',
+        gate: 'implementation_complete',
+        requested_by_turn: 'turn_01H',
+      };
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      const result = runCli(dir, ['resume']);
+      assert.equal(result.status, 1, 'resume should fail when paused for approval');
+      const combined = result.stdout + result.stderr;
+      assert.match(combined, /paused for approval/i);
+      assert.match(combined, /approve-transition/);
+
+      const finalState = readGovernedState(statePath);
+      assert.equal(finalState.status, 'paused');
+      assert.ok(finalState.pending_phase_transition, 'pending approval must remain on disk');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('resume rejects paused runs awaiting completion approval', () => {
+    const dir = createGovernedProject();
+    try {
+      const statePath = join(dir, '.agentxchain', 'state.json');
+      const state = readGovernedState(statePath);
+      state.status = 'paused';
+      state.active_turns = {};
+      state.phase = 'qa';
+      state.pending_run_completion = {
+        gate: 'qa_ship_verdict',
+        requested_by_turn: 'turn_qa_01',
+      };
+      writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+      const result = runCli(dir, ['resume']);
+      assert.equal(result.status, 1, 'resume should fail when completion approval is pending');
+      const combined = result.stdout + result.stderr;
+      assert.match(combined, /paused for approval/i);
+      assert.match(combined, /approve-completion/);
+
+      const finalState = readGovernedState(statePath);
+      assert.equal(finalState.status, 'paused');
+      assert.ok(finalState.pending_run_completion, 'pending completion must remain on disk');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── Hook Failure CLI Surface Tests ─────────────────────────────────────────

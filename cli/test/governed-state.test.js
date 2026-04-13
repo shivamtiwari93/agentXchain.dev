@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 
 import {
   initializeGovernedRun,
+  reactivateGovernedRun,
   assignGovernedTurn,
   acceptGovernedTurn,
   rejectGovernedTurn,
@@ -264,10 +265,20 @@ describe('initializeGovernedRun', () => {
     assert.ok(result.error.includes('active'));
   });
 
-  it('allows initialization from paused state', () => {
-    // Simulate a paused state (e.g., post-migration)
+  it('rejects initialization from paused state', () => {
     const state = readJson(dir, '.agentxchain/state.json');
     state.status = 'paused';
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+
+    const result = initializeGovernedRun(dir, config);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /expected "idle" or pre-run "blocked"/);
+  });
+
+  it('allows initialization from pre-run blocked migration-review state', () => {
+    const state = readJson(dir, '.agentxchain/state.json');
+    state.status = 'blocked';
+    state.blocked_on = 'human:migration-review';
     writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
 
     const result = initializeGovernedRun(dir, config);
@@ -302,6 +313,33 @@ describe('initializeGovernedRun', () => {
     assert.equal(normalized.state.turn_sequence, 1);
     assert.deepEqual(Object.keys(normalized.state.active_turns), ['turn_legacy']);
     assert.equal(normalized.state.active_turns.turn_legacy.assigned_sequence, 1);
+  });
+});
+
+describe('reactivateGovernedRun', () => {
+  let dir, config;
+  beforeEach(() => {
+    dir = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(dir, 'Test Project', 'test-project');
+  });
+  afterEach(() => { try { rmSync(dir, { recursive: true, force: true }); } catch {} });
+
+  it('rejects paused runs that are awaiting approval', () => {
+    const state = readJson(dir, '.agentxchain/state.json');
+    state.run_id = 'run_waiting';
+    state.status = 'paused';
+    state.pending_phase_transition = {
+      from: 'planning',
+      to: 'implementation',
+      gate: 'planning_signoff',
+      requested_by_turn: 'turn_123',
+    };
+    writeFileSync(join(dir, '.agentxchain', 'state.json'), JSON.stringify(state, null, 2) + '\n');
+
+    const result = reactivateGovernedRun(dir, state);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /awaiting approval/);
   });
 });
 

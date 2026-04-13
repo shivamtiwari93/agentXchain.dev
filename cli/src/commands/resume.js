@@ -36,7 +36,6 @@ import {
   getDispatchEffectiveContextPath,
   getDispatchPromptPath,
 } from '../lib/turn-paths.js';
-import { safeWriteJson } from '../lib/safe-write.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 
@@ -100,6 +99,11 @@ export async function resumeCommand(opts) {
     process.exit(1);
   }
 
+  if (state.status === 'paused' && (state.pending_phase_transition || state.pending_run_completion)) {
+    printRecoverySummary(state, 'This run is paused for approval.');
+    process.exit(1);
+  }
+
   // §47: paused + retained turn with failed/retrying status → re-dispatch same turn
   if (state.status === 'paused' && activeCount > 0) {
     // Resolve which turn to re-dispatch
@@ -129,10 +133,12 @@ export async function resumeCommand(opts) {
       console.log(`  Attempt: ${retainedTurn.attempt}`);
       console.log('');
 
-      // Reactivate the run
-      state.status = 'active';
-      state.blocked_on = null;
-      safeWriteJson(statePath, state);
+      const reactivated = reactivateGovernedRun(root, state, { via: 'resume --turn', notificationConfig: config });
+      if (!reactivated.ok) {
+        console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
+        process.exit(1);
+      }
+      state = reactivated.state;
 
       // Write dispatch bundle for the existing turn
       const bundleResult = writeDispatchBundle(root, state, config);
@@ -236,11 +242,12 @@ export async function resumeCommand(opts) {
 
   // §47: paused + run_id exists → resume same run
   if (state.status === 'paused' && state.run_id) {
-    state.status = 'active';
-    state.blocked_on = null;
-    state.blocked_reason = null;
-    state.escalation = null;
-    safeWriteJson(statePath, state);
+    const reactivated = reactivateGovernedRun(root, state, { via: 'resume', notificationConfig: config });
+    if (!reactivated.ok) {
+      console.log(chalk.red(`Failed to reactivate run: ${reactivated.error}`));
+      process.exit(1);
+    }
+    state = reactivated.state;
     console.log(chalk.green(`Resumed governed run: ${state.run_id}`));
   }
 
@@ -419,6 +426,19 @@ function printDispatchBundleWarnings(bundleResult) {
 function printAssignmentWarnings(assignResult) {
   for (const warning of assignResult.warnings || []) {
     console.log(chalk.yellow(`Warning: ${warning}`));
+  }
+}
+
+function printRecoverySummary(state, heading) {
+  const recovery = deriveRecoveryDescriptor(state);
+  console.log(chalk.yellow(heading));
+  if (!recovery) {
+    return;
+  }
+  console.log(`  ${chalk.dim('Reason:')} ${recovery.typed_reason}`);
+  console.log(`  ${chalk.dim('Action:')} ${recovery.recovery_action}`);
+  if (recovery.detail) {
+    console.log(`  ${chalk.dim('Detail:')} ${recovery.detail}`);
   }
 }
 

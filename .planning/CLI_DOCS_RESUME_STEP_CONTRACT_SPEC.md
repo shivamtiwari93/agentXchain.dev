@@ -49,6 +49,10 @@ Truthful cases from shipped code:
 - paused run with `run_id` and no retained failed turn → reactivate run, assign a new turn, write dispatch bundle
 - paused run with retained `failed` / `retrying` turn → re-dispatch the same turn
 
+Approval-held pauses are excluded:
+
+- paused run with `pending_phase_transition` or `pending_run_completion` → reject and direct the operator to `approve-transition` or `approve-completion`
+
 Therefore the docs must **not** claim:
 
 - `Creates a turn? No`
@@ -92,6 +96,7 @@ The docs must **not** tell operators to use `resume` for an already-active inter
 1. If the docs say `resume` never creates a turn, they are wrong and must fail the contract test.
 2. If the docs describe `resume` as the recovery path for an already-active turn, they are wrong; the shipped command points operators to `step --resume`.
 3. If the docs blur “dispatch bundle materialized” with “adapter executed”, they are wrong. `resume` does the former, `step` does both.
+4. If the docs claim `resume` clears approval-held paused runs, they are wrong. Those pauses require approval commands.
 
 ## Acceptance Tests
 
@@ -99,6 +104,7 @@ The docs must **not** tell operators to use `resume` for an already-active inter
 - `AT-CLI-RS-002`: `/docs/cli` states that `resume` initializes/resumes a run and assigns or re-dispatches one turn without waiting
 - `AT-CLI-RS-003`: `/docs/cli` states that `step --resume` is the path for continuing an already-active turn
 - `AT-CLI-RS-004`: `cli/test/docs-cli-governance-content.test.js` ties those docs claims to `resume.js`, `step.js`, and `assignGovernedTurn()`
+- `AT-CLI-RS-005`: `/docs/cli` states that approval-held paused runs must use `approve-transition` / `approve-completion`, not `resume`
 
 ## Open Questions
 

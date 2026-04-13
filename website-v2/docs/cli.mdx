@@ -26,7 +26,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | **Runs adapter?** | No — writes dispatch state and exits | Yes — dispatches, waits, validates, and records outcome |
 | **When to use** | You want a turn assigned now, or you need to re-dispatch a failed retained turn without waiting for completion | You want the CLI to drive one turn through execution and staged-result handling |
 
-`resume` is the non-waiting path. It can initialize an idle run, resume a paused run, assign a fresh turn when no turn is active, or re-dispatch a retained failed turn. If a turn is already active and you need to keep waiting on it, use `agentxchain step --resume` instead. `step` is the full lifecycle: it creates or resumes the turn, dispatches to the adapter, waits for a result, validates the staged output, and records the outcome.
+`resume` is the non-waiting path. It can initialize an idle run, resume a paused run that is not waiting on approval, assign a fresh turn when no turn is active, or re-dispatch a retained failed turn. If the pause is carrying `pending_phase_transition` or `pending_run_completion`, use `agentxchain approve-transition` or `agentxchain approve-completion` instead. If a turn is already active and you need to keep waiting on it, use `agentxchain step --resume` instead. `step` is the full lifecycle: it creates or resumes the turn, dispatches to the adapter, waits for a result, validates the staged output, and records the outcome.
 
 ## Command map
 

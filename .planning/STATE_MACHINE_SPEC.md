@@ -127,7 +127,6 @@ Constraints:
 | From | Trigger | Guard | To | Notes |
 |---|---|---|---|---|
 | `idle` | `initializeGovernedRun()` or `step` auto-init | state exists, not completed | `active` | creates `run_id`, budget envelope |
-| `paused` | `initializeGovernedRun()` | allowed by implementation | `active` | used for migration/resume edge case |
 | `active` | `assignGovernedTurn()` | no current turn, role exists, clean baseline passes | `active` | assigns `current_turn` |
 | `active` | `acceptGovernedTurn()` with `status=needs_human` | staged result valid | `paused` | clears turn, sets `blocked_on=human:*` |
 | `active` | `acceptGovernedTurn()` with gate awaiting approval | staged result valid, gate structurally passes, approval required | `paused` | sets pending approval object |
@@ -188,7 +187,7 @@ Approval commands are strict:
 
 ## Error Cases
 
-- `initializeGovernedRun()` fails when state is missing or already `completed`.
+- `initializeGovernedRun()` fails when state is missing, already `completed`, or any paused run is passed instead of using explicit recovery.
 - `assignGovernedTurn()` fails when run status is not `active`, a turn already exists, the role is unknown, or the clean-baseline check fails.
 - `acceptGovernedTurn()` fails when there is no active turn, staged result validation fails, or observed artifact mismatches declared files.
 - `rejectGovernedTurn()` fails when there is no active turn.
@@ -219,4 +218,4 @@ Approval commands are strict:
 
 1. Should v1.1 make run-level `status = "failed"` reachable, or should escalation continue to be represented only as `paused + current_turn.status = failed`?
 2. Should dispatch and staging progress become persisted sub-state in `state.json`, or remain derived from command flow and filesystem evidence?
-3. Should `initializeGovernedRun()` continue to reactivate a paused run, or should resumed runs be forced through explicit approval/recovery commands only?
+3. Resolved 2026-04-13 by `DEC-PAUSED-RECOVERY-BOUNDARY-001`: `initializeGovernedRun()` does not reactivate paused runs. Resumed runs go through explicit recovery commands (`resume`, `step --resume`, `approve-transition`, `approve-completion`) instead.

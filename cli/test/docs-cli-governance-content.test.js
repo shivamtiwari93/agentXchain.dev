@@ -309,6 +309,14 @@ describe('CLI governance docs contract — resume vs step behavior', () => {
     assert.match(docs, /use `agentxchain step --resume` instead/i);
     assert.match(docs, /Create or resume one turn, dispatch to adapter, wait for result, validate, and record the outcome/i);
   });
+
+  it('documents that approval-held paused runs use approval commands instead of resume', () => {
+    assert.match(resumeSource, /pending_phase_transition \|\| state\.pending_run_completion/);
+    assert.match(docs, /pending_phase_transition/);
+    assert.match(docs, /pending_run_completion/);
+    assert.match(docs, /approve-transition/);
+    assert.match(docs, /approve-completion/);
+  });
 });
 
 describe('CLI governance docs contract — spec exists', () => {

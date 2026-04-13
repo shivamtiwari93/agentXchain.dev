@@ -378,14 +378,14 @@ describe('resume workflow: full dispatch cycle', () => {
     assert.ok(context.length > 50);
   });
 
-  it('paused migration-review → init → assign → dispatch works', () => {
-    // Simulate post-migration state
+  it('pre-run migration-review bootstrap → init → assign → dispatch works', () => {
+    // Simulate a migrated bootstrap state that normalizes to blocked-without-run
     const state = readJson(root, STATE_PATH);
     state.status = 'paused';
     state.blocked_on = 'human:migration-review';
     writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
 
-    // Initialize the run (initializeGovernedRun accepts paused)
+    // initializeGovernedRun still accepts this bootstrap path after state normalization
     const initResult = initializeGovernedRun(root, config);
     assert.ok(initResult.ok);
     assert.equal(initResult.state.status, 'active');

@@ -1774,6 +1774,12 @@ export function reactivateGovernedRun(root, state, details = {}) {
   if (!state || typeof state !== 'object') {
     return { ok: false, error: 'State is required.' };
   }
+  if (state.status !== 'blocked' && state.status !== 'paused') {
+    return { ok: false, error: `Cannot reactivate run: status is "${state.status}", expected "blocked" or "paused".` };
+  }
+  if (state.status === 'paused' && (state.pending_phase_transition || state.pending_run_completion)) {
+    return { ok: false, error: 'Cannot reactivate run: this paused run is awaiting approval. Use approve-transition or approve-completion.' };
+  }
 
   const now = new Date().toISOString();
   const wasEscalation = state.status === 'blocked' && typeof state.blocked_on === 'string' && state.blocked_on.startsWith('escalation:');
@@ -1819,7 +1825,7 @@ export function reactivateGovernedRun(root, state, details = {}) {
 // ── Core Operations ──────────────────────────────────────────────────────────
 
 /**
- * Initialize a governed run from idle state.
+ * Initialize a governed run from bootstrap state.
  * Creates a run_id and sets status to 'active'.
  *
  * @param {string} root - project root directory
@@ -1837,8 +1843,8 @@ export function initializeGovernedRun(root, config, options = {}) {
     return { ok: false, error: 'Cannot initialize run: this run is already completed. Start a new project or reset state.' };
   }
   const allowBlockedBootstrap = state.status === 'blocked' && state.run_id === null && getActiveTurnCount(state) === 0;
-  if (state.status !== 'idle' && state.status !== 'paused' && !allowBlockedBootstrap && !allowTerminalRestart) {
-    return { ok: false, error: `Cannot initialize run: status is "${state.status}", expected "idle", "paused", or pre-run "blocked"` };
+  if (state.status !== 'idle' && !allowBlockedBootstrap && !allowTerminalRestart) {
+    return { ok: false, error: `Cannot initialize run: status is "${state.status}", expected "idle" or pre-run "blocked"` };
   }
   if (allowTerminalRestart) {
     state = buildFreshIdleStateForNewRun(state, config);
