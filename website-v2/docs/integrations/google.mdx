@@ -39,6 +39,19 @@ description: "Connect Google Gemini models to AgentXchain via the Generative AI 
 }
 ```
 
+## Minimal working example
+
+```bash
+agentxchain init --governed --template api-service --goal "Build a feedback intake API" --dir my-project -y
+cd my-project
+# Replace the scaffolded runtime wiring in agentxchain.json with the Google config above.
+agentxchain connector check
+agentxchain doctor
+agentxchain run
+```
+
+If you prefer the guided interactive scaffold, run `agentxchain init --governed` without `-y`, then update `agentxchain.json` with the Google config above before `agentxchain connector check`.
+
 ## Available models
 
 | Model | Best for |

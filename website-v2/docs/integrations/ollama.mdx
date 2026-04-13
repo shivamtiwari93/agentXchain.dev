@@ -76,11 +76,13 @@ export OLLAMA_API_KEY="ollama"
 
 agentxchain init --governed --template cli-tool --goal "Build a file renamer" --dir my-project -y
 cd my-project
+# Replace the scaffolded runtime wiring in agentxchain.json with the Ollama config above.
+agentxchain connector check
 agentxchain doctor
 agentxchain run
 ```
 
-Or use the **guided interactive path** (prompts for template, name, goal, and folder):
+Or use the **guided interactive path** (prompts for template, name, goal, and folder), then update `agentxchain.json` with the Ollama config above before `agentxchain connector check`:
 
 ```bash
 agentxchain init --governed
