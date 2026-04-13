@@ -17,6 +17,7 @@ Regardless of which pattern you use, AgentXchain enforces the same governance co
 - **Phase gates** — artifacts must exist before phase transitions are approved
 - **Decision ledger** — every decision is append-only and auditable
 - **Authority boundaries** — `proposed` turns stage changes; `review_only` turns attest without writes; `authoritative` turns write directly when the adapter/runtime actually supports it
+- **Gate realism** — a `requires_files` gate needs some path that can actually produce those files; if a phase only has `review_only` `api_proxy` / `remote_agent` roles, the files will not appear through governed turns
 - **Budget enforcement** — token/cost budgets are tracked and enforced per turn
 
 The adapter is a replaceable bridge. The governance is not.
@@ -94,6 +95,7 @@ These are real failure modes from model-backed proof runs:
 | Empty objections on review | `review_only` turns with `objections: []` fail the challenge requirement | Always include at least one objection |
 | Missing `proposed_changes` | `proposed` turns without `proposed_changes[]` have nothing for `proposal apply` | Return at least one file with `path`, `action`, and `content` |
 | Wrong `run_id`/`turn_id` | Mismatched IDs fail schema validation | Echo the exact values from the request envelope |
+| `requires_files` with remote `review_only` roles only | Phase gate can never be satisfied through governed turns because no turn can stage or write files | Add a `proposed` / `authoritative` writer, remove the gate files, or plan explicit operator-managed artifacts |
 
 ---
 
@@ -213,6 +215,8 @@ Two MCP proof examples ship with the repo:
 Supported providers: **Anthropic** (Claude models), **OpenAI** (GPT-4o, o3, etc.), **Google** (Gemini 2.5 Pro/Flash).
 
 API keys are read from environment variables: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`.
+
+`api_proxy` is valid for `review_only` and `proposed` roles, but that distinction matters operationally. A phase whose exit gate uses `requires_files` needs at least one turn that can actually materialize files. If every participating remote role is `review_only`, AgentXchain now warns because the gate cannot be satisfied through governed turns alone.
 
 ### Proof evidence
 

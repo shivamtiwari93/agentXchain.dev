@@ -20,7 +20,7 @@ const CLI_BIN = join(cliRoot, 'bin', 'agentxchain.js');
 const MOCK_AGENT = join(cliRoot, 'test-support', 'mock-agent.mjs');
 const tempDirs = [];
 
-function makeGoverned({ schedules, breakConfig, removeAuthEnv, liveProbeRuntime } = {}) {
+function makeGoverned({ schedules, breakConfig, removeAuthEnv, liveProbeRuntime, remoteReviewOnlyGate } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'axc-gd-e2e-'));
   tempDirs.push(root);
   scaffoldGoverned(root, 'Doctor E2E', `doctor-e2e-${Date.now()}`);
@@ -40,6 +40,18 @@ function makeGoverned({ schedules, breakConfig, removeAuthEnv, liveProbeRuntime 
   }
   for (const role of Object.values(config.roles || {})) {
     role.write_authority = 'authoritative';
+  }
+
+  if (remoteReviewOnlyGate) {
+    for (const runtimeId of Object.keys(config.runtimes || {})) {
+      config.runtimes[runtimeId] = {
+        type: 'remote_agent',
+        url: `https://example.com/${runtimeId}/turn`,
+      };
+    }
+    for (const role of Object.values(config.roles || {})) {
+      role.write_authority = 'review_only';
+    }
   }
 
   if (schedules) {
@@ -282,5 +294,16 @@ describe('Governed Doctor E2E', () => {
     const textResult = runCli(root, ['doctor']);
     assert.equal(textResult.status, 0, textResult.stderr);
     assert.doesNotMatch(textResult.stdout, /connector check/);
+  });
+
+  it('AT-GD-011: config warnings surface as config_valid warn checks', () => {
+    const root = makeGoverned({ remoteReviewOnlyGate: true });
+    const result = runCli(root, ['doctor', '--json']);
+    const output = JSON.parse(result.stdout);
+    const configCheck = output.checks.find(c => c.id === 'config_valid');
+    assert.ok(configCheck, 'Should include config_valid check');
+    assert.equal(configCheck.level, 'warn');
+    assert.match(configCheck.detail, /requires_files/);
+    assert.match(configCheck.detail, /review_only remote runtimes/);
   });
 });

@@ -219,6 +219,12 @@ function setSetting(config, configPath, keyValPair, context) {
   console.log('');
   console.log(chalk.green(`  ✓ Set ${chalk.bold(key)} = ${val}`));
   if (oldVal !== undefined) console.log(chalk.dim(`    (was: ${oldVal})`));
+  if ((validation.warnings || []).length > 0) {
+    console.log(chalk.yellow('  Warnings:'));
+    for (const warning of validation.warnings) {
+      console.log(chalk.dim(`    - ${warning}`));
+    }
+  }
   console.log('');
 }
 

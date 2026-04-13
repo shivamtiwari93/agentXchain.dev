@@ -103,6 +103,9 @@ describe('Integration guide content contract', () => {
     assert.match(guide, /DEC-NNN/, 'must mention DEC-NNN pattern');
     assert.match(guide, /empty objection|objections.*\[\]/i, 'must warn about empty objections');
     assert.match(guide, /proposed_changes/, 'must warn about missing proposed_changes');
+    assert.match(guide, /requires_files/i, 'must warn about impossible requires_files gates');
+    assert.match(guide, /review_only.*api_proxy|api_proxy.*review_only|review_only.*remote_agent|remote_agent.*review_only/i,
+      'must connect requires_files warning to remote review_only roles');
   });
 
   it('AT-TPI-005: registered in sidebars.ts', () => {

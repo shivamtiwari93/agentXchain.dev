@@ -51,8 +51,11 @@ function governedDoctor(root, rawConfig, opts) {
 
   // 1. Config validation
   const configResult = loadNormalizedConfig(rawConfig, root);
-  if (configResult.ok) {
+  if (configResult.ok && (configResult.warnings || []).length === 0) {
     checks.push({ id: 'config_valid', name: 'Config validation', level: 'pass', detail: 'Config loads and validates' });
+  } else if (configResult.ok) {
+    const warningSummary = configResult.warnings.slice(0, 2).join('; ');
+    checks.push({ id: 'config_valid', name: 'Config validation', level: 'warn', detail: warningSummary });
   } else {
     const errorSummary = configResult.errors.slice(0, 3).join('; ');
     checks.push({ id: 'config_valid', name: 'Config validation', level: 'fail', detail: errorSummary });

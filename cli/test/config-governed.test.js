@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -124,6 +124,32 @@ describe('governed config command', () => {
 
       const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
       assert.equal(config.budget.per_run_max_usd, 75);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CFGG-008: config --set surfaces non-fatal gate warnings after save', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      for (const runtimeId of Object.keys(config.runtimes || {})) {
+        config.runtimes[runtimeId] = {
+          type: 'remote_agent',
+          url: `https://example.com/${runtimeId}/turn`,
+        };
+      }
+      for (const role of Object.values(config.roles || {})) {
+        role.write_authority = 'review_only';
+      }
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['config', '--set', 'project.goal', 'Warn', 'about', 'dead-end', 'gates']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /Warnings:/);
+      assert.match(result.stdout, /requires_files/);
+      assert.match(result.stdout, /review_only remote runtimes/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
