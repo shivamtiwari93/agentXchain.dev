@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.82.0
+
+`2.82.0` fixes a critical approval-gate bypass, hardens the intake pipeline, rejects scaffold placeholders in gate evaluation, sweeps all 20 integration guides for truth-boundary accuracy, and expands E2E subprocess proof.
+
+- **Security fix**: `resume`, `step`, and `reactivate` now reject runs with pending `requires_human_approval` objects — previously these could bypass approval gates
+- `intake start` unconditionally rejects paused runs, preventing state drift into the intake pipeline
+- Intake context preserved across `intake start` invocations
+- Gate evaluation (`section_check`, `system_spec`) rejects scaffold placeholder text; dispatch templates use schema-guided angle-bracket format
+- All 20 integration guides audited: Cursor/Windsurf native connector claims removed, Jules/Bedrock factual accuracy fixed, API proxy and local_cli guides get governed bootstrap paths
+- E2E release notes gate proof: `gate show --evaluate` catches placeholder release notes, lifecycle blocks on semantic failure
+- E2E coordinator gate blockers proof: `multi step` surfaces `repo_active_turns`, `barrier_unsatisfied`, `repo_run_id_mismatch` with structured error output
+- Coordinator recovery: `multi step` prints structured `[repo_run_id_mismatch]` with expected/actual run IDs
+- Guided governed init prompts for better first-run experience
+- Front-door scheduling and inspection command discoverability in README and `llms.txt`
+- Fixed 33 test failures from `import.meta.url` vs `process.cwd()` repo root resolution
+- 4233 tests / 897 suites / 0 failures (`cd cli && npm test`)
+
 ## 2.81.0
 
 `2.81.0` ships historical turn replay for audit and drift detection, smarter doctor output with connector handoff hints and plugin health diagnostics.
