@@ -118,6 +118,9 @@ export function writeDispatchBundle(root, state, config, opts = {}) {
     budget_reservation_usd: state.budget_reservations?.[turn.turn_id]?.reserved_usd ?? null,
     active_siblings: activeSiblings,
   };
+  if (turn.intake_context) {
+    assignment.intake_context = turn.intake_context;
+  }
   if (turn.conflict_context) {
     assignment.conflict_context = turn.conflict_context;
   }
@@ -520,6 +523,27 @@ function renderContext(state, config, root, turn, role) {
     lines.push('## Project Goal');
     lines.push('');
     lines.push(projectGoal.trim());
+    lines.push('');
+  }
+
+  if (turn.intake_context) {
+    lines.push('## Intake Intent');
+    lines.push('');
+    lines.push(`- **Intent:** ${turn.intake_context.intent_id || 'unknown'}`);
+    lines.push(`- **Event:** ${turn.intake_context.event_id || 'unknown'}`);
+    lines.push(`- **Source:** ${turn.intake_context.source || 'unknown'}`);
+    if (turn.intake_context.category) {
+      lines.push(`- **Category:** ${turn.intake_context.category}`);
+    }
+    if (turn.intake_context.charter) {
+      lines.push(`- **Charter:** ${turn.intake_context.charter}`);
+    }
+    if (Array.isArray(turn.intake_context.acceptance_contract) && turn.intake_context.acceptance_contract.length > 0) {
+      lines.push('- **Acceptance Contract:**');
+      for (const requirement of turn.intake_context.acceptance_contract) {
+        lines.push(`  - ${requirement}`);
+      }
+    }
     lines.push('');
   }
 

@@ -521,6 +521,20 @@ export function startIntent(root, intentId, options = {}) {
     };
   }
 
+  const loadedEvent = readEvent(root, intent.event_id);
+  if (!loadedEvent.ok) {
+    return loadedEvent;
+  }
+  const { event } = loadedEvent;
+  const intakeContext = {
+    intent_id: intent.intent_id,
+    event_id: intent.event_id,
+    source: event.source || null,
+    category: event.category || null,
+    charter: intent.charter || null,
+    acceptance_contract: Array.isArray(intent.acceptance_contract) ? intent.acceptance_contract : [],
+  };
+
   // Load governed project context
   const context = loadProjectContext(root);
   if (!context) {
@@ -579,7 +593,14 @@ export function startIntent(root, intentId, options = {}) {
 
   // Bootstrap: idle with no run → initialize
   if (state.status === 'idle' && !state.run_id) {
-    const initResult = initializeGovernedRun(root, config);
+    const initResult = initializeGovernedRun(root, config, {
+      provenance: {
+        trigger: 'intake',
+        intake_intent_id: intent.intent_id,
+        trigger_reason: intent.charter || null,
+        created_by: 'operator',
+      },
+    });
     if (!initResult.ok) {
       return { ok: false, error: `run initialization failed: ${initResult.error}`, exitCode: 1 };
     }
@@ -612,6 +633,12 @@ export function startIntent(root, intentId, options = {}) {
   const assignedTurn = Object.values(newActiveTurns).find(t => t.assigned_role === roleId.role);
   if (!assignedTurn) {
     return { ok: false, error: 'turn assignment succeeded but turn not found in state', exitCode: 1 };
+  }
+
+  assignedTurn.intake_context = intakeContext;
+  if (state.active_turns?.[assignedTurn.turn_id]) {
+    state.active_turns[assignedTurn.turn_id].intake_context = intakeContext;
+    safeWriteJson(statePath, state);
   }
 
   // Write dispatch bundle
