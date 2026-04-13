@@ -62,6 +62,22 @@ The extension provides governance UI, but the actual coding work is done by a lo
 }
 ```
 
+## Quick start
+
+```bash
+agentxchain init --governed --template web-app --goal "Build a task board" --dir my-project -y
+cd my-project
+agentxchain doctor
+code .                    # open in VS Code — extension activates automatically
+agentxchain run           # dispatch governed turns
+```
+
+Or use the **guided interactive path** (prompts for template, name, goal, and folder):
+
+```bash
+agentxchain init --governed
+```
+
 ## Workflow
 
 1. Open your governed project in VS Code

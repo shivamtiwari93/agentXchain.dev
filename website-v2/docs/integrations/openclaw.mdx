@@ -64,10 +64,16 @@ This probes that the `openclaw` binary exists on your PATH and is executable. If
 ## Minimal working example
 
 ```bash
-mkdir my-project && cd my-project
-agentxchain init --governed --template cli-tool --goal "Build a URL shortener CLI" -y
-git init && git add -A && git commit -m "initial scaffold"
+agentxchain init --governed --template cli-tool --goal "Build a URL shortener CLI" --dir my-project -y
+cd my-project
+agentxchain doctor
 agentxchain run
+```
+
+Or use the **guided interactive path** (prompts for template, name, goal, and folder):
+
+```bash
+agentxchain init --governed
 ```
 
 The governed run will dispatch turns to OpenClaw via subprocess. Each turn receives the full dispatch bundle (prompt, context, assignment) via stdin.

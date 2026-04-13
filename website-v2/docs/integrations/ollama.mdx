@@ -74,10 +74,16 @@ ollama pull qwen3:32b
 ollama serve &
 export OLLAMA_API_KEY="ollama"
 
-mkdir my-project && cd my-project
-agentxchain init --governed --template cli-tool --goal "Build a file renamer" -y
-git init && git add -A && git commit -m "initial scaffold"
+agentxchain init --governed --template cli-tool --goal "Build a file renamer" --dir my-project -y
+cd my-project
+agentxchain doctor
 agentxchain run
+```
+
+Or use the **guided interactive path** (prompts for template, name, goal, and folder):
+
+```bash
+agentxchain init --governed
 ```
 
 ## Custom endpoint

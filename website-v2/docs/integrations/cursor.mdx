@@ -45,6 +45,21 @@ description: "Connect Cursor's CLI mode to AgentXchain for governed coding turns
 agentxchain connector check
 ```
 
+## Minimal working example
+
+```bash
+agentxchain init --governed --template web-app --goal "Build a bookmarks manager" --dir my-project -y
+cd my-project
+agentxchain doctor
+agentxchain run
+```
+
+Or use the **guided interactive path** (prompts for template, name, goal, and folder):
+
+```bash
+agentxchain init --governed
+```
+
 ## Gotchas
 
 - **CLI availability varies by OS**: On macOS, install the shell command from Cursor's command palette (`Cursor: Install 'cursor' command in PATH`). On Linux, the AppImage may need a wrapper script.
