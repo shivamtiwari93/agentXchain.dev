@@ -178,6 +178,20 @@ governed-todo-app/
 └── .gitignore
 ```
 
+## Unattended Auto-Run
+
+This example also includes `run-auto.mjs` — a harness that proves the governed-todo-app workflow can complete end-to-end via `agentxchain run --auto-approve` without human interaction.
+
+```bash
+# Requires ANTHROPIC_API_KEY
+node examples/governed-todo-app/run-auto.mjs
+
+# JSON output for CI
+node examples/governed-todo-app/run-auto.mjs --json
+```
+
+The harness transforms the config for unattended execution: all adapters become `api_proxy` (Haiku), gate file requirements are removed, and the 4-role/3-phase structure is preserved. This is the first product example (not a proof-only scaffold) to complete unattended governed execution.
+
 ## What "Governed" Means
 
 Every turn produces a structured JSON result. The orchestrator independently verifies:

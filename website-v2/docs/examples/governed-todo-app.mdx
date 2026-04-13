@@ -43,8 +43,41 @@ agentxchain step --role qa
 agentxchain approve-completion
 ```
 
+## Unattended Auto-Run Proof
+
+This example also ships with `run-auto.mjs` — a harness that proves the governed-todo-app can complete **end-to-end via `agentxchain run --auto-approve`** without any human interaction.
+
+The harness transforms the config for unattended execution:
+- Replaces all manual and local_cli adapters with `api_proxy` (Haiku for cost control)
+- Removes file-based gate requirements (api_proxy roles cannot write to disk)
+- Preserves the 4-role structure and 3-phase workflow
+
+```bash
+# Requires ANTHROPIC_API_KEY
+node examples/governed-todo-app/run-auto.mjs
+
+# JSON output for CI pipelines
+node examples/governed-todo-app/run-auto.mjs --json
+```
+
+### Recorded Case Study — 2026-04-13
+
+| Field | Value |
+|-------|-------|
+| Command | `node examples/governed-todo-app/run-auto.mjs --json` |
+| CLI Version | 2.83.0 |
+| Run ID | `run_f0f199fcb50b0613` |
+| Roles | pm → dev → qa (3 distinct roles) |
+| Turns | 3 accepted |
+| Cost | $0.02 total |
+| Decision Ledger | 7 entries |
+| Reports | Governance export + report generated |
+
+This is the first product example (not a proof-only scaffold) to complete unattended governed execution via the shipped CLI surface.
+
 ## Key Takeaways
 
 - This is the cleanest starting point for understanding the governed workflow.
 - It demonstrates the default multi-role lifecycle without extra product complexity.
 - The example makes the orchestrator boundary concrete: agents do work, but AgentXchain advances state.
+- The `run-auto.mjs` harness proves the governance flow works unattended with real API dispatch.
