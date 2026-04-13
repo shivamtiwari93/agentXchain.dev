@@ -126,7 +126,11 @@ function markPlanningGateApproved(dir) {
     join(dir, '.planning', 'PM_SIGNOFF.md'),
     '# PM Signoff — Session Continuity Fixture\n\nApproved: YES\n\n## Discovery Checklist\n- [x] Target user defined\n- [x] Core pain point defined\n- [x] Core workflow defined\n- [x] MVP scope defined\n- [x] Out-of-scope list defined\n- [x] Success metric defined\n\n## Notes for team\nPlanning gate intentionally prepared for cross-session phase-transition approval proof.\n',
   );
-  execSync('git add .planning/PM_SIGNOFF.md', { cwd: dir, stdio: 'ignore' });
+  writeFileSync(
+    join(dir, '.planning', 'SYSTEM_SPEC.md'),
+    '# System Spec — Session Continuity Fixture\n\n## Purpose\n\nProve that cross-session phase transitions work correctly.\n\n## Interface\n\nagentxchain resume / accept-turn / approve-transition across fresh CLI sessions.\n\n## Acceptance Tests\n\n- [ ] Phase transitions persist across fresh sessions.\n',
+  );
+  execSync('git add .planning/PM_SIGNOFF.md .planning/SYSTEM_SPEC.md', { cwd: dir, stdio: 'ignore' });
   execSync('git commit -m "approve planning signoff"', { cwd: dir, stdio: 'ignore' });
 }
 

@@ -376,6 +376,7 @@ function makeProject(mockServerUrl) {
 
   removeIfExists(join(root, '.planning', 'PM_SIGNOFF.md'));
   removeIfExists(join(root, '.planning', 'ROADMAP.md'));
+  removeIfExists(join(root, '.planning', 'SYSTEM_SPEC.md'));
   removeIfExists(join(root, '.planning', 'IMPLEMENTATION_NOTES.md'));
   removeIfExists(join(root, '.planning', 'acceptance-matrix.md'));
   removeIfExists(join(root, '.planning', 'ship-verdict.md'));

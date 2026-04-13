@@ -74,6 +74,7 @@ function ensureFile(relPath, content) {
 if (phase === 'planning') {
   ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\\nApproved: YES\\n');
   ensureFile('.planning/ROADMAP.md', '# Roadmap\\nMock roadmap.\\n');
+  ensureFile('.planning/SYSTEM_SPEC.md', '# System Spec\\n\\n## Purpose\\n\\nMock governed project for custom-phase coordinator E2E.\\n\\n## Interface\\n\\nagentxchain run completes a four-phase lifecycle.\\n\\n## Acceptance Tests\\n\\n- [ ] Run completes with exit 0.\\n');
 }
 if (phase === 'design') {
   ensureFile('.planning/DESIGN_REVIEW.md', '# Design Review\\nArchitecture reviewed.\\n');

@@ -57,6 +57,10 @@ function ensureFile(relPath, content) {
 if (phase === 'planning') {
   ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\n\nApproved: YES\n');
   ensureFile('.planning/ROADMAP.md', '# Roadmap\n\n## Phases\n\n- planning\n- implementation\n- qa\n');
+  ensureFile(
+    '.planning/SYSTEM_SPEC.md',
+    '# System Spec\n\n## Purpose\n\nMock governed project for integration testing.\n\n## Interface\n\nagentxchain run --auto-approve completes a 3-turn lifecycle.\n\n## Acceptance Tests\n\n- [ ] Run completes with exit 0 and 3 turns executed.\n',
+  );
 }
 
 if (phase === 'implementation') {
@@ -118,7 +122,7 @@ const turnResult = {
   }],
   files_changed:
     phase === 'planning'
-      ? ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md']
+      ? ['.planning/PM_SIGNOFF.md', '.planning/ROADMAP.md', '.planning/SYSTEM_SPEC.md']
       : phase === 'implementation'
         ? ['src/output.js', '.planning/IMPLEMENTATION_NOTES.md']
         : phase === 'qa'

@@ -68,6 +68,7 @@ function ensureFile(relPath, content) {
 if (phase === 'planning') {
   ensureFile('.planning/PM_SIGNOFF.md', '# PM Signoff\\nApproved: YES\\n');
   ensureFile('.planning/ROADMAP.md', '# Roadmap\\nMock roadmap.\\n');
+  ensureFile('.planning/SYSTEM_SPEC.md', '# System Spec\\n\\n## Purpose\\n\\nMock governed project for coordinator E2E.\\n\\n## Interface\\n\\nagentxchain run completes a two-phase lifecycle.\\n\\n## Acceptance Tests\\n\\n- [ ] Run completes with exit 0.\\n');
 }
 if (phase === 'implementation') {
   ensureFile('src/output.js', 'export const ok = true;\\n');
