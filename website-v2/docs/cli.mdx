@@ -588,7 +588,7 @@ Behavior contract:
 - `schedule run-due` evaluates configured schedules once and runs only the ones currently due
 - `schedule daemon` repeats that same due-run path on a fixed local poll interval
 - scheduled runs use `trigger: "schedule"` provenance instead of pretending they were started manually
-- scheduled runs start only from `idle` or `completed`
+- scheduled runs start only from `missing` (no state file yet), `idle`, or `completed`
 - scheduled runs do **not** attach to an existing `active` or `paused` run
 - scheduled runs do **not** auto-recover a `blocked` run
 

@@ -14,6 +14,7 @@ function read(relPath) {
 const CLI_DOCS = read('website-v2/docs/cli.mdx');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const SPEC = read('.planning/RUN_SCHEDULE_SPEC.md');
+const RUN_SCHEDULE_LIB = read('cli/src/lib/run-schedule.js');
 
 describe('schedule command docs contract', () => {
   it('registers the schedule command family in the CLI entrypoint', () => {
@@ -44,6 +45,19 @@ describe('schedule command docs contract', () => {
   it('documents the non-overlap and no-auto-recovery boundary explicitly', () => {
     assert.match(CLI_DOCS, /do \*\*not\*\* attach to an existing `active` or `paused` run/i);
     assert.match(CLI_DOCS, /do \*\*not\*\* auto-recover a `blocked` run/i);
+  });
+
+  it('documents fresh-repo start eligibility (missing, idle, completed)', () => {
+    assert.match(CLI_DOCS, /`missing`/);
+    assert.match(CLI_DOCS, /scheduled runs start only from `missing`.*`idle`.*`completed`/i);
+  });
+
+  it('implementation allows missing state for schedule eligibility', () => {
+    assert.match(
+      RUN_SCHEDULE_LIB,
+      /missing.*idle.*completed|'missing'.*'idle'.*'completed'/,
+      'run-schedule.js must allow missing, idle, and completed states'
+    );
   });
 });
 
