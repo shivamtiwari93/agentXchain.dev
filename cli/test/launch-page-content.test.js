@@ -67,6 +67,24 @@ describe('launch-linked marketing drafts', () => {
   });
 });
 
+describe('launch page evidence is labeled as historical snapshot', () => {
+  it('labels the evidence block as v2.24.1 launch-time snapshot', () => {
+    assert.match(LAUNCH_PAGE, /Evidence \(v2\.24\.1 launch-time snapshot\)/);
+  });
+
+  it('includes a disclaimer that counts are historical', () => {
+    assert.match(LAUNCH_PAGE, /state of the codebase at the time v2\.24\.1 shipped/);
+    assert.match(LAUNCH_PAGE, /test surface has grown significantly since launch/);
+  });
+
+  it('does not present stale counts as if they are current truth', () => {
+    // The evidence section should not say "X tests" without the historical label above it
+    const evidenceSection = LAUNCH_PAGE.split('## Evidence')[1];
+    assert.ok(evidenceSection, 'evidence section must exist');
+    assert.match(evidenceSection, /launch-time snapshot/);
+  });
+});
+
 describe('launch page spec', () => {
   it('records the launch-page contract and acceptance tests', () => {
     assert.match(SPEC, /# Launch Page Spec/);
