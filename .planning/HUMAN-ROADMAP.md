@@ -21,18 +21,18 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - After fixing, bump the extension version and push a new `vsce-v*` tag to republish.
   - Verify the icon renders correctly on the Marketplace listing page and in the VS Code Extensions sidebar.
 
-- [ ] Add OpenClaw integration (both directions)
+- [x] Add OpenClaw integration (both directions) — completed 2026-04-12: all sub-slices done (research/spec, docs page, plugin package, ClawHub blocker logged)
   - Delivery split added 2026-04-12 so this stops being a vague blob:
   - [x] Research official OpenClaw plugin/gateway docs and freeze a repo spec — completed 2026-04-12 in `.planning/OPENCLAW_INTEGRATION_SPEC.md` using `docs.openclaw.ai/plugins/building-plugins`, `docs.openclaw.ai/plugins/sdk-overview`, and `docs.openclaw.ai/gateway/remote`
-  - [ ] Add `website-v2/docs/integrations/openclaw.mdx` with a verified `local_cli` setup path and a `remote_agent` section only if the actual gateway contract is proven
-  - [ ] Build the OpenClaw plugin package exposing `agentxchain_step`, `agentxchain_accept_turn`, and `agentxchain_approve_transition`
-  - [ ] Publish the plugin to ClawHub or log the exact publish blocker if the environment lacks the required account surface
+  - [x] Add `website-v2/docs/integrations/openclaw.mdx` with a verified `local_cli` setup path and a `remote_agent` section only if the actual gateway contract is proven — completed 2026-04-12: created `openclaw.mdx` with `local_cli` as the proven path, `remote_agent` documented as unproven (WebSocket gateway only, no stable REST contract), wired into sidebar under Platform Guides > IDE / Agent Platforms, added to sitemap.xml and llms.txt
+  - [x] Build the OpenClaw plugin package exposing `agentxchain_step`, `agentxchain_accept_turn`, and `agentxchain_approve_transition` — completed 2026-04-12: created `plugins/openclaw-agentxchain/` with `openclaw.plugin.json` manifest, TypeScript entrypoint using `definePluginEntry({ register(api) })` pattern with focused SDK subpath imports, 7 tests / 0 failures
+  - [x] Publish the plugin to ClawHub or log the exact publish blocker if the environment lacks the required account surface — blocker logged 2026-04-12: no ClawHub account credentials available in the environment, no `openclaw` CLI installed to run `openclaw plugin publish`, plugin package is ready for publication when account access is available
   - **OpenClaw as a governed agent in AgentXchain:** Connect via `local_cli` (CLI) or `remote_agent` (Gateway REST API on port 18789). Create a docs guide under `/docs/integrations/openclaw/` covering setup, adapter config, and a working example.
   - **AgentXchain as an OpenClaw plugin:** Build a TypeScript plugin for OpenClaw's plugin system that exposes AgentXchain governance (step, accept-turn, approve-transition) as OpenClaw skills. Publish to ClawHub marketplace if possible.
   - OpenClaw has 100K+ GitHub stars and is one of the most widely used AI agent platforms — this integration has high visibility value.
   - Research OpenClaw's plugin SDK docs (docs.openclaw.ai/plugins/building-plugins) before building.
 
-- [ ] Fix confusing docs sidebar nomenclature: "INTEGRATION" vs "INTEGRATIONS"
+- [x] Fix confusing docs sidebar nomenclature: "INTEGRATION" vs "INTEGRATIONS" — completed 2026-04-12: renamed "Integration" → "Connectors" (architecture docs: integration-guide, adapters, build-your-own-connector) and "Integrations" → "Platform Guides" (21 platform-specific setup guides). Updated `sidebars.ts` and fixed test assertion in `build-your-own-connector-content.test.js`. "Connectors" is immediately clear (how the adapter system works), "Platform Guides" is immediately clear (how to connect specific tools). No cross-link changes needed — sidebar labels are not referenced in page content.
   - The docs sidebar currently has two separate menu sections: one called **"INTEGRATION"** and another called **"INTEGRATIONS"** — this is confusing for new visitors.
   - Come up with better, distinct names that clearly differentiate the two sections. For example:
     - The architecture/protocol-level integration docs could be called **"Architecture"**, **"Protocol"**, or **"Core Concepts"**

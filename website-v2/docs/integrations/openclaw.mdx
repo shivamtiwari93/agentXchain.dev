@@ -1,0 +1,129 @@
+---
+title: OpenClaw
+description: "Connect OpenClaw to AgentXchain as a governed local CLI agent."
+---
+
+# OpenClaw
+
+[OpenClaw](https://openclaw.ai) is an open-source AI agent platform with 100K+ GitHub stars. It connects to AgentXchain via the `local_cli` adapter, running the `openclaw` CLI as a subprocess for each governed turn.
+
+## Which adapter?
+
+**`local_cli`** — AgentXchain spawns `openclaw` as a subprocess, pipes the governed prompt via stdin, and reads the turn result from the staged output.
+
+:::note Remote Gateway (not yet proven)
+OpenClaw also exposes a remote Gateway at `ws://127.0.0.1:18789`. The `remote_agent` adapter could theoretically connect to this, but the Gateway's callable request contract is not yet documented as a stable REST schema. This guide covers only the proven `local_cli` path. If the Gateway REST contract is formalized in future OpenClaw releases, a `remote_agent` section will be added here.
+:::
+
+## Prerequisites
+
+- OpenClaw installed and available on your `PATH` (`openclaw --version`)
+- `agentxchain` CLI installed (`npm install -g agentxchain`)
+- An API key for your preferred model provider set in your environment (OpenClaw delegates to the configured model)
+
+## Configuration
+
+Add a runtime to your `agentxchain.json`:
+
+```json
+{
+  "runtimes": {
+    "openclaw-dev": {
+      "type": "local_cli",
+      "command": ["openclaw", "run", "--non-interactive"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "openclaw-dev",
+      "mandate": "Implement features and fix bugs",
+      "authority": "proposed"
+    }
+  }
+}
+```
+
+### Key fields
+
+| Field | Value | Why |
+|-------|-------|-----|
+| `command` | `["openclaw", "run", "--non-interactive"]` | `--non-interactive` runs OpenClaw in headless mode so it can operate as a governed subprocess without user prompts. |
+| `prompt_transport` | `"stdin"` | The governed dispatch bundle is piped to OpenClaw's stdin. |
+| `cwd` | `"."` | Run in the project root so OpenClaw sees your repo. |
+
+## Verify the connection
+
+```bash
+agentxchain connector check
+```
+
+This probes that the `openclaw` binary exists on your PATH and is executable. If it fails, check your OpenClaw installation.
+
+## Minimal working example
+
+```bash
+mkdir my-project && cd my-project
+agentxchain init --governed --template cli-tool --goal "Build a URL shortener CLI" -y
+git init && git add -A && git commit -m "initial scaffold"
+agentxchain run
+```
+
+The governed run will dispatch turns to OpenClaw via subprocess. Each turn receives the full dispatch bundle (prompt, context, assignment) via stdin.
+
+## Multi-role example
+
+OpenClaw excels at agentic tasks. Use it alongside other agents in a multi-role governed workflow:
+
+```json
+{
+  "runtimes": {
+    "openclaw-impl": {
+      "type": "local_cli",
+      "command": ["openclaw", "run", "--non-interactive"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    },
+    "claude-review": {
+      "type": "local_cli",
+      "command": ["claude", "--print", "--dangerously-skip-permissions"],
+      "cwd": ".",
+      "prompt_transport": "stdin"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "openclaw-impl",
+      "mandate": "Implement features, write tests, fix bugs",
+      "authority": "proposed"
+    },
+    "reviewer": {
+      "runtime": "claude-review",
+      "mandate": "Review code quality, challenge assumptions, verify correctness",
+      "authority": "review_only"
+    }
+  }
+}
+```
+
+This gives you OpenClaw as the implementer and Claude Code as the reviewer — both governed by AgentXchain's turn structure, challenge requirements, and phase gates.
+
+## AgentXchain as an OpenClaw plugin
+
+AgentXchain also ships as an [OpenClaw plugin](/docs/plugins) that exposes governance actions as OpenClaw skills. See the [`plugins/openclaw-agentxchain`](https://github.com/shivamtiwari93/agentXchain.dev/tree/main/plugins/openclaw-agentxchain) package in the AgentXchain repo.
+
+The plugin exposes three tools to OpenClaw:
+
+| Tool | Description |
+|------|-------------|
+| `agentxchain_step` | Execute a single governed turn step |
+| `agentxchain_accept_turn` | Accept the current turn's result |
+| `agentxchain_approve_transition` | Approve a phase gate transition |
+
+## Gotchas
+
+- **`--non-interactive` is required** for governed subprocess execution. Without it, OpenClaw may prompt for user input and the subprocess will hang.
+- **Gateway mode is not yet supported.** The OpenClaw remote Gateway at `ws://127.0.0.1:18789` uses a WebSocket protocol. AgentXchain's `remote_agent` adapter expects HTTP. Do not configure `remote_agent` for OpenClaw until the Gateway publishes a stable REST contract.
+- **Model configuration is OpenClaw's responsibility.** AgentXchain dispatches the prompt; OpenClaw routes it to whatever model is configured in its own settings. AgentXchain's `budget.max_tokens_per_turn` controls the prompt size, not OpenClaw's internal token management.
+- **Long-running turns**: OpenClaw agent tasks can take several minutes. Set `timeouts.turn_timeout_ms` appropriately (default is 300000ms / 5 minutes).

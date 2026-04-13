@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "name": "@agentxchain/openclaw-plugin",
+  "version": "0.1.0",
+  "description": "Expose AgentXchain governance actions (step, accept-turn, approve-transition) as OpenClaw skills.",
+  "entry": "dist/index.js",
+  "compatibility": {
+    "openclaw": ">=0.8.0"
+  },
+  "tools": [
+    {
+      "name": "agentxchain_step",
+      "description": "Execute a single governed turn step in AgentXchain. Dispatches the prompt to the assigned agent, collects the result, and stages it for governance validation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "working_directory": {
+            "type": "string",
+            "description": "Path to the governed project directory"
+          },
+          "flags": {
+            "type": "string",
+            "description": "Additional CLI flags to pass to agentxchain step (e.g., '--auto-approve')"
+          }
+        },
+        "required": ["working_directory"]
+      }
+    },
+    {
+      "name": "agentxchain_accept_turn",
+      "description": "Accept the current turn's result in AgentXchain. Validates the staged turn against the protocol (schema, challenge requirements, budget) and records it in the governed history.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "working_directory": {
+            "type": "string",
+            "description": "Path to the governed project directory"
+          }
+        },
+        "required": ["working_directory"]
+      }
+    },
+    {
+      "name": "agentxchain_approve_transition",
+      "description": "Approve a phase gate transition in AgentXchain. Evaluates gate conditions and advances the run to the next phase if all conditions are met.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "working_directory": {
+            "type": "string",
+            "description": "Path to the governed project directory"
+          },
+          "flags": {
+            "type": "string",
+            "description": "Additional CLI flags (e.g., '--force' to bypass gate evaluation)"
+          }
+        },
+        "required": ["working_directory"]
+      }
+    }
+  ]
+}

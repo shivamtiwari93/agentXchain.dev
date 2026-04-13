@@ -1,0 +1,16 @@
+{
+  "name": "@agentxchain/openclaw-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenClaw plugin that exposes AgentXchain governance actions as OpenClaw skills.",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

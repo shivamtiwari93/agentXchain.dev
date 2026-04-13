@@ -57,6 +57,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [OpenAI Integration](https://agentxchain.dev/docs/integrations/openai): GPT-5.4, GPT-5.3-Codex, GPT-OSS via api_proxy.
 - [Google Integration](https://agentxchain.dev/docs/integrations/google): Gemini 3.1 Pro, Flash, Gemma 4 via api_proxy.
 - [MCP Integration](https://agentxchain.dev/docs/integrations/mcp): Any MCP-compatible agent via stdio or Streamable HTTP.
+- [OpenClaw Integration](https://agentxchain.dev/docs/integrations/openclaw): Connect OpenClaw (100K+ stars) via local_cli adapter; AgentXchain plugin for OpenClaw also available.
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
 - [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.

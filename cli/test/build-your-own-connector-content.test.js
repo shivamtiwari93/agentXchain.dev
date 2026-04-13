@@ -131,13 +131,13 @@ describe('Build Your Own Connector tutorial', () => {
   });
 
   // AT-BYOC-007: Sidebar registration
-  it('AT-BYOC-007: registered in sidebar under Integration', () => {
+  it('AT-BYOC-007: registered in sidebar under Connectors', () => {
     const sidebar = readFile(SIDEBAR_PATH);
     assert.ok(sidebar.includes("'build-your-own-connector'"), 'must be in sidebar');
-    // Must be in the Integration category (after adapters)
-    const integrationIdx = sidebar.indexOf("label: 'Integration'");
+    // Must be in the Connectors category (after adapters)
+    const connectorsIdx = sidebar.indexOf("label: 'Connectors'");
     const connectorIdx = sidebar.indexOf("'build-your-own-connector'");
-    assert.ok(integrationIdx < connectorIdx, 'must be inside Integration category');
+    assert.ok(connectorsIdx < connectorIdx, 'must be inside Connectors category');
   });
 
   it('sitemap.xml includes the page', () => {

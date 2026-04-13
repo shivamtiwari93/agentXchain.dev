@@ -139,7 +139,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Integration',
+      label: 'Connectors',
       items: [
         'integration-guide',
         'adapters',
@@ -148,7 +148,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Integrations',
+      label: 'Platform Guides',
       items: [
         'integrations/index',
         {
@@ -162,6 +162,7 @@ const sidebars: SidebarsConfig = {
             'integrations/windsurf',
             'integrations/google-jules',
             'integrations/devin',
+            'integrations/openclaw',
           ],
         },
         {
