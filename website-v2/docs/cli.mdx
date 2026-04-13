@@ -869,6 +869,7 @@ Checks governed project readiness for running turns. `doctor` is a static readin
 | State health | `state_health` | `state.json` parses with a recognized schema version |
 | Schedule health | `schedule_health` | Daemon status when schedules are configured (skipped otherwise) |
 | Workflow-kit artifacts | `workflow_kit` | Required artifacts for the current phase exist on disk |
+| Plugin health | `plugin_<name>` | Per-plugin: install path exists, manifest valid, hook files present, config env vars set (skipped when no plugins installed) |
 
 Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.
 

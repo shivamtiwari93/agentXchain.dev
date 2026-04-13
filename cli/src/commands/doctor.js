@@ -8,6 +8,7 @@ import { getWatchPid } from './watch.js';
 import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
 import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
 import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
+import { PLUGIN_MANIFEST_FILE } from '../lib/plugins.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -126,6 +127,90 @@ function governedDoctor(root, rawConfig, opts) {
         checks.push({ id: 'workflow_kit', name: 'Workflow-kit artifacts', level: 'pass', detail: `All ${required.length} required artifacts present for ${currentPhase}` });
       } else {
         checks.push({ id: 'workflow_kit', name: 'Workflow-kit artifacts', level: 'warn', detail: `${missing.length}/${required.length} required artifacts missing for ${currentPhase}` });
+      }
+    }
+  }
+
+  // 8. Installed plugin health (only when plugins are installed)
+  const installedPlugins = rawConfig.plugins || {};
+  const pluginNames = Object.keys(installedPlugins);
+  if (pluginNames.length > 0) {
+    for (const pluginName of pluginNames) {
+      const meta = installedPlugins[pluginName];
+      const checkId = `plugin_${pluginName.replace(/[^a-z0-9_-]/gi, '_')}`;
+
+      // Check install path exists
+      if (!meta.install_path) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'fail', detail: 'No install_path recorded', plugin_name: pluginName });
+        continue;
+      }
+      const installAbsPath = join(root, meta.install_path);
+      if (!existsSync(installAbsPath)) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'fail', detail: `Install path missing: ${meta.install_path}`, plugin_name: pluginName });
+        continue;
+      }
+
+      // Check manifest exists and is valid
+      const manifestPath = join(installAbsPath, PLUGIN_MANIFEST_FILE);
+      if (!existsSync(manifestPath)) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'fail', detail: 'Manifest file missing', plugin_name: pluginName });
+        continue;
+      }
+      let manifest;
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      } catch (err) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'fail', detail: `Manifest is corrupt JSON: ${err.message}`, plugin_name: pluginName });
+        continue;
+      }
+
+      // Check hook files exist
+      const hookErrors = [];
+      if (manifest.hooks && typeof manifest.hooks === 'object') {
+        for (const [hookName, hookDef] of Object.entries(manifest.hooks)) {
+          if (!hookDef) continue;
+          const commands = Array.isArray(hookDef) ? hookDef : (hookDef.command ? [hookDef] : []);
+          for (const cmd of commands) {
+            const cmdArgs = cmd.command || cmd;
+            if (Array.isArray(cmdArgs) && cmdArgs.length > 0) {
+              const firstArg = cmdArgs[0];
+              if (typeof firstArg === 'string' && (firstArg.startsWith('./') || firstArg.startsWith('../'))) {
+                const hookFilePath = join(installAbsPath, firstArg);
+                if (!existsSync(hookFilePath)) {
+                  hookErrors.push(`${hookName}: ${firstArg}`);
+                }
+              }
+            }
+          }
+        }
+      }
+      if (hookErrors.length > 0) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'fail', detail: `Missing hook files: ${hookErrors.join(', ')}`, plugin_name: pluginName });
+        continue;
+      }
+
+      // Check config env vars (warn only)
+      const envWarnings = [];
+      const pluginConfig = meta.config || {};
+      for (const [key, value] of Object.entries(pluginConfig)) {
+        if (typeof value === 'string' && value.startsWith('$')) {
+          const envVar = value.slice(1);
+          if (!process.env[envVar]) {
+            envWarnings.push(envVar);
+          }
+        }
+      }
+      // Also check webhook_env pattern from config
+      if (pluginConfig.webhook_env && !process.env[pluginConfig.webhook_env]) {
+        if (!envWarnings.includes(pluginConfig.webhook_env)) {
+          envWarnings.push(pluginConfig.webhook_env);
+        }
+      }
+
+      if (envWarnings.length > 0) {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'warn', detail: `Env var(s) not set: ${envWarnings.join(', ')}`, plugin_name: pluginName });
+      } else {
+        checks.push({ id: checkId, name: `Plugin: ${pluginName}`, level: 'pass', detail: `v${manifest.version || '?'}, ${Object.keys(manifest.hooks || {}).length} hooks`, plugin_name: pluginName });
       }
     }
   }
