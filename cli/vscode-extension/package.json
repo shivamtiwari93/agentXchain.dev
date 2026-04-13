@@ -3,7 +3,7 @@
   "displayName": "AgentXchain",
   "description": "AgentXchain IDE integration: governed status, approvals, step/run launch, restart, dashboard/report access, notifications, and legacy lock-based coordination in VS Code.",
   "version": "0.1.0",
-  "publisher": "agentxchain",
+  "publisher": "agentXchaindev",
   "license": "MIT",
   "repository": {
     "type": "git",
