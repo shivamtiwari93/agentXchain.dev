@@ -21,16 +21,16 @@ It does **not** block governed progress. Missing credentials, network failures, 
 
 ## Install
 
-Install from the repo-local package:
+Install by short name (recommended):
 
 ```bash
-agentxchain plugin install ./plugins/plugin-slack-notify
+agentxchain plugin install slack-notify
 ```
 
 Install with explicit plugin config:
 
 ```bash
-agentxchain plugin install ./plugins/plugin-slack-notify \
+agentxchain plugin install slack-notify \
   --config '{"webhook_env":"MY_SLACK_WEBHOOK_URL","mention":"@ops"}'
 ```
 

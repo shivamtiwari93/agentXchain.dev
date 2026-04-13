@@ -109,27 +109,38 @@ All hooks require:
 
 ## Installing plugins
 
-Plugins can be installed from three sources:
+### Built-in plugins (recommended)
 
-### Local directory
+AgentXchain ships with built-in plugins that can be installed by short name:
 
 ```bash
-agentxchain plugin install ./plugins/plugin-slack-notify
+agentxchain plugin install slack-notify
+agentxchain plugin install json-report
+agentxchain plugin install github-issues
 ```
 
-### Archive (`.tgz` or `.tar.gz`)
+To see all available built-in plugins:
 
 ```bash
+agentxchain plugin list-available
+```
+
+### Other sources
+
+Plugins can also be installed from local directories, archives, or npm packages:
+
+```bash
+# Local directory
+agentxchain plugin install ./path/to/my-plugin
+
+# Archive (.tgz or .tar.gz)
 agentxchain plugin install ./downloads/plugin-slack-notify-0.1.0.tar.gz
-```
 
-### npm package
-
-```bash
+# npm package
 agentxchain plugin install @agentxchain/plugin-slack-notify
 ```
 
-The CLI resolves directories directly and otherwise falls back to `npm pack <spec>` for tarball-based install.
+The CLI resolves built-in short names first, then local directories, then falls back to `npm pack <spec>` for tarball-based install.
 
 ### Install flags
 
@@ -395,7 +406,7 @@ Posts advisory lifecycle notifications to a Slack incoming webhook.
 **Hook phases:** `after_acceptance`, `before_gate`, `on_escalation`
 
 ```bash
-agentxchain plugin install ./plugins/plugin-slack-notify
+agentxchain plugin install slack-notify
 ```
 
 **Config:**
@@ -422,7 +433,7 @@ Writes structured lifecycle report artifacts into `.agentxchain/reports/`.
 **Hook phases:** `after_acceptance`, `before_gate`, `on_escalation`
 
 ```bash
-agentxchain plugin install ./plugins/plugin-json-report
+agentxchain plugin install json-report
 ```
 
 **Config:**
@@ -448,7 +459,7 @@ Mirrors governed run status into one configured GitHub issue with one plugin-own
 **Hook phases:** `after_acceptance`, `on_escalation`
 
 ```bash
-agentxchain plugin install ./plugins/plugin-github-issues
+agentxchain plugin install github-issues
 ```
 
 **Config:**

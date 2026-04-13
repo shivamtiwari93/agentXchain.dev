@@ -1,0 +1,8 @@
+{
+  "name": "@agentxchain/plugin-slack-notify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Built-in AgentXchain plugin that posts advisory lifecycle notifications to Slack.",
+  "license": "MIT"
+}

@@ -17,6 +17,7 @@
     "src/",
     "dashboard/",
     "scripts/",
+    "builtin-plugins/",
     "README.md"
   ],
   "scripts": {

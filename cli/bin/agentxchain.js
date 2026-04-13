@@ -82,6 +82,7 @@ import { reportCommand } from '../src/commands/report.js';
 import {
   pluginInstallCommand,
   pluginListCommand,
+  pluginListAvailableCommand,
   pluginRemoveCommand,
   pluginUpgradeCommand,
 } from '../src/commands/plugin.js';
@@ -484,6 +485,12 @@ pluginCmd
   .description('List installed plugins')
   .option('-j, --json', 'Output as JSON')
   .action(pluginListCommand);
+
+pluginCmd
+  .command('list-available')
+  .description('List built-in plugins available for installation')
+  .option('-j, --json', 'Output as JSON')
+  .action(pluginListAvailableCommand);
 
 pluginCmd
   .command('remove <name>')

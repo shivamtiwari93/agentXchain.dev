@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { installPlugin, listInstalledPlugins, removePlugin, upgradePlugin } from '../lib/plugins.js';
+import { installPlugin, listInstalledPlugins, listAvailablePlugins, removePlugin, upgradePlugin } from '../lib/plugins.js';
 
 function parsePluginConfigOptions(options) {
   if (options.config && options.configFile) {
@@ -115,6 +115,36 @@ export async function pluginRemoveCommand(name, options) {
 
   console.log(`Removed plugin: ${result.name}`);
   console.log(`  Path: ${result.install_path}`);
+}
+
+export async function pluginListAvailableCommand(options) {
+  const result = listAvailablePlugins();
+
+  if (!result.ok) {
+    console.error(result.error);
+    if (options.json) {
+      console.log(JSON.stringify({ ok: false, error: result.error }, null, 2));
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.json) {
+    console.log(JSON.stringify({ plugins: result.plugins }, null, 2));
+    return;
+  }
+
+  if (result.plugins.length === 0) {
+    console.log('No built-in plugins available.');
+    return;
+  }
+
+  console.log(`Available built-in plugins: ${result.plugins.length}`);
+  for (const plugin of result.plugins) {
+    console.log(`  ${plugin.short_name}`);
+    console.log(`    ${plugin.description}`);
+    console.log(`    Install: ${plugin.install_command}`);
+  }
 }
 
 export async function pluginUpgradeCommand(name, source, options) {

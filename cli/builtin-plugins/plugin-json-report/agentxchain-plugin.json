@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1",
+  "name": "@agentxchain/plugin-json-report",
+  "version": "0.1.0",
+  "description": "Writes structured JSON lifecycle reports into .agentxchain/reports/.",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "json_report_acceptance",
+        "type": "process",
+        "command": ["node", "./hooks/after-acceptance.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ],
+    "before_gate": [
+      {
+        "name": "json_report_gate",
+        "type": "process",
+        "command": ["node", "./hooks/before-gate.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ],
+    "on_escalation": [
+      {
+        "name": "json_report_escalation",
+        "type": "process",
+        "command": ["node", "./hooks/on-escalation.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ]
+  },
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "report_dir": {
+        "type": "string",
+        "default": ".agentxchain/reports"
+      }
+    }
+  }
+}

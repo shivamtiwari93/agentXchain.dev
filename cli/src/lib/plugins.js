@@ -9,7 +9,8 @@ import {
   statSync,
 } from 'fs';
 import { createHash } from 'crypto';
-import { join, resolve, relative } from 'path';
+import { dirname, join, resolve, relative } from 'path';
+import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
 import { spawnSync } from 'child_process';
 
@@ -22,6 +23,55 @@ export const PLUGIN_MANIFEST_FILE = 'agentxchain-plugin.json';
 export const PLUGINS_DIR = '.agentxchain/plugins';
 const PLUGIN_SCHEMA_VERSION = '0.1';
 const PLUGIN_NAME_RE = /^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/;
+
+const __filename_local = fileURLToPath(import.meta.url);
+const __dirname_local = dirname(__filename_local);
+const BUILTIN_PLUGINS_DIR = join(__dirname_local, '../../builtin-plugins');
+
+const BUILTIN_PLUGIN_SHORT_NAMES = {
+  'slack-notify': 'plugin-slack-notify',
+  'json-report': 'plugin-json-report',
+  'github-issues': 'plugin-github-issues',
+};
+
+function resolveBuiltinPlugin(spec) {
+  const dirName = BUILTIN_PLUGIN_SHORT_NAMES[spec];
+  if (!dirName) return null;
+  const pluginDir = join(BUILTIN_PLUGINS_DIR, dirName);
+  if (!existsSync(pluginDir)) return null;
+  const root = findManifestRoot(pluginDir);
+  if (!root) return null;
+  return {
+    ok: true,
+    type: 'builtin',
+    root,
+    sourceSpec: spec,
+    cleanup: null,
+  };
+}
+
+export function listAvailablePlugins() {
+  const available = [];
+  for (const [shortName, dirName] of Object.entries(BUILTIN_PLUGIN_SHORT_NAMES)) {
+    const pluginDir = join(BUILTIN_PLUGINS_DIR, dirName);
+    if (!existsSync(pluginDir)) continue;
+    const manifestPath = join(pluginDir, PLUGIN_MANIFEST_FILE);
+    if (!existsSync(manifestPath)) continue;
+    try {
+      const manifest = readJson(manifestPath);
+      available.push({
+        short_name: shortName,
+        name: manifest.name,
+        version: manifest.version,
+        description: manifest.description,
+        install_command: `agentxchain plugin install ${shortName}`,
+      });
+    } catch {
+      // skip broken manifests
+    }
+  }
+  return { ok: true, plugins: available };
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -198,6 +248,9 @@ function resolvePluginSource(spec, startDir) {
       };
     }
   }
+
+  const builtin = resolveBuiltinPlugin(spec);
+  if (builtin) return builtin;
 
   const packed = packNpmPlugin(spec);
   if (!packed.ok) {

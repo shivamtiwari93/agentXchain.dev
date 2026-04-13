@@ -1,0 +1,47 @@
+{
+  "schema_version": "0.1",
+  "name": "@agentxchain/plugin-slack-notify",
+  "version": "0.1.0",
+  "description": "Posts governed lifecycle notifications to a Slack incoming webhook.",
+  "hooks": {
+    "after_acceptance": [
+      {
+        "name": "slack_notify_acceptance",
+        "type": "process",
+        "command": ["node", "./hooks/after-acceptance.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ],
+    "before_gate": [
+      {
+        "name": "slack_notify_gate",
+        "type": "process",
+        "command": ["node", "./hooks/before-gate.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ],
+    "on_escalation": [
+      {
+        "name": "slack_notify_escalation",
+        "type": "process",
+        "command": ["node", "./hooks/on-escalation.js"],
+        "timeout_ms": 5000,
+        "mode": "advisory"
+      }
+    ]
+  },
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "webhook_env": {
+        "type": "string",
+        "default": "AGENTXCHAIN_SLACK_WEBHOOK_URL"
+      },
+      "mention": {
+        "type": "string"
+      }
+    }
+  }
+}

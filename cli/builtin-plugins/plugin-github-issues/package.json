@@ -1,0 +1,8 @@
+{
+  "name": "@agentxchain/plugin-github-issues",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Built-in AgentXchain plugin that mirrors governed run status into a GitHub issue.",
+  "license": "MIT"
+}

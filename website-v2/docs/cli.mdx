@@ -1074,8 +1074,9 @@ agentxchain plugin <subcommand> [options]
 
 | Subcommand | Description |
 |------------|-------------|
-| `install <source>` | Install a plugin from a local directory, archive, or npm package |
+| `install <source>` | Install a plugin from a built-in short name, local directory, archive, or npm package |
 | `list` | List all installed plugins with version and hook count |
+| `list-available` | List built-in plugins available for installation |
 | `upgrade <name> [source]` | Upgrade an installed plugin atomically, rolling back on failure |
 | `remove <name>` | Remove an installed plugin and its hooks |
 
@@ -1094,6 +1095,14 @@ agentxchain plugin <subcommand> [options]
 | Flag | Description |
 |------|-------------|
 | `-j, --json` | Output as JSON |
+
+#### `plugin list-available` flags
+
+| Flag | Description |
+|------|-------------|
+| `-j, --json` | Output as JSON |
+
+Built-in plugins can be installed by short name: `agentxchain plugin install slack-notify`.
 
 #### `plugin upgrade` flags
 
