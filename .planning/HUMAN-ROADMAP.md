@@ -19,13 +19,14 @@ Current focus: pricing-model surface correction and product-boundary clarity
   - This is likely a CSS issue — check the `.hero-logo` or equivalent class in that section. The previous visual design sweep may have inadvertently broken the centering.
   - Verify the fix on both desktop and mobile viewports.
 
-- [ ] Publish the AgentXchain VS Code extension to the Marketplace
+- [x] Publish the AgentXchain VS Code extension to the Marketplace
   - The publisher `agentXchain.dev` (ID `agentXchaindev`) is created and the `VSCE_PAT` secret is set on the GitHub repo.
   - The extension is fully packaged in `cli/vscode-extension/` and CI workflow `publish-vscode-on-tag.yml` is ready.
   - Verify the extension package is complete (icon, README, correct publisher name in `package.json`, feature descriptions).
   - Push a `vsce-v0.1.0` tag to trigger the CI publish workflow.
   - Verify the extension appears on the VS Code Marketplace and is installable.
   - Add a link to the Marketplace listing on the agentxchain.dev website (docs, homepage, or getting-started page).
+  - **2026-04-13 completed:** Fixed publisher ID in `package.json` from `agentxchain` to `agentXchaindev` (matching the registered Marketplace publisher). Pushed `vsce-v0.1.0` tag, CI publish workflow succeeded (all steps green including "Publish to VS Code Marketplace"). Extension live at `https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain`. Added Marketplace link to homepage Integrations section, getting-started page, and quickstart prerequisites. Updated marketplace readiness test assertion. Docusaurus build clean.
 
 - [ ] Create polished integration guides for all supported agent platforms, local model runners, and API providers
   - AgentXchain is agent/IDE/LLM agnostic by design. The 5 adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) already support virtually every connection pattern. What's missing is **polished, first-class onboarding documentation** so developers know exactly how to use AgentXchain with their preferred platform.

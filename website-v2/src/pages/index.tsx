@@ -580,6 +580,11 @@ function Integrations() {
               notifications. Reports, multi-repo operations, and the richer
               governance view still live in the browser dashboard and CLI.
             </p>
+            <p style={{ marginTop: '0.75rem' }}>
+              <a href="https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain" target="_blank" rel="noopener noreferrer">
+                Install from VS Code Marketplace &rarr;
+              </a>
+            </p>
           </div>
           <div className="feature-card">
             <h3>Real-time dashboard</h3>

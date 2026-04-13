@@ -38,7 +38,7 @@ describe('VS Code marketplace readiness', () => {
 
   it('AT-VSMP-002: package metadata carries marketplace basics', () => {
     assert.equal(PACKAGE.name, 'agentxchain');
-    assert.equal(PACKAGE.publisher, 'agentxchain');
+    assert.equal(PACKAGE.publisher, 'agentXchaindev');
     assert.equal(PACKAGE.icon, 'media/icon.png');
     assert.deepEqual(PACKAGE.galleryBanner, { color: '#0a0a0a', theme: 'dark' });
     assert.ok(Array.isArray(PACKAGE.categories), 'package.json categories must be an array');
