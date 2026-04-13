@@ -192,6 +192,8 @@ node examples/governed-todo-app/run-auto.mjs --json
 
 The harness transforms the config for unattended execution: all adapters become `api_proxy` (Haiku), gate file requirements are removed, and the 4-role/3-phase structure is preserved. This is the first product example (not a proof-only scaffold) to complete unattended governed execution.
 
+The unattended proof is also wired into GitHub Actions via `.github/workflows/governed-todo-app-proof.yml` on pushes to `main` and manual `workflow_dispatch` reruns, so the public claim is backed by continuous automation rather than a one-off local run.
+
 ## What "Governed" Means
 
 Every turn produces a structured JSON result. The orchestrator independently verifies:

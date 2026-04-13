@@ -51,6 +51,7 @@ The harness transforms the config for unattended execution:
 - Replaces all manual and local_cli adapters with `api_proxy` (Haiku for cost control)
 - Removes file-based gate requirements (api_proxy roles cannot write to disk)
 - Preserves the 4-role structure and 3-phase workflow
+- Runs continuously in GitHub Actions via `.github/workflows/governed-todo-app-proof.yml` on pushes to `main` and manual `workflow_dispatch` reruns
 
 ```bash
 # Requires ANTHROPIC_API_KEY
@@ -66,11 +67,11 @@ node examples/governed-todo-app/run-auto.mjs --json
 |-------|-------|
 | Command | `node examples/governed-todo-app/run-auto.mjs --json` |
 | CLI Version | 2.83.0 |
-| Run ID | `run_f0f199fcb50b0613` |
+| Run ID | `run_b132619cd060b77b` |
 | Roles | pm → dev → qa (3 distinct roles) |
 | Turns | 3 accepted |
-| Cost | $0.02 total |
-| Decision Ledger | 7 entries |
+| Cost | $0.021 total |
+| Decision Ledger | 9 entries |
 | Reports | Governance export + report generated |
 
 This is the first product example (not a proof-only scaffold) to complete unattended governed execution via the shipped CLI surface.
