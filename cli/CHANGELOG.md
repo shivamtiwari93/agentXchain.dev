@@ -12,7 +12,7 @@
 - Fixed lights-out docs to remove false multi-repo coordinator claim
 - Fixed Reddit post formatting (`post-reddit.sh` now converts literal `\n` to real newlines)
 - Fixed RVP spec drift (`--max-turns 1` → `--max-turns 5` to match shipped E2E)
-- 3,894 tests / 838 suites / 0 failures (`cd cli && npm test`)
+- 3894 tests / 838 suites / 0 failures (`cd cli && npm test`)
 - Local release proof: plugin config parity tests, schedule/lights-out regression guards, full test suite, clean Docusaurus build
 
 ## 2.78.0
