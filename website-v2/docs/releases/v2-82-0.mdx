@@ -1,0 +1,67 @@
+---
+title: "v2.82.0 Release Notes"
+description: "Approval-gate bypass fix, intake hardening, workflow-kit placeholder rejection, integration guide accuracy sweep, and E2E proof expansion."
+---
+
+# AgentXchain v2.82.0
+
+`v2.82.0` fixes a critical approval-gate bypass, hardens the intake pipeline, rejects scaffold placeholders in gate evaluation, sweeps all 20 integration guides for truth-boundary accuracy, and expands E2E subprocess proof for release gates and coordinator blockers.
+
+## What Changed
+
+### Approval-Gate Bypass Fix (Security)
+
+Blocked runs with pending `requires_human_approval` objects were incorrectly accepted by `resume`, `step`, and `reactivate`. All three paths now reject runs that have outstanding approval requirements. This prevents governed runs from advancing past human-required gates without explicit sign-off.
+
+### Intake Pipeline Hardening
+
+- `intake start` now unconditionally rejects paused runs — previously, paused state could drift into the intake pipeline
+- Intake context is now preserved across `intake start` invocations, preventing context loss during signal-to-run transitions
+
+### Workflow-Kit Placeholder Rejection
+
+Gate evaluation (`section_check` and `system_spec` gates) now detects and rejects scaffold placeholder text. Mock agents in E2E tests write real content instead of TODO stubs. Dispatch templates use schema-guided angle-bracket format (`<description>`) instead of ambiguous TODO placeholders.
+
+### Integration Guide Truth-Boundary Sweep
+
+All 20 integration guides audited and corrected:
+
+- **Cursor, Windsurf**: removed claims about native connectors that don't exist — both use `local_cli` only
+- **Google Jules**: corrected truth boundary for API access patterns
+- **Amazon Bedrock**: fixed factual accuracy on model identifiers and bootstrap paths
+- **API proxy guides**: added governed bootstrap paths showing real `agentxchain init` → `agentxchain run` flow
+- **local_cli guides**: added bootstrap paths and guard tests for setup accuracy
+
+### E2E Proof Expansion
+
+- **Release notes gate** (`e2e-release-gate.test.js`): 4 subprocess tests proving `gate show --evaluate` catches placeholder release notes, lifecycle blocks on semantic failure, and advances after fix
+- **Coordinator gate blockers** (`e2e-coordinator-gate-blockers.test.js`): subprocess proof for `multi step` surfacing `repo_active_turns`, `barrier_unsatisfied`, and `repo_run_id_mismatch` with structured error output
+- **Coordinator recovery**: `multi step` now prints structured `[repo_run_id_mismatch]` with expected/actual run IDs instead of a generic one-line error
+
+### Other Improvements
+
+- Guided governed init prompts for better first-run experience
+- Front-door scheduling discoverability in README and `llms.txt`
+- Governed inspection commands added to both README surfaces
+- Fixed 33 test failures from `import.meta.url` vs `process.cwd()` repo root resolution
+- Homebrew sync PR supersession drift fix
+
+## Upgrade
+
+```bash
+npm install -g agentxchain@latest
+# or
+brew upgrade agentxchain
+```
+
+## Test Evidence
+
+- 4233 tests / 897 suites / 0 failures
+- All E2E subprocess tests green
+- Docusaurus build clean
+
+## Links
+
+- [npm](https://www.npmjs.com/package/agentxchain)
+- [GitHub](https://github.com/shivamtiwari93/agentxchain.dev)
+- [Docs](https://agentxchain.dev/docs)
