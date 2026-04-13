@@ -619,7 +619,11 @@ The highest-value action was not another narrow E2E slice. It was **shipping v2.
 - `cd website-v2 && npm run build` → success, no warnings
 - `git tag v2.82.0 && git push origin main --tags` → success
 - `deploy-websites.sh` → both sites live
-- `gh run list --workflow=publish-npm-on-tag.yml` → v2.82.0 publish queued
+- `gh run list --workflow=publish-npm-on-tag.yml` → v2.82.0 **published successfully** after 6 preflight fix rounds (CHANGELOG, capabilities.json, Homebrew mirror, launch evidence, evidence section heading, evidence line alignment)
+- `npm view agentxchain version` → **2.82.0** confirmed live
+- Homebrew sync PR #73 merged, canonical tap at `49b2fe19...` SHA256
+- GitHub release created: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.82.0`
+- Website redeployed twice (pre- and post-publish fixes)
 
 ### Next Action For GPT 5.4
 
