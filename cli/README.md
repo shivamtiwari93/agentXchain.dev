@@ -152,7 +152,7 @@ agentxchain step
 
 ## Command Sets
 
-### Governed
+### Governed lifecycle and execution
 
 | Command | What it does |
 |---|---|
@@ -172,12 +172,12 @@ agentxchain step
 | `replay turn` | Replay an accepted turn's machine-evidence commands from history for audit and drift detection |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
-| `multi init\|status\|step\|resume\|approve-gate\|resync` | Run the multi-repo coordinator lifecycle, including blocked-state recovery via `multi resume` |
-| `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
-| `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
-| `schedule list\|run-due\|daemon\|status` | Run repo-local lights-out scheduling: inspect schedules, execute due runs, poll in a local daemon loop, or check daemon heartbeat |
-| `plugin install\|list\|list-available\|remove` | Install, discover, or remove governed hook plugins; `list-available` shows bundled built-in plugins installable by short name |
 | `run [--auto-approve] [--max-turns N] [--dry-run]` | Drive a governed run from start to completion — dispatches turns, handles gates, manages rejection/retry |
+
+### Governed proof and inspection
+
+| Command | What it does |
+|---|---|
 | `audit [--format json]` | Live governance audit report with cost summary, decision history, and artifact inventory |
 | `diff <left> <right>` | Compare two governed runs side by side (phase, decisions, artifacts, timing) |
 | `report` | Generate a governance report for the current run |
@@ -189,6 +189,17 @@ agentxchain step
 | `gate list\|show [--evaluate]` | List configured gates or evaluate a gate's current pass/fail state |
 | `doctor [--json]` | Governed project health check: config, roles, runtimes, state, schedules, plugins, workflow-kit, connector handoff |
 | `connector check [--json]` | Live health probes for all configured connectors (api_proxy, remote_agent, MCP stdio/streamable_http) |
+
+### Governed automation, plugins, and continuity
+
+| Command | What it does |
+|---|---|
+| `multi init\|status\|step\|resume\|approve-gate\|resync` | Run the multi-repo coordinator lifecycle, including blocked-state recovery via `multi resume` |
+| `intake record\|triage\|approve\|plan\|start\|scan\|resolve` | Continuous-delivery intake: turn delivery signals into governed work items |
+| `intake handoff` | Bridge a planned intake intent to a coordinator workstream for multi-repo execution |
+| `schedule list\|run-due\|daemon\|status` | Run repo-local lights-out scheduling: inspect schedules, execute due runs, poll in a local daemon loop, or check daemon heartbeat |
+| `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins under `.agentxchain/plugins/` |
+| `plugin list-available` | List bundled built-in plugins installable by short name |
 | `export [--output <path>]` | Export run state for cross-machine continuity |
 | `restore --input <path>` | Restore run state from a prior export on a same-repo, same-commit checkout |
 | `restart` | Rebuild lost session context from `.agentxchain/session.json` |

@@ -247,6 +247,8 @@ What changes operationally in v1.1:
 
 ## Canonical Governed Commands
 
+### Lifecycle And Execution
+
 ```bash
 agentxchain init --governed
 agentxchain migrate
@@ -254,25 +256,21 @@ agentxchain status
 agentxchain demo
 agentxchain run                              # multi-turn governed execution to completion
 agentxchain run --auto-approve --max-turns 20
-agentxchain restart                         # rebuild lost session context from .agentxchain/session.json
-agentxchain restore --input <path>          # cross-machine continuity from a prior run export
-agentxchain step                             # single-turn dispatch (manual workflow)
-agentxchain step --resume --turn <id>
 agentxchain resume
 agentxchain resume --turn <id>
+agentxchain step                             # single-turn dispatch (manual workflow)
+agentxchain step --resume --turn <id>
 agentxchain accept-turn --turn <id> --resolution human_merge
 agentxchain reject-turn --turn <id> --reason "..."
 agentxchain reject-turn --turn <id> --reassign
 agentxchain approve-transition
 agentxchain approve-completion
 agentxchain dashboard
-agentxchain template validate                  # prove scaffold + workflow-kit contract
-agentxchain template validate --json            # machine-readable proof with workflow_kit block
-agentxchain multi resume                        # clear a blocked coordinator after operator recovery
-agentxchain plugin list
-agentxchain plugin list-available
-agentxchain plugin install slack-notify
-agentxchain run                              # multi-turn governed execution to completion
+```
+
+### Proof And Inspection
+
+```bash
 agentxchain audit                            # live governance audit report
 agentxchain diff <left> <right>              # compare two governed runs
 agentxchain report                           # generate governance report
@@ -287,6 +285,22 @@ agentxchain gate list                        # list configured gates
 agentxchain gate show <gate> --evaluate      # evaluate a gate's pass/fail state
 agentxchain doctor                           # governed project health check
 agentxchain connector check                  # live health probes for configured connectors
+agentxchain verify turn                      # replay staged machine-evidence before acceptance
+agentxchain replay turn                      # replay accepted machine-evidence from history
+agentxchain verify protocol                  # run the protocol conformance kit
+```
+
+### Automation, Plugins, And Continuity
+
+```bash
+agentxchain restart                         # rebuild lost session context from .agentxchain/session.json
+agentxchain restore --input <path>          # cross-machine continuity from a prior run export
+agentxchain template validate                  # prove scaffold + workflow-kit contract
+agentxchain template validate --json            # machine-readable proof with workflow_kit block
+agentxchain multi resume                        # clear a blocked coordinator after operator recovery
+agentxchain plugin list
+agentxchain plugin list-available
+agentxchain plugin install slack-notify
 agentxchain export                           # export run state for cross-machine continuity
 ```
 
