@@ -19,7 +19,7 @@ export async function intakeStatusCommand(opts) {
 
   // Detail mode: single intent
   if (result.intent) {
-    printIntentDetail(result.intent, result.event);
+    printIntentDetail(result.intent, result.event, result.next_action);
     process.exit(0);
   }
 
@@ -46,14 +46,17 @@ function printSummary(summary) {
       const pri = i.priority ? i.priority.padEnd(3) : '---';
       const tpl = (i.template || '---').padEnd(12);
       const st = statusColor(i.status);
-      console.log(`  ${chalk.dim(i.intent_id)}  ${pri}  ${tpl}  ${st}  ${chalk.dim(i.updated_at)}`);
+      const actionHint = i.next_action?.action_required && i.next_action?.label !== 'none'
+        ? `  ${chalk.dim(`→ ${i.next_action.label}`)}`
+        : '';
+      console.log(`  ${chalk.dim(i.intent_id)}  ${pri}  ${tpl}  ${st}  ${chalk.dim(i.updated_at)}${actionHint}`);
     }
   }
 
   console.log('');
 }
 
-function printIntentDetail(intent, event) {
+function printIntentDetail(intent, event, nextAction) {
   console.log('');
   console.log(chalk.bold(`  Intent: ${intent.intent_id}`));
   console.log(chalk.dim('  ' + '─'.repeat(44)));
@@ -91,6 +94,21 @@ function printIntentDetail(intent, event) {
     console.log(chalk.dim('  Source Event:'));
     console.log(`    ${chalk.dim('Source:')}  ${event.source}`);
     console.log(`    ${chalk.dim('Signal:')}  ${JSON.stringify(event.signal)}`);
+  }
+
+  if (nextAction) {
+    console.log('');
+    console.log(chalk.dim('  Next Action:'));
+    console.log(`    ${nextAction.summary}`);
+    if (nextAction.command) {
+      console.log(`    ${chalk.dim('Command:')}  ${nextAction.command}`);
+    }
+    for (const alternative of nextAction.alternatives || []) {
+      console.log(`    ${chalk.dim('Alternative:')} ${alternative}`);
+    }
+    if (nextAction.recovery) {
+      console.log(`    ${chalk.dim('Recovery:')} ${nextAction.recovery}`);
+    }
   }
 
   console.log('');

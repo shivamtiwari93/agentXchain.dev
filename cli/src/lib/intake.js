@@ -120,6 +120,122 @@ function readJsonDir(dirPath) {
     .filter(Boolean);
 }
 
+function buildIntakeNextAction(intent) {
+  const intentId = intent?.intent_id || '<intent_id>';
+  const status = intent?.status || 'unknown';
+  const resolveCommand = `agentxchain intake resolve --intent ${intentId}`;
+
+  switch (status) {
+    case 'detected':
+      return {
+        label: 'triage',
+        summary: 'Triage this detected intent so it can enter governed delivery.',
+        command: `agentxchain intake triage --intent ${intentId} --priority <p0-p3> --template <template_id> --charter "<charter>" --acceptance "<criterion>"`,
+        alternatives: [
+          `agentxchain intake triage --intent ${intentId} --suppress --reason "<reason>"`,
+        ],
+        recovery: null,
+        action_required: true,
+      };
+    case 'triaged':
+      return {
+        label: 'approve',
+        summary: 'Approve this triaged intent for planning or reject it explicitly.',
+        command: `agentxchain intake approve --intent ${intentId}`,
+        alternatives: [
+          `agentxchain intake triage --intent ${intentId} --reject --reason "<reason>"`,
+        ],
+        recovery: null,
+        action_required: true,
+      };
+    case 'approved':
+      return {
+        label: 'plan',
+        summary: 'Generate planning artifacts for this approved intent.',
+        command: `agentxchain intake plan --intent ${intentId}`,
+        alternatives: [],
+        recovery: null,
+        action_required: true,
+      };
+    case 'planned':
+      return {
+        label: 'start',
+        summary: 'Start repo-local execution or hand the intent off to a coordinator workstream.',
+        command: `agentxchain intake start --intent ${intentId}`,
+        alternatives: [
+          `agentxchain intake handoff --intent ${intentId} --coordinator-root <path> --workstream <id>`,
+        ],
+        recovery: null,
+        action_required: true,
+      };
+    case 'executing':
+      return {
+        label: 'resolve',
+        summary: intent?.target_workstream
+          ? 'Re-check the coordinator workstream outcome for this intent.'
+          : 'Re-check the governed run outcome for this intent.',
+        command: resolveCommand,
+        alternatives: [],
+        recovery: null,
+        action_required: true,
+      };
+    case 'blocked':
+      return {
+        label: 'recover',
+        summary: 'Resolve the linked run blockage, then re-check intake resolution.',
+        command: resolveCommand,
+        alternatives: [],
+        recovery: intent?.run_blocked_recovery || null,
+        action_required: true,
+      };
+    case 'completed':
+      return {
+        label: 'none',
+        summary: 'No action required. This intent completed successfully.',
+        command: null,
+        alternatives: [],
+        recovery: null,
+        action_required: false,
+      };
+    case 'suppressed':
+      return {
+        label: 'none',
+        summary: 'No action required. This intent was suppressed.',
+        command: null,
+        alternatives: [],
+        recovery: null,
+        action_required: false,
+      };
+    case 'rejected':
+      return {
+        label: 'none',
+        summary: 'No action required. This intent was rejected.',
+        command: null,
+        alternatives: [],
+        recovery: null,
+        action_required: false,
+      };
+    case 'failed':
+      return {
+        label: 'inspect',
+        summary: 'Manual inspection required. This intent is in a reserved failed state.',
+        command: null,
+        alternatives: [],
+        recovery: 'Inspect the linked intent and run artifacts manually before continuing.',
+        action_required: true,
+      };
+    default:
+      return {
+        label: 'inspect',
+        summary: 'Manual inspection required. The intent state is not recognized by the current intake surface.',
+        command: null,
+        alternatives: [],
+        recovery: null,
+        action_required: true,
+      };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
@@ -329,7 +445,13 @@ export function intakeStatus(root, intentId) {
     const intent = JSON.parse(readFileSync(intentPath, 'utf8'));
     const eventPath = join(dirs.events, `${intent.event_id}.json`);
     const event = existsSync(eventPath) ? JSON.parse(readFileSync(eventPath, 'utf8')) : null;
-    return { ok: true, intent, event, exitCode: 0 };
+    return {
+      ok: true,
+      intent,
+      event,
+      next_action: buildIntakeNextAction(intent),
+      exitCode: 0,
+    };
   }
 
   const events = readJsonDir(dirs.events);
@@ -354,6 +476,7 @@ export function intakeStatus(root, intentId) {
         template: i.template,
         status: i.status,
         updated_at: i.updated_at,
+        next_action: buildIntakeNextAction(i),
       })),
   };
 
