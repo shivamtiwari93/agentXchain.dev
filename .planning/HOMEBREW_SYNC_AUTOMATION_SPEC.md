@@ -44,8 +44,8 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 5. Fail closed if PR creation does not succeed. A pushed orphan branch is not accepted release follow-through.
 6. Submit an approval review for the generated PR when it is still awaiting approval.
 7. If the PR already satisfies merge requirements, merge it directly with squash + branch deletion.
-8. If the PR is blocked only because required checks are still pending, enable auto-merge (squash + delete branch) and poll for `MERGED`.
-9. If the PR still requires approval after the workflow's approval attempt, fail closed with an explicit self-approval deadlock error. Do not fall back to `--admin`; the GitHub Actions token cannot reliably bypass required reviews/checks on this protected branch.
+8. If regular merge fails because checks or approval requirements are still unmet, attempt to enable auto-merge (squash + delete branch) and poll for `MERGED`.
+9. If the PR still remains open because `github-actions` cannot self-approve or other mergeability requirements stay unmet, emit an explicit warning with the PR URL and continue the release. Repo-mirror follow-up is required, but canonical downstream truth is already handled by the canonical tap sync plus the final downstream verification gate.
 10. The workflow must snapshot the mutated mirror files and clear those local edits before switching from the tagged checkout to the PR branch. Branch creation cannot fail on its own dirty mirror-file changes.
 
 **Auth requirements for canonical tap push:**
@@ -92,9 +92,9 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 | `--dry-run` | Print planned changes, exit 0 without writing. |
 | CI runner has no git user.name or user.email | Configure a bot identity locally before committing to the canonical tap. |
 | PR creation fails after the branch push | Exit non-zero. Release follow-through is incomplete until the mirror PR exists. |
-| PR approval submission fails because the workflow authored the PR and review is still required | Exit non-zero with an explicit self-approval deadlock error. |
-| Regular merge is blocked only because required checks are still pending | Enable squash auto-merge and poll for `MERGED`. |
-| Auto-merge cannot be enabled or the PR never reaches `MERGED` | Exit non-zero. The workflow may not claim repo-mirror completion while `main` remains stale. |
+| PR approval submission fails because the workflow authored the PR and review is still required | Emit an explicit warning with the PR URL and continue. Repo mirror follow-up remains open. |
+| Regular merge is blocked because required checks and/or approval requirements are still unmet | Attempt squash auto-merge, poll for `MERGED`, then warn with the PR URL if the PR still remains open. |
+| Auto-merge cannot be enabled or the PR never reaches `MERGED` | Emit an explicit warning with the PR URL and continue. Repo mirror follow-up remains open, but downstream truth is still verified separately. |
 
 ## Acceptance Tests
 
@@ -115,9 +115,10 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 - AT-HS-015: Canonical tap sync is rerun-safe: a rejected push is treated as success only after fetching the remote and proving the canonical formula already matches the target tarball URL and SHA.
 - AT-HS-016: The workflow records the generated Homebrew mirror PR number and reuses that identifier in later closeout steps.
 - AT-HS-017: The workflow submits an approval review for the generated Homebrew mirror PR before merge.
-- AT-HS-018: The workflow enables auto-merge for the generated Homebrew mirror PR and fails closed if the PR does not reach `MERGED`.
-- AT-HS-019: If regular merge is blocked by pending required checks, the workflow enables `gh pr merge --auto --squash --delete-branch` instead of treating the condition as an admin-fallback case.
-- AT-HS-020: If the PR still requires approval after the workflow's approval attempt, the workflow fails closed with an explicit self-approval deadlock error and never invokes `gh pr merge --admin`.
+- AT-HS-018: The workflow attempts regular merge first, then enables `gh pr merge --auto --squash --delete-branch` when requirements are still unmet.
+- AT-HS-019: If the generated Homebrew mirror PR still remains open after the workflow's approval attempt and auto-merge handling, the workflow emits an explicit warning with the PR URL instead of failing the release.
+- AT-HS-020: The workflow never invokes `gh pr merge --admin` for the mirror PR closeout path.
+- AT-HS-021: PR creation still fails closed, but unexpected mirror closeout failures after the PR exists are warning-only because repo-mirror convergence is not part of canonical downstream truth.
 
 ## Decisions
 
@@ -125,7 +126,9 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 
 `DEC-HOMEBREW-SYNC-010` (SUPERSEDED): An earlier contract allowed a narrow `--admin` fallback after an unapproved PR returned review-required merge errors. The live `v2.79.0` publish run disproved this: the GitHub Actions token could not bypass required reviews or pending status checks on the protected branch, so the fallback produced a false-negative release failure instead of closing the PR.
 
-`DEC-HOMEBREW-SYNC-011`: The workflow must attempt regular `gh pr merge --squash --delete-branch` first. If merge is blocked only because required checks are still pending, it enables `gh pr merge --auto --squash --delete-branch` and waits for `MERGED`. If approval is still required after the workflow's approval attempt, it fails closed with an explicit self-approval deadlock error. The workflow must never invoke `gh pr merge --admin` from CI for this PR closeout path.
+`DEC-HOMEBREW-SYNC-011`: The workflow must attempt regular `gh pr merge --squash --delete-branch` first. If merge is blocked because requirements are still unmet, it enables `gh pr merge --auto --squash --delete-branch` when possible. The workflow must never invoke `gh pr merge --admin` from CI for this PR closeout path.
+
+`DEC-HOMEBREW-SYNC-012`: Repo-mirror PR closeout is best-effort once the PR exists. Canonical downstream truth is the GitHub Release plus the canonical Homebrew tap, not the repo-local mirror PR merge state. If the mirror PR remains open because `github-actions` cannot self-approve or auto-merge does not converge, the workflow must warn with the PR URL and continue instead of failing an otherwise-complete release.
 
 ## Open Questions
 

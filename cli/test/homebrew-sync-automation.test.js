@@ -291,7 +291,7 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow auto-closes the Homebrew mirror PR after creation', () => {
+  it('CI workflow best-effort closes the Homebrew mirror PR after creation', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
@@ -305,8 +305,18 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /Approve and merge Homebrew mirror PR/,
+      /Close out Homebrew mirror PR/,
       'workflow must have a dedicated PR closeout step',
+    );
+    assert.match(
+      workflow,
+      /status=not_needed.*GITHUB_OUTPUT/s,
+      'workflow must emit a closeout status output for the mirror PR step',
+    );
+    assert.match(
+      workflow,
+      /pr_url=.*GITHUB_OUTPUT/s,
+      'workflow must record the mirror PR URL for warning output',
     );
     assert.match(
       workflow,
@@ -349,8 +359,8 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /still requires an approving review and github-actions cannot self-approve PRs it created/,
-      'workflow must fail closed with an explicit self-approval deadlock when approval is still required',
+      /still requires an approving review and github-actions cannot self-approve PRs it created\. Canonical downstream truth is complete; repo mirror follow-up remains at/,
+      'workflow must warn explicitly when approval deadlock leaves the mirror PR open',
     );
     assert.match(
       workflow,
@@ -364,13 +374,13 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /Regular merge failed for unexpected reason/,
-      'workflow must still fail closed on unexpected merge failures',
+      /Regular merge failed for Homebrew mirror PR/,
+      'workflow must warn explicitly on unexpected mirror closeout merge failures',
     );
     assert.match(
       workflow,
-      /did not merge after/,
-      'workflow must fail closed if the mirror PR never reaches merged state',
+      /did not merge after auto-merge handling/,
+      'workflow must warn explicitly if the mirror PR never reaches merged state',
     );
   });
 });

@@ -171,7 +171,8 @@ jobs:
           echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "Created PR for Homebrew mirror update on branch $BRANCH."
 
-      - name: Approve and merge Homebrew mirror PR
+      - name: Close out Homebrew mirror PR
+        id: homebrew_mirror_closeout
         if: always() && (steps.registry.outputs.already_published == 'true' || success()) && steps.homebrew_pr.outputs.pr_number != ''
         working-directory: cli
         shell: bash
@@ -179,15 +180,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          echo "status=not_needed" >> "$GITHUB_OUTPUT"
+          echo "pr_url=" >> "$GITHUB_OUTPUT"
           PR_NUMBER="${{ steps.homebrew_pr.outputs.pr_number }}"
+          PR_URL="$(gh pr view "$PR_NUMBER" --json url --jq '.url')"
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
           PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
           if [[ "$PR_STATE" == "MERGED" ]]; then
             echo "Homebrew mirror PR #${PR_NUMBER} already merged."
+            echo "status=merged" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [[ "$PR_STATE" != "OPEN" ]]; then
-            echo "::error::Homebrew mirror PR #${PR_NUMBER} is ${PR_STATE}, not OPEN."
-            exit 1
+            echo "::warning::Homebrew mirror PR #${PR_NUMBER} is ${PR_STATE}, not OPEN or MERGED. Canonical downstream truth is verified separately; repo mirror follow-up remains at ${PR_URL}."
+            echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
           if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
@@ -204,27 +211,27 @@ jobs:
           MERGE_ERR="$(gh pr merge "$PR_NUMBER" --squash --delete-branch 2>&1)" && MERGE_OK=true || MERGE_OK=false
           if [[ "$MERGE_OK" == "true" ]]; then
             echo "Homebrew mirror PR #${PR_NUMBER} merge initiated."
-          elif echo "$MERGE_ERR" | grep -qiE 'required status check|is expected|add the --auto flag|after all the requirements have been met'; then
-            if [[ "$REVIEW_DECISION" != "APPROVED" ]]; then
-              echo "::error::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created."
-              echo "::error::Merge error was: ${MERGE_ERR}"
-              exit 1
-            fi
-            echo "::warning::Regular merge is waiting on required checks. Enabling auto-merge for Homebrew mirror PR #${PR_NUMBER}."
+          elif echo "$MERGE_ERR" | grep -qiE 'required status check|is expected|add the --auto flag|after all the requirements have been met|review is required|approving review|required approving review|1 approving review'; then
+            echo "::warning::Regular merge could not complete for Homebrew mirror PR #${PR_NUMBER}. Attempting auto-merge."
             echo "::warning::Merge error was: ${MERGE_ERR}"
-            gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
-          elif [[ "$REVIEW_DECISION" != "APPROVED" ]] && echo "$MERGE_ERR" | grep -qiE 'review is required|approving review|required approving review|1 approving review'; then
-            echo "::error::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created."
-            echo "::error::Merge error was: ${MERGE_ERR}"
-            exit 1
+            if gh pr merge "$PR_NUMBER" --auto --squash --delete-branch 2>/dev/null; then
+              echo "Auto-merge enabled for Homebrew mirror PR #${PR_NUMBER}."
+            else
+              echo "::warning::Could not enable auto-merge for Homebrew mirror PR #${PR_NUMBER}. Canonical downstream truth is already handled; repo mirror follow-up remains at ${PR_URL}."
+              echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           else
-            echo "::error::Regular merge failed for unexpected reason: ${MERGE_ERR}"
-            exit 1
+            echo "::warning::Regular merge failed for Homebrew mirror PR #${PR_NUMBER}: ${MERGE_ERR}"
+            echo "::warning::Canonical downstream truth is already handled; repo mirror follow-up remains at ${PR_URL}."
+            echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           for attempt in $(seq 1 36); do
             PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
             if [[ "$PR_STATE" == "MERGED" ]]; then
               echo "Homebrew mirror PR #${PR_NUMBER} merged."
+              echo "status=merged" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             if [[ "$attempt" -lt 36 ]]; then
@@ -232,8 +239,15 @@ jobs:
               sleep 10
             fi
           done
-          echo "::error::Homebrew mirror PR #${PR_NUMBER} did not merge after approval and auto-merge enablement."
-          exit 1
+          CURRENT_REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
+          if [[ "$CURRENT_REVIEW_DECISION" != "APPROVED" ]]; then
+            echo "::warning::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created. Canonical downstream truth is complete; repo mirror follow-up remains at ${PR_URL}."
+            echo "status=manual_approval_required" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Homebrew mirror PR #${PR_NUMBER} did not merge after auto-merge handling. Canonical downstream truth is complete; repo mirror follow-up remains at ${PR_URL}."
+            echo "status=auto_merge_pending" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
 
       - name: Create GitHub Release
         if: always() && (steps.registry.outputs.already_published == 'true' || success())
