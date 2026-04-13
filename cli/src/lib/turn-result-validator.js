@@ -263,15 +263,66 @@ function validateSchema(tr) {
     }
   }
 
-  // Reject template placeholder strings that were not replaced
-  const placeholderFields = ['summary', 'proposed_next_role'];
-  for (const field of placeholderFields) {
-    if (typeof tr[field] === 'string' && /^<[^>]+>$/.test(tr[field])) {
-      errors.push(`${field} contains an unfilled template placeholder: "${tr[field]}".`);
+  errors.push(...collectUnfilledTemplatePlaceholderErrors(tr));
+
+  return errors;
+}
+
+function collectUnfilledTemplatePlaceholderErrors(tr) {
+  const errors = [];
+
+  checkPlaceholder(errors, 'summary', tr.summary);
+  checkPlaceholder(errors, 'proposed_next_role', tr.proposed_next_role);
+
+  if (Array.isArray(tr.decisions)) {
+    for (let i = 0; i < tr.decisions.length; i++) {
+      const decision = tr.decisions[i];
+      checkPlaceholder(errors, `decisions[${i}].statement`, decision?.statement);
+      checkPlaceholder(errors, `decisions[${i}].rationale`, decision?.rationale);
+    }
+  }
+
+  if (Array.isArray(tr.objections)) {
+    for (let i = 0; i < tr.objections.length; i++) {
+      const objection = tr.objections[i];
+      checkPlaceholder(errors, `objections[${i}].against_turn_id`, objection?.against_turn_id);
+      checkPlaceholder(errors, `objections[${i}].statement`, objection?.statement);
+    }
+  }
+
+  if (Array.isArray(tr.files_changed)) {
+    for (let i = 0; i < tr.files_changed.length; i++) {
+      checkPlaceholder(errors, `files_changed[${i}]`, tr.files_changed[i]);
+    }
+  }
+
+  const verification = tr.verification;
+  if (verification && typeof verification === 'object' && !Array.isArray(verification)) {
+    if (Array.isArray(verification.commands)) {
+      for (let i = 0; i < verification.commands.length; i++) {
+        checkPlaceholder(errors, `verification.commands[${i}]`, verification.commands[i]);
+      }
+    }
+    checkPlaceholder(errors, 'verification.evidence_summary', verification.evidence_summary);
+
+    if (Array.isArray(verification.machine_evidence)) {
+      for (let i = 0; i < verification.machine_evidence.length; i++) {
+        checkPlaceholder(
+          errors,
+          `verification.machine_evidence[${i}].command`,
+          verification.machine_evidence[i]?.command
+        );
+      }
     }
   }
 
   return errors;
+}
+
+function checkPlaceholder(errors, fieldPath, value) {
+  if (typeof value === 'string' && /^<[^>]+>$/.test(value)) {
+    errors.push(`${fieldPath} contains an unfilled template placeholder: "${value}".`);
+  }
 }
 
 function validateDecision(dec, index) {

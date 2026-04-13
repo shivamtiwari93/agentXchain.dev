@@ -1048,8 +1048,81 @@ describe('turn-result-validator', () => {
       assert.ok(res.errors.some((e) => e.includes('proposed_next_role') && e.includes('placeholder')));
     });
 
-    it('accepts real values that happen to contain angle brackets in the middle', () => {
+    it('rejects decision placeholders in statement and rationale (AT-TRPV-001)', () => {
+      const tr = makeValidTurnResult({
+        decisions: [
+          {
+            id: 'DEC-001',
+            category: 'implementation',
+            statement: '<what was decided and why it matters>',
+            rationale: '<reasoning behind this decision>',
+          },
+        ],
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('decisions[0].statement') && e.includes('placeholder')));
+      assert.ok(res.errors.some((e) => e.includes('decisions[0].rationale') && e.includes('placeholder')));
+    });
+
+    it('rejects objection placeholders in against_turn_id and statement (AT-TRPV-002)', () => {
+      const tr = makeValidTurnResult({
+        role: 'qa',
+        runtime_id: 'api-qa',
+        files_changed: [],
+        artifact: { type: 'review', ref: null },
+        objections: [
+          {
+            id: 'OBJ-001',
+            severity: 'medium',
+            against_turn_id: '<turn_id of the turn you are reviewing>',
+            statement: '<specific objection to the previous turn — required for review_only roles>',
+            status: 'raised',
+          },
+        ],
+      });
+      const state = makeState({
+        phase: 'qa',
+        current_turn: { turn_id: 'turn-0004', assigned_role: 'qa', status: 'running', attempt: 1, runtime_id: 'api-qa' },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, state, makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('objections[0].against_turn_id') && e.includes('placeholder')));
+      assert.ok(res.errors.some((e) => e.includes('objections[0].statement') && e.includes('placeholder')));
+    });
+
+    it('rejects file and verification placeholders (AT-TRPV-003)', () => {
+      const tr = makeValidTurnResult({
+        files_changed: ['<path/to/modified/file>'],
+        verification: {
+          status: 'pass',
+          commands: ['<command you ran to verify>'],
+          evidence_summary: '<what you verified and how>',
+          machine_evidence: [{ command: '<exact command that was run>', exit_code: 0 }],
+        },
+      });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('files_changed[0]') && e.includes('placeholder')));
+      assert.ok(res.errors.some((e) => e.includes('verification.commands[0]') && e.includes('placeholder')));
+      assert.ok(res.errors.some((e) => e.includes('verification.evidence_summary') && e.includes('placeholder')));
+      assert.ok(res.errors.some((e) => e.includes('verification.machine_evidence[0].command') && e.includes('placeholder')));
+    });
+
+    it('accepts real values that happen to contain angle brackets in the middle (AT-TRPV-004)', () => {
       const tr = makeValidTurnResult({ summary: 'Fixed <Config> parsing bug in loader' });
+      tr.decisions[0].statement = 'Retained <Config> parser compatibility for v1.';
+      tr.decisions[0].rationale = 'Avoided breaking <legacy> consumers.';
+      tr.files_changed = ['docs/<draft>-notes.md'];
+      tr.verification = {
+        status: 'pass',
+        commands: ['echo "checked <dev> path"'],
+        evidence_summary: 'Verified <Config> handling without copying the scaffold.',
+        machine_evidence: [{ command: 'printf "<ok>\\n"', exit_code: 0 }],
+      };
       writeStagedResult(tr);
       const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
       assert.equal(res.ok, true, `Expected ok but got: ${res.errors.join(', ')}`);
