@@ -263,6 +263,14 @@ function validateSchema(tr) {
     }
   }
 
+  // Reject template placeholder strings that were not replaced
+  const placeholderFields = ['summary', 'proposed_next_role'];
+  for (const field of placeholderFields) {
+    if (typeof tr[field] === 'string' && /^<[^>]+>$/.test(tr[field])) {
+      errors.push(`${field} contains an unfilled template placeholder: "${tr[field]}".`);
+    }
+  }
+
   return errors;
 }
 

@@ -1025,4 +1025,34 @@ describe('turn-result-validator', () => {
       assert.ok(res.warnings.some((w) => w.includes('status: inferred "completed"')));
     });
   });
+
+  // ── AT-DPT-003: Reject unfilled template placeholders ──────────────────────
+
+  describe('template placeholder rejection', () => {
+    beforeEach(setup);
+    afterEach(teardown);
+
+    it('rejects summary containing an angle-bracket placeholder (AT-DPT-003)', () => {
+      const tr = makeValidTurnResult({ summary: '<one-line summary of what you accomplished>' });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('summary') && e.includes('placeholder')));
+    });
+
+    it('rejects proposed_next_role containing an angle-bracket placeholder (AT-DPT-003)', () => {
+      const tr = makeValidTurnResult({ proposed_next_role: '<role_id that should act next>' });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.includes('proposed_next_role') && e.includes('placeholder')));
+    });
+
+    it('accepts real values that happen to contain angle brackets in the middle', () => {
+      const tr = makeValidTurnResult({ summary: 'Fixed <Config> parsing bug in loader' });
+      writeStagedResult(tr);
+      const res = validateStagedTurnResult(TMP_ROOT, makeState(), makeConfig());
+      assert.equal(res.ok, true, `Expected ok but got: ${res.errors.join(', ')}`);
+    });
+  });
 });

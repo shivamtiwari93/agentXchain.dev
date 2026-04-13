@@ -1197,13 +1197,13 @@ function buildTurnResultTemplate(state, turn, roleId, role) {
     role: roleId,
     runtime_id: turn.runtime_id,
     status: 'completed',
-    summary: 'TODO: describe what you accomplished this turn',
+    summary: '<one-line summary of what you accomplished>',
     decisions: [
       {
         id: 'DEC-001',
         category: 'implementation',
-        statement: 'TODO: describe the decision',
-        rationale: 'TODO: explain why',
+        statement: '<what was decided and why it matters>',
+        rationale: '<reasoning behind this decision>',
       },
     ],
     objections: isReviewOnly
@@ -1211,29 +1211,29 @@ function buildTurnResultTemplate(state, turn, roleId, role) {
           {
             id: 'OBJ-001',
             severity: 'medium',
-            against_turn_id: state.last_completed_turn_id || 'TODO',
-            statement: 'TODO: challenge the previous turn (required for review_only roles)',
+            against_turn_id: state.last_completed_turn_id || '<turn_id of the turn you are reviewing>',
+            statement: '<specific objection to the previous turn — required for review_only roles>',
             status: 'raised',
           },
         ]
       : [],
-    files_changed: isReviewOnly ? [] : ['TODO: list every file you modified'],
+    files_changed: isReviewOnly ? [] : ['<path/to/modified/file>'],
     artifacts_created: [],
     verification: {
       status: isReviewOnly ? 'skipped' : 'pass',
-      commands: isReviewOnly ? [] : ['TODO: list commands you ran'],
+      commands: isReviewOnly ? [] : ['<command you ran to verify>'],
       evidence_summary: isReviewOnly
         ? 'Review turn — no verification commands required.'
-        : 'TODO: describe what you verified',
+        : '<what you verified and how>',
       machine_evidence: isReviewOnly
         ? []
-        : [{ command: 'TODO', exit_code: 0 }],
+        : [{ command: '<exact command that was run>', exit_code: 0 }],
     },
     artifact: {
       type: isReviewOnly ? 'review' : 'workspace',
       ref: isReviewOnly ? null : 'git:dirty',
     },
-    proposed_next_role: 'TODO',
+    proposed_next_role: '<role_id that should act next>',
     phase_transition_request: null,
     run_completion_request: null,
     needs_human_reason: null,

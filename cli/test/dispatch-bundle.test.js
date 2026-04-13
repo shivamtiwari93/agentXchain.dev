@@ -1539,3 +1539,74 @@ describe('dispatch bundle: review context sufficiency (gate-file content)', () =
     assert.ok(!context.includes('line 61'), 'line 61 should not appear in truncated preview');
   });
 });
+
+// ── AT-DPT-001/002: No TODO placeholders in PROMPT.md ───────────────────────
+
+describe('dispatch bundle: template placeholder hygiene', () => {
+  let root;
+  let config;
+
+  beforeEach(() => {
+    root = makeTmpDir();
+    config = makeNormalizedConfig();
+    scaffoldGoverned(root, 'test-project');
+  });
+
+  afterEach(() => {
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+  });
+
+  it('PROMPT.md contains no literal TODO strings in the turn-result template (AT-DPT-001)', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    assert.ok(!prompt.includes('TODO:'), 'PROMPT.md must not contain TODO: placeholders');
+    assert.ok(!/\bTODO\b/.test(prompt.replace(/TODO:/g, '')), 'PROMPT.md must not contain bare TODO placeholders');
+  });
+
+  it('PROMPT.md template uses angle-bracket placeholder format (AT-DPT-002)', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'pm');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    // Extract the JSON template block from PROMPT.md
+    const jsonMatch = prompt.match(/```json\n([\s\S]*?)\n```/);
+    assert.ok(jsonMatch, 'PROMPT.md must contain a JSON template block');
+    const template = JSON.parse(jsonMatch[1]);
+
+    assert.match(template.summary, /^<[^>]+>$/);
+    assert.match(template.proposed_next_role, /^<[^>]+>$/);
+    assert.match(template.decisions[0].statement, /^<[^>]+>$/);
+    assert.match(template.decisions[0].rationale, /^<[^>]+>$/);
+  });
+
+  it('authoritative-role PROMPT.md uses angle-bracket placeholders in verification (AT-DPT-002b)', () => {
+    initializeGovernedRun(root, config);
+    // Transition to implementation so dev (authoritative) can be assigned
+    const state0 = readJson(root, STATE_PATH);
+    state0.phase = 'implementation';
+    writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify(state0, null, 2));
+
+    assignGovernedTurn(root, config, 'dev');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const prompt = readFileSync(join(root, bundleDirFor(state), 'PROMPT.md'), 'utf8');
+
+    const jsonMatch = prompt.match(/```json\n([\s\S]*?)\n```/);
+    assert.ok(jsonMatch);
+    const template = JSON.parse(jsonMatch[1]);
+
+    assert.match(template.files_changed[0], /^<[^>]+>$/);
+    assert.match(template.verification.commands[0], /^<[^>]+>$/);
+    assert.match(template.verification.evidence_summary, /^<[^>]+>$/);
+    assert.match(template.verification.machine_evidence[0].command, /^<[^>]+>$/);
+  });
+});
