@@ -72,6 +72,8 @@ Duplicate execution remains intentional for the current 36-file slice until a la
 
 ### Governed workflow
 
+Run `agentxchain init --governed` for the guided scaffold. Use the explicit non-interactive form below for scripts, CI, or copy-paste onboarding:
+
 ```bash
 agentxchain init --governed --goal "Build an API change planner for release teams" --dir my-agentxchain-project -y
 cd my-agentxchain-project

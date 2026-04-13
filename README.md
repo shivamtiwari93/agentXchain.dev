@@ -16,7 +16,7 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 Requires Node.js 18.17+ or 20.5+ and `git`. The demo creates a temporary governed repo, runs a full PM -> Dev -> QA lifecycle through the real runner interface, shows gates/decisions/objections, and cleans up afterward. No API keys, config edits, or manual turn authoring required.
 
-If you want your own governed project after that, install the CLI once, then jump to [Quick Start](#quick-start) and scaffold with `agentxchain init --governed --goal "Your project mission"` before running `agentxchain doctor`.
+If you want your own governed project after that, install the CLI once, then jump to [Quick Start](#quick-start). Run `agentxchain init --governed` for the guided scaffold, or use the explicit `--goal` form below when scripting before `agentxchain doctor`.
 
 ## What It Does
 
@@ -105,6 +105,8 @@ Duplicate execution remains intentional for the current 36-file slice while the 
 ## Quick Start
 
 ### New governed project
+
+Run `agentxchain init --governed` for the guided scaffold. Use the explicit non-interactive form below for scripts, CI, or copy-paste onboarding:
 
 ```bash
 agentxchain init --governed --goal "Build an expense tracker with team splitting" --dir my-agentxchain-project -y

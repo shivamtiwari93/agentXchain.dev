@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
-import { loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, buildSystemSpecContent } from '../lib/governed-templates.js';
+import { loadAllGovernedTemplates, loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, buildSystemSpecContent } from '../lib/governed-templates.js';
 import { normalizeWorkflowKit, VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -527,6 +527,76 @@ function formatInitTarget(dir) {
   return dir;
 }
 
+function normalizeOptionalGoal(value) {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function buildGovernedTemplateChoices(templates = loadAllGovernedTemplates()) {
+  return templates.map((template) => ({
+    name: `${chalk.cyan(template.display_name)} (${template.id}) — ${template.description}`,
+    value: template.id,
+    short: template.id,
+  }));
+}
+
+export async function resolveGovernedInitAnswers(opts, prompt = (questions) => inquirer.prompt(questions)) {
+  const explicitDir = resolveInitDirOption(opts.dir);
+  let templateId = opts.template || null;
+
+  if (!templateId) {
+    const { template } = await prompt([{
+      type: 'list',
+      name: 'template',
+      message: 'Governed template:',
+      choices: buildGovernedTemplateChoices(),
+      default: 'generic',
+    }]);
+    templateId = template;
+  }
+
+  const { name } = await prompt([{
+    type: 'input',
+    name: 'name',
+    message: 'Project name:',
+    default: explicitDir
+      ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
+      : 'My AgentXchain Project',
+  }]);
+  const projectName = name;
+  let folderName = explicitDir || slugify(projectName);
+
+  let projectGoal = normalizeOptionalGoal(opts.goal);
+  if (!projectGoal) {
+    const { goal } = await prompt([{
+      type: 'input',
+      name: 'goal',
+      message: 'Project goal (recommended; shown to every agent turn):',
+      default: '',
+    }]);
+    projectGoal = normalizeOptionalGoal(goal);
+  }
+
+  if (!explicitDir) {
+    const { folder } = await prompt([{
+      type: 'input',
+      name: 'folder',
+      message: 'Folder name:',
+      default: folderName,
+    }]);
+    folderName = folder;
+  }
+
+  return {
+    explicitDir,
+    templateId,
+    projectName,
+    folderName,
+    goal: projectGoal,
+  };
+}
+
 function generateWorkflowKitPlaceholder(artifact, projectName) {
   const filename = basename(artifact.path);
   const title = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
@@ -813,12 +883,24 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
 
 async function initGoverned(opts) {
   let projectName, folderName;
-  const templateId = opts.template || 'generic';
+  let templateId;
   let selectedTemplate;
   let explicitDir;
+  let projectGoal;
 
   try {
-    explicitDir = resolveInitDirOption(opts.dir);
+    if (opts.yes) {
+      explicitDir = resolveInitDirOption(opts.dir);
+      templateId = opts.template || 'generic';
+      projectGoal = normalizeOptionalGoal(opts.goal);
+    } else {
+      const answers = await resolveGovernedInitAnswers(opts);
+      explicitDir = answers.explicitDir;
+      templateId = answers.templateId;
+      projectName = answers.projectName;
+      folderName = answers.folderName;
+      projectGoal = answers.goal;
+    }
   } catch (err) {
     console.error(chalk.red(`  Error: ${err.message}`));
     process.exit(1);
@@ -842,27 +924,6 @@ async function initGoverned(opts) {
       ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
       : 'My AgentXchain Project';
     folderName = explicitDir || slugify(projectName);
-  } else {
-    const { name } = await inquirer.prompt([{
-      type: 'input',
-      name: 'name',
-      message: 'Project name:',
-      default: explicitDir
-        ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
-        : 'My AgentXchain Project'
-    }]);
-    projectName = name;
-    folderName = explicitDir || slugify(projectName);
-
-    if (!explicitDir) {
-      const { folder } = await inquirer.prompt([{
-        type: 'input',
-        name: 'folder',
-        message: 'Folder name:',
-        default: folderName
-      }]);
-      folderName = folder;
-    }
   }
 
   const dir = resolve(process.cwd(), folderName);
@@ -908,7 +969,10 @@ async function initGoverned(opts) {
     }
   }
 
-  const { config, scaffoldWorkflowKitConfig } = scaffoldGoverned(dir, projectName, projectId, templateId, opts, workflowKitConfig);
+  const scaffoldOptions = projectGoal
+    ? { ...opts, goal: projectGoal }
+    : { ...opts };
+  const { config, scaffoldWorkflowKitConfig } = scaffoldGoverned(dir, projectName, projectId, templateId, scaffoldOptions, workflowKitConfig);
 
   console.log('');
   console.log(chalk.green(`  ✓ Created governed project ${chalk.bold(targetLabel)}/`));
@@ -933,6 +997,9 @@ async function initGoverned(opts) {
   console.log(`  ${chalk.dim('Roles:')} ${promptRoleIds.join(', ')}`);
   console.log(`  ${chalk.dim('Phases:')} ${phaseNames.join(' → ')} ${chalk.dim(selectedTemplate.scaffold_blueprint ? '(template-defined; edit routing in agentxchain.json to customize)' : '(default; extend via routing in agentxchain.json)')}`);
   console.log(`  ${chalk.dim('Template:')} ${templateId}`);
+  if (config.project?.goal) {
+    console.log(`  ${chalk.dim('Goal:')} ${config.project.goal}`);
+  }
   console.log(`  ${chalk.dim('Dev runtime:')} ${formatGovernedRuntimeCommand(localDevRuntime)} ${chalk.dim(`(${localDevRuntime.prompt_transport})`)}`);
   console.log(`  ${chalk.dim('Protocol:')} governed convergence`);
   console.log('');

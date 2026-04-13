@@ -131,7 +131,7 @@ program
 program
   .command('init')
   .description('Create a new AgentXchain project folder')
-  .option('-y, --yes', 'Skip prompts, use defaults')
+  .option('-y, --yes', 'Skip guided prompts, use defaults')
   .option('--governed', 'Create a governed project (orchestrator-owned state)')
   .option('--dir <path>', 'Scaffold target directory. Use "." for in-place bootstrap.')
   .option('--template <id>', 'Governed scaffold template: generic, api-service, cli-tool, library, web-app, enterprise-app')
