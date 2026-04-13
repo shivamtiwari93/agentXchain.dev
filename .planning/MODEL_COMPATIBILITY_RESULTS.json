@@ -1,0 +1,45 @@
+{
+  "probe_version": "1.0",
+  "timestamp": "2026-04-13T19:42:23.013Z",
+  "provider": "anthropic",
+  "write_authority": "proposed",
+  "models": [
+    {
+      "model": "claude-haiku-4-5-20251001",
+      "label": "Haiku 4.5",
+      "extraction_success": true,
+      "extraction_method": "fence",
+      "schema_valid": true,
+      "proposed_changes_present": true,
+      "proposed_changes_well_formed": true,
+      "proposed_changes_count": 1,
+      "latency_ms": 1508,
+      "input_tokens": 364,
+      "output_tokens": 219,
+      "cost_usd": 0.001459,
+      "classification": "reliable",
+      "raw_error": null,
+      "status_returned": "completed",
+      "summary_returned": "Created probe-result.txt for model compatibility verification."
+    },
+    {
+      "model": "claude-sonnet-4-6",
+      "label": "Sonnet 4.6",
+      "extraction_success": true,
+      "extraction_method": "direct",
+      "schema_valid": true,
+      "proposed_changes_present": true,
+      "proposed_changes_well_formed": true,
+      "proposed_changes_count": 1,
+      "latency_ms": 2315,
+      "input_tokens": 365,
+      "output_tokens": 214,
+      "cost_usd": 0.004305,
+      "classification": "reliable",
+      "raw_error": null,
+      "status_returned": "completed",
+      "summary_returned": "Created probe-result.txt for model compatibility verification."
+    }
+  ],
+  "total_cost_usd": 0.005764
+}
