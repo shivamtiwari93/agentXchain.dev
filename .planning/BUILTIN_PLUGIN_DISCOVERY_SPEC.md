@@ -55,6 +55,8 @@ Source type is recorded as `builtin` in `agentxchain.json`.
 2. `resolvePluginSource()` tries builtin resolution after local path/archive checks but before npm fallback.
 3. `listAvailablePlugins()` reads manifests from the bundled directory.
 4. Resolution order: local path → archive → builtin short name → npm package.
+5. The bundled plugin copies are a packaging mirror of the repo-local plugin source trees. Shipped files (`README.md`, `package.json`, `agentxchain-plugin.json`, and hook files) must stay byte-identical between `plugins/` and `cli/builtin-plugins/`.
+6. Packaging proof must validate the actual npm tarball file list, not only `package.json` intent.
 
 ## Error Cases
 
@@ -69,7 +71,8 @@ Source type is recorded as `builtin` in `agentxchain.json`.
 - AT-PLUGIN-BUILTIN-004: `plugin install json-report` installs from bundled path
 - AT-PLUGIN-BUILTIN-005: `plugin install github-issues` installs from bundled path
 - AT-PLUGIN-BUILTIN-006: short-name install records source type as `builtin`
-- AT-PLUGIN-BUILTIN-007: `builtin-plugins/` dir is bundled with the CLI package
+- AT-PLUGIN-BUILTIN-007: `npm pack --json --dry-run` includes bundled plugin files in the tarball
+- AT-PLUGIN-BUILTIN-008: shipped files under `cli/builtin-plugins/` stay byte-identical to their source-plugin counterparts under `plugins/`
 
 ## V2 Scope Compliance
 

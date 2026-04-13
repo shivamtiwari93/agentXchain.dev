@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, cpSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, cpSync, readFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -15,7 +15,8 @@ import { tmpdir } from 'node:os';
  * - AT-PLUGIN-BUILTIN-004: `plugin install json-report` installs from bundled path
  * - AT-PLUGIN-BUILTIN-005: `plugin install github-issues` installs from bundled path
  * - AT-PLUGIN-BUILTIN-006: short-name install records source type as 'builtin'
- * - AT-PLUGIN-BUILTIN-007: builtin-plugins dir is bundled with the CLI package
+ * - AT-PLUGIN-BUILTIN-007: npm pack dry-run includes builtin plugin files in the tarball
+ * - AT-PLUGIN-BUILTIN-008: builtin plugin copies stay byte-identical to the source plugin trees
  */
 
 const ROOT = join(import.meta.dirname, '../..');
@@ -28,6 +29,20 @@ function run(args, cwd) {
     encoding: 'utf8',
     timeout: 15_000,
   });
+}
+
+function listRelativeFiles(rootDir, currentDir = rootDir) {
+  const files = [];
+  for (const entry of readdirSync(currentDir)) {
+    const absolute = join(currentDir, entry);
+    const stats = statSync(absolute);
+    if (stats.isDirectory()) {
+      files.push(...listRelativeFiles(rootDir, absolute));
+      continue;
+    }
+    files.push(absolute.slice(rootDir.length + 1));
+  }
+  return files.sort();
 }
 
 describe('built-in plugin discovery', () => {
@@ -106,15 +121,60 @@ describe('built-in plugin discovery', () => {
     });
   });
 
-  it('AT-PLUGIN-BUILTIN-007: builtin-plugins dir is bundled with the CLI package', () => {
+  it('AT-PLUGIN-BUILTIN-007: npm pack dry-run includes builtin plugin files in the tarball', () => {
     const builtinDir = join(ROOT, 'cli/builtin-plugins');
     assert.ok(existsSync(builtinDir), 'builtin-plugins/ exists in CLI dir');
     assert.ok(existsSync(join(builtinDir, 'plugin-slack-notify/agentxchain-plugin.json')));
     assert.ok(existsSync(join(builtinDir, 'plugin-json-report/agentxchain-plugin.json')));
     assert.ok(existsSync(join(builtinDir, 'plugin-github-issues/agentxchain-plugin.json')));
 
-    // Verify files field includes builtin-plugins/
     const pkg = JSON.parse(readFileSync(join(ROOT, 'cli/package.json'), 'utf8'));
     assert.ok(pkg.files.includes('builtin-plugins/'), 'builtin-plugins/ is in package.json files');
+
+    const result = spawnSync('npm', ['pack', '--json', '--dry-run'], {
+      cwd: join(ROOT, 'cli'),
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+
+    const dryRun = JSON.parse(result.stdout);
+    assert.equal(dryRun.length, 1, 'expected a single tarball entry');
+    const filePaths = dryRun[0].files.map((entry) => entry.path);
+
+    assert.ok(filePaths.includes('builtin-plugins/plugin-slack-notify/agentxchain-plugin.json'));
+    assert.ok(filePaths.includes('builtin-plugins/plugin-json-report/agentxchain-plugin.json'));
+    assert.ok(filePaths.includes('builtin-plugins/plugin-github-issues/agentxchain-plugin.json'));
+  });
+
+  it('AT-PLUGIN-BUILTIN-008: builtin plugin copies stay byte-identical to the source plugin trees', () => {
+    const pluginPairs = [
+      'plugin-slack-notify',
+      'plugin-json-report',
+      'plugin-github-issues',
+    ];
+
+    for (const pluginDir of pluginPairs) {
+      const sourceRoot = join(ROOT, 'plugins', pluginDir);
+      const builtinRoot = join(ROOT, 'cli', 'builtin-plugins', pluginDir);
+
+      const sourceFiles = listRelativeFiles(sourceRoot);
+      const builtinFiles = listRelativeFiles(builtinRoot);
+      assert.deepStrictEqual(
+        builtinFiles,
+        sourceFiles,
+        `${pluginDir} bundled file list drifted from source plugin`,
+      );
+
+      for (const relativePath of sourceFiles) {
+        const sourceContent = readFileSync(join(sourceRoot, relativePath));
+        const builtinContent = readFileSync(join(builtinRoot, relativePath));
+        assert.deepStrictEqual(
+          builtinContent,
+          sourceContent,
+          `${pluginDir}/${relativePath} drifted between source and builtin copy`,
+        );
+      }
+    }
   });
 });
