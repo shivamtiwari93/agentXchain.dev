@@ -583,6 +583,10 @@ export function startIntent(root, intentId, options = {}) {
     };
   }
 
+  if (state.status === 'paused') {
+    return { ok: false, error: 'cannot start: run is paused (awaiting approval). Resolve the blocking gate before starting a new intake turn.', exitCode: 1 };
+  }
+
   if (state.pending_phase_transition) {
     return { ok: false, error: `cannot start: pending phase transition to "${state.pending_phase_transition}"`, exitCode: 1 };
   }
@@ -605,14 +609,6 @@ export function startIntent(root, intentId, options = {}) {
       return { ok: false, error: `run initialization failed: ${initResult.error}`, exitCode: 1 };
     }
     state = initResult.state;
-  }
-
-  // Resume: paused with no active turns → reactivate
-  if (state.status === 'paused' && state.run_id) {
-    state.status = 'active';
-    state.blocked_on = null;
-    state.escalation = null;
-    safeWriteJson(statePath, state);
   }
 
   // Resolve role

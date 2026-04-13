@@ -175,26 +175,24 @@ describe('Intake docs start behavior — code-backed verification', () => {
     );
   });
 
-  it('documents paused resume behavior', () => {
-    assert.match(DOC, /[Pp]aused resume/);
+  it('documents paused rejection behavior', () => {
     assert.ok(
-      DOC.includes('reactivates the run') || DOC.includes('reactivate'),
-      'docs must explain that intake start can resume a paused run'
+      DOC.includes('paused') && (DOC.includes('rejects') || DOC.includes('always rejects')),
+      'docs must explain that intake start rejects paused runs'
     );
   });
 
-  it('documents pending gate rejection distinctly from paused resume', () => {
+  it('documents approval resolution path for paused runs', () => {
+    assert.ok(
+      DOC.includes('approve-transition') || DOC.includes('approve-completion'),
+      'docs must mention approval commands as the resolution path for paused state'
+    );
+  });
+
+  it('documents pending gate fields in context of paused state', () => {
     assert.ok(
       DOC.includes('pending_phase_transition') && DOC.includes('pending_run_completion'),
       'docs must mention both pending gate fields'
-    );
-  });
-
-  it('does NOT claim paused is unconditionally non-resumable', () => {
-    assert.doesNotMatch(
-      DOC,
-      /`paused` is an approval-held state, not a generic resumable idle state for intake/,
-      'the old lie about paused being unconditionally non-resumable must be removed'
     );
   });
 });

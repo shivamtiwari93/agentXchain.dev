@@ -369,7 +369,7 @@ describe('intake start', () => {
     assert.match(out.error, /not found/);
   });
 
-  // Edge: paused with pending phase transition is rejected
+  // Edge: paused with pending phase transition is rejected (paused check fires first)
   it('rejects paused run with pending phase transition', () => {
     const intentId = pipelineThroughPlan(dir);
 
@@ -384,6 +384,28 @@ describe('intake start', () => {
     assert.notEqual(result.status, 0);
     const out = JSON.parse(result.stdout);
     assert.equal(out.ok, false);
-    assert.match(out.error, /pending phase transition/);
+    assert.match(out.error, /paused/);
+  });
+
+  // AT-V3S3-010: pure paused run without pending gates is rejected
+  // The schema validator rejects paused state without pending gates at parse time,
+  // so this surfaces as a state.json parse failure rather than the explicit paused check.
+  it('rejects paused run even without pending gates (approval-held)', () => {
+    const intentId = pipelineThroughPlan(dir);
+
+    const statePath = join(dir, '.agentxchain', 'state.json');
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    state.status = 'paused';
+    state.run_id = 'run_paused_no_gates';
+    delete state.pending_phase_transition;
+    delete state.pending_run_completion;
+    writeFileSync(statePath, JSON.stringify(state, null, 2));
+
+    const result = runCli(['intake', 'start', '--intent', intentId, '--json'], dir);
+    assert.notEqual(result.status, 0);
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.ok, false);
+    // Schema validator catches this: paused without pending gates is structurally invalid
+    assert.match(out.error, /parse governed state|paused/);
   });
 });

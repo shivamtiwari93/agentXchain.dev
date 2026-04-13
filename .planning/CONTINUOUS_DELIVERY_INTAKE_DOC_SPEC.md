@@ -52,10 +52,9 @@ The page must document the shipped intake contract, not the aspirational v3 back
 8. Document the start bridge contract:
    - `intake start` transitions `planned -> executing`
    - success records `target_run`, `target_turn`, and `started_at`
-   - start rejects when planning artifacts are missing, another turn is active, the run is blocked, the run is completed, or the run is paused on a pending approval
+   - start rejects when planning artifacts are missing, another turn is active, the run is blocked, the run is completed, or the run is paused
    - idle runs can be initialized from `intake start`
-   - paused runs with no active turns can be resumed by `intake start`
-   - pending `pending_phase_transition` and `pending_run_completion` still block `intake start`
+   - paused runs are always rejected by `intake start` (approval-held state — resolve with `approve-transition` or `approve-completion` first)
 9. Document the coordinator handoff contract:
    - `intake handoff` transitions `planned -> executing`
    - success records `target_workstream.coordinator_root`, `target_workstream.workstream_id`, and `target_workstream.super_run_id`

@@ -12,19 +12,7 @@ Define the truthfulness contract for `/docs/continuous-delivery-intake` against 
 
 **Claim:** "Under the current governed-state contract, `paused` is an approval-held state, not a generic resumable idle state for intake."
 
-**Reality:** `intake.js:553-557` resumes paused runs when no `pending_phase_transition` or `pending_run_completion` exists:
-```js
-if (state.status === 'paused' && state.run_id) {
-    state.status = 'active';
-    state.blocked_on = null;
-    state.escalation = null;
-    safeWriteJson(statePath, state);
-}
-```
-
-This contradicts `DEC-V3S3-PAUSE-001` ("paused remains approval-held"). The code evolved past that decision. The docs must document the actual behavior: `intake start` CAN resume a paused run when the pause is not due to a pending gate.
-
-**Severity:** Operator-breaking. An operator reading the docs would believe they cannot use `intake start` on a paused run when they actually can.
+**Status:** RESOLVED (Turn 153). The auto-resume code was removed from `startIntent()`. `intake start` now explicitly rejects paused runs unconditionally, aligning with `V3_S3_START_SPEC.md` and `DEC-V3S3-PAUSE-001`. The schema validator also rejects paused states without `pending_phase_transition` or `pending_run_completion`. Docs updated to document rejection behavior.
 
 ### DEFECT 2 — Undocumented idle bootstrap behavior
 
@@ -80,7 +68,7 @@ The docs describe per-item rejection but not the aggregate failure rule. An oper
 
 ## Acceptance Tests
 
-1. Docs must document that `intake start` can resume a paused run (not due to pending gates)
+1. Docs must document that `intake start` rejects paused runs (approval-held state)
 2. Docs must document that `intake start` can bootstrap from idle (no existing run)
 3. Resolve result shape must include `run_blocked_recovery`
 4. Scan section must document all-rejected aggregate failure rule

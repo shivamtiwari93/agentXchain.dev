@@ -323,12 +323,11 @@ On success the intent gains:
 
 ### Bootstrap and resume behavior
 
-`intake start` can also handle two non-rejection cases that operators should understand:
+`intake start` can also handle one non-rejection special case that operators should understand:
 
 - **Idle bootstrap:** If the governed state is `idle` with no `run_id`, `intake start` initializes a new governed run before assigning the first turn. You do not need to run `agentxchain init` separately.
-- **Paused resume:** If the governed state is `paused` with an existing `run_id` but no pending gate (`pending_phase_transition` or `pending_run_completion`), `intake start` reactivates the run to `active` before assigning the turn. This means `intake start` can resume a paused run when the pause is not held by an approval gate.
 
-The distinction matters: paused-with-pending-gate is rejected. Paused-without-pending-gate is resumed. If you are unsure whether a paused run has a pending gate, check `.agentxchain/state.json` for `pending_phase_transition` or `pending_run_completion` fields.
+If the governed state is `paused`, `intake start` always rejects — regardless of whether `pending_phase_transition` or `pending_run_completion` is set. In the governed schema, `paused` is an approval-held state. Resolve the blocking gate with `approve-transition` or `approve-completion` before starting new intake work.
 
 ## `intake handoff`
 
