@@ -37,9 +37,10 @@ Each built-in plugin package lives under `plugins/<package-dir>/` and includes:
   - `before_gate`
   - `on_escalation`
 - Runtime configuration:
-  - reads webhook URL from `AGENTXCHAIN_SLACK_WEBHOOK_URL`
-  - falls back to `SLACK_WEBHOOK_URL`
-  - optional `AGENTXCHAIN_SLACK_MENTION` prefix
+  - optional `webhook_env` plugin config selects which environment variable contains the webhook URL
+  - default webhook lookup is `AGENTXCHAIN_SLACK_WEBHOOK_URL`, then `SLACK_WEBHOOK_URL`
+  - optional `mention` plugin config prefixes each message
+  - `AGENTXCHAIN_SLACK_MENTION` remains a runtime fallback when `mention` is not configured
 
 ### `@agentxchain/plugin-json-report`
 
@@ -49,7 +50,8 @@ Each built-in plugin package lives under `plugins/<package-dir>/` and includes:
   - `before_gate`
   - `on_escalation`
 - Output location:
-  - `.agentxchain/reports/`
+  - configurable `report_dir` plugin config, scoped under the governed project root
+  - default path `.agentxchain/reports/`
 - Required outputs:
   - timestamped report file per invocation
   - `latest.json`
@@ -75,10 +77,14 @@ Each built-in plugin package lives under `plugins/<package-dir>/` and includes:
 ### Slack notify
 
 1. Read the hook envelope from stdin.
-2. Build a concise text notification using the hook phase plus key payload fields.
-3. POST JSON to the configured Slack incoming webhook URL.
-4. Return:
+2. Parse optional plugin config from `AGENTXCHAIN_PLUGIN_CONFIG`.
+3. Resolve the Slack webhook env var name from `config.webhook_env` or the default `AGENTXCHAIN_SLACK_WEBHOOK_URL`.
+4. Resolve the message mention prefix from `config.mention` or `AGENTXCHAIN_SLACK_MENTION`.
+5. Build a concise text notification using the hook phase plus key payload fields.
+6. POST JSON to the configured Slack incoming webhook URL.
+7. Return:
    - `allow` on 2xx response
+   - `warn` if plugin config JSON is invalid
    - `warn` if webhook env is missing
    - `warn` if the request fails or returns non-2xx
 
@@ -87,17 +93,23 @@ The hook is advisory in all phases. Notification failure must never block govern
 ### JSON report
 
 1. Read the hook envelope from stdin.
-2. Write a structured JSON report containing:
+2. Parse optional plugin config from `AGENTXCHAIN_PLUGIN_CONFIG`.
+3. Resolve the output directory from `config.report_dir` or the default `.agentxchain/reports`.
+4. Reject any configured report directory that escapes the governed project root.
+5. Write a structured JSON report containing:
    - plugin name
    - hook phase
    - run id / turn id
    - timestamp
    - payload
-3. Persist the report to `.agentxchain/reports/`.
-4. Refresh `latest.json` and `latest-<hook_phase>.json`.
-5. Return `allow` on success.
+6. Persist the report to the resolved directory.
+7. Refresh `latest.json` and `latest-<hook_phase>.json`.
+8. Return:
+   - `allow` on success
+   - `warn` if plugin config JSON is invalid
+   - `warn` if the configured report directory escapes the project root
 
-The JSON report plugin is intentionally filesystem-local so CI jobs and operators can consume artifacts without external services.
+The JSON report plugin is intentionally filesystem-local so CI jobs and operators can consume artifacts without external services while still choosing a repo-local output path that fits their tooling.
 
 ### GitHub issues
 
@@ -121,11 +133,13 @@ The GitHub plugin is intentionally advisory. It mirrors governed truth into an i
 1. If either built-in package is missing `agentxchain-plugin.json` or fails manifest validation, the test fails because v2 built-ins are not installable artifacts.
 2. If Slack notify requires unpublished package resolution to be usable, the test fails because the repo-local install path is the real shipped surface.
 3. If Slack notify returns `block` for missing webhook or delivery failure, the test fails because notification plugins must be advisory.
-4. If JSON report writes outside `.agentxchain/reports/`, the test fails because report artifacts must stay scoped to the governed project.
+4. If JSON report writes outside the governed project root, the test fails because report artifacts must stay repo-local.
 5. If plugin install does not rewrite hook command paths for the built-in packages, the test fails because the packages are not actually installable through the plugin lifecycle.
 6. If the GitHub issues plugin duplicates comments for the same run, the test fails because idempotent run binding is broken.
 7. If the GitHub issues plugin removes unrelated issue labels, the test fails because external ticket metadata must be preserved.
 8. If the GitHub issues plugin claims issue closure or approval completion, the test fails because the hook surface cannot prove post-gate state.
+9. If Slack notify ignores `webhook_env` or `mention` from plugin config, the test fails because the package contract would advertise dead config.
+10. If JSON report ignores `report_dir` from plugin config or allows a path that escapes the project root, the test fails because the package contract would be misleading or unsafe.
 
 ---
 
@@ -136,6 +150,8 @@ The GitHub plugin is intentionally advisory. It mirrors governed truth into an i
 3. `AT-BUILTIN-PLUGIN-003`: the Slack plugin posts webhook notifications for acceptance, gate, and escalation hooks and degrades to `warn` when webhook configuration is missing.
 4. `AT-BUILTIN-PLUGIN-004`: the JSON report plugin writes timestamped and latest report artifacts for acceptance and gate hooks.
 5. `AT-BUILTIN-PLUGIN-005`: the GitHub issues plugin upserts one comment per run, preserves unrelated labels, switches managed phase/blocked labels truthfully, and degrades to `warn` when token configuration is missing.
+6. `AT-BUILTIN-PLUGIN-006`: the Slack plugin honors `webhook_env` and `mention` from plugin config while preserving the legacy env fallbacks.
+7. `AT-BUILTIN-PLUGIN-007`: the JSON report plugin honors a repo-local `report_dir` override and rejects output paths that escape the governed project root.
 
 ---
 

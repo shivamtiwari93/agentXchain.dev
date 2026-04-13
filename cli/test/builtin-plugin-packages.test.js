@@ -278,6 +278,72 @@ process.on('SIGTERM', () => server.close(() => process.exit(0)));
     }
   });
 
+  it('AT-BUILTIN-PLUGIN-006: slack plugin honors webhook_env and mention from plugin config', async () => {
+    const project = createGovernedProject();
+    const portFile = join(project, 'slack-config-port.txt');
+    const requestsFile = join(project, 'slack-config-requests.jsonl');
+const serverScript = `
+const { appendFileSync, writeFileSync } = require('node:fs');
+const { createServer } = require('node:http');
+const [portFile, requestsFile] = process.argv.slice(1);
+const server = createServer((req, res) => {
+  let body = '';
+  req.on('data', (chunk) => { body += chunk; });
+  req.on('end', () => {
+    appendFileSync(requestsFile, body + '\\n');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+  });
+});
+server.listen(0, '127.0.0.1', () => {
+  writeFileSync(portFile, String(server.address().port));
+});
+process.on('SIGTERM', () => server.close(() => process.exit(0)));
+`;
+    const server = spawn(process.execPath, ['-e', serverScript, portFile, requestsFile], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+    });
+
+    await waitForFile(portFile);
+    const webhookUrl = `http://127.0.0.1:${readFileSync(portFile, 'utf8').trim()}/slack`;
+
+    try {
+      const install = installPlugin(SLACK_PLUGIN_ROOT, project, {
+        config: {
+          webhook_env: 'CUSTOM_SLACK_WEBHOOK_URL',
+          mention: '@ops',
+        },
+      });
+      assert.equal(install.ok, true, install.error);
+
+      const config = readJson(join(project, 'agentxchain.json'));
+      const acceptance = await withEnv('CUSTOM_SLACK_WEBHOOK_URL', webhookUrl, async () => (
+        runHooks(project, config.hooks, 'after_acceptance', {
+          turn_id: 'turn_accept_custom_1',
+          role_id: 'dev',
+          decisions_count: 1,
+          objections_count: 0,
+          run_status: 'active',
+          phase: 'planning',
+        }, {
+          run_id: 'run_builtin_plugin_custom',
+          turn_id: 'turn_accept_custom_1',
+        })
+      ));
+
+      assert.equal(acceptance.ok, true);
+      assert.equal(acceptance.results[0].verdict, 'allow');
+
+      const requests = readFileSync(requestsFile, 'utf8').trim().split('\n').filter(Boolean);
+      assert.equal(requests.length, 1);
+      const body = JSON.parse(requests[0]);
+      assert.match(body.text, /^@ops\nAgentXchain accepted turn/);
+    } finally {
+      server.kill('SIGTERM');
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
+
   it('AT-BUILTIN-PLUGIN-004: json report plugin writes timestamped and latest report artifacts', () => {
     const project = createGovernedProject();
 
@@ -331,6 +397,72 @@ process.on('SIGTERM', () => server.close(() => process.exit(0)));
       assert.ok(stampedReports.length >= 2, 'expected timestamped report artifacts for each invocation');
     } finally {
       rmSync(project, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-BUILTIN-PLUGIN-007: json report plugin honors repo-local report_dir and rejects escaping paths', () => {
+    const project = createGovernedProject();
+
+    try {
+      const install = installPlugin(JSON_REPORT_PLUGIN_ROOT, project, {
+        config: {
+          report_dir: '.agentxchain/custom-reports',
+        },
+      });
+      assert.equal(install.ok, true, install.error);
+
+      const config = readJson(join(project, 'agentxchain.json'));
+      const acceptance = runHooks(project, config.hooks, 'after_acceptance', {
+        turn_id: 'turn_accept_custom_report',
+        role_id: 'dev',
+        decisions_count: 1,
+        objections_count: 0,
+        run_status: 'active',
+        phase: 'planning',
+      }, {
+        run_id: 'run_builtin_plugin_reports',
+        turn_id: 'turn_accept_custom_report',
+      });
+
+      assert.equal(acceptance.ok, true);
+      assert.equal(acceptance.results[0].verdict, 'allow');
+      assert.ok(existsSync(join(project, '.agentxchain', 'custom-reports', 'latest.json')));
+      assert.equal(existsSync(join(project, '.agentxchain', 'reports', 'latest.json')), false);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+
+    const unsafeProject = createGovernedProject();
+    const unsafeOutsidePath = join(dirname(unsafeProject), 'escaped-report-dir');
+
+    try {
+      const install = installPlugin(JSON_REPORT_PLUGIN_ROOT, unsafeProject, {
+        config: {
+          report_dir: '../escaped-report-dir',
+        },
+      });
+      assert.equal(install.ok, true, install.error);
+
+      const config = readJson(join(unsafeProject, 'agentxchain.json'));
+      const acceptance = runHooks(unsafeProject, config.hooks, 'after_acceptance', {
+        turn_id: 'turn_accept_unsafe_report',
+        role_id: 'dev',
+        decisions_count: 1,
+        objections_count: 0,
+        run_status: 'active',
+        phase: 'planning',
+      }, {
+        run_id: 'run_builtin_plugin_reports_unsafe',
+        turn_id: 'turn_accept_unsafe_report',
+      });
+
+      assert.equal(acceptance.ok, true);
+      assert.equal(acceptance.results[0].verdict, 'warn');
+      assert.match(acceptance.results[0].message, /must stay within the governed project root/i);
+      assert.equal(existsSync(unsafeOutsidePath), false);
+    } finally {
+      rmSync(unsafeProject, { recursive: true, force: true });
+      rmSync(unsafeOutsidePath, { recursive: true, force: true });
     }
   });
 

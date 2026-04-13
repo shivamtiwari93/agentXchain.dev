@@ -60,6 +60,9 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [MCP Integration](https://agentxchain.dev/docs/integrations/mcp): Any MCP-compatible agent via stdio or Streamable HTTP.
 - [OpenClaw Integration](https://agentxchain.dev/docs/integrations/openclaw): Connect OpenClaw (100K+ stars) via local_cli adapter; AgentXchain plugin for OpenClaw also available.
 - [Plugins](https://agentxchain.dev/docs/plugins): Plugin system for extending governed runs.
+- [Slack Notify Plugin](https://agentxchain.dev/docs/plugins/slack-notify): Built-in Slack incoming-webhook plugin for acceptance, gate, and escalation notifications.
+- [JSON Report Plugin](https://agentxchain.dev/docs/plugins/json-report): Built-in repo-local report writer for machine-readable lifecycle artifacts.
+- [GitHub Issues Plugin](https://agentxchain.dev/docs/plugins/github-issues): Built-in GitHub issue mirror with one comment per run and managed phase/blocked labels.
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
 - [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.
 - [Multi-Session Continuity](https://agentxchain.dev/docs/multi-session): How governed runs survive process boundaries — resume, recover, and complete across separate sessions.

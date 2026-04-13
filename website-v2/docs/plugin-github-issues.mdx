@@ -1,0 +1,84 @@
+---
+title: GitHub Issues Plugin
+sidebar_label: GitHub Issues
+slug: /plugins/github-issues
+description: "Mirror governed AgentXchain run status into one configured GitHub issue."
+---
+
+# GitHub Issues Plugin
+
+## What It Does
+
+`@agentxchain/plugin-github-issues` mirrors governed run state into one configured GitHub issue.
+
+It listens to:
+
+- `after_acceptance`
+- `on_escalation`
+
+and updates:
+
+- one plugin-owned comment per run
+- managed AgentXchain labels for phase or blocked state
+
+## Install
+
+Install from the repo-local package:
+
+```bash
+agentxchain plugin install ./plugins/plugin-github-issues \
+  --config '{"repo":"owner/name","issue_number":42}'
+```
+
+## Config
+
+```json
+{
+  "repo": "owner/name",
+  "issue_number": 42,
+  "token_env": "GITHUB_TOKEN",
+  "api_base_url": "https://api.github.com",
+  "label_prefix": "agentxchain"
+}
+```
+
+### Required fields
+
+- `repo`
+  GitHub repository in `owner/name` form.
+- `issue_number`
+  Issue number to mirror into.
+
+### Optional fields
+
+- `token_env`
+  Environment variable that contains the GitHub token. Defaults to `GITHUB_TOKEN`.
+- `api_base_url`
+  API base URL override for GitHub Enterprise or test servers.
+- `label_prefix`
+  Prefix for labels managed by the plugin. Defaults to `agentxchain`.
+
+## Runtime Behavior
+
+- The plugin reads the hook envelope from stdin.
+- It upserts one comment per `run_id` using a stable marker.
+- On `after_acceptance`, it syncs:
+  - `<label_prefix>`
+  - `<label_prefix>:phase:<phase>`
+- On `on_escalation`, it syncs:
+  - `<label_prefix>`
+  - `<label_prefix>:blocked`
+- It preserves non-AgentXchain labels already on the issue.
+
+## Failure Semantics
+
+- Advisory only.
+- Missing or invalid plugin config returns `warn`.
+- Missing token env returns `warn`.
+- GitHub API failures return `warn`.
+
+## Boundaries
+
+- This plugin does **not** close issues.
+- It does **not** claim post-gate approval or completion because the shipped hook surface has no post-gate callback.
+- It binds one plugin install to one GitHub issue. Multi-issue routing is not part of the shipped contract.

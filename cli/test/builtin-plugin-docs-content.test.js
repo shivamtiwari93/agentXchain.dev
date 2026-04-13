@@ -1,0 +1,81 @@
+import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..', '..');
+
+function read(relativePath) {
+  return readFileSync(join(ROOT, relativePath), 'utf8');
+}
+
+const SIDEBARS = read('website-v2/sidebars.ts');
+const PLUGINS_PAGE = read('website-v2/docs/plugins.mdx');
+const LLMS = read('website-v2/static/llms.txt');
+const SITEMAP = read('website-v2/static/sitemap.xml');
+const SLACK_DOC = read('website-v2/docs/plugin-slack-notify.mdx');
+const JSON_REPORT_DOC = read('website-v2/docs/plugin-json-report.mdx');
+const GITHUB_ISSUES_DOC = read('website-v2/docs/plugin-github-issues.mdx');
+
+describe('built-in plugin docs surface', () => {
+  it('AT-BUILTIN-PLUGIN-DOCS-001: all dedicated built-in plugin pages exist', () => {
+    assert.ok(existsSync(join(ROOT, 'website-v2/docs/plugin-slack-notify.mdx')));
+    assert.ok(existsSync(join(ROOT, 'website-v2/docs/plugin-json-report.mdx')));
+    assert.ok(existsSync(join(ROOT, 'website-v2/docs/plugin-github-issues.mdx')));
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-002: plugins hub links the dedicated package pages', () => {
+    assert.match(PLUGINS_PAGE, /\/docs\/plugins\/slack-notify/);
+    assert.match(PLUGINS_PAGE, /\/docs\/plugins\/json-report/);
+    assert.match(PLUGINS_PAGE, /\/docs\/plugins\/github-issues/);
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-003: sidebar exposes a Built-In Plugins category', () => {
+    assert.match(SIDEBARS, /label:\s*'Built-In Plugins'/);
+    assert.match(SIDEBARS, /'plugin-slack-notify'/);
+    assert.match(SIDEBARS, /'plugin-json-report'/);
+    assert.match(SIDEBARS, /'plugin-github-issues'/);
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-004: slack docs describe config and advisory boundaries truthfully', () => {
+    assert.match(SLACK_DOC, /webhook_env/);
+    assert.match(SLACK_DOC, /AGENTXCHAIN_SLACK_WEBHOOK_URL/);
+    assert.match(SLACK_DOC, /SLACK_WEBHOOK_URL/);
+    assert.match(SLACK_DOC, /AGENTXCHAIN_SLACK_MENTION/);
+    assert.match(SLACK_DOC, /advisory/i);
+    assert.match(SLACK_DOC, /incoming webhooks/i);
+    assert.match(SLACK_DOC, /not OAuth tokens or bot scopes/i);
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-005: json report docs describe report_dir and emitted files truthfully', () => {
+    assert.match(JSON_REPORT_DOC, /report_dir/);
+    assert.match(JSON_REPORT_DOC, /\.agentxchain\/reports/);
+    assert.match(JSON_REPORT_DOC, /latest\.json/);
+    assert.match(JSON_REPORT_DOC, /latest-<hook_phase>\.json/);
+    assert.match(JSON_REPORT_DOC, /governed project root/i);
+    assert.match(JSON_REPORT_DOC, /filesystem-local/i);
+    assert.match(JSON_REPORT_DOC, /does not upload to external storage/i);
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-006: github issues docs describe one-comment-per-run and non-goals truthfully', () => {
+    assert.match(GITHUB_ISSUES_DOC, /one plugin-owned comment per run/i);
+    assert.match(GITHUB_ISSUES_DOC, /label_prefix/);
+    assert.match(GITHUB_ISSUES_DOC, /does \*\*not\*\* close issues/i);
+    assert.match(GITHUB_ISSUES_DOC, /does \*\*not\*\* claim post-gate approval/i);
+    assert.doesNotMatch(GITHUB_ISSUES_DOC, /multi-issue routing is supported/i);
+  });
+
+  it('AT-BUILTIN-PLUGIN-DOCS-007: llms and sitemap include all dedicated routes', () => {
+    for (const route of [
+      'https://agentxchain.dev/docs/plugins/slack-notify',
+      'https://agentxchain.dev/docs/plugins/json-report',
+      'https://agentxchain.dev/docs/plugins/github-issues',
+    ]) {
+      const escaped = new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      assert.match(LLMS, escaped);
+      assert.match(SITEMAP, escaped);
+    }
+  });
+});

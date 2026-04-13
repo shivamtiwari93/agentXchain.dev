@@ -195,6 +195,15 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'plugins',
+    {
+      type: 'category',
+      label: 'Built-In Plugins',
+      items: [
+        'plugin-slack-notify',
+        'plugin-json-report',
+        'plugin-github-issues',
+      ],
+    },
     'notifications',
     'recovery',
     'multi-session',

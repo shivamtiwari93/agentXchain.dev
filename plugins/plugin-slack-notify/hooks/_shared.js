@@ -10,26 +10,60 @@ export async function readEnvelope() {
   return input.trim() ? JSON.parse(input) : {};
 }
 
-function getWebhookUrl() {
-  return process.env.AGENTXCHAIN_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL || '';
+function parsePluginConfig() {
+  try {
+    const parsed = JSON.parse(process.env.AGENTXCHAIN_PLUGIN_CONFIG || '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
-function buildText(title, lines) {
-  const mention = process.env.AGENTXCHAIN_SLACK_MENTION || '';
+function resolveWebhookSetting(config) {
+  const configuredEnv = typeof config?.webhook_env === 'string' ? config.webhook_env.trim() : '';
+  if (configuredEnv) {
+    return {
+      envName: configuredEnv,
+      url: process.env[configuredEnv] || '',
+    };
+  }
+
+  return {
+    envName: 'AGENTXCHAIN_SLACK_WEBHOOK_URL or SLACK_WEBHOOK_URL',
+    url: process.env.AGENTXCHAIN_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL || '',
+  };
+}
+
+function buildText(title, lines, config) {
+  const mention = typeof config?.mention === 'string' && config.mention.trim()
+    ? config.mention.trim()
+    : (process.env.AGENTXCHAIN_SLACK_MENTION || '');
   return [mention, title, ...lines.filter(Boolean)].filter(Boolean).join('\n');
 }
 
 export async function sendSlackMessage(title, lines) {
-  const webhookUrl = getWebhookUrl();
+  const config = parsePluginConfig();
+  if (config === null) {
+    return {
+      verdict: 'warn',
+      message: 'Invalid AGENTXCHAIN_PLUGIN_CONFIG JSON',
+    };
+  }
+
+  const webhookSetting = resolveWebhookSetting(config);
+  const webhookUrl = webhookSetting.url;
   if (!webhookUrl) {
     return {
       verdict: 'warn',
-      message: 'Missing AGENTXCHAIN_SLACK_WEBHOOK_URL or SLACK_WEBHOOK_URL',
+      message: `Missing Slack webhook env ${webhookSetting.envName}`,
     };
   }
 
   const body = JSON.stringify({
-    text: buildText(title, lines),
+    text: buildText(title, lines, config),
   });
 
   const url = new URL(webhookUrl);

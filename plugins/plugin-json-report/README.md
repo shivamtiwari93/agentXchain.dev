@@ -8,6 +8,13 @@ Install from this repo:
 agentxchain plugin install ./plugins/plugin-json-report
 ```
 
+Optional install-time config:
+
+```bash
+agentxchain plugin install ./plugins/plugin-json-report \
+  --config '{"report_dir":".agentxchain/custom-reports"}'
+```
+
 Hook phases:
 
 - `after_acceptance`
@@ -19,3 +26,5 @@ Outputs:
 - timestamped JSON file per invocation
 - `latest.json`
 - `latest-<hook_phase>.json`
+- default output path `.agentxchain/reports`
+- `report_dir` may override the path, but it must stay inside the governed project root

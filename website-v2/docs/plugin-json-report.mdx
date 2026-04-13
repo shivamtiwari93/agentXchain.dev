@@ -1,0 +1,77 @@
+---
+title: JSON Report Plugin
+sidebar_label: JSON Report
+slug: /plugins/json-report
+description: "Write governed AgentXchain lifecycle reports into repo-local JSON artifacts."
+---
+
+# JSON Report Plugin
+
+## What It Does
+
+`@agentxchain/plugin-json-report` writes structured lifecycle artifacts to disk for each built-in hook phase:
+
+- `after_acceptance`
+- `before_gate`
+- `on_escalation`
+
+This is the simplest externalization surface for CI jobs, dashboards, or repo-local automation that wants machine-readable AgentXchain state without calling external APIs.
+
+## Install
+
+Install from the repo-local package:
+
+```bash
+agentxchain plugin install ./plugins/plugin-json-report
+```
+
+Install with a custom output path:
+
+```bash
+agentxchain plugin install ./plugins/plugin-json-report \
+  --config '{"report_dir":".agentxchain/custom-reports"}'
+```
+
+## Config
+
+```json
+{
+  "report_dir": ".agentxchain/custom-reports"
+}
+```
+
+- `report_dir`
+  Optional output directory relative to the governed project root.
+
+If `report_dir` is omitted, the plugin writes to `.agentxchain/reports`.
+
+## Files Written
+
+Each invocation writes:
+
+- one timestamped JSON file named `<timestamp>-<hook_phase>.json`
+- `latest.json`
+- `latest-<hook_phase>.json`
+
+The report payload includes:
+
+- `plugin_name`
+- `hook_phase`
+- `run_id`
+- `hook_name`
+- `turn_id` when present
+- `timestamp`
+- `payload`
+
+## Failure Semantics
+
+- Advisory only.
+- Invalid `AGENTXCHAIN_PLUGIN_CONFIG` JSON returns `warn`.
+- Missing `AGENTXCHAIN_PROJECT_ROOT` returns `warn`.
+- A configured `report_dir` that escapes the governed project root returns `warn`.
+
+## Boundaries
+
+- This plugin is filesystem-local only. It does not upload to external storage.
+- `report_dir` must stay inside the governed project root.
+- It writes hook evidence; it does not mutate governance state or approve transitions.

@@ -1,0 +1,81 @@
+---
+title: Slack Notify Plugin
+sidebar_label: Slack Notify
+slug: /plugins/slack-notify
+description: "Post governed AgentXchain lifecycle notifications to a Slack incoming webhook."
+---
+
+# Slack Notify Plugin
+
+## What It Does
+
+`@agentxchain/plugin-slack-notify` posts advisory AgentXchain lifecycle messages to a Slack incoming webhook.
+
+It covers the three shipped moments where external notification is useful and truthful:
+
+- `after_acceptance`
+- `before_gate`
+- `on_escalation`
+
+It does **not** block governed progress. Missing credentials, network failures, or Slack errors degrade to `warn`.
+
+## Install
+
+Install from the repo-local package:
+
+```bash
+agentxchain plugin install ./plugins/plugin-slack-notify
+```
+
+Install with explicit plugin config:
+
+```bash
+agentxchain plugin install ./plugins/plugin-slack-notify \
+  --config '{"webhook_env":"MY_SLACK_WEBHOOK_URL","mention":"@ops"}'
+```
+
+## Config And Runtime Inputs
+
+### Plugin config
+
+```json
+{
+  "webhook_env": "MY_SLACK_WEBHOOK_URL",
+  "mention": "@ops"
+}
+```
+
+- `webhook_env`
+  The environment variable that contains the Slack incoming webhook URL.
+- `mention`
+  Optional prefix inserted at the top of each Slack message.
+
+### Runtime env fallback
+
+- If `webhook_env` is not configured, the plugin looks for `AGENTXCHAIN_SLACK_WEBHOOK_URL` first and then `SLACK_WEBHOOK_URL`.
+- If `mention` is not configured, the plugin falls back to `AGENTXCHAIN_SLACK_MENTION`.
+
+## Message Behavior
+
+The plugin reads the hook envelope from stdin and sends one Slack message per hook invocation.
+
+- `after_acceptance`
+  Includes run id, phase, role, turn id, decisions, objections, and run status.
+- `before_gate`
+  Includes gate type, current phase, target phase, and history length.
+- `on_escalation`
+  Includes blocked reason, recovery action, failed role, failed turn, and last error.
+
+## Failure Semantics
+
+- Advisory only: the plugin never blocks a governed step.
+- Invalid `AGENTXCHAIN_PLUGIN_CONFIG` JSON returns `warn`.
+- Missing webhook env returns `warn`.
+- Non-2xx Slack responses return `warn`.
+- Request failures and timeouts return `warn`.
+
+## Boundaries
+
+- This plugin uses Slack incoming webhooks, not OAuth tokens or bot scopes.
+- It does not claim post-gate completion or other lifecycle states the shipped hook surface cannot prove.
+- It is a notification mirror, not a source of governance truth.

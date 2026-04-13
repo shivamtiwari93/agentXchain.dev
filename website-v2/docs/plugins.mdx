@@ -382,6 +382,12 @@ HTTP hooks use the same phase system and verdict contract as process hooks. They
 
 ## Built-in packages
 
+Dedicated package guides:
+
+- [Slack notify plugin](/docs/plugins/slack-notify)
+- [JSON report plugin](/docs/plugins/json-report)
+- [GitHub issues plugin](/docs/plugins/github-issues)
+
 ### `@agentxchain/plugin-slack-notify`
 
 Posts advisory lifecycle notifications to a Slack incoming webhook.
@@ -407,6 +413,8 @@ agentxchain plugin install ./plugins/plugin-slack-notify
 }
 ```
 
+If `mention` is not configured, the plugin falls back to `AGENTXCHAIN_SLACK_MENTION` at runtime. If `webhook_env` is not configured, it looks for `AGENTXCHAIN_SLACK_WEBHOOK_URL` first and then `SLACK_WEBHOOK_URL`.
+
 ### `@agentxchain/plugin-json-report`
 
 Writes structured lifecycle report artifacts into `.agentxchain/reports/`.
@@ -430,6 +438,8 @@ agentxchain plugin install ./plugins/plugin-json-report
   }
 }
 ```
+
+`report_dir` must stay inside the governed project root. The plugin rejects paths that escape the repo and otherwise writes timestamped reports plus `latest.json` and `latest-<hook_phase>.json` into the configured directory.
 
 ### `@agentxchain/plugin-github-issues`
 
