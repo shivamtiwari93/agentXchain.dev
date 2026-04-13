@@ -561,7 +561,7 @@ export function validateV4Config(data, projectRoot) {
   return { ok: errors.length === 0, errors, warnings };
 }
 
-function collectRemoteReviewOnlyGateWarnings(data) {
+export function collectRemoteReviewOnlyGateWarnings(data) {
   const warnings = [];
   const routing = data?.routing;
   const gates = data?.gates;

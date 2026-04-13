@@ -9,6 +9,7 @@ import {
   validateAcceptanceHintCompletion,
   validateGovernedWorkflowKit,
 } from './governed-templates.js';
+import { collectRemoteReviewOnlyGateWarnings } from './normalized-config.js';
 
 const DEFAULT_REQUIRED_FILES = [
   '.planning/PROJECT.md',
@@ -114,6 +115,9 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const workflowKit = validateGovernedWorkflowKit(root, config);
   errors.push(...workflowKit.errors);
   warnings.push(...workflowKit.warnings);
+
+  // Config-shape warnings (dead-end gates, etc.) — mirrors doctor/config --set surfaces
+  warnings.push(...collectRemoteReviewOnlyGateWarnings(rawConfig));
 
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',
