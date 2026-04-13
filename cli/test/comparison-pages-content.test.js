@@ -14,6 +14,7 @@ function read(relativePath) {
 const HOME_PAGE = read('website-v2/src/pages/index.tsx');
 const DOCUSAURUS_CONFIG = read('website-v2/docusaurus.config.ts');
 const POSITIONING_MATRIX = read('.planning/COMPETITIVE_POSITIONING_MATRIX.md');
+const FRONTDOOR_SPEC = read('.planning/COMPARISON_LAUNCH_FRONTDOOR_SPEC.md');
 
 const pages = {
   crewai: read('website-v2/src/pages/compare/vs-crewai.mdx'),
@@ -50,6 +51,9 @@ function assertCommonPageContract(page, competitorName) {
   assert.match(page, /```[a-z]+/, `${competitorName} page must include at least one fenced code block`);
   assert.match(page, /\[Quickstart\]\(\/docs\/quickstart\)/, `${competitorName} page must link to quickstart`);
   assert.match(page, /\[Protocol\]\(\/docs\/protocol\)/, `${competitorName} page must link to protocol`);
+  assert.match(page, /agentxchain init --governed .*--goal "/, `${competitorName} page must use mission-aware governed scaffold`);
+  assert.match(page, /agentxchain doctor/, `${competitorName} page must route operators through doctor`);
+  assert.doesNotMatch(page, /(^|\n)agentxchain init --governed\s*$/m, `${competitorName} page must not retain bare governed init`);
 }
 
 describe('comparison pages content', () => {
@@ -153,5 +157,11 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
     assert.match(POSITIONING_MATRIX, /OpenAI Swarm README/);
+  });
+
+  it('records the comparison front-door contract in a standalone spec', () => {
+    assert.match(FRONTDOOR_SPEC, /# Comparison And Launch Front-Door Spec/);
+    assert.match(FRONTDOOR_SPEC, /AT-CLFD-001/);
+    assert.match(FRONTDOOR_SPEC, /AT-CLFD-004/);
   });
 });

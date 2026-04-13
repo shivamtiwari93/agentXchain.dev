@@ -56,7 +56,9 @@ codegen assign --issue PROJ-123
 ```bash
 # AgentXchain framing: govern delivery with explicit authority boundaries
 npm install -g agentxchain
-agentxchain init --governed
+agentxchain init --governed --template web-app --goal "Ship a governed web app MVP" --dir my-agentxchain-project -y
+cd my-agentxchain-project
+agentxchain doctor
 agentxchain run --max-turns 6
 agentxchain approve-transition
 agentxchain approve-completion

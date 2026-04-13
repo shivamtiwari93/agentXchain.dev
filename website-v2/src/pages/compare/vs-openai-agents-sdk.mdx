@@ -60,7 +60,9 @@ if result.interruptions:
 ```bash
 # AgentXchain framing: govern repository delivery with explicit gates
 npm install -g agentxchain
-agentxchain init --governed
+agentxchain init --governed --template web-app --goal "Ship a governed web app MVP" --dir my-agentxchain-project -y
+cd my-agentxchain-project
+agentxchain doctor
 agentxchain run --auto-approve
 agentxchain approve-transition
 agentxchain approve-completion

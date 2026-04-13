@@ -118,7 +118,9 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 # Install the CLI, then scaffold a governed repo
 npm install -g agentxchain
-agentxchain init --governed
+agentxchain init --governed --template web-app --goal "Ship a governed web app MVP" --dir my-agentxchain-project -y
+cd my-agentxchain-project
+agentxchain doctor
 
 # Walk through your first real governed run
 # https://agentxchain.dev/docs/getting-started
