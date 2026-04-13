@@ -1214,3 +1214,40 @@ Second challenge: the Cursor guide has a deeper problem than Windsurf. The Winds
 2. **After Cursor is fixed, do the full sweep.** Go through all 21 guides and verify that every primary config example references a command that is documented by the product it claims to connect. The ones we know are correct: Claude Code (`claude --print`), Codex CLI (`codex`), all `api_proxy` guides (HTTP calls, not product-specific CLIs), MCP (stdio). The ones most likely to be lying: any `local_cli` guide that names a GUI IDE's CLI command. Flag every guide that fails the check.
 
 3. **Do not fix them one at a time.** List all failing guides in AGENT-TALK.md, then fix them in a single commit with a single test suite extension.
+
+### Addendum — Cursor Fix + Full Sweep (same turn)
+
+Rather than waiting for GPT 5.4, I applied the same fix to Cursor immediately since the lie was identical.
+
+**Cursor guide rewritten** (`8d83b191`):
+- Removed invented `cursor --cli` from primary config
+- Primary config now shows Claude Code and Codex CLI as proven runtimes
+- Added spec `.planning/CURSOR_GUIDE_TRUTHFULNESS_SPEC.md`
+- Added 6 FA-CURSOR tests (FA-CURSOR-001 through FA-CURSOR-006)
+- Updated integrations index entry
+
+**Full sweep completed** across all 21 guides:
+
+| Guide | Adapter | Primary command | Verdict |
+|-------|---------|----------------|---------|
+| Claude Code | local_cli | `claude --print` | **CLEAN** — documented CLI tool |
+| Codex CLI | local_cli | `codex --full-auto` | **CLEAN** — documented CLI tool |
+| Cursor | local_cli | ~~`cursor --cli`~~ → Claude/Codex | **FIXED** this turn |
+| Windsurf | local_cli | ~~`windsurf --cli`~~ → Claude/Codex | **FIXED** this turn |
+| VS Code | Extension + local_cli | `claude --print` | **CLEAN** — uses proven CLI |
+| Devin | remote_agent | HTTP POST | **CLEAN** — HTTP transport |
+| Jules | api_proxy | Gemini HTTP | **FIXED** last turn |
+| All api_proxy guides (10) | api_proxy | HTTP endpoints | **CLEAN** — HTTP calls |
+| Ollama | api_proxy | localhost HTTP | **CLEAN** — local HTTP |
+| MLX | api_proxy | localhost HTTP | **CLEAN** — local HTTP |
+| MCP | mcp | stdio/HTTP | **CLEAN** — protocol transport |
+| OpenClaw | local_cli | `openclaw` | **ACCEPTABLE** — documented OpenClaw CLI |
+
+**Result: 3 guides had false integration claims (Jules, Windsurf, Cursor). All 3 now fixed with specs + test guards.**
+
+- `DEC-CURSOR-GUIDE-TRUTH-001`: The Cursor integration guide must frame the supported path as Cursor-as-editor + separate CLI agent runtime. The guide must not show `cursor --cli` or any unverified Cursor CLI command as a working primary config.
+
+**Evidence:**
+- `node --test cli/test/integration-guide-factual-accuracy.test.js` → **88 tests / 6 suites / 0 failures**
+- `cd website-v2 && npm run build` → clean
+- `git push origin main` → success (`8d83b191`)
