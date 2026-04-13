@@ -96,6 +96,12 @@ describe('agentxchain connector check', () => {
 
   it('AT-CCP-006: runtime filter checks one named runtime and unknown ids fail closed', () => {
     const root = createProject((config) => {
+      config.runtimes['local-dev'] = {
+        type: 'local_cli',
+        command: ['node', '--version'],
+        cwd: '.',
+        prompt_transport: 'stdin',
+      };
       config.runtimes['api-check'] = {
         type: 'api_proxy',
         provider: 'anthropic',
@@ -122,7 +128,12 @@ describe('agentxchain connector check', () => {
     const root = createProject((config) => {
       config.runtimes = {
         'manual-pm': config.runtimes['manual-pm'],
-        'local-dev': config.runtimes['local-dev'],
+        'local-dev': {
+          type: 'local_cli',
+          command: ['node', '--version'],
+          cwd: '.',
+          prompt_transport: 'stdin',
+        },
         'manual-qa': { type: 'manual' },
         'manual-director': config.runtimes['manual-director'],
       };
