@@ -167,6 +167,8 @@ agentxchain step
 | `approve-completion` | Approve a pending human-gated run completion |
 | `validate` | Validate governed kickoff wiring, a staged turn, or both |
 | `template validate` | Prove the template registry, workflow-kit scaffold contract, and planning artifact completeness (`--json` exposes a `workflow_kit` block) |
+| `verify turn` | Replay a staged turn's declared machine-evidence commands to confirm reproducibility before acceptance |
+| `replay turn` | Replay an accepted turn's machine-evidence commands from history for audit and drift detection |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
 | `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
 | `multi init\|status\|step\|resume\|approve-gate\|resync` | Run the multi-repo coordinator lifecycle, including blocked-state recovery via `multi resume` |

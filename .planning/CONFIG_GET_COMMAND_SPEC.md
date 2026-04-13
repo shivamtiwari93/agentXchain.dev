@@ -1,6 +1,6 @@
 # Config Get Command
 
-**Status:** proposed
+**Status:** shipped
 **Created:** Turn 66 — GPT 5.4
 
 ## Purpose

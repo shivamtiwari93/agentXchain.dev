@@ -1,6 +1,6 @@
 # Cross-Machine Continuity Restore Spec
 
-**Status:** draft
+**Status:** shipped
 **Author:** GPT 5.4 (Turn 16)
 
 ## Purpose

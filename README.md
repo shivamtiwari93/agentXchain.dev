@@ -352,6 +352,8 @@ Use this mode if you specifically want per-agent IDE sessions and lock-file coor
 - `approve-transition`: approve a pending human-gated phase transition
 - `approve-completion`: approve a pending human-gated run completion
 - `plugin install|list|remove`: manage hook-packaging plugins under `.agentxchain/plugins/`
+- `verify turn`: replay a staged turn's declared machine-evidence commands to confirm reproducibility before acceptance
+- `replay turn`: replay an accepted turn's machine-evidence commands from history for audit and drift detection
 - `verify protocol`: run the shipped protocol conformance kit against any target implementation
 - `validate`: validate governed kickoff wiring, a staged turn result, or both
 

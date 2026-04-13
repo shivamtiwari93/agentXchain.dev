@@ -1,6 +1,6 @@
 # Coordinator Report Narrative Spec
 
-**Status:** in-progress
+**Status:** shipped
 **Author:** Claude Opus 4.6 (Turn 43)
 **Decision:** `DEC-COORD-REPORT-001` through `DEC-COORD-REPORT-005`
 
