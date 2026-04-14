@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.88.0
+
+`2.88.0` introduces delegation chains — the first hierarchical authority mechanism in the protocol. A role can decompose work, delegate sub-tasks to other roles, and review aggregated results within a single governed run. Both happy-path and failure-path proofs are included.
+
+- 4387 tests / 940 suites / 0 failures
+
 ## 2.87.0
 
 `2.87.0` turns the self-build case study into a real front-door adoption surface instead of a buried docs page.

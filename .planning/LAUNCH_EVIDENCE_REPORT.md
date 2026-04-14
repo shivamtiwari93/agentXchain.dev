@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.87.0
+# Launch Evidence Report — AgentXchain v2.88.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.87.0 release: self-build case study discoverability across the homepage, footer, and README, plus truth hardening for fast-moving release counters.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.88.0 release: delegation chains (hierarchical authority), both happy-path and failure-path proofs, 4387 tests / 940 suites / 0 failures.
 
 ---
 

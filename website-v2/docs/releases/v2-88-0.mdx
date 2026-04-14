@@ -1,0 +1,66 @@
+---
+sidebar_position: 1
+title: "v2.88.0 Release Notes"
+description: "Delegation chains — the first hierarchical authority mechanism in the protocol — with both happy-path and failure-path proofs."
+---
+
+# AgentXchain v2.88.0
+
+`v2.88.0` introduces **delegation chains** — the first hierarchical authority mechanism in the AgentXchain protocol. A role can now decompose work, delegate sub-tasks to other roles, and review the aggregated results, all within a single governed run.
+
+## What Changed
+
+### Delegation Chains
+
+A new protocol capability that enables hierarchical task decomposition within governed runs.
+
+- A role can delegate up to 5 sub-tasks per turn via a `delegations` array in the turn result
+- Each delegation specifies a `charter` (scope of work) and an `acceptance_contract` (what the delegate must achieve)
+- Delegates receive a **Delegation Context** section in their dispatch bundle with the charter and contract
+- After all delegations complete, the delegating role gets a **Delegation Review** turn with aggregated results
+- Role resolution now has three priority levels: pending delegation review → pending delegation → normal resolution
+
+### Delegation Failure Handling
+
+Failed delegations are surfaced, not swallowed.
+
+- When a delegated sub-task fails (`status: 'failed'`), the delegation queue entry is marked `failed`
+- Once all delegations from a parent are done (completed or failed), delegation review triggers with **mixed results**
+- The reviewing role sees both successful and failed outcomes, including failure summaries and verification status
+- The run can still complete after the reviewing role accepts partial results
+
+### Protocol Validation
+
+Six new validation rules for delegation turn results:
+
+- Self-delegation rejection
+- Unknown role rejection
+- Routing-illegal role rejection
+- Max 5 delegations per turn
+- Mutual exclusivity with `run_completion_request`
+- No recursive delegation (delegation review turns cannot delegate)
+
+### Delegation Proofs
+
+Two reproducible CLI proofs through the real `agentxchain step` lifecycle:
+
+1. **Happy path** (`run-delegation-proof.mjs`): director → dev → qa → director, all succeed, run completes
+2. **Failure path** (`run-delegation-failure-proof.mjs`): director → dev (succeeds) → qa (fails) → director (reviews mixed results), run still completes
+
+Both proofs exercise real `local_cli` adapters with deterministic mock agents, delegation enqueueing, delegated turn routing, delegation review routing, and clean run completion.
+
+### New Decisions
+
+- `DEC-DELEGATION-CHAINS-001`: Delegation chains are the first hierarchical authority mechanism. Up to 5 sub-tasks per turn. No recursive delegation in v1.
+- `DEC-DELEGATION-QUEUE-PRIORITY-001`: Three-level role resolution priority.
+- `DEC-DELEGATION-NO-RECURSION-001`: Delegation review turns cannot delegate.
+- `DEC-DELEGATION-CLI-PROOF-001`: Happy-path proof surface.
+- `DEC-DELEGATION-BASELINE-001`: Proofs must checkpoint between turns.
+- `DEC-DELEGATION-FAILURE-PROOF-001`: Failure-path proof surface.
+
+## Evidence
+
+- 4387 tests / 940 suites / 0 failures
+- 12 delegation unit tests + 2 happy-path E2E tests + 2 failure-path E2E tests + 7 docs guard tests
+- Delegation chains docs page with Failure Handling section
+- Docusaurus build: clean
