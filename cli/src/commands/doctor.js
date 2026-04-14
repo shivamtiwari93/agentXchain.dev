@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { loadConfig, loadLock, findProjectRoot } from '../lib/config.js';
 import { validateProject } from '../lib/validation.js';
 import { getWatchPid } from './watch.js';
+import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
 import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
 import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
@@ -219,6 +220,21 @@ function governedDoctor(root, rawConfig, opts) {
     }
   }
 
+  // 9. Dashboard session health (unconditional — dashboard is a general operator surface)
+  {
+    const dashPid = getDashboardPid(root);
+    const dashSession = getDashboardSession(root);
+    if (dashPid && dashSession) {
+      checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'pass', detail: `Dashboard running at ${dashSession.url} (PID: ${dashPid})` });
+    } else if (dashPid && !dashSession) {
+      checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'warn', detail: `Dashboard PID ${dashPid} alive but session file missing` });
+    } else if (!dashPid && dashSession) {
+      checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'warn', detail: `Stale dashboard session files (PID ${dashSession.pid || '?'} not running)` });
+    } else {
+      checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'info', detail: 'No dashboard session' });
+    }
+  }
+
   // Compute summary
   const failCount = checks.filter(c => c.level === 'fail').length;
   const warnCount = checks.filter(c => c.level === 'warn').length;
@@ -253,7 +269,9 @@ function governedDoctor(root, rawConfig, opts) {
         ? chalk.green('PASS')
         : c.level === 'warn'
           ? chalk.yellow('WARN')
-          : chalk.red('FAIL');
+          : c.level === 'info'
+            ? chalk.dim('INFO')
+            : chalk.red('FAIL');
       console.log(`  ${badge}  ${c.name.padEnd(24)} ${chalk.dim(c.detail)}`);
     }
 

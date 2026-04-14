@@ -9,6 +9,7 @@ import { getConnectorHealth } from '../lib/connector-health.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
+import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
   const context = loadProjectContext();
@@ -87,6 +88,14 @@ function renderGovernedStatus(context, opts) {
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
 
   if (opts.json) {
+    const dashPid = getDashboardPid(root);
+    const dashSession = getDashboardSession(root);
+    const dashboardSessionObj = dashPid
+      ? { status: 'running', pid: dashPid, url: dashSession?.url || null, started_at: dashSession?.started_at || null }
+      : dashSession
+        ? { status: 'stale', pid: dashSession.pid || null, url: dashSession.url || null, started_at: dashSession.started_at || null }
+        : { status: 'not_running', pid: null, url: null, started_at: null };
+
     console.log(JSON.stringify({
       version,
       protocol_mode: config.protocol_mode,
@@ -99,6 +108,7 @@ function renderGovernedStatus(context, opts) {
       continuity,
       connector_health: connectorHealth,
       workflow_kit_artifacts: workflowKitArtifacts,
+      dashboard_session: dashboardSessionObj,
     }, null, 2));
     return;
   }
