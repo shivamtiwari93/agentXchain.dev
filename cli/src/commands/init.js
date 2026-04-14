@@ -920,6 +920,12 @@ async function initGoverned(opts) {
   selectedTemplate = loadGovernedTemplate(templateId);
 
   if (opts.yes) {
+    // Auto-detect in-place scaffolding: if cwd is a git repo without agentxchain.json,
+    // scaffold here instead of creating a subdirectory. First-time users who already
+    // ran `mkdir my-project && cd my-project && git init` should not get a nested folder.
+    if (!explicitDir && existsSync(join(process.cwd(), '.git')) && !existsSync(join(process.cwd(), CONFIG_FILE))) {
+      explicitDir = '.';
+    }
     projectName = explicitDir
       ? inferProjectNameFromTarget(explicitDir, 'My AgentXchain Project')
       : 'My AgentXchain Project';
