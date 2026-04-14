@@ -57,6 +57,9 @@ describe('built-in plugin docs surface', () => {
     assert.match(JSON_REPORT_DOC, /governed project root/i);
     assert.match(JSON_REPORT_DOC, /filesystem-local/i);
     assert.match(JSON_REPORT_DOC, /does not upload to external storage/i);
+    assert.match(JSON_REPORT_DOC, /run-json-report-proof\.mjs/);
+    assert.match(JSON_REPORT_DOC, /e2e-builtin-json-report\.test\.js/);
+    assert.match(JSON_REPORT_DOC, /builtin:json-report/);
   });
 
   it('AT-BUILTIN-PLUGIN-DOCS-006: github issues docs describe one-comment-per-run and non-goals truthfully', () => {

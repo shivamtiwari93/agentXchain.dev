@@ -32,6 +32,30 @@ agentxchain plugin install json-report \
   --config '{"report_dir":".agentxchain/custom-reports"}'
 ```
 
+## Proven Built-In Path
+
+The built-in short-name path is not just documented; it is exercised in repo proof surfaces:
+
+- continuous subprocess proof: `cli/test/e2e-builtin-json-report.test.js`
+- live product-example proof: `node examples/governed-todo-app/run-json-report-proof.mjs --json`
+
+The live proof installs `json-report` by short name into a temp governed-todo-app harness, runs `agentxchain run --auto-approve`, and verifies that plugin-written JSON artifacts appear in `.agentxchain/reports/`.
+
+**Recorded live case study (2026-04-13):**
+
+| Metric | Value |
+|---|---|
+| Plugin install path | `agentxchain plugin install json-report` |
+| Run type | governed-todo-app transformed auto-run proof |
+| Plugin source | `builtin:json-report` |
+| Reports verified | `latest.json`, `latest-after_acceptance.json`, `latest-before_gate.json` |
+| Timestamped plugin JSON files | `6` |
+| Roles | `pm -> dev -> qa` |
+| Accepted turns | `3` |
+| Total cost | `$0.0220` |
+| Run ID | `run_583e233dd47ca238` |
+| Result | PASS |
+
 ## Config
 
 ```json
@@ -75,3 +99,4 @@ The report payload includes:
 - This plugin is filesystem-local only. It does not upload to external storage.
 - `report_dir` must stay inside the governed project root.
 - It writes hook evidence; it does not mutate governance state or approve transitions.
+- `latest.json` reflects the most recent plugin invocation, which is often a `before_gate` event in auto-approved runs.

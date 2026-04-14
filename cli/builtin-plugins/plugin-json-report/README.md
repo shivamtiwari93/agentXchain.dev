@@ -2,7 +2,13 @@
 
 Built-in AgentXchain plugin that writes structured lifecycle report artifacts into `.agentxchain/reports/`.
 
-Install from this repo:
+Install by built-in short name (recommended):
+
+```bash
+agentxchain plugin install json-report
+```
+
+Install from a repo-local path:
 
 ```bash
 agentxchain plugin install ./plugins/plugin-json-report
@@ -13,6 +19,12 @@ Optional install-time config:
 ```bash
 agentxchain plugin install ./plugins/plugin-json-report \
   --config '{"report_dir":".agentxchain/custom-reports"}'
+```
+
+Live proof command:
+
+```bash
+node examples/governed-todo-app/run-json-report-proof.mjs --json
 ```
 
 Hook phases:
@@ -28,3 +40,4 @@ Outputs:
 - `latest-<hook_phase>.json`
 - default output path `.agentxchain/reports`
 - `report_dir` may override the path, but it must stay inside the governed project root
+- `latest.json` reflects the most recent hook invocation
