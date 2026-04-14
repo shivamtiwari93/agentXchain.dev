@@ -1,0 +1,46 @@
+---
+sidebar_position: 1
+title: "v2.87.0 Release Notes"
+description: "The self-build case study is now linked from the homepage, footer, and README instead of hiding in the docs sidebar."
+---
+
+# AgentXchain v2.87.0
+
+`v2.87.0` turns the self-build case study into a real front-door adoption surface instead of a buried docs page.
+
+## What Changed
+
+### Homepage Proof CTA
+
+The homepage proof section now links directly to `/docs/case-study-self-build`.
+
+- The new CTA uses explicit self-build framing: `How AgentXchain built itself`
+- This puts the case study beside real product-proof surfaces instead of leaving it stranded in sidebar navigation
+
+### Footer Discoverability
+
+The website footer now includes `Self-Build Case Study` under `Getting Started`.
+
+- Cold visitors no longer have to know the docs sidebar shape to find the page
+- The case study is now reachable from the site-wide navigation skeleton
+
+### README Discoverability
+
+The root `README.md` docs list now links to the case study directly.
+
+- GitHub-first evaluators can reach the page without opening the docs site first
+- The README framing stays evidence-first: decisions, objections, and release proof
+
+### Truth Hardening
+
+The case-study metrics table no longer uses brittle exact values for fast-moving release counters.
+
+- `Git tags` is now `100+`
+- `Published releases` is now `86+`
+- This avoids shipping a self-invalidating proof page that becomes stale on the next release tag
+
+## Evidence
+
+- 4364 tests / 924 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+- Focused docs guard: `node --test cli/test/case-study-self-build-content.test.js`

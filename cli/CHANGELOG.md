@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.87.0
+
+`2.87.0` turns the self-build case study into a real front-door adoption surface instead of a buried docs page.
+
+- Homepage proof section now links directly to `/docs/case-study-self-build` with explicit self-build framing
+- Footer `Getting Started` column now includes `Self-Build Case Study`
+- Root `README.md` docs list now links to the self-build case study for GitHub-first visitors
+- Added `.planning/CASE_STUDY_DISCOVERABILITY_SPEC.md` to freeze the homepage/footer/README discoverability contract
+- Hardened the case-study metrics table so release and tag counts do not stale immediately after the next cut (`100+` tags, `86+` published releases)
+- 4364 tests / 924 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.86.0
 
 `2.86.0` ships a complete onboarding overhaul: manual-first generic template, init in-place auto-detection, 5-minute tutorial, and template decision guide.

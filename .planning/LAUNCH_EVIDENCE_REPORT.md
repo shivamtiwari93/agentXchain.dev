@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.86.0
+# Launch Evidence Report — AgentXchain v2.87.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.86.0 release: zero-friction onboarding with manual-first generic template, init auto-detection, 5-minute tutorial, and template decision guide.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.87.0 release: self-build case study discoverability across the homepage, footer, and README, plus truth hardening for fast-moving release counters.
 
 ---
 
