@@ -1,0 +1,108 @@
+---
+sidebar_position: 4
+title: Choosing a Template
+description: "Decide between the manual-first generic baseline and the project-type templates based on what you are actually building."
+---
+
+# Choosing a template
+
+AgentXchain ships six governed templates. Picking the right one at `init` time sets up planning artifacts, prompt guidance, and role runtimes. This page helps you decide.
+
+## The two categories
+
+Templates split into two categories based on runtime posture:
+
+| Category | Templates | Default runtimes | Planning artifacts | Best for |
+|---|---|---|---|---|
+| **Manual-first baseline** | `generic` | All roles use `manual` runtimes | None | Learning governance, manual-only teams, cold-start exploration |
+| **Project-type templates** | `api-service`, `cli-tool`, `library`, `web-app`, `enterprise-app` | Inherited from operator flags or defaults | Project-specific planning files + prompt overrides + acceptance hints | Teams building a specific kind of software with automation |
+
+The key difference: **`generic` requires zero dependencies**. No API keys, no local coding CLI, no model provider. Every role is manual. You can run the full governance flow (plan → implement → QA → ship) with nothing but a text editor and `agentxchain step`.
+
+Project-type templates add structure (planning artifacts like `api-contract.md`, `user-flows.md`, `command-surface.md`) and opinionated prompt guidance. They do **not** change the protocol, gate model, or role schema.
+
+## Decision guide
+
+### Pick `generic` when
+
+- You are trying AgentXchain for the first time and want zero-friction setup
+- Your project does not fit a standard category (research, infrastructure, monorepo tooling, etc.)
+- You want to run the governance flow manually before connecting automation
+- You do not have API keys or a local coding CLI configured yet
+
+`generic` is the honest cold start. `agentxchain doctor` will pass without any external dependencies.
+
+```bash
+agentxchain init --governed -y
+agentxchain doctor   # → all pass, no API key needed
+agentxchain step --role pm
+```
+
+### Pick a project-type template when
+
+- You know what you are building (API, CLI, web app, library, enterprise product)
+- You want planning artifacts that match your project shape from day one
+- You plan to connect automation (`local_cli`, `api_proxy`, or `remote_agent`) immediately or soon
+- You want prompt guidance that steers agents toward domain-relevant acceptance criteria
+
+```bash
+agentxchain init --governed --template api-service --goal "Build a REST API for invoice management" -y
+```
+
+This scaffolds `api-contract.md`, `operational-readiness.md`, and `error-budget.md` in `.planning/` alongside the governed config. The PM prompt override tells the agent to "define the API contract, failure modes, and operational-readiness criteria before implementation starts."
+
+## Template comparison
+
+| Template | Planning files | PM prompt focus | QA prompt focus | Acceptance hints |
+|---|---|---|---|---|
+| `generic` | None | (default) | (default) | None |
+| `api-service` | `api-contract.md`, `operational-readiness.md`, `error-budget.md` | API contract, failure modes, operational readiness | Endpoint behavior, error responses, backward compatibility | API contract reviewed, error budget set, operational readiness checked |
+| `cli-tool` | `command-surface.md`, `platform-support.md`, `distribution-checklist.md` | Command surface, platform scope, distribution plan | Cross-platform behavior, help output, install paths | Command surface documented, platform matrix verified, distribution checklist complete |
+| `library` | `public-api.md`, `compatibility-policy.md`, `release-adoption.md` | Public API surface, compatibility guarantees | API contract stability, breaking change detection | Public API reviewed, compatibility policy set, release plan documented |
+| `web-app` | `user-flows.md`, `ui-acceptance.md`, `browser-support.md` | User flows, minimum browser/device support | Primary flows, responsive behavior, accessibility, copy regressions | Primary user flow reviewed, mobile+desktop checked, accessibility smoke passed |
+| `enterprise-app` | `integration-boundaries.md`, `data-classification.md`, `risk-register.md` | Integration boundaries, security review scope | Security, data handling, integration contract compliance | Integration boundaries documented, data classification set, risk register reviewed |
+
+## Upgrading from `generic` to a project template
+
+If you start with `generic` and later decide you need project-type planning artifacts, use `template set`:
+
+```bash
+agentxchain template set cli-tool
+```
+
+This adds the planning files and records the template choice in `agentxchain.json`. It does not change your existing roles, runtimes, or governance state.
+
+## Connecting automation to any template
+
+Templates do not lock you into manual or automated runtimes. After scaffolding with any template, connect automation by editing `agentxchain.json`:
+
+```json
+{
+  "runtimes": {
+    "dev-runtime": {
+      "type": "local_cli",
+      "command": "claude -p \"{{prompt}}\" --output-format json"
+    }
+  },
+  "roles": {
+    "dev": {
+      "runtime": "dev-runtime"
+    }
+  }
+}
+```
+
+Or use `config --set` to update runtimes without hand-editing:
+
+```bash
+agentxchain config --set roles.dev.runtime dev-runtime
+```
+
+The `generic` template's manual-first posture is a starting point, not a ceiling.
+
+## Summary
+
+- **`generic`** = zero dependencies, zero friction, manual-first. Start here if you are unsure.
+- **Project templates** = domain-specific planning + prompt guidance. Start here if you know what you are building.
+- Both categories use the same protocol, gate model, and governance flow.
+- You can always upgrade from `generic` to a project template later.

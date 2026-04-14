@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
     'approval-policy',
     'timeouts',
     'templates',
+    'choosing-a-template',
     {
       type: 'category',
       label: 'Examples',

@@ -40,6 +40,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Approval Policy](https://agentxchain.dev/docs/approval-policy): Conditional auto-approval for phase transitions and run completion — the middle ground between manual gates and --auto-approve.
 - [Timeouts](https://agentxchain.dev/docs/timeouts): Governed time budgets for turns, phases, and runs, including report/status visibility and recovery.
 - [Templates](https://agentxchain.dev/docs/templates): Built-in and custom governed templates (generic, api-service, cli-tool, library, web-app, enterprise-app).
+- [Choosing a Template](https://agentxchain.dev/docs/choosing-a-template): Decision guide for manual-first generic baseline vs project-type templates (api-service, cli-tool, library, web-app, enterprise-app).
 - [Examples Hub](https://agentxchain.dev/docs/examples): Index of governed product examples, runner proofs, MCP examples, and remote execution examples.
 - [Protocol v6 Reference](https://agentxchain.dev/docs/protocol): Full protocol specification.
 - [Protocol Reference](https://agentxchain.dev/docs/protocol-reference): Protocol data structures and contracts.
