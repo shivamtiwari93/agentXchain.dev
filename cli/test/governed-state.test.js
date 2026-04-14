@@ -853,6 +853,50 @@ describe('acceptGovernedTurn', () => {
     assert.ok(Array.isArray(history[0].concurrent_with));
   });
 
+  it('attributes pending sibling staged files before the first concurrent acceptance', () => {
+    config.routing.planning.max_concurrent_turns = 2;
+    config.roles.qa.write_authority = 'authoritative';
+    config.runtimes['api-qa'] = { type: 'local_cli' };
+    execSync('git init', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
+    execSync('git config user.name "Test User"', { cwd: dir, stdio: 'ignore' });
+    writeFileSync(join(dir, '.planning', 'baseline.md'), '# base\n');
+    execSync('git add .', { cwd: dir, stdio: 'ignore' });
+    execSync('git commit -m "baseline"', { cwd: dir, stdio: 'ignore' });
+
+    const firstAssign = assignGovernedTurn(dir, config, 'dev');
+    const secondAssign = assignGovernedTurn(dir, config, 'qa');
+    const firstTurn = firstAssign.state.current_turn;
+    const secondTurnId = Object.keys(secondAssign.state.active_turns).find(id => id !== firstTurn.turn_id);
+    const secondTurn = secondAssign.state.active_turns[secondTurnId];
+
+    const firstFile = 'src/dev-only.js';
+    const secondFile = '.planning/qa-only.md';
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, firstFile), 'export const devOnly = true;\n');
+    writeFileSync(join(dir, secondFile), '# qa only\n');
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', firstTurn.turn_id), { recursive: true });
+    const firstResult = makeTurnResult(secondAssign.state, firstTurn);
+    firstResult.files_changed = [firstFile];
+    firstResult.artifact = { type: 'workspace', ref: null };
+    writeFileSync(join(dir, getTurnStagingResultPath(firstTurn.turn_id)), JSON.stringify(firstResult, null, 2));
+
+    mkdirSync(join(dir, '.agentxchain', 'staging', secondTurnId), { recursive: true });
+    const secondResult = makeTurnResult(secondAssign.state, secondTurn);
+    secondResult.files_changed = [secondFile];
+    secondResult.artifact = { type: 'workspace', ref: null };
+    writeFileSync(join(dir, getTurnStagingResultPath(secondTurnId)), JSON.stringify(secondResult, null, 2));
+
+    const accepted = acceptGovernedTurn(dir, config, { turnId: firstTurn.turn_id });
+    assert.ok(accepted.ok, accepted.error);
+
+    const history = readJsonl(dir, HISTORY_PATH);
+    assert.equal(history.length, 1);
+    assert.deepEqual(history[0].observed_artifact.files_changed, [firstFile]);
+    assert.deepEqual(history[0].observed_artifact.attributed_to_concurrent_siblings, [secondFile]);
+  });
+
   it('persists conflict_state and skips history write on acceptance conflict', () => {
     config.routing.planning.max_concurrent_turns = 2;
     config.roles.qa.write_authority = 'authoritative';

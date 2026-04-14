@@ -799,6 +799,61 @@ function readJsonlEntries(root, relPath) {
     .filter(Boolean);
 }
 
+function collectPendingConcurrentSiblingDeclarations(root, state, currentTurn, historyEntries = []) {
+  const concurrentIds = new Set(
+    Array.isArray(currentTurn?.concurrent_with)
+      ? currentTurn.concurrent_with.filter((id) => typeof id === 'string' && id.length > 0)
+      : [],
+  );
+  const activeTurns = getActiveTurns(state);
+  for (const turn of Object.values(activeTurns)) {
+    if (
+      turn?.turn_id !== currentTurn?.turn_id
+      && Array.isArray(turn?.concurrent_with)
+      && turn.concurrent_with.includes(currentTurn?.turn_id)
+    ) {
+      concurrentIds.add(turn.turn_id);
+    }
+  }
+  if (concurrentIds.size === 0) {
+    return [];
+  }
+
+  const acceptedIds = new Set(
+    (Array.isArray(historyEntries) ? historyEntries : [])
+      .map((entry) => entry?.turn_id)
+      .filter((turnId) => typeof turnId === 'string' && turnId.length > 0),
+  );
+  const declarations = [];
+
+  for (const siblingTurnId of concurrentIds) {
+    if (siblingTurnId === currentTurn?.turn_id || acceptedIds.has(siblingTurnId) || !activeTurns[siblingTurnId]) {
+      continue;
+    }
+
+    const stagedSibling = loadHookStagedTurn(root, getTurnStagingResultPath(siblingTurnId));
+    const siblingResult = stagedSibling.turnResult;
+    if (!siblingResult || siblingResult.turn_id !== siblingTurnId) {
+      continue;
+    }
+
+    const siblingFiles = [...new Set(
+      (Array.isArray(siblingResult.files_changed) ? siblingResult.files_changed : [])
+        .filter((filePath) => typeof filePath === 'string' && filePath.length > 0),
+    )];
+    if (siblingFiles.length === 0) {
+      continue;
+    }
+
+    declarations.push({
+      turn_id: siblingTurnId,
+      files_changed: siblingFiles,
+    });
+  }
+
+  return declarations;
+}
+
 function getObservedFiles(entry) {
   if (Array.isArray(entry?.observed_artifact?.files_changed)) {
     return entry.observed_artifact.files_changed;
@@ -2373,7 +2428,17 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   const baseline = currentTurn.baseline || null;
   const rawObservation = observeChanges(root, baseline);
   const historyEntries = readJsonlEntries(root, HISTORY_PATH);
-  const observation = attributeObservedChangesToTurn(rawObservation, currentTurn, historyEntries);
+  const pendingConcurrentSiblingDeclarations = collectPendingConcurrentSiblingDeclarations(
+    root,
+    state,
+    currentTurn,
+    historyEntries,
+  );
+  const observation = attributeObservedChangesToTurn(rawObservation, currentTurn, historyEntries, {
+    currentDeclaredFiles: turnResult.files_changed || [],
+    concurrentSiblingIds: pendingConcurrentSiblingDeclarations.map((entry) => entry.turn_id),
+    pendingConcurrentSiblingDeclarations,
+  });
   const role = config.roles?.[turnResult.role];
   const runtimeId = turnResult.runtime_id;
   const runtime = config.runtimes?.[runtimeId];

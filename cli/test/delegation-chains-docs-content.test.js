@@ -27,9 +27,10 @@ describe('delegation-chains docs content', () => {
     assert.match(doc, /review-turn\.json/);
   });
 
-  it('AT-DELDOC-004: docs preserve the v1 sequential limitation', () => {
-    assert.match(doc, /Sequential execution/i);
-    assert.match(doc, /one at a time/i);
+  it('AT-DELDOC-004: docs preserve the v1 same-role sequential limitation', () => {
+    assert.match(doc, /Same-role delegation parallelism/i);
+    assert.match(doc, /cannot execute concurrently/i);
+    assert.match(doc, /execute sequentially/i);
   });
 
   it('AT-DELDOC-005: docs name the failure-path proof script and command', () => {

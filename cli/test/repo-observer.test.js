@@ -472,6 +472,35 @@ describe('attributeObservedChangesToTurn', () => {
     assert.ok(attributed.files_changed.includes('src/app.js'));
     assert.ok(attributed.files_changed.includes('docs/integration.md'));
   });
+
+  it('filters undeclared files claimed by an unaccepted concurrent sibling staging result', () => {
+    const baseline = captureBaseline(dir);
+
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'app.js'), 'console.log("pending sibling");\n');
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'docs', 'integration.md'), '# integrator\n');
+
+    const currentTurn = {
+      turn_id: 'turn_current',
+      assigned_sequence: 1,
+      concurrent_with: ['turn_pending'],
+    };
+    const attributed = attributeObservedChangesToTurn(
+      observeChanges(dir, baseline),
+      currentTurn,
+      [],
+      {
+        currentDeclaredFiles: ['docs/integration.md'],
+        pendingConcurrentSiblingDeclarations: [
+          { turn_id: 'turn_pending', files_changed: ['src/app.js'] },
+        ],
+      },
+    );
+
+    assert.deepEqual(attributed.files_changed, ['docs/integration.md']);
+    assert.deepEqual(attributed.attributed_to_concurrent_siblings, ['src/app.js']);
+  });
 });
 
 // ── Tests: buildConflictCandidateFiles ─────────────────────────────────────

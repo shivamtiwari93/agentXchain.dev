@@ -175,7 +175,7 @@ export function observeChanges(root, baseline) {
   };
 }
 
-export function attributeObservedChangesToTurn(observation, currentTurn, historyEntries = []) {
+export function attributeObservedChangesToTurn(observation, currentTurn, historyEntries = [], options = {}) {
   const observedFiles = Array.isArray(observation?.files_changed) ? observation.files_changed : [];
   if (observedFiles.length === 0) {
     return observation;
@@ -184,6 +184,11 @@ export function attributeObservedChangesToTurn(observation, currentTurn, history
   const concurrentIds = new Set(
     Array.isArray(currentTurn?.concurrent_with) ? currentTurn.concurrent_with : [],
   );
+  for (const siblingId of Array.isArray(options.concurrentSiblingIds) ? options.concurrentSiblingIds : []) {
+    if (typeof siblingId === 'string' && siblingId.length > 0) {
+      concurrentIds.add(siblingId);
+    }
+  }
   if (concurrentIds.size === 0) {
     return observation;
   }
@@ -195,11 +200,17 @@ export function attributeObservedChangesToTurn(observation, currentTurn, history
     .filter((entry) => (
       Number.isInteger(entry?.accepted_sequence)
       && entry.accepted_sequence > assignedSequence
-      && concurrentIds.has(entry.turn_id)
+      && (
+        concurrentIds.has(entry.turn_id)
+        || (Array.isArray(entry?.concurrent_with) && entry.concurrent_with.includes(currentTurn?.turn_id))
+      )
     ))
     .sort((left, right) => left.accepted_sequence - right.accepted_sequence);
 
-  if (acceptedConcurrentSiblings.length === 0) {
+  const pendingConcurrentSiblingDeclarations = Array.isArray(options.pendingConcurrentSiblingDeclarations)
+    ? options.pendingConcurrentSiblingDeclarations
+    : [];
+  if (acceptedConcurrentSiblings.length === 0 && pendingConcurrentSiblingDeclarations.length === 0) {
     return observation;
   }
 
@@ -221,7 +232,20 @@ export function attributeObservedChangesToTurn(observation, currentTurn, history
     }
   }
 
-  if (siblingMarkersByFile.size === 0) {
+  const currentDeclaredFiles = new Set(
+    Array.isArray(options.currentDeclaredFiles) ? options.currentDeclaredFiles : [],
+  );
+  const pendingConcurrentSiblingFiles = new Set();
+  for (const declaration of pendingConcurrentSiblingDeclarations) {
+    const siblingFiles = Array.isArray(declaration?.files_changed) ? declaration.files_changed : [];
+    for (const filePath of siblingFiles) {
+      if (typeof filePath === 'string' && filePath.length > 0 && !currentDeclaredFiles.has(filePath)) {
+        pendingConcurrentSiblingFiles.add(filePath);
+      }
+    }
+  }
+
+  if (siblingMarkersByFile.size === 0 && pendingConcurrentSiblingFiles.size === 0) {
     return observation;
   }
 
@@ -236,6 +260,10 @@ export function attributeObservedChangesToTurn(observation, currentTurn, history
     const currentMarker = observationMarkers[filePath];
     const siblingMarker = siblingMarkersByFile.get(filePath);
     if (typeof siblingMarker === 'string' && siblingMarker === currentMarker) {
+      attributedToConcurrentSiblings.push(filePath);
+      continue;
+    }
+    if (pendingConcurrentSiblingFiles.has(filePath)) {
       attributedToConcurrentSiblings.push(filePath);
       continue;
     }
