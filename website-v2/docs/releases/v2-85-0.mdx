@@ -1,0 +1,57 @@
+---
+sidebar_position: 1
+title: "v2.85.0 Release Notes"
+description: "Parallel turn dispatch, built-in plugin proof chains, and live multi-repo coordinator evidence."
+---
+
+# AgentXchain v2.85.0
+
+`v2.85.0` ships three capabilities that move AgentXchain from sequential-only governed execution to concurrent, plugin-proven, multi-repo-proven operation.
+
+## What Changed
+
+### Parallel Turn Dispatch
+
+The run-loop now supports concurrent turn dispatch when `max_concurrent_turns > 1` is configured in phase routing.
+
+- Slot-filling: the run-loop assigns turns to eligible roles up to the configured concurrency limit, with per-role mutual exclusion and alternate-role fallback
+- Concurrent dispatch: all assigned turns dispatch via `Promise.allSettled`, so agents work in parallel instead of waiting for sequential completion
+- Sequential acceptance: turn results are processed one at a time through the existing acceptance lock, preserving governance integrity
+- Stall detection: if all parallel turns fail acceptance with no new assignable roles, the run terminates instead of infinite re-dispatch
+- New `parallel_dispatch` event with `count` and `turns` fields for observability
+
+Two bugs discovered and fixed during integration proof:
+- Slot-filling deadlock when `selectRole` returned the same role twice (per-role exclusion rejected the duplicate with no fallback)
+- Turn ID targeting: the dispatch callback did not pass `turnId`, so both concurrent dispatches targeted the first active turn
+
+Proven with 4-role governed-todo-app proof at `max_concurrent_turns: 2`: pm → backend_dev + frontend_dev (concurrent) → qa. Run `node examples/governed-todo-app/run-parallel-proof.mjs --json` to reproduce.
+
+New docs page: `/docs/parallel-turns/`
+
+### Built-In Plugin Proof Chains
+
+All three built-in plugins now have documented proof surfaces with real governed execution evidence:
+
+**json-report** — continuous subprocess proof in `cli/test/e2e-builtin-json-report.test.js` plus live product-example proof in `examples/governed-todo-app/run-json-report-proof.mjs`. Validates `latest.json`, `latest-after_acceptance.json`, and `latest-before_gate.json` artifact generation through real hook execution.
+
+**github-issues** — continuous subprocess proof in `cli/test/e2e-builtin-github-issues.test.js` plus live proof at `examples/governed-todo-app/run-github-issues-proof.mjs`. Permanent proof issue at [#77](https://github.com/shivamtiwari93/agentXchain.dev/issues/77). Verifies plugin-owned comment upsert and managed label sync through the GitHub API.
+
+**slack-notify** — existing mock-webhook coverage in `cli/test/builtin-plugin-packages.test.js` with short-name install and discovery proof. Live proof with real Slack delivery is blocked on operator-provided webhook URL.
+
+### Live Multi-Repo Coordinator Proof
+
+The multi-repo coordinator now has a dated, model-backed case study at `/docs/multi-repo/`.
+
+- `examples/live-governed-proof/run-multi-repo-proof.mjs` scaffolds a two-repo coordinator workspace (`api` + `web`)
+- Exercises the real coordinator loop: `multi init`, `multi step`, child-repo `step --resume --auto-reject`, repo-local approvals, and coordinator gate approvals
+- Verifies coordinator completion, satisfied barriers, downstream `COORDINATOR_CONTEXT.json` propagation, and real API cost
+- Repo-local approvals remained real throughout the proof — the coordinator did not bypass child-repo gates
+
+## Evidence
+
+- 4330 tests / 917 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+- Parallel proof: `node examples/governed-todo-app/run-parallel-proof.mjs --json` → pass
+- json-report proof: `node examples/governed-todo-app/run-json-report-proof.mjs --json` → pass
+- github-issues proof: `node examples/governed-todo-app/run-github-issues-proof.mjs --json` → pass
+- Multi-repo proof: `node examples/live-governed-proof/run-multi-repo-proof.mjs --json` → pass

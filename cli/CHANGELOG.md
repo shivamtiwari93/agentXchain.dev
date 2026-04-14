@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.85.0
+
+`2.85.0` ships parallel turn dispatch, built-in plugin proof chains, and live multi-repo coordinator evidence.
+
+- Run-loop now supports concurrent turn dispatch when `max_concurrent_turns > 1` — slots are filled from eligible roles, dispatched via `Promise.allSettled`, and acceptances are processed sequentially
+- Fixed parallel slot-filling deadlock: alternate-role fallback from `routing.allowed_next_roles` when `selectRole` returns a duplicate
+- Fixed parallel turnId targeting: dispatch callback now passes `turnId: turn.turn_id` to adapters, preventing both concurrent dispatches from targeting the same turn
+- New `parallel_dispatch` event with `count` and `turns` fields for observability
+- New `/docs/parallel-turns/` documentation page with config, behavior, and proof case study
+- `json-report` built-in plugin: continuous subprocess E2E proof plus live product-example proof with real hook artifact validation
+- `github-issues` built-in plugin: continuous subprocess E2E proof plus live proof at permanent issue #77 with GitHub API verification
+- Multi-repo coordinator: live model-backed case study at `/docs/multi-repo/` with two-repo governance, barrier satisfaction, and downstream context propagation evidence
+- 4330 tests / 917 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.84.0
 
 `2.84.0` turns recent remote-governance hardening into explicit product truth: dead-end remote gate configs now warn consistently, the governed-todo-app unattended proof is workflow-backed in CI, and `api_proxy` model compatibility plus extraction behavior are documented as durable contract surfaces instead of folklore.
