@@ -12,6 +12,8 @@ const quickstart = readFileSync(join(DOCS, 'quickstart.mdx'), 'utf8');
 const gettingStarted = readFileSync(join(DOCS, 'getting-started.mdx'), 'utf8');
 const llms = readFileSync(join(ROOT, 'website-v2', 'static', 'llms.txt'), 'utf8');
 const spec = readFileSync(join(ROOT, '.planning', 'FIVE_MINUTE_TUTORIAL_SPEC.md'), 'utf8');
+const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+const homepage = readFileSync(join(ROOT, 'website-v2', 'src', 'pages', 'index.tsx'), 'utf8');
 
 describe('five-minute tutorial docs page', () => {
   it('AT-5MIN-001: exists and is wired between getting-started and first-turn', () => {
@@ -64,6 +66,11 @@ describe('five-minute tutorial docs page', () => {
     assert.ok(quickstart.includes('/docs/five-minute-tutorial'), 'quickstart must link to five-minute tutorial');
     assert.ok(gettingStarted.includes('/docs/five-minute-tutorial'), 'getting-started must link to five-minute tutorial');
     assert.ok(llms.includes('/docs/five-minute-tutorial'), 'llms.txt must include the new page');
+  });
+
+  it('AT-5MIN-007: is linked from repo README and homepage hero', () => {
+    assert.ok(readme.includes('five-minute-tutorial'), 'README must link to the five-minute tutorial');
+    assert.ok(homepage.includes('/docs/five-minute-tutorial'), 'homepage must link to the five-minute tutorial');
   });
 });
 

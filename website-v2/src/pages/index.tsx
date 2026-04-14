@@ -68,6 +68,9 @@ function Hero() {
           <Link className="btn-secondary" to="/docs/quickstart">
             npm install -g agentxchain
           </Link>
+          <Link className="btn-secondary" to="/docs/five-minute-tutorial" style={{ marginLeft: '0.5rem' }}>
+            5-Minute Tutorial →
+          </Link>
         </div>
         <div className="terminal">
           <div className="terminal-bar">

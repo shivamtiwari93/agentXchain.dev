@@ -50,6 +50,7 @@ The protocol is the durable layer. Runners enforce it. Connectors bridge to agen
 
 ## Docs
 
+- [5-Minute Tutorial](https://agentxchain.dev/docs/five-minute-tutorial/) — build your first governed project
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
@@ -500,6 +501,7 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 ## Links
 
 - [Website](https://agentxchain.dev)
+- [5-Minute Tutorial](https://agentxchain.dev/docs/five-minute-tutorial/)
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
