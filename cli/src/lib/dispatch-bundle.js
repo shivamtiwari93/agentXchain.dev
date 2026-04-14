@@ -124,6 +124,12 @@ export function writeDispatchBundle(root, state, config, opts = {}) {
   if (turn.conflict_context) {
     assignment.conflict_context = turn.conflict_context;
   }
+  if (turn.delegation_context) {
+    assignment.delegation_context = turn.delegation_context;
+  }
+  if (turn.delegation_review) {
+    assignment.delegation_review = turn.delegation_review;
+  }
   if (warnings.length > 0) {
     assignment.advisory_warnings = warnings.map((message) => ({ code: 'advisory_scope_overlap', message }));
   }
@@ -544,6 +550,52 @@ function renderContext(state, config, root, turn, role) {
         lines.push(`  - ${requirement}`);
       }
     }
+    lines.push('');
+  }
+
+  // Delegation context (when this turn is a delegated sub-task)
+  if (turn.delegation_context) {
+    const dc = turn.delegation_context;
+    lines.push('## Delegation Context');
+    lines.push('');
+    lines.push('You are executing a delegated sub-task.');
+    lines.push('');
+    lines.push(`- **Delegated by:** ${dc.parent_role} (turn ${dc.parent_turn_id})`);
+    lines.push(`- **Charter:** ${dc.charter}`);
+    if (Array.isArray(dc.acceptance_contract) && dc.acceptance_contract.length > 0) {
+      lines.push('- **Acceptance contract:**');
+      for (const req of dc.acceptance_contract) {
+        lines.push(`  - ${req}`);
+      }
+    }
+    lines.push('');
+    lines.push('Focus exclusively on the charter above. Do not expand scope beyond the delegation.');
+    lines.push('');
+  }
+
+  // Delegation review context (when this turn reviews completed delegations)
+  if (turn.delegation_review) {
+    const dr = turn.delegation_review;
+    lines.push('## Delegation Review');
+    lines.push('');
+    lines.push('Your delegated sub-tasks have been completed. Review the results below.');
+    lines.push('');
+    for (const result of dr.results || []) {
+      lines.push(`### ${result.delegation_id} → ${result.to_role}`);
+      lines.push('');
+      lines.push(`- **Charter:** ${result.charter}`);
+      lines.push(`- **Status:** ${result.status}`);
+      lines.push(`- **Summary:** ${result.summary}`);
+      if (result.files_changed?.length > 0) {
+        lines.push(`- **Files changed:** ${result.files_changed.join(', ')}`);
+      }
+      if (result.verification?.status) {
+        lines.push(`- **Verification:** ${result.verification.status}`);
+      }
+      lines.push('');
+    }
+    lines.push('Evaluate whether each delegation met its acceptance contract.');
+    lines.push('Your turn result should assess the delegation outcomes and decide next steps.');
     lines.push('');
   }
 

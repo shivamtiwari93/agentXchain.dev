@@ -228,6 +228,39 @@
         "output_tokens": { "type": "integer", "minimum": 0 },
         "usd": { "type": "number", "minimum": 0 }
       }
+    },
+    "delegations": {
+      "type": "array",
+      "description": "Sub-tasks delegated to other roles. The delegating role defines the charter; delegates execute it; the delegating role reviews results.",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["id", "to_role", "charter", "acceptance_contract"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^del-\\d{3}$",
+            "description": "Delegation ID, e.g. del-001"
+          },
+          "to_role": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Role that should execute this sub-task. Must be a defined role and routing-legal."
+          },
+          "charter": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Scope of the delegated work."
+          },
+          "acceptance_contract": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "description": "What the delegate must achieve for this delegation to be considered complete."
+          }
+        }
+      }
     }
   }
 }

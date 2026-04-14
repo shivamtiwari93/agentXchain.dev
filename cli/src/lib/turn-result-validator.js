@@ -602,6 +602,54 @@ function validateProtocol(tr, state, config) {
     warnings.push('status is "needs_human" but needs_human_reason is empty.');
   }
 
+  // ── Delegation validation ───────────────────────────────────────────────
+  if (Array.isArray(tr.delegations) && tr.delegations.length > 0) {
+    // Maximum 5 delegations per turn
+    if (tr.delegations.length > 5) {
+      errors.push(`Maximum 5 delegations per turn (got ${tr.delegations.length}).`);
+    }
+
+    // Delegations are mutually exclusive with run_completion_request
+    if (tr.run_completion_request) {
+      errors.push('delegations are mutually exclusive with run_completion_request — a turn cannot delegate and complete the run.');
+    }
+
+    // No recursive delegation: if this turn is a delegation review, it cannot delegate further
+    const activeTurn = state?.active_turns ? Object.values(state.active_turns)[0] : null;
+    if (activeTurn?.delegation_context) {
+      errors.push('Delegation review turns cannot contain further delegations.');
+    }
+
+    const seenIds = new Set();
+    for (const del of tr.delegations) {
+      // Duplicate IDs
+      if (seenIds.has(del.id)) {
+        errors.push(`Duplicate delegation id "${del.id}".`);
+      }
+      seenIds.add(del.id);
+
+      // Self-delegation
+      if (del.to_role === tr.role) {
+        errors.push(`Role "${tr.role}" cannot delegate to itself (delegation ${del.id}).`);
+      }
+
+      // to_role must be a defined role
+      if (!config.roles?.[del.to_role]) {
+        errors.push(`Delegation to_role "${del.to_role}" is not a defined role (delegation ${del.id}).`);
+      }
+
+      // to_role must be routing-legal for current phase
+      if (routing && del.to_role) {
+        const allowed = routing.allowed_next_roles || [];
+        if (allowed.length > 0 && !allowed.includes(del.to_role)) {
+          errors.push(
+            `Delegation to_role "${del.to_role}" is not in allowed_next_roles for phase "${phase}": [${allowed.join(', ')}] (delegation ${del.id}).`
+          );
+        }
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 

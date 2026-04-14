@@ -1,0 +1,204 @@
+---
+title: Delegation Chains
+sidebar_label: Delegation Chains
+sidebar_position: 5
+---
+
+# Delegation Chains
+
+Delegation chains allow a role to assign sub-tasks to other roles within a governed run. The delegating role defines the charter, the delegate executes it, and the delegating role reviews the results.
+
+This enables **hierarchical authority** in governed delivery: an engineering director can decompose work, delegate slices to specialists, and review the outcomes — all within the same governed run with full audit trail.
+
+## How It Works
+
+A delegation chain has three phases:
+
+1. **Delegate**: A role's turn result includes a `delegations` array specifying sub-tasks for other roles
+2. **Execute**: Each delegate receives a turn with the charter and acceptance contract in their dispatch context
+3. **Review**: After all delegations complete, the delegating role gets a review turn with aggregated results
+
+```
+director (turn 1) → delegates to dev, qa
+    ↓
+dev (turn 2) → executes delegation del-001
+    ↓
+qa (turn 3) → executes delegation del-002
+    ↓
+director (turn 4) → reviews both delegation results
+```
+
+## Delegating Work
+
+To delegate, include a `delegations` array in your turn result:
+
+```json
+{
+  "schema_version": "1.0",
+  "run_id": "run_abc123",
+  "turn_id": "turn_0001",
+  "role": "eng_director",
+  "status": "completed",
+  "summary": "Decomposed auth refactor into implementation and testing slices",
+  "delegations": [
+    {
+      "id": "del-001",
+      "to_role": "dev",
+      "charter": "Implement JWT-based auth middleware replacing session tokens",
+      "acceptance_contract": [
+        "All existing auth tests pass",
+        "New JWT validation tests added",
+        "No breaking changes to API endpoints"
+      ]
+    },
+    {
+      "id": "del-002",
+      "to_role": "qa",
+      "charter": "Security review of the new JWT auth implementation",
+      "acceptance_contract": [
+        "Token expiry handling verified",
+        "No token leakage in logs or responses"
+      ]
+    }
+  ],
+  "decisions": [],
+  "objections": [],
+  "files_changed": [],
+  "verification": { "status": "skipped" },
+  "artifact": { "type": "review", "ref": null },
+  "proposed_next_role": "dev"
+}
+```
+
+### Delegation Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique ID within the turn, pattern `del-NNN` |
+| `to_role` | string | Target role (must exist in config, must be routing-legal) |
+| `charter` | string | Scope of the delegated work |
+| `acceptance_contract` | string[] | What the delegate must achieve |
+
+### Constraints
+
+- Maximum **5 delegations** per turn
+- A role **cannot delegate to itself**
+- `to_role` must be in `allowed_next_roles` for the current phase
+- `delegations` is **mutually exclusive** with `run_completion_request`
+- Delegation review turns **cannot contain further delegations** (no recursive delegation in v1)
+
+## Executing Delegated Work
+
+When a delegate receives their turn, the dispatch bundle includes a **Delegation Context** section:
+
+```markdown
+## Delegation Context
+
+You are executing a delegated sub-task.
+
+- **Delegated by:** eng_director (turn turn_0001)
+- **Charter:** Implement JWT-based auth middleware replacing session tokens
+- **Acceptance contract:**
+  - All existing auth tests pass
+  - New JWT validation tests added
+  - No breaking changes to API endpoints
+
+Focus exclusively on the charter above. Do not expand scope beyond the delegation.
+```
+
+The `ASSIGNMENT.json` also includes a `delegation_context` object with the full delegation metadata.
+
+Delegated turns are normal governed turns — they go through the same validation, acceptance, and hook pipeline. The only difference is the additional charter context.
+
+## Reviewing Delegations
+
+After all delegations from a parent turn complete, the delegating role automatically receives a **delegation review turn**. The dispatch bundle includes:
+
+```markdown
+## Delegation Review
+
+Your delegated sub-tasks have been completed. Review the results below.
+
+### del-001 → dev
+- **Charter:** Implement JWT-based auth middleware
+- **Status:** completed
+- **Summary:** Implemented JWT validation with RS256 signing...
+- **Files changed:** src/auth.js, src/middleware.js, test/auth.test.js
+- **Verification:** pass
+
+### del-002 → qa
+- **Charter:** Security review of JWT auth implementation
+- **Status:** completed
+- **Summary:** Verified token handling, no leakage found...
+- **Verification:** pass
+
+Evaluate whether each delegation met its acceptance contract.
+```
+
+The review turn is a normal governed turn. The reviewing role can:
+- Accept the delegation outcomes and propose the next phase
+- Raise objections against specific delegation results
+- Delegate further work if issues were found (in a new turn, not the review turn itself)
+
+## Role Resolution Priority
+
+When delegations are active, role resolution follows this priority order:
+
+1. **Pending delegation review** → routes to the delegating (parent) role
+2. **Pending delegation** → routes to the next delegate's `to_role`
+3. **Normal resolution** → `next_recommended_role` / `entry_role` / first role
+
+An explicit `--role` override still works but emits a warning if it skips a pending delegation.
+
+## State
+
+Delegation state is tracked in `state.json`:
+
+```json
+{
+  "delegation_queue": [
+    {
+      "delegation_id": "del-001",
+      "parent_turn_id": "turn_0001",
+      "parent_role": "eng_director",
+      "to_role": "dev",
+      "charter": "...",
+      "acceptance_contract": ["..."],
+      "status": "pending",
+      "child_turn_id": null,
+      "created_at": "2026-04-14T05:00:00Z"
+    }
+  ],
+  "pending_delegation_review": null
+}
+```
+
+Delegation queue entries transition through: `pending` → `active` → `completed` or `failed`.
+
+When all delegations from a parent complete, `pending_delegation_review` is set and the queue entries for that parent are cleared.
+
+## Example: Governed Feature Delivery
+
+```bash
+# 1. Director decomposes work
+agentxchain step --role eng_director
+# Director's turn result includes delegations to dev and qa
+
+# 2. Dev executes first delegation (auto-routed)
+agentxchain step
+# Dev receives delegation context with charter and acceptance contract
+
+# 3. QA executes second delegation (auto-routed)
+agentxchain step
+# QA receives delegation context with charter
+
+# 4. Director reviews (auto-routed)
+agentxchain step
+# Director receives delegation review with both results
+```
+
+## Limitations (v1)
+
+- **No recursive delegation**: A delegation review turn cannot itself contain delegations. If hierarchical decomposition is needed, the reviewing role must issue delegations in a separate subsequent turn.
+- **Sequential execution**: Delegations are executed one at a time, not in parallel.
+- **Same phase**: Delegations must complete within the current phase. Phase transitions are not allowed while delegations are pending.

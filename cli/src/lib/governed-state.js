@@ -2065,24 +2065,53 @@ export function assignGovernedTurn(root, config, roleId) {
   // Record which turns are concurrent siblings (for conflict detection context)
   const concurrentWith = Object.keys(activeTurns);
 
+  // Build the new turn object
+  const newTurn = {
+    turn_id: turnId,
+    assigned_role: roleId,
+    status: 'running',
+    attempt: 1,
+    started_at: now,
+    deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
+    runtime_id: runtimeId,
+    baseline,
+    assigned_sequence: nextSequence,
+    concurrent_with: concurrentWith,
+  };
+
+  // Attach delegation context if this turn fulfills a pending delegation
+  const delegationQueue = state.delegation_queue || [];
+  const pendingDelegation = delegationQueue.find(d => d.status === 'pending' && d.to_role === roleId);
+  if (pendingDelegation) {
+    newTurn.delegation_context = {
+      delegation_id: pendingDelegation.delegation_id,
+      parent_turn_id: pendingDelegation.parent_turn_id,
+      parent_role: pendingDelegation.parent_role,
+      charter: pendingDelegation.charter,
+      acceptance_contract: pendingDelegation.acceptance_contract,
+    };
+    // Mark the delegation as active
+    pendingDelegation.status = 'active';
+    pendingDelegation.child_turn_id = turnId;
+  }
+
+  // Attach delegation review context if a review is pending for this role
+  const pendingReview = state.pending_delegation_review;
+  if (pendingReview && pendingReview.parent_role === roleId && !pendingDelegation) {
+    newTurn.delegation_review = {
+      parent_turn_id: pendingReview.parent_turn_id,
+      results: pendingReview.delegation_results,
+    };
+  }
+
   const updatedState = {
     ...state,
     turn_sequence: nextSequence,
     budget_reservations: reservations,
+    delegation_queue: delegationQueue,
     active_turns: {
       ...activeTurns,
-      [turnId]: {
-        turn_id: turnId,
-        assigned_role: roleId,
-        status: 'running',
-        attempt: 1,
-        started_at: now,
-        deadline_at: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString(),
-        runtime_id: runtimeId,
-        baseline,
-        assigned_sequence: nextSequence,
-        concurrent_with: concurrentWith,
-      },
+      [turnId]: newTurn,
     },
   };
 
@@ -2648,6 +2677,97 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         : null,
     },
   };
+
+  // ── Delegation queue management ──────────────────────────────────────────
+  // Initialize delegation queue if not present
+  if (!updatedState.delegation_queue) {
+    updatedState.delegation_queue = [];
+  }
+  if (!updatedState.pending_delegation_review) {
+    updatedState.pending_delegation_review = null;
+  }
+
+  // If this turn has delegations, enqueue them
+  if (Array.isArray(turnResult.delegations) && turnResult.delegations.length > 0) {
+    for (const del of turnResult.delegations) {
+      updatedState.delegation_queue.push({
+        delegation_id: del.id,
+        parent_turn_id: turnResult.turn_id,
+        parent_role: turnResult.role,
+        to_role: del.to_role,
+        charter: del.charter,
+        acceptance_contract: del.acceptance_contract,
+        status: 'pending',
+        child_turn_id: null,
+        created_at: now,
+      });
+    }
+    // Override next_recommended_role to first pending delegation
+    updatedState.next_recommended_role = turnResult.delegations[0].to_role;
+  }
+
+  // If this turn was a delegated sub-task, update the delegation queue entry
+  if (currentTurn.delegation_context) {
+    const delId = currentTurn.delegation_context.delegation_id;
+    const queueEntry = updatedState.delegation_queue.find(d => d.delegation_id === delId);
+    if (queueEntry) {
+      queueEntry.status = turnResult.status === 'completed' ? 'completed' : 'failed';
+      queueEntry.child_turn_id = currentTurn.turn_id;
+
+      // Check if all delegations from the same parent are now complete
+      const parentTurnId = queueEntry.parent_turn_id;
+      const parentDelegations = updatedState.delegation_queue.filter(d => d.parent_turn_id === parentTurnId);
+      const allDone = parentDelegations.every(d => d.status === 'completed' || d.status === 'failed');
+
+      if (allDone) {
+        // Build delegation review context
+        const delegationResults = parentDelegations.map(d => {
+          const childHistory = nextHistoryEntries.find(h => h.turn_id === d.child_turn_id);
+          return {
+            delegation_id: d.delegation_id,
+            child_turn_id: d.child_turn_id,
+            to_role: d.to_role,
+            charter: d.charter,
+            acceptance_contract: d.acceptance_contract,
+            summary: childHistory?.summary || '(no summary)',
+            status: d.status,
+            files_changed: childHistory?.files_changed || [],
+            verification: childHistory?.verification || { status: 'skipped' },
+          };
+        });
+
+        updatedState.pending_delegation_review = {
+          parent_turn_id: parentTurnId,
+          parent_role: queueEntry.parent_role,
+          delegation_results: delegationResults,
+        };
+
+        // Recommend the parent role for the review turn
+        updatedState.next_recommended_role = queueEntry.parent_role;
+
+        // Clear completed delegation queue entries for this parent
+        updatedState.delegation_queue = updatedState.delegation_queue.filter(
+          d => d.parent_turn_id !== parentTurnId
+        );
+      } else {
+        // More pending delegations — route to the next one
+        const nextPending = updatedState.delegation_queue.find(
+          d => d.parent_turn_id === parentTurnId && d.status === 'pending'
+        );
+        if (nextPending) {
+          updatedState.next_recommended_role = nextPending.to_role;
+        }
+      }
+    }
+  }
+
+  // If a delegation review was pending and this turn was the review, clear it
+  if (updatedState.pending_delegation_review &&
+      turnResult.role === updatedState.pending_delegation_review.parent_role &&
+      !currentTurn.delegation_context) {
+    // The parent role just completed their review turn
+    updatedState.pending_delegation_review = null;
+  }
 
   if (updatedState.status === 'blocked' && !hasBlockingActiveTurn(remainingTurns)) {
     updatedState.status = 'active';

@@ -30,6 +30,15 @@ export function resolveGovernedRole({ override = null, state = null, config }) {
   const routing = phase ? config?.routing?.[phase] : null;
   const warnings = [];
 
+  // ── Delegation queue priority ───────────────────────────────────────────
+  // If there are pending delegations, the next role is the delegation target
+  const pendingDelegation = Array.isArray(state?.delegation_queue)
+    ? state.delegation_queue.find(d => d.status === 'pending')
+    : null;
+
+  // If a delegation review is pending, the parent role takes priority
+  const pendingReview = state?.pending_delegation_review || null;
+
   if (override) {
     if (!config?.roles?.[override]) {
       return {
@@ -45,12 +54,44 @@ export function resolveGovernedRole({ override = null, state = null, config }) {
       warnings.push(`role "${override}" is not in allowed_next_roles for phase "${phase}"`);
     }
 
+    // Warn if override skips a pending delegation
+    if (pendingDelegation && override !== pendingDelegation.to_role) {
+      warnings.push(`Override skips pending delegation ${pendingDelegation.delegation_id} to role "${pendingDelegation.to_role}"`);
+    }
+    if (pendingReview && override !== pendingReview.parent_role) {
+      warnings.push(`Override skips pending delegation review for role "${pendingReview.parent_role}"`);
+    }
+
     return {
       roleId: override,
       warnings,
       error: null,
       availableRoles: roles,
       phase,
+    };
+  }
+
+  // Delegation review takes priority over pending delegations
+  if (pendingReview && config?.roles?.[pendingReview.parent_role]) {
+    return {
+      roleId: pendingReview.parent_role,
+      warnings,
+      error: null,
+      availableRoles: roles,
+      phase,
+      delegation_review: true,
+    };
+  }
+
+  // Pending delegation takes priority over normal resolution
+  if (pendingDelegation && config?.roles?.[pendingDelegation.to_role]) {
+    return {
+      roleId: pendingDelegation.to_role,
+      warnings,
+      error: null,
+      availableRoles: roles,
+      phase,
+      delegation: pendingDelegation,
     };
   }
 

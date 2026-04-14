@@ -53,6 +53,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Multi-Repo Orchestration](https://agentxchain.dev/docs/multi-repo): Coordinating governed runs across multiple repositories.
 - [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling): Configure repo-local schedules, run the daemon, and let AgentXchain drive autonomous governed delivery on cadence.
 - [Parallel Turns](https://agentxchain.dev/docs/parallel-turns): Run up to 4 concurrent governed agent turns per phase for faster multi-role delivery.
+- [Delegation Chains](https://agentxchain.dev/docs/delegation-chains): Hierarchical task delegation — a role can delegate sub-tasks to other roles and review the results within a governed run.
 - [Integration Guide](https://agentxchain.dev/docs/integration-guide): Connect any agent to AgentXchain governance — HTTP services, MCP servers, or direct LLM APIs. Three proven patterns with real evidence.
 - [Adapters](https://agentxchain.dev/docs/adapters): Provider adapters for Anthropic, OpenAI, and custom LLMs.
 - [Build Your Own Connector](https://agentxchain.dev/docs/build-your-own-connector): Step-by-step tutorial to build a minimal HTTP agent connector, wire it into governance, and prove it works.
