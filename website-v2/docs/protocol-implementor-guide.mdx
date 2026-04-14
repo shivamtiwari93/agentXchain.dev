@@ -467,8 +467,9 @@ Multi-repo coordination: coordinator config validation, acceptance projection, w
 - `ordered_repo_sequence` stays unsatisfied when a downstream repo accepts before the entry repo
 - `shared_human_gate` remains `pending` even after every required repo has accepted — it requires explicit human approval
 - `interface_alignment` requires each repo to have accepted its declared `DEC-NNN` decision IDs (via `decision_ids_by_repo`) before the barrier is satisfied
+- `named_decisions` requires each repo to have accepted its declared `DEC-NNN` decision IDs (via `named_decisions.decision_ids_by_repo`) before the barrier is satisfied
 
-`interface_alignment` is not a heuristic placeholder. The coordinator resolves it by checking accepted decision ledger entries per repo against declared requirements.
+`interface_alignment` and `named_decisions` are not heuristic placeholders. The coordinator resolves them by checking accepted decision ledger entries per repo against declared requirements.
 
 ## Fixture setup helpers you need to support
 

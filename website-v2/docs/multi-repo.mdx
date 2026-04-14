@@ -208,18 +208,21 @@ The coordinator loop is explicit. The coordinator never auto-runs child repos be
 
 ## Barrier Types
 
-The shipped coordinator supports four completion-barrier modes:
+The shipped coordinator supports five completion-barrier modes:
 
 | Barrier type | Meaning |
 |--------------|---------|
 | `all_repos_accepted` | The workstream completes only after every repo listed in the workstream has an accepted projection |
 | `ordered_repo_sequence` | Downstream repos stay blocked until upstream acceptance order is satisfied |
 | `interface_alignment` | Cross-repo contract alignment barrier. The workstream must declare `interface_alignment.decision_ids_by_repo`, and the barrier is satisfied only when each repo has accepted the declared `DEC-NNN` decisions for that repo. |
+| `named_decisions` | General decision-checkpoint barrier. The workstream must declare `named_decisions.decision_ids_by_repo`, and the barrier is satisfied only when each repo has accepted the declared `DEC-NNN` decisions for that repo. |
 | `shared_human_gate` | Never auto-satisfies from repo acceptances; requires human approval through `multi approve-gate` |
 
 Barrier transitions are tracked in `.agentxchain/multirepo/barriers.json` and audited in `.agentxchain/multirepo/barrier-ledger.jsonl`.
 
 `interface_alignment` is explicit, not magical. The coordinator does not infer semantic compatibility from changed files. You declare the required accepted decision IDs per repo in `agentxchain-multi.json`, and the barrier tracks progress per repo until every declared decision ID has been accepted.
+
+Use `named_decisions` when the checkpoint is governance-driven rather than interface-specific. The evaluation logic is the same; the label is different because the operator intent is different.
 
 ### Interface alignment end-to-end example
 
@@ -307,7 +310,7 @@ Those artifacts summarize:
 
 - upstream acceptance projections from related workstreams
 - active non-satisfied barriers relevant to the target repo
-- declared `interface_alignment` decision IDs still required for the target repo
+- declared decision IDs still required for the target repo (`interface_alignment` or `named_decisions`)
 - required follow-ups derived from dependencies and barrier notes
 
 The generated context is also stored under `.agentxchain/multirepo/context/<context_ref>/` so the coordinator can audit and invalidate stale context when upstream repos accept new work.

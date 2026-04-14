@@ -61,6 +61,7 @@ function collectActiveBarriers(barriers, workstreamIds, targetRepoId) {
       type: barrier.type || 'unknown',
       status: barrier.status,
       notes: barrier.notes || null,
+      required_decision_ids_by_repo: barrier.required_decision_ids_by_repo || barrier.alignment_decision_ids || null,
       alignment_decision_ids: barrier.alignment_decision_ids || null,
     }));
 }
@@ -78,13 +79,13 @@ function buildRequiredFollowups(workstreamId, dependencyIds, upstreamAcceptances
 
   for (const barrier of activeBarriers) {
     if (
-      barrier.type === 'interface_alignment'
-      && barrier.alignment_decision_ids
-      && Array.isArray(barrier.alignment_decision_ids[targetRepoId])
-      && barrier.alignment_decision_ids[targetRepoId].length > 0
+      (barrier.type === 'interface_alignment' || barrier.type === 'named_decisions')
+      && barrier.required_decision_ids_by_repo
+      && Array.isArray(barrier.required_decision_ids_by_repo[targetRepoId])
+      && barrier.required_decision_ids_by_repo[targetRepoId].length > 0
     ) {
       followups.push(
-        `Accept declared interface-alignment decisions for ${targetRepoId}: ${barrier.alignment_decision_ids[targetRepoId].join(', ')}.`,
+        `Accept declared decision requirements for ${targetRepoId}: ${barrier.required_decision_ids_by_repo[targetRepoId].join(', ')}.`,
       );
     }
 
@@ -146,12 +147,12 @@ function renderContextMarkdown(snapshot) {
     for (const barrier of snapshot.active_barriers) {
       let suffix = '';
       if (
-        barrier.type === 'interface_alignment'
-        && barrier.alignment_decision_ids
-        && Array.isArray(barrier.alignment_decision_ids[snapshot.target_repo_id])
-        && barrier.alignment_decision_ids[snapshot.target_repo_id].length > 0
+        (barrier.type === 'interface_alignment' || barrier.type === 'named_decisions')
+        && barrier.required_decision_ids_by_repo
+        && Array.isArray(barrier.required_decision_ids_by_repo[snapshot.target_repo_id])
+        && barrier.required_decision_ids_by_repo[snapshot.target_repo_id].length > 0
       ) {
-        suffix = ` Required decision IDs for ${snapshot.target_repo_id}: ${barrier.alignment_decision_ids[snapshot.target_repo_id].join(', ')}.`;
+        suffix = ` Required decision IDs for ${snapshot.target_repo_id}: ${barrier.required_decision_ids_by_repo[snapshot.target_repo_id].join(', ')}.`;
       }
       lines.push(`- ${barrier.barrier_id}: ${barrier.type} (${barrier.status})${suffix}`);
     }

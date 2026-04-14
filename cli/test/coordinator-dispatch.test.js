@@ -454,6 +454,47 @@ describe('cross-repo context and dispatch', () => {
     }
   });
 
+  it('AT-NDB-003: named_decisions barriers surface required decision IDs and follow-ups in coordinator context', () => {
+    const { workspace, config, state } = setupWorkspace();
+
+    try {
+      const barriers = readBarriers(workspace);
+      barriers.delivery_governance = {
+        barrier_id: 'delivery_governance',
+        workstream_id: 'delivery',
+        type: 'named_decisions',
+        status: 'partially_satisfied',
+        required_repos: ['api', 'web'],
+        satisfied_repos: ['api'],
+        required_decision_ids_by_repo: {
+          api: ['DEC-301'],
+          web: ['DEC-401', 'DEC-402'],
+        },
+        notes: 'Do not advance until the named rollout decisions are accepted.',
+      };
+      writeJson(join(workspace, '.agentxchain/multirepo/barriers.json'), barriers);
+
+      const result = generateCrossRepoContext(workspace, state, config, 'web', 'delivery');
+      assert.equal(result.ok, true);
+
+      const json = JSON.parse(readFileSync(result.jsonPath, 'utf8'));
+      const md = readFileSync(result.mdPath, 'utf8');
+
+      assert.equal(json.active_barriers[0].barrier_id, 'delivery_governance');
+      assert.deepEqual(json.active_barriers[0].required_decision_ids_by_repo, {
+        api: ['DEC-301'],
+        web: ['DEC-401', 'DEC-402'],
+      });
+      assert.ok(
+        json.required_followups.some((item) => item.includes('Accept declared decision requirements for web: DEC-401, DEC-402.')),
+      );
+      assert.match(md, /delivery_governance/);
+      assert.match(md, /Required decision IDs for web: DEC-401, DEC-402/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('dispatchCoordinatorTurn assigns the repo-local turn, writes the bundle, and injects coordinator context artifacts', () => {
     const { workspace, config, state, apiRepo } = setupWorkspace();
 

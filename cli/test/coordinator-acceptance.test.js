@@ -329,6 +329,64 @@ describe('coordinator acceptance projection', () => {
     }
   });
 
+  it('AT-NDB-002: named_decisions requires declared decision ids, not just repo acceptance', () => {
+    const { workspace, config, state } = setupWorkspace({
+      workstreams: {
+        delivery: {
+          phase: 'implementation',
+          repos: ['api', 'web'],
+          entry_repo: 'api',
+          depends_on: [],
+          completion_barrier: 'named_decisions',
+          named_decisions: {
+            decision_ids_by_repo: {
+              api: ['DEC-301'],
+              web: ['DEC-401', 'DEC-402'],
+            },
+          },
+        },
+      },
+    });
+    try {
+      projectRepoAcceptance(workspace, state, config, 'api', makeAcceptedTurn('turn_api_wrong', {
+        decisions: [{ id: 'DEC-999' }],
+      }), 'delivery');
+
+      let evaluation = evaluateBarriers(workspace, state, config);
+      assert.equal(evaluation.barriers.delivery_completion.status, 'partially_satisfied');
+      assert.deepEqual(evaluation.barriers.delivery_completion.satisfied_repos, []);
+
+      projectRepoAcceptance(workspace, state, config, 'api', makeAcceptedTurn('turn_api_right', {
+        decisions: [{ id: 'DEC-301' }],
+      }), 'delivery');
+
+      evaluation = evaluateBarriers(workspace, state, config);
+      assert.equal(evaluation.barriers.delivery_completion.status, 'partially_satisfied');
+      assert.deepEqual(evaluation.barriers.delivery_completion.satisfied_repos, ['api']);
+
+      projectRepoAcceptance(workspace, state, config, 'web', makeAcceptedTurn('turn_web_partial', {
+        decisions: [{ id: 'DEC-401' }],
+      }), 'delivery');
+
+      evaluation = evaluateBarriers(workspace, state, config);
+      assert.equal(evaluation.barriers.delivery_completion.status, 'partially_satisfied');
+      assert.deepEqual(evaluation.barriers.delivery_completion.satisfied_repos, ['api']);
+
+      projectRepoAcceptance(workspace, state, config, 'web', makeAcceptedTurn('turn_web_complete', {
+        decisions: [{ id: 'DEC-401' }, { id: 'DEC-402' }],
+      }), 'delivery');
+
+      evaluation = evaluateBarriers(workspace, state, config);
+      assert.equal(evaluation.barriers.delivery_completion.status, 'satisfied');
+      assert.deepEqual(
+        evaluation.barriers.delivery_completion.satisfied_repos.sort(),
+        ['api', 'web'],
+      );
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CA-006: cross-repo write violation rejected at acceptance', () => {
     const { workspace, webRepo, config, state } = setupWorkspace();
     try {

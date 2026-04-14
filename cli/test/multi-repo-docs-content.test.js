@@ -20,6 +20,7 @@ const COORDINATOR_HOOKS = read('cli/src/lib/coordinator-hooks.js');
 const CROSS_REPO_CONTEXT = read('cli/src/lib/cross-repo-context.js');
 const COORDINATOR_PHASE_E2E = read('cli/test/e2e-coordinator-custom-phases.test.js');
 const SPEC = read('.planning/MULTI_REPO_DOC_PAGE_SPEC.md');
+const NAMED_DECISION_SPEC = read('.planning/NAMED_DECISION_BARRIERS_SPEC.md');
 
 describe('Multi-repo docs surface', () => {
   it('ships the dedicated docs page and wires it into the sidebar', () => {
@@ -93,6 +94,7 @@ describe('Multi-repo docs content', () => {
       'all_repos_accepted',
       'ordered_repo_sequence',
       'interface_alignment',
+      'named_decisions',
       'shared_human_gate',
     ]) {
       assert.match(COORDINATOR_CONFIG, new RegExp(barrierType));
@@ -124,6 +126,14 @@ describe('Multi-repo docs content', () => {
     assert.match(PAGE, /COORDINATOR_CONTEXT\.json/);
     assert.match(PAGE, /COORDINATOR_CONTEXT\.md/);
     assert.match(PAGE, /decision IDs still required/i);
+  });
+
+  it('documents named_decisions as the general decision-checkpoint barrier', () => {
+    assert.match(COORDINATOR_CONFIG, /named_decisions/);
+    assert.match(CROSS_REPO_CONTEXT, /Accept declared decision requirements/);
+    assert.match(PAGE, /General decision-checkpoint barrier/i);
+    assert.match(PAGE, /named_decisions\.decision_ids_by_repo/);
+    assert.match(NAMED_DECISION_SPEC, /\*\*Status:\*\*\s+shipped/i);
   });
 });
 

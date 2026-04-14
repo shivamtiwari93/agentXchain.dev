@@ -254,6 +254,45 @@ describe('coordinator config validation', () => {
     assert.ok(result.errors.some((error) => error.includes('workstream_interface_alignment_repo_missing')));
   });
 
+  it('AT-NDB-001a: accepts named_decisions only when explicit decision ids are declared per repo', () => {
+    const config = buildValidCoordinatorConfig({ web: './repos/web', cli: './repos/cli' });
+    config.workstreams.protocol_doc_sync.completion_barrier = 'named_decisions';
+    config.workstreams.protocol_doc_sync.named_decisions = {
+      decision_ids_by_repo: {
+        web: ['DEC-301'],
+        cli: ['DEC-401', 'DEC-402'],
+      },
+    };
+
+    const result = validateCoordinatorConfig(config);
+    assert.equal(result.ok, true, result.errors?.join('\n'));
+
+    const normalized = normalizeCoordinatorConfig(config);
+    assert.deepEqual(
+      normalized.workstreams.protocol_doc_sync.named_decisions,
+      {
+        decision_ids_by_repo: {
+          web: ['DEC-301'],
+          cli: ['DEC-401', 'DEC-402'],
+        },
+      },
+    );
+  });
+
+  it('AT-NDB-001b: rejects named_decisions without decision ids for every repo', () => {
+    const config = buildValidCoordinatorConfig({ web: './repos/web', cli: './repos/cli' });
+    config.workstreams.protocol_doc_sync.completion_barrier = 'named_decisions';
+    config.workstreams.protocol_doc_sync.named_decisions = {
+      decision_ids_by_repo: {
+        web: ['DEC-301'],
+      },
+    };
+
+    const result = validateCoordinatorConfig(config);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('workstream_named_decisions_repo_missing')));
+  });
+
   it('AT-MC-003: rejects a repo path that does not exist on disk', () => {
     const workspace = makeWorkspace();
     const cliRepo = join(workspace, 'repos', 'cli');

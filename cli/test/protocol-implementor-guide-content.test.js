@@ -58,6 +58,7 @@ describe('Protocol implementor guide surface', () => {
       'ordered_repo_sequence',
       'shared_human_gate',
       'interface_alignment',
+      'named_decisions',
     ]) {
       assert.ok(GUIDE.includes(term), `guide must mention ${term}`);
     }
@@ -163,6 +164,7 @@ describe('Protocol implementor guide surface', () => {
       'ordered_repo_sequence',
       'shared_human_gate',
       'interface_alignment',
+      'named_decisions',
       'decision_ids_by_repo',
     ]) {
       assert.match(section, new RegExp(term, 'i'), `coordinator section must match "${term}"`);

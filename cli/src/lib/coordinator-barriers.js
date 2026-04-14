@@ -41,7 +41,7 @@ export function getAcceptedReposForWorkstream(history, workstreamId, requiredRep
 
 export function getAlignedReposForBarrier(barrier, history) {
   const requiredRepos = Array.isArray(barrier.required_repos) ? barrier.required_repos : [];
-  const alignmentDecisionIds = barrier.alignment_decision_ids || {};
+  const alignmentDecisionIds = barrier.required_decision_ids_by_repo || barrier.alignment_decision_ids || {};
   const { repoDecisionIds } = collectAcceptedDecisionIds(history, barrier.workstream_id, requiredRepos);
   const alignedRepos = [];
 
@@ -105,6 +105,7 @@ export function computeBarrierStatus(barrier, history, config) {
       return computeOrderedRepoSequenceStatus(barrier, history, config);
 
     case 'interface_alignment':
+    case 'named_decisions':
       return computeInterfaceAlignmentStatus(barrier, history);
 
     case 'shared_human_gate':

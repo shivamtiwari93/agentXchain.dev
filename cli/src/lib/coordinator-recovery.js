@@ -366,7 +366,7 @@ export function resyncFromRepoAuthority(workspacePath, state, config) {
         barriersChanged = true;
       }
     }
-    if (barrier.type === 'interface_alignment') {
+    if (barrier.type === 'interface_alignment' || barrier.type === 'named_decisions') {
       const satisfiedRepos = getAlignedReposForBarrier(barrier, fullHistory);
       if (JSON.stringify(barrier.satisfied_repos || []) !== JSON.stringify(satisfiedRepos)) {
         barrier.satisfied_repos = satisfiedRepos;
