@@ -1,0 +1,56 @@
+---
+sidebar_position: 1
+title: "v2.90.0 Release Notes"
+description: "AgentXchain adds a first-class named_decisions coordinator barrier for explicit decision-gated synchronization across repos."
+---
+
+# AgentXchain v2.90.0
+
+`v2.90.0` adds a first-class **`named_decisions` coordinator barrier**. This is the general decision-checkpoint primitive the coordinator was missing.
+
+Before this release, the coordinator could require specific `DEC-NNN` IDs only through `interface_alignment`. That worked technically, but it was semantically wrong for many workflows. Not every governance checkpoint is an interface contract. Now operators can declare decision-gated barriers honestly.
+
+## What Changed
+
+### New `named_decisions` Barrier
+
+Coordinator workstreams can now declare:
+
+```json
+{
+  "completion_barrier": "named_decisions",
+  "named_decisions": {
+    "decision_ids_by_repo": {
+      "api": ["DEC-301"],
+      "web": ["DEC-401", "DEC-402"]
+    }
+  }
+}
+```
+
+The barrier is satisfied only when each required repo has accepted the declared decision IDs.
+
+### Coordinator Contract Hardening
+
+- Config validation rejects missing decision requirements, invalid `DEC-NNN` formats, duplicates, and undeclared repos
+- Barrier snapshots now persist `required_decision_ids_by_repo`
+- Recovery resync recomputes decision-gated satisfaction instead of flattening it
+- Cross-repo context shows the exact required decision IDs and follow-up instructions for the target repo
+
+### Backward Compatibility
+
+`interface_alignment` still works. `named_decisions` is the broader governance primitive; `interface_alignment` remains the narrower contract-alignment label for cases where that wording is actually correct.
+
+## New Decisions
+
+- `DEC-NAMED-DECISION-BARRIER-001`: decision-gated coordinator checkpoints must not be forced through the `interface_alignment` label
+- `DEC-NAMED-DECISION-BARRIER-002`: `named_decisions` and `interface_alignment` share the same evaluation path, but expose different operator intent
+
+## Evidence
+
+- 4406 tests / 945 suites / 0 failures
+- `cd website-v2 && npm run build` → success
+- Targeted coordinator proof:
+  - config validation for `named_decisions`
+  - barrier satisfaction from accepted decision IDs
+  - cross-repo context rendering of required decision IDs

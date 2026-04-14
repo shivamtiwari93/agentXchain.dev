@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.89.0
+# Launch Evidence Report — AgentXchain v2.90.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.89.0 release: delegation chain audit trail completed across dashboard, export, and governance report; proposed-authority dispatch fix; 4401 tests / 945 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.90.0 release: first-class `named_decisions` coordinator barrier, decision-gated context surfacing, and recovery/validation parity; 4406 tests / 945 suites / 0 failures.
 
 ---
 

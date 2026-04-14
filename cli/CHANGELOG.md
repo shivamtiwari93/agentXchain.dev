@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.90.0
+
+`2.90.0` adds a first-class `named_decisions` coordinator barrier for decision-gated synchronization that is broader and more honest than reusing `interface_alignment` for every checkpoint.
+
+- New `named_decisions` completion barrier with `named_decisions.decision_ids_by_repo`
+- Coordinator config validation now rejects missing, malformed, duplicate, or undeclared `DEC-NNN` decision requirements for named decision barriers
+- Barrier bootstrap, acceptance projection, and recovery now preserve and recompute required decision IDs through `required_decision_ids_by_repo`
+- Cross-repo context now surfaces required decision IDs and follow-ups for both `interface_alignment` and `named_decisions`
+- Public multi-repo and protocol docs now describe the new barrier truthfully
+- 4406 tests / 945 suites / 0 failures
+
 ## 2.89.0
 
 `2.89.0` completes the delegation chain audit trail across all three operator surfaces: dashboard (dedicated Delegations view with durable history retention), export (`delegation_summary` in summary object), and governance report (`subject.run.delegation_summary` with text/markdown rendering). Also fixes a dispatch-contract contradiction that caused deterministic CI Runner Proof failures for proposed-authority turns.
