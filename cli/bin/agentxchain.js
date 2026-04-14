@@ -199,7 +199,7 @@ program
 
 program
   .command('stop')
-  .description('Stop watch daemon and Claude Code sessions; close Cursor/VS Code chats manually')
+  .description('Stop dashboard/watch daemons and Claude Code sessions; close Cursor/VS Code chats manually')
   .action(stopCommand);
 
 program
@@ -477,6 +477,7 @@ program
   .command('dashboard')
   .description('Open the read-only governance dashboard in your browser')
   .option('--port <port>', 'Server port', '3847')
+  .option('--daemon', 'Run the dashboard in background mode')
   .option('--no-open', 'Do not auto-open the browser')
   .action(dashboardCommand);
 

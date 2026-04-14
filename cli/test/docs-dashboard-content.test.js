@@ -28,6 +28,7 @@ const CLI_README = readFileSync(join(REPO_ROOT, 'cli', 'README.md'), 'utf8');
 const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const DASHBOARD_CONTINUITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONTINUITY_SURFACE_SPEC.md'), 'utf8');
 const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONTINUITY_ACTIONABILITY_SPEC.md'), 'utf8');
+const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -51,6 +52,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('agentxchain dashboard [options]'), 'cli docs must show the dashboard command');
     assert.ok(CLI_DOCS.includes('--port <port>'), 'cli docs must document --port');
     assert.ok(CLI_DOCS.includes('`3847`'), 'cli docs must document the real default port');
+    assert.ok(CLI_DOCS.includes('--daemon'), 'cli docs must document --daemon');
     assert.ok(CLI_DOCS.includes('--no-open'), 'cli docs must document --no-open');
     assert.ok(!CLI_DOCS.includes('--host <addr>'), 'cli docs must not advertise unsupported --host');
   });
@@ -58,9 +60,12 @@ describe('Dashboard docs contract — command surface', () => {
   it('matches the actual dashboard CLI implementation', () => {
     assert.ok(CLI_BIN.includes(".command('dashboard')"), 'CLI must register dashboard command');
     assert.ok(CLI_BIN.includes(".option('--port <port>'"), 'CLI must expose --port');
+    assert.ok(CLI_BIN.includes(".option('--daemon'"), 'CLI must expose --daemon');
     assert.ok(CLI_BIN.includes(".option('--no-open'"), 'CLI must expose --no-open');
     assert.ok(!CLI_BIN.includes(".option('--host"), 'CLI must not expose a host flag');
     assert.ok(DASHBOARD_COMMAND.includes('const DEFAULT_PORT = 3847;'), 'dashboard command must default to 3847');
+    assert.ok(DASHBOARD_COMMAND.includes('.agentxchain-dashboard.pid'), 'dashboard command must persist a PID file');
+    assert.ok(DASHBOARD_COMMAND.includes('.agentxchain-dashboard.json'), 'dashboard command must persist session metadata');
   });
 
   it('documents the local-only gate-approval bridge contract', () => {
@@ -174,5 +179,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /AT-CA-003/);
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /GET \/api\/continuity/);
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /recommended_command/);
+  });
+
+  it('ships a durable spec for dashboard daemon lifecycle', () => {
+    assert.match(DASHBOARD_DAEMON_SPEC, /Dashboard Daemon Spec/);
+    assert.match(DASHBOARD_DAEMON_SPEC, /AT-DASH-DAEMON-001/);
+    assert.match(DASHBOARD_DAEMON_SPEC, /\.agentxchain-dashboard\.pid/);
+    assert.match(DASHBOARD_DAEMON_SPEC, /agentxchain stop/);
   });
 });

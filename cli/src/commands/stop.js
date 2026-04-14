@@ -3,9 +3,12 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
 import { getWatchPid } from './watch.js';
+import { cleanupDashboardFiles, getDashboardPid, getDashboardSession } from './dashboard.js';
 
 const SESSION_FILE = '.agentxchain-session.json';
 const WATCH_PID_FILE = '.agentxchain-watch.pid';
+const DASHBOARD_PID_FILE = '.agentxchain-dashboard.pid';
+const DASHBOARD_SESSION_FILE = '.agentxchain-dashboard.json';
 
 export async function stopCommand() {
   const result = loadConfig();
@@ -14,7 +17,12 @@ export async function stopCommand() {
   const { root } = result;
   const sessionPath = join(root, SESSION_FILE);
   const watchPidPath = join(root, WATCH_PID_FILE);
+  const dashboardPidPath = join(root, DASHBOARD_PID_FILE);
+  const dashboardSessionPath = join(root, DASHBOARD_SESSION_FILE);
   const watchPid = getWatchPid(root);
+  const hadDashboardArtifacts = existsSync(dashboardPidPath) || existsSync(dashboardSessionPath);
+  const dashboardPid = getDashboardPid(root);
+  const dashboardSession = getDashboardSession(root);
   let didStopAnything = false;
 
   if (watchPid) {
@@ -39,6 +47,26 @@ export async function stopCommand() {
       unlinkSync(watchPidPath);
       console.log(chalk.dim('  Removed stale watch PID file.'));
     } catch {}
+  }
+
+  if (dashboardPid) {
+    try {
+      process.kill(dashboardPid, 'SIGTERM');
+      cleanupDashboardFiles(root);
+      didStopAnything = true;
+      console.log('');
+      console.log(chalk.green(`  ✓ Stopped dashboard process (PID: ${dashboardPid})${dashboardSession?.url ? ` at ${dashboardSession.url}` : ''}`));
+      console.log('');
+    } catch (err) {
+      if (err.code === 'ESRCH') {
+        cleanupDashboardFiles(root);
+      } else {
+        console.log(chalk.red(`  ✗ Could not stop dashboard process (PID: ${dashboardPid}): ${err.message}`));
+      }
+    }
+  } else if (hadDashboardArtifacts) {
+    cleanupDashboardFiles(root);
+    console.log(chalk.dim('  Removed stale dashboard session files.'));
   }
 
   if (existsSync(sessionPath)) {

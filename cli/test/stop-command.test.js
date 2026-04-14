@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
+const DASHBOARD_PID_FILE = '.agentxchain-dashboard.pid';
+const DASHBOARD_SESSION_FILE = '.agentxchain-dashboard.json';
 
 const tempDirs = new Set();
 const trackedPids = new Set();
@@ -184,5 +186,42 @@ describe('agentxchain stop', () => {
     const result = runCli(dir, ['stop']);
     assert.notEqual(result.status, 0, 'missing project root should fail');
     assert.match(result.stdout, /No agentxchain\.json found/);
+  });
+
+  it('AT-DASH-DAEMON-005: stops a live dashboard PID with SIGTERM and removes session files', async () => {
+    const dir = createProject();
+    const pid = spawnSleeper();
+    writeFileSync(join(dir, DASHBOARD_PID_FILE), String(pid));
+    writeFileSync(join(dir, DASHBOARD_SESSION_FILE), JSON.stringify({
+      pid,
+      port: 3847,
+      url: 'http://localhost:3847',
+      started_at: '2026-04-14T15:00:00.000Z',
+    }, null, 2));
+
+    const result = runCli(dir, ['stop']);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /Stopped dashboard process/);
+
+    await waitForExit(pid);
+    assert.equal(existsSync(join(dir, DASHBOARD_PID_FILE)), false, 'dashboard PID file should be removed');
+    assert.equal(existsSync(join(dir, DASHBOARD_SESSION_FILE)), false, 'dashboard session file should be removed');
+  });
+
+  it('AT-DASH-DAEMON-006: removes stale dashboard session files and reports the cleanup', () => {
+    const dir = createProject();
+    writeFileSync(join(dir, DASHBOARD_PID_FILE), '999999');
+    writeFileSync(join(dir, DASHBOARD_SESSION_FILE), JSON.stringify({
+      pid: 999999,
+      port: 3847,
+      url: 'http://localhost:3847',
+      started_at: '2026-04-14T15:00:00.000Z',
+    }, null, 2));
+
+    const result = runCli(dir, ['stop']);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /Removed stale dashboard session files/);
+    assert.equal(existsSync(join(dir, DASHBOARD_PID_FILE)), false, 'stale dashboard PID file should be removed');
+    assert.equal(existsSync(join(dir, DASHBOARD_SESSION_FILE)), false, 'stale dashboard session file should be removed');
   });
 });

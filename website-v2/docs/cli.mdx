@@ -1041,9 +1041,12 @@ agentxchain dashboard [options]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--port <port>` | `3847` | Port for the local bridge server |
+| `--daemon` | `false` | Start the dashboard in the background and print the live PID + URL |
 | `--no-open` | `false` | Do not auto-open the browser |
 
 Launches a local web dashboard with live updates via WebSocket. The bridge binds locally to `127.0.0.1` and prints a `http://localhost:<port>` URL for convenience.
+
+When `--daemon` is used, the dashboard writes `.agentxchain-dashboard.pid` and `.agentxchain-dashboard.json` in the project root after the bridge is actually listening. Stop the background dashboard with `agentxchain stop`.
 
 The shipped dashboard surface has thirteen top-level views:
 
