@@ -29,7 +29,7 @@ Public docs:
    Proves the actual `agentxchain run --auto-approve` CLI surface can complete an unattended governed run in CI with real API dispatch and governance report output.
 
 6. `node examples/ci-runner-proof/run-multi-phase-write.mjs`
-   Proves a 3-phase governed run (planning → implementation → qa) with a write-owning (proposed) turn, real gate artifact check (`requires_files: ["src/server.js"]`), proposal application, and explicit gate-pass reporting through `phase_gate_status`. This is the widest lights-out proof: multi-phase lifecycle, file mutations, and gate-driven phase advancement.
+   Proves a 3-phase governed run (planning → implementation → qa) with a write-owning (proposed) turn, real gate artifact check (`requires_files: ["src/server.js"]`), proposal application, and explicit gate-pass reporting through `phase_gate_status`. The proposed-turn contract is strict: `artifact.type` must be `patch` and file changes must arrive via `proposed_changes[]`, not raw `workspace` claims. This is the widest lights-out proof: multi-phase lifecycle, file mutations, and gate-driven phase advancement.
 
 Build your own runner in that order. If the primitive path is not solid, adding `runLoop` only hides the defect.
 

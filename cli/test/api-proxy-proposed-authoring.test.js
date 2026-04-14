@@ -311,6 +311,8 @@ describe('api_proxy proposed authoring — dispatch bundle', () => {
       assert.match(prompt, /proposed_changes/, 'Prompt must mention proposed_changes');
       assert.match(prompt, /\.agentxchain\/proposed\//, 'Prompt must mention materialization path');
       assert.match(prompt, /cannot write repo files directly/, 'Prompt must state api_proxy cannot write directly');
+      assert.match(prompt, /Do NOT use `workspace` or `commit`/, 'Prompt must forbid illegal artifact types for proposed api_proxy turns');
+      assert.match(prompt, /artifact\.type` to `patch`/, 'Prompt must require patch artifact type for non-completion turns');
     } finally {
       rmSync(env.tmp, { recursive: true, force: true });
     }
@@ -325,6 +327,7 @@ describe('api_proxy proposed authoring — dispatch bundle', () => {
       const prompt = readFileSync(promptPath, 'utf8');
       assert.match(prompt, /Completion turns must be no-op/, 'Prompt must tell proposed roles that completion turns are no-op');
       assert.match(prompt, /run_completion_request/, 'Prompt must mention run_completion_request');
+      assert.match(prompt, /artifact\.type` to `"review"`/, 'Prompt must tell completion-only proposed turns to use review artifact type');
     } finally {
       rmSync(env.tmp, { recursive: true, force: true });
     }

@@ -637,6 +637,40 @@ describe('dispatch bundle: turn result template', () => {
     assert.ok(!prompt.includes('must be non-empty'));
   });
 
+  it('PROMPT.md includes patch template and proposed_changes for proposed role', () => {
+    const proposedConfig = {
+      ...config,
+      roles: {
+        ...config.roles,
+        dev: {
+          ...config.roles.dev,
+          write_authority: 'proposed',
+          runtime_class: 'api_proxy',
+          runtime_id: 'api-dev',
+        },
+      },
+      runtimes: {
+        ...config.runtimes,
+        'api-dev': { type: 'api_proxy' },
+      },
+    };
+
+    initializeGovernedRun(root, proposedConfig);
+    const state = readJson(root, STATE_PATH);
+    state.phase = 'implementation';
+    writeFileSync(join(root, STATE_PATH), JSON.stringify(state, null, 2));
+
+    assignGovernedTurn(root, proposedConfig, 'dev');
+    const proposedState = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, proposedState, proposedConfig);
+    const prompt = readFileSync(join(root, bundleDirFor(proposedState), 'PROMPT.md'), 'utf8');
+
+    assert.match(prompt, /"type": "patch"/);
+    assert.match(prompt, /"proposed_changes": \[/);
+    assert.match(prompt, /Do NOT use `artifact\.type: "workspace"` or `artifact\.type: "commit"`/);
+  });
+
   it('turn result template has correct run_id and turn_id', () => {
     initializeGovernedRun(root, config);
     assignGovernedTurn(root, config, 'pm');

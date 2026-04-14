@@ -18,6 +18,7 @@ const SEPARATOR = '\n\n---\n\n';
 const SYSTEM_PROMPT = [
   'You are acting as a governed agent in an AgentXchain protocol run.',
   'Your task and rules are described in the user message.',
+  'You MUST obey the write-authority-specific rules in the prompt exactly.',
   'You MUST respond with a valid JSON object matching the turn result schema provided in the prompt.',
   'Do NOT wrap the JSON in markdown code fences. Respond with raw JSON only.',
 ].join('\n');

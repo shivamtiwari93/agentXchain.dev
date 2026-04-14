@@ -244,6 +244,8 @@ function renderPrompt(role, roleId, turn, state, config, root) {
     lines.push('- Your artifact type should be `patch`.');
     if (runtimeType === 'api_proxy' || runtimeType === 'remote_agent') {
       lines.push('- **This runtime cannot write repo files directly.** When doing work, you MUST return proposed changes as structured JSON.');
+      lines.push('- For non-completion turns, set `artifact.type` to `patch`. Do NOT use `workspace` or `commit`.');
+      lines.push('- Use `artifact.type: "review"` only for completion-only final-phase turns that propose no file changes.');
       lines.push('- Include a `proposed_changes` array in your turn result with each file change (omit or set to `[]` on completion-only turns):');
       lines.push('  ```json');
       lines.push('  "proposed_changes": [');
@@ -395,6 +397,10 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   lines.push('- `proposed_next_role`: must be in allowed_next_roles for current phase, or `human`');
   if (role.write_authority === 'review_only') {
     lines.push('- `objections`: **must be non-empty** (challenge requirement for review_only roles)');
+  }
+  if (role.write_authority === 'proposed' && (runtimeType === 'api_proxy' || runtimeType === 'remote_agent')) {
+    lines.push('- For `proposed` `api_proxy`/`remote_agent` turns with file changes, `artifact.type` must be `patch` and `proposed_changes` must be non-empty.');
+    lines.push('- Do NOT use `artifact.type: "workspace"` or `artifact.type: "commit"` on a `proposed` `api_proxy`/`remote_agent` turn.');
   }
   // List valid phase names explicitly to prevent gate-name confusion
   const phaseNames = config.routing ? Object.keys(config.routing) : [];
@@ -1266,6 +1272,7 @@ function readLastHistoryEntry(root, warnings = []) {
 
 function buildTurnResultTemplate(state, turn, roleId, role) {
   const isReviewOnly = role.write_authority === 'review_only';
+  const isProposed = role.write_authority === 'proposed';
   return {
     schema_version: '1.0',
     run_id: state.run_id,
@@ -1306,13 +1313,24 @@ function buildTurnResultTemplate(state, turn, roleId, role) {
         : [{ command: '<exact command that was run>', exit_code: 0 }],
     },
     artifact: {
-      type: isReviewOnly ? 'review' : 'workspace',
-      ref: isReviewOnly ? null : 'git:dirty',
+      type: isReviewOnly ? 'review' : (isProposed ? 'patch' : 'workspace'),
+      ref: isReviewOnly ? null : (isProposed ? null : 'git:dirty'),
     },
     proposed_next_role: '<role_id that should act next>',
     phase_transition_request: null,
     run_completion_request: null,
     needs_human_reason: null,
+    ...(isProposed
+      ? {
+          proposed_changes: [
+            {
+              path: '<path/to/modified/file>',
+              action: 'create',
+              content: '<full file content>',
+            },
+          ],
+        }
+      : {}),
     cost: {
       input_tokens: 0,
       output_tokens: 0,
