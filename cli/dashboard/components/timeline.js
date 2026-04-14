@@ -187,6 +187,23 @@ function renderTurnDetailPanel(turnId, annotations, audit, coordinatorAnnotation
   return html;
 }
 
+function renderDelegationIssued(entry) {
+  const issued = Array.isArray(entry?.delegations_issued) ? entry.delegations_issued : [];
+  if (issued.length === 0) return '';
+  return `<div class="turn-detail"><span class="detail-label">Delegated:</span> ${issued.map((item) => `${esc(item.id)} → ${esc(item.to_role)}`).join(', ')}</div>`;
+}
+
+function renderDelegationContext(context) {
+  if (!context) return '';
+  return `<div class="turn-detail"><span class="detail-label">Delegation:</span> <span class="mono">${esc(context.delegation_id)}</span> from ${esc(context.parent_role || 'unknown')} — ${esc(context.charter || '(no charter)')}</div>`;
+}
+
+function renderDelegationReview(review) {
+  if (!review) return '';
+  const resultCount = Array.isArray(review.results) ? review.results.length : 0;
+  return `<div class="turn-detail"><span class="detail-label">Delegation Review:</span> <span class="mono">${esc(review.parent_turn_id || 'unknown')}</span> with ${esc(resultCount)} result${resultCount === 1 ? '' : 's'}</div>`;
+}
+
 function renderContinuityPanel(continuity) {
   if (!continuity) return '';
 
@@ -323,6 +340,8 @@ export function render({ state, continuity, history, annotations, audit, connect
           <span class="turn-status">${esc(turn.status || 'assigned')}</span>
           ${elapsedStr ? `<span class="turn-timing">Elapsed: ${esc(elapsedStr)}</span>` : ''}
         </div>
+        ${renderDelegationContext(turn.delegation_context)}
+        ${renderDelegationReview(turn.delegation_review)}
       </div>`;
     }
     html += `</div></div>`;
@@ -354,6 +373,10 @@ export function render({ state, continuity, history, annotations, audit, connect
       if (entry.summary) {
         html += `<div class="turn-summary">${esc(entry.summary)}</div>`;
       }
+
+      html += renderDelegationIssued(entry);
+      html += renderDelegationContext(entry.delegation_context);
+      html += renderDelegationReview(entry.delegation_review);
 
       if (files.length > 0) {
         html += `<div class="turn-detail"><span class="detail-label">Files:</span> <span class="mono">${files.map(f => esc(f)).join(', ')}</span></div>`;

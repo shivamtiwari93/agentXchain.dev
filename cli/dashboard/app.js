@@ -12,6 +12,7 @@ import { render as renderBlocked } from './components/blocked.js';
 import { render as renderGate } from './components/gate.js';
 import { render as renderInitiative } from './components/initiative.js';
 import { render as renderCrossRepo } from './components/cross-repo.js';
+import { render as renderDelegations } from './components/delegations.js';
 import { render as renderBlockers } from './components/blockers.js';
 import { render as renderArtifacts } from './components/artifacts.js';
 import { render as renderRunHistory } from './components/run-history.js';
@@ -20,6 +21,7 @@ import { render as renderCoordinatorTimeouts } from './components/coordinator-ti
 
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
+  delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },

@@ -2628,6 +2628,35 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     ...(currentTurn.started_at ? { started_at: currentTurn.started_at } : {}),
     accepted_at: now,
     ...(currentTurn.started_at ? { duration_ms: Math.max(0, new Date(now).getTime() - new Date(currentTurn.started_at).getTime()) } : {}),
+    ...(Array.isArray(turnResult.delegations) && turnResult.delegations.length > 0
+      ? {
+          delegations_issued: turnResult.delegations.map((delegation) => ({
+            id: delegation.id,
+            to_role: delegation.to_role,
+            charter: delegation.charter,
+            acceptance_contract: delegation.acceptance_contract,
+          })),
+        }
+      : {}),
+    ...(currentTurn.delegation_context
+      ? {
+          delegation_context: {
+            delegation_id: currentTurn.delegation_context.delegation_id,
+            parent_turn_id: currentTurn.delegation_context.parent_turn_id,
+            parent_role: currentTurn.delegation_context.parent_role,
+            charter: currentTurn.delegation_context.charter,
+            acceptance_contract: currentTurn.delegation_context.acceptance_contract,
+          },
+        }
+      : {}),
+    ...(currentTurn.delegation_review
+      ? {
+          delegation_review: {
+            parent_turn_id: currentTurn.delegation_review.parent_turn_id,
+            results: currentTurn.delegation_review.results,
+          },
+        }
+      : {}),
   };
   const nextHistoryEntries = [...historyEntries, historyEntry];
   // Build ledger entries for the journal

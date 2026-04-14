@@ -36,6 +36,13 @@ function readState(root) {
   return normalizeGovernedStateShape(raw).state;
 }
 
+function readHistory(root) {
+  const file = join(root, '.agentxchain', 'history.jsonl');
+  const content = readFileSync(file, 'utf8').trim();
+  if (!content) return [];
+  return content.split('\n').map((line) => JSON.parse(line));
+}
+
 function gitCommit(root) {
   execSync('git add -A && git commit -m "state" --allow-empty', { cwd: root, stdio: 'ignore' });
 }
@@ -307,6 +314,87 @@ describe('Delegation Chains', () => {
 
       state = readState(root);
       assert.equal(state.pending_delegation_review, null);
+    });
+  });
+
+  describe('AT-DASH-DEL-001: Parent turn history retains delegations_issued', () => {
+    it('records emitted delegations on the accepted parent turn', () => {
+      const { root, config } = setup();
+      const a1 = assignGovernedTurn(root, config, 'director');
+      assert.ok(a1.ok);
+
+      let state = readState(root);
+      const delegations = [
+        { id: 'del-001', to_role: 'dev', charter: 'Implement auth middleware', acceptance_contract: ['Auth tests pass'] },
+        { id: 'del-002', to_role: 'qa', charter: 'Review auth implementation', acceptance_contract: ['Security review complete'] },
+      ];
+      const result = stageAcceptCommit(root, config, state, makeTurnResult(state, { delegations }));
+      assert.ok(result.ok, `Accept failed: ${result.error}`);
+
+      const history = readHistory(root);
+      assert.equal(history.length, 1);
+      assert.deepEqual(history[0].delegations_issued, delegations);
+    });
+  });
+
+  describe('AT-DASH-DEL-002: Delegated child turn history retains delegation_context', () => {
+    it('records the parent linkage on delegated child turns', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{ id: 'del-001', to_role: 'dev', charter: 'Build auth', acceptance_contract: ['Auth works'] }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'dev').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'dev',
+        proposed_next_role: 'director',
+        summary: 'Delegated implementation completed.',
+      })).ok);
+
+      const history = readHistory(root);
+      assert.equal(history.length, 2);
+      assert.equal(history[1].delegation_context.delegation_id, 'del-001');
+      assert.equal(history[1].delegation_context.parent_role, 'director');
+      assert.equal(history[1].delegation_context.charter, 'Build auth');
+    });
+  });
+
+  describe('AT-DASH-DEL-003: Delegation review turn history retains delegation_review', () => {
+    it('records the review payload on the accepted parent review turn', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{ id: 'del-001', to_role: 'dev', charter: 'Build auth', acceptance_contract: ['Auth works'] }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'dev').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'dev',
+        proposed_next_role: 'director',
+        summary: 'Delegated implementation completed.',
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'director',
+        proposed_next_role: 'human',
+        summary: 'Reviewed delegated results.',
+      })).ok);
+
+      const history = readHistory(root);
+      assert.equal(history.length, 3);
+      assert.equal(history[2].delegation_review.parent_turn_id, history[0].turn_id);
+      assert.equal(history[2].delegation_review.results.length, 1);
+      assert.equal(history[2].delegation_review.results[0].delegation_id, 'del-001');
+      assert.equal(history[2].delegation_review.results[0].status, 'completed');
     });
   });
 

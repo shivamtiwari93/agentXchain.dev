@@ -23,6 +23,7 @@ import { render as renderBlocked } from '../dashboard/components/blocked.js';
 import { render as renderGate } from '../dashboard/components/gate.js';
 import { render as renderInitiative } from '../dashboard/components/initiative.js';
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
+import { render as renderDelegations } from '../dashboard/components/delegations.js';
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
 import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
@@ -334,6 +335,7 @@ describe('App Shell — VIEWS registry', () => {
 
   const COMPONENTS = {
     timeline: renderTimeline,
+    delegations: renderDelegations,
     ledger: renderLedger,
     hooks: renderHooks,
     blocked: renderBlocked,
@@ -372,6 +374,7 @@ describe('App Shell — VIEWS registry', () => {
   it('app.js registers the full shipped view set', () => {
     assert.deepEqual(viewIds, [
       'timeline',
+      'delegations',
       'ledger',
       'hooks',
       'blocked',

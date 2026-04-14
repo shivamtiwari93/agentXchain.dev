@@ -90,7 +90,7 @@ describe('Dashboard docs contract — view surface', () => {
   const viewIds = extractViewIds(DASHBOARD_APP);
 
   it('documents every shipped top-level dashboard view', () => {
-    assert.equal(navViews.length, 12, 'dashboard nav must expose twelve top-level views');
+    assert.equal(navViews.length, 13, 'dashboard nav must expose thirteen top-level views');
     for (const view of navViews) {
       assert.ok(viewIds.includes(view.id), `app.js must define view "${view.id}"`);
       assert.ok(
@@ -103,6 +103,10 @@ describe('Dashboard docs contract — view surface', () => {
   it('documents the coordinator and approval-specific surfaces truthfully', () => {
     assert.ok(CLI_DOCS.includes('Initiative'), 'cli docs must document coordinator initiative view');
     assert.ok(CLI_DOCS.includes('Cross-Repo'), 'cli docs must document cross-repo view');
+    assert.ok(CLI_DOCS.includes('Delegations'), 'cli docs must document delegation view');
+    assert.ok(CLI_DOCS.includes('delegation_queue'), 'cli docs must describe live delegation queue visibility');
+    assert.ok(CLI_DOCS.includes('delegation_review'), 'cli docs must describe pending delegation review visibility');
+    assert.ok(CLI_DOCS.includes('delegations_issued'), 'cli docs must describe retained delegation history metadata');
     assert.ok(CLI_DOCS.includes('coordinator decision ledger'), 'cli docs must document coordinator decision visibility');
     assert.ok(CLI_DOCS.includes('approve-transition'), 'cli docs must mention approve-transition');
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention approve-completion');
