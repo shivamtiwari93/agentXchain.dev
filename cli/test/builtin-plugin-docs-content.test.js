@@ -70,6 +70,11 @@ describe('built-in plugin docs surface', () => {
     assert.doesNotMatch(GITHUB_ISSUES_DOC, /multi-issue routing is supported/i);
   });
 
+  it('AT-GHI-PROOF-007: github issues docs name both proof surfaces', () => {
+    assert.match(GITHUB_ISSUES_DOC, /e2e-builtin-github-issues\.test\.js/);
+    assert.match(GITHUB_ISSUES_DOC, /run-github-issues-proof\.mjs/);
+  });
+
   it('AT-BUILTIN-PLUGIN-DOCS-007: llms includes all dedicated routes', () => {
     for (const route of [
       'https://agentxchain.dev/docs/plugins/slack-notify',

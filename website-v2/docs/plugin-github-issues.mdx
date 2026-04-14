@@ -77,6 +77,31 @@ agentxchain plugin install github-issues \
 - Missing token env returns `warn`.
 - GitHub API failures return `warn`.
 
+## Proof Surfaces
+
+The `github-issues` plugin has two levels of proof:
+
+### Continuous subprocess proof
+
+`cli/test/e2e-builtin-github-issues.test.js` — installs the plugin by short name into a temp governed project, runs a governed flow with mock local runtimes, and verifies that the plugin hooks are invoked and produce correct advisory verdicts. Runs in CI without GitHub credentials.
+
+### Live product-example proof
+
+`examples/governed-todo-app/run-github-issues-proof.mjs` — runs a real 3-role governed `agentxchain run` with the `github-issues` plugin installed, targeting [issue #77](https://github.com/shivamtiwari93/agentXchain.dev/issues/77). After the run completes, verifies via GitHub API that the plugin posted a comment with the run marker and synced managed labels.
+
+**Recorded case study (2026-04-13):**
+
+| Field | Value |
+|-------|-------|
+| Run ID | `run_c2b690192eade09a` |
+| Plugin source | `builtin:github-issues` |
+| Roles | pm → dev → qa |
+| Accepted turns | 3 |
+| Decision ledger | 7 entries |
+| Cost | $0.019 |
+| Comment | [#issuecomment-4240678624](https://github.com/shivamtiwari93/agentXchain.dev/issues/77#issuecomment-4240678624) |
+| Labels | `agentxchain`, `agentxchain:phase:qa` |
+
 ## Boundaries
 
 - This plugin does **not** close issues.

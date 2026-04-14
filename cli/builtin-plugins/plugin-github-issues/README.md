@@ -2,7 +2,14 @@
 
 Built-in AgentXchain plugin that mirrors governed run status into a configured GitHub issue.
 
-Install from this repo:
+Install by short name (recommended):
+
+```bash
+agentxchain plugin install github-issues \
+  --config '{"repo":"owner/name","issue_number":42}'
+```
+
+Install from local path:
 
 ```bash
 agentxchain plugin install ./plugins/plugin-github-issues
@@ -29,3 +36,8 @@ Scope notes:
 - One plugin-owned comment per run, updated in place
 - Managed labels track phase or blocked state only
 - This plugin does **not** close issues or claim post-gate approval state because the hook surface does not provide post-gate truth
+
+Proof surfaces:
+
+- Continuous subprocess proof: `cli/test/e2e-builtin-github-issues.test.js`
+- Live product-example proof: `examples/governed-todo-app/run-github-issues-proof.mjs`
