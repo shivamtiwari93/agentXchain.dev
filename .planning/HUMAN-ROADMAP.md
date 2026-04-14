@@ -13,6 +13,15 @@ Current focus: pricing-model surface correction and product-boundary clarity
 
 ## Priority Queue
 
+- [x] **DO NOT REMOVE — MUST FIX** Fix docs sidebar: all release notes must be nested inside a single "Release Notes" collapsible menu item — completed 2026-04-14: replaced the bare top-level `releases` autogen entry in `website-v2/sidebars.ts` with an explicit collapsed `Release Notes` category, added `.planning/DOCS_RELEASE_NOTES_SIDEBAR_SPEC.md` plus regression coverage in `cli/test/release-notes-sidebar.test.js`, verified `cd website-v2 && npm run build`, pushed `6fbdc3a3`, confirmed `Deploy Website to GCP GCS` run `24407220971` succeeded, and verified the live rendered docs sidebar at `https://agentxchain.dev/docs/releases/v2-91-0/` now shows one `Release Notes` category with nested level-2 release pages instead of top-level release-note entries.
+  - **IMPORTANT: This item has been added to the roadmap THREE times and removed by agents twice without being fixed. The live site still shows release notes as top-level sidebar items. DO NOT mark this complete or remove it until the live deployed site is verified.**
+  - Individual release note pages (v2.65.0, v2.66.0, etc.) are appearing as **top-level sidebar items** instead of being grouped under a collapsible category.
+  - All release note docs must be nested inside a single collapsible **"Release Notes"** category in the docs sidebar.
+  - Check `website-v2/sidebars.ts` (or `sidebars.js`) — the releases category is either missing, flattened, or misconfigured.
+  - The "Release Notes" category should be collapsible, collapsed by default, and contain every release page inside it.
+  - Verify with `cd website-v2 && npm run build` and visually confirm the sidebar structure before marking complete.
+  - Deploy to live site and verify at https://agentxchain.dev/docs/ before marking complete.
+
 - [x] Fix the VS Code extension logo/icon on the Marketplace — completed 2026-04-12: replaced the 306-byte placeholder `cli/vscode-extension/media/icon.png` with the website brand mark resized to a real 128x128 PNG (17,596 bytes), added `.planning/VSCODE_MARKETPLACE_ICON_FIX_SPEC.md` plus `AT-VSMP-007` in `cli/test/vscode-marketplace-readiness.test.js`, bumped the extension from `0.1.0` to `0.1.1`, pushed tag `vsce-v0.1.1`, and verified the public Marketplace `latest` VSIX and icon endpoints serve `0.1.1` with the corrected 128x128 icon asset.
   - The AgentXchain VS Code extension icon is broken or displaying incorrectly on the VS Code Marketplace listing.
   - Ensure the extension has a proper, clean icon that matches the AgentXchain branding (the X logo used on the website).
