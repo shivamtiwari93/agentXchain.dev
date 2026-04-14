@@ -76,6 +76,7 @@ Run-export reports carry:
 | `subject.run.active_roles` | Sorted active role ids |
 | `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
 | `subject.run.cost_summary` | Aggregated per-run cost breakdown (see below) or `null` when no turns exist |
+| `subject.run.delegation_summary` | Delegation-chain audit summary derived from the verified export summary or accepted history fallback |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Run timing summary when available |
 | `subject.run.turns` | Accepted-turn timeline derived from `.agentxchain/history.jsonl` |
 | `subject.run.decisions` | Decision digest derived from `.agentxchain/decision-ledger.jsonl` (entries with `id` field) |
@@ -117,6 +118,39 @@ When the governed project config includes `project.goal`, the derived report pre
 | `by_phase` | `array` | Per-phase breakdown sorted alphabetically. Each entry: `{ phase, usd, turns }` |
 
 Text and markdown output render a dedicated **Cost Summary** section with role and phase breakdowns between the budget line and the turn timeline.
+
+#### Delegation Summary
+
+`subject.run.delegation_summary` surfaces accepted delegation chains without forcing operators to parse raw `history.jsonl`.
+
+It is `null` when history is unavailable. Otherwise it contains:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `total_delegations_issued` | `number` | Total delegations issued across all parent turns |
+| `delegation_chains` | `array` | Delegation chains grouped by parent turn |
+
+Each chain entry contains:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `parent_turn_id` | `string` | Turn that issued the delegations |
+| `parent_role` | `string` | Role that delegated |
+| `delegations` | `array` | Individual delegation entries |
+| `review_turn_id` | `string \| null` | Review turn that accepted the child results, or `null` while pending |
+| `outcome` | `"completed" \| "failed" \| "mixed" \| "pending"` | Aggregated chain outcome |
+
+Each delegation entry contains:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `delegation_id` | `string` | Delegation identifier |
+| `to_role` | `string` | Delegated role |
+| `charter` | `string` | Delegated task description |
+| `status` | `"completed" \| "failed" \| "pending"` | Child outcome |
+| `child_turn_id` | `string \| null` | Child turn id, or `null` when not yet executed |
+
+When delegation chains exist, text and markdown output render a dedicated **Delegation Summary** section before the turn timeline.
 
 ## `subject.kind = coordinator_workspace`
 
@@ -211,6 +245,7 @@ Plain-text output is intended for terminal inspection. It includes:
 `markdown` exists for copy-paste into pull requests, release notes, tickets, or audit records without manual reformatting. It uses the same verified report data as `json`, and now adds sectioned operator context when available:
 
 - `## Turn Timeline`
+- `## Delegation Summary`
 - `## Coordinator Timeline`
 - `## Decisions`
 - `## Hook Activity`

@@ -166,7 +166,7 @@ function countDirectoryFiles(files, prefix) {
   return Object.keys(files).filter((path) => path.startsWith(`${prefix}/`)).length;
 }
 
-function buildDelegationSummary(files) {
+export function buildDelegationSummary(files) {
   const historyData = files['.agentxchain/history.jsonl']?.data;
   if (!Array.isArray(historyData)) {
     return null;

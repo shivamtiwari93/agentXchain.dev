@@ -184,6 +184,84 @@ function createGovernedProject() {
   return root;
 }
 
+function writeDelegationHistory(root) {
+  writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+    {
+      turn_id: 'turn_010',
+      role: 'director',
+      status: 'completed',
+      summary: 'Delegated implementation and QA',
+      phase: 'implementation',
+      decisions: [],
+      objections: [],
+      files_changed: ['plans/delegation.md'],
+      accepted_at: '2026-04-03T00:10:00.000Z',
+      accepted_sequence: 1,
+      delegations_issued: [
+        { id: 'del-001', to_role: 'dev', charter: 'Build the API' },
+        { id: 'del-002', to_role: 'qa', charter: 'Test the API' },
+      ],
+    },
+    {
+      turn_id: 'turn_011',
+      role: 'dev',
+      status: 'completed',
+      summary: 'Built the API',
+      phase: 'implementation',
+      decisions: [],
+      objections: [],
+      files_changed: ['src/api.js'],
+      accepted_at: '2026-04-03T00:12:00.000Z',
+      accepted_sequence: 2,
+      delegation_context: {
+        delegation_id: 'del-001',
+        parent_turn_id: 'turn_010',
+        parent_role: 'director',
+        charter: 'Build the API',
+        acceptance_contract: 'API works and tests pass',
+      },
+    },
+    {
+      turn_id: 'turn_012',
+      role: 'qa',
+      status: 'failed',
+      summary: 'Found a blocking regression',
+      phase: 'implementation',
+      decisions: [],
+      objections: [],
+      files_changed: ['test/api.test.js'],
+      accepted_at: '2026-04-03T00:14:00.000Z',
+      accepted_sequence: 3,
+      delegation_context: {
+        delegation_id: 'del-002',
+        parent_turn_id: 'turn_010',
+        parent_role: 'director',
+        charter: 'Test the API',
+        acceptance_contract: 'Critical regressions identified',
+      },
+    },
+    {
+      turn_id: 'turn_013',
+      role: 'director',
+      status: 'completed',
+      summary: 'Reviewed delegation results',
+      phase: 'implementation',
+      decisions: [],
+      objections: [],
+      files_changed: ['docs/delegation-review.md'],
+      accepted_at: '2026-04-03T00:16:00.000Z',
+      accepted_sequence: 4,
+      delegation_review: {
+        parent_turn_id: 'turn_010',
+        results: [
+          { delegation_id: 'del-001', status: 'completed', summary: 'Built the API' },
+          { delegation_id: 'del-002', status: 'failed', summary: 'Regression found' },
+        ],
+      },
+    },
+  ]);
+}
+
 function createGovernedRepo(repoRoot, repoId, status, opts = {}) {
   mkdirSync(join(repoRoot, '.agentxchain'), { recursive: true });
   writeJson(join(repoRoot, 'agentxchain.json'), {
@@ -518,6 +596,10 @@ describe('report CLI', () => {
       const report = JSON.parse(jsonResult.stdout);
       assert.deepEqual(report.subject.run.turns, [], 'turns array must be empty');
       assert.deepEqual(report.subject.run.decisions, [], 'decisions array must be empty');
+      assert.deepEqual(report.subject.run.delegation_summary, {
+        total_delegations_issued: 0,
+        delegation_chains: [],
+      }, 'delegation_summary must preserve empty shape when history exists without delegation data');
       assert.equal(report.subject.run.hook_summary, null, 'hook_summary must be null when no hooks');
       assert.deepEqual(report.subject.run.intake_links, [], 'intake_links must be empty when no linked intents');
       assert.deepEqual(report.subject.run.gate_summary, [], 'gate_summary must be empty when no gate state exists');
@@ -821,6 +903,62 @@ describe('report CLI', () => {
       const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
       assert.equal(mdResult.status, 0, mdResult.stderr);
       assert.match(mdResult.stdout, /Budget: spent \$12\.50, remaining \$-2\.50 \*\*\[OVER BUDGET\]\*\*/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPORT-DEL-001/002/003: report surfaces delegation summary across json, text, and markdown', () => {
+    const root = createGovernedProject();
+    try {
+      writeDelegationHistory(root);
+      const artifactPath = exportArtifact(root, 'delegation-artifact.json');
+
+      const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+      assert.deepEqual(report.subject.run.delegation_summary, {
+        total_delegations_issued: 2,
+        delegation_chains: [
+          {
+            parent_turn_id: 'turn_010',
+            parent_role: 'director',
+            delegations: [
+              {
+                delegation_id: 'del-001',
+                to_role: 'dev',
+                charter: 'Build the API',
+                status: 'completed',
+                child_turn_id: 'turn_011',
+              },
+              {
+                delegation_id: 'del-002',
+                to_role: 'qa',
+                charter: 'Test the API',
+                status: 'failed',
+                child_turn_id: 'turn_012',
+              },
+            ],
+            review_turn_id: 'turn_013',
+            outcome: 'mixed',
+          },
+        ],
+      });
+
+      const textResult = runCli(root, ['report', '--input', artifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Delegation Summary:/);
+      assert.match(textResult.stdout, /Total delegations issued: 2/);
+      assert.match(textResult.stdout, /director \(turn_010\) \| outcome: mixed \| review: turn_013/);
+      assert.match(textResult.stdout, /del-001 -> dev \| completed \| child: turn_011 \| Build the API/);
+      assert.match(textResult.stdout, /del-002 -> qa \| failed \| child: turn_012 \| Test the API/);
+
+      const markdownResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(markdownResult.status, 0, markdownResult.stderr);
+      assert.match(markdownResult.stdout, /## Delegation Summary/);
+      assert.match(markdownResult.stdout, /\| Parent Role \| Parent Turn \| Outcome \| Review Turn \| Delegation \| Child Turn \| Status \| Charter \|/);
+      assert.match(markdownResult.stdout, /\| director \| `turn_010` \| `mixed` \| `turn_013` \| `del-001` → `dev` \| `turn_011` \| `completed` \| Build the API \|/);
+      assert.match(markdownResult.stdout, /\|  \|  \|  \|  \| `del-002` → `qa` \| `turn_012` \| `failed` \| Test the API \|/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -48,10 +48,12 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /decision_digest/);
     assert.match(REPORT_DOCS, /timeout_events/);
     assert.match(REPORT_DOCS, /continuity/);
+    assert.match(REPORT_DOCS, /delegation_summary/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Timeout Events/);
     assert.match(REPORT_DOCS, /Next Actions/);
+    assert.match(REPORT_DOCS, /Delegation Summary/);
     assert.match(REPORT_DOCS, /#### Continuity/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
@@ -118,5 +120,13 @@ describe('governance report spec alignment', () => {
     assert.match(continuitySpec, /AT-COORD-CONT-001/);
     assert.match(continuitySpec, /AT-COORD-CONT-005/);
     assert.match(continuitySpec, /subject\.repos\[\]\.continuity/);
+  });
+
+  it('ships a delegation-report spec for delegation-aware audit output', () => {
+    const delegationSpec = read('.planning/GOVERNANCE_REPORT_DELEGATION_SPEC.md');
+    assert.match(delegationSpec, /Governance Report Delegation Summary Spec/);
+    assert.match(delegationSpec, /AT-REPORT-DEL-001/);
+    assert.match(delegationSpec, /AT-REPORT-DEL-004/);
+    assert.match(delegationSpec, /subject\.run\.delegation_summary/);
   });
 });

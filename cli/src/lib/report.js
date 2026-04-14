@@ -1,7 +1,62 @@
 import { verifyExportArtifact } from './export-verifier.js';
+import { buildDelegationSummary } from './export.js';
 import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
+
+const VALID_DELEGATION_OUTCOMES = new Set(['completed', 'failed', 'mixed', 'pending']);
+
+function normalizeDelegationSummary(summary) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return null;
+  if (!Number.isInteger(summary.total_delegations_issued) || summary.total_delegations_issued < 0) return null;
+  if (!Array.isArray(summary.delegation_chains)) return null;
+
+  const chains = [];
+  for (const chain of summary.delegation_chains) {
+    if (!chain || typeof chain !== 'object' || Array.isArray(chain)) return null;
+    if (typeof chain.parent_turn_id !== 'string' || chain.parent_turn_id.length === 0) return null;
+    if (typeof chain.parent_role !== 'string' || chain.parent_role.length === 0) return null;
+    if (!Array.isArray(chain.delegations)) return null;
+    if (chain.review_turn_id !== null && (typeof chain.review_turn_id !== 'string' || chain.review_turn_id.length === 0)) return null;
+    if (!VALID_DELEGATION_OUTCOMES.has(chain.outcome)) return null;
+
+    const delegations = [];
+    for (const delegation of chain.delegations) {
+      if (!delegation || typeof delegation !== 'object' || Array.isArray(delegation)) return null;
+      if (typeof delegation.delegation_id !== 'string' || delegation.delegation_id.length === 0) return null;
+      if (typeof delegation.to_role !== 'string' || delegation.to_role.length === 0) return null;
+      if (typeof delegation.charter !== 'string') return null;
+      if (!['completed', 'failed', 'pending'].includes(delegation.status)) return null;
+      if (delegation.child_turn_id !== null && (typeof delegation.child_turn_id !== 'string' || delegation.child_turn_id.length === 0)) return null;
+      delegations.push({
+        delegation_id: delegation.delegation_id,
+        to_role: delegation.to_role,
+        charter: delegation.charter,
+        status: delegation.status,
+        child_turn_id: delegation.child_turn_id,
+      });
+    }
+
+    chains.push({
+      parent_turn_id: chain.parent_turn_id,
+      parent_role: chain.parent_role,
+      delegations,
+      review_turn_id: chain.review_turn_id,
+      outcome: chain.outcome,
+    });
+  }
+
+  return {
+    total_delegations_issued: summary.total_delegations_issued,
+    delegation_chains: chains,
+  };
+}
+
+function extractDelegationSummary(artifact) {
+  const fromSummary = normalizeDelegationSummary(artifact.summary?.delegation_summary);
+  if (fromSummary) return fromSummary;
+  return normalizeDelegationSummary(buildDelegationSummary(artifact.files || {}));
+}
 
 function yesNo(value) {
   return value ? 'yes' : 'no';
@@ -846,6 +901,7 @@ function buildRunSubject(artifact) {
   const recoverySummary = extractRecoverySummary(artifact);
   const continuity = extractContinuityMetadata(artifact);
   const governanceEvents = extractGovernanceEventDigest(artifact);
+  const delegationSummary = extractDelegationSummary(artifact);
 
   return {
     kind: 'governed_run',
@@ -881,6 +937,7 @@ function buildRunSubject(artifact) {
       governance_events: governanceEvents,
       gate_failures: gateFailures,
       timeout_events: timeoutEvents,
+      delegation_summary: delegationSummary,
       hook_summary: hookSummary,
       gate_summary: gateSummary,
       intake_links: intakeLinks,
@@ -1170,6 +1227,17 @@ export function formatGovernanceReportText(report) {
         lines.push('  By phase:');
         for (const p of cs.by_phase) {
           lines.push(`    ${p.phase}: ${formatUsd(p.usd)} (${p.turns} turn${p.turns !== 1 ? 's' : ''})`);
+        }
+      }
+    }
+
+    if (run.delegation_summary?.delegation_chains?.length > 0) {
+      lines.push('', 'Delegation Summary:');
+      lines.push(`  Total delegations issued: ${run.delegation_summary.total_delegations_issued}`);
+      for (const chain of run.delegation_summary.delegation_chains) {
+        lines.push(`  - ${chain.parent_role} (${chain.parent_turn_id}) | outcome: ${chain.outcome} | review: ${chain.review_turn_id || 'pending'}`);
+        for (const delegation of chain.delegations) {
+          lines.push(`      ${delegation.delegation_id} -> ${delegation.to_role} | ${delegation.status} | child: ${delegation.child_turn_id || 'pending'} | ${delegation.charter}`);
         }
       }
     }
@@ -1624,6 +1692,23 @@ export function formatGovernanceReportMarkdown(report) {
         lines.push('', '| Phase | Cost | Turns |', '|-------|------|-------|');
         for (const p of cs.by_phase) {
           lines.push(`| ${p.phase} | ${formatUsd(p.usd)} | ${p.turns} |`);
+        }
+      }
+    }
+
+    if (run.delegation_summary?.delegation_chains?.length > 0) {
+      lines.push('', '## Delegation Summary', '');
+      lines.push(`- Total delegations issued: ${run.delegation_summary.total_delegations_issued}`, '');
+      lines.push('| Parent Role | Parent Turn | Outcome | Review Turn | Delegation | Child Turn | Status | Charter |', '|-------------|-------------|---------|-------------|------------|------------|--------|---------|');
+      for (const chain of run.delegation_summary.delegation_chains) {
+        for (let i = 0; i < chain.delegations.length; i++) {
+          const delegation = chain.delegations[i];
+          const parentRole = i === 0 ? chain.parent_role : '';
+          const parentTurn = i === 0 ? `\`${chain.parent_turn_id}\`` : '';
+          const outcome = i === 0 ? `\`${chain.outcome}\`` : '';
+          const reviewTurn = i === 0 ? `\`${chain.review_turn_id || 'pending'}\`` : '';
+          const charter = delegation.charter.replace(/\|/g, '\\|');
+          lines.push(`| ${parentRole} | ${parentTurn} | ${outcome} | ${reviewTurn} | \`${delegation.delegation_id}\` → \`${delegation.to_role}\` | \`${delegation.child_turn_id || 'pending'}\` | \`${delegation.status}\` | ${charter} |`);
         }
       }
     }
