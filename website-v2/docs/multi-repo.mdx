@@ -12,6 +12,28 @@ If you only need one repository, stay on the normal governed lifecycle. Reach fo
 
 If you want the literal cold-start path first, use [Quickstart](/docs/quickstart#multi-repo-cold-start). This page stays focused on the full coordinator contract.
 
+## Live Coordinator Proof
+
+The coordinator is not only covered by fixture E2E. A real model-backed proof now lives at [`examples/live-governed-proof/run-multi-repo-proof.mjs`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/examples/live-governed-proof/run-multi-repo-proof.mjs).
+
+```bash
+node examples/live-governed-proof/run-multi-repo-proof.mjs --json
+```
+
+Fresh recorded run on **2026-04-13**:
+
+- CLI: `agentxchain v2.84.0`
+- `super_run_id`: `srun_1776131346198_dea92de0`
+- Child repos: `api` and `web`
+- Coordinator dispatches: `4`
+- Accepted projections: `4`
+- Repo-local role order: `api(pm -> dev)`, `web(pm -> dev)`
+- Coordinator context proof: the first `web` dispatch bundle included `COORDINATOR_CONTEXT.json` with one upstream acceptance from `api`
+- Barrier result: `planning_sync_completion` and `implementation_sync_completion` both reached `satisfied`
+- Total API cost: `$0.0300`
+
+This proof intentionally keeps **repo-local approvals** real. Repo-local approvals remained required throughout the proof: each child repo turn was executed with `agentxchain step --resume --auto-reject`, then cleared with repo-local `approve-transition` or `approve-completion` before the coordinator advanced. The coordinator did **not** bypass child-repo gates.
+
 ## Workspace Contract
 
 The coordinator workspace is a directory with an `agentxchain-multi.json` file at its root plus checked-out governed repos underneath it.
