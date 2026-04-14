@@ -197,6 +197,27 @@ agentxchain step
 # Director receives delegation review with both results
 ```
 
+## CLI Proof
+
+A reproducible CLI proof now exists at `examples/governed-todo-app/run-delegation-proof.mjs`.
+
+```bash
+node examples/governed-todo-app/run-delegation-proof.mjs --json
+```
+
+Recorded proof on 2026-04-14:
+
+- adapter: real `local_cli` adapter backed by a deterministic mock agent
+- accepted role order: `director -> dev -> qa -> director`
+- durable delegate artifacts:
+  - `.agentxchain/proof/delegation/del-001.json`
+  - `.agentxchain/proof/delegation/del-002.json`
+- durable review artifact:
+  - `.agentxchain/proof/delegation/review-turn.json`
+- final run status: `completed`
+
+This matters because the proof goes through the real `agentxchain step` lifecycle, not direct state mutation. It exercises delegation enqueueing, delegated turn routing, delegation review routing, and clean run completion through the actual CLI/operator path.
+
 ## Limitations (v1)
 
 - **No recursive delegation**: A delegation review turn cannot itself contain delegations. If hierarchical decomposition is needed, the reviewing role must issue delegations in a separate subsequent turn.
