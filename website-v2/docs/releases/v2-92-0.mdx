@@ -1,0 +1,55 @@
+---
+sidebar_position: 1
+title: "v2.92.0 Release Notes"
+description: "AgentXchain composes parallel turns with delegation chains — delegation children now execute concurrently, with symmetric observation attribution."
+---
+
+# AgentXchain v2.92.0
+
+`v2.92.0` composes two existing protocol primitives — parallel turns and delegation chains — into a single governed capability. Delegation children targeting different roles now execute concurrently when `max_concurrent_turns > 1`, and the observation system correctly attributes file changes across concurrent siblings.
+
+## What Changed
+
+### Parallel Delegation Execution
+
+Delegation children that target different roles now dispatch concurrently instead of sequentially. The parent review turn still waits for all children to complete, and failure/mixed-outcome review semantics remain unchanged.
+
+Same-role delegations stay sequential (per-role mutual exclusion). Delegation review turns always execute alone — the slot-filler breaks out of filling when a review is assigned.
+
+### `AGENTXCHAIN_TURN_ID` for Parallel `local_cli` Agents
+
+The `local_cli` adapter now passes `AGENTXCHAIN_TURN_ID` as an environment variable to spawned child processes. This enables agents to identify their specific turn when multiple turns are active concurrently — without it, parallel `local_cli` agents would all resolve to the same dispatch index.
+
+### Run-Loop Slot-Filler Isolation
+
+Two focused slot-filler fixes prevent non-delegation roles from corrupting the delegation lifecycle:
+
+- Delegation review turns break out of slot-filling (coordination checkpoint)
+- Alternate-role fallback is blocked when delegation queue or pending review is active
+
+### Concurrent Observation Attribution
+
+The observation system now handles concurrent authoritative turns correctly:
+
+- `attributeObservedChangesToTurn()` accepts staged sibling declarations to pre-attribute sibling-only files before first acceptance
+- Reverse-linked concurrent siblings are recognized symmetrically at attribution time, even when the current turn's stored `concurrent_with` list is empty
+- Undeclared file errors for concurrent turns with unaccepted siblings are correctly attributed instead of producing false positives
+
+## New Decisions
+
+- `DEC-PARALLEL-DELEGATION-001`: delegation children targeting different roles execute concurrently when `max_concurrent_turns > 1`; same-role delegations remain sequential
+- `DEC-PARALLEL-DELEGATION-TURNID-001`: `local_cli` adapter passes `AGENTXCHAIN_TURN_ID` env var to spawned agents
+- `DEC-PARALLEL-DELEGATION-SLOTFILL-001`: alternate-role fallback blocked when delegation queue or pending review is active
+- `DEC-CONCURRENT-OBSERVATION-TOLERANCE-001`: undeclared file errors downgraded to warnings when turn has unaccepted concurrent siblings
+- `DEC-CONCURRENT-OBS-ATTR-001`: staged sibling `files_changed` declarations may pre-attribute sibling-only undeclared paths
+- `DEC-CONCURRENT-OBS-ATTR-002`: concurrency attribution must be symmetric at read time — reverse-linked siblings count
+
+## Evidence
+
+- 4436 tests / 951 suites / 0 failures
+- `cd website-v2 && npm run build` → success
+- Parallel delegation CLI proof: `node examples/governed-todo-app/run-parallel-delegation-proof.mjs --json` → pass
+  - Role order: `director → dev + qa (concurrent) → director`
+  - Different `AGENTXCHAIN_TURN_ID` per child
+  - Review references both delegations
+- Concurrent observation attribution: staged sibling pre-attribution, reverse-linked symmetric recognition

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.92.0
+
+`2.92.0` composes parallel turns with delegation chains — delegation children targeting different roles now execute concurrently, with symmetric observation attribution for concurrent authoritative turns.
+
+- Delegation children targeting different roles dispatch concurrently when `max_concurrent_turns > 1`; same-role delegations remain sequential; review turns always execute alone
+- `local_cli` adapter now passes `AGENTXCHAIN_TURN_ID` env var to spawned agents so parallel agents can identify their specific turn
+- Run-loop slot-filler now breaks out of filling when a delegation review turn is assigned, and blocks alternate-role fallback when delegation queue is active
+- Concurrent observation attribution hardened: `attributeObservedChangesToTurn()` accepts staged sibling declarations for pre-attribution, reverse-linked concurrent siblings recognized symmetrically
+- Parallel delegation CLI proof (`run-parallel-delegation-proof.mjs`) exercises concurrent dispatch, different turn IDs, and review aggregation
+- 4436 tests / 951 suites / 0 failures
+
 ## 2.91.0
 
 `2.91.0` turns the governed dashboard into a real operator service instead of a foreground-only convenience command.
