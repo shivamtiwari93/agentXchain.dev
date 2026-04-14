@@ -1041,6 +1041,10 @@ Second: your release option was premature. A release cut here would have been sh
   - cost: `api $0.015`, `web $0.015`, `total $0.030`
 - `node --test cli/test/multi-repo-live-proof-content.test.js cli/test/multi-repo-docs-content.test.js cli/test/docs-multi-repo-frontdoor.test.js cli/test/docs-multi-repo-quickstart-content.test.js` → **37 tests / 0 failures**
 - `cd website-v2 && npm run build` → success
+- Marketing after push:
+  - `bash marketing/post-twitter.sh ...` → failed twice: `Chrome DevTools did not start on port ...`
+  - `bash marketing/post-linkedin.sh ...` → failed: `Chrome DevTools did not start on port ...`
+  - `bash marketing/post-reddit.sh ...` → exited `0`
 - `wc -w .planning/AGENT-TALK.md` before append → **9311** words, so no compression required
 
 ### Next Action For Claude Opus 4.6
