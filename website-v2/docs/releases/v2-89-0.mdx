@@ -1,0 +1,66 @@
+---
+sidebar_position: 1
+title: "v2.89.0 Release Notes"
+description: "Delegation chains are now visible across all three operator surfaces — dashboard, export, and governance report — completing the v1 delegation audit trail."
+---
+
+# AgentXchain v2.89.0
+
+`v2.89.0` completes the **delegation chain audit trail** across all three operator-facing surfaces. Delegation chains shipped in v2.88.0 as a protocol mechanism; this release makes them visible and inspectable everywhere operators actually look: the dashboard, the export artifact, and the governance report.
+
+## What Changed
+
+### Dashboard Delegation Visibility
+
+The dashboard now has a dedicated **Delegations** view — the 13th top-level dashboard tab.
+
+- Accepted turn history now retains `delegations_issued`, `delegation_context`, and `delegation_review` metadata so delegation chains survive after the queue drains
+- The timeline view surfaces delegation cues on active and accepted turns (issued, executed, reviewed)
+- The Delegations view reconstructs completed delegation chains from durable history, not transient queue state
+
+### Export Delegation Summary
+
+The `agentxchain export` command now includes a `delegation_summary` in the `summary` object.
+
+- `total_delegations_issued` count
+- `delegation_chains` array with parent/child/review turn correlation
+- Per-chain `outcome` derivation: `completed`, `failed`, `mixed`, or `pending`
+- `null` when history is unavailable
+
+### Governance Report Delegation Summary
+
+The `agentxchain report` command now surfaces delegation chains at `subject.run.delegation_summary`.
+
+- Text format renders a `Delegation Summary:` section
+- Markdown format renders a `## Delegation Summary` section
+- Both show parent turn, parent role, outcome, review turn, child turn correlation, and per-delegation charter/status
+- Report trusts `summary.delegation_summary` when well-formed; falls back to accepted-history derivation for older artifacts
+
+### Proposed-Authority Dispatch Fix
+
+Fixed a dispatch-contract contradiction that caused deterministic CI Runner Proof failures.
+
+- Proposed `api_proxy`/`remote_agent` turns now explicitly instruct `artifact.type: "patch"` with structured `proposed_changes[]`
+- The JSON template for proposed turns no longer defaults to `artifact.type: "workspace"`
+- System prompt reinforces write-authority-specific rules as a global invariant
+- All 3 pre-fix CI Runner Proof failures traced to this single root cause (`DEC-CI-RUNNER-FLAKE-EVIDENCE-001`)
+
+### New Decisions
+
+- `DEC-DASHBOARD-DELEGATION-001`: Delegation visibility requires durable history retention, not just live queue state
+- `DEC-DASHBOARD-DELEGATION-002`: Dedicated Delegations dashboard view as the canonical chain visualization
+- `DEC-EXPORT-DELEGATION-SUMMARY-001`: Export summary includes `delegation_summary` for audit/compliance
+- `DEC-REPORT-DELEGATION-001`: Governance report exposes delegation chains directly
+- `DEC-REPORT-DELEGATION-002`: Report trusts export summary when valid, derives from history otherwise
+- `DEC-CI-RUNNER-PROPOSED-HINT-001`: Dispatch contract must not give contradictory authority instructions
+- `DEC-CI-RUNNER-PROPOSED-HINT-002`: Fix the dispatch contract before considering model swaps
+- `DEC-CI-RUNNER-FLAKE-EVIDENCE-001`: CI flake was a deterministic dispatch defect, not model unreliability
+
+## Evidence
+
+- 4401 tests / 945 suites / 0 failures
+- Dashboard delegation: 3 new unit tests + dashboard view tests + timeline cue tests
+- Export delegation: 4 subprocess tests (empty, completed chain, mixed outcome, pending)
+- Report delegation: 3 subprocess tests + docs guard
+- Proposed-authority fix: 79 dispatch/api-proxy tests + live CI proof (first-attempt pass)
+- Docusaurus build: clean

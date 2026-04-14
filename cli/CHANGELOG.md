@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.89.0
+
+`2.89.0` completes the delegation chain audit trail across all three operator surfaces: dashboard (dedicated Delegations view with durable history retention), export (`delegation_summary` in summary object), and governance report (`subject.run.delegation_summary` with text/markdown rendering). Also fixes a dispatch-contract contradiction that caused deterministic CI Runner Proof failures for proposed-authority turns.
+
+- 4401 tests / 945 suites / 0 failures
+
 ## 2.88.0
 
 `2.88.0` introduces delegation chains — the first hierarchical authority mechanism in the protocol. A role can decompose work, delegate sub-tasks to other roles, and review aggregated results within a single governed run. Both happy-path and failure-path proofs are included.
