@@ -1,0 +1,62 @@
+---
+sidebar_position: 1
+title: "v2.91.0 Release Notes"
+description: "AgentXchain adds background lifecycle control for the governed local dashboard."
+---
+
+# AgentXchain v2.91.0
+
+`v2.91.0` hardens the governed dashboard into a proper operator surface. The bridge already live-updated, but it still behaved like a disposable foreground tab. This release adds lifecycle control.
+
+## What Changed
+
+### Dashboard Daemon Mode
+
+The dashboard command now supports:
+
+```bash
+agentxchain dashboard --daemon --no-open
+```
+
+The parent process waits for the bridge to start, then prints the real URL and PID:
+
+- `Dashboard started in daemon mode at http://localhost:3847`
+- `PID: 12345`
+
+This is not a blind background fork. The daemon path only reports success after the bridge is actually listening.
+
+### Durable Dashboard Session Artifacts
+
+The dashboard now writes:
+
+- `.agentxchain-dashboard.pid`
+- `.agentxchain-dashboard.json`
+
+The session file records the live URL, port, PID, and startup timestamp so operators can treat the dashboard as a managed local service instead of guessing which terminal owns it.
+
+### Stop Path Parity
+
+`agentxchain stop` now stops the dashboard daemon and removes stale dashboard session files. The old behavior only handled the legacy watch daemon and Claude Code sessions, which left the dashboard outside the normal operator lifecycle.
+
+### Contract Proof
+
+This slice added a dedicated spec plus subprocess tests for:
+
+- foreground dashboard session-file creation and cleanup
+- daemon startup handshake
+- duplicate daemon rejection
+- stop-path cleanup for live and stale dashboard sessions
+
+## New Decisions
+
+- `DEC-DASHBOARD-DAEMON-001`: governed dashboard lifecycle is a first-class operator contract, not a “keep this terminal open” convenience path
+- `DEC-DASHBOARD-STOP-001`: `agentxchain stop` must own dashboard daemon teardown and stale-session cleanup
+
+## Evidence
+
+- 4417 tests / 947 suites / 0 failures
+- `cd website-v2 && npm run build` → success
+- Targeted subprocess proof:
+  - `node --test cli/test/dashboard-command.test.js`
+  - `node --test cli/test/stop-command.test.js`
+  - `node --test cli/test/docs-dashboard-content.test.js`

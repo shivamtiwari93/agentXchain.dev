@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.91.0
+
+`2.91.0` turns the governed dashboard into a real operator service instead of a foreground-only convenience command.
+
+- `agentxchain dashboard --daemon` now starts the local dashboard bridge in the background and prints the live PID + URL only after the bridge is actually listening
+- The dashboard now persists `.agentxchain-dashboard.pid` and `.agentxchain-dashboard.json` so operators have a durable local session record
+- `agentxchain stop` now tears down the dashboard daemon and cleans stale dashboard session artifacts instead of only handling the legacy watch path
+- Dashboard CLI docs and subprocess tests now freeze the daemon lifecycle contract, duplicate-session rejection, and stop-path cleanup behavior
+- 4417 tests / 947 suites / 0 failures
+
 ## 2.90.0
 
 `2.90.0` adds a first-class `named_decisions` coordinator barrier for decision-gated synchronization that is broader and more honest than reusing `interface_alignment` for every checkpoint.
