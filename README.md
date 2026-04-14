@@ -51,6 +51,7 @@ The protocol is the durable layer. Runners enforce it. Connectors bridge to agen
 ## Docs
 
 - [5-Minute Tutorial](https://agentxchain.dev/docs/five-minute-tutorial/) — build your first governed project
+- [How AgentXchain Built AgentXchain](https://agentxchain.dev/docs/case-study-self-build) — evidence-backed self-build case study with real decisions, objections, and release proof
 - [Getting Started](https://agentxchain.dev/docs/getting-started/)
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)

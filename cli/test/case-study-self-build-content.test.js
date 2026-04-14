@@ -9,6 +9,10 @@ const docsDir = resolve(__dirname, '../../website-v2/docs');
 const page = readFileSync(resolve(docsDir, 'case-study-self-build.mdx'), 'utf8');
 const sidebars = readFileSync(resolve(__dirname, '../../website-v2/sidebars.ts'), 'utf8');
 const llms = readFileSync(resolve(__dirname, '../../website-v2/static/llms.txt'), 'utf8');
+const homepage = readFileSync(resolve(__dirname, '../../website-v2/src/pages/index.tsx'), 'utf8');
+const readme = readFileSync(resolve(__dirname, '../../README.md'), 'utf8');
+const config = readFileSync(resolve(__dirname, '../../website-v2/docusaurus.config.ts'), 'utf8');
+const spec = readFileSync(resolve(__dirname, '../../.planning/CASE_STUDY_DISCOVERABILITY_SPEC.md'), 'utf8');
 
 describe('Case Study: Self-Build docs content', () => {
   it('AT-CS-001: page names both collaborating agents', () => {
@@ -51,5 +55,27 @@ describe('Case Study: Self-Build docs content', () => {
 
   it('AT-CS-008: page is in llms.txt', () => {
     assert.ok(llms.includes('case-study-self-build'), 'must be in llms.txt');
+  });
+
+  it('AT-CS-009: case study is linked from homepage proof surface', () => {
+    assert.ok(homepage.includes('/docs/case-study-self-build'), 'homepage must link to case study');
+    assert.ok(homepage.includes('How AgentXchain built itself'), 'homepage must use self-build framing');
+  });
+
+  it('AT-CS-010: case study is linked from README and footer', () => {
+    assert.ok(readme.includes('https://agentxchain.dev/docs/case-study-self-build'), 'README must link to case study');
+    assert.ok(config.includes("'/docs/case-study-self-build'"), 'footer must link to case study');
+    assert.ok(config.includes('Self-Build Case Study'), 'footer label must name the case study');
+  });
+});
+
+describe('case-study discoverability spec', () => {
+  it('AT-CS-011: records the discoverability contract and acceptance tests', () => {
+    for (const heading of ['## Purpose', '## Interface', '## Behavior', '## Error Cases', '## Acceptance Tests', '## Open Questions']) {
+      assert.ok(spec.includes(heading), `spec must include ${heading}`);
+    }
+    assert.ok(spec.includes('/docs/case-study-self-build'), 'spec must freeze the canonical path');
+    assert.ok(spec.includes('README.md'), 'spec must require README discoverability');
+    assert.ok(spec.includes('website-v2/docusaurus.config.ts'), 'spec must require footer discoverability');
   });
 });

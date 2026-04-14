@@ -153,6 +153,7 @@ const config: Config = {
             {label: 'CLI Reference', to: '/docs/cli'},
             {label: 'Templates', to: '/docs/templates'},
             {label: 'Examples', to: '/docs/examples'},
+            {label: 'Self-Build Case Study', to: '/docs/case-study-self-build'},
             {label: 'Multi-Repo', to: '/docs/multi-repo'},
           ],
         },

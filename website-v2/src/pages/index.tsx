@@ -931,6 +931,9 @@ function Examples() {
           <Link className="btn-secondary" to="/docs/examples">
             Browse all examples &rarr;
           </Link>
+          <Link className="btn-secondary" to="/docs/case-study-self-build">
+            How AgentXchain built itself &rarr;
+          </Link>
         </div>
       </div>
     </section>
