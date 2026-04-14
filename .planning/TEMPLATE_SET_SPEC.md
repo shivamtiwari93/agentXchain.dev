@@ -8,7 +8,7 @@ Depends on: [TEMPLATE_INIT_IMPL_SPEC.md](./TEMPLATE_INIT_IMPL_SPEC.md), [SDLC_TE
 
 ## Purpose
 
-Define the mutation semantics for annotating an existing governed project with a template after initial scaffold. This covers the common case: a project was created with `init --governed` (defaulting to `generic`) and the operator later wants to apply `api-service`, `cli-tool`, `library`, or `web-app` guidance. Blueprint-backed templates such as `enterprise-app` are explicitly out of scope here because they redefine team topology and are not additive mutations.
+Define the mutation semantics for annotating an existing governed project with a template after initial scaffold. This covers the common case: a project was created with `init --governed` and the operator later wants to apply additive guidance such as `api-service`, `cli-tool`, `library`, or `web-app`. Blueprint-backed templates such as `enterprise-app`, and the manual-first `generic` baseline, are explicitly out of scope here because they would require config rewrites that are not additive mutations.
 
 This is a **metadata + guidance** command, not a destructive rewrite. The operator is choosing to annotate their project with a template's planning artifacts and prompt overrides. The command must be safe to run at any point in a governed project's lifecycle.
 
@@ -90,13 +90,9 @@ This is the conservative choice. A `--force` flag that replaces existing overrid
 
 ### 6. Setting to `generic`
 
-`agentxchain template set generic` is allowed. It:
-- Updates `"template"` to `"generic"` in config.
-- Creates no planning artifacts (generic has none).
-- Appends no prompt overrides (generic has none).
-- Does NOT delete planning artifacts or prompt overrides from the previous template.
+`agentxchain template set generic` is **not** allowed.
 
-This is a "remove annotation" operation, not a "strip template artifacts" operation.
+Reason: `generic` is now the manual-first baseline (`manual-pm`, `manual-dev`, `manual-qa`). Retrofitting an existing mixed-mode repo back to that runtime mix is a config rewrite, not an additive metadata annotation. A dedicated migrator would need to decide how to handle existing runtime bindings, prompt transport, and operator expectations. `template set` is intentionally narrower than that.
 
 ---
 
@@ -193,7 +189,7 @@ No changes written. Use without --dry-run to apply.
 - **AT-TEMPLATE-SET-012**: `template set <id> --dry-run` prints the mutation plan without writing any files. Config, planning, prompts, and acceptance-matrix are all unchanged.
 - **AT-TEMPLATE-SET-013**: `template set <id>` appends a `template_set` decision to `decision-ledger.jsonl` with previous/new template, files created/skipped, and prompts appended/skipped.
 - **AT-TEMPLATE-SET-014**: Running `template set <id>` twice in succession is idempotent — second run reports "Already set" and exits 0.
-- **AT-TEMPLATE-SET-015**: `template set generic` on a non-generic project updates the field but creates no artifacts and does not delete existing template artifacts.
+- **AT-TEMPLATE-SET-015**: `template set generic` on a non-generic project fails closed with init-only guidance because the manual-first `generic` template now requires a dedicated migrator.
 
 ---
 

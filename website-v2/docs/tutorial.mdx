@@ -55,22 +55,21 @@ Your repo now has:
 
 ### Switch dev and QA to manual (fully reproducible)
 
-The default scaffold is mixed-mode:
+The `cli-tool` scaffold used here is mixed-mode:
 
 - `dev` uses `local-dev`
 - `qa` uses `api-qa`
 
 That is honest for normal usage, but it is the wrong fit for a copy-paste tutorial. For this walkthrough, change `roles.dev.runtime` from `local-dev` to `manual-dev`, change `roles.qa.runtime` from `api-qa` to `manual-qa`, and keep every turn on the same printed prompt flow.
 
-Use `agentxchain config --set` to rebind both roles and add the missing manual-dev runtime:
+Use `agentxchain config --set` to rebind both roles:
 
 ```bash
 agentxchain config --set roles.dev.runtime manual-dev
 agentxchain config --set roles.qa.runtime manual-qa
-agentxchain config --set runtimes.manual-dev.type manual
 ```
 
-`manual-qa` already exists in the scaffold. The third command adds the `manual-dev` runtime entry.
+Both `manual-dev` and `manual-qa` already exist in the scaffold. These commands only rebind the active roles.
 
 Commit the config change:
 

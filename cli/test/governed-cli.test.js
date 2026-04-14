@@ -242,19 +242,47 @@ describe('governed CLI support', () => {
       assert.doesNotMatch(result.stdout, /agentxchain start/);
 
       const config = JSON.parse(readFileSync(join(dir, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
-      assert.deepEqual(config.runtimes['local-dev'].command, ['claude', '--print', '--dangerously-skip-permissions']);
-      assert.equal(config.runtimes['local-dev'].prompt_transport, 'stdin');
+      assert.equal(config.roles.dev.runtime, 'manual-dev');
+      assert.equal(config.roles.qa.runtime, 'manual-qa');
+      assert.equal(config.runtimes['manual-dev'].type, 'manual');
       assert.equal(config.runtimes['manual-qa'].type, 'manual');
-      assert.match(result.stdout, /Dev runtime:\s+claude --print --dangerously-skip-permissions\s+\(stdin\)/);
+      assert.match(result.stdout, /Ready:\s+manual-only scaffold/i);
+
+      const doctor = runCli(join(dir, 'my-agentxchain-project'), ['doctor', '--json']);
+      assert.equal(doctor.status, 0, doctor.stderr);
+      const doctorJson = JSON.parse(doctor.stdout);
+      assert.equal(doctorJson.overall, 'pass');
+      assert.equal(doctorJson.fail_count, 0);
 
       // Phase scaffold hint
       assert.match(result.stdout, /Phases:.*planning.*implementation.*qa/, 'init output must show default phase order');
       assert.match(result.stdout, /routing/, 'init output must hint at routing config for custom phases');
 
       // Readiness hint and getting-started link
-      assert.match(result.stdout, /Mixed-mode:|Ready:/, 'init output must include a readiness hint');
-      assert.match(result.stdout, /manual-qa/, 'init output must name the built-in no-key QA fallback');
+      assert.match(result.stdout, /Ready:/, 'init output must include a readiness hint');
       assert.match(result.stdout, /getting-started/, 'init output must link to getting-started docs');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('init --governed --template generic --dev-command opts generic dev back into local-dev', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'agentxchain-governed-generic-local-dev-'));
+    try {
+      const result = runCli(dir, [
+        'init',
+        '--governed',
+        '--template', 'generic',
+        '--dev-command', './scripts/dev-agent.sh',
+        '--dev-prompt-transport', 'dispatch_bundle_only',
+        '-y',
+      ]);
+      assert.equal(result.status, 0, result.stderr);
+
+      const config = JSON.parse(readFileSync(join(dir, 'my-agentxchain-project', 'agentxchain.json'), 'utf8'));
+      assert.equal(config.roles.dev.runtime, 'local-dev');
+      assert.deepEqual(config.runtimes['local-dev'].command, ['./scripts/dev-agent.sh']);
+      assert.equal(config.runtimes['local-dev'].prompt_transport, 'dispatch_bundle_only');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -1,14 +1,14 @@
 ---
 sidebar_position: 2
 title: Getting Started
-description: "Copy-paste path from demo to your first real governed run, with the default mixed-mode scaffold explained honestly."
+description: "Copy-paste path from demo to your first real governed run, distinguishing the manual-first generic scaffold from mixed-mode project templates."
 ---
 
 # Getting Started
 
 This is the shortest honest path from "I saw the demo" to "I completed a real governed run in my own repo."
 
-The key constraint: the shipped scaffold is mixed-mode by default.
+The key distinction: the default `generic` scaffold is manual-only (`manual-pm`, `manual-dev`, `manual-qa`), but the project template used on this page is mixed-mode.
 
 - `pm` uses `manual-pm`
 - `dev` uses `local-dev`
@@ -16,9 +16,10 @@ The key constraint: the shipped scaffold is mixed-mode by default.
 
 That means:
 
+- `agentxchain init --governed -y` on the plain `generic` template needs no API keys and no local coding CLI before the first turn
 - `npx --yes -p agentxchain@latest -c "agentxchain demo"` needs no API keys
 - your first real repo can start with a manual planning turn immediately
-- the default QA leg needs `ANTHROPIC_API_KEY` unless you change `roles.qa.runtime` to `manual-qa` first
+- the `cli-tool` QA leg on this page needs `ANTHROPIC_API_KEY` unless you change `roles.qa.runtime` to `manual-qa` first
 
 If you want artifact-by-artifact detail, read [Your First Governed Turn](/docs/first-turn). This page stays focused on the fastest real command sequence.
 
@@ -130,7 +131,7 @@ If you do not want API-backed QA yet, use the built-in manual fallback before yo
 agentxchain config --set roles.qa.runtime manual-qa
 ```
 
-Do not hand-edit `agentxchain.json` for this scalar change. Use the governed config mutation path so the update is validated before the next turn. Do not pretend the default scaffold is fully no-key end to end.
+Do not hand-edit `agentxchain.json` for this scalar change. Use the governed config mutation path so the update is validated before the next turn. Do not pretend the `cli-tool` walkthrough is fully no-key end to end.
 
 ## 7. Complete the run
 

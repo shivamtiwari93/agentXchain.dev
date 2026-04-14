@@ -18,7 +18,7 @@ The tutorial walks through a **complete governed lifecycle** using only shipped 
 1. **Install** — `npx agentxchain@latest --version`
 2. **Install for repeated usage** — `npm install -g agentxchain` then `agentxchain --version`
 3. **Scaffold** — `init --governed --template cli-tool --dir . -y`
-4. **Rebind runtimes for a fully manual path** — change `dev` from `local-dev` to `manual-dev`, change `qa` from `api-qa` to `manual-qa`, add `manual-dev`
+4. **Rebind runtimes for a fully manual path** — change `dev` from `local-dev` to `manual-dev` and change `qa` from `api-qa` to `manual-qa`
 5. **Planning turn** — `step` (manual PM), fill gate files, stage result
 6. **Open implementation** — `approve-transition`
 7. **Implementation turn** — `step` (manual dev), write code, stage result

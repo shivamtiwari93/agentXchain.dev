@@ -4,6 +4,40 @@
   "description": "Default governed scaffold with the baseline planning artifacts and no project-type-specific guidance.",
   "version": "1",
   "protocol_compatibility": ["1.0", "1.1"],
+  "scaffold_blueprint": {
+    "roles": {
+      "pm": {
+        "title": "Product Manager",
+        "mandate": "Protect user value, scope clarity, and acceptance criteria.",
+        "write_authority": "review_only",
+        "runtime": "manual-pm"
+      },
+      "dev": {
+        "title": "Developer",
+        "mandate": "Implement approved work safely and verify behavior.",
+        "write_authority": "authoritative",
+        "runtime": "manual-dev"
+      },
+      "qa": {
+        "title": "QA",
+        "mandate": "Challenge correctness, acceptance coverage, and ship readiness.",
+        "write_authority": "review_only",
+        "runtime": "manual-qa"
+      },
+      "eng_director": {
+        "title": "Engineering Director",
+        "mandate": "Resolve tactical deadlocks and enforce technical coherence.",
+        "write_authority": "review_only",
+        "runtime": "manual-director"
+      }
+    },
+    "runtimes": {
+      "manual-pm": { "type": "manual" },
+      "manual-dev": { "type": "manual" },
+      "manual-qa": { "type": "manual" },
+      "manual-director": { "type": "manual" }
+    }
+  },
   "planning_artifacts": [],
   "prompt_overrides": {},
   "acceptance_hints": []

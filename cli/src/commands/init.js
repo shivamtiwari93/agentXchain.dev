@@ -117,6 +117,7 @@ const DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME = Object.freeze({
 
 const GOVERNED_RUNTIMES = {
   'manual-pm': { type: 'manual' },
+  'manual-dev': { type: 'manual' },
   'local-dev': DEFAULT_GOVERNED_LOCAL_DEV_RUNTIME,
   'api-qa': { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'ANTHROPIC_API_KEY' },
   'manual-qa': { type: 'manual' },
@@ -615,13 +616,21 @@ function cloneJsonCompatible(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig) {
+function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig, runtimeOptions = {}) {
   const blueprint = template.scaffold_blueprint || null;
   const roles = cloneJsonCompatible(blueprint?.roles || GOVERNED_ROLES);
   const runtimes = cloneJsonCompatible(blueprint?.runtimes || GOVERNED_RUNTIMES);
+  const explicitLocalDevRequested = Boolean(
+    (Array.isArray(runtimeOptions.devCommand) && runtimeOptions.devCommand.length > 0)
+    || (typeof runtimeOptions.devPromptTransport === 'string' && runtimeOptions.devPromptTransport.trim())
+  );
 
-  if (!blueprint || Object.values(roles).some((role) => role?.runtime === 'local-dev')) {
+  if (!blueprint || Object.values(roles).some((role) => role?.runtime === 'local-dev') || explicitLocalDevRequested) {
     runtimes['local-dev'] = localDevRuntime;
+  }
+
+  if (explicitLocalDevRequested && roles?.dev?.runtime === 'manual-dev') {
+    roles.dev.runtime = 'local-dev';
   }
 
   const routing = cloneJsonCompatible(blueprint?.routing || GOVERNED_ROUTING);
@@ -713,7 +722,7 @@ function buildPlanningSummaryLines(template, workflowKitConfig) {
 export function scaffoldGoverned(dir, projectName, projectId, templateId = 'generic', runtimeOptions = {}, workflowKitConfig = null) {
   const template = loadGovernedTemplate(templateId);
   const { runtime: localDevRuntime } = resolveGovernedLocalDevRuntime(runtimeOptions);
-  const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig);
+  const scaffoldConfig = buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitConfig, runtimeOptions);
   const { roles, runtimes, routing, gates, policies, prompts, workflowKitConfig: effectiveWorkflowKitConfig } = scaffoldConfig;
   const scaffoldWorkflowKitConfig = effectiveWorkflowKitConfig
     ? normalizeWorkflowKit(effectiveWorkflowKitConfig, Object.keys(routing))
@@ -1032,6 +1041,9 @@ async function initGoverned(opts) {
         console.log(`  ${chalk.yellow('  ')}No-key QA path: change ${chalk.bold('roles.qa.runtime')} from ${chalk.bold('"api-qa"')} to ${chalk.bold('"manual-qa"')} in ${chalk.bold('agentxchain.json')}.`);
       }
     }
+    console.log('');
+  } else if (Object.entries(config.roles).every(([, role]) => allRuntimes[role.runtime]?.type === 'manual')) {
+    console.log(`  ${chalk.green('Ready:')} manual-only scaffold (${chalk.bold('no API keys')} and ${chalk.bold('no local coding CLI')} required).`);
     console.log('');
   }
 

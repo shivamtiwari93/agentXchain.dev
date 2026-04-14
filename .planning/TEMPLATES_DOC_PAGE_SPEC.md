@@ -20,7 +20,7 @@ This page must document the real product contract:
 - explicit `workflow_kit` changes `template validate` from default-scaffold proof to operator-declared artifact proof
 - explicit `workflow_kit.phases.<phase>.template` allows built-in phase-template expansion without copying artifact blocks by hand
 - `template set <id> [--yes] [--dry-run]` applies additive mutation semantics to an existing governed repo
-- blueprint-backed templates may be init-only when they redefine team topology
+- blueprint-backed templates may be init-only when they redefine team topology or the default runtime mix
 - authoring a new blueprint-backed template is a CLI-source extension, not a runtime operator command
 - `status` and `status --json` keep template choice visible to operators and automation
 
@@ -108,7 +108,7 @@ The page must list every built-in template from `VALID_GOVERNED_TEMPLATE_IDS` an
 - `web-app`
 - `enterprise-app`
 
-`generic` must be described as the baseline governed scaffold with no extra project-type files.
+`generic` must be described as the baseline governed scaffold with no extra project-type files and a manual-only cold-start runtime mix.
 
 `enterprise-app` must be described honestly as a blueprint-backed template that changes the governed team shape at init time.
 Its architecture and security-review artifacts must also be described honestly as ownership-enforced via `owned_by`, not just structural markdown files.
@@ -125,7 +125,7 @@ The page must describe the actual `template set` behavior:
 - records a `template_set` entry in `.agentxchain/decision-ledger.jsonl`
 - `--dry-run` prints the mutation plan without writing changes
 - switching from one non-`generic` template to another is additive, not destructive
-- blueprint-backed templates fail closed under `template set` because team-topology rewrites are not additive
+- blueprint-backed templates fail closed under `template set` because team-topology or runtime-mix rewrites are not additive
 
 The page must describe what `template set` does not do:
 
@@ -195,7 +195,7 @@ It must state the real extension path:
 - new template IDs must be registered in `VALID_GOVERNED_TEMPLATE_IDS`
 - `scaffold_blueprint` may define `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit`
 - those blueprint blocks are validated through the governed config validator
-- blueprint-backed templates that rewrite team topology remain init-only until a dedicated migrator exists
+- blueprint-backed templates that rewrite team topology or the runtime baseline remain init-only until a dedicated migrator exists
 
 ## Error Cases
 

@@ -40,14 +40,15 @@ describe('getting-started tutorial docs', () => {
     }
   });
 
-  it('states the mixed-mode truth boundary honestly', () => {
+  it('states the generic-vs-project-template truth boundary honestly', () => {
     assert.ok(content.includes('manual-pm'), 'must mention manual-pm');
+    assert.ok(content.includes('manual-dev'), 'must mention manual-dev');
+    assert.ok(content.includes('manual-qa'), 'must mention manual-qa');
     assert.ok(content.includes('local-dev'), 'must mention local-dev');
     assert.ok(content.includes('api-qa'), 'must mention api-qa');
-    assert.ok(content.includes('manual-qa'), 'must mention the built-in manual QA fallback');
-    assert.ok(content.includes('ANTHROPIC_API_KEY'), 'must mention default QA auth requirement');
-    assert.ok(content.includes('Do not pretend the default scaffold is fully no-key end to end'),
-      'must explicitly reject the dishonest no-key claim');
+    assert.ok(content.includes('ANTHROPIC_API_KEY'), 'must mention cli-tool QA auth requirement');
+    assert.ok(content.includes('Do not pretend the `cli-tool` walkthrough is fully no-key end to end.'),
+      'must explicitly reject the dishonest no-key claim for the mixed-mode walkthrough');
   });
 
   it('documents the custom phase extension boundary', () => {
@@ -95,6 +96,7 @@ describe('getting-started tutorial spec', () => {
     assert.ok(spec.includes('## Behavior'));
     assert.ok(spec.includes('## Acceptance Tests'));
     assert.ok(spec.includes('ANTHROPIC_API_KEY'));
+    assert.ok(spec.includes('manual-dev'));
     assert.ok(spec.includes('manual-qa'));
     assert.ok(spec.includes('workflow_kit'));
     assert.ok(spec.includes('template validate'));

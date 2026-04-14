@@ -1,18 +1,24 @@
 ---
 sidebar_position: 1
 title: Quickstart
-description: "Run an automated governed flow with agentxchain run, or use step for the shipped mixed-mode scaffold."
+description: "Run an automated governed flow with agentxchain run, or use step for the manual-first generic scaffold."
 ---
 
 # Run a governed flow without lying to yourself
 
-Governed mode is staged and gate-driven. `agentxchain run` is the primary automated workflow, but the scaffold created by `init --governed -y` is mixed-mode by default:
+Governed mode is staged and gate-driven. `agentxchain run` is the primary automated workflow, but the scaffold created by `init --governed -y` is manual-only by default:
+
+- `pm` uses `manual-pm`
+- `dev` uses `manual-dev`
+- `qa` uses `manual-qa`
+
+That means the default `generic` scaffold is **not** immediately runnable with `agentxchain run`. If a role is still bound to the `manual` adapter, use `step` for that path or rebind the role to a non-manual runtime first.
+
+Project templates such as `cli-tool`, `web-app`, and `api-service` stay mixed-mode on purpose:
 
 - `pm` uses `manual-pm`
 - `dev` uses `local-dev`
 - `qa` uses `api-qa`
-
-That means the default scaffold is **not** immediately runnable with `agentxchain run`. If a role is still bound to the `manual` adapter, use `step` for that path or rebind the role to a non-manual runtime first.
 
 ## Path 0: Demo
 
@@ -50,7 +56,7 @@ After the demo, read [Getting Started](/docs/getting-started) for the shortest h
 - Optional: [VS Code extension](https://marketplace.visualstudio.com/items?itemName=agentXchaindev.agentxchain) for in-editor governed status, approvals, and notifications
 - `npx --yes -p agentxchain@latest -c "agentxchain demo"` for the zero-install demo path
 - A working local coding CLI for the default `local-dev` runtime, or a config change to point `local-dev.command` at your installed tool
-- An API key for any `api_proxy` role you plan to use (`review_only` or `proposed`), such as `ANTHROPIC_API_KEY` for the default `api-qa` runtime
+- An API key for any `api_proxy` role you plan to use (`review_only` or `proposed`), such as `ANTHROPIC_API_KEY` for the mixed-mode `api-qa` runtime used by project templates
 - Scaffold intent via `--template` or defaults to `pm → dev → qa`
 
 ## Choose your starting point
@@ -212,14 +218,14 @@ Do not mix these modes casually. `argv` requires `{prompt}`. `stdin` and `dispat
 ### 1. Initialize
 
 ```bash
-agentxchain init --governed --dir my-agentxchain-project -y
+agentxchain init --governed --template cli-tool --dir my-agentxchain-project -y
 cd my-agentxchain-project
 git init && git add -A && git commit -m "initial governed scaffold"
 ```
 
 ### 2. Make the scaffold runnable
 
-The shipped scaffold defaults to `manual-pm`, so `agentxchain run` will stop immediately unless you rebind the PM role to a non-manual runtime. The smallest honest change is to point `pm` at an `api_proxy` runtime and keep `qa` on `api-qa`.
+The mixed-mode `cli-tool` scaffold defaults to `manual-pm`, so `agentxchain run` will stop immediately unless you rebind the PM role to a non-manual runtime. The smallest honest change is to point `pm` at an `api_proxy` runtime and keep `dev` on `local-dev` and `qa` on `api-qa`.
 
 Use `agentxchain config --set` to add the runtime and rebind the role:
 
@@ -259,9 +265,9 @@ If you want to preview the execution plan without dispatching, use:
 agentxchain run --dry-run
 ```
 
-## Manual path: keep the shipped mixed-mode scaffold
+## Manual path: keep the shipped default generic scaffold
 
-If you keep `pm` on `manual-pm`, use `step` for the planning turn and let the orchestrator stop where the human work actually happens.
+If you keep the default manual-only `generic` scaffold, use `step` for the planning turn and let the orchestrator stop where the human work actually happens.
 
 ### 1. Start the PM turn
 

@@ -351,14 +351,14 @@ describe('template set — idempotency', () => {
 
 // ── AT-TEMPLATE-SET-015: Set to generic ─────────────────────────────────────
 describe('template set — set to generic', () => {
-  it('AT-015: setting to generic updates field, creates no artifacts, does not delete existing', () => {
+  it('AT-015: setting to generic fails closed because generic is now blueprint-backed', () => {
     const dir = makeGovernedProject({ template: 'api-service' });
     writeFileSync(join(dir, '.planning', 'api-contract.md'), '# API Contract\n');
     const result = run(['template', 'set', 'generic', '--yes'], dir);
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /Template "generic" defines a custom governed team blueprint/);
     const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
-    assert.equal(config.template, 'generic');
-    // Old artifacts preserved
+    assert.equal(config.template, 'api-service');
     assert.ok(existsSync(join(dir, '.planning', 'api-contract.md')));
     rmSync(dir, { recursive: true, force: true });
   });

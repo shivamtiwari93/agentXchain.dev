@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Add a copy-paste getting-started guide that bridges the gap between the package-bound demo command and a first real governed run. The page must teach the real default mixed-mode scaffold honestly instead of assuming users can infer the operator loop from `quickstart` and `first-turn`.
+Add a copy-paste getting-started guide that bridges the gap between the package-bound demo command and a first real governed run. The page must distinguish the zero-dependency `generic` scaffold from the mixed-mode project templates honestly instead of collapsing them into one vague "default scaffold" story.
 
 ## Interface
 
@@ -26,8 +26,9 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
   8. `agentxchain approve-completion`
 - State the truth boundary:
   - demo needs no API keys
-  - the default scaffold is mixed-mode (`manual-pm`, `local-dev`, `api-qa`)
-  - QA on the shipped default requires `ANTHROPIC_API_KEY` unless the operator changes `roles.qa.runtime` from `api-qa` to `manual-qa`
+  - the default `generic` scaffold is manual-only (`manual-pm`, `manual-dev`, `manual-qa`)
+  - the `cli-tool` walkthrough on this page is mixed-mode (`manual-pm`, `local-dev`, `api-qa`)
+  - QA on the `cli-tool` walkthrough requires `ANTHROPIC_API_KEY` unless the operator changes `roles.qa.runtime` from `api-qa` to `manual-qa`
 - Link deeper artifact detail to `/docs/first-turn`
 - Explain the custom-phase workflow boundary:
   - `routing` controls phase order
@@ -39,7 +40,8 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
 
 ## Error Cases
 
-- Do not present a full no-key real repo walkthrough if the default scaffold still needs an API key for QA.
+- Do not claim the `cli-tool` walkthrough is no-key end to end.
+- Do not keep calling the default `generic` scaffold mixed-mode once it ships manual-only.
 - Do not imply `manual` and real-model proof are the same thing.
 - Do not surface a getting-started page without guard tests; drift here will recreate the onboarding wall.
 
@@ -47,7 +49,7 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
 
 1. `website-v2/docs/getting-started.mdx` exists and is wired into `website-v2/sidebars.ts`.
 2. The page includes the real command sequence from package-bound demo through `approve-completion`.
-3. The page states the default runtime bindings, the `ANTHROPIC_API_KEY` requirement for default QA, and the built-in `manual-qa` fallback.
+3. The page states the default `generic` runtime bindings, the mixed-mode `cli-tool` bindings used in the walkthrough, the `ANTHROPIC_API_KEY` requirement for `cli-tool` QA, and the built-in `manual-qa` fallback.
 4. The page installs the CLI before switching to repeated bare `agentxchain ...` commands.
 5. The page links to `/docs/first-turn` for artifact-level detail.
 6. Manual adapter output includes gate hints, a turn-result example, a suggested next role, and the new `/docs/getting-started` link.
@@ -55,4 +57,4 @@ Add a copy-paste getting-started guide that bridges the gap between the package-
 
 ## Open Questions
 
-- None. The docs must describe the shipped default honestly rather than inventing a cleaner path.
+- None. The docs must describe the shipped `generic` and project-template defaults honestly rather than flattening them into one fake baseline.

@@ -24,8 +24,8 @@ describe('Docs route runtime rebinding through config --set, not manual JSON edi
       'tutorial must show config --set for dev runtime rebind');
     assert.match(content, /config --set roles\.qa\.runtime manual-qa/,
       'tutorial must show config --set for QA runtime rebind');
-    assert.match(content, /config --set runtimes\.manual-dev\.type manual/,
-      'tutorial must show config --set for adding manual-dev runtime');
+    assert.doesNotMatch(content, /config --set runtimes\.manual-dev\.type manual/,
+      'tutorial must not tell operators to add manual-dev runtime manually once the built-in runtime exists');
     assert.doesNotMatch(content, /[Ee]dit `agentxchain\.json` and change.*runtime/,
       'tutorial must not tell operators to hand-edit JSON for runtime rebind');
   });

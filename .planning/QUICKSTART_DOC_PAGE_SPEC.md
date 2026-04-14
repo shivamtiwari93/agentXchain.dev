@@ -41,9 +41,10 @@ The page must state:
 - the reproducible non-interactive scaffold path: `init --governed -y`
 - the explicit target-directory escape hatch: `--dir <path>`, including `--dir .` for in-place existing-repo bootstrap
 - git repository requirement
-- the default runtime mix created by `init --governed -y`: manual PM, local CLI dev, api_proxy QA
+- the default runtime mix created by `init --governed -y`: manual PM, manual dev, manual QA
+- that project templates like `cli-tool` remain mixed-mode: manual PM, local CLI dev, api_proxy QA
 - that `run` requires every active role to use a non-`manual` runtime
-- the automation prerequisites for the shipped default mix: a working local coding CLI for `local-dev`, plus the API key for review-only `api_proxy` roles when used
+- the automation prerequisites for the mixed-mode project-template path: a working local coding CLI for `local-dev`, plus the API key for review-only `api_proxy` roles when used
 
 ### 2. Governed scaffold overview
 
@@ -66,12 +67,13 @@ The page must walk through:
 2. documenting `--dir .` for existing repos and explicit `--dir <path>` when the walkthrough later `cd`s into a named directory
 3. documenting the default `local-dev` scaffold contract as `claude --print --dangerously-skip-permissions` with stdin prompt delivery
 4. documenting the scaffold-time override path via `--dev-command` and `--dev-prompt-transport`
-5. showing that the default scaffold is mixed-mode and not immediately runnable via `agentxchain run`
-6. changing `pm` from `manual-pm` to a non-manual runtime, or explicitly telling the operator to keep the manual path instead
-7. calling `agentxchain run`
-8. documenting `--auto-approve` for non-interactive execution
-9. documenting `--max-turns` as a safety cap
-10. calling `agentxchain status` after the run
+5. showing that the default `generic` scaffold is manual-only and not immediately runnable via `agentxchain run`
+6. showing that mixed-mode project templates are the easiest truth-preserving `run` starting point
+7. changing `pm` from `manual-pm` to a non-manual runtime, or explicitly telling the operator to keep the manual path instead
+8. calling `agentxchain run`
+9. documenting `--auto-approve` for non-interactive execution
+10. documenting `--max-turns` as a safety cap
+11. calling `agentxchain status` after the run
 
 ### 4. Manual fallback walkthrough
 
@@ -116,7 +118,7 @@ The page must include a short troubleshooting section covering:
 | User follows a quickstart that later `cd`s into a directory | Use an explicit `--dir <path>` in the scaffold command so the path contract is visible. |
 | User copies a one-off `npx agentxchain ...` command and then runs bare `agentxchain` commands | Install the CLI first or keep every command package-bound; do not silently switch modes. |
 | User does not know where turn artifacts live | Show dispatch and staging paths explicitly. |
-| User does not understand why `run` will not start on the default scaffold | Explain that `pm` defaults to `manual-pm`, so the operator must either rebind that role or use `step`. |
+| User does not understand why `run` will not start on the default scaffold | Explain that `generic` is manual-only, so the operator must either keep the manual path or rebind roles to non-manual runtimes. |
 | User does not understand why `step` stops | Explain that adapters and approvals determine the next action. |
 | User confuses governed mode with legacy lock-based mode | Keep examples on governed commands only. |
 
@@ -126,8 +128,8 @@ The page must include a short troubleshooting section covering:
 2. The page links from the landing page nav or CTA.
 3. The page includes the real dispatch and staging paths for governed turns.
 4. The page documents `agentxchain run` as the primary automated workflow.
-5. The page documents `agentxchain step --role pm` as the manual fallback for the shipped default scaffold.
-6. The page explicitly states that the default scaffold is mixed-mode (`manual-pm`, `local-dev`, `api-qa`) and that `run` needs non-manual runtimes for active roles.
+5. The page documents `agentxchain step` as the manual fallback for the shipped default scaffold.
+6. The page explicitly states that the default `generic` scaffold is manual-only (`manual-pm`, `manual-dev`, `manual-qa`) and that mixed-mode project templates such as `cli-tool` use `manual-pm`, `local-dev`, `api-qa`.
 7. The page documents the default `local-dev` command and the scaffold-time override path via `--dev-command` / `--dev-prompt-transport`.
 8. The walkthrough includes both `accept-turn` and human approval commands.
 9. The page does not mention legacy-first artifacts such as `PROJECT.md`, `REQUIREMENTS.md`, or `qa/`.

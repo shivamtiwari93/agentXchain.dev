@@ -46,6 +46,7 @@ describe('Tutorial walkthrough docs surface', () => {
     assert.match(DOC, /manual-qa/, 'must mention manual-qa runtime');
     assert.match(DOC, /roles\.dev\.runtime/, 'must show dev runtime edit');
     assert.match(DOC, /roles\.qa\.runtime/, 'must show qa runtime edit');
+    assert.doesNotMatch(DOC, /runtimes\.manual-dev\.type manual/, 'must not tell operators to add manual-dev runtime manually');
     assert.match(DOC, /No API keys required/i, 'must explain zero API key requirement');
   });
 

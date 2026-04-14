@@ -69,8 +69,10 @@ describe('quickstart single-repo content contract', () => {
     assert.match(QUICKSTART, /RELEASE_NOTES\.md/);
   });
 
-  it('documents the default runtime bindings truthfully', () => {
+  it('documents the generic default runtime bindings truthfully and distinguishes mixed-mode templates', () => {
     assert.match(QUICKSTART, /manual-pm/);
+    assert.match(QUICKSTART, /manual-dev/);
+    assert.match(QUICKSTART, /manual-qa/);
     assert.match(QUICKSTART, /local-dev/);
     assert.match(QUICKSTART, /api-qa/);
   });

@@ -68,10 +68,10 @@ describe('run command documentation surface', () => {
       'quickstart must mention --max-turns as a safety cap');
   });
 
-  it('quickstart documents the shipped mixed-mode default and manual fallback', () => {
-    for (const token of ['manual-pm', 'local-dev', 'api-qa', 'agentxchain step']) {
+  it('quickstart documents the manual-first generic default, mixed-mode templates, and manual fallback', () => {
+    for (const token of ['manual-pm', 'manual-dev', 'manual-qa', 'local-dev', 'api-qa', 'agentxchain step']) {
       assert.ok(QUICKSTART_DOCS.includes(token),
-        `quickstart must document mixed-mode default/manual fallback token: ${token}`);
+        `quickstart must document runtime/manual fallback token: ${token}`);
     }
   });
 });
