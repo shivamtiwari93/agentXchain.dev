@@ -166,6 +166,93 @@ function countDirectoryFiles(files, prefix) {
   return Object.keys(files).filter((path) => path.startsWith(`${prefix}/`)).length;
 }
 
+function buildDelegationSummary(files) {
+  const historyData = files['.agentxchain/history.jsonl']?.data;
+  if (!Array.isArray(historyData)) {
+    return null;
+  }
+
+  // Index history entries by delegation-related fields
+  const parentTurns = new Map(); // parent_turn_id -> { role, delegations_issued }
+  const childTurns = new Map();  // delegation_id -> { child entry }
+  const reviewTurns = new Map(); // parent_turn_id -> { review entry }
+
+  for (const entry of historyData) {
+    if (entry.delegations_issued && Array.isArray(entry.delegations_issued)) {
+      parentTurns.set(entry.turn_id, {
+        role: entry.role,
+        delegations_issued: entry.delegations_issued,
+      });
+    }
+    if (entry.delegation_context) {
+      childTurns.set(entry.delegation_context.delegation_id, {
+        turn_id: entry.turn_id,
+        status: entry.status || 'completed',
+      });
+    }
+    if (entry.delegation_review) {
+      reviewTurns.set(entry.delegation_review.parent_turn_id, {
+        turn_id: entry.turn_id,
+        results: entry.delegation_review.results || [],
+      });
+    }
+  }
+
+  let totalDelegationsIssued = 0;
+  const delegationChains = [];
+
+  for (const [parentTurnId, parent] of parentTurns) {
+    totalDelegationsIssued += parent.delegations_issued.length;
+
+    const review = reviewTurns.get(parentTurnId);
+    const reviewResultsByDelegation = new Map();
+    if (review) {
+      for (const r of review.results) {
+        if (r.delegation_id) {
+          reviewResultsByDelegation.set(r.delegation_id, r);
+        }
+      }
+    }
+
+    const delegations = parent.delegations_issued.map((del) => {
+      const child = childTurns.get(del.id);
+      const reviewResult = reviewResultsByDelegation.get(del.id);
+      return {
+        delegation_id: del.id,
+        to_role: del.to_role,
+        charter: del.charter,
+        status: reviewResult?.status || child?.status || 'pending',
+        child_turn_id: child?.turn_id || null,
+      };
+    });
+
+    let outcome;
+    if (!review) {
+      outcome = 'pending';
+    } else {
+      const statuses = delegations.map((d) => d.status);
+      const allCompleted = statuses.every((s) => s === 'completed');
+      const allFailed = statuses.every((s) => s === 'failed');
+      if (allCompleted) outcome = 'completed';
+      else if (allFailed) outcome = 'failed';
+      else outcome = 'mixed';
+    }
+
+    delegationChains.push({
+      parent_turn_id: parentTurnId,
+      parent_role: parent.role,
+      delegations,
+      review_turn_id: review?.turn_id || null,
+      outcome,
+    });
+  }
+
+  return {
+    total_delegations_issued: totalDelegationsIssued,
+    delegation_chains: delegationChains,
+  };
+}
+
 function isGitRepo(root) {
   try {
     execSync('git rev-parse --is-inside-work-tree', {
@@ -317,6 +404,7 @@ export function buildRunExport(startDir = process.cwd()) {
         staging_artifact_files: countDirectoryFiles(files, '.agentxchain/staging'),
         intake_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/intake/')),
         coordinator_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/multirepo/')),
+        delegation_summary: buildDelegationSummary(files),
       },
       workspace: buildRunWorkspaceMetadata(root),
       files,

@@ -81,6 +81,36 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `coordinator_present` | Whether any `.agentxchain/multirepo/` file exists inside the governed repo |
 | `provenance` | Run provenance metadata (trigger, parent_run_id, created_by) — `null` when absent |
 | `inherited_context` | Read-only summary inherited from a parent run via `--inherit-context` — `null` when absent |
+| `delegation_summary` | Delegation chain summary derived from accepted history — `null` when history is unavailable |
+
+### `summary.delegation_summary`
+
+When present (non-null), provides a structured view of delegation chains:
+
+| Field | Meaning |
+| --- | --- |
+| `total_delegations_issued` | Total number of delegations across all parent turns |
+| `delegation_chains` | Array of delegation chain objects |
+
+Each delegation chain object:
+
+| Field | Meaning |
+| --- | --- |
+| `parent_turn_id` | Turn that issued the delegations |
+| `parent_role` | Role that delegated |
+| `delegations` | Array of individual delegation entries |
+| `review_turn_id` | Turn that reviewed the delegation results, or `null` if pending |
+| `outcome` | `"completed"`, `"failed"`, `"mixed"`, or `"pending"` |
+
+Each delegation entry:
+
+| Field | Meaning |
+| --- | --- |
+| `delegation_id` | Unique delegation identifier |
+| `to_role` | Role the sub-task was delegated to |
+| `charter` | Description of the delegated work |
+| `status` | `"completed"`, `"failed"`, or `"pending"` |
+| `child_turn_id` | Turn that executed the delegation, or `null` if not yet executed |
 
 ### Included governed roots
 
