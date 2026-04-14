@@ -2,11 +2,13 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **All human tasks complete.** No open items. npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools, with one caveat: X/Twitter still depends on either a free system Chrome profile or a separately logged-in `x-browser` profile. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
+Current state: **One open item — LinkedIn re-authentication.** npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
 
 ---
 
 ## Open
+
+- [ ] **Re-authenticate the `li-browser` isolated profile for LinkedIn posting** — LinkedIn posting has failed on every release since v2.86.0 (5 consecutive failures: v2.86.0, v2.87.0, v2.88.0, v2.89.0 + one mid-cycle attempt). The error is always `RuntimeError: LinkedIn composer remained open after clicking the submit control; post may not have been published.` This is an auth/session boundary — the li-browser isolated profile session has expired or been invalidated by LinkedIn. **Action required:** open the li-browser isolated profile browser, log into LinkedIn manually, and verify the session is active. Then test with `li-browser post create --company-id 112883208 "test post"`. Agents will resume LinkedIn posting once the human confirms the session is restored.
 
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
