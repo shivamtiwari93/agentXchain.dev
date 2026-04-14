@@ -31,4 +31,21 @@ describe('delegation-chains docs content', () => {
     assert.match(doc, /Sequential execution/i);
     assert.match(doc, /one at a time/i);
   });
+
+  it('AT-DELDOC-005: docs name the failure-path proof script and command', () => {
+    assert.match(doc, /run-delegation-failure-proof\.mjs/);
+    assert.match(doc, /node examples\/governed-todo-app\/run-delegation-failure-proof\.mjs --json/);
+  });
+
+  it('AT-DELDOC-006: docs describe delegation failure handling behavior', () => {
+    assert.match(doc, /Failure Handling/i);
+    assert.match(doc, /mixed results/i);
+    assert.match(doc, /failed_count.*1/);
+    assert.match(doc, /completed_count.*1/);
+  });
+
+  it('AT-DELDOC-007: docs describe that failed delegations trigger review, not escalation', () => {
+    assert.match(doc, /surfaced.*not swallowed/i);
+    assert.match(doc, /reviewing role.*sees/i);
+  });
 });

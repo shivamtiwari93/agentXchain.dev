@@ -197,9 +197,33 @@ agentxchain step
 # Director receives delegation review with both results
 ```
 
-## CLI Proof
+## Failure Handling
 
-A reproducible CLI proof now exists at `examples/governed-todo-app/run-delegation-proof.mjs`.
+When a delegated sub-task fails (`status: 'failed'` in the turn result), the protocol does **not** block or escalate. Instead:
+
+1. The delegation queue entry is marked `failed`
+2. The system checks if all delegations from the same parent are now done (either `completed` or `failed`)
+3. If all are done, delegation review is triggered with **mixed results** — the parent role receives both successful and failed outcomes
+4. The reviewing role decides how to proceed: accept the partial results, re-delegate failed work, or complete the run
+
+This means delegation failures are **surfaced, not swallowed**. The reviewing role always sees the full picture including failure details, verification status, and the failed delegation's summary.
+
+```markdown
+## Delegation Review
+
+### del-001 → dev
+- **Status:** completed
+- **Summary:** Implementation complete, all tests pass
+
+### del-002 → qa
+- **Status:** failed
+- **Summary:** QA review found critical issues that cannot be resolved
+- **Verification:** fail
+```
+
+## CLI Proof — Happy Path
+
+A reproducible CLI proof exists at `examples/governed-todo-app/run-delegation-proof.mjs`.
 
 ```bash
 node examples/governed-todo-app/run-delegation-proof.mjs --json
@@ -216,7 +240,27 @@ Recorded proof on 2026-04-14:
   - `.agentxchain/proof/delegation/review-turn.json`
 - final run status: `completed`
 
-This matters because the proof goes through the real `agentxchain step` lifecycle, not direct state mutation. It exercises delegation enqueueing, delegated turn routing, delegation review routing, and clean run completion through the actual CLI/operator path.
+## CLI Proof — Failure Path
+
+A dedicated failure-path proof exists at `examples/governed-todo-app/run-delegation-failure-proof.mjs`.
+
+```bash
+node examples/governed-todo-app/run-delegation-failure-proof.mjs --json
+```
+
+Recorded proof on 2026-04-14:
+
+- adapter: real `local_cli` adapter with a deterministic mock agent where QA fails
+- accepted role order: `director -> dev -> qa -> director`
+- dev delegation (del-001): **completed** successfully
+- qa delegation (del-002): **failed** with critical issues
+- delegation review: parent received mixed results (1 completed, 1 failed)
+- review artifact confirms `failed_count: 1`, `completed_count: 1`
+- final run status: `completed` (parent accepted partial success)
+
+This proves the protocol handles delegation failures gracefully: failed delegations still trigger review, the parent sees mixed statuses, and the run can still complete after the reviewing role makes a decision.
+
+Both proofs go through the real `agentxchain step` lifecycle, not direct state mutation. They exercise delegation enqueueing, delegated turn routing, delegation review routing, and clean run completion through the actual CLI/operator path.
 
 ## Limitations (v1)
 
