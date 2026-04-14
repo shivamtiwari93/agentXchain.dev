@@ -1,0 +1,56 @@
+---
+sidebar_position: 1
+title: "v2.86.0 Release Notes"
+description: "Zero-friction onboarding: manual-first generic template, init auto-detection, 5-minute tutorial, and template decision guide."
+---
+
+# AgentXchain v2.86.0
+
+`v2.86.0` ships a complete onboarding overhaul so first-time users can go from `npm install` to their first accepted governed turn with zero external dependencies.
+
+## What Changed
+
+### Manual-First Generic Template
+
+The default `generic` governed template is now manual-first. All four roles (`pm`, `dev`, `qa`, `eng_director`) bind to manual runtimes. No API keys, no local coding CLI required.
+
+- `DEC-GENERIC-TEMPLATE-001`: `generic` is the zero-dependency baseline; project templates (`cli-tool`, `web-app`, `api-service`) remain mixed-mode
+- `DEC-GENERIC-TEMPLATE-002`: `manual-dev` is a built-in runtime so operators can rebind without inventing a new runtime entry
+- `DEC-GENERIC-TEMPLATE-003`: `template set generic` fails closed — rebinding to manual-first is not an additive mutation
+- If `--dev-command` or `--dev-prompt-transport` is passed on `generic`, init upgrades `dev` back to `local-dev`
+
+### Init In-Place Auto-Detection
+
+`agentxchain init --governed --yes` now auto-detects when cwd is an empty git repo (has `.git/` but no `agentxchain.json`) and scaffolds in-place instead of creating a nested `my-agentxchain-project/` subdirectory.
+
+- `DEC-INIT-INPLACE-001`: safe default — only triggers in the exact case where creating a subdirectory would be surprising
+- Non-git directories and repos with existing `agentxchain.json` still create subdirectories
+
+### 5-Minute Tutorial
+
+New docs page at `/docs/five-minute-tutorial/`: a narrative walkthrough from `npm install` to the first accepted PM turn using the manual-first `generic` scaffold.
+
+- Uses `turn show --artifact assignment --json` for CLI-driven inspection instead of manual ID copy-paste
+- Scratch artifacts live outside the governed repo to avoid `review_only` diff noise
+- Linked from README, homepage hero, quickstart, and getting-started
+
+### Choosing a Template Guide
+
+New docs page at `/docs/choosing-a-template/`: operational decision guide for manual-first baseline vs project-type templates.
+
+- Covers when to pick `generic` vs `cli-tool`/`web-app`/`api-service`
+- Full template comparison table with planning files, PM/QA prompt focus, and acceptance hints
+- Upgrade path from `generic` to project templates
+
+### Marketing Browser Automation Hardening
+
+- LinkedIn posting defaults to isolated `li-browser` profile (not `--system-profile`)
+- X posting surfaces precise Chrome lock preflight instead of opaque timeout errors
+- `DEC-MARKETING-BROWSER-001`: the two channels have different failure modes and are now configured independently
+
+## Evidence
+
+- 4353 tests / 922 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+- Cold-start proof: `init --governed -y` → `doctor --json` → `overall: "pass"`, `fail_count: 0` with zero external dependencies
+- Real walkthrough proof: `init` → `template validate` → `doctor` → `step` → `turn show` → `accept-turn` → success

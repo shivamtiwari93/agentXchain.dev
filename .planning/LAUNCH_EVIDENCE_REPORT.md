@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.85.0
+# Launch Evidence Report — AgentXchain v2.86.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-13 for the v2.85.0 release: parallel turn dispatch in run-loop, built-in plugin proof chains (json-report, github-issues), and live multi-repo coordinator evidence.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.86.0 release: zero-friction onboarding with manual-first generic template, init auto-detection, 5-minute tutorial, and template decision guide.
 
 ---
 

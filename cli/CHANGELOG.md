@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.86.0
+
+`2.86.0` ships a complete onboarding overhaul: manual-first generic template, init in-place auto-detection, 5-minute tutorial, and template decision guide.
+
+- Default `generic` governed template is now manual-first — all four roles bind to manual runtimes, no API keys or local coding CLI required
+- `manual-dev` is a built-in runtime so operators can rebind `dev` without inventing a new runtime entry
+- `init --governed --yes` auto-detects empty git repos and scaffolds in-place instead of creating a nested subdirectory
+- New `/docs/five-minute-tutorial/` page: narrative walkthrough from install to first accepted turn
+- New `/docs/choosing-a-template/` page: operational decision guide for manual-first vs project-type templates
+- Tutorial front-door links added to README and homepage hero
+- Marketing browser wrappers hardened: LinkedIn uses isolated profile, X surfaces Chrome lock preflight
+- 7 tests fixed after manual-first template change (governed-state, connector-health, status-connector-health, run-api-proxy-integration)
+- 4353 tests / 922 suites / 0 failures (`cd cli && npm test`)
+- `cd website-v2 && npm run build` clean
+
 ## 2.85.0
 
 `2.85.0` ships parallel turn dispatch, built-in plugin proof chains, and live multi-repo coordinator evidence.
