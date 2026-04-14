@@ -49,11 +49,13 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /timeout_events/);
     assert.match(REPORT_DOCS, /continuity/);
     assert.match(REPORT_DOCS, /delegation_summary/);
+    assert.match(REPORT_DOCS, /dashboard_session/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Timeout Events/);
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /Delegation Summary/);
+    assert.match(REPORT_DOCS, /Dashboard session/);
     assert.match(REPORT_DOCS, /#### Continuity/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });
@@ -128,5 +130,14 @@ describe('governance report spec alignment', () => {
     assert.match(delegationSpec, /AT-REPORT-DEL-001/);
     assert.match(delegationSpec, /AT-REPORT-DEL-004/);
     assert.match(delegationSpec, /subject\.run\.delegation_summary/);
+  });
+
+  it('ships a dashboard-session report spec for dashboard snapshot audit output', () => {
+    const dashboardSpec = read('.planning/GOVERNANCE_REPORT_DASHBOARD_SESSION_SPEC.md');
+    assert.match(dashboardSpec, /Governance Report Dashboard Session Spec/);
+    assert.match(dashboardSpec, /AT-REPORT-DASH-001/);
+    assert.match(dashboardSpec, /AT-REPORT-DASH-003/);
+    assert.match(dashboardSpec, /subject\.run\.dashboard_session/);
+    assert.match(dashboardSpec, /summary\.dashboard_session/);
   });
 });

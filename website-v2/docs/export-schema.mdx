@@ -81,7 +81,21 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `coordinator_present` | Whether any `.agentxchain/multirepo/` file exists inside the governed repo |
 | `provenance` | Run provenance metadata (trigger, parent_run_id, created_by) — `null` when absent |
 | `inherited_context` | Read-only summary inherited from a parent run via `--inherit-context` — `null` when absent |
+| `dashboard_session` | Snapshot of local dashboard-daemon status at export time |
 | `delegation_summary` | Delegation chain summary derived from accepted history — `null` when history is unavailable |
+
+### `summary.dashboard_session`
+
+Every current run export includes a dashboard-session snapshot object:
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `"running"`, `"pid_only"`, `"stale"`, or `"not_running"` |
+| `pid` | Live/stale PID when known, else `null` |
+| `url` | Dashboard URL when session metadata exists, else `null` |
+| `started_at` | Session start timestamp when known, else `null` |
+
+This is an operator snapshot, not protocol state. It is derived at export time using the same dashboard-session logic used by `doctor` and `status --json`.
 
 ### `summary.delegation_summary`
 
@@ -118,6 +132,8 @@ When present, the run export collects:
 
 - `agentxchain.json`
 - `TALK.md`
+- `.agentxchain-dashboard.pid`
+- `.agentxchain-dashboard.json`
 - `.agentxchain/state.json`
 - `.agentxchain/history.jsonl`
 - `.agentxchain/decision-ledger.jsonl`

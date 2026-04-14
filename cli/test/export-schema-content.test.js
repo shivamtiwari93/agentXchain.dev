@@ -324,6 +324,8 @@ describe('run export schema docs contract', () => {
 
       for (const relPath of [
         'agentxchain.json',
+        '.agentxchain-dashboard.pid',
+        '.agentxchain-dashboard.json',
         '.agentxchain/state.json',
         '.agentxchain/history.jsonl',
         '.agentxchain/decision-ledger.jsonl',

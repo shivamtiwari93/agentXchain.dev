@@ -7,6 +7,7 @@ import { loadProjectContext, loadProjectState } from './config.js';
 import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-config.js';
 import { loadCoordinatorState } from './coordinator-state.js';
 import { normalizeRunProvenance } from './run-provenance.js';
+import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
 
@@ -23,6 +24,8 @@ const COORDINATOR_INCLUDED_ROOTS = [
 export const RUN_EXPORT_INCLUDED_ROOTS = [
   'agentxchain.json',
   'TALK.md',
+  '.agentxchain-dashboard.pid',
+  '.agentxchain-dashboard.json',
   '.agentxchain/state.json',
   '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
@@ -164,6 +167,45 @@ function countJsonl(files, relPath) {
 
 function countDirectoryFiles(files, prefix) {
   return Object.keys(files).filter((path) => path.startsWith(`${prefix}/`)).length;
+}
+
+function buildDashboardSessionSummary(root) {
+  const dashPid = getDashboardPid(root);
+  const dashSession = getDashboardSession(root);
+
+  if (dashPid && dashSession) {
+    return {
+      status: 'running',
+      pid: dashPid,
+      url: dashSession.url || null,
+      started_at: dashSession.started_at || null,
+    };
+  }
+
+  if (dashPid && !dashSession) {
+    return {
+      status: 'pid_only',
+      pid: dashPid,
+      url: null,
+      started_at: null,
+    };
+  }
+
+  if (!dashPid && dashSession) {
+    return {
+      status: 'stale',
+      pid: dashSession.pid || null,
+      url: dashSession.url || null,
+      started_at: dashSession.started_at || null,
+    };
+  }
+
+  return {
+    status: 'not_running',
+    pid: null,
+    url: null,
+    started_at: null,
+  };
 }
 
 export function buildDelegationSummary(files) {
@@ -404,6 +446,7 @@ export function buildRunExport(startDir = process.cwd()) {
         staging_artifact_files: countDirectoryFiles(files, '.agentxchain/staging'),
         intake_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/intake/')),
         coordinator_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/multirepo/')),
+        dashboard_session: buildDashboardSessionSummary(root),
         delegation_summary: buildDelegationSummary(files),
       },
       workspace: buildRunWorkspaceMetadata(root),

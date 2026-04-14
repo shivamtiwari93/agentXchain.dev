@@ -964,6 +964,61 @@ describe('report CLI', () => {
     }
   });
 
+  it('AT-REPORT-DASH-001/002/003: report surfaces dashboard session snapshot truthfully', () => {
+    const root = createGovernedProject();
+    try {
+      let artifactPath = exportArtifact(root, 'dashboard-none.json');
+      let jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      let report = JSON.parse(jsonResult.stdout);
+      assert.deepEqual(report.subject.run.dashboard_session, {
+        status: 'not_running',
+        pid: null,
+        url: null,
+        started_at: null,
+      });
+
+      writeFileSync(join(root, '.agentxchain-dashboard.pid'), `${process.pid}\n`);
+      writeJson(join(root, '.agentxchain-dashboard.json'), {
+        pid: process.pid,
+        port: 3847,
+        url: 'http://localhost:3847',
+        started_at: '2026-04-14T12:35:00.000Z',
+      });
+
+      artifactPath = exportArtifact(root, 'dashboard-running.json');
+      jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      report = JSON.parse(jsonResult.stdout);
+      assert.deepEqual(report.subject.run.dashboard_session, {
+        status: 'running',
+        pid: process.pid,
+        url: 'http://localhost:3847',
+        started_at: '2026-04-14T12:35:00.000Z',
+      });
+
+      const textResult = runCli(root, ['report', '--input', artifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Dashboard session: running at http:\/\/localhost:3847 \(PID: /);
+
+      const markdownResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(markdownResult.status, 0, markdownResult.stderr);
+      assert.match(markdownResult.stdout, /- Dashboard session: `running at http:\/\/localhost:3847 \(PID: /);
+
+      const legacyArtifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      delete legacyArtifact.summary.dashboard_session;
+      const legacyPath = join(root, 'dashboard-legacy.json');
+      writeJson(legacyPath, legacyArtifact);
+
+      jsonResult = runCli(root, ['report', '--input', legacyPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      report = JSON.parse(jsonResult.stdout);
+      assert.equal(report.subject.run.dashboard_session, null);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-REPORT-007: unreadable input returns command-error shape', () => {
     const root = createGovernedProject();
     try {

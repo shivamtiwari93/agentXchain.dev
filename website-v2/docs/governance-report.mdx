@@ -76,6 +76,7 @@ Run-export reports carry:
 | `subject.run.active_roles` | Sorted active role ids |
 | `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
 | `subject.run.cost_summary` | Aggregated per-run cost breakdown (see below) or `null` when no turns exist |
+| `subject.run.dashboard_session` | Export-time dashboard-daemon snapshot summary, or `null` for older artifacts that predate the field |
 | `subject.run.delegation_summary` | Delegation-chain audit summary derived from the verified export summary or accepted history fallback |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Run timing summary when available |
 | `subject.run.turns` | Accepted-turn timeline derived from `.agentxchain/history.jsonl` |
@@ -118,6 +119,21 @@ When the governed project config includes `project.goal`, the derived report pre
 | `by_phase` | `array` | Per-phase breakdown sorted alphabetically. Each entry: `{ phase, usd, turns }` |
 
 Text and markdown output render a dedicated **Cost Summary** section with role and phase breakdowns between the budget line and the turn timeline.
+
+#### Dashboard Session
+
+`subject.run.dashboard_session` captures the export-time snapshot of the repo-local dashboard daemon.
+
+When present it has this shape:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `status` | `"running" \| "pid_only" \| "stale" \| "not_running"` | Snapshot status at export time |
+| `pid` | `number \| null` | PID when known |
+| `url` | `string \| null` | Dashboard URL when session metadata exists |
+| `started_at` | `string \| null` | Session start timestamp when known |
+
+Current exports always include this field. Older verified artifacts may surface `null` here because they predate the snapshot field. When the field is present, text and markdown output render a `Dashboard session` summary line near the top of the report.
 
 #### Delegation Summary
 

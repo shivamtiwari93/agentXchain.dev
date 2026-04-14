@@ -221,6 +221,43 @@ describe('export CLI', () => {
     }
   });
 
+  it('AT-EXPORT-DASH-001/002: export snapshots dashboard session status truthfully', () => {
+    const root = createGovernedProject();
+    try {
+      let result = runCli(root, ['export', '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      let exported = JSON.parse(result.stdout);
+      assert.deepEqual(exported.summary.dashboard_session, {
+        status: 'not_running',
+        pid: null,
+        url: null,
+        started_at: null,
+      });
+
+      writeFileSync(join(root, '.agentxchain-dashboard.pid'), `${process.pid}\n`);
+      writeJson(join(root, '.agentxchain-dashboard.json'), {
+        pid: process.pid,
+        port: 3847,
+        url: 'http://localhost:3847',
+        started_at: '2026-04-14T12:30:00.000Z',
+      });
+
+      result = runCli(root, ['export', '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      exported = JSON.parse(result.stdout);
+      assert.deepEqual(exported.summary.dashboard_session, {
+        status: 'running',
+        pid: process.pid,
+        url: 'http://localhost:3847',
+        started_at: '2026-04-14T12:30:00.000Z',
+      });
+      assert.equal(exported.files['.agentxchain-dashboard.pid'].format, 'text');
+      assert.equal(exported.files['.agentxchain-dashboard.json'].format, 'json');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-EXPORT-005: export --output writes the artifact to disk', () => {
     const root = createGovernedProject();
     try {

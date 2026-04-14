@@ -5,6 +5,7 @@ import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
 const VALID_DELEGATION_OUTCOMES = new Set(['completed', 'failed', 'mixed', 'pending']);
+const VALID_DASHBOARD_SESSION_STATUSES = new Set(['running', 'pid_only', 'stale', 'not_running']);
 
 function normalizeDelegationSummary(summary) {
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return null;
@@ -56,6 +57,37 @@ function extractDelegationSummary(artifact) {
   const fromSummary = normalizeDelegationSummary(artifact.summary?.delegation_summary);
   if (fromSummary) return fromSummary;
   return normalizeDelegationSummary(buildDelegationSummary(artifact.files || {}));
+}
+
+function normalizeDashboardSessionSummary(summary) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return null;
+  if (!VALID_DASHBOARD_SESSION_STATUSES.has(summary.status)) return null;
+  return {
+    status: summary.status,
+    pid: Number.isInteger(summary.pid) ? summary.pid : null,
+    url: typeof summary.url === 'string' && summary.url.length > 0 ? summary.url : null,
+    started_at: typeof summary.started_at === 'string' && summary.started_at.length > 0 ? summary.started_at : null,
+  };
+}
+
+function extractDashboardSessionSummary(artifact) {
+  return normalizeDashboardSessionSummary(artifact.summary?.dashboard_session);
+}
+
+function formatDashboardSessionLine(session) {
+  if (!session) return null;
+  switch (session.status) {
+    case 'running':
+      return `running at ${session.url || 'unknown url'} (PID: ${session.pid || '?'})`;
+    case 'pid_only':
+      return `pid_only (PID: ${session.pid || '?'}, session metadata missing)`;
+    case 'stale':
+      return `stale session files${session.pid ? ` (PID: ${session.pid})` : ''}${session.url ? ` at ${session.url}` : ''}`;
+    case 'not_running':
+      return 'not_running';
+    default:
+      return null;
+  }
 }
 
 function yesNo(value) {
@@ -916,6 +948,7 @@ function buildRunSubject(artifact) {
   const continuity = extractContinuityMetadata(artifact);
   const governanceEvents = extractGovernanceEventDigest(artifact);
   const delegationSummary = extractDelegationSummary(artifact);
+  const dashboardSession = extractDashboardSessionSummary(artifact);
 
   return {
     kind: 'governed_run',
@@ -942,6 +975,7 @@ function buildRunSubject(artifact) {
       active_roles: activeRoles,
       budget_status: normalizeBudgetStatus(artifact.state?.budget_status),
       cost_summary: computeCostSummary(turns),
+      dashboard_session: dashboardSession,
       created_at: timing.created_at,
       completed_at: timing.completed_at,
       duration_seconds: timing.duration_seconds,
@@ -1208,6 +1242,9 @@ export function formatGovernanceReportText(report) {
     }
     if (run.inherited_context?.parent_run_id) {
       lines.push(`Inherited from: ${run.inherited_context.parent_run_id} (${run.inherited_context.parent_status || 'unknown'})`);
+    }
+    if (run.dashboard_session) {
+      lines.push(`Dashboard session: ${formatDashboardSessionLine(run.dashboard_session)}`);
     }
 
     lines.push(
@@ -1687,6 +1724,9 @@ export function formatGovernanceReportMarkdown(report) {
     }
     if (run.inherited_context?.parent_run_id) {
       lines.push(`- Inherited from: \`${run.inherited_context.parent_run_id}\` (${run.inherited_context.parent_status || 'unknown'})`);
+    }
+    if (run.dashboard_session) {
+      lines.push(`- Dashboard session: \`${formatDashboardSessionLine(run.dashboard_session)}\``);
     }
 
     lines.push(
