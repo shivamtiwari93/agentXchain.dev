@@ -1,0 +1,143 @@
+---
+title: "Case Study: How AgentXchain Built AgentXchain"
+sidebar_label: "Case Study: Self-Build"
+sidebar_position: 7
+---
+
+# How AgentXchain Built AgentXchain
+
+AgentXchain is not a theoretical framework. It was built by the system it describes: two AI agents (Claude Opus 4.6 and GPT 5.4) collaborating under governed multi-agent delivery, with a human setting direction and retaining sovereignty.
+
+This page documents how that worked — with concrete evidence, not abstract claims.
+
+## The Setup
+
+- **Agents**: Claude Opus 4.6 and GPT 5.4, alternating turns
+- **Human role**: vision owner, priority setter (via `HUMAN-ROADMAP.md`), and escalation target
+- **Governance artifacts**: `VISION.md` (human-owned, immutable by agents), `WAYS-OF-WORKING.md` (execution model), `AGENT-TALK.md` (collaboration log with structured turns)
+- **Decision tracking**: every significant decision recorded as a `DEC-*` entry with rationale, so neither agent relitigates settled questions
+
+## Evidence Summary
+
+| Metric | Value |
+|--------|-------|
+| Total commits | 1,140+ |
+| Git tags | 100 |
+| Published releases | 86 (v2.11.0 through v2.86.0) |
+| Collaboration turns | 190+ (compressed to stay under 15,000 words) |
+| Tracked decisions (`DEC-*`) | 130+ unique entries |
+| Planning specs (`.planning/*SPEC*`) | 384 files |
+| Test suite | 4,350+ tests across 920+ suites |
+| Product examples | 15 governed projects |
+| Integration guides | 21 platform-specific docs |
+| Comparison pages | 6 competitor analyses |
+| CI-gated proof workflows | 5 (CI, npm publish, website deploy, governed-todo-app, CI runner proof) |
+
+## How Governance Worked In Practice
+
+### Structured Turns
+
+Every contribution follows a strict format:
+
+1. **Respond** to the other agent's previous points — acknowledge, agree, or disagree
+2. **Challenge** the other agent's reasoning — push back on vague specs, missing edge cases, untested assumptions
+3. **Ship work** — write code, specs, tests, docs. Not just commentary
+4. **Record decisions** — `DEC-*` entries with rationale
+5. **Direct the next turn** — tell the other agent exactly what to do next
+
+This structure prevented the collaboration from drifting into vague planning or circular discussion. Every turn had to include concrete shipped work.
+
+### Challenge Culture
+
+The agents actively challenged each other. Examples from the collaboration log:
+
+- **Turn 9 (Claude to GPT)**: "Your Turn 8 broke 7 tests and you didn't catch it before pushing. The test suite exists to prevent exactly this. Run the full suite before pushing changes to template scaffolding."
+- **Turn 6 (GPT to Claude)**: "Your framing still collapsed X and LinkedIn into one bug. That was wrong. They were failing with the same symptom, not the same cause."
+- **Turn 4 (GPT to Claude)**: "Your option list still blurred proof categories. 'Cross-repo governance' is not one monolithic gap."
+- **Turn 2 (GPT to Claude)**: "Your plugin suggestion was still too vague. 'Run one and publish the evidence' is not a spec."
+
+These challenges caught real bugs (7 broken tests from a template change), prevented fake proofs (empty gates don't exercise `before_gate` hooks), and forced precise scoping instead of hand-waving.
+
+### Decision Discipline
+
+Decisions were recorded once and then respected. Examples:
+
+- `DEC-GENERIC-TEMPLATE-001`: the default governed template is manual-first (zero external dependencies). This ended repeated discussion about whether first-time users need API keys.
+- `DEC-BUILTIN-JSON-REPORT-PROOF-002`: live proof of `before_gate` must force real gate approvals. Empty gates are not sufficient evidence. This prevented cargo-culting an incorrect proof pattern.
+- `DEC-COST-STRATEGY-001`: operator-supplied `cost_rates` override bundled defaults. No attempt to maintain a complete pricing catalog. This stopped scope creep in the budget system.
+- `DEC-MARKETING-BROWSER-001`: LinkedIn defaults to isolated browser profile; X uses system profile. This separated two bugs that had the same symptom but different causes.
+
+### Human Sovereignty
+
+The human retained authority through two channels:
+
+1. **`VISION.md`** — the immutable north star. Agents cannot modify it. If agent work conflicts with the vision, the work changes, not the vision.
+2. **`HUMAN-ROADMAP.md`** — a priority queue where the human injects work at any time. Unchecked items take absolute priority over the agents' regular collaboration. The human used this to direct VS Code extension publishing, integration guides, visual design sweeps, pricing model corrections, and more.
+
+Both channels were respected throughout. No agent modified `VISION.md`. Every `HUMAN-ROADMAP.md` item was completed before regular work resumed.
+
+## What Was Actually Built
+
+### Protocol and Runtime
+
+- Governed run lifecycle with explicit phases, gates, and role turns
+- 5 adapter types: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
+- Parallel turn dispatch with slot-filling and stall detection
+- Multi-repo coordinator with barrier synchronization
+- Plugin lifecycle with short-name install from built-in registry
+- Recovery, escalation, and approval policy enforcement
+- Configuration validation with dead-end gate warnings
+
+### CLI Surface
+
+- 40+ commands with dedicated subprocess tests
+- `init --governed` with auto-detection for in-place scaffolding
+- `doctor` for readiness validation
+- `audit` for live governance reports
+- `diff` for run comparison
+- `connector check` for probe-based health
+- Full inspection family: `role`, `turn`, `phase`, `gate`, `verify`, `replay`
+
+### Documentation and Adoption
+
+- Docusaurus-based website at agentxchain.dev
+- 5-minute tutorial with runtime-proven walkthrough
+- 21 integration guides covering IDE platforms, local runners, API providers, and MCP
+- 6 comparison pages against competitors
+- Template decision guide for manual-first vs mixed-mode projects
+- Release notes for every version
+
+### Quality Evidence
+
+- 4,350+ tests with 0 failures as a release gate
+- 5 CI-gated proof workflows running on every push
+- Live model-backed proofs for built-in plugins (json-report, github-issues)
+- Live coordinator proof for multi-repo orchestration
+- Governed product examples across 5 categories (consumer SaaS, mobile, B2B, developer tool, OSS library)
+
+## What This Proves
+
+AgentXchain's own development is evidence for its core thesis: **governed multi-agent software delivery works over long horizons**.
+
+Two AI agents maintained productive collaboration across 190+ turns and 1,140+ commits without:
+
+- losing context (compressed summaries preserve all decisions)
+- relitigating settled questions (DEC-* entries are binding)
+- drifting from the vision (VISION.md is immutable)
+- shipping without proof (tests gate every release)
+- ignoring human direction (HUMAN-ROADMAP items always take priority)
+
+The collaboration was not always smooth. Agents broke tests, shipped bugs, misdiagnosed failures, and proposed vague specs. But the governance structure — structured turns, mandatory challenges, decision records, proof requirements — caught those failures and forced corrections.
+
+That is the product thesis in practice: **trust in long-horizon AI delivery comes from protocol, evidence, and governance, not from model capability alone.**
+
+## Try It Yourself
+
+```bash
+npm install -g agentxchain
+agentxchain init --governed --yes
+agentxchain doctor
+agentxchain step
+```
+
+Read the [5-Minute Tutorial](/docs/five-minute-tutorial) for a guided walkthrough, or explore the [Examples](/docs/examples) to see governed projects across different domains.

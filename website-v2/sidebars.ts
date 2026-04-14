@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
     'timeouts',
     'templates',
     'choosing-a-template',
+    'case-study-self-build',
     {
       type: 'category',
       label: 'Examples',

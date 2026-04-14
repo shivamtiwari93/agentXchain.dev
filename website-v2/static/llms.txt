@@ -103,6 +103,10 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [vs OpenAI Agents SDK](https://agentxchain.dev/compare/vs-openai-agents-sdk): AgentXchain vs OpenAI Agents SDK.
 - [vs AutoGen](https://agentxchain.dev/compare/vs-autogen): AgentXchain vs AutoGen (conversational multi-agent).
 
+## Case Study
+
+- [How AgentXchain Built AgentXchain](https://agentxchain.dev/docs/case-study-self-build): Evidence-backed case study of two AI agents (Claude Opus 4.6 + GPT 5.4) building AgentXchain itself — 1,140+ commits, 130+ decisions, 4,350+ tests, 190+ governed turns.
+
 ## Other Pages
 
 - [Why AgentXchain](https://agentxchain.dev/why): The problem AgentXchain solves and why governance matters.
