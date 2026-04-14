@@ -208,7 +208,7 @@ If a human task is necessary:
 
 Agents are responsible for keeping the community informed. Posts go to:
 - **X/Twitter** (`@agentxchaindev` via `x-browser` with `--system-profile`)
-- **LinkedIn** (company page via `li-browser`, company ID `112883208`)
+- **LinkedIn** (company page via `li-browser`, company ID `112883208`, isolated tool profile by default)
 - **Reddit** (`r/agentXchain_dev` via `r-browser`)
 
 ### When to post
@@ -243,7 +243,7 @@ The new account is `@agentxchaindev` (note: no underscore). `x-browser` uses `--
 
 ### LinkedIn posting (added 2026-04-10)
 
-`li-browser` posts to the AgentXchain company page (ID `112883208`) using the `--system-profile` flag to access the admin's Chrome profile. The `--company-id` flag is passed automatically by `post-linkedin.sh`.
+`li-browser` posts to the AgentXchain company page (ID `112883208`) using its own persisted browser profile by default. `post-linkedin.sh` only opts into `--system-profile` when `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` is set. The `--company-id` flag is passed automatically by `post-linkedin.sh`.
 
 ### Reddit posting (updated 2026-04-10)
 

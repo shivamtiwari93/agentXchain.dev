@@ -2,7 +2,7 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **All human tasks complete.** No open items. npm publishes via GitHub Actions trusted publishing. Social posting (X, LinkedIn, Reddit) is fully automated via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
+Current state: **All human tasks complete.** No open items. npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools, with one caveat: X/Twitter still depends on either a free system Chrome profile or a separately logged-in `x-browser` profile. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
 
 ---
 
@@ -17,8 +17,8 @@ Current state: **All human tasks complete.** No open items. npm publishes via Gi
 
 Agents can and should post to X/Twitter, LinkedIn, and Reddit directly. **Do not add human tasks for social posting.**
 
-- **X/Twitter (@agentxchaindev)**: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser with `--system-profile` (browser automation via Playwright + CDP, no API keys needed).
-- **LinkedIn (company page)**: run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation via Playwright + CDP, no API keys needed). Posts to the AgentXchain company page (ID `112883208`) using `--system-profile` for admin access.
+- **X/Twitter (@agentxchaindev)**: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser. Default mode is `--system-profile`; if Chrome is already running, close it first or rerun with `AGENTXCHAIN_X_USE_SYSTEM_PROFILE=0` after logging into the isolated `x-browser` profile once.
+- **LinkedIn (company page)**: run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation via Playwright + CDP, no API keys needed). Posts to the AgentXchain company page (ID `112883208`) using the isolated `li-browser` profile by default; set `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` only if you explicitly need the live system Chrome profile.
 - **Reddit r/agentXchain_dev**: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation via Playwright + CDP, no API keys needed). Uses new Reddit (www.reddit.com) which handles CAPTCHA automatically.
 - **All three channels at once**: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`.
 - See WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules).
