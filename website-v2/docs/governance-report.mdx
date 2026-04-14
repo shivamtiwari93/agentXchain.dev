@@ -171,7 +171,7 @@ Coordinator-export reports carry:
 | `subject.run.repo_ok_count` | Number of child repo exports that verified cleanly |
 | `subject.run.repo_error_count` | Number of child repo exports that failed |
 | `subject.coordinator_timeline` | Coordinator event narrative derived from `.agentxchain/multirepo/history.jsonl` |
-| `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json` |
+| `subject.barrier_summary` | Current barrier snapshot derived from `.agentxchain/multirepo/barriers.json`. For `named_decisions` and `interface_alignment` barriers, each entry includes `required_decision_ids_by_repo` (the declared decision IDs per repo) and `satisfied_decision_ids_by_repo` (which decision IDs each repo has satisfied) |
 | `subject.barrier_ledger_timeline` | Barrier transition history derived from `.agentxchain/multirepo/barrier-ledger.jsonl` |
 | `subject.decision_digest` | Coordinator-level decision digest derived from `.agentxchain/multirepo/decision-ledger.jsonl`, populated by coordinator init, dispatch, gate, and recovery decisions |
 | `subject.approval_policy_events` | Coordinator-level approval-policy gate actions derived from `.agentxchain/multirepo/decision-ledger.jsonl` |
@@ -251,7 +251,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - `## Hook Activity`
 - `## Gate Outcomes`
 - `## Next Actions`
-- `## Barrier Summary`
+- `## Barrier Summary` — includes a `### Decision Requirements` subsection for `named_decisions` / `interface_alignment` barriers showing per-repo required and satisfied decision IDs
 - `## Barrier Transitions`
 - `## Coordinator Decisions`
 - `## Approval Policy`

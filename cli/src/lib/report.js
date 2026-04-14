@@ -767,14 +767,28 @@ function extractBarrierSummary(artifact) {
   return Object.entries(data)
     .filter(([, b]) => b && typeof b === 'object' && !Array.isArray(b))
     .sort(([a], [b]) => a.localeCompare(b, 'en'))
-    .map(([barrierId, b]) => ({
-      barrier_id: barrierId,
-      workstream_id: b.workstream_id || null,
-      type: b.type || 'unknown',
-      status: b.status || 'unknown',
-      required_repos: Array.isArray(b.required_repos) ? b.required_repos : [],
-      satisfied_repos: Array.isArray(b.satisfied_repos) ? b.satisfied_repos : [],
-    }));
+    .map(([barrierId, b]) => {
+      const entry = {
+        barrier_id: barrierId,
+        workstream_id: b.workstream_id || null,
+        type: b.type || 'unknown',
+        status: b.status || 'unknown',
+        required_repos: Array.isArray(b.required_repos) ? b.required_repos : [],
+        satisfied_repos: Array.isArray(b.satisfied_repos) ? b.satisfied_repos : [],
+      };
+      const decisionIds =
+        b.required_decision_ids_by_repo || b.alignment_decision_ids || null;
+      if (decisionIds && typeof decisionIds === 'object' && !Array.isArray(decisionIds)) {
+        entry.required_decision_ids_by_repo = decisionIds;
+        const satisfiedSet = new Set(entry.satisfied_repos);
+        const satisfiedByRepo = {};
+        for (const [repo, ids] of Object.entries(decisionIds)) {
+          satisfiedByRepo[repo] = satisfiedSet.has(repo) ? [...ids] : [];
+        }
+        entry.satisfied_decision_ids_by_repo = satisfiedByRepo;
+      }
+      return entry;
+    });
 }
 
 function summarizeBarrierTransition(entry) {
@@ -1442,6 +1456,17 @@ export function formatGovernanceReportText(report) {
       const satisfied = b.satisfied_repos.length;
       const required = b.required_repos.length;
       lines.push(`  - ${b.barrier_id}: ${b.status} (${b.type}, ${satisfied}/${required} repos satisfied, workstream ${b.workstream_id || 'unknown'})`);
+      if (b.required_decision_ids_by_repo) {
+        lines.push('    Decision requirements:');
+        for (const [repo, ids] of Object.entries(b.required_decision_ids_by_repo)) {
+          if (!Array.isArray(ids) || ids.length === 0) continue;
+          const satisfiedIds = new Set(
+            Array.isArray(b.satisfied_decision_ids_by_repo?.[repo]) ? b.satisfied_decision_ids_by_repo[repo] : []
+          );
+          const labels = ids.map((id) => `${id} (${satisfiedIds.has(id) ? 'satisfied' : 'pending'})`);
+          lines.push(`      ${repo}: ${labels.join(', ')}`);
+        }
+      }
     }
   }
 
@@ -1916,6 +1941,20 @@ export function formatGovernanceReportMarkdown(report) {
     mdLines.push('', '## Barrier Summary', '', '| Barrier | Workstream | Type | Status | Satisfied |', '|---------|------------|------|--------|-----------|');
     for (const b of barrier_summary) {
       mdLines.push(`| \`${b.barrier_id}\` | \`${b.workstream_id || 'unknown'}\` | \`${b.type}\` | \`${b.status}\` | ${b.satisfied_repos.length}/${b.required_repos.length} repos |`);
+    }
+    const barriersWithDecisions = barrier_summary.filter((b) => b.required_decision_ids_by_repo);
+    if (barriersWithDecisions.length > 0) {
+      mdLines.push('', '### Decision Requirements');
+      for (const b of barriersWithDecisions) {
+        mdLines.push('', `**\`${b.barrier_id}\`** decision requirements:`, '', '| Repo | Required | Satisfied |', '|------|----------|-----------|');
+        for (const [repo, ids] of Object.entries(b.required_decision_ids_by_repo)) {
+          if (!Array.isArray(ids) || ids.length === 0) continue;
+          const satisfiedIds = Array.isArray(b.satisfied_decision_ids_by_repo?.[repo]) ? b.satisfied_decision_ids_by_repo[repo] : [];
+          const reqStr = ids.map((id) => `\`${id}\``).join(', ');
+          const satStr = satisfiedIds.length > 0 ? satisfiedIds.map((id) => `\`${id}\``).join(', ') : '—';
+          mdLines.push(`| \`${repo}\` | ${reqStr} | ${satStr} |`);
+        }
+      }
     }
   }
 

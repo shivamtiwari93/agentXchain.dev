@@ -207,6 +207,23 @@ export function render({
       if (Array.isArray(barrier.satisfied_repos) && barrier.satisfied_repos.length > 0) {
         html += `<div class="turn-detail"><span class="detail-label">Satisfied Repos:</span> ${esc(barrier.satisfied_repos.join(', '))}</div>`;
       }
+      const decisionIds = barrier.required_decision_ids_by_repo || barrier.alignment_decision_ids || null;
+      if (decisionIds && typeof decisionIds === 'object' && !Array.isArray(decisionIds)) {
+        const satisfiedSet = new Set(Array.isArray(barrier.satisfied_repos) ? barrier.satisfied_repos : []);
+        html += `<div class="turn-detail"><span class="detail-label">Decision Requirements:</span></div>`;
+        html += `<div class="decision-req-list" style="margin-left:1.2em;margin-top:0.3em">`;
+        for (const [repo, ids] of Object.entries(decisionIds)) {
+          if (!Array.isArray(ids) || ids.length === 0) continue;
+          const repoSatisfied = satisfiedSet.has(repo);
+          const idBadges = ids.map((id) =>
+            repoSatisfied
+              ? badge(`${id} ✓`, 'var(--green)')
+              : badge(id, 'var(--text-dim)')
+          ).join(' ');
+          html += `<div style="margin-bottom:0.2em"><span class="mono" style="margin-right:0.5em">${esc(repo)}:</span>${idBadges}</div>`;
+        }
+        html += `</div>`;
+      }
       html += `</div>`;
     }
     html += `</div>`;
