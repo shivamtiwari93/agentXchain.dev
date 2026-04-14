@@ -270,6 +270,7 @@ export async function executeGovernedRun(context, opts = {}) {
         signal: controller.signal,
         onStatus: (msg) => log(chalk.dim(`  ${msg}`)),
         verifyManifest: true,
+        turnId: turn.turn_id,
       };
 
       if (verbose) {

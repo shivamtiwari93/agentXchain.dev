@@ -200,6 +200,7 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
   // ── Fill concurrency slots with new assignments ──────────────────────
   let activeCount = getActiveTurnCount(state);
+  const triedRoles = new Set();
   while (activeCount < maxConcurrent) {
     let roleId;
     try {
@@ -214,10 +215,34 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       break;
     }
 
+    // If selectRole returns a role we already tried (or assigned), try
+    // other eligible roles from the routing before giving up.
+    if (triedRoles.has(roleId)) {
+      const phase = state.phase;
+      const allowed = config?.routing?.[phase]?.allowed_next_roles || [];
+      const alternateFound = allowed.some((alt) => {
+        if (alt === 'human' || triedRoles.has(alt) || !config?.roles?.[alt]) return false;
+        const altResult = assignTurn(root, config, alt);
+        if (altResult.ok) {
+          triedRoles.add(alt);
+          turnsToDispatch.push({ turn: altResult.turn, state: altResult.state });
+          emit({ type: 'turn_assigned', turn: altResult.turn, role: alt, state: altResult.state });
+          state = loadState(root, config);
+          activeCount = getActiveTurnCount(state);
+          return true;
+        }
+        triedRoles.add(alt);
+        return false;
+      });
+      if (!alternateFound) break;
+      continue;
+    }
+
+    triedRoles.add(roleId);
     const assignResult = assignTurn(root, config, roleId);
     if (!assignResult.ok) {
-      // Cannot assign (at capacity, role already active, etc.) — stop filling
-      break;
+      // Cannot assign — try other eligible roles before giving up
+      continue;
     }
 
     turnsToDispatch.push({ turn: assignResult.turn, state: assignResult.state });

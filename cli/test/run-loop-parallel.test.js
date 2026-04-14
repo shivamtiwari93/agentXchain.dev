@@ -341,4 +341,29 @@ describe('parallel run-loop', () => {
 
     rmSync(root, { recursive: true, force: true });
   });
+
+  it('AT-PRL-007: alternate-role fallback fills second slot when selectRole returns the same role', async () => {
+    const config = makeParallelConfig(2);
+    scaffoldProject(root, config);
+
+    // selectRole always returns 'planner' — the loop should detect the duplicate
+    // and try other allowed_next_roles from routing to fill the second slot
+    const result = await runLoop(root, config, {
+      selectRole: () => 'planner',
+      dispatch: async (ctx) => {
+        return { accept: true, turnResult: makeTurnResult(ctx.turn, ctx.state) };
+      },
+      approveGate: () => true,
+    }, { maxTurns: 10 });
+
+    assert.ok(result.ok, `Expected ok, got: ${JSON.stringify(result.errors)}`);
+    assert.equal(result.turns_executed, 2, 'Should execute 2 turns via alternate-role fallback');
+
+    const roles = result.turn_history.map(h => h.role).sort();
+    assert.ok(roles.includes('planner'), 'planner should be in history');
+    // The second role should be one of the alternates (reviewer or qa)
+    assert.ok(roles.some(r => r === 'reviewer' || r === 'qa'), 'an alternate role should fill the second slot');
+
+    rmSync(root, { recursive: true, force: true });
+  });
 });

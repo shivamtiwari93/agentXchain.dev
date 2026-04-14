@@ -1,0 +1,191 @@
+---
+title: Parallel Turns
+description: "Run multiple governed agent turns concurrently within a single phase for faster delivery."
+---
+
+# Parallel Turns
+
+By default, AgentXchain runs one governed turn at a time — sequential mode. When your team has independent work that can proceed concurrently (e.g., a frontend engineer and a backend engineer working on different surfaces), you can configure **parallel turns** to dispatch up to 4 concurrent governed turns per phase.
+
+Parallel turns preserve all governance guarantees: each turn is independently assigned, dispatched, and accepted. Acceptance is serialized — conflict detection happens at acceptance time, not dispatch time.
+
+## Config Shape
+
+Set `max_concurrent_turns` inside any phase in your routing config:
+
+```json title="agentxchain.json"
+{
+  "routing": {
+    "implementation": {
+      "entry_role": "backend_dev",
+      "allowed_next_roles": ["backend_dev", "frontend_dev", "qa"],
+      "max_concurrent_turns": 2,
+      "exit_gate": "implementation_complete"
+    }
+  }
+}
+```
+
+Or via CLI:
+
+```bash
+agentxchain config --set routing.implementation.max_concurrent_turns 2
+```
+
+| Field | Type | Default | Range | Meaning |
+|---|---|---|---|---|
+| `max_concurrent_turns` | integer | `1` | 1–4 | Maximum concurrent active turns in this phase |
+
+When set to `1` (the default), the run-loop uses sequential mode — identical to pre-parallel behavior.
+
+## How It Works
+
+When `max_concurrent_turns > 1` and the run-loop enters that phase:
+
+1. **Slot filling** — the loop checks how many turns are currently active. For each open slot (up to `max_concurrent_turns`), it calls `selectRole()` and `assignTurn()`.
+2. **Concurrent dispatch** — all assigned turns are dispatched simultaneously via `Promise.allSettled`. Each turn gets its own dispatch bundle with a turn-specific target.
+3. **Sequential acceptance** — results are processed one at a time. The existing acceptance lock ensures no two turns modify governed state simultaneously.
+4. **Conflict detection** — at acceptance time, file-level overlap detection checks whether two concurrent turns touched the same files. If they did, the later turn is rejected with a conflict reason.
+5. **Stall detection** — if every turn in a parallel batch is rejected, the loop terminates instead of retrying infinitely.
+
+```
+┌─────────────────────────────────────────┐
+│  Phase: implementation (max_concurrent: 2)  │
+│                                         │
+│  Slot 1: backend_dev  ──► dispatch ─┐   │
+│  Slot 2: frontend_dev ──► dispatch ─┤   │
+│                                     │   │
+│         Promise.allSettled ◄────────┘   │
+│                                         │
+│  Accept backend_dev result  (serial)    │
+│  Accept frontend_dev result (serial)    │
+│                                         │
+│  Conflict? → reject later turn          │
+│  All rejected? → stall → terminate      │
+└─────────────────────────────────────────┘
+```
+
+## Observability
+
+When parallel dispatch occurs, the run-loop emits a `parallel_dispatch` event:
+
+```json
+{
+  "type": "parallel_dispatch",
+  "count": 2,
+  "turns": ["turn_abc123", "turn_def456"]
+}
+```
+
+This event is available to plugins, webhooks, and the `onEvent` callback in custom runners.
+
+## Per-Role Mutual Exclusion
+
+A single role can only have one active turn at a time, even in parallel mode. If `max_concurrent_turns` is 2 and you only have one eligible role, only one slot will be filled.
+
+This means parallel turns are most useful when you have **multiple distinct roles** that can work independently within the same phase.
+
+## Limitations
+
+- **Maximum 4 concurrent turns** — the protocol enforces a hard cap of 4 to prevent resource exhaustion and unbounded conflict surfaces.
+- **One active turn per role** — mutual exclusion prevents the same role from running twice simultaneously.
+- **`api_proxy` roles with `review_only` cannot write files** — parallel dispatch with all-`review_only` roles proves governance orchestration, not workspace modification. Use `local_cli` or `proposed` for file-producing parallel turns.
+- **Gate `requires_files` with all-`api_proxy` roles** — if every participating role is `review_only` on `api_proxy` or `remote_agent`, file-existence gates will never pass. AgentXchain warns about this at `validate`, `doctor`, and `config --set` time.
+- **Acceptance is always serial** — even with parallel dispatch, turns are accepted one at a time. This is by design: it prevents conflicting state mutations.
+
+## Example: 3-Role Parallel Implementation Phase
+
+```json title="agentxchain.json"
+{
+  "schema_version": 4,
+  "protocol_mode": "governed",
+  "project": {
+    "id": "parallel-demo",
+    "name": "Parallel Turn Demo"
+  },
+  "roles": {
+    "pm": {
+      "mandate": "Plan features and coordinate priorities",
+      "adapter": { "type": "api_proxy", "provider": "anthropic", "model": "claude-haiku-4-5-20251001" },
+      "write_authority": "review_only"
+    },
+    "backend": {
+      "mandate": "Implement server-side logic and APIs",
+      "adapter": { "type": "local_cli", "command": "claude -p" },
+      "write_authority": "authoritative"
+    },
+    "frontend": {
+      "mandate": "Implement UI components and client logic",
+      "adapter": { "type": "local_cli", "command": "claude -p" },
+      "write_authority": "authoritative"
+    }
+  },
+  "routing": {
+    "planning": {
+      "entry_role": "pm",
+      "allowed_next_roles": ["pm"],
+      "max_concurrent_turns": 1,
+      "exit_gate": "plan_approved"
+    },
+    "implementation": {
+      "entry_role": "backend",
+      "allowed_next_roles": ["backend", "frontend"],
+      "max_concurrent_turns": 2,
+      "exit_gate": "implementation_complete"
+    }
+  }
+}
+```
+
+In this config:
+- **Planning phase** runs sequentially — only the PM participates.
+- **Implementation phase** runs with up to 2 concurrent turns — backend and frontend can work simultaneously.
+
+## Using with `agentxchain run`
+
+The parallel run-loop works automatically with `agentxchain run`:
+
+```bash
+agentxchain run --auto-approve --max-turns 20
+```
+
+When the run enters a phase with `max_concurrent_turns > 1`, it switches from sequential to parallel dispatch automatically. No additional flags are needed.
+
+## Verifying Parallel Dispatch
+
+Use `agentxchain status` to see active turns:
+
+```bash
+agentxchain status
+# Shows: Active turns: 2 (backend: running, frontend: running)
+```
+
+Use `agentxchain audit` to see the governance event stream, including `parallel_dispatch` events:
+
+```bash
+agentxchain audit --filter parallel_dispatch
+```
+
+## Proven: Parallel Turn Dispatch With Real API Calls
+
+The governed-todo-app example includes a parallel proof harness that demonstrates `max_concurrent_turns: 2` with real Anthropic API dispatch:
+
+```bash
+node examples/governed-todo-app/run-parallel-proof.mjs --json
+```
+
+**Recorded case study (2026-04-13):**
+
+| Metric | Value |
+|---|---|
+| Run ID | `run_40250b02f99f3842` |
+| Roles | pm → backend_dev + frontend_dev (parallel) → qa |
+| Distinct roles | 4 |
+| Turns accepted | 4 |
+| Decision ledger | 13 entries |
+| Total cost | $0.033 |
+| `max_concurrent_turns` | 2 (implementation phase) |
+| Parallel dispatch | backend_dev and frontend_dev dispatched concurrently |
+| Result | PASS — first attempt |
+
+The implementation phase dispatches `backend_dev` and `frontend_dev` concurrently, then processes their results sequentially. The planning and QA phases remain sequential (`max_concurrent_turns: 1`).
