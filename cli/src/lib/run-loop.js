@@ -217,7 +217,16 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
     // If selectRole returns a role we already tried (or assigned), try
     // other eligible roles from the routing before giving up.
+    // Exception: when delegation queue is driving resolution, do not fill
+    // extra slots with non-delegation roles via the fallback — those roles
+    // would execute without delegation context and corrupt the lifecycle.
     if (triedRoles.has(roleId)) {
+      const hasPendingDelegations = Array.isArray(state?.delegation_queue) &&
+        state.delegation_queue.some(d => d.status === 'pending' || d.status === 'active');
+      const hasPendingReview = !!state?.pending_delegation_review;
+      if (hasPendingDelegations || hasPendingReview) {
+        break;
+      }
       const phase = state.phase;
       const allowed = config?.routing?.[phase]?.allowed_next_roles || [];
       const alternateFound = allowed.some((alt) => {
@@ -247,6 +256,13 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
 
     turnsToDispatch.push({ turn: assignResult.turn, state: assignResult.state });
     emit({ type: 'turn_assigned', turn: assignResult.turn, role: roleId, state: assignResult.state });
+
+    // Delegation review is a coordination checkpoint — do not fill additional
+    // slots alongside it.  The review must execute alone so it can assess all
+    // delegation results before the run continues.
+    if (assignResult.turn.delegation_review) {
+      break;
+    }
 
     // Reload state after assignment to get accurate active count
     state = loadState(root, config);

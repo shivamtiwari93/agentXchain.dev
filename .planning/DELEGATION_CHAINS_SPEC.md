@@ -227,5 +227,5 @@ This restriction will be lifted in a future version if hierarchical delegation p
 ## Open Questions
 
 1. Should delegation chains interact with phase transitions? (v1: no — delegations must complete within the current phase)
-2. Should parallel delegations be allowed? (v1: sequential only — one delegation at a time)
+2. ~~Should parallel delegations be allowed?~~ **RESOLVED**: Yes. Delegation children targeting different roles execute concurrently when `max_concurrent_turns > 1`. Same-role delegations remain sequential (per-role mutual exclusion). Delegation review turns always execute alone. See `PARALLEL_DELEGATION_SPEC.md`.
 3. Should delegated turns have a narrower budget reservation? (v1: no — uses normal budget allocation)

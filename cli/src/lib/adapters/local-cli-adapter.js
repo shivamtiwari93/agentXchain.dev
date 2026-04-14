@@ -115,7 +115,7 @@ export async function dispatchLocalCli(root, state, config, options = {}) {
       child = spawn(command, args, {
         cwd: runtime.cwd ? join(root, runtime.cwd) : root,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env },
+        env: { ...process.env, AGENTXCHAIN_TURN_ID: turn.turn_id },
       });
     } catch (err) {
       resolve({ ok: false, error: `Failed to spawn "${command}": ${err.message}`, logs });

@@ -93,6 +93,23 @@ This means parallel turns are most useful when you have **multiple distinct role
 - **Gate `requires_files` with all-`api_proxy` roles** — if every participating role is `review_only` on `api_proxy` or `remote_agent`, file-existence gates will never pass. AgentXchain warns about this at `validate`, `doctor`, and `config --set` time.
 - **Acceptance is always serial** — even with parallel dispatch, turns are accepted one at a time. This is by design: it prevents conflicting state mutations.
 
+## Delegation + Parallel Turns
+
+Delegation chains and parallel turns compose naturally. When a role delegates sub-tasks to multiple different roles and `max_concurrent_turns > 1`, the delegation children execute concurrently:
+
+1. Director delegates `del-001` → dev and `del-002` → qa
+2. The parallel slot-filler assigns both delegation children in one batch
+3. Both dispatch concurrently via `Promise.allSettled`
+4. Both are accepted serially; the last one triggers the delegation review
+5. The director review executes alone (delegation reviews are coordination checkpoints)
+
+**Important constraints:**
+- Two delegations to the **same role** cannot execute concurrently (per-role mutual exclusion). They execute sequentially.
+- The delegation review turn always executes **alone** — the slot-filler does not fill additional slots alongside a review.
+- The `AGENTXCHAIN_TURN_ID` environment variable is passed to `local_cli` agents so each concurrent agent can identify its own turn from the dispatch index.
+
+See the [delegation chains documentation](/docs/delegation-chains) for full details and CLI proofs.
+
 ## Example: 3-Role Parallel Implementation Phase
 
 ```json title="agentxchain.json"

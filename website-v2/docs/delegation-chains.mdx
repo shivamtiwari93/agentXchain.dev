@@ -262,8 +262,27 @@ This proves the protocol handles delegation failures gracefully: failed delegati
 
 Both proofs go through the real `agentxchain step` lifecycle, not direct state mutation. They exercise delegation enqueueing, delegated turn routing, delegation review routing, and clean run completion through the actual CLI/operator path.
 
+## CLI Proof — Parallel Delegation
+
+A reproducible CLI proof exists at `examples/governed-todo-app/run-parallel-delegation-proof.mjs`.
+
+```bash
+node examples/governed-todo-app/run-parallel-delegation-proof.mjs --json
+```
+
+Recorded proof on 2026-04-14:
+- adapter: real `local_cli` adapter with `max_concurrent_turns: 2`
+- approach: `step` for director seed, then `run --auto-approve` for concurrent children + review
+- accepted role order: `director -> dev + qa (concurrent) -> director`
+- `AGENTXCHAIN_TURN_ID` environment variable passed to both children (different IDs)
+- delegation review references both `del-001` and `del-002`
+- concurrent_with metadata present on delegation child history entries
+- final run status: `completed`
+
+This proof demonstrates that delegation chains and parallel turns compose correctly: the director delegates to dev and qa, both execute concurrently in the same phase via the parallel slot-filling mechanism, and the director reviews aggregated results after both children complete.
+
 ## Limitations (v1)
 
 - **No recursive delegation**: A delegation review turn cannot itself contain delegations. If hierarchical decomposition is needed, the reviewing role must issue delegations in a separate subsequent turn.
-- **Sequential execution**: Delegations are executed one at a time, not in parallel.
+- **Same-role delegation parallelism**: Two delegations to the same role cannot execute concurrently (per-role mutual exclusion). They execute sequentially across slot-filling iterations.
 - **Same phase**: Delegations must complete within the current phase. Phase transitions are not allowed while delegations are pending.

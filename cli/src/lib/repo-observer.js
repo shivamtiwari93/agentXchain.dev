@@ -503,7 +503,13 @@ export function compareDeclaredVsObserved(declared, observed, writeAuthority, op
 
   if (writeAuthority === 'authoritative') {
     if (undeclared.length > 0) {
-      errors.push(`Undeclared file changes detected (observed but not in files_changed): ${undeclared.join(', ')}`);
+      if (options.has_unaccepted_concurrent_siblings) {
+        // Concurrent siblings may have written these files; downgrade to warning.
+        // The attribution system will handle later-accepted siblings correctly.
+        warnings.push(`Undeclared file changes detected (likely from concurrent sibling turns): ${undeclared.join(', ')}`);
+      } else {
+        errors.push(`Undeclared file changes detected (observed but not in files_changed): ${undeclared.join(', ')}`);
+      }
     }
     if (phantom.length > 0) {
       warnings.push(`Declared files not observed in actual diff: ${phantom.join(', ')}`);

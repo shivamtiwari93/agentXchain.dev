@@ -2381,11 +2381,28 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   materializeDerivedReviewArtifact(root, turnResult, state, runtimeType, baseline);
   materializeDerivedProposalArtifact(root, turnResult, state, runtimeType);
   const writeAuthority = role?.write_authority || 'review_only';
+
+  // When concurrent siblings exist but have not yet been accepted, the
+  // observation includes their file changes too.  The attribution system
+  // (attributeObservedChangesToTurn) only removes sibling files for
+  // *later*-accepted turns.  For the *first*-accepted concurrent turn,
+  // undeclared files are expected noise from concurrency — downgrade to
+  // warnings so the governance contract is not broken by turn-acceptance
+  // ordering.
+  const concurrentIds = new Set(
+    Array.isArray(currentTurn.concurrent_with) ? currentTurn.concurrent_with : [],
+  );
+  const acceptedTurnIds = new Set(historyEntries.map(h => h.turn_id));
+  const hasUnacceptedConcurrentSiblings = [...concurrentIds].some(id => !acceptedTurnIds.has(id));
+
   const diffComparison = compareDeclaredVsObserved(
     turnResult.files_changed || [],
     observation.files_changed,
     writeAuthority,
-    { observation_available: observation.observation_available },
+    {
+      observation_available: observation.observation_available,
+      has_unaccepted_concurrent_siblings: hasUnacceptedConcurrentSiblings,
+    },
   );
   if (diffComparison.errors.length > 0) {
     return {
