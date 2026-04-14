@@ -4,6 +4,7 @@ const sidebars: SidebarsConfig = {
   docsSidebar: [
     'quickstart',
     'getting-started',
+    'five-minute-tutorial',
     'first-turn',
     'tutorial',
     'cli',

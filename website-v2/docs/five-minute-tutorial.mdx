@@ -1,0 +1,200 @@
+---
+sidebar_position: 3
+title: Build Your First Governed Project in 5 Minutes
+description: "Fast manual-first walkthrough from install to your first accepted governed PM turn using the default generic scaffold."
+---
+
+# Build Your First Governed Project in 5 Minutes
+
+This page is the fastest honest path from `npm install` to your **first accepted governed turn**.
+
+It uses the default `generic` scaffold, which is now the manual-first baseline:
+
+- `pm` -> `manual-pm`
+- `dev` -> `manual-dev`
+- `qa` -> `manual-qa`
+- `eng_director` -> `manual-director`
+
+That means this walkthrough needs **no API keys** and **no local coding CLI**. It also means this page stops after the first accepted PM turn. If you want the full lifecycle after that, go to [Tutorial: Install to Completion](/docs/tutorial).
+
+## 1. Install and scaffold
+
+```bash
+npm install -g agentxchain
+
+mkdir first-governed-project && cd first-governed-project
+agentxchain init --governed --goal "Ship a governed CLI that summarizes decision logs" --dir . -y
+
+git init
+agentxchain template validate
+agentxchain doctor
+
+git add -A
+git commit -m "initial governed scaffold"
+```
+
+At this point you have a real governed repo, a valid manual-first runtime map, and a clean readiness check.
+
+## 2. Start the first turn, then leave the wait loop
+
+```bash
+agentxchain step
+```
+
+When the CLI prints `MANUAL TURN REQUIRED` and the dispatch/staging paths, press `Ctrl+C`.
+
+That is not a failure. The turn stays active. You are just switching from the long-polling wait loop to the explicit operator path so you can inspect the active turn, write the artifacts, and accept it yourself.
+
+## 3. Capture the real turn IDs from the CLI
+
+```bash
+export AGENTXCHAIN_ACTIVE_TURN_JSON="$(mktemp)"
+agentxchain turn show --artifact assignment --json > "$AGENTXCHAIN_ACTIVE_TURN_JSON"
+```
+
+This avoids the old copy-paste trap where operators had to retype opaque `run_id` and `turn_id` values from terminal output.
+
+Keep that file **outside** the repo. It is scratch inspection state, not governed product work.
+
+## 4. Fill in the planning artifacts
+
+Write the three planning files with real content:
+
+```bash
+cat <<'EOF' > .planning/PM_SIGNOFF.md
+# PM Planning Sign-Off
+
+Approved: YES
+
+## Scope
+Ship a CLI that summarizes decision-log entries by category and prints a short release digest.
+
+## Acceptance Criteria
+1. `summarize decisions.log` prints totals by category
+2. `summarize --latest` prints a short digest of the newest entries
+3. The CLI exits non-zero on a missing input file
+EOF
+
+cat <<'EOF' > .planning/ROADMAP.md
+# Roadmap
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| Planning | Freeze scope, acceptance criteria, and a small CLI surface | In progress |
+| Implementation | Build the summary commands and file parsing | Pending |
+| QA | Verify output against a real fixture log | Pending |
+EOF
+
+cat <<'EOF' > .planning/SYSTEM_SPEC.md
+# System Spec
+
+## Purpose
+Build a small CLI that reads a decision log and prints summary output for operators.
+
+## Interface
+- `summarize <file>`
+- `summarize <file> --latest`
+
+## Behavior
+- Read a repo-local decision log file
+- Group entries by category
+- Print a compact digest for the latest entries when `--latest` is used
+
+## Error Cases
+- Missing file exits non-zero
+- Empty file prints a clear "no entries" message
+
+## Acceptance Tests
+- [ ] `node summarize.js decisions.log` prints grouped totals
+- [ ] `node summarize.js decisions.log --latest` prints a short digest
+- [ ] `node summarize.js missing.log` exits non-zero
+EOF
+```
+
+## 5. Stage a valid turn result with the real IDs
+
+Use the assignment artifact you just exported. This writes `.agentxchain/staging/<turn_id>/turn-result.json` with the real `run_id`, `turn_id`, role, and runtime:
+
+```bash
+node --input-type=module <<'EOF'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+const assignmentEnvelope = JSON.parse(readFileSync(process.env.AGENTXCHAIN_ACTIVE_TURN_JSON, 'utf8'));
+const assignment = assignmentEnvelope.artifact.content;
+const stagingDir = `.agentxchain/staging/${assignment.turn_id}`;
+
+mkdirSync(stagingDir, { recursive: true });
+
+const result = {
+  schema_version: '1.0',
+  run_id: assignment.run_id,
+  turn_id: assignment.turn_id,
+  role: assignment.role,
+  runtime_id: assignment.runtime_id,
+  status: 'completed',
+  summary: 'Scoped the first governed CLI slice and filled the planning gate artifacts.',
+  decisions: [
+    {
+      id: 'DEC-001',
+      category: 'scope',
+      statement: 'Start with a decision-log summarizer CLI before adding release automation.',
+      rationale: 'This is the smallest useful slice for the first governed turn.'
+    }
+  ],
+  objections: [
+    {
+      id: 'OBJ-001',
+      severity: 'low',
+      statement: 'Keep the first slice narrow; do not add editing or sync features yet.',
+      status: 'raised'
+    }
+  ],
+  files_changed: [
+    '.planning/PM_SIGNOFF.md',
+    '.planning/ROADMAP.md',
+    '.planning/SYSTEM_SPEC.md'
+  ],
+  artifacts_created: [],
+  verification: {
+    status: 'pass',
+    commands: [],
+    evidence_summary: 'Planning review only. No code execution required yet.',
+    machine_evidence: []
+  },
+  artifact: { type: 'review', ref: null },
+  proposed_next_role: 'human',
+  phase_transition_request: 'implementation',
+  run_completion_request: false,
+  needs_human_reason: null,
+  cost: { input_tokens: 0, output_tokens: 0, usd: 0 }
+};
+
+writeFileSync(`${stagingDir}/turn-result.json`, `${JSON.stringify(result, null, 2)}\n`);
+EOF
+```
+
+## 6. Accept the turn
+
+```bash
+agentxchain accept-turn
+git add -A
+git commit -m "accept first pm turn"
+agentxchain status
+```
+
+You should now see:
+
+- one accepted PM turn in history
+- the planning phase gate satisfied
+- a pending human approval to open `implementation`
+
+That is the correct stopping point for this page. You have a real governed repo, a real accepted turn, and a real next action.
+
+## What to do next
+
+- Run `agentxchain approve-transition` when you are ready to open implementation.
+- Read [Getting Started](/docs/getting-started) for the shortest honest path into a mixed-mode project template.
+- Read [Your First Governed Turn](/docs/first-turn) if you want the artifact-by-artifact breakdown instead of the fast path.
+- Read [Tutorial: Install to Completion](/docs/tutorial) if you want the full manual lifecycle from scaffold through `approve-completion`.
+- Read [Choosing a Template](/docs/choosing-a-template) if you are deciding between `generic` and a project-type scaffold.
+- Delete the scratch inspection file when you are done: `rm -f "$AGENTXCHAIN_ACTIVE_TURN_JSON"`
