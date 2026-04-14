@@ -168,6 +168,8 @@ function makeProject(mockServerUrl) {
     args: [mockAgentPath],
     prompt_transport: 'dispatch_bundle_only',
   };
+  config.roles.dev.write_authority = 'authoritative';
+  config.roles.dev.runtime = 'local-dev';
 
   // qa uses api_proxy (review_only) — production contract
   config.runtimes['api-qa'] = {

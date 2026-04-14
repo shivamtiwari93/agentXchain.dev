@@ -30,6 +30,14 @@ function setupProject() {
   dirs.push(dir);
   scaffoldGoverned(dir, 'Status Connector Health Fixture', 'status-connector-health-fixture');
 
+  // Tests need non-manual runtimes; generic template is now manual-first
+  const config = JSON.parse(readFileSync(join(dir, 'agentxchain.json'), 'utf8'));
+  config.runtimes['local-dev'] = { type: 'local_cli', command: 'echo', prompt_transport: 'stdin' };
+  config.runtimes['api-qa'] = { type: 'api_proxy', provider: 'anthropic', model: 'claude-sonnet-4-6', auth_env: 'MOCK_ANTHROPIC_KEY' };
+  config.roles.dev.runtime = 'local-dev';
+  config.roles.qa.runtime = 'api-qa';
+  writeJson(join(dir, 'agentxchain.json'), config);
+
   const state = JSON.parse(readFileSync(join(dir, '.agentxchain/state.json'), 'utf8'));
   state.run_id = 'run_status_connectors';
   state.status = 'active';

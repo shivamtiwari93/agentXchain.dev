@@ -182,7 +182,7 @@ describe('scaffoldGoverned', () => {
     assert.ok(config.roles.qa);
     assert.ok(config.roles.eng_director);
     assert.ok(config.runtimes['manual-pm']);
-    assert.ok(config.runtimes['local-dev']);
+    assert.ok(config.runtimes['manual-dev']);
     assert.ok(config.routing.planning);
     assert.ok(config.gates.planning_signoff);
   });
