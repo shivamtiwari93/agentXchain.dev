@@ -76,6 +76,29 @@ function createMaskedTextFrame(text) {
   return Buffer.concat([header, mask, maskedPayload]);
 }
 
+function decodeServerTextFrame(data) {
+  if (!Buffer.isBuffer(data) || data.length < 2) return null;
+
+  const opcode = data[0] & 0x0f;
+  if (opcode !== 1) return null;
+
+  let payloadLen = data[1] & 0x7f;
+  let offset = 2;
+
+  if (payloadLen === 126) {
+    if (data.length < 4) return null;
+    payloadLen = data.readUInt16BE(2);
+    offset = 4;
+  } else if (payloadLen === 127) {
+    if (data.length < 10) return null;
+    payloadLen = Number(data.readBigUInt64BE(2));
+    offset = 10;
+  }
+
+  if (data.length < offset + payloadLen) return null;
+  return data.slice(offset, offset + payloadLen).toString('utf8');
+}
+
 function httpRequest(port, path, { method = 'GET', headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(`http://127.0.0.1:${port}${path}`, { method, headers }, (res) => {
@@ -393,12 +416,8 @@ async function waitForInvalidation(port, mutateFile, timeoutMs = 1000) {
       assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
 
       socket.on('data', (data) => {
-        if (data.length < 2) return;
-        const opcode = data[0] & 0x0f;
-        if (opcode !== 1) return;
-        const payloadLen = data[1] & 0x7f;
-        const offset = payloadLen === 126 ? 4 : payloadLen === 127 ? 10 : 2;
-        const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+        const payload = decodeServerTextFrame(data);
+        if (!payload) return;
         const message = JSON.parse(payload);
         if (message.resource === '/api/state') {
           clearTimeout(timeout);
@@ -597,22 +616,8 @@ describe('Dashboard E2E acceptance', () => {
         assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
 
         socket.on('data', (data) => {
-          if (data.length < 2) return;
-          const opcode = data[0] & 0x0f;
-          if (opcode !== 1) return;
-          let payloadLen = data[1] & 0x7f;
-          let offset = 2;
-          if (payloadLen === 126) {
-            if (data.length < 4) return; // wait for more data
-            payloadLen = data.readUInt16BE(2);
-            offset = 4;
-          } else if (payloadLen === 127) {
-            if (data.length < 10) return;
-            payloadLen = Number(data.readBigUInt64BE(2));
-            offset = 10;
-          }
-          if (data.length < offset + payloadLen) return; // incomplete frame
-          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          const payload = decodeServerTextFrame(data);
+          if (!payload) return;
           clearTimeout(timeout);
           socket.destroy();
           resolve(JSON.parse(payload));

@@ -312,6 +312,53 @@ function createMaskedTextFrame(text) {
   return Buffer.concat([header, mask, maskedPayload]);
 }
 
+function createServerTextFrame(text) {
+  const payload = Buffer.from(text, 'utf8');
+  const len = payload.length;
+  let header;
+
+  if (len < 126) {
+    header = Buffer.alloc(2);
+    header[0] = 0x81;
+    header[1] = len;
+  } else if (len < 65536) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(len, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(len), 2);
+  }
+
+  return Buffer.concat([header, payload]);
+}
+
+function decodeServerTextFrame(data) {
+  if (!Buffer.isBuffer(data) || data.length < 2) return null;
+
+  const opcode = data[0] & 0x0f;
+  if (opcode !== 1) return null;
+
+  let payloadLen = data[1] & 0x7f;
+  let offset = 2;
+
+  if (payloadLen === 126) {
+    if (data.length < 4) return null;
+    payloadLen = data.readUInt16BE(2);
+    offset = 4;
+  } else if (payloadLen === 127) {
+    if (data.length < 10) return null;
+    payloadLen = Number(data.readBigUInt64BE(2));
+    offset = 10;
+  }
+
+  if (data.length < offset + payloadLen) return null;
+  return data.slice(offset, offset + payloadLen).toString('utf8');
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Dashboard Bridge Server', () => {
@@ -566,6 +613,16 @@ describe('Dashboard Bridge Server', () => {
       const res = await httpGet(port, '/..%2Fsecret.txt');
       assert.equal(res.status, 403);
       assert.equal(res.body, 'Forbidden');
+    });
+
+    it('decodes extended-length websocket text frames in the dashboard harness', () => {
+      const message = JSON.stringify({
+        type: 'invalidate',
+        resource: `/api/${'x'.repeat(160)}`,
+      });
+      const frame = createServerTextFrame(message);
+
+      assert.equal(decodeServerTextFrame(frame), message);
     });
   });
 
@@ -993,15 +1050,8 @@ describe('WebSocket invalidation', () => {
         assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
 
         socket.on('data', (data) => {
-          // Parse WebSocket text frame
-          if (data.length < 2) return;
-          const opcode = data[0] & 0x0f;
-          if (opcode !== 1) return; // only text frames
-          const payloadLen = data[1] & 0x7f;
-          let offset = 2;
-          if (payloadLen === 126) offset = 4;
-          if (payloadLen === 127) offset = 10;
-          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          const payload = decodeServerTextFrame(data);
+          if (!payload) return;
           try {
             const msg = JSON.parse(payload);
             if (msg.resource === '/api/state') {
@@ -1051,14 +1101,8 @@ describe('WebSocket invalidation', () => {
         assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
 
         socket.on('data', (data) => {
-          if (data.length < 2) return;
-          const opcode = data[0] & 0x0f;
-          if (opcode !== 1) return;
-          const payloadLen = data[1] & 0x7f;
-          let offset = 2;
-          if (payloadLen === 126) offset = 4;
-          if (payloadLen === 127) offset = 10;
-          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          const payload = decodeServerTextFrame(data);
+          if (!payload) return;
           try {
             const msg = JSON.parse(payload);
             if (msg.resource === '/api/coordinator/state') {
@@ -1107,20 +1151,8 @@ describe('WebSocket invalidation', () => {
         assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
 
         socket.on('data', (data) => {
-          if (data.length < 2) return;
-          const opcode = data[0] & 0x0f;
-          if (opcode !== 1) return;
-          let payloadLen = data[1] & 0x7f;
-          let offset = 2;
-          if (payloadLen === 126) {
-            if (data.length < 4) return;
-            payloadLen = data.readUInt16BE(2);
-            offset = 4;
-          } else if (payloadLen === 127) {
-            offset = 10;
-          }
-          if (data.length < offset + payloadLen) return;
-          const payload = data.slice(offset, offset + payloadLen).toString('utf8');
+          const payload = decodeServerTextFrame(data);
+          if (!payload) return;
           let parsed;
           try { parsed = JSON.parse(payload); } catch { return; }
           if (parsed.type !== 'error') return;
