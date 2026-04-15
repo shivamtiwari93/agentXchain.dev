@@ -600,8 +600,18 @@ describe('Dashboard E2E acceptance', () => {
           if (data.length < 2) return;
           const opcode = data[0] & 0x0f;
           if (opcode !== 1) return;
-          const payloadLen = data[1] & 0x7f;
-          const offset = payloadLen === 126 ? 4 : payloadLen === 127 ? 10 : 2;
+          let payloadLen = data[1] & 0x7f;
+          let offset = 2;
+          if (payloadLen === 126) {
+            if (data.length < 4) return; // wait for more data
+            payloadLen = data.readUInt16BE(2);
+            offset = 4;
+          } else if (payloadLen === 127) {
+            if (data.length < 10) return;
+            payloadLen = Number(data.readBigUInt64BE(2));
+            offset = 10;
+          }
+          if (data.length < offset + payloadLen) return; // incomplete frame
           const payload = data.slice(offset, offset + payloadLen).toString('utf8');
           clearTimeout(timeout);
           socket.destroy();
