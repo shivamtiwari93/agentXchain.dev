@@ -16,6 +16,7 @@ import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
+import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
@@ -219,14 +220,15 @@ function renderGovernedStatus(context, opts) {
         const cs = turn.conflict_state;
         const files = cs.conflict_error?.conflicting_files || [];
         const count = cs.detection_count || 1;
+        const [reassignAction, mergeAction] = deriveConflictedTurnResolutionActions(turn.turn_id);
         console.log(`      ${chalk.dim('Conflict:')}  ${files.length} file(s) — detection #${count}`);
         if (cs.conflict_error?.overlap_ratio != null) {
           console.log(`      ${chalk.dim('Overlap:')}   ${(cs.conflict_error.overlap_ratio * 100).toFixed(0)}%`);
         }
         const suggestion = cs.conflict_error?.suggested_resolution || 'reject_and_reassign';
         console.log(`      ${chalk.dim('Suggested:')} ${suggestion}`);
-        console.log(`      ${chalk.dim('Resolve:')}   ${chalk.cyan(`agentxchain reject-turn --turn ${turn.turn_id} --reassign`)}`);
-        console.log(`      ${chalk.dim('     or:')}   ${chalk.cyan(`agentxchain accept-turn --turn ${turn.turn_id} --resolution human_merge`)}`);
+        console.log(`      ${chalk.dim('Resolve:')}   ${chalk.cyan(reassignAction.command)}`);
+        console.log(`      ${chalk.dim('     or:')}   ${chalk.cyan(mergeAction.command)}`);
       }
     }
   } else if (singleActiveTurn) {
@@ -247,9 +249,10 @@ function renderGovernedStatus(context, opts) {
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
       const cs = singleActiveTurn.conflict_state;
       const files = cs.conflict_error?.conflicting_files || [];
+      const [reassignAction, mergeAction] = deriveConflictedTurnResolutionActions(singleActiveTurn.turn_id);
       console.log(`  ${chalk.dim('Conflict:')} ${chalk.red(`${files.length} file(s) conflicting`)} — detection #${cs.detection_count || 1}`);
-      console.log(`  ${chalk.dim('Resolve:')}  ${chalk.cyan('agentxchain reject-turn --reassign')}`);
-      console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan('agentxchain accept-turn --resolution human_merge')}`);
+      console.log(`  ${chalk.dim('Resolve:')}  ${chalk.cyan(reassignAction.command)}`);
+      console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan(mergeAction.command)}`);
     }
   } else {
     console.log(`  ${chalk.dim('Turn:')}     ${chalk.yellow('No active turn')}`);
@@ -318,14 +321,12 @@ function renderGovernedStatus(context, opts) {
     const pt = state.pending_phase_transition;
     console.log(`  ${chalk.dim('Pending:')}  ${formatGovernedPhase(pt.from)} → ${formatGovernedPhase(pt.to)}`);
     console.log(`  ${chalk.dim('Gate:')}     ${pt.gate} (requires human approval)`);
-    console.log(`  ${chalk.dim('Action:')}   Run ${chalk.cyan('agentxchain approve-transition')} to advance`);
   }
 
   if (state?.pending_run_completion) {
     const pc = state.pending_run_completion;
     console.log(`  ${chalk.dim('Pending:')}  ${chalk.bold('Run Completion')}`);
     console.log(`  ${chalk.dim('Gate:')}     ${pc.gate} (requires human approval)`);
-    console.log(`  ${chalk.dim('Action:')}   Run ${chalk.cyan('agentxchain approve-completion')} to finalize`);
   }
 
   if (state?.status === 'completed') {

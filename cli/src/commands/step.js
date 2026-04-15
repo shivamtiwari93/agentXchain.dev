@@ -62,6 +62,7 @@ import {
 } from '../lib/turn-paths.js';
 import { dispatchApiProxy } from '../lib/adapters/api-proxy-adapter.js';
 import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
@@ -133,11 +134,12 @@ export async function stepCommand(opts) {
 
       // If the target turn is conflicted, print recovery paths instead of resuming
       if (targetTurn.status === 'conflicted') {
+        const [reassignAction, mergeAction] = deriveConflictedTurnResolutionActions(targetTurn.turn_id);
         console.log(chalk.yellow(`Turn ${targetTurn.turn_id} is conflicted. Resolve the conflict before resuming.`));
         console.log('');
         console.log(chalk.dim('Recovery options:'));
-        console.log(`  ${chalk.cyan(`agentxchain reject-turn --turn ${targetTurn.turn_id} --reassign`)}  — reject and re-dispatch with conflict context`);
-        console.log(`  ${chalk.cyan(`agentxchain accept-turn --turn ${targetTurn.turn_id} --resolution human_merge`)}  — manually merge and re-accept`);
+        console.log(`  ${chalk.cyan(reassignAction.command)}  — ${reassignAction.description}`);
+        console.log(`  ${chalk.cyan(mergeAction.command)}  — ${mergeAction.description}`);
         process.exit(1);
       }
 
@@ -200,11 +202,12 @@ export async function stepCommand(opts) {
 
       // If the target turn is conflicted, print recovery paths
       if (targetTurn.status === 'conflicted') {
+        const [reassignAction, mergeAction] = deriveConflictedTurnResolutionActions(targetTurn.turn_id);
         console.log(chalk.yellow(`Turn ${targetTurn.turn_id} is conflicted. Resolve the conflict before resuming.`));
         console.log('');
         console.log(chalk.dim('Recovery options:'));
-        console.log(`  ${chalk.cyan(`agentxchain reject-turn --turn ${targetTurn.turn_id} --reassign`)}  — reject and re-dispatch with conflict context`);
-        console.log(`  ${chalk.cyan(`agentxchain accept-turn --turn ${targetTurn.turn_id} --resolution human_merge`)}  — manually merge and re-accept`);
+        console.log(`  ${chalk.cyan(reassignAction.command)}  — ${reassignAction.description}`);
+        console.log(`  ${chalk.cyan(mergeAction.command)}  — ${mergeAction.description}`);
         process.exit(1);
       }
 

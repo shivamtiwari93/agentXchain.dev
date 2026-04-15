@@ -200,6 +200,7 @@ describe('operator recovery surfaces', () => {
       assert.match(result.stdout, /Reason:\s+pending_phase_transition/);
       assert.match(result.stdout, /Action:\s+agentxchain approve-transition/);
       assert.match(result.stdout, /Turn:\s+cleared/);
+      assert.equal((result.stdout.match(/Action:\s+/g) || []).length, 1, 'status should not print a duplicate bespoke approval action line');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -225,6 +226,7 @@ describe('operator recovery surfaces', () => {
       assert.match(result.stdout, /Reason:\s+pending_run_completion/);
       assert.match(result.stdout, /Action:\s+agentxchain approve-completion/);
       assert.match(result.stdout, /Turn:\s+cleared/);
+      assert.equal((result.stdout.match(/Action:\s+/g) || []).length, 1, 'status should not print a duplicate bespoke completion action line');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

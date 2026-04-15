@@ -12,6 +12,7 @@ const specPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_GOVERNANCE_CONTRACT_
 const resumePath = join(cliRoot, 'src', 'commands', 'resume.js');
 const stepPath = join(cliRoot, 'src', 'commands', 'step.js');
 const statusPath = join(cliRoot, 'src', 'commands', 'status.js');
+const conflictActionsPath = join(cliRoot, 'src', 'lib', 'conflict-actions.js');
 const governedStatePath = join(cliRoot, 'src', 'lib', 'governed-state.js');
 const resumeStepSpecPath = join(cliRoot, '..', '.planning', 'CLI_DOCS_RESUME_STEP_CONTRACT_SPEC.md');
 
@@ -20,6 +21,7 @@ const bin = readFileSync(binPath, 'utf8');
 const resumeSource = readFileSync(resumePath, 'utf8');
 const stepSource = readFileSync(stepPath, 'utf8');
 const statusSource = readFileSync(statusPath, 'utf8');
+const conflictActionsSource = readFileSync(conflictActionsPath, 'utf8');
 const governedStateSource = readFileSync(governedStatePath, 'utf8');
 
 /**
@@ -218,10 +220,10 @@ describe('CLI governance docs contract — common sequences', () => {
   });
 
   it('conflicted-turn recovery uses reject-turn --reassign or accept-turn --resolution human_merge', () => {
-    assert.match(stepSource, /reject-turn --turn .* --reassign/);
-    assert.match(stepSource, /accept-turn --turn .* --resolution human_merge/);
-    assert.match(statusSource, /agentxchain reject-turn --turn .* --reassign/);
-    assert.match(statusSource, /agentxchain accept-turn --turn .* --resolution human_merge/);
+    assert.match(stepSource, /deriveConflictedTurnResolutionActions/);
+    assert.match(statusSource, /deriveConflictedTurnResolutionActions/);
+    assert.match(conflictActionsSource, /reject-turn --turn .* --reassign/);
+    assert.match(conflictActionsSource, /accept-turn --turn .* --resolution human_merge/);
     assert.match(docs, /reject-turn --turn <turn_id> --reassign/);
     assert.match(docs, /accept-turn --turn <turn_id> --resolution human_merge/);
     assert.doesNotMatch(
