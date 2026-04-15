@@ -59,7 +59,7 @@ import { generateCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
-import { verifyExportCommand, verifyProtocolCommand, verifyTurnCommand } from '../src/commands/verify.js';
+import { verifyDiffCommand, verifyExportCommand, verifyProtocolCommand, verifyTurnCommand } from '../src/commands/verify.js';
 import { replayTurnCommand } from '../src/commands/replay.js';
 import { replayExportCommand } from '../src/commands/replay-export.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
@@ -400,6 +400,12 @@ verifyCmd
   .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
   .option('--format <format>', 'Output format: text or json', 'text')
   .action(verifyExportCommand);
+
+verifyCmd
+  .command('diff <left_export> <right_export>')
+  .description('Verify two export artifacts, then detect governance regressions between them')
+  .option('--format <format>', 'Output format: text or json', 'text')
+  .action(verifyDiffCommand);
 
 const replayCmd = program
   .command('replay')

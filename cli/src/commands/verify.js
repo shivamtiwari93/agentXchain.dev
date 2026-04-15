@@ -6,6 +6,7 @@ import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
 import { getTurnStagingResultPath } from '../lib/turn-paths.js';
 import { resolve } from 'node:path';
 import { loadExportArtifact, verifyExportArtifact } from '../lib/export-verifier.js';
+import { buildExportDiff, resolveExportArtifact } from '../lib/export-diff.js';
 import { verifyProtocolConformance } from '../lib/protocol-conformance.js';
 import {
   DEFAULT_VERIFICATION_REPLAY_TIMEOUT_MS,
@@ -72,6 +73,18 @@ function emitProtocolVerifyError(format, message) {
   console.log(chalk.red(`Protocol verification failed: ${message}`));
 }
 
+function emitVerifyDiffError(format, message) {
+  if (format === 'json') {
+    console.log(JSON.stringify({
+      overall: 'error',
+      message,
+    }, null, 2));
+    return;
+  }
+
+  console.log(chalk.red(`Diff verification failed: ${message}`));
+}
+
 export async function verifyExportCommand(opts) {
   const format = opts.format || 'text';
   const loaded = loadExportArtifact(opts.input || '-', process.cwd());
@@ -102,6 +115,75 @@ export async function verifyExportCommand(opts) {
   }
 
   process.exit(result.ok ? 0 : 1);
+}
+
+export async function verifyDiffCommand(leftRef, rightRef, opts = {}) {
+  const format = opts.format || 'text';
+  const leftLoaded = resolveExportArtifact(leftRef);
+  if (!leftLoaded.ok) {
+    emitVerifyDiffError(format, leftLoaded.error);
+    process.exit(2);
+  }
+
+  const rightLoaded = resolveExportArtifact(rightRef);
+  if (!rightLoaded.ok) {
+    emitVerifyDiffError(format, rightLoaded.error);
+    process.exit(2);
+  }
+
+  if (leftLoaded.artifact.export_kind !== rightLoaded.artifact.export_kind) {
+    emitVerifyDiffError(
+      format,
+      `Export kinds do not match: ${leftLoaded.artifact.export_kind} vs ${rightLoaded.artifact.export_kind}`,
+    );
+    process.exit(2);
+  }
+
+  const leftVerification = verifyExportArtifact(leftLoaded.artifact);
+  const rightVerification = verifyExportArtifact(rightLoaded.artifact);
+  const leftReport = { ...leftVerification.report, input: leftLoaded.resolved_ref };
+  const rightReport = { ...rightVerification.report, input: rightLoaded.resolved_ref };
+
+  let diff = null;
+  let overall = 'pass';
+  let exitCode = 0;
+  let message = null;
+
+  if (!leftVerification.ok || !rightVerification.ok) {
+    overall = 'fail';
+    exitCode = 1;
+    message = 'Diff skipped because one or both exports failed verification.';
+  } else {
+    const diffResult = buildExportDiff(leftLoaded.artifact, rightLoaded.artifact, {
+      left_ref: leftLoaded.resolved_ref,
+      right_ref: rightLoaded.resolved_ref,
+    });
+    if (!diffResult.ok) {
+      emitVerifyDiffError(format, diffResult.error);
+      process.exit(2);
+    }
+    diff = diffResult.diff;
+    if (diff.has_regressions) {
+      overall = 'fail';
+      exitCode = 1;
+    }
+  }
+
+  const report = {
+    overall,
+    left: leftReport,
+    right: rightReport,
+    diff,
+    message,
+  };
+
+  if (format === 'json') {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printVerifyDiffReport(report);
+  }
+
+  process.exit(exitCode);
 }
 
 export async function verifyTurnCommand(turnId, opts = {}) {
@@ -237,6 +319,54 @@ function printExportReport(report) {
   console.log('');
 }
 
+function printVerifyDiffReport(report) {
+  console.log('');
+  console.log(chalk.bold('  AgentXchain Diff Verification'));
+  console.log(chalk.dim('  ' + '─'.repeat(41)));
+  console.log(chalk.dim(`  Left: ${report.left.input}`));
+  console.log(chalk.dim(`  Right: ${report.right.input}`));
+  console.log('');
+
+  const overallLabel = report.overall === 'pass'
+    ? chalk.green('PASS')
+    : report.overall === 'fail'
+      ? chalk.red('FAIL')
+      : chalk.red('ERROR');
+  console.log(`  Overall: ${overallLabel}`);
+  console.log(`  Left export: ${formatVerifyStatus(report.left.overall)}`);
+  console.log(`  Right export: ${formatVerifyStatus(report.right.overall)}`);
+
+  if (report.diff) {
+    console.log(chalk.dim(`  Diff subject: ${report.diff.subject_kind}`));
+    console.log(chalk.dim(`  Changed: ${report.diff.changed ? 'yes' : 'no'}`));
+    console.log(chalk.dim(`  Governance regressions: ${report.diff.regression_count}`));
+  }
+
+  if (report.message) {
+    console.log(chalk.yellow(`  ${report.message}`));
+  }
+
+  for (const error of report.left.errors || []) {
+    console.log(chalk.red(`    left ✗ ${error}`));
+  }
+  for (const error of report.right.errors || []) {
+    console.log(chalk.red(`    right ✗ ${error}`));
+  }
+
+  if (report.diff?.regressions?.length > 0) {
+    console.log('');
+    console.log(chalk.bold.red('  Governance Regressions'));
+    for (const regression of report.diff.regressions) {
+      const severity = regression.severity === 'error'
+        ? chalk.red(`[${regression.severity}]`)
+        : chalk.yellow(`[${regression.severity}]`);
+      console.log(`    ${severity} ${regression.id}: ${regression.message}`);
+    }
+  }
+
+  console.log('');
+}
+
 function resolveTargetTurnId(requestedTurnId, activeTurns) {
   const turnIds = Object.keys(activeTurns);
 
@@ -350,4 +480,10 @@ function formatOutcome(outcome) {
   if (outcome === 'match') return chalk.green('match');
   if (outcome === 'mismatch') return chalk.red('mismatch');
   return chalk.yellow('not_reproducible');
+}
+
+function formatVerifyStatus(status) {
+  if (status === 'pass') return chalk.green('PASS');
+  if (status === 'fail') return chalk.red('FAIL');
+  return chalk.red(String(status || 'error').toUpperCase());
 }

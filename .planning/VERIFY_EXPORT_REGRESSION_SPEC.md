@@ -95,6 +95,7 @@ The regression detector must not flag:
 10. **AT-REG-010**: No regressions when both exports show identical governance state
 11. **AT-REG-011**: No regressions when status improves (`failed → completed`)
 12. **AT-REG-012**: Run export with `phase_gate_status` gate regression produces gate error
+13. **AT-REG-013**: Run export with new delegation `missing_decision_ids` produces delegation-contract regression
 
 ## Open Questions
 

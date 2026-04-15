@@ -61,7 +61,7 @@ describe('CLI command map docs contract', () => {
     ['restart', ['restart']],
     ['report', ['report']],
     ['validate', ['validate']],
-    ['verify', ['verify turn', 'verify protocol', 'verify export']],
+    ['verify', ['verify turn', 'verify protocol', 'verify export', 'verify diff']],
     ['replay', ['replay turn']],
     ['migrate', ['migrate']],
     ['resume', ['resume']],
@@ -158,6 +158,7 @@ describe('CLI command map docs contract', () => {
     assert.ok(commandMapRows.includes('verify turn'));
     assert.ok(commandMapRows.includes('verify protocol'));
     assert.ok(commandMapRows.includes('verify export'));
+    assert.ok(commandMapRows.includes('verify diff'));
     assert.ok(!commandMapRows.includes('verify'));
   });
 

@@ -160,6 +160,63 @@ describe('Export diff regression detection', () => {
       assert.strictEqual(reg.right, 'failed');
     });
 
+    it('AT-REG-013: new delegation missing_decision_ids produce delegation regression', () => {
+      const left = makeRunExport({
+        summary: {
+          delegation_summary: {
+            total_delegations_issued: 1,
+            delegation_chains: [{
+              parent_role: 'pm',
+              parent_turn_id: 'turn_parent_001',
+              review_turn_id: 'turn_review_001',
+              outcome: 'completed',
+              delegations: [{
+                delegation_id: 'del-001',
+                to_role: 'dev',
+                child_turn_id: 'turn_child_001',
+                status: 'completed',
+                charter: 'Implement API',
+                required_decision_ids: ['DEC-101'],
+                satisfied_decision_ids: ['DEC-101'],
+                missing_decision_ids: [],
+              }],
+            }],
+          },
+        },
+      });
+      const right = makeRunExport({
+        summary: {
+          delegation_summary: {
+            total_delegations_issued: 1,
+            delegation_chains: [{
+              parent_role: 'pm',
+              parent_turn_id: 'turn_parent_001',
+              review_turn_id: 'turn_review_001',
+              outcome: 'failed',
+              delegations: [{
+                delegation_id: 'del-001',
+                to_role: 'dev',
+                child_turn_id: 'turn_child_001',
+                status: 'completed',
+                charter: 'Implement API',
+                required_decision_ids: ['DEC-101', 'DEC-102'],
+                satisfied_decision_ids: ['DEC-101'],
+                missing_decision_ids: ['DEC-102'],
+              }],
+            }],
+          },
+        },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'delegation');
+      assert.ok(reg, 'should have delegation regression');
+      assert.strictEqual(reg.severity, 'error');
+      assert.ok(reg.message.includes('DEC-102'));
+      assert.deepStrictEqual(reg.left, []);
+      assert.deepStrictEqual(reg.right, ['DEC-102']);
+    });
+
     it('AT-REG-010: no regressions when exports are identical', () => {
       const left = makeRunExport();
       const right = makeRunExport();

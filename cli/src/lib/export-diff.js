@@ -213,6 +213,7 @@ function normalizeRunExport(artifact) {
     budget_warn_mode: budgetStatus.warn_mode === true,
     budget_exhausted: budgetStatus.exhausted === true,
     phase_gate_status: normalizeGateStatusMap(phaseGateStatus),
+    delegation_missing_decisions: normalizeDelegationMissingMap(summary.delegation_summary),
   };
 }
 
@@ -354,6 +355,27 @@ function normalizeNumericMap(value) {
   );
 }
 
+function normalizeDelegationMissingMap(summary) {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return {};
+  const chains = Array.isArray(summary.delegation_chains) ? summary.delegation_chains : [];
+  const entries = [];
+  for (const chain of chains) {
+    const delegations = Array.isArray(chain?.delegations) ? chain.delegations : [];
+    for (const delegation of delegations) {
+      if (!delegation || typeof delegation !== 'object' || Array.isArray(delegation)) continue;
+      const delegationId = typeof delegation.delegation_id === 'string' && delegation.delegation_id.trim()
+        ? delegation.delegation_id.trim()
+        : null;
+      if (!delegationId) continue;
+      entries.push([
+        delegationId,
+        normalizeStringArray(delegation.missing_decision_ids),
+      ]);
+    }
+  }
+  return Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right, 'en')));
+}
+
 function toNumber(value) {
   return typeof value === 'number' ? value : null;
 }
@@ -430,6 +452,29 @@ function detectRunRegressions(left, right) {
       left: leftOverrides,
       right: rightOverrides,
     });
+  }
+
+  // Delegation contract regressions: newly missing required decisions.
+  const allDelegationIds = new Set([
+    ...Object.keys(left.delegation_missing_decisions || {}),
+    ...Object.keys(right.delegation_missing_decisions || {}),
+  ]);
+  for (const delegationId of allDelegationIds) {
+    const leftMissing = normalizeStringArray((left.delegation_missing_decisions || {})[delegationId]);
+    const rightMissing = normalizeStringArray((right.delegation_missing_decisions || {})[delegationId]);
+    const leftSet = new Set(leftMissing);
+    const newlyMissing = rightMissing.filter((decisionId) => !leftSet.has(decisionId));
+    if (newlyMissing.length > 0) {
+      regressions.push({
+        id: `REG-DELEGATION-MISSING-${String(++counter).padStart(3, '0')}`,
+        category: 'delegation',
+        severity: 'error',
+        message: `Delegation "${delegationId}" is now missing required decisions: ${newlyMissing.join(', ')}`,
+        field: `delegation_summary.${delegationId}.missing_decision_ids`,
+        left: leftMissing,
+        right: rightMissing,
+      });
+    }
   }
 
   // Gate regressions: passed/approved -> failed/blocked
