@@ -4,7 +4,7 @@ import { captureBaselineRef, readSessionCheckpoint } from './session-checkpoint.
 
 export const SESSION_RECOVERY_PATH = '.agentxchain/SESSION_RECOVERY.md';
 
-function deriveRecommendedContinuityAction(state) {
+export function deriveRecommendedContinuityAction(state) {
   if (!state) {
     return {
       recommended_command: null,

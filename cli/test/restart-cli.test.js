@@ -223,6 +223,64 @@ describe('agentxchain restart', () => {
     assert.ok(result.stdout.includes('blocked'), `Expected blocked, got: ${result.stdout}`);
   });
 
+  it('AT-RESTART-RECOVERY-001: blocked needs_human restart output uses the shared recovery action', () => {
+    const dir = setupProject({
+      status: 'blocked',
+      blocked_on: 'human:scope clarification needed',
+      blocked_reason: {
+        category: 'needs_human',
+        blocked_at: '2026-04-15T18:30:00Z',
+        recovery: {
+          typed_reason: 'needs_human',
+          owner: 'human',
+          recovery_action: 'Resolve the stated issue, then run agentxchain step --resume',
+          turn_retained: false,
+          detail: 'scope clarification needed',
+        },
+      },
+    });
+    dirs.push(dir);
+
+    const result = runCli(dir, ['restart']);
+    assert.notEqual(result.status, 0, 'blocked restart should still fail');
+    assert.match(result.stdout, /Reason: needs_human/);
+    assert.match(result.stdout, /Action: Resolve the stated issue, then run agentxchain resume/);
+    assert.doesNotMatch(result.stdout, /agentxchain step --resume/, 'restart must not fall back to stale generic step guidance');
+  });
+
+  it('AT-RESTART-RECOVERY-002: blocked pending approvals surface approve-transition instead of generic blocked guidance', () => {
+    const dir = setupProject({
+      status: 'blocked',
+      phase: 'planning',
+      blocked_on: 'hook:before_gate:policy-check',
+      blocked_reason: {
+        category: 'hook_block',
+        blocked_at: '2026-04-15T18:31:00Z',
+        turn_id: 'turn-002',
+        recovery: {
+          typed_reason: 'pending_phase_transition',
+          owner: 'human',
+          recovery_action: 'agentxchain approve-transition',
+          turn_retained: false,
+          detail: 'planning_signoff',
+        },
+      },
+      pending_phase_transition: {
+        from: 'planning',
+        to: 'implementation',
+        gate: 'planning_signoff',
+        requested_by_turn: 'turn-002',
+      },
+    });
+    dirs.push(dir);
+
+    const result = runCli(dir, ['restart']);
+    assert.notEqual(result.status, 0, 'blocked restart should still fail');
+    assert.match(result.stdout, /Action: agentxchain approve-transition/);
+    assert.match(result.stdout, /Detail: planning_signoff/);
+    assert.doesNotMatch(result.stdout, /agentxchain step --resume/, 'restart must not emit generic step guidance when an approval gate is still pending');
+  });
+
   it('AT-SCR-004: reconnects to an abandoned active turn in a fresh process', () => {
     const dir = createRealProject();
     dirs.push(dir);
@@ -402,6 +460,7 @@ describe('agentxchain restart', () => {
     assert.equal(restart.status, 0, `restart failed: ${restart.stdout}\n${restart.stderr}`);
     assert.match(restart.stdout, /Pending phase transition: planning → implementation/, 'restart should surface the pending transition');
     assert.match(restart.stdout, /approve-transition/, 'restart should tell the operator to approve-transition');
+    assert.match(restart.stdout, /Detail: planning -> implementation \(gate: planning_signoff\)/, 'restart should surface the shared continuity detail');
     assert.doesNotMatch(restart.stdout, /Restarted run/, 'restart should not assign a replacement turn while approval is pending');
 
     const stateAfterRestart = readState(dir);
@@ -420,5 +479,6 @@ describe('agentxchain restart', () => {
 
     const recoveryReport = readFileSync(join(dir, '.agentxchain/SESSION_RECOVERY.md'), 'utf8');
     assert.match(recoveryReport, /approve-transition/, 'recovery report should preserve the exact next operator action');
+    assert.match(recoveryReport, /Detail: planning -> implementation \(gate: planning_signoff\)\./, 'recovery report should preserve the shared continuity detail');
   });
 });

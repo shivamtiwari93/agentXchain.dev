@@ -13,7 +13,7 @@
 import chalk from 'chalk';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { loadProjectContext, loadProjectState } from '../lib/config.js';
+import { loadProjectContext } from '../lib/config.js';
 import {
   assignGovernedTurn,
   getActiveTurns,
@@ -23,6 +23,8 @@ import {
   HISTORY_PATH,
   LEDGER_PATH,
 } from '../lib/governed-state.js';
+import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { deriveRecommendedContinuityAction } from '../lib/continuity-status.js';
 import { readSessionCheckpoint, writeSessionCheckpoint, captureBaselineRef, SESSION_PATH } from '../lib/session-checkpoint.js';
 
 /**
@@ -30,6 +32,7 @@ import { readSessionCheckpoint, writeSessionCheckpoint, captureBaselineRef, SESS
  * so a new agent session can orient quickly.
  */
 function generateRecoveryReport(root, state, checkpoint, driftWarnings = []) {
+  const continuityAction = deriveRecommendedContinuityAction(state);
   const lines = [
     '# Session Recovery Report',
     '',
@@ -112,7 +115,7 @@ function generateRecoveryReport(root, state, checkpoint, driftWarnings = []) {
       `- **To**: ${pt.to}`,
       `- **Gate**: ${pt.gate}`,
       `- **Requested by**: ${pt.requested_by_turn || 'unknown'}`,
-      `- **Action**: Run \`agentxchain approve-transition\` to approve`,
+      `- **Action**: Run \`${continuityAction.recommended_command}\` to continue`,
       '',
     );
   }
@@ -124,7 +127,7 @@ function generateRecoveryReport(root, state, checkpoint, driftWarnings = []) {
       '',
       `- **Gate**: ${pc.gate}`,
       `- **Requested by**: ${pc.requested_by_turn || 'unknown'}`,
-      `- **Action**: Run \`agentxchain approve-completion\` to approve`,
+      `- **Action**: Run \`${continuityAction.recommended_command}\` to continue`,
       '',
     );
   }
@@ -139,10 +142,9 @@ function generateRecoveryReport(root, state, checkpoint, driftWarnings = []) {
   }
 
   lines.push('## Next Steps', '');
-  if (state.pending_phase_transition) {
-    lines.push('A phase transition is pending approval. Run `agentxchain approve-transition` before assigning new turns.', '');
-  } else if (state.pending_run_completion) {
-    lines.push('A run completion is pending approval. Run `agentxchain approve-completion` to finalize.', '');
+  if (continuityAction.recommended_command && !continuityAction.restart_recommended) {
+    const detail = continuityAction.recommended_detail ? ` Detail: ${continuityAction.recommended_detail}.` : '';
+    lines.push(`Run \`${continuityAction.recommended_command}\` next.${detail}`, '');
   } else {
     lines.push('The next turn has been assigned. Check the dispatch bundle for context.', '');
   }
@@ -197,10 +199,17 @@ export async function restartCommand(opts) {
 
   if (state.status === 'blocked') {
     console.log(chalk.red('Run is blocked. Resolve the blocker first.'));
-    if (state.blocked_reason) {
+    const recovery = deriveRecoveryDescriptor(state, config);
+    if (recovery) {
+      console.log(chalk.dim(`Reason: ${recovery.typed_reason}`));
+      console.log(chalk.dim(`Owner: ${recovery.owner}`));
+      console.log(chalk.dim(`Action: ${recovery.recovery_action}`));
+      if (recovery.detail) {
+        console.log(chalk.dim(`Detail: ${recovery.detail}`));
+      }
+    } else if (state.blocked_reason) {
       console.log(chalk.dim(`Reason: ${typeof state.blocked_reason === 'string' ? state.blocked_reason : JSON.stringify(state.blocked_reason)}`));
     }
-    console.log(chalk.dim('Use `agentxchain step --resume` or resolve the blocker, then try again.'));
     process.exit(1);
   }
 
@@ -227,17 +236,25 @@ export async function restartCommand(opts) {
     }
   }
 
+  const continuityAction = deriveRecommendedContinuityAction(state);
+
   // ── Pending gate / completion check ────────────────────────────────────
   if (state.pending_phase_transition) {
     const pt = state.pending_phase_transition;
     console.log(chalk.yellow(`Pending phase transition: ${pt.from} → ${pt.to} (gate: ${pt.gate})`));
-    console.log(chalk.dim('Run `agentxchain approve-transition` to approve before assigning new turns.'));
+    console.log(chalk.dim(`Run \`${continuityAction.recommended_command}\` next.`));
+    if (continuityAction.recommended_detail) {
+      console.log(chalk.dim(`Detail: ${continuityAction.recommended_detail}`));
+    }
   }
 
   if (state.pending_run_completion) {
     const pc = state.pending_run_completion;
     console.log(chalk.yellow(`Pending run completion (gate: ${pc.gate})`));
-    console.log(chalk.dim('Run `agentxchain approve-completion` to finalize.'));
+    console.log(chalk.dim(`Run \`${continuityAction.recommended_command}\` next.`));
+    if (continuityAction.recommended_detail) {
+      console.log(chalk.dim(`Detail: ${continuityAction.recommended_detail}`));
+    }
   }
 
   // Handle abandoned active turns (assigned but never completed)
