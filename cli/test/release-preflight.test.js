@@ -16,7 +16,7 @@ function writeExecutable(path, content) {
   chmodSync(path, 0o755);
 }
 
-function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'] } = {}) {
+function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'], withGateTest = false } = {}) {
   const root = join(
     tmpdir(),
     `axc-release-preflight-${randomBytes(6).toString('hex')}`,
@@ -39,6 +39,16 @@ function createFixture({ version = '0.9.0', changelogVersions = ['2.0.0'] } = {}
     )
     .join('\n');
   writeFileSync(join(cliDir, 'CHANGELOG.md'), changelog);
+
+  if (withGateTest) {
+    const testDir = join(cliDir, 'test');
+    mkdirSync(testDir, { recursive: true });
+    writeFileSync(
+      join(testDir, 'release-preflight.test.js'),
+      "import { describe, it } from 'node:test';\nimport assert from 'node:assert/strict';\ndescribe('gate', () => { it('passes', () => { assert.ok(true); }); });\n",
+    );
+  }
+
   execFileSync('git', ['init'], { cwd: cliDir, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.name', 'test'], { cwd: cliDir, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], {
@@ -239,7 +249,7 @@ describe('release-preflight.sh', () => {
     assert.match(result.stderr, /Invalid semver: v1\.1\.0/);
     assert.match(
       result.stderr,
-      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--target-version <semver>\]/,
+      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--target-version <semver>\]/,
     );
   });
 
@@ -257,7 +267,36 @@ describe('release-preflight.sh', () => {
     assert.match(result.stderr, /Error: --target-version requires a semver argument/);
     assert.match(
       result.stderr,
-      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--target-version <semver>\]/,
+      /Usage: bash scripts\/release-preflight\.sh \[--strict\] \[--publish-gate\] \[--target-version <semver>\]/,
     );
+  });
+
+  it('runs targeted test subset in --publish-gate mode', () => {
+    const fixture = createFixture({ version: '2.0.0', withGateTest: true });
+    fixtures.push(fixture);
+
+    const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, [
+      '--publish-gate',
+      '--target-version',
+      '2.0.0',
+    ]);
+
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /Release-gate tests/);
+    assert.match(result.stdout, /release-gate tests passed, 0 failures/);
+    assert.match(result.stdout, /PREFLIGHT PASSED/);
+  });
+
+  it('--publish-gate implies strict mode', () => {
+    const fixture = createFixture({ version: '0.9.0', withGateTest: true });
+    fixtures.push(fixture);
+
+    const result = runPreflight(fixture.cliDir, fixture.fakeBinDir, [
+      '--publish-gate',
+    ]);
+
+    // --publish-gate implies --strict, so wrong version should be a FAIL not WARN
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /FAIL: package\.json is at 0\.9\.0, expected 2\.0\.0/);
   });
 });

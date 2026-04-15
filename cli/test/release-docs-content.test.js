@@ -124,7 +124,7 @@ describe('release planning surface classification', () => {
   it('publish workflow separates tagged-state verification from npm publication', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(workflow, /name:\s+Re-verify tagged release before publish/);
-    assert.match(workflow, /bash scripts\/release-preflight\.sh --strict --target-version "\$\{RELEASE_TAG#v\}"/);
+    assert.match(workflow, /bash scripts\/release-preflight\.sh --publish-gate --target-version "\$\{RELEASE_TAG#v\}"/);
     assert.match(workflow, /bash scripts\/publish-from-tag\.sh --skip-preflight "\$\{RELEASE_TAG\}"/);
   });
 

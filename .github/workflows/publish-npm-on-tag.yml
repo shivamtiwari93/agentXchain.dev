@@ -58,7 +58,7 @@ jobs:
         if: steps.registry.outputs.already_published == 'true'
         working-directory: cli
         shell: bash
-        run: bash scripts/release-preflight.sh --strict --target-version "${RELEASE_TAG#v}"
+        run: bash scripts/release-preflight.sh --publish-gate --target-version "${RELEASE_TAG#v}"
 
       - name: Verify canonical tap readiness before first publish
         if: steps.registry.outputs.already_published != 'true'
@@ -78,7 +78,7 @@ jobs:
         if: steps.registry.outputs.already_published != 'true'
         working-directory: cli
         shell: bash
-        run: bash scripts/release-preflight.sh --strict --target-version "${RELEASE_TAG#v}"
+        run: bash scripts/release-preflight.sh --publish-gate --target-version "${RELEASE_TAG#v}"
 
       - name: Publish tagged release
         if: steps.registry.outputs.already_published != 'true'

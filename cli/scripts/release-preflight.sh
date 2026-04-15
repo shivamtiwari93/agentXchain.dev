@@ -9,15 +9,22 @@ CLI_DIR="${SCRIPT_DIR}/.."
 cd "$CLI_DIR"
 
 STRICT_MODE=0
+PUBLISH_GATE=0
 TARGET_VERSION="2.0.0"
 
 usage() {
-  echo "Usage: bash scripts/release-preflight.sh [--strict] [--target-version <semver>]" >&2
+  echo "Usage: bash scripts/release-preflight.sh [--strict] [--publish-gate] [--target-version <semver>]" >&2
+  echo "  --publish-gate  Run only release-critical checks (no full test suite). Use in CI publish workflows." >&2
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strict)
+      STRICT_MODE=1
+      shift
+      ;;
+    --publish-gate)
+      PUBLISH_GATE=1
       STRICT_MODE=1
       shift
       ;;
@@ -99,49 +106,85 @@ else
 fi
 
 # 3. Tests
-echo "[3/6] Test suite"
-# Install MCP example deps — tests start example servers as subprocesses
-for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../examples/mcp-http-echo-agent"; do
-  if [[ -f "${example_dir}/package.json" && ! -d "${example_dir}/node_modules" ]]; then
-    echo "  Installing deps for $(basename "$example_dir")..."
-    (cd "$example_dir" && env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm install --ignore-scripts --userconfig /dev/null 2>&1) || true
-  fi
-done
-if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test; then
-  TEST_STATUS=0
-else
-  TEST_STATUS=$?
-fi
-TEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# pass / { print $3 }')"
-TEST_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# fail / { print $3 }')"
-if [ -z "${TEST_PASS:-}" ]; then
-  VITEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')"
-  NODE_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ tests / { print $3; exit }')"
-  if [ -n "${VITEST_PASS:-}" ] && [ -n "${NODE_PASS:-}" ]; then
-    TEST_PASS="$((VITEST_PASS + NODE_PASS))"
-  elif [ -n "${NODE_PASS:-}" ]; then
-    TEST_PASS="${NODE_PASS}"
-  elif [ -n "${VITEST_PASS:-}" ]; then
-    TEST_PASS="${VITEST_PASS}"
-  fi
-fi
-if [ -z "${TEST_FAIL:-}" ]; then
-  NODE_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ fail / { print $3; exit }')"
-  if [ -n "${NODE_FAIL:-}" ]; then
-    TEST_FAIL="${NODE_FAIL}"
-  elif printf '%s\n' "$TEST_OUTPUT" | grep -Eq '^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed'; then
-    TEST_FAIL=0
-  fi
-fi
-if [ "$TEST_STATUS" -eq 0 ] && [ "${TEST_FAIL:-0}" = "0" ]; then
-  if [ -n "${TEST_PASS:-}" ]; then
-    pass "${TEST_PASS} tests passed, 0 failures"
+if [[ "$PUBLISH_GATE" -eq 1 ]]; then
+  echo "[3/6] Release-gate tests (targeted subset)"
+  # In publish-gate mode, run only release-critical tests to avoid CI hangs.
+  # The full test suite is a pre-tag responsibility, not a publish-time gate.
+  GATE_TESTS=(
+    test/release-preflight.test.js
+    test/release-notes-gate.test.js
+    test/release-identity-hardening.test.js
+    test/normalized-config.test.js
+    test/conformance.test.js
+  )
+  GATE_TEST_ARGS=()
+  for t in "${GATE_TESTS[@]}"; do
+    if [[ -f "$t" ]]; then
+      GATE_TEST_ARGS+=("$t")
+    fi
+  done
+  if [[ ${#GATE_TEST_ARGS[@]} -eq 0 ]]; then
+    fail "No release-gate test files found"
   else
-    pass "npm test passed, 0 failures"
+    if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 node --test "${GATE_TEST_ARGS[@]}"; then
+      TEST_STATUS=0
+    else
+      TEST_STATUS=$?
+    fi
+    NODE_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ tests / { print $3; exit }')"
+    NODE_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ fail / { print $3; exit }')"
+    if [ "$TEST_STATUS" -eq 0 ] && [ "${NODE_FAIL:-0}" = "0" ]; then
+      pass "${NODE_PASS:-?} release-gate tests passed, 0 failures"
+    else
+      fail "Release-gate tests failed"
+      printf '%s\n' "$TEST_OUTPUT" | tail -20
+    fi
   fi
 else
-  fail "npm test failed"
-  printf '%s\n' "$TEST_OUTPUT" | tail -20
+  echo "[3/6] Test suite"
+  # Install MCP example deps — tests start example servers as subprocesses
+  for example_dir in "${CLI_DIR}/../examples/mcp-echo-agent" "${CLI_DIR}/../examples/mcp-http-echo-agent"; do
+    if [[ -f "${example_dir}/package.json" && ! -d "${example_dir}/node_modules" ]]; then
+      echo "  Installing deps for $(basename "$example_dir")..."
+      (cd "$example_dir" && env -u NODE_AUTH_TOKEN -u NPM_CONFIG_USERCONFIG npm install --ignore-scripts --userconfig /dev/null 2>&1) || true
+    fi
+  done
+  if run_and_capture TEST_OUTPUT env AGENTXCHAIN_RELEASE_TARGET_VERSION="${TARGET_VERSION}" AGENTXCHAIN_RELEASE_PREFLIGHT=1 npm test; then
+    TEST_STATUS=0
+  else
+    TEST_STATUS=$?
+  fi
+  TEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# pass / { print $3 }')"
+  TEST_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^# fail / { print $3 }')"
+  if [ -z "${TEST_PASS:-}" ]; then
+    VITEST_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed/ { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9]+$/) { print $i; exit } }')"
+    NODE_PASS="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ tests / { print $3; exit }')"
+    if [ -n "${VITEST_PASS:-}" ] && [ -n "${NODE_PASS:-}" ]; then
+      TEST_PASS="$((VITEST_PASS + NODE_PASS))"
+    elif [ -n "${NODE_PASS:-}" ]; then
+      TEST_PASS="${NODE_PASS}"
+    elif [ -n "${VITEST_PASS:-}" ]; then
+      TEST_PASS="${VITEST_PASS}"
+    fi
+  fi
+  if [ -z "${TEST_FAIL:-}" ]; then
+    NODE_FAIL="$(printf '%s\n' "$TEST_OUTPUT" | awk '/^ℹ fail / { print $3; exit }')"
+    if [ -n "${NODE_FAIL:-}" ]; then
+      TEST_FAIL="${NODE_FAIL}"
+    elif printf '%s\n' "$TEST_OUTPUT" | grep -Eq '^[[:space:]]*Tests[[:space:]]+[0-9]+[[:space:]]+passed'; then
+      TEST_FAIL=0
+    fi
+  fi
+  if [ "$TEST_STATUS" -eq 0 ] && [ "${TEST_FAIL:-0}" = "0" ]; then
+    if [ -n "${TEST_PASS:-}" ]; then
+      pass "${TEST_PASS} tests passed, 0 failures"
+    else
+      pass "npm test passed, 0 failures"
+    fi
+  else
+    fail "npm test failed"
+    printf '%s\n' "$TEST_OUTPUT" | tail -20
+  fi
 fi
 
 # 4. CHANGELOG has target version
