@@ -283,6 +283,38 @@ describe('CLI governance docs contract — events observability', () => {
   });
 });
 
+describe('CLI governance docs contract — recent event evidence', () => {
+  it('documents status recent-event digest and points full stream users to agentxchain events', () => {
+    assert.match(
+      docs,
+      /recent-event evidence.*\.agentxchain\/events\.jsonl/i,
+    );
+    assert.match(
+      docs,
+      /status --json.*recent_event_summary/i,
+    );
+    assert.match(
+      docs,
+      /use `agentxchain events` when you need the full lifecycle log/i,
+    );
+  });
+
+  it('documents report and audit recent-event digests for governed and coordinator surfaces', () => {
+    assert.match(
+      docs,
+      /audit.*recent-event digests.*recent_event_summary.*recent-event summaries/i,
+    );
+    assert.match(
+      docs,
+      /report.*recent lifecycle evidence.*subject\.run\.recent_event_summary/i,
+    );
+    assert.match(
+      docs,
+      /Coordinator reports.*separate recent-event digests for coordinator history vs aggregated child repo activity/i,
+    );
+  });
+});
+
 describe('CLI governance docs contract — report governance events', () => {
   it('documents governance events in the report command description', () => {
     assert.match(

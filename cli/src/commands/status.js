@@ -14,6 +14,7 @@ import { getConnectorHealth } from '../lib/connector-health.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
+import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
@@ -118,6 +119,7 @@ function renderGovernedStatus(context, opts) {
   const recovery = deriveRecoveryDescriptor(state, config);
   const runtimeGuidance = deriveRuntimeBlockedGuidance(state, config);
   const nextActions = deriveGovernedRunNextActions(state, config);
+  const recentEventSummary = readRecentRunEventSummary(root);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
 
@@ -145,6 +147,7 @@ function renderGovernedStatus(context, opts) {
       runtime_guidance: runtimeGuidance,
       next_actions: nextActions,
       connector_health: connectorHealth,
+      recent_event_summary: recentEventSummary,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
     }, null, 2));
@@ -181,6 +184,7 @@ function renderGovernedStatus(context, opts) {
 
   renderContinuityStatus(continuity, state);
   renderConnectorHealthStatus(connectorHealth);
+  renderRecentEventSummary(recentEventSummary);
 
   const activeTurnCount = getActiveTurnCount(state);
   const activeTurns = getActiveTurns(state);
@@ -502,6 +506,28 @@ function renderWorkflowKitArtifactsSection(wkData) {
   if (artifacts.some(a => a.owner_resolution === 'entry_role')) {
     console.log(`    ${chalk.dim('* = ownership inferred from entry_role')}`);
   }
+}
+
+function renderRecentEventSummary(summary) {
+  if (!summary) return;
+
+  const label = summary.freshness === 'recent'
+    ? chalk.green('recent')
+    : summary.freshness === 'quiet'
+      ? chalk.yellow('quiet')
+      : summary.freshness === 'unknown'
+        ? chalk.yellow('unknown timing')
+        : chalk.dim('none recorded');
+  const countLabel = summary.freshness === 'no_events'
+    ? null
+    : `${summary.recent_count || 0} in last ${summary.window_minutes || 15}m`;
+
+  console.log(`  ${chalk.dim('Recent events:')} ${label}${countLabel ? chalk.dim(` (${countLabel})`) : ''}`);
+  if (summary.latest_event) {
+    console.log(`  ${chalk.dim('Latest:')}   ${summary.latest_event.summary || summary.latest_event.event_type || 'unknown_event'}`);
+    console.log(`  ${chalk.dim('When:')}     ${summary.latest_event.timestamp || 'unknown'}`);
+  }
+  console.log('');
 }
 
 function renderLastGateFailure(failure, config) {

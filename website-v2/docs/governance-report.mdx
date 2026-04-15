@@ -79,6 +79,7 @@ Run-export reports carry:
 | `subject.run.budget_status` | `spent_usd` / `remaining_usd` when present |
 | `subject.run.cost_summary` | Aggregated per-run cost breakdown (see below) or `null` when no turns exist |
 | `subject.run.dashboard_session` | Export-time dashboard-daemon snapshot summary, or `null` for older artifacts that predate the field |
+| `subject.run.recent_event_summary` | Recent-event digest derived from exported `.agentxchain/events.jsonl` |
 | `subject.run.delegation_summary` | Delegation-chain audit summary derived from the verified export summary or accepted history fallback |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Run timing summary when available |
 | `subject.run.turns` | Accepted-turn timeline derived from `.agentxchain/history.jsonl` |
@@ -137,6 +138,32 @@ When present it has this shape:
 | `started_at` | `string \| null` | Session start timestamp when known |
 
 Current exports always include this field. Older verified artifacts may surface `null` here because they predate the snapshot field. When the field is present, text and markdown output render a `Dashboard session` summary line near the top of the report.
+
+#### Recent Event Summary
+
+`subject.run.recent_event_summary` is the summary-level lifecycle evidence surface for governed runs. It does not replace `agentxchain events`; it tells operators whether the run has moved recently and what happened last.
+
+When present it has this shape:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `window_minutes` | `number` | Fixed recentness window used by the digest. Today: `15` |
+| `freshness` | `"recent" \| "quiet" \| "unknown" \| "no_events"` | Whether the latest event is inside the recentness window |
+| `recent_count` | `number` | Count of events with valid timestamps inside the recentness window |
+| `latest_event` | `object \| null` | Most recent parsed event, or `null` when no events were exported |
+
+`latest_event` includes:
+
+- `event_type`
+- `timestamp`
+- `phase`
+- `status`
+- `turn_id`
+- `role_id`
+- `repo_id`
+- `summary`
+
+Text and markdown output render this digest near the top of the report as `Recent events` plus `Latest event`.
 
 #### Delegation Summary
 
@@ -206,6 +233,8 @@ Coordinator-export reports carry:
 | `subject.run.phase` | Current coordinator phase |
 | `subject.run.blocked_reason` | Coordinator blocked reason from state when present |
 | `subject.run.pending_gate` | Current coordinator pending gate from state when present |
+| `subject.run.recent_coordinator_events` | Recent-event digest derived from coordinator lifecycle history |
+| `subject.run.recent_child_repo_events` | Recent-event digest derived from aggregated child repo events |
 | `subject.run.next_actions` | Ordered operator commands derived from verified coordinator state |
 | `subject.run.created_at` / `completed_at` / `duration_seconds` | Coordinator timing summary derived from lifecycle history when available, with state fallback |
 | `subject.run.barrier_count` | Number of coordinator barriers |

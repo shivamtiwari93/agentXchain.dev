@@ -51,12 +51,16 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /continuity/);
     assert.match(REPORT_DOCS, /delegation_summary/);
     assert.match(REPORT_DOCS, /dashboard_session/);
+    assert.match(REPORT_DOCS, /recent_event_summary/);
+    assert.match(REPORT_DOCS, /recent_coordinator_events/);
+    assert.match(REPORT_DOCS, /recent_child_repo_events/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Timeout Events/);
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /Delegation Summary/);
     assert.match(REPORT_DOCS, /Dashboard session/);
+    assert.match(REPORT_DOCS, /Recent Event Summary/);
     assert.match(REPORT_DOCS, /#### Continuity/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
   });

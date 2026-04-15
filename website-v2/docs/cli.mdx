@@ -48,7 +48,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `role list` | Inspection | List all defined roles with title, authority, and runtime |
 | `role show` | Inspection | Show detailed information for a single role |
 | `turn show` | Inspection | Inspect an active turn's dispatch bundle and read selected artifacts without raw file browsing |
-| `status` | Inspection | Print current run state: phase, pending turn, blocked status, recent history |
+| `status` | Inspection | Print current run state: phase, pending turn, blocked status, and recent event evidence |
 | `export` | Inspection | Emit a single JSON audit artifact for the current governed run or coordinator workspace |
 | `audit` | Inspection | Render the governance audit directly from live repo state |
 | `report` | Inspection | Render a human-readable governance summary from a verified export artifact |
@@ -427,7 +427,7 @@ agentxchain status [options]
 |------|---------|-------------|
 | `-j, --json` | `false` | Output structured JSON instead of human-readable text |
 
-Prints the current run state: active phase, pending turn (if any), blocked status, last accepted turn summary, and recent decision entries. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. When `project.goal` is set, human-readable status prints `Goal: <text>` under the project name and `status --json` exposes a top-level additive `project_goal` field.
+Prints the current run state: active phase, pending turn (if any), blocked status, and recent lifecycle evidence. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. When `project.goal` is set, human-readable status prints `Goal: <text>` under the project name and `status --json` exposes a top-level additive `project_goal` field.
 
 When cross-session continuity artifacts exist, governed status also exposes a `Continuity` section:
 
@@ -452,6 +452,12 @@ Governed status also shows current-phase **workflow-kit artifact ownership** whe
 
 - human-readable `status` prints an `Artifacts:` section showing each artifact's path, owner role, ownership resolution (`explicit` vs `entry_role`), required/optional status, and exists/missing indicator
 - `status --json` exposes the same data under top-level additive `workflow_kit_artifacts` with `phase`, `artifacts[]` (each with `path`, `owned_by`, `owner_resolution`, `required`, `semantics`, `exists`)
+
+Governed status now also exposes additive **recent-event evidence** from repo-local `.agentxchain/events.jsonl`:
+
+- human-readable `status` prints a `Recent events:` summary line plus the latest event summary and timestamp
+- `status --json` exposes the same digest under top-level additive `recent_event_summary`
+- this is intentionally a digest, not an inline event stream; use `agentxchain events` when you need the full lifecycle log
 
 ### `export`
 
@@ -482,7 +488,7 @@ agentxchain audit [--format text|json|markdown|html]
 |------|---------|-------------|
 | `--format <format>` | `text` | Output format: `text`, `json`, `markdown`, or `html` |
 
-`audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses. The output includes a **Cost Summary** section with per-run totals, per-role cost breakdown, per-phase cost breakdown, and token counts when cost data is available.
+`audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses. The output includes a **Cost Summary** section with per-run totals, per-role cost breakdown, per-phase cost breakdown, and token counts when cost data is available. It also carries the same recent-event digests that `report` does: governed runs expose `recent_event_summary`, while coordinator workspaces expose separate coordinator and child-repo recent-event summaries.
 
 That boundary matters:
 
@@ -504,7 +510,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 | `--input <path>` | `-` | Read the export artifact from a file, or pass `-` to read from stdin |
 | `--format <format>` | `text` | Output format: `text`, `json`, `markdown`, or `html` |
 
-`report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. When a governed project has `project.goal`, text/markdown report output renders `Goal: <text>` in the header and `--format json` exposes the same value at `subject.project.goal`. Reports include a **Governance Events** section when the decision ledger contains operational governance events — policy escalations, conflict detections/rejections/resolutions, operator escalations, and escalation resolutions. These events are extracted from `decision-ledger.jsonl`, sorted chronologically, and rendered in all three formats with type-specific detail (violation rules, conflicting files, resolution methods). Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, per-repo export health, and coordinator-level governance events from `.agentxchain/multirepo/decision-ledger.jsonl`.
+`report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, evidence counts, and recent lifecycle evidence from exported `.agentxchain/events.jsonl` as `subject.run.recent_event_summary`. When a governed project has `project.goal`, text/markdown report output renders `Goal: <text>` in the header and `--format json` exposes the same value at `subject.project.goal`. Reports include a **Governance Events** section when the decision ledger contains operational governance events — policy escalations, conflict detections/rejections/resolutions, operator escalations, and escalation resolutions. These events are extracted from `decision-ledger.jsonl`, sorted chronologically, and rendered in all three formats with type-specific detail (violation rules, conflicting files, resolution methods). Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, per-repo export health, coordinator-level governance events from `.agentxchain/multirepo/decision-ledger.jsonl`, and separate recent-event digests for coordinator history vs aggregated child repo activity.
 
 Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact. Use `--format html` when you need a portable, self-contained report for compliance stakeholders — it includes inline CSS with dark mode and print styles.
 

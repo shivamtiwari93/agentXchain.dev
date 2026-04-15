@@ -738,7 +738,8 @@ describe('report CLI', () => {
       const textResult = runCli(root, ['report', '--input', artifactPath]);
       assert.equal(textResult.status, 0, textResult.stderr);
       assert.match(textResult.stdout, /Next Actions:/);
-      assert.match(textResult.stdout, /agentxchain multi resync/);
+      assert.match(textResult.stdout, /agentxchain multi step/);
+      assert.match(textResult.stdout, /Recent coordinator events: unknown timing/);
       assert.match(textResult.stdout, /Started: 2026-04-03T00:00:00Z/);
       assert.doesNotMatch(textResult.stdout, /Completed:/);
       assert.doesNotMatch(textResult.stdout, /Duration:/);

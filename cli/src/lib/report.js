@@ -3,6 +3,10 @@ import { buildDelegationSummary } from './export.js';
 import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance.js';
 import { deriveGovernedRunNextActions, deriveRuntimeBlockedGuidance } from './blocked-state.js';
 import {
+  buildRecentEventSummary,
+  formatRecentEventSummaryLine,
+} from './recent-event-summary.js';
+import {
   deriveCoordinatorNextActions,
   detectCoordinatorRunIdMismatches,
 } from './coordinator-next-actions.js';
@@ -80,6 +84,18 @@ function normalizeDashboardSessionSummary(summary) {
 
 function extractDashboardSessionSummary(artifact) {
   return normalizeDashboardSessionSummary(artifact.summary?.dashboard_session);
+}
+
+function extractRunEventTimeline(artifact) {
+  const data = extractFileData(artifact, '.agentxchain/events.jsonl');
+  if (!Array.isArray(data)) return [];
+  return data.filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry));
+}
+
+function formatRecentEventDetail(summary) {
+  if (!summary?.latest_event) return 'No event recorded';
+  const latest = summary.latest_event;
+  return `${latest.summary || latest.event_type || 'unknown_event'} at ${latest.timestamp || 'unknown'}`;
 }
 
 function formatDashboardSessionLine(session) {
@@ -897,6 +913,7 @@ function buildRunSubject(artifact) {
   const governanceEvents = extractGovernanceEventDigest(artifact);
   const delegationSummary = extractDelegationSummary(artifact);
   const dashboardSession = extractDashboardSessionSummary(artifact);
+  const recentEventSummary = buildRecentEventSummary(extractRunEventTimeline(artifact));
 
   return {
     kind: 'governed_run',
@@ -924,6 +941,7 @@ function buildRunSubject(artifact) {
       budget_status: normalizeBudgetStatus(artifact.state?.budget_status),
       cost_summary: computeCostSummary(turns),
       dashboard_session: dashboardSession,
+      recent_event_summary: recentEventSummary,
       created_at: timing.created_at,
       completed_at: timing.completed_at,
       duration_seconds: timing.duration_seconds,
@@ -1032,6 +1050,8 @@ function buildCoordinatorSubject(artifact) {
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
   const runIdMismatches = detectCoordinatorRunIdMismatches(repos, coordinatorState.repo_runs || {});
+  const recentCoordinatorEvents = buildRecentEventSummary(coordinatorTimeline);
+  const recentChildRepoEvents = buildRecentEventSummary(extractAggregatedEventTimeline(artifact));
   const nextActions = deriveCoordinatorNextActions({
     status: artifact.summary?.status || null,
     blockedReason,
@@ -1057,6 +1077,8 @@ function buildCoordinatorSubject(artifact) {
       blocked_reason: blockedReason,
       pending_gate: pendingGate,
       run_id_mismatches: runIdMismatches,
+      recent_coordinator_events: recentCoordinatorEvents,
+      recent_child_repo_events: recentChildRepoEvents,
       next_actions: nextActions,
       created_at: timing.created_at,
       completed_at: timing.completed_at,
@@ -1196,6 +1218,10 @@ export function formatGovernanceReportText(report) {
     }
     if (run.dashboard_session) {
       lines.push(`Dashboard session: ${formatDashboardSessionLine(run.dashboard_session)}`);
+    }
+    if (run.recent_event_summary) {
+      lines.push(`Recent events: ${formatRecentEventSummaryLine(run.recent_event_summary)}`);
+      lines.push(`Latest event: ${formatRecentEventDetail(run.recent_event_summary)}`);
     }
 
     lines.push(
@@ -1452,6 +1478,14 @@ export function formatGovernanceReportText(report) {
   }
   if (run.pending_gate) {
     lines.push(`Pending gate: ${run.pending_gate.gate} (${run.pending_gate.gate_type})`);
+  }
+  if (run.recent_coordinator_events) {
+    lines.push(`Recent coordinator events: ${formatRecentEventSummaryLine(run.recent_coordinator_events)}`);
+    lines.push(`Latest coordinator event: ${formatRecentEventDetail(run.recent_coordinator_events)}`);
+  }
+  if (run.recent_child_repo_events) {
+    lines.push(`Recent child repo events: ${formatRecentEventSummaryLine(run.recent_child_repo_events)}`);
+    lines.push(`Latest child repo event: ${formatRecentEventDetail(run.recent_child_repo_events)}`);
   }
 
   if (run.next_actions && run.next_actions.length > 0) {
@@ -1723,6 +1757,10 @@ export function formatGovernanceReportMarkdown(report) {
     if (run.dashboard_session) {
       lines.push(`- Dashboard session: \`${formatDashboardSessionLine(run.dashboard_session)}\``);
     }
+    if (run.recent_event_summary) {
+      lines.push(`- Recent events: \`${formatRecentEventSummaryLine(run.recent_event_summary)}\``);
+      lines.push(`- Latest event: ${formatRecentEventDetail(run.recent_event_summary)}`);
+    }
 
     lines.push(
       `- History entries: ${artifacts.history_entries}`,
@@ -1988,6 +2026,14 @@ export function formatGovernanceReportMarkdown(report) {
   }
   if (run.pending_gate) {
     mdLines.push(`- Pending gate: \`${run.pending_gate.gate}\` (\`${run.pending_gate.gate_type}\`)`);
+  }
+  if (run.recent_coordinator_events) {
+    mdLines.push(`- Recent coordinator events: \`${formatRecentEventSummaryLine(run.recent_coordinator_events)}\``);
+    mdLines.push(`- Latest coordinator event: ${formatRecentEventDetail(run.recent_coordinator_events)}`);
+  }
+  if (run.recent_child_repo_events) {
+    mdLines.push(`- Recent child repo events: \`${formatRecentEventSummaryLine(run.recent_child_repo_events)}\``);
+    mdLines.push(`- Latest child repo event: ${formatRecentEventDetail(run.recent_child_repo_events)}`);
   }
 
   if (run.next_actions && run.next_actions.length > 0) {
@@ -2364,6 +2410,10 @@ function renderRunHtml(report) {
   if (summarizeRunProvenance(run.provenance)) metaPairs.push(['Provenance', `<code>${esc(summarizeRunProvenance(run.provenance))}</code>`]);
   if (run.inherited_context?.parent_run_id) metaPairs.push(['Inherited from', `<code>${esc(run.inherited_context.parent_run_id)}</code> (${esc(run.inherited_context.parent_status || 'unknown')})`]);
   if (run.dashboard_session) metaPairs.push(['Dashboard', `<code>${esc(formatDashboardSessionLine(run.dashboard_session))}</code>`]);
+  if (run.recent_event_summary) {
+    metaPairs.push(['Recent events', esc(formatRecentEventSummaryLine(run.recent_event_summary))]);
+    metaPairs.push(['Latest event', esc(formatRecentEventDetail(run.recent_event_summary))]);
+  }
 
   metaPairs.push(
     ['History entries', String(artifacts.history_entries)],
@@ -2647,6 +2697,14 @@ function renderCoordinatorHtml(report) {
   if (run.completed_at) metaPairs.push(['Completed', `<code>${esc(run.completed_at)}</code>`]);
   if (run.duration_seconds != null) metaPairs.push(['Duration', `<code>${run.duration_seconds}s</code>`]);
   if (run.pending_gate) metaPairs.push(['Pending gate', `<code>${esc(run.pending_gate.gate)}</code> (<code>${esc(run.pending_gate.gate_type)}</code>)`]);
+  if (run.recent_coordinator_events) {
+    metaPairs.push(['Recent coordinator events', esc(formatRecentEventSummaryLine(run.recent_coordinator_events))]);
+    metaPairs.push(['Latest coordinator event', esc(formatRecentEventDetail(run.recent_coordinator_events))]);
+  }
+  if (run.recent_child_repo_events) {
+    metaPairs.push(['Recent child repo events', esc(formatRecentEventSummaryLine(run.recent_child_repo_events))]);
+    metaPairs.push(['Latest child repo event', esc(formatRecentEventDetail(run.recent_child_repo_events))]);
+  }
 
   sections.push(`<div class="meta">${htmlDl(metaPairs)}</div>`);
 
