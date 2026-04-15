@@ -1,7 +1,7 @@
 import { dirname } from 'path';
 import { loadProjectContext } from '../config.js';
 import { approvePhaseTransition, approveRunCompletion } from '../governed-state.js';
-import { deriveRecoveryDescriptor } from '../blocked-state.js';
+import { deriveGovernedRunNextActions, deriveRecoveryDescriptor } from '../blocked-state.js';
 import { normalizeCoordinatorGateApprovalFailure } from '../coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
@@ -47,11 +47,50 @@ function normalizeRepoSuccess(result, gateType) {
   };
 }
 
-function normalizeRepoFailure(result) {
-  const recovery = result.state ? deriveRecoveryDescriptor(result.state) : null;
+function deriveRepoHookName(result) {
+  return result?.hookResults?.blocker?.hook_name
+    || result?.hookResults?.results?.find((entry) => entry?.hook_name)?.hook_name
+    || null;
+}
+
+function buildRecoverySummary(recovery) {
+  if (!recovery || typeof recovery !== 'object') {
+    return null;
+  }
+
+  return {
+    typed_reason: recovery.typed_reason || 'approval_failed',
+    owner: recovery.owner || 'human',
+    recovery_action: recovery.recovery_action || null,
+    detail: recovery.detail ?? null,
+    turn_retained: typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : false,
+    runtime_guidance: Array.isArray(recovery.runtime_guidance) ? recovery.runtime_guidance : [],
+  };
+}
+
+function normalizeRepoFailure(result, config) {
+  const recovery = result.state ? deriveRecoveryDescriptor(result.state, config) : null;
+  const nextActions = result.state ? deriveGovernedRunNextActions(result.state, config) : [];
+  const nextAction = nextActions[0]?.command || recovery?.recovery_action || null;
   const code = result.error_code || 'approval_failed';
+  const gateType = result.state?.pending_phase_transition
+    ? 'phase_transition'
+    : result.state?.pending_run_completion
+      ? 'run_completion'
+      : null;
+  const gate = result.state?.pending_phase_transition?.gate
+    || result.state?.pending_run_completion?.gate
+    || null;
+  const hookPhase = code.startsWith('hook_') ? 'before_gate' : null;
   return buildError(409, code, result.error || 'Gate approval failed', {
-    next_action: recovery?.recovery_action || null,
+    scope: 'repo',
+    gate,
+    gate_type: gateType,
+    hook_phase: hookPhase,
+    hook_name: hookPhase ? deriveRepoHookName(result) : null,
+    next_action: nextAction,
+    next_actions: nextActions,
+    recovery_summary: buildRecoverySummary(recovery),
   });
 }
 
@@ -62,7 +101,7 @@ function approveRepoGate(root, config, state) {
     : approveRunCompletion(root, config);
 
   if (!result.ok) {
-    return normalizeRepoFailure(result);
+    return normalizeRepoFailure(result, config);
   }
 
   return normalizeRepoSuccess(result, gateType);

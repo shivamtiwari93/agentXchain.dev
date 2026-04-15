@@ -861,6 +861,74 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(updated.pending_phase_transition, null);
     });
 
+    it('AT-DASH-ACT-010: POST /api/actions/approve-gate returns normalized repo-local hook-block failure fields', async () => {
+      mkdirSync(join(fixture.root, 'hooks'), { recursive: true });
+      writeFileSync(join(fixture.root, 'hooks', 'block-gate.sh'), `#!/bin/sh
+cat <<'HOOKEOF'
+{"verdict":"block","message":"Compliance review required"}
+HOOKEOF
+`);
+      chmodSync(join(fixture.root, 'hooks', 'block-gate.sh'), 0o755);
+
+      const repoConfig = JSON.parse(readFileSync(join(fixture.root, 'agentxchain.json'), 'utf8'));
+      repoConfig.hooks = {
+        before_gate: [
+          {
+            name: 'release-guard',
+            type: 'process',
+            command: ['./hooks/block-gate.sh'],
+            timeout_ms: 5000,
+            mode: 'blocking',
+          },
+        ],
+      };
+      writeJson(join(fixture.root, 'agentxchain.json'), repoConfig);
+
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'dashboard-root',
+        run_id: 'run_test_001',
+        status: 'paused',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 1,
+        accepted_count: 1,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        pending_phase_transition: {
+          from: 'implementation',
+          to: 'qa',
+          gate: 'implementation_complete',
+          requested_by_turn: 'turn_001',
+        },
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 409);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'hook_blocked');
+      assert.equal(data.scope, 'repo');
+      assert.equal(data.gate, 'implementation_complete');
+      assert.equal(data.gate_type, 'phase_transition');
+      assert.equal(data.hook_phase, 'before_gate');
+      assert.equal(data.hook_name, 'release-guard');
+      assert.equal(data.next_action, 'agentxchain approve-transition');
+      assert.equal(data.next_actions[0].command, 'agentxchain approve-transition');
+      assert.equal(data.recovery_summary.typed_reason, 'pending_phase_transition');
+      assert.equal(data.recovery_summary.recovery_action, 'agentxchain approve-transition');
+      assert.equal(data.recovery_summary.detail, 'implementation_complete');
+    });
+
     it('POST /api/actions/approve-gate approves a coordinator pending gate when no repo gate exists', async () => {
       writeJson(join(fixture.axcDir, 'state.json'), {
         schema_version: '1.1',
