@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
+const MULTI_SOURCE = readFileSync(join(__dirname, '..', 'src', 'commands', 'multi.js'), 'utf8');
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -275,6 +276,64 @@ describe('multi status CLI', () => {
     }
   });
 
+  it('AT-CLI-MR-012: multi status renders ordered shared next_actions for blocked pending gates', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_reason = 'hook violation';
+      state.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(statePath, state);
+
+      const result = runCli(workspace, ['multi', 'status']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /Next Actions:/);
+      const resumeIndex = result.stdout.indexOf('agentxchain multi resume');
+      const approveIndex = result.stdout.indexOf('agentxchain multi approve-gate');
+      assert.ok(resumeIndex >= 0, result.stdout);
+      assert.ok(approveIndex >= 0, result.stdout);
+      assert.ok(resumeIndex < approveIndex, 'multi status must preserve shared next-action ordering');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-013: multi status --json includes next_actions', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.pending_gate = {
+        gate: 'initiative_ship',
+        gate_type: 'run_completion',
+        required_repos: ['api', 'web'],
+      };
+      state.status = 'paused';
+      writeJson(statePath, state);
+
+      const result = runCli(workspace, ['multi', 'status', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.next_actions?.[0]?.command, 'agentxchain multi approve-gate');
+      assert.match(parsed.next_actions?.[0]?.reason || '', /pending gate/i);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CLI-MR-006: multi status fails without init', () => {
     const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
     try {
@@ -346,6 +405,35 @@ describe('multi resync CLI', () => {
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CLI-MR-014: blocked multi step prints shared coordinator next_actions', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_reason = 'hook violation';
+      state.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(statePath, state);
+
+      const result = runCli(workspace, ['multi', 'step']);
+      assert.notEqual(result.status, 0, 'blocked multi step must fail');
+      assert.match(result.stderr, /Next Actions:/);
+      assert.match(result.stderr, /agentxchain multi resume/);
+      assert.match(result.stderr, /agentxchain multi approve-gate/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('multi approve-gate CLI', () => {
@@ -403,5 +491,11 @@ describe('multi help surface', () => {
     const result = runCli(process.cwd(), ['--help']);
     assert.equal(result.status, 0, `stderr: ${result.stderr}`);
     assert.ok(result.stdout.includes('multi'), result.stdout);
+  });
+
+  it('AT-CLI-MR-015: multi command imports shared coordinator next-action helpers', () => {
+    assert.match(MULTI_SOURCE, /deriveCoordinatorNextActions/);
+    assert.match(MULTI_SOURCE, /collectCoordinatorRepoSnapshots/);
+    assert.doesNotMatch(MULTI_SOURCE, /Action:\s+Run \$\{chalk\.cyan\('agentxchain multi approve-gate'\)\} to advance/);
   });
 });

@@ -1498,7 +1498,7 @@ The typical coordinator flow is:
 
 If `multi resume` restores the coordinator to `active`, the next action is `agentxchain multi step`. If it restores to `paused` with a coherent `pending_gate`, the next action is `agentxchain multi approve-gate`.
 
-`multi status` renders coordinator observability with the same depth as single-repo `status`: elapsed time for active runs, blocked reason with recovery guidance when the coordinator is blocked, phase gate pass/pending status, and a completion marker with timestamp when the run finishes. In `--json` mode, the output includes `blocked_reason`, `created_at`, `updated_at`, and `phase_gate_status` fields alongside the existing super-run, repo-run, and barrier data.
+`multi status` renders coordinator observability with the same depth as single-repo `status`: elapsed time for active runs, blocked reason with ordered recovery guidance when the coordinator is blocked, phase gate pass/pending status, and a completion marker with timestamp when the run finishes. In `--json` mode, the output includes `blocked_reason`, `created_at`, `updated_at`, `phase_gate_status`, and `next_actions` alongside the existing super-run, repo-run, and barrier data.
 
 The dashboard **Initiative** and **Cross-Repo** views visualize coordinator state. When only coordinator state exists (no repo-local run), the dashboard opens on Initiative first.
 

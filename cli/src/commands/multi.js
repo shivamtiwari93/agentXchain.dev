@@ -12,6 +12,8 @@
 
 import chalk from 'chalk';
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
+import { deriveCoordinatorNextActions } from '../lib/coordinator-next-actions.js';
+import { collectCoordinatorRepoSnapshots } from '../lib/coordinator-repo-snapshots.js';
 import {
   initializeCoordinatorRun,
   loadCoordinatorState,
@@ -99,9 +101,14 @@ export async function multiStatusCommand(options) {
 
   const status = getCoordinatorStatus(workspacePath);
   const barriers = readBarriers(workspacePath);
+  const configResult = loadCoordinatorConfig(workspacePath);
+  const nextActions = deriveCoordinatorCliNextActions(
+    status,
+    configResult.ok ? configResult.config : null,
+  );
 
   if (options.json) {
-    console.log(JSON.stringify({ ...status, barriers }, null, 2));
+    console.log(JSON.stringify({ ...status, barriers, next_actions: nextActions }, null, 2));
     return;
   }
 
@@ -134,8 +141,9 @@ export async function multiStatusCommand(options) {
     const pg = status.pending_gate;
     const fromTo = pg.from && pg.to ? ` ${pg.from} → ${pg.to}` : '';
     console.log(`Pending Gate: ${pg.gate} (${pg.gate_type})${fromTo}`);
-    console.log(`Action:       Run ${chalk.cyan('agentxchain multi approve-gate')} to advance`);
   }
+
+  printCoordinatorNextActions(nextActions);
 
   // Completed state
   if (status.status === 'completed') {
@@ -183,6 +191,32 @@ function formatCoordinatorStatus(status) {
   }
 }
 
+function deriveCoordinatorCliNextActions(statusLike, config) {
+  const repos = config ? collectCoordinatorRepoSnapshots(config) : [];
+  return deriveCoordinatorNextActions({
+    status: statusLike?.status ?? null,
+    blockedReason: statusLike?.blocked_reason ?? null,
+    pendingGate: statusLike?.pending_gate ?? null,
+    repos,
+    coordinatorRepoRuns: statusLike?.repo_runs || {},
+  });
+}
+
+function printCoordinatorNextActions(nextActions, write = console.log) {
+  if (!Array.isArray(nextActions) || nextActions.length === 0) {
+    return;
+  }
+
+  write('');
+  write('Next Actions:');
+  for (const [index, action] of nextActions.entries()) {
+    write(`  ${index + 1}. ${action.command}`);
+    if (action.reason) {
+      write(`     ${action.reason}`);
+    }
+  }
+}
+
 // ── multi step ─────────────────────────────────────────────────────────────
 
 export async function multiStepCommand(options) {
@@ -214,14 +248,20 @@ export async function multiStepCommand(options) {
     // Fire on_escalation hook (advisory — cannot block, only notifies)
     fireEscalationHook(workspacePath, configResult.config, state, state.blocked_reason || 'unknown reason');
     console.error(`Coordinator is blocked: ${state.blocked_reason || 'unknown reason'}`);
-    console.error('Resolve the blocked state, then run `agentxchain multi resume` before stepping again.');
+    printCoordinatorNextActions(
+      deriveCoordinatorCliNextActions(state, configResult.config),
+      console.error,
+    );
     process.exitCode = 1;
     return;
   }
 
   if (state.pending_gate) {
     console.error(`Coordinator has a pending gate: ${state.pending_gate.gate}`);
-    console.error('Approve the gate with `agentxchain multi approve-gate` before stepping.');
+    printCoordinatorNextActions(
+      deriveCoordinatorCliNextActions(state, configResult.config),
+      console.error,
+    );
     process.exitCode = 1;
     return;
   }
@@ -308,7 +348,10 @@ export async function multiStepCommand(options) {
       } else {
         console.log(`Completion gate requested: ${gate.payload.gate}`);
       }
-      console.log('Approve the gate with `agentxchain multi approve-gate` to continue.');
+      const updatedState = loadCoordinatorState(workspacePath) || state;
+      printCoordinatorNextActions(
+        deriveCoordinatorCliNextActions(updatedState, configResult.config),
+      );
       return;
     }
 
@@ -479,11 +522,9 @@ export async function multiResumeCommand(options) {
 
   console.log(`Coordinator resumed: ${result.resumed_status}`);
   console.log(`Previous block: ${result.blocked_reason}`);
-  if (result.resumed_status === 'paused' && result.state?.pending_gate) {
-    console.log(`Next action: agentxchain multi approve-gate (${result.state.pending_gate.gate})`);
-  } else {
-    console.log('Next action: agentxchain multi step');
-  }
+  printCoordinatorNextActions(
+    deriveCoordinatorCliNextActions(result.state, configResult.config),
+  );
 }
 
 // ── multi approve-gate ─────────────────────────────────────────────────────

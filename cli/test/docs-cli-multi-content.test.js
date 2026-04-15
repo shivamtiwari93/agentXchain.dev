@@ -107,6 +107,8 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /multi resume/i);
     assert.match(multiSection, /blocked coordinator/i);
     assert.match(multiSection, /multi approve-gate|multi step/i);
+    assert.match(multiSection, /ordered recovery guidance/i);
+    assert.match(multiSection, /next_actions/);
   });
 
   it('references agentxchain-multi.json as the config prerequisite', () => {
