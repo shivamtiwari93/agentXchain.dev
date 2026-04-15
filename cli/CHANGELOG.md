@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.103.0
+
+- Decision authority now enforces repo-decision overrides through the real governed acceptance path instead of comparing against an undefined overriding role
+- Config validation rejects invalid `decision_authority` values outside integer `0..99`
+- Dispatch context, export verification, and governance reports now preserve authority metadata for active repo decisions
+- `agentxchain role show` prints configured decision authority and new regression coverage proves context, CLI, export, and acceptance-path behavior
+- 4698 tests / 1003 suites / 0 failures
+
 ## 2.102.0
 
 - Named benchmark workload catalog: baseline, stress, completion-recovery, phase-drift
