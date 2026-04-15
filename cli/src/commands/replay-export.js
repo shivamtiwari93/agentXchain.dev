@@ -33,7 +33,7 @@ function restoreExportFiles(root, files, scopeLabel) {
       continue;
     }
 
-    if (!entry || typeof entry !== 'object' || typeof entry.content_base64 !== 'string' || !entry.content_base64) {
+    if (!entry || typeof entry !== 'object' || typeof entry.content_base64 !== 'string') {
       throw new Error(`${scopeLabel} entry "${relPath}" must provide content_base64.`);
     }
 

@@ -526,4 +526,61 @@ describe('replay export', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('AT-REPLAY-REAL-006: restores empty content_base64 files without error', async () => {
+    const dir = makeTempDir();
+    const port = 14600 + Math.floor(Math.random() * 100);
+    let child;
+    try {
+      const exportPath = makeRunExportFile(dir, {
+        files: {
+          '.agentxchain/empty.jsonl': {
+            format: 'jsonl',
+            bytes: 0,
+            sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+            content_base64: '',
+            data: [],
+          },
+        },
+      });
+      child = startReplayServer(exportPath, port);
+      const ready = await waitForServer(port);
+      assert.ok(ready, 'Server should start even with empty content_base64 files');
+
+      const stateRes = await httpGet(port, '/api/state');
+      const state = JSON.parse(stateRes.body);
+      assert.equal(state.run_id, 'run_test123');
+    } finally {
+      if (child) { child.kill('SIGTERM'); await new Promise((r) => setTimeout(r, 300)); }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPLAY-ROUNDTRIP-001: governed run export → replay → dashboard round-trip', { timeout: 60000 }, async () => {
+    const result = execFileSync(process.execPath, [
+      join(__dirname, '..', '..', 'examples', 'governed-todo-app', 'run-replay-roundtrip-proof.mjs'),
+      '--json',
+    ], {
+      encoding: 'utf8',
+      timeout: 55000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1', NO_COLOR: '1' },
+    });
+    const proof = JSON.parse(result.trim());
+    assert.equal(proof.result, 'pass', `Governed replay roundtrip failed: ${JSON.stringify(proof.errors)}`);
+    assert.ok(proof.artifacts.checks_passed >= 10, `Expected >= 10 checks, got ${proof.artifacts.checks_passed}`);
+  });
+
+  it('AT-REPLAY-ROUNDTRIP-002: coordinator export → replay → dashboard round-trip', { timeout: 90000 }, async () => {
+    const result = execFileSync(process.execPath, [
+      join(__dirname, '..', '..', 'examples', 'live-governed-proof', 'run-coordinator-replay-roundtrip-proof.mjs'),
+      '--json',
+    ], {
+      encoding: 'utf8',
+      timeout: 85000,
+      env: { ...process.env, NODE_NO_WARNINGS: '1', NO_COLOR: '1' },
+    });
+    const proof = JSON.parse(result.trim());
+    assert.equal(proof.result, 'pass', `Coordinator replay roundtrip failed: ${JSON.stringify(proof.errors)}`);
+    assert.ok(proof.artifacts.checks_passed >= 10, `Expected >= 10 checks, got ${proof.artifacts.checks_passed}`);
+  });
 });
