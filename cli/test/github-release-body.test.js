@@ -17,8 +17,15 @@ const CURRENT_RELEASE_DOC = readFileSync(
 function extractSummaryParagraph(text, version) {
   const withoutFrontmatter = text.replace(/^---\n[\s\S]*?\n---\n*/, '').trim();
   const heading = `# AgentXchain v${version}`;
+  assert.notEqual(
+    withoutFrontmatter.indexOf(heading),
+    -1,
+    `release page must contain the governed heading ${heading}`,
+  );
   const afterHeading = withoutFrontmatter.slice(withoutFrontmatter.indexOf(heading) + heading.length).trimStart();
-  return afterHeading.match(/^([^\n#][\s\S]*?)\n\s*\n/)[1].replace(/\s+/g, ' ').trim();
+  const match = afterHeading.match(/^([^\n#][\s\S]*?)\n\s*\n/);
+  assert.ok(match, 'release page must contain a summary paragraph immediately after the governed heading');
+  return match[1].replace(/\s+/g, ' ').trim();
 }
 
 describe('GitHub release body renderer', () => {
