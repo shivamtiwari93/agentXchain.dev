@@ -276,7 +276,7 @@ agentxchain dashboard
 
 ```bash
 agentxchain audit                            # live governance audit report
-agentxchain diff <left> <right>              # compare two governed runs
+agentxchain diff <left> <right>              # compare two governed runs or two export artifacts (--export)
 agentxchain report                           # generate governance report
 agentxchain events                           # inspect lifecycle event stream
 agentxchain history                          # query accepted-turn history

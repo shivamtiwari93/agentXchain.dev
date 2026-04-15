@@ -55,6 +55,90 @@ function makeEntry(overrides = {}) {
   };
 }
 
+function writeExportArtifact(path, artifact) {
+  writeFileSync(path, JSON.stringify(artifact, null, 2));
+  return path;
+}
+
+function makeRunExportArtifact(path, overrides = {}) {
+  return writeExportArtifact(path, {
+    schema_version: '0.3',
+    export_kind: 'agentxchain_run_export',
+    exported_at: '2026-04-15T11:00:00.000Z',
+    project: {
+      id: 'test-proj',
+      name: 'Test Project',
+      goal: 'Ship a governed diff surface',
+      ...overrides.project,
+    },
+    summary: {
+      run_id: 'run_export_alpha',
+      status: 'completed',
+      phase: 'implementation',
+      provenance: { trigger: 'manual' },
+      active_turn_ids: [],
+      retained_turn_ids: [],
+      history_entries: 2,
+      decision_entries: 1,
+      hook_audit_entries: 0,
+      notification_audit_entries: 0,
+      dispatch_artifact_files: 1,
+      staging_artifact_files: 0,
+      dashboard_session: { status: 'not_running' },
+      delegation_summary: { total_delegations_issued: 1, delegation_chains: [] },
+      repo_decisions: {
+        active_count: 1,
+        overridden_count: 0,
+        active: [{ id: 'DEC-001' }],
+        overridden: [],
+      },
+      ...overrides.summary,
+    },
+    ...overrides.root,
+  });
+}
+
+function makeCoordinatorExportArtifact(path, overrides = {}) {
+  return writeExportArtifact(path, {
+    schema_version: '0.3',
+    export_kind: 'agentxchain_coordinator_export',
+    exported_at: '2026-04-15T11:00:00.000Z',
+    coordinator: {
+      project_id: 'coord-test',
+      project_name: 'Coordinator Test',
+      ...overrides.coordinator,
+    },
+    summary: {
+      super_run_id: 'srun_alpha',
+      status: 'completed',
+      phase: 'implementation',
+      barrier_count: 1,
+      history_entries: 2,
+      decision_entries: 1,
+      repo_run_statuses: {
+        web: 'completed',
+        api: 'completed',
+      },
+      aggregated_events: {
+        total_events: 4,
+        repos_with_events: ['api', 'web'],
+        event_type_counts: {
+          run_started: 2,
+          turn_accepted: 1,
+          run_completed: 1,
+        },
+      },
+      ...overrides.summary,
+    },
+    repos: {
+      web: { ok: true, path: './repos/web' },
+      api: { ok: true, path: './repos/api' },
+      ...overrides.repos,
+    },
+    ...overrides.root,
+  });
+}
+
 describe('agentxchain diff', () => {
   it('AT-RD-001: text mode compares two run-history entries', () => {
     const root = makeTmpDir();
@@ -172,16 +256,166 @@ describe('agentxchain diff', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('AT-ED-001: text mode compares two run export artifacts', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeRunExportArtifact(join(root, 'left-run-export.json'));
+      const rightPath = makeRunExportArtifact(join(root, 'right-run-export.json'), {
+        summary: {
+          run_id: 'run_export_beta',
+          status: 'blocked',
+          phase: 'qa',
+          dashboard_session: { status: 'running' },
+          decision_entries: 3,
+          delegation_summary: { total_delegations_issued: 3, delegation_chains: [] },
+          repo_decisions: {
+            active_count: 2,
+            overridden_count: 1,
+            active: [{ id: 'DEC-001' }, { id: 'DEC-002' }],
+            overridden: [{ id: 'DEC-OLD' }],
+          },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export'], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Export Diff/);
+      assert.match(result.stdout, /Status: completed -> blocked/);
+      assert.match(result.stdout, /Phase: implementation -> qa/);
+      assert.match(result.stdout, /Decision entries: 1 -> 3 \(\+2\)/);
+      assert.match(result.stdout, /Delegations: 1 -> 3 \(\+2\)/);
+      assert.match(result.stdout, /Dashboard: not_running -> running/);
+      assert.match(result.stdout, /Active repo decisions added: DEC-002/);
+      assert.match(result.stdout, /Overridden repo decisions added: DEC-OLD/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ED-002: --json --export returns structured run export diff output', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeRunExportArtifact(join(root, 'left-run-export.json'));
+      const rightPath = makeRunExportArtifact(join(root, 'right-run-export.json'), {
+        summary: {
+          run_id: 'run_export_beta',
+          phase: 'qa',
+          decision_entries: 4,
+          repo_decisions: {
+            active_count: 2,
+            overridden_count: 0,
+            active: [{ id: 'DEC-001' }, { id: 'DEC-002' }],
+            overridden: [],
+          },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export', '--json'], {
+        env: { ...process.env },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.comparison_mode, 'export');
+      assert.equal(payload.subject_kind, 'run');
+      assert.equal(payload.left.run_id, 'run_export_alpha');
+      assert.equal(payload.right.run_id, 'run_export_beta');
+      assert.equal(payload.scalar_changes.phase.right, 'qa');
+      assert.equal(payload.numeric_changes.decision_entries.delta, 3);
+      assert.deepEqual(payload.list_changes.active_repo_decision_ids.added, ['DEC-002']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ED-003: export mode compares coordinator artifacts with repo and event deltas', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeCoordinatorExportArtifact(join(root, 'left-coordinator-export.json'));
+      const rightPath = makeCoordinatorExportArtifact(join(root, 'right-coordinator-export.json'), {
+        summary: {
+          super_run_id: 'srun_beta',
+          barrier_count: 2,
+          repo_run_statuses: {
+            web: 'completed',
+            api: 'blocked',
+          },
+          aggregated_events: {
+            total_events: 6,
+            repos_with_events: ['api', 'web'],
+            event_type_counts: {
+              run_started: 2,
+              turn_accepted: 2,
+              run_completed: 1,
+              run_blocked: 1,
+            },
+          },
+        },
+        repos: {
+          web: { ok: true, path: './repos/web' },
+          api: { ok: false, path: './repos/api' },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export'], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Export Diff/);
+      assert.match(result.stdout, /Barriers: 1 -> 2 \(\+1\)/);
+      assert.match(result.stdout, /Repo status changes/);
+      assert.match(result.stdout, /api: completed -> blocked/);
+      assert.match(result.stdout, /Repo export changes/);
+      assert.match(result.stdout, /api: yes -> no/);
+      assert.match(result.stdout, /Event type deltas/);
+      assert.match(result.stdout, /turn_accepted: 1 -> 2 \(\+1\)/);
+      assert.match(result.stdout, /run_blocked: — -> 1/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ED-004: mixed export kinds fail closed', () => {
+    const root = makeTmpDir();
+    try {
+      const runExportPath = makeRunExportArtifact(join(root, 'run-export.json'));
+      const coordinatorExportPath = makeCoordinatorExportArtifact(join(root, 'coordinator-export.json'));
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', runExportPath, coordinatorExportPath, '--export'], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /Export kinds do not match/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('run diff docs contract', () => {
   const CLI_DOCS = readFileSync(join(REPO_ROOT, 'website-v2', 'docs', 'cli.mdx'), 'utf8');
 
-  it('AT-RD-005: cli docs map and section document diff truthfully', () => {
-    assert.match(CLI_DOCS, /\| `diff` \| Observability \| Compare two recorded governed runs and summarize what changed \|/);
+  it('AT-RD-005 / AT-ED-005: cli docs map and section document diff truthfully', () => {
+    assert.match(CLI_DOCS, /\| `diff` \| Observability \| Compare two recorded governed runs or export artifacts and summarize what changed \|/);
     assert.match(CLI_DOCS, /### `diff`/);
-    assert.match(CLI_DOCS, /agentxchain diff <left_run_id> <right_run_id>/);
+    assert.match(CLI_DOCS, /agentxchain diff <left_ref> <right_ref> \[--json\] \[--dir <path>\]/);
+    assert.match(CLI_DOCS, /agentxchain diff <left_export\.json> <right_export\.json> --export \[--json\]/);
     assert.match(CLI_DOCS, /full run IDs or unique prefixes/i);
+    assert.match(CLI_DOCS, /`--export` switches the command into artifact comparison mode/i);
     assert.match(CLI_DOCS, /ambiguous prefixes fail closed/i);
   });
 });

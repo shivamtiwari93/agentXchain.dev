@@ -73,7 +73,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `proposal` | Proposal management | List, diff, apply, or reject proposed changes from api_proxy agents |
 | `history` | Observability | Show cross-run history of governed runs in this project |
 | `decisions` | Governance | Show repo-level decisions that persist across governed runs |
-| `diff` | Observability | Compare two recorded governed runs and summarize what changed |
+| `diff` | Observability | Compare two recorded governed runs or export artifacts and summarize what changed |
 | `events` | Observability | Show repo-local run lifecycle events with optional streaming |
 | `doctor` | Readiness | Check governed project readiness: config validation, runtime prerequisites, state health, schedule daemon, and workflow-kit artifacts |
 | `connector check` | Readiness | Run live connector probes for governed non-manual runtimes before the first turn |
@@ -1033,19 +1033,23 @@ Use `--status completed` to see only successful runs. Use `--limit 5` to see the
 ### `diff`
 
 ```bash
-agentxchain diff <left_run_id> <right_run_id> [--json] [--dir <path>]
+agentxchain diff <left_ref> <right_ref> [--json] [--dir <path>]
+agentxchain diff <left_export.json> <right_export.json> --export [--json]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--json` | `false` | Output structured comparison JSON |
+| `--export` | `false` | Compare two export artifacts instead of two run-history entries |
 | `--dir <path>` | `.` | Project directory |
 
-Compares two recorded terminal runs from `.agentxchain/run-history.jsonl`. The command accepts full run IDs or unique prefixes; ambiguous prefixes fail closed instead of guessing. That matters because operators usually copy the first 10-12 characters from `history`, and silently resolving the wrong run would make the comparison useless.
+By default, `diff` compares two recorded terminal runs from `.agentxchain/run-history.jsonl`. The command accepts full run IDs or unique prefixes; ambiguous prefixes fail closed instead of guessing. That matters because operators usually copy the first 10-12 characters from `history`, and silently resolving the wrong run would make the comparison useless.
 
 Text mode highlights the changed operator-facing fields instead of dumping raw JSON: status, trigger, template, connector, model, blocked reason, retrospective headline, inheritance-snapshot availability, turns, decisions, cost, budget, duration, phases added/removed, roles added/removed, and per-gate status changes.
 
-Use `--json` when you want automation to compare reruns, recoveries, or continuation chains without scraping terminal output.
+`--export` switches the command into artifact comparison mode. In that mode, the positional inputs are file paths to two exported audit artifacts, both artifacts must have the same `export_kind`, and the command compares normalized export summaries instead of raw embedded file blobs. Run exports surface run/status/phase/goal/dashboard/delegation/repo-decision drift; coordinator exports surface barrier, repo-status, nested-export, and aggregated-event drift.
+
+Use `--json` when you want automation to compare reruns, recoveries, continuation chains, or two portable export artifacts without scraping terminal output.
 
 ### `events`
 

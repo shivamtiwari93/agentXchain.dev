@@ -345,9 +345,10 @@ program
   .action(decisionsCommand);
 
 program
-  .command('diff <left_run_id> <right_run_id>')
-  .description('Compare two recorded governed runs from run-history')
+  .command('diff <left_ref> <right_ref>')
+  .description('Compare two recorded governed runs or two export artifacts')
   .option('-j, --json', 'Output as JSON')
+  .option('--export', 'Compare two export artifacts instead of run-history entries')
   .option('-d, --dir <path>', 'Project directory')
   .action(diffCommand);
 
