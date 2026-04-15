@@ -16,6 +16,7 @@ import { createHash, randomBytes } from 'crypto';
 import http from 'http';
 
 import { createBridgeServer } from '../src/lib/dashboard/bridge-server.js';
+import { loadProjectContext } from '../src/lib/config.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1098,6 +1099,9 @@ describe('Dashboard State Reader', () => {
     );
 
     const result = readResource(axcDir, '/api/repo-decisions-summary');
+    const context = loadProjectContext(root);
+
+    assert.equal(context.config.roles.architect.decision_authority, 40);
     assert.equal(result.format, 'json');
     assert.equal(result.data.active_count, 1);
     assert.equal(result.data.overridden_count, 1);

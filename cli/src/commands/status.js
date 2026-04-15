@@ -113,7 +113,7 @@ function loadStatusContext(dir = process.cwd()) {
 }
 
 function renderGovernedStatus(context, opts) {
-  const { root, config, rawConfig, version } = context;
+  const { root, config, version } = context;
   const state = loadProjectState(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
@@ -121,7 +121,7 @@ function renderGovernedStatus(context, opts) {
   const runtimeGuidance = deriveRuntimeBlockedGuidance(state, config);
   const nextActions = deriveGovernedRunNextActions(state, config);
   const recentEventSummary = readRecentRunEventSummary(root);
-  const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), rawConfig || config);
+  const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
 

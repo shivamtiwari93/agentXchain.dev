@@ -127,7 +127,7 @@ export function readResource(agentxchainDir, resourcePath) {
   if (resourcePath === '/api/repo-decisions-summary') {
     const root = resolve(agentxchainDir, '..');
     const context = loadProjectContext(root);
-    const data = summarizeRepoDecisions(readRepoDecisions(root), context?.rawConfig || context?.config || null);
+    const data = summarizeRepoDecisions(readRepoDecisions(root), context?.config || null);
     return { data, format: 'json' };
   }
 

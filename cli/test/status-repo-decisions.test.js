@@ -125,6 +125,8 @@ describe('status repo-decision carryover summary', () => {
     assert.equal(result.status, 0, `status --json failed: ${result.stdout}\n${result.stderr}`);
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.repo_decisions.length, 2);
+    assert.equal(payload.config.roles.architect.decision_authority, 40);
+    assert.equal(payload.config.roles.qa.decision_authority, 20);
     assert.equal(payload.repo_decision_summary.total, 3);
     assert.equal(payload.repo_decision_summary.active_count, 2);
     assert.equal(payload.repo_decision_summary.overridden_count, 1);
