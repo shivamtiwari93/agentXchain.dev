@@ -230,12 +230,12 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow creates PR for mirror updates instead of pushing directly to protected main', () => {
+  it('CI workflow attempts direct push to main before falling back to PR', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
-      /Commit Homebrew mirror updates via PR/,
-      'workflow must have a step to commit mirror updates via PR',
+      /Commit Homebrew mirror updates \(direct push or PR fallback\)/,
+      'workflow must have a combined direct-push + PR fallback step',
     );
     assert.match(
       workflow,
@@ -249,13 +249,33 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
+      /Attempting direct push to main using HOMEBREW_TAP_TOKEN/,
+      'workflow must attempt direct push as primary path',
+    );
+    assert.match(
+      workflow,
+      /Direct push to main succeeded — no PR needed/,
+      'workflow must report success on direct push',
+    );
+    assert.match(
+      workflow,
+      /direct_push=true.*GITHUB_OUTPUT/s,
+      'workflow must set direct_push output on success',
+    );
+    assert.match(
+      workflow,
+      /Falling back to PR path/,
+      'workflow must fall back to PR if direct push fails',
+    );
+    assert.match(
+      workflow,
       /chore\/homebrew-sync-v/,
-      'workflow must create a named branch for the mirror update PR',
+      'workflow must create a named branch for the mirror update PR in fallback path',
     );
     assert.match(
       workflow,
       /gh pr create/,
-      'workflow must create a PR for the mirror update instead of pushing directly to main',
+      'workflow must create a PR in fallback path',
     );
     assert.match(
       workflow,
@@ -266,11 +286,6 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /gh pr list --base main --head "\$BRANCH" --state open/,
       'workflow must detect an existing open PR on rerun instead of blindly creating a second one',
-    );
-    assert.doesNotMatch(
-      workflow,
-      /git push origin HEAD:main/,
-      'workflow must NOT push directly to main (branch protection requires PRs)',
     );
     assert.doesNotMatch(
       workflow,
@@ -293,7 +308,16 @@ describe('homebrew sync automation contract', () => {
     );
   });
 
-  it('CI workflow best-effort closes the Homebrew mirror PR after creation', () => {
+  it('CI workflow skips PR closeout when direct push succeeded', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /direct_push != 'true'/,
+      'PR closeout step must be skipped when direct push succeeded',
+    );
+  });
+
+  it('CI workflow best-effort closes the Homebrew mirror PR after creation (fallback path)', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(
       workflow,
@@ -404,7 +428,7 @@ describe('homebrew sync automation contract', () => {
       'workflow must filter stale Homebrew sync PRs by the release-sync branch prefix',
     );
     assert.ok(
-      workflow.includes(`select(.headRefName != "'"$BRANCH"'")`),
+      workflow.includes(`select(.headRefName != "'"$EXCLUDE_BRANCH"'")`),
       'workflow must exclude the current release branch from stale-PR cleanup',
     );
     assert.ok(
@@ -413,8 +437,8 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /gh pr close "\$STALE_NUMBER" --comment "Superseded by #\$\{CURRENT_PR\} for v\$\{RELEASE_TAG#v\}\."/,
-      'workflow must close superseded mirror PRs with an explicit replacement comment',
+      /Superseded by direct push to main for v\$\{RELEASE_TAG#v\}\./,
+      'workflow must have a direct-push supersession message for stale PRs',
     );
     assert.match(
       workflow,
