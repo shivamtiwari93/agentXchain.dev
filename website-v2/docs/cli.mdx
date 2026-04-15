@@ -865,6 +865,8 @@ The verifier does three things:
 2. Recomputes `bytes` and `sha256`
 3. Checks that the decoded content matches the exported `data` and that run/coordinator summary fields still match the exported file set
 
+For coordinator exports, that includes `summary.aggregated_events` when present. The verifier reconstructs the child-repo event timeline from embedded successful repo exports and fails closed if the summary claims events from a repo whose nested export was not embedded.
+
 Typical use:
 
 ```bash

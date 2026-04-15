@@ -54,7 +54,7 @@ describe('verify export spec alignment', () => {
   it('ships a standalone export verification spec with acceptance tests', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-VERIFY-EXPORT-001/);
-    assert.match(SPEC, /AT-VERIFY-EXPORT-008/);
+    assert.match(SPEC, /AT-VERIFY-EXPORT-011/);
     assert.match(SPEC, /content_base64/);
   });
 });

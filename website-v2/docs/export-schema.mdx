@@ -253,6 +253,7 @@ Each successful child repo entry then embeds the full governed run export for th
 - `data` truth for `json`, `jsonl`, and `text`
 - run-export summary fields against exported `state` and `files`
 - coordinator-export summary fields against exported multirepo state and barriers
+- coordinator `summary.aggregated_events` consistency against embedded child-repo `events.jsonl` data when that summary is present
 - recursive verification of each nested child export when `repos.<repo_id>.ok === true`
 
 ### Verification Report Shape (`--format json`)

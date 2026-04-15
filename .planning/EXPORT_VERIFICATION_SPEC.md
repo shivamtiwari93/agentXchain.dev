@@ -66,6 +66,8 @@ For `agentxchain_coordinator_export`, the verifier checks:
 
 - `config` matches `files["agentxchain-multi.json"].data`
 - summary fields match `.agentxchain/multirepo/state.json` and `barriers.json` when present
+- when `summary.aggregated_events` is present, it matches the reconstructed child-repo `events.jsonl` content from embedded successful repo exports
+- coordinator summaries fail closed if they claim aggregated events for `repos.<id>.ok === false`, because the artifact does not contain nested proof for that repo
 - embedded child repo exports recursively verify when `repos[id].ok === true`
 - failed child repo entries require a non-empty `error` string
 
@@ -94,7 +96,10 @@ For `agentxchain_coordinator_export`, the verifier checks:
 - `AT-VERIFY-EXPORT-005`: summary drift causes verification failure
 - `AT-VERIFY-EXPORT-006`: invalid JSON input fails with exit code `2`
 - `AT-VERIFY-EXPORT-007`: stdin input is supported via `agentxchain export | agentxchain verify export`
-- `AT-VERIFY-EXPORT-008`: `/docs/cli` documents `verify export` and the `content_base64` integrity contract truthfully
+- `AT-VERIFY-EXPORT-008`: coordinator `summary.aggregated_events` count drift fails verification
+- `AT-VERIFY-EXPORT-009`: coordinator `summary.aggregated_events.events` order drift fails verification
+- `AT-VERIFY-EXPORT-010`: coordinator export fails verification when aggregated events claim a failed child repo
+- `AT-VERIFY-EXPORT-011`: `/docs/cli` documents `verify export` and the `content_base64` integrity contract truthfully
 
 ## Open Questions
 

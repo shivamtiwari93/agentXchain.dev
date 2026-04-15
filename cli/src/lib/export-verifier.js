@@ -110,6 +110,100 @@ function verifyFilesMap(files, errors) {
   }
 }
 
+function compareEventOrder(a, b) {
+  const left = Date.parse(a?.timestamp || '');
+  const right = Date.parse(b?.timestamp || '');
+  const leftTime = Number.isNaN(left) ? Number.POSITIVE_INFINITY : left;
+  const rightTime = Number.isNaN(right) ? Number.POSITIVE_INFINITY : right;
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+  return String(a?.event_id || '').localeCompare(String(b?.event_id || ''));
+}
+
+function buildExpectedAggregatedEventsSummary(repos) {
+  const events = [];
+  const reposWithEvents = new Set();
+
+  for (const [repoId, repoEntry] of Object.entries(repos || {})) {
+    if (!repoEntry?.ok || !repoEntry.export || typeof repoEntry.export !== 'object' || Array.isArray(repoEntry.export)) {
+      continue;
+    }
+
+    const repoEvents = repoEntry.export.files?.['.agentxchain/events.jsonl']?.data;
+    if (!Array.isArray(repoEvents)) {
+      continue;
+    }
+
+    for (const event of repoEvents) {
+      if (!event || typeof event !== 'object' || Array.isArray(event)) {
+        continue;
+      }
+      events.push({
+        ...event,
+        repo_id: repoId,
+      });
+      reposWithEvents.add(repoId);
+    }
+  }
+
+  events.sort(compareEventOrder);
+
+  const eventTypeCounts = {};
+  for (const event of events) {
+    const type = event.event_type || event.type || 'unknown';
+    eventTypeCounts[type] = (eventTypeCounts[type] || 0) + 1;
+  }
+
+  return {
+    total_events: events.length,
+    repos_with_events: [...reposWithEvents].sort(),
+    event_type_counts: eventTypeCounts,
+    events,
+  };
+}
+
+function verifyAggregatedEventsSummary(artifact, errors) {
+  const summary = artifact.summary?.aggregated_events;
+  if (summary === undefined || summary === null) {
+    return;
+  }
+
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    addError(errors, 'summary.aggregated_events', 'must be an object when present');
+    return;
+  }
+
+  const failedRepoIds = Object.entries(artifact.repos || {})
+    .filter(([, repoEntry]) => repoEntry && typeof repoEntry === 'object' && !Array.isArray(repoEntry) && repoEntry.ok === false)
+    .map(([repoId]) => repoId);
+
+  for (const repoId of failedRepoIds) {
+    if (summary.repos_with_events?.includes(repoId)) {
+      addError(
+        errors,
+        'summary.aggregated_events.repos_with_events',
+        `cannot include repo "${repoId}" when repos.${repoId}.ok is false because no nested export proof is available`,
+      );
+    }
+  }
+
+  const expected = buildExpectedAggregatedEventsSummary(artifact.repos);
+
+  if (summary.total_events !== expected.total_events) {
+    addError(errors, 'summary.aggregated_events.total_events', 'must match reconstructed aggregated event count');
+  }
+  if (!isDeepStrictEqual(summary.repos_with_events, expected.repos_with_events)) {
+    addError(errors, 'summary.aggregated_events.repos_with_events', 'must match reconstructed contributing repo ids');
+  }
+  if (!isDeepStrictEqual(summary.event_type_counts, expected.event_type_counts)) {
+    addError(errors, 'summary.aggregated_events.event_type_counts', 'must match reconstructed event type counts');
+  }
+  if (!isDeepStrictEqual(summary.events, expected.events)) {
+    addError(errors, 'summary.aggregated_events.events', 'must match reconstructed sorted aggregated event list');
+  }
+}
+
 function countJsonl(files, relPath) {
   return Array.isArray(files?.[relPath]?.data) ? files[relPath].data.length : 0;
 }
@@ -343,6 +437,8 @@ function verifyCoordinatorExport(artifact, errors) {
       addError(errors, `${repoPath}.export`, nestedError);
     }
   }
+
+  verifyAggregatedEventsSummary(artifact, errors);
 }
 
 export function verifyExportArtifact(artifact) {

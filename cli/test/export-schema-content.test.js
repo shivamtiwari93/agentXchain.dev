@@ -475,4 +475,11 @@ describe('coordinator export schema docs contract', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('AT-EXPORT-REF-007: documents aggregated_events verification truthfully', () => {
+    assert.match(EXPORT_DOCS, /aggregated_events/i);
+    assert.match(EXPORT_DOCS, /embedded child-repo `events\.jsonl` data/i);
+    assert.match(CLI_DOCS, /summary\.aggregated_events/i);
+    assert.match(CLI_DOCS, /fails closed if the summary claims events from a repo whose nested export was not embedded/i);
+  });
 });

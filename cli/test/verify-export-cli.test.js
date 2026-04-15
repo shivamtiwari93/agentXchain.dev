@@ -248,6 +248,12 @@ function createCoordinatorWorkspace() {
   return root;
 }
 
+function addCoordinatorRepoEvents(root, eventsByRepo = {}) {
+  for (const [repoId, entries] of Object.entries(eventsByRepo)) {
+    writeJsonl(join(root, 'repos', repoId, '.agentxchain', 'events.jsonl'), entries);
+  }
+}
+
 function exportToFile(root, fileName = 'artifact.json') {
   const output = join(root, fileName);
   const result = runCli(root, ['export', '--output', fileName]);
@@ -360,6 +366,92 @@ describe('verify export CLI', () => {
       const report = JSON.parse(result.stdout);
       assert.equal(report.overall, 'pass');
       assert.equal(report.input, 'stdin');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-EXPORT-008: coordinator aggregated_events total drift fails verification', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      addCoordinatorRepoEvents(root, {
+        web: [
+          { event_id: 'evt_web_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:00Z' },
+          { event_id: 'evt_web_002', event_type: 'run_completed', timestamp: '2026-04-15T09:01:00Z' },
+        ],
+        cli: [
+          { event_id: 'evt_cli_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:30Z' },
+        ],
+      });
+
+      const artifactPath = exportToFile(root, 'coordinator-export.json');
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.aggregated_events.total_events = 99;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.aggregated_events.total_events')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-EXPORT-009: coordinator aggregated_events order drift fails verification', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      addCoordinatorRepoEvents(root, {
+        web: [
+          { event_id: 'evt_web_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:00Z' },
+          { event_id: 'evt_web_002', event_type: 'run_completed', timestamp: '2026-04-15T09:01:00Z' },
+        ],
+        cli: [
+          { event_id: 'evt_cli_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:30Z' },
+          { event_id: 'evt_cli_002', event_type: 'run_completed', timestamp: '2026-04-15T09:01:30Z' },
+        ],
+      });
+
+      const artifactPath = exportToFile(root, 'coordinator-export.json');
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.aggregated_events.events.reverse();
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.aggregated_events.events')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-EXPORT-010: coordinator aggregated_events cannot claim failed child repo events', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      addCoordinatorRepoEvents(root, {
+        web: [
+          { event_id: 'evt_web_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:00Z' },
+        ],
+        cli: [
+          { event_id: 'evt_cli_001', event_type: 'run_started', timestamp: '2026-04-15T09:00:30Z' },
+        ],
+      });
+      rmSync(join(root, 'repos', 'cli', 'agentxchain.json'));
+
+      const artifactPath = exportToFile(root, 'coordinator-export.json');
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      assert.equal(artifact.repos.cli.ok, false);
+      assert.ok(artifact.summary.aggregated_events.repos_with_events.includes('cli'));
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.aggregated_events.repos_with_events')));
+      assert.ok(report.errors.some((error) => error.includes('repos.cli.ok is false')));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
