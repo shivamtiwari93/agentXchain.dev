@@ -402,6 +402,54 @@ describe('Export diff regression detection', () => {
       assert.strictEqual(reg.left, 'qa');
       assert.strictEqual(reg.right, 'planning');
     });
+
+    it('AT-PHASE-CONF-004: differing phase orders produce explicit phase-order drift regression', () => {
+      const left = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: ['discovery', 'planning', 'implementation'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.id.startsWith('REG-PHASE-ORDER-'));
+      assert.ok(reg, 'should have phase-order drift regression');
+      assert.strictEqual(reg.category, 'phase');
+      assert.strictEqual(reg.severity, 'warning');
+      assert.deepStrictEqual(reg.left, ['planning', 'implementation', 'qa']);
+      assert.deepStrictEqual(reg.right, ['discovery', 'planning', 'implementation']);
+    });
+
+    it('AT-PHASE-CONF-005: differing phase orders suppress backward phase inference', () => {
+      const left = makeRunExport({
+        summary: { phase: 'qa', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: ['planning', 'qa', 'implementation'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const backwardRegs = result.diff.regressions.filter((r) => r.id.startsWith('REG-PHASE-') && !r.id.startsWith('REG-PHASE-ORDER-') && r.field === 'phase');
+      assert.strictEqual(backwardRegs.length, 0, 'should not infer backward movement when phase orders drift');
+      const orderRegs = result.diff.regressions.filter((r) => r.id.startsWith('REG-PHASE-ORDER-'));
+      assert.strictEqual(orderRegs.length, 1, 'should emit explicit phase-order drift warning');
+    });
+
+    it('AT-PHASE-CONF-006: equal phase orders still allow backward phase detection', () => {
+      const phaseOrder = ['planning', 'implementation', 'qa'];
+      const left = makeRunExport({
+        summary: { phase: 'qa', workflow_phase_order: phaseOrder },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: phaseOrder },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.id.startsWith('REG-PHASE-') && !r.id.startsWith('REG-PHASE-ORDER-') && r.field === 'phase');
+      assert.ok(reg, 'should retain backward phase detection when phase order matches');
+      const orderRegs = result.diff.regressions.filter((r) => r.id.startsWith('REG-PHASE-ORDER-'));
+      assert.strictEqual(orderRegs.length, 0, 'equal phase order should not emit drift warning');
+    });
   });
 
   describe('CLI output', () => {

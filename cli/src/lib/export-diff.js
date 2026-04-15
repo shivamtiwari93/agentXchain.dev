@@ -415,6 +415,22 @@ function detectRunRegressions(left, right) {
     });
   }
 
+  const leftHasPhaseOrder = Array.isArray(left.workflow_phase_order) && left.workflow_phase_order.length > 0;
+  const rightHasPhaseOrder = Array.isArray(right.workflow_phase_order) && right.workflow_phase_order.length > 0;
+  const phaseOrderDrift = leftHasPhaseOrder && rightHasPhaseOrder && !isEqual(left.workflow_phase_order, right.workflow_phase_order);
+
+  if (phaseOrderDrift) {
+    regressions.push({
+      id: `REG-PHASE-ORDER-${String(++counter).padStart(3, '0')}`,
+      category: 'phase',
+      severity: 'warning',
+      message: 'Workflow phase order changed between exports; directional phase comparison skipped',
+      field: 'workflow_phase_order',
+      left: left.workflow_phase_order,
+      right: right.workflow_phase_order,
+    });
+  }
+
   // Phase regression: backward movement in workflow phase order
   if (left.phase && right.phase === null) {
     // Phase disappeared — information loss
@@ -428,9 +444,9 @@ function detectRunRegressions(left, right) {
       right: null,
     });
   } else if (left.phase && right.phase && left.phase !== right.phase) {
-    // Use right export's phase order as canonical (or left if right doesn't have one)
-    const phaseOrder = right.workflow_phase_order || left.workflow_phase_order;
-    if (Array.isArray(phaseOrder) && phaseOrder.length > 0) {
+    const canCompareDirection = leftHasPhaseOrder && rightHasPhaseOrder && !phaseOrderDrift;
+    if (canCompareDirection) {
+      const phaseOrder = right.workflow_phase_order;
       const leftIndex = phaseOrder.indexOf(left.phase);
       const rightIndex = phaseOrder.indexOf(right.phase);
       // Only flag when both phases are known and right is earlier than left

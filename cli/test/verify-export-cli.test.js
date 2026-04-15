@@ -337,6 +337,60 @@ describe('verify export CLI', () => {
     }
   });
 
+  it('AT-PHASE-CONF-001: verify export rejects empty workflow_phase_order', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.workflow_phase_order = [];
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.workflow_phase_order: must not be empty when present')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PHASE-CONF-002: verify export rejects duplicate workflow phases', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.workflow_phase_order = ['implementation', 'implementation'];
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.workflow_phase_order: must not contain duplicate phase "implementation"')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PHASE-CONF-003: verify export rejects phase missing from workflow_phase_order', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.workflow_phase_order = ['planning', 'qa'];
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((error) => error.includes('summary.phase: must appear in summary.workflow_phase_order when workflow_phase_order is present')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-VERIFY-EXPORT-006: invalid JSON input exits with command error', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-verify-export-invalid-'));
     try {

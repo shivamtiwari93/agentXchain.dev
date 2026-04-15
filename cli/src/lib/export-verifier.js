@@ -31,6 +31,52 @@ function addError(errors, path, message) {
   errors.push(`${path}: ${message}`);
 }
 
+function verifyWorkflowPhaseOrder(summary, errors, summaryPath = 'summary') {
+  const phaseOrder = summary?.workflow_phase_order;
+  if (phaseOrder === undefined || phaseOrder === null) {
+    return;
+  }
+
+  const path = `${summaryPath}.workflow_phase_order`;
+  if (!Array.isArray(phaseOrder)) {
+    addError(errors, path, 'must be an array or null');
+    return;
+  }
+
+  if (phaseOrder.length === 0) {
+    addError(errors, path, 'must not be empty when present');
+    return;
+  }
+
+  const seen = new Set();
+  for (let index = 0; index < phaseOrder.length; index += 1) {
+    const entry = phaseOrder[index];
+    const entryPath = `${path}[${index}]`;
+    if (typeof entry !== 'string') {
+      addError(errors, entryPath, 'must be a string');
+      continue;
+    }
+    const trimmed = entry.trim();
+    if (!trimmed) {
+      addError(errors, entryPath, 'must not be blank');
+      continue;
+    }
+    if (trimmed !== entry) {
+      addError(errors, entryPath, 'must be trimmed');
+      continue;
+    }
+    if (seen.has(entry)) {
+      addError(errors, path, `must not contain duplicate phase "${entry}"`);
+      continue;
+    }
+    seen.add(entry);
+  }
+
+  if (summary.phase !== null && summary.phase !== undefined && !seen.has(summary.phase)) {
+    addError(errors, `${summaryPath}.phase`, 'must appear in summary.workflow_phase_order when workflow_phase_order is present');
+  }
+}
+
 function verifyFileEntry(relPath, entry, errors) {
   const path = `files.${relPath}`;
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
@@ -539,6 +585,8 @@ function verifyRunExport(artifact, errors) {
     addError(errors, 'summary.phase', 'must match state.phase');
   }
 
+  verifyWorkflowPhaseOrder(artifact.summary, errors);
+
   const expectedHistoryEntries = countJsonl(artifact.files, '.agentxchain/history.jsonl');
   const expectedDecisionEntries = countJsonl(artifact.files, '.agentxchain/decision-ledger.jsonl');
   const expectedHookAuditEntries = countJsonl(artifact.files, '.agentxchain/hook-audit.jsonl');
@@ -628,6 +676,7 @@ function verifyCoordinatorExport(artifact, errors) {
     if (artifact.summary.phase !== (coordinatorState?.phase || null)) {
       addError(errors, 'summary.phase', 'must match coordinator state phase');
     }
+    verifyWorkflowPhaseOrder(artifact.summary, errors);
     if (!isDeepStrictEqual(artifact.summary.repo_run_statuses, expectedStatuses)) {
       addError(errors, 'summary.repo_run_statuses', 'must match coordinator state repo run statuses');
     }
