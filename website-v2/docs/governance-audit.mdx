@@ -46,10 +46,12 @@ Internally, `audit` builds the same export artifact that `agentxchain export` wo
 
 For governed projects the `json` payload keeps `subject.kind = "governed_run"`. For coordinator workspaces it keeps `subject.kind = "coordinator_workspace"`. The `input` field carries the resolved live project/workspace path instead of an export artifact filename.
 
-Because `audit` reuses the same report builder as `report`, blocked governed runs keep the same additive operator fields, and coordinator workspaces keep the same ordered recovery surface for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases:
+Because `audit` reuses the same report builder as `report`, blocked governed runs keep the same additive operator fields, and blocked coordinator workspaces keep the same ordered recovery surface for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases:
 
 - `subject.run.next_actions` — ordered operator commands derived from runtime guidance plus blocked-state recovery
 - `subject.run.recovery_summary.runtime_guidance[]` — runtime-aware blocker classification when AgentXchain can prove a config/runtime ownership cause
+
+Completed coordinator workspaces follow the same terminal contract as `report`: if child repo run-id drift remains visible after the coordinator is already `completed`, `audit` keeps `subject.run.run_id_mismatches` visible, populates `subject.run.terminal_observability_note`, and omits `subject.run.next_actions`. Text and markdown output render `Terminal drift note: ...` instead of implying recovery work still exists.
 
 See [Governance Report Reference](./governance-report) for the full `subject` contract and human-readable section semantics.
 

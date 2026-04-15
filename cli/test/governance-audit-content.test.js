@@ -16,6 +16,7 @@ const SIDEBAR = read('website-v2/sidebars.ts');
 const SPEC = read('.planning/GOVERNANCE_AUDIT_SPEC.md');
 const RUNTIME_PARITY_SPEC = read('.planning/RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md');
 const COORDINATOR_ACTION_PARITY_SPEC = read('.planning/COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md');
+const TERMINAL_DRIFT_SPEC = read('.planning/COORDINATOR_AUDIT_TERMINAL_DRIFT_SPEC.md');
 
 describe('governance audit docs contract', () => {
   it('registers the audit command in the CLI entrypoint with format flag', () => {
@@ -41,8 +42,12 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /runtime_guidance/);
     assert.match(AUDIT_DOCS, /pending_gate/);
     assert.match(AUDIT_DOCS, /multi resync/i);
+    assert.match(AUDIT_DOCS, /terminal_observability_note/);
+    assert.match(AUDIT_DOCS, /Terminal drift note:/);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);
+    assert.match(CLI_DOCS, /completed coordinator audit still shows child repo run-id drift/i);
+    assert.match(CLI_DOCS, /subject\.run\.terminal_observability_note/);
   });
 });
 
@@ -66,5 +71,13 @@ describe('governance audit spec alignment', () => {
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /Coordinator Blocked Action Parity Spec/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-004/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /subject\.run\.next_actions/);
+  });
+
+  it('freezes completed coordinator audit terminal drift in a standalone spec', () => {
+    assert.match(TERMINAL_DRIFT_SPEC, /Coordinator Audit Terminal Drift Spec/);
+    assert.match(TERMINAL_DRIFT_SPEC, /\*\*Status:\*\*\s+shipped/i);
+    assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-009/);
+    assert.match(TERMINAL_DRIFT_SPEC, /terminal_observability_note/);
+    assert.match(TERMINAL_DRIFT_SPEC, /Terminal drift note:/);
   });
 });

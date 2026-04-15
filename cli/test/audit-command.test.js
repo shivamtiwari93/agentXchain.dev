@@ -538,7 +538,7 @@ describe('agentxchain audit', () => {
     assert.equal(parsed.subject.run.recovery_summary.runtime_guidance[0].role_id, 'dev');
   });
 
-  it('AT-AUDIT-009: completed coordinator audit keeps next_actions empty despite child drift', () => {
+  it('AT-AUDIT-009: completed coordinator audit keeps terminal child drift observable without recovery guidance', () => {
     const root = createCoordinatorWorkspace();
 
     writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
@@ -582,7 +582,21 @@ describe('agentxchain audit', () => {
       expected_run_id: 'run_app_001',
       actual_run_id: 'run_app_999',
     }]);
+    assert.equal(
+      parsed.subject.run.terminal_observability_note,
+      'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+    );
     assert.deepEqual(parsed.subject.run.next_actions, []);
+
+    const textResult = runCli(root, ['audit']);
+    assert.equal(textResult.status, 0, `${textResult.stdout}\n${textResult.stderr}`);
+    assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.doesNotMatch(textResult.stdout, /Next Actions:/);
+
+    const markdownResult = runCli(root, ['audit', '--format', 'markdown']);
+    assert.equal(markdownResult.status, 0, `${markdownResult.stdout}\n${markdownResult.stderr}`);
+    assert.match(markdownResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.doesNotMatch(markdownResult.stdout, /Next Actions:/);
   });
 
   it('AT-AUDIT-005: unsupported format fails closed', () => {
