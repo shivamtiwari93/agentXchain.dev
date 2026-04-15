@@ -52,6 +52,7 @@ describe('CLI command map docs contract', () => {
   const governedCommands = topLevelCommands.filter((command) => !LEGACY_COMMANDS.includes(command));
   const expectedRowMapping = new Map([
     ['demo', ['demo']],
+    ['benchmark', ['benchmark']],
     ['init', ['init']],
     ['config', ['config']],
     ['status', ['status']],
@@ -104,6 +105,7 @@ describe('CLI command map docs contract', () => {
       'doctor',
       'connector',
       'demo',
+      'benchmark',
       'schedule',
       'history',
       'decisions',

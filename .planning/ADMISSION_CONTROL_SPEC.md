@@ -12,7 +12,7 @@ Admission control detects four classes of dead-end configs:
 
 A phase's exit gate requires file artifacts (via `requires_files` or `workflow_kit.phases[phase].artifacts` with `required: true`), but every role routed to that phase has `write_authority: review_only`.
 
-**Existing partial coverage:** `collectRemoteReviewOnlyGateWarnings` in `normalized-config.js` catches the narrow case where all roles are *both* `review_only` *and* remote runtimes. ADM-001 generalizes this: the issue is `review_only` authority regardless of runtime type. A `local_cli` role with `review_only` also cannot produce files.
+**Prior coverage (removed):** The former `collectRemoteReviewOnlyGateWarnings` in `normalized-config.js` only caught the narrow case where all roles were *both* `review_only` *and* remote runtimes. ADM-001 generalizes this: the issue is `review_only` authority regardless of runtime type. The legacy function was deleted in Turn 29 and all call sites now use `runAdmissionControl`.
 
 ### ADM-002: Authoritative writer unreachable for owned artifacts
 
@@ -63,7 +63,7 @@ export function runAdmissionControl(config, rawConfig) → AdmissionResult
 
 ## Integration Points
 
-1. **`validate` command** — `validateGovernedProject` calls `runAdmissionControl` and merges errors/warnings into its result. Replaces the narrower `collectRemoteReviewOnlyGateWarnings` call.
+1. **`validate` command** — `validateGovernedProject` calls `runAdmissionControl` and merges errors/warnings into its result. `validateV4Config` (the config schema validator) does **not** call admission control — it is a higher-level topology check, not a schema check.
 2. **`doctor` command** — `governedDoctor` adds an `admission_control` check using `runAdmissionControl`.
 3. **`run` pre-flight** — `runLoop` calls `runAdmissionControl` before the first turn and refuses to start if `ok === false`.
 

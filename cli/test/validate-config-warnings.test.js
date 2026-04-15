@@ -100,61 +100,60 @@ function createHealthyProject() {
   return tempRoot;
 }
 
-describe('validate surfaces config-shape warnings (subprocess)', () => {
-  it('--json output includes dead-end gate warning when all roles are review_only remote', () => {
+describe('validate surfaces admission control errors (subprocess)', () => {
+  it('--json output includes ADM-001 error when all roles are review_only', () => {
     const tempRoot = createDeadEndGateProject();
     try {
       const result = runCli(tempRoot, ['validate', '--json']);
       const payload = JSON.parse(result.stdout);
-      assert.ok(Array.isArray(payload.warnings), 'validate --json must return warnings array');
+      assert.ok(Array.isArray(payload.errors), 'validate --json must return errors array');
       assert.ok(
-        payload.warnings.some((w) => w.includes('requires_files') && w.includes('review_only remote runtimes')),
-        `Expected dead-end gate warning in validate output, got: ${JSON.stringify(payload.warnings)}`,
+        payload.errors.some((e) => e.includes('ADM-001') && e.includes('review_only')),
+        `Expected ADM-001 error in validate output, got: ${JSON.stringify(payload.errors)}`,
       );
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 
-  it('human-readable output prints dead-end gate warning text', () => {
+  it('human-readable output prints ADM-001 error text', () => {
     const tempRoot = createDeadEndGateProject();
     try {
       const result = runCli(tempRoot, ['validate']);
       assert.ok(
-        result.stdout.includes('requires_files') && result.stdout.includes('review_only remote runtimes'),
-        `Expected dead-end gate warning in human output, got stdout:\n${result.stdout}`,
+        result.stdout.includes('ADM-001') && result.stdout.includes('review_only'),
+        `Expected ADM-001 error in human output, got stdout:\n${result.stdout}`,
       );
-      assert.ok(result.stdout.includes('Warnings:'), 'Expected Warnings: header in human output');
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 
-  it('validate distinguishes warnings from errors — warnings do not cause exit 1', () => {
+  it('validate returns exit 1 for dead-end gate topology (ADM-001 is a hard error)', () => {
     const tempRoot = createDeadEndGateProject();
     try {
       const result = runCli(tempRoot, ['validate', '--json']);
+      assert.equal(result.status, 1, 'Dead-end gate should cause exit 1');
       const payload = JSON.parse(result.stdout);
-      assert.ok(payload.warnings.length > 0, 'sanity: should have warnings');
-      // The dead-end gate issue must be a warning, not an error
+      assert.ok(payload.errors.length > 0, 'Should have errors');
       assert.ok(
-        !payload.errors.some((e) => e.includes('requires_files') && e.includes('review_only')),
-        `Dead-end gate should be a warning, not an error: ${JSON.stringify(payload.errors)}`,
+        payload.errors.some((e) => e.includes('ADM-001')),
+        `Should have ADM-001 error: ${JSON.stringify(payload.errors)}`,
       );
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 
-  it('--json output has no dead-end gate warning when a proposed role exists', () => {
+  it('--json output has no ADM-001 error when a proposed role exists', () => {
     const tempRoot = createHealthyProject();
     try {
       const result = runCli(tempRoot, ['validate', '--json']);
       const payload = JSON.parse(result.stdout);
-      assert.ok(Array.isArray(payload.warnings), 'validate --json must return warnings array');
+      assert.ok(Array.isArray(payload.errors), 'validate --json must return errors array');
       assert.ok(
-        !payload.warnings.some((w) => w.includes('requires_files') && w.includes('review_only remote runtimes')),
-        `Should not have dead-end gate warning when proposed role exists, got: ${JSON.stringify(payload.warnings)}`,
+        !payload.errors.some((e) => e.includes('ADM-001')),
+        `Should not have ADM-001 error when proposed role exists, got: ${JSON.stringify(payload.errors)}`,
       );
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });

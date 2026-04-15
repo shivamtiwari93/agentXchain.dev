@@ -296,14 +296,18 @@ describe('Governed Doctor E2E', () => {
     assert.doesNotMatch(textResult.stdout, /connector check/);
   });
 
-  it('AT-GD-011: config warnings surface as config_valid warn checks', () => {
+  it('AT-GD-011: dead-end gate topology surfaces as admission_control fail check', () => {
     const root = makeGoverned({ remoteReviewOnlyGate: true });
     const result = runCli(root, ['doctor', '--json']);
     const output = JSON.parse(result.stdout);
+    // Config schema validation should pass (topology checks are not schema checks)
     const configCheck = output.checks.find(c => c.id === 'config_valid');
     assert.ok(configCheck, 'Should include config_valid check');
-    assert.equal(configCheck.level, 'warn');
-    assert.match(configCheck.detail, /requires_files/);
-    assert.match(configCheck.detail, /review_only remote runtimes/);
+    assert.equal(configCheck.level, 'pass');
+    // Admission control should fail with ADM-001 for review_only dead-end
+    const admissionCheck = output.checks.find(c => c.id === 'admission_control');
+    assert.ok(admissionCheck, 'Should include admission_control check');
+    assert.equal(admissionCheck.level, 'fail');
+    assert.match(admissionCheck.detail, /review_only/);
   });
 });

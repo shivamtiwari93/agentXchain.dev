@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { validateV4Config } from '../src/lib/normalized-config.js';
+import { runAdmissionControl } from '../src/lib/admission-control.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SPEC = readFileSync(join(__dirname, '..', '..', '.planning', 'REMOTE_REVIEW_ONLY_GATE_WARNING_SPEC.md'), 'utf8');
@@ -60,32 +61,33 @@ function makeConfig({ writeAuthority = 'review_only', runtimeType = 'api_proxy' 
 }
 
 describe('remote review-only gate warnings', () => {
-  it('warns when requires_files gate is backed only by remote review_only roles', () => {
-    const result = validateV4Config(makeConfig());
-    assert.equal(result.ok, true, `Expected config to remain valid: ${result.errors?.join('; ')}`);
+  it('ADM-001 rejects when requires_files gate is backed only by review_only roles', () => {
+    const config = makeConfig();
+    // Config schema validation passes (topology is not a schema concern)
+    const schemaResult = validateV4Config(config);
+    assert.equal(schemaResult.ok, true, `Schema should pass: ${schemaResult.errors?.join('; ')}`);
+    // Admission control rejects (ADM-001)
+    const admission = runAdmissionControl(config, config);
+    assert.equal(admission.ok, false, 'ADM-001 should fire for all review_only roles');
     assert.ok(
-      result.warnings.some((warning) =>
-        warning.includes('requires_files') && warning.includes('review_only remote runtimes')),
-      `Expected remote review-only gate warning, got: ${JSON.stringify(result.warnings)}`,
+      admission.errors.some((e) => e.includes('ADM-001') && e.includes('review_only')),
+      `Expected ADM-001 error, got: ${JSON.stringify(admission.errors)}`,
     );
   });
 
-  it('does not warn when a proposed remote role can stage files for the gate', () => {
-    const result = validateV4Config(makeConfig({ writeAuthority: 'proposed' }));
-    assert.equal(result.ok, true, `Expected config to remain valid: ${result.errors?.join('; ')}`);
-    assert.equal(
-      result.warnings.some((warning) => warning.includes('planning_signoff')),
-      false,
-      `Unexpected warning for proposed remote writer: ${JSON.stringify(result.warnings)}`,
-    );
+  it('does not reject when a proposed remote role can stage files for the gate', () => {
+    const config = makeConfig({ writeAuthority: 'proposed' });
+    const admission = runAdmissionControl(config, config);
+    assert.equal(admission.ok, true, `Should pass: ${admission.errors?.join('; ')}`);
   });
 
-  it('warns for remote_agent review_only phases too', () => {
-    const result = validateV4Config(makeConfig({ runtimeType: 'remote_agent' }));
-    assert.equal(result.ok, true, `Expected config to remain valid: ${result.errors?.join('; ')}`);
+  it('ADM-001 rejects for remote_agent review_only phases too', () => {
+    const config = makeConfig({ runtimeType: 'remote_agent' });
+    const admission = runAdmissionControl(config, config);
+    assert.equal(admission.ok, false, 'ADM-001 should fire for remote_agent review_only');
     assert.ok(
-      result.warnings.some((warning) => warning.includes('remote_agent')),
-      `Expected remote_agent warning, got: ${JSON.stringify(result.warnings)}`,
+      admission.errors.some((e) => e.includes('ADM-001') && e.includes('review_only')),
+      `Expected ADM-001 error, got: ${JSON.stringify(admission.errors)}`,
     );
   });
 

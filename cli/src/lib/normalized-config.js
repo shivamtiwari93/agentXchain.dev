@@ -556,80 +556,11 @@ export function validateV4Config(data, projectRoot) {
     errors.push(...timeoutValidation.errors);
   }
 
-  warnings.push(...collectRemoteReviewOnlyGateWarnings(data));
+  // Admission control (ADM-001..004) is handled by the validate, doctor, and
+  // run-loop paths which call runAdmissionControl() directly. Config schema
+  // validation here should not duplicate that surface.
 
   return { ok: errors.length === 0, errors, warnings };
-}
-
-export function collectRemoteReviewOnlyGateWarnings(data) {
-  const warnings = [];
-  const routing = data?.routing;
-  const gates = data?.gates;
-  const roles = data?.roles;
-  const runtimes = data?.runtimes;
-
-  if (!routing || !gates || !roles || !runtimes) {
-    return warnings;
-  }
-
-  for (const [phase, route] of Object.entries(routing)) {
-    const exitGateId = route?.exit_gate;
-    if (!exitGateId || !gates[exitGateId]) {
-      continue;
-    }
-
-    const requiredFiles = Array.isArray(gates[exitGateId]?.requires_files)
-      ? gates[exitGateId].requires_files.filter(filePath => typeof filePath === 'string' && filePath.trim())
-      : [];
-    if (requiredFiles.length === 0) {
-      continue;
-    }
-
-    const candidateRoleIds = [
-      route?.entry_role,
-      ...(Array.isArray(route?.allowed_next_roles) ? route.allowed_next_roles : []),
-    ].filter((roleId) => roleId && roleId !== 'human');
-
-    if (candidateRoleIds.length === 0) {
-      continue;
-    }
-
-    const candidateRoles = [...new Set(candidateRoleIds)]
-      .map((roleId) => {
-        const role = roles[roleId];
-        const runtime = role?.runtime ? runtimes[role.runtime] : null;
-        if (!role || !runtime) {
-          return null;
-        }
-        return { roleId, role, runtime };
-      })
-      .filter(Boolean);
-
-    if (candidateRoles.length === 0) {
-      continue;
-    }
-
-    const hasFileProducingRole = candidateRoles.some(({ role }) =>
-      role.write_authority === 'authoritative' || role.write_authority === 'proposed');
-    if (hasFileProducingRole) {
-      continue;
-    }
-
-    const allRemoteReviewOnly = candidateRoles.every(({ role, runtime }) =>
-      role.write_authority === 'review_only' && (runtime.type === 'api_proxy' || runtime.type === 'remote_agent'));
-    if (!allRemoteReviewOnly) {
-      continue;
-    }
-
-    const roleSummary = candidateRoles
-      .map(({ roleId, runtime }) => `${roleId}:${runtime.type}`)
-      .join(', ');
-    warnings.push(
-      `Routing "${phase}" exits through gate "${exitGateId}" with requires_files (${requiredFiles.join(', ')}) but all participating roles are review_only remote runtimes (${roleSummary}). Those files cannot be produced through governed turns; add a proposed/authoritative writer, remove the gate files, or expect operator-managed out-of-band artifacts.`,
-    );
-  }
-
-  return warnings;
 }
 
 export function validateBudgetConfig(budget) {

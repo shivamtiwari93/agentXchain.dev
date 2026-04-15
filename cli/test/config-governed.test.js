@@ -129,7 +129,7 @@ describe('governed config command', () => {
     }
   });
 
-  it('AT-CFGG-008: config --set surfaces non-fatal gate warnings after save', () => {
+  it('AT-CFGG-008: config --set saves successfully even with dead-end gate topology (admission control is in validate/doctor)', () => {
     const dir = createGovernedProject();
     try {
       const configPath = join(dir, 'agentxchain.json');
@@ -145,11 +145,10 @@ describe('governed config command', () => {
       }
       writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
+      // config --set is schema validation only — admission control (ADM-001..004)
+      // is surfaced by validate, doctor, and run commands instead
       const result = runCli(dir, ['config', '--set', 'project.goal', 'Warn', 'about', 'dead-end', 'gates']);
       assert.equal(result.status, 0, result.stderr || result.stdout);
-      assert.match(result.stdout, /Warnings:/);
-      assert.match(result.stdout, /requires_files/);
-      assert.match(result.stdout, /review_only remote runtimes/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

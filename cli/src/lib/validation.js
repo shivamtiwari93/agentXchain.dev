@@ -9,7 +9,6 @@ import {
   validateAcceptanceHintCompletion,
   validateGovernedWorkflowKit,
 } from './governed-templates.js';
-import { collectRemoteReviewOnlyGateWarnings } from './normalized-config.js';
 import { runAdmissionControl } from './admission-control.js';
 
 const DEFAULT_REQUIRED_FILES = [
@@ -116,9 +115,6 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
   const workflowKit = validateGovernedWorkflowKit(root, config);
   errors.push(...workflowKit.errors);
   warnings.push(...workflowKit.warnings);
-
-  // Config-shape warnings (dead-end gates, etc.) — mirrors doctor/config --set surfaces
-  warnings.push(...collectRemoteReviewOnlyGateWarnings(rawConfig));
 
   // Admission control — reject provably dead-end configs
   const admission = runAdmissionControl(config, rawConfig);
