@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.98.0
+
+`2.98.0` adds export-aware diffing so operators can compare two portable audit artifacts directly, not just repo-local run-history entries.
+
+- New CLI mode: `agentxchain diff <left_export.json> <right_export.json> --export`
+- Run-export diff surfaces run/status/phase/goal/dashboard/delegation/repo-decision drift
+- Coordinator-export diff surfaces barrier, repo-status, nested-export, and aggregated-event drift
+- Fail-closed behavior for malformed export artifacts and mixed export kinds
+- New proof: 4 export-diff acceptance tests added alongside the existing run-history diff suite
+
 ## 2.97.0
 
 `2.97.0` delivers full replay round-trip proof: export → replay → dashboard endpoint verification for both governed runs and coordinator workspaces. Fixes a bug where empty `content_base64` entries blocked coordinator replay.

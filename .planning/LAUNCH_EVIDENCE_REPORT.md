@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.97.0
+# Launch Evidence Report — AgentXchain v2.98.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.97.0 release: Replay round-trip proof — full export → replay → dashboard endpoint verification for governed runs (10 checks) and coordinator workspaces (11 checks). Bug fix: empty content_base64 entries no longer block coordinator replay. 4582 tests / 978 suites / 0 failures. Docusaurus build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.98.0 release: export-aware diffing for run and coordinator audit artifacts, plus release-note sidebar ordering re-normalization to keep newest-first rendering stable. Targeted proof: `node --test cli/test/run-diff.test.js` → 9 tests / 0 failures. Docusaurus build clean.
 
 ---
 
