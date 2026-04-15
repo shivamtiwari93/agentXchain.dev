@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.95.0
+
+`2.95.0` adds `agentxchain replay export` for offline post-mortem dashboard analysis of completed governed runs.
+
+- New `agentxchain replay export <file>` command starts the dashboard serving a completed export snapshot
+- Dashboard replay mode: read-only, no gate approval, no file watcher, session reports `replay_mode: true`
+- Marketing scripts: Chrome contention preflight checks for LinkedIn and Reddit posting
+- 7 tests / 1 suite / 0 failures for the replay export surface
+
 ## 2.94.0
 
 `2.94.0` turns delegation acceptance contracts into a machine-checkable governance surface.

@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.94.0
+# Launch Evidence Report — AgentXchain v2.95.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.94.0 release: delegation decision contracts, required child decision enforcement in parent review turns, delegation export/report evidence, targeted test slices green, Docusaurus build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.95.0 release: replay export command for offline post-mortem dashboard analysis, marketing browser contention diagnostics, 7 replay export tests green, Docusaurus build clean.
 
 ---
 
