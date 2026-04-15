@@ -886,9 +886,14 @@ describe('report CLI', () => {
       assert.equal(report.subject.kind, 'coordinator_workspace');
       assert.equal(report.subject.run.status, 'completed');
       assert.deepEqual(report.subject.run.next_actions, []);
+      assert.equal(
+        report.subject.run.terminal_observability_note,
+        'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+      );
 
       const textResult = runCli(root, ['report', '--input', artifactPath]);
       assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
       assert.doesNotMatch(textResult.stdout, /Next Actions:/);
       assert.doesNotMatch(textResult.stdout, /agentxchain multi (resync|resume|step)/);
     } finally {

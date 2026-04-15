@@ -1416,7 +1416,7 @@ describe('coordinator report narrative — run_id_mismatch visibility', () => {
     assert.deepEqual(result.report.subject.run.run_id_mismatches, []);
   });
 
-  function buildDriftedFixture() {
+  function buildDriftedFixture(overrides = {}) {
     // Build a fresh api export with a different run_id (run_api_999 vs coordinator's run_api_001)
     const driftedApiExport = buildRepoExport('api', 'API');
     // Override run_id consistently across summary + state + file entry
@@ -1425,14 +1425,17 @@ describe('coordinator report narrative — run_id_mismatch visibility', () => {
     driftedApiExport.files['.agentxchain/state.json'] = jsonFileEntry(driftedApiExport.state);
 
     const fixture = buildCoordinatorFixture({
-      summaryStatus: 'blocked',
+      summaryStatus: overrides.summaryStatus || 'blocked',
       state: {
-        status: 'blocked',
-        blocked_reason: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"',
+        status: overrides.status || 'blocked',
+        blocked_reason: overrides.blockedReason === undefined
+          ? 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"'
+          : overrides.blockedReason,
         repo_runs: {
           api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
           web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
         },
+        ...(overrides.state || {}),
       },
       repos: {
         api: { ok: true, path: './repos/api', export: driftedApiExport },
@@ -1488,5 +1491,38 @@ describe('coordinator report narrative — run_id_mismatch visibility', () => {
     assert.ok(mismatchAction, 'mismatch diagnostic action present');
     assert.match(mismatchAction.reason, /run_api_001/);
     assert.match(mismatchAction.reason, /run_api_999/);
+  });
+
+  it('AT-COORD-RUNID-006: completed coordinator drift sets a terminal observability note and no next actions', () => {
+    const fixture = buildDriftedFixture({
+      summaryStatus: 'completed',
+      status: 'completed',
+      blockedReason: null,
+    });
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+    assert.equal(
+      result.report.subject.run.terminal_observability_note,
+      'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
+    );
+    assert.deepEqual(result.report.subject.run.next_actions, []);
+  });
+
+  it('AT-COORD-RUNID-007: completed coordinator text and markdown render the terminal drift note without next actions', () => {
+    const fixture = buildDriftedFixture({
+      summaryStatus: 'completed',
+      status: 'completed',
+      blockedReason: null,
+    });
+    const result = buildGovernanceReport(fixture, { input: 'test-fixture' });
+    assert.ok(result.ok, `report should build: ${JSON.stringify(result.errors)}`);
+
+    const text = formatGovernanceReportText(result.report);
+    assert.match(text, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.doesNotMatch(text, /Next Actions:/);
+
+    const md = formatGovernanceReportMarkdown(result.report);
+    assert.match(md, /Terminal drift note: Child repo run-id drift remains visible for audit/);
+    assert.doesNotMatch(md, /## Next Actions/);
   });
 });

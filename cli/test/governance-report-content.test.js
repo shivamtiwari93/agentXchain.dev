@@ -56,6 +56,7 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /recent_event_summary/);
     assert.match(REPORT_DOCS, /recent_coordinator_events/);
     assert.match(REPORT_DOCS, /recent_child_repo_events/);
+    assert.match(REPORT_DOCS, /terminal_observability_note/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Repo Decisions/);
@@ -130,6 +131,14 @@ describe('governance report spec alignment', () => {
     assert.match(actionsSpec, /DEC-COORD-ACTIONS-001/);
     assert.match(actionsSpec, /AT-COORD-ACT-001/);
     assert.match(actionsSpec, /AT-COORD-ACT-006/);
+  });
+
+  it('ships a coordinator terminal-drift report spec for completed-child drift observability', () => {
+    const terminalDriftSpec = read('.planning/COORDINATOR_REPORT_TERMINAL_DRIFT_SPEC.md');
+    assert.match(terminalDriftSpec, /DEC-COORD-REPORT-TERMINAL-DRIFT-001/);
+    assert.match(terminalDriftSpec, /AT-COORD-RUNID-006/);
+    assert.match(terminalDriftSpec, /AT-COORD-RUNID-007/);
+    assert.match(terminalDriftSpec, /terminal_observability_note/);
   });
 
   it('ships a coordinator continuity spec for child repo checkpoints', () => {

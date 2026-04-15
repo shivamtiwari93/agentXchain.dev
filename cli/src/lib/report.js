@@ -862,6 +862,12 @@ function deriveRepoStatusCounts(repoStatuses) {
   return counts;
 }
 
+function deriveCoordinatorTerminalObservabilityNote(status, runIdMismatches) {
+  if (status !== 'completed') return null;
+  if (!Array.isArray(runIdMismatches) || runIdMismatches.length === 0) return null;
+  return 'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.';
+}
+
 export function extractWorkflowKitArtifacts(artifact) {
   const config = artifact.config;
   if (!config || typeof config !== 'object' || !config.workflow_kit) return null;
@@ -1091,6 +1097,7 @@ function buildCoordinatorSubject(artifact) {
     coordinatorRepoRuns: coordinatorState.repo_runs || {},
     runIdMismatches,
   });
+  const terminalObservabilityNote = deriveCoordinatorTerminalObservabilityNote(coordinatorStatus, runIdMismatches);
 
   return {
     kind: 'coordinator_workspace',
@@ -1108,6 +1115,7 @@ function buildCoordinatorSubject(artifact) {
       blocked_reason: blockedReason,
       pending_gate: pendingGate,
       run_id_mismatches: runIdMismatches,
+      terminal_observability_note: terminalObservabilityNote,
       recent_coordinator_events: recentCoordinatorEvents,
       recent_child_repo_events: recentChildRepoEvents,
       next_actions: nextActions,
@@ -1520,6 +1528,9 @@ export function formatGovernanceReportText(report) {
   if (run.recent_child_repo_events) {
     lines.push(`Recent child repo events: ${formatRecentEventSummaryLine(run.recent_child_repo_events)}`);
     lines.push(`Latest child repo event: ${formatRecentEventDetail(run.recent_child_repo_events)}`);
+  }
+  if (run.terminal_observability_note) {
+    lines.push(`Terminal drift note: ${run.terminal_observability_note}`);
   }
 
   if (run.next_actions && run.next_actions.length > 0) {
@@ -2073,6 +2084,9 @@ export function formatGovernanceReportMarkdown(report) {
   if (run.recent_child_repo_events) {
     mdLines.push(`- Recent child repo events: \`${formatRecentEventSummaryLine(run.recent_child_repo_events)}\``);
     mdLines.push(`- Latest child repo event: ${formatRecentEventDetail(run.recent_child_repo_events)}`);
+  }
+  if (run.terminal_observability_note) {
+    mdLines.push(`- Terminal drift note: ${run.terminal_observability_note}`);
   }
 
   if (run.next_actions && run.next_actions.length > 0) {
@@ -2748,6 +2762,9 @@ function renderCoordinatorHtml(report) {
   if (run.recent_child_repo_events) {
     metaPairs.push(['Recent child repo events', esc(formatRecentEventSummaryLine(run.recent_child_repo_events))]);
     metaPairs.push(['Latest child repo event', esc(formatRecentEventDetail(run.recent_child_repo_events))]);
+  }
+  if (run.terminal_observability_note) {
+    metaPairs.push(['Terminal drift note', esc(run.terminal_observability_note)]);
   }
 
   sections.push(`<div class="meta">${htmlDl(metaPairs)}</div>`);
