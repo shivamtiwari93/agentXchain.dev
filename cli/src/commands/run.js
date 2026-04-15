@@ -439,7 +439,7 @@ export async function executeGovernedRun(context, opts = {}) {
 
   // Recovery guidance for blocked/rejected states
   if (result.state && (result.stop_reason === 'blocked' || result.stop_reason === 'reject_exhausted' || result.stop_reason === 'dispatch_error')) {
-    const recovery = deriveRecoveryDescriptor(result.state);
+    const recovery = deriveRecoveryDescriptor(result.state, config);
     if (recovery) {
       log('');
       log(chalk.yellow(`  Recovery: ${recovery.typed_reason}`));

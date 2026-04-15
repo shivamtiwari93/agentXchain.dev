@@ -112,6 +112,10 @@ describe('agentxchain run — guard tests', () => {
       src.includes('deriveRecoveryDescriptor'),
       'run.js must use deriveRecoveryDescriptor for blocked-state recovery guidance',
     );
+    assert.ok(
+      src.includes('deriveRecoveryDescriptor(result.state, config)'),
+      'run.js must pass normalized config into deriveRecoveryDescriptor so retained-turn recovery guidance stays truthful',
+    );
   });
 
   // AT-RUN-GUARD-010: run.js file exists

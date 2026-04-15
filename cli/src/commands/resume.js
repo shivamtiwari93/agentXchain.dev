@@ -101,7 +101,7 @@ export async function resumeCommand(opts) {
   }
 
   if (state.pending_phase_transition || state.pending_run_completion) {
-    printRecoverySummary(state, 'This run is awaiting approval.');
+    printRecoverySummary(state, 'This run is awaiting approval.', config);
     process.exit(1);
   }
 
@@ -267,7 +267,7 @@ export async function resumeCommand(opts) {
   const assignResult = assignGovernedTurn(root, config, roleId);
   if (!assignResult.ok) {
     if (assignResult.error_code?.startsWith('hook_') || assignResult.error_code === 'hook_blocked') {
-      printAssignmentHookFailure(assignResult, roleId);
+      printAssignmentHookFailure(assignResult, roleId, config);
     }
     console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
     process.exit(1);
@@ -482,8 +482,8 @@ function printAssignmentWarnings(assignResult) {
   }
 }
 
-function printRecoverySummary(state, heading) {
-  const recovery = deriveRecoveryDescriptor(state);
+function printRecoverySummary(state, heading, config) {
+  const recovery = deriveRecoveryDescriptor(state, config);
   console.log(chalk.yellow(heading));
   if (!recovery) {
     return;
@@ -495,8 +495,8 @@ function printRecoverySummary(state, heading) {
   }
 }
 
-function printAssignmentHookFailure(result, roleId) {
-  const recovery = deriveRecoveryDescriptor(result.state);
+function printAssignmentHookFailure(result, roleId, config) {
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   const hookName = result.hookResults?.blocker?.hook_name
     || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
     || '(unknown)';

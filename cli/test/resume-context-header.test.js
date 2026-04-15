@@ -16,6 +16,7 @@ import { scaffoldGoverned } from '../src/commands/init.js';
 
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI_BIN = join(cliRoot, 'bin', 'agentxchain.js');
+const resumeCommandPath = join(cliRoot, 'src', 'commands', 'resume.js');
 
 const tempDirs = [];
 
@@ -78,6 +79,20 @@ afterEach(() => {
 });
 
 describe('resume context header', () => {
+  it('AT-RCH-000: resume recovery surfaces pass config into deriveRecoveryDescriptor', () => {
+    const src = readFileSync(resumeCommandPath, 'utf8');
+    assert.match(
+      src,
+      /deriveRecoveryDescriptor\(state,\s*config\)/,
+      'resume recovery summary must pass normalized config into deriveRecoveryDescriptor',
+    );
+    assert.match(
+      src,
+      /deriveRecoveryDescriptor\(result\.state,\s*config\)/,
+      'resume assignment-hook recovery output must pass normalized config into deriveRecoveryDescriptor',
+    );
+  });
+
   it('AT-RCH-001: continuation-backed resume shows Origin in the run header', () => {
     const root = makeProject();
     writeState(root, {
