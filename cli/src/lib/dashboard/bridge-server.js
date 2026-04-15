@@ -20,6 +20,7 @@ import { readRunEvents, RUN_EVENTS_PATH } from '../run-events.js';
 import { approvePendingDashboardGate } from './actions.js';
 import { readCoordinatorBlockerSnapshot } from './coordinator-blockers.js';
 import { readCoordinatorTimeoutStatus } from './coordinator-timeout-status.js';
+import { readAggregatedCoordinatorEvents, watchChildRepoEvents } from './coordinator-event-aggregation.js';
 import { readWorkflowKitArtifacts } from './workflow-kit-artifacts.js';
 import { readConnectorHealthSnapshot } from './connectors.js';
 import { readTimeoutStatus } from './timeout-status.js';
@@ -266,6 +267,24 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
     }
   });
 
+  // Set up child-repo event watchers for coordinator event aggregation
+  let childRepoWatcher = null;
+  try {
+    const watchResult = watchChildRepoEvents(workspacePath, (_repoId, newEvents) => {
+      for (const evt of newEvents) {
+        const msg = JSON.stringify({ type: 'coordinator_event', repo_id: evt.repo_id, event: evt });
+        for (const socket of wsClients) {
+          const filter = wsEventSubscriptions.get(socket);
+          if (filter && !filter.has('coordinator_event')) continue;
+          sendWsFrame(socket, msg);
+        }
+      }
+    });
+    if (watchResult.ok) {
+      childRepoWatcher = watchResult;
+    }
+  } catch {}
+
   const server = createServer(async (req, res) => {
     const method = req.method || 'GET';
     const isApproveGateRequest = method === 'POST' && req.url && new URL(req.url, `http://${req.headers.host}`).pathname === '/api/actions/approve-gate';
@@ -326,6 +345,23 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
     if (pathname === '/api/coordinator/timeouts') {
       const result = readCoordinatorTimeoutStatus(workspacePath);
       writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/coordinator/events') {
+      const type = url.searchParams.get('type') || undefined;
+      const since = url.searchParams.get('since') || undefined;
+      const repoId = url.searchParams.get('repo_id') || undefined;
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam != null ? parseInt(limitParam, 10) : 100;
+      const result = readAggregatedCoordinatorEvents(workspacePath, {
+        type, since, repo_id: repoId, limit: limit === 0 ? undefined : limit,
+      });
+      if (!result.ok) {
+        writeJson(res, 404, { error: result.error });
+        return;
+      }
+      writeJson(res, 200, result.events);
       return;
     }
 
@@ -473,6 +509,7 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
   function stop() {
     return new Promise((resolve) => {
       watcher.stop();
+      if (childRepoWatcher?.stop) childRepoWatcher.stop();
       for (const socket of wsClients) {
         try { socket.destroy(); } catch {}
       }

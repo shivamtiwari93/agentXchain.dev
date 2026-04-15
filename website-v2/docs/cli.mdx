@@ -1106,6 +1106,23 @@ For coordinator workspaces, the shared **Decisions** view also reads `GET /api/c
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/timeouts`, a computed read-only endpoint that aggregates timeout visibility across child repos. The **Coordinator Timeouts** view surfaces child repo timeout config/live pressure alongside any coordinator ledger timeout events.
 
+For coordinator workspaces, the bridge also exposes `GET /api/coordinator/events`, which merges lifecycle events from all child repos into a single time-ordered stream. Each event is tagged with a `repo_id` field identifying the source repo:
+
+| Parameter | Description |
+|-----------|-------------|
+| `type` | Comma-separated event types |
+| `since` | ISO-8601 timestamp — only events after this |
+| `limit` | Max events (default 100, from end; 0 = all) |
+| `repo_id` | Filter to events from a single child repo |
+
+WebSocket clients also receive real-time `coordinator_event` messages when child repo events change:
+
+```json
+{ "type": "coordinator_event", "repo_id": "api", "event": { "event_id": "evt_abc", "event_type": "turn_accepted", ... } }
+```
+
+Clients can include `"coordinator_event"` in their subscribe filter to receive only coordinator-aggregated events.
+
 For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, exact recommended continuity command, and checkpoint-drift state. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
 
 For repo-local runs, the bridge also exposes `GET /api/connectors`, a computed read-only endpoint that mirrors the `status --json` `connector_health` contract for non-manual runtimes. The Timeline view renders that `Connector Health` panel directly instead of forcing operators to inspect `.agentxchain/staging/` by hand.
