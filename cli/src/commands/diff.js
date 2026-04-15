@@ -132,6 +132,8 @@ function formatExportDiffText(diff) {
       .map((entry) => `${entry.key}: ${formatValue(entry.left)} -> ${formatValue(entry.right)}${formatDelta(entry.delta, entry.label)}`));
   }
 
+  appendRegressionSection(lines, diff.regressions);
+
   return lines.join('\n');
 }
 
@@ -141,6 +143,18 @@ function appendChangedSection(lines, heading, items) {
   lines.push(chalk.bold(heading));
   for (const item of items) {
     lines.push(`- ${item}`);
+  }
+}
+
+function appendRegressionSection(lines, regressions) {
+  if (!regressions || regressions.length === 0) return;
+  lines.push('');
+  lines.push(chalk.bold.red('Governance Regressions:'));
+  for (const reg of regressions) {
+    const severityTag = reg.severity === 'error'
+      ? chalk.red(`[${reg.severity}]`)
+      : chalk.yellow(`[${reg.severity}]`);
+    lines.push(`${severityTag} ${reg.id}: ${reg.message}`);
   }
 }
 

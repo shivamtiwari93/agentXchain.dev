@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
+const FAILED_STATUSES = new Set(['failed', 'error', 'crashed']);
+
 const RUN_EXPORT_SCALAR_FIELDS = [
   ['run_id', 'Run ID'],
   ['status', 'Status'],
@@ -119,6 +121,7 @@ function buildRunExportDiff(leftArtifact, rightArtifact, refs) {
   };
 
   const changed = hasChanged(scalar_changes, numeric_changes, list_changes);
+  const regressions = detectRunRegressions(left, right);
 
   return {
     comparison_mode: 'export',
@@ -132,6 +135,9 @@ function buildRunExportDiff(leftArtifact, rightArtifact, refs) {
     scalar_changes,
     numeric_changes,
     list_changes,
+    regressions,
+    regression_count: regressions.length,
+    has_regressions: regressions.length > 0,
   };
 }
 
@@ -153,6 +159,7 @@ function buildCoordinatorExportDiff(leftArtifact, rightArtifact, refs) {
     || repo_status_changes.some((entry) => entry.changed)
     || repo_export_changes.some((entry) => entry.changed)
     || event_type_changes.some((entry) => entry.changed);
+  const regressions = detectCoordinatorRegressions(left, right);
 
   return {
     comparison_mode: 'export',
@@ -169,12 +176,18 @@ function buildCoordinatorExportDiff(leftArtifact, rightArtifact, refs) {
     repo_status_changes,
     repo_export_changes,
     event_type_changes,
+    regressions,
+    regression_count: regressions.length,
+    has_regressions: regressions.length > 0,
   };
 }
 
 function normalizeRunExport(artifact) {
   const summary = artifact.summary || {};
   const repoDecisions = summary.repo_decisions || {};
+  const state = artifact.state || {};
+  const budgetStatus = state.budget_status || {};
+  const phaseGateStatus = state.phase_gate_status || {};
   return {
     export_kind: artifact.export_kind,
     run_id: summary.run_id || null,
@@ -197,6 +210,9 @@ function normalizeRunExport(artifact) {
     retained_turn_ids: normalizeStringArray(summary.retained_turn_ids),
     active_repo_decision_ids: normalizeStringArray((repoDecisions.active || []).map((entry) => entry?.id)),
     overridden_repo_decision_ids: normalizeStringArray((repoDecisions.overridden || []).map((entry) => entry?.id)),
+    budget_warn_mode: budgetStatus.warn_mode === true,
+    budget_exhausted: budgetStatus.exhausted === true,
+    phase_gate_status: normalizeGateStatusMap(phaseGateStatus),
   };
 }
 
@@ -344,4 +360,169 @@ function toNumber(value) {
 
 function isEqual(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function normalizeGateStatusMap(gateStatus) {
+  if (!gateStatus || typeof gateStatus !== 'object' || Array.isArray(gateStatus)) return {};
+  return Object.fromEntries(
+    Object.entries(gateStatus)
+      .filter(([key]) => typeof key === 'string' && key.trim().length > 0)
+      .map(([key, value]) => [key.trim(), typeof value === 'string' ? value.trim() : String(value)]),
+  );
+}
+
+const GATE_PASSED_STATES = new Set(['passed', 'approved', 'satisfied']);
+const GATE_FAILED_STATES = new Set(['failed', 'blocked', 'rejected']);
+
+function detectRunRegressions(left, right) {
+  const regressions = [];
+  let counter = 0;
+
+  // Status regression: completed/active -> failed/error/crashed
+  if (left.status && right.status && !FAILED_STATUSES.has(left.status) && FAILED_STATUSES.has(right.status)) {
+    regressions.push({
+      id: `REG-STATUS-${String(++counter).padStart(3, '0')}`,
+      category: 'status',
+      severity: 'error',
+      message: `Run status regressed from ${left.status} to ${right.status}`,
+      field: 'status',
+      left: left.status,
+      right: right.status,
+    });
+  }
+
+  // Budget warn_mode regression
+  if (left.budget_warn_mode === false && right.budget_warn_mode === true) {
+    regressions.push({
+      id: `REG-BUDGET-WARN-${String(++counter).padStart(3, '0')}`,
+      category: 'budget',
+      severity: 'warning',
+      message: 'Budget entered warn mode (over budget)',
+      field: 'budget_warn_mode',
+      left: false,
+      right: true,
+    });
+  }
+
+  // Budget exhausted regression
+  if (left.budget_exhausted === false && right.budget_exhausted === true) {
+    regressions.push({
+      id: `REG-BUDGET-EXHAUST-${String(++counter).padStart(3, '0')}`,
+      category: 'budget',
+      severity: 'error',
+      message: 'Budget exhausted',
+      field: 'budget_exhausted',
+      left: false,
+      right: true,
+    });
+  }
+
+  // Decision override count increase
+  const leftOverrides = typeof left.overridden_repo_decision_count === 'number' ? left.overridden_repo_decision_count : 0;
+  const rightOverrides = typeof right.overridden_repo_decision_count === 'number' ? right.overridden_repo_decision_count : 0;
+  if (rightOverrides > leftOverrides) {
+    regressions.push({
+      id: `REG-DECISION-OVERRIDE-${String(++counter).padStart(3, '0')}`,
+      category: 'decisions',
+      severity: 'warning',
+      message: `Repo decision overrides increased from ${leftOverrides} to ${rightOverrides}`,
+      field: 'overridden_repo_decision_count',
+      left: leftOverrides,
+      right: rightOverrides,
+    });
+  }
+
+  // Gate regressions: passed/approved -> failed/blocked
+  const allGateIds = new Set([...Object.keys(left.phase_gate_status || {}), ...Object.keys(right.phase_gate_status || {})]);
+  for (const gateId of allGateIds) {
+    const leftGate = (left.phase_gate_status || {})[gateId] || null;
+    const rightGate = (right.phase_gate_status || {})[gateId] || null;
+    if (leftGate && rightGate && GATE_PASSED_STATES.has(leftGate) && GATE_FAILED_STATES.has(rightGate)) {
+      regressions.push({
+        id: `REG-GATE-${String(++counter).padStart(3, '0')}`,
+        category: 'gate',
+        severity: 'error',
+        message: `Gate "${gateId}" regressed from ${leftGate} to ${rightGate}`,
+        field: `phase_gate_status.${gateId}`,
+        left: leftGate,
+        right: rightGate,
+      });
+    }
+  }
+
+  return regressions;
+}
+
+function detectCoordinatorRegressions(left, right) {
+  // Start with the run-level regressions that apply to coordinator summaries
+  const regressions = detectRunRegressions(left, right);
+  let counter = regressions.length;
+
+  // Repo status regressions: child repo completed -> failed
+  const allRepoIds = new Set([...Object.keys(left.repo_run_statuses || {}), ...Object.keys(right.repo_run_statuses || {})]);
+  for (const repoId of allRepoIds) {
+    const leftStatus = (left.repo_run_statuses || {})[repoId] || null;
+    const rightStatus = (right.repo_run_statuses || {})[repoId] || null;
+    if (leftStatus && rightStatus && !FAILED_STATUSES.has(leftStatus) && FAILED_STATUSES.has(rightStatus)) {
+      regressions.push({
+        id: `REG-REPO-STATUS-${String(++counter).padStart(3, '0')}`,
+        category: 'repo_status',
+        severity: 'error',
+        message: `Child repo "${repoId}" status regressed from ${leftStatus} to ${rightStatus}`,
+        field: `repo_run_statuses.${repoId}`,
+        left: leftStatus,
+        right: rightStatus,
+      });
+    }
+  }
+
+  // Repo export regressions: ok true -> false
+  const allExportRepoIds = new Set([...Object.keys(left.repo_export_status || {}), ...Object.keys(right.repo_export_status || {})]);
+  for (const repoId of allExportRepoIds) {
+    const leftOk = (left.repo_export_status || {})[repoId];
+    const rightOk = (right.repo_export_status || {})[repoId];
+    if (leftOk === true && rightOk === false) {
+      regressions.push({
+        id: `REG-REPO-EXPORT-${String(++counter).padStart(3, '0')}`,
+        category: 'repo_export',
+        severity: 'error',
+        message: `Child repo "${repoId}" export regressed from ok to failed`,
+        field: `repo_export_status.${repoId}`,
+        left: true,
+        right: false,
+      });
+    }
+  }
+
+  // Barrier count decrease
+  const leftBarriers = typeof left.barrier_count === 'number' ? left.barrier_count : 0;
+  const rightBarriers = typeof right.barrier_count === 'number' ? right.barrier_count : 0;
+  if (leftBarriers > 0 && rightBarriers < leftBarriers) {
+    regressions.push({
+      id: `REG-BARRIER-${String(++counter).padStart(3, '0')}`,
+      category: 'barrier',
+      severity: 'warning',
+      message: `Barrier count decreased from ${leftBarriers} to ${rightBarriers}`,
+      field: 'barrier_count',
+      left: leftBarriers,
+      right: rightBarriers,
+    });
+  }
+
+  // Event loss: total_events decreased
+  const leftEvents = typeof left.total_events === 'number' ? left.total_events : 0;
+  const rightEvents = typeof right.total_events === 'number' ? right.total_events : 0;
+  if (leftEvents > 0 && rightEvents < leftEvents) {
+    regressions.push({
+      id: `REG-EVENT-LOSS-${String(++counter).padStart(3, '0')}`,
+      category: 'events',
+      severity: 'warning',
+      message: `Aggregated event count decreased from ${leftEvents} to ${rightEvents}`,
+      field: 'total_events',
+      left: leftEvents,
+      right: rightEvents,
+    });
+  }
+
+  return regressions;
 }

@@ -1,0 +1,47 @@
+---
+sidebar_position: 0
+title: "v2.100.0 Release Notes"
+description: "Governance regression detection on export diffs."
+---
+
+# AgentXchain v2.100.0
+
+`v2.100.0` adds semantic governance regression detection to the export diff surface.
+
+**Released:** 2026-04-15
+
+## Governance Regression Detection
+
+`agentxchain diff --export` now automatically detects semantic governance regressions between two export artifacts — not just structural changes, but governance quality degradations.
+
+### Run Export Regressions
+
+- **Status downgrade**: `completed` → `failed`/`error`/`crashed`
+- **Budget overrun**: `warn_mode` flipping from `false` to `true`
+- **Budget exhaustion**: `exhausted` flipping from `false` to `true`
+- **Gate failure**: a gate previously `passed`/`approved` becoming `failed`/`blocked`
+- **Decision override increase**: more repo decisions overridden than before
+
+### Coordinator Export Regressions
+
+All run-level regressions plus:
+
+- **Child repo status downgrade**: any child repo status regressing
+- **Child repo export failure**: `export.ok` flipping from `true` to `false`
+- **Barrier decrease**: barrier count dropping (barriers removed between runs)
+- **Event loss**: aggregated event count decreasing
+
+### Output
+
+Each regression includes an ID (e.g., `REG-STATUS-001`), category, severity (`error` or `warning`), message, and the specific field values that changed.
+
+- **Text mode**: `Governance Regressions:` section appended with severity-tagged entries
+- **JSON mode**: `regressions` array, `regression_count`, and `has_regressions` fields added to the diff output
+
+No false positives: status improvements (`failed` → `completed`), normal budget spend increases, and decision count growth are not flagged.
+
+## Evidence
+
+- 4603 tests / 982 suites / 0 failures
+- Regression detection proof: PASS (10/10 checks)
+- Docusaurus build: success
