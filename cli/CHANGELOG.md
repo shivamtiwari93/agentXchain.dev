@@ -3,6 +3,7 @@
 ## 2.100.0
 
 - Governance regression detection on export diffs (status, budget, gate, decisions, coordinator repo/barrier/event regressions)
+- 4603 tests / 982 suites / 0 failures
 
 ## 2.99.0
 
