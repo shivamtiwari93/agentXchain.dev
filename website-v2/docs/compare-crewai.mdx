@@ -1,0 +1,116 @@
+---
+title: AgentXchain vs CrewAI
+sidebar_label: vs CrewAI
+sidebar_position: 200
+---
+
+# AgentXchain vs CrewAI
+
+CrewAI is one of the most popular multi-agent frameworks. It introduced the idea of **crews** — teams of AI agents with defined roles working together on tasks. AgentXchain shares the multi-agent philosophy but takes a fundamentally different approach.
+
+This page explains the differences honestly so you can pick the right tool.
+
+---
+
+## Quick Comparison
+
+| Dimension | CrewAI | AgentXchain |
+|-----------|--------|-------------|
+| **Core idea** | Agent crews with role-based task delegation | Governed multi-agent software delivery protocol |
+| **Primary use case** | General-purpose agent orchestration | Long-horizon software development |
+| **Coordination model** | Task graph with sequential/parallel execution | Turn-based governed protocol with decision audit trail |
+| **Agent definition** | Python classes (Agent, Task, Crew) | JSON config with role charters and runtime bindings |
+| **Model lock-in** | Primarily LangChain-based model access | Model-agnostic — any LLM via adapters |
+| **IDE lock-in** | None (Python library) | None — works with any IDE, CLI, or cloud agent |
+| **Governance** | Minimal — no audit trail, no gates, no decision ledger | Core feature — full audit trail, phase gates, decision carryover |
+| **Protocol** | Implicit (internal orchestration) | Explicit versioned protocol (v7) with conformance tiers |
+| **State persistence** | In-memory by default | File-based governed state with history, events, decisions |
+| **Recovery** | Manual restart | Built-in recovery with state preservation |
+| **Multi-repo** | Not supported | Coordinator with cross-repo barriers and event aggregation |
+| **Delegation chains** | Agent-to-agent via task delegation | Governed delegation with decision contracts and review gates |
+| **Human oversight** | Callback-based | Built-in approval gates, human roles, escalation protocol |
+| **License** | MIT | MIT |
+
+---
+
+## Where CrewAI Excels
+
+- **Rapid prototyping.** CrewAI's Python API makes it fast to spin up a multi-agent workflow in minutes. Import, define agents, assign tasks, run.
+- **Ecosystem.** Deep LangChain integration means access to hundreds of tools and model providers out of the box.
+- **Community size.** Larger community, more tutorials, more examples.
+- **General purpose.** Works for any multi-agent task — research, content creation, data analysis, not just software development.
+
+---
+
+## Where AgentXchain Excels
+
+### 1. Governance and Audit Trail
+
+CrewAI agents execute tasks and return results. There is no built-in decision ledger, no turn-level audit trail, and no governed state machine.
+
+AgentXchain records every turn, every decision, every phase transition, and every approval in append-only logs. When a run completes, you can export a cryptographically verifiable artifact that proves exactly what happened, who did what, and why.
+
+This matters when:
+- Multiple agents touch the same codebase over days or weeks
+- You need to explain to stakeholders what the AI team did
+- You need to reproduce or audit a past run
+- Compliance or regulatory requirements apply
+
+### 2. Long-Horizon Execution
+
+CrewAI is optimized for task graphs that complete in a single session. AgentXchain is designed for **long-horizon software delivery** — runs that span multiple sessions, multiple phases, and potentially multiple days.
+
+Features that support this:
+- **Cross-run decision carryover**: decisions made in run N automatically constrain run N+1
+- **Phase gates**: runs cannot advance to the next phase without meeting explicit criteria
+- **Recovery**: if a run fails mid-execution, state is preserved and the run can resume
+- **Multi-session support**: different agents can pick up work across sessions
+
+### 3. Protocol-First Design
+
+CrewAI's coordination is an implementation detail — it lives inside the Python runtime. If you switch to a different orchestrator, you lose the coordination model.
+
+AgentXchain's coordination is an **explicit protocol** with a versioned specification, conformance tiers, and a reference implementation. The protocol is designed to survive changes in models, tools, and vendors.
+
+### 4. Model and IDE Agnosticism
+
+CrewAI agents are Python objects that typically use LangChain for model access. Switching models requires code changes.
+
+AgentXchain agents connect via adapters (`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`). The same governed workflow works with Claude, GPT, Gemini, DeepSeek, Ollama, or any other model — by changing a JSON config line, not code.
+
+### 5. Human Authority Model
+
+CrewAI supports human-in-the-loop via callbacks, but there is no structured authority model. Any agent can do anything.
+
+AgentXchain has explicit write authority levels (`authoritative`, `review_only`), phase-level approval gates, human roles with escalation paths, and budget controls. Humans remain sovereign without micromanaging.
+
+---
+
+## When to Choose CrewAI
+
+- You want a general-purpose multi-agent framework for non-software tasks
+- You need to prototype quickly in Python
+- Your tasks complete in a single session
+- You don't need audit trails or governance
+- You're already invested in the LangChain ecosystem
+
+## When to Choose AgentXchain
+
+- You're building AI-driven software delivery workflows
+- You need governed, auditable, long-horizon multi-agent execution
+- You want model and IDE independence
+- You need human oversight without micromanagement
+- You want a protocol-first approach that survives tooling changes
+- You need multi-repo coordination with cross-repo barriers
+
+---
+
+## Try AgentXchain
+
+```bash
+npm install -g agentxchain
+agentxchain init --governed
+agentxchain run
+```
+
+Read the [quickstart](/docs/quickstart) to get started in 2 minutes.

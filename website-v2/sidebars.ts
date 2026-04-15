@@ -141,6 +141,15 @@ const sidebars: SidebarsConfig = {
     'notifications',
     'recovery',
     'multi-session',
+    {
+      type: 'category',
+      label: 'Compare',
+      items: [
+        'compare-crewai',
+        'compare-autogen',
+        'compare-langgraph',
+      ],
+    },
   ],
 };
 

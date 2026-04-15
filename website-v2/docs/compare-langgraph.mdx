@@ -1,0 +1,126 @@
+---
+title: AgentXchain vs LangGraph
+sidebar_label: vs LangGraph
+sidebar_position: 202
+---
+
+# AgentXchain vs LangGraph
+
+LangGraph (by LangChain) brings graph-based orchestration to multi-agent workflows. Agents are nodes in a directed graph, with edges defining control flow. AgentXchain takes a different approach: instead of graph orchestration, it uses a **governed protocol** with explicit roles, turns, and decision boundaries.
+
+This page explains the differences honestly so you can pick the right tool.
+
+---
+
+## Quick Comparison
+
+| Dimension | LangGraph | AgentXchain |
+|-----------|-----------|-------------|
+| **Core idea** | Graph-based agent orchestration | Governed multi-agent software delivery protocol |
+| **Coordination model** | Directed graph with nodes and edges | Turn-based governed protocol with decision audit trail |
+| **Primary use case** | Stateful, multi-step agent workflows | Long-horizon software development |
+| **Agent definition** | Python functions as graph nodes | JSON config with role charters and runtime bindings |
+| **State** | Shared state object passed through graph | Governed state machine with history, events, decisions |
+| **Control flow** | Conditional edges, cycles, branches | Phase progression with gates, approvals, delegation |
+| **Governance** | None built-in | Core feature — audit trail, gates, decision carryover |
+| **Protocol** | Implicit (graph execution semantics) | Explicit versioned protocol (v7) with conformance tiers |
+| **Human oversight** | Interrupt nodes, breakpoints | Structured approval gates, human roles, escalation |
+| **Persistence** | Checkpointer (SQLite, Postgres) | File-based governed state (history, events, decisions) |
+| **Model support** | LangChain model integrations | Model-agnostic via adapters |
+| **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
+| **Cloud** | LangGraph Platform (hosted) | Self-hosted + planned agentxchain.ai cloud |
+| **License** | MIT | MIT |
+
+---
+
+## Where LangGraph Excels
+
+- **Graph expressiveness.** LangGraph's directed graph model is powerful for workflows with complex branching, cycles, and conditional logic. If your workflow naturally maps to a graph, LangGraph makes it easy to express.
+- **Fine-grained control.** Each node is a Python function with full control over state transitions. You can model arbitrary workflows, not just linear phase progressions.
+- **LangChain ecosystem.** Deep integration with LangChain's model providers, tools, and observability (LangSmith).
+- **Checkpointing.** Built-in persistence via checkpointers lets you resume workflows from any node.
+- **LangGraph Platform.** Hosted cloud execution with API access and monitoring.
+- **General purpose.** Works for any stateful agent workflow, not limited to software development.
+
+---
+
+## Where AgentXchain Excels
+
+### 1. Governance as a First-Class Concern
+
+LangGraph gives you powerful orchestration primitives but no governance layer. You can build a complex agent workflow, but:
+
+- There is no decision ledger recording what was decided and why
+- There is no turn-level audit trail
+- There is no mechanism to prevent phase advancement without criteria being met
+- There is no built-in human authority model beyond interrupt nodes
+
+AgentXchain treats governance as the core product, not an afterthought. Every turn produces a validated, structured result. Every decision gets a permanent ID. Every phase transition requires explicit approval or gate satisfaction. The system is designed so that after a 100-turn run, you can export a complete governance artifact that proves exactly what happened.
+
+### 2. Role-Based Authority vs. Node-Based Flow
+
+LangGraph models agents as **graph nodes** with state transitions. Authority is implicit — any node can modify any part of the shared state.
+
+AgentXchain models agents as **governed roles** with explicit charters, write authority levels, and mandate boundaries. A `qa` role with `review_only` write authority cannot make authoritative code changes. A `dev` role cannot approve phase transitions without gate satisfaction. Authority is structural, not just conversational.
+
+### 3. Protocol Portability
+
+LangGraph workflows are Python programs. The graph definition, node logic, and state schema are all Python code. Moving a LangGraph workflow to a different language or runtime requires a full rewrite.
+
+AgentXchain's protocol is defined as JSON schemas with a versioned specification. The protocol can be implemented in any language. The reference implementation is TypeScript/Node.js, but the protocol itself is runtime-independent. Conformance is verified through 108 test fixtures across three tiers.
+
+### 4. Software Delivery Opinions
+
+LangGraph is deliberately unopinionated — it provides graph primitives and lets you build whatever workflow you want. This is a strength for general-purpose orchestration but a weakness for software delivery, where you want sensible defaults.
+
+AgentXchain ships with opinionated software delivery workflows:
+- Planning, implementation, QA, and release phases
+- Spec-driven development patterns
+- Code review and challenge requirements
+- Release gates and approval workflows
+- Budget controls and cost tracking
+- Delegation chains for task decomposition
+- Cross-run decision carryover for governance continuity
+
+### 5. Multi-Agent Divergence
+
+LangGraph's shared state model means all agents see the same state. This works well for collaborative workflows but limits **divergent execution** — cases where agents should independently explore different approaches before converging.
+
+AgentXchain supports divergent collaboration through:
+- Parallel turns with concurrent role execution
+- Delegation chains where parent roles decompose work to child roles
+- Named decision barriers that require specific decisions before convergence
+- Cross-repo coordination where different repos can run independently with coordinator-level barriers
+
+---
+
+## When to Choose LangGraph
+
+- You need a general-purpose graph-based orchestration framework
+- Your workflow has complex branching and conditional logic
+- You want fine-grained control over every state transition
+- You're already invested in the LangChain ecosystem
+- You want hosted cloud execution (LangGraph Platform)
+- You don't need governance, audit trails, or formal decision records
+
+## When to Choose AgentXchain
+
+- You're building AI-driven software delivery workflows
+- You need structured governance with audit trails and decision records
+- You want long-horizon execution with recovery and state durability
+- You want model and runtime independence (not locked to Python/LangChain)
+- You need role-based authority with explicit mandate boundaries
+- You need multi-repo coordination with cross-repo barriers
+- You want opinionated software delivery defaults, not bare orchestration primitives
+
+---
+
+## Try AgentXchain
+
+```bash
+npm install -g agentxchain
+agentxchain init --governed
+agentxchain run
+```
+
+Read the [quickstart](/docs/quickstart) to get started in 2 minutes.

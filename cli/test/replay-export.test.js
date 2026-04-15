@@ -581,6 +581,6 @@ describe('replay export', () => {
     });
     const proof = JSON.parse(result.trim());
     assert.equal(proof.result, 'pass', `Coordinator replay roundtrip failed: ${JSON.stringify(proof.errors)}`);
-    assert.ok(proof.artifacts.checks_passed >= 10, `Expected >= 10 checks, got ${proof.artifacts.checks_passed}`);
+    assert.ok(proof.artifacts.checks_passed >= 15, `Expected >= 15 checks, got ${proof.artifacts.checks_passed}`);
   });
 });

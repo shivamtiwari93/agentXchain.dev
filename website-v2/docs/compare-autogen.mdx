@@ -1,0 +1,128 @@
+---
+title: AgentXchain vs AutoGen
+sidebar_label: vs AutoGen
+sidebar_position: 201
+---
+
+# AgentXchain vs AutoGen
+
+AutoGen (by Microsoft) pioneered multi-agent conversations — agents that talk to each other in chat-like exchanges to solve problems. AgentXchain takes a different approach: instead of conversational coordination, it uses a **governed protocol** with explicit turns, decisions, and phase gates.
+
+This page explains the differences honestly so you can pick the right tool.
+
+---
+
+## Quick Comparison
+
+| Dimension | AutoGen | AgentXchain |
+|-----------|---------|-------------|
+| **Core idea** | Multi-agent conversations | Governed multi-agent software delivery protocol |
+| **Coordination model** | Chat-based message passing between agents | Turn-based governed protocol with decision audit trail |
+| **Primary use case** | General-purpose multi-agent problem solving | Long-horizon software development |
+| **Agent definition** | Python classes (ConversableAgent, AssistantAgent) | JSON config with role charters and runtime bindings |
+| **Communication** | Free-form chat messages between agents | Structured turn results with decisions, artifacts, and status |
+| **State management** | Conversation history | Governed state machine with history, events, decisions |
+| **Governance** | None built-in | Core feature — audit trail, phase gates, decision carryover |
+| **Protocol** | Implicit | Explicit versioned protocol (v7) with conformance tiers |
+| **Human oversight** | Human proxy agent in conversation | Structured approval gates, human roles, escalation |
+| **Model support** | OpenAI-first, extensible | Model-agnostic via adapters |
+| **IDE integration** | None (Python library) | Works with any IDE via adapters |
+| **Recovery** | Manual | Built-in recovery with state preservation |
+| **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
+| **License** | MIT (Creative Commons for docs) | MIT |
+
+---
+
+## Where AutoGen Excels
+
+- **Conversational flexibility.** AutoGen's chat-based model lets agents have natural back-and-forth discussions. This works well for brainstorming, research, and open-ended problem solving.
+- **Code execution.** Built-in sandboxed code execution (Docker, local) lets agents write and test code during conversations.
+- **Research pedigree.** Backed by Microsoft Research with strong academic foundations.
+- **Group chat.** Multiple agents can participate in the same conversation simultaneously.
+- **General purpose.** Works for any multi-agent task, not limited to software development.
+
+---
+
+## Where AgentXchain Excels
+
+### 1. Structured Governance vs. Free-Form Chat
+
+AutoGen agents communicate via unstructured chat messages. There is no formal decision record, no turn validation, and no way to prove what was agreed upon after the fact.
+
+AgentXchain uses structured turn results with explicit fields: decisions (with IDs like `DEC-001`), artifacts, status updates, phase transition requests, and completion requests. Every turn is validated against the protocol before acceptance. Every decision is recorded in an append-only ledger.
+
+This matters because:
+- Chat-based coordination degrades over long conversations (context drift, forgotten agreements)
+- Free-form messages cannot be mechanically verified for compliance
+- Audit trails require structured data, not conversation transcripts
+
+### 2. Convergence Over Conversation
+
+AutoGen optimizes for **agent conversations** — agents talking to each other until they reach a result. This works well for short tasks but creates problems at scale:
+
+- Conversations can loop without converging
+- There is no built-in mechanism to force decisions or advance phases
+- No explicit boundary between "discussing" and "decided"
+
+AgentXchain optimizes for **convergence** — structured phase progression with explicit gates that prevent advancement until criteria are met. Decisions are recorded, challenges are required, and phase transitions must be approved. This is what makes long-horizon execution possible.
+
+### 3. Protocol Independence
+
+AutoGen's coordination lives inside the Python runtime. If you want to use AutoGen's multi-agent model from a different language, IDE, or cloud environment, you need to wrap the Python process.
+
+AgentXchain's protocol is language-independent. The governed state machine, turn contracts, and decision ledger are defined as JSON schemas. Any runtime that speaks the protocol can participate — Python, TypeScript, shell scripts, cloud APIs, IDE extensions.
+
+### 4. Software Delivery Focus
+
+AutoGen is a general-purpose framework. It can coordinate agents for any task — research, analysis, content creation, coding.
+
+AgentXchain is purpose-built for **software delivery**: planning, implementation, QA, release, and recovery. It includes:
+- Workflow phases (planning → implementation → qa → release)
+- Code review authority levels (authoritative vs. review-only)
+- Release gates and approval workflows
+- Integration with real development tools (git, CI, IDEs)
+- Delegation chains for hierarchical task decomposition
+
+### 5. State Durability
+
+AutoGen's state is primarily in-memory conversation history. If the process crashes, the conversation is lost.
+
+AgentXchain persists all state to disk in structured files:
+- `state.json` — current governed state machine
+- `history.jsonl` — append-only turn history
+- `events.jsonl` — lifecycle event log
+- `decision-ledger.jsonl` — cumulative decision record
+- `repo-decisions.jsonl` — cross-run decision carryover
+
+This makes recovery, replay, and audit possible without external infrastructure.
+
+---
+
+## When to Choose AutoGen
+
+- You want flexible multi-agent conversations for general tasks
+- Your work completes in a single session
+- You need sandboxed code execution during agent conversations
+- You prefer Python-native APIs
+- You don't need governance, audit trails, or formal decision records
+
+## When to Choose AgentXchain
+
+- You're building AI-driven software delivery workflows
+- You need structured governance with audit trails and decision records
+- You want long-horizon execution that survives sessions and recovers from failures
+- You want model and language independence
+- You need explicit convergence mechanisms (phase gates, decision boundaries)
+- You need multi-repo coordination
+
+---
+
+## Try AgentXchain
+
+```bash
+npm install -g agentxchain
+agentxchain init --governed
+agentxchain run
+```
+
+Read the [quickstart](/docs/quickstart) to get started in 2 minutes.

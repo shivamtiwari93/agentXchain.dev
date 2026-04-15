@@ -10,6 +10,7 @@
  *   4. Start `agentxchain replay export <export> --json --no-open`
  *   5. Hit `/api/coordinator/state` and `/api/coordinator/events`
  *   6. Verify coordinator data round-trips correctly through replay
+ *   7. Verify /api/coordinator/events type, limit, and combined filters
  */
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -408,7 +409,66 @@ async function main() {
       }
     }
 
-    // Check 5: Export repos are both ok
+    // Check 5: /api/coordinator/events?type=run_started returns only run_started events
+    const typeFilterResp = await httpGet(port, '/api/coordinator/events?type=run_started');
+    if (typeFilterResp.status !== 200) {
+      errors.push(`/api/coordinator/events?type=run_started expected 200, got ${typeFilterResp.status}`);
+    } else {
+      const typeEvents = JSON.parse(typeFilterResp.body);
+      if (!Array.isArray(typeEvents) || typeEvents.length === 0) {
+        errors.push('type=run_started filter returned empty or non-array');
+      } else {
+        const wrongType = typeEvents.filter((e) => e.event_type !== 'run_started');
+        if (wrongType.length > 0) {
+          errors.push(`type=run_started filter returned ${wrongType.length} events with wrong event_type: ${wrongType.map((e) => e.event_type).join(', ')}`);
+        } else {
+          checksPassed++;
+        }
+        // Both repos should have a run_started event
+        const typeRepoIds = [...new Set(typeEvents.map((e) => e.repo_id))].sort();
+        if (!typeRepoIds.includes('web') || !typeRepoIds.includes('api')) {
+          errors.push(`type=run_started expected events from both repos, got [${typeRepoIds.join(', ')}]`);
+        } else {
+          checksPassed++;
+        }
+      }
+    }
+
+    // Check 6: /api/coordinator/events?limit=2 returns at most 2 events
+    const limitFilterResp = await httpGet(port, '/api/coordinator/events?limit=2');
+    if (limitFilterResp.status !== 200) {
+      errors.push(`/api/coordinator/events?limit=2 expected 200, got ${limitFilterResp.status}`);
+    } else {
+      const limitEvents = JSON.parse(limitFilterResp.body);
+      if (!Array.isArray(limitEvents)) {
+        errors.push('/api/coordinator/events?limit=2 expected array');
+      } else if (limitEvents.length > 2) {
+        errors.push(`limit=2 filter returned ${limitEvents.length} events, expected <= 2`);
+      } else if (limitEvents.length === 0) {
+        errors.push('limit=2 filter returned 0 events, expected > 0');
+      } else {
+        checksPassed++;
+      }
+    }
+
+    // Check 7: /api/coordinator/events?type=run_started&limit=1 combines type+limit filters
+    const combinedFilterResp = await httpGet(port, '/api/coordinator/events?type=run_started&limit=1');
+    if (combinedFilterResp.status !== 200) {
+      errors.push(`combined type+limit filter expected 200, got ${combinedFilterResp.status}`);
+    } else {
+      const combinedEvents = JSON.parse(combinedFilterResp.body);
+      if (!Array.isArray(combinedEvents)) {
+        errors.push('combined type+limit filter expected array');
+      } else if (combinedEvents.length !== 1) {
+        errors.push(`combined filter expected 1 event, got ${combinedEvents.length}`);
+      } else if (combinedEvents[0].event_type !== 'run_started') {
+        errors.push(`combined filter event type expected run_started, got ${combinedEvents[0].event_type}`);
+      } else {
+        checksPassed++;
+      }
+    }
+
+    // Check 8: Export repos are both ok
     if (!exportData.repos?.web?.ok || !exportData.repos?.api?.ok) {
       errors.push('export repos expected both ok');
     } else {

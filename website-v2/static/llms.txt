@@ -43,7 +43,7 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Templates](https://agentxchain.dev/docs/templates): Built-in and custom governed templates (generic, api-service, cli-tool, library, web-app, enterprise-app).
 - [Choosing a Template](https://agentxchain.dev/docs/choosing-a-template): Decision guide for manual-first generic baseline vs project-type templates (api-service, cli-tool, library, web-app, enterprise-app).
 - [Examples Hub](https://agentxchain.dev/docs/examples): Index of governed product examples, runner proofs, MCP examples, and remote execution examples.
-- [Protocol v6 Reference](https://agentxchain.dev/docs/protocol): Full protocol specification.
+- [Protocol v7 Reference](https://agentxchain.dev/docs/protocol): Full protocol specification.
 - [Protocol Reference](https://agentxchain.dev/docs/protocol-reference): Protocol data structures and contracts.
 - [Runner Interface](https://agentxchain.dev/docs/runner-interface): How to integrate with the runner execution engine.
 - [Build Your Own Runner](https://agentxchain.dev/docs/build-your-own-runner): Guide to implementing a custom runner.
@@ -74,6 +74,12 @@ AgentXchain is an open-source protocol and CLI for coordinating multiple AI agen
 - [Notifications](https://agentxchain.dev/docs/notifications): Webhook and notification hooks.
 - [Recovery](https://agentxchain.dev/docs/recovery): Recovery procedures for failed or blocked runs.
 - [Multi-Session Continuity](https://agentxchain.dev/docs/multi-session): How governed runs survive process boundaries — resume, recover, and complete across separate sessions.
+
+## Comparisons
+
+- [AgentXchain vs CrewAI](https://agentxchain.dev/docs/compare-crewai): How AgentXchain's governed protocol compares to CrewAI's crew-based task orchestration.
+- [AgentXchain vs AutoGen](https://agentxchain.dev/docs/compare-autogen): How AgentXchain's structured governance compares to AutoGen's conversational multi-agent approach.
+- [AgentXchain vs LangGraph](https://agentxchain.dev/docs/compare-langgraph): How AgentXchain's protocol-first design compares to LangGraph's graph-based agent orchestration.
 
 ## Example Library
 
