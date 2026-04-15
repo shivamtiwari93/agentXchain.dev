@@ -1018,6 +1018,135 @@ HOOKEOF
       assert.equal(updated.pending_gate, null);
     });
 
+    it('AT-DASH-ACT-014: POST /api/actions/approve-gate returns repo-local completion success with no next actions', async () => {
+      const cleanRepoConfig = JSON.parse(readFileSync(join(fixture.root, 'agentxchain.json'), 'utf8'));
+      delete cleanRepoConfig.hooks;
+      writeJson(join(fixture.root, 'agentxchain.json'), cleanRepoConfig);
+
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'dashboard-root',
+        run_id: 'run_test_001',
+        status: 'paused',
+        phase: 'qa',
+        active_turns: {},
+        turn_sequence: 2,
+        accepted_count: 2,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        pending_run_completion: {
+          gate: 'qa_ship_verdict',
+          requested_by_turn: 'turn_002',
+        },
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'repo');
+      assert.equal(data.gate_type, 'run_completion');
+      assert.equal(data.status, 'completed');
+      assert.equal(data.phase, 'qa');
+      assert.equal(data.next_action, null);
+      assert.deepEqual(data.next_actions, []);
+      assert.match(data.message, /run completion approved/i);
+
+      const updated = JSON.parse(readFileSync(join(fixture.axcDir, 'state.json'), 'utf8'));
+      assert.equal(updated.status, 'completed');
+      assert.equal(updated.phase, 'qa');
+      assert.equal(updated.pending_run_completion, null);
+    });
+
+    it('AT-DASH-ACT-015: POST /api/actions/approve-gate returns coordinator completion success with no next actions even when repo snapshots drift', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_001',
+        status: 'completed',
+        phase: 'release',
+        active_turns: {},
+        turn_sequence: 3,
+        accepted_count: 3,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.reposDir, 'web', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'web',
+        run_id: 'run_web_001',
+        status: 'completed',
+        phase: 'release',
+        active_turns: {},
+        turn_sequence: 3,
+        accepted_count: 3,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+
+      writeJson(join(fixture.axcDir, 'state.json'), {
+        schema_version: '1.1',
+        run_id: 'run_test_001',
+        status: 'running',
+        phase: 'release',
+        active_turns: {},
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'paused',
+        phase: 'release',
+        pending_gate: {
+          gate_type: 'run_completion',
+          gate: 'initiative_ship',
+          required_repos: ['api', 'web'],
+        },
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'release' },
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'release' },
+        },
+      });
+
+      const session = JSON.parse((await httpGet(port, '/api/session')).body);
+      const res = await httpRequest(port, '/api/actions/approve-gate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-AgentXchain-Token': session.mutation_token,
+        },
+        body: '{}',
+      });
+
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.ok, true);
+      assert.equal(data.scope, 'coordinator');
+      assert.equal(data.gate_type, 'run_completion');
+      assert.equal(data.status, 'completed');
+      assert.equal(data.phase, 'release');
+      assert.equal(data.next_action, null);
+      assert.deepEqual(data.next_actions, []);
+      assert.match(data.message, /coordinator run completion approved/i);
+
+      const updated = JSON.parse(readFileSync(join(fixture.multiDir, 'state.json'), 'utf8'));
+      assert.equal(updated.status, 'completed');
+      assert.equal(updated.phase, 'release');
+      assert.equal(updated.pending_gate, null);
+    });
+
     it('AT-DASH-ACT-009: POST /api/actions/approve-gate returns normalized coordinator hook-block failure fields', async () => {
       mkdirSync(join(fixture.root, 'hooks'), { recursive: true });
       writeFileSync(join(fixture.root, 'hooks', 'block-gate.sh'), `#!/bin/sh

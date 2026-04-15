@@ -47,6 +47,10 @@ export function deriveCoordinatorNextActions({
   runIdMismatches,
 }) {
   const nextActions = [];
+  if (status === 'completed') {
+    return nextActions;
+  }
+
   const mismatches = Array.isArray(runIdMismatches)
     ? runIdMismatches
     : detectCoordinatorRunIdMismatches(repos, coordinatorRepoRuns);

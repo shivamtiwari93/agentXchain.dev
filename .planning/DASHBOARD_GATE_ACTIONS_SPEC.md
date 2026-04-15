@@ -116,6 +116,7 @@ The bridge must call library functions directly, not shell out to the CLI.
 - The dashboard fetches the session token on load and uses it only for mutation requests.
 - After a successful approval, the mutation response must expose the resulting `status`, `phase`, and ordered `next_actions` so the dashboard can render the immediate follow-up command without inferring it from `scope` or `gate_type`.
 - The success banner must include the first ordered follow-up action when one exists.
+- Terminal run-completion approvals must return `next_actions: []` and `next_action: null`, not a synthetic follow-up command.
 - The normal file-watcher invalidation path remains authoritative for the refreshed view state after approval.
 
 ### Out of scope
@@ -150,6 +151,8 @@ The bridge must call library functions directly, not shell out to the CLI.
 - `AT-DASH-ACT-011`: repo-local approve-gate success returns resulting `status`, `phase`, and ordered `next_actions`.
 - `AT-DASH-ACT-012`: coordinator approve-gate success returns resulting `status`, `phase`, and ordered `next_actions`.
 - `AT-DASH-ACT-013`: dashboard success banners consume `payload.next_actions` and render the first follow-up command when present.
+- `AT-DASH-ACT-014`: repo-local run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []`.
+- `AT-DASH-ACT-015`: coordinator run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []` even when child-repo snapshots drift.
 
 ## Open Questions
 
