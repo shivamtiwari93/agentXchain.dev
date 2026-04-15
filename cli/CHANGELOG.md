@@ -7,6 +7,7 @@
 - 6 new reject fixtures: PT-004/005/006 (invalid max_concurrent_turns), EL-005/006/007/008 (ordering violations, missing turn_id, backwards timestamps)
 - Reference adapter: `validate_event` now enforces `turn.turn_id` for turn-scoped events; `validateFixtureConfig` checks `max_concurrent_turns` bounds
 - Conformance corpus: 108 fixtures / 13 surfaces (was 102)
+- 4575 tests / 978 suites / 0 failures
 - Conformance: 108 / 108 fixtures passing across all tiers (Tier 1: 77, Tier 2: 23, Tier 3: 8)
 
 ## 2.96.0
