@@ -402,7 +402,7 @@ describe('report CLI', () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /--input <path>/);
     assert.match(result.stdout, /--format <format>/);
-    assert.match(result.stdout, /text, json, or markdown/i);
+    assert.match(result.stdout, /text, json, markdown, or html/i);
   });
 
   it('AT-REPORT-002/004: governed export produces text and JSON report surfaces', () => {

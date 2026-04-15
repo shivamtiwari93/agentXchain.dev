@@ -27,7 +27,7 @@ describe('governance report docs contract', () => {
   it('documents report in the command map and CLI reference section', () => {
     assert.match(CLI_DOCS, /\| `report` \| Inspection \|/);
     assert.match(CLI_DOCS, /### `report`/);
-    assert.match(CLI_DOCS, /agentxchain report \[--input <path>\|-] \[--format text\|json\|markdown]/);
+    assert.match(CLI_DOCS, /agentxchain report \[--input <path>\|-] \[--format text\|json\|markdown\|html]/);
     assert.match(CLI_DOCS, /verifies the export artifact first/i);
   });
 

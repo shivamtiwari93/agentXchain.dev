@@ -12,13 +12,15 @@ This is **not** protocol v6. It is a derived reporting surface built on top of v
 ## CLI Surface
 
 ```bash
-agentxchain report [--input <path>|-] [--format text|json|markdown]
+agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--input <path>` | `-` | Read an export artifact from a file, or `-` for stdin |
-| `--format <format>` | `text` | Output `text`, `json`, or `markdown` |
+| `--format <format>` | `text` | Output `text`, `json`, `markdown`, or `html` |
+
+The `html` format produces a self-contained, portable HTML file with inline CSS. It supports dark mode, print styles, and renders all governance surfaces (turns, decisions, gates, costs, delegations, repo decisions). Ideal for sharing with compliance stakeholders or archiving.
 
 `report` verifies the export artifact first. It does not read live repo state directly. If the artifact fails verification, the command fails closed and returns verifier-backed errors instead of a success summary.
 

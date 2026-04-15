@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { buildCoordinatorExport, buildRunExport } from '../lib/export.js';
 import {
   buildGovernanceReport,
+  formatGovernanceReportHtml,
   formatGovernanceReportMarkdown,
   formatGovernanceReportText,
 } from '../lib/report.js';
@@ -43,6 +44,11 @@ function printAndExit(report, format, exitCode) {
     process.exit(exitCode);
   }
 
+  if (format === 'html') {
+    console.log(formatGovernanceReportHtml(report));
+    process.exit(exitCode);
+  }
+
   if (format === 'text') {
     if (report.overall === 'error' || report.overall === 'fail') {
       console.log(chalk.red(formatGovernanceReportText(report)));
@@ -52,7 +58,7 @@ function printAndExit(report, format, exitCode) {
     process.exit(exitCode);
   }
 
-  console.error(`Unsupported audit format "${format}". Use "text", "json", or "markdown".`);
+  console.error(`Unsupported audit format "${format}". Use "text", "json", "markdown", or "html".`);
   process.exit(2);
 }
 

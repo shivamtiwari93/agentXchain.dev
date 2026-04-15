@@ -2176,3 +2176,562 @@ export function formatGovernanceReportMarkdown(report) {
   }));
   return mdLines.join('\n');
 }
+
+// --- HTML governance report formatter ---
+
+function esc(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function badge(status) {
+  const colors = {
+    pass: '#22c55e', running: '#3b82f6', completed: '#22c55e',
+    failed: '#ef4444', error: '#ef4444', fail: '#ef4444',
+    blocked: '#f59e0b', pending: '#a855f7', mixed: '#f59e0b',
+    paused: '#6b7280', not_running: '#6b7280', stale: '#f59e0b',
+    pid_only: '#f59e0b',
+  };
+  const color = colors[status] || '#6b7280';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.85em;font-weight:600;color:#fff;background:${color}">${esc(String(status))}</span>`;
+}
+
+function htmlTable(headers, rows) {
+  const lines = ['<table>', '<thead><tr>'];
+  for (const h of headers) lines.push(`<th>${esc(h)}</th>`);
+  lines.push('</tr></thead>', '<tbody>');
+  for (const row of rows) {
+    lines.push('<tr>');
+    for (const cell of row) lines.push(`<td>${cell}</td>`);
+    lines.push('</tr>');
+  }
+  lines.push('</tbody>', '</table>');
+  return lines.join('');
+}
+
+function htmlSection(title, content, level = 2) {
+  const tag = `h${level}`;
+  return `<${tag}>${esc(title)}</${tag}>\n${content}`;
+}
+
+function htmlDl(pairs) {
+  const lines = ['<dl>'];
+  for (const [label, value] of pairs) {
+    lines.push(`<dt>${esc(label)}</dt><dd>${value}</dd>`);
+  }
+  lines.push('</dl>');
+  return lines.join('');
+}
+
+const HTML_STYLES = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;color:#1a1a2e;background:#f8fafc;padding:2rem;max-width:1100px;margin:0 auto}
+h1{font-size:1.6rem;margin-bottom:0.5rem;border-bottom:2px solid #e2e8f0;padding-bottom:0.5rem}
+h2{font-size:1.2rem;margin-top:2rem;margin-bottom:0.75rem;color:#334155}
+h3{font-size:1.05rem;margin-top:1.5rem;margin-bottom:0.5rem;color:#475569}
+h4{font-size:0.95rem;margin-top:1rem;margin-bottom:0.4rem;color:#64748b}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:0.3rem 1rem;margin-bottom:1rem}
+dt{font-weight:600;color:#475569;white-space:nowrap}
+dd{color:#1e293b}
+table{width:100%;border-collapse:collapse;margin:0.75rem 0 1.5rem;font-size:0.9rem}
+th{background:#f1f5f9;font-weight:600;text-align:left;padding:0.5rem 0.75rem;border-bottom:2px solid #cbd5e1;color:#334155}
+td{padding:0.4rem 0.75rem;border-bottom:1px solid #e2e8f0}
+tr:hover td{background:#f8fafc}
+code{font-family:"SF Mono",Menlo,monospace;font-size:0.85em;background:#f1f5f9;padding:1px 4px;border-radius:3px}
+.header{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem}
+.header-brand{font-size:0.85rem;color:#64748b}
+.meta{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:1.25rem;margin-bottom:1.5rem}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:1.25rem;margin-bottom:1rem}
+ul{margin:0.5rem 0;padding-left:1.5rem}
+li{margin-bottom:0.25rem}
+.warn{color:#d97706;font-weight:600}
+@media(prefers-color-scheme:dark){
+  body{background:#0f172a;color:#e2e8f0}
+  h1{border-bottom-color:#334155}
+  h2,h3,h4{color:#94a3b8}
+  dt{color:#94a3b8}dd{color:#e2e8f0}
+  th{background:#1e293b;border-bottom-color:#475569;color:#cbd5e1}
+  td{border-bottom-color:#334155}
+  tr:hover td{background:#1e293b}
+  code{background:#1e293b}
+  .meta,.section{background:#1e293b;border-color:#334155}
+  .header-brand{color:#94a3b8}
+}
+@media print{
+  body{background:#fff;color:#000;padding:1rem}
+  .meta,.section{border:1px solid #ccc}
+  th{background:#eee}
+}
+`;
+
+function wrapHtml(title, bodyContent) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>
+<style>${HTML_STYLES}</style>
+</head>
+<body>
+<div class="header">
+<h1>AgentXchain Governance Report</h1>
+<span class="header-brand">agentxchain.dev</span>
+</div>
+${bodyContent}
+</body>
+</html>`;
+}
+
+function renderHtmlGovEventDetail(evt) {
+  const parts = [];
+  switch (evt.type) {
+    case 'policy_escalation':
+      for (const v of evt.violations || []) {
+        parts.push(`<li>Violation: <code>${esc(v.policy_id || '?')}</code> / <code>${esc(v.rule || '?')}</code> — ${esc(v.message || 'n/a')}</li>`);
+      }
+      break;
+    case 'conflict_detected':
+      if (evt.conflicting_files?.length > 0) parts.push(`<li>Files: ${evt.conflicting_files.map((f) => `<code>${esc(f)}</code>`).join(', ')}</li>`);
+      if (evt.overlap_ratio != null) parts.push(`<li>Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%</li>`);
+      break;
+    case 'operator_escalated':
+      if (evt.reason) parts.push(`<li>Reason: ${esc(evt.reason)}</li>`);
+      if (evt.blocked_on) parts.push(`<li>Blocked on: <code>${esc(evt.blocked_on)}</code></li>`);
+      break;
+    case 'escalation_resolved':
+      if (evt.resolved_via) parts.push(`<li>Resolved via: <code>${esc(evt.resolved_via)}</code></li>`);
+      break;
+  }
+  return parts.length ? `<ul>${parts.join('')}</ul>` : '';
+}
+
+function renderRunHtml(report) {
+  const { project, run, artifacts } = report.subject;
+  const sections = [];
+
+  // Meta section
+  const metaPairs = [
+    ['Input', `<code>${esc(report.input)}</code>`],
+    ['Export kind', `<code>${esc(report.export_kind)}</code>`],
+    ['Verification', badge('pass')],
+    ['Project', `${esc(project.name || 'unknown')} (<code>${esc(project.id || 'unknown')}</code>)`],
+  ];
+  if (project.goal) metaPairs.push(['Goal', esc(project.goal)]);
+  metaPairs.push(
+    ['Template', `<code>${esc(project.template)}</code>`],
+    ['Protocol', `<code>${esc(project.protocol_mode || 'unknown')}</code> (schema <code>${esc(project.schema_version || 'unknown')}</code>)`],
+    ['Run ID', `<code>${esc(run.run_id || 'none')}</code>`],
+    ['Status', badge(run.status || 'unknown')],
+    ['Phase', `<code>${esc(run.phase || 'unknown')}</code>`],
+    ['Blocked on', `<code>${esc(summarizeBlockedState(run))}</code>`],
+    ['Active turns', `${run.active_turn_count}${run.active_turn_ids.length ? ` (${run.active_turn_ids.map((id) => `<code>${esc(id)}</code>`).join(', ')})` : ''}`],
+    ['Retained turns', `${run.retained_turn_count}${run.retained_turn_ids.length ? ` (${run.retained_turn_ids.map((id) => `<code>${esc(id)}</code>`).join(', ')})` : ''}`],
+    ['Active roles', run.active_roles.length ? run.active_roles.map((r) => `<code>${esc(r)}</code>`).join(', ') : '<code>none</code>'],
+  );
+
+  if (run.budget_status) {
+    const warnTag = run.budget_status.warn_mode ? ' <span class="warn">[OVER BUDGET]</span>' : '';
+    metaPairs.push(['Budget', `spent ${formatUsd(run.budget_status.spent_usd)}, remaining ${formatUsd(run.budget_status.remaining_usd)}${warnTag}`]);
+  }
+  if (run.created_at) metaPairs.push(['Started', `<code>${esc(run.created_at)}</code>`]);
+  if (run.completed_at) metaPairs.push(['Completed', `<code>${esc(run.completed_at)}</code>`]);
+  if (run.duration_seconds != null) metaPairs.push(['Duration', `<code>${run.duration_seconds}s</code>`]);
+  if (summarizeRunProvenance(run.provenance)) metaPairs.push(['Provenance', `<code>${esc(summarizeRunProvenance(run.provenance))}</code>`]);
+  if (run.inherited_context?.parent_run_id) metaPairs.push(['Inherited from', `<code>${esc(run.inherited_context.parent_run_id)}</code> (${esc(run.inherited_context.parent_status || 'unknown')})`]);
+  if (run.dashboard_session) metaPairs.push(['Dashboard', `<code>${esc(formatDashboardSessionLine(run.dashboard_session))}</code>`]);
+
+  metaPairs.push(
+    ['History entries', String(artifacts.history_entries)],
+    ['Decision entries', String(artifacts.decision_entries)],
+    ['Hook audit entries', String(artifacts.hook_audit_entries)],
+    ['Notification entries', String(artifacts.notification_audit_entries)],
+    ['Dispatch files', String(artifacts.dispatch_artifact_files)],
+    ['Staging files', String(artifacts.staging_artifact_files)],
+    ['Intake artifacts', artifacts.intake_present ? 'yes' : 'no'],
+    ['Coordinator artifacts', artifacts.coordinator_present ? 'yes' : 'no'],
+  );
+
+  sections.push(`<div class="meta">${htmlDl(metaPairs)}</div>`);
+
+  // Cost Summary
+  if (run.cost_summary) {
+    const cs = run.cost_summary;
+    let costHtml = `<p><strong>Total:</strong> ${formatUsd(cs.total_usd)} across ${cs.turn_count} turn${cs.turn_count !== 1 ? 's' : ''} (${cs.costed_turn_count} with cost data)</p>`;
+    if (cs.total_input_tokens != null || cs.total_output_tokens != null) {
+      costHtml += `<p><strong>Tokens:</strong> ${formatTokenCount(cs.total_input_tokens)} input / ${formatTokenCount(cs.total_output_tokens)} output</p>`;
+    }
+    if (cs.by_role.length > 0) {
+      costHtml += htmlTable(
+        ['Role', 'Cost', 'Turns', 'Input Tokens', 'Output Tokens'],
+        cs.by_role.map((r) => [esc(r.role), formatUsd(r.usd), String(r.turns), formatTokenCount(r.input_tokens), formatTokenCount(r.output_tokens)]),
+      );
+    }
+    if (cs.by_phase.length > 0) {
+      costHtml += htmlTable(
+        ['Phase', 'Cost', 'Turns'],
+        cs.by_phase.map((p) => [esc(p.phase), formatUsd(p.usd), String(p.turns)]),
+      );
+    }
+    sections.push(`<div class="section">${htmlSection('Cost Summary', costHtml)}</div>`);
+  }
+
+  // Delegation Summary
+  if (run.delegation_summary?.delegation_chains?.length > 0) {
+    const ds = run.delegation_summary;
+    let delHtml = `<p>Total delegations issued: ${ds.total_delegations_issued}</p>`;
+    const rows = [];
+    for (const chain of ds.delegation_chains) {
+      for (let i = 0; i < chain.delegations.length; i++) {
+        const d = chain.delegations[i];
+        rows.push([
+          i === 0 ? esc(chain.parent_role) : '',
+          i === 0 ? `<code>${esc(chain.parent_turn_id)}</code>` : '',
+          i === 0 ? badge(chain.outcome) : '',
+          i === 0 ? `<code>${esc(chain.review_turn_id || 'pending')}</code>` : '',
+          `<code>${esc(d.delegation_id)}</code> &rarr; <code>${esc(d.to_role)}</code>`,
+          `<code>${esc(d.child_turn_id || 'pending')}</code>`,
+          badge(d.status),
+          esc(d.charter),
+        ]);
+      }
+    }
+    delHtml += htmlTable(['Parent Role', 'Parent Turn', 'Outcome', 'Review Turn', 'Delegation', 'Child Turn', 'Status', 'Charter'], rows);
+    sections.push(`<div class="section">${htmlSection('Delegation Summary', delHtml)}</div>`);
+  }
+
+  // Repo Decisions
+  if (run.repo_decisions?.active?.length > 0) {
+    let rdHtml = `<p>Active: ${run.repo_decisions.active_count} | Overridden: ${run.repo_decisions.overridden_count}</p>`;
+    rdHtml += htmlTable(
+      ['ID', 'Category', 'Statement', 'Role', 'Run'],
+      run.repo_decisions.active.map((d) => [esc(d.id), esc(d.category), esc(d.statement || ''), esc(d.role || '\u2014'), `<code>${esc((d.run_id || '').slice(0, 12))}</code>`]),
+    );
+    sections.push(`<div class="section">${htmlSection('Repo Decisions', rdHtml)}</div>`);
+  }
+
+  // Turn Timeline
+  if (run.turns && run.turns.length > 0) {
+    const turnRows = run.turns.map((t, i) => {
+      const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
+      const phase = t.phase_transition ? `${esc(t.phase || '?')} &rarr; ${esc(t.phase_transition)}` : esc(t.phase || '?');
+      const sibNote = Array.isArray(t.sibling_attributed_files) ? ` (${t.sibling_attributed_files.length} sibling)` : '';
+      return [String(i + 1), esc(t.role), phase, esc(t.summary || '(no summary)'), `${t.files_changed_count}${sibNote}`, cost, esc(formatTurnTimelineTime(t))];
+    });
+    sections.push(`<div class="section">${htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows))}</div>`);
+  }
+
+  // Decisions
+  if (run.decisions && run.decisions.length > 0) {
+    const decList = run.decisions.map((d) => `<li><strong>${esc(d.id)}</strong> (${esc(d.role || '?')}, ${esc(d.phase || '?')} phase): ${esc(d.statement)}</li>`).join('');
+    sections.push(`<div class="section">${htmlSection('Decisions', `<ul>${decList}</ul>`)}</div>`);
+  }
+
+  // Gate Outcomes
+  if (run.gate_summary && run.gate_summary.length > 0) {
+    const gateList = run.gate_summary.map((g) => `<li><code>${esc(g.gate_id)}</code>: ${badge(g.status)}</li>`).join('');
+    sections.push(`<div class="section">${htmlSection('Gate Outcomes', `<ul>${gateList}</ul>`)}</div>`);
+  }
+
+  // Gate Failures
+  if (run.gate_failures && run.gate_failures.length > 0) {
+    let gfHtml = '<ul>';
+    for (const failure of run.gate_failures) {
+      const request = failure.gate_type === 'run_completion' ? 'run completion' : `${esc(failure.from_phase || failure.phase || '?')} &rarr; ${esc(failure.to_phase || '?')}`;
+      gfHtml += `<li><code>${esc(failure.gate_id || 'unknown')}</code> (${esc(failure.gate_type || 'unknown')}) at <code>${esc(failure.failed_at || 'n/a')}</code>: ${request}`;
+      if (failure.reasons?.length) {
+        gfHtml += '<ul>' + failure.reasons.map((r) => `<li>${esc(r)}</li>`).join('') + '</ul>';
+      }
+      gfHtml += '</li>';
+    }
+    gfHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Gate Failures', gfHtml)}</div>`);
+  }
+
+  // Approval Policy
+  if (run.approval_policy_events && run.approval_policy_events.length > 0) {
+    let apHtml = '<ul>';
+    for (const evt of run.approval_policy_events) {
+      const transition = evt.gate_type === 'run_completion' ? 'run completion' : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
+      apHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
+      if (evt.reason) apHtml += `<br>${esc(evt.reason)}`;
+      apHtml += '</li>';
+    }
+    apHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Approval Policy', apHtml)}</div>`);
+  }
+
+  // Governance Events
+  if (run.governance_events && run.governance_events.length > 0) {
+    let geHtml = '<ul>';
+    for (const evt of run.governance_events) {
+      geHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+    }
+    geHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Governance Events', geHtml)}</div>`);
+  }
+
+  // Timeout Events
+  if (run.timeout_events && run.timeout_events.length > 0) {
+    let teHtml = '<ul>';
+    for (const evt of run.timeout_events) {
+      const label = evt.type === 'timeout_warning' ? 'Warning' : evt.type === 'timeout_skip' ? 'Skip' : evt.type === 'timeout_skip_failed' ? 'Skip Failed' : 'Escalation';
+      const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+      const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+      const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
+      teHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) \u2014 ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+    }
+    teHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Timeout Events', teHtml)}</div>`);
+  }
+
+  // Intake Linkage
+  if (run.intake_links && run.intake_links.length > 0) {
+    const ilRows = run.intake_links.map((intake) => [
+      `<code>${esc(intake.intent_id)}</code>`,
+      badge(intake.status || 'unknown'),
+      `<code>${esc(intake.event_id || 'n/a')}</code>`,
+      `<code>${esc(intake.target_turn || 'n/a')}</code>`,
+      `<code>${esc(intake.started_at || 'n/a')}</code>`,
+    ]);
+    sections.push(`<div class="section">${htmlSection('Intake Linkage', htmlTable(['Intent', 'Status', 'Event', 'Target Turn', 'Started'], ilRows))}</div>`);
+  }
+
+  // Hook Activity
+  if (run.hook_summary) {
+    const eventList = Object.entries(run.hook_summary.events).sort(([a], [b]) => a.localeCompare(b, 'en')).map(([e, c]) => `${esc(e)}(${c})`).join(', ');
+    const hookHtml = htmlDl([
+      ['Total executions', String(run.hook_summary.total)],
+      ['Blocked', String(run.hook_summary.blocked)],
+      ...(eventList ? [['Events', eventList]] : []),
+    ]);
+    sections.push(`<div class="section">${htmlSection('Hook Activity', hookHtml)}</div>`);
+  }
+
+  // Recovery
+  if (run.recovery_summary) {
+    const rs = run.recovery_summary;
+    sections.push(`<div class="section">${htmlSection('Recovery', htmlDl([
+      ['Category', `<code>${esc(rs.category || 'unknown')}</code>`],
+      ['Typed reason', `<code>${esc(rs.typed_reason || 'unknown')}</code>`],
+      ['Owner', `<code>${esc(rs.owner || 'unknown')}</code>`],
+      ['Action', `<code>${esc(rs.recovery_action || 'n/a')}</code>`],
+      ['Detail', esc(rs.detail || 'n/a')],
+      ['Turn retained', rs.turn_retained == null ? 'n/a' : (rs.turn_retained ? 'yes' : 'no')],
+    ]))}</div>`);
+  }
+
+  // Continuity
+  if (run.continuity) {
+    const pairs = [
+      ['Session', `<code>${esc(run.continuity.session_id || 'unknown')}</code>`],
+      ['Checkpoint', `<code>${esc(run.continuity.checkpoint_reason || 'unknown')}</code> at <code>${esc(run.continuity.last_checkpoint_at || 'n/a')}</code>`],
+      ['Last turn', `<code>${esc(run.continuity.last_turn_id || 'none')}</code>`],
+      ['Last role', `<code>${esc(run.continuity.last_role || 'unknown')}</code>`],
+      ['Last phase', `<code>${esc(run.continuity.last_phase || 'unknown')}</code>`],
+    ];
+    if (run.continuity.stale_checkpoint) {
+      pairs.push(['Warning', `<span class="warn">checkpoint tracks run <code>${esc(run.continuity.run_id)}</code>, but export tracks <code>${esc(run.run_id)}</code></span>`]);
+    }
+    sections.push(`<div class="section">${htmlSection('Continuity', htmlDl(pairs))}</div>`);
+  }
+
+  // Workflow Artifacts
+  if (Array.isArray(run.workflow_kit_artifacts) && run.workflow_kit_artifacts.length > 0) {
+    let waHtml = `<p>Phase: <code>${esc(run.phase || 'unknown')}</code></p>`;
+    waHtml += htmlTable(
+      ['Artifact', 'Required', 'Semantics', 'Owner', 'Resolution', 'Status'],
+      run.workflow_kit_artifacts.map((art) => [
+        `<code>${esc(art.path)}</code>`,
+        art.required ? 'yes' : 'no',
+        art.semantics ? `<code>${esc(art.semantics)}</code>` : 'none',
+        art.owned_by ? `<code>${esc(art.owned_by)}</code>` : 'none',
+        esc(art.owner_resolution),
+        art.exists ? 'exists' : '<strong class="warn">missing</strong>',
+      ]),
+    );
+    sections.push(`<div class="section">${htmlSection('Workflow Artifacts', waHtml)}</div>`);
+  }
+
+  return wrapHtml('AgentXchain Governance Report', sections.join('\n'));
+}
+
+function renderCoordinatorHtml(report) {
+  const { coordinator, run, artifacts, repos, coordinator_timeline, barrier_summary, barrier_ledger_timeline, decision_digest, approval_policy_events, governance_events, timeout_events, recovery_report: coordRecoveryReport } = report.subject;
+  const sections = [];
+
+  const metaPairs = [
+    ['Input', `<code>${esc(report.input)}</code>`],
+    ['Export kind', `<code>${esc(report.export_kind)}</code>`],
+    ['Verification', badge('pass')],
+    ['Workspace', `${esc(coordinator.project_name || 'unknown')} (<code>${esc(coordinator.project_id || 'unknown')}</code>)`],
+    ['Schema', `<code>${esc(coordinator.schema_version || 'unknown')}</code>`],
+    ['Super run', `<code>${esc(run.super_run_id || 'none')}</code>`],
+    ['Status', badge(run.status || 'unknown')],
+    ['Phase', `<code>${esc(run.phase || 'unknown')}</code>`],
+    ['Blocked reason', `<code>${esc(run.blocked_reason || 'none')}</code>`],
+  ];
+
+  if (run.run_id_mismatches?.length > 0) {
+    metaPairs.push(['Run ID mismatches', `<strong class="warn">${run.run_id_mismatches.length}</strong>`]);
+  }
+
+  metaPairs.push(
+    ['Started', `<code>${esc(run.created_at || 'n/a')}</code>`],
+    ['Repos', `${coordinator.repo_count} total, ${run.repo_ok_count} exported, ${run.repo_error_count} failed`],
+    ['Workstreams', String(coordinator.workstream_count)],
+    ['Barriers', String(run.barrier_count)],
+    ['Repo statuses', formatStatusCounts(run.repo_status_counts)],
+    ['History entries', String(artifacts.history_entries)],
+    ['Decision entries', String(artifacts.decision_entries)],
+  );
+  if (run.completed_at) metaPairs.push(['Completed', `<code>${esc(run.completed_at)}</code>`]);
+  if (run.duration_seconds != null) metaPairs.push(['Duration', `<code>${run.duration_seconds}s</code>`]);
+  if (run.pending_gate) metaPairs.push(['Pending gate', `<code>${esc(run.pending_gate.gate)}</code> (<code>${esc(run.pending_gate.gate_type)}</code>)`]);
+
+  sections.push(`<div class="meta">${htmlDl(metaPairs)}</div>`);
+
+  // Next Actions
+  if (run.next_actions?.length > 0) {
+    const naHtml = '<ol>' + run.next_actions.map((a) => `<li><code>${esc(a.command)}</code>: ${esc(a.reason)}</li>`).join('') + '</ol>';
+    sections.push(`<div class="section">${htmlSection('Next Actions', naHtml)}</div>`);
+  }
+
+  // Coordinator Timeline
+  if (coordinator_timeline?.length > 0) {
+    const tlRows = coordinator_timeline.map((ev, i) => [String(i + 1), `<code>${esc(ev.type)}</code>`, `<code>${esc(ev.timestamp || 'n/a')}</code>`, esc(ev.summary)]);
+    sections.push(`<div class="section">${htmlSection('Coordinator Timeline', htmlTable(['#', 'Type', 'Time', 'Summary'], tlRows))}</div>`);
+  }
+
+  // Barrier Summary
+  if (barrier_summary?.length > 0) {
+    const bRows = barrier_summary.map((b) => [
+      `<code>${esc(b.barrier_id)}</code>`,
+      `<code>${esc(b.workstream_id || 'unknown')}</code>`,
+      `<code>${esc(b.type)}</code>`,
+      badge(b.status),
+      `${b.satisfied_repos.length}/${b.required_repos.length} repos`,
+    ]);
+    sections.push(`<div class="section">${htmlSection('Barrier Summary', htmlTable(['Barrier', 'Workstream', 'Type', 'Status', 'Satisfied'], bRows))}</div>`);
+  }
+
+  // Barrier Transitions
+  if (barrier_ledger_timeline?.length > 0) {
+    const btRows = barrier_ledger_timeline.map((t, i) => [String(i + 1), `<code>${esc(t.timestamp || 'n/a')}</code>`, `<code>${esc(t.barrier_id)}</code>`, `<code>${esc(t.previous_status)}</code>`, `<code>${esc(t.new_status)}</code>`, esc(t.summary)]);
+    sections.push(`<div class="section">${htmlSection('Barrier Transitions', htmlTable(['#', 'Time', 'Barrier', 'From', 'To', 'Summary'], btRows))}</div>`);
+  }
+
+  // Coordinator Decisions
+  if (decision_digest?.length > 0) {
+    const ddList = decision_digest.map((d) => `<li><strong>${esc(d.id)}</strong> (${esc(d.role || '?')}, ${esc(d.phase || '?')} phase): ${esc(d.statement)}</li>`).join('');
+    sections.push(`<div class="section">${htmlSection('Coordinator Decisions', `<ul>${ddList}</ul>`)}</div>`);
+  }
+
+  // Approval Policy
+  if (approval_policy_events?.length > 0) {
+    let apHtml = '<ul>';
+    for (const evt of approval_policy_events) {
+      const transition = evt.gate_type === 'run_completion' ? 'run completion' : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
+      apHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
+      if (evt.reason) apHtml += `<br>${esc(evt.reason)}`;
+      apHtml += '</li>';
+    }
+    apHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Approval Policy', apHtml)}</div>`);
+  }
+
+  // Governance Events
+  if (governance_events?.length > 0) {
+    let geHtml = '<ul>';
+    for (const evt of governance_events) {
+      geHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+    }
+    geHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Governance Events', geHtml)}</div>`);
+  }
+
+  // Timeout Events
+  if (timeout_events?.length > 0) {
+    let teHtml = '<ul>';
+    for (const evt of timeout_events) {
+      const label = evt.type === 'timeout_warning' ? 'Warning' : evt.type === 'timeout_skip' ? 'Skip' : 'Escalation';
+      const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+      const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+      teHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code>) \u2014 ${elapsed}/${limit}, action: <code>${esc(evt.action || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+    }
+    teHtml += '</ul>';
+    sections.push(`<div class="section">${htmlSection('Timeout Events', teHtml)}</div>`);
+  }
+
+  // Recovery Report
+  if (coordRecoveryReport) {
+    sections.push(`<div class="section">${htmlSection('Recovery Report', htmlDl([
+      ['Trigger', esc(coordRecoveryReport.trigger || 'n/a')],
+      ['Impact', esc(coordRecoveryReport.impact || 'n/a')],
+      ['Mitigation', esc(coordRecoveryReport.mitigation || 'n/a')],
+      ['Owner', esc(coordRecoveryReport.owner || 'n/a')],
+      ['Exit Condition', esc(coordRecoveryReport.exit_condition || 'n/a')],
+    ]))}</div>`);
+  }
+
+  // Repo Details
+  if (repos?.length > 0) {
+    let repoHtml = '';
+    for (const repo of repos) {
+      if (!repo.ok) {
+        repoHtml += `<h3>${esc(repo.repo_id)}</h3><p>Failed export: ${esc(repo.error || 'unknown error')}, path <code>${esc(repo.path || 'unknown')}</code></p>`;
+        continue;
+      }
+      const repoPairs = [
+        ['Status', badge(repo.status || 'unknown')],
+        ['Run', `<code>${esc(repo.run_id || 'none')}</code>`],
+        ['Phase', `<code>${esc(repo.phase || 'unknown')}</code>`],
+        ['Path', `<code>${esc(repo.path || 'unknown')}</code>`],
+      ];
+      if (repo.blocked_on) repoPairs.push(['Blocked on', `<code>${esc(summarizeBlockedOn(repo.blocked_on))}</code>`]);
+      repoHtml += `<h3>${esc(repo.repo_id)}</h3>${htmlDl(repoPairs)}`;
+
+      if (repo.turns?.length > 0) {
+        const turnRows = repo.turns.map((t, i) => {
+          const cost = t.cost_usd != null ? formatUsd(t.cost_usd) : 'n/a';
+          const phase = t.phase_transition ? `${esc(t.phase || '?')} &rarr; ${esc(t.phase_transition)}` : esc(t.phase || '?');
+          return [String(i + 1), esc(t.role), phase, esc(t.summary || '(no summary)'), String(t.files_changed_count), cost, esc(formatTurnTimelineTime(t))];
+        });
+        repoHtml += htmlSection('Turn Timeline', htmlTable(['#', 'Role', 'Phase', 'Summary', 'Files', 'Cost', 'Time'], turnRows), 4);
+      }
+      if (repo.decisions?.length > 0) {
+        repoHtml += htmlSection('Decisions', '<ul>' + repo.decisions.map((d) => `<li><strong>${esc(d.id)}</strong> (${esc(d.role || '?')}, ${esc(d.phase || '?')} phase): ${esc(d.statement)}</li>`).join('') + '</ul>', 4);
+      }
+      if (repo.gate_summary?.length > 0) {
+        repoHtml += htmlSection('Gate Outcomes', '<ul>' + repo.gate_summary.map((g) => `<li><code>${esc(g.gate_id)}</code>: ${badge(g.status)}</li>`).join('') + '</ul>', 4);
+      }
+    }
+    sections.push(`<div class="section">${htmlSection('Repo Details', repoHtml)}</div>`);
+  }
+
+  return wrapHtml('AgentXchain Governance Report — Coordinator', sections.join('\n'));
+}
+
+export function formatGovernanceReportHtml(report) {
+  if (report.overall === 'error') {
+    return wrapHtml('AgentXchain Governance Report — Error', `
+      <div class="meta">
+        ${htmlDl([['Input', `<code>${esc(report.input)}</code>`], ['Status', badge('error')], ['Message', esc(report.message)]])}
+      </div>`);
+  }
+
+  if (report.overall === 'fail') {
+    const errorList = (report.verification?.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
+    return wrapHtml('AgentXchain Governance Report — Fail', `
+      <div class="meta">
+        ${htmlDl([['Input', `<code>${esc(report.input)}</code>`], ['Verification', badge('fail')], ['Message', esc(report.message)]])}
+      </div>
+      ${errorList ? `<div class="section"><h2>Verification Errors</h2><ul>${errorList}</ul></div>` : ''}`);
+  }
+
+  if (report.subject?.kind === 'governed_run') {
+    return renderRunHtml(report);
+  }
+
+  return renderCoordinatorHtml(report);
+}

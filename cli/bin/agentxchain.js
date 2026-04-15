@@ -158,7 +158,7 @@ program
 program
   .command('audit')
   .description('Render a governance audit directly from the current governed project or coordinator workspace')
-  .option('--format <format>', 'Output format: text, json, or markdown', 'text')
+  .option('--format <format>', 'Output format: text, json, markdown, or html', 'text')
   .action(auditCommand);
 
 program
@@ -177,7 +177,7 @@ program
   .command('report')
   .description('Render a human-readable governance summary from an export artifact')
   .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
-  .option('--format <format>', 'Output format: text, json, or markdown', 'text')
+  .option('--format <format>', 'Output format: text, json, markdown, or html', 'text')
   .action(reportCommand);
 
 program

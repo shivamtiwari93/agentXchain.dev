@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { loadExportArtifact } from '../lib/export-verifier.js';
 import {
   buildGovernanceReport,
+  formatGovernanceReportHtml,
   formatGovernanceReportMarkdown,
   formatGovernanceReportText,
 } from '../lib/report.js';
@@ -18,6 +19,11 @@ function printAndExit(report, format, exitCode) {
     process.exit(exitCode);
   }
 
+  if (format === 'html') {
+    console.log(formatGovernanceReportHtml(report));
+    process.exit(exitCode);
+  }
+
   if (format === 'text') {
     if (report.overall === 'error') {
       console.log(chalk.red(formatGovernanceReportText(report)));
@@ -29,7 +35,7 @@ function printAndExit(report, format, exitCode) {
     process.exit(exitCode);
   }
 
-  console.error(`Unsupported report format "${format}". Use "text", "json", or "markdown".`);
+  console.error(`Unsupported report format "${format}". Use "text", "json", "markdown", or "html".`);
   process.exit(1);
 }
 

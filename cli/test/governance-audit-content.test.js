@@ -25,7 +25,7 @@ describe('governance audit docs contract', () => {
   it('documents audit in the command map and CLI reference section', () => {
     assert.match(CLI_DOCS, /\| `audit` \| Inspection \|/);
     assert.match(CLI_DOCS, /### `audit`/);
-    assert.match(CLI_DOCS, /agentxchain audit \[--format text\|json\|markdown]/);
+    assert.match(CLI_DOCS, /agentxchain audit \[--format text\|json\|markdown\|html]/);
     assert.match(CLI_DOCS, /live repo state/i);
     assert.match(CLI_DOCS, /`report` remains the export-artifact path/i);
   });

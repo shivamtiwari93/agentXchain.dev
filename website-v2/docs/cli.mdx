@@ -388,12 +388,12 @@ For the actual JSON field contract, use [Export Schema Reference](/docs/export-s
 ### `audit`
 
 ```bash
-agentxchain audit [--format text|json|markdown]
+agentxchain audit [--format text|json|markdown|html]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
+| `--format <format>` | `text` | Output format: `text`, `json`, `markdown`, or `html` |
 
 `audit` is the fast path for the repo you are standing in right now. It reads **live repo state**, builds the same governed or coordinator export artifact that `agentxchain export` would build, verifies that artifact, and immediately renders the same governance report contract that `agentxchain report` uses. The output includes a **Cost Summary** section with per-run totals, per-role cost breakdown, per-phase cost breakdown, and token counts when cost data is available.
 
@@ -409,17 +409,17 @@ For the stable output contract, use [Governance Audit Reference](/docs/governanc
 ### `report`
 
 ```bash
-agentxchain report [--input <path>|-] [--format text|json|markdown]
+agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--input <path>` | `-` | Read the export artifact from a file, or pass `-` to read from stdin |
-| `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
+| `--format <format>` | `text` | Output format: `text`, `json`, `markdown`, or `html` |
 
 `report` turns a verified export artifact into a concise governance summary for operators, reviewers, and release surfaces. It verifies the export artifact first and fails closed on invalid artifacts instead of pretending an untrusted JSON blob is audit evidence. Governed run reports summarize project identity, run status, phase, blocked state, turn counts, budget, and evidence counts. When a governed project has `project.goal`, text/markdown report output renders `Goal: <text>` in the header and `--format json` exposes the same value at `subject.project.goal`. Reports include a **Governance Events** section when the decision ledger contains operational governance events — policy escalations, conflict detections/rejections/resolutions, operator escalations, and escalation resolutions. These events are extracted from `decision-ledger.jsonl`, sorted chronologically, and rendered in all three formats with type-specific detail (violation rules, conflicting files, resolution methods). Coordinator reports summarize workspace identity, repo/workstream/barrier counts, repo status breakdown, per-repo export health, and coordinator-level governance events from `.agentxchain/multirepo/decision-ledger.jsonl`.
 
-Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact.
+Use `--format markdown` when you want a paste-ready summary for a PR, release, or ticket. Use `--format json` when another tool wants the derived report surface instead of the raw export artifact. Use `--format html` when you need a portable, self-contained report for compliance stakeholders — it includes inline CSS with dark mode and print styles.
 
 If you want the same report contract from **live repo state** instead of an existing export file, use `agentxchain audit`.
 
