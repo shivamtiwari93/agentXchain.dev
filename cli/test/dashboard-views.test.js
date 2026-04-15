@@ -596,6 +596,43 @@ describe('Initiative View', () => {
     assert.ok(!html.includes('<h3>Next Actions</h3>'));
     assert.ok(!html.includes('agentxchain multi resync'));
   });
+
+  it('AT-IV-RCS-001 renders compact cross-run constraint summary for decision-constrained barriers', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_constraints_001',
+        status: 'active',
+        phase: 'implementation',
+        repo_runs: {
+          api: { run_id: 'run_api', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web', status: 'linked', phase: 'implementation' },
+        },
+      },
+      coordinatorBarriers: {
+        sync_completion: {
+          workstream_id: 'sync',
+          type: 'named_decisions',
+          status: 'partially_satisfied',
+          required_repos: ['api', 'web'],
+          satisfied_repos: ['api'],
+          required_decision_ids_by_repo: {
+            api: ['DEC-101'],
+            web: ['DEC-201', 'DEC-202'],
+          },
+        },
+      },
+    });
+
+    assert.ok(html.includes('Cross-Run Constraints'));
+    assert.ok(html.includes('Decision Constraints'));
+    assert.ok(html.includes('Repo Requirements'));
+    assert.ok(html.includes('Required IDs'));
+    assert.ok(html.includes('Next Pending Requirement'));
+    assert.ok(html.includes('sync_completion'));
+    assert.ok(html.includes('web'));
+    assert.ok(html.includes('DEC-201, DEC-202'));
+    assert.ok(html.includes('Barrier Snapshot'));
+  });
 });
 
 describe('Cross-Repo View', () => {

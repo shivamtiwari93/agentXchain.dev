@@ -429,6 +429,12 @@ agentxchain status [options]
 
 Prints the current run state: active phase, pending turn (if any), blocked status, and recent lifecycle evidence. Governed status also surfaces the selected template in both modes: human-readable status prints `Template: <id>`, while `status --json` exposes a top-level `template` field plus `config.template`. When `project.goal` is set, human-readable status prints `Goal: <text>` under the project name and `status --json` exposes a top-level additive `project_goal` field.
 
+Governed status also surfaces **repo-decision carryover** for the current governed repo:
+
+- human-readable `status` prints compact `Repo decisions` and `Carryover` summary lines when durable `.agentxchain/repo-decisions.jsonl` history exists
+- `status --json` keeps raw additive `repo_decisions` and adds top-level additive `repo_decision_summary`
+- the summary is reconstructed from durable repo-decision history, so overridden-only history remains visible instead of disappearing when no active carryover constraints remain
+
 When cross-session continuity artifacts exist, governed status also exposes a `Continuity` section:
 
 - checkpoint session id, reason, time, last turn, and last role from `.agentxchain/session.json`
@@ -1278,7 +1284,7 @@ The shipped dashboard surface has thirteen top-level views:
 
 | View | Description |
 |------|-------------|
-| **Initiative** | First-glance multi-repo coordinator summary: repo runs, pending gate, blocked state, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
+| **Initiative** | First-glance multi-repo coordinator summary: repo runs, pending gate, blocked state, compact **Cross-Run Constraints** for decision-constrained barriers, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams, plus a live freshness banner showing websocket connection state, last dashboard refresh, and the last coordinator event seen |
 | **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, a live freshness banner showing websocket connection state, last dashboard refresh, and the last repo-local run event seen, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |

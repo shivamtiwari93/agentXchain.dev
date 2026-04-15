@@ -1101,6 +1101,8 @@ describe('Dashboard State Reader', () => {
     assert.equal(result.format, 'json');
     assert.equal(result.data.active_count, 1);
     assert.equal(result.data.overridden_count, 1);
+    assert.equal(result.data.operator_summary.highest_active_authority_level, 40);
+    assert.equal(result.data.operator_summary.highest_active_authority_role, 'architect');
     assert.equal(result.data.operator_summary.superseding_active_count, 1);
     assert.equal(result.data.operator_summary.overridden_with_successor_count, 1);
   });

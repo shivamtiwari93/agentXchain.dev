@@ -11,6 +11,7 @@ import {
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
+import { readRepoDecisions, summarizeRepoDecisions } from '../lib/repo-decisions.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
@@ -112,7 +113,7 @@ function loadStatusContext(dir = process.cwd()) {
 }
 
 function renderGovernedStatus(context, opts) {
-  const { root, config, version } = context;
+  const { root, config, rawConfig, version } = context;
   const state = loadProjectState(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
@@ -120,6 +121,7 @@ function renderGovernedStatus(context, opts) {
   const runtimeGuidance = deriveRuntimeBlockedGuidance(state, config);
   const nextActions = deriveGovernedRunNextActions(state, config);
   const recentEventSummary = readRecentRunEventSummary(root);
+  const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), rawConfig || config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
 
@@ -142,6 +144,7 @@ function renderGovernedStatus(context, opts) {
       provenance: state?.provenance || null,
       inherited_context: state?.inherited_context || null,
       repo_decisions: state?.repo_decisions || null,
+      repo_decision_summary: repoDecisionSummary,
       continuity,
       recovery,
       runtime_guidance: runtimeGuidance,
@@ -174,8 +177,12 @@ function renderGovernedStatus(context, opts) {
   if (state?.inherited_context?.parent_run_id) {
     console.log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${state.inherited_context.parent_run_id} (${state.inherited_context.parent_status || 'unknown'})`)}`);
   }
-  if (state?.repo_decisions?.length > 0) {
-    console.log(`  ${chalk.dim('Repo decisions:')} ${chalk.yellow(`${state.repo_decisions.length} active`)}`);
+  if (repoDecisionSummary) {
+    console.log(`  ${chalk.dim('Repo decisions:')} ${chalk.yellow(formatRepoDecisionHeadline(repoDecisionSummary))}`);
+    const carryoverDetail = formatRepoDecisionCarryover(repoDecisionSummary);
+    if (carryoverDetail) {
+      console.log(`  ${chalk.dim('Carryover:')} ${carryoverDetail}`);
+    }
   }
   if (state?.accepted_integration_ref) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);
@@ -528,6 +535,59 @@ function renderRecentEventSummary(summary) {
     console.log(`  ${chalk.dim('When:')}     ${summary.latest_event.timestamp || 'unknown'}`);
   }
   console.log('');
+}
+
+function formatRepoDecisionHeadline(summary) {
+  if (!summary) return 'none';
+  const parts = [`${summary.active_count} active`];
+  if (summary.overridden_count > 0) {
+    parts.push(`${summary.overridden_count} overridden`);
+  }
+  return parts.join(', ');
+}
+
+function formatRepoDecisionCarryover(summary) {
+  if (!summary?.operator_summary) {
+    return '';
+  }
+
+  const { operator_summary: operatorSummary, active_count: activeCount } = summary;
+  const parts = [];
+
+  if (activeCount === 0) {
+    parts.push('no active cross-run constraints remain');
+  } else if (Array.isArray(operatorSummary.active_categories) && operatorSummary.active_categories.length > 0) {
+    parts.push(`categories: ${operatorSummary.active_categories.join(', ')}`);
+  }
+
+  if (typeof operatorSummary.highest_active_authority_level === 'number') {
+    const roleLabel = operatorSummary.highest_active_authority_role
+      ? ` (${operatorSummary.highest_active_authority_role})`
+      : '';
+    parts.push(`highest authority: ${operatorSummary.highest_active_authority_level}${roleLabel}`);
+  }
+
+  if (operatorSummary.superseding_active_count > 0) {
+    parts.push(pluralizeRepoDecisionCount(
+      operatorSummary.superseding_active_count,
+      'active superseding earlier decision',
+      'active superseding earlier decisions',
+    ));
+  }
+
+  if (operatorSummary.overridden_with_successor_count > 0) {
+    parts.push(pluralizeRepoDecisionCount(
+      operatorSummary.overridden_with_successor_count,
+      'overridden with recorded successor',
+      'overridden with recorded successors',
+    ));
+  }
+
+  return parts.join('; ');
+}
+
+function pluralizeRepoDecisionCount(count, singular, plural) {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function renderLastGateFailure(failure, config) {

@@ -37,6 +37,54 @@ function summarizeBarriers(barriers) {
   return counts;
 }
 
+function summarizeDecisionConstraints(barriers) {
+  const entries = Object.entries(barriers || {});
+  const pendingRequirementSets = [];
+  let barrierCount = 0;
+  let repoRequirementCount = 0;
+  let requiredDecisionCount = 0;
+  let satisfiedRequirementCount = 0;
+
+  for (const [barrierId, barrier] of entries) {
+    const decisionIdsByRepo = barrier?.required_decision_ids_by_repo || barrier?.alignment_decision_ids || null;
+    if (!decisionIdsByRepo || typeof decisionIdsByRepo !== 'object' || Array.isArray(decisionIdsByRepo)) {
+      continue;
+    }
+
+    const repoEntries = Object.entries(decisionIdsByRepo)
+      .filter(([, ids]) => Array.isArray(ids) && ids.length > 0);
+    if (repoEntries.length === 0) {
+      continue;
+    }
+
+    barrierCount += 1;
+    const satisfiedRepos = new Set(Array.isArray(barrier?.satisfied_repos) ? barrier.satisfied_repos : []);
+    for (const [repoId, ids] of repoEntries) {
+      repoRequirementCount += 1;
+      requiredDecisionCount += ids.length;
+      if (satisfiedRepos.has(repoId)) {
+        satisfiedRequirementCount += 1;
+      } else {
+        pendingRequirementSets.push({ barrierId, repoId, decisionIds: ids });
+      }
+    }
+  }
+
+  if (barrierCount === 0) {
+    return null;
+  }
+
+  return {
+    barrier_count: barrierCount,
+    repo_requirement_count: repoRequirementCount,
+    required_decision_count: requiredDecisionCount,
+    satisfied_requirement_count: satisfiedRequirementCount,
+    pending_requirement_count: pendingRequirementSets.length,
+    first_pending_requirement: pendingRequirementSets[0] || null,
+    additional_pending_requirement_count: Math.max(0, pendingRequirementSets.length - 1),
+  };
+}
+
 function renderPrimaryAction(action) {
   if (!action || typeof action !== 'object') {
     return '';
@@ -158,6 +206,7 @@ export function render({
   const barriers = Object.entries(coordinatorBarriers || {});
   const pendingGate = coordinatorState.pending_gate || null;
   const barrierCounts = summarizeBarriers(coordinatorBarriers);
+  const decisionConstraintSummary = summarizeDecisionConstraints(coordinatorBarriers);
   const recentBarrierTransitions = Array.isArray(barrierLedger)
     ? barrierLedger.slice(-5).reverse()
     : [];
@@ -207,6 +256,36 @@ export function render({
       </div>`;
     }
     html += `</div></div>`;
+  }
+
+  if (decisionConstraintSummary) {
+    html += `<div class="section"><h3>Cross-Run Constraints</h3><div class="initiative-grid">`;
+    html += `<div class="gate-card">
+      <h3>Decision Constraints</h3>
+      <p class="section-subtitle">First-glance coordinator carryover only. Full per-barrier decision requirements stay in Barrier Snapshot.</p>
+      <dl class="detail-list">
+        <dt>Barriers</dt><dd>${decisionConstraintSummary.barrier_count}</dd>
+        <dt>Repo Requirements</dt><dd>${decisionConstraintSummary.repo_requirement_count}</dd>
+        <dt>Required IDs</dt><dd>${decisionConstraintSummary.required_decision_count}</dd>
+        <dt>Pending</dt><dd>${decisionConstraintSummary.pending_requirement_count}</dd>
+      </dl>`;
+
+    if (decisionConstraintSummary.first_pending_requirement) {
+      const pending = decisionConstraintSummary.first_pending_requirement;
+      html += `<div class="turn-card">
+        <div class="turn-header"><span>Next Pending Requirement</span></div>
+        <div class="turn-detail"><span class="detail-label">Barrier:</span> <span class="mono">${esc(pending.barrierId)}</span></div>
+        <div class="turn-detail"><span class="detail-label">Repo:</span> <span class="mono">${esc(pending.repoId)}</span></div>
+        <div class="turn-detail"><span class="detail-label">Decision IDs:</span> <span class="mono">${esc(pending.decisionIds.join(', '))}</span></div>
+      </div>`;
+      if (decisionConstraintSummary.additional_pending_requirement_count > 0) {
+        html += `<p class="turn-detail">${decisionConstraintSummary.additional_pending_requirement_count} additional pending requirement${decisionConstraintSummary.additional_pending_requirement_count !== 1 ? 's remain' : ' remains'} in Barrier Snapshot.</p>`;
+      }
+    } else {
+      html += `<p class="turn-summary">All declared coordinator decision requirements are currently satisfied.</p>`;
+    }
+
+    html += `</div></div></div>`;
   }
 
   html += `<div class="section"><h3>Repo Runs</h3><table class="data-table">

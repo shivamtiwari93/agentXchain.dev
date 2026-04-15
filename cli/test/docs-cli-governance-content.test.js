@@ -210,6 +210,13 @@ describe('CLI governance docs contract — common sequences', () => {
     );
   });
 
+  it('documents repo-decision carryover on status and initiative cross-run constraints', () => {
+    assert.match(docs, /repo_decision_summary/);
+    assert.match(docs, /Repo decisions/);
+    assert.match(docs, /Cross-Run Constraints/);
+    assert.match(docs, /decision-constrained barriers/i);
+  });
+
   it('conflicted-turn recovery uses reject-turn --reassign or accept-turn --resolution human_merge', () => {
     assert.match(stepSource, /reject-turn --turn .* --reassign/);
     assert.match(stepSource, /accept-turn --turn .* --resolution human_merge/);
