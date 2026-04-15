@@ -1035,6 +1035,8 @@ function extractRecoveryReportSummary(artifact) {
 
 function buildCoordinatorSubject(artifact) {
   const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json') || {};
+  const coordinatorStatus = coordinatorState?.status || artifact.summary?.status || null;
+  const coordinatorPhase = coordinatorState?.phase || artifact.summary?.phase || null;
   const repoStatuses = artifact.summary?.repo_run_statuses || {};
   const repoStatusCounts = deriveRepoStatusCounts(repoStatuses);
   const repos = Object.entries(artifact.repos || {})
@@ -1082,7 +1084,7 @@ function buildCoordinatorSubject(artifact) {
   const recentCoordinatorEvents = buildRecentEventSummary(coordinatorTimeline);
   const recentChildRepoEvents = buildRecentEventSummary(extractAggregatedEventTimeline(artifact));
   const nextActions = deriveCoordinatorNextActions({
-    status: artifact.summary?.status || null,
+    status: coordinatorStatus,
     blockedReason,
     pendingGate,
     repos,
@@ -1100,9 +1102,9 @@ function buildCoordinatorSubject(artifact) {
       workstream_count: artifact.coordinator?.workstream_count || 0,
     },
     run: {
-      super_run_id: artifact.summary?.super_run_id || null,
-      status: artifact.summary?.status || null,
-      phase: artifact.summary?.phase || null,
+      super_run_id: coordinatorState?.super_run_id || artifact.summary?.super_run_id || null,
+      status: coordinatorStatus,
+      phase: coordinatorPhase,
       blocked_reason: blockedReason,
       pending_gate: pendingGate,
       run_id_mismatches: runIdMismatches,

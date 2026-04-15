@@ -538,6 +538,53 @@ describe('agentxchain audit', () => {
     assert.equal(parsed.subject.run.recovery_summary.runtime_guidance[0].role_id, 'dev');
   });
 
+  it('AT-AUDIT-009: completed coordinator audit keeps next_actions empty despite child drift', () => {
+    const root = createCoordinatorWorkspace();
+
+    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+      schema_version: '0.1',
+      super_run_id: 'srun_audit_001',
+      status: 'completed',
+      phase: 'implementation',
+      blocked_reason: 'Repo "app" drifted earlier',
+      repo_runs: {
+        app: {
+          status: 'linked',
+          run_id: 'run_app_001',
+        },
+      },
+      pending_gate: null,
+    });
+
+    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: 'child-app',
+      run_id: 'run_app_999',
+      status: 'blocked',
+      phase: 'implementation',
+      active_turns: {},
+      retained_turns: {},
+      turn_sequence: 0,
+      blocked_on: 'dispatch:awaiting_followup',
+      phase_gate_status: {},
+      budget_status: {},
+      protocol_mode: 'governed',
+    });
+
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.subject.kind, 'coordinator_workspace');
+    assert.equal(parsed.subject.run.status, 'completed');
+    assert.deepEqual(parsed.subject.run.run_id_mismatches, [{
+      repo_id: 'app',
+      expected_run_id: 'run_app_001',
+      actual_run_id: 'run_app_999',
+    }]);
+    assert.deepEqual(parsed.subject.run.next_actions, []);
+  });
+
   it('AT-AUDIT-005: unsupported format fails closed', () => {
     const root = createGovernedProject();
     const result = runCli(root, ['audit', '--format', 'yaml']);

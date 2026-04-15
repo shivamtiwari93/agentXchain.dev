@@ -57,6 +57,8 @@ This applies regardless of:
 - `AT-COORD-ACT-001`: `deriveCoordinatorNextActions(...)` returns `[]` when `status === "completed"` even if repo status drift or run ID mismatch exists.
 - `AT-DASH-ACT-014`: dashboard repo-local run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []`.
 - `AT-DASH-ACT-015`: dashboard coordinator run-completion approval returns `status: "completed"`, `next_action: null`, and `next_actions: []` even when child-repo snapshots would otherwise trigger coordinator drift guidance.
+- `AT-REPORT-006`: `agentxchain report` on a completed coordinator export keeps `subject.run.next_actions` empty and omits rendered `Next Actions` guidance even when child repos still drift.
+- `AT-AUDIT-009`: `agentxchain audit --format json` on a completed coordinator workspace keeps `subject.run.next_actions` empty even when child repos still drift.
 
 ## Open Questions
 
