@@ -310,4 +310,40 @@ describe('Governed Doctor E2E', () => {
     assert.equal(admissionCheck.level, 'fail');
     assert.match(admissionCheck.detail, /review_only/);
   });
+
+  it('AT-GD-012: runtime checks expose capability contracts and role-bound summaries', () => {
+    const root = makeGoverned({ liveProbeRuntime: 'api_proxy' });
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    config.runtimes['remote-live'] = { type: 'remote_agent', url: 'https://example.com/agent' };
+    config.runtimes['mcp-live'] = { type: 'mcp', transport: 'streamable_http', url: 'https://example.com/mcp' };
+    config.roles.pm.runtime = 'api-live';
+    config.roles.pm.write_authority = 'proposed';
+    config.roles.dev.runtime = 'remote-live';
+    config.roles.dev.write_authority = 'proposed';
+    config.roles.qa.runtime = 'mcp-live';
+    config.roles.qa.write_authority = 'authoritative';
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json'], {
+      env: { AXC_DOCTOR_LIVE_PROBE_KEY: 'test-key' },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+
+    const apiCheck = output.checks.find((c) => c.id === 'runtime_api-live');
+    assert.equal(apiCheck.runtime_contract.transport, 'provider_api');
+    assert.equal(apiCheck.runtime_contract.can_write_files, 'proposal_only');
+    assert.equal(apiCheck.bound_roles[0].effective_write_path, 'proposal_apply_required');
+    assert.equal(apiCheck.bound_roles[0].workflow_artifact_ownership, 'proposal_apply_required');
+
+    const remoteCheck = output.checks.find((c) => c.id === 'runtime_remote-live');
+    assert.equal(remoteCheck.runtime_contract.transport, 'remote_http');
+    assert.equal(remoteCheck.bound_roles[0].effective_write_path, 'proposal_apply_required');
+
+    const mcpCheck = output.checks.find((c) => c.id === 'runtime_mcp-live');
+    assert.equal(mcpCheck.runtime_contract.transport, 'mcp_streamable_http');
+    assert.equal(mcpCheck.runtime_contract.can_write_files, 'tool_defined');
+    assert.equal(mcpCheck.bound_roles[0].effective_write_path, 'tool_defined');
+  });
 });

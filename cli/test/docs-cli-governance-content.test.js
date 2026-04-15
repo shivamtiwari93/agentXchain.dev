@@ -247,6 +247,20 @@ describe('CLI governance docs contract — admission control truth', () => {
     assert.match(doctorSection[0], /Static dead-end detection/i);
     assert.match(doctorSection[0], /unreachable `owned_by` artifacts/i);
   });
+
+  it('documents role show and doctor runtime capability contract fields', () => {
+    const roleSection = docs.match(/### `role show`[\s\S]*?(?=\n### `turn show`)/);
+    assert.ok(roleSection, 'role show section not found');
+    assert.match(roleSection[0], /transport/i);
+    assert.match(roleSection[0], /proposal support/i);
+    assert.match(roleSection[0], /workflow-kit `owned_by` suitability/i);
+
+    const doctorSection = docs.match(/### `doctor`[\s\S]*?(?=\n### `connector check`)/);
+    assert.ok(doctorSection, 'doctor section not found');
+    assert.match(doctorSection[0], /runtime_contract/);
+    assert.match(doctorSection[0], /bound_roles/);
+    assert.match(doctorSection[0], /workflow-artifact ownership/i);
+  });
 });
 
 describe('CLI governance docs contract — events observability', () => {

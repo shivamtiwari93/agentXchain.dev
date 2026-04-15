@@ -11,6 +11,11 @@ import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-con
 import { readDaemonState, evaluateDaemonStatus } from '../lib/run-schedule.js';
 import { getGovernedVersionSurface, formatGovernedVersionLabel } from '../lib/protocol-version.js';
 import { PLUGIN_MANIFEST_FILE } from '../lib/plugins.js';
+import {
+  getRoleRuntimeCapabilityContract,
+  summarizeRoleRuntimeCapability,
+  summarizeRuntimeCapabilityContract,
+} from '../lib/runtime-capabilities.js';
 
 export async function doctorCommand(opts = {}) {
   const root = findProjectRoot(process.cwd());
@@ -76,8 +81,9 @@ function governedDoctor(root, rawConfig, opts) {
   // 3. Runtime reachable — one sub-check per runtime
   // Use normalized runtimes if available, otherwise fall back to raw config
   const runtimes = (normalized && normalized.runtimes) || rawConfig.runtimes || {};
+  const rolesByRuntime = buildRolesByRuntime(normalized?.roles || {});
   for (const [rtId, rt] of Object.entries(runtimes)) {
-    const check = checkRuntimeReachable(rtId, rt);
+    const check = checkRuntimeReachable(rtId, rt, rolesByRuntime[rtId] || []);
     checks.push(check);
   }
   const connectorProbe = getConnectorProbeRecommendation(runtimes);
@@ -290,6 +296,12 @@ function governedDoctor(root, rawConfig, opts) {
             ? chalk.dim('INFO')
             : chalk.red('FAIL');
       console.log(`  ${badge}  ${c.name.padEnd(24)} ${chalk.dim(c.detail)}`);
+      if (c.runtime_contract) {
+        console.log(`        ${chalk.dim(summarizeRuntimeCapabilityContract(c.runtime_contract))}`);
+        if (Array.isArray(c.bound_roles) && c.bound_roles.length > 0) {
+          console.log(`        ${chalk.dim(`roles: ${c.bound_roles.map(summarizeRoleRuntimeCapability).join(' | ')}`)}`);
+        }
+      }
     }
 
     console.log('');
@@ -309,25 +321,45 @@ function governedDoctor(root, rawConfig, opts) {
   process.exit(failCount > 0 ? 1 : 0);
 }
 
-function checkRuntimeReachable(rtId, rt) {
+function buildRolesByRuntime(roles) {
+  const grouped = {};
+  for (const [roleId, role] of Object.entries(roles || {})) {
+    if (!role?.runtime_id) continue;
+    if (!grouped[role.runtime_id]) grouped[role.runtime_id] = [];
+    grouped[role.runtime_id].push([roleId, role]);
+  }
+  return grouped;
+}
+
+function attachRuntimeContract(baseCheck, rtId, rt, boundRoleEntries) {
+  const bound_roles = boundRoleEntries.map(([roleId, role]) => getRoleRuntimeCapabilityContract(roleId, role, rt));
+  return {
+    ...baseCheck,
+    runtime_type: rt?.type || 'unknown',
+    runtime_contract: bound_roles[0]?.runtime_contract || getRoleRuntimeCapabilityContract('__unbound__', { write_authority: 'unknown' }, rt).runtime_contract,
+    bound_roles,
+  };
+}
+
+function checkRuntimeReachable(rtId, rt, boundRoleEntries = []) {
   const base = { id: `runtime_${rtId}`, name: `Runtime: ${rtId}` };
 
   if (!rt || !rt.type) {
-    return { ...base, level: 'warn', detail: 'No runtime type specified' };
+    return attachRuntimeContract({ ...base, level: 'warn', detail: 'No runtime type specified' }, rtId, rt, boundRoleEntries);
   }
 
   switch (rt.type) {
     case 'manual':
-      return { ...base, level: 'pass', detail: 'Manual runtime (no binary needed)' };
+      return attachRuntimeContract({ ...base, level: 'pass', detail: 'Manual runtime (no binary needed)' }, rtId, rt, boundRoleEntries);
 
     case 'local_cli': {
       const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
-      if (!cmd) return { ...base, level: 'warn', detail: 'No command configured' };
+      if (!cmd) return attachRuntimeContract({ ...base, level: 'warn', detail: 'No command configured' }, rtId, rt, boundRoleEntries);
       try {
         execSync(`command -v ${cmd}`, { stdio: 'ignore' });
-        return { ...base, level: 'pass', detail: `${cmd} binary found` };
+        return attachRuntimeContract({ ...base, level: 'pass', detail: `${cmd} binary found` }, rtId, rt, boundRoleEntries);
       } catch {
-        return { ...base, level: 'fail', detail: `${cmd} not found in PATH` };
+        return attachRuntimeContract({ ...base, level: 'fail', detail: `${cmd} not found in PATH` }, rtId, rt, boundRoleEntries);
       }
     }
 
@@ -335,34 +367,34 @@ function checkRuntimeReachable(rtId, rt) {
       const envVar = rt.auth_env;
       if (!envVar) {
         // ollama and similar providers may not require auth
-        return { ...base, level: 'pass', detail: `${rt.provider || 'unknown'} provider (no auth required)` };
+        return attachRuntimeContract({ ...base, level: 'pass', detail: `${rt.provider || 'unknown'} provider (no auth required)` }, rtId, rt, boundRoleEntries);
       }
       if (process.env[envVar]) {
-        return { ...base, level: 'pass', detail: `${envVar} is set` };
+        return attachRuntimeContract({ ...base, level: 'pass', detail: `${envVar} is set` }, rtId, rt, boundRoleEntries);
       }
-      return { ...base, level: 'fail', detail: `${envVar} not set` };
+      return attachRuntimeContract({ ...base, level: 'fail', detail: `${envVar} not set` }, rtId, rt, boundRoleEntries);
     }
 
     case 'mcp': {
       const transport = rt.transport || 'stdio';
       if (transport === 'streamable_http') {
-        return { ...base, level: 'warn', detail: 'Remote MCP endpoint (cannot verify at doctor time)' };
+        return attachRuntimeContract({ ...base, level: 'warn', detail: 'Remote MCP endpoint (cannot verify at doctor time)' }, rtId, rt, boundRoleEntries);
       }
       const cmd = Array.isArray(rt.command) ? rt.command[0] : (typeof rt.command === 'string' ? rt.command.split(/\s+/)[0] : null);
-      if (!cmd) return { ...base, level: 'warn', detail: 'No MCP command configured' };
+      if (!cmd) return attachRuntimeContract({ ...base, level: 'warn', detail: 'No MCP command configured' }, rtId, rt, boundRoleEntries);
       try {
         execSync(`command -v ${cmd}`, { stdio: 'ignore' });
-        return { ...base, level: 'pass', detail: `${cmd} binary found` };
+        return attachRuntimeContract({ ...base, level: 'pass', detail: `${cmd} binary found` }, rtId, rt, boundRoleEntries);
       } catch {
-        return { ...base, level: 'fail', detail: `${cmd} not found in PATH` };
+        return attachRuntimeContract({ ...base, level: 'fail', detail: `${cmd} not found in PATH` }, rtId, rt, boundRoleEntries);
       }
     }
 
     case 'remote_agent':
-      return { ...base, level: 'warn', detail: 'Remote agent endpoint (cannot verify at doctor time)' };
+      return attachRuntimeContract({ ...base, level: 'warn', detail: 'Remote agent endpoint (cannot verify at doctor time)' }, rtId, rt, boundRoleEntries);
 
     default:
-      return { ...base, level: 'warn', detail: `Unknown runtime type: ${rt.type}` };
+      return attachRuntimeContract({ ...base, level: 'warn', detail: `Unknown runtime type: ${rt.type}` }, rtId, rt, boundRoleEntries);
   }
 }
 

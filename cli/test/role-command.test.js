@@ -98,6 +98,32 @@ describe('agentxchain role command', () => {
       assert.ok(role.mandate);
       assert.ok(role.write_authority);
       assert.ok(role.runtime);
+      assert.equal(role.runtime_contract.transport, 'manual');
+      assert.equal(role.runtime_contract.can_write_files, 'direct');
+      assert.equal(role.effective_runtime_contract.effective_write_path, 'direct');
+      assert.equal(role.effective_runtime_contract.workflow_artifact_ownership, 'yes');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ROLE-004B: role show surfaces proposal-only runtime truth for remote review roles', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.runtimes['remote-qa'] = { type: 'remote_agent', url: 'https://example.com/turn' };
+      config.roles.qa.runtime = 'remote-qa';
+      config.roles.qa.write_authority = 'review_only';
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      const result = runCli(dir, ['role', 'show', 'qa', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const role = JSON.parse(result.stdout);
+      assert.equal(role.runtime_contract.transport, 'remote_http');
+      assert.equal(role.runtime_contract.workflow_artifact_ownership, 'proposal_apply_required');
+      assert.equal(role.effective_runtime_contract.effective_write_path, 'review_artifact_only');
+      assert.equal(role.effective_runtime_contract.workflow_artifact_ownership, 'no');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

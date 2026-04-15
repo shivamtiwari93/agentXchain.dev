@@ -313,6 +313,17 @@ agentxchain role show <role_id> [--json]
 
 Shows detailed information for a single role: title, mandate, write authority, and runtime. Exits 1 with available role IDs if the requested role does not exist.
 
+`role show` also exposes the bound runtime capability contract so operators can inspect:
+
+- transport
+- file-write mode
+- review/manual behavior
+- proposal support
+- local-binary requirement
+- workflow-kit `owned_by` suitability
+
+`--json` returns both the base `runtime_contract` and the role-bound `effective_runtime_contract`.
+
 ### `turn show`
 
 ```bash
@@ -1081,7 +1092,7 @@ Checks governed project readiness for running turns. `doctor` is a static readin
 |-------|-----|-------------|
 | Config validation | `config_valid` | Loads `agentxchain.json` and validates against the governed schema |
 | Roles defined | `roles_defined` | At least one role exists in the config |
-| Runtime prerequisites | `runtime_<id>` | Per-runtime: local binaries found, required API key env vars set, remote endpoints noted as unverifiable |
+| Runtime prerequisites | `runtime_<id>` | Per-runtime: local binaries found, required API key env vars set, remote endpoints noted as unverifiable, plus runtime capability contract and bound-role ownership summary |
 | State directory | `state_dir` | `.agentxchain/` exists |
 | State health | `state_health` | `state.json` parses with a recognized schema version |
 | Schedule health | `schedule_health` | Daemon status when schedules are configured (skipped otherwise) |
@@ -1090,6 +1101,11 @@ Checks governed project readiness for running turns. `doctor` is a static readin
 | Plugin health | `plugin_<name>` | Per-plugin: install path exists, manifest valid, hook files present, config env vars set (skipped when no plugins installed) |
 
 Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.
+
+For runtime checks, `doctor --json` now includes:
+
+- `runtime_contract` with transport, write-path class, proposal support, binary requirement, and workflow-artifact ownership contract
+- `bound_roles[]` with per-role effective write path and workflow-artifact ownership suitability
 
 Use `agentxchain connector check` when you want a real live probe against configured API, MCP HTTP, or remote-agent endpoints before the first governed turn.
 

@@ -3,6 +3,7 @@ const CONTEXT_TITLE = '# Execution Context';
 const SECTION_DEFINITIONS = [
   { id: 'current_state', header: 'Current State', required: true },
   { id: 'budget', header: null, required: false },
+  { id: 'runtime_capability_contract', header: 'Runtime Capability Contract', required: false },
   { id: 'project_goal', header: 'Project Goal', required: true },
   { id: 'inherited_run_context', header: 'Inherited Run Context', required: true },
   { id: 'last_turn_header', header: 'Last Accepted Turn', required: true },
@@ -82,6 +83,7 @@ export function renderContextSections(sections) {
     sectionMap.get('budget')?.content,
   ]);
 
+  appendTopLevelSection(lines, 'Runtime Capability Contract', [sectionMap.get('runtime_capability_contract')?.content]);
   appendTopLevelSection(lines, 'Project Goal', [sectionMap.get('project_goal')?.content]);
   appendTopLevelSection(lines, 'Inherited Run Context', [sectionMap.get('inherited_run_context')?.content]);
   appendTopLevelSection(lines, 'Last Accepted Turn', [

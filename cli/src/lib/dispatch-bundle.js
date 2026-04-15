@@ -29,6 +29,7 @@ import {
   getDispatchTurnDir,
   getTurnStagingResultPath,
 } from './turn-paths.js';
+import { getRoleRuntimeCapabilityContract } from './runtime-capabilities.js';
 
 const HISTORY_PATH = '.agentxchain/history.jsonl';
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
@@ -183,6 +184,7 @@ function renderPrompt(role, roleId, turn, state, config, root) {
   }
 
   const lines = [];
+  const runtimeContract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
 
   // Identity block
   lines.push(`# Turn Assignment: ${role.title} (${roleId})`);
@@ -511,6 +513,8 @@ function getWorkflowPromptResponsibilities(config, phase, roleId, root) {
 function renderContext(state, config, root, turn, role) {
   const warnings = [];
   const lines = [];
+  const runtime = config.runtimes?.[turn.runtime_id];
+  const runtimeContract = getRoleRuntimeCapabilityContract(turn.assigned_role, role, runtime);
 
   lines.push('# Execution Context');
   lines.push('');
@@ -615,6 +619,25 @@ function renderContext(state, config, root, turn, role) {
     lines.push('Your turn result should assess the delegation outcomes and decide next steps.');
     lines.push('');
   }
+
+  lines.push('## Runtime Capability Contract');
+  lines.push('');
+  lines.push(`- **Runtime:** ${turn.runtime_id} (${runtimeContract.runtime_contract.runtime_type})`);
+  lines.push(`- **Transport:** ${runtimeContract.runtime_contract.transport}`);
+  lines.push(`- **Can write files:** ${runtimeContract.runtime_contract.can_write_files}`);
+  lines.push(`- **Review/manual behavior:** ${runtimeContract.runtime_contract.review_only_behavior}`);
+  lines.push(`- **Proposal support:** ${runtimeContract.runtime_contract.proposal_support}`);
+  lines.push(`- **Requires local binary:** ${runtimeContract.runtime_contract.requires_local_binary ? 'yes' : 'no'}`);
+  lines.push(`- **Workflow artifact ownership:** ${runtimeContract.runtime_contract.workflow_artifact_ownership}`);
+  lines.push(`- **Effective write path for this role:** ${runtimeContract.effective_write_path}`);
+  lines.push(`- **Effective workflow artifact ownership for this role:** ${runtimeContract.workflow_artifact_ownership}`);
+  if (runtimeContract.notes.length > 0) {
+    lines.push('- **Notes:**');
+    for (const note of runtimeContract.notes) {
+      lines.push(`  - ${note}`);
+    }
+  }
+  lines.push('');
 
   // Repo-level decisions that persist across runs
   if (state.repo_decisions && state.repo_decisions.length > 0) {

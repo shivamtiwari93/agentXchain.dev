@@ -216,6 +216,23 @@ describe('writeDispatchBundle', () => {
     assert.match(prompt, /ROADMAP\.md/);
   });
 
+  it('CONTEXT.md includes the runtime capability contract for the assigned role', () => {
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'qa');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /Runtime Capability Contract/);
+    assert.match(context, /api-qa \(api_proxy\)/);
+    assert.match(context, /provider_api/);
+    assert.match(context, /proposal_only/);
+    assert.match(context, /Proposal support:\*\*\s+native/);
+    assert.match(context, /Effective write path for this role:\*\*\s+review_artifact_only/);
+    assert.match(context, /Effective workflow artifact ownership for this role:\*\*\s+no/);
+  });
+
   it('PROMPT.md includes retry context when attempt > 1', () => {
     initializeGovernedRun(root, config);
     assignGovernedTurn(root, config, 'pm');
