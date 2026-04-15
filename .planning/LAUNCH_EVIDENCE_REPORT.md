@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.100.0
+# Launch Evidence Report — AgentXchain v2.101.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.100.0 release: governance regression detection on export diffs (status, budget, gate, decisions, coordinator repo/barrier/event regressions). 4603 tests / 982 suites / 0 failures. Docusaurus build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.101.0 release: phase-aware governance regression detection. 4603 tests / 982 suites / 0 failures. Docusaurus build clean.
 
 ---
 

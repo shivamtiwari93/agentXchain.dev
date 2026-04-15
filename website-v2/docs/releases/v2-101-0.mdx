@@ -1,0 +1,57 @@
+---
+sidebar_position: 0
+title: "v2.101.0 Release Notes"
+description: "Phase-aware governance regression detection."
+---
+
+# AgentXchain v2.101.0
+
+`v2.101.0` adds phase-aware regression detection to export diffs.
+
+**Released:** 2026-04-15
+
+## Phase-Aware Regression Detection
+
+Export diffs now detect **backward phase movement** in governed workflows, not just status downgrades and gate failures.
+
+### How It Works
+
+Exports now embed `workflow_phase_order` — the ordered array of phase names from the project's `routing` config. When comparing two exports, the diff engine uses this ordering to determine whether a phase change is forward progress or a governance regression.
+
+### Detection Rules
+
+- **Backward movement**: phase moves from a later position to an earlier position in the workflow order → `REG-PHASE-*` warning
+- **Phase disappears**: non-null phase becomes null → `REG-PHASE-*` warning (phase information lost)
+- **Forward movement**: earlier phase → later phase → NOT a regression
+- **Same phase**: no change → NOT a regression
+- **Phase appears**: null → non-null → NOT a regression (forward progress)
+- **No phase order**: when neither export has `workflow_phase_order`, phase regression detection is skipped entirely (no guessing)
+
+### Custom Phase Orders
+
+Works with any workflow phase configuration — not just the default `planning → implementation → qa`. Custom orders like `design → build → verify → release` are fully supported.
+
+### Coordinator Support
+
+Coordinator exports inherit phase regression detection. Backward phase movement at the coordinator level is detected the same way.
+
+## Export Schema Change
+
+Both run and coordinator exports now include `summary.workflow_phase_order`:
+
+```json
+{
+  "summary": {
+    "phase": "implementation",
+    "workflow_phase_order": ["planning", "implementation", "qa"]
+  }
+}
+```
+
+The field is `null` when no routing config exists (unphased projects).
+
+## Evidence
+
+- 4624 tests / 986 suites / 0 failures
+- 10 new phase regression tests (AT-PHASE-001 through AT-PHASE-010)
+- Docusaurus build: success
