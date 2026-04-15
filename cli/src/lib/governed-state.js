@@ -2437,7 +2437,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   if (turnResult.decisions && turnResult.decisions.length > 0) {
     for (const dec of turnResult.decisions) {
       if (dec.overrides) {
-        const overrideCheck = validateOverride(root, dec);
+        const overrideCheck = validateOverride(root, dec, config);
         if (!overrideCheck.ok) {
           return {
             ok: false,

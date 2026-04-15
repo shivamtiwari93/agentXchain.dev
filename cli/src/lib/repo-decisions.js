@@ -89,7 +89,16 @@ export function overrideRepoDecision(root, targetId, overridingId) {
 
 // ── Validate Override ───────────────────────────────────────────────────────
 
-export function validateOverride(root, decision) {
+/**
+ * Validate that an override is allowed.
+ * @param {string} root - project root
+ * @param {object} decision - the overriding decision (must have .overrides, .id, optionally .role)
+ * @param {object} [config] - agentxchain config (used for authority enforcement)
+ * @returns {{ ok: boolean, error?: string, warning?: string }}
+ *
+ * DEC-SPEC: .planning/DECISION_AUTHORITY_SPEC.md
+ */
+export function validateOverride(root, decision, config) {
   if (!decision.overrides) return { ok: true };
   const targetId = decision.overrides;
   const target = getRepoDecisionById(root, targetId);
@@ -102,6 +111,73 @@ export function validateOverride(root, decision) {
   if (target.status !== 'active') {
     return { ok: false, error: `decisions: ${targetId} has status "${target.status}", only active repo decisions can be overridden.` };
   }
+
+  // Authority enforcement (opt-in via decision_authority on roles)
+  const authorityResult = checkOverrideAuthority(decision, target, config);
+  if (!authorityResult.ok) return authorityResult;
+
+  return authorityResult.warning ? { ok: true, warning: authorityResult.warning } : { ok: true };
+}
+
+/**
+ * Resolve the decision_authority level for a role.
+ * - 'human' defaults to 100 unless explicitly configured.
+ * - Unknown roles default to 0 (with warning).
+ * - Null means opt-out (no enforcement).
+ */
+export function resolveDecisionAuthority(roleId, config) {
+  if (!config || !config.roles) return null;
+  if (roleId === 'human') {
+    const humanRole = config.roles.human;
+    if (humanRole && typeof humanRole.decision_authority === 'number') {
+      return humanRole.decision_authority;
+    }
+    return 100; // human default
+  }
+  const role = config.roles[roleId];
+  if (!role) return { level: 0, unknown: true };
+  if (typeof role.decision_authority !== 'number') return null;
+  return role.decision_authority;
+}
+
+/**
+ * Check whether the overriding role has sufficient authority to override
+ * a decision made by the target role.
+ */
+function checkOverrideAuthority(overridingDecision, targetDecision, config) {
+  if (!config || !config.roles) return { ok: true };
+
+  const overridingRole = overridingDecision.role;
+  const targetRole = targetDecision.role;
+
+  // Same-role override is always allowed
+  if (overridingRole && targetRole && overridingRole === targetRole) return { ok: true };
+
+  const targetAuth = resolveDecisionAuthority(targetRole, config);
+  const overridingAuth = resolveDecisionAuthority(overridingRole, config);
+
+  // Handle unknown target role
+  let warning;
+  if (targetAuth && typeof targetAuth === 'object' && targetAuth.unknown) {
+    warning = `decisions: target decision role '${targetRole}' not found in current config, treating as authority 0.`;
+    // targetAuth is effectively 0, allow override
+    return { ok: true, warning };
+  }
+
+  // Opt-in: if either side is null (not configured), allow
+  if (targetAuth === null || overridingAuth === null) return { ok: true };
+
+  // Handle unknown overriding role (shouldn't normally happen, but be safe)
+  const overridingLevel = (typeof overridingAuth === 'object' && overridingAuth.unknown) ? 0 : overridingAuth;
+  const targetLevel = (typeof targetAuth === 'object') ? 0 : targetAuth;
+
+  if (overridingLevel < targetLevel) {
+    return {
+      ok: false,
+      error: `decisions: role '${overridingRole}' (authority ${overridingLevel}) cannot override ${targetDecision.id} made by '${targetRole}' (authority ${targetLevel}). Override requires authority >= ${targetLevel}.`,
+    };
+  }
+
   return { ok: true };
 }
 

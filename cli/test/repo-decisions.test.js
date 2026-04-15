@@ -14,6 +14,7 @@ import {
   appendRepoDecision,
   overrideRepoDecision,
   validateOverride,
+  resolveDecisionAuthority,
   renderRepoDecisionsMarkdown,
   buildRepoDecisionsSummary,
   REPO_DECISIONS_PATH,
@@ -113,6 +114,130 @@ describe('repo-decisions', () => {
     it('passes when no overrides field', () => {
       const result = validateOverride(root, { id: 'DEC-001' });
       assert.strictEqual(result.ok, true);
+    });
+
+    // ── Authority enforcement tests ───────────────────────────────────────
+    it('allows override when no decision_authority configured (backward-compat)', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'pm' });
+      const config = { roles: { pm: { title: 'PM' }, dev: { title: 'Dev' } } };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'dev' }, config);
+      assert.strictEqual(result.ok, true);
+    });
+
+    it('allows override when overriding role authority >= target role authority', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'dev' });
+      const config = {
+        roles: {
+          dev: { title: 'Dev', decision_authority: 20 },
+          eng_director: { title: 'Director', decision_authority: 50 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'eng_director' }, config);
+      assert.strictEqual(result.ok, true);
+    });
+
+    it('rejects override when overriding role authority < target role authority', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'eng_director' });
+      const config = {
+        roles: {
+          dev: { title: 'Dev', decision_authority: 20 },
+          eng_director: { title: 'Director', decision_authority: 50 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'dev' }, config);
+      assert.strictEqual(result.ok, false);
+      assert.match(result.error, /authority 20.*cannot override.*authority 50/);
+    });
+
+    it('allows same-role override regardless of authority level', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'pm' });
+      const config = {
+        roles: { pm: { title: 'PM', decision_authority: 30 } },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'pm' }, config);
+      assert.strictEqual(result.ok, true);
+    });
+
+    it('treats human-origin decisions as authority 100 by default', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'human' });
+      const config = {
+        roles: {
+          dev: { title: 'Dev', decision_authority: 50 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'dev' }, config);
+      assert.strictEqual(result.ok, false);
+      assert.match(result.error, /authority 50.*cannot override.*authority 100/);
+    });
+
+    it('allows overriding human decision when human has explicit lower authority', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'human' });
+      const config = {
+        roles: {
+          human: { title: 'Human', decision_authority: 30 },
+          eng_director: { title: 'Director', decision_authority: 50 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'eng_director' }, config);
+      assert.strictEqual(result.ok, true);
+    });
+
+    it('treats unknown target role as authority 0 with warning', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'removed_role' });
+      const config = {
+        roles: {
+          dev: { title: 'Dev', decision_authority: 10 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'dev' }, config);
+      assert.strictEqual(result.ok, true);
+      assert.ok(result.warning);
+      assert.match(result.warning, /removed_role.*not found/);
+    });
+
+    it('allows override when only one side has decision_authority (opt-in)', () => {
+      appendRepoDecision(root, { id: 'DEC-001', status: 'active', role: 'pm' });
+      const config = {
+        roles: {
+          pm: { title: 'PM' }, // no decision_authority
+          dev: { title: 'Dev', decision_authority: 10 },
+        },
+      };
+      const result = validateOverride(root, { id: 'DEC-002', overrides: 'DEC-001', role: 'dev' }, config);
+      assert.strictEqual(result.ok, true);
+    });
+  });
+
+  describe('resolveDecisionAuthority', () => {
+    it('returns null when no config', () => {
+      assert.strictEqual(resolveDecisionAuthority('dev', null), null);
+    });
+
+    it('returns null when role has no decision_authority', () => {
+      const config = { roles: { dev: { title: 'Dev' } } };
+      assert.strictEqual(resolveDecisionAuthority('dev', config), null);
+    });
+
+    it('returns configured level', () => {
+      const config = { roles: { dev: { title: 'Dev', decision_authority: 20 } } };
+      assert.strictEqual(resolveDecisionAuthority('dev', config), 20);
+    });
+
+    it('returns 100 for human by default', () => {
+      const config = { roles: {} };
+      assert.strictEqual(resolveDecisionAuthority('human', config), 100);
+    });
+
+    it('returns explicit human level when configured', () => {
+      const config = { roles: { human: { decision_authority: 40 } } };
+      assert.strictEqual(resolveDecisionAuthority('human', config), 40);
+    });
+
+    it('returns unknown marker for missing role', () => {
+      const config = { roles: { dev: { title: 'Dev', decision_authority: 20 } } };
+      const result = resolveDecisionAuthority('nonexistent', config);
+      assert.strictEqual(result.level, 0);
+      assert.strictEqual(result.unknown, true);
     });
   });
 

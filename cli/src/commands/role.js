@@ -37,13 +37,19 @@ function listRoles(roles, roleIds, opts) {
   }
 
   if (opts.json) {
-    const output = roleIds.map((id) => ({
-      id,
-      title: roles[id].title,
-      mandate: roles[id].mandate,
-      write_authority: roles[id].write_authority,
-      runtime: roles[id].runtime,
-    }));
+    const output = roleIds.map((id) => {
+      const entry = {
+        id,
+        title: roles[id].title,
+        mandate: roles[id].mandate,
+        write_authority: roles[id].write_authority,
+        runtime: roles[id].runtime,
+      };
+      if (typeof roles[id].decision_authority === 'number') {
+        entry.decision_authority = roles[id].decision_authority;
+      }
+      return entry;
+    });
     console.log(JSON.stringify(output, null, 2));
     return;
   }
@@ -56,7 +62,8 @@ function listRoles(roles, roleIds, opts) {
       : r.write_authority === 'proposed'
         ? chalk.yellow(r.write_authority)
         : chalk.dim(r.write_authority);
-    console.log(`  ${chalk.cyan(id)} — ${r.title} [${authority}] → ${chalk.dim(r.runtime)}`);
+    const decAuth = typeof r.decision_authority === 'number' ? chalk.dim(` dec:${r.decision_authority}`) : '';
+    console.log(`  ${chalk.cyan(id)} — ${r.title} [${authority}${decAuth}] → ${chalk.dim(r.runtime)}`);
   }
   console.log('');
   console.log(chalk.dim('  Usage: agentxchain role show <role_id>\n'));
@@ -81,13 +88,17 @@ function showRole(roleId, roles, roleIds, opts) {
   const r = roles[roleId];
 
   if (opts.json) {
-    console.log(JSON.stringify({
+    const entry = {
       id: roleId,
       title: r.title,
       mandate: r.mandate,
       write_authority: r.write_authority,
       runtime: r.runtime,
-    }, null, 2));
+    };
+    if (typeof r.decision_authority === 'number') {
+      entry.decision_authority = r.decision_authority;
+    }
+    console.log(JSON.stringify(entry, null, 2));
     return;
   }
 

@@ -5,9 +5,9 @@
  */
 
 import { resolve } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import chalk from 'chalk';
-import { readRepoDecisions, getActiveRepoDecisions, getRepoDecisionById } from '../lib/repo-decisions.js';
+import { readRepoDecisions, getActiveRepoDecisions, getRepoDecisionById, resolveDecisionAuthority } from '../lib/repo-decisions.js';
 
 /**
  * @param {object} opts - { json?: boolean, all?: boolean, show?: string, dir?: string }
@@ -40,6 +40,14 @@ export async function decisionsCommand(opts) {
     console.log(`  Run:         ${(dec.run_id || '—').slice(0, 16)}`);
     console.log(`  Turn:        ${(dec.turn_id || '—').slice(0, 16)}`);
     console.log(`  Durability:  ${dec.durability || 'repo'}`);
+    // Show decision authority if config has it
+    const config = loadConfig(root);
+    if (config && dec.role) {
+      const auth = resolveDecisionAuthority(dec.role, config);
+      if (auth !== null && !(typeof auth === 'object' && auth.unknown)) {
+        console.log(`  Authority:   ${auth} (${dec.role})`);
+      }
+    }
     if (dec.overrides) {
       console.log(`  Supersedes:  ${chalk.yellow(dec.overrides)}`);
     }
@@ -99,4 +107,14 @@ function findProjectRoot(dir) {
     current = parent;
   }
   return null;
+}
+
+function loadConfig(root) {
+  const configPath = resolve(root, 'agentxchain.json');
+  if (!existsSync(configPath)) return null;
+  try {
+    return JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch {
+    return null;
+  }
 }
