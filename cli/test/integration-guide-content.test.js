@@ -132,10 +132,12 @@ describe('Integration guide content contract', () => {
     });
 
     it('documents MCP contract surface as broader than remote_agent/api_proxy', () => {
-      assert.match(normalizedConfigSource, /api_proxy and remote_agent restriction: only review_only and proposed roles may bind\./,
-        'normalized config must restrict api_proxy and remote_agent to review_only/proposed');
-      assert.match(normalizedConfigSource, /role\.write_authority !== 'review_only'[\s\S]*role\.write_authority !== 'proposed'/,
-        'normalized config restriction must be enforced in code, not only comments');
+      assert.match(normalizedConfigSource, /getRoleRuntimeCapabilityContract/,
+        'normalized config must derive runtime binding truth from the shared capability contract');
+      assert.match(normalizedConfigSource, /invalid_review_only_binding/,
+        'normalized config must reject review_only local_cli bindings through the shared contract');
+      assert.match(normalizedConfigSource, /invalid_authoritative_binding/,
+        'normalized config must reject authoritative remote bindings through the shared contract');
       assert.match(guide, /MCP runtimes can back `authoritative`, `proposed`, or `review_only` roles/i,
         'guide must document MCP authoritative/proposed/review_only support');
       assert.match(guide, /public proof surface is narrower than the contract surface/i,

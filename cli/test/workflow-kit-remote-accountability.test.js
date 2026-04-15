@@ -113,8 +113,8 @@ describe('workflow-kit remote accountability — config validation', () => {
     const result = validateWorkflowKitConfig(wk, routing, roles);
     assert.ok(result.ok, 'should not be a hard error');
     assert.ok(
-      result.warnings.some(w => w.includes('review_only') && w.includes('architect') && w.includes('planning')),
-      `expected warning about review_only ownership with no writer in phase, got: ${JSON.stringify(result.warnings)}`,
+      result.warnings.some(w => w.includes('architect') && w.includes('planning') && w.includes('reachable workflow ownership path')),
+      `expected warning about unreachable ownership with no writer in phase, got: ${JSON.stringify(result.warnings)}`,
     );
   });
 

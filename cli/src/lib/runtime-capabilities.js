@@ -177,6 +177,32 @@ export function getRoleRuntimeCapabilityContract(roleId, role = {}, runtime = {}
   };
 }
 
+export function canRoleParticipateInRequiredFileProduction(role = {}, runtime = {}) {
+  const contract = getRoleRuntimeCapabilityContract('__admission__', role, runtime);
+  switch (contract.effective_write_path) {
+    case 'direct':
+    case 'planning_only':
+    case 'patch_authoring':
+    case 'proposal_apply_required':
+    case 'tool_defined':
+      return true;
+    default:
+      return false;
+  }
+}
+
+export function canRoleSatisfyWorkflowArtifactOwnership(role = {}, runtime = {}) {
+  const contract = getRoleRuntimeCapabilityContract('__ownership__', role, runtime);
+  switch (contract.workflow_artifact_ownership) {
+    case 'yes':
+    case 'proposal_apply_required':
+    case 'tool_defined':
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function summarizeRuntimeCapabilityContract(contract) {
   return [
     `transport=${contract.transport}`,

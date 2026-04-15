@@ -14,6 +14,11 @@
  */
 
 import { getEffectiveGateArtifacts } from './gate-evaluator.js';
+import {
+  canRoleParticipateInRequiredFileProduction,
+  canRoleSatisfyWorkflowArtifactOwnership,
+  getRoleRuntimeCapabilityContract,
+} from './runtime-capabilities.js';
 
 /**
  * Run all admission control checks against a governed config.
@@ -68,17 +73,20 @@ export function runAdmissionControl(config, rawConfig) {
         .filter(({ role }) => role);
 
       const hasFileProducer = rolesWithAuthority.some(({ role, runtime }) =>
-        canRoleProduceFiles(role, runtime));
+        canRoleParticipateInRequiredFileProduction(role, runtime));
 
       // Only flag non-manual roles as review_only dead-ends
       const nonManualRoles = rolesWithAuthority.filter(({ runtime }) => runtime?.type !== 'manual');
       if (!hasFileProducer && nonManualRoles.length > 0) {
         const roleSummary = nonManualRoles
-          .map(({ id, role }) => `${id}:${role.write_authority}`)
+          .map(({ id, role, runtime }) => {
+            const contract = getRoleRuntimeCapabilityContract(id, role, runtime);
+            return `${id}:${role.write_authority}/${runtime?.type || 'unknown'}->${contract.effective_write_path}`;
+          })
           .join(', ');
         const fileSummary = requiredArtifacts.map(a => a.path).join(', ');
         errors.push(
-          `ADM-001: Phase "${phase}" gate "${exitGateId}" requires files (${fileSummary}) but all routed roles are review_only (${roleSummary}). No agent can produce the required artifacts.`
+          `ADM-001: Phase "${phase}" gate "${exitGateId}" requires files (${fileSummary}) but no routed role has a reachable file-production path (${roleSummary}).`
         );
       }
 
@@ -97,9 +105,10 @@ export function runAdmissionControl(config, rawConfig) {
         const ownerRuntimeKey = ownerRole.runtime_id || ownerRole.runtime;
         const ownerRuntime = runtimes?.[ownerRuntimeKey];
 
-        if (!canRoleProduceFiles(ownerRole, ownerRuntime)) {
+        if (!canRoleSatisfyWorkflowArtifactOwnership(ownerRole, ownerRuntime)) {
+          const contract = getRoleRuntimeCapabilityContract(artifact.owned_by, ownerRole, ownerRuntime);
           errors.push(
-            `ADM-004: Phase "${phase}" artifact "${artifact.path}" is owned_by "${artifact.owned_by}" but that role is ${ownerRole.write_authority} on runtime type "${ownerRuntime?.type || 'unknown'}". The owner can participate in the phase but cannot produce the required artifact.`
+            `ADM-004: Phase "${phase}" artifact "${artifact.path}" is owned_by "${artifact.owned_by}" but that role resolves to workflow ownership "${contract.workflow_artifact_ownership}" via ${ownerRole.write_authority}/${ownerRuntime?.type || 'unknown'} (${contract.effective_write_path}).`
           );
         }
       }
@@ -237,11 +246,4 @@ function matchesPhaseRule(rule, phase) {
   // A rule matches if from_phase is unset or matches the phase
   if (rule.from_phase && rule.from_phase !== phase) return false;
   return true;
-}
-
-function canRoleProduceFiles(role, runtime) {
-  if (!role) return false;
-  return runtime?.type === 'manual'
-    || role.write_authority === 'authoritative'
-    || role.write_authority === 'proposed';
 }

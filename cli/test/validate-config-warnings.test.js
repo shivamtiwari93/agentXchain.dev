@@ -100,6 +100,42 @@ function createHealthyProject() {
   return tempRoot;
 }
 
+function createMcpReviewOnlyProject() {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'axc-validate-cfg-warn-'));
+  const config = {
+    schema_version: 4,
+    protocol_mode: 'governed',
+    project: { id: 'mcp-review-only', name: 'MCP review only', default_branch: 'main' },
+    roles: {
+      qa: { title: 'QA', mandate: 'Review.', write_authority: 'review_only', runtime: 'mcp-review' },
+    },
+    runtimes: {
+      'mcp-review': { type: 'mcp', command: ['node', '-e', 'process.exit(0)'] },
+    },
+    routing: {
+      planning: {
+        entry_role: 'qa',
+        allowed_next_roles: ['qa'],
+        exit_gate: 'planning_gate',
+      },
+    },
+    gates: {
+      planning_gate: { requires_files: ['.planning/SPEC.md'] },
+    },
+    budget: { per_turn_max_usd: 2, per_run_max_usd: 10 },
+    rules: { challenge_required: false, max_turn_retries: 2, max_deadlock_cycles: 2 },
+    files: { talk: 'TALK.md', history: '.agentxchain/history.jsonl', state: '.agentxchain/state.json' },
+  };
+
+  writeFileSync(join(tempRoot, 'agentxchain.json'), JSON.stringify(config, null, 2));
+  mkdirSync(join(tempRoot, '.agentxchain'), { recursive: true });
+  writeFileSync(join(tempRoot, '.agentxchain', 'state.json'), JSON.stringify({ phase: 'planning', current_turn: null }));
+  writeFileSync(join(tempRoot, '.agentxchain', 'history.jsonl'), '');
+  writeFileSync(join(tempRoot, 'TALK.md'), '# Talk\n');
+
+  return tempRoot;
+}
+
 describe('validate surfaces admission control errors (subprocess)', () => {
   it('--json output includes ADM-001 error when all roles are review_only', () => {
     const tempRoot = createDeadEndGateProject();
@@ -154,6 +190,21 @@ describe('validate surfaces admission control errors (subprocess)', () => {
       assert.ok(
         !payload.errors.some((e) => e.includes('ADM-001')),
         `Should not have ADM-001 error when proposed role exists, got: ${JSON.stringify(payload.errors)}`,
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('--json output has no ADM-001 error for mcp tool_defined review_only bindings', () => {
+    const tempRoot = createMcpReviewOnlyProject();
+    try {
+      const result = runCli(tempRoot, ['validate', '--json']);
+      const payload = JSON.parse(result.stdout);
+      assert.ok(Array.isArray(payload.errors), 'validate --json must return errors array');
+      assert.ok(
+        !payload.errors.some((e) => e.includes('ADM-001')),
+        `Should not have ADM-001 error for mcp tool_defined binding, got: ${JSON.stringify(payload.errors)}`,
       );
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });

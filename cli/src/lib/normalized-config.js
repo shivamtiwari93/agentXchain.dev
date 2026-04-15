@@ -15,6 +15,11 @@
 import { validateHooksConfig } from './hook-runner.js';
 import { validateNotificationsConfig } from './notification-runner.js';
 import { validatePolicies, normalizePolicies } from './policy-evaluator.js';
+import {
+  canRoleParticipateInRequiredFileProduction,
+  canRoleSatisfyWorkflowArtifactOwnership,
+  getRoleRuntimeCapabilityContract,
+} from './runtime-capabilities.js';
 import { validateTimeoutsConfig } from './timeout-evaluator.js';
 import { SUPPORTED_TOKEN_COUNTER_PROVIDERS } from './token-counter.js';
 import {
@@ -455,21 +460,12 @@ export function validateV4Config(data, projectRoot) {
   // Cross-reference: review_only roles should not use authoritative runtimes
   if (data.roles && data.runtimes) {
     for (const [id, role] of Object.entries(data.roles)) {
-      if (role.write_authority === 'review_only' && role.runtime && data.runtimes[role.runtime]) {
-        const rt = data.runtimes[role.runtime];
-        if (rt.type === 'local_cli') {
-          errors.push(`Role "${id}" is review_only but uses local_cli runtime "${role.runtime}" — review_only roles should not have authoritative write access`);
-        }
-      }
-      // api_proxy and remote_agent restriction: only review_only and proposed roles may bind.
-      // These adapters do not have a proven local workspace mutation path in v1.
       if (role.runtime && data.runtimes[role.runtime]) {
         const rt = data.runtimes[role.runtime];
-        if (
-          (rt.type === 'api_proxy' || rt.type === 'remote_agent')
-          && role.write_authority !== 'review_only'
-          && role.write_authority !== 'proposed'
-        ) {
+        const contract = getRoleRuntimeCapabilityContract(id, role, rt);
+        if (contract.effective_write_path === 'invalid_review_only_binding') {
+          errors.push(`Role "${id}" is review_only but uses local_cli runtime "${role.runtime}" — review_only roles should not have authoritative write access`);
+        } else if (contract.effective_write_path === 'invalid_authoritative_binding') {
           errors.push(
             `Role "${id}" has write_authority "${role.write_authority}" but uses ${rt.type} runtime "${role.runtime}" — ${rt.type} only supports review_only and proposed roles`
           );
@@ -534,7 +530,7 @@ export function validateV4Config(data, projectRoot) {
 
   // Workflow Kit (optional but validated if present)
   if (data.workflow_kit !== undefined) {
-    const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing, data.roles);
+    const wkValidation = validateWorkflowKitConfig(data.workflow_kit, data.routing, data.roles, data.runtimes);
     errors.push(...wkValidation.errors);
   }
 
@@ -697,7 +693,7 @@ export function validateSchedulesConfig(schedules, roles) {
  * Validate the workflow_kit config section.
  * Returns { ok, errors, warnings }.
  */
-export function validateWorkflowKitConfig(wk, routing, roles) {
+export function validateWorkflowKitConfig(wk, routing, roles, runtimes = {}) {
   const errors = [];
   const warnings = [];
 
@@ -837,20 +833,25 @@ export function validateWorkflowKitConfig(wk, routing, roles) {
           } else if (
             artifact.required !== false &&
             roles && typeof roles === 'object' &&
-            roles[artifact.owned_by]?.write_authority === 'review_only'
+            roles[artifact.owned_by]
           ) {
-            // Check if any authoritative/proposed role exists in this phase's routing
+            const ownerRole = roles[artifact.owned_by];
+            const ownerRuntimeKey = ownerRole.runtime_id || ownerRole.runtime;
+            const ownerRuntime = runtimes?.[ownerRuntimeKey];
             const phaseRouting = routing?.[phase];
             const phaseRoles = new Set([
               ...(phaseRouting?.allowed_next_roles || []),
               ...(phaseRouting?.entry_role ? [phaseRouting.entry_role] : []),
             ]);
-            const hasWriter = [...phaseRoles].some(rid =>
-              roles[rid]?.write_authority === 'authoritative' || roles[rid]?.write_authority === 'proposed',
-            );
-            if (!hasWriter) {
+            const hasReachableProducer = [...phaseRoles].some((rid) => {
+              const phaseRole = roles[rid];
+              if (!phaseRole) return false;
+              const phaseRuntimeKey = phaseRole.runtime_id || phaseRole.runtime;
+              return canRoleParticipateInRequiredFileProduction(phaseRole, runtimes?.[phaseRuntimeKey]);
+            });
+            if (!canRoleSatisfyWorkflowArtifactOwnership(ownerRole, ownerRuntime) && !hasReachableProducer) {
               warnings.push(
-                `${prefix} owned_by "${artifact.owned_by}" is a review_only role in phase "${phase}" with no authoritative or proposed role — nobody can write this required artifact`,
+                `${prefix} owned_by "${artifact.owned_by}" has no reachable workflow ownership path in phase "${phase}", and no routed role can satisfy the required artifact`,
               );
             }
           }

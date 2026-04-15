@@ -13,6 +13,7 @@
  *   AT-ADM-009  runLoop refuses to start when admission control fails
  *   AT-ADM-010  owned_by role routed but non-writing → ADM-004 error
  *   AT-ADM-011  manual owned_by role remains valid even if review_only
+ *   AT-ADM-012  mcp tool_defined review_only does not false-fail ADM-001
  */
 
 import { describe, it } from 'node:test';
@@ -438,6 +439,32 @@ describe('AT-ADM-011: Manual owned_by role remains valid', () => {
     const result = runAdmissionControl(config, config);
     assert.equal(result.ok, true);
     assert.ok(!result.errors.some(e => e.includes('ADM-004')));
+  });
+});
+
+// ── AT-ADM-012: mcp tool_defined review_only remains non-failing ───────────
+
+describe('AT-ADM-012: MCP tool_defined review_only does not false-fail', () => {
+  it('does not reject a gated phase backed only by mcp review_only roles', () => {
+    const config = makeConfig({
+      roles: {
+        reviewer: { title: 'Reviewer', mandate: 'review', write_authority: 'review_only', runtime: 'rt_mcp' },
+      },
+      runtimes: {
+        rt_mcp: { type: 'mcp', command: ['node', '-e', 'process.exit(0)'] },
+      },
+      routing: {
+        planning: {
+          entry_role: 'reviewer',
+          allowed_next_roles: [],
+          exit_gate: 'planning_gate',
+        },
+      },
+    });
+
+    const result = runAdmissionControl(config, config);
+    assert.equal(result.ok, true, JSON.stringify(result, null, 2));
+    assert.ok(!result.errors.some((e) => e.includes('ADM-001')));
   });
 });
 

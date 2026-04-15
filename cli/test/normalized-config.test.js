@@ -213,6 +213,16 @@ describe('validateV4Config', () => {
     assert.ok(result.errors.some(e => e.includes('review_only') && e.includes('local_cli')));
   });
 
+  it('accepts review_only role with mcp runtime without false binding errors', () => {
+    const result = validateV4Config({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: { qa: { title: 'QA', mandate: 'Test', write_authority: 'review_only', runtime: 'mcp-qa' } },
+      runtimes: { 'mcp-qa': { type: 'mcp', command: ['node', '-e', 'process.exit(0)'] } },
+    });
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
   it('rejects routing referencing unknown role', () => {
     const result = validateV4Config({
       schema_version: '1.0',

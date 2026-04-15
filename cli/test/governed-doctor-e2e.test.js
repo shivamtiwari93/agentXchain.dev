@@ -346,4 +346,28 @@ describe('Governed Doctor E2E', () => {
     assert.equal(mcpCheck.runtime_contract.can_write_files, 'tool_defined');
     assert.equal(mcpCheck.bound_roles[0].effective_write_path, 'tool_defined');
   });
+
+  it('AT-GD-013: mcp review_only gate topology does not false-fail admission control', () => {
+    const root = makeGoverned();
+    const configPath = join(root, 'agentxchain.json');
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+
+    for (const runtimeId of Object.keys(config.runtimes || {})) {
+      config.runtimes[runtimeId] = {
+        type: 'mcp',
+        command: ['node', '-e', 'process.exit(0)'],
+      };
+    }
+    for (const role of Object.values(config.roles || {})) {
+      role.write_authority = 'review_only';
+    }
+
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+    const result = runCli(root, ['doctor', '--json']);
+    const output = JSON.parse(result.stdout);
+    const admissionCheck = output.checks.find((c) => c.id === 'admission_control');
+    assert.ok(admissionCheck, 'Should include admission_control check');
+    assert.notEqual(admissionCheck.level, 'fail', JSON.stringify(admissionCheck, null, 2));
+  });
 });
