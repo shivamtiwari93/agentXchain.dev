@@ -120,6 +120,117 @@ function createGovernedProject() {
   return root;
 }
 
+function createGovernedRepo(repoRoot, repoId, status = 'completed') {
+  mkdirSync(join(repoRoot, '.agentxchain'), { recursive: true });
+
+  writeJson(join(repoRoot, 'agentxchain.json'), {
+    schema_version: '1.0',
+    template: 'generic',
+    project: { id: repoId, name: repoId, default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Implement safely.',
+        write_authority: 'authoritative',
+        runtime: 'local-dev',
+      },
+    },
+    runtimes: {
+      'local-dev': {
+        type: 'local_cli',
+        command: ['echo', '{prompt}'],
+        prompt_transport: 'argv',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev'],
+      },
+    },
+    gates: {},
+    hooks: {},
+  });
+
+  writeJson(join(repoRoot, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: repoId,
+    run_id: `run_${repoId}_001`,
+    status,
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 0,
+    blocked_on: null,
+    phase_gate_status: {},
+    budget_status: {},
+    protocol_mode: 'governed',
+  });
+
+  writeJsonl(join(repoRoot, '.agentxchain', 'history.jsonl'), [
+    { turn_id: 'turn_000', role: 'dev', status: 'completed' },
+  ]);
+  writeJsonl(join(repoRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+    { id: 'DEC-001', statement: 'Repo ready.' },
+  ]);
+}
+
+function createCompletedCoordinatorWorkspace() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-verify-diff-coord-'));
+  createGovernedRepo(join(root, 'repos', 'web'), 'web-app', 'completed');
+  createGovernedRepo(join(root, 'repos', 'api'), 'api-service', 'completed');
+
+  writeJson(join(root, 'agentxchain-multi.json'), {
+    schema_version: '0.1',
+    project: { id: 'coord-verify-diff', name: 'Coordinator Verify Diff' },
+    repos: {
+      web: { path: './repos/web', default_branch: 'main', required: true },
+      api: { path: './repos/api', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      sync: {
+        phase: 'implementation',
+        repos: ['web', 'api'],
+        entry_repo: 'web',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'sync' },
+    },
+    gates: {},
+    hooks: {},
+  });
+
+  mkdirSync(join(root, '.agentxchain', 'multirepo'), { recursive: true });
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_verify_diff_001',
+    project_id: 'coord-verify-diff',
+    status: 'completed',
+    phase: 'implementation',
+    repo_runs: {
+      web: { run_id: 'run_web-app_001', status: 'completed', phase: 'implementation' },
+      api: { run_id: 'run_api-service_001', status: 'completed', phase: 'implementation' },
+    },
+    pending_gate: null,
+    phase_gate_status: {},
+    created_at: '2026-04-15T00:00:00Z',
+    updated_at: '2026-04-15T00:00:00Z',
+  });
+  writeJson(join(root, '.agentxchain', 'multirepo', 'barriers.json'), {});
+  writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [
+    { type: 'run_completed', super_run_id: 'srun_verify_diff_001', timestamp: '2026-04-15T00:00:00Z' },
+  ]);
+  writeJsonl(join(root, '.agentxchain', 'multirepo', 'decision-ledger.jsonl'), [
+    { id: 'DEC-COORD-001', statement: 'Coordinator completed.' },
+  ]);
+  writeJsonl(join(root, '.agentxchain', 'multirepo', 'barrier-ledger.jsonl'), []);
+
+  return root;
+}
+
 function exportArtifact(cwd, outputName) {
   const outputPath = join(cwd, outputName);
   const result = runCli(cwd, ['export', '--output', outputPath]);
@@ -226,6 +337,56 @@ describe('verify diff CLI', () => {
       const parsed = JSON.parse(result.stdout);
       assert.equal(parsed.overall, 'error');
       assert.match(parsed.message, /Export kinds do not match/i);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DIFF-006: completed coordinator child drift passes because the comparison is terminal observability', () => {
+    const root = createCompletedCoordinatorWorkspace();
+    try {
+      const left = exportArtifact(root, 'left.json');
+
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1',
+        super_run_id: 'srun_verify_diff_001',
+        project_id: 'coord-verify-diff',
+        status: 'completed',
+        phase: 'implementation',
+        repo_runs: {
+          web: { run_id: 'run_web-app_001', status: 'completed', phase: 'implementation' },
+          api: { run_id: 'run_api-service_001', status: 'failed', phase: 'implementation' },
+        },
+        pending_gate: null,
+        phase_gate_status: {},
+        created_at: '2026-04-15T00:00:00Z',
+        updated_at: '2026-04-15T00:05:00Z',
+      });
+      writeJson(join(root, 'repos', 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api-service',
+        run_id: 'run_api-service_001',
+        status: 'failed',
+        phase: 'implementation',
+        active_turns: {},
+        retained_turns: {},
+        turn_sequence: 0,
+        blocked_on: null,
+        phase_gate_status: {},
+        budget_status: {},
+        protocol_mode: 'governed',
+      });
+
+      const right = exportArtifact(root, 'right.json');
+      const result = runCli(root, ['verify', 'diff', left, right, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.overall, 'pass');
+      assert.ok(parsed.diff, 'diff should still be constructed');
+      assert.equal(parsed.diff.subject_kind, 'coordinator');
+      assert.equal(parsed.diff.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), true);
+      assert.equal(parsed.diff.has_regressions, false);
+      assert.equal(parsed.diff.regressions.some((entry) => entry.category === 'repo_status'), false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

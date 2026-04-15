@@ -554,40 +554,43 @@ function detectCoordinatorRegressions(left, right) {
   // Start with the run-level regressions that apply to coordinator summaries
   const regressions = detectRunRegressions(left, right);
   let counter = regressions.length;
+  const terminalComparison = left.status === 'completed' && right.status === 'completed';
 
   // Repo status regressions: child repo success/non-terminal -> blocked/failed
-  const allRepoIds = new Set([...Object.keys(left.repo_run_statuses || {}), ...Object.keys(right.repo_run_statuses || {})]);
-  for (const repoId of allRepoIds) {
-    const leftStatus = (left.repo_run_statuses || {})[repoId] || null;
-    const rightStatus = (right.repo_run_statuses || {})[repoId] || null;
-    if (leftStatus && rightStatus && !BLOCKED_OR_FAILED_STATUSES.has(leftStatus) && BLOCKED_OR_FAILED_STATUSES.has(rightStatus)) {
-      regressions.push({
-        id: `REG-REPO-STATUS-${String(++counter).padStart(3, '0')}`,
-        category: 'repo_status',
-        severity: 'error',
-        message: `Child repo "${repoId}" status regressed from ${leftStatus} to ${rightStatus}`,
-        field: `repo_run_statuses.${repoId}`,
-        left: leftStatus,
-        right: rightStatus,
-      });
+  if (!terminalComparison) {
+    const allRepoIds = new Set([...Object.keys(left.repo_run_statuses || {}), ...Object.keys(right.repo_run_statuses || {})]);
+    for (const repoId of allRepoIds) {
+      const leftStatus = (left.repo_run_statuses || {})[repoId] || null;
+      const rightStatus = (right.repo_run_statuses || {})[repoId] || null;
+      if (leftStatus && rightStatus && !BLOCKED_OR_FAILED_STATUSES.has(leftStatus) && BLOCKED_OR_FAILED_STATUSES.has(rightStatus)) {
+        regressions.push({
+          id: `REG-REPO-STATUS-${String(++counter).padStart(3, '0')}`,
+          category: 'repo_status',
+          severity: 'error',
+          message: `Child repo "${repoId}" status regressed from ${leftStatus} to ${rightStatus}`,
+          field: `repo_run_statuses.${repoId}`,
+          left: leftStatus,
+          right: rightStatus,
+        });
+      }
     }
-  }
 
-  // Repo export regressions: ok true -> false
-  const allExportRepoIds = new Set([...Object.keys(left.repo_export_status || {}), ...Object.keys(right.repo_export_status || {})]);
-  for (const repoId of allExportRepoIds) {
-    const leftOk = (left.repo_export_status || {})[repoId];
-    const rightOk = (right.repo_export_status || {})[repoId];
-    if (leftOk === true && rightOk === false) {
-      regressions.push({
-        id: `REG-REPO-EXPORT-${String(++counter).padStart(3, '0')}`,
-        category: 'repo_export',
-        severity: 'error',
-        message: `Child repo "${repoId}" export regressed from ok to failed`,
-        field: `repo_export_status.${repoId}`,
-        left: true,
-        right: false,
-      });
+    // Repo export regressions: ok true -> false
+    const allExportRepoIds = new Set([...Object.keys(left.repo_export_status || {}), ...Object.keys(right.repo_export_status || {})]);
+    for (const repoId of allExportRepoIds) {
+      const leftOk = (left.repo_export_status || {})[repoId];
+      const rightOk = (right.repo_export_status || {})[repoId];
+      if (leftOk === true && rightOk === false) {
+        regressions.push({
+          id: `REG-REPO-EXPORT-${String(++counter).padStart(3, '0')}`,
+          category: 'repo_export',
+          severity: 'error',
+          message: `Child repo "${repoId}" export regressed from ok to failed`,
+          field: `repo_export_status.${repoId}`,
+          left: true,
+          right: false,
+        });
+      }
     }
   }
 

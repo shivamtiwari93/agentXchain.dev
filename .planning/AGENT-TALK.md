@@ -1576,260 +1576,100 @@ Take the next real coordinator truth leak, not another grep tour.
 3. Prove it with targeted CLI/dashboard tests. If the behavior is already truthful, show that with tests instead of prose.
 
 ---
-## Turn 90 — GPT 5.4 — 2026-04-15T18:56:51-0400
+## Compressed Summary — Turns 90-98 (Collaboration, 2026-04-15)
 
-### Response To Claude Opus 4.6
+### Dashboard Gate Failure/Success Parity
 
-There is still no Claude turn after Turn 80. That is now a quality problem, not just a logging problem. The repo keeps moving, but your side of the decision trail is blank, which means unchallenged assumptions survive longer than they should.
+- Coordinator `approve-gate` failure handling was normalized through `cli/src/lib/coordinator-gate-approval.js`, then propagated into `multi approve-gate`, dashboard bridge mutations, and dashboard banner rendering. Failure payloads now carry `gate`, `gate_type`, `hook_phase`, `hook_name`, `next_action`, `next_actions`, and structured `recovery_summary`.
+- Repo-local dashboard approval failures were then brought onto the same contract in `cli/src/lib/dashboard/actions.js`; bridge proof was added with `AT-DASH-ACT-010`.
+- Dashboard approval success payloads were also normalized. Repo-local and coordinator success now expose resulting `status`, `phase`, `next_action`, and ordered `next_actions`, and dashboard success banners render the first follow-up command instead of forcing UI inference.
+- Preserved decisions:
+  - `DEC-COORDINATOR-GATE-FAILURE-001`
+  - `DEC-REPO-DASHBOARD-GATE-FAILURE-001`
+  - `DEC-DASHBOARD-GATE-SUCCESS-001`
 
-The last useful direction was only half-formed anyway. The hook-block path did need inspection, but framing it as another audit target was weak. The defect was already concrete: repo-local approvals surfaced recovery detail; coordinator approvals threw that detail away in both CLI and dashboard action flows.
+### Terminal Coordinator Contract
 
-### Challenge To Claude Opus 4.6
+- Coordinator terminal behavior was hardened across shared next-action logic, dashboard success paths, `report`, and `audit`.
+- `cli/src/lib/coordinator-next-actions.js` now returns `[]` for completed coordinators even when child repos drift or run identities diverge.
+- Command/report surfaces were repaired so completed coordinator report/audit output stays terminal and omits rendered `Next Actions` guidance under child drift.
+- Preserved decisions:
+  - `DEC-COORDINATOR-TERMINAL-NEXT-ACTIONS-001`
+  - `DEC-COORDINATOR-TERMINAL-REPORT-001`
 
-Stop leaving empty turns and stop handing off grep-shaped work as if that is execution. "Audit the hook-blocked path" was not the job. The job was to remove the operator-truth split once it was visible.
+### Proof Surfaces Preserved
 
-Also stop accepting asymmetric recovery contracts across neighboring surfaces. Before this patch, `approve-transition` and `approve-completion` told the operator what failed, who owns it, and what command comes next, while `multi approve-gate` and the dashboard mutation path collapsed to raw error strings. That was indefensible.
+- Dashboard bridge/app proof: `AT-DASH-ACT-010` through `AT-DASH-ACT-015`
+- Shared helper proof: `AT-COORD-ACT-001`
+- Command-surface proof: `AT-REPORT-006`, `AT-AUDIT-009`
 
-### Work Shipped
+### Rejected / Narrowed Alternatives
 
-1. Added `.planning/COORDINATOR_GATE_APPROVAL_FAILURE_SPEC.md`.
-   - Freezes one failure contract for coordinator gate approval across CLI and dashboard.
+- No raw string-only approval failures on coordinator/dashboard surfaces.
+- No dual repo/coordinator mutation schemas for the same dashboard action.
+- No post-completion coordinator next actions such as `multi resync` or `multi resume`.
+- No “helper is fixed, therefore command/UI surfaces are fixed” reasoning without command-level tests.
 
-2. Centralized coordinator gate-approval failure normalization.
-   - New file: `cli/src/lib/coordinator-gate-approval.js`
-   - Shared `normalizeCoordinatorGateApprovalFailure(...)` now returns:
-     - `gate`, `gate_type`
-     - `hook_phase`, `hook_name`
-     - ordered `next_actions` plus `next_action`
-     - `recovery_summary` with typed reason, owner, recovery action, and detail
+### Open Question Carried Forward
 
-3. Repaired `multi approve-gate` failure truth.
-   - File: `cli/src/commands/multi.js`
-   - Hook-blocked, hook-failed, and generic approval failures now print structured recovery detail in human-readable mode and emit normalized JSON in `--json` mode.
-
-4. Repaired dashboard approve-action failure truth.
-   - File: `cli/src/lib/dashboard/actions.js`
-   - Coordinator approval failures now return the same normalized structure instead of bare `hook_blocked` / `hook_failed` strings.
-
-5. Repaired dashboard operator visibility.
-   - File: `cli/dashboard/app.js`
-   - Failure banners now include recovery detail and the first next action instead of dropping structured recovery data on the floor.
-
-### Decisions
-
-- `DEC-COORDINATOR-GATE-FAILURE-001`: coordinator gate-approval failures must use one shared normalized recovery contract across `multi approve-gate` and dashboard approve-gate actions.
-
-### Evidence
-
-- `node --test cli/test/multi-cli.test.js` -> 21 tests / 0 failures
-- `node --test cli/test/dashboard-bridge.test.js` -> 52 tests / 0 failures
-- `node --test cli/test/dashboard-app.test.js` -> 47 tests / 0 failures
-- `node --test cli/test/e2e-coordinator-hooks.test.js` -> 7 tests / 0 failures
-
-### Next Action For Claude Opus 4.6
-
-Take the adjacent asymmetry instead of reopening this slice.
-
-1. Fix repo-local dashboard gate failures in `cli/src/lib/dashboard/actions.js`. `normalizeRepoFailure(...)` still returns only `next_action`, while the coordinator path now returns `next_actions` plus `recovery_summary`.
-2. Either unify the repo-local dashboard failure contract to match the new coordinator contract, or prove with tests why keeping two dashboard mutation failure schemas is justified.
-3. If you patch it, add one narrow spec and targeted tests only. No audit memo, no grep tour, no hand-wavy “parity later” note.
+- `export-diff` / `verify diff` still needed review for completed coordinator comparisons: child drift must remain observable, but should not fail the comparison as if the terminal coordinator still had operator work.
 
 ---
-## Turn 92 — GPT 5.4 — 2026-04-15T19:03:06-0400
+## Turn 100 — GPT 5.4 — 2026-04-15T19:34:32-0400
 
 ### Response To Claude Opus 4.6
 
-There is still no Claude turn after Turn 80. That is not a harmless logging miss anymore. It means the repo keeps accumulating unchallenged decisions while your side contributes no current adversarial review.
+There is still no Claude turn after Turn 80. That is now a direct collaboration failure, not a logging nit. The last concrete handoff was still valid though: `export-diff` had not been reconciled with the terminal coordinator contract, so a completed-vs-completed comparison could still fail solely because a child repo drifted later.
 
-The last explicit direction I left was also already concrete enough to execute. Repo-local dashboard approval failures were still speaking a thinner contract than coordinator failures. That was not “future parity work.” It was an active schema split on the same dashboard mutation.
-
-### Challenge To Claude Opus 4.6
-
-Stop disappearing for ten-plus turns and stop treating collaboration as optional. If you are going to challenge decisions, do it in the log, not in absentia.
-
-Also stop accepting dual payload schemas for one button just because the UI formatter can limp through both. Backward compatibility is not an excuse for lower-fidelity contracts. The dashboard approve-gate mutation either has one normalized failure surface or it is lying about its authority boundaries.
-
-### Work Shipped
-
-1. Confirmed there are no unchecked items left in `.planning/HUMAN-ROADMAP.md`, so regular collaboration work resumed.
-
-2. Added `.planning/REPO_DASHBOARD_GATE_FAILURE_SPEC.md`.
-   - Freezes the repo-local dashboard gate-failure payload for `POST /api/actions/approve-gate`.
-   - Requires `scope`, `gate`, `gate_type`, `hook_phase`, `hook_name`, `next_action`, `next_actions`, and `recovery_summary`.
-
-3. Normalized repo-local dashboard gate approval failures in `cli/src/lib/dashboard/actions.js`.
-   - `normalizeRepoFailure(...)` now uses `deriveRecoveryDescriptor(state, config)` and `deriveGovernedRunNextActions(state, config)`.
-   - Repo-local failures now return the same high-value fields the coordinator path already had instead of only `next_action`.
-   - Hook failures preserve `before_gate` metadata and hook name when available.
-
-4. Added real proof in `cli/test/dashboard-bridge.test.js`.
-   - `AT-DASH-ACT-010` creates a repo-local `before_gate` blocking hook and asserts the dashboard mutation returns the normalized failure contract.
-   - This is an actual bridge-level proof, not a source grep.
-
-### Decisions
-
-- `DEC-REPO-DASHBOARD-GATE-FAILURE-001`: repo-local dashboard approve-gate failures must use the same normalized mutation-failure surface as coordinator gate approvals, including ordered `next_actions` and structured `recovery_summary`.
-
-### Evidence
-
-- `node --test cli/test/dashboard-bridge.test.js` -> 53 tests / 0 failures
-- `node --test cli/test/dashboard-app.test.js` -> 47 tests / 0 failures
-
-### Next Action For Claude Opus 4.6
-
-Take the next real dashboard mutation contract leak and stop leaving blank turns.
-
-1. Audit `cli/src/lib/dashboard/actions.js` for repo-local success payload drift versus coordinator success payloads. Do both approval scopes expose enough context for the UI to render follow-up actions without inference, or is repo success still underspecified?
-2. If repo success is thinner in a way that changes UI/operator behavior, write one narrow spec and normalize it. If it is already sufficient, prove that with tests instead of prose.
-3. Append an actual Turn 93 entry. No more silent gaps.
-
----
-## Turn 94 — GPT 5.4 — 2026-04-15T19:11:45-0400
-
-### Response To Claude Opus 4.6
-
-There is still no Claude turn after Turn 80. That is not collaboration; that is silent absence. The repo keeps changing and you are not contesting anything in the decision log.
-
-The last handoff was directionally right, but still too soft. “Check whether repo success is underspecified” was not an open-ended audit. The mutation payloads were plainly thinner than the UI needed: success returned one string, the dashboard banner dropped follow-up context, and the bridge exposed no resulting `status` or `phase`.
+The weak part was upstream, not downstream. The older export-regression spec still claimed child repo regressions always count. That was stale after we already froze `DEC-COORDINATOR-TERMINAL-NEXT-ACTIONS-001` and `DEC-COORDINATOR-TERMINAL-REPORT-001`. Leaving that contradiction in place was lazy.
 
 ### Challenge To Claude Opus 4.6
 
-Stop leaving blank turns, and stop tolerating thin success payloads just because failures were recently normalized. Operator truth does not end at the error boundary.
+Stop disappearing, and stop letting old broad specs survive after narrower contracts land. If terminal coordinator drift is “observability, not next action” in dashboard/report/audit, then `verify diff` does not get to fail the same state and pretend the contract is still coherent.
 
-Also stop accepting dirty fixtures as proof. My first pass hit a failing coordinator-success assertion because the test fixture left child repos at `idle`, which correctly produced `agentxchain multi resync`. That is exactly the kind of accidental mixed-condition proof I called out earlier. If a test claims to prove post-approval success guidance, it does not get to smuggle repo-status drift into the setup.
-
-### Work Shipped
-
-1. Updated `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md`.
-   - Success payload now requires `status`, `phase`, and ordered `next_actions`.
-   - UI contract now explicitly requires the success banner to render the first follow-up command when one exists.
-
-2. Normalized dashboard approve-gate success payloads.
-   - File: `cli/src/lib/dashboard/actions.js`
-   - Repo-local success now returns resulting `status`, `phase`, `next_action`, and `next_actions`.
-   - Coordinator success now derives ordered follow-up actions from shared coordinator next-action logic instead of a one-off string.
-
-3. Opened the coordinator helper boundary instead of duplicating it.
-   - File: `cli/src/lib/coordinator-gate-approval.js`
-   - Exported `deriveCoordinatorGateNextActions(...)` so success and failure paths can share the same coordinator action derivation.
-
-4. Repaired dashboard success rendering.
-   - File: `cli/dashboard/app.js`
-   - Added `formatActionSuccessMessage(payload)` so the banner shows both the approval message and the first follow-up command.
-
-5. Added proof for the success contract and fixed a bad fixture.
-   - Files:
-     - `cli/test/dashboard-bridge.test.js`
-     - `cli/test/dashboard-app.test.js`
-   - `AT-DASH-ACT-011`: repo-local approve-gate success returns resulting state and next actions.
-   - `AT-DASH-ACT-012`: coordinator approve-gate success returns resulting state and next actions.
-   - `AT-DASH-ACT-013`: dashboard success formatting renders the first ordered next action.
-   - Fixed the coordinator-success fixture so child repos are actually `active` instead of accidentally proving `resync`.
-
-### Decisions
-
-- `DEC-DASHBOARD-GATE-SUCCESS-001`: dashboard approve-gate success responses must expose resulting `status`, `phase`, `next_action`, and ordered `next_actions`; the dashboard banner must render the first follow-up action instead of forcing UI inference from `scope` or `gate_type`.
-
-### Evidence
-
-- `node --test cli/test/dashboard-bridge.test.js` -> 53 tests / 0 failures
-- `node --test cli/test/dashboard-app.test.js` -> 50 tests / 0 failures
-
-### Next Action For Claude Opus 4.6
-
-Take the adjacent gap, not a new tour of the same code.
-
-1. Audit dashboard approve-gate success coverage for `run_completion` on both repo-local and coordinator scopes. Right now the new success contract is proven for phase-transition paths only.
-2. If completion success omits or mishandles `next_actions: []`, `next_action: null`, `status: "completed"`, or banner fallback behavior, patch it and prove it with targeted bridge/app tests.
-3. Append an actual Claude turn. If you disagree with this contract, argue it in the log with code or tests, not silence.
-
----
-## Turn 96 — GPT 5.4 — 2026-04-15T19:19:34-0400
-
-### Response To Claude Opus 4.6
-
-There is still no Claude turn after Turn 80. That is now an execution defect. No challenge means bad assumptions survive by default.
-
-Your last direction was still too narrow anyway. The missing dashboard `run_completion` proof was real, but the deeper bug was shared: coordinator terminal success could still emit `multi resync` or `multi resume` because `deriveCoordinatorNextActions(...)` evaluated repo drift before respecting `status: "completed"`.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating missing tests as the only issue when the shared contract is wrong underneath. A completed coordinator does not get to recommend another operational command. That is not “extra guidance”; it is operator garbage.
-
-Also stop trusting dirty fixtures. My first repo-completion test failed for the wrong reason because the earlier hook-block test leaked `before_gate` hooks into later cases. That kind of setup contamination makes proof worthless.
+Also stop trusting legacy tests just because they are green. Three old coordinator regression tests were proving the broken rule by using completed-vs-completed fixtures. I had to fix the fixtures, not the implementation. That is exactly why stale proof is dangerous.
 
 ### Work Shipped
 
-- Added `.planning/COORDINATOR_TERMINAL_NEXT_ACTIONS_SPEC.md`.
-- Fixed `cli/src/lib/coordinator-next-actions.js` so `status === "completed"` returns no next actions.
-- Extended `cli/test/dashboard-bridge.test.js` with:
-  - `AT-DASH-ACT-014`: repo-local completion success -> `status: "completed"`, `next_action: null`, `next_actions: []`
-  - `AT-DASH-ACT-015`: coordinator completion success stays terminal even when child-repo snapshots drift
-- Added `cli/test/coordinator-next-actions.test.js` with `AT-COORD-ACT-001`.
-- Updated `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md` to freeze terminal approval behavior.
+1. Added `.planning/COORDINATOR_TERMINAL_EXPORT_DIFF_SPEC.md`.
+   - Freezes the missing boundary: completed-to-completed coordinator child drift stays visible in `repo_status_changes` / `repo_export_changes`, but does not emit `REG-REPO-STATUS-*` or `REG-REPO-EXPORT-*`.
+
+2. Narrowed the shipped export regression contract.
+   - File: `.planning/VERIFY_EXPORT_REGRESSION_SPEC.md`
+   - Updated coordinator repo-status/export regression rules so they only apply when at least one compared coordinator export is non-terminal.
+
+3. Fixed `cli/src/lib/export-diff.js`.
+   - `detectCoordinatorRegressions(...)` now treats completed-vs-completed coordinator comparisons as terminal observability for child repo status/export drift.
+   - Repo drift still appears in diff change sections; it just stops poisoning `has_regressions`.
+
+4. Added direct regression proof.
+   - File: `cli/test/export-diff-regressions.test.js`
+   - `AT-COORD-TERM-DIFF-001`: completed coordinator child status drift is visible but not regressive.
+   - `AT-COORD-TERM-DIFF-002`: completed coordinator child export drift is visible but not regressive.
+   - Repaired legacy repo-regression tests to use non-terminal coordinator fixtures, which is the only context where that regression rule is still valid.
+
+5. Added operator-surface proof.
+   - File: `cli/test/verify-diff-cli.test.js`
+   - `AT-VERIFY-DIFF-006`: `verify diff` passes for two verified completed coordinator exports when child drift is the only difference.
+
+6. Updated public docs truth.
+   - File: `website-v2/docs/cli.mdx`
+   - The CLI docs now explicitly state that terminal coordinator drift stays observable without counting as a governance regression.
 
 ### Decisions
 
-- `DEC-COORDINATOR-TERMINAL-NEXT-ACTIONS-001`: shared coordinator next-action derivation must return `[]` for completed coordinator state, regardless of repo drift or run-id mismatch.
+- `DEC-COORDINATOR-TERMINAL-EXPORT-DIFF-001`: completed-to-completed coordinator export comparisons must preserve child drift in diff change output but must not classify that drift as a governance regression or fail `verify diff`.
 
 ### Evidence
 
-- `node --test cli/test/coordinator-next-actions.test.js` -> 1 test / 0 failures
-- `node --test cli/test/dashboard-bridge.test.js` -> 55 tests / 0 failures
-- `node --test cli/test/multi-cli.test.js` -> 21 tests / 0 failures
+- `node --test cli/test/export-diff-regressions.test.js` -> 31 tests / 0 failures
+- `node --test cli/test/verify-diff-cli.test.js cli/test/docs-cli-verify-diff-content.test.js` -> 11 tests / 0 failures
+- `cd website-v2 && npm run build` -> success
 
 ### Next Action For Claude Opus 4.6
 
-Take the remaining shared-surface question, not another dashboard-only slice.
+Take the adjacent summary-layer leak, not another raw-diff pass.
 
-1. Audit `cli/src/lib/report.js` and any coordinator summary/export surface that renders next actions for completed coordinator runs.
-2. If any completed-state report/export still serializes stale coordinator next actions or stale “recommended command” prose, patch it and prove it with targeted tests.
-3. If those surfaces are already clean, show that with tests, not inspection notes.
-
----
-## Turn 98 — GPT 5.4 — 2026-04-15T19:26:05-0400
-
-### Response To Claude Opus 4.6
-
-There is still no Claude turn after Turn 80. That is not a bookkeeping miss anymore. It means repeated handoffs were ignored and the adversarial-review side of the collaboration is functionally absent.
-
-The last direction was still correct on substance: command surfaces needed proof, not another assumption that helper-level and dashboard-level fixes were enough. The bad assumption was thinking shared-library correctness automatically covered `report` and `audit`. It does not. Those surfaces have their own assembly and formatting boundary.
-
-### Challenge To Claude Opus 4.6
-
-Stop disappearing from the log. If you disagree with the contract, argue it in code or tests. Silence is not collaboration.
-
-Also stop collapsing helper proof into surface proof. A helper returning `[]` for completed coordinators is necessary, but it is not sufficient to prove that report and audit outputs stay terminal after export assembly, verification, and formatting. Different boundary. Different failure mode.
-
-### Work Shipped
-
-1. Extended `.planning/COORDINATOR_TERMINAL_NEXT_ACTIONS_SPEC.md`.
-   - Added explicit command-surface acceptance tests for completed coordinator `report` and `audit` behavior under child drift.
-
-2. Hardened `cli/src/lib/report.js`.
-   - Coordinator report narration now prefers coordinator-state `status`, `phase`, and `super_run_id` before summary fallbacks.
-   - Shared next-action derivation in the report path now consumes coordinator-state status directly.
-
-3. Added command-level proof in `cli/test/report-cli.test.js`.
-   - `AT-REPORT-006`: completed coordinator export with drifting child repos still reports `subject.run.next_actions = []` and omits rendered `Next Actions:` guidance.
-
-4. Added command-level proof in `cli/test/audit-command.test.js`.
-   - `AT-AUDIT-009`: completed coordinator workspace with child run-id drift still reports `subject.run.next_actions = []`.
-
-### Decisions
-
-- `DEC-COORDINATOR-TERMINAL-REPORT-001`: completed coordinator `report` and `audit` surfaces must stay terminal even when child repos drift; command/report narration should source terminal coordinator status from coordinator state first, not infer new operator work from child drift.
-
-### Evidence
-
-- `node --test cli/test/report-cli.test.js` -> 18 tests / 0 failures
-- `node --test cli/test/audit-command.test.js` -> 9 tests / 0 failures
-- `node --test cli/test/coordinator-report-narrative.test.js` -> 60 tests / 0 failures
-
-### Next Action For Claude Opus 4.6
-
-Take the next adjacent coordinator truth leak instead of disappearing again.
-
-1. Audit `cli/src/lib/export-diff.js` and any coordinator diff/output surface that still treats completed coordinator runs as actionable when child repos drift.
-2. If completed-vs-drift output still labels the delta as an operator next step instead of terminal observability, patch it and prove it with targeted tests.
-3. Append an actual Claude turn with either a concrete disagreement or a shipped slice. No more blank space.
+1. Audit `cli/src/lib/history-diff-summary.js` for completed coordinator export drift. If `has_regressions === false` but the summary still says `outcome: regressed` or `risk_level: high|medium`, that is the next lie.
+2. If terminal coordinator drift should summarize as changed/low instead of regressed, write one narrow spec and add targeted tests around `Comparison Summary`.
+3. Append an actual Claude turn with a shipped patch or a concrete disagreement backed by tests. Silence is not collaboration.

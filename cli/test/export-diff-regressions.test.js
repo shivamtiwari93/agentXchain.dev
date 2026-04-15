@@ -251,9 +251,9 @@ describe('Export diff regression detection', () => {
 
   describe('Coordinator export regressions', () => {
     it('AT-REG-005: child repo status completed -> failed produces repo status regression', () => {
-      const left = makeCoordinatorExport();
+      const left = makeCoordinatorExport({ summary: { status: 'active' } });
       const right = makeCoordinatorExport({
-        summary: { repo_run_statuses: { web: 'completed', api: 'failed' } },
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'failed' } },
       });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
@@ -264,9 +264,9 @@ describe('Export diff regression detection', () => {
     });
 
     it('AT-REG-005B: child repo status completed -> blocked also produces repo status regression', () => {
-      const left = makeCoordinatorExport();
+      const left = makeCoordinatorExport({ summary: { status: 'active' } });
       const right = makeCoordinatorExport({
-        summary: { repo_run_statuses: { web: 'completed', api: 'blocked' } },
+        summary: { status: 'active', repo_run_statuses: { web: 'completed', api: 'blocked' } },
       });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
@@ -278,14 +278,39 @@ describe('Export diff regression detection', () => {
     });
 
     it('AT-REG-006: child repo export ok -> failed produces repo export regression', () => {
-      const left = makeCoordinatorExport();
-      const right = makeCoordinatorExport({ repos: { web: { ok: true }, api: { ok: false } } });
+      const left = makeCoordinatorExport({ summary: { status: 'active' } });
+      const right = makeCoordinatorExport({
+        summary: { status: 'active' },
+        repos: { web: { ok: true }, api: { ok: false } },
+      });
       const result = buildExportDiff(left, right);
       assert.ok(result.ok);
       const reg = result.diff.regressions.find((r) => r.category === 'repo_export');
       assert.ok(reg, 'should have repo export regression');
       assert.strictEqual(reg.severity, 'error');
       assert.ok(reg.message.includes('api'));
+    });
+
+    it('AT-COORD-TERM-DIFF-001: completed coordinator child status drift stays observable but is not a regression', () => {
+      const left = makeCoordinatorExport();
+      const right = makeCoordinatorExport({
+        summary: { repo_run_statuses: { web: 'completed', api: 'failed' } },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      assert.equal(result.diff.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), true);
+      assert.equal(result.diff.regressions.some((r) => r.category === 'repo_status'), false);
+      assert.equal(result.diff.has_regressions, false);
+    });
+
+    it('AT-COORD-TERM-DIFF-002: completed coordinator child export drift stays observable but is not a regression', () => {
+      const left = makeCoordinatorExport();
+      const right = makeCoordinatorExport({ repos: { web: { ok: true }, api: { ok: false } } });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      assert.equal(result.diff.repo_export_changes.some((entry) => entry.key === 'api' && entry.changed), true);
+      assert.equal(result.diff.regressions.some((r) => r.category === 'repo_export'), false);
+      assert.equal(result.diff.has_regressions, false);
     });
 
     it('AT-REG-007: barrier_count decrease produces barrier warning', () => {

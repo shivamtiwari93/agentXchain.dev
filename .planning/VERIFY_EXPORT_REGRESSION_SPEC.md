@@ -56,10 +56,12 @@ All run-level regressions apply to the coordinator summary, plus:
 
 | ID Pattern | Category | Trigger | Severity |
 |---|---|---|---|
-| REG-REPO-STATUS-* | repo_status | Any child repo `status` changes from `completed` to `failed`/`error`/`crashed` | error |
-| REG-REPO-EXPORT-* | repo_export | Any child repo `export.ok` changes from `true` to `false` | error |
+| REG-REPO-STATUS-* | repo_status | Any child repo `status` changes from `completed` to `failed`/`error`/`crashed`, but only when either compared coordinator export is non-terminal | error |
+| REG-REPO-EXPORT-* | repo_export | Any child repo `export.ok` changes from `true` to `false`, but only when either compared coordinator export is non-terminal | error |
 | REG-BARRIER-* | barrier | `barrier_count` decreases (barriers removed between runs) | warning |
 | REG-EVENT-LOSS-* | events | `total_events` decreases between exports | warning |
+
+When both coordinator exports are already `completed`, child repo drift remains visible in `repo_status_changes` / `repo_export_changes` but does not count as a governance regression. That comparison is terminal observability, not operator-actionable recovery.
 
 ### Severity Levels
 
@@ -96,6 +98,8 @@ The regression detector must not flag:
 11. **AT-REG-011**: No regressions when status improves (`failed → completed`)
 12. **AT-REG-012**: Run export with `phase_gate_status` gate regression produces gate error
 13. **AT-REG-013**: Run export with new delegation `missing_decision_ids` produces delegation-contract regression
+14. **AT-COORD-TERM-DIFF-001**: Completed-to-completed coordinator child status drift appears in change output but does not emit `REG-REPO-STATUS-*`
+15. **AT-COORD-TERM-DIFF-002**: Completed-to-completed coordinator child export drift appears in change output but does not emit `REG-REPO-EXPORT-*`
 
 ## Open Questions
 
