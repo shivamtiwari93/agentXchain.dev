@@ -6,7 +6,7 @@ Reject governed configs that **cannot possibly reach completion** before wasting
 
 ## Scope
 
-Admission control detects three classes of dead-end configs:
+Admission control detects four classes of dead-end configs:
 
 ### ADM-001: No file producer for gated phase
 
@@ -28,6 +28,17 @@ This means the run will always pause at a `pending_phase_transition` or `pending
 
 **Important nuance:** This is a *warning*, not a hard error. Many projects intentionally require human approval via external tooling (CLI `approve-transition`, dashboard, CI webhook). ADM-003 flags configs where no *in-config* manual path exists, as a "did you mean to do this?" check.
 
+### ADM-004: Owned artifact owner cannot write
+
+A required `workflow_kit` artifact declares `owned_by: <role>`, that role is reachable in phase routing, but the owner still cannot produce files:
+
+- `write_authority: review_only`
+- and runtime type is **not** `manual`
+
+This is distinct from ADM-001. ADM-001 asks whether *any* routed role can satisfy the phase's file gate. ADM-004 asks whether the **specific declared owner** can satisfy the ownership contract for its artifact.
+
+**Manual-runtime nuance:** `manual` runtimes remain exempt even when `write_authority: review_only`, because the human operator edits files directly outside the automated adapter path. The ownership contract is still reachable in that case.
+
 ## Interface
 
 ```javascript
@@ -37,7 +48,7 @@ export function runAdmissionControl(config, rawConfig) → AdmissionResult
 // AdmissionResult:
 {
   ok: boolean,           // true if no errors (warnings are ok)
-  errors: string[],      // ADM-001, ADM-002 — hard rejections
+  errors: string[],      // ADM-001, ADM-002, ADM-004 — hard rejections
   warnings: string[],    // ADM-003 — soft advisories
 }
 ```
@@ -46,7 +57,7 @@ export function runAdmissionControl(config, rawConfig) → AdmissionResult
 
 1. `runAdmissionControl` is a **pure function** — no filesystem access, no state reads.
 2. It operates on the normalized config + raw config (for `workflow_kit`, `gates`, `approval_policy`).
-3. It returns errors for ADM-001 and ADM-002 (these are provably dead-end).
+3. It returns errors for ADM-001, ADM-002, and ADM-004 (these are provably dead-end).
 4. It returns warnings for ADM-003 (legitimate use cases exist).
 5. The function uses `getEffectiveGateArtifacts` from `gate-evaluator.js` to merge gate `requires_files` with `workflow_kit` artifacts, ensuring consistent artifact resolution.
 
@@ -59,7 +70,7 @@ export function runAdmissionControl(config, rawConfig) → AdmissionResult
 ## Error Cases
 
 - Config with no routing → skip all checks (nothing to evaluate)
-- Config with no gates → skip ADM-001/ADM-002 (no gated phases)
+- Config with no gates → skip ADM-001/ADM-002/ADM-004 (no gated phases)
 - Role references non-existent runtime → skip that role (already caught by config validation)
 - Empty `requires_files` + no workflow_kit artifacts → phase passes trivially, skip
 
@@ -74,6 +85,8 @@ export function runAdmissionControl(config, rawConfig) → AdmissionResult
 - AT-ADM-007: Config with no gates → clean pass
 - AT-ADM-008: Config with workflow_kit artifacts (not just requires_files) → ADM-001 catches
 - AT-ADM-009: runLoop refuses to start when admission control fails
+- AT-ADM-010: Config with reachable `owned_by` role that is `review_only` on non-manual runtime → ADM-004 error
+- AT-ADM-011: Config with reachable `owned_by` role that is `review_only` on `manual` runtime → passes (manual ownership remains reachable)
 
 ## Open Questions
 

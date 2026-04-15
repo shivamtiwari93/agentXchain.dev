@@ -686,7 +686,15 @@ Validation modes:
 | `turn` | Current staged turn result schema, required fields, objection presence, decision ID uniqueness |
 | `full` | Everything in `kickoff` + `turn`, plus history integrity, decision ledger consistency, phase sequence validity, and state file coherence |
 
-For governed projects, `validate` also checks template-registry integrity and the current project's configured template binding. Returns exit code `0` on success, `1` on validation failure with details.
+For governed projects, `validate` also checks template-registry integrity, the current project's configured template binding, and admission-control dead ends before the first turn runs. Admission control fails closed on impossible file-gated topologies such as:
+
+- a gated phase with no routed file producer
+- a required `owned_by` artifact whose owner is not routed into the phase
+- a required `owned_by` artifact whose owner is routed but still cannot write (for example `review_only` on a non-`manual` runtime)
+
+Human-approval topology with no in-config `manual` runtime remains advisory only. `validate` reports that as a warning because external approval through the CLI, dashboard, or webhook is a legitimate operating model.
+
+Returns exit code `0` on success, `1` on validation failure with details.
 
 For governed repos, the output keeps the version axes separate instead of flattening them into one number:
 
@@ -1004,6 +1012,7 @@ Checks governed project readiness for running turns. `doctor` is a static readin
 | State health | `state_health` | `state.json` parses with a recognized schema version |
 | Schedule health | `schedule_health` | Daemon status when schedules are configured (skipped otherwise) |
 | Workflow-kit artifacts | `workflow_kit` | Required artifacts for the current phase exist on disk |
+| Admission control | `admission_control` | Static dead-end detection for impossible gated workflows, unreachable `owned_by` artifacts, and advisory human-approval topology |
 | Plugin health | `plugin_<name>` | Per-plugin: install path exists, manifest valid, hook files present, config env vars set (skipped when no plugins installed) |
 
 Each check produces `pass`, `warn`, or `fail`. Exit code 0 when all checks pass or only warn. Exit code 1 when any check fails.

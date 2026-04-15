@@ -228,6 +228,27 @@ describe('CLI governance docs contract — common sequences', () => {
   });
 });
 
+describe('CLI governance docs contract — admission control truth', () => {
+  it('documents validate as a fail-closed admission-control surface', () => {
+    const validateSection = docs.match(/### `validate`[\s\S]*?(?=\n### `verify turn`)/);
+    assert.ok(validateSection, 'validate section not found');
+    assert.match(validateSection[0], /admission-control dead ends/i);
+    assert.match(validateSection[0], /no routed file producer/i);
+    assert.match(validateSection[0], /owner is not routed into the phase/i);
+    assert.match(validateSection[0], /owner is routed but still cannot write/i);
+    assert.match(validateSection[0], /warning/i);
+    assert.match(validateSection[0], /external approval/i);
+  });
+
+  it('documents doctor admission_control as a first-class readiness check', () => {
+    const doctorSection = docs.match(/### `doctor`[\s\S]*?(?=\n### `connector check`)/);
+    assert.ok(doctorSection, 'doctor section not found');
+    assert.match(doctorSection[0], /\| Admission control \| `admission_control` \|/);
+    assert.match(doctorSection[0], /Static dead-end detection/i);
+    assert.match(doctorSection[0], /unreachable `owned_by` artifacts/i);
+  });
+});
+
 describe('CLI governance docs contract — events observability', () => {
   it('documents the full governed event set including gate_failed', () => {
     assert.match(

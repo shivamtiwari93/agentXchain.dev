@@ -11,6 +11,8 @@
  *   AT-ADM-007  No gates → clean pass
  *   AT-ADM-008  workflow_kit artifacts trigger ADM-001
  *   AT-ADM-009  runLoop refuses to start when admission control fails
+ *   AT-ADM-010  owned_by role routed but non-writing → ADM-004 error
+ *   AT-ADM-011  manual owned_by role remains valid even if review_only
  */
 
 import { describe, it } from 'node:test';
@@ -362,6 +364,80 @@ describe('AT-ADM-008: workflow_kit artifacts trigger ADM-001', () => {
     assert.equal(result.ok, false);
     assert.ok(result.errors.some(e => e.includes('ADM-001')));
     assert.ok(result.errors.some(e => e.includes('SPEC.md')));
+  });
+});
+
+// ── AT-ADM-010: owned_by role routed but non-writing → ADM-004 ──────────────
+
+describe('AT-ADM-010: Owned artifact owner cannot write', () => {
+  it('rejects when the routed owned_by role is review_only on a non-manual runtime', () => {
+    const config = makeConfig({
+      roles: {
+        pm: { title: 'PM', mandate: 'plan', write_authority: 'authoritative', runtime: 'rt_cli' },
+        architect: { title: 'Architect', mandate: 'design', write_authority: 'review_only', runtime: 'rt_api' },
+      },
+      workflow_kit: {
+        phases: {
+          planning: {
+            template: 'planning',
+            artifacts: [
+              { path: '.planning/SPEC.md', required: true, owned_by: 'architect' },
+            ],
+          },
+        },
+      },
+      routing: {
+        planning: {
+          entry_role: 'pm',
+          allowed_next_roles: ['architect'],
+          exit_gate: 'planning_gate',
+        },
+      },
+    });
+
+    const result = runAdmissionControl(config, config);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(e => e.includes('ADM-004')));
+    assert.ok(result.errors.some(e => e.includes('architect')));
+    assert.ok(result.errors.some(e => e.includes('review_only')));
+  });
+});
+
+// ── AT-ADM-011: manual owned_by role remains valid ──────────────────────────
+
+describe('AT-ADM-011: Manual owned_by role remains valid', () => {
+  it('does not reject when the routed owner is review_only on a manual runtime', () => {
+    const config = makeConfig({
+      roles: {
+        pm: { title: 'PM', mandate: 'plan', write_authority: 'authoritative', runtime: 'rt_cli' },
+        architect: { title: 'Architect', mandate: 'design', write_authority: 'review_only', runtime: 'rt_manual' },
+      },
+      runtimes: {
+        rt_cli: { type: 'local_cli', command: 'echo' },
+        rt_manual: { type: 'manual' },
+      },
+      workflow_kit: {
+        phases: {
+          planning: {
+            template: 'planning',
+            artifacts: [
+              { path: '.planning/SPEC.md', required: true, owned_by: 'architect' },
+            ],
+          },
+        },
+      },
+      routing: {
+        planning: {
+          entry_role: 'pm',
+          allowed_next_roles: ['architect'],
+          exit_gate: 'planning_gate',
+        },
+      },
+    });
+
+    const result = runAdmissionControl(config, config);
+    assert.equal(result.ok, true);
+    assert.ok(!result.errors.some(e => e.includes('ADM-004')));
   });
 });
 

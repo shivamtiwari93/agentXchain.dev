@@ -8,6 +8,7 @@
  *   ADM-001  No file producer for gated phase
  *   ADM-002  Authoritative writer unreachable for owned artifacts
  *   ADM-003  Impossible human approval topology (warning only)
+ *   ADM-004  Owned artifact owner cannot write
  *
  * See .planning/ADMISSION_CONTROL_SPEC.md for full spec.
  */
@@ -34,7 +35,7 @@ export function runAdmissionControl(config, rawConfig) {
     return { ok: true, errors, warnings };
   }
 
-  // ADM-001 + ADM-002: per-phase gate analysis
+  // ADM-001 + ADM-002 + ADM-004: per-phase gate analysis
   if (gates) {
     for (const [phase, route] of Object.entries(routing)) {
       const exitGateId = route?.exit_gate;
@@ -67,9 +68,7 @@ export function runAdmissionControl(config, rawConfig) {
         .filter(({ role }) => role);
 
       const hasFileProducer = rolesWithAuthority.some(({ role, runtime }) =>
-        role.write_authority === 'authoritative'
-        || role.write_authority === 'proposed'
-        || runtime?.type === 'manual');
+        canRoleProduceFiles(role, runtime));
 
       // Only flag non-manual roles as review_only dead-ends
       const nonManualRoles = rolesWithAuthority.filter(({ runtime }) => runtime?.type !== 'manual');
@@ -89,6 +88,18 @@ export function runAdmissionControl(config, rawConfig) {
         if (!uniqueRoleIds.includes(artifact.owned_by)) {
           errors.push(
             `ADM-002: Phase "${phase}" artifact "${artifact.path}" is owned_by "${artifact.owned_by}" but that role is not in the phase routing (entry_role or allowed_next_roles). The ownership predicate can never be satisfied.`
+          );
+          continue;
+        }
+
+        const ownerRole = roles?.[artifact.owned_by];
+        if (!ownerRole) continue;
+        const ownerRuntimeKey = ownerRole.runtime_id || ownerRole.runtime;
+        const ownerRuntime = runtimes?.[ownerRuntimeKey];
+
+        if (!canRoleProduceFiles(ownerRole, ownerRuntime)) {
+          errors.push(
+            `ADM-004: Phase "${phase}" artifact "${artifact.path}" is owned_by "${artifact.owned_by}" but that role is ${ownerRole.write_authority} on runtime type "${ownerRuntime?.type || 'unknown'}". The owner can participate in the phase but cannot produce the required artifact.`
           );
         }
       }
@@ -226,4 +237,11 @@ function matchesPhaseRule(rule, phase) {
   // A rule matches if from_phase is unset or matches the phase
   if (rule.from_phase && rule.from_phase !== phase) return false;
   return true;
+}
+
+function canRoleProduceFiles(role, runtime) {
+  if (!role) return false;
+  return runtime?.type === 'manual'
+    || role.write_authority === 'authoritative'
+    || role.write_authority === 'proposed';
 }
