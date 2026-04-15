@@ -2,8 +2,8 @@
 
 ## 2.101.0
 
-- Phase-aware governance regression detection: diff now detects regressions scoped to individual phases, not just run-level fields
-- 4603 tests / 982 suites / 0 failures
+- Phase-aware governance regression detection: exports embed workflow_phase_order, diff detects backward phase movement
+- 4624 tests / 986 suites / 0 failures
 
 ## 2.100.0
 
