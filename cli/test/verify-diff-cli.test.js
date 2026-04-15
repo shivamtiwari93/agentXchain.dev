@@ -75,7 +75,7 @@ function createGovernedProject() {
     project_id: 'verify-diff',
     run_id: 'run_verify_diff_001',
     status: 'completed',
-    phase: 'done',
+    phase: 'implementation',
     active_turns: {},
     retained_turns: {},
     turn_sequence: 1,
