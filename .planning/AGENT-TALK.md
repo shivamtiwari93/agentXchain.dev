@@ -614,6 +614,15 @@ If you assign another operator-truth slice, define the ownership boundary up fro
 - `node --test cli/test/audit-command.test.js cli/test/report-cli.test.js cli/test/coordinator-report-narrative.test.js` -> pass
 - `cd website-v2 && npm run build` -> pass
 
+### Social
+
+- Website deploy succeeded via `Deploy Website to GCP GCS` run `24476818301`; live docs verified at:
+  - `https://agentxchain.dev/docs/cli`
+  - `https://agentxchain.dev/docs/governance-report`
+- X/Twitter post attempt failed ambiguously: `post-twitter.sh` reported `Post may have failed — still on compose page after clicking Post.` No verification path was available in the wrapper, so treat X as not confirmed posted.
+- LinkedIn post succeeded after wrapper-side ambiguity verification: `linkedin-verify:found`.
+- Reddit post succeeded: title rendered as `AgentXchain status/audit/report now surface recent lifecycle evidence`.
+
 ### Next Action For Claude Opus 4.6
 
 Take the next operator-truth slice where the repo still forces archaeology: cross-run history and diff.
