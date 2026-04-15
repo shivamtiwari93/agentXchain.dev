@@ -12,9 +12,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, appendFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import http from 'http';
-import net from 'net';
 
 import { createBridgeServer } from '../src/lib/dashboard/bridge-server.js';
 
@@ -35,6 +34,160 @@ function httpGet(port, path) {
     });
     req.on('error', reject);
     req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+function expectedWebSocketAccept(key) {
+  return createHash('sha1')
+    .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+    .digest('base64');
+}
+
+function createMaskedTextFrame(text) {
+  const payload = Buffer.from(text, 'utf8');
+  const mask = randomBytes(4);
+  const len = payload.length;
+  let header;
+
+  if (len < 126) {
+    header = Buffer.alloc(2);
+    header[0] = 0x81;
+    header[1] = 0x80 | len;
+  } else if (len < 65536) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 0x80 | 126;
+    header.writeUInt16BE(len, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 0x80 | 127;
+    header.writeBigUInt64BE(BigInt(len), 2);
+  }
+
+  const maskedPayload = Buffer.from(payload);
+  for (let i = 0; i < maskedPayload.length; i += 1) {
+    maskedPayload[i] ^= mask[i % 4];
+  }
+
+  return Buffer.concat([header, mask, maskedPayload]);
+}
+
+function parseServerFrames(buffer) {
+  const frames = [];
+  let offset = 0;
+
+  while (offset + 2 <= buffer.length) {
+    const opcode = buffer[offset] & 0x0f;
+    let payloadLen = buffer[offset + 1] & 0x7f;
+    let frameOffset = offset + 2;
+
+    if (payloadLen === 126) {
+      if (offset + 4 > buffer.length) break;
+      payloadLen = buffer.readUInt16BE(offset + 2);
+      frameOffset = offset + 4;
+    } else if (payloadLen === 127) {
+      if (offset + 10 > buffer.length) break;
+      payloadLen = Number(buffer.readBigUInt64BE(offset + 2));
+      frameOffset = offset + 10;
+    }
+
+    if (frameOffset + payloadLen > buffer.length) break;
+    frames.push({
+      opcode,
+      payload: buffer.slice(frameOffset, frameOffset + payloadLen),
+    });
+    offset = frameOffset + payloadLen;
+  }
+
+  return {
+    frames,
+    rest: buffer.slice(offset),
+  };
+}
+
+async function connectWebSocketClient(port) {
+  return new Promise((resolve, reject) => {
+    const key = randomBytes(16).toString('base64');
+    const messages = [];
+    const waiters = [];
+    let buffer = Buffer.alloc(0);
+
+    const maybeResolveWaiters = () => {
+      for (let i = waiters.length - 1; i >= 0; i -= 1) {
+        const waiter = waiters[i];
+        const found = messages.find(waiter.predicate);
+        if (!found) continue;
+        clearTimeout(waiter.timeout);
+        waiters.splice(i, 1);
+        waiter.resolve(found);
+      }
+    };
+
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      path: '/ws',
+      headers: {
+        Connection: 'Upgrade',
+        Upgrade: 'websocket',
+        'Sec-WebSocket-Version': '13',
+        'Sec-WebSocket-Key': key,
+      },
+    });
+
+    req.on('upgrade', (res, socket) => {
+      assert.equal(res.headers['sec-websocket-accept'], expectedWebSocketAccept(key));
+
+      socket.on('data', (chunk) => {
+        buffer = Buffer.concat([buffer, chunk]);
+        const parsed = parseServerFrames(buffer);
+        buffer = parsed.rest;
+
+        for (const frame of parsed.frames) {
+          if (frame.opcode !== 0x01) continue;
+          try {
+            messages.push(JSON.parse(frame.payload.toString('utf8')));
+            maybeResolveWaiters();
+          } catch {}
+        }
+      });
+
+      socket.on('error', () => {});
+
+      resolve({
+        messages,
+        sendJson(message) {
+          socket.write(createMaskedTextFrame(JSON.stringify(message)));
+        },
+        waitForMessage(predicate, timeoutMs = 5000) {
+          const found = messages.find(predicate);
+          if (found) {
+            return Promise.resolve(found);
+          }
+
+          return new Promise((resolveWaiter, rejectWaiter) => {
+            const timeout = setTimeout(() => {
+              const index = waiters.findIndex((entry) => entry.resolve === resolveWaiter);
+              if (index >= 0) waiters.splice(index, 1);
+              rejectWaiter(new Error(`No matching WebSocket message within ${timeoutMs}ms`));
+            }, timeoutMs);
+
+            waiters.push({
+              predicate,
+              resolve: resolveWaiter,
+              timeout,
+            });
+          });
+        },
+        close() {
+          try { socket.destroy(); } catch {}
+        },
+      });
+    });
+
+    req.on('error', reject);
+    req.end();
   });
 }
 
@@ -218,6 +371,92 @@ describe('dashboard event stream — state-reader resource mapping', () => {
   });
 });
 
+describe('dashboard event stream — WebSocket push', () => {
+  let root, bridge, port;
+
+  before(async () => {
+    root = tmpDir();
+    writeGovernedRepo(root);
+
+    const dashboardDir = join(root, 'dashboard');
+    mkdirSync(dashboardDir, { recursive: true });
+    writeFileSync(join(dashboardDir, 'index.html'), '<html></html>');
+
+    bridge = createBridgeServer({
+      agentxchainDir: join(root, '.agentxchain'),
+      dashboardDir,
+      port: 0,
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  after(async () => {
+    if (bridge) await bridge.stop();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('pushes actual event payloads when events.jsonl changes', async () => {
+    const client = await connectWebSocketClient(port);
+    try {
+      const expected = makeEvent('turn_accepted', {
+        turn: { turn_id: 'turn_ws_001', role_id: 'dev' },
+      });
+
+      appendEventJsonl(root, expected);
+
+      const [eventMessage, invalidateMessage] = await Promise.all([
+        client.waitForMessage((message) => (
+          message.type === 'event' &&
+          message.event?.event_id === expected.event_id
+        )),
+        client.waitForMessage((message) => (
+          message.type === 'invalidate' &&
+          message.resource === '/api/events'
+        )),
+      ]);
+
+      assert.equal(eventMessage.event.event_type, 'turn_accepted');
+      assert.equal(eventMessage.event.turn.turn_id, 'turn_ws_001');
+      assert.equal(invalidateMessage.resource, '/api/events');
+    } finally {
+      client.close();
+    }
+  });
+
+  it('applies subscribe filtering to pushed event payloads', async () => {
+    const client = await connectWebSocketClient(port);
+    try {
+      client.sendJson({ type: 'subscribe', event_types: ['run_completed'] });
+      const subscribed = await client.waitForMessage((message) => message.type === 'subscribed');
+      assert.deepEqual(subscribed.event_types, ['run_completed']);
+
+      const filteredRunId = `run_filter_${randomBytes(3).toString('hex')}`;
+      appendEventJsonl(root, makeEvent('run_started', { run_id: filteredRunId }));
+      appendEventJsonl(root, makeEvent('run_completed', { run_id: filteredRunId }));
+
+      const completed = await client.waitForMessage((message) => (
+        message.type === 'event' &&
+        message.event?.run_id === filteredRunId &&
+        message.event?.event_type === 'run_completed'
+      ));
+      assert.equal(completed.event.event_type, 'run_completed');
+
+      await sleep(200);
+      const filteredEvents = client.messages.filter((message) => (
+        message.type === 'event' &&
+        message.event?.run_id === filteredRunId
+      ));
+      assert.deepEqual(
+        filteredEvents.map((message) => message.event.event_type),
+        ['run_completed'],
+      );
+    } finally {
+      client.close();
+    }
+  });
+});
+
 describe('dashboard event stream — event-stream proof', () => {
   it('proof script runs and passes', { timeout: 120000 }, async () => {
     const { spawnSync } = await import('child_process');
@@ -248,5 +487,35 @@ describe('dashboard event stream — event-stream proof', () => {
     assert.ok(proof.artifacts?.total_events > 0, 'Should have events');
     assert.ok(proof.artifacts?.event_types?.includes('run_started'), 'Should have run_started');
     assert.ok(proof.artifacts?.event_types?.includes('run_completed'), 'Should have run_completed');
+  });
+
+  it('WebSocket proof script runs and passes', { timeout: 120000 }, async () => {
+    const { spawnSync } = await import('child_process');
+    const { fileURLToPath } = await import('url');
+    const { dirname } = await import('path');
+
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const proofPath = join(__dirname, '..', '..', 'examples', 'governed-todo-app', 'run-dashboard-websocket-event-proof.mjs');
+
+    const result = spawnSync(process.execPath, [proofPath, '--json'], {
+      encoding: 'utf8',
+      timeout: 90000,
+      env: {
+        ...process.env,
+        NODE_NO_WARNINGS: '1',
+        NO_COLOR: '1',
+      },
+    });
+
+    let proof;
+    try {
+      proof = JSON.parse(result.stdout);
+    } catch {
+      assert.fail(`WebSocket proof script did not produce valid JSON. stdout: ${result.stdout?.slice(0, 500)}, stderr: ${result.stderr?.slice(0, 500)}`);
+    }
+
+    assert.equal(proof.result, 'pass', `WebSocket proof failed: ${JSON.stringify(proof.errors)}`);
+    assert.ok(proof.artifacts?.all_event_count > 0, 'Should have WebSocket event messages');
+    assert.deepEqual(proof.artifacts?.filtered_event_types, ['run_completed']);
   });
 });
