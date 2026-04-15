@@ -403,6 +403,66 @@ describe('agentxchain diff', () => {
     }
   });
 
+  it('AT-COORD-TERM-SUM-001: completed coordinator child status drift summarizes as changed without governance regressions', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeCoordinatorExportArtifact(join(root, 'left-coordinator-export.json'));
+      const rightPath = makeCoordinatorExportArtifact(join(root, 'right-coordinator-export.json'), {
+        summary: {
+          repo_run_statuses: {
+            web: 'completed',
+            api: 'failed',
+          },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export'], {
+        env: { ...process.env, NO_COLOR: '1' },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Comparison Summary/);
+      assert.match(result.stdout, /Outcome: changed/);
+      assert.match(result.stdout, /Risk: low/);
+      assert.doesNotMatch(result.stdout, /Governance Regressions:/);
+      assert.match(result.stdout, /Repo status changes/);
+      assert.match(result.stdout, /api: completed -> failed/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-COORD-TERM-SUM-002: completed coordinator child export drift keeps JSON summary changed and low-risk', () => {
+    const root = makeTmpDir();
+    try {
+      const leftPath = makeCoordinatorExportArtifact(join(root, 'left-coordinator-export.json'));
+      const rightPath = makeCoordinatorExportArtifact(join(root, 'right-coordinator-export.json'), {
+        repos: {
+          web: { ok: true, path: './repos/web' },
+          api: { ok: false, path: './repos/api' },
+        },
+      });
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export', '--json'], {
+        env: { ...process.env },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.subject_kind, 'coordinator');
+      assert.equal(payload.repo_export_changes.some((entry) => entry.key === 'api' && entry.changed), true);
+      assert.equal(payload.has_regressions, false);
+      assert.equal(payload.summary.outcome, 'changed');
+      assert.equal(payload.summary.risk_level, 'low');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-ED-004: mixed export kinds fail closed', () => {
     const root = makeTmpDir();
     try {
@@ -437,5 +497,7 @@ describe('run diff docs contract', () => {
     assert.match(CLI_DOCS, /Comparison Summary/i);
     assert.match(CLI_DOCS, /Outcome: `unchanged \| improved \| changed \| regressed \| mixed`/);
     assert.match(CLI_DOCS, /Risk: `none \| low \| medium \| high`/);
+    assert.match(CLI_DOCS, /child repo drift stays visible in the repo-change sections/i);
+    assert.match(CLI_DOCS, /Comparison Summary` stays `changed` \/ `low` instead of `regressed`/i);
   });
 });
