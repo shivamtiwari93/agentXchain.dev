@@ -1,0 +1,102 @@
+---
+sidebar_position: 0
+title: "v2.102.0 Release Notes"
+description: "Named benchmark workloads, topology-aware catalog, and governance regression-triggering proof."
+---
+
+# AgentXchain v2.102.0
+
+`v2.102.0` ships a named benchmark workload catalog with topology-aware discovery and regression-triggering proof.
+
+**Released:** 2026-04-15
+
+## Named Benchmark Workload Catalog
+
+`agentxchain benchmark` now uses a **named workload catalog** instead of boolean mode flags. Each workload declares its own phase topology, expected governance signals, and proof expectations.
+
+### Built-in Workloads
+
+| Workload | Phases | Purpose |
+|---|---|---|
+| `baseline` | planning → implementation → qa | Standard governed run — happy path proof |
+| `stress` | planning → implementation → qa | Admission control with validator rejection and retry |
+| `completion-recovery` | planning → implementation → qa | Gate failure on missing artifact, reassignment, and recovery |
+| `phase-drift` | planning → design → implementation → qa | Extra phase topology — triggers `REG-PHASE-ORDER-001` when diffed against baseline |
+
+### Workload Selection
+
+```bash
+# Run a specific workload
+agentxchain benchmark --workload completion-recovery
+
+# Legacy alias still works
+agentxchain benchmark --stress
+# equivalent to: agentxchain benchmark --workload stress
+
+# Conflicting flags fail closed
+agentxchain benchmark --stress --workload baseline  # → error
+```
+
+## Workload Discovery
+
+New `benchmark workloads` subcommand exposes the full catalog with topology metadata:
+
+```bash
+# Human-readable listing
+agentxchain benchmark workloads
+
+# Structured catalog with phase order, expected signals, descriptions
+agentxchain benchmark workloads --json
+```
+
+JSON output includes `phase_order`, `phase_count`, and expected governance signals for each workload — operators no longer need to read source code or scrape `--help` output to understand what each workload proves.
+
+## Phase-Drift Regression Proof
+
+The `phase-drift` workload proves that the benchmark can **trigger its own regression engine**, not just demonstrate regression-free comparisons:
+
+```bash
+# Run both workloads with saved artifacts
+agentxchain benchmark --workload baseline --output /tmp/bench-baseline
+agentxchain benchmark --workload phase-drift --output /tmp/bench-drift
+
+# Diff triggers real regression detection
+agentxchain verify diff /tmp/bench-baseline/run-export.json /tmp/bench-drift/run-export.json
+# → exit 1, has_regressions: true, REG-PHASE-ORDER-001
+```
+
+This is a fundamentally different diff shape: `baseline` has `["planning", "implementation", "qa"]` while `phase-drift` has `["planning", "design", "implementation", "qa"]`.
+
+## Completion-Recovery Workload
+
+Proves gate-failure recovery — a different failure class than validator rejection:
+
+1. QA attempts completion
+2. Gate check fails (missing `.planning/ship-verdict.md`)
+3. QA is reassigned
+4. Missing artifact is created
+5. Completion succeeds through the real approval path
+
+## Durable Benchmark Artifacts
+
+`--output <dir>` persists proof artifacts that round-trip through the public verification surface:
+
+- `metrics.json` — timing and governance signal counts
+- `run-export.json` — full run export (verifiable via `agentxchain verify export`)
+- `verify-export.json` — verification report
+- `workload.json` — workload metadata including topology
+
+## Topology-Aware Config Generation
+
+Benchmark config generation now resolves from workload-declared phase specs instead of mutating a hardcoded base config. The `makeConfig()` builder derives roles, runtimes, routing, and gates from the workload's `phase_order` and `custom_phases` declarations. This is extensible to arbitrary topologies without per-workload branches in the command body.
+
+## Admission Control Cleanup
+
+Pre-run admission control now rejects dead-end governed configs (configurations where no agent can make progress) before starting a run, saving operator time. The legacy `collectRemoteReviewOnlyGateWarnings` helper was removed — its validation responsibility is now handled cleanly by the admission control system.
+
+## Evidence
+
+- 4675 tests / 1000 suites / 0 failures
+- 20 benchmark tests (AT-BENCH-001 through AT-BENCH-020)
+- 7 docs guard tests
+- Docusaurus build: success

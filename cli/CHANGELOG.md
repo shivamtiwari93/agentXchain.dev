@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.102.0
+
+- Named benchmark workload catalog: baseline, stress, completion-recovery, phase-drift
+- Workload discovery subcommand: `benchmark workloads` with topology metadata
+- Phase-drift workload triggers real regression detection (REG-PHASE-ORDER-001)
+- Completion-recovery workload proves gate-failure recovery path
+- Durable benchmark artifacts via `--output <dir>`
+- Topology-aware config generation from workload phase specs
+- Admission control cleanup: pre-run dead-end config rejection
+- 4675 tests / 1000 suites / 0 failures
+
 ## 2.101.0
 
 - Phase-aware governance regression detection: exports embed workflow_phase_order, diff detects backward phase movement
