@@ -528,6 +528,104 @@ describe('decisions CLI command', () => {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it('shows binding summary, hidden override history, and per-row authority in text mode', async () => {
+    const { execSync } = await import('node:child_process');
+    const cliPath = CLI_PATH;
+
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'axc-dec-cli6-'));
+    mkdirSync(join(tmpRoot, '.agentxchain'), { recursive: true });
+    writeFileSync(join(tmpRoot, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      project: { name: 'test-cli6', id: 'proj_cli6' },
+      roles: {
+        architect: { title: 'Architect', decision_authority: 40 },
+        qa: { title: 'QA', decision_authority: 20 },
+      },
+      phases: ['planning'],
+    }));
+
+    appendRepoDecision(tmpRoot, {
+      id: 'DEC-001',
+      status: 'overridden',
+      category: 'architecture',
+      statement: 'Use PostgreSQL',
+      role: 'architect',
+      run_id: 'run_old_001',
+      overridden_by: 'DEC-002',
+    });
+    appendRepoDecision(tmpRoot, {
+      id: 'DEC-002',
+      status: 'active',
+      category: 'architecture',
+      statement: 'Move to SQLite for local-first mode',
+      role: 'architect',
+      run_id: 'run_new_001',
+      overrides: 'DEC-001',
+    });
+    appendRepoDecision(tmpRoot, {
+      id: 'DEC-003',
+      status: 'active',
+      category: 'quality',
+      statement: 'Ship with release checklist proof',
+      role: 'qa',
+      run_id: 'run_new_001',
+    });
+
+    try {
+      const output = execSync(`node "${cliPath}" decisions --dir ${tmpRoot}`, {
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+      assert.match(output, /Active Repo Decisions: 2/);
+      assert.match(output, /binding now: 2 active decisions/);
+      assert.match(output, /categories: architecture, quality/);
+      assert.match(output, /history: 1 overridden decision hidden \(use --all\)/);
+      assert.match(output, /highest active authority: 40 \(architect\)/);
+      assert.match(output, /DEC-002\s+active\s+architecture\s+Move to SQLite for local-first mode/);
+      assert.match(output, /supersedes DEC-001/);
+      assert.match(output, /by architect in run_new_001 • authority 40/);
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps decisions --json list-shaped while exposing derived binding metadata', async () => {
+    const { execSync } = await import('node:child_process');
+    const cliPath = CLI_PATH;
+
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'axc-dec-cli7-'));
+    mkdirSync(join(tmpRoot, '.agentxchain'), { recursive: true });
+    writeFileSync(join(tmpRoot, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      project: { name: 'test-cli7', id: 'proj_cli7' },
+      roles: {
+        architect: { title: 'Architect', decision_authority: 40 },
+      },
+      phases: ['planning'],
+    }));
+
+    appendRepoDecision(tmpRoot, {
+      id: 'DEC-010',
+      status: 'active',
+      category: 'architecture',
+      statement: 'Use SQLite for local mode',
+      role: 'architect',
+      run_id: 'run_010',
+    });
+
+    try {
+      const output = execSync(`node "${cliPath}" decisions --json --dir ${tmpRoot}`, { encoding: 'utf8' });
+      const parsed = JSON.parse(output.trim());
+      assert.ok(Array.isArray(parsed));
+      assert.equal(parsed.length, 1);
+      assert.equal(parsed[0].binding_state, 'binding');
+      assert.equal(parsed[0].authority_level, 40);
+      assert.equal(parsed[0].authority_source, 'configured');
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('decision authority acceptance path', () => {
@@ -629,5 +727,19 @@ describe('decision authority acceptance path', () => {
     } finally {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
+  });
+});
+
+describe('decisions docs contract', () => {
+  it('documents the decisions command and its summary signals', () => {
+    const docs = readFileSync(
+      resolve(__dirname, '..', '..', 'website-v2', 'docs', 'cli.mdx'),
+      'utf8'
+    );
+    assert.match(docs, /### `decisions`/);
+    assert.match(docs, /agentxchain decisions \[--json\] \[--all\] \[--show <DEC-NNN>\] \[--dir <path>\]/);
+    assert.match(docs, /currently binding/);
+    assert.match(docs, /override history exists outside the current filtered view/);
+    assert.match(docs, /`binding_state`, `authority_level`, and `authority_source`/);
   });
 });

@@ -34,6 +34,21 @@ function statusBadge(status) {
   }
 }
 
+function outcomeBadge(outcome) {
+  switch (outcome?.label) {
+    case 'clean':
+      return badge('clean', 'var(--green)');
+    case 'follow-on':
+      return badge('follow-on', '#38bdf8');
+    case 'operator':
+      return badge('operator', 'var(--yellow)');
+    case 'blocked':
+      return badge('blocked', 'var(--yellow)');
+    default:
+      return badge(outcome?.label || 'unknown', 'var(--text-dim)');
+  }
+}
+
 function formatDuration(ms) {
   if (ms == null) return '—';
   if (ms < 1000) return `${ms}ms`;
@@ -75,6 +90,49 @@ function truncateHeadline(headline, len = 40) {
   return normalized.slice(0, len - 1) + '…';
 }
 
+function truncateLine(value, len = 68) {
+  if (!value) return '—';
+  const normalized = String(value).replace(/\s+/g, ' ').trim();
+  if (normalized.length <= len) return normalized;
+  return normalized.slice(0, len - 1) + '…';
+}
+
+function normalizeSingleLine(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function buildOutcomeSummary(entry) {
+  const status = typeof entry?.status === 'string' ? entry.status : 'unknown';
+  const nextAction = normalizeSingleLine(
+    entry?.retrospective?.next_operator_action
+    || entry?.retrospective?.follow_on_hint
+    || null
+  );
+
+  if (status === 'blocked' && nextAction) {
+    return { label: 'operator', next_action: nextAction };
+  }
+  if (status === 'blocked') {
+    return { label: 'blocked', next_action: null };
+  }
+  if (status === 'completed' && nextAction) {
+    return { label: 'follow-on', next_action: nextAction };
+  }
+  if (status === 'completed') {
+    return { label: 'clean', next_action: null };
+  }
+  return { label: 'unknown', next_action: nextAction };
+}
+
+function getTriggerLabel(provenance) {
+  const trigger = typeof provenance?.trigger === 'string' && provenance.trigger.trim()
+    ? provenance.trigger.trim()
+    : null;
+  return trigger || 'legacy';
+}
+
 function isInheritable(entry) {
   const snap = entry?.inheritance_snapshot;
   if (!snap) return false;
@@ -84,6 +142,7 @@ function isInheritable(entry) {
 }
 
 function renderRow(entry, index) {
+  const outcome = buildOutcomeSummary(entry);
   const rowClass = entry.status === 'blocked'
     ? ' style="border-left:3px solid var(--yellow)"'
     : entry.status === 'failed'
@@ -102,17 +161,23 @@ function renderRow(entry, index) {
     ? `<span title="Has inheritance snapshot — usable by child runs" style="color:var(--green)">✓</span>`
     : `<span style="color:var(--text-dim)">—</span>`;
 
+  const nextAction = outcome.next_action
+    ? `<div class="next-hint" style="font-size:0.82em;color:var(--text-dim);margin-top:4px">next: ${esc(truncateLine(outcome.next_action))}</div>`
+    : '';
+
   return `<tr${rowClass}>
     <td style="color:var(--text-dim)">${index + 1}</td>
     <td class="mono" title="${esc(entry.run_id)}">${esc(truncateId(entry.run_id))}</td>
     <td>${statusBadge(entry.status)}${blockedInfo}</td>
+    <td>${outcomeBadge(outcome)}</td>
+    <td>${esc(getTriggerLabel(entry.provenance))}</td>
     <td>${ctxIndicator}</td>
     <td>${phases}</td>
     <td>${entry.total_turns ?? '—'}</td>
     <td>${formatCost(entry.total_cost_usd)}</td>
     <td>${formatDuration(entry.duration_ms)}</td>
     <td>${formatDate(entry.recorded_at || entry.completed_at)}</td>
-    <td title="${esc(entry.retrospective?.headline || '')}">${esc(truncateHeadline(entry.retrospective?.headline))}</td>
+    <td title="${esc(entry.retrospective?.headline || '')}">${esc(truncateHeadline(entry.retrospective?.headline))}${nextAction}</td>
   </tr>`;
 }
 
@@ -128,6 +193,11 @@ export function render({ runHistory }) {
   const total = runHistory.length;
   const completed = runHistory.filter(e => e.status === 'completed').length;
   const blocked = runHistory.filter(e => e.status === 'blocked').length;
+  const outcomeCounts = runHistory.reduce((counts, entry) => {
+    const outcome = buildOutcomeSummary(entry).label;
+    counts[outcome] = (counts[outcome] || 0) + 1;
+    return counts;
+  }, {});
 
   let html = `<div class="run-history-view">`;
 
@@ -136,6 +206,9 @@ export function render({ runHistory }) {
   html += `<span class="turn-count">${total} run${total !== 1 ? 's' : ''} recorded</span>`;
   if (completed > 0) html += badge(`${completed} completed`, 'var(--green)');
   if (blocked > 0) html += badge(`${blocked} blocked`, 'var(--yellow)');
+  if (outcomeCounts.clean > 0) html += badge(`${outcomeCounts.clean} clean`, 'var(--green)');
+  if (outcomeCounts['follow-on'] > 0) html += badge(`${outcomeCounts['follow-on']} follow-on`, '#38bdf8');
+  if (outcomeCounts.operator > 0) html += badge(`${outcomeCounts.operator} operator`, 'var(--yellow)');
   html += `</div></div>`;
 
   // Table
@@ -146,6 +219,8 @@ export function render({ runHistory }) {
           <th>#</th>
           <th>Run ID</th>
           <th>Status</th>
+          <th>Outcome</th>
+          <th>Trigger</th>
           <th>Ctx</th>
           <th>Phases</th>
           <th>Turns</th>

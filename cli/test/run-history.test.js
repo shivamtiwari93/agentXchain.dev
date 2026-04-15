@@ -685,7 +685,8 @@ describe('run-history docs contract', () => {
       'utf8'
     );
     assert.match(docs, /\*\*Run History\*\*/);
-    assert.match(docs, /status, outcome, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline/);
+    assert.match(docs, /status, outcome, trigger, context inheritance availability, phases, turns, cost, duration, retrospective headline, and compact `next:` cues/);
+    assert.match(docs, /compact `next:` cues/);
   });
 });
 

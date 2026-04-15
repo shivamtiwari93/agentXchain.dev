@@ -17,6 +17,7 @@ import { render as renderBlocked } from '../dashboard/components/blocked.js';
 import { render as renderGate, findPostGateTurns, aggregateEvidence } from '../dashboard/components/gate.js';
 import { render as renderInitiative } from '../dashboard/components/initiative.js';
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
+import { render as renderRunHistory } from '../dashboard/components/run-history.js';
 
 // ── Timeline View ──────────────────────────────────────────────────────────
 
@@ -1056,5 +1057,115 @@ describe('aggregateEvidence', () => {
     assert.equal(ev.summaries.length, 0);
     assert.equal(ev.objections.length, 0);
     assert.equal(ev.files.length, 0);
+  });
+});
+
+// ── Run History View ──────────────────────────────────────────────────────
+
+describe('Run History View', () => {
+  it('renders Outcome and Trigger columns plus compact next-action cues', () => {
+    const html = renderRunHistory({
+      runHistory: [
+        {
+          run_id: 'run_follow_on_001',
+          status: 'completed',
+          provenance: { trigger: 'continuation' },
+          inheritance_snapshot: {
+            recent_decisions: [{ id: 'DEC-001' }],
+            recent_accepted_turns: [],
+          },
+          phases_completed: ['planning', 'implementation', 'qa'],
+          total_turns: 3,
+          total_cost_usd: 0.42,
+          duration_ms: 95000,
+          recorded_at: '2026-04-15T16:30:00Z',
+          retrospective: {
+            headline: 'Release work completed; docs follow-on required.',
+            follow_on_hint: 'agentxchain run --continue-from run_follow_on_001 --inherit-context',
+          },
+        },
+        {
+          run_id: 'run_operator_001',
+          status: 'blocked',
+          provenance: null,
+          inheritance_snapshot: {
+            recent_decisions: [],
+            recent_accepted_turns: [],
+          },
+          phases_completed: ['planning', 'release'],
+          total_turns: 2,
+          total_cost_usd: 0.13,
+          duration_ms: 32000,
+          recorded_at: '2026-04-15T16:10:00Z',
+          blocked_reason: 'release approval required',
+          retrospective: {
+            headline: 'Waiting on release approval.',
+            next_operator_action: 'agentxchain approve-transition --phase release',
+          },
+        },
+      ],
+    });
+
+    assert.ok(html.includes('<th>Outcome</th>'));
+    assert.ok(html.includes('<th>Trigger</th>'));
+    assert.ok(html.includes('follow-on'));
+    assert.ok(html.includes('operator'));
+    assert.ok(html.includes('continuation'));
+    assert.ok(html.includes('legacy'));
+    assert.ok(html.includes('next: agentxchain run --continue-from run_follow_on_001 --inherit-context'));
+    assert.ok(html.includes('next: agentxchain approve-transition --phase release'));
+  });
+
+  it('renders header outcome counts for clean, follow-on, and operator mixes', () => {
+    const html = renderRunHistory({
+      runHistory: [
+        {
+          run_id: 'run_clean_001',
+          status: 'completed',
+          inheritance_snapshot: { recent_decisions: [], recent_accepted_turns: [] },
+          phases_completed: ['planning'],
+          total_turns: 1,
+          total_cost_usd: 0.05,
+          duration_ms: 1000,
+          recorded_at: '2026-04-15T16:00:00Z',
+          retrospective: { headline: 'Completed cleanly.' },
+        },
+        {
+          run_id: 'run_follow_on_001',
+          status: 'completed',
+          inheritance_snapshot: { recent_decisions: [], recent_accepted_turns: [] },
+          phases_completed: ['planning', 'qa'],
+          total_turns: 2,
+          total_cost_usd: 0.08,
+          duration_ms: 4000,
+          recorded_at: '2026-04-15T16:05:00Z',
+          retrospective: {
+            headline: 'Completed with follow-on.',
+            follow_on_hint: 'agentxchain run --continue-from run_follow_on_001 --inherit-context',
+          },
+        },
+        {
+          run_id: 'run_operator_001',
+          status: 'blocked',
+          inheritance_snapshot: { recent_decisions: [], recent_accepted_turns: [] },
+          phases_completed: ['planning', 'release'],
+          total_turns: 2,
+          total_cost_usd: 0.10,
+          duration_ms: 5000,
+          recorded_at: '2026-04-15T16:10:00Z',
+          retrospective: {
+            headline: 'Operator action required.',
+            next_operator_action: 'agentxchain approve-transition --phase release',
+          },
+        },
+      ],
+    });
+
+    assert.ok(html.includes('3 runs recorded'));
+    assert.ok(html.includes('2 completed'));
+    assert.ok(html.includes('1 blocked'));
+    assert.ok(html.includes('1 clean'));
+    assert.ok(html.includes('1 follow-on'));
+    assert.ok(html.includes('1 operator'));
   });
 });
