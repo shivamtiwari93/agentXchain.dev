@@ -6,18 +6,20 @@ Provide a single command that proves the governed delivery engine works correctl
 
 ## Scope (v1)
 
-The first version runs a fully governed lifecycle using mock agents (no API keys) and measures governance compliance. It is NOT a performance benchmark — it is a correctness benchmark.
+The first version runs a fully governed lifecycle using mock agents (no API keys) and measures governance compliance. It is NOT a performance benchmark — it is a correctness benchmark. It supports two workloads:
+
+- `baseline` — one accepted turn per phase
+- `stress` — an adversarial retry path where the first implementation attempt is rejected before the run recovers and completes
 
 ## Interface
 
 ```bash
-agentxchain benchmark [--json] [--phases <n>] [--turns-per-phase <n>]
+agentxchain benchmark [--json] [--stress]
 ```
 
 Options:
 - `--json` — output structured JSON instead of human-readable text
-- `--phases <n>` — number of phases to run (default: 3, matching planning→implementation→qa)
-- `--turns-per-phase <n>` — target turns per phase before gate satisfaction (default: 2)
+- `--stress` — run the retry-and-recovery workload instead of the baseline happy path
 
 Exit codes:
 - 0 — benchmark passed (all governance checks satisfied)
@@ -25,18 +27,20 @@ Exit codes:
 
 ## Behavior
 
-1. Create a temp governed project using `scaffoldGoverned` (same as `agentxchain init --governed`)
-2. Configure all runtimes to use the internal mock agent (same one used by `demo`)
-3. Run a complete governed lifecycle through all configured phases:
+1. Create a temp governed project using the same repo-native governed scaffold shape the benchmark command owns.
+2. Run admission control before any turn is assigned. The benchmark fails closed if topology analysis rejects the config.
+3. Run one of two standardized workloads:
+   - `baseline`: planning accept → implementation accept → qa accept → completion
+   - `stress`: planning accept → implementation reject/retry → implementation accept → qa accept → completion
+4. Drive the governed lifecycle through all phases:
    - Start run → execute turns → satisfy gates → transition phases → complete run
 4. After completion, collect governance metrics:
    - **Phases completed:** count and names
-   - **Turns executed:** total and per-phase
+   - **Turns executed:** total, accepted vs rejected, and per-phase
    - **Gate evaluations:** count, pass/fail
    - **Artifacts produced:** count by type (files, decisions, etc.)
-   - **Protocol conformance:** did each turn follow the turn contract?
    - **Admission control:** did pre-run pass cleanly?
-   - **Export verification:** does the final export verify?
+   - **Export verification:** does the final export artifact verify against embedded bytes, hashes, and summary invariants?
    - **Elapsed time:** wall-clock time for the full lifecycle
 5. Output a compliance report
 
@@ -45,13 +49,13 @@ Exit codes:
 ```
 AgentXchain Benchmark — Governed Delivery Compliance
 
+  Mode                 BASELINE
   Phases completed     3/3  (planning → implementation → qa)
-  Turns executed       6    (2 per phase)
+  Turns executed       3    (3 accepted, 0 rejected; 1 planning, 1 implementation, 1 qa)
   Gate evaluations     3/3  passed
-  Artifacts produced   9
-  Protocol conformance PASS
+  Artifacts produced   5
   Admission control    PASS
-  Export verification   PASS
+  Export verification  PASS
   Elapsed              2.4s
 
   Result: PASS ✓
@@ -62,11 +66,17 @@ AgentXchain Benchmark — Governed Delivery Compliance
 ```json
 {
   "version": "1.0",
+  "mode": "baseline",
   "result": "pass",
   "phases": { "completed": 3, "total": 3, "names": ["planning", "implementation", "qa"] },
-  "turns": { "total": 6, "per_phase": { "planning": 2, "implementation": 2, "qa": 2 } },
+  "turns": {
+    "total": 3,
+    "accepted": 3,
+    "rejected": 0,
+    "per_phase": { "planning": 1, "implementation": 1, "qa": 1 }
+  },
   "gates": { "evaluated": 3, "passed": 3, "failed": 0 },
-  "artifacts": { "total": 9 },
+  "artifacts": { "total": 5 },
   "admission_control": "pass",
   "export_verification": "pass",
   "elapsed_ms": 2400
@@ -76,8 +86,9 @@ AgentXchain Benchmark — Governed Delivery Compliance
 ## Error Cases
 
 - Temp dir creation fails → exit 1 with error message
-- Mock agent fails → exit 1 with failure details in report
+- Stress retry unexpectedly validates → exit 1 because the adversarial workload is no longer exercising rejection semantics
 - Gate never satisfied → exit 1 with details on which gate blocked
+- Export build or export verification fails → exit 1 with failure details in report
 
 ## Acceptance Tests
 
@@ -86,6 +97,8 @@ AgentXchain Benchmark — Governed Delivery Compliance
 - AT-BENCH-003: Elapsed time is reported and > 0
 - AT-BENCH-004: All three default phases are completed
 - AT-BENCH-005: Export verification passes on the benchmark output
+- AT-BENCH-006: `agentxchain benchmark --stress --json` completes with exit 0, reports `mode: "stress"`, and records at least one rejected turn before recovery
+- AT-BENCH-007: Stress mode still completes all gates and phases after the rejected implementation attempt
 
 ## Open Questions
 

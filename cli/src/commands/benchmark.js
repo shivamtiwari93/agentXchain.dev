@@ -1,17 +1,20 @@
-import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
+import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
 import { runAdmissionControl } from '../lib/admission-control.js';
+import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
+import { getTurnStagingResultPath } from '../lib/turn-paths.js';
+import { verifyExportArtifact } from '../lib/export-verifier.js';
 
 /**
  * `agentxchain benchmark` — governance compliance proof.
  *
  * Runs a complete governed lifecycle in a temp dir using canned turn results,
- * then measures governance metrics: admission control, gate satisfaction,
- * protocol conformance, and export verification.
+ * then measures governance metrics: admission control, retry handling,
+ * gate satisfaction, and export verification.
  *
  * No API keys required. Proves the governance engine is correct.
  */
@@ -26,6 +29,7 @@ function makeConfig() {
         title: 'Product Manager',
         mandate: 'Scope and accept.',
         write_authority: 'review_only',
+        runtime: 'manual-pm',
         runtime_class: 'manual',
         runtime_id: 'manual-pm',
       },
@@ -33,6 +37,7 @@ function makeConfig() {
         title: 'Developer',
         mandate: 'Implement and verify.',
         write_authority: 'authoritative',
+        runtime: 'manual-dev',
         runtime_class: 'manual',
         runtime_id: 'manual-dev',
       },
@@ -40,6 +45,7 @@ function makeConfig() {
         title: 'QA Reviewer',
         mandate: 'Challenge and approve.',
         write_authority: 'review_only',
+        runtime: 'manual-qa',
         runtime_class: 'manual',
         runtime_id: 'manual-qa',
       },
@@ -126,6 +132,7 @@ function scaffoldProject(root) {
 
   writeFileSync(join(root, '.agentxchain/state.json'), JSON.stringify({
     schema_version: '1.1',
+    project_id: config.project.id,
     status: 'idle',
     phase: 'planning',
     run_id: null,
@@ -168,8 +175,52 @@ function stageTurnResult(root, turnId, result) {
   writeFileSync(join(stagingDir, 'turn-result.json'), JSON.stringify(result, null, 2));
 }
 
+function recordTurn(metrics, phase, outcome = 'accepted') {
+  metrics.turns.total++;
+  metrics.turns.per_phase[phase] = (metrics.turns.per_phase[phase] || 0) + 1;
+  if (outcome === 'accepted') {
+    metrics.turns.accepted++;
+  } else if (outcome === 'rejected') {
+    metrics.turns.rejected++;
+  }
+}
+
+function makeInvalidRetryResult(runId, turnId, role, runtimeId, phase) {
+  const invalid = makeTurnResult(runId, turnId, role, runtimeId, phase, {
+    files_changed: ['benchmark-module.js'],
+    artifact_type: 'commit',
+    proposed_next_role: 'dev',
+    phase_transition_request: null,
+    decisionNum: 2,
+  });
+  delete invalid.schema_version;
+  return invalid;
+}
+
+async function verifyRunExport(root) {
+  const { buildRunExport } = await import('../lib/export.js');
+  const exportResult = buildRunExport(root);
+  if (!exportResult.ok) {
+    return {
+      ok: false,
+      error: exportResult.error,
+    };
+  }
+
+  const verification = verifyExportArtifact(exportResult.export);
+  if (!verification.ok) {
+    return {
+      ok: false,
+      error: verification.errors.join('; '),
+    };
+  }
+
+  return { ok: true };
+}
+
 export async function benchmarkCommand(opts = {}) {
   const jsonMode = opts.json || false;
+  const stressMode = Boolean(opts.stress);
   const startTime = Date.now();
 
   const root = join(tmpdir(), `agentxchain-benchmark-${randomBytes(6).toString('hex')}`);
@@ -177,13 +228,14 @@ export async function benchmarkCommand(opts = {}) {
 
   const metrics = {
     version: '1.0',
+    mode: stressMode ? 'stress' : 'baseline',
     result: 'fail',
     phases: { completed: 0, total: 3, names: [] },
-    turns: { total: 0, per_phase: {} },
+    turns: { total: 0, accepted: 0, rejected: 0, per_phase: {} },
     gates: { evaluated: 0, passed: 0, failed: 0 },
     artifacts: { total: 0 },
     admission_control: 'fail',
-    export_verification: 'skip',
+    export_verification: 'fail',
     elapsed_ms: 0,
     error: null,
   };
@@ -192,9 +244,11 @@ export async function benchmarkCommand(opts = {}) {
     execSync('git --version', { stdio: 'ignore' });
 
     const {
+      loadState,
       initRun,
       assignTurn,
       acceptTurn,
+      rejectTurn,
       approvePhaseGate,
       approveCompletionGate,
     } = await import('../lib/runner-interface.js');
@@ -203,6 +257,8 @@ export async function benchmarkCommand(opts = {}) {
       console.log('');
       console.log(chalk.bold('  AgentXchain Benchmark — Governed Delivery Compliance'));
       console.log(chalk.dim('  ' + '─'.repeat(54)));
+      console.log('');
+      console.log(`  Mode                 ${stressMode ? chalk.yellow('STRESS') : chalk.green('BASELINE')}`);
       console.log('');
     }
 
@@ -242,8 +298,7 @@ export async function benchmarkCommand(opts = {}) {
     if (!pmAccept.ok) throw new Error(`PM accept failed: ${pmAccept.error}`);
     gitCommit(root, 'benchmark: accept pm');
 
-    metrics.turns.total++;
-    metrics.turns.per_phase.planning = 1;
+    recordTurn(metrics, 'planning', 'accepted');
     metrics.artifacts.total += pmResult.decisions.length;
 
     // Planning gate
@@ -264,6 +319,25 @@ export async function benchmarkCommand(opts = {}) {
     if (!devAssign.ok) throw new Error(`Dev assign failed: ${devAssign.error}`);
     const devTurnId = devAssign.turn.turn_id;
 
+    if (stressMode) {
+      const invalidDevResult = makeInvalidRetryResult(runId, devTurnId, 'dev', 'manual-dev', 'implementation');
+      stageTurnResult(root, devTurnId, invalidDevResult);
+
+      const validation = validateStagedTurnResult(root, loadState(root, config), config, {
+        stagingPath: getTurnStagingResultPath(devTurnId),
+      });
+      if (validation.ok) {
+        throw new Error('Benchmark stress mode expected the first implementation attempt to fail validation.');
+      }
+
+      const rejectResult = rejectTurn(root, config, validation, 'Benchmark stress: reject invalid implementation attempt');
+      if (!rejectResult.ok) {
+        throw new Error(`Dev reject failed: ${rejectResult.error}`);
+      }
+
+      recordTurn(metrics, 'implementation', 'rejected');
+    }
+
     const devResult = makeTurnResult(runId, devTurnId, 'dev', 'manual-dev', 'implementation', {
       files_changed: ['benchmark-module.js', '.planning/IMPLEMENTATION_NOTES.md'],
       artifact_type: 'commit',
@@ -281,8 +355,7 @@ export async function benchmarkCommand(opts = {}) {
     if (!devAccept.ok) throw new Error(`Dev accept failed: ${devAccept.error}`);
     gitCommit(root, 'benchmark: accept dev');
 
-    metrics.turns.total++;
-    metrics.turns.per_phase.implementation = 1;
+    recordTurn(metrics, 'implementation', 'accepted');
     metrics.artifacts.total += devResult.decisions.length + devResult.files_changed.length;
 
     // Implementation gate
@@ -319,8 +392,7 @@ export async function benchmarkCommand(opts = {}) {
     if (!qaAccept.ok) throw new Error(`QA accept failed: ${qaAccept.error}`);
     gitCommit(root, 'benchmark: accept qa');
 
-    metrics.turns.total++;
-    metrics.turns.per_phase.qa = 1;
+    recordTurn(metrics, 'qa', 'accepted');
     metrics.artifacts.total += qaResult.decisions.length;
 
     // QA gate + run completion
@@ -333,18 +405,12 @@ export async function benchmarkCommand(opts = {}) {
     metrics.phases.names.push('qa');
 
     // ── Export Verification ──────────────────────────────────────────────
-    try {
-      const { exportGovernedRun } = await import('../lib/export.js');
-      const exportResult = exportGovernedRun(root, config);
-      if (exportResult && exportResult.ok !== false) {
-        metrics.export_verification = 'pass';
-      } else {
-        metrics.export_verification = 'fail';
-      }
-    } catch (exportErr) {
-      // Export may require git history or other state not available in benchmark context
-      metrics.export_verification = 'skip';
+    const exportVerification = await verifyRunExport(root);
+    if (!exportVerification.ok) {
+      metrics.export_verification = 'fail';
+      throw new Error(`Export verification failed: ${exportVerification.error}`);
     }
+    metrics.export_verification = 'pass';
 
     // ── Done ─────────────────────────────────────────────────────────────
     metrics.result = 'pass';
@@ -354,11 +420,11 @@ export async function benchmarkCommand(opts = {}) {
       process.stdout.write(JSON.stringify(metrics, null, 2) + '\n');
     } else {
       console.log(`  Phases completed     ${chalk.green(`${metrics.phases.completed}/${metrics.phases.total}`)}  (${metrics.phases.names.join(' → ')})`);
-      console.log(`  Turns executed       ${chalk.bold(String(metrics.turns.total))}    (${Object.entries(metrics.turns.per_phase).map(([p, n]) => `${n} ${p}`).join(', ')})`);
+      console.log(`  Turns executed       ${chalk.bold(String(metrics.turns.total))}    (${metrics.turns.accepted} accepted, ${metrics.turns.rejected} rejected; ${Object.entries(metrics.turns.per_phase).map(([p, n]) => `${n} ${p}`).join(', ')})`);
       console.log(`  Gate evaluations     ${chalk.green(`${metrics.gates.passed}/${metrics.gates.evaluated}`)}  passed`);
       console.log(`  Artifacts produced   ${chalk.bold(String(metrics.artifacts.total))}`);
       console.log(`  Admission control    ${chalk.green('PASS')}`);
-      console.log(`  Export verification  ${metrics.export_verification === 'pass' ? chalk.green('PASS') : chalk.yellow(metrics.export_verification.toUpperCase())}`);
+      console.log(`  Export verification  ${metrics.export_verification === 'pass' ? chalk.green('PASS') : chalk.red('FAIL')}`);
       console.log(`  Elapsed              ${chalk.dim((metrics.elapsed_ms / 1000).toFixed(1) + 's')}`);
       console.log('');
       console.log(`  Result: ${chalk.green.bold('PASS')} ${chalk.green('✓')}`);

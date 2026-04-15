@@ -28,6 +28,7 @@ describe('benchmark command', () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.result, 'pass');
     assert.equal(payload.version, '1.0');
+    assert.equal(payload.mode, 'baseline');
   });
 
   it('AT-BENCH-003: elapsed time is reported and > 0', () => {
@@ -50,7 +51,13 @@ describe('benchmark command', () => {
     assert.equal(payload.admission_control, 'pass');
   });
 
-  it('AT-BENCH-006: all gates pass', () => {
+  it('AT-BENCH-006: export verification passes', () => {
+    const result = runCli(['benchmark', '--json']);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.export_verification, 'pass');
+  });
+
+  it('AT-BENCH-007: all gates pass', () => {
     const result = runCli(['benchmark', '--json']);
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.gates.passed, payload.gates.evaluated);
@@ -58,12 +65,25 @@ describe('benchmark command', () => {
     assert.ok(payload.gates.evaluated >= 3, 'Should evaluate at least 3 gates');
   });
 
-  it('AT-BENCH-007: turns are distributed across all phases', () => {
+  it('AT-BENCH-008: turns are distributed across all phases', () => {
     const result = runCli(['benchmark', '--json']);
     const payload = JSON.parse(result.stdout);
     assert.ok(payload.turns.total >= 3, 'Should have at least 3 turns');
     assert.ok(payload.turns.per_phase.planning >= 1);
     assert.ok(payload.turns.per_phase.implementation >= 1);
     assert.ok(payload.turns.per_phase.qa >= 1);
+  });
+
+  it('AT-BENCH-009: stress mode records a rejected turn and still passes', () => {
+    const result = runCli(['benchmark', '--json', '--stress']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.result, 'pass');
+    assert.equal(payload.mode, 'stress');
+    assert.ok(payload.turns.rejected >= 1, `Expected at least one rejected turn, got ${payload.turns.rejected}`);
+    assert.ok(payload.turns.total > payload.turns.accepted, 'Stress mode should include at least one rejected attempt');
+    assert.equal(payload.export_verification, 'pass');
+    assert.equal(payload.phases.completed, 3);
+    assert.equal(payload.gates.failed, 0);
   });
 });

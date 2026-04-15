@@ -295,6 +295,7 @@ program
   .command('benchmark')
   .description('Run a governed delivery compliance proof (no API keys required)')
   .option('-j, --json', 'Output as structured JSON')
+  .option('--stress', 'Run the adversarial retry workload instead of the baseline happy path')
   .action(benchmarkCommand);
 
 const scheduleCmd = program
