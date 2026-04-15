@@ -1,0 +1,40 @@
+---
+sidebar_position: 0
+title: "v2.99.0 Release Notes"
+description: "Coordinator event filter proof hardening and three comparison pages."
+---
+
+# AgentXchain v2.99.0
+
+`v2.99.0` closes the coordinator replay event filter proof gap and adds comparison pages for competitive positioning.
+
+**Released:** 2026-04-15
+
+## Coordinator Replay Proof Hardening
+
+The coordinator replay round-trip proof now exercises all four `/api/coordinator/events` query parameters:
+
+- **`type` filter**: proves only events matching the requested `event_type` are returned
+- **`limit` filter**: proves the endpoint caps result count correctly
+- **Combined `type` + `limit`**: proves filters compose without interference
+- **`repo_id` filter**: already proven in prior version, now part of the same 15-check suite
+
+Previously the proof only verified unfiltered events and `repo_id`. This left `type` and `limit` as claimed-but-unproven API surfaces. Now all four filter dimensions have live subprocess proof.
+
+Test assertion threshold raised from 10 to 15 checks. Fixed `event_type` field reference (events use `event_type`, not `type`).
+
+## Comparison Pages
+
+Three new docs pages under the **Compare** sidebar category:
+
+- [**vs CrewAI**](/docs/compare-crewai) — governed protocol vs crew-based task orchestration
+- [**vs AutoGen**](/docs/compare-autogen) — structured governance vs conversational multi-agent coordination
+- [**vs LangGraph**](/docs/compare-langgraph) — protocol-first design vs graph-based agent orchestration
+
+Each page provides an honest feature comparison table, explains where each tool excels, and helps developers choose the right tool for their use case.
+
+## Evidence
+
+- 4586 tests / 978 suites / 0 failures
+- Coordinator replay roundtrip proof: PASS (15/15 checks)
+- Docusaurus build: success

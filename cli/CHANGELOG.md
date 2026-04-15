@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.99.0
+
+`2.99.0` closes the coordinator replay event filter proof gap and adds comparison pages for competitive positioning.
+
+- Coordinator replay roundtrip proof now exercises type, limit, and combined filters (15 checks, up from 11)
+- Fixed event_type field reference in coordinator replay filter assertions
+- Added 3 comparison pages: vs CrewAI, vs AutoGen, vs LangGraph
+- Updated llms.txt with comparison page links and fixed stale protocol v6 reference
+- 4586 tests / 978 suites / 0 failures
+
 ## 2.98.0
 
 `2.98.0` adds export-aware diffing so operators can compare two portable audit artifacts directly, not just repo-local run-history entries.
