@@ -17,8 +17,10 @@ import {
   resolveDecisionAuthority,
   renderRepoDecisionsMarkdown,
   buildRepoDecisionsSummary,
+  summarizeRepoDecisions,
   REPO_DECISIONS_PATH,
 } from '../src/lib/repo-decisions.js';
+import { normalizeV4 } from '../src/lib/normalized-config.js';
 
 describe('repo-decisions', () => {
   let root;
@@ -239,6 +241,41 @@ describe('repo-decisions', () => {
       assert.strictEqual(result.level, 0);
       assert.strictEqual(result.unknown, true);
     });
+  });
+
+  it('summarizes repo decisions with authority metadata from normalized governed config', () => {
+    const config = normalizeV4({
+      schema_version: '1.0',
+      project: { id: 'repo-decisions', name: 'Repo Decisions' },
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Set direction',
+          write_authority: 'review_only',
+          decision_authority: 40,
+          runtime: 'manual-architect',
+        },
+      },
+      runtimes: {
+        'manual-architect': { type: 'manual' },
+      },
+    });
+
+    const summary = summarizeRepoDecisions([
+      {
+        id: 'DEC-100',
+        status: 'active',
+        category: 'architecture',
+        statement: 'Use SQLite locally',
+        role: 'architect',
+        run_id: 'run_001',
+      },
+    ], config);
+
+    assert.equal(summary.active[0].authority_level, 40);
+    assert.equal(summary.active[0].authority_source, 'configured');
+    assert.equal(summary.operator_summary.highest_active_authority_level, 40);
+    assert.equal(summary.operator_summary.highest_active_authority_role, 'architect');
   });
 
   describe('renderRepoDecisionsMarkdown', () => {

@@ -918,6 +918,38 @@ describe('normalizeV4', () => {
     assert.equal(normalized.files.history, '.agentxchain/history.jsonl');
   });
 
+  it('preserves role decision_authority in normalized governed config', () => {
+    const normalized = normalizeV4({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Set direction',
+          write_authority: 'review_only',
+          decision_authority: 40,
+          runtime: 'manual-architect',
+        },
+        dev: {
+          title: 'Developer',
+          mandate: 'Build',
+          write_authority: 'authoritative',
+          runtime: 'manual-dev',
+        },
+      },
+      runtimes: {
+        'manual-architect': { type: 'manual' },
+        'manual-dev': { type: 'manual' },
+      },
+    });
+
+    assert.equal(normalized.roles.architect.decision_authority, 40);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(normalized.roles.dev, 'decision_authority'),
+      false,
+    );
+  });
+
   it('normalizes schedules with lights-out defaults', () => {
     const normalized = normalizeV4({
       schema_version: '1.0',

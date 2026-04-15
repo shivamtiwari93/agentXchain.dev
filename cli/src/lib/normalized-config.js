@@ -1054,6 +1054,9 @@ export function normalizeV4(raw) {
         title: role.title,
         mandate: role.mandate,
         write_authority: role.write_authority,
+        ...(typeof role.decision_authority === 'number'
+          ? { decision_authority: role.decision_authority }
+          : {}),
         runtime_class: raw.runtimes?.[role.runtime]?.type || 'manual',
         runtime_id: role.runtime,
       };
