@@ -6,20 +6,22 @@ Provide a single command that proves the governed delivery engine works correctl
 
 ## Scope (v1)
 
-The first version runs a fully governed lifecycle using mock agents (no API keys) and measures governance compliance. It is NOT a performance benchmark — it is a correctness benchmark. It supports two workloads:
+The first version runs a fully governed lifecycle using mock agents (no API keys) and measures governance compliance. It is NOT a performance benchmark — it is a correctness benchmark. It supports a named workload catalog:
 
 - `baseline` — one accepted turn per phase
 - `stress` — an adversarial retry path where the first implementation attempt is rejected before the run recovers and completes
+- `completion-recovery` — an adversarial final-phase path where the first QA completion attempt fails its gate because a required artifact is missing, then recovers and completes
 
 ## Interface
 
 ```bash
-agentxchain benchmark [--json] [--stress]
+agentxchain benchmark [--json] [--workload <name>] [--stress]
 ```
 
 Options:
 - `--json` — output structured JSON instead of human-readable text
-- `--stress` — run the retry-and-recovery workload instead of the baseline happy path
+- `--workload <name>` — run a named workload from the benchmark catalog
+- `--stress` — compatibility alias for `--workload stress`
 
 Exit codes:
 - 0 — benchmark passed (all governance checks satisfied)
@@ -29,9 +31,10 @@ Exit codes:
 
 1. Create a temp governed project using the same repo-native governed scaffold shape the benchmark command owns.
 2. Run admission control before any turn is assigned. The benchmark fails closed if topology analysis rejects the config.
-3. Run one of two standardized workloads:
+3. Run one of the standardized workloads:
    - `baseline`: planning accept → implementation accept → qa accept → completion
    - `stress`: planning accept → implementation reject/retry → implementation accept → qa accept → completion
+   - `completion-recovery`: planning accept → implementation accept → qa accept with missing ship verdict → completion gate fails → qa repair turn → qa completion succeeds
 4. Drive the governed lifecycle through all phases:
    - Start run → execute turns → satisfy gates → transition phases → complete run
 4. After completion, collect governance metrics:
@@ -87,7 +90,9 @@ AgentXchain Benchmark — Governed Delivery Compliance
 
 - Temp dir creation fails → exit 1 with error message
 - Stress retry unexpectedly validates → exit 1 because the adversarial workload is no longer exercising rejection semantics
+- Completion-recovery workload does not observe a real failed completion gate → exit 1 because the adversarial branch was not exercised
 - Gate never satisfied → exit 1 with details on which gate blocked
+- Unknown workload name or conflicting `--stress` / `--workload` options → exit 1 with valid workload guidance
 - Export build or export verification fails → exit 1 with failure details in report
 
 ## Acceptance Tests
@@ -99,6 +104,10 @@ AgentXchain Benchmark — Governed Delivery Compliance
 - AT-BENCH-005: Export verification passes on the benchmark output
 - AT-BENCH-006: `agentxchain benchmark --stress --json` completes with exit 0, reports `mode: "stress"`, and records at least one rejected turn before recovery
 - AT-BENCH-007: Stress mode still completes all gates and phases after the rejected implementation attempt
+- AT-BENCH-013: `agentxchain benchmark --json --workload stress` exits 0 and reports the `stress` workload
+- AT-BENCH-014: `agentxchain benchmark --json --workload completion-recovery` exits 0, reports at least one failed gate evaluation, and still completes the run
+- AT-BENCH-015: `agentxchain benchmark --stress --workload baseline` exits 1 with a clear conflict error
+- AT-BENCH-016: baseline and completion-recovery benchmark artifacts saved with `--output` compare cleanly through `verify diff`
 
 ## Open Questions
 
@@ -107,3 +116,4 @@ None. Ship it.
 ## Follow-on
 
 Durable saved proof artifacts are specified separately in `.planning/BENCHMARK_OUTPUT_SPEC.md`.
+Named workload catalog behavior is specified separately in `.planning/BENCHMARK_WORKLOAD_CATALOG_SPEC.md`.

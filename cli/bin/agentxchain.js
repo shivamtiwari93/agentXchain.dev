@@ -295,6 +295,7 @@ program
   .command('benchmark')
   .description('Run a governed delivery compliance proof (no API keys required)')
   .option('-j, --json', 'Output as structured JSON')
+  .option('--workload <name>', 'Run a named workload: baseline, stress, or completion-recovery')
   .option('--stress', 'Run the adversarial retry workload instead of the baseline happy path')
   .option('--output <dir>', 'Persist benchmark proof artifacts to a directory')
   .action(benchmarkCommand);

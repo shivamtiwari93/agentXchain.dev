@@ -33,7 +33,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | Command | Phase | Description |
 |---------|-------|-------------|
 | `demo` | Setup | Run a complete governed lifecycle demo — no API keys or config required |
-| `benchmark` | Setup | Run a governed delivery compliance proof in baseline or `--stress` mode, and use `--output <dir>` to persist export-proof artifacts for `verify export` and `verify diff` |
+| `benchmark` | Setup | Run a governed delivery compliance proof in named workloads (`baseline`, `stress`, `completion-recovery`) and use `--output <dir>` to persist export-proof artifacts for `verify export` and `verify diff` |
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
 | `config` | Setup | Inspect or mutate repo config, including governed `project.goal` recovery after scaffold |
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
@@ -86,29 +86,44 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 ### `benchmark`
 
 ```bash
-agentxchain benchmark [--json] [--stress] [--output <dir>]
+agentxchain benchmark [--json] [--workload <name>] [--stress] [--output <dir>]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--json` | `false` | Output the benchmark result as structured JSON |
-| `--stress` | `false` | Run the rejected-turn recovery workload instead of the baseline happy path |
+| `--workload <name>` | `baseline` | Run a named workload: `baseline`, `stress`, or `completion-recovery` |
+| `--stress` | `false` | Compatibility alias for `--workload stress` |
 | `--output <dir>` | none | Persist durable proof artifacts: `metrics.json`, `run-export.json`, `verify-export.json`, and `workload.json` |
 
 `benchmark` is a governance proof surface, not a performance test. It runs a temp governed project, drives a full lifecycle, and fails closed if admission control, gates, or export verification fail. Use `--output <dir>` when you want durable artifacts that can be re-verified or diffed later instead of losing the proof when the temp project is cleaned up.
+
+Built-in workloads:
+
+| Workload | What it proves |
+|----------|----------------|
+| `baseline` | Clean one-turn-per-phase lifecycle with no recovery branch |
+| `stress` | Rejected implementation turn, governed retry, and successful recovery |
+| `completion-recovery` | Failed final completion gate on a missing required artifact, followed by a repair turn and successful completion |
 
 Typical use:
 
 ```bash
 # save a baseline proof bundle
-agentxchain benchmark --output ./artifacts/benchmark-baseline
+agentxchain benchmark --workload baseline --output ./artifacts/benchmark-baseline
 agentxchain verify export --input ./artifacts/benchmark-baseline/run-export.json
 
-# compare the happy path against the adversarial retry workload
-agentxchain benchmark --stress --output ./artifacts/benchmark-stress
+# compare the happy path against the rejected-turn workload
+agentxchain benchmark --workload stress --output ./artifacts/benchmark-stress
 agentxchain verify diff \
   ./artifacts/benchmark-baseline/run-export.json \
   ./artifacts/benchmark-stress/run-export.json
+
+# prove final-phase gate recovery on a missing ship-verdict artifact
+agentxchain benchmark --workload completion-recovery --output ./artifacts/benchmark-completion-recovery
+agentxchain verify diff \
+  ./artifacts/benchmark-baseline/run-export.json \
+  ./artifacts/benchmark-completion-recovery/run-export.json
 ```
 
 ### `init`

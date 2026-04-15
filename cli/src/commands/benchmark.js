@@ -8,6 +8,7 @@ import { runAdmissionControl } from '../lib/admission-control.js';
 import { validateStagedTurnResult } from '../lib/turn-result-validator.js';
 import { getTurnStagingResultPath } from '../lib/turn-paths.js';
 import { verifyExportArtifact } from '../lib/export-verifier.js';
+import { resolveBenchmarkWorkload } from './benchmark-workloads.js';
 
 /**
  * `agentxchain benchmark` — governance compliance proof.
@@ -197,6 +198,48 @@ function makeInvalidRetryResult(runId, turnId, role, runtimeId, phase) {
   return invalid;
 }
 
+function recordGateEvaluation(metrics, outcome) {
+  metrics.gates.evaluated++;
+  if (outcome === 'passed') {
+    metrics.gates.passed++;
+  } else if (outcome === 'failed') {
+    metrics.gates.failed++;
+  }
+}
+
+function failEarlyBenchmark(jsonMode, error, validWorkloads = []) {
+  const payload = {
+    version: '1.0',
+    result: 'fail',
+    error,
+    valid_workloads: validWorkloads,
+  };
+  if (jsonMode) {
+    process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+  } else {
+    console.error(chalk.red(`\n  Benchmark FAIL: ${error}\n`));
+    if (validWorkloads.length > 0) {
+      console.error(`  Valid workloads: ${validWorkloads.join(', ')}\n`);
+    }
+  }
+  process.exitCode = 1;
+}
+
+function assertExpectedWorkloadSignals(workload, metrics) {
+  if (workload.rejected_turn_expected && metrics.turns.rejected < 1) {
+    throw new Error(`Workload "${workload.id}" expected at least one rejected turn, but none were observed.`);
+  }
+  if (!workload.rejected_turn_expected && metrics.turns.rejected > 0) {
+    throw new Error(`Workload "${workload.id}" does not allow rejected turns, but ${metrics.turns.rejected} were observed.`);
+  }
+  if (workload.gate_failure_expected && metrics.gates.failed < 1) {
+    throw new Error(`Workload "${workload.id}" expected at least one failed gate evaluation, but none were observed.`);
+  }
+  if (!workload.gate_failure_expected && metrics.gates.failed > 0) {
+    throw new Error(`Workload "${workload.id}" does not allow failed gate evaluations, but ${metrics.gates.failed} were observed.`);
+  }
+}
+
 async function buildAndVerifyRunExport(root) {
   const { buildRunExport } = await import('../lib/export.js');
   const exportResult = buildRunExport(root);
@@ -250,7 +293,12 @@ function persistBenchmarkArtifacts(paths, metrics, workload, exportArtifact, ver
 
 export async function benchmarkCommand(opts = {}) {
   const jsonMode = opts.json || false;
-  const stressMode = Boolean(opts.stress);
+  const workloadResolution = resolveBenchmarkWorkload(opts);
+  if (!workloadResolution.ok) {
+    failEarlyBenchmark(jsonMode, workloadResolution.error, workloadResolution.valid_workloads || []);
+    return;
+  }
+  const benchmarkWorkload = workloadResolution.workload;
   const startTime = Date.now();
   const outputDir = opts.output ? resolve(String(opts.output)) : null;
   const proofArtifactPaths = buildProofArtifactPaths(outputDir);
@@ -260,7 +308,9 @@ export async function benchmarkCommand(opts = {}) {
 
   const metrics = {
     version: '1.0',
-    mode: stressMode ? 'stress' : 'baseline',
+    workload: benchmarkWorkload.id,
+    mode: benchmarkWorkload.id,
+    selected_via: workloadResolution.selected_via,
     result: 'fail',
     phases: { completed: 0, total: 3, names: [] },
     turns: { total: 0, accepted: 0, rejected: 0, per_phase: {} },
@@ -274,11 +324,17 @@ export async function benchmarkCommand(opts = {}) {
   };
   const workload = {
     version: '1.0',
-    mode: stressMode ? 'stress' : 'baseline',
+    workload: benchmarkWorkload.id,
+    mode: benchmarkWorkload.id,
+    label: benchmarkWorkload.label,
+    description: benchmarkWorkload.description,
+    selected_via: workloadResolution.selected_via,
     run_id: null,
     project_id: 'agentxchain-benchmark',
     expected_phase_order: ['planning', 'implementation', 'qa'],
-    rejected_turn_expected: stressMode,
+    rejected_turn_expected: benchmarkWorkload.rejected_turn_expected,
+    gate_failure_expected: benchmarkWorkload.gate_failure_expected,
+    recovery_branch: benchmarkWorkload.recovery_branch,
     proof_artifacts: proofArtifactPaths,
   };
   let exportArtifact = null;
@@ -302,7 +358,7 @@ export async function benchmarkCommand(opts = {}) {
       console.log(chalk.bold('  AgentXchain Benchmark — Governed Delivery Compliance'));
       console.log(chalk.dim('  ' + '─'.repeat(54)));
       console.log('');
-      console.log(`  Mode                 ${stressMode ? chalk.yellow('STRESS') : chalk.green('BASELINE')}`);
+      console.log(`  Workload             ${benchmarkWorkload.id === 'baseline' ? chalk.green(benchmarkWorkload.label.toUpperCase()) : chalk.yellow(benchmarkWorkload.label.toUpperCase())}`);
       console.log('');
     }
 
@@ -353,8 +409,7 @@ export async function benchmarkCommand(opts = {}) {
       metrics.gates.failed++;
       throw new Error(`Planning gate failed: ${planGate.error}`);
     }
-    metrics.gates.evaluated++;
-    metrics.gates.passed++;
+    recordGateEvaluation(metrics, 'passed');
     metrics.phases.completed++;
     metrics.phases.names.push('planning');
     gitCommit(root, 'benchmark: planning gate');
@@ -364,7 +419,7 @@ export async function benchmarkCommand(opts = {}) {
     if (!devAssign.ok) throw new Error(`Dev assign failed: ${devAssign.error}`);
     const devTurnId = devAssign.turn.turn_id;
 
-    if (stressMode) {
+    if (benchmarkWorkload.implementation.reject_invalid_first_attempt) {
       const invalidDevResult = makeInvalidRetryResult(runId, devTurnId, 'dev', 'manual-dev', 'implementation');
       stageTurnResult(root, devTurnId, invalidDevResult);
 
@@ -410,8 +465,7 @@ export async function benchmarkCommand(opts = {}) {
       metrics.gates.failed++;
       throw new Error(`Implementation gate failed: ${implGate.error}`);
     }
-    metrics.gates.evaluated++;
-    metrics.gates.passed++;
+    recordGateEvaluation(metrics, 'passed');
     metrics.phases.completed++;
     metrics.phases.names.push('implementation');
     gitCommit(root, 'benchmark: implementation gate');
@@ -430,7 +484,9 @@ export async function benchmarkCommand(opts = {}) {
     stageTurnResult(root, qaTurnId, qaResult);
 
     writeFileSync(join(root, '.planning/acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Status |\n|-------|-------------|--------|\n| 1 | Governance compliance | PASS |\n');
-    writeFileSync(join(root, '.planning/ship-verdict.md'), '# Ship Verdict\n\n## Verdict: SHIP\n');
+    if (!benchmarkWorkload.qa.missing_completion_files.includes('.planning/ship-verdict.md')) {
+      writeFileSync(join(root, '.planning/ship-verdict.md'), '# Ship Verdict\n\n## Verdict: SHIP\n');
+    }
     gitCommit(root, 'benchmark: qa review');
 
     const qaAccept = acceptTurn(root, config);
@@ -440,12 +496,53 @@ export async function benchmarkCommand(opts = {}) {
     recordTurn(metrics, 'qa', 'accepted');
     metrics.artifacts.total += qaResult.decisions.length;
 
+    if (benchmarkWorkload.qa.fail_completion_once) {
+      const failedCompletionState = loadState(root, config);
+      const gateFailure = failedCompletionState?.last_gate_failure;
+      if (!gateFailure || gateFailure.gate_type !== 'run_completion') {
+        throw new Error(`Workload "${benchmarkWorkload.id}" expected a run-completion gate failure after the first QA turn.`);
+      }
+      const missingFiles = Array.isArray(gateFailure.missing_files) ? gateFailure.missing_files : [];
+      for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
+        if (!missingFiles.includes(requiredPath)) {
+          throw new Error(`Workload "${benchmarkWorkload.id}" expected missing completion artifact "${requiredPath}", but observed: ${missingFiles.join(', ') || 'none'}.`);
+        }
+      }
+      recordGateEvaluation(metrics, 'failed');
+
+      const qaRecoveryAssign = assignTurn(root, config, benchmarkWorkload.qa.recovery_role);
+      if (!qaRecoveryAssign.ok) {
+        throw new Error(`QA recovery assign failed: ${qaRecoveryAssign.error}`);
+      }
+      const qaRecoveryTurnId = qaRecoveryAssign.turn.turn_id;
+      const qaRecoveryResult = makeTurnResult(runId, qaRecoveryTurnId, benchmarkWorkload.qa.recovery_role, 'manual-qa', 'qa', {
+        proposed_next_role: 'human',
+        run_completion_request: true,
+        decisionNum: 4,
+        objections: [{ id: 'OBJ-003', severity: 'medium', statement: 'Benchmark QA recovery: restore the missing ship verdict before completion.', status: 'raised' }],
+      });
+      stageTurnResult(root, qaRecoveryTurnId, qaRecoveryResult);
+
+      for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
+        writeFileSync(join(root, requiredPath), '# Ship Verdict\n\n## Verdict: SHIP\n');
+      }
+      gitCommit(root, 'benchmark: qa recovery');
+
+      const qaRecoveryAccept = acceptTurn(root, config);
+      if (!qaRecoveryAccept.ok) {
+        throw new Error(`QA recovery accept failed: ${qaRecoveryAccept.error}`);
+      }
+      gitCommit(root, 'benchmark: accept qa recovery');
+
+      recordTurn(metrics, 'qa', 'accepted');
+      metrics.artifacts.total += qaRecoveryResult.decisions.length + benchmarkWorkload.qa.missing_completion_files.length;
+    }
+
     // QA gate + run completion
     const completionResult = approveCompletionGate(root, config);
     if (!completionResult.ok) throw new Error(`Completion failed: ${completionResult.error}`);
 
-    metrics.gates.evaluated++;
-    metrics.gates.passed++;
+    recordGateEvaluation(metrics, 'passed');
     metrics.phases.completed++;
     metrics.phases.names.push('qa');
 
@@ -458,6 +555,8 @@ export async function benchmarkCommand(opts = {}) {
     exportArtifact = exportVerification.exportArtifact;
     verificationReport = exportVerification.verificationReport;
     metrics.export_verification = 'pass';
+
+    assertExpectedWorkloadSignals(benchmarkWorkload, metrics);
 
     // ── Done ─────────────────────────────────────────────────────────────
     metrics.result = 'pass';

@@ -9,11 +9,12 @@ Make `agentxchain benchmark` produce durable proof artifacts instead of only eph
 ## Interface
 
 ```bash
-agentxchain benchmark [--json] [--stress] [--output <dir>]
+agentxchain benchmark [--json] [--workload <name>] [--stress] [--output <dir>]
 ```
 
 Options:
 - `--json` — emit the benchmark result as structured JSON
+- `--workload <name>` — select a named workload from the built-in catalog
 - `--stress` — run the rejected-turn recovery workload
 - `--output <dir>` — persist benchmark proof artifacts into the target directory
 
@@ -30,7 +31,7 @@ Persisted files:
 3. `run-export.json` must be the real run export artifact built from the benchmark workspace, not a synthetic summary.
 4. `verify-export.json` must contain the verification report for `run-export.json`.
 5. `metrics.json` must include the benchmark outcome plus absolute paths to the persisted proof files.
-6. `workload.json` must record the benchmark mode, run id, expected phase order, and whether the workload intentionally includes a rejected turn.
+6. `workload.json` must record the benchmark workload id, description, run id, expected phase order, and whether the workload intentionally includes a rejected turn or gate failure.
 7. The command remains fail-closed on export verification. If export build or verification fails, the benchmark fails.
 8. Saved artifacts must be consumable by the public CLI surfaces:
    - `agentxchain verify export --input <dir>/run-export.json`

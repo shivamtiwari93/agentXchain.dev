@@ -35,6 +35,7 @@ describe('benchmark command', () => {
     assert.equal(payload.result, 'pass');
     assert.equal(payload.version, '1.0');
     assert.equal(payload.mode, 'baseline');
+    assert.equal(payload.workload, 'baseline');
   });
 
   it('AT-BENCH-003: elapsed time is reported and > 0', () => {
@@ -86,6 +87,7 @@ describe('benchmark command', () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.result, 'pass');
     assert.equal(payload.mode, 'stress');
+    assert.equal(payload.workload, 'stress');
     assert.ok(payload.turns.rejected >= 1, `Expected at least one rejected turn, got ${payload.turns.rejected}`);
     assert.ok(payload.turns.total > payload.turns.accepted, 'Stress mode should include at least one rejected attempt');
     assert.equal(payload.export_verification, 'pass');
@@ -113,8 +115,11 @@ describe('benchmark command', () => {
 
       assert.equal(persistedMetrics.result, 'pass');
       assert.equal(persistedMetrics.export_verification, 'pass');
+      assert.equal(persistedMetrics.workload, 'baseline');
       assert.equal(persistedWorkload.mode, 'baseline');
+      assert.equal(persistedWorkload.workload, 'baseline');
       assert.equal(persistedWorkload.rejected_turn_expected, false);
+      assert.equal(persistedWorkload.gate_failure_expected, false);
       assert.equal(persistedVerifyExport.overall, 'pass');
     } finally {
       rmSync(outputDir, { recursive: true, force: true });
@@ -158,6 +163,62 @@ describe('benchmark command', () => {
     } finally {
       rmSync(baselineDir, { recursive: true, force: true });
       rmSync(stressDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-BENCH-013: --workload stress resolves the named stress workload', () => {
+    const result = runCli(['benchmark', '--json', '--workload', 'stress']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.result, 'pass');
+    assert.equal(payload.mode, 'stress');
+    assert.equal(payload.workload, 'stress');
+    assert.ok(payload.turns.rejected >= 1, 'Stress workload should include a rejected turn');
+  });
+
+  it('AT-BENCH-014: completion-recovery workload records a failed completion gate before passing', () => {
+    const result = runCli(['benchmark', '--json', '--workload', 'completion-recovery']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.result, 'pass');
+    assert.equal(payload.mode, 'completion-recovery');
+    assert.equal(payload.workload, 'completion-recovery');
+    assert.equal(payload.turns.rejected, 0, 'Completion recovery should not use rejected turns');
+    assert.ok(payload.gates.failed >= 1, `Expected at least one failed gate evaluation, got ${payload.gates.failed}`);
+    assert.equal(payload.phases.completed, 3);
+    assert.equal(payload.export_verification, 'pass');
+  });
+
+  it('AT-BENCH-015: conflicting --stress and --workload values fail closed', () => {
+    const result = runCli(['benchmark', '--json', '--stress', '--workload', 'baseline']);
+    assert.equal(result.status, 1, `Expected exit 1, got ${result.status}. stdout: ${result.stdout} stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.result, 'fail');
+    assert.match(payload.error, /conflicting benchmark workload options/i);
+    assert.deepEqual(payload.valid_workloads, ['baseline', 'stress', 'completion-recovery']);
+  });
+
+  it('AT-BENCH-016: saved baseline and completion-recovery artifacts pass verify diff', () => {
+    const baselineDir = mkdtempSync(join(tmpdir(), 'agentxchain-benchmark-baseline-diff-'));
+    const recoveryDir = mkdtempSync(join(tmpdir(), 'agentxchain-benchmark-completion-recovery-'));
+    try {
+      const baseline = runCli(['benchmark', '--json', '--workload', 'baseline', '--output', baselineDir]);
+      assert.equal(baseline.status, 0, `Expected baseline exit 0, got ${baseline.status}. stderr: ${baseline.stderr}`);
+      const baselinePayload = JSON.parse(baseline.stdout);
+
+      const recovery = runCli(['benchmark', '--json', '--workload', 'completion-recovery', '--output', recoveryDir]);
+      assert.equal(recovery.status, 0, `Expected completion-recovery exit 0, got ${recovery.status}. stderr: ${recovery.stderr}`);
+      const recoveryPayload = JSON.parse(recovery.stdout);
+
+      const diff = runCli(['verify', 'diff', baselinePayload.proof_artifacts.export, recoveryPayload.proof_artifacts.export, '--format', 'json']);
+      assert.equal(diff.status, 0, `Expected verify diff exit 0, got ${diff.status}. stderr: ${diff.stderr}`);
+      const report = JSON.parse(diff.stdout);
+      assert.equal(report.overall, 'pass');
+      assert.ok(report.diff, 'Expected diff payload');
+      assert.equal(report.diff.has_regressions, false);
+    } finally {
+      rmSync(baselineDir, { recursive: true, force: true });
+      rmSync(recoveryDir, { recursive: true, force: true });
     }
   });
 });
