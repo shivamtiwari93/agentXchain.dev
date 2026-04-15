@@ -35,6 +35,7 @@ import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
 import { buildInheritedContext } from '../lib/run-context-inheritance.js';
+import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 import {
   getDispatchAssignmentPath,
   getDispatchContextPath,
@@ -56,7 +57,7 @@ export async function runCommand(opts) {
 }
 
 export async function executeGovernedRun(context, opts = {}) {
-  const { root, config, rawConfig } = context;
+  const { root, config } = context;
   const log = opts.log || console.log;
 
   if (config.protocol_mode !== 'governed') {
@@ -315,11 +316,11 @@ export async function executeGovernedRun(context, opts = {}) {
 
       // Adapter failure
       if (!adapterResult.ok) {
-        if (shouldPrintManualQaFallback({
+        if (shouldSuggestManualQaFallback({
           roleId,
           runtimeId,
           classified: adapterResult.classified,
-          rawConfig,
+          config: cfg,
         })) {
           qaMissingCredentialsFallback = {
             roleId,
@@ -512,13 +513,6 @@ function promptUser(question) {
     });
     rl.on('close', () => resolve(''));
   });
-}
-
-function shouldPrintManualQaFallback({ roleId, runtimeId, classified, rawConfig }) {
-  return classified?.error_class === 'missing_credentials'
-    && roleId === 'qa'
-    && runtimeId === 'api-qa'
-    && rawConfig?.runtimes?.['manual-qa']?.type === 'manual';
 }
 
 function printManualQaFallback(log = console.log) {

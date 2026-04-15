@@ -65,6 +65,7 @@ import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
 import { runHooks } from '../lib/hook-runner.js';
 import { finalizeDispatchManifest, verifyDispatchManifest } from '../lib/dispatch-manifest.js';
 import { resolveGovernedRole } from '../lib/role-resolution.js';
+import { shouldSuggestManualQaFallback } from '../lib/manual-qa-fallback.js';
 
 export async function stepCommand(opts) {
   const context = loadProjectContext();
@@ -73,7 +74,7 @@ export async function stepCommand(opts) {
     process.exit(1);
   }
 
-  const { root, config, rawConfig } = context;
+  const { root, config } = context;
 
   if (config.protocol_mode !== 'governed') {
     console.log(chalk.red('The step command is only available for governed projects.'));
@@ -430,12 +431,12 @@ export async function stepCommand(opts) {
         console.log(chalk.dim(`  Retry trace: ${apiResult.retry_trace_path}`));
       }
 
-      if (
-        apiResult.classified?.error_class === 'missing_credentials'
-        && roleId === 'qa'
-        && config.roles?.qa?.runtime_id === 'api-qa'
-        && rawConfig?.runtimes?.['manual-qa']?.type === 'manual'
-      ) {
+      if (shouldSuggestManualQaFallback({
+        roleId,
+        runtimeId,
+        classified: apiResult.classified,
+        config,
+      })) {
         console.log(chalk.dim('  No-key QA fallback:'));
         console.log(chalk.dim('  - Edit agentxchain.json and change roles.qa.runtime from "api-qa" to "manual-qa"'));
         console.log(chalk.dim('  - Then rerun: agentxchain step --resume'));
