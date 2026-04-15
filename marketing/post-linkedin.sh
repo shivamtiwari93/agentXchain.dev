@@ -14,6 +14,20 @@ if [ ! -x "${LIBROWSER_BIN}" ]; then
   exit 1
 fi
 
+# Preflight: warn if another browser-automation Chrome is already running on a conflicting profile.
+# On macOS, Chrome refuses to start a second instance against the same or overlapping user-data-dir.
+preflight_chrome_contention() {
+  if pgrep -f "user-data-dir=.*li-browser/chrome-data" >/dev/null 2>&1; then
+    return 0  # li-browser's own Chrome is already up — tool should reuse it
+  fi
+  if pgrep -f "user-data-dir=.*(x-browser|r-browser)/chrome-data" >/dev/null 2>&1; then
+    echo "⚠️  Another browser-automation Chrome instance is running (x-browser or r-browser)." >&2
+    echo "   li-browser may fail to open DevTools. Kill the other instance first." >&2
+  fi
+}
+
+preflight_chrome_contention
+
 ARGS=(--min-delay 2 --max-delay 5)
 if [ "${USE_SYSTEM_PROFILE}" = "1" ]; then
   ARGS=(--system-profile "${ARGS[@]}")

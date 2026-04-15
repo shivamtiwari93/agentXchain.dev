@@ -63,6 +63,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `validate` | Validation | Validate config, state, or full run integrity |
 | `verify turn` | Validation | Replay a staged turn's declared machine-evidence commands and compare actual exit codes |
 | `replay turn` | Validation | Replay an accepted turn's declared machine-evidence commands from history |
+| `replay export` | Observability | Browse a completed export in the dashboard for offline post-mortem analysis |
 | `verify protocol` | Conformance | Run the shipped protocol conformance fixture suite against a target implementation |
 | `verify export` | Conformance | Verify an export artifact against embedded file bytes, hashes, and summary invariants |
 | `migrate` | Migration | Migrate state and config from an older protocol version |
@@ -793,6 +794,35 @@ Exit codes:
 This is still a current-workspace reproducibility check, not a time machine. A mismatch can mean the original acceptance was wrong, or that the repo/environment has drifted since the turn was accepted. The historical acceptance-time `verification_replay` summary, when present, is shown for comparison but does not control the current command result.
 
 Replay is not a sandbox. AgentXchain executes the accepted turn's `verification.machine_evidence[].command` strings in the repo root shell, so this surface assumes accepted turn history is trusted governed execution intent.
+
+### `replay export`
+
+```bash
+agentxchain replay export <export-file> [--port <port>] [--json] [--no-open]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port <port>` | `3847` | Dashboard server port |
+| `--json` | `false` | Output structured session info instead of interactive output |
+| `--no-open` | `false` | Do not auto-open browser |
+
+`replay export` starts the dashboard bridge-server serving a completed export's state for offline post-mortem analysis. The dashboard is fully read-only: no file watcher updates, no gate approval, no WebSocket push.
+
+The command reads an `export.json` file (produced by `agentxchain export`), extracts all embedded `.agentxchain/` artifacts into a temporary workspace, and starts the dashboard against that workspace. When the server stops (Ctrl+C), the temporary workspace is cleaned up automatically.
+
+```bash
+# browse a completed run export in the dashboard
+agentxchain replay export ./my-run-export.json
+
+# start on a specific port without opening a browser
+agentxchain replay export ./my-run-export.json --port 4000 --no-open
+
+# get session info as JSON (useful for CI/automation)
+agentxchain replay export ./my-run-export.json --json --no-open
+```
+
+In replay mode, the dashboard session endpoint reports `replay_mode: true` and `capabilities.approve_gate: false`. Any POST to `/api/actions/approve-gate` returns HTTP 403 with `code: "replay_mode"`.
 
 ## Protocol conformance
 

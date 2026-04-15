@@ -215,7 +215,7 @@ function resolveDashboardAssetPath(dashboardDir, pathname) {
 
 // ── Bridge Server ───────────────────────────────────────────────────────────
 
-export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }) {
+export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, replayMode = false }) {
   const workspacePath = resolve(agentxchainDir, '..');
   const wsClients = new Set();
   /** @type {Map<import('net').Socket, Set<string>|null>} null = all events */
@@ -305,15 +305,21 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
     if (pathname === '/api/session') {
       writeJson(res, 200, {
         session_version: '1',
-        mutation_token: mutationToken,
+        mutation_token: replayMode ? null : mutationToken,
+        replay_mode: replayMode,
         capabilities: {
-          approve_gate: true,
+          approve_gate: !replayMode,
         },
       });
       return;
     }
 
     if (pathname === '/api/actions/approve-gate') {
+      if (replayMode) {
+        writeJson(res, 403, { ok: false, code: 'replay_mode', error: 'Replay mode: gate approval is not available on exported snapshots.' });
+        return;
+      }
+
       if (method !== 'POST') {
         writeJson(res, 405, { ok: false, code: 'method_not_allowed', error: 'Use POST for dashboard actions.' }, { Allow: 'POST' });
         return;

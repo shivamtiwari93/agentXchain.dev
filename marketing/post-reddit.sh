@@ -12,6 +12,19 @@ BODY_RAW="${2:-}"
 # Without this, URLs and following text get fused into broken links.
 BODY="$(printf '%b' "$BODY_RAW")"
 
+# Preflight: warn if another browser-automation Chrome is already running on a conflicting profile.
+preflight_chrome_contention() {
+  if pgrep -f "user-data-dir=.*r-browser/chrome-data" >/dev/null 2>&1; then
+    return 0  # r-browser's own Chrome is already up — tool should reuse it
+  fi
+  if pgrep -f "user-data-dir=.*(x-browser|li-browser)/chrome-data" >/dev/null 2>&1; then
+    echo "⚠️  Another browser-automation Chrome instance is running (x-browser or li-browser)." >&2
+    echo "   r-browser may fail to open DevTools. Kill the other instance first." >&2
+  fi
+}
+
+preflight_chrome_contention
+
 source "${RBROWSER_DIR}/.venv/bin/activate"
 
 if [[ -n "$BODY" ]]; then

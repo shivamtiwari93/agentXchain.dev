@@ -61,6 +61,7 @@ import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
 import { verifyExportCommand, verifyProtocolCommand, verifyTurnCommand } from '../src/commands/verify.js';
 import { replayTurnCommand } from '../src/commands/replay.js';
+import { replayExportCommand } from '../src/commands/replay-export.js';
 import { kickoffCommand } from '../src/commands/kickoff.js';
 import { rebindCommand } from '../src/commands/rebind.js';
 import { branchCommand } from '../src/commands/branch.js';
@@ -409,6 +410,14 @@ replayCmd
   .option('-j, --json', 'Output as JSON')
   .option('--timeout <ms>', 'Per-command replay timeout in milliseconds', '30000')
   .action(replayTurnCommand);
+
+replayCmd
+  .command('export <export-file>')
+  .description('Browse a completed export in the dashboard for offline post-mortem analysis')
+  .option('-j, --json', 'Output session info as JSON')
+  .option('--port <port>', 'Dashboard port', '3847')
+  .option('--no-open', 'Do not auto-open browser')
+  .action(replayExportCommand);
 
 program
   .command('migrate')
