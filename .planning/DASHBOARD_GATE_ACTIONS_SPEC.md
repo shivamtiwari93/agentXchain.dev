@@ -49,8 +49,16 @@ Response on success:
   "ok": true,
   "scope": "repo" | "coordinator",
   "gate_type": "phase_transition" | "run_completion",
+  "status": "active" | "completed",
+  "phase": "...",
   "message": "...",
-  "next_action": "..."
+  "next_action": "...",
+  "next_actions": [
+    {
+      "command": "...",
+      "reason": "..."
+    }
+  ]
 }
 ```
 
@@ -106,7 +114,9 @@ The bridge must call library functions directly, not shell out to the CLI.
 - The Gates view shows an explicit approve button for each pending gate card.
 - The existing copyable CLI command remains visible as fallback and as transparency evidence.
 - The dashboard fetches the session token on load and uses it only for mutation requests.
-- After a successful approval, the view refreshes and the normal file-watcher invalidation path remains authoritative.
+- After a successful approval, the mutation response must expose the resulting `status`, `phase`, and ordered `next_actions` so the dashboard can render the immediate follow-up command without inferring it from `scope` or `gate_type`.
+- The success banner must include the first ordered follow-up action when one exists.
+- The normal file-watcher invalidation path remains authoritative for the refreshed view state after approval.
 
 ### Out of scope
 
@@ -125,6 +135,7 @@ The bridge must call library functions directly, not shell out to the CLI.
 - Unknown coordinator gate type
 - Invalid JSON request body
 - Unsupported mutation path or method
+- Successful approval with no follow-up action (for example run completion) must return `next_actions: []` and `next_action: null`, not omit the fields.
 
 ## Acceptance Tests
 
@@ -136,8 +147,10 @@ The bridge must call library functions directly, not shell out to the CLI.
 - `AT-DASH-ACT-006`: when no gate exists, approval returns `409` with `code = "no_pending_gate"`.
 - `AT-DASH-ACT-007`: WebSocket messages remain read-only; mutation continues to require HTTP + token.
 - `AT-DASH-ACT-008`: docs describe the local token boundary, approve-gate scope, and the fact that recovery commands still remain CLI-only.
+- `AT-DASH-ACT-011`: repo-local approve-gate success returns resulting `status`, `phase`, and ordered `next_actions`.
+- `AT-DASH-ACT-012`: coordinator approve-gate success returns resulting `status`, `phase`, and ordered `next_actions`.
+- `AT-DASH-ACT-013`: dashboard success banners consume `payload.next_actions` and render the first follow-up command when present.
 
 ## Open Questions
 
 - Whether a later slice should add dashboard support for one narrow recovery action family (`step --resume`) behind the same token model.
-- Whether the dashboard should surface explicit hook-block details from failed gate approvals in a richer structured response.

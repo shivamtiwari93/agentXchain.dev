@@ -2,7 +2,10 @@ import { dirname } from 'path';
 import { loadProjectContext } from '../config.js';
 import { approvePhaseTransition, approveRunCompletion } from '../governed-state.js';
 import { deriveGovernedRunNextActions, deriveRecoveryDescriptor } from '../blocked-state.js';
-import { normalizeCoordinatorGateApprovalFailure } from '../coordinator-gate-approval.js';
+import {
+  deriveCoordinatorGateNextActions,
+  normalizeCoordinatorGateApprovalFailure,
+} from '../coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
 import { buildGatePayload, fireCoordinatorHook } from '../coordinator-hooks.js';
@@ -22,6 +25,16 @@ function buildError(status, code, error, extra = {}) {
 }
 
 function normalizeRepoSuccess(result, gateType) {
+  const nextActions = gateType === 'phase_transition'
+    ? [
+        {
+          command: 'agentxchain step',
+          reason: `Run is active in phase "${result.state?.phase || 'unknown'}" and can continue.`,
+        },
+      ]
+    : [];
+  const nextAction = nextActions[0]?.command ?? null;
+
   if (gateType === 'phase_transition') {
     return {
       status: 200,
@@ -29,8 +42,11 @@ function normalizeRepoSuccess(result, gateType) {
         ok: true,
         scope: 'repo',
         gate_type: 'phase_transition',
+        status: result.state?.status || null,
+        phase: result.state?.phase || null,
         message: `Phase transition approved: ${result.transition.from} -> ${result.transition.to}`,
-        next_action: 'agentxchain step',
+        next_action: nextAction,
+        next_actions: nextActions,
       },
     };
   }
@@ -41,8 +57,11 @@ function normalizeRepoSuccess(result, gateType) {
       ok: true,
       scope: 'repo',
       gate_type: 'run_completion',
+      status: result.state?.status || null,
+      phase: result.state?.phase || null,
       message: 'Run completion approved. Run is now completed.',
-      next_action: null,
+      next_action: nextAction,
+      next_actions: nextActions,
     },
   };
 }
@@ -107,7 +126,10 @@ function approveRepoGate(root, config, state) {
   return normalizeRepoSuccess(result, gateType);
 }
 
-function normalizeCoordinatorSuccess(result, gateType) {
+function normalizeCoordinatorSuccess(result, gateType, config) {
+  const nextActions = deriveCoordinatorGateNextActions(result.state, config);
+  const nextAction = nextActions[0]?.command ?? null;
+
   if (gateType === 'phase_transition') {
     return {
       status: 200,
@@ -115,8 +137,11 @@ function normalizeCoordinatorSuccess(result, gateType) {
         ok: true,
         scope: 'coordinator',
         gate_type: 'phase_transition',
+        status: result.state?.status || null,
+        phase: result.state?.phase || null,
         message: `Coordinator phase transition approved: ${result.transition.from} -> ${result.transition.to}`,
-        next_action: 'agentxchain multi step',
+        next_action: nextAction,
+        next_actions: nextActions,
       },
     };
   }
@@ -127,8 +152,11 @@ function normalizeCoordinatorSuccess(result, gateType) {
       ok: true,
       scope: 'coordinator',
       gate_type: 'run_completion',
+      status: result.state?.status || null,
+      phase: result.state?.phase || null,
       message: 'Coordinator run completion approved. Run is now complete.',
-      next_action: null,
+      next_action: nextAction,
+      next_actions: nextActions,
     },
   };
 }
@@ -192,7 +220,7 @@ function approveCoordinatorGate(workspacePath, state, config) {
     };
   }
 
-  return normalizeCoordinatorSuccess(result, gateType);
+  return normalizeCoordinatorSuccess(result, gateType, config);
 }
 
 export function approvePendingDashboardGate(agentxchainDir) {

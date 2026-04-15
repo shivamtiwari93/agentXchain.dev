@@ -817,7 +817,7 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.code, 'invalid_token');
     });
 
-    it('POST /api/actions/approve-gate approves a repo-local pending transition before any coordinator gate', async () => {
+    it('AT-DASH-ACT-011: POST /api/actions/approve-gate returns repo-local success state and next actions', async () => {
       writeJson(join(fixture.axcDir, 'state.json'), {
         schema_version: '1.1',
         project_id: 'dashboard-root',
@@ -853,7 +853,13 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.ok, true);
       assert.equal(data.scope, 'repo');
       assert.equal(data.gate_type, 'phase_transition');
+      assert.equal(data.status, 'active');
+      assert.equal(data.phase, 'qa');
       assert.match(data.message, /implementation -> qa/i);
+      assert.equal(data.next_action, 'agentxchain step');
+      assert.equal(data.next_actions.length, 1);
+      assert.equal(data.next_actions[0].command, 'agentxchain step');
+      assert.match(data.next_actions[0].reason, /phase "qa".*continue/i);
 
       const updated = JSON.parse(readFileSync(join(fixture.axcDir, 'state.json'), 'utf8'));
       assert.equal(updated.phase, 'qa');
@@ -929,7 +935,36 @@ HOOKEOF
       assert.equal(data.recovery_summary.detail, 'implementation_complete');
     });
 
-    it('POST /api/actions/approve-gate approves a coordinator pending gate when no repo gate exists', async () => {
+    it('AT-DASH-ACT-012: POST /api/actions/approve-gate returns coordinator success state and next actions', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_001',
+        status: 'active',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.reposDir, 'web', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'web',
+        run_id: 'run_web_001',
+        status: 'active',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+
       writeJson(join(fixture.axcDir, 'state.json'), {
         schema_version: '1.1',
         run_id: 'run_test_001',
@@ -969,7 +1004,13 @@ HOOKEOF
       assert.equal(data.ok, true);
       assert.equal(data.scope, 'coordinator');
       assert.equal(data.gate_type, 'phase_transition');
+      assert.equal(data.status, 'active');
+      assert.equal(data.phase, 'qa');
       assert.match(data.message, /implementation -> qa/i);
+      assert.equal(data.next_action, 'agentxchain multi step');
+      assert.equal(data.next_actions.length, 1);
+      assert.equal(data.next_actions[0].command, 'agentxchain multi step');
+      assert.match(data.next_actions[0].reason, /can continue/i);
 
       const updated = JSON.parse(readFileSync(join(fixture.multiDir, 'state.json'), 'utf8'));
       assert.equal(updated.phase, 'qa');

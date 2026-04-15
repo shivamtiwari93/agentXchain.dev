@@ -1,7 +1,7 @@
 import { deriveCoordinatorNextActions } from './coordinator-next-actions.js';
 import { collectCoordinatorRepoSnapshots } from './coordinator-repo-snapshots.js';
 
-function deriveCoordinatorGateNextActions(state, config) {
+export function deriveCoordinatorGateNextActions(state, config) {
   return deriveCoordinatorNextActions({
     status: state?.status ?? null,
     blockedReason: state?.blocked_reason ?? null,

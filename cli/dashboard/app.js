@@ -230,6 +230,26 @@ function formatActionErrorMessage(payload, status) {
   return parts.join(' ');
 }
 
+function formatActionSuccessMessage(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return 'Gate approved.';
+  }
+
+  const parts = [];
+  if (typeof payload.message === 'string' && payload.message.trim()) {
+    parts.push(payload.message.trim());
+  } else {
+    parts.push('Gate approved.');
+  }
+
+  const nextAction = payload.next_actions?.[0]?.command || payload.next_action || null;
+  if (typeof nextAction === 'string' && nextAction.trim()) {
+    parts.push(`Next: ${nextAction.trim()}`);
+  }
+
+  return parts.join(' ');
+}
+
 async function loadView(viewName, { refresh = true } = {}) {
   const view = VIEWS[viewName];
   if (!view) {
@@ -431,7 +451,7 @@ document.addEventListener('click', async (event) => {
       return;
     }
 
-    setActionBanner(payload.message || 'Gate approved.', 'success');
+    setActionBanner(formatActionSuccessMessage(payload), 'success');
     await loadView(currentView());
   } catch (error) {
     setActionBanner(error?.message || 'Dashboard action failed.', 'error');

@@ -519,3 +519,52 @@ describe('App Shell — dashboard action error formatting', () => {
     assert.match(appSource, /payload\.recovery_summary\?\.detail/);
   });
 });
+
+describe('App Shell — dashboard action success formatting', () => {
+  const appSource = readFileSync(join(import.meta.dirname, '..', 'dashboard', 'app.js'), 'utf8');
+
+  function formatActionSuccessMessage(payload) {
+    if (!payload || typeof payload !== 'object') {
+      return 'Gate approved.';
+    }
+
+    const parts = [];
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      parts.push(payload.message.trim());
+    } else {
+      parts.push('Gate approved.');
+    }
+
+    const nextAction = payload.next_actions?.[0]?.command || payload.next_action || null;
+    if (typeof nextAction === 'string' && nextAction.trim()) {
+      parts.push(`Next: ${nextAction.trim()}`);
+    }
+
+    return parts.join(' ');
+  }
+
+  it('AT-DASH-ACT-013: success formatting includes the first ordered next action', () => {
+    const message = formatActionSuccessMessage({
+      message: 'Coordinator phase transition approved: implementation -> qa',
+      next_actions: [{ command: 'agentxchain multi step' }],
+    });
+
+    assert.equal(
+      message,
+      'Coordinator phase transition approved: implementation -> qa Next: agentxchain multi step',
+    );
+  });
+
+  it('success formatting falls back to the success message when no next action exists', () => {
+    assert.equal(
+      formatActionSuccessMessage({ message: 'Run completion approved. Run is now completed.' }),
+      'Run completion approved. Run is now completed.',
+    );
+  });
+
+  it('app.js consumes payload next_actions in dashboard success formatting', () => {
+    assert.match(appSource, /function formatActionSuccessMessage/);
+    assert.match(appSource, /payload\.next_actions\?\.\[0\]\?\.command \|\| payload\.next_action/);
+    assert.match(appSource, /setActionBanner\(formatActionSuccessMessage\(payload\), 'success'\)/);
+  });
+});
