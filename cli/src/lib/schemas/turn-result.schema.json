@@ -268,6 +268,16 @@
             "items": { "type": "string", "minLength": 1 },
             "minItems": 1,
             "description": "What the delegate must achieve for this delegation to be considered complete."
+          },
+          "required_decision_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^DEC-\\d+$"
+            },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Optional named decisions the delegated child must emit before the parent review turn may advance phase/run lifecycle."
           }
         }
       }

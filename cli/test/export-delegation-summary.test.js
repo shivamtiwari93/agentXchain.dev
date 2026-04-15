@@ -103,7 +103,7 @@ describe('export delegation summary', () => {
         role: 'director',
         status: 'completed',
         delegations_issued: [
-          { id: 'del-001', to_role: 'dev', charter: 'Implement feature', acceptance_contract: 'Tests pass' },
+          { id: 'del-001', to_role: 'dev', charter: 'Implement feature', acceptance_contract: 'Tests pass', required_decision_ids: ['DEC-101'] },
           { id: 'del-002', to_role: 'qa', charter: 'Verify feature', acceptance_contract: 'QA passes' },
         ],
       },
@@ -117,6 +117,7 @@ describe('export delegation summary', () => {
           parent_role: 'director',
           charter: 'Implement feature',
           acceptance_contract: 'Tests pass',
+          required_decision_ids: ['DEC-101'],
         },
       },
       {
@@ -138,7 +139,7 @@ describe('export delegation summary', () => {
         delegation_review: {
           parent_turn_id: 'turn_001',
           results: [
-            { delegation_id: 'del-001', status: 'completed' },
+            { delegation_id: 'del-001', status: 'completed', satisfied_decision_ids: ['DEC-101'], missing_decision_ids: [] },
             { delegation_id: 'del-002', status: 'completed' },
           ],
         },
@@ -161,11 +162,15 @@ describe('export delegation summary', () => {
       assert.equal(chain.delegations[0].delegation_id, 'del-001');
       assert.equal(chain.delegations[0].to_role, 'dev');
       assert.equal(chain.delegations[0].charter, 'Implement feature');
+      assert.deepEqual(chain.delegations[0].required_decision_ids, ['DEC-101']);
+      assert.deepEqual(chain.delegations[0].satisfied_decision_ids, ['DEC-101']);
+      assert.deepEqual(chain.delegations[0].missing_decision_ids, []);
       assert.equal(chain.delegations[0].status, 'completed');
       assert.equal(chain.delegations[0].child_turn_id, 'turn_002');
       assert.equal(chain.delegations[1].delegation_id, 'del-002');
       assert.equal(chain.delegations[1].to_role, 'qa');
       assert.equal(chain.delegations[1].child_turn_id, 'turn_003');
+      assert.deepEqual(chain.delegations[1].required_decision_ids, []);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

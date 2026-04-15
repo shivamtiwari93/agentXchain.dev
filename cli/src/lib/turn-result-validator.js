@@ -263,6 +263,16 @@ function validateSchema(tr) {
     }
   }
 
+  if ('delegations' in tr) {
+    if (!Array.isArray(tr.delegations)) {
+      errors.push('delegations must be an array.');
+    } else {
+      for (let i = 0; i < tr.delegations.length; i++) {
+        errors.push(...validateDelegation(tr.delegations[i], i));
+      }
+    }
+  }
+
   errors.push(...collectUnfilledTemplatePlaceholderErrors(tr));
 
   return errors;
@@ -379,6 +389,54 @@ function validateObjection(obj, index) {
   if ('status' in obj && !VALID_OBJECTION_STATUSES.includes(obj.status)) {
     errors.push(`${prefix}.status must be one of: ${VALID_OBJECTION_STATUSES.join(', ')}.`);
   }
+  return errors;
+}
+
+function validateDelegation(del, index) {
+  const errors = [];
+  const prefix = `delegations[${index}]`;
+
+  if (del === null || typeof del !== 'object' || Array.isArray(del)) {
+    return [`${prefix} must be an object.`];
+  }
+  if (typeof del.id !== 'string' || !/^del-\d{3}$/.test(del.id)) {
+    errors.push(`${prefix}.id must match pattern del-NNN.`);
+  }
+  if (typeof del.to_role !== 'string' || !/^[a-z0-9_-]+$/.test(del.to_role)) {
+    errors.push(`${prefix}.to_role must match pattern ^[a-z0-9_-]+$.`);
+  }
+  if (typeof del.charter !== 'string' || !del.charter.trim()) {
+    errors.push(`${prefix}.charter must be a non-empty string.`);
+  }
+  if (!Array.isArray(del.acceptance_contract) || del.acceptance_contract.length === 0) {
+    errors.push(`${prefix}.acceptance_contract must be a non-empty array.`);
+  } else {
+    for (let i = 0; i < del.acceptance_contract.length; i++) {
+      if (typeof del.acceptance_contract[i] !== 'string' || !del.acceptance_contract[i].trim()) {
+        errors.push(`${prefix}.acceptance_contract[${i}] must be a non-empty string.`);
+      }
+    }
+  }
+  if (del.required_decision_ids !== undefined) {
+    if (!Array.isArray(del.required_decision_ids) || del.required_decision_ids.length === 0) {
+      errors.push(`${prefix}.required_decision_ids must be a non-empty array when provided.`);
+    } else {
+      const seen = new Set();
+      for (let i = 0; i < del.required_decision_ids.length; i++) {
+        const id = del.required_decision_ids[i];
+        if (typeof id !== 'string' || !/^DEC-\d+$/.test(id)) {
+          errors.push(`${prefix}.required_decision_ids[${i}] must match pattern DEC-NNN.`);
+          continue;
+        }
+        if (seen.has(id)) {
+          errors.push(`${prefix}.required_decision_ids contains duplicate "${id}".`);
+          continue;
+        }
+        seen.add(id);
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -563,6 +621,7 @@ function validateProtocol(tr, state, config) {
 
   const role = config.roles?.[tr.role];
   const writeAuthority = role?.write_authority;
+  const activeTurn = getActiveTurn(state) || state?.current_turn || null;
 
   // Challenge requirement: review_only roles MUST raise at least one objection
   if (config.rules?.challenge_required !== false) {
@@ -628,7 +687,6 @@ function validateProtocol(tr, state, config) {
     }
 
     // No recursive delegation: if this turn is a delegation review, it cannot delegate further
-    const activeTurn = state?.active_turns ? Object.values(state.active_turns)[0] : null;
     if (activeTurn?.delegation_context) {
       errors.push('Delegation review turns cannot contain further delegations.');
     }
@@ -659,6 +717,26 @@ function validateProtocol(tr, state, config) {
             `Delegation to_role "${del.to_role}" is not in allowed_next_roles for phase "${phase}": [${allowed.join(', ')}] (delegation ${del.id}).`
           );
         }
+      }
+    }
+  }
+
+  if (activeTurn?.delegation_review) {
+    const unmetDecisionContracts = (activeTurn.delegation_review.results || [])
+      .filter((result) => Array.isArray(result?.missing_decision_ids) && result.missing_decision_ids.length > 0);
+    if (unmetDecisionContracts.length > 0) {
+      const detail = unmetDecisionContracts
+        .map((result) => `${result.delegation_id}: ${result.missing_decision_ids.join(', ')}`)
+        .join('; ');
+      if (tr.phase_transition_request) {
+        errors.push(
+          `Delegation review cannot request phase transition while required child decisions are missing: ${detail}.`
+        );
+      }
+      if (tr.run_completion_request) {
+        errors.push(
+          `Delegation review cannot request run completion while required child decisions are missing: ${detail}.`
+        );
       }
     }
   }

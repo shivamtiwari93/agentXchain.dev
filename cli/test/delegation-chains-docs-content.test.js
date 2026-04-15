@@ -49,4 +49,11 @@ describe('delegation-chains docs content', () => {
     assert.match(doc, /surfaced.*not swallowed/i);
     assert.match(doc, /reviewing role.*sees/i);
   });
+
+  it('AT-DELDOC-008: docs describe required_decision_ids and review blocking semantics', () => {
+    assert.match(doc, /required_decision_ids/);
+    assert.match(doc, /Required decisions:/);
+    assert.match(doc, /Missing decisions:/);
+    assert.match(doc, /cannot.*phase transition or run completion/i);
+  });
 });

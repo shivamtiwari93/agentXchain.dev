@@ -224,6 +224,44 @@ describe('Delegation Chains', () => {
     });
   });
 
+  describe('AT-DEL-003A: Delegation decision contracts flow into child context', () => {
+    it('preserves required_decision_ids in queue, assignment, and CONTEXT.md', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{
+          id: 'del-001',
+          to_role: 'dev',
+          charter: 'Freeze the API contract',
+          acceptance_contract: ['Implementation updated'],
+          required_decision_ids: ['DEC-101', 'DEC-102'],
+        }],
+      })).ok);
+
+      state = readState(root);
+      assert.deepEqual(state.delegation_queue[0].required_decision_ids, ['DEC-101', 'DEC-102']);
+
+      const assign = assignGovernedTurn(root, config, 'dev');
+      assert.ok(assign.ok, `Dev assign failed: ${assign.error}`);
+      state = readState(root);
+      const turn = getActiveTurn(state);
+      assert.deepEqual(turn.delegation_context.required_decision_ids, ['DEC-101', 'DEC-102']);
+
+      const bundleResult = writeDispatchBundle(root, state, config);
+      assert.ok(bundleResult.ok, `Bundle failed: ${bundleResult.error}`);
+
+      const assignmentPath = join(root, '.agentxchain', 'dispatch', 'turns', turn.turn_id, 'ASSIGNMENT.json');
+      const assignment = JSON.parse(readFileSync(assignmentPath, 'utf8'));
+      assert.deepEqual(assignment.delegation_context.required_decision_ids, ['DEC-101', 'DEC-102']);
+
+      const contextPath = join(root, '.agentxchain', 'dispatch', 'turns', turn.turn_id, 'CONTEXT.md');
+      const contextMd = readFileSync(contextPath, 'utf8');
+      assert.ok(contextMd.includes('Required decisions'));
+      assert.ok(contextMd.includes('DEC-101, DEC-102'));
+    });
+  });
+
   describe('AT-DEL-004: Completing all delegations triggers delegation review', () => {
     it('sets pending_delegation_review and recommends parent role', () => {
       const { root, config } = setup();
@@ -289,6 +327,43 @@ describe('Delegation Chains', () => {
     });
   });
 
+  describe('AT-DEL-005A: Delegation review computes satisfied and missing required decisions', () => {
+    it('records required/satisfied/missing decision IDs on the review payload', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{
+          id: 'del-001',
+          to_role: 'dev',
+          charter: 'Freeze API decisions',
+          acceptance_contract: ['Contract updated'],
+          required_decision_ids: ['DEC-101', 'DEC-102'],
+        }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'dev').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'dev',
+        summary: 'Emitted one of the required decisions.',
+        proposed_next_role: 'director',
+        decisions: [{
+          id: 'DEC-101',
+          category: 'architecture',
+          statement: 'API request schema frozen',
+          rationale: 'Contract proof',
+        }],
+      })).ok);
+
+      state = readState(root);
+      const review = state.pending_delegation_review.delegation_results[0];
+      assert.deepEqual(review.required_decision_ids, ['DEC-101', 'DEC-102']);
+      assert.deepEqual(review.satisfied_decision_ids, ['DEC-101']);
+      assert.deepEqual(review.missing_decision_ids, ['DEC-102']);
+    });
+  });
+
   describe('AT-DEL-006: Accepting delegation review clears pending_delegation_review', () => {
     it('clears pending_delegation_review after review accepted', () => {
       const { root, config } = setup();
@@ -317,6 +392,99 @@ describe('Delegation Chains', () => {
     });
   });
 
+  describe('AT-DEL-006A: Delegation review cannot advance phase with missing decision contracts', () => {
+    it('rejects phase_transition_request when child required decisions are missing', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{
+          id: 'del-001',
+          to_role: 'dev',
+          charter: 'Freeze API decisions',
+          acceptance_contract: ['Contract updated'],
+          required_decision_ids: ['DEC-101', 'DEC-102'],
+        }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'dev').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'dev',
+        summary: 'Only partially satisfied the decision contract.',
+        proposed_next_role: 'director',
+        decisions: [{
+          id: 'DEC-101',
+          category: 'architecture',
+          statement: 'API request schema frozen',
+          rationale: 'Contract proof',
+        }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      state = readState(root);
+      stageTurnResult(root, state, makeTurnResult(state, {
+        role: 'director',
+        summary: 'Tried to advance despite missing required child decision.',
+        proposed_next_role: 'dev',
+        phase_transition_request: 'implementation',
+      }));
+      const reviewResult = acceptGovernedTurn(root, config);
+      assert.equal(reviewResult.ok, false);
+      assert.match(reviewResult.error, /required child decisions are missing/i);
+      assert.match(reviewResult.error, /DEC-102/);
+    });
+  });
+
+  describe('AT-DEL-006B: Delegation review can advance once required decisions are satisfied', () => {
+    it('accepts phase_transition_request when all required child decisions are present', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      let state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        delegations: [{
+          id: 'del-001',
+          to_role: 'dev',
+          charter: 'Freeze API decisions',
+          acceptance_contract: ['Contract updated'],
+          required_decision_ids: ['DEC-101', 'DEC-102'],
+        }],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'dev').ok);
+      state = readState(root);
+      assert.ok(stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'dev',
+        summary: 'Satisfied the decision contract.',
+        proposed_next_role: 'director',
+        decisions: [
+          {
+            id: 'DEC-101',
+            category: 'architecture',
+            statement: 'API request schema frozen',
+            rationale: 'Contract proof',
+          },
+          {
+            id: 'DEC-102',
+            category: 'implementation',
+            statement: 'Response envelope standardized',
+            rationale: 'Contract proof',
+          },
+        ],
+      })).ok);
+
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      state = readState(root);
+      const reviewResult = stageAcceptCommit(root, config, state, makeTurnResult(state, {
+        role: 'director',
+        summary: 'Reviewed and advanced with all required decisions satisfied.',
+        proposed_next_role: 'dev',
+        phase_transition_request: 'implementation',
+      }));
+      assert.ok(reviewResult.ok, `Review accept failed: ${reviewResult.error}`);
+    });
+  });
+
   describe('AT-DASH-DEL-001: Parent turn history retains delegations_issued', () => {
     it('records emitted delegations on the accepted parent turn', () => {
       const { root, config } = setup();
@@ -333,7 +501,10 @@ describe('Delegation Chains', () => {
 
       const history = readHistory(root);
       assert.equal(history.length, 1);
-      assert.deepEqual(history[0].delegations_issued, delegations);
+      assert.deepEqual(history[0].delegations_issued, delegations.map((delegation) => ({
+        ...delegation,
+        required_decision_ids: [],
+      })));
     });
   });
 
@@ -454,6 +625,26 @@ describe('Delegation Chains', () => {
       stageTurnResult(root, state, makeTurnResult(state, { delegations }));
       const result = acceptGovernedTurn(root, config);
       assert.equal(result.ok, false, 'Should reject >5 delegations');
+    });
+  });
+
+  describe('AT-DEL-010A: Invalid required_decision_ids are rejected', () => {
+    it('rejects duplicate or malformed delegation required_decision_ids', () => {
+      const { root, config } = setup();
+      assert.ok(assignGovernedTurn(root, config, 'director').ok);
+      let state = readState(root);
+      stageTurnResult(root, state, makeTurnResult(state, {
+        delegations: [{
+          id: 'del-001',
+          to_role: 'dev',
+          charter: 'Freeze the contract',
+          acceptance_contract: ['Done'],
+          required_decision_ids: ['DEC-101', 'BAD-1', 'DEC-101'],
+        }],
+      }));
+      const result = acceptGovernedTurn(root, config);
+      assert.equal(result.ok, false);
+      assert.match(result.error, /required_decision_ids/i);
     });
   });
 

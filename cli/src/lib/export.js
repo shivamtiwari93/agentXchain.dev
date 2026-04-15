@@ -279,6 +279,9 @@ export function buildDelegationSummary(files) {
         delegation_id: del.id,
         to_role: del.to_role,
         charter: del.charter,
+        required_decision_ids: Array.isArray(del.required_decision_ids) ? del.required_decision_ids : [],
+        satisfied_decision_ids: Array.isArray(reviewResult?.satisfied_decision_ids) ? reviewResult.satisfied_decision_ids : [],
+        missing_decision_ids: Array.isArray(reviewResult?.missing_decision_ids) ? reviewResult.missing_decision_ids : [],
         status: reviewResult?.status || child?.status || 'pending',
         child_turn_id: child?.turn_id || null,
       };

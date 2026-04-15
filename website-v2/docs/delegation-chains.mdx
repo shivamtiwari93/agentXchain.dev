@@ -49,7 +49,8 @@ To delegate, include a `delegations` array in your turn result:
         "All existing auth tests pass",
         "New JWT validation tests added",
         "No breaking changes to API endpoints"
-      ]
+      ],
+      "required_decision_ids": ["DEC-101", "DEC-102"]
     },
     {
       "id": "del-002",
@@ -78,6 +79,7 @@ To delegate, include a `delegations` array in your turn result:
 | `to_role` | string | Target role (must exist in config, must be routing-legal) |
 | `charter` | string | Scope of the delegated work |
 | `acceptance_contract` | string[] | What the delegate must achieve |
+| `required_decision_ids` | string[] | Optional named decisions the child turn must emit before parent review may advance phase/run lifecycle |
 
 ### Constraints
 
@@ -86,6 +88,7 @@ To delegate, include a `delegations` array in your turn result:
 - `to_role` must be in `allowed_next_roles` for the current phase
 - `delegations` is **mutually exclusive** with `run_completion_request`
 - Delegation review turns **cannot contain further delegations** (no recursive delegation in v1)
+- `required_decision_ids`, when present, must be unique `DEC-NNN` values
 
 ## Executing Delegated Work
 
@@ -102,6 +105,7 @@ You are executing a delegated sub-task.
   - All existing auth tests pass
   - New JWT validation tests added
   - No breaking changes to API endpoints
+- **Required decisions:** DEC-101, DEC-102
 
 Focus exclusively on the charter above. Do not expand scope beyond the delegation.
 ```
@@ -125,6 +129,9 @@ Your delegated sub-tasks have been completed. Review the results below.
 - **Summary:** Implemented JWT validation with RS256 signing...
 - **Files changed:** src/auth.js, src/middleware.js, test/auth.test.js
 - **Verification:** pass
+- **Required decisions:** DEC-101, DEC-102
+- **Satisfied decisions:** DEC-101
+- **Missing decisions:** DEC-102
 
 ### del-002 → qa
 - **Charter:** Security review of JWT auth implementation
@@ -132,13 +139,15 @@ Your delegated sub-tasks have been completed. Review the results below.
 - **Summary:** Verified token handling, no leakage found...
 - **Verification:** pass
 
-Evaluate whether each delegation met its acceptance contract.
+Evaluate whether each delegation met its acceptance contract and returned any required named decisions.
 ```
 
 The review turn is a normal governed turn. The reviewing role can:
 - Accept the delegation outcomes and propose the next phase
 - Raise objections against specific delegation results
 - Delegate further work if issues were found (in a new turn, not the review turn itself)
+
+If any delegation result still has **Missing decisions**, the parent review turn **cannot** request a phase transition or run completion. It must route the run back to an implementation role for corrective work.
 
 ## Role Resolution Priority
 

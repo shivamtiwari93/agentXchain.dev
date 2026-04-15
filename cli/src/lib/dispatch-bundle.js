@@ -575,6 +575,11 @@ function renderContext(state, config, root, turn, role) {
         lines.push(`  - ${req}`);
       }
     }
+    if (Array.isArray(dc.required_decision_ids) && dc.required_decision_ids.length > 0) {
+      lines.push(`- **Required decisions:** ${dc.required_decision_ids.join(', ')}`);
+      lines.push('');
+      lines.push('Your accepted turn must emit these decision IDs in `decisions[]` before the parent review may advance the phase or complete the run.');
+    }
     lines.push('');
     lines.push('Focus exclusively on the charter above. Do not expand scope beyond the delegation.');
     lines.push('');
@@ -599,9 +604,14 @@ function renderContext(state, config, root, turn, role) {
       if (result.verification?.status) {
         lines.push(`- **Verification:** ${result.verification.status}`);
       }
+      if (Array.isArray(result.required_decision_ids) && result.required_decision_ids.length > 0) {
+        lines.push(`- **Required decisions:** ${result.required_decision_ids.join(', ')}`);
+        lines.push(`- **Satisfied decisions:** ${(result.satisfied_decision_ids || []).join(', ') || 'none'}`);
+        lines.push(`- **Missing decisions:** ${(result.missing_decision_ids || []).join(', ') || 'none'}`);
+      }
       lines.push('');
     }
-    lines.push('Evaluate whether each delegation met its acceptance contract.');
+    lines.push('Evaluate whether each delegation met its acceptance contract and returned any required named decisions.');
     lines.push('Your turn result should assess the delegation outcomes and decide next steps.');
     lines.push('');
   }

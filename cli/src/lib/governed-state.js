@@ -2152,6 +2152,7 @@ export function assignGovernedTurn(root, config, roleId) {
       parent_role: pendingDelegation.parent_role,
       charter: pendingDelegation.charter,
       acceptance_contract: pendingDelegation.acceptance_contract,
+      required_decision_ids: pendingDelegation.required_decision_ids || [],
     };
     // Mark the delegation as active
     pendingDelegation.status = 'active';
@@ -2742,6 +2743,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             to_role: delegation.to_role,
             charter: delegation.charter,
             acceptance_contract: delegation.acceptance_contract,
+            required_decision_ids: delegation.required_decision_ids || [],
           })),
         }
       : {}),
@@ -2753,6 +2755,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
             parent_role: currentTurn.delegation_context.parent_role,
             charter: currentTurn.delegation_context.charter,
             acceptance_contract: currentTurn.delegation_context.acceptance_contract,
+            required_decision_ids: currentTurn.delegation_context.required_decision_ids || [],
           },
         }
       : {}),
@@ -2833,6 +2836,7 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         to_role: del.to_role,
         charter: del.charter,
         acceptance_contract: del.acceptance_contract,
+        required_decision_ids: del.required_decision_ids || [],
         status: 'pending',
         child_turn_id: null,
         created_at: now,
@@ -2859,12 +2863,23 @@ function _acceptGovernedTurnLocked(root, config, opts) {
         // Build delegation review context
         const delegationResults = parentDelegations.map(d => {
           const childHistory = nextHistoryEntries.find(h => h.turn_id === d.child_turn_id);
+          const childDecisionIds = Array.isArray(childHistory?.decisions)
+            ? childHistory.decisions
+              .map((decision) => decision?.id)
+              .filter((id) => typeof id === 'string')
+            : [];
+          const requiredDecisionIds = Array.isArray(d.required_decision_ids) ? d.required_decision_ids : [];
+          const satisfiedDecisionIds = requiredDecisionIds.filter((id) => childDecisionIds.includes(id));
+          const missingDecisionIds = requiredDecisionIds.filter((id) => !childDecisionIds.includes(id));
           return {
             delegation_id: d.delegation_id,
             child_turn_id: d.child_turn_id,
             to_role: d.to_role,
             charter: d.charter,
             acceptance_contract: d.acceptance_contract,
+            required_decision_ids: requiredDecisionIds,
+            satisfied_decision_ids: satisfiedDecisionIds,
+            missing_decision_ids: missingDecisionIds,
             summary: childHistory?.summary || '(no summary)',
             status: d.status,
             files_changed: childHistory?.files_changed || [],

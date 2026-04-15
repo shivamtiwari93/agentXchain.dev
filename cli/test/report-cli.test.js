@@ -198,8 +198,8 @@ function writeDelegationHistory(root) {
       accepted_at: '2026-04-03T00:10:00.000Z',
       accepted_sequence: 1,
       delegations_issued: [
-        { id: 'del-001', to_role: 'dev', charter: 'Build the API' },
-        { id: 'del-002', to_role: 'qa', charter: 'Test the API' },
+        { id: 'del-001', to_role: 'dev', charter: 'Build the API', required_decision_ids: ['DEC-101'] },
+        { id: 'del-002', to_role: 'qa', charter: 'Test the API', required_decision_ids: ['DEC-201'] },
       ],
     },
     {
@@ -219,6 +219,7 @@ function writeDelegationHistory(root) {
         parent_role: 'director',
         charter: 'Build the API',
         acceptance_contract: 'API works and tests pass',
+        required_decision_ids: ['DEC-101'],
       },
     },
     {
@@ -238,6 +239,7 @@ function writeDelegationHistory(root) {
         parent_role: 'director',
         charter: 'Test the API',
         acceptance_contract: 'Critical regressions identified',
+        required_decision_ids: ['DEC-201'],
       },
     },
     {
@@ -254,8 +256,22 @@ function writeDelegationHistory(root) {
       delegation_review: {
         parent_turn_id: 'turn_010',
         results: [
-          { delegation_id: 'del-001', status: 'completed', summary: 'Built the API' },
-          { delegation_id: 'del-002', status: 'failed', summary: 'Regression found' },
+          {
+            delegation_id: 'del-001',
+            status: 'completed',
+            summary: 'Built the API',
+            required_decision_ids: ['DEC-101'],
+            satisfied_decision_ids: ['DEC-101'],
+            missing_decision_ids: [],
+          },
+          {
+            delegation_id: 'del-002',
+            status: 'failed',
+            summary: 'Regression found',
+            required_decision_ids: ['DEC-201'],
+            satisfied_decision_ids: [],
+            missing_decision_ids: ['DEC-201'],
+          },
         ],
       },
     },
@@ -928,6 +944,9 @@ describe('report CLI', () => {
                 delegation_id: 'del-001',
                 to_role: 'dev',
                 charter: 'Build the API',
+                required_decision_ids: ['DEC-101'],
+                satisfied_decision_ids: ['DEC-101'],
+                missing_decision_ids: [],
                 status: 'completed',
                 child_turn_id: 'turn_011',
               },
@@ -935,6 +954,9 @@ describe('report CLI', () => {
                 delegation_id: 'del-002',
                 to_role: 'qa',
                 charter: 'Test the API',
+                required_decision_ids: ['DEC-201'],
+                satisfied_decision_ids: [],
+                missing_decision_ids: ['DEC-201'],
                 status: 'failed',
                 child_turn_id: 'turn_012',
               },
@@ -951,14 +973,16 @@ describe('report CLI', () => {
       assert.match(textResult.stdout, /Total delegations issued: 2/);
       assert.match(textResult.stdout, /director \(turn_010\) \| outcome: mixed \| review: turn_013/);
       assert.match(textResult.stdout, /del-001 -> dev \| completed \| child: turn_011 \| Build the API/);
+      assert.match(textResult.stdout, /required decisions: DEC-101/);
       assert.match(textResult.stdout, /del-002 -> qa \| failed \| child: turn_012 \| Test the API/);
+      assert.match(textResult.stdout, /missing decisions: DEC-201/);
 
       const markdownResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
       assert.equal(markdownResult.status, 0, markdownResult.stderr);
       assert.match(markdownResult.stdout, /## Delegation Summary/);
-      assert.match(markdownResult.stdout, /\| Parent Role \| Parent Turn \| Outcome \| Review Turn \| Delegation \| Child Turn \| Status \| Charter \|/);
-      assert.match(markdownResult.stdout, /\| director \| `turn_010` \| `mixed` \| `turn_013` \| `del-001` → `dev` \| `turn_011` \| `completed` \| Build the API \|/);
-      assert.match(markdownResult.stdout, /\|  \|  \|  \|  \| `del-002` → `qa` \| `turn_012` \| `failed` \| Test the API \|/);
+      assert.match(markdownResult.stdout, /\| Parent Role \| Parent Turn \| Outcome \| Review Turn \| Delegation \| Child Turn \| Status \| Required Decisions \| Missing Decisions \| Charter \|/);
+      assert.match(markdownResult.stdout, /\| director \| `turn_010` \| `mixed` \| `turn_013` \| `del-001` → `dev` \| `turn_011` \| `completed` \| DEC-101 \| — \| Build the API \|/);
+      assert.match(markdownResult.stdout, /\|  \|  \|  \|  \| `del-002` → `qa` \| `turn_012` \| `failed` \| DEC-201 \| DEC-201 \| Test the API \|/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

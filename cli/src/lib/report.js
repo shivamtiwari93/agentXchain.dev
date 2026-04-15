@@ -33,6 +33,9 @@ function normalizeDelegationSummary(summary) {
         delegation_id: delegation.delegation_id,
         to_role: delegation.to_role,
         charter: delegation.charter,
+        required_decision_ids: Array.isArray(delegation.required_decision_ids) ? delegation.required_decision_ids : [],
+        satisfied_decision_ids: Array.isArray(delegation.satisfied_decision_ids) ? delegation.satisfied_decision_ids : [],
+        missing_decision_ids: Array.isArray(delegation.missing_decision_ids) ? delegation.missing_decision_ids : [],
         status: delegation.status,
         child_turn_id: delegation.child_turn_id,
       });
@@ -1290,6 +1293,11 @@ export function formatGovernanceReportText(report) {
         lines.push(`  - ${chain.parent_role} (${chain.parent_turn_id}) | outcome: ${chain.outcome} | review: ${chain.review_turn_id || 'pending'}`);
         for (const delegation of chain.delegations) {
           lines.push(`      ${delegation.delegation_id} -> ${delegation.to_role} | ${delegation.status} | child: ${delegation.child_turn_id || 'pending'} | ${delegation.charter}`);
+          if (delegation.required_decision_ids?.length > 0) {
+            lines.push(`        required decisions: ${delegation.required_decision_ids.join(', ')}`);
+            lines.push(`        satisfied decisions: ${delegation.satisfied_decision_ids.join(', ') || 'none'}`);
+            lines.push(`        missing decisions: ${delegation.missing_decision_ids.join(', ') || 'none'}`);
+          }
         }
       }
     }
@@ -1773,7 +1781,7 @@ export function formatGovernanceReportMarkdown(report) {
     if (run.delegation_summary?.delegation_chains?.length > 0) {
       lines.push('', '## Delegation Summary', '');
       lines.push(`- Total delegations issued: ${run.delegation_summary.total_delegations_issued}`, '');
-      lines.push('| Parent Role | Parent Turn | Outcome | Review Turn | Delegation | Child Turn | Status | Charter |', '|-------------|-------------|---------|-------------|------------|------------|--------|---------|');
+      lines.push('| Parent Role | Parent Turn | Outcome | Review Turn | Delegation | Child Turn | Status | Required Decisions | Missing Decisions | Charter |', '|-------------|-------------|---------|-------------|------------|------------|--------|--------------------|-------------------|---------|');
       for (const chain of run.delegation_summary.delegation_chains) {
         for (let i = 0; i < chain.delegations.length; i++) {
           const delegation = chain.delegations[i];
@@ -1782,7 +1790,9 @@ export function formatGovernanceReportMarkdown(report) {
           const outcome = i === 0 ? `\`${chain.outcome}\`` : '';
           const reviewTurn = i === 0 ? `\`${chain.review_turn_id || 'pending'}\`` : '';
           const charter = delegation.charter.replace(/\|/g, '\\|');
-          lines.push(`| ${parentRole} | ${parentTurn} | ${outcome} | ${reviewTurn} | \`${delegation.delegation_id}\` → \`${delegation.to_role}\` | \`${delegation.child_turn_id || 'pending'}\` | \`${delegation.status}\` | ${charter} |`);
+          const requiredDecisions = (delegation.required_decision_ids || []).join(', ').replace(/\|/g, '\\|') || '—';
+          const missingDecisions = (delegation.missing_decision_ids || []).join(', ').replace(/\|/g, '\\|') || '—';
+          lines.push(`| ${parentRole} | ${parentTurn} | ${outcome} | ${reviewTurn} | \`${delegation.delegation_id}\` → \`${delegation.to_role}\` | \`${delegation.child_turn_id || 'pending'}\` | \`${delegation.status}\` | ${requiredDecisions} | ${missingDecisions} | ${charter} |`);
         }
       }
     }
@@ -2392,11 +2402,13 @@ function renderRunHtml(report) {
           `<code>${esc(d.delegation_id)}</code> &rarr; <code>${esc(d.to_role)}</code>`,
           `<code>${esc(d.child_turn_id || 'pending')}</code>`,
           badge(d.status),
+          esc((d.required_decision_ids || []).join(', ') || '\u2014'),
+          esc((d.missing_decision_ids || []).join(', ') || '\u2014'),
           esc(d.charter),
         ]);
       }
     }
-    delHtml += htmlTable(['Parent Role', 'Parent Turn', 'Outcome', 'Review Turn', 'Delegation', 'Child Turn', 'Status', 'Charter'], rows);
+    delHtml += htmlTable(['Parent Role', 'Parent Turn', 'Outcome', 'Review Turn', 'Delegation', 'Child Turn', 'Status', 'Required Decisions', 'Missing Decisions', 'Charter'], rows);
     sections.push(`<div class="section">${htmlSection('Delegation Summary', delHtml)}</div>`);
   }
 
