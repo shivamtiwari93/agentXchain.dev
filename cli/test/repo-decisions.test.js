@@ -15,6 +15,7 @@ import {
   overrideRepoDecision,
   validateOverride,
   renderRepoDecisionsMarkdown,
+  buildRepoDecisionsSummary,
   REPO_DECISIONS_PATH,
 } from '../src/lib/repo-decisions.js';
 
@@ -45,6 +46,8 @@ describe('repo-decisions', () => {
       category: 'architecture',
       statement: 'Use PostgreSQL for persistence',
       rationale: 'Proven relational DB for our workload',
+      durability: 'repo',
+      overrides: null,
       status: 'active',
       overridden_by: null,
       created_at: '2026-04-15T00:00:00Z',
@@ -54,6 +57,7 @@ describe('repo-decisions', () => {
     assert.strictEqual(all.length, 1);
     assert.strictEqual(all[0].id, 'DEC-001');
     assert.strictEqual(all[0].status, 'active');
+    assert.strictEqual(all[0].durability, 'repo');
   });
 
   it('getActiveRepoDecisions filters to active only', () => {
@@ -121,12 +125,46 @@ describe('repo-decisions', () => {
     it('renders active decisions as markdown', () => {
       const md = renderRepoDecisionsMarkdown([
         { id: 'DEC-001', category: 'architecture', statement: 'Use PostgreSQL' },
-        { id: 'DEC-002', category: 'process', statement: 'PRs need E2E tests' },
+        { id: 'DEC-002', category: 'process', statement: 'PRs need E2E tests', overrides: 'DEC-001' },
       ]);
       assert.match(md, /## Active Repo Decisions/);
       assert.match(md, /DEC-001.*architecture.*PostgreSQL/);
       assert.match(md, /DEC-002.*process.*E2E tests/);
+      assert.match(md, /Supersedes DEC-001/);
       assert.match(md, /Comply or explicitly override/);
+    });
+  });
+
+  describe('buildRepoDecisionsSummary', () => {
+    it('preserves override lineage on active and overridden entries', () => {
+      const summary = buildRepoDecisionsSummary([
+        {
+          id: 'DEC-001',
+          category: 'architecture',
+          statement: 'Use PostgreSQL',
+          role: 'architect',
+          run_id: 'run_001',
+          status: 'overridden',
+          overridden_by: 'DEC-002',
+          overrides: null,
+          durability: 'repo',
+        },
+        {
+          id: 'DEC-002',
+          category: 'architecture',
+          statement: 'Move to SQLite for local-first mode',
+          role: 'architect',
+          run_id: 'run_002',
+          status: 'active',
+          overrides: 'DEC-001',
+          durability: 'repo',
+        },
+      ]);
+
+      assert.equal(summary.active[0].overrides, 'DEC-001');
+      assert.equal(summary.active[0].durability, 'repo');
+      assert.equal(summary.overridden[0].overridden_by, 'DEC-002');
+      assert.equal(summary.overridden[0].overrides, null);
     });
   });
 });

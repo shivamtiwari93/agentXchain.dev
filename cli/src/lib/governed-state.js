@@ -3359,6 +3359,8 @@ function _acceptGovernedTurnLocked(root, config, opts) {
           category: dec.category,
           statement: dec.statement,
           rationale: dec.rationale,
+          durability: dec.durability || 'repo',
+          overrides: dec.overrides || null,
           status: 'active',
           overridden_by: null,
           created_at: now,

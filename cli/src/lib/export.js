@@ -8,7 +8,7 @@ import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-co
 import { loadCoordinatorState } from './coordinator-state.js';
 import { normalizeRunProvenance } from './run-provenance.js';
 import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
-import { readRepoDecisions } from './repo-decisions.js';
+import { readRepoDecisions, buildRepoDecisionsSummary as summarizeRepoDecisions } from './repo-decisions.js';
 import { RUN_EVENTS_PATH } from './run-events.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
@@ -212,17 +212,7 @@ function buildDashboardSessionSummary(root) {
 }
 
 export function buildRepoDecisionsSummary(root) {
-  const all = readRepoDecisions(root);
-  if (!all || all.length === 0) return null;
-  const active = all.filter(d => d.status === 'active');
-  const overridden = all.filter(d => d.status === 'overridden');
-  return {
-    total: all.length,
-    active_count: active.length,
-    overridden_count: overridden.length,
-    active: active.map(d => ({ id: d.id, category: d.category, statement: d.statement, role: d.role, run_id: d.run_id })),
-    overridden: overridden.map(d => ({ id: d.id, overridden_by: d.overridden_by, statement: d.statement })),
-  };
+  return summarizeRepoDecisions(readRepoDecisions(root));
 }
 
 export function buildDelegationSummary(files) {

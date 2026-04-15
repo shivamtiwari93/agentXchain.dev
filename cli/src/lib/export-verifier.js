@@ -388,11 +388,15 @@ function buildExpectedRepoDecisionsSummary(files) {
       statement: d.statement,
       role: d.role,
       run_id: d.run_id,
+      overrides: d.overrides || null,
+      durability: d.durability || 'repo',
     })),
     overridden: overridden.map((d) => ({
       id: d.id,
-      overridden_by: d.overridden_by,
       statement: d.statement,
+      overridden_by: d.overridden_by,
+      overrides: d.overrides || null,
+      durability: d.durability || 'repo',
     })),
   };
 }

@@ -609,11 +609,32 @@ describe('verify export CLI', () => {
     const root = createGovernedProject();
     try {
       writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
-        { id: 'DEC-100', status: 'active', category: 'architecture', statement: 'Use REST', role: 'dev', run_id: 'run_001' },
-        { id: 'DEC-200', status: 'overridden', overridden_by: 'DEC-300', statement: 'Use GraphQL' },
+        {
+          id: 'DEC-100',
+          status: 'overridden',
+          category: 'architecture',
+          statement: 'Use REST',
+          role: 'dev',
+          run_id: 'run_001',
+          durability: 'repo',
+          overridden_by: 'DEC-101',
+        },
+        {
+          id: 'DEC-101',
+          status: 'active',
+          category: 'architecture',
+          statement: 'Use GraphQL',
+          role: 'architect',
+          run_id: 'run_002',
+          durability: 'repo',
+          overrides: 'DEC-100',
+        },
       ]);
 
       const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      assert.equal(artifact.summary.repo_decisions.active[0].overrides, 'DEC-100');
+      assert.equal(artifact.summary.repo_decisions.overridden[0].overridden_by, 'DEC-101');
       const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
       assert.equal(result.status, 0, result.stderr);
       const report = JSON.parse(result.stdout);

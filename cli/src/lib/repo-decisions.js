@@ -37,6 +37,33 @@ export function getRepoDecisionById(root, decisionId) {
   return readRepoDecisions(root).find(d => d.id === decisionId) || null;
 }
 
+export function buildRepoDecisionsSummary(decisions) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return null;
+  const active = decisions.filter((d) => d.status === 'active');
+  const overridden = decisions.filter((d) => d.status === 'overridden');
+  return {
+    total: decisions.length,
+    active_count: active.length,
+    overridden_count: overridden.length,
+    active: active.map((d) => ({
+      id: d.id,
+      category: d.category,
+      statement: d.statement,
+      role: d.role,
+      run_id: d.run_id,
+      overrides: d.overrides || null,
+      durability: d.durability || 'repo',
+    })),
+    overridden: overridden.map((d) => ({
+      id: d.id,
+      overridden_by: d.overridden_by,
+      statement: d.statement,
+      overrides: d.overrides || null,
+      durability: d.durability || 'repo',
+    })),
+  };
+}
+
 // ── Write ───────────────────────────────────────────────────────────────────
 
 export function appendRepoDecision(root, entry) {
@@ -89,7 +116,8 @@ export function renderRepoDecisionsMarkdown(activeDecisions) {
     '',
   ];
   for (const d of activeDecisions) {
-    lines.push(`- **${d.id}** (${d.category}): ${d.statement}`);
+    const supersedes = d.overrides ? ` Supersedes ${d.overrides}.` : '';
+    lines.push(`- **${d.id}** (${d.category}): ${d.statement}${supersedes}`);
   }
   lines.push('');
   return lines.join('\n');

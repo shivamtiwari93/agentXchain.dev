@@ -39,6 +39,10 @@ export async function decisionsCommand(opts) {
     console.log(`  Phase:       ${dec.phase || '—'}`);
     console.log(`  Run:         ${(dec.run_id || '—').slice(0, 16)}`);
     console.log(`  Turn:        ${(dec.turn_id || '—').slice(0, 16)}`);
+    console.log(`  Durability:  ${dec.durability || 'repo'}`);
+    if (dec.overrides) {
+      console.log(`  Supersedes:  ${chalk.yellow(dec.overrides)}`);
+    }
     console.log(`  Created:     ${dec.created_at || '—'}`);
     if (dec.overridden_by) {
       console.log(`  Overridden:  ${chalk.yellow(dec.overridden_by)}`);
@@ -69,7 +73,11 @@ export async function decisionsCommand(opts) {
   for (const dec of decisions) {
     const status = formatStatus(dec.status);
     const runShort = (dec.run_id || '').slice(0, 12);
-    const override = dec.overridden_by ? chalk.dim(` → ${dec.overridden_by}`) : '';
+    const override = dec.overridden_by
+      ? chalk.dim(` → ${dec.overridden_by}`)
+      : dec.overrides
+        ? chalk.dim(` ← supersedes ${dec.overrides}`)
+        : '';
     console.log(`  ${chalk.cyan(dec.id)}  ${status}  ${chalk.dim(dec.category)}  ${dec.statement}${override}`);
     console.log(`    ${chalk.dim(`by ${dec.role || '?'} in ${runShort || '?'}`)}`);
   }
