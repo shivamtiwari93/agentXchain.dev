@@ -20,73 +20,118 @@ import { resolveBenchmarkWorkload } from './benchmark-workloads.js';
  * No API keys required. Proves the governance engine is correct.
  */
 
-function makeConfig(workload) {
-  const base = {
+const BUILTIN_BENCHMARK_PHASES = Object.freeze({
+  planning: Object.freeze({
+    id: 'planning',
+    handler: 'planning',
+    role: Object.freeze({
+      id: 'pm',
+      title: 'Product Manager',
+      mandate: 'Scope and accept.',
+      write_authority: 'review_only',
+    }),
+    runtime: Object.freeze({
+      id: 'manual-pm',
+      type: 'manual',
+    }),
+    prompt: '# PM Prompt\nBenchmark PM.',
+    allowed_next_roles: Object.freeze(['pm', 'human']),
+    gate: Object.freeze({
+      id: 'planning_signoff',
+      requires_files: Object.freeze(['.planning/PM_SIGNOFF.md']),
+      requires_human_approval: true,
+    }),
+  }),
+  implementation: Object.freeze({
+    id: 'implementation',
+    handler: 'implementation',
+    role: Object.freeze({
+      id: 'dev',
+      title: 'Developer',
+      mandate: 'Implement and verify.',
+      write_authority: 'authoritative',
+    }),
+    runtime: Object.freeze({
+      id: 'manual-dev',
+      type: 'manual',
+    }),
+    prompt: '# Dev Prompt\nBenchmark Dev.',
+    allowed_next_roles: Object.freeze(['dev', 'qa', 'human']),
+    gate: Object.freeze({
+      id: 'implementation_complete',
+      requires_files: Object.freeze(['.planning/IMPLEMENTATION_NOTES.md']),
+      requires_human_approval: true,
+    }),
+  }),
+  qa: Object.freeze({
+    id: 'qa',
+    handler: 'qa',
+    role: Object.freeze({
+      id: 'qa',
+      title: 'QA Reviewer',
+      mandate: 'Challenge and approve.',
+      write_authority: 'review_only',
+    }),
+    runtime: Object.freeze({
+      id: 'manual-qa',
+      type: 'manual',
+    }),
+    prompt: '# QA Prompt\nBenchmark QA.',
+    allowed_next_roles: Object.freeze(['dev', 'qa', 'human']),
+    gate: Object.freeze({
+      id: 'qa_ship_verdict',
+      requires_files: Object.freeze(['.planning/acceptance-matrix.md', '.planning/ship-verdict.md']),
+      requires_human_approval: true,
+    }),
+  }),
+});
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function buildBenchmarkPhaseSpecs(workload) {
+  const phaseOrder = Array.isArray(workload?.phase_order) && workload.phase_order.length > 0
+    ? workload.phase_order
+    : ['planning', 'implementation', 'qa'];
+  const customPhases = workload?.custom_phases || {};
+  const phaseSpecs = phaseOrder.map((phaseId) => {
+    const source = customPhases[phaseId] || BUILTIN_BENCHMARK_PHASES[phaseId];
+    if (!source) {
+      throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" references unknown phase "${phaseId}".`);
+    }
+    return deepClone(source);
+  });
+
+  const phaseIds = phaseSpecs.map((phase) => phase.id);
+  if (new Set(phaseIds).size !== phaseIds.length) {
+    throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" defines duplicate phases: ${phaseIds.join(', ')}.`);
+  }
+  if (phaseIds[0] !== 'planning') {
+    throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" must start with the planning phase.`);
+  }
+  if (!phaseIds.includes('implementation')) {
+    throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" must include the implementation phase.`);
+  }
+  if (phaseIds[phaseIds.length - 1] !== 'qa') {
+    throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" must end with the qa phase.`);
+  }
+  if (phaseIds.indexOf('implementation') > phaseIds.indexOf('qa')) {
+    throw new Error(`Benchmark workload "${workload?.id || 'unknown'}" must place implementation before qa.`);
+  }
+
+  return phaseSpecs;
+}
+
+function makeConfig(phaseSpecs) {
+  const config = {
     schema_version: 4,
     protocol_mode: 'governed',
     project: { id: 'agentxchain-benchmark', name: 'AgentXchain Benchmark', goal: 'Governance compliance proof workload', default_branch: 'main' },
-    roles: {
-      pm: {
-        title: 'Product Manager',
-        mandate: 'Scope and accept.',
-        write_authority: 'review_only',
-        runtime: 'manual-pm',
-        runtime_class: 'manual',
-        runtime_id: 'manual-pm',
-      },
-      dev: {
-        title: 'Developer',
-        mandate: 'Implement and verify.',
-        write_authority: 'authoritative',
-        runtime: 'manual-dev',
-        runtime_class: 'manual',
-        runtime_id: 'manual-dev',
-      },
-      qa: {
-        title: 'QA Reviewer',
-        mandate: 'Challenge and approve.',
-        write_authority: 'review_only',
-        runtime: 'manual-qa',
-        runtime_class: 'manual',
-        runtime_id: 'manual-qa',
-      },
-    },
-    runtimes: {
-      'manual-pm': { type: 'manual' },
-      'manual-dev': { type: 'manual' },
-      'manual-qa': { type: 'manual' },
-    },
-    routing: {
-      planning: {
-        entry_role: 'pm',
-        allowed_next_roles: ['pm', 'human'],
-        exit_gate: 'planning_signoff',
-      },
-      implementation: {
-        entry_role: 'dev',
-        allowed_next_roles: ['dev', 'qa', 'human'],
-        exit_gate: 'implementation_complete',
-      },
-      qa: {
-        entry_role: 'qa',
-        allowed_next_roles: ['dev', 'qa', 'human'],
-        exit_gate: 'qa_ship_verdict',
-      },
-    },
-    gates: {
-      planning_signoff: {
-        requires_files: ['.planning/PM_SIGNOFF.md'],
-        requires_human_approval: true,
-      },
-      implementation_complete: {
-        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
-        requires_human_approval: true,
-      },
-      qa_ship_verdict: {
-        requires_files: ['.planning/acceptance-matrix.md', '.planning/ship-verdict.md'],
-        requires_human_approval: true,
-      },
-    },
+    roles: {},
+    runtimes: {},
+    routing: {},
+    gates: {},
     budget: { per_turn_max_usd: 1.0, per_run_max_usd: 5.0 },
     rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 1 },
     files: {
@@ -101,46 +146,32 @@ function makeConfig(workload) {
     },
   };
 
-  // phase-drift workload: insert extra phases (design) between planning and implementation
-  if (workload && Array.isArray(workload.extra_phases) && workload.extra_phases.length > 0) {
-    // Add architect role for design phase
-    base.roles.architect = {
-      title: 'Architect',
-      mandate: 'Design systems and validate architecture.',
-      write_authority: 'authoritative',
-      runtime: 'manual-architect',
-      runtime_class: 'manual',
-      runtime_id: 'manual-architect',
+  for (const phaseSpec of phaseSpecs) {
+    config.roles[phaseSpec.role.id] = {
+      title: phaseSpec.role.title,
+      mandate: phaseSpec.role.mandate,
+      write_authority: phaseSpec.role.write_authority,
+      runtime: phaseSpec.runtime.id,
+      runtime_class: phaseSpec.runtime.type,
+      runtime_id: phaseSpec.runtime.id,
     };
-    base.runtimes['manual-architect'] = { type: 'manual' };
-
-    // Insert design phase between planning and implementation
-    const newRouting = {};
-    newRouting.planning = {
-      entry_role: 'pm',
-      allowed_next_roles: ['pm', 'human'],
-      exit_gate: 'planning_signoff',
+    config.runtimes[phaseSpec.runtime.id] = { type: phaseSpec.runtime.type };
+    config.routing[phaseSpec.id] = {
+      entry_role: phaseSpec.role.id,
+      allowed_next_roles: [...phaseSpec.allowed_next_roles],
+      exit_gate: phaseSpec.gate.id,
     };
-    newRouting.design = {
-      entry_role: 'architect',
-      allowed_next_roles: ['architect', 'pm', 'human'],
-      exit_gate: 'design_signoff',
+    config.gates[phaseSpec.gate.id] = {
+      requires_files: [...phaseSpec.gate.requires_files],
+      requires_human_approval: phaseSpec.gate.requires_human_approval,
     };
-    newRouting.implementation = base.routing.implementation;
-    newRouting.qa = base.routing.qa;
-    base.routing = newRouting;
-
-    // Add design gate
-    base.gates.design_signoff = {
-      requires_files: ['.planning/DESIGN_SIGNOFF.md'],
-      requires_human_approval: true,
-    };
-
-    // Increase budget for extra phase
-    base.budget.per_run_max_usd = 8.0;
   }
 
-  return base;
+  if (phaseSpecs.length > 3) {
+    config.budget.per_run_max_usd = 5.0 + phaseSpecs.length - 3;
+  }
+
+  return config;
 }
 
 function makeTurnResult(runId, turnId, role, runtimeId, phase, opts = {}) {
@@ -166,7 +197,7 @@ function makeTurnResult(runId, turnId, role, runtimeId, phase, opts = {}) {
   };
 }
 
-function scaffoldProject(root, config) {
+function scaffoldProject(root, config, phaseSpecs) {
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
   mkdirSync(join(root, '.agentxchain/prompts'), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
@@ -187,11 +218,12 @@ function scaffoldProject(root, config) {
 
   writeFileSync(join(root, '.agentxchain/history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
-  writeFileSync(join(root, '.agentxchain/prompts/pm.md'), '# PM Prompt\nBenchmark PM.');
-  writeFileSync(join(root, '.agentxchain/prompts/dev.md'), '# Dev Prompt\nBenchmark Dev.');
-  writeFileSync(join(root, '.agentxchain/prompts/qa.md'), '# QA Prompt\nBenchmark QA.');
-  if (config.roles.architect) {
-    writeFileSync(join(root, '.agentxchain/prompts/architect.md'), '# Architect Prompt\nBenchmark Architect.');
+  const writtenPrompts = new Set();
+  for (const phaseSpec of phaseSpecs) {
+    const promptPath = join(root, '.agentxchain/prompts', `${phaseSpec.role.id}.md`);
+    if (!phaseSpec.prompt || writtenPrompts.has(promptPath)) continue;
+    writeFileSync(promptPath, `${phaseSpec.prompt}\n`);
+    writtenPrompts.add(promptPath);
   }
   writeFileSync(join(root, 'TALK.md'), '# Benchmark Log\n');
   writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), '# PM Planning Sign-Off\n\nApproved: NO\n');
@@ -246,6 +278,72 @@ function recordGateEvaluation(metrics, outcome) {
   } else if (outcome === 'failed') {
     metrics.gates.failed++;
   }
+}
+
+function getNextPhaseId(phaseSpecs, index) {
+  return phaseSpecs[index + 1]?.id || null;
+}
+
+function countExecutionArtifacts(phaseResult) {
+  return phaseResult.decisions.length + phaseResult.files_changed.length;
+}
+
+async function executeGenericPhase({
+  root,
+  config,
+  runId,
+  phaseSpec,
+  nextPhaseId,
+  metrics,
+  assignTurn,
+  acceptTurn,
+  approvePhaseGate,
+}) {
+  const assignResult = assignTurn(root, config, phaseSpec.role.id);
+  if (!assignResult.ok) {
+    throw new Error(`${phaseSpec.role.title} assign failed: ${assignResult.error}`);
+  }
+  const turnId = assignResult.turn.turn_id;
+  const execution = phaseSpec.execution || {};
+  const filesChanged = Array.isArray(execution.files_changed)
+    ? [...execution.files_changed]
+    : Array.isArray(execution.files_to_write)
+      ? execution.files_to_write.map((file) => file.path)
+      : [];
+  const phaseResult = makeTurnResult(runId, turnId, phaseSpec.role.id, phaseSpec.runtime.id, phaseSpec.id, {
+    files_changed: filesChanged,
+    artifact_type: execution.artifact_type || 'commit',
+    proposed_next_role: execution.proposed_next_role || 'human',
+    phase_transition_request: nextPhaseId,
+    decisionNum: execution.decision_num || 1,
+    objections: execution.objections || [],
+  });
+  stageTurnResult(root, turnId, phaseResult);
+
+  for (const file of execution.files_to_write || []) {
+    writeFileSync(join(root, file.path), file.content);
+  }
+  gitCommit(root, execution.commit_message || `benchmark: ${phaseSpec.id}`);
+
+  const acceptResult = acceptTurn(root, config);
+  if (!acceptResult.ok) {
+    throw new Error(`${phaseSpec.role.title} accept failed: ${acceptResult.error}`);
+  }
+  gitCommit(root, execution.accept_commit_message || `benchmark: accept ${phaseSpec.role.id}`);
+
+  recordTurn(metrics, phaseSpec.id, 'accepted');
+  metrics.artifacts.total += countExecutionArtifacts(phaseResult);
+
+  const gateResult = approvePhaseGate(root, config);
+  if (!gateResult.ok) {
+    metrics.gates.evaluated++;
+    metrics.gates.failed++;
+    throw new Error(`${phaseSpec.role.title} gate failed: ${gateResult.error}`);
+  }
+  recordGateEvaluation(metrics, 'passed');
+  metrics.phases.completed++;
+  metrics.phases.names.push(phaseSpec.id);
+  gitCommit(root, execution.gate_commit_message || `benchmark: ${phaseSpec.id} gate`);
 }
 
 function failEarlyBenchmark(jsonMode, error, validWorkloads = []) {
@@ -340,6 +438,13 @@ export async function benchmarkCommand(opts = {}) {
     return;
   }
   const benchmarkWorkload = workloadResolution.workload;
+  let phaseSpecs;
+  try {
+    phaseSpecs = buildBenchmarkPhaseSpecs(benchmarkWorkload);
+  } catch (error) {
+    failEarlyBenchmark(jsonMode, error.message, workloadResolution.valid_workloads || []);
+    return;
+  }
   const startTime = Date.now();
   const outputDir = opts.output ? resolve(String(opts.output)) : null;
   const proofArtifactPaths = buildProofArtifactPaths(outputDir);
@@ -404,12 +509,12 @@ export async function benchmarkCommand(opts = {}) {
     }
 
     // ── Scaffold ──────────────────────────────────────────────────────────
-    const config = makeConfig(benchmarkWorkload);
-    scaffoldProject(root, config);
+    const config = makeConfig(phaseSpecs);
+    scaffoldProject(root, config, phaseSpecs);
     gitInit(root);
 
     // Adjust metrics and workload metadata for actual phase count
-    const phaseNames = Object.keys(config.routing);
+    const phaseNames = phaseSpecs.map((phase) => phase.id);
     metrics.phases.total = phaseNames.length;
     workload.expected_phase_order = phaseNames;
 
@@ -431,8 +536,7 @@ export async function benchmarkCommand(opts = {}) {
     if (!pmAssign.ok) throw new Error(`PM assign failed: ${pmAssign.error}`);
     const pmTurnId = pmAssign.turn.turn_id;
 
-    // Next phase after planning depends on workload (design for phase-drift, implementation otherwise)
-    const phaseAfterPlanning = phaseNames[1] || 'implementation';
+    const phaseAfterPlanning = getNextPhaseId(phaseSpecs, 0) || 'implementation';
     const pmResult = makeTurnResult(runId, pmTurnId, 'pm', 'manual-pm', 'planning', {
       proposed_next_role: 'human',
       phase_transition_request: phaseAfterPlanning,
@@ -463,176 +567,160 @@ export async function benchmarkCommand(opts = {}) {
     metrics.phases.names.push('planning');
     gitCommit(root, 'benchmark: planning gate');
 
-    // ── Design Phase (phase-drift workload only) ─────────────────────────
-    if (benchmarkWorkload.extra_phases && benchmarkWorkload.extra_phases.includes('design')) {
-      const archAssign = assignTurn(root, config, 'architect');
-      if (!archAssign.ok) throw new Error(`Architect assign failed: ${archAssign.error}`);
-      const archTurnId = archAssign.turn.turn_id;
+    for (let phaseIndex = 1; phaseIndex < phaseSpecs.length; phaseIndex += 1) {
+      const phaseSpec = phaseSpecs[phaseIndex];
+      const nextPhaseId = getNextPhaseId(phaseSpecs, phaseIndex);
 
-      const archResult = makeTurnResult(runId, archTurnId, 'architect', 'manual-architect', 'design', {
-        files_changed: ['.planning/DESIGN_SIGNOFF.md'],
-        artifact_type: 'commit',
-        proposed_next_role: 'human',
-        phase_transition_request: 'implementation',
-        decisionNum: 10,
-        objections: [{ id: 'OBJ-010', severity: 'medium', statement: 'Benchmark architecture review: validate system design.', status: 'raised' }],
-      });
-      stageTurnResult(root, archTurnId, archResult);
-
-      writeFileSync(join(root, '.planning/DESIGN_SIGNOFF.md'), '# Design Sign-Off\n\nApproved: YES\n');
-      gitCommit(root, 'benchmark: architect design');
-
-      const archAccept = acceptTurn(root, config);
-      if (!archAccept.ok) throw new Error(`Architect accept failed: ${archAccept.error}`);
-      gitCommit(root, 'benchmark: accept architect');
-
-      recordTurn(metrics, 'design', 'accepted');
-      metrics.artifacts.total += archResult.decisions.length;
-
-      // Design gate
-      const designGate = approvePhaseGate(root, config);
-      if (!designGate.ok) {
-        metrics.gates.evaluated++;
-        metrics.gates.failed++;
-        throw new Error(`Design gate failed: ${designGate.error}`);
-      }
-      recordGateEvaluation(metrics, 'passed');
-      metrics.phases.completed++;
-      metrics.phases.names.push('design');
-      gitCommit(root, 'benchmark: design gate');
-    }
-
-    // ── Implementation Phase ─────────────────────────────────────────────
-    const devAssign = assignTurn(root, config, 'dev');
-    if (!devAssign.ok) throw new Error(`Dev assign failed: ${devAssign.error}`);
-    const devTurnId = devAssign.turn.turn_id;
-
-    if (benchmarkWorkload.implementation.reject_invalid_first_attempt) {
-      const invalidDevResult = makeInvalidRetryResult(runId, devTurnId, 'dev', 'manual-dev', 'implementation');
-      stageTurnResult(root, devTurnId, invalidDevResult);
-
-      const validation = validateStagedTurnResult(root, loadState(root, config), config, {
-        stagingPath: getTurnStagingResultPath(devTurnId),
-      });
-      if (validation.ok) {
-        throw new Error('Benchmark stress mode expected the first implementation attempt to fail validation.');
+      if (phaseSpec.handler === 'generic') {
+        await executeGenericPhase({
+          root,
+          config,
+          runId,
+          phaseSpec,
+          nextPhaseId,
+          metrics,
+          assignTurn,
+          acceptTurn,
+          approvePhaseGate,
+        });
+        continue;
       }
 
-      const rejectResult = rejectTurn(root, config, validation, 'Benchmark stress: reject invalid implementation attempt');
-      if (!rejectResult.ok) {
-        throw new Error(`Dev reject failed: ${rejectResult.error}`);
-      }
+      if (phaseSpec.handler === 'implementation') {
+        const devAssign = assignTurn(root, config, phaseSpec.role.id);
+        if (!devAssign.ok) throw new Error(`Dev assign failed: ${devAssign.error}`);
+        const devTurnId = devAssign.turn.turn_id;
 
-      recordTurn(metrics, 'implementation', 'rejected');
-    }
+        if (benchmarkWorkload.implementation.reject_invalid_first_attempt) {
+          const invalidDevResult = makeInvalidRetryResult(runId, devTurnId, phaseSpec.role.id, phaseSpec.runtime.id, phaseSpec.id);
+          stageTurnResult(root, devTurnId, invalidDevResult);
 
-    const devResult = makeTurnResult(runId, devTurnId, 'dev', 'manual-dev', 'implementation', {
-      files_changed: ['benchmark-module.js', '.planning/IMPLEMENTATION_NOTES.md'],
-      artifact_type: 'commit',
-      proposed_next_role: 'qa',
-      phase_transition_request: 'qa',
-      decisionNum: 2,
-    });
-    stageTurnResult(root, devTurnId, devResult);
+          const validation = validateStagedTurnResult(root, loadState(root, config), config, {
+            stagingPath: getTurnStagingResultPath(devTurnId),
+          });
+          if (validation.ok) {
+            throw new Error('Benchmark stress mode expected the first implementation attempt to fail validation.');
+          }
 
-    writeFileSync(join(root, 'benchmark-module.js'), '// benchmark implementation artifact\nmodule.exports = { ok: true };\n');
-    writeFileSync(join(root, '.planning/IMPLEMENTATION_NOTES.md'), '# Implementation Notes\n\n## Changes\n\n- Benchmark implementation artifact created\n\n## Verification\n\n- All assertions pass\n');
-    gitCommit(root, 'benchmark: dev implementation');
+          const rejectResult = rejectTurn(root, config, validation, 'Benchmark stress: reject invalid implementation attempt');
+          if (!rejectResult.ok) {
+            throw new Error(`Dev reject failed: ${rejectResult.error}`);
+          }
 
-    const devAccept = acceptTurn(root, config);
-    if (!devAccept.ok) throw new Error(`Dev accept failed: ${devAccept.error}`);
-    gitCommit(root, 'benchmark: accept dev');
-
-    recordTurn(metrics, 'implementation', 'accepted');
-    metrics.artifacts.total += devResult.decisions.length + devResult.files_changed.length;
-
-    // Implementation gate
-    const implGate = approvePhaseGate(root, config);
-    if (!implGate.ok) {
-      metrics.gates.evaluated++;
-      metrics.gates.failed++;
-      throw new Error(`Implementation gate failed: ${implGate.error}`);
-    }
-    recordGateEvaluation(metrics, 'passed');
-    metrics.phases.completed++;
-    metrics.phases.names.push('implementation');
-    gitCommit(root, 'benchmark: implementation gate');
-
-    // ── QA Phase ─────────────────────────────────────────────────────────
-    const qaAssign = assignTurn(root, config, 'qa');
-    if (!qaAssign.ok) throw new Error(`QA assign failed: ${qaAssign.error}`);
-    const qaTurnId = qaAssign.turn.turn_id;
-
-    const qaResult = makeTurnResult(runId, qaTurnId, 'qa', 'manual-qa', 'qa', {
-      proposed_next_role: 'human',
-      run_completion_request: true,
-      decisionNum: 3,
-      objections: [{ id: 'OBJ-002', severity: 'low', statement: 'Benchmark QA challenge: verify compliance coverage.', status: 'raised' }],
-    });
-    stageTurnResult(root, qaTurnId, qaResult);
-
-    writeFileSync(join(root, '.planning/acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Status |\n|-------|-------------|--------|\n| 1 | Governance compliance | PASS |\n');
-    if (!benchmarkWorkload.qa.missing_completion_files.includes('.planning/ship-verdict.md')) {
-      writeFileSync(join(root, '.planning/ship-verdict.md'), '# Ship Verdict\n\n## Verdict: SHIP\n');
-    }
-    gitCommit(root, 'benchmark: qa review');
-
-    const qaAccept = acceptTurn(root, config);
-    if (!qaAccept.ok) throw new Error(`QA accept failed: ${qaAccept.error}`);
-    gitCommit(root, 'benchmark: accept qa');
-
-    recordTurn(metrics, 'qa', 'accepted');
-    metrics.artifacts.total += qaResult.decisions.length;
-
-    if (benchmarkWorkload.qa.fail_completion_once) {
-      const failedCompletionState = loadState(root, config);
-      const gateFailure = failedCompletionState?.last_gate_failure;
-      if (!gateFailure || gateFailure.gate_type !== 'run_completion') {
-        throw new Error(`Workload "${benchmarkWorkload.id}" expected a run-completion gate failure after the first QA turn.`);
-      }
-      const missingFiles = Array.isArray(gateFailure.missing_files) ? gateFailure.missing_files : [];
-      for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
-        if (!missingFiles.includes(requiredPath)) {
-          throw new Error(`Workload "${benchmarkWorkload.id}" expected missing completion artifact "${requiredPath}", but observed: ${missingFiles.join(', ') || 'none'}.`);
+          recordTurn(metrics, phaseSpec.id, 'rejected');
         }
-      }
-      recordGateEvaluation(metrics, 'failed');
 
-      const qaRecoveryAssign = assignTurn(root, config, benchmarkWorkload.qa.recovery_role);
-      if (!qaRecoveryAssign.ok) {
-        throw new Error(`QA recovery assign failed: ${qaRecoveryAssign.error}`);
-      }
-      const qaRecoveryTurnId = qaRecoveryAssign.turn.turn_id;
-      const qaRecoveryResult = makeTurnResult(runId, qaRecoveryTurnId, benchmarkWorkload.qa.recovery_role, 'manual-qa', 'qa', {
-        proposed_next_role: 'human',
-        run_completion_request: true,
-        decisionNum: 4,
-        objections: [{ id: 'OBJ-003', severity: 'medium', statement: 'Benchmark QA recovery: restore the missing ship verdict before completion.', status: 'raised' }],
-      });
-      stageTurnResult(root, qaRecoveryTurnId, qaRecoveryResult);
+        const devResult = makeTurnResult(runId, devTurnId, phaseSpec.role.id, phaseSpec.runtime.id, phaseSpec.id, {
+          files_changed: ['benchmark-module.js', '.planning/IMPLEMENTATION_NOTES.md'],
+          artifact_type: 'commit',
+          proposed_next_role: nextPhaseId === 'qa' ? 'qa' : 'human',
+          phase_transition_request: nextPhaseId,
+          decisionNum: 2,
+        });
+        stageTurnResult(root, devTurnId, devResult);
 
-      for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
-        writeFileSync(join(root, requiredPath), '# Ship Verdict\n\n## Verdict: SHIP\n');
-      }
-      gitCommit(root, 'benchmark: qa recovery');
+        writeFileSync(join(root, 'benchmark-module.js'), '// benchmark implementation artifact\nmodule.exports = { ok: true };\n');
+        writeFileSync(join(root, '.planning/IMPLEMENTATION_NOTES.md'), '# Implementation Notes\n\n## Changes\n\n- Benchmark implementation artifact created\n\n## Verification\n\n- All assertions pass\n');
+        gitCommit(root, 'benchmark: dev implementation');
 
-      const qaRecoveryAccept = acceptTurn(root, config);
-      if (!qaRecoveryAccept.ok) {
-        throw new Error(`QA recovery accept failed: ${qaRecoveryAccept.error}`);
-      }
-      gitCommit(root, 'benchmark: accept qa recovery');
+        const devAccept = acceptTurn(root, config);
+        if (!devAccept.ok) throw new Error(`Dev accept failed: ${devAccept.error}`);
+        gitCommit(root, 'benchmark: accept dev');
 
-      recordTurn(metrics, 'qa', 'accepted');
-      metrics.artifacts.total += qaRecoveryResult.decisions.length + benchmarkWorkload.qa.missing_completion_files.length;
+        recordTurn(metrics, phaseSpec.id, 'accepted');
+        metrics.artifacts.total += countExecutionArtifacts(devResult);
+
+        const implGate = approvePhaseGate(root, config);
+        if (!implGate.ok) {
+          metrics.gates.evaluated++;
+          metrics.gates.failed++;
+          throw new Error(`Implementation gate failed: ${implGate.error}`);
+        }
+        recordGateEvaluation(metrics, 'passed');
+        metrics.phases.completed++;
+        metrics.phases.names.push(phaseSpec.id);
+        gitCommit(root, 'benchmark: implementation gate');
+        continue;
+      }
+
+      if (phaseSpec.handler === 'qa') {
+        const qaAssign = assignTurn(root, config, phaseSpec.role.id);
+        if (!qaAssign.ok) throw new Error(`QA assign failed: ${qaAssign.error}`);
+        const qaTurnId = qaAssign.turn.turn_id;
+
+        const qaResult = makeTurnResult(runId, qaTurnId, phaseSpec.role.id, phaseSpec.runtime.id, phaseSpec.id, {
+          proposed_next_role: 'human',
+          run_completion_request: true,
+          decisionNum: 3,
+          objections: [{ id: 'OBJ-002', severity: 'low', statement: 'Benchmark QA challenge: verify compliance coverage.', status: 'raised' }],
+        });
+        stageTurnResult(root, qaTurnId, qaResult);
+
+        writeFileSync(join(root, '.planning/acceptance-matrix.md'), '# Acceptance Matrix\n\n| Req # | Requirement | Status |\n|-------|-------------|--------|\n| 1 | Governance compliance | PASS |\n');
+        if (!benchmarkWorkload.qa.missing_completion_files.includes('.planning/ship-verdict.md')) {
+          writeFileSync(join(root, '.planning/ship-verdict.md'), '# Ship Verdict\n\n## Verdict: SHIP\n');
+        }
+        gitCommit(root, 'benchmark: qa review');
+
+        const qaAccept = acceptTurn(root, config);
+        if (!qaAccept.ok) throw new Error(`QA accept failed: ${qaAccept.error}`);
+        gitCommit(root, 'benchmark: accept qa');
+
+        recordTurn(metrics, phaseSpec.id, 'accepted');
+        metrics.artifacts.total += qaResult.decisions.length;
+
+        if (benchmarkWorkload.qa.fail_completion_once) {
+          const failedCompletionState = loadState(root, config);
+          const gateFailure = failedCompletionState?.last_gate_failure;
+          if (!gateFailure || gateFailure.gate_type !== 'run_completion') {
+            throw new Error(`Workload "${benchmarkWorkload.id}" expected a run-completion gate failure after the first QA turn.`);
+          }
+          const missingFiles = Array.isArray(gateFailure.missing_files) ? gateFailure.missing_files : [];
+          for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
+            if (!missingFiles.includes(requiredPath)) {
+              throw new Error(`Workload "${benchmarkWorkload.id}" expected missing completion artifact "${requiredPath}", but observed: ${missingFiles.join(', ') || 'none'}.`);
+            }
+          }
+          recordGateEvaluation(metrics, 'failed');
+
+          const qaRecoveryAssign = assignTurn(root, config, benchmarkWorkload.qa.recovery_role);
+          if (!qaRecoveryAssign.ok) {
+            throw new Error(`QA recovery assign failed: ${qaRecoveryAssign.error}`);
+          }
+          const qaRecoveryTurnId = qaRecoveryAssign.turn.turn_id;
+          const qaRecoveryResult = makeTurnResult(runId, qaRecoveryTurnId, benchmarkWorkload.qa.recovery_role, phaseSpec.runtime.id, phaseSpec.id, {
+            proposed_next_role: 'human',
+            run_completion_request: true,
+            decisionNum: 4,
+            objections: [{ id: 'OBJ-003', severity: 'medium', statement: 'Benchmark QA recovery: restore the missing ship verdict before completion.', status: 'raised' }],
+          });
+          stageTurnResult(root, qaRecoveryTurnId, qaRecoveryResult);
+
+          for (const requiredPath of benchmarkWorkload.qa.missing_completion_files) {
+            writeFileSync(join(root, requiredPath), '# Ship Verdict\n\n## Verdict: SHIP\n');
+          }
+          gitCommit(root, 'benchmark: qa recovery');
+
+          const qaRecoveryAccept = acceptTurn(root, config);
+          if (!qaRecoveryAccept.ok) {
+            throw new Error(`QA recovery accept failed: ${qaRecoveryAccept.error}`);
+          }
+          gitCommit(root, 'benchmark: accept qa recovery');
+
+          recordTurn(metrics, phaseSpec.id, 'accepted');
+          metrics.artifacts.total += qaRecoveryResult.decisions.length + benchmarkWorkload.qa.missing_completion_files.length;
+        }
+
+        const completionResult = approveCompletionGate(root, config);
+        if (!completionResult.ok) throw new Error(`Completion failed: ${completionResult.error}`);
+
+        recordGateEvaluation(metrics, 'passed');
+        metrics.phases.completed++;
+        metrics.phases.names.push(phaseSpec.id);
+        continue;
+      }
+      throw new Error(`Benchmark workload "${benchmarkWorkload.id}" uses unsupported phase handler "${phaseSpec.handler}" for phase "${phaseSpec.id}".`);
     }
-
-    // QA gate + run completion
-    const completionResult = approveCompletionGate(root, config);
-    if (!completionResult.ok) throw new Error(`Completion failed: ${completionResult.error}`);
-
-    recordGateEvaluation(metrics, 'passed');
-    metrics.phases.completed++;
-    metrics.phases.names.push('qa');
 
     // ── Export Verification ──────────────────────────────────────────────
     const exportVerification = await buildAndVerifyRunExport(root);

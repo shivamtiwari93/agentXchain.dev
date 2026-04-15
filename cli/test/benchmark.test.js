@@ -275,6 +275,7 @@ describe('benchmark command', () => {
     assert.ok(result.stdout.includes('stress'), 'Should list stress');
     assert.ok(result.stdout.includes('completion-recovery'), 'Should list completion-recovery');
     assert.ok(result.stdout.includes('phase-drift'), 'Should list phase-drift');
+    assert.ok(result.stdout.includes('phases: planning -> design -> implementation -> qa'), 'Should expose phase topology for phase-drift');
     assert.ok(result.stdout.includes('agentxchain benchmark --workload'), 'Should show usage hint');
   });
 
@@ -290,9 +291,14 @@ describe('benchmark command', () => {
       assert.ok(w.id, 'Each workload needs id');
       assert.ok(w.label, 'Each workload needs label');
       assert.ok(w.description, 'Each workload needs description');
+      assert.ok(Array.isArray(w.phase_order), 'Each workload needs phase_order');
+      assert.ok(w.phase_order.length >= 3, 'Each workload needs a non-empty phase_order');
+      assert.equal(w.phase_count, w.phase_order.length, 'phase_count should match phase_order length');
       assert.ok(typeof w.rejected_turn_expected === 'boolean', 'Each workload needs rejected_turn_expected');
       assert.ok(typeof w.gate_failure_expected === 'boolean', 'Each workload needs gate_failure_expected');
       assert.ok(typeof w.recovery_branch === 'string', 'Each workload needs recovery_branch');
     }
+    const phaseDrift = payload.workloads.find(w => w.id === 'phase-drift');
+    assert.deepEqual(phaseDrift.phase_order, ['planning', 'design', 'implementation', 'qa']);
   });
 });

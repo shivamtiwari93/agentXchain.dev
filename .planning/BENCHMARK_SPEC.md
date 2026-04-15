@@ -117,3 +117,4 @@ None. Ship it.
 
 Durable saved proof artifacts are specified separately in `.planning/BENCHMARK_OUTPUT_SPEC.md`.
 Named workload catalog behavior is specified separately in `.planning/BENCHMARK_WORKLOAD_CATALOG_SPEC.md`.
+Phase topology resolution is specified separately in `.planning/BENCHMARK_PHASE_TOPOLOGY_SPEC.md`.

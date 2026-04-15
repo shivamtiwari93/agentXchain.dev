@@ -49,7 +49,7 @@ agentxchain benchmark workloads [--json]
    - run completion then succeeds
 7. Saved `workload.json` must include the selected workload id, description, and expected recovery semantics so later verification is not forced to infer them from history alone.
 8. `phase-drift` must use a 4-phase workflow (planning → design → implementation → qa) producing a different `workflow_phase_order` than the default 3-phase config. Diffing against baseline must produce a `REG-PHASE-ORDER` regression.
-9. `agentxchain benchmark workloads` must list all available workloads with descriptions and expected signals. `--json` produces structured catalog output.
+9. `agentxchain benchmark workloads` must list all available workloads with descriptions, expected signals, and visible phase topology. `--json` produces structured catalog output including `phase_order` and `phase_count`.
 
 ## Error Cases
 
@@ -67,7 +67,7 @@ agentxchain benchmark workloads [--json]
 - `AT-BENCH-017`: `agentxchain benchmark --json --workload phase-drift` exits 0 with 4 completed phases (planning, design, implementation, qa)
 - `AT-BENCH-018`: saved baseline vs phase-drift `verify diff` exits 1 with exactly `REG-PHASE-ORDER-001` regression
 - `AT-BENCH-019`: `agentxchain benchmark workloads` lists all 4 workloads with usage hint
-- `AT-BENCH-020`: `agentxchain benchmark workloads --json` returns structured catalog with all 4 workload entries
+- `AT-BENCH-020`: `agentxchain benchmark workloads --json` returns structured catalog with all 4 workload entries plus `phase_order` / `phase_count`
 
 ## Open Questions
 

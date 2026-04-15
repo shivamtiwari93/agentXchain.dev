@@ -1,8 +1,56 @@
+const DEFAULT_PHASE_ORDER = Object.freeze(['planning', 'implementation', 'qa']);
+
+const DESIGN_PHASE_SPEC = Object.freeze({
+  id: 'design',
+  handler: 'generic',
+  role: Object.freeze({
+    id: 'architect',
+    title: 'Architect',
+    mandate: 'Design systems and validate architecture.',
+    write_authority: 'authoritative',
+  }),
+  runtime: Object.freeze({
+    id: 'manual-architect',
+    type: 'manual',
+  }),
+  prompt: '# Architect Prompt\nBenchmark Architect.',
+  allowed_next_roles: Object.freeze(['architect', 'pm', 'human']),
+  gate: Object.freeze({
+    id: 'design_signoff',
+    requires_files: Object.freeze(['.planning/DESIGN_SIGNOFF.md']),
+    requires_human_approval: true,
+  }),
+  execution: Object.freeze({
+    files_changed: Object.freeze(['.planning/DESIGN_SIGNOFF.md']),
+    files_to_write: Object.freeze([
+      Object.freeze({
+        path: '.planning/DESIGN_SIGNOFF.md',
+        content: '# Design Sign-Off\n\nApproved: YES\n',
+      }),
+    ]),
+    artifact_type: 'commit',
+    proposed_next_role: 'human',
+    decision_num: 10,
+    objections: Object.freeze([
+      Object.freeze({
+        id: 'OBJ-010',
+        severity: 'medium',
+        statement: 'Benchmark architecture review: validate system design.',
+        status: 'raised',
+      }),
+    ]),
+    commit_message: 'benchmark: architect design',
+    accept_commit_message: 'benchmark: accept architect',
+    gate_commit_message: 'benchmark: design gate',
+  }),
+});
+
 export const BENCHMARK_WORKLOADS = Object.freeze({
   baseline: Object.freeze({
     id: 'baseline',
     label: 'Baseline',
     description: 'One accepted turn per phase with no recovery branches.',
+    phase_order: DEFAULT_PHASE_ORDER,
     rejected_turn_expected: false,
     gate_failure_expected: false,
     recovery_branch: 'none',
@@ -19,6 +67,7 @@ export const BENCHMARK_WORKLOADS = Object.freeze({
     id: 'stress',
     label: 'Stress',
     description: 'Reject the first implementation attempt, then recover and complete the run.',
+    phase_order: DEFAULT_PHASE_ORDER,
     rejected_turn_expected: true,
     gate_failure_expected: false,
     recovery_branch: 'implementation_rejection',
@@ -35,6 +84,7 @@ export const BENCHMARK_WORKLOADS = Object.freeze({
     id: 'completion-recovery',
     label: 'Completion Recovery',
     description: 'Fail the first QA completion gate on a missing required artifact, then repair and complete.',
+    phase_order: DEFAULT_PHASE_ORDER,
     rejected_turn_expected: false,
     gate_failure_expected: true,
     recovery_branch: 'run_completion_gate_failure',
@@ -51,11 +101,13 @@ export const BENCHMARK_WORKLOADS = Object.freeze({
     id: 'phase-drift',
     label: 'Phase Drift',
     description: 'Run with a 4-phase workflow (planning → design → implementation → qa) to produce a different workflow_phase_order. Diffing against baseline proves REG-PHASE-ORDER detection.',
+    phase_order: Object.freeze(['planning', 'design', 'implementation', 'qa']),
     rejected_turn_expected: false,
     gate_failure_expected: false,
     recovery_branch: 'none',
-    phase_count: 4,
-    extra_phases: Object.freeze(['design']),
+    custom_phases: Object.freeze({
+      design: DESIGN_PHASE_SPEC,
+    }),
     implementation: Object.freeze({
       reject_invalid_first_attempt: false,
     }),
@@ -93,6 +145,8 @@ export function benchmarkWorkloadsCommand(opts = {}) {
         id: w.id,
         label: w.label,
         description: w.description,
+        phase_order: Array.isArray(w.phase_order) ? [...w.phase_order] : [],
+        phase_count: Array.isArray(w.phase_order) ? w.phase_order.length : null,
         rejected_turn_expected: w.rejected_turn_expected,
         gate_failure_expected: w.gate_failure_expected,
         recovery_branch: w.recovery_branch,
@@ -108,6 +162,8 @@ export function benchmarkWorkloadsCommand(opts = {}) {
   for (const id of ids) {
     const w = BENCHMARK_WORKLOADS[id];
     const flags = [];
+    const phaseLabel = Array.isArray(w.phase_order) ? `phases: ${w.phase_order.join(' -> ')}` : null;
+    if (phaseLabel) flags.push(phaseLabel);
     if (w.rejected_turn_expected) flags.push('rejected-turn');
     if (w.gate_failure_expected) flags.push('gate-failure');
     if (w.recovery_branch !== 'none') flags.push(`recovery: ${w.recovery_branch}`);
