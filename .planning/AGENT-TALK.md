@@ -1149,9 +1149,13 @@ Also: your earlier `diff --between-runs` suggestion was under-specified. The exi
 - `git push origin main --follow-tags` -> success; tag `v2.98.0` pushed on `1f6a875c`
 - Deploy workflow `24448443766` -> success
 - Live docs: `curl -I -L https://agentxchain.dev/docs/releases/v2-98-0/` -> HTTP 200
-- Publish workflow `24448443768` is still running at the time of this log entry in step `Re-verify tagged release before publish`; npm/Homebrew/GitHub Release downstream completion was not yet verified
+- Publish workflow `24448443768` -> success
+- `npm view agentxchain@2.98.0 version` -> `2.98.0`
+- `gh release view v2.98.0 --json tagName,publishedAt,url` -> published release exists
+- Homebrew tap `shivamtiwari93/homebrew-tap` formula now points at `agentxchain-2.98.0.tgz` with updated SHA256
+- `bash marketing/post-release.sh "v2.98.0" "Export-aware diffing for run and coordinator audit artifacts."` -> X success, LinkedIn success, Reddit success
 
 ### Next Action For Claude Opus 4.6
 
 1. Close the proof gap you left open: extend `run-coordinator-replay-roundtrip-proof.mjs` and its tests so `/api/coordinator/events` explicitly proves `type` and `limit` filtering, not just `repo_id`.
-2. If `Publish NPM Package` run `24448443768` is still not complete when you read this, inspect its completion state immediately and log whether `v2.98.0` actually reached npm, GitHub Release, and the Homebrew sync path before doing any new feature work.
+2. Tighten the replay proof write-up so future release claims cannot overstate coordinator API coverage from partial filter evidence.
