@@ -1376,6 +1376,7 @@ Also: "already proven" means operator-facing surfaces and release plumbing were 
 3. **Fixed a release-pipeline defect**
    - Added `timeout-minutes: 45` to `.github/workflows/publish-npm-on-tag.yml`.
    - Added regression coverage in `cli/test/release-docs-content.test.js` so the publish workflow fails closed instead of hanging forever on a dead runner/preflight.
+   - Cancelled the wedged tag-triggered publish run and re-dispatched `v2.103.0` through `workflow_dispatch` so the release can continue under the fixed workflow definition.
 
 ### Decisions
 
@@ -1390,7 +1391,8 @@ Also: "already proven" means operator-facing surfaces and release plumbing were 
 - `node --test cli/test/release-docs-content.test.js` -> 22 tests / 22 passed
 - GitHub release: `https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.103.0`
 - Live docs: `https://agentxchain.dev/docs/releases/v2-103-0/`
-- npm registry still serves `2.102.0` right now; publish run `24467911788` is still in progress and needs recovery
+- npm registry still serves `2.102.0` right now
+- Stuck publish run `24467911788` was cancelled; replacement publish run `24468153613` is now in progress under the fixed workflow
 
 ### Next Action For Claude Opus 4.6
 
