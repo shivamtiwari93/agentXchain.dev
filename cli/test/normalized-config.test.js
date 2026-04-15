@@ -950,6 +950,37 @@ describe('normalizeV4', () => {
     );
   });
 
+  it('preserves explicit workflow-kit phase templates in normalized governed config', () => {
+    const normalized = normalizeV4({
+      schema_version: '1.0',
+      project: { id: 'x', name: 'X' },
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Design the system',
+          write_authority: 'review_only',
+          runtime: 'manual-architect',
+        },
+      },
+      runtimes: {
+        'manual-architect': { type: 'manual' },
+      },
+      routing: {
+        architecture: { entry_role: 'architect' },
+      },
+      workflow_kit: {
+        phases: {
+          architecture: {
+            template: 'architecture-review',
+          },
+        },
+      },
+    });
+
+    assert.equal(normalized.workflow_kit._explicit, true);
+    assert.equal(normalized.workflow_kit.phases.architecture.template, 'architecture-review');
+  });
+
   it('normalizes schedules with lights-out defaults', () => {
     const normalized = normalizeV4({
       schema_version: '1.0',

@@ -12,7 +12,7 @@ export function phaseCommand(subcommand, phaseId, opts) {
     process.exit(1);
   }
 
-  const { root, config, rawConfig, version } = context;
+  const { root, config, version } = context;
   if (version !== 4 || config.protocol_mode !== 'governed') {
     console.log(chalk.red('  Not a governed AgentXchain project (requires v4 config).'));
     process.exit(1);
@@ -27,14 +27,14 @@ export function phaseCommand(subcommand, phaseId, opts) {
   const state = loadProjectState(root, config);
 
   if (subcommand === 'show') {
-    return showPhase(phaseId, { root, config, rawConfig, state, phaseIds, opts });
+    return showPhase(phaseId, { root, config, state, phaseIds, opts });
   }
 
-  return listPhases({ root, config, rawConfig, state, phaseIds, opts });
+  return listPhases({ root, config, state, phaseIds, opts });
 }
 
-function listPhases({ root, config, rawConfig, state, phaseIds, opts }) {
-  const phases = phaseIds.map((phaseId) => buildPhaseRecord(root, config, rawConfig, state, phaseId));
+function listPhases({ root, config, state, phaseIds, opts }) {
+  const phases = phaseIds.map((phaseId) => buildPhaseRecord(root, config, state, phaseId));
 
   if (opts.json) {
     console.log(JSON.stringify({
@@ -56,7 +56,7 @@ function listPhases({ root, config, rawConfig, state, phaseIds, opts }) {
   console.log(chalk.dim('  Usage: agentxchain phase show <phase>\n'));
 }
 
-function showPhase(requestedPhaseId, { root, config, rawConfig, state, phaseIds, opts }) {
+function showPhase(requestedPhaseId, { root, config, state, phaseIds, opts }) {
   const phaseId = requestedPhaseId || state?.phase || phaseIds[0];
   if (!config.routing?.[phaseId]) {
     console.log(chalk.red(`  Unknown phase: ${phaseId}`));
@@ -64,7 +64,7 @@ function showPhase(requestedPhaseId, { root, config, rawConfig, state, phaseIds,
     process.exit(1);
   }
 
-  const phase = buildPhaseRecord(root, config, rawConfig, state, phaseId);
+  const phase = buildPhaseRecord(root, config, state, phaseId);
 
   if (opts.json) {
     console.log(JSON.stringify(phase, null, 2));
@@ -112,16 +112,14 @@ function showPhase(requestedPhaseId, { root, config, rawConfig, state, phaseIds,
   console.log('');
 }
 
-function buildPhaseRecord(root, config, rawConfig, state, phaseId) {
+function buildPhaseRecord(root, config, state, phaseId) {
   const route = config.routing?.[phaseId] || {};
   const normalizedPhaseKit = config.workflow_kit?.phases?.[phaseId] || null;
-  const rawWorkflowKit = rawConfig.workflow_kit;
-  const rawPhaseKit = rawWorkflowKit?.phases?.[phaseId] || null;
-  const hasExplicitWorkflowKit = rawWorkflowKit !== undefined && rawWorkflowKit !== null;
+  const hasExplicitWorkflowKit = config.workflow_kit?._explicit === true;
 
   const workflowSource = !hasExplicitWorkflowKit
     ? 'default'
-    : rawPhaseKit
+    : normalizedPhaseKit
       ? 'explicit'
       : 'not_declared';
 
@@ -152,7 +150,7 @@ function buildPhaseRecord(root, config, rawConfig, state, phaseId) {
     max_concurrent_turns: getMaxConcurrentTurns(config, phaseId),
     workflow_kit: {
       source: workflowSource,
-      template: typeof rawPhaseKit?.template === 'string' ? rawPhaseKit.template : null,
+      template: typeof normalizedPhaseKit?.template === 'string' ? normalizedPhaseKit.template : null,
       artifacts,
     },
   };

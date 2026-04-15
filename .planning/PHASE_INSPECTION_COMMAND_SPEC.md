@@ -77,6 +77,7 @@ If `phase` is omitted, the command defaults to the current governed phase from s
 - **AT-PHASE-006:** phase commands fail closed on legacy v3 repos with a clear governed/v4 message.
 - **AT-PHASE-007:** `phase show --json` marks inferred ownership as `ownership_enforced: false` and explicit ownership as `ownership_enforced: true`.
 - **AT-PHASE-008:** `phase show` text output labels inferred ownership as "hint, not enforced" with a footer clarifying the enforcement boundary.
+- **AT-PHASE-009:** `phase show --json` reports `workflow_kit.source: "not_declared"` when `workflow_kit` is an explicit empty object.
 
 ## Open Questions
 

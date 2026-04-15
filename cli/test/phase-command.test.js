@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -132,6 +132,24 @@ describe('agentxchain phase command', () => {
         assert.match(result.stdout, /Only explicit owned_by is enforced/,
           'footer must clarify enforcement boundary');
       }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-PHASE-009: phase show --json reports not_declared when workflow_kit is explicit empty object', () => {
+    const dir = createGovernedProject();
+    try {
+      const configPath = join(dir, 'agentxchain.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      config.workflow_kit = {};
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+      const result = runCli(dir, ['phase', 'show', 'planning', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.workflow_kit.source, 'not_declared');
+      assert.deepEqual(payload.workflow_kit.artifacts, []);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

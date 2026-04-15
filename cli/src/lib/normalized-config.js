@@ -1209,6 +1209,7 @@ export function normalizeWorkflowKit(raw, routingPhases) {
   if (raw.phases) {
     for (const [phase, phaseConfig] of Object.entries(raw.phases)) {
       phases[phase] = {
+        ...(typeof phaseConfig?.template === 'string' ? { template: phaseConfig.template } : {}),
         artifacts: expandWorkflowKitPhaseArtifacts(phaseConfig).map(a => ({
           path: a.path,
           semantics: a.semantics || null,
