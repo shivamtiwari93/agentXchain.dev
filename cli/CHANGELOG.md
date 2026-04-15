@@ -8,6 +8,7 @@
 - Child delegation context and parent review context now surface required, satisfied, and missing decision IDs
 - Delegation review turns are blocked from phase transition or run completion while required child decisions are still missing
 - Export and governance report delegation summaries now preserve required/satisfied/missing decision contract state
+- 4471 tests / 963 suites / 0 failures
 - Targeted delegation, export, and report test slices pass; Docusaurus build clean
 
 ## 2.93.0
