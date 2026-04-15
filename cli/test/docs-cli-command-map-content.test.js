@@ -177,6 +177,7 @@ describe('CLI command map docs contract', () => {
 
   it('describes benchmark as baseline-plus-stress governance proof, not protocol conformance', () => {
     assert.match(CLI_DOCS, /benchmark.*--stress/i);
+    assert.match(CLI_DOCS, /benchmark.*--output <dir>/i);
     assert.match(CLI_DOCS, /benchmark.*export verification/i);
     assert.doesNotMatch(CLI_DOCS, /benchmark.*protocol conformance/i);
   });

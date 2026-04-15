@@ -103,3 +103,7 @@ AgentXchain Benchmark — Governed Delivery Compliance
 ## Open Questions
 
 None. Ship it.
+
+## Follow-on
+
+Durable saved proof artifacts are specified separately in `.planning/BENCHMARK_OUTPUT_SPEC.md`.

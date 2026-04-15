@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import { execSync } from 'child_process';
@@ -197,7 +197,7 @@ function makeInvalidRetryResult(runId, turnId, role, runtimeId, phase) {
   return invalid;
 }
 
-async function verifyRunExport(root) {
+async function buildAndVerifyRunExport(root) {
   const { buildRunExport } = await import('../lib/export.js');
   const exportResult = buildRunExport(root);
   if (!exportResult.ok) {
@@ -212,16 +212,48 @@ async function verifyRunExport(root) {
     return {
       ok: false,
       error: verification.errors.join('; '),
+      exportArtifact: exportResult.export,
+      verificationReport: verification.report,
     };
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    exportArtifact: exportResult.export,
+    verificationReport: verification.report,
+  };
+}
+
+function buildProofArtifactPaths(outputDir) {
+  if (!outputDir) return null;
+  return {
+    directory: outputDir,
+    metrics: join(outputDir, 'metrics.json'),
+    export: join(outputDir, 'run-export.json'),
+    verify_export: join(outputDir, 'verify-export.json'),
+    workload: join(outputDir, 'workload.json'),
+  };
+}
+
+function persistBenchmarkArtifacts(paths, metrics, workload, exportArtifact, verificationReport) {
+  if (!paths) return;
+  mkdirSync(paths.directory, { recursive: true });
+  writeFileSync(paths.metrics, JSON.stringify(metrics, null, 2) + '\n');
+  writeFileSync(paths.workload, JSON.stringify(workload, null, 2) + '\n');
+  if (exportArtifact) {
+    writeFileSync(paths.export, JSON.stringify(exportArtifact, null, 2) + '\n');
+  }
+  if (verificationReport) {
+    writeFileSync(paths.verify_export, JSON.stringify(verificationReport, null, 2) + '\n');
+  }
 }
 
 export async function benchmarkCommand(opts = {}) {
   const jsonMode = opts.json || false;
   const stressMode = Boolean(opts.stress);
   const startTime = Date.now();
+  const outputDir = opts.output ? resolve(String(opts.output)) : null;
+  const proofArtifactPaths = buildProofArtifactPaths(outputDir);
 
   const root = join(tmpdir(), `agentxchain-benchmark-${randomBytes(6).toString('hex')}`);
   mkdirSync(root, { recursive: true });
@@ -236,9 +268,21 @@ export async function benchmarkCommand(opts = {}) {
     artifacts: { total: 0 },
     admission_control: 'fail',
     export_verification: 'fail',
+    proof_artifacts: proofArtifactPaths,
     elapsed_ms: 0,
     error: null,
   };
+  const workload = {
+    version: '1.0',
+    mode: stressMode ? 'stress' : 'baseline',
+    run_id: null,
+    project_id: 'agentxchain-benchmark',
+    expected_phase_order: ['planning', 'implementation', 'qa'],
+    rejected_turn_expected: stressMode,
+    proof_artifacts: proofArtifactPaths,
+  };
+  let exportArtifact = null;
+  let verificationReport = null;
 
   try {
     execSync('git --version', { stdio: 'ignore' });
@@ -277,6 +321,7 @@ export async function benchmarkCommand(opts = {}) {
     const runResult = initRun(root, config);
     if (!runResult.ok) throw new Error(`initRun failed: ${runResult.error}`);
     const runId = runResult.state.run_id;
+    workload.run_id = runId;
 
     // ── Planning Phase ───────────────────────────────────────────────────
     const pmAssign = assignTurn(root, config, 'pm');
@@ -405,16 +450,19 @@ export async function benchmarkCommand(opts = {}) {
     metrics.phases.names.push('qa');
 
     // ── Export Verification ──────────────────────────────────────────────
-    const exportVerification = await verifyRunExport(root);
+    const exportVerification = await buildAndVerifyRunExport(root);
     if (!exportVerification.ok) {
       metrics.export_verification = 'fail';
       throw new Error(`Export verification failed: ${exportVerification.error}`);
     }
+    exportArtifact = exportVerification.exportArtifact;
+    verificationReport = exportVerification.verificationReport;
     metrics.export_verification = 'pass';
 
     // ── Done ─────────────────────────────────────────────────────────────
     metrics.result = 'pass';
     metrics.elapsed_ms = Date.now() - startTime;
+    persistBenchmarkArtifacts(proofArtifactPaths, metrics, workload, exportArtifact, verificationReport);
 
     if (jsonMode) {
       process.stdout.write(JSON.stringify(metrics, null, 2) + '\n');
@@ -425,6 +473,9 @@ export async function benchmarkCommand(opts = {}) {
       console.log(`  Artifacts produced   ${chalk.bold(String(metrics.artifacts.total))}`);
       console.log(`  Admission control    ${chalk.green('PASS')}`);
       console.log(`  Export verification  ${metrics.export_verification === 'pass' ? chalk.green('PASS') : chalk.red('FAIL')}`);
+      if (proofArtifactPaths) {
+        console.log(`  Proof artifacts      ${chalk.dim(proofArtifactPaths.directory)}`);
+      }
       console.log(`  Elapsed              ${chalk.dim((metrics.elapsed_ms / 1000).toFixed(1) + 's')}`);
       console.log('');
       console.log(`  Result: ${chalk.green.bold('PASS')} ${chalk.green('✓')}`);
@@ -434,6 +485,7 @@ export async function benchmarkCommand(opts = {}) {
     metrics.result = 'fail';
     metrics.error = err.message;
     metrics.elapsed_ms = Date.now() - startTime;
+    persistBenchmarkArtifacts(proofArtifactPaths, metrics, workload, exportArtifact, verificationReport);
 
     if (jsonMode) {
       process.stdout.write(JSON.stringify(metrics, null, 2) + '\n');
