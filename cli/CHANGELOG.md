@@ -9,6 +9,7 @@
 - Coordinator-export diff surfaces barrier, repo-status, nested-export, and aggregated-event drift
 - Fail-closed behavior for malformed export artifacts and mixed export kinds
 - New proof: 4 export-diff acceptance tests added alongside the existing run-history diff suite
+- 4586 tests / 978 suites / 0 failures
 
 ## 2.97.0
 
