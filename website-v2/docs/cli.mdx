@@ -1240,7 +1240,7 @@ The shipped dashboard surface has thirteen top-level views:
 
 | View | Description |
 |------|-------------|
-| **Initiative** | Multi-repo coordinator summary: repo runs, pending gate, blocked state, and barrier snapshot |
+| **Initiative** | Multi-repo coordinator summary: repo runs, pending gate, blocked state, barrier snapshot, and coordinator next actions sourced from `/api/coordinator/blockers` |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams |
 | **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |
@@ -1248,7 +1248,7 @@ The shipped dashboard surface has thirteen top-level views:
 | **Hooks** | Hook audit log plus persisted hook annotations; in coordinator workspaces it renders coordinator hook audit from `/api/coordinator/hooks/audit` and coordinator hook annotations from `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Blocked** | Current blocked state, runtime guidance, ordered next actions, recent audit context, and the exact recovery command to run next |
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
-| **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
+| **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, ordered next actions, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
 | **Run History** | Cross-run history showing status, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline for all governed runs in this project from `/api/run-history` |
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
@@ -1287,7 +1287,7 @@ The dashboard is not a general write surface. It supports exactly one authentica
 
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
 
-For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus structured blockers such as `repo_run_id_mismatch` with expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand.
+For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus ordered next actions for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases. Structured blockers such as `repo_run_id_mismatch` still include expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand or guess which recovery command comes next.
 
 For coordinator workspaces, the shared **Decisions** view also reads `GET /api/coordinator/ledger` so coordinator-level decisions remain visible in the dashboard instead of disappearing behind a repo-local-only ledger view.
 

@@ -2,6 +2,10 @@ import { verifyExportArtifact } from './export-verifier.js';
 import { buildDelegationSummary } from './export.js';
 import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance.js';
 import { deriveGovernedRunNextActions, deriveRuntimeBlockedGuidance } from './blocked-state.js';
+import {
+  deriveCoordinatorNextActions,
+  detectCoordinatorRunIdMismatches,
+} from './coordinator-next-actions.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -686,23 +690,6 @@ function normalizeCoordinatorBlockedReason(blockedReason) {
   return null;
 }
 
-function detectRunIdMismatches(repos, coordinatorRepoRuns) {
-  const mismatches = [];
-  for (const repo of repos) {
-    if (!repo.ok || !repo.run_id) continue;
-    const expected = coordinatorRepoRuns[repo.repo_id]?.run_id;
-    if (!expected) continue;
-    if (expected !== repo.run_id) {
-      mismatches.push({
-        repo_id: repo.repo_id,
-        expected_run_id: expected,
-        actual_run_id: repo.run_id,
-      });
-    }
-  }
-  return mismatches;
-}
-
 function normalizePendingGate(pendingGate) {
   if (!pendingGate || typeof pendingGate !== 'object' || Array.isArray(pendingGate)) return null;
   if (typeof pendingGate.gate !== 'string' || pendingGate.gate.length === 0) return null;
@@ -719,65 +706,6 @@ function normalizePendingGate(pendingGate) {
     normalized.requested_at = pendingGate.requested_at;
   }
   return normalized;
-}
-
-function deriveCoordinatorNextActions({ status, blockedReason, pendingGate, repos, coordinatorRepoRuns, runIdMismatches }) {
-  const nextActions = [];
-
-  if (status === 'blocked') {
-    nextActions.push({
-      command: 'agentxchain multi resume',
-      reason: `Coordinator is blocked${blockedReason ? `: ${blockedReason}` : ''}. Resume after fixing the underlying issue.`,
-    });
-    if (runIdMismatches && runIdMismatches.length > 0) {
-      for (const m of runIdMismatches) {
-        nextActions.push({
-          command: `# repo_run_id_mismatch: ${m.repo_id}`,
-          reason: `Repo "${m.repo_id}" run identity drifted: coordinator expects "${m.expected_run_id}" but repo has "${m.actual_run_id}". Re-initialize the child repo with the correct run or use multi resume after investigation.`,
-        });
-      }
-    }
-    if (pendingGate) {
-      nextActions.push({
-        command: 'agentxchain multi approve-gate',
-        reason: `After resume, approve pending gate "${pendingGate.gate}" (${pendingGate.gate_type}).`,
-      });
-    }
-    return nextActions;
-  }
-
-  const driftedRepos = repos
-    .filter((repo) => repo.ok)
-    .filter((repo) => {
-      const coordinatorStatus = coordinatorRepoRuns?.[repo.repo_id]?.status || null;
-      return coordinatorStatus && repo.status && coordinatorStatus !== repo.status;
-    })
-    .map((repo) => repo.repo_id);
-
-  if (driftedRepos.length > 0) {
-    nextActions.push({
-      command: 'agentxchain multi resync',
-      reason: `Coordinator state disagrees with child repo status for: ${driftedRepos.join(', ')}.`,
-    });
-    return nextActions;
-  }
-
-  if (pendingGate) {
-    nextActions.push({
-      command: 'agentxchain multi approve-gate',
-      reason: `Coordinator is waiting on pending gate "${pendingGate.gate}" (${pendingGate.gate_type}).`,
-    });
-    return nextActions;
-  }
-
-  if (status === 'active' || status === 'paused') {
-    nextActions.push({
-      command: 'agentxchain multi step',
-      reason: 'Coordinator has no blocked state or pending gate and can continue.',
-    });
-  }
-
-  return nextActions;
 }
 
 function extractCoordinatorDecisionDigest(artifact) {
@@ -1103,7 +1031,7 @@ function buildCoordinatorSubject(artifact) {
   const timing = computeCoordinatorTiming(artifact, coordinatorTimeline);
   const blockedReason = normalizeCoordinatorBlockedReason(coordinatorState.blocked_reason);
   const pendingGate = normalizePendingGate(coordinatorState.pending_gate);
-  const runIdMismatches = detectRunIdMismatches(repos, coordinatorState.repo_runs || {});
+  const runIdMismatches = detectCoordinatorRunIdMismatches(repos, coordinatorState.repo_runs || {});
   const nextActions = deriveCoordinatorNextActions({
     status: artifact.summary?.status || null,
     blockedReason,

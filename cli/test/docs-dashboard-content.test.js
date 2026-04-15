@@ -30,6 +30,7 @@ const DASHBOARD_CONTINUITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DAS
 const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONTINUITY_ACTIONABILITY_SPEC.md'), 'utf8');
 const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
+const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -128,6 +129,8 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('coordinator hook audit'), 'cli docs must describe coordinator hook visibility in Hooks view');
     assert.ok(CLI_DOCS.includes('runtime guidance'), 'cli docs must describe blocked runtime guidance visibility');
     assert.ok(CLI_DOCS.includes('ordered next actions'), 'cli docs must describe blocked next-action ordering');
+    assert.ok(CLI_DOCS.includes('pending_gate'), 'cli docs must describe pending_gate next-action parity');
+    assert.ok(CLI_DOCS.includes('multi resync'), 'cli docs must describe coordinator resync next-action parity');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {
@@ -196,5 +199,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(RUNTIME_PARITY_SPEC, /AT-RBDAP-001/);
     assert.match(RUNTIME_PARITY_SPEC, /GET \/api\/state/);
     assert.match(RUNTIME_PARITY_SPEC, /Next Actions/);
+  });
+
+  it('ships a durable spec for coordinator blocked-action parity', () => {
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /Coordinator Blocked Action Parity Spec/);
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-001/);
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /GET \/api\/coordinator\/blockers/);
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /agentxchain multi resync/);
   });
 });

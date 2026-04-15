@@ -498,6 +498,13 @@ describe('Initiative View', () => {
         ok: true,
         mode: 'phase_transition',
         blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        next_actions: [
+          {
+            code: 'repo_run_id_mismatch',
+            command: 'agentxchain multi resume',
+            reason: 'Coordinator run identity drift detected: Repo "api" run identity drifted from run_api_001 to run_api_999. Resume after reconciling the affected child repos.',
+          },
+        ],
         active: {
           gate_type: 'phase_transition',
           gate_id: 'phase_transition:integration->release',
@@ -522,6 +529,8 @@ describe('Initiative View', () => {
     assert.ok(html.includes('run_api_999'));
     assert.ok(html.includes('Open Blockers view'));
     assert.ok(html.includes('#blockers'));
+    assert.ok(html.includes('Next Actions'));
+    assert.ok(html.includes('agentxchain multi resume'));
   });
 });
 

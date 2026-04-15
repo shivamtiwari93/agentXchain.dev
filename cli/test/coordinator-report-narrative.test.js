@@ -1481,9 +1481,11 @@ describe('coordinator report narrative — run_id_mismatch visibility', () => {
     const resumeAction = actions.find(a => a.command === 'agentxchain multi resume');
     assert.ok(resumeAction, 'resume action present');
 
-    const mismatchAction = actions.find(a => a.command.includes('repo_run_id_mismatch'));
+    const mismatchAction = actions.find((action) =>
+      action.code === 'repo_run_id_mismatch'
+      && /Repo "api" run identity drifted/.test(action.reason || '')
+    );
     assert.ok(mismatchAction, 'mismatch diagnostic action present');
-    assert.match(mismatchAction.command, /api/);
     assert.match(mismatchAction.reason, /run_api_001/);
     assert.match(mismatchAction.reason, /run_api_999/);
   });

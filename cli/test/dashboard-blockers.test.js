@@ -59,6 +59,13 @@ describe('Blockers View — pending_gate mode', () => {
       blockers: [],
       pending: true,
     },
+    next_actions: [
+      {
+        code: 'pending_gate',
+        command: 'agentxchain multi approve-gate',
+        reason: 'Coordinator is waiting on pending gate "dev_to_qa" (phase_transition).',
+      },
+    ],
     evaluations: {
       phase_transition: {
         ready: true,
@@ -94,6 +101,12 @@ describe('Blockers View — pending_gate mode', () => {
   it('renders approve-gate recovery command for pending_gate mode', () => {
     const html = render({ coordinatorBlockers: pendingGateData });
     assert.ok(html.includes('agentxchain multi approve-gate'));
+  });
+
+  it('renders next-actions section from server data', () => {
+    const html = render({ coordinatorBlockers: pendingGateData });
+    assert.ok(html.includes('Next Actions'));
+    assert.ok(html.includes('waiting on pending gate'));
   });
 
   it('renders active gate details', () => {
@@ -142,6 +155,18 @@ describe('Blockers View — phase_transition with blockers', () => {
         },
       ],
     },
+    next_actions: [
+      {
+        code: 'repo_run_id_mismatch',
+        command: 'agentxchain multi resume',
+        reason: 'Coordinator run identity drift detected: Repo "api" run identity drifted from run_api_001 to run_api_999. Resume after reconciling the affected child repos.',
+      },
+      {
+        code: 'repo_run_id_mismatch',
+        command: 'agentxchain multi resume',
+        reason: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999". Re-link the correct child run, then resume.',
+      },
+    ],
     evaluations: {
       phase_transition: {
         ready: false,
@@ -189,7 +214,7 @@ describe('Blockers View — phase_transition with blockers', () => {
   it('renders multi resume recovery for run_id_mismatch', () => {
     const html = render({ coordinatorBlockers: blockedData });
     assert.ok(html.includes('agentxchain multi resume'));
-    assert.ok(html.includes('Run identity drift'));
+    assert.ok(html.includes('run identity drift'));
   });
 
   it('does not render approve-gate for non-pending blocked state', () => {
@@ -198,6 +223,12 @@ describe('Blockers View — phase_transition with blockers', () => {
     const approveCount = (html.match(/approve-gate/g) || []).length;
     // approve-gate may appear in evaluations detail but should not be the primary recovery
     assert.ok(html.includes('multi resume'));
+  });
+
+  it('renders repo-specific next-action guidance', () => {
+    const html = render({ coordinatorBlockers: blockedData });
+    assert.ok(html.includes('Re-link the correct child run'));
+    assert.ok(html.includes('Next Actions'));
   });
 });
 

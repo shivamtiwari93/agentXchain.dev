@@ -343,8 +343,16 @@ function createGovernedRepo(repoRoot, repoId, status, opts = {}) {
 
 function createCoordinatorWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'axc-report-cli-coord-'));
-  createGovernedRepo(join(root, 'repos', 'web'), 'web-app', 'linked');
-  createGovernedRepo(join(root, 'repos', 'cli'), 'cli-tool', 'initialized');
+  createGovernedRepo(join(root, 'repos', 'web'), 'web-app', 'linked', {
+    state: {
+      run_id: 'run_web_001',
+    },
+  });
+  createGovernedRepo(join(root, 'repos', 'cli'), 'cli-tool', 'initialized', {
+    state: {
+      run_id: 'run_cli_001',
+    },
+  });
 
   writeJson(join(root, 'agentxchain-multi.json'), {
     schema_version: '0.1',
@@ -718,7 +726,7 @@ describe('report CLI', () => {
       assert.equal(report.subject.run.completed_at, null);
       assert.equal(report.subject.run.duration_seconds, null);
       assert.equal(report.subject.run.next_actions.length, 1);
-      assert.equal(report.subject.run.next_actions[0].command, 'agentxchain multi resync');
+      assert.equal(report.subject.run.next_actions[0].command, 'agentxchain multi step');
       assert.deepEqual(report.subject.run.repo_status_counts, {
         initialized: 1,
         linked: 1,

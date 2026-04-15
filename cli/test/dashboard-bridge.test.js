@@ -639,6 +639,11 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.active.blockers[0].repo_id, 'api');
       assert.equal(data.active.blockers[0].expected_run_id, 'run_api_001');
       assert.equal(data.active.blockers[0].actual_run_id, 'run_api_999');
+      assert.equal(data.next_actions[0].code, 'repo_run_id_mismatch');
+      assert.equal(data.next_actions[0].command, 'agentxchain multi resume');
+      assert.match(data.next_actions[0].reason, /run identity drift/i);
+      assert.equal(data.next_actions[1].code, 'repo_run_id_mismatch');
+      assert.match(data.next_actions[1].reason, /Repo "api" run identity drifted/);
       assert.equal(data.evaluations.run_completion.ready, false);
     });
 
@@ -671,6 +676,58 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.active.pending, true);
       assert.equal(data.active.ready, true);
       assert.deepEqual(data.active.blockers, []);
+      assert.equal(data.next_actions.length, 1);
+      assert.equal(data.next_actions[0].code, 'pending_gate');
+      assert.equal(data.next_actions[0].command, 'agentxchain multi approve-gate');
+      assert.match(data.next_actions[0].reason, /waiting on pending gate/i);
+    });
+
+    it('GET /api/coordinator/blockers returns resync action when repo status drifts without run-id drift', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_001',
+        status: 'blocked',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: 'dispatch:awaiting_followup',
+        blocked_reason: 'Dispatch paused',
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.reposDir, 'web', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'web',
+        run_id: 'run_web_001',
+        status: 'linked',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 0,
+        accepted_count: 0,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {
+          api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+        },
+      });
+
+      const res = await httpGet(port, '/api/coordinator/blockers');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.next_actions[0].code, 'resync');
+      assert.equal(data.next_actions[0].command, 'agentxchain multi resync');
+      assert.match(data.next_actions[0].reason, /disagrees with repo authority/i);
     });
 
     it('GET /api/unknown returns 404', async () => {

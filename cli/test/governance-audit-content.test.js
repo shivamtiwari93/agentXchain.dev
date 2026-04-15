@@ -15,6 +15,7 @@ const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const SIDEBAR = read('website-v2/sidebars.ts');
 const SPEC = read('.planning/GOVERNANCE_AUDIT_SPEC.md');
 const RUNTIME_PARITY_SPEC = read('.planning/RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md');
+const COORDINATOR_ACTION_PARITY_SPEC = read('.planning/COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md');
 
 describe('governance audit docs contract', () => {
   it('registers the audit command in the CLI entrypoint with format flag', () => {
@@ -38,6 +39,8 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /same report contract as `agentxchain report`/i);
     assert.match(AUDIT_DOCS, /subject\.run\.next_actions/);
     assert.match(AUDIT_DOCS, /runtime_guidance/);
+    assert.match(AUDIT_DOCS, /pending_gate/);
+    assert.match(AUDIT_DOCS, /multi resync/i);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);
   });
@@ -57,5 +60,11 @@ describe('governance audit spec alignment', () => {
     assert.match(RUNTIME_PARITY_SPEC, /AT-RBDAP-003/);
     assert.match(RUNTIME_PARITY_SPEC, /subject\.run\.next_actions/);
     assert.match(RUNTIME_PARITY_SPEC, /runtime_guidance/);
+  });
+
+  it('freezes coordinator blocked-action parity in a standalone spec', () => {
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /Coordinator Blocked Action Parity Spec/);
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-004/);
+    assert.match(COORDINATOR_ACTION_PARITY_SPEC, /subject\.run\.next_actions/);
   });
 });

@@ -124,24 +124,27 @@ function renderActiveGate(active) {
 }
 
 function renderRecoveryCommand(data) {
-  if (data.mode === 'pending_gate') {
-    return `<div class="section"><h3>Recovery</h3>
-      <p class="recovery-hint">Approve the pending gate:</p>
-      <pre class="recovery-command mono" data-copy="agentxchain multi approve-gate">agentxchain multi approve-gate</pre>
-    </div>`;
+  const nextActions = Array.isArray(data.next_actions) ? data.next_actions : [];
+  if (nextActions.length === 0) {
+    return '';
   }
 
-  const hasRunIdMismatch = Array.isArray(data.active?.blockers)
-    && data.active.blockers.some(b => b.code === 'repo_run_id_mismatch');
-
-  if (hasRunIdMismatch) {
-    return `<div class="section"><h3>Recovery</h3>
-      <p class="recovery-hint">Run identity drift detected. Investigate child repos before resuming:</p>
-      <pre class="recovery-command mono" data-copy="agentxchain multi resume">agentxchain multi resume</pre>
-    </div>`;
+  let html = `<div class="section"><h3>Next Actions</h3><ol class="action-list">`;
+  for (const action of nextActions) {
+    html += `<li class="turn-card">
+      <div class="turn-header">
+        <span class="mono">${esc(action.command || 'n/a')}</span>
+      </div>`;
+    if (action.reason) {
+      html += `<div class="turn-summary">${esc(action.reason)}</div>`;
+    }
+    if (action.command) {
+      html += `<pre class="recovery-command mono" data-copy="${esc(action.command)}">${esc(action.command)}</pre>`;
+    }
+    html += `</li>`;
   }
-
-  return '';
+  html += `</ol></div>`;
+  return html;
 }
 
 export function render({ coordinatorBlockers }) {

@@ -102,6 +102,19 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
     )}</p>`;
   }
 
+  if (Array.isArray(coordinatorBlockers.next_actions) && coordinatorBlockers.next_actions.length > 0) {
+    html += `<div class="section" style="margin-top:12px"><h3>Next Actions</h3><ol class="action-list">`;
+    for (const action of coordinatorBlockers.next_actions) {
+      html += `<li class="turn-card">
+        <div class="turn-header"><span class="mono">${esc(action.command || 'n/a')}</span></div>`;
+      if (action.reason) {
+        html += `<div class="turn-summary">${esc(action.reason)}</div>`;
+      }
+      html += `</li>`;
+    }
+    html += `</ol></div>`;
+  }
+
   html += `<div class="gate-action">
     <p>Inspect full diagnostics:</p>
     <p><a href="#blockers">Open Blockers view</a></p>

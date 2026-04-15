@@ -1,5 +1,8 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { evaluateCompletionGate, evaluatePhaseGate } from '../coordinator-gates.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
+import { deriveCoordinatorNextActions } from '../coordinator-next-actions.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
 
 function normalizePendingGate(pendingGate) {
@@ -65,6 +68,57 @@ function normalizeCompletionEvaluation(evaluation) {
     requires_human_approval: evaluation?.requires_human_approval !== false,
     blockers: Array.isArray(evaluation?.blockers) ? evaluation.blockers : [],
   };
+}
+
+function readRepoStateSnapshot(repo) {
+  const statePath = join(repo.resolved_path, '.agentxchain', 'state.json');
+  if (!existsSync(statePath)) {
+    return {
+      repo_id: repo.repo_id,
+      ok: false,
+      status: null,
+      run_id: null,
+      phase: null,
+    };
+  }
+
+  try {
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    return {
+      repo_id: repo.repo_id,
+      ok: true,
+      status: state?.status ?? null,
+      run_id: state?.run_id ?? null,
+      phase: state?.phase ?? null,
+    };
+  } catch {
+    return {
+      repo_id: repo.repo_id,
+      ok: false,
+      status: null,
+      run_id: null,
+      phase: null,
+    };
+  }
+}
+
+function collectRepoSnapshots(config) {
+  return (config.repo_order || []).map((repoId) => {
+    const repo = config.repos?.[repoId];
+    if (!repo?.resolved_path) {
+      return {
+        repo_id: repoId,
+        ok: false,
+        status: null,
+        run_id: null,
+        phase: null,
+      };
+    }
+    return readRepoStateSnapshot({
+      repo_id: repoId,
+      resolved_path: repo.resolved_path,
+    });
+  });
 }
 
 function buildPendingGateSnapshot(pendingGate) {
@@ -148,6 +202,20 @@ export function readCoordinatorBlockerSnapshot(workspacePath) {
     };
   }
 
+  const repos = collectRepoSnapshots(configResult.config);
+  const nextActions = deriveCoordinatorNextActions({
+    status: state.status ?? null,
+    blockedReason: state.blocked_reason ?? null,
+    pendingGate,
+    repos,
+    coordinatorRepoRuns: state.repo_runs || {},
+    runIdMismatches: active.blockers?.filter((blocker) => blocker?.code === 'repo_run_id_mismatch').map((blocker) => ({
+      repo_id: blocker.repo_id,
+      expected_run_id: blocker.expected_run_id,
+      actual_run_id: blocker.actual_run_id,
+    })),
+  });
+
   return {
     ok: true,
     status: 200,
@@ -159,6 +227,7 @@ export function readCoordinatorBlockerSnapshot(workspacePath) {
       blocked_reason: state.blocked_reason ?? null,
       pending_gate: pendingGate,
       active,
+      next_actions: nextActions,
       evaluations: {
         phase_transition: phaseEvaluation,
         run_completion: completionEvaluation,

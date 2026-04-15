@@ -425,6 +425,105 @@ describe('agentxchain audit', () => {
     assert.equal(parsed.subject.run.repo_ok_count, 1);
   });
 
+  it('AT-CBAP-004: coordinator audit json preserves repo_run_id_mismatch next actions', () => {
+    const root = createCoordinatorWorkspace();
+
+    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+      schema_version: '0.1',
+      super_run_id: 'srun_audit_001',
+      status: 'blocked',
+      phase: 'implementation',
+      blocked_reason: 'Repo "app" run identity drifted from run_app_001 to run_app_999',
+      repo_runs: {
+        app: {
+          status: 'linked',
+          run_id: 'run_app_001',
+        },
+      },
+      pending_gate: null,
+    });
+
+    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: 'child-app',
+      run_id: 'run_app_999',
+      status: 'active',
+      phase: 'implementation',
+      active_turns: {},
+      retained_turns: {},
+      turn_sequence: 0,
+      blocked_on: null,
+      phase_gate_status: {},
+      budget_status: {},
+      protocol_mode: 'governed',
+    });
+
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.subject.kind, 'coordinator_workspace');
+    assert.equal(parsed.subject.run.run_id_mismatches[0].repo_id, 'app');
+    assert.equal(parsed.subject.run.next_actions[0].code, 'repo_run_id_mismatch');
+    assert.equal(parsed.subject.run.next_actions[0].command, 'agentxchain multi resume');
+    assert.match(parsed.subject.run.next_actions[1].reason, /Repo "app" run identity drifted/);
+  });
+
+  it('coordinator audit json preserves resync next action for status drift', () => {
+    const root = createCoordinatorWorkspace();
+
+    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+      schema_version: '0.1',
+      super_run_id: 'srun_audit_001',
+      status: 'active',
+      phase: 'implementation',
+      blocked_reason: null,
+      repo_runs: {
+        app: {
+          status: 'linked',
+          run_id: 'run_app_001',
+        },
+      },
+      pending_gate: null,
+    });
+
+    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: 'child-app',
+      run_id: 'run_app_001',
+      status: 'blocked',
+      phase: 'implementation',
+      active_turns: {},
+      retained_turns: {},
+      turn_sequence: 0,
+      blocked_on: 'dispatch:awaiting_followup',
+      blocked_reason: {
+        category: 'dispatch_error',
+        blocked_at: '2026-04-15T19:00:45.000Z',
+        turn_id: null,
+        recovery: {
+          typed_reason: 'dispatch_error',
+          owner: 'human',
+          recovery_action: 'agentxchain step --resume',
+          turn_retained: true,
+          detail: 'Dispatch paused',
+        },
+      },
+      phase_gate_status: {},
+      budget_status: {},
+      protocol_mode: 'governed',
+    });
+
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.subject.kind, 'coordinator_workspace');
+    assert.equal(parsed.subject.run.next_actions[0].code, 'resync');
+    assert.equal(parsed.subject.run.next_actions[0].command, 'agentxchain multi resync');
+    assert.match(parsed.subject.run.next_actions[0].reason, /repo authority/i);
+  });
+
   it('AT-AUDIT-008: blocked governed audit json preserves runtime guidance and next actions', () => {
     const root = createGovernedProjectWithRuntimeGuidance();
     const result = runCli(root, ['audit', '--format', 'json']);
