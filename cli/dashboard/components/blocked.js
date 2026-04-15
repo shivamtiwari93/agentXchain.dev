@@ -75,6 +75,8 @@ export function render({ state, audit = [], coordinatorState = null, coordinator
   const typedReason = recovery.typed_reason || null;
   const turnRetained = typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : null;
   const blockedAt = blocked.blocked_at || null;
+  const runtimeGuidance = Array.isArray(activeState.runtime_guidance) ? activeState.runtime_guidance : [];
+  const nextActions = Array.isArray(activeState.next_actions) ? activeState.next_actions : [];
   const relevantAudit = selectRelevantAuditEntries(activeState, activeAudit);
 
   let html = `<div class="blocked-view">
@@ -102,6 +104,29 @@ export function render({ state, audit = [], coordinatorState = null, coordinator
       <p class="recovery-hint">Run this command to recover:</p>
       <pre class="recovery-command mono" data-copy="${esc(recoveryAction)}">${esc(recoveryAction)}</pre>
     </div>`;
+  }
+
+  if (runtimeGuidance.length > 0) {
+    html += `<div class="section"><h3>Runtime Guidance</h3><div class="annotation-list">`;
+    for (const entry of runtimeGuidance) {
+      html += `<div class="annotation-card">
+        <span class="mono">${esc(entry.code || '-')}</span>
+        <span class="mono">${esc(entry.command || '-')}</span>
+        <span>${esc(entry.reason || '-')}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (nextActions.length > 0) {
+    html += `<div class="section"><h3>Next Actions</h3><div class="annotation-list">`;
+    for (const action of nextActions) {
+      html += `<div class="annotation-card">
+        <span class="mono">${esc(action.command || '-')}</span>
+        <span>${esc(action.reason || '-')}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
   }
 
   if (isCoordinator && activeState.pending_gate) {

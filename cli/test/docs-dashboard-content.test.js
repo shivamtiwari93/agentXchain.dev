@@ -29,6 +29,7 @@ const ROOT_README = readFileSync(join(REPO_ROOT, 'README.md'), 'utf8');
 const DASHBOARD_CONTINUITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONTINUITY_SURFACE_SPEC.md'), 'utf8');
 const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'CONTINUITY_ACTIONABILITY_SPEC.md'), 'utf8');
 const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
+const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -125,6 +126,8 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/audit'), 'cli docs must document coordinator hooks audit endpoint');
     assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/annotations'), 'cli docs must document coordinator hooks annotations endpoint');
     assert.ok(CLI_DOCS.includes('coordinator hook audit'), 'cli docs must describe coordinator hook visibility in Hooks view');
+    assert.ok(CLI_DOCS.includes('runtime guidance'), 'cli docs must describe blocked runtime guidance visibility');
+    assert.ok(CLI_DOCS.includes('ordered next actions'), 'cli docs must describe blocked next-action ordering');
   });
 
   it('does not advertise removed or unshipped dashboard views', () => {
@@ -186,5 +189,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_DAEMON_SPEC, /AT-DASH-DAEMON-001/);
     assert.match(DASHBOARD_DAEMON_SPEC, /\.agentxchain-dashboard\.pid/);
     assert.match(DASHBOARD_DAEMON_SPEC, /agentxchain stop/);
+  });
+
+  it('ships a durable spec for blocked runtime-guidance parity', () => {
+    assert.match(RUNTIME_PARITY_SPEC, /Runtime Blocked Dashboard And Audit Parity Spec/);
+    assert.match(RUNTIME_PARITY_SPEC, /AT-RBDAP-001/);
+    assert.match(RUNTIME_PARITY_SPEC, /GET \/api\/state/);
+    assert.match(RUNTIME_PARITY_SPEC, /Next Actions/);
   });
 });

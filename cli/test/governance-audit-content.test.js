@@ -14,6 +14,7 @@ const AUDIT_DOCS = read('website-v2/docs/governance-audit.mdx');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const SIDEBAR = read('website-v2/sidebars.ts');
 const SPEC = read('.planning/GOVERNANCE_AUDIT_SPEC.md');
+const RUNTIME_PARITY_SPEC = read('.planning/RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md');
 
 describe('governance audit docs contract', () => {
   it('registers the audit command in the CLI entrypoint with format flag', () => {
@@ -35,6 +36,8 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /# Governance Audit Reference/);
     assert.match(AUDIT_DOCS, /live governed project or coordinator workspace/i);
     assert.match(AUDIT_DOCS, /same report contract as `agentxchain report`/i);
+    assert.match(AUDIT_DOCS, /subject\.run\.next_actions/);
+    assert.match(AUDIT_DOCS, /runtime_guidance/);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);
   });
@@ -47,5 +50,12 @@ describe('governance audit spec alignment', () => {
     assert.match(SPEC, /AT-AUDIT-007/);
     assert.match(SPEC, /live repo state/i);
     assert.match(SPEC, /governed project or coordinator workspace/i);
+  });
+
+  it('freezes blocked-run audit parity in a standalone runtime spec', () => {
+    assert.match(RUNTIME_PARITY_SPEC, /Runtime Blocked Dashboard And Audit Parity Spec/);
+    assert.match(RUNTIME_PARITY_SPEC, /AT-RBDAP-003/);
+    assert.match(RUNTIME_PARITY_SPEC, /subject\.run\.next_actions/);
+    assert.match(RUNTIME_PARITY_SPEC, /runtime_guidance/);
   });
 });

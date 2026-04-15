@@ -453,6 +453,99 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data.pending_gate.gate_type, 'phase_transition');
     });
 
+    it('AT-RBDAP-001: GET /api/state derives runtime guidance and next actions for blocked governed runs', async () => {
+      const localFixture = createTestFixture();
+      let localBridge;
+      try {
+        writeJson(join(localFixture.root, 'agentxchain.json'), {
+          schema_version: 4,
+          protocol_mode: 'governed',
+          template: 'generic',
+          project: { id: 'dashboard-runtime-guidance', name: 'Dashboard Runtime Guidance', default_branch: 'main' },
+          roles: {
+            dev: {
+              title: 'Developer',
+              mandate: 'Build safely.',
+              write_authority: 'proposed',
+              runtime: 'remote-dev',
+            },
+          },
+          runtimes: {
+            'remote-dev': {
+              type: 'api_proxy',
+              provider: 'anthropic',
+              model: 'claude-haiku-4-5-20251001',
+              auth_env: 'ANTHROPIC_API_KEY',
+            },
+          },
+          routing: {
+            implementation: {
+              entry_role: 'dev',
+              allowed_next_roles: ['dev', 'human'],
+              exit_gate: 'implementation_complete',
+            },
+            qa: {
+              entry_role: 'dev',
+              allowed_next_roles: ['dev', 'human'],
+            },
+          },
+          gates: {
+            implementation_complete: {
+              requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+            },
+          },
+        });
+
+        writeJson(join(localFixture.axcDir, 'state.json'), {
+          schema_version: '1.1',
+          run_id: 'run_runtime_guidance_001',
+          status: 'blocked',
+          phase: 'implementation',
+          active_turns: {},
+          turn_sequence: 1,
+          last_completed_turn_id: 'turn_dev_001',
+          blocked_on: 'dispatch:awaiting_operator_followup',
+          blocked_reason: {
+            category: 'dispatch_error',
+            turn_id: 'turn_dev_001',
+            recovery: {
+              typed_reason: 'dispatch_error',
+              owner: 'human',
+              recovery_action: 'agentxchain step --resume',
+              turn_retained: true,
+              detail: 'Dispatch paused until required files are materialized.',
+            },
+          },
+          last_gate_failure: {
+            gate_type: 'phase_transition',
+            gate_id: 'implementation_complete',
+            phase: 'implementation',
+            requested_by_turn: 'turn_dev_001',
+            missing_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+          },
+        });
+
+        localBridge = createBridgeServer({
+          agentxchainDir: localFixture.axcDir,
+          dashboardDir: localFixture.dashDir,
+          port: 0,
+        });
+        const started = await localBridge.start();
+        const res = await httpGet(started.port, '/api/state');
+        assert.equal(res.status, 200);
+        const data = JSON.parse(res.body);
+        assert.equal(data.runtime_guidance[0].code, 'proposal_apply_required');
+        assert.equal(data.runtime_guidance[0].command, 'agentxchain proposal apply turn_dev_001');
+        assert.equal(data.next_actions[0].command, 'agentxchain proposal apply turn_dev_001');
+        assert.equal(data.next_actions[1].command, 'agentxchain step --resume');
+      } finally {
+        if (localBridge) {
+          await localBridge.stop();
+        }
+        rmSync(localFixture.root, { recursive: true, force: true });
+      }
+    });
+
     it('GET /api/coordinator/ledger returns multirepo decision-ledger.jsonl as array', async () => {
       const res = await httpGet(port, '/api/coordinator/ledger');
       assert.equal(res.status, 200);

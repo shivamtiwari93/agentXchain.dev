@@ -1246,7 +1246,7 @@ The shipped dashboard surface has thirteen top-level views:
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |
 | **Decisions** | Filterable decision ledger for governed turns; in coordinator workspaces it renders the coordinator decision ledger from `/api/coordinator/ledger` instead of a false empty state |
 | **Hooks** | Hook audit log plus persisted hook annotations; in coordinator workspaces it renders coordinator hook audit from `/api/coordinator/hooks/audit` and coordinator hook annotations from `/api/coordinator/hooks/annotations` alongside repo-local hook data |
-| **Blocked** | Current blocked state, recent audit context, and the exact recovery command to run next |
+| **Blocked** | Current blocked state, runtime guidance, ordered next actions, recent audit context, and the exact recovery command to run next |
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |

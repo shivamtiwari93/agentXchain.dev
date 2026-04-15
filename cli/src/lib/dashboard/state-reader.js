@@ -8,6 +8,11 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join, normalize, resolve } from 'path';
+import {
+  deriveGovernedRunNextActions,
+  deriveRuntimeBlockedGuidance,
+} from '../blocked-state.js';
+import { loadProjectContext } from '../config.js';
 import { getContinuityStatus } from '../continuity-status.js';
 
 const STATE_FILE = 'state.json';
@@ -88,6 +93,24 @@ export function readJsonlFile(agentxchainDir, filename) {
   return content.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
 }
 
+function enrichGovernedState(agentxchainDir, state) {
+  if (!state || typeof state !== 'object') {
+    return state;
+  }
+
+  const workspacePath = resolve(agentxchainDir, '..');
+  const context = loadProjectContext(workspacePath);
+  if (!context || context.config?.protocol_mode !== 'governed') {
+    return state;
+  }
+
+  return {
+    ...state,
+    runtime_guidance: deriveRuntimeBlockedGuidance(state, context.config),
+    next_actions: deriveGovernedRunNextActions(state, context.config),
+  };
+}
+
 /**
  * Read a resource by its API path. Returns { data, format } or null.
  */
@@ -106,6 +129,9 @@ export function readResource(agentxchainDir, resourcePath) {
     const data = readJsonlFile(agentxchainDir, filename);
     return data !== null ? { data, format: 'jsonl' } : null;
   }
-  const data = readJsonFile(agentxchainDir, filename);
+  let data = readJsonFile(agentxchainDir, filename);
+  if (resourcePath === '/api/state') {
+    data = enrichGovernedState(agentxchainDir, data);
+  }
   return data !== null ? { data, format: 'json' } : null;
 }

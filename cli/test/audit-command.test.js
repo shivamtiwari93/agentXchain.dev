@@ -143,6 +143,133 @@ function createGovernedProject() {
   return root;
 }
 
+function createGovernedProjectWithRuntimeGuidance() {
+  const root = mkdtempSync(join(tmpdir(), 'axc-audit-runtime-'));
+  tempDirs.add(root);
+
+  writeJson(join(root, 'agentxchain.json'), {
+    schema_version: 4,
+    protocol_mode: 'governed',
+    template: 'generic',
+    project: { id: 'audit-runtime-test', name: 'Audit Runtime Test', goal: 'Surface runtime-aware blocked guidance everywhere', default_branch: 'main' },
+    roles: {
+      dev: {
+        title: 'Developer',
+        mandate: 'Build safely.',
+        write_authority: 'proposed',
+        runtime: 'remote-dev',
+      },
+    },
+    runtimes: {
+      'remote-dev': {
+        type: 'api_proxy',
+        provider: 'anthropic',
+        model: 'claude-haiku-4-5-20251001',
+        auth_env: 'ANTHROPIC_API_KEY',
+      },
+    },
+    routing: {
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+        exit_gate: 'implementation_complete',
+      },
+      qa: {
+        entry_role: 'dev',
+        allowed_next_roles: ['dev', 'human'],
+      },
+    },
+    gates: {
+      implementation_complete: {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+      },
+    },
+    budget: {
+      per_run_max_usd: 10.0,
+      per_turn_max_usd: 2.0,
+    },
+    hooks: {},
+    files: {
+      talk: 'TALK.md',
+      history: '.agentxchain/history.jsonl',
+      state: '.agentxchain/state.json',
+    },
+  });
+
+  writeJson(join(root, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'audit-runtime-test',
+    run_id: 'run_audit_runtime_001',
+    status: 'blocked',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 1,
+    last_completed_turn_id: 'turn_dev_001',
+    blocked_on: 'dispatch:awaiting_operator_followup',
+    blocked_reason: {
+      category: 'dispatch_error',
+      blocked_at: '2026-04-15T19:00:45.000Z',
+      turn_id: 'turn_dev_001',
+      recovery: {
+        typed_reason: 'dispatch_error',
+        owner: 'human',
+        recovery_action: 'agentxchain step --resume',
+        turn_retained: true,
+        detail: 'Dispatch paused until required files are materialized.',
+      },
+    },
+    last_gate_failure: {
+      gate_type: 'phase_transition',
+      gate_id: 'implementation_complete',
+      phase: 'implementation',
+      from_phase: 'implementation',
+      to_phase: 'qa',
+      requested_by_turn: 'turn_dev_001',
+      failed_at: '2026-04-15T19:00:00.000Z',
+      queued_request: false,
+      reasons: ['Missing file: .planning/IMPLEMENTATION_NOTES.md'],
+      missing_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+      missing_verification: false,
+    },
+    phase_gate_status: {
+      implementation_complete: 'failed',
+    },
+    budget_status: { spent_usd: 0.25, remaining_usd: 9.75 },
+    protocol_mode: 'governed',
+    created_at: '2026-04-15T18:59:00.000Z',
+  });
+
+  writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+    {
+      turn_id: 'turn_dev_001',
+      role: 'dev',
+      status: 'blocked',
+      summary: 'Prepared implementation notes proposal but it still needs apply.',
+      decisions: [{ id: 'DEC-AUDIT-RUNTIME-001' }],
+      objections: [],
+      files_changed: [],
+      cost: { total_usd: 0.25 },
+      started_at: '2026-04-15T19:00:00.000Z',
+      duration_ms: 45000,
+      accepted_sequence: 1,
+    },
+  ]);
+
+  writeJsonl(join(root, '.agentxchain', 'decision-ledger.jsonl'), [
+    {
+      id: 'DEC-AUDIT-RUNTIME-001',
+      turn_id: 'turn_dev_001',
+      role: 'dev',
+      phase: 'implementation',
+      statement: 'Remote proposal ownership should surface proposal apply guidance.',
+    },
+  ]);
+
+  writeFileSync(join(root, 'TALK.md'), '# Talk\n');
+  return root;
+}
+
 function createCoordinatorWorkspace() {
   const root = mkdtempSync(join(tmpdir(), 'axc-audit-coord-'));
   tempDirs.add(root);
@@ -296,6 +423,20 @@ describe('agentxchain audit', () => {
     assert.equal(parsed.subject.kind, 'coordinator_workspace');
     assert.equal(parsed.subject.coordinator.project_name, 'Coordinator Audit');
     assert.equal(parsed.subject.run.repo_ok_count, 1);
+  });
+
+  it('AT-AUDIT-008: blocked governed audit json preserves runtime guidance and next actions', () => {
+    const root = createGovernedProjectWithRuntimeGuidance();
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.subject.kind, 'governed_run');
+    assert.equal(parsed.subject.run.next_actions[0].command, 'agentxchain proposal apply turn_dev_001');
+    assert.match(parsed.subject.run.next_actions[0].reason, /proposal apply/i);
+    assert.equal(parsed.subject.run.next_actions[1].command, 'agentxchain step --resume');
+    assert.equal(parsed.subject.run.recovery_summary.runtime_guidance[0].code, 'proposal_apply_required');
+    assert.equal(parsed.subject.run.recovery_summary.runtime_guidance[0].role_id, 'dev');
   });
 
   it('AT-AUDIT-005: unsupported format fails closed', () => {

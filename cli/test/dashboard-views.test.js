@@ -680,6 +680,48 @@ describe('Blocked View', () => {
     assert.ok(html.includes('Repo Status'));
     assert.ok(html.includes('release-guard'));
   });
+
+  it('AT-RBDAP-002: renders runtime guidance and ordered next actions when present', () => {
+    const html = renderBlocked({
+      state: {
+        status: 'blocked',
+        blocked_on: 'dispatch:awaiting_operator_followup',
+        blocked_reason: {
+          category: 'dispatch_error',
+          recovery: {
+            typed_reason: 'dispatch_error',
+            owner: 'human',
+            recovery_action: 'agentxchain step --resume',
+            turn_retained: true,
+            detail: 'Dispatch paused until required files are materialized.',
+          },
+        },
+        runtime_guidance: [
+          {
+            code: 'proposal_apply_required',
+            command: 'agentxchain proposal apply turn_dev_001',
+            reason: 'Artifact ".planning/IMPLEMENTATION_NOTES.md" is owned by "dev" and stages required files behind proposal apply.',
+          },
+        ],
+        next_actions: [
+          {
+            command: 'agentxchain proposal apply turn_dev_001',
+            reason: 'Artifact ".planning/IMPLEMENTATION_NOTES.md" is owned by "dev" and stages required files behind proposal apply.',
+          },
+          {
+            command: 'agentxchain step --resume',
+            reason: 'After resolving the proposal_apply_required blocker, continue the run.',
+          },
+        ],
+      },
+    });
+
+    assert.ok(html.includes('Runtime Guidance'));
+    assert.ok(html.includes('proposal_apply_required'));
+    assert.ok(html.includes('agentxchain proposal apply turn_dev_001'));
+    assert.ok(html.includes('Next Actions'));
+    assert.ok(html.includes('After resolving the proposal_apply_required blocker'));
+  });
 });
 
 // ── Gate View ──────────────────────────────────────────────────────────────
