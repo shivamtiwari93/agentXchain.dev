@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.94.0
+
+`2.94.0` turns delegation acceptance contracts into a machine-checkable governance surface.
+
+- Delegations may now declare `required_decision_ids` so a parent can require specific `DEC-NNN` outputs from child turns
+- Child delegation context and parent review context now surface required, satisfied, and missing decision IDs
+- Delegation review turns are blocked from phase transition or run completion while required child decisions are still missing
+- Export and governance report delegation summaries now preserve required/satisfied/missing decision contract state
+- Targeted delegation, export, and report test slices pass; Docusaurus build clean
+
 ## 2.93.0
 
 `2.93.0` adds HTML governance reports for enterprise compliance and proves cross-run decision carryover.

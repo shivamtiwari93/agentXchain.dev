@@ -1,0 +1,50 @@
+---
+sidebar_position: 1
+title: "v2.94.0 Release Notes"
+description: "AgentXchain adds delegation decision contracts so parent review turns can require named child decisions before advancing."
+---
+
+# AgentXchain v2.94.0
+
+`v2.94.0` makes delegation acceptance contracts machine-checkable. Parent roles can now require specific `DEC-NNN` decisions from delegated child turns, and the protocol will block phase advancement or run completion until those decision contracts are satisfied.
+
+## What Changed
+
+### Delegation Decision Contracts
+
+Delegations now support optional `required_decision_ids`.
+
+```json
+{
+  "id": "del-001",
+  "to_role": "dev",
+  "charter": "Freeze the API contract",
+  "acceptance_contract": ["Implementation updated"],
+  "required_decision_ids": ["DEC-101", "DEC-102"]
+}
+```
+
+Those required decision IDs flow through the full delegation lifecycle:
+
+- Child `ASSIGNMENT.json` and `CONTEXT.md` show which decisions the delegated turn must emit
+- Parent delegation review turns now show `required_decision_ids`, `satisfied_decision_ids`, and `missing_decision_ids` for each child result
+- Parent review turns cannot request phase transition or run completion while any required child decisions are still missing
+
+### Durable Governance Surfaces
+
+This is not only a dispatch-context improvement. The delegation decision contract is now preserved in the operator evidence surfaces:
+
+- history metadata retains required decision IDs on delegated parent/child/review turns
+- `agentxchain export` delegation summaries now include required, satisfied, and missing decision IDs
+- `agentxchain report` text, markdown, and HTML formats render the new delegation decision contract state
+
+### Docs + Spec
+
+- New spec: `.planning/DELEGATION_DECISION_CONTRACTS_SPEC.md`
+- Updated `/docs/delegation-chains/` to document `required_decision_ids` and the review-blocking semantics
+
+## Evidence
+
+- Delegation chain tests cover required decision IDs in queue state, dispatch context, review payloads, blocked phase transition, and satisfied advancement
+- Export/report tests cover required/satisfied/missing decision rendering
+- Docusaurus build: clean
