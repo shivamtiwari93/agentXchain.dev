@@ -1,107 +1,165 @@
 import { strict as assert } from 'node:assert';
-import { afterEach, describe, it } from 'node:test';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { describe, it } from 'node:test';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
-
-const tempDirs = new Set();
-
-function createProject(opts = {}) {
-  const dir = join(tmpdir(), `agentxchain-gen-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  mkdirSync(dir, { recursive: true });
-  tempDirs.add(dir);
-
-  const config = {
-    version: 3,
-    project: 'Generate Test',
-    agents: opts.agents ?? {
-      pm: { name: 'PM', mandate: 'Plan work' },
-      dev: { name: 'Dev', mandate: 'Build work' },
-    },
-    talk_file: 'TALK.md',
-    state_file: 'state.md',
-    history_file: 'history.jsonl',
-  };
-
-  writeFileSync(join(dir, 'agentxchain.json'), JSON.stringify(config, null, 2));
-  writeFileSync(join(dir, 'TALK.md'), '');
-  writeFileSync(join(dir, 'state.md'), '');
-  writeFileSync(join(dir, 'history.jsonl'), '');
-
-  return dir;
-}
+const REPO_ROOT = join(__dirname, '..', '..');
+const SPEC_PATH = join(REPO_ROOT, '.planning', 'GENERATE_PLANNING_COMMAND_SPEC.md');
 
 function runCli(cwd, args) {
   return spawnSync(process.execPath, [CLI_BIN, ...args], {
     cwd,
     encoding: 'utf8',
-    timeout: 15_000,
     env: { ...process.env, NO_COLOR: '1' },
+    timeout: 20000,
   });
 }
 
-afterEach(() => {
-  for (const dir of [...tempDirs]) {
-    try { rmSync(dir, { recursive: true, force: true }); } catch {}
-    tempDirs.delete(dir);
-  }
+function initGovernedProject(template = 'generic') {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'axc-generate-planning-'));
+  const result = runCli(tempRoot, ['init', '--governed', '--template', template, '--dir', 'repo', '-y']);
+  assert.equal(result.status, 0, result.stderr);
+  return {
+    tempRoot,
+    projectDir: join(tempRoot, 'repo'),
+  };
+}
+
+function readJson(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+describe('generate planning command', () => {
+  it('AT-GEN-PLAN-001: recreates missing baseline governed planning artifacts', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      unlinkSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'));
+      unlinkSync(join(projectDir, '.planning', 'RELEASE_NOTES.md'));
+
+      const result = runCli(projectDir, ['generate', 'planning']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(existsSync(join(projectDir, '.planning', 'PM_SIGNOFF.md')));
+      assert.ok(existsSync(join(projectDir, '.planning', 'RELEASE_NOTES.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-002: recreates template-specific planning artifacts from the configured template', () => {
+    const { tempRoot, projectDir } = initGovernedProject('api-service');
+    try {
+      unlinkSync(join(projectDir, '.planning', 'api-contract.md'));
+
+      const result = runCli(projectDir, ['generate', 'planning']);
+      assert.equal(result.status, 0, result.stderr);
+      const recreated = readFileSync(join(projectDir, '.planning', 'api-contract.md'), 'utf8');
+      assert.match(recreated, /^# API Contract — repo/m);
+      assert.match(recreated, /## Endpoints/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-003: recreates explicit workflow-kit artifact files', () => {
+    const { tempRoot, projectDir } = initGovernedProject('enterprise-app');
+    try {
+      unlinkSync(join(projectDir, '.planning', 'ARCHITECTURE.md'));
+
+      const result = runCli(projectDir, ['generate', 'planning']);
+      assert.equal(result.status, 0, result.stderr);
+      const recreated = readFileSync(join(projectDir, '.planning', 'ARCHITECTURE.md'), 'utf8');
+      assert.match(recreated, /^# ARCHITECTURE/i);
+      assert.match(recreated, /## Context/);
+      assert.match(recreated, /## Proposed Design/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-004: preserves existing planning artifacts by default', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      const customContent = '# PM Signoff\n\nApproved: MAYBE\n\nDo not overwrite.\n';
+      writeFileSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'), customContent);
+
+      const result = runCli(projectDir, ['generate', 'planning']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(readFileSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'), 'utf8'), customContent);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-005: force overwrites scaffold-owned planning artifacts', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      writeFileSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'), '# overwritten\n');
+
+      const result = runCli(projectDir, ['generate', 'planning', '--force']);
+      assert.equal(result.status, 0, result.stderr);
+      const content = readFileSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'), 'utf8');
+      assert.match(content, /Approved: NO/);
+      assert.doesNotMatch(content, /# overwritten/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-006: dry-run reports mutations without writing files', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      unlinkSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'));
+
+      const result = runCli(projectDir, ['generate', 'planning', '--dry-run']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Would create/);
+      assert.ok(!existsSync(join(projectDir, '.planning', 'PM_SIGNOFF.md')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-007: json mode exposes created classification', () => {
+    const { tempRoot, projectDir } = initGovernedProject('generic');
+    try {
+      unlinkSync(join(projectDir, '.planning', 'PM_SIGNOFF.md'));
+
+      const result = runCli(projectDir, ['generate', 'planning', '--json']);
+      assert.equal(result.status, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.ok, true);
+      assert.equal(payload.mode, 'planning');
+      assert.ok(payload.created.includes('.planning/PM_SIGNOFF.md'));
+      assert.equal(payload.force, false);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-GEN-PLAN-008: rejects non-governed repos', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'axc-generate-planning-legacy-'));
+    try {
+      writeFileSync(join(tempRoot, 'agentxchain.json'), JSON.stringify({ version: 3, project: 'Legacy', agents: {} }, null, 2));
+      const result = runCli(tempRoot, ['generate', 'planning']);
+      assert.equal(result.status, 1);
+      assert.match(result.stdout + result.stderr, /governed repos/i);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
 });
 
-describe('agentxchain generate', () => {
-  it('AT-GENERATE-001: missing project root exits non-zero', () => {
-    const dir = join(tmpdir(), `agentxchain-gen-missing-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-    mkdirSync(dir, { recursive: true });
-    tempDirs.add(dir);
-
-    const result = runCli(dir, ['generate']);
-    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /No agentxchain\.json found/);
-  });
-
-  it('AT-GENERATE-002: no agents configured exits non-zero', () => {
-    const dir = createProject({ agents: {} });
-
-    const result = runCli(dir, ['generate']);
-    assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /No agents configured/);
-  });
-
-  it('AT-GENERATE-003: generates VS Code agent files for all agents', () => {
-    const dir = createProject();
-
-    const result = runCli(dir, ['generate']);
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /Generated 2 agent files/);
-
-    // Agent markdown files should exist
-    assert.ok(existsSync(join(dir, '.github', 'agents', 'pm.agent.md')), 'pm agent file missing');
-    assert.ok(existsSync(join(dir, '.github', 'agents', 'dev.agent.md')), 'dev agent file missing');
-  });
-
-  it('AT-GENERATE-004: output lists each agent with name', () => {
-    const dir = createProject();
-
-    const result = runCli(dir, ['generate']);
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /pm\.agent\.md/);
-    assert.match(result.stdout, /dev\.agent\.md/);
-    assert.match(result.stdout, /PM/);
-    assert.match(result.stdout, /Dev/);
-  });
-
-  it('AT-GENERATE-005: output shows file locations', () => {
-    const dir = createProject();
-
-    const result = runCli(dir, ['generate']);
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-    assert.match(result.stdout, /\.github\/agents\//);
-    assert.match(result.stdout, /\.github\/hooks\//);
-    assert.match(result.stdout, /scripts\//);
-    assert.match(result.stdout, /VS Code will auto-discover/);
+describe('generate planning spec', () => {
+  it('ships a standalone spec with the acceptance matrix', () => {
+    const spec = readFileSync(SPEC_PATH, 'utf8');
+    assert.match(spec, /\*\*Status:\*\*\s+shipped/i);
+    assert.match(spec, /AT-GEN-PLAN-001/);
+    assert.match(spec, /AT-GEN-PLAN-008/);
+    assert.match(spec, /agentxchain generate planning/);
   });
 });

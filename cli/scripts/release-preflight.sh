@@ -112,6 +112,7 @@ if [[ "$PUBLISH_GATE" -eq 1 ]]; then
   # The full test suite is a pre-tag responsibility, not a publish-time gate.
   GATE_TESTS=(
     test/release-preflight.test.js
+    test/release-docs-content.test.js
     test/release-notes-gate.test.js
     test/release-identity-hardening.test.js
     test/normalized-config.test.js

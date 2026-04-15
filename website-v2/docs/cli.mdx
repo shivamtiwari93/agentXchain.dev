@@ -10,7 +10,7 @@ The `agentxchain` CLI is the primary interface for governed multi-agent runs. Ev
 
 The CLI is the primary shipped runner, not the only possible runner. If you are building CI or hosted execution against the declared library boundary instead of shelling out to commands, use [Runner Interface](/docs/runner-interface).
 
-Legacy v3 local-orchestration commands such as `start`, `kickoff`, `watch`, `claim`, and `release` remain in the binary for compatibility. This page is intentionally scoped to the governed surface and the governed-adjacent command families that extend it: templates, plugins, intake, multi-repo coordination, and the local operator dashboard.
+Legacy v3 local-orchestration commands such as `start`, `kickoff`, `watch`, `claim`, and `release` remain in the binary for compatibility. This page is intentionally scoped to the governed surface and the governed-adjacent command families that extend it: templates, planning-artifact generation, plugins, intake, multi-repo coordination, and the local operator dashboard.
 
 ## The two commands people confuse
 
@@ -40,6 +40,7 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
 | `template validate` | Setup | Prove template registry, project binding, workflow-kit scaffold, planning artifact completeness, and acceptance hint completion |
 | `template set` | Setup | Apply a template annotation and additive guidance to an existing governed project |
+| `generate planning` | Setup | Restore scaffold-owned governed planning artifacts without re-running `init` |
 | `phase list` | Inspection | List governed phases in routing order with current-phase context |
 | `phase show` | Inspection | Inspect one governed phase: routing, gate, next roles, and workflow-kit artifact ownership |
 | `gate list` | Inspection | List all defined gates with phase linkage, predicate summary, and approval requirements |
@@ -277,6 +278,24 @@ agentxchain template set <id> [--yes] [--dry-run]
 Annotates an existing governed project with a template. This command is additive by design: it updates the config `template` field, creates missing planning artifacts, appends prompt guidance once, appends template guidance to `acceptance-matrix.md` once, and records the change in `.agentxchain/decision-ledger.jsonl`. It does **not** overwrite operator-authored planning docs or replace existing template-guidance blocks.
 
 Blueprint-backed templates are the explicit exception. `template set enterprise-app` fails closed because rewriting `roles`, `runtimes`, `routing`, `gates`, and `workflow_kit` inside an existing repo is not an additive mutation. Use `init --governed --template enterprise-app` for new repos instead. See [Templates](/docs/templates) for the full mutation semantics.
+
+### `generate planning`
+
+```bash
+agentxchain generate planning [--dry-run] [--force] [--json]
+```
+
+Restores scaffold-owned `.planning/` files for governed repos from the current template binding plus explicit `workflow_kit` config. Use it when baseline planning docs were deleted, a template artifact is missing, or a custom workflow-kit file such as `ARCHITECTURE.md` needs to be re-materialized from scaffold rules.
+
+Default behavior is conservative:
+
+- missing scaffold-owned planning files are created
+- existing files are preserved byte-for-byte
+- `--dry-run` previews the mutation set without writing files
+- `--force` overwrites scaffold-owned planning files with fresh scaffold content
+- `--json` emits machine-readable `created`, `overwritten`, and `skipped_existing` arrays
+
+`generate planning` is not a substitute for `template set`. It restores scaffold-owned files only; it does not append prompt overrides or re-apply template guidance blocks to files that already exist.
 
 ### `role list`
 

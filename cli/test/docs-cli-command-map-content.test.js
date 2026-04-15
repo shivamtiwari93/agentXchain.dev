@@ -186,6 +186,12 @@ describe('CLI command map docs contract', () => {
     assert.match(CLI_DOCS, /benchmark.*export verification/i);
     assert.doesNotMatch(CLI_DOCS, /benchmark.*protocol conformance/i);
   });
+
+  it('documents generate planning as the governed planning-artifact recovery path', () => {
+    assert.ok(commandMapRows.includes('generate planning'));
+    assert.match(CLI_DOCS, /agentxchain generate planning \[--dry-run\] \[--force\] \[--json\]/);
+    assert.match(CLI_DOCS, /restore scaffold-owned governed planning artifacts/i);
+  });
 });
 
 describe('CLI command map spec alignment', () => {

@@ -1,6 +1,6 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -285,6 +285,12 @@ describe('release-preflight.sh', () => {
     assert.match(result.stdout, /Release-gate tests/);
     assert.match(result.stdout, /release-gate tests passed, 0 failures/);
     assert.match(result.stdout, /PREFLIGHT PASSED/);
+  });
+
+  it('publish-gate subset includes release workflow contract coverage', () => {
+    const script = readFileSync(SOURCE_SCRIPT, 'utf8');
+    assert.match(script, /test\/release-docs-content\.test\.js/);
+    assert.match(script, /test\/release-preflight\.test\.js/);
   });
 
   it('--publish-gate implies strict mode', () => {

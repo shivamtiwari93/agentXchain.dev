@@ -55,7 +55,7 @@ import { configCommand } from '../src/commands/config.js';
 import { updateCommand } from '../src/commands/update.js';
 import { watchCommand } from '../src/commands/watch.js';
 import { claimCommand, releaseCommand } from '../src/commands/claim.js';
-import { generateCommand } from '../src/commands/generate.js';
+import { generateCommand, generatePlanningCommand } from '../src/commands/generate.js';
 import { doctorCommand } from '../src/commands/doctor.js';
 import { superviseCommand } from '../src/commands/supervise.js';
 import { validateCommand } from '../src/commands/validate.js';
@@ -223,10 +223,18 @@ program
   .option('--unset', 'Remove override and follow the active git branch automatically')
   .action(branchCommand);
 
-program
+const generateCmd = program
   .command('generate')
-  .description('Regenerate VS Code agent files (.agent.md, hooks) from agentxchain.json')
+  .description('Regenerate VS Code agent files, or governed planning artifacts via subcommands')
   .action(generateCommand);
+
+generateCmd
+  .command('planning')
+  .description('Generate or restore scaffold-owned governed planning artifacts')
+  .option('--dry-run', 'Show which planning artifacts would be written without changing files')
+  .option('--force', 'Overwrite existing scaffold-owned planning artifacts')
+  .option('-j, --json', 'Output as JSON')
+  .action(generatePlanningCommand);
 
 program
   .command('watch')

@@ -123,6 +123,13 @@ agentxchain status
 agentxchain step --role pm
 ```
 
+If scaffold-owned planning files are deleted later, restore them from the current template and `workflow_kit` contract instead of hand-rebuilding them:
+
+```bash
+agentxchain generate planning --dry-run
+agentxchain generate planning
+```
+
 If you skipped `--goal` during scaffold, run `agentxchain config --set project.goal "Build an expense tracker with team splitting"` before the first governed turn so agents receive mission context in every dispatch bundle.
 
 The default governed dev runtime is `claude --print --dangerously-skip-permissions` with stdin prompt delivery. The non-interactive governed path needs write access, so do not pretend bare `claude --print` is sufficient for unattended implementation turns. If your local coding agent uses a different launch contract, set it at scaffold time instead of patching JSON later:
@@ -437,6 +444,7 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 ### Shared project utilities
 
 - `config`: inspect or edit project configuration
+- `generate planning`: restore scaffold-owned governed planning artifacts without re-running `init`
 - `update`: update the CLI
 
 ### Legacy IDE orchestration

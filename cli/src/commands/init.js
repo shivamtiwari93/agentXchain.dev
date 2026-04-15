@@ -5,8 +5,9 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { CONFIG_FILE, LOCK_FILE, STATE_FILE } from '../lib/config.js';
 import { generateVSCodeFiles } from '../lib/generate-vscode.js';
-import { loadAllGovernedTemplates, loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS, buildSystemSpecContent } from '../lib/governed-templates.js';
+import { loadAllGovernedTemplates, loadGovernedTemplate, VALID_GOVERNED_TEMPLATE_IDS } from '../lib/governed-templates.js';
 import { normalizeWorkflowKit, VALID_PROMPT_TRANSPORTS } from '../lib/normalized-config.js';
+import { buildGovernedPlanningArtifacts, interpolateTemplateContent } from '../lib/planning-artifacts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = join(__dirname, '../templates');
@@ -47,22 +48,9 @@ function loadTemplates() {
   return templates;
 }
 
-function interpolateTemplateContent(contentTemplate, projectName) {
-  return contentTemplate.replaceAll('{{project_name}}', projectName);
-}
-
 function appendPromptOverride(basePrompt, override) {
   if (!override || !override.trim()) return basePrompt;
   return `${basePrompt}\n\n---\n\n## Project-Type-Specific Guidance\n\n${override.trim()}\n`;
-}
-
-function appendAcceptanceHints(baseMatrix, acceptanceHints) {
-  if (!Array.isArray(acceptanceHints) || acceptanceHints.length === 0) {
-    return baseMatrix;
-  }
-
-  const hintLines = acceptanceHints.map((hint) => `- [ ] ${hint}`).join('\n');
-  return `${baseMatrix}\n\n## Template Guidance\n${hintLines}\n`;
 }
 
 function findGitRoot(startDir) {
@@ -598,20 +586,6 @@ export async function resolveGovernedInitAnswers(opts, prompt = (questions) => i
   };
 }
 
-function generateWorkflowKitPlaceholder(artifact, projectName) {
-  const filename = basename(artifact.path);
-  const title = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
-
-  if (artifact.semantics === 'section_check' && artifact.semantics_config?.required_sections?.length) {
-    const sections = artifact.semantics_config.required_sections
-      .map(s => `${s}\n\n(Content here.)\n`)
-      .join('\n');
-    return `# ${title} — ${projectName}\n\n${sections}`;
-  }
-
-  return `# ${title} — ${projectName}\n\n(Operator fills this in.)\n`;
-}
-
 function cloneJsonCompatible(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
@@ -651,29 +625,6 @@ function buildScaffoldConfigFromTemplate(template, localDevRuntime, workflowKitC
     prompts,
     workflowKitConfig: effectiveWorkflowKitConfig,
   };
-}
-
-const PHASE_DISPLAY_NAMES = Object.freeze({
-  qa: 'QA',
-});
-
-function formatPhaseDisplayName(phaseKey) {
-  if (PHASE_DISPLAY_NAMES[phaseKey]) {
-    return PHASE_DISPLAY_NAMES[phaseKey];
-  }
-  return phaseKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function buildRoadmapPhaseTable(routing, roles) {
-  const rows = Object.entries(routing).map(([phaseKey, phaseConfig]) => {
-    const phaseName = formatPhaseDisplayName(phaseKey);
-    const entryRole = phaseConfig.entry_role;
-    const role = roles[entryRole];
-    const goal = role?.mandate || phaseName;
-    const status = phaseKey === Object.keys(routing)[0] ? 'In progress' : 'Pending';
-    return `| ${phaseName} | ${goal} | ${status} |`;
-  });
-  return `| Phase | Goal | Status |\n|-------|------|--------|\n${rows.join('\n')}\n`;
 }
 
 function buildPlanningSummaryLines(template, workflowKitConfig) {
@@ -821,53 +772,20 @@ export function scaffoldGoverned(dir, projectName, projectId, templateId = 'gene
   }
 
   // Planning artifacts
-  writeFileSync(join(dir, '.planning', 'PM_SIGNOFF.md'), `# PM Signoff — ${projectName}\n\nApproved: NO\n\n> This scaffold starts blocked on purpose. Change this to \`Approved: YES\` only after a human reviews the planning artifacts and is ready to open the planning gate.\n\n## Discovery Checklist\n- [ ] Target user defined\n- [ ] Core pain point defined\n- [ ] Core workflow defined\n- [ ] MVP scope defined\n- [ ] Out-of-scope list defined\n- [ ] Success metric defined\n\n## Notes for team\n(PM and human add final kickoff notes here.)\n`);
-  writeFileSync(join(dir, '.planning', 'ROADMAP.md'), `# Roadmap — ${projectName}\n\n## Phases\n\n${buildRoadmapPhaseTable(routing, roles)}`);
-  writeFileSync(join(dir, '.planning', 'SYSTEM_SPEC.md'), buildSystemSpecContent(projectName, template.system_spec_overlay));
-  writeFileSync(join(dir, '.planning', 'IMPLEMENTATION_NOTES.md'), `# Implementation Notes — ${projectName}\n\n## Changes\n\n(Dev fills this during implementation)\n\n## Verification\n\n(Dev fills this during implementation)\n\n## Unresolved Follow-ups\n\n(Dev lists any known gaps, tech debt, or follow-up items here.)\n`);
-  const baseAcceptanceMatrix = `# Acceptance Matrix — ${projectName}\n\n| Req # | Requirement | Acceptance criteria | Test status | Last tested | Status |\n|-------|-------------|-------------------|-------------|-------------|--------|\n| (QA fills this from ROADMAP.md) | | | | | |\n`;
-  writeFileSync(
-    join(dir, '.planning', 'acceptance-matrix.md'),
-    appendAcceptanceHints(baseAcceptanceMatrix, template.acceptance_hints)
-  );
-  writeFileSync(join(dir, '.planning', 'ship-verdict.md'), `# Ship Verdict — ${projectName}\n\n## Verdict: PENDING\n\n## QA Summary\n\n(QA writes the final ship/no-ship assessment here.)\n\n## Open Blockers\n\n(List any blocking issues.)\n\n## Conditions\n\n(List any conditions for shipping.)\n`);
-  writeFileSync(join(dir, '.planning', 'RELEASE_NOTES.md'), `# Release Notes — ${projectName}\n\n## User Impact\n\n(QA fills this during the QA phase)\n\n## Verification Summary\n\n(QA fills this during the QA phase)\n\n## Upgrade Notes\n\n(QA fills this during the QA phase)\n\n## Known Issues\n\n(QA fills this during the QA phase)\n`);
-  for (const artifact of template.planning_artifacts) {
-    writeFileSync(
-      join(dir, '.planning', artifact.filename),
-      interpolateTemplateContent(artifact.content_template, projectName)
-    );
-  }
-
-  // Workflow-kit custom artifacts — only scaffold files from explicit workflow_kit config
-  // that are not already handled by the default scaffold above
-  if (scaffoldWorkflowKitConfig && scaffoldWorkflowKitConfig.phases && typeof scaffoldWorkflowKitConfig.phases === 'object') {
-    const defaultScaffoldPaths = new Set([
-      '.planning/PM_SIGNOFF.md',
-      '.planning/ROADMAP.md',
-      '.planning/SYSTEM_SPEC.md',
-      '.planning/IMPLEMENTATION_NOTES.md',
-      '.planning/acceptance-matrix.md',
-      '.planning/ship-verdict.md',
-      '.planning/RELEASE_NOTES.md',
-    ]);
-
-    for (const phaseConfig of Object.values(scaffoldWorkflowKitConfig.phases)) {
-      if (!Array.isArray(phaseConfig.artifacts)) continue;
-      for (const artifact of phaseConfig.artifacts) {
-        if (!artifact.path || defaultScaffoldPaths.has(artifact.path)) continue;
-        const absPath = join(dir, artifact.path);
-        if (existsSync(absPath)) continue;
-
-        // Ensure parent directory exists
-        const parentDir = dirname(absPath);
-        if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-
-        // Generate placeholder content based on semantics type
-        const content = generateWorkflowKitPlaceholder(artifact, projectName);
-        writeFileSync(absPath, content);
-      }
+  for (const artifact of buildGovernedPlanningArtifacts({
+    projectName,
+    routing,
+    roles,
+    template,
+    workflowKitConfig: scaffoldWorkflowKitConfig,
+  })) {
+    const absPath = join(dir, artifact.path);
+    if (artifact.source === 'workflow_kit' && existsSync(absPath)) {
+      continue;
     }
+    const parentDir = dirname(absPath);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+    writeFileSync(absPath, artifact.content);
   }
 
   // TALK.md

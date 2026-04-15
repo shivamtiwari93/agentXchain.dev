@@ -224,7 +224,7 @@ agentxchain step
 | `supervise` | Run `watch` plus optional macOS auto-nudge |
 | `claim` / `release` | Human override of legacy lock ownership |
 | `rebind` | Rebuild Cursor bindings |
-| `generate` | Regenerate VS Code agent files |
+| `generate` | Regenerate VS Code agent files; use `generate planning` to restore scaffold-owned governed planning docs |
 | `branch` | Manage Cursor branch override for launches |
 | `doctor` | Check local environment and setup |
 | `stop` | Stop watch daemon and local sessions |

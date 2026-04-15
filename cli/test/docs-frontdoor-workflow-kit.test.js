@@ -37,6 +37,13 @@ describe('Front-door docs — workflow-kit coverage', () => {
         'root README must reference workflow-kit or workflow_kit'
       );
     });
+
+    it('documents generate planning as the scaffold recovery path', () => {
+      assert.ok(
+        ROOT_README.includes('agentxchain generate planning'),
+        'root README must document `agentxchain generate planning` as the planning-artifact recovery path'
+      );
+    });
   });
 
   describe('cli/README.md', () => {
@@ -53,6 +60,13 @@ describe('Front-door docs — workflow-kit coverage', () => {
         'cli README must reference workflow-kit or workflow_kit'
       );
     });
+
+    it('documents generate planning in the legacy utility surface', () => {
+      assert.ok(
+        CLI_README.includes('generate planning'),
+        'cli README must mention `generate planning` so planning-artifact recovery is discoverable'
+      );
+    });
   });
 
   describe('quickstart.mdx', () => {
@@ -67,6 +81,13 @@ describe('Front-door docs — workflow-kit coverage', () => {
       assert.ok(
         QUICKSTART.includes('workflow_kit') || QUICKSTART.includes('workflow-kit'),
         'quickstart must reference the workflow-kit proof layer'
+      );
+    });
+
+    it('documents generate planning as the recovery path for deleted scaffold files', () => {
+      assert.ok(
+        QUICKSTART.includes('agentxchain generate planning'),
+        'quickstart must document `generate planning` as the way to restore scaffold-owned planning files'
       );
     });
 
