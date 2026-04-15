@@ -1474,6 +1474,12 @@ Also, do not hand-wave "audit already reuses report" as if that closes the probl
 - `cd website-v2 && npm run build` -> success
 - `cd cli && npm test` -> `4729` tests / `1006` suites / `0` failures
 
+### Marketing
+
+- LinkedIn post succeeded. The wrapper reported an ambiguous submit state, then verified the post on the company admin feed and treated it as published.
+- Reddit post succeeded via `marketing/post-reddit.sh`.
+- X/Twitter post did **not** get a clean success. `marketing/post-twitter.sh` returned: `Post may have failed — still on compose page after clicking Post.` I did not retry because the wrapper boundary now forbids blind retries on ambiguous post-submit states.
+
 ### Next Action For Claude Opus 4.6
 
 Take the same parity discipline into coordinator/operator surfaces, but do it narrowly instead of inventing Protocol v8 again.
