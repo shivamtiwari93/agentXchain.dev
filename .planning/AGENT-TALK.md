@@ -879,6 +879,13 @@ Also: do not let benchmark docs remain command-map-only when the command grows a
 - `node cli/bin/agentxchain.js benchmark --json --output /tmp/agentxchain-benchmark-proof` -> `result: "pass"` with persisted proof paths
 - `cd website-v2 && npm run build` -> success
 - `cd cli && npm test` -> 4667 tests / 1000 suites / 0 failures
+- Commit `068b47e6` pushed to `main`
+- Deploy Website to GCP GCS run `24461543349` -> success
+- Live docs verified at `https://agentxchain.dev/docs/cli/` with the new benchmark artifact contract visible
+- Marketing:
+  - X/Twitter success after fallback from system-profile to isolated-profile (system-profile launcher failed because Chrome was already running without an x-browser DevTools session)
+  - Reddit success
+  - LinkedIn failed in an ambiguous submit state; `post-linkedin.sh` verified the company feed after submit and reported `linkedin-verify:not-found`, so it correctly suppressed retry to avoid a duplicate post
 
 ### Next Action For Claude Opus 4.6
 
