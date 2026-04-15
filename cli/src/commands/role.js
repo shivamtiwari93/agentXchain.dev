@@ -12,7 +12,7 @@ export function roleCommand(subcommand, roleId, opts) {
     process.exit(1);
   }
 
-  const { rawConfig, config, version } = context;
+  const { config, version } = context;
 
   if (version !== 4) {
     console.log(chalk.red('  Not a governed AgentXchain project (requires v4 config).'));
@@ -20,19 +20,18 @@ export function roleCommand(subcommand, roleId, opts) {
   }
 
   const roles = config.roles || {};
-  const rawRoles = rawConfig.roles || {};
   const runtimes = config.runtimes || {};
   const roleIds = Object.keys(roles);
 
   if (subcommand === 'show') {
-    return showRole(roleId, roles, rawRoles, runtimes, roleIds, opts);
+    return showRole(roleId, roles, runtimes, roleIds, opts);
   }
 
   // Default: list
-  return listRoles(roles, rawRoles, runtimes, roleIds, opts);
+  return listRoles(roles, runtimes, roleIds, opts);
 }
 
-function listRoles(roles, rawRoles, runtimes, roleIds, opts) {
+function listRoles(roles, runtimes, roleIds, opts) {
   if (roleIds.length === 0) {
     if (opts.json) {
       console.log('[]');
@@ -54,8 +53,8 @@ function listRoles(roles, rawRoles, runtimes, roleIds, opts) {
         runtime: runtimeId,
         runtime_contract: runtime ? getRoleRuntimeCapabilityContract(id, roles[id], runtime).runtime_contract : null,
       };
-      if (typeof rawRoles[id]?.decision_authority === 'number') {
-        entry.decision_authority = rawRoles[id].decision_authority;
+      if (typeof roles[id]?.decision_authority === 'number') {
+        entry.decision_authority = roles[id].decision_authority;
       }
       return entry;
     });
@@ -73,7 +72,7 @@ function listRoles(roles, rawRoles, runtimes, roleIds, opts) {
       : r.write_authority === 'proposed'
         ? chalk.yellow(r.write_authority)
         : chalk.dim(r.write_authority);
-    const decAuth = typeof rawRoles[id]?.decision_authority === 'number' ? chalk.dim(` dec:${rawRoles[id].decision_authority}`) : '';
+    const decAuth = typeof r?.decision_authority === 'number' ? chalk.dim(` dec:${r.decision_authority}`) : '';
     const capabilitySuffix = contract ? chalk.dim(` {${summarizeRuntimeCapabilityContract(contract.runtime_contract)}}`) : '';
     console.log(`  ${chalk.cyan(id)} — ${r.title} [${authority}${decAuth}] → ${chalk.dim(r.runtime_id)}${capabilitySuffix}`);
   }
@@ -81,7 +80,7 @@ function listRoles(roles, rawRoles, runtimes, roleIds, opts) {
   console.log(chalk.dim('  Usage: agentxchain role show <role_id>\n'));
 }
 
-function showRole(roleId, roles, rawRoles, runtimes, roleIds, opts) {
+function showRole(roleId, roles, runtimes, roleIds, opts) {
   if (!roleId) {
     console.log(chalk.red('  Missing role ID.'));
     console.log(chalk.dim(`  Usage: agentxchain role show <role_id>`));
@@ -119,8 +118,8 @@ function showRole(roleId, roles, rawRoles, runtimes, roleIds, opts) {
           }
         : null,
     };
-    if (typeof rawRoles[roleId]?.decision_authority === 'number') {
-      entry.decision_authority = rawRoles[roleId].decision_authority;
+    if (typeof r?.decision_authority === 'number') {
+      entry.decision_authority = r.decision_authority;
     }
     console.log(JSON.stringify(entry, null, 2));
     return;
@@ -136,8 +135,8 @@ function showRole(roleId, roles, rawRoles, runtimes, roleIds, opts) {
   console.log(`  Title:      ${r.title}`);
   console.log(`  Mandate:    ${r.mandate}`);
   console.log(`  Authority:  ${authority}`);
-  if (typeof rawRoles[roleId]?.decision_authority === 'number') {
-    console.log(`  Decision:   ${rawRoles[roleId].decision_authority}`);
+  if (typeof r?.decision_authority === 'number') {
+    console.log(`  Decision:   ${r.decision_authority}`);
   }
   console.log(`  Runtime:    ${chalk.dim(r.runtime_id)}`);
   if (capability) {

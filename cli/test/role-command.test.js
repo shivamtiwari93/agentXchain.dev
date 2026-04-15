@@ -140,6 +140,35 @@ describe('agentxchain role command', () => {
     }
   });
 
+  it('AT-ROLE-004C: role list --json returns normalized decision authority when configured', () => {
+    const dir = createDecisionAuthorityProject();
+    try {
+      const result = runCli(dir, ['role', 'list', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const roles = JSON.parse(result.stdout);
+      const dev = roles.find((role) => role.id === 'dev');
+      assert.ok(dev, 'dev role should be present');
+      assert.equal(dev.decision_authority, 20);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ROLE-004D: role show --json returns normalized decision authority when configured', () => {
+    const dir = createDecisionAuthorityProject();
+    try {
+      const result = runCli(dir, ['role', 'show', 'dev', '--json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+
+      const role = JSON.parse(result.stdout);
+      assert.equal(role.id, 'dev');
+      assert.equal(role.decision_authority, 20);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('AT-ROLE-005: role show <unknown> exits 1 with helpful error', () => {
     const dir = createGovernedProject();
     try {
