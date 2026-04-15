@@ -55,7 +55,13 @@ function selectRelevantAuditEntries(state, audit) {
   return audit.slice(-3);
 }
 
-export function render({ state, audit = [], coordinatorState = null, coordinatorAudit = [] }) {
+export function render({
+  state,
+  audit = [],
+  coordinatorState = null,
+  coordinatorAudit = [],
+  coordinatorBlockers = null,
+}) {
   const activeState = state?.status === 'blocked' ? state : coordinatorState;
   const activeAudit = activeState === state ? audit : coordinatorAudit;
   const isCoordinator = activeState === coordinatorState;
@@ -76,7 +82,16 @@ export function render({ state, audit = [], coordinatorState = null, coordinator
   const turnRetained = typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : null;
   const blockedAt = blocked.blocked_at || null;
   const runtimeGuidance = Array.isArray(activeState.runtime_guidance) ? activeState.runtime_guidance : [];
-  const nextActions = Array.isArray(activeState.next_actions) ? activeState.next_actions : [];
+  const coordinatorNextActions = coordinatorBlockers?.ok === false
+    ? []
+    : Array.isArray(coordinatorBlockers?.next_actions)
+      ? coordinatorBlockers.next_actions
+      : [];
+  const nextActions = isCoordinator
+    ? coordinatorNextActions
+    : Array.isArray(activeState.next_actions)
+      ? activeState.next_actions
+      : [];
   const relevantAudit = selectRelevantAuditEntries(activeState, activeAudit);
 
   let html = `<div class="blocked-view">
@@ -135,7 +150,6 @@ export function render({ state, audit = [], coordinatorState = null, coordinator
         <dt>Gate</dt><dd class="mono">${esc(activeState.pending_gate.gate || '-')}</dd>
         <dt>Type</dt><dd>${esc(activeState.pending_gate.gate_type || '-')}</dd>
       </dl>
-      <pre class="recovery-command mono" data-copy="agentxchain multi approve-gate">agentxchain multi approve-gate</pre>
     </div>`;
   }
 

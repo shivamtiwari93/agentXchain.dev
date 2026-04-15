@@ -456,4 +456,11 @@ describe('App Shell — VIEWS registry', () => {
     assert.match(appSource, /shouldRefreshViewForLiveMessage/);
     assert.match(appSource, /createLiveEventFromMessage/);
   });
+
+  it('blocked view fetches coordinatorBlockers so coordinator next-actions can render truthfully', () => {
+    assert.match(
+      appSource,
+      /blocked:\s*\{\s*fetch:\s*\['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers'\],\s*render:\s*renderBlocked\s*\}/,
+    );
+  });
 });

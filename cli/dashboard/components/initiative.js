@@ -223,6 +223,7 @@ export function render({
 
   if (pendingGate || coordinatorState.blocked_reason) {
     html += `<div class="section"><h3>Coordinator Attention</h3><div class="initiative-grid">`;
+    const blockerSnapshot = renderCoordinatorAttentionSnapshot(coordinatorBlockers);
     if (pendingGate) {
       html += `<div class="gate-card">
         <h3>Pending Gate</h3>
@@ -235,14 +236,15 @@ export function render({
       if (Array.isArray(pendingGate.required_repos) && pendingGate.required_repos.length > 0) {
         html += `<dt>Repos</dt><dd>${esc(pendingGate.required_repos.join(', '))}</dd>`;
       }
-      html += `</dl>
-        <div class="gate-action">
-          <p>Approve with:</p>
-          <pre class="recovery-command mono" data-copy="agentxchain multi approve-gate">agentxchain multi approve-gate</pre>
-        </div>
-      </div>`;
+      html += `</dl>`;
+      if (!blockerSnapshot) {
+        html += `<div class="gate-action">
+          <p>Ordered coordinator actions are sourced from the Blockers contract.</p>
+          <p><a href="#blockers">Open Blockers view</a></p>
+        </div>`;
+      }
+      html += `</div>`;
     }
-    const blockerSnapshot = renderCoordinatorAttentionSnapshot(coordinatorBlockers);
     if (blockerSnapshot) {
       html += blockerSnapshot;
     } else if (coordinatorState.blocked_reason) {

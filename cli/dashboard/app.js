@@ -29,7 +29,7 @@ const VIEWS = {
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
   ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
-  blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
+  blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers'], render: renderBlocked },
   gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
   initiative: { fetch: ['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers'], render: renderInitiative },
   'cross-repo': { fetch: ['coordinatorState', 'coordinatorHistory'], render: renderCrossRepo },

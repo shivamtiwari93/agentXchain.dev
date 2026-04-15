@@ -520,11 +520,31 @@ describe('Initiative View', () => {
       barrierLedger: [
         { barrier_id: 'backend_completion', previous_status: 'pending', new_status: 'partially_satisfied' },
       ],
+      coordinatorBlockers: {
+        ok: true,
+        mode: 'pending_gate',
+        next_actions: [
+          {
+            code: 'pending_gate',
+            command: 'agentxchain multi approve-gate --from-blockers',
+            reason: 'Coordinator is waiting on pending gate "phase_transition:integration->release" (phase_transition).',
+          },
+        ],
+        active: {
+          gate_type: 'phase_transition',
+          gate_id: 'phase_transition:integration->release',
+          current_phase: 'integration',
+          target_phase: 'release',
+          blockers: [],
+          pending: true,
+        },
+      },
     });
 
     assert.ok(html.includes('srun_123'));
     assert.ok(html.includes('phase_transition:integration-&gt;release') || html.includes('phase_transition:integration->release'));
-    assert.ok(html.includes('agentxchain multi approve-gate'));
+    assert.ok(html.includes('agentxchain multi approve-gate --from-blockers'));
+    assert.ok(!html.includes('data-copy="agentxchain multi approve-gate"'));
     assert.ok(html.includes('run_api'));
     assert.ok(html.includes('backend_completion'));
     assert.ok(html.includes('partially_satisfied'));
@@ -805,10 +825,22 @@ describe('Blocked View', () => {
       coordinatorAudit: [
         { hook_phase: 'before_gate', hook_name: 'release-guard', verdict: 'block', orchestrator_action: 'blocked', duration_ms: 42 },
       ],
+      coordinatorBlockers: {
+        ok: true,
+        next_actions: [
+          {
+            code: 'pending_gate',
+            command: 'agentxchain multi approve-gate --from-blockers',
+            reason: 'Coordinator is waiting on pending gate "initiative_ship" (run_completion).',
+          },
+        ],
+      },
     });
 
     assert.ok(html.includes('coordinator_hook_violation'));
-    assert.ok(html.includes('agentxchain multi approve-gate'));
+    assert.ok(html.includes('agentxchain multi approve-gate --from-blockers'));
+    assert.ok(!html.includes('data-copy="agentxchain multi approve-gate"'));
+    assert.ok(html.includes('Next Actions'));
     assert.ok(html.includes('Repo Status'));
     assert.ok(html.includes('release-guard'));
   });
