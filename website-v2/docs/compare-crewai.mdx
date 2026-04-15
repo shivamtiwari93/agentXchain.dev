@@ -20,7 +20,7 @@ This page explains the differences honestly so you can pick the right tool.
 | **Primary use case** | General-purpose agent orchestration | Long-horizon software development |
 | **Coordination model** | Task graph with sequential/parallel execution | Turn-based governed protocol with decision audit trail |
 | **Agent definition** | Python classes (Agent, Task, Crew) | JSON config with role charters and runtime bindings |
-| **Model lock-in** | Primarily LangChain-based model access | Model-agnostic — any LLM via adapters |
+| **Model access** | Native provider SDKs plus LiteLLM fallback | Model-agnostic — any LLM via adapters |
 | **IDE lock-in** | None (Python library) | None — works with any IDE, CLI, or cloud agent |
 | **Governance** | Minimal — no audit trail, no gates, no decision ledger | Core feature — full audit trail, phase gates, decision carryover |
 | **Protocol** | Implicit (internal orchestration) | Explicit versioned protocol (v7) with conformance tiers |
@@ -72,11 +72,11 @@ CrewAI's coordination is an implementation detail — it lives inside the Python
 
 AgentXchain's coordination is an **explicit protocol** with a versioned specification, conformance tiers, and a reference implementation. The protocol is designed to survive changes in models, tools, and vendors.
 
-### 4. Model and IDE Agnosticism
+### 4. Governance Portability
 
-CrewAI agents are Python objects that typically use LangChain for model access. Switching models requires code changes.
+CrewAI's model-provider story is stronger than this page previously claimed. Its current docs describe native integrations for major providers plus LiteLLM fallback for others.
 
-AgentXchain agents connect via adapters (`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`). The same governed workflow works with Claude, GPT, Gemini, DeepSeek, Ollama, or any other model — by changing a JSON config line, not code.
+The real difference is elsewhere: CrewAI's coordination model still lives inside a Python runtime, while AgentXchain treats governance as a transportable protocol. AgentXchain agents connect via adapters (`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`), so the same governed workflow can survive IDE, runner, and model changes without rewriting the coordination layer.
 
 ### 5. Human Authority Model
 

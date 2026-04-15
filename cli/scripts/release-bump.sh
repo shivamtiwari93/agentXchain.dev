@@ -192,13 +192,18 @@ if [[ "${#SURFACE_ERRORS[@]}" -gt 0 ]]; then
 fi
 echo "  OK: all 8 governed version surfaces reference ${TARGET_VERSION}"
 
-# 5. Auto-align Homebrew mirror to target version
+# 5. Normalize release-note sidebar ordering
+echo "[5/10] Normalizing release-note sidebar positions..."
+node "${CLI_DIR}/scripts/normalize-release-note-sidebar-positions.mjs"
+echo "  OK: release-note sidebar positions normalized newest-first"
+
+# 6. Auto-align Homebrew mirror to target version
 # The formula URL and README version/tarball are updated automatically.
 # The SHA256 is carried from the previous committed formula — it is inherently a
 # post-publish artifact (npm registry tarballs are not byte-identical to
 # local npm-pack output). Any working-tree SHA edit is overwritten here.
 # sync-homebrew.sh corrects the SHA after publish.
-echo "[5/9] Auto-aligning Homebrew mirror to ${TARGET_VERSION}..."
+echo "[6/10] Auto-aligning Homebrew mirror to ${TARGET_VERSION}..."
 HOMEBREW_MIRROR="${REPO_ROOT}/cli/homebrew/agentxchain.rb"
 HOMEBREW_MIRROR_README="${REPO_ROOT}/cli/homebrew/README.md"
 TARBALL_URL="https://registry.npmjs.org/agentxchain/-/agentxchain-${TARGET_VERSION}.tgz"
@@ -256,13 +261,13 @@ else
   echo "  Skipped: no Homebrew mirror files found"
 fi
 
-# 6. Update version files (no git operations)
-echo "[6/9] Updating version files..."
+# 7. Update version files (no git operations)
+echo "[7/10] Updating version files..."
 npm version "$TARGET_VERSION" --no-git-tag-version
 echo "  OK: package.json updated to ${TARGET_VERSION}"
 
-# 7. Stage version files
-echo "[7/9] Staging version files..."
+# 8. Stage version files
+echo "[8/10] Staging version files..."
 git add -- package.json
 if [[ -f package-lock.json ]]; then
   git add -- package-lock.json
@@ -270,10 +275,11 @@ fi
 for rel_path in "${ALLOWED_RELEASE_PATHS[@]}"; do
   stage_if_present "$rel_path"
 done
+git -C "$REPO_ROOT" add -- website-v2/docs/releases
 echo "  OK: version files and allowed release surfaces staged"
 
-# 8. Create release commit
-echo "[8/9] Creating release commit..."
+# 9. Create release commit
+echo "[9/10] Creating release commit..."
 git commit -m "${TARGET_VERSION}"
 RELEASE_SHA=$(git rev-parse HEAD)
 COMMIT_MSG=$(git log -1 --format=%s)
@@ -283,13 +289,13 @@ if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
 fi
 echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
 
-# 8.5. Inline preflight gate — tests, pack, and docs build must pass before tag
+# 9.5. Inline preflight gate — tests, pack, and docs build must pass before tag
 if [[ "$SKIP_PREFLIGHT" -eq 1 ]]; then
   echo ""
-  echo "[8.5/10] Inline preflight gate SKIPPED (--skip-preflight)"
+  echo "[9.5/11] Inline preflight gate SKIPPED (--skip-preflight)"
 else
   echo ""
-  echo "[8.5/10] Running inline preflight gate..."
+  echo "[9.5/11] Running inline preflight gate..."
   echo "  Running test suite..."
 
   # Install MCP example deps if needed (same as release-preflight.sh)
@@ -342,8 +348,8 @@ else
   echo "  Inline preflight gate passed — proceeding to tag"
 fi
 
-# 9. Create annotated tag
-echo "[9/10] Creating annotated tag..."
+# 10. Create annotated tag
+echo "[10/11] Creating annotated tag..."
 git tag -a "v${TARGET_VERSION}" -m "v${TARGET_VERSION}"
 TAG_SHA=$(git rev-parse "v${TARGET_VERSION}")
 if [[ -z "$TAG_SHA" ]]; then

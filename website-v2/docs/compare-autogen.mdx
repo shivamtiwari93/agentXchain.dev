@@ -25,7 +25,7 @@ This page explains the differences honestly so you can pick the right tool.
 | **Governance** | None built-in | Core feature — audit trail, phase gates, decision carryover |
 | **Protocol** | Implicit | Explicit versioned protocol (v7) with conformance tiers |
 | **Human oversight** | Human proxy agent in conversation | Structured approval gates, human roles, escalation |
-| **Model support** | OpenAI-first, extensible | Model-agnostic via adapters |
+| **Model support** | Multi-provider model clients | Model-agnostic via adapters |
 | **IDE integration** | None (Python library) | Works with any IDE via adapters |
 | **Recovery** | Manual | Built-in recovery with state preservation |
 | **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
@@ -68,7 +68,9 @@ AgentXchain optimizes for **convergence** — structured phase progression with 
 
 ### 3. Protocol Independence
 
-AutoGen's coordination lives inside the Python runtime. If you want to use AutoGen's multi-agent model from a different language, IDE, or cloud environment, you need to wrap the Python process.
+AutoGen supports multiple model providers; the limitation is not "OpenAI-only." The harder boundary is that its coordination model still lives inside an application runtime rather than a separately versioned governance protocol.
+
+If you want to use AutoGen's multi-agent model from a different language, IDE, or cloud environment, you still need to wrap that runtime or rebuild the orchestration semantics elsewhere.
 
 AgentXchain's protocol is language-independent. The governed state machine, turn contracts, and decision ledger are defined as JSON schemas. Any runtime that speaks the protocol can participate — Python, TypeScript, shell scripts, cloud APIs, IDE extensions.
 

@@ -28,7 +28,7 @@ This page explains the differences honestly so you can pick the right tool.
 | **Persistence** | Checkpointer (SQLite, Postgres) | File-based governed state (history, events, decisions) |
 | **Model support** | LangChain model integrations | Model-agnostic via adapters |
 | **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
-| **Cloud** | LangGraph Platform (hosted) | Self-hosted + planned agentxchain.ai cloud |
+| **Cloud** | LangGraph Platform / LangSmith Deployment | Self-hosted + planned agentxchain.ai cloud |
 | **License** | MIT | MIT |
 
 ---
@@ -65,7 +65,9 @@ AgentXchain models agents as **governed roles** with explicit charters, write au
 
 ### 3. Protocol Portability
 
-LangGraph workflows are Python programs. The graph definition, node logic, and state schema are all Python code. Moving a LangGraph workflow to a different language or runtime requires a full rewrite.
+LangGraph is not Python-only anymore; it has both Python and JavaScript surfaces. The deeper limitation is still portability of the governance contract itself.
+
+LangGraph workflows remain application code. The graph definition, node logic, and state schema live inside the runtime that executes them. Moving a LangGraph workflow across runtimes still means re-implementing workflow semantics, not just carrying forward a versioned protocol contract.
 
 AgentXchain's protocol is defined as JSON schemas with a versioned specification. The protocol can be implemented in any language. The reference implementation is TypeScript/Node.js, but the protocol itself is runtime-independent. Conformance is verified through 108 test fixtures across three tiers.
 
