@@ -12,12 +12,39 @@ import http from 'node:http';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_PATH = join(__dirname, '..', 'bin', 'agentxchain.js');
 
-function makeExportFile(dir, overrides = {}) {
+function encodeExportFile(raw, format, data) {
+  return {
+    format,
+    bytes: Buffer.byteLength(raw),
+    sha256: `test-${format}-${Buffer.byteLength(raw)}`,
+    content_base64: Buffer.from(raw, 'utf8').toString('base64'),
+    data,
+  };
+}
+
+function jsonFile(value) {
+  const raw = JSON.stringify(value, null, 2);
+  return encodeExportFile(raw, 'json', value);
+}
+
+function jsonlFile(lines) {
+  const raw = `${lines.map((line) => JSON.stringify(line)).join('\n')}\n`;
+  return encodeExportFile(raw, 'jsonl', lines);
+}
+
+function writeExportFile(dir, exportData, name = 'export.json') {
+  const path = join(dir, name);
+  writeFileSync(path, JSON.stringify(exportData, null, 2));
+  return path;
+}
+
+function makeRunExportFile(dir, overrides = {}) {
   const exportData = {
     schema_version: '0.3',
+    export_kind: 'agentxchain_run_export',
     summary: {
       run_id: 'run_test123',
-      protocol_version: 6,
+      protocol_version: 'v7',
       project_name: 'test-replay',
       status: 'completed',
       roles: { dev: { mandate: 'write code' } },
@@ -25,31 +52,183 @@ function makeExportFile(dir, overrides = {}) {
       ...(overrides.summary || {}),
     },
     files: {
-      'agentxchain.json': JSON.stringify({
-        protocol_version: 6,
+      'agentxchain.json': jsonFile({
         protocol_mode: 'governed',
-        version: 4,
-        project: { name: 'test-replay' },
-        roles: { dev: { mandate: 'write code' } },
-        runtimes: {},
-        workflow: { phases: ['implement'] },
+        schema_version: '1.0',
+        project: { id: 'test-replay', name: 'test-replay' },
+        roles: { dev: { title: 'Developer', mandate: 'write code', write_authority: 'authoritative', runtime: 'dev-local' } },
+        runtimes: { 'dev-local': { type: 'manual' } },
+        routing: { implement: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'] } },
+        gates: {},
+        prompts: {},
+        rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 2 },
       }),
-      '.agentxchain/state.json': JSON.stringify({
+      '.agentxchain/state.json': jsonFile({
+        schema_version: '1.1',
         run_id: 'run_test123',
         status: 'completed',
         phase: 'implement',
-        current_turn: 1,
+        active_turns: {},
+        turn_sequence: 1,
       }),
-      '.agentxchain/history.jsonl': '{"turn_id":"turn_001","role":"dev","phase":"implement","accepted_at":"2026-04-15T00:00:00Z"}\n',
-      '.agentxchain/events.jsonl': '{"event_id":"evt_001","event_type":"run_started","timestamp":"2026-04-15T00:00:00Z","run_id":"run_test123"}\n{"event_id":"evt_002","event_type":"run_completed","timestamp":"2026-04-15T00:01:00Z","run_id":"run_test123"}\n',
-      '.agentxchain/decision-ledger.jsonl': '{"decision_id":"DEC-001","summary":"test decision"}\n',
+      '.agentxchain/history.jsonl': jsonlFile([
+        { turn_id: 'turn_001', role: 'dev', phase: 'implement', accepted_at: '2026-04-15T00:00:00Z', status: 'completed' },
+      ]),
+      '.agentxchain/events.jsonl': jsonlFile([
+        { event_id: 'evt_001', event_type: 'run_started', timestamp: '2026-04-15T00:00:00Z', run_id: 'run_test123' },
+        { event_id: 'evt_002', event_type: 'run_completed', timestamp: '2026-04-15T00:01:00Z', run_id: 'run_test123' },
+      ]),
+      '.agentxchain/decision-ledger.jsonl': jsonlFile([
+        { decision_id: 'DEC-001', summary: 'test decision' },
+      ]),
       ...(overrides.files || {}),
     },
     ...(overrides.root || {}),
   };
-  const path = join(dir, 'export.json');
-  writeFileSync(path, JSON.stringify(exportData, null, 2));
-  return path;
+  return writeExportFile(dir, exportData);
+}
+
+function makeCoordinatorExportFile(dir, overrides = {}) {
+  const coordinatorFiles = {
+    'agentxchain-multi.json': jsonFile({
+      schema_version: '0.1',
+      project: { id: 'coord-test', name: 'Coordinator Test' },
+      repos: {
+        web: { path: './repos/web' },
+        api: { path: './repos/api' },
+      },
+      workstreams: {
+        core_sync: {
+          phase: 'implementation',
+          repos: ['web', 'api'],
+          entry_repo: 'web',
+          depends_on: [],
+          completion_barrier: 'all_repos_accepted',
+        },
+      },
+    }),
+    '.agentxchain/multirepo/state.json': jsonFile({
+      schema_version: '1.1',
+      super_run_id: 'srun_test_001',
+      status: 'active',
+      phase: 'implementation',
+      repo_runs: {
+        web: { run_id: 'run_web_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+        api: { run_id: 'run_api_001', status: 'completed', phase: 'implementation', initialized_by_coordinator: true },
+      },
+    }),
+    '.agentxchain/multirepo/history.jsonl': jsonlFile([
+      { type: 'run_initialized', super_run_id: 'srun_test_001', ts: '2026-04-15T00:00:00Z' },
+      { type: 'turn_dispatched', repo_id: 'web', turn_id: 'turn_web_001', ts: '2026-04-15T00:01:00Z' },
+    ]),
+    '.agentxchain/multirepo/barriers.json': jsonFile({
+      'barrier-001': {
+        workstream_id: 'core_sync',
+        type: 'all_repos_accepted',
+        status: 'pending',
+        required_repos: ['web', 'api'],
+        satisfied_repos: ['web'],
+        created_at: '2026-04-15T00:00:00Z',
+      },
+    }),
+    '.agentxchain/multirepo/decision-ledger.jsonl': jsonlFile([
+      { id: 'DEC-COORD-001', statement: 'Coordinator ready.' },
+    ]),
+    '.agentxchain/multirepo/barrier-ledger.jsonl': jsonlFile([
+      { barrier_id: 'barrier-001', from: null, to: 'pending', ts: '2026-04-15T00:00:00Z' },
+    ]),
+  };
+
+  const webExport = {
+    export_kind: 'agentxchain_run_export',
+    files: {
+      'agentxchain.json': jsonFile({
+        protocol_mode: 'governed',
+        schema_version: '1.0',
+        project: { id: 'web-app', name: 'Web App' },
+        roles: { dev: { title: 'Developer', mandate: 'ship UI', write_authority: 'authoritative', runtime: 'web-local' } },
+        runtimes: { 'web-local': { type: 'manual' } },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'] } },
+        gates: {},
+        prompts: {},
+        rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 2 },
+      }),
+      '.agentxchain/state.json': jsonFile({
+        schema_version: '1.1',
+        run_id: 'run_web_001',
+        status: 'completed',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 1,
+      }),
+      '.agentxchain/events.jsonl': jsonlFile([
+        { event_id: 'evt_web_001', event_type: 'run_started', timestamp: '2026-04-15T00:00:00Z', run_id: 'run_web_001' },
+        { event_id: 'evt_web_002', event_type: 'turn_accepted', timestamp: '2026-04-15T00:01:00Z', run_id: 'run_web_001', turn: { turn_id: 'turn_web_001' } },
+      ]),
+      '.agentxchain/history.jsonl': jsonlFile([
+        { turn_id: 'turn_web_001', role: 'dev', phase: 'implementation', accepted_at: '2026-04-15T00:01:00Z', status: 'completed' },
+      ]),
+    },
+  };
+
+  const apiExport = {
+    export_kind: 'agentxchain_run_export',
+    files: {
+      'agentxchain.json': jsonFile({
+        protocol_mode: 'governed',
+        schema_version: '1.0',
+        project: { id: 'api-app', name: 'API App' },
+        roles: { dev: { title: 'Developer', mandate: 'ship API', write_authority: 'authoritative', runtime: 'api-local' } },
+        runtimes: { 'api-local': { type: 'manual' } },
+        routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'human'] } },
+        gates: {},
+        prompts: {},
+        rules: { challenge_required: true, max_turn_retries: 2, max_deadlock_cycles: 2 },
+      }),
+      '.agentxchain/state.json': jsonFile({
+        schema_version: '1.1',
+        run_id: 'run_api_001',
+        status: 'completed',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 1,
+      }),
+      '.agentxchain/events.jsonl': jsonlFile([
+        { event_id: 'evt_api_001', event_type: 'run_started', timestamp: '2026-04-15T00:00:30Z', run_id: 'run_api_001' },
+        { event_id: 'evt_api_002', event_type: 'run_completed', timestamp: '2026-04-15T00:02:00Z', run_id: 'run_api_001' },
+      ]),
+      '.agentxchain/history.jsonl': jsonlFile([
+        { turn_id: 'turn_api_001', role: 'dev', phase: 'implementation', accepted_at: '2026-04-15T00:02:00Z', status: 'completed' },
+      ]),
+    },
+  };
+
+  const exportData = {
+    schema_version: '0.3',
+    export_kind: 'agentxchain_coordinator_export',
+    summary: {
+      super_run_id: 'srun_test_001',
+      status: 'active',
+      phase: 'implementation',
+      aggregated_events: {
+        total_events: 4,
+        repos_with_events: ['api', 'web'],
+      },
+      ...(overrides.summary || {}),
+    },
+    files: {
+      ...coordinatorFiles,
+      ...(overrides.files || {}),
+    },
+    repos: {
+      web: { ok: true, path: './repos/web', export: webExport },
+      api: { ok: true, path: './repos/api', export: apiExport },
+      ...(overrides.repos || {}),
+    },
+    ...(overrides.root || {}),
+  };
+
+  return writeExportFile(dir, exportData, 'coordinator-export.json');
 }
 
 function makeTempDir() {
@@ -155,7 +334,7 @@ describe('replay export', () => {
     const port = 13900 + Math.floor(Math.random() * 100);
     let child;
     try {
-      const exportPath = makeExportFile(dir);
+      const exportPath = makeRunExportFile(dir);
       child = startReplayServer(exportPath, port);
       const ready = await waitForServer(port);
       assert.ok(ready, 'Server should start');
@@ -180,7 +359,7 @@ describe('replay export', () => {
     const port = 14000 + Math.floor(Math.random() * 100);
     let child;
     try {
-      const exportPath = makeExportFile(dir);
+      const exportPath = makeRunExportFile(dir);
       child = startReplayServer(exportPath, port);
       const ready = await waitForServer(port);
       assert.ok(ready, 'Server should start');
@@ -203,7 +382,7 @@ describe('replay export', () => {
     const port = 14100 + Math.floor(Math.random() * 100);
     let child;
     try {
-      const exportPath = makeExportFile(dir);
+      const exportPath = makeRunExportFile(dir);
       child = startReplayServer(exportPath, port);
       const ready = await waitForServer(port);
       assert.ok(ready, 'Server should start');
@@ -223,7 +402,7 @@ describe('replay export', () => {
     const port = 14200 + Math.floor(Math.random() * 100);
     let child;
     try {
-      const exportPath = makeExportFile(dir);
+      const exportPath = makeRunExportFile(dir);
       child = startReplayServer(exportPath, port);
 
       let stdout = '';
@@ -240,6 +419,108 @@ describe('replay export', () => {
       assert.equal(sessionInfo.export_schema_version, '0.3');
       assert.ok(sessionInfo.files_restored > 0, 'Should have restored files');
       assert.ok(sessionInfo.url.includes('localhost'), 'Should have URL');
+    } finally {
+      if (child) { child.kill('SIGTERM'); await new Promise((r) => setTimeout(r, 300)); }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPLAY-REAL-001: restores real export file-entry objects using content_base64', async () => {
+    const dir = makeTempDir();
+    const port = 14300 + Math.floor(Math.random() * 100);
+    let child;
+    try {
+      const exportPath = makeRunExportFile(dir);
+      child = startReplayServer(exportPath, port);
+      const ready = await waitForServer(port);
+      assert.ok(ready, 'Server should start');
+
+      const stateRes = await httpGet(port, '/api/state');
+      const state = JSON.parse(stateRes.body);
+      assert.equal(state.schema_version, '1.1');
+      assert.equal(state.turn_sequence, 1);
+
+      const eventsRes = await httpGet(port, '/api/events');
+      const events = JSON.parse(eventsRes.body);
+      assert.equal(events.length, 2);
+      assert.equal(events[1].event_type, 'run_completed');
+    } finally {
+      if (child) { child.kill('SIGTERM'); await new Promise((r) => setTimeout(r, 300)); }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPLAY-REAL-002: rejects object-shaped file entries without content_base64', () => {
+    const dir = makeTempDir();
+    try {
+      const exportPath = makeRunExportFile(dir, {
+        files: {
+          '.agentxchain/state.json': {
+            format: 'json',
+            bytes: 12,
+            sha256: 'broken-test-entry',
+            data: { run_id: 'run_broken' },
+          },
+        },
+      });
+      const result = runCli(['replay', 'export', exportPath, '--no-open']);
+      assert.match(result, /content_base64/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPLAY-REAL-003/004: restores coordinator exports and serves coordinator state plus aggregated child events', async () => {
+    const dir = makeTempDir();
+    const port = 14400 + Math.floor(Math.random() * 100);
+    let child;
+    try {
+      const exportPath = makeCoordinatorExportFile(dir);
+      child = startReplayServer(exportPath, port);
+      const ready = await waitForServer(port);
+      assert.ok(ready, 'Server should start');
+
+      const stateRes = await httpGet(port, '/api/coordinator/state');
+      const state = JSON.parse(stateRes.body);
+      assert.equal(state.super_run_id, 'srun_test_001');
+      assert.equal(state.repo_runs.web.run_id, 'run_web_001');
+
+      const eventsRes = await httpGet(port, '/api/coordinator/events?limit=0');
+      const events = JSON.parse(eventsRes.body);
+      assert.equal(events.length, 4);
+      assert.deepEqual([...new Set(events.map((event) => event.repo_id))], ['web', 'api']);
+      assert.equal(events[0].repo_id, 'web');
+      assert.equal(events[3].repo_id, 'api');
+    } finally {
+      if (child) { child.kill('SIGTERM'); await new Promise((r) => setTimeout(r, 300)); }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPLAY-REAL-005: failed child repo exports do not block coordinator replay', async () => {
+    const dir = makeTempDir();
+    const port = 14500 + Math.floor(Math.random() * 100);
+    let child;
+    try {
+      const exportPath = makeCoordinatorExportFile(dir, {
+        repos: {
+          api: { ok: false, path: './repos/api', error: 'repo export failed' },
+        },
+        summary: {
+          aggregated_events: {
+            total_events: 2,
+            repos_with_events: ['web'],
+          },
+        },
+      });
+      child = startReplayServer(exportPath, port);
+      const ready = await waitForServer(port);
+      assert.ok(ready, 'Server should start');
+
+      const eventsRes = await httpGet(port, '/api/coordinator/events?limit=0');
+      const events = JSON.parse(eventsRes.body);
+      assert.equal(events.length, 2);
+      assert.ok(events.every((event) => event.repo_id === 'web'));
     } finally {
       if (child) { child.kill('SIGTERM'); await new Promise((r) => setTimeout(r, 300)); }
       rmSync(dir, { recursive: true, force: true });

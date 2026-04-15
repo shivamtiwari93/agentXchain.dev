@@ -807,9 +807,16 @@ agentxchain replay export <export-file> [--port <port>] [--json] [--no-open]
 | `--json` | `false` | Output structured session info instead of interactive output |
 | `--no-open` | `false` | Do not auto-open browser |
 
-`replay export` starts the dashboard bridge-server serving a completed export's state for offline post-mortem analysis. The dashboard is fully read-only: no file watcher updates, no gate approval, no WebSocket push.
+`replay export` starts the dashboard bridge-server serving a completed export's state for offline post-mortem analysis. The dashboard is fully read-only: no gate approval and no live mutation path.
 
-The command reads an `export.json` file (produced by `agentxchain export`), extracts all embedded `.agentxchain/` artifacts into a temporary workspace, and starts the dashboard against that workspace. When the server stops (Ctrl+C), the temporary workspace is cleaned up automatically.
+The command reads an export artifact produced by `agentxchain export`, restores the embedded file bytes from the artifact's `content_base64` fields into a temporary workspace, and starts the dashboard against that workspace. When the server stops (Ctrl+C), the temporary workspace is cleaned up automatically.
+
+Both export kinds are supported:
+
+- **Run exports** rehydrate the governed repo snapshot so `/api/state`, `/api/history`, `/api/events`, and related dashboard views work against the replayed files.
+- **Coordinator exports** rehydrate the coordinator workspace plus every successful embedded child repo export under its declared repo path so `/api/coordinator/*` surfaces, including aggregated child-repo events, work offline.
+
+If a coordinator export contains a failed child repo export (`ok: false`), replay still starts. AgentXchain restores a minimal placeholder governed repo at that path so coordinator dashboard validation remains readable even though the nested repo artifact was unavailable.
 
 ```bash
 # browse a completed run export in the dashboard
