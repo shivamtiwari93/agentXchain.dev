@@ -47,6 +47,24 @@ export const BENCHMARK_WORKLOADS = Object.freeze({
       recovery_role: 'qa',
     }),
   }),
+  'phase-drift': Object.freeze({
+    id: 'phase-drift',
+    label: 'Phase Drift',
+    description: 'Run with a 4-phase workflow (planning → design → implementation → qa) to produce a different workflow_phase_order. Diffing against baseline proves REG-PHASE-ORDER detection.',
+    rejected_turn_expected: false,
+    gate_failure_expected: false,
+    recovery_branch: 'none',
+    phase_count: 4,
+    extra_phases: Object.freeze(['design']),
+    implementation: Object.freeze({
+      reject_invalid_first_attempt: false,
+    }),
+    qa: Object.freeze({
+      fail_completion_once: false,
+      missing_completion_files: [],
+      recovery_role: 'qa',
+    }),
+  }),
 });
 
 export function listBenchmarkWorkloadIds() {
@@ -62,6 +80,43 @@ function normalizeBenchmarkWorkloadId(value) {
     return null;
   }
   return trimmed.toLowerCase().replace(/_/g, '-');
+}
+
+export function benchmarkWorkloadsCommand(opts = {}) {
+  const ids = listBenchmarkWorkloadIds();
+  const jsonMode = opts.json || false;
+
+  if (jsonMode) {
+    const workloads = ids.map(id => {
+      const w = BENCHMARK_WORKLOADS[id];
+      return {
+        id: w.id,
+        label: w.label,
+        description: w.description,
+        rejected_turn_expected: w.rejected_turn_expected,
+        gate_failure_expected: w.gate_failure_expected,
+        recovery_branch: w.recovery_branch,
+      };
+    });
+    process.stdout.write(JSON.stringify({ workloads }, null, 2) + '\n');
+    return;
+  }
+
+  console.log('');
+  console.log('  Available benchmark workloads:');
+  console.log('');
+  for (const id of ids) {
+    const w = BENCHMARK_WORKLOADS[id];
+    const flags = [];
+    if (w.rejected_turn_expected) flags.push('rejected-turn');
+    if (w.gate_failure_expected) flags.push('gate-failure');
+    if (w.recovery_branch !== 'none') flags.push(`recovery: ${w.recovery_branch}`);
+    const flagStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
+    console.log(`    ${id.padEnd(22)} ${w.description}${flagStr}`);
+  }
+  console.log('');
+  console.log('  Usage: agentxchain benchmark --workload <name>');
+  console.log('');
 }
 
 export function resolveBenchmarkWorkload(opts = {}) {

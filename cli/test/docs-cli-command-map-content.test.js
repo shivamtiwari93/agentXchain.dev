@@ -180,6 +180,8 @@ describe('CLI command map docs contract', () => {
     assert.match(CLI_DOCS, /benchmark.*--stress/i);
     assert.match(CLI_DOCS, /benchmark.*--output <dir>/i);
     assert.match(CLI_DOCS, /completion-recovery/i);
+    assert.match(CLI_DOCS, /phase-drift/i);
+    assert.match(CLI_DOCS, /benchmark workloads/i);
     assert.match(CLI_DOCS, /benchmark.*export verification/i);
     assert.doesNotMatch(CLI_DOCS, /benchmark.*protocol conformance/i);
   });

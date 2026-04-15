@@ -22,6 +22,12 @@ Built-in workload names:
 - `baseline`
 - `stress`
 - `completion-recovery`
+- `phase-drift`
+
+Discovery subcommand:
+```bash
+agentxchain benchmark workloads [--json]
+```
 
 ## Behavior
 
@@ -42,6 +48,8 @@ Built-in workload names:
    - a follow-up QA turn creates the missing artifact
    - run completion then succeeds
 7. Saved `workload.json` must include the selected workload id, description, and expected recovery semantics so later verification is not forced to infer them from history alone.
+8. `phase-drift` must use a 4-phase workflow (planning → design → implementation → qa) producing a different `workflow_phase_order` than the default 3-phase config. Diffing against baseline must produce a `REG-PHASE-ORDER` regression.
+9. `agentxchain benchmark workloads` must list all available workloads with descriptions and expected signals. `--json` produces structured catalog output.
 
 ## Error Cases
 
@@ -56,6 +64,10 @@ Built-in workload names:
 - `AT-BENCH-014`: `agentxchain benchmark --json --workload completion-recovery` exits 0, reports at least one failed gate evaluation, and still completes the run
 - `AT-BENCH-015`: `agentxchain benchmark --stress --workload baseline` exits 1 with a conflict error
 - `AT-BENCH-016`: saved baseline and completion-recovery exports compare cleanly through `agentxchain verify diff`
+- `AT-BENCH-017`: `agentxchain benchmark --json --workload phase-drift` exits 0 with 4 completed phases (planning, design, implementation, qa)
+- `AT-BENCH-018`: saved baseline vs phase-drift `verify diff` exits 1 with exactly `REG-PHASE-ORDER-001` regression
+- `AT-BENCH-019`: `agentxchain benchmark workloads` lists all 4 workloads with usage hint
+- `AT-BENCH-020`: `agentxchain benchmark workloads --json` returns structured catalog with all 4 workload entries
 
 ## Open Questions
 

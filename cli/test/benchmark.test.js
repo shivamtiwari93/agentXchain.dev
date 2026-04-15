@@ -195,7 +195,7 @@ describe('benchmark command', () => {
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.result, 'fail');
     assert.match(payload.error, /conflicting benchmark workload options/i);
-    assert.deepEqual(payload.valid_workloads, ['baseline', 'stress', 'completion-recovery']);
+    assert.deepEqual(payload.valid_workloads, ['baseline', 'stress', 'completion-recovery', 'phase-drift']);
   });
 
   it('AT-BENCH-016: saved baseline and completion-recovery artifacts pass verify diff', () => {
@@ -219,6 +219,80 @@ describe('benchmark command', () => {
     } finally {
       rmSync(baselineDir, { recursive: true, force: true });
       rmSync(recoveryDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-BENCH-017: phase-drift workload completes all 4 phases with export verification', () => {
+    const result = runCli(['benchmark', '--json', '--workload', 'phase-drift']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.result, 'pass');
+    assert.equal(payload.mode, 'phase-drift');
+    assert.equal(payload.workload, 'phase-drift');
+    assert.equal(payload.phases.completed, 4);
+    assert.equal(payload.phases.total, 4);
+    assert.deepEqual(payload.phases.names, ['planning', 'design', 'implementation', 'qa']);
+    assert.equal(payload.turns.total, 4);
+    assert.equal(payload.turns.rejected, 0);
+    assert.equal(payload.gates.passed, 4);
+    assert.equal(payload.gates.failed, 0);
+    assert.equal(payload.export_verification, 'pass');
+  });
+
+  it('AT-BENCH-018: baseline vs phase-drift verify diff detects REG-PHASE-ORDER regression', () => {
+    const baselineDir = mkdtempSync(join(tmpdir(), 'agentxchain-benchmark-baseline-phdrift-'));
+    const driftDir = mkdtempSync(join(tmpdir(), 'agentxchain-benchmark-phase-drift-'));
+    try {
+      const baseline = runCli(['benchmark', '--json', '--workload', 'baseline', '--output', baselineDir]);
+      assert.equal(baseline.status, 0, `Expected baseline exit 0, got ${baseline.status}. stderr: ${baseline.stderr}`);
+      const baselinePayload = JSON.parse(baseline.stdout);
+
+      const drift = runCli(['benchmark', '--json', '--workload', 'phase-drift', '--output', driftDir]);
+      assert.equal(drift.status, 0, `Expected phase-drift exit 0, got ${drift.status}. stderr: ${drift.stderr}`);
+      const driftPayload = JSON.parse(drift.stdout);
+
+      const diff = runCli(['verify', 'diff', baselinePayload.proof_artifacts.export, driftPayload.proof_artifacts.export, '--format', 'json']);
+      // verify diff exits 1 because has_regressions is true — this is correct
+      assert.equal(diff.status, 1, `Expected verify diff exit 1 (regressions detected), got ${diff.status}`);
+      const report = JSON.parse(diff.stdout);
+      assert.equal(report.diff.has_regressions, true);
+      assert.equal(report.diff.regression_count, 1);
+      assert.equal(report.diff.regressions[0].id, 'REG-PHASE-ORDER-001');
+      assert.equal(report.diff.regressions[0].category, 'phase');
+      assert.equal(report.diff.regressions[0].severity, 'warning');
+      assert.deepEqual(report.diff.regressions[0].left, ['planning', 'implementation', 'qa']);
+      assert.deepEqual(report.diff.regressions[0].right, ['planning', 'design', 'implementation', 'qa']);
+    } finally {
+      rmSync(baselineDir, { recursive: true, force: true });
+      rmSync(driftDir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-BENCH-019: benchmark workloads subcommand lists all workloads', () => {
+    const result = runCli(['benchmark', 'workloads']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    assert.ok(result.stdout.includes('baseline'), 'Should list baseline');
+    assert.ok(result.stdout.includes('stress'), 'Should list stress');
+    assert.ok(result.stdout.includes('completion-recovery'), 'Should list completion-recovery');
+    assert.ok(result.stdout.includes('phase-drift'), 'Should list phase-drift');
+    assert.ok(result.stdout.includes('agentxchain benchmark --workload'), 'Should show usage hint');
+  });
+
+  it('AT-BENCH-020: benchmark workloads --json returns structured catalog', () => {
+    const result = runCli(['benchmark', 'workloads', '--json']);
+    assert.equal(result.status, 0, `Expected exit 0, got ${result.status}. stderr: ${result.stderr}`);
+    const payload = JSON.parse(result.stdout);
+    assert.ok(Array.isArray(payload.workloads), 'Should have workloads array');
+    assert.equal(payload.workloads.length, 4);
+    const ids = payload.workloads.map(w => w.id);
+    assert.deepEqual(ids, ['baseline', 'stress', 'completion-recovery', 'phase-drift']);
+    for (const w of payload.workloads) {
+      assert.ok(w.id, 'Each workload needs id');
+      assert.ok(w.label, 'Each workload needs label');
+      assert.ok(w.description, 'Each workload needs description');
+      assert.ok(typeof w.rejected_turn_expected === 'boolean', 'Each workload needs rejected_turn_expected');
+      assert.ok(typeof w.gate_failure_expected === 'boolean', 'Each workload needs gate_failure_expected');
+      assert.ok(typeof w.recovery_branch === 'string', 'Each workload needs recovery_branch');
     }
   });
 });

@@ -33,7 +33,8 @@ These are not interchangeable. They serve different purposes in the turn lifecyc
 | Command | Phase | Description |
 |---------|-------|-------------|
 | `demo` | Setup | Run a complete governed lifecycle demo — no API keys or config required |
-| `benchmark` | Setup | Run a governed delivery compliance proof in named workloads (`baseline`, `stress`, `completion-recovery`) and use `--output <dir>` to persist export-proof artifacts for `verify export` and `verify diff` |
+| `benchmark` | Setup | Run a governed delivery compliance proof in named workloads (`baseline`, `stress`, `completion-recovery`, `phase-drift`) and use `--output <dir>` to persist export-proof artifacts for `verify export` and `verify diff` |
+| `benchmark workloads` | Setup | List available benchmark workloads with descriptions and expected signals |
 | `init` | Setup | Scaffold a governed project with config, state, prompts, and planning docs |
 | `config` | Setup | Inspect or mutate repo config, including governed `project.goal` recovery after scaffold |
 | `template list` | Setup | Inspect the built-in governed scaffold templates (use `--phase-templates` for workflow-kit phase templates) |
@@ -92,7 +93,7 @@ agentxchain benchmark [--json] [--workload <name>] [--stress] [--output <dir>]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--json` | `false` | Output the benchmark result as structured JSON |
-| `--workload <name>` | `baseline` | Run a named workload: `baseline`, `stress`, or `completion-recovery` |
+| `--workload <name>` | `baseline` | Run a named workload: `baseline`, `stress`, `completion-recovery`, or `phase-drift` |
 | `--stress` | `false` | Compatibility alias for `--workload stress` |
 | `--output <dir>` | none | Persist durable proof artifacts: `metrics.json`, `run-export.json`, `verify-export.json`, and `workload.json` |
 
@@ -105,6 +106,9 @@ Built-in workloads:
 | `baseline` | Clean one-turn-per-phase lifecycle with no recovery branch |
 | `stress` | Rejected implementation turn, governed retry, and successful recovery |
 | `completion-recovery` | Failed final completion gate on a missing required artifact, followed by a repair turn and successful completion |
+| `phase-drift` | 4-phase workflow (planning → design → implementation → qa) producing a different `workflow_phase_order`; diffing against baseline proves `REG-PHASE-ORDER` regression detection |
+
+Use `agentxchain benchmark workloads` (or `--json`) to list all available workloads with descriptions and expected signals.
 
 Typical use:
 
@@ -124,6 +128,13 @@ agentxchain benchmark --workload completion-recovery --output ./artifacts/benchm
 agentxchain verify diff \
   ./artifacts/benchmark-baseline/run-export.json \
   ./artifacts/benchmark-completion-recovery/run-export.json
+
+# prove phase-order drift detection (4-phase vs 3-phase)
+agentxchain benchmark --workload phase-drift --output ./artifacts/benchmark-phase-drift
+agentxchain verify diff \
+  ./artifacts/benchmark-baseline/run-export.json \
+  ./artifacts/benchmark-phase-drift/run-export.json
+# → exits 1 with REG-PHASE-ORDER-001 regression (expected)
 ```
 
 ### `init`

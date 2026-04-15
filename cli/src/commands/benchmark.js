@@ -20,8 +20,8 @@ import { resolveBenchmarkWorkload } from './benchmark-workloads.js';
  * No API keys required. Proves the governance engine is correct.
  */
 
-function makeConfig() {
-  return {
+function makeConfig(workload) {
+  const base = {
     schema_version: 4,
     protocol_mode: 'governed',
     project: { id: 'agentxchain-benchmark', name: 'AgentXchain Benchmark', goal: 'Governance compliance proof workload', default_branch: 'main' },
@@ -100,6 +100,47 @@ function makeConfig() {
       original_version: 4,
     },
   };
+
+  // phase-drift workload: insert extra phases (design) between planning and implementation
+  if (workload && Array.isArray(workload.extra_phases) && workload.extra_phases.length > 0) {
+    // Add architect role for design phase
+    base.roles.architect = {
+      title: 'Architect',
+      mandate: 'Design systems and validate architecture.',
+      write_authority: 'authoritative',
+      runtime: 'manual-architect',
+      runtime_class: 'manual',
+      runtime_id: 'manual-architect',
+    };
+    base.runtimes['manual-architect'] = { type: 'manual' };
+
+    // Insert design phase between planning and implementation
+    const newRouting = {};
+    newRouting.planning = {
+      entry_role: 'pm',
+      allowed_next_roles: ['pm', 'human'],
+      exit_gate: 'planning_signoff',
+    };
+    newRouting.design = {
+      entry_role: 'architect',
+      allowed_next_roles: ['architect', 'pm', 'human'],
+      exit_gate: 'design_signoff',
+    };
+    newRouting.implementation = base.routing.implementation;
+    newRouting.qa = base.routing.qa;
+    base.routing = newRouting;
+
+    // Add design gate
+    base.gates.design_signoff = {
+      requires_files: ['.planning/DESIGN_SIGNOFF.md'],
+      requires_human_approval: true,
+    };
+
+    // Increase budget for extra phase
+    base.budget.per_run_max_usd = 8.0;
+  }
+
+  return base;
 }
 
 function makeTurnResult(runId, turnId, role, runtimeId, phase, opts = {}) {
@@ -125,8 +166,7 @@ function makeTurnResult(runId, turnId, role, runtimeId, phase, opts = {}) {
   };
 }
 
-function scaffoldProject(root) {
-  const config = makeConfig();
+function scaffoldProject(root, config) {
   writeFileSync(join(root, 'agentxchain.json'), JSON.stringify(config, null, 2));
   mkdirSync(join(root, '.agentxchain/prompts'), { recursive: true });
   mkdirSync(join(root, '.planning'), { recursive: true });
@@ -150,11 +190,12 @@ function scaffoldProject(root) {
   writeFileSync(join(root, '.agentxchain/prompts/pm.md'), '# PM Prompt\nBenchmark PM.');
   writeFileSync(join(root, '.agentxchain/prompts/dev.md'), '# Dev Prompt\nBenchmark Dev.');
   writeFileSync(join(root, '.agentxchain/prompts/qa.md'), '# QA Prompt\nBenchmark QA.');
+  if (config.roles.architect) {
+    writeFileSync(join(root, '.agentxchain/prompts/architect.md'), '# Architect Prompt\nBenchmark Architect.');
+  }
   writeFileSync(join(root, 'TALK.md'), '# Benchmark Log\n');
   writeFileSync(join(root, '.planning/PM_SIGNOFF.md'), '# PM Planning Sign-Off\n\nApproved: NO\n');
   writeFileSync(join(root, '.planning/ROADMAP.md'), '# Roadmap\n\n## Wave 1\n\n### Phase: Planning\n');
-
-  return config;
 }
 
 function gitInit(root) {
@@ -331,7 +372,7 @@ export async function benchmarkCommand(opts = {}) {
     selected_via: workloadResolution.selected_via,
     run_id: null,
     project_id: 'agentxchain-benchmark',
-    expected_phase_order: ['planning', 'implementation', 'qa'],
+    expected_phase_order: null, // set after config is built
     rejected_turn_expected: benchmarkWorkload.rejected_turn_expected,
     gate_failure_expected: benchmarkWorkload.gate_failure_expected,
     recovery_branch: benchmarkWorkload.recovery_branch,
@@ -363,8 +404,14 @@ export async function benchmarkCommand(opts = {}) {
     }
 
     // ── Scaffold ──────────────────────────────────────────────────────────
-    const config = scaffoldProject(root);
+    const config = makeConfig(benchmarkWorkload);
+    scaffoldProject(root, config);
     gitInit(root);
+
+    // Adjust metrics and workload metadata for actual phase count
+    const phaseNames = Object.keys(config.routing);
+    metrics.phases.total = phaseNames.length;
+    workload.expected_phase_order = phaseNames;
 
     // ── Admission Control ────────────────────────────────────────────────
     const admission = runAdmissionControl(config, config);
@@ -384,9 +431,11 @@ export async function benchmarkCommand(opts = {}) {
     if (!pmAssign.ok) throw new Error(`PM assign failed: ${pmAssign.error}`);
     const pmTurnId = pmAssign.turn.turn_id;
 
+    // Next phase after planning depends on workload (design for phase-drift, implementation otherwise)
+    const phaseAfterPlanning = phaseNames[1] || 'implementation';
     const pmResult = makeTurnResult(runId, pmTurnId, 'pm', 'manual-pm', 'planning', {
       proposed_next_role: 'human',
-      phase_transition_request: 'implementation',
+      phase_transition_request: phaseAfterPlanning,
       decisionNum: 1,
       objections: [{ id: 'OBJ-001', severity: 'medium', statement: 'Benchmark scope challenge: verify edge case handling.', status: 'raised' }],
     });
@@ -413,6 +462,45 @@ export async function benchmarkCommand(opts = {}) {
     metrics.phases.completed++;
     metrics.phases.names.push('planning');
     gitCommit(root, 'benchmark: planning gate');
+
+    // ── Design Phase (phase-drift workload only) ─────────────────────────
+    if (benchmarkWorkload.extra_phases && benchmarkWorkload.extra_phases.includes('design')) {
+      const archAssign = assignTurn(root, config, 'architect');
+      if (!archAssign.ok) throw new Error(`Architect assign failed: ${archAssign.error}`);
+      const archTurnId = archAssign.turn.turn_id;
+
+      const archResult = makeTurnResult(runId, archTurnId, 'architect', 'manual-architect', 'design', {
+        files_changed: ['.planning/DESIGN_SIGNOFF.md'],
+        artifact_type: 'commit',
+        proposed_next_role: 'human',
+        phase_transition_request: 'implementation',
+        decisionNum: 10,
+        objections: [{ id: 'OBJ-010', severity: 'medium', statement: 'Benchmark architecture review: validate system design.', status: 'raised' }],
+      });
+      stageTurnResult(root, archTurnId, archResult);
+
+      writeFileSync(join(root, '.planning/DESIGN_SIGNOFF.md'), '# Design Sign-Off\n\nApproved: YES\n');
+      gitCommit(root, 'benchmark: architect design');
+
+      const archAccept = acceptTurn(root, config);
+      if (!archAccept.ok) throw new Error(`Architect accept failed: ${archAccept.error}`);
+      gitCommit(root, 'benchmark: accept architect');
+
+      recordTurn(metrics, 'design', 'accepted');
+      metrics.artifacts.total += archResult.decisions.length;
+
+      // Design gate
+      const designGate = approvePhaseGate(root, config);
+      if (!designGate.ok) {
+        metrics.gates.evaluated++;
+        metrics.gates.failed++;
+        throw new Error(`Design gate failed: ${designGate.error}`);
+      }
+      recordGateEvaluation(metrics, 'passed');
+      metrics.phases.completed++;
+      metrics.phases.names.push('design');
+      gitCommit(root, 'benchmark: design gate');
+    }
 
     // ── Implementation Phase ─────────────────────────────────────────────
     const devAssign = assignTurn(root, config, 'dev');

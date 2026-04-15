@@ -114,6 +114,7 @@ import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { benchmarkCommand } from '../src/commands/benchmark.js';
+import { benchmarkWorkloadsCommand } from '../src/commands/benchmark-workloads.js';
 import { historyCommand } from '../src/commands/history.js';
 import { decisionsCommand } from '../src/commands/decisions.js';
 import { diffCommand } from '../src/commands/diff.js';
@@ -291,14 +292,24 @@ program
   .option('-v, --verbose', 'Show stack traces on failure')
   .action(demoCommand);
 
-program
+const benchmarkCmd = program
   .command('benchmark')
   .description('Run a governed delivery compliance proof (no API keys required)')
   .option('-j, --json', 'Output as structured JSON')
-  .option('--workload <name>', 'Run a named workload: baseline, stress, or completion-recovery')
+  .option('--workload <name>', 'Run a named workload: baseline, stress, completion-recovery, or phase-drift')
   .option('--stress', 'Run the adversarial retry workload instead of the baseline happy path')
   .option('--output <dir>', 'Persist benchmark proof artifacts to a directory')
   .action(benchmarkCommand);
+
+benchmarkCmd
+  .command('workloads')
+  .description('List available benchmark workloads')
+  .option('-j, --json', 'Output as JSON')
+  .action((subOpts) => {
+    // Merge parent opts (Commander passes --json to parent, not subcommand)
+    const parentOpts = benchmarkCmd.opts();
+    benchmarkWorkloadsCommand({ ...subOpts, json: subOpts.json || parentOpts.json });
+  });
 
 const scheduleCmd = program
   .command('schedule')
