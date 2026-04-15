@@ -95,10 +95,24 @@ describe('Recovery docs — command coverage', () => {
 
 describe('Recovery docs — implementation-backed contracts', () => {
   it('documents the recovery descriptor fields', () => {
-    for (const field of ['typed_reason', 'owner', 'recovery_action', 'turn_retained']) {
+    for (const field of ['typed_reason', 'owner', 'recovery_action', 'turn_retained', 'runtime_guidance']) {
       assert.ok(
         DOC.includes(field),
         `recovery docs must mention descriptor field '${field}'`
+      );
+    }
+  });
+
+  it('documents all runtime-guidance codes', () => {
+    for (const code of [
+      'invalid_binding',
+      'review_only_remote_dead_end',
+      'proposal_apply_required',
+      'tool_defined_proof_not_strong_enough',
+    ]) {
+      assert.ok(
+        DOC.includes(code),
+        `recovery docs must mention runtime-guidance code '${code}'`
       );
     }
   });

@@ -42,6 +42,7 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /blocked_reason/);
     assert.match(REPORT_DOCS, /pending_gate/);
     assert.match(REPORT_DOCS, /next_actions/);
+    assert.match(REPORT_DOCS, /runtime_guidance/);
     assert.match(REPORT_DOCS, /coordinator_timeline/);
     assert.match(REPORT_DOCS, /barrier_summary/);
     assert.match(REPORT_DOCS, /barrier_ledger_timeline/);
@@ -92,6 +93,14 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /AT-REPORT-008/);
     assert.match(SPEC, /markdown/);
     assert.match(SPEC, /report_version/);
+  });
+
+  it('ships a runtime blocked-guidance spec for governed run next actions', () => {
+    const runtimeSpec = read('.planning/RUNTIME_BLOCKED_GUIDANCE_SPEC.md');
+    assert.match(runtimeSpec, /Runtime-Aware Blocked Guidance Spec/);
+    assert.match(runtimeSpec, /proposal_apply_required/);
+    assert.match(runtimeSpec, /tool_defined_proof_not_strong_enough/);
+    assert.match(runtimeSpec, /subject\.run\.next_actions/);
   });
 
   it('ships a coordinator timing spec for the coordinator report surface', () => {

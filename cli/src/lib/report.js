@@ -1,6 +1,7 @@
 import { verifyExportArtifact } from './export-verifier.js';
 import { buildDelegationSummary } from './export.js';
 import { normalizeRunProvenance, summarizeRunProvenance } from './run-provenance.js';
+import { deriveGovernedRunNextActions, deriveRuntimeBlockedGuidance } from './blocked-state.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -554,6 +555,7 @@ function extractRecoverySummary(artifact) {
   if (!blockedReason || typeof blockedReason !== 'object' || Array.isArray(blockedReason)) return null;
   const recovery = blockedReason.recovery;
   if (!recovery || typeof recovery !== 'object' || Array.isArray(recovery)) return null;
+  const runtimeGuidance = deriveRuntimeBlockedGuidance(artifact.state, artifact.config);
   return {
     category: blockedReason.category || null,
     typed_reason: recovery.typed_reason || null,
@@ -563,6 +565,7 @@ function extractRecoverySummary(artifact) {
     turn_retained: typeof recovery.turn_retained === 'boolean' ? recovery.turn_retained : null,
     blocked_at: blockedReason.blocked_at || null,
     turn_id: blockedReason.turn_id || null,
+    runtime_guidance: runtimeGuidance,
   };
 }
 
@@ -961,6 +964,7 @@ function buildRunSubject(artifact) {
   const gateSummary = extractGateSummary(artifact);
   const intakeLinks = extractIntakeLinks(artifact);
   const recoverySummary = extractRecoverySummary(artifact);
+  const nextActions = deriveGovernedRunNextActions(artifact.state, artifact.config);
   const continuity = extractContinuityMetadata(artifact);
   const governanceEvents = extractGovernanceEventDigest(artifact);
   const delegationSummary = extractDelegationSummary(artifact);
@@ -1006,6 +1010,7 @@ function buildRunSubject(artifact) {
       gate_summary: gateSummary,
       intake_links: intakeLinks,
       recovery_summary: recoverySummary,
+      next_actions: nextActions,
       continuity,
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
       repo_decisions: artifact.summary?.repo_decisions || null,
@@ -1425,6 +1430,20 @@ export function formatGovernanceReportText(report) {
       lines.push(`  Action: ${run.recovery_summary.recovery_action || 'n/a'}`);
       lines.push(`  Detail: ${run.recovery_summary.detail || 'n/a'}`);
       lines.push(`  Turn retained: ${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}`);
+      if (Array.isArray(run.recovery_summary.runtime_guidance) && run.recovery_summary.runtime_guidance.length > 0) {
+        lines.push('  Runtime guidance:');
+        for (const entry of run.recovery_summary.runtime_guidance) {
+          lines.push(`    - ${entry.code} | ${entry.command} | ${entry.reason}`);
+        }
+      }
+    }
+
+    if (run.next_actions && run.next_actions.length > 0) {
+      lines.push('', 'Next Actions:');
+      for (let i = 0; i < run.next_actions.length; i++) {
+        const action = run.next_actions[i];
+        lines.push(`  ${i + 1}. ${action.command} | ${action.reason}`);
+      }
     }
 
     if (run.continuity) {
@@ -1944,6 +1963,20 @@ export function formatGovernanceReportMarkdown(report) {
       lines.push(`- Action: \`${run.recovery_summary.recovery_action || 'n/a'}\``);
       lines.push(`- Detail: ${run.recovery_summary.detail || 'n/a'}`);
       lines.push(`- Turn retained: \`${run.recovery_summary.turn_retained == null ? 'n/a' : yesNo(run.recovery_summary.turn_retained)}\``);
+      if (Array.isArray(run.recovery_summary.runtime_guidance) && run.recovery_summary.runtime_guidance.length > 0) {
+        lines.push('- Runtime guidance:');
+        for (const entry of run.recovery_summary.runtime_guidance) {
+          lines.push(`  - \`${entry.code}\` — \`${entry.command}\`: ${entry.reason}`);
+        }
+      }
+    }
+
+    if (run.next_actions && run.next_actions.length > 0) {
+      lines.push('', '## Next Actions', '');
+      for (let i = 0; i < run.next_actions.length; i++) {
+        const action = run.next_actions[i];
+        lines.push(`${i + 1}. \`${action.command}\`: ${action.reason}`);
+      }
     }
 
     if (run.continuity) {
@@ -2595,14 +2628,28 @@ function renderRunHtml(report) {
   // Recovery
   if (run.recovery_summary) {
     const rs = run.recovery_summary;
-    sections.push(`<div class="section">${htmlSection('Recovery', htmlDl([
+    let recoveryHtml = htmlDl([
       ['Category', `<code>${esc(rs.category || 'unknown')}</code>`],
       ['Typed reason', `<code>${esc(rs.typed_reason || 'unknown')}</code>`],
       ['Owner', `<code>${esc(rs.owner || 'unknown')}</code>`],
       ['Action', `<code>${esc(rs.recovery_action || 'n/a')}</code>`],
       ['Detail', esc(rs.detail || 'n/a')],
       ['Turn retained', rs.turn_retained == null ? 'n/a' : (rs.turn_retained ? 'yes' : 'no')],
-    ]))}</div>`);
+    ]);
+    if (Array.isArray(rs.runtime_guidance) && rs.runtime_guidance.length > 0) {
+      const items = '<ul>' + rs.runtime_guidance.map((entry) =>
+        `<li><code>${esc(entry.code)}</code> — <code>${esc(entry.command)}</code>: ${esc(entry.reason)}</li>`
+      ).join('') + '</ul>';
+      recoveryHtml += htmlSection('Runtime Guidance', items);
+    }
+    sections.push(`<div class="section">${htmlSection('Recovery', recoveryHtml)}</div>`);
+  }
+
+  if (run.next_actions?.length > 0) {
+    const nextHtml = '<ol>' + run.next_actions.map((action) =>
+      `<li><code>${esc(action.command)}</code>: ${esc(action.reason)}</li>`
+    ).join('') + '</ol>';
+    sections.push(`<div class="section">${htmlSection('Next Actions', nextHtml)}</div>`);
   }
 
   // Continuity

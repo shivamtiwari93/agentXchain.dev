@@ -89,6 +89,7 @@ Run-export reports carry:
 | `subject.run.gate_summary` | Sorted gate outcomes derived from `state.phase_gate_status` |
 | `subject.run.intake_links` | Linked intake intents whose `target_run` matches the exported run |
 | `subject.run.recovery_summary` | Blocked-state recovery owner/action/detail when present |
+| `subject.run.next_actions` | Ordered operator actions derived from blocked-state recovery and runtime-aware gate guidance |
 | `subject.run.continuity` | Session checkpoint metadata from `.agentxchain/session.json` when present, or `null` |
 | `subject.run.workflow_kit_artifacts` | Workflow-kit artifact status for the current phase, or `null` when workflow_kit is absent from config |
 | `subject.artifacts` | Export-derived evidence counts and intake/coordinator presence flags |
@@ -169,6 +170,29 @@ Each delegation entry contains:
 | `child_turn_id` | `string \| null` | Child turn id, or `null` when not yet executed |
 
 When delegation chains exist, text and markdown output render a dedicated **Delegation Summary** section before the turn timeline.
+
+#### Recovery Summary
+
+`subject.run.recovery_summary` now carries runtime-aware guidance when the last gate failure identifies a missing required file whose owner/runtime contract explains the real blocker.
+
+When present, `recovery_summary.runtime_guidance[]` entries include:
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `code` | `string` | One of `invalid_binding`, `review_only_remote_dead_end`, `proposal_apply_required`, or `tool_defined_proof_not_strong_enough` |
+| `phase` | `string` | Phase whose gate exposed the blocker |
+| `gate_id` | `string` | Gate id associated with the blocker |
+| `role_id` | `string` | Artifact owner role |
+| `artifact_path` | `string` | Missing required artifact path |
+| `command` | `string` | Operator action derived from the runtime contract |
+| `reason` | `string` | Human-readable explanation of why that action is required |
+
+#### Next Actions
+
+`subject.run.next_actions` is the ordered operator-action surface for governed run reports.
+
+- Runtime-aware gate fixes come first (`proposal apply`, config repair, or MCP contract inspection).
+- Generic blocked-state recovery (`resume`, `step --resume`, approval commands) comes after the runtime blocker is resolved.
 
 ## `subject.kind = coordinator_workspace`
 

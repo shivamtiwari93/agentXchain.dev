@@ -8,6 +8,15 @@ import {
   derivePolicyEscalationRecoveryAction,
   getActiveTurnCount,
 } from './governed-state.js';
+import { getEffectiveGateArtifacts } from './gate-evaluator.js';
+import { getRoleRuntimeCapabilityContract } from './runtime-capabilities.js';
+
+const RUNTIME_GUIDANCE_PRIORITY = new Map([
+  ['invalid_binding', 1],
+  ['review_only_remote_dead_end', 2],
+  ['proposal_apply_required', 3],
+  ['tool_defined_proof_not_strong_enough', 4],
+]);
 
 function isLegacyEscalationRecoveryAction(action) {
   return action === 'Resolve the escalation, then run agentxchain step --resume'
@@ -69,6 +78,139 @@ function maybeRefreshRecoveryAction(state, config, persistedRecovery, turnRetain
   return null;
 }
 
+export function deriveRuntimeBlockedGuidance(state, config) {
+  if (!state || !config || typeof state !== 'object' || typeof config !== 'object') {
+    return [];
+  }
+
+  const failure = state.last_gate_failure;
+  if (!failure || typeof failure !== 'object') {
+    return [];
+  }
+
+  const phase = typeof failure.phase === 'string' && failure.phase
+    ? failure.phase
+    : state.phase;
+  const gateId = typeof failure.gate_id === 'string' && failure.gate_id
+    ? failure.gate_id
+    : config.routing?.[phase]?.exit_gate || null;
+  const missingFiles = Array.isArray(failure.missing_files)
+    ? failure.missing_files.filter((path) => typeof path === 'string' && path.length > 0)
+    : [];
+
+  if (!phase || !gateId || missingFiles.length === 0 || !config.gates?.[gateId]) {
+    return [];
+  }
+
+  const requiredArtifacts = getEffectiveGateArtifacts(config, config.gates[gateId], phase)
+    .filter((artifact) => artifact?.required !== false)
+    .filter((artifact) => missingFiles.includes(artifact.path));
+
+  if (requiredArtifacts.length === 0) {
+    return [];
+  }
+
+  const entryRole = config.routing?.[phase]?.entry_role || null;
+  const guidance = [];
+
+  for (const artifact of requiredArtifacts) {
+    const roleId = artifact.owned_by || entryRole;
+    if (!roleId) continue;
+
+    const role = config.roles?.[roleId];
+    if (!role) continue;
+
+    const runtimeId = role.runtime_id || role.runtime;
+    const runtime = config.runtimes?.[runtimeId];
+    if (!runtime) continue;
+
+    const contract = getRoleRuntimeCapabilityContract(roleId, role, runtime);
+    const invalidBinding = contract.effective_write_path.startsWith('invalid_')
+      || contract.workflow_artifact_ownership === 'invalid';
+
+    let code = null;
+    let command = null;
+    let reason = null;
+
+    if (invalidBinding) {
+      code = 'invalid_binding';
+      command = `Edit agentxchain.json for role "${roleId}", then run agentxchain validate`;
+      reason = `Artifact "${artifact.path}" is owned by "${roleId}", but ${role.write_authority}/${runtime.type} resolves to ${contract.effective_write_path}.`;
+    } else if (contract.workflow_artifact_ownership === 'no') {
+      code = 'review_only_remote_dead_end';
+      command = `Edit agentxchain.json for role "${roleId}", then run agentxchain validate`;
+      reason = `Artifact "${artifact.path}" is owned by "${roleId}", but ${role.write_authority}/${runtime.type} can only return review artifacts and cannot satisfy workflow ownership.`;
+    } else if (contract.workflow_artifact_ownership === 'proposal_apply_required') {
+      const turnId = failure.requested_by_turn || state.last_completed_turn_id || null;
+      code = 'proposal_apply_required';
+      command = turnId ? `agentxchain proposal apply ${turnId}` : 'agentxchain proposal list';
+      reason = `Artifact "${artifact.path}" is owned by "${roleId}", and ${role.write_authority}/${runtime.type} stages required files behind proposal apply.`;
+    } else if (contract.workflow_artifact_ownership === 'tool_defined') {
+      code = 'tool_defined_proof_not_strong_enough';
+      command = `agentxchain role show ${roleId}`;
+      reason = `Artifact "${artifact.path}" is owned by "${roleId}", but ${runtime.type} leaves the file-write contract tool-defined and not statically provable.`;
+    }
+
+    if (!code) continue;
+    guidance.push({
+      code,
+      phase,
+      gate_id: gateId,
+      role_id: roleId,
+      artifact_path: artifact.path,
+      command,
+      reason,
+    });
+  }
+
+  const seen = new Set();
+  return guidance
+    .sort((left, right) => {
+      const priority = (RUNTIME_GUIDANCE_PRIORITY.get(left.code) || 99)
+        - (RUNTIME_GUIDANCE_PRIORITY.get(right.code) || 99);
+      if (priority !== 0) return priority;
+      const commandCmp = left.command.localeCompare(right.command, 'en');
+      if (commandCmp !== 0) return commandCmp;
+      return left.artifact_path.localeCompare(right.artifact_path, 'en');
+    })
+    .filter((entry) => {
+      const key = `${entry.code}|${entry.role_id}|${entry.command}|${entry.artifact_path}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+export function deriveGovernedRunNextActions(state, config = null) {
+  const recovery = deriveRecoveryDescriptor(state, config);
+  const runtimeGuidance = recovery?.runtime_guidance || deriveRuntimeBlockedGuidance(state, config);
+  const nextActions = [];
+  const seen = new Set();
+
+  const pushAction = (command, reason) => {
+    if (typeof command !== 'string' || !command.trim() || typeof reason !== 'string' || !reason.trim()) {
+      return;
+    }
+    const key = `${command}|${reason}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    nextActions.push({ command, reason });
+  };
+
+  for (const entry of runtimeGuidance) {
+    pushAction(entry.command, entry.reason);
+  }
+
+  if (recovery?.recovery_action) {
+    const reason = runtimeGuidance.length > 0
+      ? `After resolving the ${runtimeGuidance[0].code} blocker, continue the run.`
+      : `Run is blocked: ${recovery.typed_reason}.`;
+    pushAction(recovery.recovery_action, reason);
+  }
+
+  return nextActions;
+}
+
 export function deriveRecoveryDescriptor(state, config = null) {
   if (!state || typeof state !== 'object') {
     return null;
@@ -99,6 +241,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
   const persistedRecovery = state.blocked_reason?.recovery;
   if (persistedRecovery && typeof persistedRecovery === 'object') {
     const refreshedRecoveryAction = maybeRefreshRecoveryAction(state, config, persistedRecovery, turnRetained);
+    const runtimeGuidance = deriveRuntimeBlockedGuidance(state, config);
     return {
       typed_reason: persistedRecovery.typed_reason || 'unknown_block',
       owner: persistedRecovery.owner || 'human',
@@ -109,6 +252,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
         ? persistedRecovery.turn_retained
         : turnRetained,
       detail: persistedRecovery.detail ?? state.blocked_on ?? null,
+      runtime_guidance: runtimeGuidance,
     };
   }
 
@@ -126,6 +270,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
       }),
       turn_retained: turnRetained,
       detail: state.blocked_on.slice('human:'.length) || null,
+      runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
     };
   }
 
@@ -151,6 +296,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
       recovery_action: recoveryAction,
       turn_retained: turnRetained,
       detail: state.escalation?.detail || state.escalation?.reason || state.blocked_on,
+      runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
     };
   }
 
@@ -164,6 +310,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
       }),
       turn_retained: turnRetained,
       detail: state.blocked_on.slice('dispatch:'.length) || state.blocked_on,
+      runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
     };
   }
 
@@ -179,6 +326,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
       }),
       turn_retained: turnRetained,
       detail: derivePolicyEscalationDetail(state, { policyId }),
+      runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
     };
   }
 
@@ -190,6 +338,7 @@ export function deriveRecoveryDescriptor(state, config = null) {
       recovery_action: 'agentxchain resume',
       turn_retained: false,
       detail: `${scope} timeout exceeded`,
+      runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
     };
   }
 
@@ -199,5 +348,6 @@ export function deriveRecoveryDescriptor(state, config = null) {
     recovery_action: 'Inspect state.json and resolve manually before rerunning agentxchain step',
     turn_retained: turnRetained,
     detail: state.blocked_on,
+    runtime_guidance: deriveRuntimeBlockedGuidance(state, config),
   };
 }

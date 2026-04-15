@@ -1,8 +1,13 @@
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
-import { deriveRecoveryDescriptor } from '../lib/blocked-state.js';
+import { findProjectRoot, loadConfig, loadLock, loadProjectContext, loadProjectState, loadState } from '../lib/config.js';
+import {
+  deriveGovernedRunNextActions,
+  deriveRecoveryDescriptor,
+  deriveRuntimeBlockedGuidance,
+} from '../lib/blocked-state.js';
 import { getActiveTurn, getActiveTurnCount, getActiveTurns } from '../lib/governed-state.js';
 import { getContinuityStatus } from '../lib/continuity-status.js';
 import { getConnectorHealth } from '../lib/connector-health.js';
@@ -12,7 +17,7 @@ import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 
 export async function statusCommand(opts) {
-  const context = loadProjectContext();
+  const context = loadStatusContext();
   if (!context) {
     console.log(chalk.red('No agentxchain.json found. Run `agentxchain init` first.'));
     process.exit(1);
@@ -79,11 +84,40 @@ export async function statusCommand(opts) {
   console.log('');
 }
 
+function loadStatusContext(dir = process.cwd()) {
+  const context = loadProjectContext(dir);
+  if (context) return context;
+
+  const root = findProjectRoot(dir);
+  if (!root) return null;
+
+  let rawConfig;
+  try {
+    rawConfig = JSON.parse(readFileSync(join(root, 'agentxchain.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+
+  if (rawConfig?.protocol_mode !== 'governed') {
+    return null;
+  }
+
+  return {
+    root,
+    rawConfig,
+    config: rawConfig,
+    version: 4,
+  };
+}
+
 function renderGovernedStatus(context, opts) {
   const { root, config, version } = context;
   const state = loadProjectState(root, config);
   const continuity = getContinuityStatus(root, state);
   const connectorHealth = getConnectorHealth(root, config, state);
+  const recovery = deriveRecoveryDescriptor(state, config);
+  const runtimeGuidance = deriveRuntimeBlockedGuidance(state, config);
+  const nextActions = deriveGovernedRunNextActions(state, config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
 
@@ -107,6 +141,9 @@ function renderGovernedStatus(context, opts) {
       inherited_context: state?.inherited_context || null,
       repo_decisions: state?.repo_decisions || null,
       continuity,
+      recovery,
+      runtime_guidance: runtimeGuidance,
+      next_actions: nextActions,
       connector_health: connectorHealth,
       workflow_kit_artifacts: workflowKitArtifacts,
       dashboard_session: dashboardSessionObj,
@@ -231,7 +268,6 @@ function renderGovernedStatus(context, opts) {
   if (state?.blocked_on) {
     console.log('');
     if (state.status === 'blocked') {
-      const recovery = deriveRecoveryDescriptor(state, config);
       const detail = recovery?.detail || state.blocked_on;
       console.log(`  ${chalk.dim('Blocked:')}  ${chalk.red.bold('BLOCKED')} — ${detail}`);
     } else if (state.blocked_on.startsWith('human_approval:')) {
@@ -246,7 +282,6 @@ function renderGovernedStatus(context, opts) {
     renderLastGateFailure(state.last_gate_failure, config);
   }
 
-  const recovery = deriveRecoveryDescriptor(state, config);
   if (recovery) {
     console.log('');
     console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
@@ -255,6 +290,16 @@ function renderGovernedStatus(context, opts) {
     console.log(`  ${chalk.dim('Turn:')}     ${recovery.turn_retained ? 'retained' : 'cleared'}`);
     if (recovery.detail) {
       console.log(`  ${chalk.dim('Detail:')}   ${recovery.detail}`);
+    }
+  }
+
+  if (runtimeGuidance.length > 0) {
+    console.log('');
+    console.log(`  ${chalk.dim('Runtime guidance:')}`);
+    for (const entry of runtimeGuidance) {
+      console.log(`    ${chalk.yellow('•')} ${entry.code} — ${chalk.cyan(entry.command)}`);
+      console.log(`      ${chalk.dim(`${entry.role_id} owns ${entry.artifact_path} at ${entry.phase}/${entry.gate_id}`)}`);
+      console.log(`      ${chalk.dim(entry.reason)}`);
     }
   }
 

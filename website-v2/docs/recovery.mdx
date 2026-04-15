@@ -15,8 +15,18 @@ When a governed run enters a blocked state, the orchestrator persists a **recove
 - **owner** — who is responsible for resolution (always `human` for operator-facing blocks)
 - **recovery_action** — the exact command or action to take
 - **turn_retained** — whether the blocked turn is still assigned and can be resumed
+- **runtime_guidance** — optional runtime-aware blocker explanations for gate failures caused by config/runtime ownership limits
 
 The `agentxchain status` command always displays the current recovery action when a run is blocked.
+
+When the latest gate failure exposes a deeper runtime/config blocker, `status` also renders runtime guidance. These codes are:
+
+| Code | Meaning | Operator action |
+|---|---|---|
+| `invalid_binding` | The owning role/runtime binding is structurally invalid for file ownership | Fix `agentxchain.json`, then `agentxchain validate` |
+| `review_only_remote_dead_end` | A remote review-only role owns a required artifact but can only return review artifacts | Fix `agentxchain.json`, then `agentxchain validate` |
+| `proposal_apply_required` | Required files exist only in the staged proposal, not the workspace yet | `agentxchain proposal apply <turn_id>` |
+| `tool_defined_proof_not_strong_enough` | MCP/tool-defined ownership cannot be proven statically | `agentxchain role show <role_id>` and inspect the tool contract |
 
 ## Recovery Map
 

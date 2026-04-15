@@ -8,7 +8,7 @@ import {
   PROVIDER_ENDPOINTS,
   RETRYABLE_ERROR_CLASSES,
 } from '../src/lib/adapters/api-proxy-adapter.js';
-import { VALID_API_PROXY_PROVIDERS, VALID_PROMPT_TRANSPORTS } from '../src/lib/normalized-config.js';
+import { VALID_API_PROXY_PROVIDERS, VALID_PROMPT_TRANSPORTS, validateV4Config } from '../src/lib/normalized-config.js';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const read = (rel) => readFileSync(resolve(ROOT, rel), 'utf8');
@@ -232,8 +232,31 @@ describe('Adapter docs contract', () => {
 
   describe('api_proxy write authority restriction', () => {
     it('code enforces write authority for api_proxy', () => {
-      assert.match(normalizedConfigSource, /api_proxy.*review_only.*proposed|api_proxy.*only supports review_only and proposed/,
-        'normalized-config.js must enforce review_only and proposed restriction for api_proxy');
+      const invalidAuthoritativeConfig = {
+        version: 4,
+        project: { id: 'docs-contract', name: 'Docs Contract' },
+        roles: {
+          builder: {
+            title: 'Builder',
+            mandate: 'Ship changes',
+            write_authority: 'authoritative',
+            runtime: 'proxy',
+          },
+        },
+        runtimes: {
+          proxy: {
+            type: 'api_proxy',
+            provider: 'anthropic',
+            model: 'claude-sonnet-4-6',
+            auth_env: 'ANTHROPIC_API_KEY',
+          },
+        },
+      };
+      const validation = validateV4Config(invalidAuthoritativeConfig, ROOT);
+      assert.equal(validation.ok, false,
+        'validateV4Config must reject authoritative roles bound to api_proxy runtimes');
+      assert.ok(validation.errors.some((error) => /api_proxy only supports review_only and proposed roles/i.test(error)),
+        'validateV4Config must surface the api_proxy authority boundary');
     });
 
     it('docs document the write authority support', () => {

@@ -490,6 +490,81 @@ describe('report CLI', () => {
     }
   });
 
+  it('AT-REPORT-RUNTIME-001: governed run report derives runtime-aware next actions from gate failures', () => {
+    const root = createGovernedProject();
+    try {
+      const configPath = join(root, 'agentxchain.json');
+      const statePath = join(root, '.agentxchain', 'state.json');
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+
+      config.roles.dev.write_authority = 'proposed';
+      config.roles.dev.runtime = 'remote-dev';
+      config.runtimes['remote-dev'] = {
+        type: 'api_proxy',
+        provider: 'anthropic',
+        model: 'claude-haiku-4-5-20251001',
+        auth_env: 'ANTHROPIC_API_KEY',
+      };
+      config.routing.implementation.exit_gate = 'implementation_complete';
+      config.gates.implementation_complete = {
+        requires_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+      };
+
+      state.status = 'blocked';
+      state.phase = 'implementation';
+      state.blocked_on = 'escalation:operator:dev';
+      state.blocked_reason = {
+        category: 'operator_escalation',
+        blocked_at: '2026-04-03T00:03:00.000Z',
+        turn_id: 'turn_001',
+        recovery: {
+          typed_reason: 'operator_escalation',
+          owner: 'human',
+          recovery_action: 'agentxchain step --resume',
+          turn_retained: true,
+          detail: 'Operator halted the run for review.',
+        },
+      };
+      state.last_gate_failure = {
+        gate_type: 'phase_transition',
+        gate_id: 'implementation_complete',
+        phase: 'implementation',
+        from_phase: 'implementation',
+        to_phase: 'qa',
+        requested_by_turn: 'turn_001',
+        failed_at: '2026-04-03T00:02:30.000Z',
+        queued_request: false,
+        reasons: ['Missing file: .planning/IMPLEMENTATION_NOTES.md'],
+        missing_files: ['.planning/IMPLEMENTATION_NOTES.md'],
+        missing_verification: false,
+      };
+
+      writeJson(configPath, config);
+      writeJson(statePath, state);
+
+      const artifactPath = exportArtifact(root);
+      const jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      const report = JSON.parse(jsonResult.stdout);
+
+      assert.equal(report.subject.run.next_actions.length, 2);
+      assert.equal(report.subject.run.next_actions[0].command, 'agentxchain proposal apply turn_001');
+      assert.match(report.subject.run.next_actions[0].reason, /stages required files behind proposal apply/i);
+      assert.equal(report.subject.run.next_actions[1].command, 'agentxchain step --resume');
+      assert.match(report.subject.run.next_actions[1].reason, /After resolving the proposal_apply_required blocker/i);
+      assert.equal(report.subject.run.recovery_summary.runtime_guidance[0].code, 'proposal_apply_required');
+
+      const textResult = runCli(root, ['report', '--input', artifactPath]);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Next Actions:/);
+      assert.match(textResult.stdout, /agentxchain proposal apply turn_001/);
+      assert.match(textResult.stdout, /proposal_apply_required/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-RQ-001/002/003 + AT-RC-001: markdown report includes operator evidence sections', () => {
     const root = createGovernedProject();
     try {
