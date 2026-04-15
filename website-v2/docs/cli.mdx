@@ -1170,9 +1170,9 @@ agentxchain history [--json] [--limit <n>] [--status completed|blocked] [--linea
 
 Shows a persistent cross-run history of governed runs in this project. Each terminal governed run appends a summary record to `.agentxchain/run-history.jsonl` with run ID, status, phases, turns, cost, duration, connector metadata, and a deterministic terminal retrospective used for later inheritance handoff. The file persists across runs and is not reset when a new run starts.
 
-The default table includes a `Trigger` column when provenance metadata is available on the recorded run, a `Ctx` column showing whether the run has a usable inheritance snapshot for `--inherit-context` child runs (`✓` = usable snapshot, `—` = metadata-only lineage), and a `Headline` column with the terminal retrospective summary for quick operator review. Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
+The default table includes a `Trigger` column when provenance metadata is available on the recorded run, an `Outcome` column with a compact derived operator label (`clean`, `follow-on`, `operator`, `blocked`, `unknown`), a `Ctx` column showing whether the run has a usable inheritance snapshot for `--inherit-context` child runs (`✓` = usable snapshot, `—` = metadata-only lineage), and a `Headline` column with the terminal retrospective summary for quick operator review. When a run recorded a follow-on hint or next operator action, the text view prints a single indented `next:` line below that row instead of forcing operators to open a report. Older history entries created before provenance recording show `legacy` instead of inventing a trigger value retroactively.
 
-Use `--json` for machine-readable output. Each entry includes a computed `inheritable` boolean so scripts can tell whether a run has a usable inheritance snapshot without inspecting the raw `inheritance_snapshot` arrays manually.
+Use `--json` for machine-readable output. Each entry includes a computed `inheritable` boolean so scripts can tell whether a run has a usable inheritance snapshot without inspecting the raw `inheritance_snapshot` arrays manually, plus an `outcome_summary` object carrying the same derived label and any next action digest shown in text mode.
 
 **Lineage view:** `--lineage <run_id>` walks the `parent_run_id` chain backwards through `run-history.jsonl` and prints the ancestor tree (oldest first). Each entry shows the terminal retrospective headline (truncated) so operators can see what each ancestor accomplished without switching to `--json`. Entries with usable inheritance snapshots are marked with `[ctx]`. If a parent reference points to a run that no longer exists in history, the chain terminates with a `[broken link]` sentinel. Combine with `--json` for machine-readable lineage output.
 
@@ -1193,13 +1193,19 @@ agentxchain diff <left_export.json> <right_export.json> --export [--json]
 
 By default, `diff` compares two recorded terminal runs from `.agentxchain/run-history.jsonl`. The command accepts full run IDs or unique prefixes; ambiguous prefixes fail closed instead of guessing. That matters because operators usually copy the first 10-12 characters from `history`, and silently resolving the wrong run would make the comparison useless.
 
-Text mode highlights the changed operator-facing fields instead of dumping raw JSON: status, trigger, template, connector, model, blocked reason, retrospective headline, inheritance-snapshot availability, turns, decisions, cost, budget, duration, phases added/removed, roles added/removed, and per-gate status changes.
+Text mode starts with a `Comparison Summary` section before the detailed field deltas:
+
+- Outcome: `unchanged | improved | changed | regressed | mixed`
+- Risk: `none | low | medium | high`
+- Highlights: up to three prioritized changes or regressions
+
+The detailed sections still highlight the changed operator-facing fields instead of dumping raw JSON: status, trigger, template, connector, model, blocked reason, next action, retrospective headline, inheritance-snapshot availability, turns, decisions, cost, budget, duration, phases added/removed, roles added/removed, and per-gate status changes.
 
 `--export` switches the command into artifact comparison mode. In that mode, the positional inputs are file paths to two exported audit artifacts, both artifacts must have the same `export_kind`, and the command compares normalized export summaries instead of raw embedded file blobs. Run exports surface run/status/phase/goal/dashboard/delegation/repo-decision drift; coordinator exports surface barrier, repo-status, nested-export, and aggregated-event drift.
 
 **Governance regression detection**: when comparing two exports, the diff automatically detects semantic regressions — governance quality degradations, not just structural changes. Detected regressions include: status downgrades (`completed` → `failed`), **phase regressions** (backward movement in the workflow phase order, phase information lost, or explicit phase-order drift between exports), budget overruns (`warn_mode` or `exhausted` flipping to `true`), gate failures (a gate that was `passed`/`approved` becoming `failed`/`blocked`), decision override increases, delegation contract regressions (new `missing_decision_ids` on delegated work), and for coordinator exports: child repo status/export regressions, barrier count decreases, and event loss. Phase regression detection is powered by `workflow_phase_order` embedded in the export summary — the actual phase ordering from the project's routing config. Directional backward/forward inference only runs when both exports declare the same phase order; if the order itself changes, the diff emits an explicit warning and skips guessing. Each regression is classified by category, severity (`error` or `warning`), and includes the specific field and values. In text mode, a `Governance Regressions:` section is appended when regressions exist. In JSON mode, the output includes `regressions` (array), `regression_count`, and `has_regressions` fields.
 
-Use `--json` when you want automation to compare reruns, recoveries, continuation chains, or two portable export artifacts without scraping terminal output.
+Use `--json` when you want automation to compare reruns, recoveries, continuation chains, or two portable export artifacts without scraping terminal output. JSON output includes the same top-level `summary` object (`outcome`, `risk_level`, `highlights`) rendered by the text-mode `Comparison Summary`.
 
 ### `events`
 
@@ -1256,7 +1262,7 @@ The shipped dashboard surface has thirteen top-level views:
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
 | **Blockers** | Computed coordinator gate blockers from `/api/coordinator/blockers` — shows mode, gate context, blocker codes, ordered next actions, and `repo_run_id_mismatch` diagnostics with expected vs actual `run_id` values |
 | **Artifacts** | Live workflow-kit artifact status for the current phase — path, required/optional, semantics, owner with resolution, and exists/missing status from `/api/workflow-kit-artifacts` |
-| **Run History** | Cross-run history showing status, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline for all governed runs in this project from `/api/run-history` |
+| **Run History** | Cross-run history showing status, outcome, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline for all governed runs in this project from `/api/run-history` |
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
 | **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history with child-turn identity |
 

@@ -403,6 +403,81 @@ describe('run-history CLI command contract', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('AT-HDOS-001 / AT-HDOS-002: default table shows derived Outcome and next action digest', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeHistory(root, [
+        {
+          role: 'qa',
+          phase: 'qa',
+          status: 'accepted',
+          accepted_at: '2026-04-11T15:00:00.000Z',
+          summary: 'Blocked on release signoff.',
+          proposed_next_role: 'release_manager',
+        },
+      ]);
+      writeLedger(root, [{ id: 'DEC-001', statement: 'Wait for release signoff', role: 'qa', phase: 'qa' }]);
+      recordRunHistory(root, makeState({
+        run_id: 'run_blocked_operator_001',
+        status: 'blocked',
+        blocked_on: 'approval:release',
+        blocked_reason: {
+          category: 'approval',
+          recovery: {
+            typed_reason: 'needs_human',
+            owner: 'operator',
+            recovery_action: 'agentxchain approve-transition --phase release',
+            turn_retained: true,
+            detail: 'Waiting for release approval',
+          },
+        },
+        completed_at: null,
+      }), makeConfig(), 'blocked');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--dir', root, '--limit', '1'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_NO_WARNINGS: '1', TZ: 'UTC', NO_COLOR: '1' },
+        timeout: 15000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Outcome/);
+      assert.match(result.stdout, /operator/);
+      assert.match(result.stdout, /next: agentxchain approve-transition --phase release/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-HDOS-003: history --json includes outcome_summary', () => {
+    const root = makeTmpDir();
+    try {
+      scaffoldProject(root);
+      writeHistory(root, [
+        { role: 'qa', phase: 'qa', status: 'accepted', accepted_at: '2026-04-11T15:00:00.000Z', summary: 'Ready for release follow-on.' },
+      ]);
+      writeLedger(root, [{ id: 'DEC-001', statement: 'Prepare release follow-on', role: 'qa', phase: 'qa' }]);
+      recordRunHistory(root, makeState({ run_id: 'run_follow_on_001' }), makeConfig(), 'completed');
+
+      const result = spawnSync(process.execPath, [CLI_BIN, 'history', '--dir', root, '--limit', '1', '--json'], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NODE_NO_WARNINGS: '1', TZ: 'UTC' },
+        timeout: 15000,
+      });
+
+      assert.equal(result.status, 0, result.stderr);
+      const payload = JSON.parse(result.stdout);
+      assert.equal(payload.length, 1);
+      assert.equal(payload[0].outcome_summary.label, 'follow-on');
+      assert.match(payload[0].outcome_summary.next_action, /agentxchain run --continue-from run_follow_on_001 --inherit-context/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('run-history integration contracts', () => {
@@ -568,9 +643,12 @@ describe('run-history docs contract', () => {
     assert.match(docs, /agentxchain history/);
     assert.match(docs, /run-history\.jsonl/);
     assert.match(docs, /`Trigger` column/);
+    assert.match(docs, /`Outcome` column/);
     assert.match(docs, /`Ctx` column/);
     assert.match(docs, /`Headline` column/);
+    assert.match(docs, /`next:` line/);
     assert.match(docs, /`inheritable`/);
+    assert.match(docs, /`outcome_summary`/);
     assert.match(docs, /\[ctx\]/);
     assert.match(docs, /legacy/);
   });
@@ -607,7 +685,7 @@ describe('run-history docs contract', () => {
       'utf8'
     );
     assert.match(docs, /\*\*Run History\*\*/);
-    assert.match(docs, /status, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline/);
+    assert.match(docs, /status, outcome, trigger, context inheritance availability, phases, turns, cost, duration, and retrospective headline/);
   });
 });
 

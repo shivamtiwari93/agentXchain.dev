@@ -5,10 +5,11 @@
  */
 
 import { resolve } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import chalk from 'chalk';
 import { queryRunHistory, queryRunLineage, isInheritable } from '../lib/run-history.js';
-import { getRunTriggerLabel, summarizeRunProvenance } from '../lib/run-provenance.js';
+import { buildRunOutcomeSummary } from '../lib/history-diff-summary.js';
+import { getRunTriggerLabel } from '../lib/run-provenance.js';
 
 /**
  * @param {object} opts - { json?: boolean, limit?: number, status?: string, dir?: string }
@@ -67,7 +68,11 @@ export async function historyCommand(opts) {
   });
 
   if (opts.json) {
-    const enriched = entries.map(e => ({ ...e, inheritable: isInheritable(e) }));
+    const enriched = entries.map((e) => ({
+      ...e,
+      inheritable: isInheritable(e),
+      outcome_summary: buildRunOutcomeSummary(e),
+    }));
     console.log(JSON.stringify(enriched, null, 2));
     return;
   }
@@ -85,6 +90,7 @@ export async function historyCommand(opts) {
     pad('#', 4),
     pad('Run ID', 14),
     pad('Status', 11),
+    pad('Outcome', 11),
     pad('Trigger', 14),
     pad('Ctx', 4),
     pad('Phases', 8),
@@ -102,6 +108,7 @@ export async function historyCommand(opts) {
     const idx = String(i + 1);
     const runId = (entry.run_id || '—').slice(0, 12);
     const status = formatStatus(entry.status);
+    const outcome = buildRunOutcomeSummary(entry);
     const trigger = getRunTriggerLabel(entry.provenance);
     const ctx = isInheritable(entry) ? '✓' : '—';
     const phases = String(entry.phases_completed?.length || 0);
@@ -121,6 +128,7 @@ export async function historyCommand(opts) {
       pad(idx, 4),
       pad(runId, 14),
       pad(status, 11),
+      pad(outcome.label, 11),
       pad(trigger, 14),
       pad(ctx, 4),
       pad(phases, 8),
@@ -130,6 +138,10 @@ export async function historyCommand(opts) {
       pad(date, 20),
       pad(headline, 42),
     ].join(' '));
+
+    if (outcome.next_action) {
+      console.log(chalk.dim(`     next: ${truncateLine(outcome.next_action, 148)}`));
+    }
   });
 
   console.log(chalk.dim(`\n${entries.length} run(s) shown`));
@@ -175,4 +187,10 @@ function formatHeadline(headline) {
   const normalized = String(headline).replace(/\s+/g, ' ').trim();
   if (normalized.length <= 40) return normalized;
   return `${normalized.slice(0, 39)}…`;
+}
+
+function truncateLine(value, max) {
+  if (typeof value !== 'string') return '';
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
 }

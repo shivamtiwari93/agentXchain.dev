@@ -2,6 +2,7 @@ import chalk from 'chalk';
 
 import { findProjectRoot } from '../lib/config.js';
 import { buildExportDiff, resolveExportArtifact } from '../lib/export-diff.js';
+import { buildExportDiffSummary, buildRunDiffSummary } from '../lib/history-diff-summary.js';
 import { buildRunDiff, resolveRunHistoryReference } from '../lib/run-diff.js';
 
 export async function diffCommand(leftRef, rightRef, opts) {
@@ -28,7 +29,10 @@ export async function diffCommand(leftRef, rightRef, opts) {
     }
 
     if (opts.json) {
-      console.log(JSON.stringify(exportDiff.diff, null, 2));
+      console.log(JSON.stringify({
+        ...exportDiff.diff,
+        summary: buildExportDiffSummary(exportDiff.diff),
+      }, null, 2));
       return;
     }
 
@@ -56,7 +60,10 @@ export async function diffCommand(leftRef, rightRef, opts) {
 
   const diff = buildRunDiff(leftResult.entry, rightResult.entry);
   if (opts.json) {
-    console.log(JSON.stringify(diff, null, 2));
+    console.log(JSON.stringify({
+      ...diff,
+      summary: buildRunDiffSummary(diff),
+    }, null, 2));
     return;
   }
 
@@ -65,12 +72,13 @@ export async function diffCommand(leftRef, rightRef, opts) {
 
 function formatRunDiffText(diff) {
   const lines = [];
+  const summary = buildRunDiffSummary(diff);
   lines.push(chalk.bold('Run Diff'));
   lines.push(`${chalk.dim('Left:')}  ${formatRunHeader(diff.left)}`);
   lines.push(`${chalk.dim('Right:')} ${formatRunHeader(diff.right)}`);
+  appendComparisonSummary(lines, summary);
 
   if (!diff.changed) {
-    lines.push('');
     lines.push(chalk.green('No differences.'));
     return lines.join('\n');
   }
@@ -96,12 +104,13 @@ function formatRunDiffText(diff) {
 
 function formatExportDiffText(diff) {
   const lines = [];
+  const summary = buildExportDiffSummary(diff);
   lines.push(chalk.bold('Export Diff'));
   lines.push(`${chalk.dim('Left:')}  ${formatExportHeader(diff.left_ref, diff.left)}`);
   lines.push(`${chalk.dim('Right:')} ${formatExportHeader(diff.right_ref, diff.right)}`);
+  appendComparisonSummary(lines, summary);
 
   if (!diff.changed) {
-    lines.push('');
     lines.push(chalk.green('No differences.'));
     return lines.join('\n');
   }
@@ -156,6 +165,20 @@ function appendRegressionSection(lines, regressions) {
       : chalk.yellow(`[${reg.severity}]`);
     lines.push(`${severityTag} ${reg.id}: ${reg.message}`);
   }
+}
+
+function appendComparisonSummary(lines, summary) {
+  lines.push('');
+  lines.push(chalk.bold('Comparison Summary'));
+  lines.push(`- Outcome: ${summary.outcome}`);
+  lines.push(`- Risk: ${summary.risk_level}`);
+  if (Array.isArray(summary.highlights) && summary.highlights.length > 0) {
+    lines.push('- Highlights:');
+    for (const item of summary.highlights) {
+      lines.push(`  - ${item}`);
+    }
+  }
+  lines.push('');
 }
 
 function listChangeItems(entry) {

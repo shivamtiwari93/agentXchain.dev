@@ -8,6 +8,7 @@ const SCALAR_FIELDS = [
   ['connector_used', 'Connector'],
   ['model_used', 'Model'],
   ['blocked_reason', 'Blocked reason'],
+  ['next_action', 'Next action'],
   ['headline', 'Headline'],
   ['inheritable', 'Inheritance snapshot'],
 ];
@@ -125,6 +126,9 @@ function normalizeRunEntry(entry) {
     connector_used: entry.connector_used || null,
     model_used: entry.model_used || null,
     blocked_reason: entry.blocked_reason || null,
+    next_action: entry.retrospective?.next_operator_action
+      || entry.retrospective?.follow_on_hint
+      || null,
     headline: entry.retrospective?.headline || null,
     inheritable: isInheritable(entry),
     total_turns: typeof entry.total_turns === 'number' ? entry.total_turns : null,

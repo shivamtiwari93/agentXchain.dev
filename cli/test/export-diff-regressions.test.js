@@ -110,6 +110,18 @@ describe('Export diff regression detection', () => {
       assert.strictEqual(reg.right, 'failed');
     });
 
+    it('AT-REG-001B: status completed -> blocked also produces status regression', () => {
+      const left = makeRunExport();
+      const right = makeRunExport({ summary: { status: 'blocked' } });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'status');
+      assert.ok(reg, 'should have status regression');
+      assert.strictEqual(reg.severity, 'error');
+      assert.strictEqual(reg.left, 'completed');
+      assert.strictEqual(reg.right, 'blocked');
+    });
+
     it('AT-REG-002: budget warn_mode false -> true produces budget warning', () => {
       const left = makeRunExport();
       const right = makeRunExport({ state: { budget_status: { warn_mode: true, exhausted: false } } });
@@ -249,6 +261,20 @@ describe('Export diff regression detection', () => {
       assert.ok(reg, 'should have repo status regression');
       assert.strictEqual(reg.severity, 'error');
       assert.ok(reg.message.includes('api'));
+    });
+
+    it('AT-REG-005B: child repo status completed -> blocked also produces repo status regression', () => {
+      const left = makeCoordinatorExport();
+      const right = makeCoordinatorExport({
+        summary: { repo_run_statuses: { web: 'completed', api: 'blocked' } },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'repo_status');
+      assert.ok(reg, 'should have repo status regression');
+      assert.strictEqual(reg.severity, 'error');
+      assert.ok(reg.message.includes('api'));
+      assert.strictEqual(reg.right, 'blocked');
     });
 
     it('AT-REG-006: child repo export ok -> failed produces repo export regression', () => {

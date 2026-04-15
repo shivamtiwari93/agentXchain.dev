@@ -158,7 +158,10 @@ describe('agentxchain diff', () => {
           gate_results: { planning_signoff: 'passed', implementation_complete: 'pending' },
           blocked_reason: 'Missing API key',
           provenance: { trigger: 'continuation', parent_run_id: 'run_alpha_1234567890', created_by: 'operator' },
-          retrospective: { headline: 'Blocked on external credential' },
+          retrospective: {
+            headline: 'Blocked on external credential',
+            next_operator_action: 'agentxchain resume --dir ./project',
+          },
           inheritance_snapshot: { recent_decisions: [{ id: 'DEC-001' }], recent_accepted_turns: [] },
           recorded_at: '2026-04-12T23:10:00.000Z',
         }),
@@ -172,7 +175,12 @@ describe('agentxchain diff', () => {
 
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /Run Diff/);
+      assert.match(result.stdout, /Comparison Summary/);
+      assert.match(result.stdout, /Outcome: regressed/);
+      assert.match(result.stdout, /Risk: high/);
+      assert.match(result.stdout, /status worsened to blocked/);
       assert.match(result.stdout, /Status: completed -> blocked/);
+      assert.match(result.stdout, /Next action: — -> agentxchain resume --dir \.\/project/);
       assert.match(result.stdout, /Trigger: manual -> continuation/);
       assert.match(result.stdout, /Turns: 2 -> 4 \(\+2\)/);
       assert.match(result.stdout, /Phases added: implementation/);
@@ -204,6 +212,9 @@ describe('agentxchain diff', () => {
       assert.equal(payload.right.run_id, 'run_beta_9876543210');
       assert.equal(payload.numeric_changes.total_turns.delta, 3);
       assert.deepEqual(payload.list_changes.roles_used.added, ['qa']);
+      assert.equal(payload.summary.outcome, 'changed');
+      assert.equal(payload.summary.risk_level, 'low');
+      assert.ok(Array.isArray(payload.summary.highlights));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -286,6 +297,10 @@ describe('agentxchain diff', () => {
 
       assert.equal(result.status, 0, result.stderr);
       assert.match(result.stdout, /Export Diff/);
+      assert.match(result.stdout, /Comparison Summary/);
+      assert.match(result.stdout, /Outcome: regressed/);
+      assert.match(result.stdout, /Risk: high/);
+      assert.match(result.stdout, /REG-/);
       assert.match(result.stdout, /Status: completed -> blocked/);
       assert.match(result.stdout, /Phase: implementation -> qa/);
       assert.match(result.stdout, /Decision entries: 1 -> 3 \(\+2\)/);
@@ -331,6 +346,8 @@ describe('agentxchain diff', () => {
       assert.equal(payload.scalar_changes.phase.right, 'qa');
       assert.equal(payload.numeric_changes.decision_entries.delta, 3);
       assert.deepEqual(payload.list_changes.active_repo_decision_ids.added, ['DEC-002']);
+      assert.equal(payload.summary.outcome, 'changed');
+      assert.equal(payload.summary.risk_level, 'low');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -417,5 +434,8 @@ describe('run diff docs contract', () => {
     assert.match(CLI_DOCS, /full run IDs or unique prefixes/i);
     assert.match(CLI_DOCS, /`--export` switches the command into artifact comparison mode/i);
     assert.match(CLI_DOCS, /ambiguous prefixes fail closed/i);
+    assert.match(CLI_DOCS, /Comparison Summary/i);
+    assert.match(CLI_DOCS, /Outcome: `unchanged \| improved \| changed \| regressed \| mixed`/);
+    assert.match(CLI_DOCS, /Risk: `none \| low \| medium \| high`/);
   });
 });

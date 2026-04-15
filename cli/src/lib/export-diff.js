@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const FAILED_STATUSES = new Set(['failed', 'error', 'crashed']);
+const BLOCKED_OR_FAILED_STATUSES = new Set(['blocked', 'failed', 'error', 'crashed']);
 
 const RUN_EXPORT_SCALAR_FIELDS = [
   ['run_id', 'Run ID'],
@@ -402,8 +403,8 @@ function detectRunRegressions(left, right) {
   const regressions = [];
   let counter = 0;
 
-  // Status regression: completed/active -> failed/error/crashed
-  if (left.status && right.status && !FAILED_STATUSES.has(left.status) && FAILED_STATUSES.has(right.status)) {
+  // Status regression: successful/non-terminal -> blocked/failed/error/crashed
+  if (left.status && right.status && !BLOCKED_OR_FAILED_STATUSES.has(left.status) && BLOCKED_OR_FAILED_STATUSES.has(right.status)) {
     regressions.push({
       id: `REG-STATUS-${String(++counter).padStart(3, '0')}`,
       category: 'status',
@@ -554,12 +555,12 @@ function detectCoordinatorRegressions(left, right) {
   const regressions = detectRunRegressions(left, right);
   let counter = regressions.length;
 
-  // Repo status regressions: child repo completed -> failed
+  // Repo status regressions: child repo success/non-terminal -> blocked/failed
   const allRepoIds = new Set([...Object.keys(left.repo_run_statuses || {}), ...Object.keys(right.repo_run_statuses || {})]);
   for (const repoId of allRepoIds) {
     const leftStatus = (left.repo_run_statuses || {})[repoId] || null;
     const rightStatus = (right.repo_run_statuses || {})[repoId] || null;
-    if (leftStatus && rightStatus && !FAILED_STATUSES.has(leftStatus) && FAILED_STATUSES.has(rightStatus)) {
+    if (leftStatus && rightStatus && !BLOCKED_OR_FAILED_STATUSES.has(leftStatus) && BLOCKED_OR_FAILED_STATUSES.has(rightStatus)) {
       regressions.push({
         id: `REG-REPO-STATUS-${String(++counter).padStart(3, '0')}`,
         category: 'repo_status',
