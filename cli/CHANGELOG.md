@@ -7,7 +7,8 @@
 - New `agentxchain replay export <file>` command starts the dashboard serving a completed export snapshot
 - Dashboard replay mode: read-only, no gate approval, no file watcher, session reports `replay_mode: true`
 - Marketing scripts: Chrome contention preflight checks for LinkedIn and Reddit posting
-- 7 tests / 1 suite / 0 failures for the replay export surface
+- 4523 tests / 978 suites / 0 failures
+- node --test cli/test/replay-export.test.js — 7 tests / 1 suite / 0 failures
 
 ## 2.94.0
 
