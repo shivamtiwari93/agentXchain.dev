@@ -32,6 +32,7 @@ import {
   RUNNER_INTERFACE_VERSION,
 } from './runner-interface.js';
 
+import { runAdmissionControl } from './admission-control.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 
@@ -64,6 +65,13 @@ export async function runLoop(root, config, callbacks, options = {}) {
       errors.push(`onEvent threw for ${event?.type || 'unknown'}: ${err.message}`);
     }
   };
+
+  // ── Admission control — reject provably dead-end configs ────────────────
+  const admission = runAdmissionControl(config, config);
+  if (!admission.ok) {
+    return makeResult(false, 'admission_rejected', null, 0, [], 0,
+      admission.errors.map(e => `Admission control: ${e}`));
+  }
 
   // ── Initialize if idle ──────────────────────────────────────────────────
   let state = loadState(root, config);

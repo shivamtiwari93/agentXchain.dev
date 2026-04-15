@@ -4,6 +4,7 @@ import { join } from 'path';
 import chalk from 'chalk';
 import { loadConfig, loadLock, findProjectRoot } from '../lib/config.js';
 import { validateProject } from '../lib/validation.js';
+import { runAdmissionControl } from '../lib/admission-control.js';
 import { getWatchPid } from './watch.js';
 import { getDashboardPid, getDashboardSession } from './dashboard.js';
 import { loadNormalizedConfig, detectConfigVersion } from '../lib/normalized-config.js';
@@ -232,6 +233,22 @@ function governedDoctor(root, rawConfig, opts) {
       checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'warn', detail: `Stale dashboard session files (PID ${dashSession.pid || '?'} not running)` });
     } else {
       checks.push({ id: 'dashboard_session', name: 'Dashboard session', level: 'info', detail: 'No dashboard session' });
+    }
+  }
+
+  // 10. Admission control — static dead-end detection
+  if (normalized) {
+    const admission = runAdmissionControl(normalized, rawConfig);
+    if (!admission.ok) {
+      const errSummary = admission.errors.slice(0, 2).map(e => e.replace(/^ADM-\d+: /, '')).join('; ');
+      checks.push({ id: 'admission_control', name: 'Admission control', level: 'fail', detail: errSummary });
+    } else if (admission.warnings.length > 0) {
+      // ADM-003 warnings are advisory (external approval is a legitimate pattern),
+      // so report as info rather than warn to avoid noisy defaults.
+      const infoSummary = admission.warnings.slice(0, 2).map(w => w.replace(/^ADM-\d+: /, '')).join('; ');
+      checks.push({ id: 'admission_control', name: 'Admission control', level: 'info', detail: infoSummary });
+    } else {
+      checks.push({ id: 'admission_control', name: 'Admission control', level: 'pass', detail: 'No dead-end configs detected' });
     }
   }
 

@@ -10,6 +10,7 @@ import {
   validateGovernedWorkflowKit,
 } from './governed-templates.js';
 import { collectRemoteReviewOnlyGateWarnings } from './normalized-config.js';
+import { runAdmissionControl } from './admission-control.js';
 
 const DEFAULT_REQUIRED_FILES = [
   '.planning/PROJECT.md',
@@ -118,6 +119,11 @@ export function validateGovernedProject(root, rawConfig, config, opts = {}) {
 
   // Config-shape warnings (dead-end gates, etc.) — mirrors doctor/config --set surfaces
   warnings.push(...collectRemoteReviewOnlyGateWarnings(rawConfig));
+
+  // Admission control — reject provably dead-end configs
+  const admission = runAdmissionControl(config, rawConfig);
+  errors.push(...admission.errors);
+  warnings.push(...admission.warnings);
 
   const mustExist = [
     config.files?.state || '.agentxchain/state.json',
