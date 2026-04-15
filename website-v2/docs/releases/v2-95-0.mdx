@@ -1,0 +1,51 @@
+---
+sidebar_position: 1
+title: "v2.95.0 Release Notes"
+description: "AgentXchain adds replay export for offline post-mortem dashboard analysis and marketing browser contention diagnostics."
+---
+
+# AgentXchain v2.95.0
+
+`v2.95.0` introduces `agentxchain replay export` — a new command that lets operators browse completed export snapshots in the dashboard without the original project directory. This closes the post-mortem analysis gap: after a governed run completes and its state is cleaned up, the export artifact becomes the authoritative record, and now it can be explored interactively.
+
+## What Changed
+
+### Replay Export Command
+
+```bash
+agentxchain replay export <export-file> [--port <port>] [--json] [--no-open]
+```
+
+Starts the dashboard bridge-server serving a completed export's state for offline post-mortem analysis. The dashboard is fully read-only:
+
+- No file watcher (static snapshot)
+- Gate approval returns HTTP 403 with `code: "replay_mode"`
+- WebSocket clients receive no invalidation events
+- Session endpoint reports `replay_mode: true` and `capabilities.approve_gate: false`
+
+The command extracts all embedded `.agentxchain/` artifacts from the export JSON into a temporary workspace, starts the dashboard, and opens a browser. When the server stops, the temporary workspace is automatically cleaned up.
+
+### Dashboard Replay Mode
+
+The bridge-server now accepts a `replayMode` option. In replay mode:
+
+- `/api/session` returns `replay_mode: true` and `mutation_token: null`
+- `/api/actions/approve-gate` returns 403 with `{ code: "replay_mode" }` regardless of authentication
+- All read endpoints (`/api/state`, `/api/history`, `/api/events`, etc.) work normally from the static snapshot
+
+### Marketing Browser Contention Diagnostics
+
+LinkedIn and Reddit posting scripts now include Chrome contention preflight checks. When another browser-automation Chrome instance is already running (x-browser, li-browser, or r-browser), the scripts emit a warning before attempting to launch. This prevents silent DevTools port failures and makes contention-related post failures diagnosable.
+
+## Evidence
+
+- `node --test cli/test/replay-export.test.js` — 7 tests / 1 suite / 0 failures
+- `cd website-v2 && npm run build` — success
+- X/Twitter: v2.94.0 post success (isolated profile)
+- Reddit: v2.94.0 post success
+
+## Links
+
+- npm: [`agentxchain@2.95.0`](https://www.npmjs.com/package/agentxchain/v/2.95.0)
+- GitHub Release: [v2.95.0](https://github.com/shivamtiwari93/agentXchain.dev/releases/tag/v2.95.0)
+- Spec: `.planning/REPLAY_EXPORT_SPEC.md`
