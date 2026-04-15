@@ -1067,6 +1067,31 @@ The shipped dashboard surface has thirteen top-level views:
 | **Timeouts** | Live timeout pressure and persisted timeout events from `/api/timeouts` — config summary, exceeded/warning indicators, per-turn identity for active turn pressure, and ledger event history |
 | **Coordinator Timeouts** | Multi-repo timeout status from `/api/coordinator/timeouts` — aggregate repo counts, coordinator timeout events, and per-repo timeout config/live pressure/event history with child-turn identity |
 
+#### Dashboard Event API
+
+The dashboard bridge server exposes a `GET /api/events` HTTP endpoint that serves the same events as the `events` CLI command, with query parameter filtering:
+
+| Parameter | Description |
+|-----------|-------------|
+| `type` | Comma-separated event types (e.g., `turn_accepted,phase_entered`) |
+| `since` | ISO-8601 timestamp — only events after this |
+| `limit` | Max events (default 50, from end of log; 0 = all) |
+| `run_id` | Filter by run ID |
+
+WebSocket clients connected to `/ws` receive real-time event-data push messages alongside the existing invalidation messages:
+
+```json
+{ "type": "event", "event": { "event_id": "evt_abc123", "event_type": "turn_accepted", ... } }
+```
+
+Clients can optionally send a subscribe message to filter which event types they receive:
+
+```json
+{ "type": "subscribe", "event_types": ["turn_accepted", "phase_entered"] }
+```
+
+By default, all events are pushed to all connected clients.
+
 The dashboard is not a general write surface. It supports exactly one authenticated mutation family: local gate approval over HTTP. Pending repo-local and coordinator gates can be approved in the **Gates** view, while the UI still shows the exact CLI fallback command for transparency:
 
 - `agentxchain approve-transition`

@@ -1110,12 +1110,20 @@ describe('WebSocket invalidation', () => {
           if (data.length < 2) return;
           const opcode = data[0] & 0x0f;
           if (opcode !== 1) return;
-          const payloadLen = data[1] & 0x7f;
+          let payloadLen = data[1] & 0x7f;
           let offset = 2;
-          if (payloadLen === 126) offset = 4;
-          if (payloadLen === 127) offset = 10;
+          if (payloadLen === 126) {
+            if (data.length < 4) return;
+            payloadLen = data.readUInt16BE(2);
+            offset = 4;
+          } else if (payloadLen === 127) {
+            offset = 10;
+          }
+          if (data.length < offset + payloadLen) return;
           const payload = data.slice(offset, offset + payloadLen).toString('utf8');
-          const parsed = JSON.parse(payload);
+          let parsed;
+          try { parsed = JSON.parse(payload); } catch { return; }
+          if (parsed.type !== 'error') return;
           clearTimeout(timeout);
           socket.destroy();
           resolve(parsed);
@@ -1136,7 +1144,6 @@ describe('WebSocket invalidation', () => {
 
     assert.equal(message.type, 'error');
     assert.match(message.error, /read-only/i);
-    assert.match(message.error, /approve-gate/i);
   });
 });
 

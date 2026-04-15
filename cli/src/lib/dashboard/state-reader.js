@@ -17,6 +17,7 @@ const HISTORY_FILE = 'history.jsonl';
 const LEDGER_FILE = 'decision-ledger.jsonl';
 const HOOK_AUDIT_FILE = 'hook-audit.jsonl';
 const HOOK_ANNOTATIONS_FILE = 'hook-annotations.jsonl';
+const EVENTS_FILE = 'events.jsonl';
 const MULTIREPO_DIR = 'multirepo';
 const BARRIERS_FILE = 'barriers.json';
 const BARRIER_LEDGER_FILE = 'barrier-ledger.jsonl';
@@ -38,6 +39,7 @@ export const RESOURCE_MAP = {
   '/api/coordinator/barrier-ledger': join(MULTIREPO_DIR, BARRIER_LEDGER_FILE),
   '/api/coordinator/hooks/audit': join(MULTIREPO_DIR, HOOK_AUDIT_FILE),
   '/api/coordinator/hooks/annotations': join(MULTIREPO_DIR, HOOK_ANNOTATIONS_FILE),
+  '/api/events': EVENTS_FILE,
 };
 
 /**

@@ -16,6 +16,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, extname, resolve, sep } from 'path';
 import { readResource } from './state-reader.js';
 import { FileWatcher } from './file-watcher.js';
+import { readRunEvents, RUN_EVENTS_PATH } from '../run-events.js';
 import { approvePendingDashboardGate } from './actions.js';
 import { readCoordinatorBlockerSnapshot } from './coordinator-blockers.js';
 import { readCoordinatorTimeoutStatus } from './coordinator-timeout-status.js';
@@ -216,14 +217,52 @@ function resolveDashboardAssetPath(dashboardDir, pathname) {
 export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }) {
   const workspacePath = resolve(agentxchainDir, '..');
   const wsClients = new Set();
+  /** @type {Map<import('net').Socket, Set<string>|null>} null = all events */
+  const wsEventSubscriptions = new Map();
   const watcher = new FileWatcher(agentxchainDir);
   const mutationToken = randomBytes(24).toString('hex');
+  let lastEventsFileSize = 0;
+
+  // Initialize events file size tracking
+  try {
+    const eventsPath = join(agentxchainDir, 'events.jsonl');
+    if (existsSync(eventsPath)) {
+      lastEventsFileSize = readFileSync(eventsPath).length;
+    }
+  } catch {}
 
   // Broadcast invalidation events to all connected WebSocket clients
   watcher.on('invalidate', ({ resource }) => {
     const msg = JSON.stringify({ type: 'invalidate', resource });
     for (const socket of wsClients) {
       sendWsFrame(socket, msg);
+    }
+
+    // For events.jsonl changes, also push actual event data
+    if (resource === '/api/events') {
+      try {
+        const eventsPath = join(agentxchainDir, 'events.jsonl');
+        if (!existsSync(eventsPath)) return;
+        const content = readFileSync(eventsPath, 'utf8');
+        if (content.length <= lastEventsFileSize) {
+          // File was truncated — reset and push all
+          if (content.length < lastEventsFileSize) lastEventsFileSize = 0;
+          else return;
+        }
+        const newContent = content.slice(lastEventsFileSize);
+        lastEventsFileSize = content.length;
+        const lines = newContent.split('\n').filter(Boolean);
+        for (const line of lines) {
+          try {
+            const evt = JSON.parse(line);
+            for (const socket of wsClients) {
+              const filter = wsEventSubscriptions.get(socket);
+              if (filter && !filter.has(evt.event_type)) continue;
+              sendWsFrame(socket, JSON.stringify({ type: 'event', event: evt }));
+            }
+          } catch {}
+        }
+      } catch {}
     }
   });
 
@@ -308,6 +347,20 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
       return;
     }
 
+    if (pathname === '/api/events') {
+      const type = url.searchParams.get('type') || undefined;
+      const since = url.searchParams.get('since') || undefined;
+      const runId = url.searchParams.get('run_id') || undefined;
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam != null ? parseInt(limitParam, 10) : 50;
+      let events = readRunEvents(workspacePath, { type, since, limit: limit === 0 ? undefined : limit });
+      if (runId) {
+        events = events.filter(e => e.run_id === runId);
+      }
+      writeJson(res, 200, events);
+      return;
+    }
+
     if (pathname === '/api/run-history') {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit'), 10) : undefined;
@@ -365,11 +418,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
     if (!ws) return;
 
     wsClients.add(ws);
+    wsEventSubscriptions.set(ws, null); // null = all events
 
-    ws.on('close', () => wsClients.delete(ws));
-    ws.on('error', () => wsClients.delete(ws));
+    ws.on('close', () => { wsClients.delete(ws); wsEventSubscriptions.delete(ws); });
+    ws.on('error', () => { wsClients.delete(ws); wsEventSubscriptions.delete(ws); });
 
-    // Handle incoming frames (for ping/pong and close detection)
+    // Handle incoming frames (for ping/pong, close detection, and subscribe)
     ws.on('data', (data) => {
       const frame = parseClientFrame(data);
       if (!frame) return;
@@ -377,15 +431,30 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
       if (frame.opcode === 0x08) {
         // Close frame
         wsClients.delete(ws);
+        wsEventSubscriptions.delete(ws);
         sendWsControlFrame(ws, 0x08, frame.payload);
         try { ws.end(); } catch {}
       } else if (frame.opcode === 0x09) {
         // Ping → Pong
         sendWsControlFrame(ws, 0x0a, frame.payload);
       } else if (frame.opcode === 0x01) {
+        // Text frame — check for subscribe message
+        try {
+          const msg = JSON.parse(frame.payload.toString('utf8'));
+          if (msg.type === 'subscribe' && Array.isArray(msg.event_types)) {
+            wsEventSubscriptions.set(ws, new Set(msg.event_types));
+            sendWsFrame(ws, JSON.stringify({ type: 'subscribed', event_types: msg.event_types }));
+            return;
+          }
+          if (msg.type === 'subscribe' && !msg.event_types) {
+            wsEventSubscriptions.set(ws, null); // reset to all
+            sendWsFrame(ws, JSON.stringify({ type: 'subscribed', event_types: null }));
+            return;
+          }
+        } catch {}
         sendWsError(
           ws,
-          'Dashboard WebSocket is read-only. Use the authenticated HTTP approve-gate action instead.'
+          'Dashboard WebSocket is read-only except for event subscription. Use the authenticated HTTP approve-gate action for mutations.'
         );
       }
     });
