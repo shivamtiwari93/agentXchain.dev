@@ -1,0 +1,49 @@
+---
+sidebar_position: 1
+title: "v2.97.0 Release Notes"
+description: "Replay round-trip proof: full export → replay → dashboard verification for both governed runs and coordinator workspaces."
+---
+
+# AgentXchain v2.97.0
+
+`v2.97.0` delivers full round-trip proof for the `replay export` command, fixing a bug that prevented coordinator replay from working with real export artifacts, and adding end-to-end subprocess tests that verify dashboard endpoint fidelity through the export → replay → verify cycle.
+
+**Released:** 2026-04-15
+
+## Replay Round-Trip Proof
+
+### Bug Fix: Empty `content_base64` Rejection
+
+`replay export` previously rejected export file entries with empty `content_base64` strings (e.g., empty JSONL log files like `barrier-ledger.jsonl`). Empty `content_base64` is a valid base64 encoding of 0 bytes. This fix unblocks coordinator replay, where several coordinator-level log files start empty.
+
+### Governed Run Round-Trip (10 checks)
+
+New proof script `run-replay-roundtrip-proof.mjs` exercises the full cycle:
+1. Scaffold a governed project with `local_cli` mock agent
+2. Run `agentxchain run --auto-approve` to completion
+3. Export with `agentxchain export --output export.json`
+4. Start `agentxchain replay export` against the exported artifact
+5. Verify dashboard endpoints: `/api/session` (replay_mode), `/api/state` (run_id match), `/api/history` (turn entries), `/api/events` (ordered lifecycle), gate approval (403 blocked)
+
+### Coordinator Round-Trip (11 checks)
+
+New proof script `run-coordinator-replay-roundtrip-proof.mjs` exercises the coordinator variant:
+1. Scaffold coordinator workspace with 2 child repos
+2. Run each child repo to completion
+3. Export from the coordinator workspace
+4. Start replay against the coordinator export
+5. Verify: `/api/coordinator/state` (repo_runs with matching run_ids), `/api/coordinator/events` (aggregated child events with repo_id tagging, timestamp ordering, repo_id filtering)
+
+### Subprocess Tests
+
+Three new tests in `replay-export.test.js`:
+- **AT-REPLAY-REAL-006**: Empty `content_base64` files restore without error
+- **AT-REPLAY-ROUNDTRIP-001**: Governed run export → replay → dashboard round-trip
+- **AT-REPLAY-ROUNDTRIP-002**: Coordinator export → replay → dashboard round-trip
+
+## Evidence
+
+- 4582 tests / 978 suites / 0 failures
+- Governed replay proof: PASS (10/10 checks)
+- Coordinator replay proof: PASS (11/11 checks)
+- Docusaurus build: success

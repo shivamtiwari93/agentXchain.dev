@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.96.1
+# Launch Evidence Report — AgentXchain v2.97.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.96.1 release: Protocol v7 conformance hardening with 6 new reject fixtures for parallel_turns and event_lifecycle. 108 total conformance fixtures. 4568 tests / 978 suites / 0 failures. Docusaurus build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.97.0 release: Replay round-trip proof — full export → replay → dashboard endpoint verification for governed runs (10 checks) and coordinator workspaces (11 checks). Bug fix: empty content_base64 entries no longer block coordinator replay. 4582 tests / 978 suites / 0 failures. Docusaurus build clean.
 
 ---
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.97.0
+
+`2.97.0` delivers full replay round-trip proof: export → replay → dashboard endpoint verification for both governed runs and coordinator workspaces. Fixes a bug where empty `content_base64` entries blocked coordinator replay.
+
+- Bug fix: `replay export` no longer rejects empty `content_base64` strings (valid for empty JSONL files)
+- New proof: governed run export → replay → dashboard round-trip (10 checks)
+- New proof: coordinator export → replay → dashboard round-trip (11 checks)
+- 3 new tests: AT-REPLAY-REAL-006, AT-REPLAY-ROUNDTRIP-001, AT-REPLAY-ROUNDTRIP-002
+- 4582 tests / 978 suites / 0 failures
+
 ## 2.96.1
 
 `2.96.1` hardens protocol v7 conformance with 6 new reject fixtures for `parallel_turns` and `event_lifecycle`.
