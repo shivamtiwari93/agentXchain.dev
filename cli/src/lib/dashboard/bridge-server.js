@@ -358,7 +358,8 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847 }
         type, since, repo_id: repoId, limit: limit === 0 ? undefined : limit,
       });
       if (!result.ok) {
-        writeJson(res, 404, { error: result.error });
+        const isMissingConfig = typeof result.error === 'string' && result.error.includes('config_missing:');
+        writeJson(res, isMissingConfig ? 404 : 500, { error: result.error });
         return;
       }
       writeJson(res, 200, result.events);
