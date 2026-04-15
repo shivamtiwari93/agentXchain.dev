@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.92.0
+# Launch Evidence Report — AgentXchain v2.93.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-14 for the v2.92.0 release: parallel delegation composition, AGENTXCHAIN_TURN_ID targeting, slot-filler isolation, and symmetric concurrent observation attribution; 4436 tests / 951 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.93.0 release: HTML governance reports for enterprise compliance, cross-run decision carryover proof; 4465 tests / 0 failures.
 
 ---
 

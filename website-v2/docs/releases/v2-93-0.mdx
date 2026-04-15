@@ -1,0 +1,49 @@
+---
+sidebar_position: 1
+title: "v2.93.0 Release Notes"
+description: "AgentXchain adds HTML governance reports for enterprise compliance and proves cross-run decision carryover with a live proof script."
+---
+
+# AgentXchain v2.93.0
+
+`v2.93.0` ships two new capabilities: portable HTML governance reports for enterprise compliance stakeholders, and a live proof script for cross-run decision carryover.
+
+## What Changed
+
+### HTML Governance Reports
+
+`agentxchain report --format html` and `agentxchain audit --format html` now produce self-contained, portable HTML governance reports. The output is a single HTML file with inline CSS — no external dependencies, no JavaScript, no CDN links.
+
+Features:
+- **Dark mode** via `prefers-color-scheme` media query
+- **Print-friendly** via `@media print` styles
+- **Status badges** for pass/fail/error/blocked/pending states
+- **Full coverage** of all governance surfaces: turns, decisions, gates, costs, delegations, repo decisions, barriers, recovery, continuity, workflow artifacts
+- **Both report types** supported: governed run and coordinator workspace
+
+Use case: share governance evidence with compliance stakeholders, auditors, or managers who cannot consume JSON or terminal text.
+
+```bash
+# Pipe from live project
+agentxchain audit --format html > report.html
+
+# From saved export artifact
+agentxchain export | agentxchain report --format html > report.html
+```
+
+### Cross-Run Decision Carryover Proof
+
+New proof script `examples/governed-todo-app/run-decision-carryover-proof.mjs` validates the complete repo-durable decision lifecycle:
+
+1. **Run 1**: Agent emits `DEC-100` with `durability: "repo"` — verified in `repo-decisions.jsonl`
+2. **Run 2**: New run starts, DEC-100 is injected into run state, agent overrides with `DEC-200`
+3. **Verification**: `agentxchain decisions` CLI confirms DEC-100 is overridden, DEC-200 is active
+
+This proves the governance continuity surface works end-to-end through the real CLI loop.
+
+## Evidence
+
+- 4465 tests / 0 failures
+- 11 new HTML report tests covering governed runs, coordinators, error/fail states, XSS escaping, dark mode, and print styles
+- Decision carryover proof: PASS (2 runs, 2 repo decisions, 1 override)
+- Docusaurus build: clean

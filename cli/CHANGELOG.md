@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.93.0
+
+`2.93.0` adds HTML governance reports for enterprise compliance and proves cross-run decision carryover.
+
+- `agentxchain report --format html` and `agentxchain audit --format html` produce self-contained HTML governance reports with inline CSS, dark mode, print styles, and status badges
+- Cross-run decision carryover proof script validates repo-durable decisions persist and override across runs
+- 4465 tests / 0 failures
+
 ## 2.92.0
 
 `2.92.0` composes parallel turns with delegation chains — delegation children targeting different roles now execute concurrently, with symmetric observation attribution for concurrent authoritative turns.
