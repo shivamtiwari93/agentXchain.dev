@@ -102,6 +102,15 @@ describe('release planning surface classification', () => {
     assert.match(workflow, /RELEASE_POSTFLIGHT_RETRY_ATTEMPTS/);
   });
 
+  it('publish workflow enforces a job timeout so stuck releases fail closed', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /jobs:\s+publish:\s+[\s\S]*?runs-on:\s+ubuntu-latest\s+timeout-minutes:\s+45/,
+      'publish job must have an explicit timeout-minutes guard',
+    );
+  });
+
   it('publish workflow includes downstream truth verification as completeness gate', () => {
     const workflow = read('.github/workflows/publish-npm-on-tag.yml');
     assert.match(workflow, /release-downstream-truth\.sh/,
