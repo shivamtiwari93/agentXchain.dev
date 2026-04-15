@@ -1282,7 +1282,7 @@ The shipped dashboard surface has thirteen top-level views:
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams, plus a live freshness banner showing websocket connection state, last dashboard refresh, and the last coordinator event seen |
 | **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, a live freshness banner showing websocket connection state, last dashboard refresh, and the last repo-local run event seen, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |
-| **Decisions** | Filterable decision ledger for governed turns; in coordinator workspaces it renders the coordinator decision ledger from `/api/coordinator/ledger` instead of a false empty state |
+| **Decisions** | Filterable decision ledger for governed turns; when repo-level cross-run decisions exist it also shows a compact carryover summary from `/api/repo-decisions-summary`, and in coordinator workspaces it renders the coordinator decision ledger from `/api/coordinator/ledger` instead of a false empty state |
 | **Hooks** | Hook audit log plus persisted hook annotations; in coordinator workspaces it renders coordinator hook audit from `/api/coordinator/hooks/audit` and coordinator hook annotations from `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Blocked** | Current blocked state, runtime guidance, ordered next actions, recent audit context, and the exact recovery command to run next |
 | **Gates** | Pending phase-transition or completion review with aggregated evidence, an approve button, and the exact CLI fallback command |
@@ -1326,6 +1326,8 @@ The dashboard is not a general write surface. It supports exactly one authentica
 The bridge issues a per-process local mutation token from `GET /api/session`, and gate approvals must send that token in `X-AgentXchain-Token`. This is a local anti-CSRF boundary, not a multi-user auth system.
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus ordered next actions for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases. Structured blockers such as `repo_run_id_mismatch` still include expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand or guess which recovery command comes next.
+
+For repo-local governed runs, the shared **Decisions** view also reads `GET /api/repo-decisions-summary` so cross-run repo decisions surface first-glance binding, authority, and lineage signals without replacing the main turn-decision ledger.
 
 For coordinator workspaces, the shared **Decisions** view also reads `GET /api/coordinator/ledger` so coordinator-level decisions remain visible in the dashboard instead of disappearing behind a repo-local-only ledger view.
 

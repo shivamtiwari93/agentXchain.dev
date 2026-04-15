@@ -329,6 +329,32 @@ describe('Ledger View', () => {
     assert.ok(html.includes('Approve scope'));
     assert.ok(html.includes('Sync repos'));
   });
+
+  it('renders compact repo-decision carryover summary when repo-level decisions exist', () => {
+    const html = renderLedger({
+      state: { run_id: 'run_001' },
+      ledger: [{ turn: 1, agent: 'pm', decision: 'Approve scope' }],
+      repoDecisionsSummary: {
+        active_count: 2,
+        overridden_count: 1,
+        operator_summary: {
+          active_categories: ['architecture', 'quality'],
+          highest_active_authority_level: 40,
+          highest_active_authority_role: 'architect',
+          highest_active_authority_source: 'configured',
+          superseding_active_count: 1,
+          overridden_with_successor_count: 1,
+        },
+      },
+    });
+
+    assert.ok(html.includes('Repo Decision Carryover'));
+    assert.ok(html.includes('2 active'));
+    assert.ok(html.includes('1 overridden'));
+    assert.ok(html.includes('categories: architecture, quality'));
+    assert.ok(html.includes('highest authority: 40 (architect)'));
+    assert.ok(html.includes('1 active superseding earlier decision'));
+  });
 });
 
 // ── Hooks View ─────────────────────────────────────────────────────────────

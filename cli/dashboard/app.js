@@ -27,7 +27,7 @@ import {
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
   delegations: { fetch: ['state', 'history'], render: renderDelegations },
-  ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger'], render: renderLedger },
+  ledger: { fetch: ['state', 'ledger', 'coordinatorState', 'coordinatorLedger', 'repoDecisionsSummary'], render: renderLedger },
   hooks: { fetch: ['audit', 'annotations', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderHooks },
   blocked: { fetch: ['state', 'audit', 'coordinatorState', 'coordinatorAudit'], render: renderBlocked },
   gate: { fetch: ['state', 'history', 'coordinatorState', 'coordinatorHistory', 'coordinatorBarriers'], render: renderGate },
@@ -45,6 +45,7 @@ const API_MAP = {
   continuity: '/api/continuity',
   history: '/api/history',
   ledger: '/api/ledger',
+  repoDecisionsSummary: '/api/repo-decisions-summary',
   coordinatorLedger: '/api/coordinator/ledger',
   audit: '/api/hooks/audit',
   annotations: '/api/hooks/annotations',

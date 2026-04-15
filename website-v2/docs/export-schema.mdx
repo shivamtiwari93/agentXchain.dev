@@ -95,8 +95,20 @@ When present (non-null), provides a structured view of repo-level decisions that
 | `total` | Total number of repo decisions (active + overridden) |
 | `active_count` | Number of currently active repo decisions |
 | `overridden_count` | Number of overridden repo decisions |
-| `active` | Array of active decisions (`id`, `category`, `statement`, `role`, `run_id`) |
-| `overridden` | Array of overridden decisions (`id`, `overridden_by`, `statement`) |
+| `active` | Array of active decisions (`id`, `category`, `statement`, `role`, `run_id`, `overrides`, `durability`, `authority_level`, `authority_source`) |
+| `overridden` | Array of overridden decisions (`id`, `overridden_by`, `statement`, `overrides`, `durability`, `role`, `authority_level`, `authority_source`) |
+| `operator_summary` | Compact first-glance significance block for operator surfaces |
+
+### `summary.repo_decisions.operator_summary`
+
+| Field | Meaning |
+| --- | --- |
+| `active_categories` | Sorted unique categories from active repo decisions |
+| `highest_active_authority_level` | Highest active decision authority level, or `null` when authority is not configured |
+| `highest_active_authority_role` | Role holding the highest active authority, or `null` |
+| `highest_active_authority_source` | Authority source (`configured`, `human_default`, `unknown_role`) or `null` |
+| `superseding_active_count` | Number of active repo decisions that explicitly supersede earlier decisions |
+| `overridden_with_successor_count` | Number of overridden repo decisions with a recorded `overridden_by` successor |
 
 ### `summary.dashboard_session`
 

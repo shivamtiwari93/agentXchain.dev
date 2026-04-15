@@ -79,6 +79,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('X-AgentXchain-Token'), 'cli docs must document the local mutation token boundary');
     assert.ok(CLI_DOCS.includes('/api/coordinator/blockers'), 'cli docs must document the coordinator blockers endpoint');
     assert.ok(CLI_DOCS.includes('/api/coordinator/ledger'), 'cli docs must document the coordinator ledger endpoint');
+    assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
@@ -119,6 +120,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('delegation_review'), 'cli docs must describe pending delegation review visibility');
     assert.ok(CLI_DOCS.includes('delegations_issued'), 'cli docs must describe retained delegation history metadata');
     assert.ok(CLI_DOCS.includes('coordinator decision ledger'), 'cli docs must document coordinator decision visibility');
+    assert.ok(CLI_DOCS.includes('compact carryover summary'), 'cli docs must document repo decision carryover visibility');
     assert.ok(CLI_DOCS.includes('approve-transition'), 'cli docs must mention approve-transition');
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention approve-completion');
     assert.ok(CLI_DOCS.includes('agentxchain multi approve-gate'), 'cli docs must mention coordinator gate approval command');

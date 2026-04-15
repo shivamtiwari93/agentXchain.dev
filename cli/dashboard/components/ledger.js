@@ -160,6 +160,31 @@ function renderLedgerTable(entries, filter) {
   return { html, filteredCount: filtered.length };
 }
 
+function renderRepoDecisionSummary(summary) {
+  if (!summary) return '';
+
+  const operatorSummary = summary.operator_summary || {};
+  const categories = Array.isArray(operatorSummary.active_categories) && operatorSummary.active_categories.length > 0
+    ? operatorSummary.active_categories.join(', ')
+    : 'none active';
+  const highestAuthority = typeof operatorSummary.highest_active_authority_level === 'number'
+    ? `${operatorSummary.highest_active_authority_level} (${operatorSummary.highest_active_authority_role || 'unknown'})`
+    : '—';
+  const lineage = `${operatorSummary.superseding_active_count || 0} active superseding earlier decision${operatorSummary.superseding_active_count === 1 ? '' : 's'} · ${operatorSummary.overridden_with_successor_count || 0} overridden with recorded successor${operatorSummary.overridden_with_successor_count === 1 ? '' : 's'}`;
+
+  return `<div class="section">
+    <h3>Repo Decision Carryover</h3>
+    <p class="section-subtitle">Cross-run repo-level decisions that remain binding outside the turn ledger</p>
+    <div class="run-meta">
+      <span class="turn-count">${summary.active_count || 0} active</span>
+      <span class="badge">${summary.overridden_count || 0} overridden</span>
+      <span class="badge">categories: ${esc(categories)}</span>
+      <span class="badge">highest authority: ${esc(highestAuthority)}</span>
+      <span class="badge">${esc(lineage)}</span>
+    </div>
+  </div>`;
+}
+
 function buildSections({ ledger, coordinatorLedger, state, coordinatorState }) {
   const sections = [];
   const hasRepoContext = Boolean(state) || (Array.isArray(ledger) && ledger.length > 0);
@@ -187,6 +212,7 @@ function buildSections({ ledger, coordinatorLedger, state, coordinatorState }) {
 export function render({
   ledger,
   coordinatorLedger = null,
+  repoDecisionsSummary = null,
   state = null,
   coordinatorState = null,
   filter = {},
@@ -202,6 +228,8 @@ export function render({
     <p class="section-subtitle">${sections.length === 1 ? 'Decision ledger surface' : 'Repo-local and coordinator decision ledgers'}</p>
     ${renderFilterBar(combinedLedger, filter)}
     </div>`;
+
+  html += renderRepoDecisionSummary(repoDecisionsSummary);
 
   for (const section of sections) {
     const { html: tableHtml, filteredCount } = renderLedgerTable(section.entries, filter);

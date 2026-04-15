@@ -764,6 +764,59 @@ describe('verify export CLI', () => {
     }
   });
 
+  it('AT-VERIFY-REPO-006: tampered repo decision operator summary fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'verify-export', name: 'Verify Export', default_branch: 'main' },
+        roles: {
+          architect: {
+            title: 'Architect',
+            mandate: 'Set direction.',
+            write_authority: 'authoritative',
+            decision_authority: 40,
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'local-dev': {
+            type: 'local_cli',
+            command: ['echo', '{prompt}'],
+            prompt_transport: 'argv',
+          },
+        },
+        routing: {
+          implementation: {
+            entry_role: 'architect',
+            allowed_next_roles: ['architect', 'human'],
+          },
+        },
+        gates: {},
+        hooks: {},
+      });
+
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        { id: 'DEC-100', status: 'overridden', category: 'architecture', statement: 'Use REST', role: 'architect', run_id: 'run_001', overridden_by: 'DEC-101' },
+        { id: 'DEC-101', status: 'active', category: 'architecture', statement: 'Use GraphQL', role: 'architect', run_id: 'run_002', overrides: 'DEC-100' },
+      ]);
+
+      const artifactPath = exportToFile(root, 'operator-summary-artifact.json');
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.repo_decisions.operator_summary.superseding_active_count = 99;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.repo_decisions.operator_summary')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-VERIFY-DASH-001: valid dashboard_session schema passes verification', () => {
     const root = createGovernedProject();
     try {

@@ -13,6 +13,7 @@ import {
   getRepoDecisionById,
   resolveDecisionAuthority,
   getDecisionAuthorityMetadata,
+  summarizeRepoDecisions,
 } from '../lib/repo-decisions.js';
 
 /**
@@ -86,8 +87,7 @@ export async function decisionsCommand(opts) {
   }
 
   const label = opts.all ? 'Repo Decisions (all)' : 'Active Repo Decisions';
-  const allEnrichedDecisions = allDecisions.map((dec) => enrichDecision(dec, config));
-  const summary = buildDecisionListSummary(allEnrichedDecisions, opts.all);
+  const summary = buildDecisionListSummary(summarizeRepoDecisions(allDecisions, config), opts.all);
   console.log(chalk.bold(`${label}: ${enrichedDecisions.length}`));
   console.log(chalk.dim(summary.binding_line));
   if (summary.category_line) console.log(chalk.dim(summary.category_line));
@@ -129,19 +129,14 @@ function enrichDecision(decision, config) {
   };
 }
 
-function buildDecisionListSummary(allDecisions, includeAll) {
-  const activeDecisions = allDecisions.filter((decision) => decision.status === 'active');
-  const overriddenCount = allDecisions.filter((decision) => decision.status === 'overridden').length;
-  const categories = [...new Set(activeDecisions.map((decision) => decision.category).filter(Boolean))];
-  const authorities = activeDecisions
-    .filter((decision) => typeof decision.authority_level === 'number');
-  const highestAuthority = authorities.reduce((current, decision) => {
-    if (!current || decision.authority_level > current.authority_level) return decision;
-    return current;
-  }, null);
-
+function buildDecisionListSummary(summary, includeAll) {
+  const categories = summary?.operator_summary?.active_categories || [];
+  const highestAuthority = summary?.operator_summary?.highest_active_authority_level;
+  const highestAuthorityRole = summary?.operator_summary?.highest_active_authority_role;
+  const activeCount = summary?.active_count || 0;
+  const overriddenCount = summary?.overridden_count || 0;
   return {
-    binding_line: `binding now: ${activeDecisions.length} active decision${activeDecisions.length === 1 ? '' : 's'}`,
+    binding_line: `binding now: ${activeCount} active decision${activeCount === 1 ? '' : 's'}`,
     category_line: categories.length > 0
       ? `categories: ${categories.join(', ')}`
       : null,
@@ -150,8 +145,8 @@ function buildDecisionListSummary(allDecisions, includeAll) {
         ? `history: ${overriddenCount} overridden decision${overriddenCount === 1 ? '' : 's'} recorded`
         : `history: ${overriddenCount} overridden decision${overriddenCount === 1 ? '' : 's'} hidden (use --all)`
       : null,
-    authority_line: highestAuthority
-      ? `highest active authority: ${highestAuthority.authority_level} (${highestAuthority.role || 'unknown'})`
+    authority_line: typeof highestAuthority === 'number'
+      ? `highest active authority: ${highestAuthority} (${highestAuthorityRole || 'unknown'})`
       : null,
   };
 }

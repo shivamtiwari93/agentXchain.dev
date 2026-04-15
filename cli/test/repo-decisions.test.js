@@ -290,6 +290,9 @@ describe('repo-decisions', () => {
       assert.equal(summary.active[0].durability, 'repo');
       assert.equal(summary.overridden[0].overridden_by, 'DEC-002');
       assert.equal(summary.overridden[0].overrides, null);
+      assert.deepEqual(summary.operator_summary.active_categories, ['architecture']);
+      assert.equal(summary.operator_summary.superseding_active_count, 1);
+      assert.equal(summary.operator_summary.overridden_with_successor_count, 1);
     });
   });
 });

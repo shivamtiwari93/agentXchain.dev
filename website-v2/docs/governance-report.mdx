@@ -279,6 +279,21 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
 When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
+### `subject.run.repo_decisions`
+
+When `.agentxchain/repo-decisions.jsonl` exists in the export, `subject.run.repo_decisions` mirrors the verified export summary and stays non-null even when every repo decision has already been overridden.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `total` | `number` | Total repo decisions recorded in `.agentxchain/repo-decisions.jsonl` |
+| `active_count` | `number` | Currently binding repo decisions |
+| `overridden_count` | `number` | Historical repo decisions that have been superseded |
+| `active` | `array` | Active decision rows including `id`, `category`, `statement`, `role`, `run_id`, `overrides`, `authority_level`, and `authority_source` |
+| `overridden` | `array` | Overridden decision rows including `id`, `statement`, `overridden_by`, `overrides`, `role`, `authority_level`, and `authority_source` |
+| `operator_summary` | `object` | Compact first-glance significance block: `active_categories`, `highest_active_authority_level`, `highest_active_authority_role`, `highest_active_authority_source`, `superseding_active_count`, and `overridden_with_successor_count` |
+
+Text, markdown, and html outputs render a `Repo Decisions` section whenever this object is non-null. That is deliberate: overridden-only repo-decision history is still operator-relevant and must not disappear from the report.
+
 ### `subject.recovery_report`
 
 When `.agentxchain/multirepo/RECOVERY_REPORT.md` is present in the coordinator export, the report extracts its sections:
@@ -309,6 +324,7 @@ Plain-text output is intended for terminal inspection. It includes:
 - blocked-state or barrier information when present
 - pending gate and next actions when coordinator state makes them deterministic
 - turn timeline, coordinator timeline, decision digest, coordinator decisions, hook activity, gate outcomes, barrier summary, barrier transitions, and intake linkage when those surfaces exist
+- repo-decision counts plus compact category/authority/lineage summary when repo-level cross-run decisions exist
 - approval-policy and timeout event sections when those surfaces exist
 
 ### `markdown`
@@ -317,6 +333,7 @@ Plain-text output is intended for terminal inspection. It includes:
 
 - `## Turn Timeline`
 - `## Delegation Summary`
+- `## Repo Decisions`
 - `## Coordinator Timeline`
 - `## Decisions`
 - `## Hook Activity`

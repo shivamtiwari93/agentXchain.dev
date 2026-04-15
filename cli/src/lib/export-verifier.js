@@ -420,6 +420,9 @@ function verifyRepoDecisionsSummary(artifact, errors) {
   if (!isDeepStrictEqual(summary.overridden, expected.overridden)) {
     addError(errors, 'summary.repo_decisions.overridden', 'must match reconstructed overridden decisions from repo-decisions.jsonl');
   }
+  if (!isDeepStrictEqual(summary.operator_summary, expected.operator_summary)) {
+    addError(errors, 'summary.repo_decisions.operator_summary', 'must match reconstructed repo decision operator summary');
+  }
 }
 
 const VALID_DASHBOARD_STATUSES = new Set(['running', 'pid_only', 'stale', 'not_running']);

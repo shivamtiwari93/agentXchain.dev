@@ -14,12 +14,14 @@ import {
 } from '../blocked-state.js';
 import { loadProjectContext } from '../config.js';
 import { getContinuityStatus } from '../continuity-status.js';
+import { readRepoDecisions, summarizeRepoDecisions } from '../repo-decisions.js';
 
 const STATE_FILE = 'state.json';
 const SESSION_FILE = 'session.json';
 const SESSION_RECOVERY_FILE = 'SESSION_RECOVERY.md';
 const HISTORY_FILE = 'history.jsonl';
 const LEDGER_FILE = 'decision-ledger.jsonl';
+const REPO_DECISIONS_FILE = 'repo-decisions.jsonl';
 const HOOK_AUDIT_FILE = 'hook-audit.jsonl';
 const HOOK_ANNOTATIONS_FILE = 'hook-annotations.jsonl';
 const EVENTS_FILE = 'events.jsonl';
@@ -55,6 +57,7 @@ export const FILE_TO_RESOURCE = Object.fromEntries(
 );
 FILE_TO_RESOURCE[normalizeRelativePath(SESSION_RECOVERY_FILE)] = '/api/continuity';
 FILE_TO_RESOURCE[normalizeRelativePath('run-history.jsonl')] = '/api/run-history';
+FILE_TO_RESOURCE[normalizeRelativePath(REPO_DECISIONS_FILE)] = '/api/repo-decisions-summary';
 
 export const WATCH_DIRECTORIES = [
   '',
@@ -119,6 +122,12 @@ export function readResource(agentxchainDir, resourcePath) {
     const root = resolve(agentxchainDir, '..');
     const state = readJsonFile(agentxchainDir, STATE_FILE);
     const data = getContinuityStatus(root, state);
+    return { data, format: 'json' };
+  }
+  if (resourcePath === '/api/repo-decisions-summary') {
+    const root = resolve(agentxchainDir, '..');
+    const context = loadProjectContext(root);
+    const data = summarizeRepoDecisions(readRepoDecisions(root), context?.config || null);
     return { data, format: 'json' };
   }
 

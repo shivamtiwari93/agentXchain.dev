@@ -265,6 +265,35 @@ function formatTokenCount(value) {
   return value.toLocaleString('en-US');
 }
 
+function formatRepoDecisionAuthority(level, role, source) {
+  if (typeof level !== 'number') return null;
+  const roleLabel = role || 'unknown';
+  if (source === 'human_default') return `${level} (${roleLabel}, human default)`;
+  if (source === 'unknown_role') return `${level} (${roleLabel}, role missing from config)`;
+  return `${level} (${roleLabel})`;
+}
+
+function buildRepoDecisionSummaryLines(summary) {
+  if (!summary) return [];
+  const operatorSummary = summary.operator_summary || {};
+  const categories = Array.isArray(operatorSummary.active_categories) && operatorSummary.active_categories.length > 0
+    ? operatorSummary.active_categories.join(', ')
+    : 'none active';
+  const authority = formatRepoDecisionAuthority(
+    operatorSummary.highest_active_authority_level,
+    operatorSummary.highest_active_authority_role,
+    operatorSummary.highest_active_authority_source,
+  ) || '—';
+  const superseding = operatorSummary.superseding_active_count || 0;
+  const overridden = operatorSummary.overridden_with_successor_count || 0;
+
+  return [
+    `Categories: ${categories}`,
+    `Highest authority: ${authority}`,
+    `Lineage: ${superseding} active superseding earlier decision${superseding === 1 ? '' : 's'} | ${overridden} overridden with recorded successor${overridden === 1 ? '' : 's'}`,
+  ];
+}
+
 export function computeCostSummary(turns) {
   if (!Array.isArray(turns) || turns.length === 0) return null;
 
@@ -1275,9 +1304,12 @@ export function formatGovernanceReportText(report) {
       }
     }
 
-    if (run.repo_decisions?.active?.length > 0) {
+    if (run.repo_decisions) {
       lines.push('', 'Repo Decisions:');
       lines.push(`  Active: ${run.repo_decisions.active_count}  Overridden: ${run.repo_decisions.overridden_count}`);
+      for (const summaryLine of buildRepoDecisionSummaryLines(run.repo_decisions)) {
+        lines.push(`  ${summaryLine}`);
+      }
       for (const d of run.repo_decisions.active) {
         const supersedes = d.overrides ? ` | supersedes ${d.overrides}` : '';
         const authority = d.authority_level == null ? '' : ` | authority ${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`;
@@ -1813,14 +1845,19 @@ export function formatGovernanceReportMarkdown(report) {
       }
     }
 
-    if (run.repo_decisions?.active?.length > 0) {
+    if (run.repo_decisions) {
       lines.push('', '## Repo Decisions', '');
       lines.push(`Active: ${run.repo_decisions.active_count} | Overridden: ${run.repo_decisions.overridden_count}`, '');
-      lines.push('| ID | Category | Statement | Role | Authority | Run | Supersedes |', '|----|----------|-----------|------|-----------|-----|------------|');
-      for (const d of run.repo_decisions.active) {
-        const stmt = (d.statement || '').replace(/\|/g, '\\|');
-        const authority = d.authority_level == null ? '—' : `${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`;
-        lines.push(`| ${d.id} | ${d.category} | ${stmt} | ${d.role || '—'} | ${authority} | \`${(d.run_id || '').slice(0, 12)}\` | ${d.overrides || '—'} |`);
+      for (const summaryLine of buildRepoDecisionSummaryLines(run.repo_decisions)) {
+        lines.push(`${summaryLine}`, '');
+      }
+      if (run.repo_decisions.active.length > 0) {
+        lines.push('| ID | Category | Statement | Role | Authority | Run | Supersedes |', '|----|----------|-----------|------|-----------|-----|------------|');
+        for (const d of run.repo_decisions.active) {
+          const stmt = (d.statement || '').replace(/\|/g, '\\|');
+          const authority = d.authority_level == null ? '—' : `${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`;
+          lines.push(`| ${d.id} | ${d.category} | ${stmt} | ${d.role || '—'} | ${authority} | \`${(d.run_id || '').slice(0, 12)}\` | ${d.overrides || '—'} |`);
+        }
       }
       if (run.repo_decisions.overridden?.length > 0) {
         lines.push('', 'Overridden decisions:', '');
@@ -2477,20 +2514,25 @@ function renderRunHtml(report) {
   }
 
   // Repo Decisions
-  if (run.repo_decisions?.active?.length > 0) {
+  if (run.repo_decisions) {
     let rdHtml = `<p>Active: ${run.repo_decisions.active_count} | Overridden: ${run.repo_decisions.overridden_count}</p>`;
-    rdHtml += htmlTable(
-      ['ID', 'Category', 'Statement', 'Role', 'Authority', 'Run', 'Supersedes'],
-      run.repo_decisions.active.map((d) => [
-        esc(d.id),
-        esc(d.category),
-        esc(d.statement || ''),
-        esc(d.role || '\u2014'),
-        esc(d.authority_level == null ? '\u2014' : `${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`),
-        `<code>${esc((d.run_id || '').slice(0, 12))}</code>`,
-        esc(d.overrides || '\u2014'),
-      ]),
-    );
+    rdHtml += buildRepoDecisionSummaryLines(run.repo_decisions)
+      .map((line) => `<p>${esc(line)}</p>`)
+      .join('');
+    if (run.repo_decisions.active.length > 0) {
+      rdHtml += htmlTable(
+        ['ID', 'Category', 'Statement', 'Role', 'Authority', 'Run', 'Supersedes'],
+        run.repo_decisions.active.map((d) => [
+          esc(d.id),
+          esc(d.category),
+          esc(d.statement || ''),
+          esc(d.role || '\u2014'),
+          esc(d.authority_level == null ? '\u2014' : `${d.authority_level}${d.authority_source === 'human_default' ? ' (human default)' : ''}`),
+          `<code>${esc((d.run_id || '').slice(0, 12))}</code>`,
+          esc(d.overrides || '\u2014'),
+        ]),
+      );
+    }
     if (run.repo_decisions.overridden?.length > 0) {
       rdHtml += htmlTable(
         ['ID', 'Statement', 'Authority', 'Overridden By'],

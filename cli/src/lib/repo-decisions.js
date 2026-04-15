@@ -66,43 +66,31 @@ export function summarizeRepoDecisions(decisions, config) {
   if (!Array.isArray(decisions) || decisions.length === 0) return null;
   const active = decisions.filter((d) => d.status === 'active');
   const overridden = decisions.filter((d) => d.status === 'overridden');
-  const addAuthority = (decision) => {
-    const authority = getDecisionAuthorityMetadata(decision.role, config);
-    return {
-      id: decision.id,
-      category: decision.category,
-      statement: decision.statement,
-      role: decision.role,
-      run_id: decision.run_id,
-      overrides: decision.overrides || null,
-      durability: decision.durability || 'repo',
-      authority_level: authority?.level ?? null,
-      authority_source: authority?.source || null,
-    };
-  };
+  const activeEntries = active.map((decision) => addActiveAuthority(decision, config));
+  const overriddenEntries = overridden.map((decision) => addOverriddenAuthority(decision, config));
   return {
     total: decisions.length,
     active_count: active.length,
     overridden_count: overridden.length,
-    active: active.map(addAuthority),
-    overridden: overridden.map((d) => {
-      const authority = getDecisionAuthorityMetadata(d.role, config);
-      return {
-        id: d.id,
-        overridden_by: d.overridden_by,
-        statement: d.statement,
-        overrides: d.overrides || null,
-        durability: d.durability || 'repo',
-        role: d.role || null,
-        authority_level: authority?.level ?? null,
-        authority_source: authority?.source || null,
-      };
-    }),
+    active: activeEntries,
+    overridden: overriddenEntries,
+    operator_summary: buildRepoDecisionOperatorSummaryFromEntries(activeEntries, overriddenEntries),
   };
 }
 
 export function buildRepoDecisionsSummary(decisions) {
   return summarizeRepoDecisions(decisions, null);
+}
+
+export function buildRepoDecisionOperatorSummary(decisions, config) {
+  if (!Array.isArray(decisions) || decisions.length === 0) return null;
+  const activeEntries = decisions
+    .filter((decision) => decision.status === 'active')
+    .map((decision) => addActiveAuthority(decision, config));
+  const overriddenEntries = decisions
+    .filter((decision) => decision.status === 'overridden')
+    .map((decision) => addOverriddenAuthority(decision, config));
+  return buildRepoDecisionOperatorSummaryFromEntries(activeEntries, overriddenEntries);
 }
 
 // ── Write ───────────────────────────────────────────────────────────────────
@@ -253,6 +241,59 @@ export function renderRepoDecisionsMarkdown(activeDecisions, config) {
   }
   lines.push('');
   return lines.join('\n');
+}
+
+function addActiveAuthority(decision, config) {
+  const authority = getDecisionAuthorityMetadata(decision.role, config);
+  return {
+    id: decision.id,
+    category: decision.category,
+    statement: decision.statement,
+    role: decision.role,
+    run_id: decision.run_id,
+    overrides: decision.overrides || null,
+    durability: decision.durability || 'repo',
+    authority_level: authority?.level ?? null,
+    authority_source: authority?.source || null,
+  };
+}
+
+function addOverriddenAuthority(decision, config) {
+  const authority = getDecisionAuthorityMetadata(decision.role, config);
+  return {
+    id: decision.id,
+    overridden_by: decision.overridden_by,
+    statement: decision.statement,
+    overrides: decision.overrides || null,
+    durability: decision.durability || 'repo',
+    role: decision.role || null,
+    authority_level: authority?.level ?? null,
+    authority_source: authority?.source || null,
+  };
+}
+
+function buildRepoDecisionOperatorSummaryFromEntries(activeEntries, overriddenEntries) {
+  const activeCategories = [...new Set(
+    activeEntries
+      .map((decision) => decision.category)
+      .filter(Boolean),
+  )].sort();
+
+  const highestAuthority = activeEntries
+    .filter((decision) => typeof decision.authority_level === 'number')
+    .reduce((current, decision) => {
+      if (!current || decision.authority_level > current.authority_level) return decision;
+      return current;
+    }, null);
+
+  return {
+    active_categories: activeCategories,
+    highest_active_authority_level: highestAuthority?.authority_level ?? null,
+    highest_active_authority_role: highestAuthority?.role ?? null,
+    highest_active_authority_source: highestAuthority?.authority_source ?? null,
+    superseding_active_count: activeEntries.filter((decision) => decision.overrides).length,
+    overridden_with_successor_count: overriddenEntries.filter((decision) => decision.overridden_by).length,
+  };
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────

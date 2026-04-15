@@ -1051,6 +1051,60 @@ describe('Dashboard State Reader', () => {
     assert.equal(result, null);
   });
 
+  it('readResource returns compact repo-decision summary from repo-decisions.jsonl', async () => {
+    const { readResource } = await import('../src/lib/dashboard/state-reader.js');
+    writeFileSync(join(root, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      project: { id: 'dash-repo-decisions', name: 'Dash Repo Decisions' },
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Set direction.',
+          write_authority: 'authoritative',
+          runtime: 'local-architect',
+          decision_authority: 40,
+        },
+      },
+      runtimes: {
+        'local-architect': {
+          type: 'local_cli',
+          command: ['echo', '{prompt}'],
+          prompt_transport: 'argv',
+        },
+      },
+    }));
+    writeFileSync(
+      join(axcDir, 'repo-decisions.jsonl'),
+      [
+        JSON.stringify({
+          id: 'DEC-001',
+          status: 'overridden',
+          category: 'architecture',
+          statement: 'Use PostgreSQL',
+          role: 'architect',
+          run_id: 'run_001',
+          overridden_by: 'DEC-002',
+        }),
+        JSON.stringify({
+          id: 'DEC-002',
+          status: 'active',
+          category: 'architecture',
+          statement: 'Move to SQLite for local-first mode',
+          role: 'architect',
+          run_id: 'run_002',
+          overrides: 'DEC-001',
+        }),
+      ].join('\n') + '\n',
+    );
+
+    const result = readResource(axcDir, '/api/repo-decisions-summary');
+    assert.equal(result.format, 'json');
+    assert.equal(result.data.active_count, 1);
+    assert.equal(result.data.overridden_count, 1);
+    assert.equal(result.data.operator_summary.superseding_active_count, 1);
+    assert.equal(result.data.operator_summary.overridden_with_successor_count, 1);
+  });
+
   it('readJsonFile throws on malformed JSON', async () => {
     const { readJsonFile } = await import('../src/lib/dashboard/state-reader.js');
     writeFileSync(join(axcDir, 'bad.json'), '{ not valid json');

@@ -498,6 +498,104 @@ describe('report CLI', () => {
     }
   });
 
+  it('AT-REPORT-REPO-001: report surfaces compact repo-decision summary and keeps overridden-only history visible', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        {
+          id: 'DEC-900',
+          status: 'overridden',
+          category: 'architecture',
+          statement: 'Use PostgreSQL',
+          role: 'architect',
+          run_id: 'run_prev_001',
+          overridden_by: 'DEC-901',
+        },
+        {
+          id: 'DEC-901',
+          status: 'active',
+          category: 'architecture',
+          statement: 'Move to SQLite for local-first mode',
+          role: 'architect',
+          run_id: 'run_curr_001',
+          overrides: 'DEC-900',
+        },
+      ]);
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'report-test', name: 'Report Test', default_branch: 'main' },
+        roles: {
+          architect: {
+            title: 'Architect',
+            mandate: 'Set direction.',
+            write_authority: 'authoritative',
+            decision_authority: 40,
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'local-dev': {
+            type: 'local_cli',
+            command: ['echo', '{prompt}'],
+            prompt_transport: 'argv',
+          },
+        },
+        routing: {
+          implementation: {
+            entry_role: 'architect',
+            allowed_next_roles: ['architect', 'human'],
+          },
+        },
+        gates: {},
+        hooks: {},
+      });
+
+      const artifactPath = exportArtifact(root);
+
+      let textResult = runCli(root, ['report', '--input', artifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Repo Decisions:/);
+      assert.match(textResult.stdout, /Categories: architecture/);
+      assert.match(textResult.stdout, /Highest authority: 40 \(architect\)/);
+      assert.match(textResult.stdout, /Lineage: 1 active superseding earlier decision \| 1 overridden with recorded successor/);
+      assert.match(textResult.stdout, /DEC-900 \(overridden by DEC-901/);
+
+      let markdownResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(markdownResult.status, 0, markdownResult.stderr);
+      assert.match(markdownResult.stdout, /## Repo Decisions/);
+      assert.match(markdownResult.stdout, /Categories: architecture/);
+
+      let jsonResult = runCli(root, ['report', '--input', artifactPath, '--format', 'json']);
+      assert.equal(jsonResult.status, 0, jsonResult.stderr);
+      let report = JSON.parse(jsonResult.stdout);
+      assert.equal(report.subject.run.repo_decisions.operator_summary.highest_active_authority_level, 40);
+      assert.equal(report.subject.run.repo_decisions.operator_summary.superseding_active_count, 1);
+
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        {
+          id: 'DEC-900',
+          status: 'overridden',
+          category: 'architecture',
+          statement: 'Use PostgreSQL',
+          role: 'architect',
+          run_id: 'run_prev_001',
+          overridden_by: 'DEC-901',
+        },
+      ]);
+
+      const overriddenOnlyArtifactPath = exportArtifact(root, 'artifact-overridden-only.json');
+      textResult = runCli(root, ['report', '--input', overriddenOnlyArtifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Repo Decisions:/);
+      assert.match(textResult.stdout, /Active: 0  Overridden: 1/);
+      assert.match(textResult.stdout, /Highest authority: —/);
+      assert.match(textResult.stdout, /DEC-900 \(overridden by DEC-901/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-REPORT-RUNTIME-001: governed run report derives runtime-aware next actions from gate failures', () => {
     const root = createGovernedProject();
     try {

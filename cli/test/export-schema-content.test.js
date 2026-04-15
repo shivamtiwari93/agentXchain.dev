@@ -345,6 +345,17 @@ describe('run export schema docs contract', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('documents repo decision operator-summary fields truthfully', () => {
+    assert.match(EXPORT_DOCS, /summary\.repo_decisions/);
+    assert.match(EXPORT_DOCS, /authority_level/);
+    assert.match(EXPORT_DOCS, /authority_source/);
+    assert.match(EXPORT_DOCS, /operator_summary/);
+    assert.match(EXPORT_DOCS, /active_categories/);
+    assert.match(EXPORT_DOCS, /highest_active_authority_level/);
+    assert.match(EXPORT_DOCS, /superseding_active_count/);
+    assert.match(EXPORT_DOCS, /overridden_with_successor_count/);
+  });
 });
 
 describe('verification report shape docs contract', () => {

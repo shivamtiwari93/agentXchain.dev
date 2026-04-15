@@ -47,6 +47,8 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /barrier_summary/);
     assert.match(REPORT_DOCS, /barrier_ledger_timeline/);
     assert.match(REPORT_DOCS, /decision_digest/);
+    assert.match(REPORT_DOCS, /subject\.run\.repo_decisions/);
+    assert.match(REPORT_DOCS, /operator_summary/);
     assert.match(REPORT_DOCS, /timeout_events/);
     assert.match(REPORT_DOCS, /continuity/);
     assert.match(REPORT_DOCS, /delegation_summary/);
@@ -56,6 +58,7 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /recent_child_repo_events/);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
+    assert.match(REPORT_DOCS, /Repo Decisions/);
     assert.match(REPORT_DOCS, /Timeout Events/);
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /Delegation Summary/);
