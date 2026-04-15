@@ -31,6 +31,7 @@ const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 
 const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
+const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -109,6 +110,8 @@ describe('Dashboard docs contract — view surface', () => {
 
   it('documents the coordinator and approval-specific surfaces truthfully', () => {
     assert.ok(CLI_DOCS.includes('Initiative'), 'cli docs must document coordinator initiative view');
+    assert.ok(CLI_DOCS.includes('First-glance multi-repo coordinator summary'), 'cli docs must describe Initiative as a first-glance overview');
+    assert.ok(CLI_DOCS.includes('full blocker diagnostics stay in the **Blockers** view'), 'cli docs must keep Initiative distinct from Blockers');
     assert.ok(CLI_DOCS.includes('Cross-Repo'), 'cli docs must document cross-repo view');
     assert.ok(CLI_DOCS.includes('Delegations'), 'cli docs must document delegation view');
     assert.ok(CLI_DOCS.includes('delegation_queue'), 'cli docs must describe live delegation queue visibility');
@@ -206,5 +209,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-001/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /GET \/api\/coordinator\/blockers/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /agentxchain multi resync/);
+  });
+
+  it('ships a durable spec for initiative view hierarchy', () => {
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /Initiative View Hierarchy Spec/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-002/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /`Blockers` view|Blockers view/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /first-glance overview surface/);
   });
 });

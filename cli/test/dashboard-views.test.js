@@ -483,7 +483,7 @@ describe('Initiative View', () => {
     assert.ok(html.includes('partially_satisfied'));
   });
 
-  it('renders structured coordinator blockers in initiative attention state', () => {
+  it('AT-IVH-002 renders structured coordinator blockers as a summary with one primary action', () => {
     const html = renderInitiative({
       coordinatorState: {
         super_run_id: 'srun_456',
@@ -504,6 +504,11 @@ describe('Initiative View', () => {
             command: 'agentxchain multi resume',
             reason: 'Coordinator run identity drift detected: Repo "api" run identity drifted from run_api_001 to run_api_999. Resume after reconciling the affected child repos.',
           },
+          {
+            code: 'resync',
+            command: 'agentxchain multi resync',
+            reason: 'Rebuild coordinator state from child repo truth before attempting another step.',
+          },
         ],
         active: {
           gate_type: 'phase_transition',
@@ -518,19 +523,31 @@ describe('Initiative View', () => {
               expected_run_id: 'run_api_001',
               actual_run_id: 'run_api_999',
             },
+            {
+              code: 'repo_not_ready',
+              message: 'Repo "web" has not reached release yet.',
+              repo_id: 'web',
+              current_phase: 'integration',
+              required_phase: 'release',
+            },
           ],
         },
       },
     });
 
     assert.ok(html.includes('Blocker Snapshot'));
+    assert.ok(html.includes('First-glance coordinator attention only'));
     assert.ok(html.includes('repo_run_id_mismatch'));
     assert.ok(html.includes('run_api_001'));
     assert.ok(html.includes('run_api_999'));
+    assert.ok(html.includes('Primary Action'));
+    assert.ok(html.includes('additional blocker'));
+    assert.ok(html.includes('additional action'));
     assert.ok(html.includes('Open Blockers view'));
     assert.ok(html.includes('#blockers'));
-    assert.ok(html.includes('Next Actions'));
     assert.ok(html.includes('agentxchain multi resume'));
+    assert.ok(!html.includes('<h3>Next Actions</h3>'));
+    assert.ok(!html.includes('agentxchain multi resync'));
   });
 });
 

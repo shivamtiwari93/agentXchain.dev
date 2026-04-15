@@ -37,6 +37,23 @@ function summarizeBarriers(barriers) {
   return counts;
 }
 
+function renderPrimaryAction(action) {
+  if (!action || typeof action !== 'object') {
+    return '';
+  }
+
+  let html = `<div class="turn-card">
+    <div class="turn-header"><span>Primary Action</span></div>`;
+  if (action.reason) {
+    html += `<div class="turn-summary">${esc(action.reason)}</div>`;
+  }
+  if (action.command) {
+    html += `<pre class="recovery-command mono" data-copy="${esc(action.command)}">${esc(action.command)}</pre>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
   if (!coordinatorBlockers || coordinatorBlockers.ok === false) {
     return '';
@@ -46,11 +63,17 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
   const blockers = Array.isArray(active.blockers)
     ? active.blockers.filter((blocker) => blocker?.code !== 'no_next_phase')
     : [];
+  const nextActions = Array.isArray(coordinatorBlockers.next_actions)
+    ? coordinatorBlockers.next_actions.filter((action) => action && typeof action === 'object')
+    : [];
+  const primaryBlocker = blockers[0] || null;
+  const primaryAction = nextActions[0] || null;
   const hasBlockers = blockers.length > 0;
   const title = coordinatorBlockers.mode === 'pending_gate' ? 'Approval Snapshot' : 'Blocker Snapshot';
 
   let html = `<div class="gate-card">
     <h3>${title}</h3>
+    <p class="section-subtitle">First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.</p>
     <dl class="detail-list">`;
   if (coordinatorBlockers.mode) {
     html += `<dt>Mode</dt><dd>${esc(coordinatorBlockers.mode)}</dd>`;
@@ -70,30 +93,32 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
   if (hasBlockers) {
     html += `<dt>Blockers</dt><dd>${blockers.length}</dd>`;
   }
+  if (primaryBlocker?.code) {
+    html += `<dt>Primary Blocker</dt><dd class="mono">${esc(primaryBlocker.code)}</dd>`;
+  }
   html += `</dl>`;
 
   if (coordinatorBlockers.mode === 'pending_gate') {
     html += `<p class="turn-summary">All coordinator prerequisites are satisfied. Human approval is the remaining action.</p>`;
-  } else if (hasBlockers) {
-    html += `<div class="turn-list">`;
-    for (const blocker of blockers) {
-      html += `<div class="turn-card">
-        <div class="turn-header"><span class="mono">${esc(blocker.code || 'unknown')}</span></div>`;
-      if (blocker.message) {
-        html += `<div class="turn-summary">${esc(blocker.message)}</div>`;
-      }
-      if (blocker.repo_id || blocker.expected_run_id || blocker.actual_run_id) {
-        html += `<dl class="detail-list">`;
-        if (blocker.repo_id) html += `<dt>Repo</dt><dd class="mono">${esc(blocker.repo_id)}</dd>`;
-        if (blocker.expected_run_id) html += `<dt>Expected</dt><dd class="mono">${esc(blocker.expected_run_id)}</dd>`;
-        if (blocker.actual_run_id) html += `<dt>Actual</dt><dd class="mono">${esc(blocker.actual_run_id)}</dd>`;
-        if (blocker.current_phase) html += `<dt>Current Phase</dt><dd>${esc(blocker.current_phase)}</dd>`;
-        if (blocker.required_phase) html += `<dt>Required Phase</dt><dd>${esc(blocker.required_phase)}</dd>`;
-        html += `</dl>`;
-      }
-      html += `</div>`;
+  } else if (primaryBlocker) {
+    html += `<div class="turn-card">
+      <div class="turn-header"><span class="mono">${esc(primaryBlocker.code || 'unknown')}</span></div>`;
+    if (primaryBlocker.message) {
+      html += `<div class="turn-summary">${esc(primaryBlocker.message)}</div>`;
+    }
+    if (primaryBlocker.repo_id || primaryBlocker.expected_run_id || primaryBlocker.actual_run_id) {
+      html += `<dl class="detail-list">`;
+      if (primaryBlocker.repo_id) html += `<dt>Repo</dt><dd class="mono">${esc(primaryBlocker.repo_id)}</dd>`;
+      if (primaryBlocker.expected_run_id) html += `<dt>Expected</dt><dd class="mono">${esc(primaryBlocker.expected_run_id)}</dd>`;
+      if (primaryBlocker.actual_run_id) html += `<dt>Actual</dt><dd class="mono">${esc(primaryBlocker.actual_run_id)}</dd>`;
+      if (primaryBlocker.current_phase) html += `<dt>Current Phase</dt><dd>${esc(primaryBlocker.current_phase)}</dd>`;
+      if (primaryBlocker.required_phase) html += `<dt>Required Phase</dt><dd>${esc(primaryBlocker.required_phase)}</dd>`;
+      html += `</dl>`;
     }
     html += `</div>`;
+    if (blockers.length > 1) {
+      html += `<p class="turn-detail">${blockers.length - 1} additional blocker${blockers.length - 1 !== 1 ? 's are' : ' is'} summarized in <a href="#blockers">Blockers</a>.</p>`;
+    }
   } else if (coordinatorBlockers.blocked_reason) {
     html += `<p class="turn-summary">${esc(
       typeof coordinatorBlockers.blocked_reason === 'string'
@@ -102,21 +127,16 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
     )}</p>`;
   }
 
-  if (Array.isArray(coordinatorBlockers.next_actions) && coordinatorBlockers.next_actions.length > 0) {
-    html += `<div class="section" style="margin-top:12px"><h3>Next Actions</h3><ol class="action-list">`;
-    for (const action of coordinatorBlockers.next_actions) {
-      html += `<li class="turn-card">
-        <div class="turn-header"><span class="mono">${esc(action.command || 'n/a')}</span></div>`;
-      if (action.reason) {
-        html += `<div class="turn-summary">${esc(action.reason)}</div>`;
-      }
-      html += `</li>`;
+  if (primaryAction) {
+    html += `<div class="section" style="margin-top:12px">${renderPrimaryAction(primaryAction)}`;
+    if (nextActions.length > 1) {
+      html += `<p class="turn-detail">${nextActions.length - 1} additional action${nextActions.length - 1 !== 1 ? 's remain' : ' remains'} in <a href="#blockers">Blockers</a>.</p>`;
     }
-    html += `</ol></div>`;
+    html += `</div>`;
   }
 
   html += `<div class="gate-action">
-    <p>Inspect full diagnostics:</p>
+    <p>Inspect full blocker diagnostics and ordered recovery steps:</p>
     <p><a href="#blockers">Open Blockers view</a></p>
   </div>
 </div>`;
@@ -157,6 +177,7 @@ export function render({
     if (pendingGate) {
       html += `<div class="gate-card">
         <h3>Pending Gate</h3>
+        <p class="section-subtitle">Approval is the only remaining action. Detailed gate diagnostics stay in the Gates and Blockers views.</p>
         <dl class="detail-list">
           <dt>Type</dt><dd>${esc(pendingGate.gate_type)}</dd>
           <dt>Gate</dt><dd class="mono">${esc(pendingGate.gate)}</dd>`;
