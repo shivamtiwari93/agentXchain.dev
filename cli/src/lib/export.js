@@ -9,6 +9,7 @@ import { loadCoordinatorState } from './coordinator-state.js';
 import { normalizeRunProvenance } from './run-provenance.js';
 import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
 import { readRepoDecisions } from './repo-decisions.js';
+import { RUN_EVENTS_PATH } from './run-events.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
 
@@ -477,6 +478,62 @@ export function buildRunExport(startDir = process.cwd()) {
   };
 }
 
+/**
+ * Build aggregated child-repo lifecycle events summary for coordinator exports.
+ * Reads events.jsonl from each child repo, tags with repo_id, merges, sorts.
+ */
+function buildAggregatedEventsSummary(workspaceRoot, repoEntries) {
+  let allEvents = [];
+  const reposWithEvents = new Set();
+
+  for (const [repoId, repoDef] of repoEntries) {
+    const repoPath = resolve(workspaceRoot, repoDef?.path || '');
+    const eventsPath = join(repoPath, RUN_EVENTS_PATH);
+
+    if (!existsSync(eventsPath)) continue;
+
+    let raw;
+    try {
+      raw = readFileSync(eventsPath, 'utf8');
+    } catch {
+      continue;
+    }
+
+    const lines = raw.split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const evt = JSON.parse(line);
+        evt.repo_id = repoId;
+        allEvents.push(evt);
+        reposWithEvents.add(repoId);
+      } catch {
+        // Skip malformed lines
+      }
+    }
+  }
+
+  // Sort by timestamp ascending, ties broken by event_id
+  allEvents.sort((a, b) => {
+    const tDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    if (tDiff !== 0) return tDiff;
+    return (a.event_id || '').localeCompare(b.event_id || '');
+  });
+
+  // Count event types
+  const eventTypeCounts = {};
+  for (const evt of allEvents) {
+    const t = evt.event_type || evt.type || 'unknown';
+    eventTypeCounts[t] = (eventTypeCounts[t] || 0) + 1;
+  }
+
+  return {
+    total_events: allEvents.length,
+    repos_with_events: [...reposWithEvents].sort(),
+    event_type_counts: eventTypeCounts,
+    events: allEvents,
+  };
+}
+
 export function buildCoordinatorExport(startDir = process.cwd()) {
   const workspaceRoot = resolve(startDir);
   const configPath = join(workspaceRoot, COORDINATOR_CONFIG_FILE);
@@ -587,6 +644,7 @@ export function buildCoordinatorExport(startDir = process.cwd()) {
         barrier_count: barrierCount,
         history_entries: countJsonl(files, '.agentxchain/multirepo/history.jsonl'),
         decision_entries: countJsonl(files, '.agentxchain/multirepo/decision-ledger.jsonl'),
+        aggregated_events: buildAggregatedEventsSummary(workspaceRoot, repoEntries),
       },
       files,
       config: rawConfig,

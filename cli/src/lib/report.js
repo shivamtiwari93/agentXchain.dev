@@ -628,6 +628,19 @@ function extractCoordinatorTimeline(artifact) {
     });
 }
 
+function extractAggregatedEventTimeline(artifact) {
+  const aggEvents = artifact.summary?.aggregated_events;
+  if (!aggEvents || !Array.isArray(aggEvents.events) || aggEvents.events.length === 0) return [];
+  return aggEvents.events.map((evt) => ({
+    repo_id: evt.repo_id || null,
+    type: evt.event_type || evt.type || 'unknown',
+    timestamp: evt.timestamp || null,
+    run_id: evt.run_id || null,
+    event_id: evt.event_id || null,
+    summary: `[${evt.repo_id || '?'}] ${evt.event_type || evt.type || 'unknown'} at ${evt.timestamp || '?'}`,
+  }));
+}
+
 function computeCoordinatorTiming(artifact, coordinatorTimeline) {
   const coordinatorState = extractFileData(artifact, '.agentxchain/multirepo/state.json');
   const createdAtFromHistory = coordinatorTimeline
@@ -1121,6 +1134,7 @@ function buildCoordinatorSubject(artifact) {
       repo_error_count: repoErrorCount,
     },
     coordinator_timeline: coordinatorTimeline,
+    aggregated_event_timeline: extractAggregatedEventTimeline(artifact),
     barrier_summary: barrierSummary,
     barrier_ledger_timeline: barrierLedgerTimeline,
     decision_digest: decisionDigest,
@@ -1502,6 +1516,17 @@ export function formatGovernanceReportText(report) {
       const ts = ev.timestamp ? ` [${ev.timestamp}]` : '';
       lines.push(`  ${i + 1}. [${ev.type}]${ts} ${ev.summary}`);
     }
+  }
+
+  const aggregated_event_timeline = report.subject.aggregated_event_timeline;
+  if (aggregated_event_timeline && aggregated_event_timeline.length > 0) {
+    lines.push('', 'Aggregated Child Repo Events:');
+    for (const evt of aggregated_event_timeline) {
+      const ts = evt.timestamp ? ` [${evt.timestamp}]` : '';
+      lines.push(`  [${evt.repo_id || '?'}] ${evt.type}${ts}`);
+    }
+  } else {
+    lines.push('', 'Aggregated Child Repo Events:', '  No child repo events.');
   }
 
   if (barrier_summary && barrier_summary.length > 0) {
@@ -2004,6 +2029,18 @@ export function formatGovernanceReportMarkdown(report) {
       const escapedSummary = ev.summary.replace(/\|/g, '\\|');
       mdLines.push(`| ${i + 1} | \`${ev.type}\` | ${ts} | ${escapedSummary} |`);
     }
+  }
+
+  const aggregated_event_timeline = report.subject.aggregated_event_timeline;
+  if (aggregated_event_timeline && aggregated_event_timeline.length > 0) {
+    mdLines.push('', '## Aggregated Child Repo Events', '', '| Timestamp | Repo | Event Type | Summary |', '|-----------|------|------------|---------|');
+    for (const evt of aggregated_event_timeline) {
+      const ts = evt.timestamp ? `\`${evt.timestamp}\`` : 'n/a';
+      const escapedSummary = evt.summary.replace(/\|/g, '\\|');
+      mdLines.push(`| ${ts} | \`${evt.repo_id || '?'}\` | \`${evt.type}\` | ${escapedSummary} |`);
+    }
+  } else {
+    mdLines.push('', '## Aggregated Child Repo Events', '', 'No child repo events.');
   }
 
   if (barrier_summary && barrier_summary.length > 0) {
@@ -2613,6 +2650,22 @@ function renderCoordinatorHtml(report) {
   if (coordinator_timeline?.length > 0) {
     const tlRows = coordinator_timeline.map((ev, i) => [String(i + 1), `<code>${esc(ev.type)}</code>`, `<code>${esc(ev.timestamp || 'n/a')}</code>`, esc(ev.summary)]);
     sections.push(`<div class="section">${htmlSection('Coordinator Timeline', htmlTable(['#', 'Type', 'Time', 'Summary'], tlRows))}</div>`);
+  }
+
+  // Aggregated Child Repo Events
+  {
+    const aggTimeline = report.subject.aggregated_event_timeline;
+    if (aggTimeline?.length > 0) {
+      const aggRows = aggTimeline.map((evt) => [
+        `<code>${esc(evt.timestamp || 'n/a')}</code>`,
+        `<span class="badge" style="background:#4a90d9">${esc(evt.repo_id || '?')}</span>`,
+        `<code>${esc(evt.type)}</code>`,
+        esc(evt.summary),
+      ]);
+      sections.push(`<div class="section">${htmlSection('Aggregated Child Repo Events', htmlTable(['Timestamp', 'Repo', 'Event Type', 'Summary'], aggRows))}</div>`);
+    } else {
+      sections.push(`<div class="section">${htmlSection('Aggregated Child Repo Events', '<p>No child repo events.</p>')}</div>`);
+    }
   }
 
   // Barrier Summary
