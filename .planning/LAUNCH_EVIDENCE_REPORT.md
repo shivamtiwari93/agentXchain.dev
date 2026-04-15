@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.103.0
+# Launch Evidence Report — AgentXchain v2.104.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.103.0 release: governed decision-authority enforcement now survives the real acceptance path, config validation rejects invalid authority levels, and authority metadata persists through context/export/report surfaces. 4698 tests / 1003 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.104.0 release: governed planning artifacts can now be regenerated with `agentxchain generate planning`, the scaffold contract is centralized in one builder, and tagged publish verification now proves the release workflow contract via the publish-gate subset. 4710 tests / 1004 suites / 0 failures.
 
 ---
 

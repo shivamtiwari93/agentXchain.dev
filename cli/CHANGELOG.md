@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.104.0
+
+`2.104.0` closes a workflow-kit recovery gap and hardens the tagged publish gate around the actual workflow contract.
+
+- New governed recovery command: `agentxchain generate planning` restores scaffold-owned planning artifacts without re-running `init`
+- Shared planning-artifact builder now keeps `init` and `generate planning` on one source of truth for governed baseline files, template files, and workflow-kit placeholders
+- New release-gate proof: tagged publish verification now includes `release-docs-content.test.js`, so workflow-contract regressions fail before npm publish instead of slipping past the narrowed gate
+- CLI, README, and quickstart docs now surface `generate planning` as the scaffold recovery path
+- 4710 tests / 1004 suites / 0 failures
+
 ## 2.103.0
 
 - Decision authority now enforces repo-decision overrides through the real governed acceptance path instead of comparing against an undefined overriding role

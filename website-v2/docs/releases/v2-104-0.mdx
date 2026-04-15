@@ -1,0 +1,36 @@
+---
+sidebar_position: 0
+title: "v2.104.0 Release Notes"
+description: "Governed planning artifacts can now be regenerated on demand, and the tagged publish gate now proves the workflow contract instead of skipping it."
+---
+
+# AgentXchain v2.104.0
+
+`v2.104.0` adds a governed recovery command for planning artifacts and closes a hole in the narrowed publish gate.
+
+**Released:** 2026-04-15
+
+## What Changed
+
+- New command: `agentxchain generate planning` restores scaffold-owned governed planning files without re-running `init`.
+- `init` and `generate planning` now share one planning-artifact builder, so baseline files, template-specific files, and workflow-kit placeholders come from the same contract instead of duplicated string blobs.
+- Tagged publish verification now includes `cli/test/release-docs-content.test.js` inside the `--publish-gate` subset. That was missing from the first narrowed gate, which meant the release workflow contract itself could regress while publish preflight still reported green.
+- CLI docs, quickstart, and both READMEs now document `generate planning` as the recovery path for deleted scaffold-owned planning files.
+
+## Why This Matters
+
+Workflow-kit onboarding was still brittle: if an operator deleted scaffold-owned planning docs, the only real recovery path was to re-run `init` or repair files manually. That is bad governed UX and it duplicated planning-artifact logic in two places.
+
+This release fixes both sides of that problem. Operators now get an explicit regeneration command, and the scaffold logic is centralized so `init` and regeneration cannot quietly drift apart. At the same time, the tagged publish gate now proves the workflow contract that actually creates release truth, instead of trusting a narrowed subset that forgot to cover its own release-docs workflow assertions.
+
+## Proof
+
+- New spec: `.planning/GENERATE_PLANNING_COMMAND_SPEC.md`
+- New reusable builder: `cli/src/lib/planning-artifacts.js`
+- New command coverage: `cli/test/generate-command.test.js`
+- New publish-gate workflow-contract proof in `cli/test/release-preflight.test.js`
+- Release docs / front-door drift guards updated in `cli/test/docs-frontdoor-workflow-kit.test.js` and `cli/test/docs-cli-command-map-content.test.js`
+
+## Evidence
+
+- 4710 tests / 1004 suites / 0 failures
