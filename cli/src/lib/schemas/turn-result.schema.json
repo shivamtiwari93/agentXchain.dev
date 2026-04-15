@@ -76,6 +76,16 @@
           "rationale": {
             "type": "string",
             "minLength": 1
+          },
+          "durability": {
+            "type": "string",
+            "enum": ["run", "repo"],
+            "description": "Decision persistence scope. 'run' (default) dies with the run; 'repo' persists across runs as a binding constraint."
+          },
+          "overrides": {
+            "type": "string",
+            "pattern": "^DEC-\\d+$",
+            "description": "ID of an active repo-durable decision this decision supersedes."
           }
         }
       }

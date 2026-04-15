@@ -325,6 +325,8 @@ function checkPlaceholder(errors, fieldPath, value) {
   }
 }
 
+const VALID_DURABILITIES = ['run', 'repo'];
+
 function validateDecision(dec, index) {
   const errors = [];
   const prefix = `decisions[${index}]`;
@@ -343,6 +345,17 @@ function validateDecision(dec, index) {
   }
   if (typeof dec.rationale !== 'string' || !dec.rationale.trim()) {
     errors.push(`${prefix}.rationale must be a non-empty string.`);
+  }
+  if (dec.durability !== undefined && !VALID_DURABILITIES.includes(dec.durability)) {
+    errors.push(`${prefix}.durability must be one of: ${VALID_DURABILITIES.join(', ')}.`);
+  }
+  if (dec.overrides !== undefined) {
+    if (typeof dec.overrides !== 'string' || !/^DEC-\d+$/.test(dec.overrides)) {
+      errors.push(`${prefix}.overrides must match pattern DEC-NNN.`);
+    }
+    if (dec.overrides === dec.id) {
+      errors.push(`${prefix}.overrides cannot reference itself.`);
+    }
   }
   return errors;
 }

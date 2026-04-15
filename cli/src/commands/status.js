@@ -105,6 +105,7 @@ function renderGovernedStatus(context, opts) {
       state,
       provenance: state?.provenance || null,
       inherited_context: state?.inherited_context || null,
+      repo_decisions: state?.repo_decisions || null,
       continuity,
       connector_health: connectorHealth,
       workflow_kit_artifacts: workflowKitArtifacts,
@@ -132,6 +133,9 @@ function renderGovernedStatus(context, opts) {
   }
   if (state?.inherited_context?.parent_run_id) {
     console.log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${state.inherited_context.parent_run_id} (${state.inherited_context.parent_status || 'unknown'})`)}`);
+  }
+  if (state?.repo_decisions?.length > 0) {
+    console.log(`  ${chalk.dim('Repo decisions:')} ${chalk.yellow(`${state.repo_decisions.length} active`)}`);
   }
   if (state?.accepted_integration_ref) {
     console.log(`  ${chalk.dim('Accepted:')} ${state.accepted_integration_ref}`);

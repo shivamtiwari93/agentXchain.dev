@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, readdirSync
 import { join } from 'path';
 import { getActiveTurn, getActiveTurns } from './governed-state.js';
 import { renderInheritedContextMarkdown } from './run-context-inheritance.js';
+import { renderRepoDecisionsMarkdown } from './repo-decisions.js';
 import {
   DISPATCH_INDEX_PATH,
   getDispatchAssignmentPath,
@@ -603,6 +604,14 @@ function renderContext(state, config, root, turn, role) {
     lines.push('Evaluate whether each delegation met its acceptance contract.');
     lines.push('Your turn result should assess the delegation outcomes and decide next steps.');
     lines.push('');
+  }
+
+  // Repo-level decisions that persist across runs
+  if (state.repo_decisions && state.repo_decisions.length > 0) {
+    const repoDecMd = renderRepoDecisionsMarkdown(state.repo_decisions);
+    if (repoDecMd) {
+      lines.push(repoDecMd);
+    }
   }
 
   // Inherited context from parent run (when --inherit-context was used)

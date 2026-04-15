@@ -113,6 +113,7 @@ import { intakeResolveCommand } from '../src/commands/intake-resolve.js';
 import { intakeStatusCommand } from '../src/commands/intake-status.js';
 import { demoCommand } from '../src/commands/demo.js';
 import { historyCommand } from '../src/commands/history.js';
+import { decisionsCommand } from '../src/commands/decisions.js';
 import { diffCommand } from '../src/commands/diff.js';
 import { eventsCommand } from '../src/commands/events.js';
 import { connectorCheckCommand } from '../src/commands/connector.js';
@@ -332,6 +333,15 @@ program
   .option('--lineage <run_id>', 'Show lineage chain for a specific run')
   .option('-d, --dir <path>', 'Project directory')
   .action(historyCommand);
+
+program
+  .command('decisions')
+  .description('Show repo-level decisions that persist across governed runs')
+  .option('-j, --json', 'Output as JSON')
+  .option('-a, --all', 'Include overridden decisions')
+  .option('-s, --show <id>', 'Show details for a specific decision (e.g. DEC-042)')
+  .option('-d, --dir <path>', 'Project directory')
+  .action(decisionsCommand);
 
 program
   .command('diff <left_run_id> <right_run_id>')

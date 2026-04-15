@@ -83,6 +83,19 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `inherited_context` | Read-only summary inherited from a parent run via `--inherit-context` — `null` when absent |
 | `dashboard_session` | Snapshot of local dashboard-daemon status at export time |
 | `delegation_summary` | Delegation chain summary derived from accepted history — `null` when history is unavailable |
+| `repo_decisions` | Cross-run repo-level decisions — `null` when no repo decisions exist |
+
+### `summary.repo_decisions`
+
+When present (non-null), provides a structured view of repo-level decisions that persist across runs:
+
+| Field | Meaning |
+| --- | --- |
+| `total` | Total number of repo decisions (active + overridden) |
+| `active_count` | Number of currently active repo decisions |
+| `overridden_count` | Number of overridden repo decisions |
+| `active` | Array of active decisions (`id`, `category`, `statement`, `role`, `run_id`) |
+| `overridden` | Array of overridden decisions (`id`, `overridden_by`, `statement`) |
 
 ### `summary.dashboard_session`
 
@@ -137,6 +150,7 @@ When present, the run export collects:
 - `.agentxchain/state.json`
 - `.agentxchain/history.jsonl`
 - `.agentxchain/decision-ledger.jsonl`
+- `.agentxchain/repo-decisions.jsonl`
 - `.agentxchain/hook-audit.jsonl`
 - `.agentxchain/hook-annotations.jsonl`
 - `.agentxchain/notification-audit.jsonl`

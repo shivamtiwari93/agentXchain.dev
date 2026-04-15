@@ -45,6 +45,12 @@ import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
 import { buildDefaultRunProvenance } from './run-provenance.js';
 import {
+  getActiveRepoDecisions,
+  appendRepoDecision,
+  overrideRepoDecision,
+  validateOverride,
+} from './repo-decisions.js';
+import {
   replayVerificationMachineEvidence,
   summarizeVerificationReplay,
 } from './verification-replay.js';
@@ -1908,6 +1914,7 @@ export function initializeGovernedRun(root, config, options = {}) {
   const runId = generateId('run');
   const now = new Date().toISOString();
   const provenance = buildDefaultRunProvenance(options.provenance);
+  const repoDecisions = getActiveRepoDecisions(root);
   const updatedState = {
     ...state,
     run_id: runId,
@@ -1922,6 +1929,7 @@ export function initializeGovernedRun(root, config, options = {}) {
     },
     provenance,
     inherited_context: options.inherited_context || null,
+    repo_decisions: repoDecisions.length > 0 ? repoDecisions : null,
   };
 
   writeState(root, updatedState);
@@ -2423,6 +2431,23 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   }
 
   const turnResult = validation.turnResult;
+
+  // Validate cross-run decision overrides against repo-decisions.jsonl
+  if (turnResult.decisions && turnResult.decisions.length > 0) {
+    for (const dec of turnResult.decisions) {
+      if (dec.overrides) {
+        const overrideCheck = validateOverride(root, dec);
+        if (!overrideCheck.ok) {
+          return {
+            ok: false,
+            error: `Override validation failed: ${overrideCheck.error}`,
+            error_code: 'override_validation_failed',
+          };
+        }
+      }
+    }
+  }
+
   const stagingFile = join(root, resolvedStagingPath);
   const now = new Date().toISOString();
   const baseline = currentTurn.baseline || null;
@@ -3296,10 +3321,35 @@ function _acceptGovernedTurnLocked(root, config, opts) {
   };
   writeAcceptanceJournal(root, journal);
 
-  // ── Commit order: history → ledger → talk → state → cleanup → journal ─
+  // ── Commit order: history → ledger → repo-decisions → talk → state → cleanup → journal ─
   appendJsonl(root, HISTORY_PATH, historyEntry);
   for (const entry of ledgerEntries) {
     appendJsonl(root, LEDGER_PATH, entry);
+  }
+  // Persist repo-durable decisions and process overrides
+  if (turnResult.decisions && turnResult.decisions.length > 0) {
+    for (const dec of turnResult.decisions) {
+      // Process override first (marks target as overridden in repo-decisions.jsonl)
+      if (dec.overrides) {
+        overrideRepoDecision(root, dec.overrides, dec.id);
+      }
+      // Write to repo-decisions.jsonl if repo-durable or overriding a repo decision
+      if ((dec.durability || 'run') === 'repo' || dec.overrides) {
+        appendRepoDecision(root, {
+          id: dec.id,
+          run_id: state.run_id,
+          turn_id: turnResult.turn_id,
+          role: turnResult.role,
+          phase: state.phase,
+          category: dec.category,
+          statement: dec.statement,
+          rationale: dec.rationale,
+          status: 'active',
+          overridden_by: null,
+          created_at: now,
+        });
+      }
+    }
   }
   appendTalk(root, talkSection);
   writeState(root, updatedState);

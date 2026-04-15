@@ -992,6 +992,7 @@ function buildRunSubject(artifact) {
       recovery_summary: recoverySummary,
       continuity,
       workflow_kit_artifacts: extractWorkflowKitArtifacts(artifact),
+      repo_decisions: artifact.summary?.repo_decisions || null,
     },
     artifacts: {
       history_entries: artifact.summary?.history_entries || 0,
@@ -1290,6 +1291,14 @@ export function formatGovernanceReportText(report) {
         for (const delegation of chain.delegations) {
           lines.push(`      ${delegation.delegation_id} -> ${delegation.to_role} | ${delegation.status} | child: ${delegation.child_turn_id || 'pending'} | ${delegation.charter}`);
         }
+      }
+    }
+
+    if (run.repo_decisions?.active?.length > 0) {
+      lines.push('', 'Repo Decisions:');
+      lines.push(`  Active: ${run.repo_decisions.active_count}  Overridden: ${run.repo_decisions.overridden_count}`);
+      for (const d of run.repo_decisions.active) {
+        lines.push(`  - ${d.id} (${d.category}): ${d.statement}`);
       }
     }
 
@@ -1775,6 +1784,16 @@ export function formatGovernanceReportMarkdown(report) {
           const charter = delegation.charter.replace(/\|/g, '\\|');
           lines.push(`| ${parentRole} | ${parentTurn} | ${outcome} | ${reviewTurn} | \`${delegation.delegation_id}\` → \`${delegation.to_role}\` | \`${delegation.child_turn_id || 'pending'}\` | \`${delegation.status}\` | ${charter} |`);
         }
+      }
+    }
+
+    if (run.repo_decisions?.active?.length > 0) {
+      lines.push('', '## Repo Decisions', '');
+      lines.push(`Active: ${run.repo_decisions.active_count} | Overridden: ${run.repo_decisions.overridden_count}`, '');
+      lines.push('| ID | Category | Statement | Role | Run |', '|----|----------|-----------|------|-----|');
+      for (const d of run.repo_decisions.active) {
+        const stmt = (d.statement || '').replace(/\|/g, '\\|');
+        lines.push(`| ${d.id} | ${d.category} | ${stmt} | ${d.role || '—'} | \`${(d.run_id || '').slice(0, 12)}\` |`);
       }
     }
 

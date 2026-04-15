@@ -8,6 +8,7 @@ import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-co
 import { loadCoordinatorState } from './coordinator-state.js';
 import { normalizeRunProvenance } from './run-provenance.js';
 import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
+import { readRepoDecisions } from './repo-decisions.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
 
@@ -30,6 +31,7 @@ export const RUN_EXPORT_INCLUDED_ROOTS = [
   '.agentxchain/session.json',
   '.agentxchain/history.jsonl',
   '.agentxchain/decision-ledger.jsonl',
+  '.agentxchain/repo-decisions.jsonl',
   '.agentxchain/hook-audit.jsonl',
   '.agentxchain/hook-annotations.jsonl',
   '.agentxchain/notification-audit.jsonl',
@@ -205,6 +207,20 @@ function buildDashboardSessionSummary(root) {
     pid: null,
     url: null,
     started_at: null,
+  };
+}
+
+export function buildRepoDecisionsSummary(root) {
+  const all = readRepoDecisions(root);
+  if (!all || all.length === 0) return null;
+  const active = all.filter(d => d.status === 'active');
+  const overridden = all.filter(d => d.status === 'overridden');
+  return {
+    total: all.length,
+    active_count: active.length,
+    overridden_count: overridden.length,
+    active: active.map(d => ({ id: d.id, category: d.category, statement: d.statement, role: d.role, run_id: d.run_id })),
+    overridden: overridden.map(d => ({ id: d.id, overridden_by: d.overridden_by, statement: d.statement })),
   };
 }
 
@@ -448,6 +464,7 @@ export function buildRunExport(startDir = process.cwd()) {
         coordinator_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/multirepo/')),
         dashboard_session: buildDashboardSessionSummary(root),
         delegation_summary: buildDelegationSummary(files),
+        repo_decisions: buildRepoDecisionsSummary(root),
       },
       workspace: buildRunWorkspaceMetadata(root),
       files,
