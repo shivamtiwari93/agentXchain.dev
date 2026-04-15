@@ -252,6 +252,9 @@ Each successful child repo entry then embeds the full governed run export for th
 - file-entry integrity by recomputing `bytes` and `sha256` from `content_base64`
 - `data` truth for `json`, `jsonl`, and `text`
 - run-export summary fields against exported `state` and `files`
+- `summary.delegation_summary` reconstructed from embedded `.agentxchain/history.jsonl` — verifies `total_delegations_issued` and `delegation_chains` match the history entries
+- `summary.repo_decisions` reconstructed from embedded `.agentxchain/repo-decisions.jsonl` — verifies `total`, `active_count`, `overridden_count`, and decision arrays match the file
+- `summary.dashboard_session` schema validation — verifies status enum, PID/URL/started_at types, and status-consistent invariants (e.g., `running` requires a PID, `not_running` requires all-null fields)
 - coordinator-export summary fields against exported multirepo state and barriers
 - coordinator `summary.aggregated_events` consistency against embedded child-repo `events.jsonl` data when that summary is present
 - recursive verification of each nested child export when `repos.<repo_id>.ok === true`

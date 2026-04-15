@@ -204,6 +204,244 @@ function verifyAggregatedEventsSummary(artifact, errors) {
   }
 }
 
+function buildExpectedDelegationSummary(files) {
+  const historyData = files?.['.agentxchain/history.jsonl']?.data;
+  if (!Array.isArray(historyData)) {
+    return null;
+  }
+
+  const parentTurns = new Map();
+  const childTurns = new Map();
+  const reviewTurns = new Map();
+
+  for (const entry of historyData) {
+    if (entry.delegations_issued && Array.isArray(entry.delegations_issued)) {
+      parentTurns.set(entry.turn_id, {
+        role: entry.role,
+        delegations_issued: entry.delegations_issued,
+      });
+    }
+    if (entry.delegation_context) {
+      childTurns.set(entry.delegation_context.delegation_id, {
+        turn_id: entry.turn_id,
+        status: entry.status || 'completed',
+      });
+    }
+    if (entry.delegation_review) {
+      reviewTurns.set(entry.delegation_review.parent_turn_id, {
+        turn_id: entry.turn_id,
+        results: entry.delegation_review.results || [],
+      });
+    }
+  }
+
+  let totalDelegationsIssued = 0;
+  const delegationChains = [];
+
+  for (const [parentTurnId, parent] of parentTurns) {
+    totalDelegationsIssued += parent.delegations_issued.length;
+
+    const review = reviewTurns.get(parentTurnId);
+    const reviewResultsByDelegation = new Map();
+    if (review) {
+      for (const r of review.results) {
+        if (r.delegation_id) {
+          reviewResultsByDelegation.set(r.delegation_id, r);
+        }
+      }
+    }
+
+    const delegations = parent.delegations_issued.map((del) => {
+      const child = childTurns.get(del.id);
+      const reviewResult = reviewResultsByDelegation.get(del.id);
+      return {
+        delegation_id: del.id,
+        to_role: del.to_role,
+        charter: del.charter,
+        required_decision_ids: Array.isArray(del.required_decision_ids) ? del.required_decision_ids : [],
+        satisfied_decision_ids: Array.isArray(reviewResult?.satisfied_decision_ids) ? reviewResult.satisfied_decision_ids : [],
+        missing_decision_ids: Array.isArray(reviewResult?.missing_decision_ids) ? reviewResult.missing_decision_ids : [],
+        status: reviewResult?.status || child?.status || 'pending',
+        child_turn_id: child?.turn_id || null,
+      };
+    });
+
+    let outcome;
+    if (!review) {
+      outcome = 'pending';
+    } else {
+      const statuses = delegations.map((d) => d.status);
+      const allCompleted = statuses.every((s) => s === 'completed');
+      const allFailed = statuses.every((s) => s === 'failed');
+      if (allCompleted) outcome = 'completed';
+      else if (allFailed) outcome = 'failed';
+      else outcome = 'mixed';
+    }
+
+    delegationChains.push({
+      parent_turn_id: parentTurnId,
+      parent_role: parent.role,
+      delegations,
+      review_turn_id: review?.turn_id || null,
+      outcome,
+    });
+  }
+
+  return {
+    total_delegations_issued: totalDelegationsIssued,
+    delegation_chains: delegationChains,
+  };
+}
+
+function verifyDelegationSummary(artifact, errors) {
+  const summary = artifact.summary?.delegation_summary;
+  const expected = buildExpectedDelegationSummary(artifact.files);
+
+  // Both absent — valid
+  if (summary == null && expected == null) {
+    return;
+  }
+
+  // One present, one absent — mismatch
+  if (summary == null && expected != null) {
+    if (expected.total_delegations_issued > 0) {
+      addError(errors, 'summary.delegation_summary', 'is null but history.jsonl contains delegation entries');
+    }
+    return;
+  }
+  if (summary != null && expected == null) {
+    addError(errors, 'summary.delegation_summary', 'claims delegations but no history.jsonl in export');
+    return;
+  }
+
+  if (summary.total_delegations_issued !== expected.total_delegations_issued) {
+    addError(errors, 'summary.delegation_summary.total_delegations_issued', 'must match reconstructed delegation count');
+  }
+
+  if (!isDeepStrictEqual(summary.delegation_chains, expected.delegation_chains)) {
+    addError(errors, 'summary.delegation_summary.delegation_chains', 'must match reconstructed delegation chains from history.jsonl');
+  }
+}
+
+function buildExpectedRepoDecisionsSummary(files) {
+  const repoDecisionsData = files?.['.agentxchain/repo-decisions.jsonl']?.data;
+  if (!Array.isArray(repoDecisionsData) || repoDecisionsData.length === 0) {
+    return null;
+  }
+
+  const active = repoDecisionsData.filter((d) => d.status === 'active');
+  const overridden = repoDecisionsData.filter((d) => d.status === 'overridden');
+
+  return {
+    total: repoDecisionsData.length,
+    active_count: active.length,
+    overridden_count: overridden.length,
+    active: active.map((d) => ({
+      id: d.id,
+      category: d.category,
+      statement: d.statement,
+      role: d.role,
+      run_id: d.run_id,
+    })),
+    overridden: overridden.map((d) => ({
+      id: d.id,
+      overridden_by: d.overridden_by,
+      statement: d.statement,
+    })),
+  };
+}
+
+function verifyRepoDecisionsSummary(artifact, errors) {
+  const summary = artifact.summary?.repo_decisions;
+  const hasFile = '.agentxchain/repo-decisions.jsonl' in (artifact.files || {});
+  const expected = buildExpectedRepoDecisionsSummary(artifact.files);
+
+  if (summary === null && expected === null) {
+    return;
+  }
+  if (summary === undefined && expected === null) {
+    return;
+  }
+
+  if (summary !== null && summary !== undefined && !hasFile && expected === null) {
+    addError(errors, 'summary.repo_decisions', 'claims repo decisions but no .agentxchain/repo-decisions.jsonl in export');
+    return;
+  }
+
+  if (summary === null && expected !== null) {
+    addError(errors, 'summary.repo_decisions', 'is null but repo-decisions.jsonl contains entries');
+    return;
+  }
+
+  if (summary !== null && expected === null) {
+    addError(errors, 'summary.repo_decisions', 'claims repo decisions but repo-decisions.jsonl is empty');
+    return;
+  }
+
+  if (summary.total !== expected.total) {
+    addError(errors, 'summary.repo_decisions.total', 'must match reconstructed repo decision count');
+  }
+  if (summary.active_count !== expected.active_count) {
+    addError(errors, 'summary.repo_decisions.active_count', 'must match reconstructed active count');
+  }
+  if (summary.overridden_count !== expected.overridden_count) {
+    addError(errors, 'summary.repo_decisions.overridden_count', 'must match reconstructed overridden count');
+  }
+  if (!isDeepStrictEqual(summary.active, expected.active)) {
+    addError(errors, 'summary.repo_decisions.active', 'must match reconstructed active decisions from repo-decisions.jsonl');
+  }
+  if (!isDeepStrictEqual(summary.overridden, expected.overridden)) {
+    addError(errors, 'summary.repo_decisions.overridden', 'must match reconstructed overridden decisions from repo-decisions.jsonl');
+  }
+}
+
+const VALID_DASHBOARD_STATUSES = new Set(['running', 'pid_only', 'stale', 'not_running']);
+
+function verifyDashboardSessionSummary(artifact, errors) {
+  const session = artifact.summary?.dashboard_session;
+  if (session === undefined) {
+    return;
+  }
+
+  if (session === null || typeof session !== 'object' || Array.isArray(session)) {
+    addError(errors, 'summary.dashboard_session', 'must be an object when present');
+    return;
+  }
+
+  if (!VALID_DASHBOARD_STATUSES.has(session.status)) {
+    addError(errors, 'summary.dashboard_session.status', `must be one of: ${[...VALID_DASHBOARD_STATUSES].join(', ')}`);
+    return;
+  }
+
+  if (session.pid !== null && (!Number.isInteger(session.pid) || session.pid <= 0)) {
+    addError(errors, 'summary.dashboard_session.pid', 'must be a positive integer or null');
+  }
+
+  if (session.url !== null && typeof session.url !== 'string') {
+    addError(errors, 'summary.dashboard_session.url', 'must be a string or null');
+  }
+
+  if (session.started_at !== null && (typeof session.started_at !== 'string' || Number.isNaN(Date.parse(session.started_at)))) {
+    addError(errors, 'summary.dashboard_session.started_at', 'must be a valid ISO timestamp or null');
+  }
+
+  if (session.status === 'not_running') {
+    if (session.pid !== null) {
+      addError(errors, 'summary.dashboard_session.pid', 'must be null when status is not_running');
+    }
+    if (session.url !== null) {
+      addError(errors, 'summary.dashboard_session.url', 'must be null when status is not_running');
+    }
+    if (session.started_at !== null) {
+      addError(errors, 'summary.dashboard_session.started_at', 'must be null when status is not_running');
+    }
+  }
+
+  if (session.status === 'running' && (session.pid === null || !Number.isInteger(session.pid) || session.pid <= 0)) {
+    addError(errors, 'summary.dashboard_session.pid', 'must be a positive integer when status is running');
+  }
+}
+
 function countJsonl(files, relPath) {
   return Array.isArray(files?.[relPath]?.data) ? files[relPath].data.length : 0;
 }
@@ -334,6 +572,10 @@ function verifyRunExport(artifact, errors) {
   if (artifact.summary.coordinator_present !== expectedCoordinatorPresent) {
     addError(errors, 'summary.coordinator_present', 'must match multirepo file presence');
   }
+
+  verifyDelegationSummary(artifact, errors);
+  verifyRepoDecisionsSummary(artifact, errors);
+  verifyDashboardSessionSummary(artifact, errors);
 }
 
 function verifyCoordinatorExport(artifact, errors) {

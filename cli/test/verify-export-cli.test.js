@@ -428,6 +428,287 @@ describe('verify export CLI', () => {
     }
   });
 
+  it('AT-VERIFY-DEL-001: export with delegations verifies when summary matches history', () => {
+    const root = createGovernedProject();
+    try {
+      // Add delegation history entries
+      writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+        { turn_id: 'turn_001', role: 'dev', status: 'completed' },
+        {
+          turn_id: 'turn_002', role: 'lead', status: 'completed',
+          delegations_issued: [
+            { id: 'del_001', to_role: 'dev', charter: 'Build feature', required_decision_ids: [] },
+          ],
+        },
+        {
+          turn_id: 'turn_003', role: 'dev', status: 'completed',
+          delegation_context: { delegation_id: 'del_001', parent_turn_id: 'turn_002' },
+        },
+        {
+          turn_id: 'turn_004', role: 'lead', status: 'completed',
+          delegation_review: {
+            parent_turn_id: 'turn_002',
+            results: [{ delegation_id: 'del_001', status: 'completed', satisfied_decision_ids: [], missing_decision_ids: [] }],
+          },
+        },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DEL-002: tampered total_delegations_issued fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+        { turn_id: 'turn_001', role: 'dev', status: 'completed' },
+        {
+          turn_id: 'turn_002', role: 'lead', status: 'completed',
+          delegations_issued: [
+            { id: 'del_001', to_role: 'dev', charter: 'Build feature', required_decision_ids: [] },
+          ],
+        },
+        {
+          turn_id: 'turn_003', role: 'dev', status: 'completed',
+          delegation_context: { delegation_id: 'del_001', parent_turn_id: 'turn_002' },
+        },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.delegation_summary.total_delegations_issued = 99;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.delegation_summary.total_delegations_issued')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DEL-003: tampered delegation chain outcome fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'history.jsonl'), [
+        {
+          turn_id: 'turn_002', role: 'lead', status: 'completed',
+          delegations_issued: [
+            { id: 'del_001', to_role: 'dev', charter: 'Build feature', required_decision_ids: [] },
+          ],
+        },
+        {
+          turn_id: 'turn_003', role: 'dev', status: 'completed',
+          delegation_context: { delegation_id: 'del_001', parent_turn_id: 'turn_002' },
+        },
+        {
+          turn_id: 'turn_004', role: 'lead', status: 'completed',
+          delegation_review: {
+            parent_turn_id: 'turn_002',
+            results: [{ delegation_id: 'del_001', status: 'completed', satisfied_decision_ids: [], missing_decision_ids: [] }],
+          },
+        },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.delegation_summary.delegation_chains[0].outcome = 'failed';
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.delegation_summary.delegation_chains')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DEL-004: no delegations in history passes verification', () => {
+    const root = createGovernedProject();
+    try {
+      // Default history has no delegations — summary should have zero count
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      assert.equal(artifact.summary.delegation_summary.total_delegations_issued, 0);
+      assert.deepStrictEqual(artifact.summary.delegation_summary.delegation_chains, []);
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-REPO-001: export with repo decisions verifies when summary matches file', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        { id: 'DEC-100', status: 'active', category: 'architecture', statement: 'Use REST', role: 'dev', run_id: 'run_001' },
+        { id: 'DEC-200', status: 'overridden', overridden_by: 'DEC-300', statement: 'Use GraphQL' },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-REPO-002: tampered active_count fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        { id: 'DEC-100', status: 'active', category: 'architecture', statement: 'Use REST', role: 'dev', run_id: 'run_001' },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.repo_decisions.active_count = 99;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.repo_decisions.active_count')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-REPO-003: fabricated active decision not in JSONL fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        { id: 'DEC-100', status: 'active', category: 'architecture', statement: 'Use REST', role: 'dev', run_id: 'run_001' },
+      ]);
+
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.repo_decisions.active.push({
+        id: 'DEC-FAKE', category: 'security', statement: 'Fabricated decision', role: 'admin', run_id: 'run_fake',
+      });
+      artifact.summary.repo_decisions.total = 2;
+      artifact.summary.repo_decisions.active_count = 2;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.repo_decisions')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-REPO-004: no repo-decisions.jsonl with null summary passes', () => {
+    const root = createGovernedProject();
+    try {
+      // Default project has no repo-decisions.jsonl
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      assert.equal(artifact.summary.repo_decisions, null);
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DASH-001: valid dashboard_session schema passes verification', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      // Dashboard should be not_running in temp dir
+      assert.equal(artifact.summary.dashboard_session.status, 'not_running');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DASH-002: invalid dashboard_session status enum fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.dashboard_session.status = 'bogus_status';
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.dashboard_session.status')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DASH-003: running status with null PID fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.dashboard_session = {
+        status: 'running', pid: null, url: 'http://localhost:4200', started_at: '2026-04-15T00:00:00Z',
+      };
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.dashboard_session.pid')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-DASH-004: not_running status with non-null PID fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      const artifactPath = exportToFile(root);
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.summary.dashboard_session = {
+        status: 'not_running', pid: 12345, url: null, started_at: null,
+      };
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.dashboard_session.pid')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-VERIFY-EXPORT-010: coordinator aggregated_events cannot claim failed child repo events', () => {
     const root = createCoordinatorWorkspace();
     try {
