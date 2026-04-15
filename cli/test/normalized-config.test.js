@@ -62,6 +62,28 @@ describe('validateV4Config', () => {
     assert.ok(result.errors.some(e => e.includes('write_authority')));
   });
 
+  it('accepts integer decision_authority from fixture', () => {
+    const fixture = loadFixture('decision-authority-v4.json');
+    const result = validateV4Config(fixture);
+    assert.equal(result.ok, true, `Unexpected errors: ${result.errors.join(', ')}`);
+  });
+
+  it('rejects non-integer decision_authority', () => {
+    const fixture = loadFixture('decision-authority-v4.json');
+    fixture.roles.dev.decision_authority = 20.5;
+    const result = validateV4Config(fixture);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('decision_authority must be an integer between 0 and 99')));
+  });
+
+  it('rejects out-of-range decision_authority', () => {
+    const fixture = loadFixture('decision-authority-v4.json');
+    fixture.roles.pm.decision_authority = 100;
+    const result = validateV4Config(fixture);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('decision_authority must be an integer between 0 and 99')));
+  });
+
   it('rejects role referencing unknown runtime', () => {
     const result = validateV4Config({
       schema_version: '1.0',

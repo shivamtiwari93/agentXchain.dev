@@ -366,6 +366,11 @@ export function validateV4Config(data, projectRoot) {
       if (!VALID_WRITE_AUTHORITIES.includes(role.write_authority)) {
         errors.push(`Role "${id}": write_authority must be one of: ${VALID_WRITE_AUTHORITIES.join(', ')}`);
       }
+      if (role.decision_authority !== undefined && role.decision_authority !== null) {
+        if (!Number.isInteger(role.decision_authority) || role.decision_authority < 0 || role.decision_authority > 99) {
+          errors.push(`Role "${id}": decision_authority must be an integer between 0 and 99`);
+        }
+      }
       if (typeof role.runtime !== 'string' || !role.runtime.trim()) errors.push(`Role "${id}": runtime required`);
     }
   }

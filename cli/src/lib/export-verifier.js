@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { summarizeRepoDecisions } from './repo-decisions.js';
 
 const SUPPORTED_EXPORT_SCHEMA_VERSIONS = new Set(['0.2', '0.3']);
 const VALID_FILE_FORMATS = new Set(['json', 'jsonl', 'text']);
@@ -369,42 +370,18 @@ function verifyDelegationSummary(artifact, errors) {
   }
 }
 
-function buildExpectedRepoDecisionsSummary(files) {
+function buildExpectedRepoDecisionsSummary(files, config = null) {
   const repoDecisionsData = files?.['.agentxchain/repo-decisions.jsonl']?.data;
   if (!Array.isArray(repoDecisionsData) || repoDecisionsData.length === 0) {
     return null;
   }
-
-  const active = repoDecisionsData.filter((d) => d.status === 'active');
-  const overridden = repoDecisionsData.filter((d) => d.status === 'overridden');
-
-  return {
-    total: repoDecisionsData.length,
-    active_count: active.length,
-    overridden_count: overridden.length,
-    active: active.map((d) => ({
-      id: d.id,
-      category: d.category,
-      statement: d.statement,
-      role: d.role,
-      run_id: d.run_id,
-      overrides: d.overrides || null,
-      durability: d.durability || 'repo',
-    })),
-    overridden: overridden.map((d) => ({
-      id: d.id,
-      statement: d.statement,
-      overridden_by: d.overridden_by,
-      overrides: d.overrides || null,
-      durability: d.durability || 'repo',
-    })),
-  };
+  return summarizeRepoDecisions(repoDecisionsData, config);
 }
 
 function verifyRepoDecisionsSummary(artifact, errors) {
   const summary = artifact.summary?.repo_decisions;
   const hasFile = '.agentxchain/repo-decisions.jsonl' in (artifact.files || {});
-  const expected = buildExpectedRepoDecisionsSummary(artifact.files);
+  const expected = buildExpectedRepoDecisionsSummary(artifact.files, artifact.config || null);
 
   if (summary === null && expected === null) {
     return;

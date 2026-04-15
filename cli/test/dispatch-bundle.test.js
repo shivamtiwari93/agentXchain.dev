@@ -1572,6 +1572,33 @@ describe('dispatch bundle: review context sufficiency (gate-file content)', () =
     assert.match(context, /line 60/);
     assert.ok(!context.includes('line 61'), 'line 61 should not appear in truncated preview');
   });
+
+  it('AT-RDCTX-001: CONTEXT.md annotates repo-decision authority when configured', () => {
+    config.roles.pm.decision_authority = 30;
+    config.roles.dev.decision_authority = 20;
+    writeFileSync(
+      join(root, '.agentxchain', 'repo-decisions.jsonl'),
+      `${JSON.stringify({
+        id: 'DEC-100',
+        status: 'active',
+        category: 'architecture',
+        statement: 'Use PostgreSQL',
+        role: 'pm',
+        run_id: 'run_prior',
+        durability: 'repo',
+      })}\n`,
+    );
+
+    initializeGovernedRun(root, config);
+    assignGovernedTurn(root, config, 'dev');
+    const state = readJson(root, STATE_PATH);
+
+    writeDispatchBundle(root, state, config);
+    const context = readFileSync(join(root, bundleDirFor(state), 'CONTEXT.md'), 'utf8');
+
+    assert.match(context, /When both roles declare `decision_authority`/);
+    assert.match(context, /\*\*DEC-100\*\* \(architecture, by pm authority 30\): Use PostgreSQL/);
+  });
 });
 
 // ── AT-DPT-001/002: No TODO placeholders in PROMPT.md ───────────────────────

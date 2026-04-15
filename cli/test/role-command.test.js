@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -22,6 +22,15 @@ function createGovernedProject() {
   const dir = mkdtempSync(join(tmpdir(), 'agentxchain-role-'));
   const init = runCli(ROOT, ['init', '--governed', '--dir', dir, '-y']);
   assert.equal(init.status, 0, init.stderr || init.stdout);
+  return dir;
+}
+
+function createDecisionAuthorityProject() {
+  const dir = createGovernedProject();
+  const configPath = join(dir, 'agentxchain.json');
+  const config = JSON.parse(readFileSync(configPath, 'utf8'));
+  config.roles.dev.decision_authority = 20;
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
   return dir;
 }
 
@@ -89,6 +98,17 @@ describe('agentxchain role command', () => {
       assert.ok(role.mandate);
       assert.ok(role.write_authority);
       assert.ok(role.runtime);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-ROLE-004A: role show prints decision authority when configured', () => {
+    const dir = createDecisionAuthorityProject();
+    try {
+      const result = runCli(dir, ['role', 'show', 'dev']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      assert.match(result.stdout, /Decision:\s+20/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -37,31 +37,72 @@ export function getRepoDecisionById(root, decisionId) {
   return readRepoDecisions(root).find(d => d.id === decisionId) || null;
 }
 
-export function buildRepoDecisionsSummary(decisions) {
+export function getDecisionAuthorityMetadata(roleId, config) {
+  const resolved = resolveDecisionAuthority(roleId, config);
+  if (resolved === null) return null;
+  if (typeof resolved === 'object' && resolved.unknown) {
+    return {
+      level: resolved.level,
+      source: 'unknown_role',
+      role: roleId || null,
+    };
+  }
+  if (roleId === 'human') {
+    const explicitHumanAuthority = typeof config?.roles?.human?.decision_authority === 'number';
+    return {
+      level: resolved,
+      source: explicitHumanAuthority ? 'configured' : 'human_default',
+      role: roleId,
+    };
+  }
+  return {
+    level: resolved,
+    source: 'configured',
+    role: roleId || null,
+  };
+}
+
+export function summarizeRepoDecisions(decisions, config) {
   if (!Array.isArray(decisions) || decisions.length === 0) return null;
   const active = decisions.filter((d) => d.status === 'active');
   const overridden = decisions.filter((d) => d.status === 'overridden');
+  const addAuthority = (decision) => {
+    const authority = getDecisionAuthorityMetadata(decision.role, config);
+    return {
+      id: decision.id,
+      category: decision.category,
+      statement: decision.statement,
+      role: decision.role,
+      run_id: decision.run_id,
+      overrides: decision.overrides || null,
+      durability: decision.durability || 'repo',
+      authority_level: authority?.level ?? null,
+      authority_source: authority?.source || null,
+    };
+  };
   return {
     total: decisions.length,
     active_count: active.length,
     overridden_count: overridden.length,
-    active: active.map((d) => ({
-      id: d.id,
-      category: d.category,
-      statement: d.statement,
-      role: d.role,
-      run_id: d.run_id,
-      overrides: d.overrides || null,
-      durability: d.durability || 'repo',
-    })),
-    overridden: overridden.map((d) => ({
-      id: d.id,
-      overridden_by: d.overridden_by,
-      statement: d.statement,
-      overrides: d.overrides || null,
-      durability: d.durability || 'repo',
-    })),
+    active: active.map(addAuthority),
+    overridden: overridden.map((d) => {
+      const authority = getDecisionAuthorityMetadata(d.role, config);
+      return {
+        id: d.id,
+        overridden_by: d.overridden_by,
+        statement: d.statement,
+        overrides: d.overrides || null,
+        durability: d.durability || 'repo',
+        role: d.role || null,
+        authority_level: authority?.level ?? null,
+        authority_source: authority?.source || null,
+      };
+    }),
   };
+}
+
+export function buildRepoDecisionsSummary(decisions) {
+  return summarizeRepoDecisions(decisions, null);
 }
 
 // ── Write ───────────────────────────────────────────────────────────────────
@@ -183,17 +224,32 @@ function checkOverrideAuthority(overridingDecision, targetDecision, config) {
 
 // ── Render ──────────────────────────────────────────────────────────────────
 
-export function renderRepoDecisionsMarkdown(activeDecisions) {
+export function renderRepoDecisionsMarkdown(activeDecisions, config) {
   if (!activeDecisions || activeDecisions.length === 0) return '';
+  const hasAuthorityPolicy = Object.values(config?.roles || {}).some((role) => (
+    role && typeof role.decision_authority === 'number'
+  ));
   const lines = [
     '## Active Repo Decisions',
     '',
     'These decisions persist from prior governed runs. Comply or explicitly override with rationale.',
     '',
   ];
+  if (hasAuthorityPolicy) {
+    lines.push('When both roles declare `decision_authority`, overrides require authority greater than or equal to the originating role.');
+    lines.push('');
+  }
   for (const d of activeDecisions) {
+    const authority = getDecisionAuthorityMetadata(d.role, config);
+    const authorityText = authority
+      ? authority.source === 'human_default'
+        ? ' authority 100 (human default)'
+        : authority.source === 'unknown_role'
+          ? ' authority 0 (role no longer in config)'
+          : ` authority ${authority.level}`
+      : '';
     const supersedes = d.overrides ? ` Supersedes ${d.overrides}.` : '';
-    lines.push(`- **${d.id}** (${d.category}): ${d.statement}${supersedes}`);
+    lines.push(`- **${d.id}** (${d.category}, by ${d.role || 'unknown'}${authorityText}): ${d.statement}${supersedes}`);
   }
   lines.push('');
   return lines.join('\n');

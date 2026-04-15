@@ -483,4 +483,151 @@ describe('decisions CLI command', () => {
       rmSync(tmpRoot, { recursive: true, force: true });
     }
   });
+
+  it('shows decision authority in text output when configured', async () => {
+    const { execSync } = await import('node:child_process');
+    const cliPath = CLI_PATH;
+
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'axc-dec-cli5-'));
+    mkdirSync(join(tmpRoot, '.agentxchain'), { recursive: true });
+    writeFileSync(join(tmpRoot, 'agentxchain.json'), JSON.stringify({
+      schema_version: '1.0',
+      project: { name: 'test-cli5', id: 'proj_cli5' },
+      roles: {
+        architect: {
+          title: 'Architect',
+          mandate: 'Set direction',
+          write_authority: 'review_only',
+          decision_authority: 40,
+          runtime: 'manual-architect',
+        },
+      },
+      runtimes: { 'manual-architect': { type: 'manual' } },
+      routing: { planning: { entry_role: 'architect', allowed_next_roles: ['architect', 'human'] } },
+      gates: {},
+      hooks: {},
+    }));
+
+    appendRepoDecision(tmpRoot, {
+      id: 'DEC-042',
+      status: 'active',
+      category: 'architecture',
+      statement: 'Use PostgreSQL',
+      rationale: 'Proven relational DB',
+      role: 'architect',
+      phase: 'planning',
+      run_id: 'run_abc123',
+      turn_id: 'turn_001',
+      created_at: '2026-04-15T00:00:00Z',
+    });
+
+    try {
+      const output = execSync(`node "${cliPath}" decisions --show DEC-042 --dir ${tmpRoot}`, { encoding: 'utf8' });
+      assert.match(output, /Authority:\s+40 \(architect\)/);
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('decision authority acceptance path', () => {
+  it('rejects illegal override through acceptGovernedTurn', async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), 'axc-dec-accept-'));
+    try {
+      const { scaffoldGoverned } = await import('../src/commands/init.js');
+      const { initializeGovernedRun, assignGovernedTurn, acceptGovernedTurn, STAGING_PATH } = await import('../src/lib/governed-state.js');
+
+      scaffoldGoverned(tmpRoot, 'decision-authority-test');
+      const config = {
+        schema_version: 4,
+        protocol_mode: 'governed',
+        project: { id: 'decision-authority-test', name: 'Decision Authority Test', default_branch: 'main' },
+        roles: {
+          eng_director: {
+            title: 'Engineering Director',
+            mandate: 'Set direction.',
+            write_authority: 'review_only',
+            decision_authority: 50,
+            runtime_class: 'manual',
+            runtime_id: 'manual-director',
+          },
+          dev: {
+            title: 'Developer',
+            mandate: 'Implement safely.',
+            write_authority: 'authoritative',
+            decision_authority: 20,
+            runtime_class: 'local_cli',
+            runtime_id: 'local-dev',
+          },
+        },
+        runtimes: {
+          'manual-director': { type: 'manual' },
+          'local-dev': { type: 'local_cli' },
+        },
+        routing: {
+          implementation: { entry_role: 'dev', allowed_next_roles: ['dev', 'eng_director', 'human'] },
+        },
+        gates: {},
+        rules: {},
+        prompts: {},
+        files: { talk: 'TALK.md', history: '.agentxchain/history.jsonl', state: '.agentxchain/state.json' },
+        compat: { next_owner_source: 'state-json', lock_based_coordination: false, original_version: 4 },
+      };
+
+      appendRepoDecision(tmpRoot, {
+        id: 'DEC-900',
+        status: 'active',
+        category: 'architecture',
+        statement: 'Use GraphQL',
+        rationale: 'Director decision',
+        role: 'eng_director',
+        run_id: 'run_prior',
+        durability: 'repo',
+      });
+
+      const init = initializeGovernedRun(tmpRoot, config);
+      assert.equal(init.ok, true, init.error);
+      const assigned = assignGovernedTurn(tmpRoot, config, 'dev');
+      assert.equal(assigned.ok, true, assigned.error);
+
+      writeFileSync(join(tmpRoot, STAGING_PATH), JSON.stringify({
+        schema_version: '1.0',
+        run_id: assigned.state.run_id,
+        turn_id: assigned.state.current_turn.turn_id,
+        role: 'dev',
+        runtime_id: 'local-dev',
+        status: 'completed',
+        summary: 'Attempted override.',
+        decisions: [{
+          id: 'DEC-901',
+          category: 'architecture',
+          statement: 'Switch to REST',
+          rationale: 'Developer preference',
+          durability: 'repo',
+          overrides: 'DEC-900',
+        }],
+        objections: [],
+        files_changed: [],
+        artifacts_created: [],
+        verification: {
+          status: 'pass',
+          commands: ['echo ok'],
+          evidence_summary: 'All good.',
+          machine_evidence: [{ command: 'echo ok', exit_code: 0 }],
+        },
+        artifact: { type: 'review', ref: null },
+        proposed_next_role: 'dev',
+        phase_transition_request: null,
+        needs_human_reason: null,
+        cost: { input_tokens: 10, output_tokens: 5, usd: 0.001 },
+      }, null, 2));
+
+      const accepted = acceptGovernedTurn(tmpRoot, config);
+      assert.equal(accepted.ok, false);
+      assert.equal(accepted.error_code, 'override_validation_failed');
+      assert.match(accepted.error, /role 'dev' \(authority 20\) cannot override DEC-900 made by 'eng_director' \(authority 50\)/);
+    } finally {
+      rmSync(tmpRoot, { recursive: true, force: true });
+    }
+  });
 });

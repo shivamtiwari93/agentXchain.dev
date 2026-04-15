@@ -618,7 +618,7 @@ function renderContext(state, config, root, turn, role) {
 
   // Repo-level decisions that persist across runs
   if (state.repo_decisions && state.repo_decisions.length > 0) {
-    const repoDecMd = renderRepoDecisionsMarkdown(state.repo_decisions);
+    const repoDecMd = renderRepoDecisionsMarkdown(state.repo_decisions, config);
     if (repoDecMd) {
       lines.push(repoDecMd);
     }

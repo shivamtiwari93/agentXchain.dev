@@ -82,6 +82,12 @@ Authority:    30 (pm)
 ```
 
 `agentxchain role list` already shows `write_authority`; it now also shows `decision_authority` when configured.
+`agentxchain role show <role>` must print `Decision: <N>` when configured.
+
+### Dispatch / Report Surface
+
+- `CONTEXT.md` active repo decisions include the originating role and authority metadata when available so agents can see override constraints before attempting a supersession.
+- Export/report repo-decision summaries include `authority_level` and `authority_source` (`configured`, `human_default`, or `unknown_role`) so proof artifacts preserve the same authority context operators saw at runtime.
 
 ### Config Validation
 
@@ -116,6 +122,9 @@ Authority:    30 (pm)
 9. Config validation rejects `decision_authority` outside 0–99
 10. `agentxchain decisions --show` displays authority level
 11. `agentxchain role list` displays `decision_authority` when configured
+12. `agentxchain role show` displays `Decision: N` when configured
+13. `CONTEXT.md` repo decisions annotate role + authority when configured
+14. Export/report repo-decision summaries persist authority metadata and `verify export` rejects drift
 
 ## Open Questions
 

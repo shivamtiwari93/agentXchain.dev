@@ -8,7 +8,7 @@ import { loadCoordinatorConfig, COORDINATOR_CONFIG_FILE } from './coordinator-co
 import { loadCoordinatorState } from './coordinator-state.js';
 import { normalizeRunProvenance } from './run-provenance.js';
 import { getDashboardPid, getDashboardSession } from '../commands/dashboard.js';
-import { readRepoDecisions, buildRepoDecisionsSummary as summarizeRepoDecisions } from './repo-decisions.js';
+import { readRepoDecisions, summarizeRepoDecisions } from './repo-decisions.js';
 import { RUN_EVENTS_PATH } from './run-events.js';
 
 const EXPORT_SCHEMA_VERSION = '0.3';
@@ -211,8 +211,8 @@ function buildDashboardSessionSummary(root) {
   };
 }
 
-export function buildRepoDecisionsSummary(root) {
-  return summarizeRepoDecisions(readRepoDecisions(root));
+export function buildRepoDecisionsSummary(root, config = null) {
+  return summarizeRepoDecisions(readRepoDecisions(root), config);
 }
 
 export function buildDelegationSummary(files) {
@@ -461,7 +461,7 @@ export function buildRunExport(startDir = process.cwd()) {
         coordinator_present: Object.keys(files).some((path) => path.startsWith('.agentxchain/multirepo/')),
         dashboard_session: buildDashboardSessionSummary(root),
         delegation_summary: buildDelegationSummary(files),
-        repo_decisions: buildRepoDecisionsSummary(root),
+        repo_decisions: buildRepoDecisionsSummary(root, rawConfig),
       },
       workspace: buildRunWorkspaceMetadata(root),
       files,

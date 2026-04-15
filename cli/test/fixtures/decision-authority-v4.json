@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "id": "decision-authority-fixture",
+    "name": "Decision Authority Fixture"
+  },
+  "roles": {
+    "pm": {
+      "title": "Product Manager",
+      "mandate": "Set direction.",
+      "write_authority": "review_only",
+      "decision_authority": 30,
+      "runtime": "manual-pm"
+    },
+    "dev": {
+      "title": "Developer",
+      "mandate": "Implement safely.",
+      "write_authority": "authoritative",
+      "decision_authority": 20,
+      "runtime": "local-dev"
+    },
+    "qa": {
+      "title": "QA",
+      "mandate": "Challenge correctness.",
+      "write_authority": "review_only",
+      "decision_authority": 20,
+      "runtime": "manual-qa"
+    }
+  },
+  "runtimes": {
+    "manual-pm": { "type": "manual" },
+    "local-dev": { "type": "local_cli", "command": ["echo", "{prompt}"], "prompt_transport": "argv" },
+    "manual-qa": { "type": "manual" }
+  },
+  "routing": {
+    "planning": { "entry_role": "pm", "allowed_next_roles": ["pm", "dev", "qa", "human"] },
+    "implementation": { "entry_role": "dev", "allowed_next_roles": ["dev", "qa", "human"] },
+    "qa": { "entry_role": "qa", "allowed_next_roles": ["qa", "dev", "human"] }
+  },
+  "gates": {},
+  "hooks": {}
+}

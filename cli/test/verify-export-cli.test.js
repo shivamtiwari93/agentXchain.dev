@@ -635,6 +635,8 @@ describe('verify export CLI', () => {
       const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
       assert.equal(artifact.summary.repo_decisions.active[0].overrides, 'DEC-100');
       assert.equal(artifact.summary.repo_decisions.overridden[0].overridden_by, 'DEC-101');
+      assert.equal(artifact.summary.repo_decisions.active[0].authority_level, 0);
+      assert.equal(artifact.summary.repo_decisions.active[0].authority_source, 'unknown_role');
       const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
       assert.equal(result.status, 0, result.stderr);
       const report = JSON.parse(result.stdout);
@@ -704,6 +706,59 @@ describe('verify export CLI', () => {
       assert.equal(result.status, 0, result.stderr);
       const report = JSON.parse(result.stdout);
       assert.equal(report.overall, 'pass');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-VERIFY-REPO-005: tampered authority metadata fails verification', () => {
+    const root = createGovernedProject();
+    try {
+      writeJson(join(root, 'agentxchain.json'), {
+        schema_version: '1.0',
+        template: 'generic',
+        project: { id: 'verify-export', name: 'Verify Export', default_branch: 'main' },
+        roles: {
+          architect: {
+            title: 'Architect',
+            mandate: 'Set direction.',
+            write_authority: 'authoritative',
+            decision_authority: 40,
+            runtime: 'local-dev',
+          },
+        },
+        runtimes: {
+          'local-dev': {
+            type: 'local_cli',
+            command: ['echo', '{prompt}'],
+            prompt_transport: 'argv',
+          },
+        },
+        routing: {
+          implementation: {
+            entry_role: 'architect',
+            allowed_next_roles: ['architect', 'human'],
+          },
+        },
+        gates: {},
+        hooks: {},
+      });
+
+      writeJsonl(join(root, '.agentxchain', 'repo-decisions.jsonl'), [
+        { id: 'DEC-100', status: 'active', category: 'architecture', statement: 'Use REST', role: 'architect', run_id: 'run_001' },
+      ]);
+
+      const artifactPath = exportToFile(root, 'authority-artifact.json');
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      assert.equal(artifact.summary.repo_decisions.active[0].authority_level, 40);
+      artifact.summary.repo_decisions.active[0].authority_level = 99;
+      writeFileSync(artifactPath, JSON.stringify(artifact, null, 2) + '\n');
+
+      const result = runCli(root, ['verify', 'export', '--input', artifactPath, '--format', 'json']);
+      assert.equal(result.status, 1);
+      const report = JSON.parse(result.stdout);
+      assert.equal(report.overall, 'fail');
+      assert.ok(report.errors.some((e) => e.includes('summary.repo_decisions.active')));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

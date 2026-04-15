@@ -112,6 +112,9 @@ function showRole(roleId, roles, roleIds, opts) {
   console.log(`  Title:      ${r.title}`);
   console.log(`  Mandate:    ${r.mandate}`);
   console.log(`  Authority:  ${authority}`);
+  if (typeof r.decision_authority === 'number') {
+    console.log(`  Decision:   ${r.decision_authority}`);
+  }
   console.log(`  Runtime:    ${chalk.dim(r.runtime)}`);
   console.log('');
 }
