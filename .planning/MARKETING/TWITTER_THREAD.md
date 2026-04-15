@@ -49,7 +49,7 @@ All 4 adapter types proven live:
 - api_proxy (direct LLM API with proposal staging, proven with a real model)
 - MCP (stdio + streamable HTTP with Anthropic API)
 
-4,500+ tests. 102 conformance fixtures. Protocol v7 spec.
+4,500+ tests. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 

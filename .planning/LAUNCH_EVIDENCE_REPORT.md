@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.96.0
+# Launch Evidence Report — AgentXchain v2.96.1
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.96.0 release: Protocol v7 constitutional version bump with 21 new conformance fixtures across 4 new surfaces (delegation, decision_carryover, parallel_turns, event_lifecycle). 102 total conformance fixtures. 4568 tests / 978 suites / 0 failures. Docusaurus build clean.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.96.1 release: Protocol v7 conformance hardening with 6 new reject fixtures for parallel_turns and event_lifecycle. 108 total conformance fixtures. 4568 tests / 978 suites / 0 failures. Docusaurus build clean.
 
 ---
 

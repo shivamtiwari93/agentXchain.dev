@@ -1,0 +1,42 @@
+---
+sidebar_position: 1
+title: "v2.96.1 Release Notes"
+description: "Hardened protocol v7 conformance fixtures with 6 new reject tests for parallel turns and event lifecycle."
+---
+
+# AgentXchain v2.96.1
+
+`v2.96.1` hardens the protocol v7 conformance corpus with 6 new reject fixtures that close proof gaps identified during review. The conformance corpus grows from 102 to 108 fixtures.
+
+**Released:** 2026-04-15
+
+## Conformance Hardening
+
+### parallel_turns (3 new reject fixtures)
+
+- **PT-004**: `max_concurrent_turns: 0` fails validation (must be >= 1)
+- **PT-005**: `max_concurrent_turns: 5` fails validation (maximum is 4)
+- **PT-006**: `max_concurrent_turns: 2.5` fails validation (must be integer)
+
+The old PT-004 (turn-result validation in parallel-capable routing) was replaced. It only proved `validate_turn_result` passed in a parallel config — it did not test any parallel-specific behavior. The new reject fixtures prove the reference adapter correctly rejects invalid concurrency bounds.
+
+### event_lifecycle (4 new reject fixtures)
+
+- **EL-005**: `run_completed` not last event fails ordering validation
+- **EL-006**: Backwards timestamps fail ordering validation
+- **EL-007**: `turn_dispatched` without `turn.turn_id` fails event validation
+- **EL-008**: Timeline not starting with `run_started` fails ordering validation
+
+### Reference Adapter Enhancements
+
+- `validate_event` now enforces `turn.turn_id` for turn-scoped events (`turn_dispatched`, `turn_accepted`, `turn_rejected`).
+- `validateFixtureConfig` now checks `max_concurrent_turns` bounds (integer, 1-4) matching the production config validator.
+
+### Release Page Contract Fix
+
+- Fixed the v2.96.0 release page heading (was `# v2.96.0`, must be `# AgentXchain v2.96.0`) that prevented the npm publish workflow from completing. This corrective release includes the heading fix and the conformance hardening.
+
+## Evidence
+
+- 108 / 108 conformance fixtures passing (Tier 1: 77, Tier 2: 23, Tier 3: 8)
+- Docusaurus build: success

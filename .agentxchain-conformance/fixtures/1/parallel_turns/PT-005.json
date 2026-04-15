@@ -1,8 +1,8 @@
 {
-  "fixture_id": "PT-004",
+  "fixture_id": "PT-005",
   "tier": 1,
   "surface": "parallel_turns",
-  "description": "Config with max_concurrent_turns 0 fails validation (must be >= 1)",
+  "description": "Config with max_concurrent_turns 5 fails validation (maximum is 4)",
   "type": "reject",
   "setup": {
     "state": {},
@@ -19,7 +19,7 @@
         },
         "routing": {
           "implementation": {
-            "max_concurrent_turns": 0,
+            "max_concurrent_turns": 5,
             "allowed_next_roles": ["dev", "human"]
           }
         }

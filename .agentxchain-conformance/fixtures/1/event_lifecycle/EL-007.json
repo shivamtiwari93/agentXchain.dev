@@ -1,0 +1,27 @@
+{
+  "fixture_id": "EL-007",
+  "tier": 1,
+  "surface": "event_lifecycle",
+  "description": "turn_dispatched event missing turn.turn_id fails event validation",
+  "type": "reject",
+  "setup": {
+    "state": {},
+    "config": {}
+  },
+  "input": {
+    "operation": "validate_event",
+    "args": {
+      "event": {
+        "event_id": "evt_001",
+        "event_type": "turn_dispatched",
+        "timestamp": "2026-04-15T00:00:00Z",
+        "run_id": "run_001",
+        "turn": {}
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_event"
+  }
+}

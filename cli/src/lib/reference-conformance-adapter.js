@@ -97,6 +97,11 @@ function validateFixtureConfig(config) {
     if (route.exit_gate && !config.gates?.[route.exit_gate]) {
       errors.push(`Routing references unknown gate: "${route.exit_gate}"`);
     }
+    if ('max_concurrent_turns' in route) {
+      if (!Number.isInteger(route.max_concurrent_turns) || route.max_concurrent_turns < 1 || route.max_concurrent_turns > 4) {
+        errors.push(`Routing "${phase}": max_concurrent_turns must be an integer between 1 and 4`);
+      }
+    }
   }
 
   return errors;
@@ -870,6 +875,13 @@ function executeFixtureOperation(workspace, fixture) {
       }
       if (typeof event.timestamp !== 'string' || Number.isNaN(Date.parse(event.timestamp))) {
         errors.push('timestamp must be a valid ISO-8601 string');
+      }
+      // Turn-scoped events must have turn.turn_id
+      const turnScopedEvents = ['turn_dispatched', 'turn_accepted', 'turn_rejected'];
+      if (turnScopedEvents.includes(event.event_type)) {
+        if (!event.turn?.turn_id || typeof event.turn.turn_id !== 'string' || !event.turn.turn_id.trim()) {
+          errors.push(`${event.event_type} requires a non-empty turn.turn_id`);
+        }
       }
       if (errors.length > 0) {
         return { result: 'error', error_type: 'invalid_event', errors };
