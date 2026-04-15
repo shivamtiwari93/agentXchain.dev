@@ -27,6 +27,11 @@ import { render as renderDelegations } from '../dashboard/components/delegations
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
 import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
+import {
+  buildLiveMeta,
+  createLiveEventFromMessage,
+  shouldRefreshViewForLiveMessage,
+} from '../dashboard/live-observer.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -324,6 +329,57 @@ describe('App Shell — invalidation refresh contract', () => {
   });
 });
 
+describe('App Shell — live observer routing', () => {
+  it('AT-DLO-001: buildLiveMeta reports live freshness for recent connected refreshes', () => {
+    const meta = buildLiveMeta({
+      connected: true,
+      lastRefreshAt: '2026-04-15T16:10:00.000Z',
+      lastEvent: { type: 'turn_accepted', timestamp: '2026-04-15T16:09:59.000Z' },
+      scope: 'run',
+      now: Date.parse('2026-04-15T16:10:10.000Z'),
+    });
+
+    assert.equal(meta.freshness_state, 'live');
+    assert.equal(meta.freshness_label, 'Live');
+    assert.match(meta.event_detail, /turn_accepted/);
+  });
+
+  it('AT-DLO-002: buildLiveMeta reports stale freshness after the threshold', () => {
+    const meta = buildLiveMeta({
+      connected: true,
+      lastRefreshAt: '2026-04-15T16:10:00.000Z',
+      scope: 'coordinator',
+      now: Date.parse('2026-04-15T16:10:20.500Z'),
+    });
+
+    assert.equal(meta.freshness_state, 'stale');
+    assert.equal(meta.freshness_label, 'Stale');
+  });
+
+  it('extracts repo-local and coordinator live events from websocket payloads', () => {
+    const repoEvent = createLiveEventFromMessage({
+      type: 'event',
+      event: { event_type: 'turn_accepted', timestamp: '2026-04-15T16:10:00Z' },
+    }, '2026-04-15T16:10:01Z');
+    const coordinatorEvent = createLiveEventFromMessage({
+      type: 'coordinator_event',
+      repo_id: 'api',
+      event: { event_type: 'run_completed', timestamp: '2026-04-15T16:10:02Z' },
+    }, '2026-04-15T16:10:03Z');
+
+    assert.equal(repoEvent.type, 'turn_accepted');
+    assert.equal(coordinatorEvent.type, 'run_completed');
+    assert.equal(coordinatorEvent.repoId, 'api');
+  });
+
+  it('AT-DLO-006: refreshes coordinator-history views for coordinator events without inventing new routes', () => {
+    assert.equal(shouldRefreshViewForLiveMessage('cross-repo', 'coordinator_event'), true);
+    assert.equal(shouldRefreshViewForLiveMessage('gate', 'coordinator_event'), true);
+    assert.equal(shouldRefreshViewForLiveMessage('timeline', 'coordinator_event'), false);
+    assert.equal(shouldRefreshViewForLiveMessage('timeline', 'invalidate'), true);
+  });
+});
+
 // ── VIEWS registry contract ───────────────────────────────────────────────
 
 describe('App Shell — VIEWS registry', () => {
@@ -393,5 +449,11 @@ describe('App Shell — VIEWS registry', () => {
     for (const name of Object.keys(COMPONENTS)) {
       assert.ok(viewIds.includes(name), `${name} must exist in app.js VIEWS`);
     }
+  });
+
+  it('imports the live observer helper instead of open-coding freshness logic in the browser shell', () => {
+    assert.match(appSource, /buildLiveMeta/);
+    assert.match(appSource, /shouldRefreshViewForLiveMessage/);
+    assert.match(appSource, /createLiveEventFromMessage/);
   });
 });

@@ -1,3 +1,5 @@
+import { renderLiveStatus } from './live-status.js';
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -76,7 +78,7 @@ function describeEvent(entry) {
   }
 }
 
-export function render({ coordinatorState, coordinatorHistory = [] }) {
+export function render({ coordinatorState, coordinatorHistory = [], liveMeta = null }) {
   if (!coordinatorState) {
     return `<div class="placeholder"><h2>No Cross-Repo Timeline</h2><p>No coordinator run found. Start one with <code class="mono">agentxchain multi init</code></p></div>`;
   }
@@ -86,7 +88,9 @@ export function render({ coordinatorState, coordinatorHistory = [] }) {
     return `<div class="placeholder"><h2>Cross-Repo Timeline</h2><p>No coordinator history recorded yet.</p></div>`;
   }
 
-  let html = `<div class="timeline-view"><div class="section"><h3>Cross-Repo Timeline</h3><div class="turn-list">`;
+  let html = `<div class="timeline-view">`;
+  html += renderLiveStatus(liveMeta);
+  html += `<div class="section"><h3>Cross-Repo Timeline</h3><div class="turn-list">`;
   for (const entry of events) {
     const event = describeEvent(entry);
     const repoId = entry.repo_id || entry.target_repo_id || null;

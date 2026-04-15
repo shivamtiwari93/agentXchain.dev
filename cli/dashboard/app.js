@@ -18,6 +18,11 @@ import { render as renderArtifacts } from './components/artifacts.js';
 import { render as renderRunHistory } from './components/run-history.js';
 import { render as renderTimeouts } from './components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from './components/coordinator-timeouts.js';
+import {
+  buildLiveMeta,
+  createLiveEventFromMessage,
+  shouldRefreshViewForLiveMessage,
+} from './live-observer.js';
 
 const VIEWS = {
   timeline: { fetch: ['state', 'continuity', 'history', 'audit', 'annotations', 'connectors', 'coordinatorAudit', 'coordinatorAnnotations'], render: renderTimeline },
@@ -76,6 +81,12 @@ let activeViewName = null;
 let activeViewData = null;
 let dashboardSession = null;
 let actionInFlight = false;
+const liveObserverState = {
+  connected: false,
+  lastRefreshAt: null,
+  lastRunEvent: null,
+  lastCoordinatorEvent: null,
+};
 
 function escapeHtml(str) {
   if (str == null) return '';
@@ -132,19 +143,40 @@ async function pickInitialView() {
 }
 
 function buildRenderData(viewName, data) {
+  const liveMeta = viewName === 'timeline'
+    ? buildLiveMeta({
+      connected: liveObserverState.connected,
+      lastRefreshAt: liveObserverState.lastRefreshAt,
+      lastEvent: liveObserverState.lastRunEvent,
+      scope: 'run',
+    })
+    : viewName === 'cross-repo'
+      ? buildLiveMeta({
+        connected: liveObserverState.connected,
+        lastRefreshAt: liveObserverState.lastRefreshAt,
+        lastEvent: liveObserverState.lastCoordinatorEvent,
+        scope: 'coordinator',
+      })
+      : null;
+
   if (viewName === 'ledger') {
     return {
       ...data,
       filter: viewState.ledger,
+      liveMeta,
     };
   }
   if (viewName === 'hooks') {
     return {
       ...data,
       filter: viewState.hooks,
+      liveMeta,
     };
   }
-  return data;
+  return {
+    ...data,
+    liveMeta,
+  };
 }
 
 function renderView(viewName, data) {
@@ -183,9 +215,15 @@ async function loadView(viewName, { refresh = true } = {}) {
   activeViewName = viewName;
   if (shouldRefetch) {
     activeViewData = await fetchData(view.fetch);
+    liveObserverState.lastRefreshAt = new Date().toISOString();
   }
 
   renderView(viewName, activeViewData);
+}
+
+function rerenderActiveView() {
+  if (!activeViewName) return;
+  renderView(activeViewName, activeViewData);
 }
 
 // ── WebSocket connection ──────────────────────────────────────────────────
@@ -204,13 +242,30 @@ function connect() {
     statusDot.classList.remove('disconnected');
     statusLabel.textContent = 'Connected';
     reconnectDelay = 1000;
+    liveObserverState.connected = true;
     loadView(currentView());
   };
 
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
-      if (msg.type === 'invalidate') {
+      if (msg.type === 'event') {
+        liveObserverState.lastRunEvent = createLiveEventFromMessage(msg);
+        rerenderActiveView();
+        return;
+      }
+
+      if (msg.type === 'coordinator_event') {
+        liveObserverState.lastCoordinatorEvent = createLiveEventFromMessage(msg);
+        if (shouldRefreshViewForLiveMessage(currentView(), msg.type)) {
+          loadView(currentView());
+        } else {
+          rerenderActiveView();
+        }
+        return;
+      }
+
+      if (shouldRefreshViewForLiveMessage(currentView(), msg.type)) {
         loadView(currentView());
       }
     } catch {}
@@ -219,6 +274,8 @@ function connect() {
   ws.onclose = () => {
     statusDot.classList.add('disconnected');
     statusLabel.textContent = 'Disconnected';
+    liveObserverState.connected = false;
+    rerenderActiveView();
     setTimeout(() => {
       reconnectDelay = Math.min(reconnectDelay * 2, 30000);
       connect();

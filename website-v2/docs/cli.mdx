@@ -1241,8 +1241,8 @@ The shipped dashboard surface has thirteen top-level views:
 | View | Description |
 |------|-------------|
 | **Initiative** | First-glance multi-repo coordinator summary: repo runs, pending gate, blocked state, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
-| **Cross-Repo** | Coordinator event timeline across linked repos and workstreams |
-| **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
+| **Cross-Repo** | Coordinator event timeline across linked repos and workstreams, plus a live freshness banner showing websocket connection state, last dashboard refresh, and the last coordinator event seen |
+| **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, a live freshness banner showing websocket connection state, last dashboard refresh, and the last repo-local run event seen, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |
 | **Decisions** | Filterable decision ledger for governed turns; in coordinator workspaces it renders the coordinator decision ledger from `/api/coordinator/ledger` instead of a false empty state |
 | **Hooks** | Hook audit log plus persisted hook annotations; in coordinator workspaces it renders coordinator hook audit from `/api/coordinator/hooks/audit` and coordinator hook annotations from `/api/coordinator/hooks/annotations` alongside repo-local hook data |
@@ -1309,6 +1309,8 @@ WebSocket clients also receive real-time `coordinator_event` messages when child
 ```
 
 Clients can include `"coordinator_event"` in their subscribe filter to receive only coordinator-aggregated events.
+
+The dashboard app uses those websocket messages as a live observer surface, not just hidden transport. `Timeline` and `Cross-Repo` render a freshness banner showing whether the feed is live, stale, or disconnected, the last successful dashboard refresh time, and the latest relevant websocket event seen. `Cross-Repo` also refreshes itself on `coordinator_event` so child-repo progress becomes visible without manual reload archaeology.
 
 For repo-local runs, the bridge also exposes `GET /api/continuity`, a computed read-only endpoint that mirrors the `status --json` continuity contract: checkpoint metadata, stale-checkpoint warning state, `SESSION_RECOVERY.md` presence, exact recommended continuity command, and checkpoint-drift state. The Timeline view renders that continuity panel directly instead of forcing operators back to the terminal.
 

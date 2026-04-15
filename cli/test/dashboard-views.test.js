@@ -202,6 +202,26 @@ describe('Timeline View', () => {
     assert.ok(html.includes('Git HEAD has moved since checkpoint'));
     assert.ok(html.includes('Workspace was clean at checkpoint but is now dirty'));
   });
+
+  it('AT-DLO-003: renders live observer status for repo-local run freshness', () => {
+    const html = renderTimeline({
+      state: { run_id: 'run_live_001', status: 'running', phase: 'implementation', active_turns: {} },
+      history: [],
+      liveMeta: {
+        title: 'Live Run Feed',
+        freshness_state: 'live',
+        freshness_label: 'Live',
+        refresh_detail: 'Updated 2026-04-15T16:10:00Z',
+        connection_detail: 'WebSocket connected',
+        event_detail: 'Last run event: turn_accepted at 2026-04-15T16:09:58Z',
+      },
+    });
+
+    assert.ok(html.includes('Live Run Feed'));
+    assert.ok(html.includes('Updated 2026-04-15T16:10:00Z'));
+    assert.ok(html.includes('Last run event: turn_accepted at 2026-04-15T16:09:58Z'));
+    assert.ok(html.includes('WebSocket connected'));
+  });
 });
 
 // ── Ledger View ────────────────────────────────────────────────────────────
@@ -569,6 +589,28 @@ describe('Cross-Repo View', () => {
     assert.ok(html.includes('Unknown Event') || html.includes('mystery_event'));
     assert.ok(html.includes('Turn Dispatched'));
     assert.ok(html.indexOf('Unknown Event') < html.indexOf('Turn Dispatched') || html.indexOf('mystery_event') < html.indexOf('Turn Dispatched'));
+  });
+
+  it('AT-DLO-004: renders live observer status for coordinator freshness', () => {
+    const html = renderCrossRepo({
+      coordinatorState: { super_run_id: 'srun_123' },
+      coordinatorHistory: [
+        { type: 'turn_dispatched', timestamp: '2026-04-15T16:10:05Z', repo_id: 'api', workstream_id: 'backend', repo_turn_id: 'turn_api_001' },
+      ],
+      liveMeta: {
+        title: 'Live Coordinator Feed',
+        freshness_state: 'stale',
+        freshness_label: 'Stale',
+        refresh_detail: 'Updated 2026-04-15T16:09:00Z',
+        connection_detail: 'WebSocket connected',
+        event_detail: 'Last coordinator event: turn_accepted from api at 2026-04-15T16:10:05Z',
+      },
+    });
+
+    assert.ok(html.includes('Live Coordinator Feed'));
+    assert.ok(html.includes('Stale'));
+    assert.ok(html.includes('Updated 2026-04-15T16:09:00Z'));
+    assert.ok(html.includes('Last coordinator event: turn_accepted from api at 2026-04-15T16:10:05Z'));
   });
 });
 

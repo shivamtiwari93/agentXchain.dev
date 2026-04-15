@@ -4,6 +4,8 @@
  * Pure render function: takes data, returns HTML string. Testable in Node.js.
  */
 
+import { renderLiveStatus } from './live-status.js';
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -304,7 +306,7 @@ function renderConnectorHealthPanel(connectorsPayload) {
 
 export { formatDuration, computeElapsed, formatTimestamp };
 
-export function render({ state, continuity, history, annotations, audit, connectors, coordinatorAudit = null, coordinatorAnnotations = null }) {
+export function render({ state, continuity, history, annotations, audit, connectors, coordinatorAudit = null, coordinatorAnnotations = null, liveMeta = null }) {
   if (!state) {
     return `<div class="placeholder"><h2>No Run</h2><p>No governed run found. Start one with <code class="mono">agentxchain init --governed</code></p></div>`;
   }
@@ -313,6 +315,8 @@ export function render({ state, continuity, history, annotations, audit, connect
   const activeTurns = state.active_turns ? Object.values(state.active_turns) : [];
 
   let html = `<div class="timeline-view">`;
+
+  html += renderLiveStatus(liveMeta);
 
   // Run header
   html += `<div class="run-header">

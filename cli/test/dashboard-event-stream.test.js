@@ -226,7 +226,7 @@ function writeGovernedRepo(root) {
     schema_version: '1.0',
     project: { id: 'event-stream-test', name: 'test', default_branch: 'main' },
     roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local' } },
-    runtimes: { local: { type: 'local_cli', command: ['echo'], prompt_transport: 'argv' } },
+    runtimes: { local: { type: 'local_cli', command: ['echo', '{prompt}'], prompt_transport: 'argv' } },
     routing: { delivery: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
     gates: {},
   });
@@ -243,6 +243,69 @@ function writeGovernedRepo(root) {
 
   writeFileSync(join(root, '.agentxchain/history.jsonl'), '');
   writeFileSync(join(root, '.agentxchain/decision-ledger.jsonl'), '');
+}
+
+function writeCoordinatorWorkspace(root) {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, '.agentxchain', 'multirepo'), { recursive: true });
+
+  writeJson(join(root, 'agentxchain-multi.json'), {
+    schema_version: '0.1',
+    project: { id: 'coord-live-test', name: 'Coordinator Live Test' },
+    repos: {
+      api: { path: './repos/api' },
+      web: { path: './repos/web' },
+    },
+    workstreams: {
+      sync: {
+        phase: 'implementation',
+        repos: ['api', 'web'],
+        entry_repo: 'api',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'sync' },
+    },
+    gates: {},
+  });
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_live_001',
+    project_id: 'coord-live-test',
+    status: 'active',
+    phase: 'implementation',
+    repo_runs: {
+      api: { run_id: 'run_api_001', status: 'linked', phase: 'implementation' },
+      web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+    },
+    pending_gate: null,
+  });
+
+  for (const repoId of ['api', 'web']) {
+    const repoRoot = join(root, 'repos', repoId);
+    writeGovernedRepo(repoRoot);
+    writeJson(join(repoRoot, 'agentxchain.json'), {
+      schema_version: '1.0',
+      project: { id: `${repoId}-live-test`, name: repoId, default_branch: 'main' },
+      roles: { dev: { title: 'Dev', mandate: 'Build.', write_authority: 'authoritative', runtime: 'local' } },
+      runtimes: { local: { type: 'local_cli', command: ['echo', '{prompt}'], prompt_transport: 'argv' } },
+      routing: { implementation: { entry_role: 'dev', allowed_next_roles: ['dev'] } },
+      gates: {},
+    });
+    writeJson(join(repoRoot, '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: `${repoId}-live-test`,
+      run_id: `run_${repoId}_001`,
+      status: 'active',
+      phase: 'implementation',
+      active_turns: {},
+      turn_sequence: 0,
+    });
+    writeFileSync(join(repoRoot, '.agentxchain', 'events.jsonl'), '');
+  }
 }
 
 function sleep(ms) {
@@ -451,6 +514,56 @@ describe('dashboard event stream — WebSocket push', () => {
         filteredEvents.map((message) => message.event.event_type),
         ['run_completed'],
       );
+    } finally {
+      client.close();
+    }
+  });
+});
+
+describe('dashboard event stream — coordinator WebSocket push', () => {
+  let root, bridge, port;
+
+  before(async () => {
+    root = tmpDir();
+    writeCoordinatorWorkspace(root);
+
+    const dashboardDir = join(root, 'dashboard');
+    mkdirSync(dashboardDir, { recursive: true });
+    writeFileSync(join(dashboardDir, 'index.html'), '<html></html>');
+
+    bridge = createBridgeServer({
+      agentxchainDir: join(root, '.agentxchain'),
+      dashboardDir,
+      port: 0,
+    });
+    const result = await bridge.start();
+    port = result.port;
+  });
+
+  after(async () => {
+    if (bridge) await bridge.stop();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('AT-DLO-005: pushes coordinator_event messages when child repo events change', async () => {
+    const client = await connectWebSocketClient(port);
+    try {
+      const expected = makeEvent('turn_accepted', {
+        timestamp: '2026-04-15T16:10:05Z',
+        turn: { turn_id: 'turn_api_002', role_id: 'dev' },
+      });
+
+      appendEventJsonl(join(root, 'repos', 'api'), expected);
+
+      const coordinatorMessage = await client.waitForMessage((message) => (
+        message.type === 'coordinator_event' &&
+        message.repo_id === 'api' &&
+        message.event?.event_id === expected.event_id
+      ), 7000);
+
+      assert.equal(coordinatorMessage.event.event_type, 'turn_accepted');
+      assert.equal(coordinatorMessage.repo_id, 'api');
+      assert.equal(coordinatorMessage.event.turn.turn_id, 'turn_api_002');
     } finally {
       client.close();
     }

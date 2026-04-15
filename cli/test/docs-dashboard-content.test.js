@@ -32,6 +32,7 @@ const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOA
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
+const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -166,6 +167,15 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(timelineRow.includes('coordinator hook audit'), 'Timeline row must describe coordinator hook audit visibility');
     assert.ok(timelineRow.includes('coordinator hook annotations') || timelineRow.includes('/api/coordinator/hooks/annotations'), 'Timeline row must describe coordinator hook annotations visibility');
   });
+
+  it('documents live observer freshness for timeline and cross-repo views', () => {
+    const timelineRow = CLI_DOCS.split('\n').find(l => l.includes('**Timeline**'));
+    const crossRepoRow = CLI_DOCS.split('\n').find(l => l.includes('**Cross-Repo**'));
+    assert.ok(timelineRow?.includes('live freshness banner'), 'Timeline row must describe live freshness visibility');
+    assert.ok(crossRepoRow?.includes('live freshness banner'), 'Cross-Repo row must describe live freshness visibility');
+    assert.ok(CLI_DOCS.includes('live, stale, or disconnected'), 'cli docs must describe the freshness states');
+    assert.ok(CLI_DOCS.includes('manual reload archaeology'), 'cli docs must describe the coordinator-event refresh behavior');
+  });
 });
 
 describe('Dashboard discoverability — front-door surfaces', () => {
@@ -216,5 +226,13 @@ describe('Dashboard continuity spec', () => {
     assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-002/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /`Blockers` view|Blockers view/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /first-glance overview surface/);
+  });
+
+  it('ships a durable spec for dashboard live observer freshness', () => {
+    assert.match(LIVE_OBSERVER_SPEC, /Dashboard Live Observer Spec/);
+    assert.match(LIVE_OBSERVER_SPEC, /AT-DLO-001/);
+    assert.match(LIVE_OBSERVER_SPEC, /coordinator_event/);
+    assert.match(LIVE_OBSERVER_SPEC, /Timeline/);
+    assert.match(LIVE_OBSERVER_SPEC, /Cross-Repo/);
   });
 });
