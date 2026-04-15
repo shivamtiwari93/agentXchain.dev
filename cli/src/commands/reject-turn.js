@@ -76,7 +76,7 @@ export async function rejectTurnCommand(opts) {
   console.log('');
 
   if (result.escalated) {
-    const recovery = deriveRecoveryDescriptor(result.state);
+    const recovery = deriveRecoveryDescriptor(result.state, config);
     if (recovery) {
       console.log(`  ${chalk.dim('Reason:')}       ${recovery.typed_reason}`);
       console.log(`  ${chalk.dim('Owner:')}        ${recovery.owner}`);

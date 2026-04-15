@@ -54,7 +54,7 @@ export async function acceptTurnCommand(opts = {}) {
     }
 
     if (result.error_code?.startsWith('hook_') || result.error_code === 'hook_blocked') {
-      const recovery = deriveRecoveryDescriptor(result.state);
+      const recovery = deriveRecoveryDescriptor(result.state, config);
       const activeTurn = result.state?.current_turn;
       const hookName = result.hookResults?.blocker?.hook_name
         || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
@@ -94,7 +94,7 @@ export async function acceptTurnCommand(opts = {}) {
       console.log(`  ${chalk.dim('Overlap:')}  ${(result.conflict.overlap_ratio * 100).toFixed(0)}%`);
       console.log(`  ${chalk.dim('Suggest:')}  ${result.conflict.suggested_resolution}`);
       if (result.state?.status === 'blocked') {
-        const recovery = deriveRecoveryDescriptor(result.state);
+        const recovery = deriveRecoveryDescriptor(result.state, config);
         if (recovery) {
           console.log(`  ${chalk.dim('Action:')}   ${recovery.recovery_action}`);
         }
@@ -177,7 +177,7 @@ export async function acceptTurnCommand(opts = {}) {
   }
   console.log('');
 
-  const recovery = deriveRecoveryDescriptor(result.state);
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   if (recovery) {
     console.log(`  ${chalk.dim('Reason:')}   ${recovery.typed_reason}`);
     console.log(`  ${chalk.dim('Owner:')}    ${recovery.owner}`);

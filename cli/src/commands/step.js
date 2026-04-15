@@ -167,13 +167,13 @@ export async function stepCommand(opts) {
 
   if (!skipAssignment) {
     if (state.pending_phase_transition || state.pending_run_completion) {
-      printRecoverySummary(state, 'This run is awaiting approval.');
+      printRecoverySummary(state, 'This run is awaiting approval.', config);
       process.exit(1);
     }
 
     if (state.status === 'blocked' && activeCount > 0) {
       if (!opts.resume) {
-        printRecoverySummary(state, 'This run is blocked on a retained turn.');
+        printRecoverySummary(state, 'This run is blocked on a retained turn.', config);
         process.exit(1);
       }
 
@@ -292,7 +292,7 @@ export async function stepCommand(opts) {
       const assignResult = assignGovernedTurn(root, config, roleId);
       if (!assignResult.ok) {
         if (assignResult.error_code?.startsWith('hook_') || assignResult.error_code === 'hook_blocked') {
-          printAssignmentHookFailure(assignResult, roleId);
+          printAssignmentHookFailure(assignResult, roleId, config);
         }
         console.log(chalk.red(`Failed to assign turn: ${assignResult.error}`));
         process.exit(1);
@@ -358,6 +358,7 @@ export async function stepCommand(opts) {
         turnId: turn.turn_id,
         roleId,
         action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+        config,
       });
       process.exit(1);
     }
@@ -738,6 +739,7 @@ export async function stepCommand(opts) {
         turnId: turn.turn_id,
         roleId,
         action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+        config,
       });
       process.exit(1);
     }
@@ -770,6 +772,7 @@ export async function stepCommand(opts) {
         turnId: turn.turn_id,
         roleId,
         action: `Fix or reconfigure the hook, then rerun agentxchain step --resume${turn.turn_id ? ` --turn ${turn.turn_id}` : ''}`,
+        config,
       });
       process.exit(1);
     }
@@ -780,14 +783,14 @@ export async function stepCommand(opts) {
     const acceptResult = acceptGovernedTurn(root, config, { turnId: turn.turn_id });
     if (!acceptResult.ok) {
       if (acceptResult.accepted && acceptResult.error_code?.startsWith('hook_')) {
-        printAcceptedHookFailure(acceptResult);
+        printAcceptedHookFailure(acceptResult, config);
       } else {
         console.log(chalk.red(`Acceptance failed: ${acceptResult.error}`));
       }
       process.exit(1);
     }
 
-    printAcceptSummary(acceptResult);
+    printAcceptSummary(acceptResult, config);
   } else {
     // Reject and potentially retry
     console.log(chalk.yellow('Validation failed:'));
@@ -809,7 +812,7 @@ export async function stepCommand(opts) {
       }
 
       if (rejectResult.escalated) {
-        printEscalationSummary(rejectResult);
+        printEscalationSummary(rejectResult, config);
       } else {
         console.log(chalk.yellow('Turn rejected for retry.'));
         console.log(`  Attempt: ${rejectResult.state?.current_turn?.attempt}`);
@@ -888,8 +891,8 @@ function blockStepForHookIssue(root, state, turn, { hookResults, phase, defaultD
   };
 }
 
-function printLifecycleHookFailure(title, result, { turnId, roleId, action }) {
-  const recovery = deriveRecoveryDescriptor(result.state);
+function printLifecycleHookFailure(title, result, { turnId, roleId, action, config }) {
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   const hookName = result.hookResults?.blocker?.hook_name
     || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
     || '(unknown)';
@@ -936,8 +939,8 @@ function resolveTargetRole(opts, state, config) {
   return resolved.roleId;
 }
 
-function printRecoverySummary(state, heading) {
-  const recovery = deriveRecoveryDescriptor(state);
+function printRecoverySummary(state, heading, config) {
+  const recovery = deriveRecoveryDescriptor(state, config);
   console.log(chalk.yellow(heading));
   if (!recovery) {
     return;
@@ -1008,8 +1011,8 @@ function printAssignmentWarnings(assignResult) {
   }
 }
 
-function printAssignmentHookFailure(result, roleId) {
-  const recovery = deriveRecoveryDescriptor(result.state);
+function printAssignmentHookFailure(result, roleId, config) {
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   const hookName = result.hookResults?.blocker?.hook_name
     || result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name
     || '(unknown)';
@@ -1035,8 +1038,8 @@ function printAssignmentHookFailure(result, roleId) {
   console.log('');
 }
 
-function printAcceptedHookFailure(result) {
-  const recovery = deriveRecoveryDescriptor(result.state);
+function printAcceptedHookFailure(result, config) {
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   const hookName = result.hookResults?.results?.find((entry) => entry.hook_name)?.hook_name || '(unknown)';
 
   console.log('');
@@ -1059,9 +1062,9 @@ function printAcceptedHookFailure(result) {
   console.log('');
 }
 
-function printAcceptSummary(result) {
+function printAcceptSummary(result, config) {
   const accepted = result.accepted;
-  const recovery = deriveRecoveryDescriptor(result.state);
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   console.log('');
   console.log(chalk.green('  Turn Accepted'));
   console.log(chalk.dim('  ' + '-'.repeat(44)));
@@ -1105,8 +1108,8 @@ function printAcceptSummary(result) {
   console.log('');
 }
 
-function printEscalationSummary(result) {
-  const recovery = deriveRecoveryDescriptor(result.state);
+function printEscalationSummary(result, config) {
+  const recovery = deriveRecoveryDescriptor(result.state, config);
   console.log('');
   console.log(chalk.red('  Turn Escalated'));
   console.log(chalk.dim('  ' + '-'.repeat(44)));
