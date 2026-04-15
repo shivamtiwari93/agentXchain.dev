@@ -454,6 +454,9 @@ export function buildRunExport(startDir = process.cwd()) {
         run_id: state?.run_id || null,
         status: state?.status || null,
         phase: state?.phase || null,
+        workflow_phase_order: config.routing && Object.keys(config.routing).length > 0
+          ? Object.keys(config.routing)
+          : null,
         provenance: normalizeRunProvenance(state?.provenance),
         inherited_context: state?.inherited_context || null,
         active_turn_ids: activeTurns,
@@ -640,6 +643,10 @@ export function buildCoordinatorExport(startDir = process.cwd()) {
         super_run_id: coordState?.super_run_id || null,
         status: coordState?.status || null,
         phase: coordState?.phase || null,
+        workflow_phase_order: rawConfig.routing && typeof rawConfig.routing === 'object'
+            && Object.keys(rawConfig.routing).length > 0
+          ? Object.keys(rawConfig.routing)
+          : null,
         repo_run_statuses: repoRunStatuses,
         barrier_count: barrierCount,
         history_entries: countJsonl(files, '.agentxchain/multirepo/history.jsonl'),

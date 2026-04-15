@@ -68,6 +68,7 @@ Every entry under `files` is keyed by its repo-relative path and carries the sam
 | `run_id` | Current governed run id or `null` |
 | `status` | Current run status or `null` |
 | `phase` | Current phase or `null` |
+| `workflow_phase_order` | Ordered array of phase names from the project's `routing` config, or `null` when no routing is defined. Used by `diff --export` for phase-aware regression detection |
 | `project_goal` | Optional project goal copied from `project.goal`, or `null` when unset |
 | `active_turn_ids` | Sorted keys from `state.active_turns` |
 | `retained_turn_ids` | Sorted keys from `state.retained_turns` |
@@ -213,6 +214,7 @@ When run from a coordinator workspace rooted by `agentxchain-multi.json`, the ex
 | `super_run_id` | Current coordinator run id or `null` |
 | `status` | Current coordinator status or `null` |
 | `phase` | Current coordinator phase or `null` |
+| `workflow_phase_order` | Ordered array of phase names from the coordinator's `routing` config, or `null` when no routing is defined |
 | `repo_run_statuses` | Repo status map derived from `.agentxchain/multirepo/state.json` |
 | `barrier_count` | Number of barrier objects in `.agentxchain/multirepo/barriers.json` |
 | `history_entries` | Count of `.agentxchain/multirepo/history.jsonl` records |

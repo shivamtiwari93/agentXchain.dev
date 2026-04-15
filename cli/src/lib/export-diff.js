@@ -193,6 +193,7 @@ function normalizeRunExport(artifact) {
     run_id: summary.run_id || null,
     status: summary.status || null,
     phase: summary.phase || null,
+    workflow_phase_order: Array.isArray(summary.workflow_phase_order) ? summary.workflow_phase_order : null,
     project_name: artifact.project?.name || null,
     project_goal: summary.project_goal || artifact.project?.goal || null,
     provenance_trigger: summary.provenance?.trigger || null,
@@ -228,6 +229,7 @@ function normalizeCoordinatorExport(artifact) {
     super_run_id: summary.super_run_id || null,
     status: summary.status || null,
     phase: summary.phase || null,
+    workflow_phase_order: Array.isArray(summary.workflow_phase_order) ? summary.workflow_phase_order : null,
     project_name: artifact.coordinator?.project_name || null,
     barrier_count: toNumber(summary.barrier_count),
     history_entries: toNumber(summary.history_entries),
@@ -411,6 +413,39 @@ function detectRunRegressions(left, right) {
       left: left.status,
       right: right.status,
     });
+  }
+
+  // Phase regression: backward movement in workflow phase order
+  if (left.phase && right.phase === null) {
+    // Phase disappeared — information loss
+    regressions.push({
+      id: `REG-PHASE-${String(++counter).padStart(3, '0')}`,
+      category: 'phase',
+      severity: 'warning',
+      message: `Phase regressed from "${left.phase}" to null (phase information lost)`,
+      field: 'phase',
+      left: left.phase,
+      right: null,
+    });
+  } else if (left.phase && right.phase && left.phase !== right.phase) {
+    // Use right export's phase order as canonical (or left if right doesn't have one)
+    const phaseOrder = right.workflow_phase_order || left.workflow_phase_order;
+    if (Array.isArray(phaseOrder) && phaseOrder.length > 0) {
+      const leftIndex = phaseOrder.indexOf(left.phase);
+      const rightIndex = phaseOrder.indexOf(right.phase);
+      // Only flag when both phases are known and right is earlier than left
+      if (leftIndex !== -1 && rightIndex !== -1 && rightIndex < leftIndex) {
+        regressions.push({
+          id: `REG-PHASE-${String(++counter).padStart(3, '0')}`,
+          category: 'phase',
+          severity: 'warning',
+          message: `Phase moved backward from "${left.phase}" (position ${leftIndex}) to "${right.phase}" (position ${rightIndex})`,
+          field: 'phase',
+          left: left.phase,
+          right: right.phase,
+        });
+      }
+    }
   }
 
   // Budget warn_mode regression

@@ -289,6 +289,121 @@ describe('Export diff regression detection', () => {
     });
   });
 
+  describe('Phase-aware regressions', () => {
+    it('AT-PHASE-001: backward phase movement produces REG-PHASE warning', () => {
+      const left = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'phase');
+      assert.ok(reg, 'should have phase regression');
+      assert.strictEqual(reg.severity, 'warning');
+      assert.ok(reg.message.includes('backward'));
+      assert.strictEqual(reg.left, 'implementation');
+      assert.strictEqual(reg.right, 'planning');
+    });
+
+    it('AT-PHASE-002: forward phase movement produces NO regression', () => {
+      const left = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const phaseRegs = result.diff.regressions.filter((r) => r.category === 'phase');
+      assert.strictEqual(phaseRegs.length, 0, 'forward movement should not be a regression');
+    });
+
+    it('AT-PHASE-003: same phase produces NO regression', () => {
+      const left = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const phaseRegs = result.diff.regressions.filter((r) => r.category === 'phase');
+      assert.strictEqual(phaseRegs.length, 0, 'same phase should not be a regression');
+    });
+
+    it('AT-PHASE-004: phase disappears (non-null -> null) produces REG-PHASE warning', () => {
+      const left = makeRunExport({
+        summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: null, workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'phase');
+      assert.ok(reg, 'should have phase regression for disappearing phase');
+      assert.strictEqual(reg.severity, 'warning');
+      assert.strictEqual(reg.left, 'implementation');
+      assert.strictEqual(reg.right, null);
+    });
+
+    it('AT-PHASE-005: phase appears (null -> non-null) produces NO regression', () => {
+      const left = makeRunExport({
+        summary: { phase: null, workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const phaseRegs = result.diff.regressions.filter((r) => r.category === 'phase');
+      assert.strictEqual(phaseRegs.length, 0, 'phase appearance should not be a regression');
+    });
+
+    it('AT-PHASE-006: no workflow_phase_order on either export produces NO phase regression', () => {
+      const left = makeRunExport({ summary: { phase: 'qa' } });
+      const right = makeRunExport({ summary: { phase: 'planning' } });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const phaseRegs = result.diff.regressions.filter((r) => r.category === 'phase');
+      assert.strictEqual(phaseRegs.length, 0, 'no phase order means no phase regression');
+    });
+
+    it('AT-PHASE-007: custom phase order backward produces regression', () => {
+      const customOrder = ['design', 'build', 'verify', 'release'];
+      const left = makeRunExport({
+        summary: { phase: 'release', workflow_phase_order: customOrder },
+      });
+      const right = makeRunExport({
+        summary: { phase: 'design', workflow_phase_order: customOrder },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'phase');
+      assert.ok(reg, 'should have phase regression with custom order');
+      assert.strictEqual(reg.left, 'release');
+      assert.strictEqual(reg.right, 'design');
+    });
+
+    it('AT-PHASE-008: coordinator phase backward movement produces regression', () => {
+      const left = makeCoordinatorExport({
+        summary: { phase: 'qa', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const right = makeCoordinatorExport({
+        summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+      });
+      const result = buildExportDiff(left, right);
+      assert.ok(result.ok);
+      const reg = result.diff.regressions.find((r) => r.category === 'phase');
+      assert.ok(reg, 'should have coordinator phase regression');
+      assert.strictEqual(reg.severity, 'warning');
+      assert.strictEqual(reg.left, 'qa');
+      assert.strictEqual(reg.right, 'planning');
+    });
+  });
+
   describe('CLI output', () => {
     it('AT-REG-008: text output includes Governance Regressions section', () => {
       const tmp = makeTmpDir();
@@ -305,6 +420,60 @@ describe('Export diff regression detection', () => {
         assert.strictEqual(result.status, 0);
         assert.ok(result.stdout.includes('Governance Regressions'), `should contain Governance Regressions section, got: ${result.stdout.slice(0, 500)}`);
         assert.ok(result.stdout.includes('REG-STATUS'), 'should contain REG-STATUS regression');
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it('AT-PHASE-009: text output includes phase regression in Governance Regressions section', () => {
+      const tmp = makeTmpDir();
+      try {
+        const leftExport = makeRunExport({
+          summary: { phase: 'qa', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+        });
+        const rightExport = makeRunExport({
+          summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+        });
+        const leftPath = join(tmp, 'left.json');
+        const rightPath = join(tmp, 'right.json');
+        writeFileSync(leftPath, JSON.stringify(leftExport));
+        writeFileSync(rightPath, JSON.stringify(rightExport));
+        const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export'], {
+          cwd: tmp, encoding: 'utf8', timeout: 15_000,
+        });
+        assert.strictEqual(result.status, 0);
+        assert.ok(result.stdout.includes('Governance Regressions'), 'should contain Governance Regressions section');
+        assert.ok(result.stdout.includes('REG-PHASE'), 'should contain REG-PHASE regression');
+        assert.ok(result.stdout.includes('backward'), 'should mention backward movement');
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it('AT-PHASE-010: JSON output includes phase regression with correct category/severity', () => {
+      const tmp = makeTmpDir();
+      try {
+        const leftExport = makeRunExport({
+          summary: { phase: 'implementation', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+        });
+        const rightExport = makeRunExport({
+          summary: { phase: 'planning', workflow_phase_order: ['planning', 'implementation', 'qa'] },
+        });
+        const leftPath = join(tmp, 'left.json');
+        const rightPath = join(tmp, 'right.json');
+        writeFileSync(leftPath, JSON.stringify(leftExport));
+        writeFileSync(rightPath, JSON.stringify(rightExport));
+        const result = spawnSync(process.execPath, [CLI_BIN, 'diff', leftPath, rightPath, '--export', '--json'], {
+          cwd: tmp, encoding: 'utf8', timeout: 15_000,
+        });
+        assert.strictEqual(result.status, 0);
+        const parsed = JSON.parse(result.stdout);
+        assert.ok(parsed.has_regressions, 'has_regressions should be true');
+        const phaseReg = parsed.regressions.find((r) => r.category === 'phase');
+        assert.ok(phaseReg, 'should have phase regression');
+        assert.strictEqual(phaseReg.severity, 'warning');
+        assert.strictEqual(phaseReg.left, 'implementation');
+        assert.strictEqual(phaseReg.right, 'planning');
       } finally {
         rmSync(tmp, { recursive: true, force: true });
       }
