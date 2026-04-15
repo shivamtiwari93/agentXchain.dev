@@ -9,7 +9,7 @@ const CLI_DOCS = readFileSync(join(__dirname, '..', '..', 'website-v2', 'docs', 
 
 describe('CLI docs versioning surface', () => {
   it('AT-PVS-005: validate docs distinguish protocol version from config generation', () => {
-    assert.match(CLI_DOCS, /protocol version:\s+`v6`/i);
+    assert.match(CLI_DOCS, /protocol version:\s+`v7`/i);
     assert.match(CLI_DOCS, /config generation:\s+`v4`/i);
     assert.match(CLI_DOCS, /config_schema_version/i);
   });

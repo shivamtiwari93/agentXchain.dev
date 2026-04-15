@@ -1,0 +1,30 @@
+{
+  "fixture_id": "EL-001",
+  "tier": 1,
+  "surface": "event_lifecycle",
+  "description": "Valid run event with all required fields passes validation",
+  "type": "validate",
+  "setup": {
+    "state": {},
+    "config": {}
+  },
+  "input": {
+    "operation": "validate_event",
+    "args": {
+      "event": {
+        "event_id": "evt_abc123",
+        "event_type": "run_started",
+        "timestamp": "2026-04-15T00:00:00Z",
+        "run_id": "run_001",
+        "phase": "planning",
+        "status": "active",
+        "turn": null,
+        "payload": {}
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "errors": []
+  }
+}

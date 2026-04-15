@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.96.0
+
+`2.96.0` bumps the protocol from v6 to v7, formalizing delegation chains, cross-run decision carryover, parallel turns, and event lifecycle as constitutional conformance surfaces.
+
+- Protocol version: v6 → v7 (non-breaking upgrade)
+- 21 new conformance fixtures across 4 new Tier 1 surfaces: `delegation` (8), `decision_carryover` (5), `parallel_turns` (4), `event_lifecycle` (4)
+- Total conformance corpus: 102 fixtures / 13 surfaces (was 81 / 9)
+- Reference adapter: added `validate_event` and `validate_event_ordering` operations
+- `PROTOCOL-v7.md` normative document created
+- All docs pages updated: protocol overview, reference, implementor guide, CLI, export schema, governance report, remote verification
+- 4568 tests / 978 suites / 0 failures
+- Conformance: 102 / 102 fixtures passing across all tiers (Tier 1: 71, Tier 2: 23, Tier 3: 8)
+
 ## 2.95.0
 
 `2.95.0` adds `agentxchain replay export` for offline post-mortem dashboard analysis of completed governed runs.

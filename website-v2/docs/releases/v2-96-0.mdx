@@ -1,0 +1,36 @@
+---
+sidebar_position: 1
+title: v2.96.0
+---
+
+# v2.96.0
+
+**Released:** 2026-04-15
+
+## Protocol v7 — Constitutional Version Bump
+
+This release elevates four v6 extensions to constitutional conformance surfaces, bumping the protocol version from v6 to v7. The conformance fixture corpus grows from 81 to 102 fixtures across 13 surfaces.
+
+### New Conformance Surfaces (Tier 1)
+
+- **`delegation`** (8 fixtures): Delegation chain validation — required fields, charter, to_role pattern, self-delegation rejection, max 5 delegations, mutual exclusivity with run completion, required_decision_ids, duplicate decision ID rejection.
+- **`decision_carryover`** (5 fixtures): Cross-run decision carryover — repo durability, invalid durability rejection, override validation, self-override rejection, default run durability.
+- **`parallel_turns`** (4 fixtures): Parallel dispatch validation — max_concurrent_turns config (1, 2, 4), turn result validation in parallel-capable routing.
+- **`event_lifecycle`** (4 fixtures): Run event lifecycle — event structure validation, invalid event_type rejection, event ordering (run_started first, turn_dispatched before turn_accepted), ordering violation detection.
+
+### Reference Adapter
+
+- Added `validate_event` operation: validates event structure (event_id, event_type, timestamp) against the `VALID_RUN_EVENTS` enum.
+- Added `validate_event_ordering` operation: validates event timeline ordering invariants (run_started first, run_completed last, turn_dispatched precedes turn_accepted, monotonic timestamps).
+
+### Docs
+
+- Protocol overview, protocol reference, implementor guide, CLI docs, export schema, governance report, and remote verification pages all updated to v7.
+- Version history table extended with v7 entry.
+- Conformance surface lists updated to include all 13 surfaces.
+
+### Evidence
+
+- 4568 tests / 978 suites / 0 failures
+- 102 / 102 conformance fixtures passing (Tier 1: 71, Tier 2: 23, Tier 3: 8)
+- Docusaurus build: success

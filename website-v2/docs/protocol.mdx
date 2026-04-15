@@ -1,20 +1,20 @@
 ---
 sidebar_position: 3
-title: Protocol v6
-description: "The protocol is the product. v6 is the current constitution."
+title: Protocol v7
+description: "The protocol is the product. v7 is the current constitution."
 ---
 
-# Protocol v6
+# Protocol v7
 
-The protocol is the product. It defines how agents collaborate under human governance: how turns are structured, how decisions are recorded, how phases advance through gates, and how humans retain final authority. v6 is the current constitution.
+The protocol is the product. It defines how agents collaborate under human governance: how turns are structured, how decisions are recorded, how phases advance through gates, and how humans retain final authority. v7 is the current constitution.
 
-Need the current normative boundary instead of the overview? See [Protocol Reference v6](./protocol-reference). Building a non-CLI runner? See [Runner Interface](/docs/runner-interface).
+Need the current normative boundary instead of the overview? See [Protocol Reference v7](./protocol-reference). Building a non-CLI runner? See [Runner Interface](/docs/runner-interface).
 
 ## Overview
 
-Protocol v6 closes the constitutional gap left by v5. In v5, multi-repo coordination was informal. v6 introduces the **coordinator initiative**: a first-class mechanism for governing work across multiple repositories with shared barriers, cross-repo context, synchronized gates, and explicit coordinator state.
+Protocol v7 elevates four v6 extensions to constitutional conformance surfaces: delegation chains, cross-run decision carryover, parallel turns, and run event lifecycle. These capabilities were implemented and shipped during v6 but were not verified by the conformance fixture corpus until v7.
 
-v6 also tightens the single-repo protocol with enforced challenge for `review_only` roles, structured verification evidence, and a decision ledger that preserves accepted decisions plus selected conflict-governance events.
+v6 closed the constitutional gap left by v5 with the coordinator initiative (multi-repo), enforced challenge for `review_only` roles, structured verification evidence, and the decision ledger. v7 builds on that foundation with hierarchical authority (delegation), governance continuity (repo-durable decisions), concurrent execution (parallel turns), and structured observability (event lifecycle).
 
 ## Version history
 
@@ -23,6 +23,7 @@ v6 also tightens the single-repo protocol with enforced challenge for `review_on
 | **v4** | 2025-Q1 | Initial governed mode. Single-repo only. Phases and roles. Manual adapter. No structured decisions or objections. |
 | **v5** | 2025-Q3 | Added `local_cli` and `api_proxy` adapters. Introduced decision/objection schema. Added verification evidence. Plugin system (script hooks). Dashboard. |
 | **v6** | 2026-Q1 | Coordinator initiative (multi-repo). `super_run_id` linking. Cross-repo barriers and gates. HTTP hooks. `review_only` objection enforcement. Decision ledger as constitutional record. Mixed artifact schemas: governed config `1.0`, governed state `1.1`, coordinator config/state `0.1`. |
+| **v7** | 2026-Q2 | Delegation chains with decision contracts. Cross-run decision carryover (`durability: "repo"`). Parallel turns (`max_concurrent_turns`). Run event lifecycle (`events.jsonl`). 102 conformance fixtures across 13 surfaces. |
 
 ## Repo-local governed run
 

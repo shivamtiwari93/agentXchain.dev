@@ -183,6 +183,13 @@ $PROMPT" --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --output-format stream-
 
 Read '$HUMAN_ROADMAP' FIRST — any unchecked items there are your top priority. Then read '$PROJECT/.planning/VISION.md', '$PROJECT/.planning/WAYS-OF-WORKING.md', and '$PROJECT/.planning/AGENT-TALK.md' for context. VISION.md is human-owned and must never be modified by you. Read any other project files as needed.
 
+GIT COMMIT RULE: When you make git commits, ALWAYS use the -m flag with a trailer line. Example:
+git commit -m \"feat: your commit message
+
+Co-Authored-By: GPT 5.4 (Codex) <noreply@openai.com>\"
+
+This is mandatory for every commit you make. Never omit the Co-Authored-By trailer.
+
 $PROMPT"
   fi
 

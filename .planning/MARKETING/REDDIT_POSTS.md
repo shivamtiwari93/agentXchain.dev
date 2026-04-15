@@ -29,8 +29,8 @@ AgentXchain fixes this with a constitutional governance layer:
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- 2,486+ tests across 534 suites. 81 conformance fixtures.
-- Protocol v6 spec published for third-party implementors
+- 4,500+ tests across 970+ suites. 102 conformance fixtures.
+- Protocol v7 spec published for third-party implementors
 
 **See it in 30 seconds (no API keys needed):**
 

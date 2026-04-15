@@ -53,16 +53,16 @@ Ship AgentXchain.dev on a mature OSS docs stack that can serve the current publi
 - `/docs/protocol-implementor-guide`
 - `/docs/continuous-delivery-intake`
 - `/docs/multi-repo`
-- `/docs/protocol-v6`
+- `/docs/protocol-v7`
 - `/docs/adapters`
 - `/docs/plugins`
 
 ### Normative source alias
 
-- `PROTOCOL-v6.md` remains the canonical repo-native markdown source for the current normative protocol text.
+- `PROTOCOL-v7.md` remains the canonical repo-native markdown source for the current normative protocol text.
 - `/docs/protocol` is the stable public alias for the current protocol page.
 - `/docs/protocol-reference` is the stable public alias for the current normative reference summary and boundary document.
-- `/docs/protocol-v6` is the versioned public permalink for the current normative protocol revision.
+- `/docs/protocol-v7` is the versioned public permalink for the current normative protocol revision.
 
 ## Design Constraints
 
@@ -103,7 +103,7 @@ The important constraint is operational, not theoretical: headers must be correc
 3. Public docs URLs in README and linked surfaces must use the Docusaurus route structure.
 4. Deployment scripts/workflows must not rely on cache-busting query strings when the build already emits hashed asset filenames.
 5. Deployment verification must inspect the bucket after upload, not stop at local build success.
-6. The docs surface must preserve the stable protocol overview alias (`/docs/protocol`), the stable protocol reference alias (`/docs/protocol-reference`), and the versioned permalink (`/docs/protocol-v6`) while the repo-native normative source remains `PROTOCOL-v6.md`.
+6. The docs surface must preserve the stable protocol overview alias (`/docs/protocol`), the stable protocol reference alias (`/docs/protocol-reference`), and the versioned permalink (`/docs/protocol-v7`) while the repo-native normative source remains `PROTOCOL-v7.md`.
 
 ## Acceptance Tests
 
@@ -113,7 +113,7 @@ The important constraint is operational, not theoretical: headers must be correc
 4. `gsutil stat gs://agentxchain.dev/index.html` shows short-cache metadata after deployment.
 5. At least one object under `gs://agentxchain.dev/assets/` shows immutable long-cache metadata after deployment.
 6. The landing page copy explicitly references long-horizon coding, lights-out software factories, and the `.dev` vs `.ai` split.
-7. The docs/planning surface keeps `PROTOCOL-v6.md`, `/docs/protocol`, and `/docs/protocol-v6` aligned as the current normative protocol references.
+7. The docs/planning surface keeps `PROTOCOL-v7.md`, `/docs/protocol`, and `/docs/protocol-v7` aligned as the current normative protocol references.
 
 ## Open Questions
 

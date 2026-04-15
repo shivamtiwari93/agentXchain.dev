@@ -1,0 +1,61 @@
+{
+  "fixture_id": "DC-004",
+  "tier": 1,
+  "surface": "decision_carryover",
+  "description": "Decision with self-override rejected at schema stage",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 1,
+          "allowed_next_roles": ["dev", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "dev",
+      "status": "completed",
+      "summary": "Self-overriding decision",
+      "artifact": { "type": "workspace", "files_modified": ["src/main.js"] },
+      "verification": { "status": "pass" },
+      "decisions": [
+        {
+          "id": "DEC-100",
+          "statement": "Use TypeScript",
+          "category": "architecture",
+          "overrides": "DEC-100"
+        }
+      ],
+      "objections": []
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "schema",
+    "warnings_allowed": true
+  }
+}

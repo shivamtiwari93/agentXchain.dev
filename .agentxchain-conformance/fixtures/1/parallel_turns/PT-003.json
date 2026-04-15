@@ -1,0 +1,33 @@
+{
+  "fixture_id": "PT-003",
+  "tier": 1,
+  "surface": "parallel_turns",
+  "description": "Config with max_concurrent_turns 1 passes validation (sequential mode)",
+  "type": "validate",
+  "setup": {
+    "state": {},
+    "config": {}
+  },
+  "input": {
+    "operation": "validate_config",
+    "args": {
+      "config": {
+        "schema_version": "1.0",
+        "project": { "id": "test", "name": "Test" },
+        "roles": {
+          "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" }
+        },
+        "routing": {
+          "implementation": {
+            "max_concurrent_turns": 1,
+            "allowed_next_roles": ["dev", "human"]
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "result": "success",
+    "errors": []
+  }
+}

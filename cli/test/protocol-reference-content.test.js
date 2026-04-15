@@ -78,11 +78,11 @@ describe('Protocol reference docs surface', () => {
   });
 
   it('has the expected frontmatter and doc links', () => {
-    assert.match(DOC, /title:\s*Protocol Reference v6/);
+    assert.match(DOC, /title:\s*Protocol Reference v7/);
     assert.match(DOC, /description:/);
     assert.match(DOC, /\.\/protocol\)/);
     assert.match(DOC, /\.\/protocol-implementor-guide\)/);
-    assert.match(DOC, /PROTOCOL-v6\.md/);
+    assert.match(DOC, /PROTOCOL-v7\.md/);
   });
 });
 
@@ -132,7 +132,7 @@ describe('Protocol reference contract', () => {
   it('explicitly rejects implementation leakage into the protocol boundary', () => {
     assert.match(DOC, /not normative/i);
     for (const term of ['dashboard', 'OpenAI', 'notifications.webhooks', 'CLI command names']) {
-      assert.ok(DOC.includes(term), `protocol reference must classify ${term} outside the v6 core`);
+      assert.ok(DOC.includes(term), `protocol reference must classify ${term} outside the v7 core`);
     }
   });
 

@@ -1,0 +1,68 @@
+{
+  "fixture_id": "DEL-001",
+  "tier": 1,
+  "surface": "delegation",
+  "description": "Valid delegation with all required fields passes turn result validation",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "pm",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "pm": { "title": "PM", "mandate": "Plan", "runtime": "manual" },
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 1,
+          "allowed_next_roles": ["pm", "dev", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "schema_version": "1.0",
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "pm",
+      "runtime_id": "manual",
+      "files_changed": [],
+      "proposed_next_role": "dev",
+      "status": "completed",
+      "summary": "Delegating implementation to dev",
+      "artifact": { "type": "review", "files_modified": [] },
+      "verification": { "status": "pass" },
+      "decisions": [],
+      "objections": [],
+      "delegations": [
+        {
+          "id": "del-001",
+          "to_role": "dev",
+          "charter": "Implement the feature as specified",
+          "acceptance_contract": ["Code compiles", "Tests pass"]
+        }
+      ]
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

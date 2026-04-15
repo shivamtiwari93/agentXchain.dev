@@ -1,0 +1,72 @@
+{
+  "fixture_id": "DEL-005",
+  "tier": 1,
+  "surface": "delegation",
+  "description": "More than 5 delegations in one turn rejected at protocol stage",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "pm",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "pm": { "title": "PM", "mandate": "Plan", "runtime": "manual" },
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" },
+        "qa": { "title": "QA", "mandate": "Test", "runtime": "manual" },
+        "docs": { "title": "Docs", "mandate": "Document", "runtime": "manual" },
+        "sec": { "title": "Security", "mandate": "Review", "runtime": "manual" },
+        "ops": { "title": "Ops", "mandate": "Deploy", "runtime": "manual" },
+        "arch": { "title": "Architect", "mandate": "Design", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 1,
+          "allowed_next_roles": ["pm", "dev", "qa", "docs", "sec", "ops", "arch", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "schema_version": "1.0",
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "pm",
+      "runtime_id": "manual",
+      "files_changed": [],
+      "proposed_next_role": "dev",
+      "status": "completed",
+      "summary": "Too many delegations",
+      "artifact": { "type": "review", "files_modified": [] },
+      "verification": { "status": "pass" },
+      "decisions": [],
+      "objections": [],
+      "delegations": [
+        { "id": "del-001", "to_role": "dev", "charter": "Build", "acceptance_contract": ["Done"] },
+        { "id": "del-002", "to_role": "qa", "charter": "Test", "acceptance_contract": ["Done"] },
+        { "id": "del-003", "to_role": "docs", "charter": "Document", "acceptance_contract": ["Done"] },
+        { "id": "del-004", "to_role": "sec", "charter": "Review", "acceptance_contract": ["Done"] },
+        { "id": "del-005", "to_role": "ops", "charter": "Deploy", "acceptance_contract": ["Done"] },
+        { "id": "del-006", "to_role": "arch", "charter": "Design", "acceptance_contract": ["Done"] }
+      ]
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "protocol",
+    "warnings_allowed": true
+  }
+}

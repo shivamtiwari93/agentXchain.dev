@@ -1,7 +1,7 @@
 {
   "implementation": "agentxchain-cli",
-  "version": "2.95.0",
-  "protocol_version": "v6",
+  "version": "2.96.0",
+  "protocol_version": "v7",
   "adapter": {
     "protocol": "stdio-fixture-v1",
     "command": ["node", ".agentxchain-conformance/reference-adapter.js"]
@@ -16,7 +16,11 @@
     "config_schema": true,
     "dispatch_manifest": true,
     "hook_audit": true,
-    "coordinator": true
+    "coordinator": true,
+    "delegation": true,
+    "decision_carryover": true,
+    "parallel_turns": true,
+    "event_lifecycle": true
   },
   "metadata": {
     "name": "AgentXchain Reference CLI",

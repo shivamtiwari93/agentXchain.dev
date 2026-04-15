@@ -31,8 +31,8 @@ describe('Protocol v6 artifact presence', () => {
 });
 
 describe('Protocol docs content', () => {
-  it('promotes v6 as the current normative protocol surface', () => {
-    assert.match(PROTOCOL_DOCS_MDX, /Protocol v6/i);
+  it('promotes v7 as the current normative protocol surface', () => {
+    assert.match(PROTOCOL_DOCS_MDX, /Protocol v7/i);
     assert.doesNotMatch(
       PROTOCOL_DOCS_MDX,
       /SPEC-GOVERNED-v5\.md/,
@@ -180,12 +180,12 @@ describe('Protocol docs content', () => {
 });
 
 describe('Protocol planning specs stay aligned', () => {
-  it('updates planning specs to the Docusaurus v6 surface instead of the retired static html contract', () => {
+  it('updates planning specs to the Docusaurus v7 surface instead of the retired static html contract', () => {
     assert.match(PROTOCOL_SPEC, /website-v2\/docs\/protocol\.mdx/);
     assert.match(PROTOCOL_SPEC, /\/docs\/protocol/);
-    assert.match(PROTOCOL_SPEC, /\/docs\/protocol-v6/);
-    assert.match(DOCS_SURFACE_SPEC, /PROTOCOL-v6\.md/);
-    assert.match(DOCS_SURFACE_SPEC, /\/docs\/protocol-v6/);
+    assert.match(PROTOCOL_SPEC, /\/docs\/protocol-v7/);
+    assert.match(DOCS_SURFACE_SPEC, /PROTOCOL-v7\.md/);
+    assert.match(DOCS_SURFACE_SPEC, /\/docs\/protocol-v7/);
     assert.match(CLI_DOC_SPEC, /\/docs\/protocol/);
     assert.doesNotMatch(PROTOCOL_SPEC, /website\/docs\/protocol\.html/);
     assert.doesNotMatch(CLI_DOC_SPEC, /SPEC-GOVERNED-v5\.md on GitHub until a local protocol page exists/);

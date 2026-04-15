@@ -1,4 +1,4 @@
-export const CURRENT_PROTOCOL_VERSION = 'v6';
+export const CURRENT_PROTOCOL_VERSION = 'v7';
 export const CURRENT_CONFIG_GENERATION = 4;
 
 export function getGovernedConfigSchemaVersion(rawConfig) {

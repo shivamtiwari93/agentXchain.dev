@@ -11,8 +11,8 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 ## Interface
 
 - Latest docs route: `/docs/protocol`
-- Versioned protocol permalink: `/docs/protocol-v6`
-- Normative repo-native source: `PROTOCOL-v6.md`
+- Versioned protocol permalink: `/docs/protocol-v7`
+- Normative repo-native source: `PROTOCOL-v7.md`
 - Deep-dive dependency: `/docs/multi-repo`
 
 ## Behavioral Contract
@@ -57,7 +57,7 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 
 ## Acceptance Tests
 
-1. [`cli/test/protocol-docs-content.test.js`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/cli/test/protocol-docs-content.test.js) verifies the protocol page still presents v6 as current.
+1. [`cli/test/protocol-docs-content.test.js`](/Users/shivamtiwari.highlevel/VS%20Code/1008apps/agentXchain.ai/agentXchain.dev/cli/test/protocol-docs-content.test.js) verifies the protocol page still presents v7 as current.
 2. The guard verifies `/docs/protocol` still links the coordinator overview to `/docs/multi-repo`.
 3. The guard verifies the page documents `qa` as the default final phase and does not present `verification` as the default phase name.
 4. The guard verifies the page documents `review_only` objection enforcement without claiming objections are mandatory for every role.

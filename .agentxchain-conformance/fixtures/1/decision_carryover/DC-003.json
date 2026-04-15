@@ -1,0 +1,81 @@
+{
+  "fixture_id": "DC-003",
+  "tier": 1,
+  "surface": "decision_carryover",
+  "description": "Decision with valid overrides field passes turn result validation",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      },
+      "repo_decisions": [
+        {
+          "id": "DEC-050",
+          "statement": "Use JavaScript",
+          "category": "architecture",
+          "durability": "repo",
+          "status": "active",
+          "run_id": "run_000",
+          "turn_id": "turn_prev",
+          "role": "dev",
+          "accepted_at": "2026-04-01T00:00:00Z"
+        }
+      ]
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 1,
+          "allowed_next_roles": ["dev", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "schema_version": "1.0",
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "dev",
+      "runtime_id": "manual",
+      "files_changed": ["src/main.ts"],
+      "proposed_next_role": "dev",
+      "status": "completed",
+      "summary": "Overriding previous decision",
+      "artifact": { "type": "workspace", "files_modified": ["src/main.ts"] },
+      "verification": { "status": "pass" },
+      "decisions": [
+        {
+          "id": "DEC-100",
+          "statement": "Switch to TypeScript",
+          "rationale": "TypeScript provides better maintainability than JavaScript",
+          "category": "architecture",
+          "durability": "repo",
+          "overrides": "DEC-050"
+        }
+      ],
+      "objections": []
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

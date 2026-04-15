@@ -1,0 +1,30 @@
+{
+  "fixture_id": "EL-002",
+  "tier": 1,
+  "surface": "event_lifecycle",
+  "description": "Event with invalid event_type rejected",
+  "type": "reject",
+  "setup": {
+    "state": {},
+    "config": {}
+  },
+  "input": {
+    "operation": "validate_event",
+    "args": {
+      "event": {
+        "event_id": "evt_abc123",
+        "event_type": "invalid_event_type",
+        "timestamp": "2026-04-15T00:00:00Z",
+        "run_id": "run_001",
+        "phase": null,
+        "status": null,
+        "turn": null,
+        "payload": {}
+      }
+    }
+  },
+  "expected": {
+    "result": "error",
+    "error_type": "invalid_event"
+  }
+}

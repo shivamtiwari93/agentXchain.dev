@@ -7,7 +7,7 @@ description: "How to implement AgentXchain protocol conformance against the ship
 
 The protocol is only real if another implementation can prove it. This page is for runner authors, adapter authors, and compatibility-layer maintainers who want to implement AgentXchain and verify that claim against the repo's published fixture corpus.
 
-If you want the constitutional model, start with [Protocol v6](./protocol). If you want the current normative boundary, read [Protocol Reference v6](./protocol-reference). If you want the executable adoption contract, start here.
+If you want the constitutional model, start with [Protocol v7](./protocol). If you want the current normative boundary, read [Protocol Reference v7](./protocol-reference). If you want the executable adoption contract, start here.
 
 ## What protocol conformance means
 
@@ -17,7 +17,7 @@ The current corpus is split into three tiers:
 
 | Tier | Focus | Current surfaces | Current fixture count |
 | --- | --- | --- | --- |
-| `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema` | `50` |
+| `1` | Core constitutional behavior | `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`, `delegation`, `decision_carryover`, `parallel_turns`, `event_lifecycle` | `71` |
 | `2` | Trust-hardening behavior | `dispatch_manifest`, `hook_audit` | `23` |
 | `3` | Multi-repo coordination | `coordinator` | `8` |
 
@@ -52,8 +52,8 @@ This is the reference CLI's current file:
 ```json
 {
   "implementation": "agentxchain-cli",
-  "version": "2.95.0",
-  "protocol_version": "v6",
+  "version": "2.96.0",
+  "protocol_version": "v7",
   "adapter": {
     "protocol": "stdio-fixture-v1",
     "command": ["node", ".agentxchain-conformance/reference-adapter.js"]

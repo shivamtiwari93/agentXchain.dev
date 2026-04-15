@@ -1,0 +1,63 @@
+{
+  "fixture_id": "DEL-003",
+  "tier": 1,
+  "surface": "delegation",
+  "description": "Delegation with invalid to_role pattern rejected at schema stage",
+  "type": "reject",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "pm",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "pm": { "title": "PM", "mandate": "Plan", "runtime": "manual" },
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 1,
+          "allowed_next_roles": ["pm", "dev", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "pm",
+      "status": "completed",
+      "summary": "Delegating",
+      "artifact": { "type": "review", "files_modified": [] },
+      "verification": { "status": "pass" },
+      "decisions": [],
+      "objections": [],
+      "delegations": [
+        {
+          "id": "del-001",
+          "to_role": "INVALID ROLE!",
+          "charter": "Do the work",
+          "acceptance_contract": ["Tests pass"]
+        }
+      ]
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "error",
+    "failed_stage": "schema",
+    "warnings_allowed": true
+  }
+}

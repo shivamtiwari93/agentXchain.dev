@@ -1,0 +1,60 @@
+{
+  "fixture_id": "PT-004",
+  "tier": 1,
+  "surface": "parallel_turns",
+  "description": "Valid turn result passes validation in parallel-capable routing",
+  "type": "validate",
+  "setup": {
+    "state": {
+      "status": "active",
+      "phase": "implementation",
+      "run_id": "run_001",
+      "active_turns": {
+        "turn_abc": {
+          "role": "dev",
+          "runtime_id": "manual",
+          "assigned_sequence": 1
+        }
+      }
+    },
+    "config": {
+      "schema_version": "1.0",
+      "project": { "id": "test", "name": "Test" },
+      "roles": {
+        "dev": { "title": "Dev", "mandate": "Build", "runtime": "manual" },
+        "qa": { "title": "QA", "mandate": "Test", "runtime": "manual" }
+      },
+      "routing": {
+        "implementation": {
+          "max_concurrent_turns": 2,
+          "allowed_next_roles": ["dev", "qa", "human"]
+        }
+      }
+    },
+    "turn_result": {
+      "schema_version": "1.0",
+      "turn_id": "turn_abc",
+      "run_id": "run_001",
+      "role": "dev",
+      "runtime_id": "manual",
+      "files_changed": ["src/main.js"],
+      "proposed_next_role": "qa",
+      "status": "completed",
+      "summary": "Implemented feature",
+      "artifact": { "type": "workspace", "files_modified": ["src/main.js"] },
+      "verification": { "status": "pass" },
+      "decisions": [],
+      "objections": []
+    }
+  },
+  "input": {
+    "operation": "validate_turn_result",
+    "args": {}
+  },
+  "expected": {
+    "result": "success",
+    "stages_passed": ["schema", "assignment", "artifact", "verification", "protocol"],
+    "errors": [],
+    "warnings_allowed": true
+  }
+}

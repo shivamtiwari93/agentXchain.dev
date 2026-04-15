@@ -1,0 +1,50 @@
+{
+  "fixture_id": "EL-003",
+  "tier": 1,
+  "surface": "event_lifecycle",
+  "description": "run_started must be first event in timeline",
+  "type": "validate",
+  "setup": {
+    "state": {},
+    "config": {}
+  },
+  "input": {
+    "operation": "validate_event_ordering",
+    "args": {
+      "events": [
+        {
+          "event_id": "evt_001",
+          "event_type": "run_started",
+          "timestamp": "2026-04-15T00:00:00Z",
+          "run_id": "run_001",
+          "turn": null
+        },
+        {
+          "event_id": "evt_002",
+          "event_type": "turn_dispatched",
+          "timestamp": "2026-04-15T00:00:01Z",
+          "run_id": "run_001",
+          "turn": { "turn_id": "turn_abc" }
+        },
+        {
+          "event_id": "evt_003",
+          "event_type": "turn_accepted",
+          "timestamp": "2026-04-15T00:00:02Z",
+          "run_id": "run_001",
+          "turn": { "turn_id": "turn_abc" }
+        },
+        {
+          "event_id": "evt_004",
+          "event_type": "run_completed",
+          "timestamp": "2026-04-15T00:00:03Z",
+          "run_id": "run_001",
+          "turn": null
+        }
+      ]
+    }
+  },
+  "expected": {
+    "result": "success",
+    "errors": []
+  }
+}

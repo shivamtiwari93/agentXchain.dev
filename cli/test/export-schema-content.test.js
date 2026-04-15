@@ -288,10 +288,10 @@ describe('export schema docs surface', () => {
   });
 
   it('AT-EXPORT-REF-002/006: keeps the boundary explicit and linked from protocol reference', () => {
-    assert.match(EXPORT_DOCS, /protocol v6 conformance/i);
-    assert.match(EXPORT_DOCS, /not part of the current protocol-v6 proof set/i);
+    assert.match(EXPORT_DOCS, /protocol v7 conformance/i);
+    assert.match(EXPORT_DOCS, /not part of the current protocol-v7 proof set/i);
     assert.match(PROTOCOL_REFERENCE_DOCS, /Export Schema Reference/);
-    assert.match(PROTOCOL_REFERENCE_DOCS, /stable operator contracts but not protocol-v6 proof surfaces/i);
+    assert.match(PROTOCOL_REFERENCE_DOCS, /stable operator contracts but not protocol-v7 proof surfaces/i);
   });
 
   it('ships the standalone spec with acceptance tests', () => {

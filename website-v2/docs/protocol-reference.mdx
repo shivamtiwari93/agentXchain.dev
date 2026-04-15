@@ -1,18 +1,18 @@
 ---
-title: Protocol Reference v6
-description: "Current normative boundary for AgentXchain protocol v6."
+title: Protocol Reference v7
+description: "Current normative boundary for AgentXchain protocol v7."
 ---
 
-# Protocol Reference v6
+# Protocol Reference v7
 
-This is the current normative boundary for AgentXchain protocol v6. It exists because the repo already had two adjacent but different surfaces:
+This is the current normative boundary for AgentXchain protocol v7. It exists because the repo already had two adjacent but different surfaces:
 
-- [Protocol v6](./protocol) explains the constitutional model.
+- [Protocol v7](./protocol) explains the constitutional model.
 - [Protocol Implementor Guide](./protocol-implementor-guide) explains how to prove conformance.
 
-Neither one was clean enough to answer the narrower question: what is actually part of protocol v6 right now, and what is merely a reference-runner or integration detail?
+Neither one was clean enough to answer the narrower question: what is actually part of protocol v7 right now, and what is merely a reference-runner or integration detail?
 
-The canonical versioned repo-native source is [`PROTOCOL-v6.md`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v6.md).
+The canonical versioned repo-native source is [`PROTOCOL-v7.md`](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v7.md).
 
 ## Versioning Model
 
@@ -20,7 +20,7 @@ Do not flatten these into one number:
 
 | Axis | Current value | Meaning |
 | --- | --- | --- |
-| Protocol version | `v6` | Constitutional contract |
+| Protocol version | `v7` | Constitutional contract |
 | Governed config schema | `1.0` | `agentxchain.json` governed config shape |
 | Turn result schema | `1.0` | staged result payload contract |
 | Governed state schema | `1.1` | `.agentxchain/state.json` shape |
@@ -31,7 +31,7 @@ If someone says "AgentXchain is on schema 1.1" or "Tier 3 means protocol v3," th
 
 ## Normative Repo-Local Contract
 
-These repo-local concepts are protocol v6, not UI sugar:
+These repo-local concepts are protocol v7, not UI sugar:
 
 ### Governed run statuses
 
@@ -60,7 +60,7 @@ These repo-local concepts are protocol v6, not UI sugar:
 
 ## Normative Coordinator Contract
 
-These multi-repo concepts are part of protocol v6:
+These multi-repo concepts are part of protocol v7:
 
 - `super_run_id`
 - workstreams
@@ -80,30 +80,30 @@ The coordinator is not allowed to invent repo-local truth. Repo-local accepted h
 
 ## Current Executable Proof Set
 
-Protocol v6 is currently proven by the shipped conformance corpus under `.agentxchain-conformance/fixtures/`.
+Protocol v7 is currently proven by the shipped conformance corpus under `.agentxchain-conformance/fixtures/`.
 
 Current surfaces:
 
-- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`
+- Tier 1: `state_machine`, `turn_result_validation`, `gate_semantics`, `decision_ledger`, `history`, `config_schema`, `delegation`, `decision_carryover`, `parallel_turns`, `event_lifecycle`
 - Tier 2: `dispatch_manifest`, `hook_audit`
 - Tier 3: `coordinator`
 
-That list is the current executable proof set. It is not a claim that every shipped product feature is part of protocol v6.
+That list is the current executable proof set. It is not a claim that every shipped product feature is part of protocol v7.
 
-## Not Normative In v6
+## Not Normative In v7
 
-These are real product surfaces, but they are not part of protocol v6 conformance today:
+These are real product surfaces, but they are not part of protocol v7 conformance today:
 
 - CLI command names such as `step`, `resume`, or `multi approve-gate`
 - dashboard ports, view names, and browser UX
 - provider-specific adapter behavior such as Anthropic or OpenAI request wiring
 - `notifications.webhooks` delivery behavior and event transport
-- export artifact schema and `verify export` report semantics, which are stable operator contracts but not protocol-v6 proof surfaces. See [Export Schema Reference](./export-schema)
+- export artifact schema and `verify export` report semantics, which are stable operator contracts but not protocol-v7 proof surfaces. See [Export Schema Reference](./export-schema)
 
 Those surfaces matter, but treating them as constitutional truth before they are promoted into the conformance boundary would be sloppy.
 
 ## How To Read The Docs Stack
 
-- Start with [Protocol v6](./protocol) for the constitutional overview.
+- Start with [Protocol v7](./protocol) for the constitutional overview.
 - Use this page when you need the current normative boundary.
 - Use [Protocol Implementor Guide](./protocol-implementor-guide) when you are building or validating another runner.

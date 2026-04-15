@@ -14,6 +14,7 @@ import { finalizeDispatchManifest, verifyDispatchManifest } from './dispatch-man
 import { getDispatchTurnDir } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
 import { validateCoordinatorConfig, normalizeCoordinatorConfig } from './coordinator-config.js';
+import { VALID_RUN_EVENTS, emitRunEvent } from './run-events.js';
 import { projectRepoAcceptance, evaluateBarriers } from './coordinator-acceptance.js';
 import { readBarriers, saveCoordinatorState, readCoordinatorHistory } from './coordinator-state.js';
 
@@ -851,6 +852,68 @@ function executeFixtureOperation(workspace, fixture) {
         audit_entry: auditEntry,
         audit_entries: hookResult.results || [],
       };
+    }
+
+    // ── Tier 1: Event Lifecycle ──────────────────────────────────────────
+
+    case 'validate_event': {
+      const event = fixture.input.args.event;
+      const errors = [];
+      if (!event || typeof event !== 'object') {
+        return { result: 'error', error_type: 'invalid_event', errors: ['Event must be an object'] };
+      }
+      if (typeof event.event_id !== 'string' || !event.event_id.trim()) {
+        errors.push('event_id must be a non-empty string');
+      }
+      if (!VALID_RUN_EVENTS.includes(event.event_type)) {
+        errors.push(`event_type must be one of: ${VALID_RUN_EVENTS.join(', ')}`);
+      }
+      if (typeof event.timestamp !== 'string' || Number.isNaN(Date.parse(event.timestamp))) {
+        errors.push('timestamp must be a valid ISO-8601 string');
+      }
+      if (errors.length > 0) {
+        return { result: 'error', error_type: 'invalid_event', errors };
+      }
+      return { result: 'success', errors: [] };
+    }
+
+    case 'validate_event_ordering': {
+      const events = fixture.input.args.events;
+      const errors = [];
+      if (!Array.isArray(events) || events.length === 0) {
+        return { result: 'error', error_type: 'invalid_events', errors: ['Events must be a non-empty array'] };
+      }
+      // run_started must be first
+      if (events[0].event_type !== 'run_started') {
+        errors.push('First event must be run_started');
+      }
+      // run_completed must be last (if present)
+      const lastEvent = events[events.length - 1];
+      if (events.some((e) => e.event_type === 'run_completed') && lastEvent.event_type !== 'run_completed') {
+        errors.push('run_completed must be the last event');
+      }
+      // turn_dispatched must precede turn_accepted for same turn
+      const dispatchedTurns = new Map();
+      for (const event of events) {
+        if (event.event_type === 'turn_dispatched' && event.turn?.turn_id) {
+          dispatchedTurns.set(event.turn.turn_id, true);
+        }
+        if (event.event_type === 'turn_accepted' && event.turn?.turn_id) {
+          if (!dispatchedTurns.has(event.turn.turn_id)) {
+            errors.push(`turn_accepted for ${event.turn.turn_id} without preceding turn_dispatched`);
+          }
+        }
+      }
+      // Timestamps must be monotonically non-decreasing
+      for (let i = 1; i < events.length; i++) {
+        if (new Date(events[i].timestamp) < new Date(events[i - 1].timestamp)) {
+          errors.push(`Event ${i} timestamp is before event ${i - 1}`);
+        }
+      }
+      if (errors.length > 0) {
+        return { result: 'error', error_type: 'ordering_violation', errors };
+      }
+      return { result: 'success', errors: [] };
     }
 
     default:

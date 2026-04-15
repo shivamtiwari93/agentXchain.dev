@@ -62,7 +62,7 @@ describe('Protocol version surfaces', () => {
     assert.equal(result.status, 0, `doctor failed: ${result.stderr}`);
 
     const output = JSON.parse(result.stdout);
-    assert.equal(output.protocol_version, 'v6');
+    assert.equal(output.protocol_version, 'v7');
     assert.equal(output.config_generation, 4);
     assert.equal(output.config_schema_version, '1.0');
     assert.equal(output.config_version, 4, 'legacy alias should remain for compatibility');
@@ -72,7 +72,7 @@ describe('Protocol version surfaces', () => {
     const root = makeGovernedRoot();
     const result = runCli(root, ['doctor']);
     assert.equal(result.status, 0, `doctor failed: ${result.stderr}`);
-    assert.match(result.stdout, /Versioning:\s+protocol v6, config generation v4, config schema 1\.0/);
+    assert.match(result.stdout, /Versioning:\s+protocol v7, config generation v4, config schema 1\.0/);
   });
 
   it('AT-PVS-003: validate --json exposes protocol, generation, and schema separately', () => {
@@ -81,7 +81,7 @@ describe('Protocol version surfaces', () => {
     assert.equal(result.status, 0, `validate failed: ${result.stderr}\n${result.stdout}`);
 
     const output = JSON.parse(result.stdout);
-    assert.equal(output.protocol_version, 'v6');
+    assert.equal(output.protocol_version, 'v7');
     assert.equal(output.config_generation, 4);
     assert.equal(output.config_schema_version, '1.0');
     assert.equal(output.version, 4, 'legacy alias should remain for compatibility');
@@ -91,6 +91,6 @@ describe('Protocol version surfaces', () => {
     const root = makeGovernedRoot();
     const result = runCli(root, ['validate', '--mode', 'kickoff']);
     assert.equal(result.status, 0, `validate failed: ${result.stderr}\n${result.stdout}`);
-    assert.match(result.stdout, /Protocol:\s+governed \(protocol v6, config generation v4, config schema 1\.0\)/);
+    assert.match(result.stdout, /Protocol:\s+governed \(protocol v7, config generation v4, config schema 1\.0\)/);
   });
 });

@@ -689,7 +689,7 @@ For governed projects, `validate` also checks template-registry integrity and th
 
 For governed repos, the output keeps the version axes separate instead of flattening them into one number:
 
-- protocol version: `v6`
+- protocol version: `v7`
 - config generation: `v4`
 - governed config schema: `1.0`
 
@@ -929,7 +929,7 @@ agentxchain migrate [options]
 | `-y, --yes` | `false` | Skip confirmation prompts |
 | `-j, --json` | `false` | Output migration report as JSON |
 
-Migrates state and config from an older protocol version to the current version (v6). Handles schema changes in `agentxchain.json`, `state.json`, and history entries.
+Migrates state and config from an older protocol version to the current version (v7). Handles schema changes in `agentxchain.json`, `state.json`, and history entries.
 
 ## Readiness
 
@@ -967,7 +967,7 @@ When `doctor` sees runtimes that still need live probing beyond static readiness
 
 `doctor --json` also reports the same versioning split explicitly:
 
-- `protocol_version: "v6"`
+- `protocol_version: "v7"`
 - `config_generation: 4`
 - `config_schema_version: "1.0"`
 
