@@ -8,6 +8,7 @@ XBROWSER_DIR="/Users/shivamtiwari.highlevel/VS Code/1008apps/x-browser"
 XBROWSER_BIN="${XBROWSER_DIR}/.venv/bin/x-browser"
 TEXT="${1:?Usage: bash marketing/post-twitter.sh \"tweet text\"}"
 USE_SYSTEM_PROFILE="${AGENTXCHAIN_X_USE_SYSTEM_PROFILE:-1}"
+DISABLE_PROFILE_FALLBACK="${AGENTXCHAIN_X_DISABLE_PROFILE_FALLBACK:-0}"
 PORT_FILE="${HOME}/.config/x-browser/chrome.port"
 
 if [ ! -x "${XBROWSER_BIN}" ]; then
@@ -43,17 +44,75 @@ EOF
   return 1
 }
 
-ARGS=(--min-delay 2 --max-delay 5)
-if [ "${USE_SYSTEM_PROFILE}" = "1" ]; then
-  ARGS=(--system-profile "${ARGS[@]}")
+profile_label() {
+  if [ "${1}" = "1" ]; then
+    printf 'system-profile'
+  else
+    printf 'isolated-profile'
+  fi
+}
+
+run_xbrowser_post() {
+  local use_system_profile="$1"
+  local args=(--min-delay 2 --max-delay 5)
+
+  if [ "${use_system_profile}" = "1" ]; then
+    args=(--system-profile "${args[@]}")
+    preflight_system_profile_lock
+  fi
+
+  "${XBROWSER_BIN}" "${args[@]}" tweet post "$TEXT"
+}
+
+is_ambiguous_tweet_submit_failure() {
+  printf '%s' "$1" | grep -Fq 'still on compose page after clicking Post'
+}
+
+attempt_twitter_post() {
+  local use_system_profile="$1"
+  local mode
+  mode="$(profile_label "${use_system_profile}")"
+
+  echo "Attempting X/Twitter post with ${mode}..." >&2
+
+  local output status
+  output="$({ run_xbrowser_post "${use_system_profile}"; } 2>&1)" && status=0 || status=$?
+  if [ "${status}" -eq 0 ]; then
+    if [ -n "${output}" ]; then
+      printf '%s\n' "${output}"
+    fi
+    return 0
+  fi
+
+  LAST_X_STATUS="${status}"
+  LAST_X_OUTPUT="${output}"
+  LAST_X_MODE="${use_system_profile}"
+  if [ -n "${output}" ]; then
+    printf '%s\n' "${output}" >&2
+  fi
+  return "${LAST_X_STATUS}"
+}
+
+PRIMARY_MODE="${USE_SYSTEM_PROFILE}"
+SECONDARY_MODE="1"
+if [ "${PRIMARY_MODE}" = "1" ]; then
+  SECONDARY_MODE="0"
 fi
 
-preflight_system_profile_lock
-
-if "${XBROWSER_BIN}" "${ARGS[@]}" tweet post "$TEXT"; then
+if attempt_twitter_post "${PRIMARY_MODE}"; then
   exit 0
 fi
 
-echo "⚠️  First attempt failed — retrying after 5s cooldown..."
+if is_ambiguous_tweet_submit_failure "${LAST_X_OUTPUT}"; then
+  echo "X/Twitter submit outcome is ambiguous; suppressing automatic retry to avoid duplicate tweets." >&2
+  exit "${LAST_X_STATUS}"
+fi
+
+if [ "${DISABLE_PROFILE_FALLBACK}" = "1" ]; then
+  echo "X/Twitter profile fallback disabled; not retrying with $(profile_label "${SECONDARY_MODE}")." >&2
+  exit "${LAST_X_STATUS}"
+fi
+
+echo "X/Twitter post failed with $(profile_label "${PRIMARY_MODE}"); retrying once with $(profile_label "${SECONDARY_MODE}") after 5s..." >&2
 sleep 5
-"${XBROWSER_BIN}" "${ARGS[@]}" tweet post "$TEXT"
+attempt_twitter_post "${SECONDARY_MODE}"

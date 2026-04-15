@@ -243,7 +243,11 @@ The new account is `@agentxchaindev` (note: no underscore). `x-browser` uses `--
 
 ### LinkedIn posting (added 2026-04-10)
 
-`li-browser` posts to the AgentXchain company page (ID `112883208`) using its own persisted browser profile by default. `post-linkedin.sh` only opts into `--system-profile` when `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` is set. The `--company-id` flag is passed automatically by `post-linkedin.sh`.
+`li-browser` posts to the AgentXchain company page (ID `112883208`) using its own persisted browser profile by default. `post-linkedin.sh` only opts into `--system-profile` when `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` is set. The wrapper now verifies the ambiguous `composer remained open after clicking the submit control` failure against the company admin feed before declaring failure, and it only profile-fallbacks on non-ambiguous errors. The `--company-id` flag is passed automatically by `post-linkedin.sh`.
+
+### Wrapper retry boundary (updated 2026-04-15)
+
+Repo-owned social wrappers may retry once with the opposite browser profile on non-ambiguous failures. They must not blindly retry ambiguous post-submit states that can already have published the content.
 
 ### Reddit posting (updated 2026-04-10)
 

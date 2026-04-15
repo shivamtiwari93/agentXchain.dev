@@ -2,13 +2,13 @@
 
 Tasks that require human action. Organized by priority.
 
-Current state: **One open item — LinkedIn re-authentication.** npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
+Current state: **No confirmed operator-only blockers.** npm publishes via GitHub Actions trusted publishing. Social posting remains agent-run via browser tools. VS Code Marketplace publisher is set up and ready for first publish. HN launch deferred indefinitely.
 
 ---
 
 ## Open
 
-- [ ] **Re-authenticate the `li-browser` isolated profile for LinkedIn posting** — LinkedIn posting has failed on every release since v2.86.0 (5 consecutive failures: v2.86.0, v2.87.0, v2.88.0, v2.89.0 + one mid-cycle attempt). The error is always `RuntimeError: LinkedIn composer remained open after clicking the submit control; post may not have been published.` This is an auth/session boundary — the li-browser isolated profile session has expired or been invalidated by LinkedIn. **Action required:** open the li-browser isolated profile browser, log into LinkedIn manually, and verify the session is active. Then test with `li-browser post create --company-id 112883208 "test post"`. Agents will resume LinkedIn posting once the human confirms the session is restored.
+- No open human-required tasks right now. If a future browser-automation failure is proven to require fresh credentials or SaaS-owner-only account changes, add a new item with exact evidence.
 
 - [x] **Add `HOMEBREW_TAP_TOKEN` repo secret** — Done. Fine-grained PAT created and set via `gh secret set HOMEBREW_TAP_TOKEN --repo shivamtiwari93/agentXchain.dev` on 2026-04-08.
 - [x] **Upgrade Twitter/X app to Read+Write permissions** — Done. App permissions changed to Read+Write via User Authentication Settings on 2026-04-08. Access Token regenerated with new scope. OAuth 2.0 client credentials (Client ID + Secret) also added to `.env`.
@@ -20,7 +20,7 @@ Current state: **One open item — LinkedIn re-authentication.** npm publishes v
 Agents can and should post to X/Twitter, LinkedIn, and Reddit directly. **Do not add human tasks for social posting.**
 
 - **X/Twitter (@agentxchaindev)**: run `bash marketing/post-twitter.sh "tweet text"` — uses x-browser. Default mode is `--system-profile`; if Chrome is already running, close it first or rerun with `AGENTXCHAIN_X_USE_SYSTEM_PROFILE=0` after logging into the isolated `x-browser` profile once.
-- **LinkedIn (company page)**: run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation via Playwright + CDP, no API keys needed). Posts to the AgentXchain company page (ID `112883208`) using the isolated `li-browser` profile by default; set `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` only if you explicitly need the live system Chrome profile.
+- **LinkedIn (company page)**: run `bash marketing/post-linkedin.sh "post text"` — uses li-browser (browser automation via Playwright + CDP, no API keys needed). Posts to the AgentXchain company page (ID `112883208`) using the isolated `li-browser` profile by default; set `AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1` only if you explicitly need the live system Chrome profile. The wrapper verifies ambiguous composer-open outcomes against the company admin feed before failing and only retries on non-ambiguous errors.
 - **Reddit r/agentXchain_dev**: run `bash marketing/post-reddit.sh "title" "body"` — uses r-browser (browser automation via Playwright + CDP, no API keys needed). Uses new Reddit (www.reddit.com) which handles CAPTCHA automatically.
 - **All three channels at once**: run `bash marketing/post-release.sh "vX.Y.Z" "one-line summary"`.
 - See WAYS-OF-WORKING.md section 8 for the full social posting policy (when to post, what to post, rules).
@@ -42,6 +42,8 @@ Agents can and should post to X/Twitter, LinkedIn, and Reddit directly. **Do not
 ---
 
 ## Completed
+
+- [x] **Remove the stale LinkedIn re-auth human task diagnosis** — completed 2026-04-15: `li-browser me notifications` from the isolated profile still returns authenticated results, so blanket re-auth was not proven. The repo wrappers now verify ambiguous LinkedIn submit states and only fallback profiles on non-ambiguous failures instead of escalating prematurely.
 
 - [x] Prepare release workspace and bump version — Done. v2.0.0 tag pushed, v2.0.1 corrective tag on release branch.
 - [x] Set `ANTHROPIC_API_KEY` environment variable — Configured in `.env`.

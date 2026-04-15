@@ -24,15 +24,17 @@ describe('marketing browser automation hardening', () => {
 
   it('AT-MBAH-002: LinkedIn wrapper uses the repo-local binary and isolated profile by default', () => {
     assert.match(POST_LINKEDIN, /LIBROWSER_BIN=.*\.venv\/bin\/li-browser/);
+    assert.match(POST_LINKEDIN, /LIBROWSER_PYTHON=.*\.venv\/bin\/python/);
     assert.match(POST_LINKEDIN, /AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE:-0/);
-    assert.doesNotMatch(POST_LINKEDIN, /li-browser --system-profile/);
-    assert.match(POST_LINKEDIN, /"\$\{LIBROWSER_BIN\}" "\$\{ARGS\[@\]\}" post create/);
+    assert.match(POST_LINKEDIN, /AGENTXCHAIN_LINKEDIN_DISABLE_PROFILE_FALLBACK:-0/);
+    assert.match(POST_LINKEDIN, /"\$\{LIBROWSER_BIN\}" "\$\{args\[@\]\}" post create/);
   });
 
   it('AT-MBAH-003: Twitter wrapper uses the repo-local binary and exposes system-profile override control', () => {
     assert.match(POST_TWITTER, /XBROWSER_BIN=.*\.venv\/bin\/x-browser/);
     assert.match(POST_TWITTER, /AGENTXCHAIN_X_USE_SYSTEM_PROFILE:-1/);
-    assert.match(POST_TWITTER, /"\$\{XBROWSER_BIN\}" "\$\{ARGS\[@\]\}" tweet post/);
+    assert.match(POST_TWITTER, /AGENTXCHAIN_X_DISABLE_PROFILE_FALLBACK:-0/);
+    assert.match(POST_TWITTER, /"\$\{XBROWSER_BIN\}" "\$\{args\[@\]\}" tweet post/);
   });
 
   it('AT-MBAH-004: Twitter wrapper contains the Chrome-lock preflight boundary', () => {
@@ -46,5 +48,25 @@ describe('marketing browser automation hardening', () => {
     assert.match(WAYS, /AGENTXCHAIN_LINKEDIN_USE_SYSTEM_PROFILE=1/);
     assert.match(HUMAN_TASKS, /isolated `li-browser` profile by default/i);
     assert.match(HUMAN_TASKS, /AGENTXCHAIN_X_USE_SYSTEM_PROFILE=0/);
+  });
+
+  it('AT-MBAH-006: LinkedIn wrapper verifies ambiguous submit states before failing', () => {
+    assert.match(POST_LINKEDIN, /verify_linkedin_post_visible/);
+    assert.match(POST_LINKEDIN, /composer remained open after clicking the submit control/);
+    assert.match(POST_LINKEDIN, /suppressing automatic retry to avoid duplicate posts/);
+    assert.match(POST_LINKEDIN, /company\/\{company_id\}\/admin\/page-posts\/published/);
+  });
+
+  it('AT-MBAH-007: both wrappers retry with the opposite profile for non-ambiguous failures', () => {
+    assert.match(POST_LINKEDIN, /retrying once with \$\(profile_label "\$\{SECONDARY_MODE\}"\)/);
+    assert.match(POST_TWITTER, /retrying once with \$\(profile_label "\$\{SECONDARY_MODE\}"\)/);
+    assert.match(POST_TWITTER, /suppressing automatic retry to avoid duplicate tweets/);
+  });
+
+  it('AT-MBAH-008: wrappers preserve the real browser-tool exit status on failure', () => {
+    assert.match(POST_LINKEDIN, /local output status/);
+    assert.match(POST_LINKEDIN, /LAST_LINKEDIN_STATUS="\$\{status\}"/);
+    assert.match(POST_TWITTER, /local output status/);
+    assert.match(POST_TWITTER, /LAST_X_STATUS="\$\{status\}"/);
   });
 });
