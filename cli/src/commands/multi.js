@@ -11,6 +11,7 @@
  */
 
 import chalk from 'chalk';
+import { normalizeCoordinatorGateApprovalFailure } from '../lib/coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
 import { deriveCoordinatorNextActions } from '../lib/coordinator-next-actions.js';
 import { collectCoordinatorRepoSnapshots } from '../lib/coordinator-repo-snapshots.js';
@@ -215,6 +216,37 @@ function printCoordinatorNextActions(nextActions, write = console.log) {
       write(`     ${action.reason}`);
     }
   }
+}
+
+function printCoordinatorGateApprovalFailure(failure, write = console.error) {
+  write('');
+  write('Coordinator Gate Approval Failed');
+  write('');
+  if (failure.gate_type) {
+    write(`  Gate Type: ${failure.gate_type}`);
+  }
+  if (failure.gate) {
+    write(`  Gate:      ${failure.gate}`);
+  }
+  if (failure.hook_name) {
+    write(`  Hook:      ${failure.hook_name}`);
+  } else if (failure.hook_phase) {
+    write(`  Hook:      ${failure.hook_phase}`);
+  }
+  write(`  Error:     ${failure.error || 'Coordinator gate approval failed'}`);
+  if (failure.recovery_summary?.typed_reason) {
+    write(`  Reason:    ${failure.recovery_summary.typed_reason}`);
+  }
+  if (failure.recovery_summary?.owner) {
+    write(`  Owner:     ${failure.recovery_summary.owner}`);
+  }
+  if (failure.recovery_summary?.recovery_action) {
+    write(`  Action:    ${failure.recovery_summary.recovery_action}`);
+  }
+  if (failure.recovery_summary?.detail) {
+    write(`  Detail:    ${failure.recovery_summary.detail}`);
+  }
+  printCoordinatorNextActions(failure.next_actions, write);
 }
 
 // ── multi step ─────────────────────────────────────────────────────────────
@@ -564,22 +596,34 @@ export async function multiApproveGateCommand(options) {
   if (gateHook.blocked) {
     const blocker = gateHook.verdicts.find(v => v.verdict === 'block');
     const reason = blocker?.message || 'before_gate hook blocked approval';
-    console.error(`Gate approval blocked by hook: ${reason}`);
+    const failure = normalizeCoordinatorGateApprovalFailure({
+      state,
+      config: configResult.config,
+      code: 'hook_blocked',
+      error: reason,
+      hookName: blocker?.hook_name || null,
+      hookPhase: 'before_gate',
+    });
+    printCoordinatorGateApprovalFailure(failure);
     if (options.json) {
-      console.log(JSON.stringify({ blocked: true, hook_phase: 'before_gate', reason }, null, 2));
+      console.log(JSON.stringify(failure, null, 2));
     }
     process.exitCode = 1;
     return;
   }
 
   if (!gateHook.ok) {
-    console.error(`Gate hook failed: ${gateHook.error || 'unknown hook failure'}`);
+    const failure = normalizeCoordinatorGateApprovalFailure({
+      state,
+      config: configResult.config,
+      code: 'hook_failed',
+      error: gateHook.error || 'unknown hook failure',
+      hookName: gateHook.results?.find((entry) => entry?.hook_name)?.hook_name || null,
+      hookPhase: 'before_gate',
+    });
+    printCoordinatorGateApprovalFailure(failure);
     if (options.json) {
-      console.log(JSON.stringify({
-        blocked: true,
-        hook_phase: 'before_gate',
-        reason: gateHook.error || 'unknown hook failure',
-      }, null, 2));
+      console.log(JSON.stringify(failure, null, 2));
     }
     process.exitCode = 1;
     return;
@@ -599,7 +643,16 @@ export async function multiApproveGateCommand(options) {
   }
 
   if (!result.ok) {
-    console.error(`Gate approval failed: ${result.error}`);
+    const failure = normalizeCoordinatorGateApprovalFailure({
+      state,
+      config: configResult.config,
+      code: 'approval_failed',
+      error: result.error || 'Coordinator gate approval failed',
+    });
+    printCoordinatorGateApprovalFailure(failure);
+    if (options.json) {
+      console.log(JSON.stringify(failure, null, 2));
+    }
     process.exitCode = 1;
     return;
   }

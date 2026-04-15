@@ -464,3 +464,58 @@ describe('App Shell — VIEWS registry', () => {
     );
   });
 });
+
+describe('App Shell — dashboard action error formatting', () => {
+  const appSource = readFileSync(join(import.meta.dirname, '..', 'dashboard', 'app.js'), 'utf8');
+
+  function formatActionErrorMessage(payload, status) {
+    if (!payload || typeof payload !== 'object') {
+      return `Dashboard action failed with HTTP ${status}.`;
+    }
+
+    const parts = [];
+    if (typeof payload.error === 'string' && payload.error.trim()) {
+      parts.push(payload.error.trim());
+    } else {
+      parts.push(`Dashboard action failed with HTTP ${status}.`);
+    }
+
+    const detail = payload.recovery_summary?.detail;
+    if (typeof detail === 'string' && detail.trim()) {
+      parts.push(detail.trim());
+    }
+
+    const nextAction = payload.next_actions?.[0]?.command || payload.next_action || null;
+    if (typeof nextAction === 'string' && nextAction.trim()) {
+      parts.push(`Next: ${nextAction.trim()}`);
+    }
+
+    return parts.join(' ');
+  }
+
+  it('AT-DASH-ACT-010: error formatting includes recovery detail and first next action', () => {
+    const message = formatActionErrorMessage({
+      error: 'Compliance review required',
+      next_actions: [{ command: 'agentxchain multi approve-gate' }],
+      recovery_summary: {
+        detail: 'Coordinator state is unchanged. Fix or reconfigure hook "release-guard", then rerun approval for pending gate "phase_transition:implementation->qa".',
+      },
+    }, 409);
+
+    assert.match(message, /Compliance review required/);
+    assert.match(message, /Coordinator state is unchanged/);
+    assert.match(message, /Next: agentxchain multi approve-gate/);
+  });
+
+  it('falls back to HTTP status when no structured payload exists', () => {
+    assert.equal(
+      formatActionErrorMessage(null, 409),
+      'Dashboard action failed with HTTP 409.',
+    );
+  });
+
+  it('app.js consumes payload next_actions in dashboard failure formatting', () => {
+    assert.match(appSource, /payload\.next_actions\?\.\[0\]\?\.command \|\| payload\.next_action/);
+    assert.match(appSource, /payload\.recovery_summary\?\.detail/);
+  });
+});

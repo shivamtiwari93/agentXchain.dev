@@ -2,6 +2,7 @@ import { dirname } from 'path';
 import { loadProjectContext } from '../config.js';
 import { approvePhaseTransition, approveRunCompletion } from '../governed-state.js';
 import { deriveRecoveryDescriptor } from '../blocked-state.js';
+import { normalizeCoordinatorGateApprovalFailure } from '../coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
 import { buildGatePayload, fireCoordinatorHook } from '../coordinator-hooks.js';
@@ -102,11 +103,31 @@ function approveCoordinatorGate(workspacePath, state, config) {
   if (gateHook.blocked) {
     const blocker = gateHook.verdicts.find((entry) => entry.verdict === 'block');
     const reason = blocker?.message || 'before_gate hook blocked approval';
-    return buildError(409, 'hook_blocked', reason);
+    return {
+      status: 409,
+      body: normalizeCoordinatorGateApprovalFailure({
+        state,
+        config,
+        code: 'hook_blocked',
+        error: reason,
+        hookName: blocker?.hook_name || null,
+        hookPhase: 'before_gate',
+      }),
+    };
   }
 
   if (!gateHook.ok) {
-    return buildError(409, 'hook_failed', gateHook.error || 'before_gate hook failed');
+    return {
+      status: 409,
+      body: normalizeCoordinatorGateApprovalFailure({
+        state,
+        config,
+        code: 'hook_failed',
+        error: gateHook.error || 'before_gate hook failed',
+        hookName: gateHook.results?.find((entry) => entry?.hook_name)?.hook_name || null,
+        hookPhase: 'before_gate',
+      }),
+    };
   }
 
   const gateType = state.pending_gate.gate_type;
@@ -121,7 +142,15 @@ function approveCoordinatorGate(workspacePath, state, config) {
   }
 
   if (!result.ok) {
-    return buildError(409, 'approval_failed', result.error || 'Coordinator gate approval failed');
+    return {
+      status: 409,
+      body: normalizeCoordinatorGateApprovalFailure({
+        state,
+        config,
+        code: 'approval_failed',
+        error: result.error || 'Coordinator gate approval failed',
+      }),
+    };
   }
 
   return normalizeCoordinatorSuccess(result, gateType);

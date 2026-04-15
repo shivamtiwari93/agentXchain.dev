@@ -205,6 +205,31 @@ function setActionBanner(message, tone = 'info') {
   banner.className = `action-banner visible ${tone === 'error' ? 'error' : tone === 'success' ? 'success' : ''}`.trim();
 }
 
+function formatActionErrorMessage(payload, status) {
+  if (!payload || typeof payload !== 'object') {
+    return `Dashboard action failed with HTTP ${status}.`;
+  }
+
+  const parts = [];
+  if (typeof payload.error === 'string' && payload.error.trim()) {
+    parts.push(payload.error.trim());
+  } else {
+    parts.push(`Dashboard action failed with HTTP ${status}.`);
+  }
+
+  const detail = payload.recovery_summary?.detail;
+  if (typeof detail === 'string' && detail.trim()) {
+    parts.push(detail.trim());
+  }
+
+  const nextAction = payload.next_actions?.[0]?.command || payload.next_action || null;
+  if (typeof nextAction === 'string' && nextAction.trim()) {
+    parts.push(`Next: ${nextAction.trim()}`);
+  }
+
+  return parts.join(' ');
+}
+
 async function loadView(viewName, { refresh = true } = {}) {
   const view = VIEWS[viewName];
   if (!view) {
@@ -402,7 +427,7 @@ document.addEventListener('click', async (event) => {
     }));
 
     if (!res.ok || payload.ok === false) {
-      setActionBanner(payload.error || `Dashboard action failed with HTTP ${res.status}.`, 'error');
+      setActionBanner(formatActionErrorMessage(payload, res.status), 'error');
       return;
     }
 

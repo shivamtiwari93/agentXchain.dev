@@ -145,6 +145,22 @@ function buildPlanningImplementationCoordinatorConfig(repoPaths) {
   };
 }
 
+function buildCoordinatorConfigWithBlockingGateHook(repoPaths) {
+  const config = buildPlanningImplementationCoordinatorConfig(repoPaths);
+  config.hooks = {
+    before_gate: [
+      {
+        name: 'release-guard',
+        type: 'process',
+        command: ['./hooks/block-gate.sh'],
+        timeout_ms: 5000,
+        mode: 'blocking',
+      },
+    ],
+  };
+  return config;
+}
+
 function runCli(cwd, args) {
   return spawnSync(process.execPath, [CLI_BIN, ...args], {
     cwd,
@@ -444,6 +460,124 @@ describe('multi approve-gate CLI', () => {
       const result = runCli(workspace, ['multi', 'approve-gate']);
       assert.notEqual(result.status, 0);
       assert.ok(result.stderr.includes('No pending gate'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-016: hook-blocked multi approve-gate prints structured recovery guidance', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+    const webRepo = join(workspace, 'repos', 'web');
+    const apiRepo = join(workspace, 'repos', 'api');
+
+    try {
+      writeGovernedRepo(webRepo, 'web', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+        },
+      });
+      writeGovernedRepo(apiRepo, 'api', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+        },
+      });
+      mkdirSync(join(workspace, 'hooks'), { recursive: true });
+      writeFileSync(join(workspace, 'hooks', 'block-gate.sh'), `#!/bin/sh
+cat <<'HOOKEOF'
+{"verdict":"block","message":"Compliance review required"}
+HOOKEOF
+`, { mode: 0o755 });
+      writeJson(
+        join(workspace, 'agentxchain-multi.json'),
+        buildCoordinatorConfigWithBlockingGateHook({ web: './repos/web', api: './repos/api' }),
+      );
+
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, init.stderr);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.phase = 'planning';
+      coordinatorState.pending_gate = {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:planning->implementation',
+        from: 'planning',
+        to: 'implementation',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const result = runCli(workspace, ['multi', 'approve-gate']);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Coordinator Gate Approval Failed/);
+      assert.match(result.stderr, /Hook:\s+release-guard/);
+      assert.match(result.stderr, /Action:\s+agentxchain multi approve-gate/);
+      assert.match(result.stderr, /Coordinator state is unchanged/);
+      assert.match(result.stderr, /Next Actions:/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-017: hook-blocked multi approve-gate --json returns normalized failure fields', () => {
+    const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+    const webRepo = join(workspace, 'repos', 'web');
+    const apiRepo = join(workspace, 'repos', 'api');
+
+    try {
+      writeGovernedRepo(webRepo, 'web', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+        },
+      });
+      writeGovernedRepo(apiRepo, 'api', {
+        routing: {
+          planning: { entry_role: 'pm', allowed_next_roles: ['dev', 'human'] },
+          implementation: { entry_role: 'dev', allowed_next_roles: ['qa', 'human'] },
+        },
+      });
+      mkdirSync(join(workspace, 'hooks'), { recursive: true });
+      writeFileSync(join(workspace, 'hooks', 'block-gate.sh'), `#!/bin/sh
+cat <<'HOOKEOF'
+{"verdict":"block","message":"Compliance review required"}
+HOOKEOF
+`, { mode: 0o755 });
+      writeJson(
+        join(workspace, 'agentxchain-multi.json'),
+        buildCoordinatorConfigWithBlockingGateHook({ web: './repos/web', api: './repos/api' }),
+      );
+
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, init.stderr);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.phase = 'planning';
+      coordinatorState.pending_gate = {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:planning->implementation',
+        from: 'planning',
+        to: 'implementation',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const result = runCli(workspace, ['multi', 'approve-gate', '--json']);
+      assert.notEqual(result.status, 0);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.ok, false);
+      assert.equal(parsed.code, 'hook_blocked');
+      assert.equal(parsed.hook_phase, 'before_gate');
+      assert.equal(parsed.hook_name, 'release-guard');
+      assert.equal(parsed.next_action, 'agentxchain multi approve-gate');
+      assert.equal(parsed.next_actions[0].command, 'agentxchain multi approve-gate');
+      assert.equal(parsed.recovery_summary.typed_reason, 'hook_block');
+      assert.match(parsed.recovery_summary.detail, /Coordinator state is unchanged/);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
