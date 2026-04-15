@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.100.0
+
+- Governance regression detection on export diffs (status, budget, gate, decisions, coordinator repo/barrier/event regressions)
+
 ## 2.99.0
 
 `2.99.0` closes the coordinator replay event filter proof gap and adds comparison pages for competitive positioning.
