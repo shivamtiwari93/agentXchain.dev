@@ -76,7 +76,7 @@ npm view "agentxchain@<semver>" version
 The publish workflow now handles all downstream surfaces automatically:
 
 1. **GitHub Release** — created by CI from the governed website release page, and reruns repair the release body via `gh release edit` if an older low-signal body already exists
-2. **Homebrew sync** — repo mirror updated in CI via a generated PR that the workflow approves and auto-merges; canonical tap pushed if `HOMEBREW_TAP_TOKEN` is configured
+2. **Homebrew sync** — canonical tap pushed with `HOMEBREW_TAP_TOKEN`; repo mirror updated in CI by direct push when `REPO_PUSH_TOKEN` (preferred) or a broad `HOMEBREW_TAP_TOKEN` is available, otherwise via PR fallback
 3. **Completeness gate** — `release-downstream-truth.sh` runs as the final CI step
 
 **If `HOMEBREW_TAP_TOKEN` is absent on a first publish attempt**, the workflow fails before npm publication. The operator must either:

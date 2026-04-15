@@ -18,15 +18,15 @@ The canonical tap (`shivamtiwari93/homebrew-tap`) is already updated directly. T
 
 ## Solution
 
-Replace the PR-based mirror update with a direct push to `main` as the primary path.
+Replace the PR-based mirror update with a direct push to `main` as the primary path when a repo-scoped push credential is available.
 
-Since `enforce_admins: false` on the `main` branch protection rules, a push authenticated with the repo owner's PAT bypasses the required-review rule. The workflow already has `HOMEBREW_TAP_TOKEN` (repo owner's PAT for the canonical tap). If this token also has `contents:write` on `agentXchain.dev` (true for classic PATs with `repo` scope), it can push directly.
+Since `enforce_admins: false` on the `main` branch protection rules, a push authenticated with the repo owner's PAT bypasses the required-review rule. The workflow already has `HOMEBREW_TAP_TOKEN` for the canonical tap. However, `.planning/HUMAN_TASKS.md` records that token as a fine-grained PAT created for `shivamtiwari93/homebrew-tap`, so it should not be assumed to have push rights on `shivamtiwari93/agentXchain.dev`. The direct-push path therefore needs an explicit repo-scoped credential.
 
 ### Strategy
 
 1. After `sync-homebrew.sh` updates the local mirror files, check if there are changes in `homebrew/`.
-2. **Primary path (direct push):** Fetch `origin/main`, create a commit on top of it with only `homebrew/` changes, push directly to `main` using `HOMEBREW_TAP_TOKEN` as the git credential.
-3. **Fallback path (PR):** If direct push fails (e.g., `HOMEBREW_TAP_TOKEN` is fine-grained and scoped only to `homebrew-tap`), fall back to the existing PR creation + best-effort closeout path.
+2. **Primary path (direct push):** Fetch `origin/main`, create a commit on top of it with only `homebrew/` changes, and push directly to `main` using `REPO_PUSH_TOKEN` when present. If `REPO_PUSH_TOKEN` is absent, fall back to `HOMEBREW_TAP_TOKEN` only when it has repo-level access.
+3. **Fallback path (PR):** If direct push fails (for example because only the fine-grained `HOMEBREW_TAP_TOKEN` is available), fall back to the existing PR creation + best-effort closeout path.
 4. If direct push succeeds, close any stale `chore/homebrew-sync-v*` PRs as superseded (cleanup).
 
 ### Safety constraints
@@ -40,9 +40,13 @@ Since `enforce_admins: false` on the `main` branch protection rules, a push auth
 
 No new scripts. Changes to `.github/workflows/publish-npm-on-tag.yml` only.
 
-New secret (optional): If `HOMEBREW_TAP_TOKEN` is a fine-grained PAT scoped only to `homebrew-tap`, the owner needs to either:
-- Replace it with a classic PAT with `repo` scope, OR
-- Add a separate `REPO_PUSH_TOKEN` secret with `contents:write` on `agentXchain.dev`
+New secret (optional but preferred): `REPO_PUSH_TOKEN`
+
+- Purpose: direct push for the repo mirror update in `shivamtiwari93/agentXchain.dev`
+- Scope: `contents:write` on `shivamtiwari93/agentXchain.dev`
+- Precedence: the workflow must prefer `REPO_PUSH_TOKEN` for the repo-mirror direct push, then fall back to `HOMEBREW_TAP_TOKEN`
+
+`HOMEBREW_TAP_TOKEN` remains the canonical-tap credential and the fallback repo-push credential only when it is broad enough.
 
 ## Acceptance Tests
 
@@ -52,6 +56,8 @@ New secret (optional): If `HOMEBREW_TAP_TOKEN` is a fine-grained PAT scoped only
 - AT-HM-DP-004: If direct push fails, PR fallback path is used (existing behavior preserved).
 - AT-HM-DP-005: After direct push success, stale `chore/homebrew-sync-v*` PRs are closed.
 - AT-HM-DP-006: Workflow never force-pushes to `main`.
+- AT-HM-DP-007: Workflow prefers `REPO_PUSH_TOKEN` over `HOMEBREW_TAP_TOKEN` for repo-mirror direct push when both are present.
+- AT-HM-DP-008: Release docs describe the repo-mirror path truthfully: direct push when repo credential exists, PR fallback otherwise.
 
 ## Decisions
 
@@ -59,6 +65,8 @@ New secret (optional): If `HOMEBREW_TAP_TOKEN` is a fine-grained PAT scoped only
 
 `DEC-HOMEBREW-SYNC-014` (supersedes `DEC-HOMEBREW-SYNC-008` partially): The PR-based mirror update path is retained as a fallback, not the primary path. The primary path is direct push to `main` when the push credential has sufficient permissions.
 
+`DEC-HOMEBREW-REPO-PUSH-TOKEN-001`: Repo-mirror direct push uses `REPO_PUSH_TOKEN` when available, because `HOMEBREW_TAP_TOKEN` is not guaranteed to cover `agentXchain.dev`. `HOMEBREW_TAP_TOKEN` remains a fallback credential for direct push only when it happens to be broad enough.
+
 ## Open Questions
 
-- Is `HOMEBREW_TAP_TOKEN` a classic PAT (works on all repos) or fine-grained (scoped to `homebrew-tap` only)? The direct push will reveal this on the next release. If it fails, the fallback PR path activates and we need human action to provide a broader token.
+- Is `REPO_PUSH_TOKEN` configured in Actions? If not, the workflow will continue to use PR fallback even though direct push is the desired primary path.

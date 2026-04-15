@@ -17,6 +17,7 @@ const PROTOCOL_REFERENCE_DOCS = read('website-v2/docs/protocol-reference.mdx');
 const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const SPEC = read('.planning/EXPORT_SCHEMA_REFERENCE_SPEC.md');
+const EXPORT_VERIFIER_SOURCE = read('cli/src/lib/export-verifier.js');
 
 function read(relPath) {
   return readFileSync(join(REPO_ROOT, relPath), 'utf8');
@@ -436,6 +437,23 @@ describe('verification report shape docs contract', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe('phase-order conformance docs contract', () => {
+  it('documents workflow_phase_order verifier invariants truthfully', () => {
+    assert.match(EXPORT_DOCS, /workflow_phase_order/);
+    assert.match(EXPORT_DOCS, /must be non-empty/i);
+    assert.match(EXPORT_DOCS, /include `summary\.phase`/i);
+    assert.match(EXPORT_VERIFIER_SOURCE, /must not be empty when present/);
+    assert.match(EXPORT_VERIFIER_SOURCE, /must not contain duplicate phase/);
+    assert.match(EXPORT_VERIFIER_SOURCE, /must appear in summary\.workflow_phase_order when workflow_phase_order is present/);
+  });
+
+  it('documents conservative phase-order drift behavior for export diffs', () => {
+    assert.match(CLI_DOCS, /`workflow_phase_order` embedded in the export summary/i);
+    assert.match(CLI_DOCS, /only runs when both exports declare the same phase order/i);
+    assert.match(CLI_DOCS, /explicit warning and skips guessing/i);
   });
 });
 

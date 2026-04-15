@@ -43,6 +43,18 @@ describe('verify export docs contract', () => {
     assert.match(EXPORT_VERIFIER, /content_base64/);
   });
 
+  it('documents workflow_phase_order verifier invariants and conservative diff behavior', () => {
+    assert.match(CLI_DOCS, /workflow_phase_order/);
+    assert.match(CLI_DOCS, /must be non-empty/i);
+    assert.match(CLI_DOCS, /unique trimmed phase names/i);
+    assert.match(CLI_DOCS, /include the current `summary\.phase` value/i);
+    assert.match(CLI_DOCS, /only infers backward phase movement when both exports declare the same phase order/i);
+    assert.match(CLI_DOCS, /phase-order drift warning/i);
+    assert.match(EXPORT_VERIFIER, /must not be empty when present/);
+    assert.match(EXPORT_VERIFIER, /must not contain duplicate phase/);
+    assert.match(EXPORT_VERIFIER, /must appear in summary\.workflow_phase_order when workflow_phase_order is present/);
+  });
+
   it('documents exit-code semantics truthfully', () => {
     assert.match(CLI_DOCS, /\| `0` \| Export artifact verification passed \|/);
     assert.match(CLI_DOCS, /\| `1` \| Export artifact parsed but failed integrity or structural verification \|/);

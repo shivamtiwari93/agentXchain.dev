@@ -134,7 +134,9 @@ Add a post-postflight step that runs `sync-homebrew.sh --push-tap` if the `HOMEB
 
 `DEC-HOMEBREW-SYNC-013`: The publish workflow must treat older open `chore/homebrew-sync-v*` PRs as superseded once a newer release's mirror PR exists. Closing those stale PRs is part of automation hygiene; otherwise the protected-branch mirror path silently accumulates false-open follow-up debt.
 
-`DEC-HOMEBREW-SYNC-014`: The publish workflow should attempt a direct push to `main` for Homebrew mirror updates before falling back to the PR path. Direct push uses `HOMEBREW_TAP_TOKEN` as git credential. Since `enforce_admins` is `false` on branch protection, a repo admin PAT bypasses the required-review rule. If the token lacks `contents:write` on `agentXchain.dev`, the push fails harmlessly and the PR fallback activates. The PR closeout step is skipped entirely when direct push succeeds.
+`DEC-HOMEBREW-SYNC-014`: The publish workflow should attempt a direct push to `main` for Homebrew mirror updates before falling back to the PR path. Direct push prefers `REPO_PUSH_TOKEN` as the repo-push credential and falls back to `HOMEBREW_TAP_TOKEN` only when it also has repo-level access. Since `enforce_admins` is `false` on branch protection, a repo admin PAT bypasses the required-review rule. If the chosen token lacks `contents:write` on `agentXchain.dev`, the push fails harmlessly and the PR fallback activates. The PR closeout step is skipped entirely when direct push succeeds.
+
+`DEC-HOMEBREW-SYNC-015`: `HOMEBREW_TAP_TOKEN` cannot be assumed to cover `agentXchain.dev`, because the canonical tap may be backed by a fine-grained PAT. Repo-mirror direct push therefore supports an explicit `REPO_PUSH_TOKEN` secret and prefers it when present.
 
 ## Open Questions
 

@@ -905,6 +905,8 @@ The verifier does three things:
 
 For coordinator exports, that includes `summary.aggregated_events` when present. The verifier reconstructs the child-repo event timeline from embedded successful repo exports and fails closed if the summary claims events from a repo whose nested export was not embedded.
 
+When `summary.workflow_phase_order` is present, `verify export` also enforces the phase-order summary invariants: the array must be non-empty, contain unique trimmed phase names, and include the current `summary.phase` value. The comparison path stays conservative: `diff --export` only infers backward phase movement when both exports declare the same phase order, and emits an explicit phase-order drift warning otherwise.
+
 Typical use:
 
 ```bash

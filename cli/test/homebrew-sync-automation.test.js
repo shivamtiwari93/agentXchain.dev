@@ -137,6 +137,11 @@ describe('homebrew sync automation contract', () => {
       /Sync Homebrew/,
       'playbook must describe the sync automation',
     );
+    assert.match(
+      playbook,
+      /direct push when `REPO_PUSH_TOKEN` \(preferred\) or a broad `HOMEBREW_TAP_TOKEN` is available, otherwise via PR fallback/i,
+      'playbook must describe the repo-mirror direct-push path truthfully',
+    );
   });
 
   it('sync automation spec exists with acceptance tests', () => {
@@ -152,6 +157,7 @@ describe('homebrew sync automation contract', () => {
     assert.match(spec, /DEC-HOMEBREW-SYNC-009/, 'spec must declare decision DEC-HOMEBREW-SYNC-009');
     assert.match(spec, /DEC-HOMEBREW-SYNC-011/, 'spec must declare decision DEC-HOMEBREW-SYNC-011');
     assert.match(spec, /DEC-HOMEBREW-SYNC-013/, 'spec must declare decision DEC-HOMEBREW-SYNC-013');
+    assert.match(spec, /DEC-HOMEBREW-SYNC-015/, 'spec must declare decision DEC-HOMEBREW-SYNC-015');
   });
 
   it('Homebrew sync step warns when HOMEBREW_TAP_TOKEN is missing', () => {
@@ -249,8 +255,8 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /Attempting direct push to main using HOMEBREW_TAP_TOKEN/,
-      'workflow must attempt direct push as primary path',
+      /Attempting direct push to main using \$\{PUSH_TOKEN_NAME\}/,
+      'workflow must attempt direct push as primary path using the selected repo-push credential',
     );
     assert.match(
       workflow,
@@ -291,6 +297,25 @@ describe('homebrew sync automation contract', () => {
       workflow,
       /git config --global url\..*insteadOf/,
       'workflow must not rewrite global GitHub auth just to push the canonical tap',
+    );
+  });
+
+  it('CI workflow prefers REPO_PUSH_TOKEN over HOMEBREW_TAP_TOKEN for repo direct push', () => {
+    const workflow = read('.github/workflows/publish-npm-on-tag.yml');
+    assert.match(
+      workflow,
+      /REPO_PUSH_TOKEN: \$\{\{ secrets\.REPO_PUSH_TOKEN }}/,
+      'workflow must load the optional REPO_PUSH_TOKEN secret',
+    );
+    assert.match(
+      workflow,
+      /PUSH_TOKEN="\$\{REPO_PUSH_TOKEN:-\$\{HOMEBREW_TAP_TOKEN:-}}"/,
+      'workflow must prefer REPO_PUSH_TOKEN and fall back to HOMEBREW_TAP_TOKEN',
+    );
+    assert.match(
+      workflow,
+      /PUSH_TOKEN_NAME="REPO_PUSH_TOKEN"/,
+      'workflow must label the preferred repo-push credential explicitly',
     );
   });
 
