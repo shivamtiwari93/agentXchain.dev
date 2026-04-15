@@ -6,7 +6,7 @@
 
 - `agentxchain report --format html` and `agentxchain audit --format html` produce self-contained HTML governance reports with inline CSS, dark mode, print styles, and status badges
 - Cross-run decision carryover proof script validates repo-durable decisions persist and override across runs
-- 4465 tests / 0 failures
+- 4465 tests / 958 suites / 0 failures
 
 ## 2.92.0
 
