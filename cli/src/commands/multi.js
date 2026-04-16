@@ -11,7 +11,10 @@
  */
 
 import chalk from 'chalk';
-import { normalizeCoordinatorGateApprovalFailure } from '../lib/coordinator-gate-approval.js';
+import {
+  normalizeCoordinatorGateApprovalFailure,
+  normalizeCoordinatorGateApprovalSuccess,
+} from '../lib/coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../lib/coordinator-config.js';
 import { deriveCoordinatorNextActions } from '../lib/coordinator-next-actions.js';
 import { getCoordinatorPendingGateDetails } from '../lib/coordinator-pending-gate-presentation.js';
@@ -552,6 +555,8 @@ export async function multiResumeCommand(options) {
     return;
   }
 
+  const nextActions = deriveCoordinatorCliNextActions(result.state, configResult.config);
+
   if (options.json) {
     console.log(JSON.stringify({
       ok: true,
@@ -559,6 +564,8 @@ export async function multiResumeCommand(options) {
       resumed_status: result.resumed_status,
       blocked_reason: result.blocked_reason,
       pending_gate: result.state?.pending_gate || null,
+      next_action: nextActions[0]?.command ?? null,
+      next_actions: nextActions,
       resync: result.resync,
     }, null, 2));
     return;
@@ -566,9 +573,10 @@ export async function multiResumeCommand(options) {
 
   console.log(`Coordinator resumed: ${result.resumed_status}`);
   console.log(`Previous block: ${result.blocked_reason}`);
-  printCoordinatorNextActions(
-    deriveCoordinatorCliNextActions(result.state, configResult.config),
-  );
+  if (result.state?.pending_gate) {
+    printCoordinatorPendingGate(result.state.pending_gate);
+  }
+  printCoordinatorNextActions(nextActions);
 }
 
 // ── multi approve-gate ─────────────────────────────────────────────────────
@@ -669,16 +677,18 @@ export async function multiApproveGateCommand(options) {
     return;
   }
 
+  const success = normalizeCoordinatorGateApprovalSuccess({
+    result: { ...result, config: configResult.config },
+    gateType,
+  });
+
   if (options.json) {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(success, null, 2));
     return;
   }
 
-  if (gateType === 'phase_transition') {
-    console.log(`Phase transition approved: ${result.transition?.from} → ${result.transition?.to}`);
-  } else {
-    console.log('Run completion approved. Coordinator run is now complete.');
-  }
+  console.log(success.message);
+  printCoordinatorNextActions(success.next_actions);
 }
 
 // ── multi resync ───────────────────────────────────────────────────────────

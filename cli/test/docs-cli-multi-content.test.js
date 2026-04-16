@@ -14,6 +14,7 @@ const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const MULTI_IMPL = read('cli/src/commands/multi.js');
 const SPEC = read('.planning/CLI_DOCS_MULTI_CONTRACT_SPEC.md');
 const PENDING_GATE_SPEC = read('.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md');
+const HANDOFF_SPEC = read('.planning/COORDINATOR_CLI_HANDOFF_OUTPUT_SPEC.md');
 
 function extractSection(startHeading) {
   const start = CLI_DOCS.indexOf(startHeading);
@@ -127,6 +128,20 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /next actions/i);
   });
 
+  it('AT-DOCS-MULTI-009: documents multi resume pending-gate handoff output', () => {
+    assert.match(multiSection, /multi resume/i);
+    assert.match(multiSection, /restores coordinator status to `active` or `paused`/i);
+    assert.match(multiSection, /same canonical `Pending Gate` detail rows/i);
+    assert.match(multiSection, /ordered next actions/i);
+  });
+
+  it('AT-DOCS-MULTI-010: documents successful multi approve-gate handoff output', () => {
+    assert.match(multiSection, /Successful `multi approve-gate`/);
+    assert.match(multiSection, /phase-transition approvals print the success message plus ordered next actions/i);
+    assert.match(multiSection, /run-completion approvals stop at the completion message/i);
+    assert.match(multiSection, /`next_action`\/`next_actions`/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });
@@ -151,6 +166,12 @@ describe('CLI multi spec alignment', () => {
   it('pending-gate presentation spec exists and references multi status', () => {
     assert.ok(PENDING_GATE_SPEC.length > 0, 'pending-gate spec file must exist');
     assert.match(PENDING_GATE_SPEC, /multi status/i);
+  });
+
+  it('handoff output spec exists and references multi approve-gate', () => {
+    assert.ok(HANDOFF_SPEC.length > 0, 'handoff spec file must exist');
+    assert.match(HANDOFF_SPEC, /multi approve-gate/i);
+    assert.match(HANDOFF_SPEC, /multi resume/i);
   });
 });
 

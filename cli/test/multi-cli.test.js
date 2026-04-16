@@ -14,6 +14,25 @@ function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
 }
 
+function writeCoordinatorRecoveryReport(workspace) {
+  writeFileSync(
+    join(workspace, '.agentxchain', 'multirepo', 'RECOVERY_REPORT.md'),
+    [
+      '# Recovery Report',
+      '',
+      '## Trigger',
+      'Coordinator block reproduced and understood.',
+      '',
+      '## Impact',
+      'No child repo state changed during recovery.',
+      '',
+      '## Mitigation',
+      'Root cause addressed before running multi resume.',
+      '',
+    ].join('\n'),
+  );
+}
+
 function writeGovernedRepo(root, projectId, options = {}) {
   const routing = options.routing || {
     implementation: {
@@ -653,6 +672,99 @@ HOOKEOF
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CLI-MR-023: successful phase-transition multi approve-gate prints ordered next actions', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.phase = 'implementation';
+      coordinatorState.pending_gate = {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:implementation->qa',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const result = runCli(workspace, ['multi', 'approve-gate']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /Coordinator phase transition approved: implementation -> qa/);
+      assert.match(result.stdout, /Next Actions:/);
+      assert.match(result.stdout, /agentxchain multi step/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-024: successful phase-transition multi approve-gate --json returns normalized success fields', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.phase = 'implementation';
+      coordinatorState.pending_gate = {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:implementation->qa',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const result = runCli(workspace, ['multi', 'approve-gate', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.gate_type, 'phase_transition');
+      assert.equal(parsed.status, 'active');
+      assert.equal(parsed.phase, 'qa');
+      assert.equal(parsed.message, 'Coordinator phase transition approved: implementation -> qa');
+      assert.equal(parsed.next_action, 'agentxchain multi step');
+      assert.equal(parsed.next_actions?.[0]?.command, 'agentxchain multi step');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-025: successful run-completion multi approve-gate --json keeps next actions empty', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.phase = 'implementation';
+      coordinatorState.pending_gate = {
+        gate_type: 'run_completion',
+        gate: 'initiative_ship',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const result = runCli(workspace, ['multi', 'approve-gate', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.gate_type, 'run_completion');
+      assert.equal(parsed.status, 'completed');
+      assert.equal(parsed.next_action, null);
+      assert.deepEqual(parsed.next_actions, []);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('multi resume CLI', () => {
@@ -674,6 +786,101 @@ describe('multi resume CLI', () => {
       const result = runCli(workspace, ['multi', 'resume']);
       assert.notEqual(result.status, 0);
       assert.ok(result.stderr.includes('expected "blocked"'), result.stderr);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-MR-REC-003: multi resume restores active state and surfaces the next action', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_reason = 'operator recovery required';
+      writeJson(statePath, state);
+      writeCoordinatorRecoveryReport(workspace);
+
+      const result = runCli(workspace, ['multi', 'resume']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /Coordinator resumed: active/);
+      assert.match(result.stdout, /Previous block: operator recovery required/);
+      assert.match(result.stdout, /Next Actions:/);
+      assert.match(result.stdout, /agentxchain multi step/);
+      assert.doesNotMatch(result.stdout, /Pending Gate:/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-021: multi resume restoring paused prints canonical pending-gate detail rows', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_reason = 'operator recovery required';
+      state.phase = 'implementation';
+      state.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+        human_barriers: ['PM_SIGNOFF.md'],
+      };
+      writeJson(statePath, state);
+      writeCoordinatorRecoveryReport(workspace);
+
+      const result = runCli(workspace, ['multi', 'resume']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.match(result.stdout, /Coordinator resumed: paused/);
+      assert.match(result.stdout, /Pending Gate:/);
+      assert.match(result.stdout, /Type: phase_transition/);
+      assert.match(result.stdout, /Gate: phase_transition:implementation->qa/);
+      assert.match(result.stdout, /Current Phase: implementation/);
+      assert.match(result.stdout, /Target Phase: qa/);
+      assert.match(result.stdout, /Required Repos: api, web/);
+      assert.match(result.stdout, /Approval State: Awaiting human approval/);
+      assert.match(result.stdout, /Human Barriers: PM_SIGNOFF\.md/);
+      assert.match(result.stdout, /Next Actions:/);
+      assert.match(result.stdout, /agentxchain multi approve-gate/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-022: multi resume --json exposes ordered next actions', () => {
+    const { workspace } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const statePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'blocked';
+      state.blocked_reason = 'operator recovery required';
+      state.pending_gate = {
+        gate: 'initiative_ship',
+        gate_type: 'run_completion',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(statePath, state);
+      writeCoordinatorRecoveryReport(workspace);
+
+      const result = runCli(workspace, ['multi', 'resume', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.resumed_status, 'paused');
+      assert.equal(parsed.next_action, 'agentxchain multi approve-gate');
+      assert.equal(parsed.next_actions?.[0]?.command, 'agentxchain multi approve-gate');
+      assert.ok(parsed.pending_gate);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
@@ -701,6 +908,7 @@ describe('multi help surface', () => {
   it('AT-CLI-MR-015: multi command imports shared coordinator next-action helpers', () => {
     assert.match(MULTI_SOURCE, /deriveCoordinatorNextActions/);
     assert.match(MULTI_SOURCE, /collectCoordinatorRepoSnapshots/);
+    assert.match(MULTI_SOURCE, /normalizeCoordinatorGateApprovalSuccess/);
     assert.doesNotMatch(MULTI_SOURCE, /Action:\s+Run \$\{chalk\.cyan\('agentxchain multi approve-gate'\)\} to advance/);
   });
 

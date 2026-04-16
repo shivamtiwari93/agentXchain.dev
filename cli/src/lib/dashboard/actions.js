@@ -5,6 +5,7 @@ import { deriveGovernedRunNextActions, deriveRecoveryDescriptor } from '../block
 import {
   deriveCoordinatorGateNextActions,
   normalizeCoordinatorGateApprovalFailure,
+  normalizeCoordinatorGateApprovalSuccess,
 } from '../coordinator-gate-approval.js';
 import { loadCoordinatorConfig } from '../coordinator-config.js';
 import { loadCoordinatorState } from '../coordinator-state.js';
@@ -127,36 +128,15 @@ function approveRepoGate(root, config, state) {
 }
 
 function normalizeCoordinatorSuccess(result, gateType, config) {
-  const nextActions = deriveCoordinatorGateNextActions(result.state, config);
-  const nextAction = nextActions[0]?.command ?? null;
-
-  if (gateType === 'phase_transition') {
-    return {
-      status: 200,
-      body: {
-        ok: true,
-        scope: 'coordinator',
-        gate_type: 'phase_transition',
-        status: result.state?.status || null,
-        phase: result.state?.phase || null,
-        message: `Coordinator phase transition approved: ${result.transition.from} -> ${result.transition.to}`,
-        next_action: nextAction,
-        next_actions: nextActions,
-      },
-    };
-  }
-
+  const payload = normalizeCoordinatorGateApprovalSuccess({
+    result: { ...result, config },
+    gateType,
+  });
   return {
     status: 200,
     body: {
-      ok: true,
       scope: 'coordinator',
-      gate_type: 'run_completion',
-      status: result.state?.status || null,
-      phase: result.state?.phase || null,
-      message: 'Coordinator run completion approved. Run is now complete.',
-      next_action: nextAction,
-      next_actions: nextActions,
+      ...payload,
     },
   };
 }

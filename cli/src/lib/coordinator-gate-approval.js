@@ -64,3 +64,35 @@ export function normalizeCoordinatorGateApprovalFailure({
     },
   };
 }
+
+export function normalizeCoordinatorGateApprovalSuccess({
+  result,
+  gateType,
+  phaseTransitionMessagePrefix = 'Coordinator phase transition approved',
+  completionMessage = 'Coordinator run completion approved. Run is now complete.',
+}) {
+  const nextActions = deriveCoordinatorGateNextActions(result?.state, result?.config);
+  const nextAction = nextActions[0]?.command ?? null;
+
+  if (gateType === 'phase_transition') {
+    return {
+      ok: true,
+      gate_type: 'phase_transition',
+      status: result?.state?.status || null,
+      phase: result?.state?.phase || null,
+      message: `${phaseTransitionMessagePrefix}: ${result?.transition?.from} -> ${result?.transition?.to}`,
+      next_action: nextAction,
+      next_actions: nextActions,
+    };
+  }
+
+  return {
+    ok: true,
+    gate_type: 'run_completion',
+    status: result?.state?.status || null,
+    phase: result?.state?.phase || null,
+    message: completionMessage,
+    next_action: nextAction,
+    next_actions: nextActions,
+  };
+}
