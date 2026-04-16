@@ -26,10 +26,12 @@ description: "Governance regression detection on export diffs."
 
 All run-level regressions plus:
 
-- **Child repo status downgrade**: any child repo status regressing
+- **Child repo status downgrade**: authority-first child repo status regressing when nested child exports are readable
 - **Child repo export failure**: `export.ok` flipping from `true` to `false`
 - **Barrier decrease**: barrier count dropping (barriers removed between runs)
 - **Event loss**: aggregated event count decreasing
+
+Stale `summary.repo_run_statuses` alone does not create a coordinator repo-status regression. That field remains raw coordinator snapshot metadata, not the regression authority when child exports are readable.
 
 ### Output
 

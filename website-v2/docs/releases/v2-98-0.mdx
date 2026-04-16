@@ -38,9 +38,11 @@ For `agentxchain_run_export` artifacts, the diff now highlights:
 For `agentxchain_coordinator_export` artifacts, the diff now highlights:
 
 - super-run, status, phase, barrier-count, and aggregated-event-count drift
-- per-repo run-status changes
+- per-repo run-status changes derived from authority-first child repo status when nested child exports are readable
 - nested child-export availability changes (`ok: true/false`)
 - per-event-type deltas from aggregated coordinator events
+
+`summary.repo_run_statuses` remains preserved as raw coordinator snapshot metadata. It is not the primary repo-status comparison source for coordinator export drift.
 
 ### Release Notes Ordering Hardening
 
