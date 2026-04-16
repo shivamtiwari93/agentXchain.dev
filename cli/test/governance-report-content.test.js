@@ -138,6 +138,7 @@ describe('governance report spec alignment', () => {
     assert.match(terminalDriftSpec, /DEC-COORD-REPORT-TERMINAL-DRIFT-001/);
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-006/);
     assert.match(terminalDriftSpec, /AT-COORD-RUNID-007/);
+    assert.match(terminalDriftSpec, /AT-REPORT-009/);
     assert.match(terminalDriftSpec, /terminal_observability_note/);
   });
 

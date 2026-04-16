@@ -281,7 +281,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
 When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
-When `subject.run.status = "completed"` and `subject.run.run_id_mismatches` is non-empty, the report keeps those mismatches visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text/markdown/HTML render the same note inline, and the report still omits `Next Actions`.
+When `subject.run.status = "completed"` and `subject.run.run_id_mismatches` is non-empty, the report keeps those mismatches visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.
 
 ### `subject.run.repo_decisions`
 

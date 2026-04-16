@@ -901,6 +901,54 @@ describe('report CLI', () => {
     }
   });
 
+  it('AT-REPORT-009: completed coordinator HTML report keeps terminal drift observable without reopening recovery work', () => {
+    const root = createCoordinatorWorkspace();
+    try {
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1',
+        super_run_id: 'srun_coord_report_001',
+        project_id: 'coord-report',
+        status: 'completed',
+        phase: 'implementation',
+        repo_runs: {
+          web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+          cli: { run_id: 'run_cli_001', status: 'initialized', phase: 'implementation' },
+        },
+        pending_gate: null,
+        phase_gate_status: {},
+        created_at: '2026-04-03T00:00:00Z',
+        updated_at: '2026-04-03T00:20:00Z',
+      });
+      writeJson(join(root, 'repos', 'web', '.agentxchain', 'state.json'), {
+        ...JSON.parse(readFileSync(join(root, 'repos', 'web', '.agentxchain', 'state.json'), 'utf8')),
+        status: 'active',
+      });
+      writeJson(join(root, 'repos', 'cli', '.agentxchain', 'state.json'), {
+        ...JSON.parse(readFileSync(join(root, 'repos', 'cli', '.agentxchain', 'state.json'), 'utf8')),
+        run_id: 'run_cli_999',
+        status: 'blocked',
+        blocked_on: 'dispatch:awaiting_followup',
+      });
+      writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [
+        { type: 'run_initialized', super_run_id: 'srun_coord_report_001', timestamp: '2026-04-03T00:00:00Z' },
+        { type: 'run_completed', super_run_id: 'srun_coord_report_001', timestamp: '2026-04-03T00:20:00Z' },
+      ]);
+
+      const artifactPath = exportArtifact(root, 'completed-terminal-artifact.html.json');
+      const htmlResult = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
+      assert.equal(htmlResult.status, 0, htmlResult.stderr);
+      assert.match(htmlResult.stdout, /<dt>Terminal drift note<\/dt>/);
+      assert.match(
+        htmlResult.stdout,
+        /<dd>Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted\.<\/dd>/,
+      );
+      assert.doesNotMatch(htmlResult.stdout, /<h2>Next Actions<\/h2>/);
+      assert.doesNotMatch(htmlResult.stdout, /agentxchain multi (resync|resume|step)/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('AT-COORD-DRILL-001: coordinator report surfaces child-repo turn timeline and decisions', () => {
     const root = mkdtempSync(join(tmpdir(), 'axc-report-coord-drill-'));
     try {
