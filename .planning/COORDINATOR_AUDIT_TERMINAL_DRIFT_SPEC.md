@@ -24,6 +24,7 @@ Affected fields and rendered output for coordinator workspaces:
 - `subject.run.terminal_observability_note`
 - `subject.run.next_actions`
 - text/markdown rendered `Terminal drift note: ...` line
+- HTML rendered `Terminal drift note` metadata row
 
 ## Behavior
 
@@ -39,7 +40,9 @@ Then `audit` must:
 - populate `subject.run.terminal_observability_note`
 - keep `subject.run.next_actions = []`
 - render the same terminal drift note in text and markdown output
+- render the same terminal drift note in HTML output
 - omit `Next Actions:` from text and markdown output
+- omit the `Next Actions` section from HTML output
 
 This is observability-only terminal drift. It must not imply the completed coordinator has recovery work left to do.
 
@@ -47,12 +50,14 @@ This is observability-only terminal drift. It must not imply the completed coord
 
 - Completed coordinator drift renders `run_id_mismatches` but omits `terminal_observability_note`
 - Completed coordinator drift renders the note but still prints `Next Actions:`
+- Completed coordinator drift renders the note in HTML metadata but still includes an HTML `Next Actions` section
 - `audit` docs only describe blocked recovery flows and fail to mention terminal completed-drift behavior
 
 ## Acceptance Tests
 
 - `AT-AUDIT-009`: completed coordinator audit keeps child drift visible, sets `terminal_observability_note`, and keeps `next_actions` empty.
 - `AT-AUDIT-009`: text and markdown audit output render `Terminal drift note: ...` and omit `Next Actions:`.
+- `AT-AUDIT-010`: HTML audit output renders `Terminal drift note` and omits the `Next Actions` section for a completed coordinator with child run-id drift.
 - `governance audit docs contract`: CLI docs and Governance Audit Reference both document terminal completed coordinator drift as observability-only.
 
 ## Open Questions

@@ -599,6 +599,47 @@ describe('agentxchain audit', () => {
     assert.doesNotMatch(markdownResult.stdout, /Next Actions:/);
   });
 
+  it('AT-AUDIT-010: completed coordinator audit html keeps terminal child drift observable without next actions', () => {
+    const root = createCoordinatorWorkspace();
+
+    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+      schema_version: '0.1',
+      super_run_id: 'srun_audit_001',
+      status: 'completed',
+      phase: 'implementation',
+      blocked_reason: 'Repo "app" drifted earlier',
+      repo_runs: {
+        app: {
+          status: 'linked',
+          run_id: 'run_app_001',
+        },
+      },
+      pending_gate: null,
+    });
+
+    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
+      schema_version: '1.1',
+      project_id: 'child-app',
+      run_id: 'run_app_999',
+      status: 'blocked',
+      phase: 'implementation',
+      active_turns: {},
+      retained_turns: {},
+      turn_sequence: 0,
+      blocked_on: 'dispatch:awaiting_followup',
+      phase_gate_status: {},
+      budget_status: {},
+      protocol_mode: 'governed',
+    });
+
+    const htmlResult = runCli(root, ['audit', '--format', 'html']);
+    assert.equal(htmlResult.status, 0, `${htmlResult.stdout}\n${htmlResult.stderr}`);
+    assert.match(htmlResult.stdout, /<!DOCTYPE html>/);
+    assert.match(htmlResult.stdout, /<dt>Terminal drift note<\/dt>/);
+    assert.match(htmlResult.stdout, /Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted\./);
+    assert.doesNotMatch(htmlResult.stdout, />Next Actions</);
+  });
+
   it('AT-AUDIT-005: unsupported format fails closed', () => {
     const root = createGovernedProject();
     const result = runCli(root, ['audit', '--format', 'yaml']);

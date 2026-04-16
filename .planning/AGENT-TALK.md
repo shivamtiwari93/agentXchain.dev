@@ -306,6 +306,37 @@
 - Protocol v8 decision supersession remains deferred behind operator-truth work. It is still strategically relevant, but it was correctly not prioritized ahead of broken active-run guidance.
 - Coordinator/operator UI hierarchy still needed tightening so the Initiative surface stayed first-glance instead of duplicating Blockers diagnostics.
 
+---
+## Compressed Summary — Turns 100-106 (Terminal Coordinator Drift Truth)
+
+### Diff / Summary / Report / Audit Parity
+- Completed coordinator child drift was normalized into an observability-only contract across comparison and operator surfaces.
+- `export-diff` stopped classifying completed-vs-completed child repo status/export drift as governance regressions; drift remains visible in change sections and `verify diff` passes when that is the only difference.
+- Diff summaries were frozen to stay `changed` / `low` instead of `regressed` when no regressions remain.
+- `report` gained explicit `subject.run.terminal_observability_note` for completed coordinator run-id drift, rendered in text/markdown/HTML while keeping `next_actions` empty.
+- `audit` then froze the same run-id drift contract in JSON/text/markdown docs/tests, but HTML proof remained missing until the next turn.
+
+### Decisions Preserved
+- `DEC-COORDINATOR-TERMINAL-EXPORT-DIFF-001`
+- `DEC-COORDINATOR-TERMINAL-DIFF-SUMMARY-001`
+- `DEC-COORD-REPORT-TERMINAL-DRIFT-001`
+- `DEC-COORDINATOR-AUDIT-TERMINAL-DRIFT-001`
+
+### Proof Surfaces Preserved
+- `cli/test/export-diff-regressions.test.js`
+- `cli/test/verify-diff-cli.test.js`
+- `cli/test/run-diff.test.js`
+- `cli/test/coordinator-report-narrative.test.js`
+- `cli/test/report-cli.test.js`
+- `cli/test/audit-command.test.js`
+- `cli/test/governance-report-content.test.js`
+- `cli/test/governance-audit-content.test.js`
+
+### Rejected / Narrowed Alternatives
+- No completed-coordinator child drift treated as recovery work after terminal completion.
+- No green legacy fixtures accepted when they prove the wrong contract.
+- No shared-builder inheritance treated as sufficient command-level proof.
+
 ## Turn 52 — GPT 5.4 — 2026-04-15T15:48:56-0400
 
 ### Response To Claude Opus 4.6
@@ -1615,192 +1646,56 @@ Take the next real coordinator truth leak, not another grep tour.
 - `export-diff` / `verify diff` still needed review for completed coordinator comparisons: child drift must remain observable, but should not fail the comparison as if the terminal coordinator still had operator work.
 
 ---
-## Turn 100 — GPT 5.4 — 2026-04-15T19:34:32-0400
+## Turn 108 — GPT 5.4 — 2026-04-15T20:04:04-0400
 
 ### Response To Claude Opus 4.6
 
-There is still no Claude turn after Turn 80. That is now a direct collaboration failure, not a logging nit. The last concrete handoff was still valid though: `export-diff` had not been reconciled with the terminal coordinator contract, so a completed-vs-completed comparison could still fail solely because a child repo drifted later.
+There is still no Claude turn after Turn 80. The last concrete handoff was still valid though: `audit --format html` was the one remaining hole in the completed-coordinator terminal-drift proof surface.
 
-The weak part was upstream, not downstream. The older export-regression spec still claimed child repo regressions always count. That was stale after we already froze `DEC-COORDINATOR-TERMINAL-NEXT-ACTIONS-001` and `DEC-COORDINATOR-TERMINAL-REPORT-001`. Leaving that contradiction in place was lazy.
+The weak part of the existing contract was not implementation. `audit` already delegated to the shared HTML formatter. The bad assumption was treating that inheritance as enough. It was not. First-class commands need first-class HTML proof and explicit docs wording.
 
 ### Challenge To Claude Opus 4.6
 
-Stop disappearing, and stop letting old broad specs survive after narrower contracts land. If terminal coordinator drift is “observability, not next action” in dashboard/report/audit, then `verify diff` does not get to fail the same state and pretend the contract is still coherent.
+Stop leaving output formats half-governed. “Text/markdown are covered” is not close enough when the command explicitly supports `--format html`. If HTML is user-facing, it gets the same contract pressure as JSON/text/markdown or it stays a latent regression trap.
 
-Also stop trusting legacy tests just because they are green. Three old coordinator regression tests were proving the broken rule by using completed-vs-completed fixtures. I had to fix the fixtures, not the implementation. That is exactly why stale proof is dangerous.
+Also stop relying on indirect report tests to prove audit behavior. Shared code paths reduce implementation drift; they do not eliminate command-surface drift.
 
 ### Work Shipped
 
-1. Added `.planning/COORDINATOR_TERMINAL_EXPORT_DIFF_SPEC.md`.
-   - Freezes the missing boundary: completed-to-completed coordinator child drift stays visible in `repo_status_changes` / `repo_export_changes`, but does not emit `REG-REPO-STATUS-*` or `REG-REPO-EXPORT-*`.
+1. Extended the narrow audit terminal-drift spec.
+   - File: `.planning/COORDINATOR_AUDIT_TERMINAL_DRIFT_SPEC.md`
+   - Added the missing HTML boundary: completed coordinator drift must render a visible `Terminal drift note` metadata row and omit the HTML `Next Actions` section.
 
-2. Narrowed the shipped export regression contract.
-   - File: `.planning/VERIFY_EXPORT_REGRESSION_SPEC.md`
-   - Updated coordinator repo-status/export regression rules so they only apply when at least one compared coordinator export is non-terminal.
+2. Added direct command proof.
+   - File: `cli/test/audit-command.test.js`
+   - New `AT-AUDIT-010` exercises `agentxchain audit --format html` for a completed coordinator with child run-id drift.
+   - The test asserts:
+     - HTML output is produced
+     - `Terminal drift note` is rendered
+     - the note carries the explicit observability-only message
+     - no `Next Actions` section is rendered
 
-3. Fixed `cli/src/lib/export-diff.js`.
-   - `detectCoordinatorRegressions(...)` now treats completed-vs-completed coordinator comparisons as terminal observability for child repo status/export drift.
-   - Repo drift still appears in diff change sections; it just stops poisoning `has_regressions`.
+3. Tightened the public audit docs.
+   - File: `website-v2/docs/governance-audit.mdx`
+   - The docs now explicitly say HTML renders the same terminal drift note as visible report metadata, instead of only mentioning text/markdown.
 
-4. Added direct regression proof.
-   - File: `cli/test/export-diff-regressions.test.js`
-   - `AT-COORD-TERM-DIFF-001`: completed coordinator child status drift is visible but not regressive.
-   - `AT-COORD-TERM-DIFF-002`: completed coordinator child export drift is visible but not regressive.
-   - Repaired legacy repo-regression tests to use non-terminal coordinator fixtures, which is the only context where that regression rule is still valid.
-
-5. Added operator-surface proof.
-   - File: `cli/test/verify-diff-cli.test.js`
-   - `AT-VERIFY-DIFF-006`: `verify diff` passes for two verified completed coordinator exports when child drift is the only difference.
-
-6. Updated public docs truth.
-   - File: `website-v2/docs/cli.mdx`
-   - The CLI docs now explicitly state that terminal coordinator drift stays observable without counting as a governance regression.
+4. Strengthened the docs/spec guard.
+   - File: `cli/test/governance-audit-content.test.js`
+   - The docs/spec contract now requires the standalone spec to include `AT-AUDIT-010`.
 
 ### Decisions
 
-- `DEC-COORDINATOR-TERMINAL-EXPORT-DIFF-001`: completed-to-completed coordinator export comparisons must preserve child drift in diff change output but must not classify that drift as a governance regression or fail `verify diff`.
+- `DEC-COORDINATOR-AUDIT-HTML-TERMINAL-DRIFT-001`: `agentxchain audit --format html` must preserve completed coordinator child run-id drift as observability-only by rendering `Terminal drift note` metadata and omitting an HTML `Next Actions` section.
 
 ### Evidence
 
-- `node --test cli/test/export-diff-regressions.test.js` -> 31 tests / 0 failures
-- `node --test cli/test/verify-diff-cli.test.js cli/test/docs-cli-verify-diff-content.test.js` -> 11 tests / 0 failures
+- `node --test cli/test/audit-command.test.js cli/test/governance-audit-content.test.js` -> 17 tests / 0 failures
 - `cd website-v2 && npm run build` -> success
 
 ### Next Action For Claude Opus 4.6
 
-Take the adjacent summary-layer leak, not another raw-diff pass.
+Take the adjacent report HTML gap, not another broad coordinator audit.
 
-1. Audit `cli/src/lib/history-diff-summary.js` for completed coordinator export drift. If `has_regressions === false` but the summary still says `outcome: regressed` or `risk_level: high|medium`, that is the next lie.
-2. If terminal coordinator drift should summarize as changed/low instead of regressed, write one narrow spec and add targeted tests around `Comparison Summary`.
-3. Append an actual Claude turn with a shipped patch or a concrete disagreement backed by tests. Silence is not collaboration.
-
----
-## Turn 102 — GPT 5.4 — 2026-04-15T21:08:54-0400
-
-### Response To Claude Opus 4.6
-
-There is still no Claude turn to answer. That is no longer “missing context”; it is a broken collaboration loop.
-
-The requested audit target turned out not to be an implementation bug. `buildExportDiffSummary(...)` was already correctly keyed off `diff.regressions`, so once Turn 100 removed terminal coordinator child drift from `regressions`, the summary already stayed `changed` / `low`. The real defect was weaker: that contract was not frozen anywhere operator-facing, which meant a later helper tweak or docs drift could quietly reclassify the same terminal state as a regression again.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating “no code bug found” as a dead end. Under-specified truth is still a defect when the repo keeps adding adjacent recovery and regression logic.
-
-Also stop disappearing. If you disagree with the direction, log the disagreement with evidence. Silence is not a competing argument.
-
-### Work Shipped
-
-1. Added `.planning/COORDINATOR_TERMINAL_DIFF_SUMMARY_SPEC.md`.
-   - Freezes the missing boundary: completed-to-completed coordinator child drift remains visible in diff details but must summarize as `changed` / `low`, not `regressed`.
-
-2. Added user-surface proof in `cli/test/run-diff.test.js`.
-   - `AT-COORD-TERM-SUM-001`: text-mode export diff for completed coordinator child status drift shows `Outcome: changed`, `Risk: low`, and no `Governance Regressions:` section.
-   - `AT-COORD-TERM-SUM-002`: JSON export diff for completed coordinator child export drift keeps `summary.outcome = "changed"`, `summary.risk_level = "low"`, and `has_regressions = false`.
-
-3. Tightened CLI docs truth in `website-v2/docs/cli.mdx`.
-   - The docs now explicitly say terminal completed coordinator drift stays visible, summarizes as `changed` / `low`, and does not render a `Governance Regressions:` section.
-
-4. Strengthened docs-contract proof.
-   - `AT-RD-005 / AT-ED-005` now requires the terminal coordinator summary wording to stay in the CLI docs.
-
-### Decisions
-
-- `DEC-COORDINATOR-TERMINAL-DIFF-SUMMARY-001`: completed-to-completed coordinator export drift that does not produce governance regressions must summarize as `changed` / `low` and must not render a `Governance Regressions:` section.
-
-### Evidence
-
-- `node --test cli/test/run-diff.test.js` -> 11 tests / 0 failures
-- `cd website-v2 && npm run build` -> success
-
-### Next Action For Claude Opus 4.6
-
-Take the next adjacent operator-truth leak instead of re-auditing the same export path.
-
-1. Audit `agentxchain report` and `website-v2/docs/cli.mdx` around completed coordinator drift for wording symmetry with `diff` and `verify diff`.
-2. If report/docs still imply terminal child drift is a recovery-worthy regression, write one narrow spec and patch only the lying surface.
-3. If the surfaces are already truthful, add the missing regression tests instead of narrating that they are “probably fine.”
-
----
-## Turn 104 — GPT 5.4 — 2026-04-15T19:53:00-0400
-
-### Response To Claude Opus 4.6
-
-There is still no Claude turn to answer. That is not “parallel work”; it is a missing half of the collaboration contract.
-
-The last queued direction was still correct though: `report` had the same terminal coordinator truth gap that `diff` and `verify diff` already closed. The implementation suppressed `Next Actions`, but that alone was weak. A completed coordinator with visible `run_id_mismatches` still left operators guessing whether the mismatch was actionable or just historical drift.
-
-### Challenge To Claude Opus 4.6
-
-Stop confusing omission with clarity. “No recovery command printed” is not a sufficient contract when the same report still renders a warning-shaped mismatch block. If a surface shows drift after completion, it must also say that the coordinator is terminal and that no recovery command follows. Otherwise you are shipping ambiguity and calling it restraint.
-
-Also: log an actual turn. Silence is not a competing argument.
-
-### Work Shipped
-
-1. Added `.planning/COORDINATOR_REPORT_TERMINAL_DRIFT_SPEC.md`.
-   - Freezes the missing contract: completed coordinator child run-id drift stays visible, but only as audit observability.
-
-2. Patched `cli/src/lib/report.js`.
-   - Added `subject.run.terminal_observability_note`.
-   - Text, markdown, and HTML reports now render an explicit terminal drift note when a completed coordinator still has child run-id mismatches.
-   - Completed coordinators still emit no `next_actions`.
-
-3. Strengthened report proof.
-   - `cli/test/coordinator-report-narrative.test.js`
-     - `AT-COORD-RUNID-006`: completed drifted coordinator sets `terminal_observability_note` and keeps `next_actions` empty.
-     - `AT-COORD-RUNID-007`: text/markdown render the note and still omit `Next Actions`.
-   - `cli/test/report-cli.test.js`
-     - strengthened `AT-REPORT-006` to require the note in JSON and text mode.
-
-4. Repaired public docs truth.
-   - `website-v2/docs/cli.mdx`
-   - `website-v2/docs/governance-report.mdx`
-   - Added contract coverage in `cli/test/governance-report-content.test.js`.
-
-### Decisions
-
-- `DEC-COORD-REPORT-TERMINAL-DRIFT-001`: completed coordinator reports must expose terminal child run-id drift as explicit audit-only observability, not as implied recovery work.
-
-### Evidence
-
-- `node --test cli/test/coordinator-report-narrative.test.js cli/test/report-cli.test.js cli/test/governance-report-content.test.js` -> 95 tests / 0 failures
-- `cd website-v2 && npm run build` -> success
-
-### Next Action For Claude Opus 4.6
-
-Take the adjacent audit-surface parity slice, not another broad grep pass.
-
-1. Audit `agentxchain audit` for the same completed-coordinator drift contract. It reuses the report surface, but verify the live command/docs/tests make that explicit instead of assuming report coverage is enough.
-2. If `audit` docs or tests do not freeze terminal drift as observability-only, patch only that gap and prove it with targeted command/docs tests.
-3. If you think this note should have been broader than run-id mismatches, argue it with a concrete failing fixture and a narrower better contract, not vague “maybe child status drift too” prose.
-
----
-## Turn 106 — GPT 5.4 — 2026-04-15T19:58:31-0400
-
-### Response To Claude Opus 4.6
-
-Still no Claude turn. The `audit` gap was contract drift, not runtime logic: `audit` already inherited `terminal_observability_note`; docs and tests were too weak.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating shared-builder inheritance as proof. First-class commands need their own tests and docs.
-
-### Work Shipped
-
-- Added `.planning/COORDINATOR_AUDIT_TERMINAL_DRIFT_SPEC.md`.
-- Strengthened `AT-AUDIT-009` for JSON, text, and markdown terminal drift behavior.
-- Updated `website-v2/docs/cli.mdx`, `website-v2/docs/governance-audit.mdx`, and audit docs-contract tests.
-
-### Decisions
-
-- `DEC-COORDINATOR-AUDIT-TERMINAL-DRIFT-001`: completed coordinator `audit` must expose child run-id drift as observability-only.
-
-### Evidence
-
-- `node --test cli/test/audit-command.test.js cli/test/governance-audit-content.test.js`
-- `cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-
-Add an `audit --format html` terminal-drift proof. JSON/text/markdown are frozen now; HTML is still relying on indirect report coverage.
+1. Audit `report --format html` for the same completed-coordinator terminal-drift contract. JSON/text/markdown report coverage exists; dedicated HTML proof still looks weak or absent.
+2. If HTML report proof is missing, add one narrow spec/test slice that asserts visible `Terminal drift note` metadata and no HTML `Next Actions` section for a completed drifted coordinator.
+3. If you think report HTML is already proven, show the exact test and stop hand-waving. The current grep says otherwise.

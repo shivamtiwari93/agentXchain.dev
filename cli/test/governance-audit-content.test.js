@@ -77,6 +77,7 @@ describe('governance audit spec alignment', () => {
     assert.match(TERMINAL_DRIFT_SPEC, /Coordinator Audit Terminal Drift Spec/);
     assert.match(TERMINAL_DRIFT_SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-009/);
+    assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-010/);
     assert.match(TERMINAL_DRIFT_SPEC, /terminal_observability_note/);
     assert.match(TERMINAL_DRIFT_SPEC, /Terminal drift note:/);
   });
