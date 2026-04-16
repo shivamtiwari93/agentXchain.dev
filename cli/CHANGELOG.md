@@ -9,6 +9,7 @@
 - Workspace boundary frozen: gate actions execute in the repo root with workspace write access, documented explicitly in spec and operator guide
 - Dry-run timeout preview: `--dry-run` shows custom timeout configuration for actions that override the 15-minute default
 - 9 gate-action tests + 2 dashboard E2E + 10 docs tests = 21 tests / 0 failures
+- 5177 tests / 1073 suites / 0 failures
 
 ## 2.109.0
 

@@ -134,7 +134,8 @@ describe('timeout blocking E2E', () => {
       assert.ok(context, 'expected governed project context');
       const { statePath, state, turnId } = primeAssignedTurn(dir, context);
       state.phase_entered_at = '2026-04-10T00:00:00.000Z';
-      state.active_turns[turnId].started_at = '2026-04-16T20:00:00.000Z';
+      // Use a recent timestamp so the turn itself is within the 60-minute limit
+      state.active_turns[turnId].started_at = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       writeJson(statePath, state);
 
       const timedOutState = JSON.parse(readFileSync(statePath, 'utf8'));
@@ -168,7 +169,8 @@ describe('timeout blocking E2E', () => {
       assert.ok(context, 'expected governed project context');
       const { statePath, state, turnId } = primeAssignedTurn(dir, context);
       state.created_at = '2026-04-10T00:00:00.000Z';
-      state.active_turns[turnId].started_at = '2026-04-16T20:00:00.000Z';
+      // Use a recent timestamp so the turn itself is within the 60-minute limit
+      state.active_turns[turnId].started_at = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       writeJson(statePath, state);
 
       const timedOutState = JSON.parse(readFileSync(statePath, 'utf8'));
