@@ -29,7 +29,7 @@ agentxchain restore --input <path>
 
 - `agentxchain_run_export` only
 
-Coordinator restore is out of scope for this slice.
+Coordinator exports remain valid for report/audit/verify/replay, but restore rejects them in this slice.
 
 ## Behavior
 
@@ -105,6 +105,7 @@ When restore succeeds:
 - `AT-XRESTORE-005`: export from machine A, restore into machine B, then `resume` continues the same `run_id`
 - `AT-XRESTORE-006`: restore rejects coordinator exports
 - `AT-XRESTORE-007`: `/docs/cli`, `/docs/multi-session`, and `README.md` document the restore path truthfully in the same turn
+- `AT-XRESTORE-008`: docs and spec keep the dual-surface export boundary explicit: `restore` only accepts `agentxchain_run_export`, while coordinator exports remain non-restore artifacts for report/audit/verify/replay
 
 ## Open Questions
 

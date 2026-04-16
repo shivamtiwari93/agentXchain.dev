@@ -26,6 +26,9 @@ describe('restore docs contract', () => {
     assert.match(CLI_DOCS, /\| `restore` \| Migration \|/);
     assert.match(CLI_DOCS, /### `restore`/);
     assert.match(CLI_DOCS, /agentxchain restore --input <path>/);
+    assert.match(CLI_DOCS, /Even though `agentxchain export` supports both governed run exports and coordinator workspace exports/i);
+    assert.match(CLI_DOCS, /Coordinator exports remain valid for `report`, `audit`, `verify export`, `verify diff`, and `replay export`/);
+    assert.match(CLI_DOCS, /they are not restore inputs in this slice/i);
     assert.match(CLI_DOCS, /same repo/i);
     assert.match(CLI_DOCS, /same git HEAD/i);
   });
@@ -33,6 +36,8 @@ describe('restore docs contract', () => {
   it('updates the multi-session guide with the cross-machine restore path and truthful boundary', () => {
     assert.match(MULTI_SESSION, /agentxchain export --output/);
     assert.match(MULTI_SESSION, /agentxchain restore --input/);
+    assert.match(MULTI_SESSION, /The input must be a governed \*\*run export\*\*; coordinator exports are valid for replay\/reporting, not restore\./);
+    assert.match(MULTI_SESSION, /coordinator exports: they remain valid audit\/report\/replay artifacts, but they are not valid restore inputs/i);
     assert.match(MULTI_SESSION, /same git HEAD/i);
     assert.match(MULTI_SESSION, /dirty source files outside the exported governed roots will block restore/i);
   });
@@ -40,6 +45,8 @@ describe('restore docs contract', () => {
   it('mentions restore in the repo front door', () => {
     assert.match(README, /agentxchain restore --input <path>/);
     assert.match(README, /cross-machine continuity/i);
+    assert.match(README, /not coordinator exports/i);
+    assert.match(README, /coordinator exports are for audit\/report\/replay, not restore/i);
   });
 });
 
@@ -48,6 +55,7 @@ describe('restore spec contract', () => {
     assert.match(SPEC, /## Purpose/);
     assert.match(SPEC, /AT-XRESTORE-001/);
     assert.match(SPEC, /AT-XRESTORE-007/);
+    assert.match(SPEC, /AT-XRESTORE-008/);
+    assert.match(SPEC, /Coordinator exports remain valid for report\/audit\/verify\/replay, but restore rejects them in this slice\./);
   });
 });
-

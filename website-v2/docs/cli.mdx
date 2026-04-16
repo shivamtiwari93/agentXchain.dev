@@ -540,6 +540,8 @@ agentxchain restore --input <path>
 
 Restores governed continuity roots from a prior **run export** into another checkout of the **same repo** at the **same git HEAD**. This is the first cross-machine continuity slice: export state on machine A, restore it on machine B, then continue the same `run_id` with `agentxchain resume`.
 
+Even though `agentxchain export` supports both governed run exports and coordinator workspace exports, `restore` accepts only the governed **run export** branch. Coordinator exports remain valid for `report`, `audit`, `verify export`, `verify diff`, and `replay export`, but they are not restore inputs in this slice.
+
 The command fails closed unless all of these are true:
 
 - the input artifact verifies successfully

@@ -25,7 +25,7 @@ If you want your own governed project after that, install the CLI once, then jum
 - Enforces mandatory challenge, phase gates, and human approvals
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Surfaces checkpointed continuity in `agentxchain status` and rebuilds lost session context with `agentxchain restart`
-- Supports cross-machine continuity via `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
+- Supports cross-machine continuity via governed run `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
 - Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
@@ -305,7 +305,7 @@ agentxchain verify protocol                  # run the protocol conformance kit
 
 ```bash
 agentxchain restart                         # rebuild lost session context from .agentxchain/session.json
-agentxchain restore --input <path>          # cross-machine continuity from a prior run export
+agentxchain restore --input <path>          # cross-machine continuity from a prior run export (not coordinator exports)
 agentxchain template validate                  # prove scaffold + workflow-kit contract
 agentxchain template validate --json            # machine-readable proof with workflow_kit block
 agentxchain multi resume                        # clear a blocked coordinator after operator recovery
@@ -439,7 +439,7 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - `gate show <gate> --evaluate`: evaluate a gate's current pass/fail state against live project state
 - `doctor`: governed project health check (config, roles, runtimes, state, schedules, plugins, workflow-kit)
 - `connector check`: live health probes for all configured connectors (api_proxy, remote_agent, MCP)
-- `export`: export run state for cross-machine continuity via `restore`
+- `export`: export governed run state for cross-machine continuity via `restore` (coordinator exports are for audit/report/replay, not restore)
 
 ### Shared project utilities
 

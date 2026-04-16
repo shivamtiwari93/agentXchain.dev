@@ -160,6 +160,7 @@ You can now move governed continuity state from machine A to machine B without c
 1. The source repo must export a restore-safe run bundle.
 2. The destination must be another checkout of the same repo at the same git `HEAD`.
 3. Dirty source files outside the exported governed roots will block restore.
+4. The input must be a governed **run export**; coordinator exports are valid for replay/reporting, not restore.
 
 ```bash
 # Machine A
@@ -181,7 +182,7 @@ agentxchain resume
 
 `restore` replaces the governed continuity roots (`agentxchain.json`, `.agentxchain/**`, `.planning/**`, `TALK.md`) from the export artifact, then `resume` continues inside the same `run_id`.
 
-This is **not** a general source-sync system. If the source workspace changed product files outside those governed roots, the export remains valid for reporting and verification, but restore will fail closed and name the blocking paths.
+This is **not** a general source-sync system. If the source workspace changed product files outside those governed roots, the export remains valid for reporting and verification, but restore will fail closed and name the blocking paths. The same boundary applies to coordinator exports: they remain valid audit/report/replay artifacts, but they are not valid restore inputs.
 
 ## Operator Checklist
 
