@@ -425,9 +425,9 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 
 ### Governed inspection and audit
 
-- `audit`: live governance audit report with cost summary, decision history, and artifact inventory
+- `audit`: live governance audit report for the current repo/workspace with cost summary, decision history, and artifact inventory
 - `diff <left> <right>`: compare two governed runs side by side (phase, decisions, artifacts, timing)
-- `report`: generate a governance report for the current run
+- `report`: generate a governance report from a verified export artifact (`--input` or stdin)
 - `events`: inspect the lifecycle event stream (turns, phases, gates, governance events)
 - `history`: query accepted-turn history from append-only JSONL
 - `role list`: list all configured roles with their charters, runtimes, and phase assignments
@@ -439,7 +439,9 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - `gate show <gate> --evaluate`: evaluate a gate's current pass/fail state against live project state
 - `doctor`: governed project health check (config, roles, runtimes, state, schedules, plugins, workflow-kit)
 - `connector check`: live health probes for all configured connectors (api_proxy, remote_agent, MCP)
-- `export`: export governed run state for cross-machine continuity via `restore` (coordinator exports are for audit/report/replay, not restore)
+- `export`: export the portable raw governed/coordinator artifact for continuity or offline review (`restore` remains run-export-only; coordinator exports are for audit/report/replay)
+
+Partial coordinator artifacts are first-class here too: `audit` and `report` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.
 
 ### Shared project utilities
 

@@ -10,6 +10,8 @@ const REPO_ROOT = join(__dirname, '..', '..');
 const read = (rel) => readFileSync(join(REPO_ROOT, rel), 'utf8');
 
 const CLI_DOCS = read('website-v2/docs/cli.mdx');
+const ROOT_README = read('README.md');
+const CLI_README = read('cli/README.md');
 const CLI_ENTRY = read('cli/bin/agentxchain.js');
 const EXPORT_LIB = read('cli/src/lib/export.js');
 const EXPORT_CMD = read('cli/src/commands/export.js');
@@ -60,6 +62,25 @@ describe('Export CLI docs contract', () => {
     assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-002/);
     assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-003/);
     assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-005/);
+  });
+
+  it('AT-CLI-EAR-006: front-door READMEs keep audit live-state, report artifact, and export portability truthful', () => {
+    for (const doc of [ROOT_README, CLI_README]) {
+      assert.match(doc, /`audit[^`]*`.*current repo\/workspace/i);
+      assert.match(doc, /`report`.*verified export artifact/i);
+      assert.match(doc, /`export[^`]*`.*portable raw governed\/coordinator artifact/i);
+      assert.doesNotMatch(doc, /`report`: generate a governance report for the current run/i);
+    }
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-006/);
+  });
+
+  it('AT-CLI-EAR-007: front-door docs state the partial coordinator boundary instead of flattening it away', () => {
+    for (const doc of [CLI_DOCS, ROOT_README, CLI_README]) {
+      assert.match(doc, /Partial coordinator artifacts.*first-class|Partial coordinator artifacts are intentional/i);
+      assert.match(doc, /repo_ok_count.*repo_error_count.*export-health/i);
+      assert.match(doc, /do not fabricate child drill-down|do not invent.*drill-down/i);
+    }
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-007/);
   });
 
   it('documents both governed project and coordinator workspace export', () => {

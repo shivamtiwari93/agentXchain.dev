@@ -180,9 +180,9 @@ agentxchain step
 
 | Command | What it does |
 |---|---|
-| `audit [--format json]` | Live governance audit report with cost summary, decision history, and artifact inventory |
+| `audit [--format json]` | Live governance audit report for the current repo/workspace with cost summary, decision history, and artifact inventory |
 | `diff <left> <right>` | Compare two governed runs side by side (phase, decisions, artifacts, timing) |
-| `report` | Generate a governance report for the current run |
+| `report` | Generate a governance report from a verified export artifact (`--input <path>` or stdin) |
 | `events [--type <type>] [--limit N]` | Inspect the lifecycle event stream (turns, phases, gates, governance events) |
 | `history [--limit N] [--role <role>]` | Query accepted-turn history from append-only JSONL |
 | `role list\|show` | List all configured roles or inspect a single role's charter, runtime, and phase assignment |
@@ -191,6 +191,8 @@ agentxchain step
 | `gate list\|show [--evaluate]` | List configured gates or evaluate a gate's current pass/fail state |
 | `doctor [--json]` | Governed project health check: config, roles, runtimes, state, schedules, plugins, workflow-kit, connector handoff |
 | `connector check [--json]` | Live health probes for all configured connectors (api_proxy, remote_agent, MCP stdio/streamable_http) |
+
+Partial coordinator artifacts are first-class here too: `audit` and `report` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.
 
 ### Governed automation, plugins, and continuity
 
@@ -202,7 +204,7 @@ agentxchain step
 | `schedule list\|run-due\|daemon\|status` | Run repo-local lights-out scheduling: inspect schedules, execute due runs, poll in a local daemon loop, or check daemon heartbeat |
 | `plugin install\|list\|remove` | Install, inspect, or remove governed hook plugins under `.agentxchain/plugins/` |
 | `plugin list-available` | List bundled built-in plugins installable by short name |
-| `export [--output <path>]` | Export run state for cross-machine continuity |
+| `export [--output <path>]` | Export the portable raw governed/coordinator artifact for continuity or offline review |
 | `restore --input <path>` | Restore run state from a prior export on a same-repo, same-commit checkout |
 | `restart` | Rebuild lost session context from `.agentxchain/session.json` |
 
