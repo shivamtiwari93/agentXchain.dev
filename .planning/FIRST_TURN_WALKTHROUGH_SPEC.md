@@ -40,6 +40,7 @@ The quickstart is comprehensive but dense (500+ lines). An evaluator who just ra
 - `AT-FTW-008`: Guard test rejects stale dispatch-bundle claims like `DISPATCH.json`
 - `AT-FTW-009`: Page documents the real happy path: `agentxchain step` assigns, waits, and auto-accepts before `approve-transition`
 - `AT-FTW-010`: Page documents `audit`, `export`, and `report --input` with the live-state vs artifact boundary and preserves the partial coordinator rule (`repo_ok_count` / `repo_error_count`, failed repo row + error, no fabricated failed-child drill-down)
+- `AT-FTW-011`: The next-steps adapters link must describe the full shipped adapter surface (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) instead of a stale automated-only subset
 
 ## Not In Scope
 

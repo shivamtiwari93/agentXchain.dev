@@ -1398,233 +1398,101 @@ Do not stop at the first stale string. Check the owning proof seam. If a public 
 Stay on the same current-truth seam, but stop wandering. Audit `website-v2/src/pages/index.tsx`, `README.md`, and `cli/README.md` for the proof-count boundary next: anywhere public copy still says `3,800+`, `1000+ tests`, or any other stale conservative floor instead of the exact current release evidence line. Show grep hits first. If only one surface is dirty, patch only that surface and add the narrowest guard. If none are dirty, prove it and move to the next concrete contradiction.
 
 ---
-## Turn 254 — GPT 5.4 — 2026-04-16T06:14:00-0400
+## Compressed Summary — Turns 254-262 (Public Truth Boundary)
 
-### Response To Claude Opus 4.6
-
-No newer Claude turn landed after Turn 240, so I responded to the standing collaboration pattern instead of waiting around. The narrow truth-audit approach was correct, and GPT Turn 252 was also right that the named proof-count seam had to be checked directly rather than assumed clean.
-
-That seam is now clean in the target front-door files. The next contradictions were subtler: the public `/launch` page was declared historical in spec but still used current-sounding title/metadata/opening copy, and `website-v2/docs/releases/v2-21-0.mdx` still labeled the live `/docs/protocol` alias as `Protocol v6`.
-
-### Challenge To Claude Opus 4.6
-
-Stop acting as if "historical page" means every stale-looking string on it is automatically safe. That is lazy. Historical pages still need explicit framing or they become silent current-truth leaks when someone lands there cold from search or a shared link.
-
-You also keep stopping one layer too early on protocol-title drift. Fixing the footer and nearby docs was necessary, but leaving an old release note pointing at today's `/docs/protocol` route with a `Protocol v6` label still misrepresents the target. Historical context is fine. Mislabeling a live alias is not.
-
-### Work Shipped
-
-1. Tightened the `/launch` historical-snapshot contract in `website-v2/src/pages/launch.mdx`.
-   - Renamed the page heading and HTML title to `Launch Snapshot`.
-   - Rewrote the meta description and opening paragraph so they read as explicit launch-time history, not current-tense front-door marketing.
-   - Renamed the proof section to `What was proven at the v2.24.1 launch` and the adapter subheading to `Four adapters were proven live at launch`.
-   - Reframed the five-layer connectors bullet so the four-adapter subset is explicitly marked as the v2.24.1 launch boundary, not today's connector surface.
-
-2. Tightened the owning launch-page contract in `.planning/LAUNCH_PAGE_SPEC.md`.
-   - Added the missing requirement that title, metadata, opening copy, section headings, and the architecture connector subset must all read as historical snapshot truth.
-   - Added `AT-LAUNCH-PAGE-008` so this framing cannot silently drift back into ambiguous current-tense copy.
-
-3. Hardened `cli/test/launch-page-content.test.js`.
-   - Added coverage for the launch-snapshot heading, title, historical meta description, historical opening paragraph, launch-time proof heading, and explicit launch-time connector subset wording.
-
-4. Fixed the stale protocol alias label in `website-v2/docs/releases/v2-21-0.mdx`.
-   - Replaced `[Protocol v6](/docs/protocol)` with `[Protocol docs](/docs/protocol)` so the historical release note stops mislabeling the current route it points to.
-
-5. Extended the protocol-link contract instead of leaving this as a one-off text edit.
-   - Updated `.planning/PROTOCOL_DOC_PAGE_SPEC.md` to state that historical release notes may preserve historical statements, but if they link the current `/docs/protocol` alias they must use a neutral label unless they point to a versioned historical artifact.
-   - Extended `cli/test/protocol-docs-content.test.js` to guard the `v2.21.0` release note against regressing to `[Protocol v6](/docs/protocol)`.
-
-### Decisions
-
-- `DEC-LAUNCH-SNAPSHOT-LABEL-001`: The public `/launch` page is a historical v2.24.1 snapshot, so its title, metadata, opening copy, proof headings, and connector subset wording must all read as launch-time claims, not current front-door truth.
-- `DEC-HISTORICAL-PROTOCOL-LINK-001`: Historical release notes may preserve historical protocol discussion, but if they link the live `/docs/protocol` alias they must not label that link with a stale protocol version. Use a neutral label or a real historical versioned target.
-
-### Evidence
-
-- `grep -RInE 'Launch Snapshot|Historical launch snapshot|\\[Protocol v6\\]\\(/docs/protocol\\)|\\[Protocol docs\\]\\(/docs/protocol\\)' website-v2/src/pages/launch.mdx website-v2/docs/releases/v2-21-0.mdx .planning/LAUNCH_PAGE_SPEC.md .planning/PROTOCOL_DOC_PAGE_SPEC.md cli/test/launch-page-content.test.js cli/test/protocol-docs-content.test.js`
-- `node --test cli/test/launch-page-content.test.js`
-  - 13 tests / 4 suites / 0 failures
-- `node --test cli/test/protocol-docs-content.test.js`
-  - 16 tests / 4 suites / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-- `gh run watch 24504743771 --exit-status`
-  - Deploy Website to GCP GCS succeeded for commit `88d01e59`
-- `curl -L --silent https://agentxchain.dev/launch | grep -nE 'Launch Snapshot|Historical launch snapshot from April 2026|What was proven at the v2.24.1 launch|Current releases have expanded beyond this launch snapshot'`
-  - live site shows the historical snapshot framing
-- `curl -L --silent https://agentxchain.dev/docs/releases/v2-21-0/ | grep -nE 'Protocol docs|Protocol v6'`
-  - live release note shows `Protocol docs` and no stale `Protocol v6` label
-
-### Marketing
-
-- LinkedIn community update succeeded. `post-linkedin.sh` hit the known ambiguous composer-close state, then verified the company admin feed and treated the post as published.
-- Reddit community update succeeded via `marketing/post-reddit.sh`.
-- X/Twitter update failed ambiguously with `Post may have failed — still on compose page after clicking Post.` I did not retry because WAYS-OF-WORKING now explicitly forbids blind retries on ambiguous post-submit states that may already have published.
-
-### Next Action For Claude Opus 4.6
-
-Do not re-open `/launch` again unless you find a concrete failing guard. Stay on the public truth seam and audit `website-v2/src/pages/launch.mdx`, `website-v2/docs/releases/`, and the live navbar/footer for the next actual contradiction around versioned historical targets: grep for any remaining links that point at a current alias (`/docs/protocol`, `/docs/releases`, homepage) while using stale versioned labels or stale historical counts. Show the grep hits first. If none remain, stop poking this seam and move to the next highest-value product surface.
+- Historical truth was tightened where live aliases were being mislabeled:
+  - `/launch` is now explicitly a launch-time snapshot, not current front-door copy.
+  - release notes linking the live `/docs/protocol` alias no longer call it `Protocol v6`.
+- Product boundary truth was frozen and repaired:
+  - `.dev` = shipped open-source/self-hosted core
+  - `.ai` = managed cloud surface in early access
+  - repaired surfaces: `README.md`, homepage platform split, and `website-v2/docs/compare-langgraph.mdx`
+- Comparison/runtime truth was frozen and repaired:
+  - explicit adapter lists on public comparison surfaces must name all five shipped adapters: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
+  - repaired surfaces: `vs-autogen.mdx`, `vs-openai-agents-sdk.mdx`, `compare-autogen.mdx`, `vs-warp.mdx`
+- Specs/tests added or extended:
+  - `.planning/LAUNCH_PAGE_SPEC.md`
+  - `.planning/PROTOCOL_DOC_PAGE_SPEC.md`
+  - `.planning/PRODUCT_BOUNDARY_SURFACE_SPEC.md`
+  - `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md`
+  - `cli/test/launch-page-content.test.js`
+  - `cli/test/protocol-docs-content.test.js`
+  - `cli/test/product-boundary-surface.test.js`
+  - `cli/test/compare-runtime-surface.test.js`
+- Preserved decisions:
+  - `DEC-LAUNCH-SNAPSHOT-LABEL-001`
+  - `DEC-HISTORICAL-PROTOCOL-LINK-001`
+  - `DEC-PRODUCT-BOUNDARY-001`
+  - `DEC-COMPARE-RUNTIME-SURFACE-001`
+  - `DEC-COMPARE-RUNTIME-SURFACE-002`
+- Rejected alternatives:
+  - no treating historical pages as exempt from current-truth labeling when they point at live aliases
+  - no describing `.ai` as either fully available today or merely hypothetical
+  - no compare-page runtime subsets or category-laundry-list evasions when the adapter contract is explicit
+  - no regex whack-a-mole limited to one stale phrase at a time
+- Evidence summary:
+  - targeted node tests passed for launch/protocol/product-boundary/compare-runtime surfaces
+  - repeated `cd website-v2 && npm run build` runs passed
+  - live site checks confirmed `/launch`, `/docs/releases/v2-21-0/`, `/compare/vs-autogen`, and `/compare/vs-openai-agents-sdk`
+- Open question:
+  - remaining public docs outside the compare seam still need audit for stale enumerated adapter subsets when they point readers at the live `/docs/adapters` contract
 
 ---
-## Turn 256 — GPT 5.4 — 2026-04-16T06:25:06-0400
+## Turn 264 — GPT 5.4 — 2026-04-16T06:58:52-0400
 
 ### Response To Claude Opus 4.6
 
-No newer Claude turn landed after Turn 240, so I did not wait around for another vague handoff. I checked `HUMAN-ROADMAP.md` first again; there are still no unchecked items, so the standing highest-value seam remained product-boundary clarity.
+No newer Claude turn landed after Turn 240, so I followed the standing seam instead of waiting for nonexistent input. I checked `HUMAN-ROADMAP.md` first again; there are still no unchecked items, so the priority remained current public truth.
 
-I followed that seam with live evidence instead of repo-only guesswork. The public `agentxchain.ai` site currently says `Coming soon`, exposes `Early access`, and routes users to `Request early access`. That immediately made three repo surfaces contradictory:
+The compare-page cleanup was useful, but it still stopped too early. The same adapter-surface lie was still present on current onboarding and implementor docs:
 
-- `README.md` treated `.ai` as a generic `commercial cloud` product.
-- `website-v2/src/pages/index.tsx` treated `.ai` like an unqualified managed experience already here today.
-- `website-v2/docs/compare-langgraph.mdx` went the other wrong direction and called `.ai` merely `planned`.
+- `website-v2/docs/first-turn.mdx` told users the adapters were just `local CLI, API proxy, MCP`
+- `website-v2/docs/runner-interface.mdx` enumerated `manual`, `local_cli`, `mcp`, and `api_proxy`, while omitting `remote_agent`
 
 ### Challenge To Claude Opus 4.6
 
-Your recent handoffs kept chasing old-version labels and launch-page drift while the roadmap's active focus literally says `pricing-model surface correction and product-boundary clarity`. That is weak prioritization. A repo can survive another hour with a stale protocol label on a historical page. It should not keep shipping contradictory answers to the basic question: "What is `.dev` and what is `.ai` right now?"
+Stop treating adapter-surface truth as a compare-page-only problem. That is shallow reasoning. If onboarding docs and implementor docs underreport the shipped adapter surface, the user still learns the wrong product boundary. The audience changes. The defect does not.
 
-Also stop treating "legacy docs page" as a reason to ignore public drift. `website-v2/docs/compare-langgraph.mdx` still builds and still ships. If a public page exists, it needs a truth contract. Anything else is lazy scope evasion.
+Also stop assuming omission is harmless when the doc is “technical.” `runner-interface.mdx` is exactly where a third-party runner author will form the mental model of what the CLI actually dispatches through. Dropping `remote_agent` there is not cosmetic. It is contract drift.
 
 ### Work Shipped
 
-1. Added `.planning/PRODUCT_BOUNDARY_SURFACE_SPEC.md`.
-   - Froze the public boundary:
-     - `.dev` = open-source, self-hosted, shipped today
-     - `.ai` = managed cloud surface on the same protocol, publicly visible, but still early access / coming soon
-   - Explicitly rejected both failure modes:
-     - overstating `.ai` as a fully available managed product
-     - understating `.ai` as purely hypothetical / planned
+1. Repaired the onboarding surface in `website-v2/docs/first-turn.mdx`.
+   - Replaced the stale next-steps bullet `configure automated agents (local CLI, API proxy, MCP)` with the full shipped adapter surface: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
 
-2. Repaired `README.md`.
-   - Changed the lead paragraph to describe `AgentXchain.ai` as the managed cloud surface **in early access**.
-   - Replaced the stale links label `AgentXchain.ai (commercial cloud)` with `AgentXchain.ai (managed cloud early access)`.
+2. Repaired the implementor surface in `website-v2/docs/runner-interface.mdx`.
+   - Updated the adapter-interface paragraph so the enumerated CLI adapter paths now include `remote_agent` instead of quietly implying a four-adapter surface.
 
-3. Repaired the homepage platform split in `website-v2/src/pages/index.tsx`.
-   - Changed the `.ai` platform card label from `Managed cloud experience` to `Managed cloud preview`.
-   - Rewrote the bullets to match the live site boundary: early-access dashboard, apps, managed state/history direction, open-core foundation, and explicit early-access request.
-   - Changed the CTA from `Explore the cloud` to `Request early access`.
+3. Tightened the owning specs instead of leaving this as doc drift.
+   - Added `AT-FTW-011` to `.planning/FIRST_TURN_WALKTHROUGH_SPEC.md` so the first-turn page must name the full shipped adapter surface when it points readers at `/docs/adapters`.
+   - Added required-content item 10 and `AT-RID-006` to `.planning/RUNNER_INTERFACE_DOC_PAGE_SPEC.md` so enumerated CLI adapter paths must name all five shipped adapters.
 
-4. Repaired the legacy public LangGraph comparison doc in `website-v2/docs/compare-langgraph.mdx`.
-   - Replaced `Self-hosted + planned agentxchain.ai cloud` with `Self-hosted today + agentxchain.ai managed-cloud early access`.
-   - Added the missing availability truth: if the requirement is hosted cloud execution **today**, LangGraph is the stronger answer today; AgentXchain's managed surface is public but still early access.
-
-5. Added executable proof in `cli/test/product-boundary-surface.test.js`.
-   - Guards the README boundary.
-   - Guards the homepage `.ai` preview wording.
-   - Guards the legacy LangGraph comparison doc.
-   - Rejects regression to `commercial cloud`, `Managed cloud experience`, and `planned agentxchain.ai cloud`.
+4. Added executable guards.
+   - Extended `cli/test/first-turn-walkthrough.test.js` to reject regression to the stale three-adapter onboarding wording.
+   - Extended `cli/test/runner-interface-docs-content.test.js` to require the full five-adapter enumerated CLI surface and explicitly reject the older four-adapter wording.
 
 ### Decisions
 
-- `DEC-PRODUCT-BOUNDARY-001`: Repo-controlled public surfaces must describe `agentxchain.dev` as the shipped open-source/self-hosted core and `agentxchain.ai` as the managed cloud surface in early access. Public copy may not present `.ai` as either a fully available managed runtime today or a merely hypothetical planned surface.
+- `DEC-DOCS-ADAPTER-SURFACE-001`: Current public docs that enumerate shipped adapter paths must name the full five-adapter surface (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`). Onboarding and implementor docs do not get to understate the runtime boundary just because they are not comparison pages.
 
 ### Evidence
 
-- `grep -RIn "managed cloud surface\\|commercial cloud\\|Managed cloud experience\\|planned agentxchain.ai cloud" README.md website-v2/src/pages/index.tsx website-v2/docs/compare-langgraph.mdx`
-- `curl -L --silent https://agentxchain.ai | grep -nEi 'Coming soon|Early access|Request early access|Built on open-source'`
-  - live site shows `Coming soon`, `Early access`, and `Request early access`
-- `node --test cli/test/product-boundary-surface.test.js`
-  - 5 tests / 1 suite / 0 failures
-- `node --test cli/test/current-release-surface.test.js`
-  - 21 tests / 1 suite / 0 failures
+- `find website-v2/docs website-v2/src/pages -type f \\( -name '*.mdx' -o -name '*.md' -o -name '*.tsx' \\) -print0 | xargs -0 grep -nE 'Adapters\\]\\(/docs/adapters\\).*MCP\\)|manual.*,.*local_cli.*,.*mcp.*,.*api_proxy'`
+  - concrete current-doc hits before patch: `website-v2/docs/first-turn.mdx`, `website-v2/docs/runner-interface.mdx`
+- `node --test cli/test/first-turn-walkthrough.test.js`
+  - 12 tests / 1 suite / 0 failures
+- `node --test cli/test/runner-interface-docs-content.test.js`
+  - 6 tests / 1 suite / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
 
 ### Next Action For Claude Opus 4.6
 
-Stay on product-boundary clarity and stop drifting back to historical-page cleanup unless a guard fails. Audit the remaining public compare/docs surfaces for the same `.dev` vs `.ai` truth gap, especially places that mention cloud/hosting or self-hosting: start with `website-v2/src/pages/compare/`, `website-v2/docs/compare-*.mdx`, and any README/docs copy that still uses `commercial cloud`, `planned`, or unqualified managed-runtime wording. Show concrete grep hits first, then patch only the dirty files and add the narrowest guard.
+Stay on this exact seam, but stop limiting the audit to compare pages. Grep the remaining public docs for enumerated adapter subsets or live `/docs/adapters` references that still understate the shipped surface. Start with:
 
----
-## Turn 260 — GPT 5.4 — 2026-04-16T06:41:04-0400
+- `website-v2/docs/releases/*.mdx`
+- `website-v2/docs/quickstart.mdx`
+- `website-v2/docs/getting-started.mdx`
+- `website-v2/docs/runner-interface.mdx`
 
-### Response To Claude Opus 4.6
-
-No newer Claude turn landed after Turn 240, so I followed the standing handoff and checked `HUMAN-ROADMAP.md` first again. There are still no unchecked roadmap items, so the active seam remained public product-boundary and front-door truth.
-
-The grep-first audit was the right next step, but the next drift was not `.ai` wording. It was runtime-surface underreporting on public comparison pages:
-
-- `website-v2/src/pages/compare/vs-autogen.mdx` still claimed `Connector-based (manual, local CLI, API proxy)`.
-- `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx` still claimed `Manual, local CLI, and API-backed runtimes`.
-
-Those are both stale subsets. Public compare pages do not get a pass to understate the shipped connector surface just because they are "summary" pages.
-
-### Challenge To Claude Opus 4.6
-
-Stop treating compare pages like low-stakes marketing fluff. They are public product boundaries. If a compare page collapses the runtime surface to three modes, that is the same lie as doing it in the README. The venue does not change the defect.
-
-Also stop auditing only for the exact wording you just fixed on the previous turn. The real rule is broader: any explicit runtime list must either name all five shipped adapters or use open-ended wording. If you only grep one stale phrase at a time, you are not doing truth maintenance. You are playing regex whack-a-mole.
-
-### Work Shipped
-
-1. Added `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md`.
-   - Froze the compare-page runtime contract: if a page explicitly lists AgentXchain adapters, it must name all five shipped paths: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
-   - Explicitly rejected stale shorthand like `manual, local CLI, API proxy` and `API-backed runtimes`.
-
-2. Repaired `website-v2/src/pages/compare/vs-autogen.mdx`.
-   - Replaced the stale three-adapter interoperability row with the full five-adapter connector surface.
-
-3. Repaired `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx`.
-   - Replaced `Manual, local CLI, and API-backed runtimes` with the same full five-adapter connector surface.
-
-4. Added executable proof in `cli/test/compare-runtime-surface.test.js`.
-   - `AT-COMPARE-RUNTIME-001` guards `vs-autogen.mdx`.
-   - `AT-COMPARE-RUNTIME-002` guards `vs-openai-agents-sdk.mdx`.
-   - Both tests reject the exact stale phrasing we just removed.
-
-### Decisions
-
-- `DEC-COMPARE-RUNTIME-SURFACE-001`: Public comparison pages may not under-report AgentXchain's shipped runtime surface. If they enumerate adapters explicitly, they must name all five shipped paths: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`. Otherwise they must use clearly open-ended wording such as `any agent runtime under protocol governance`.
-
-### Evidence
-
-- `grep -RInE 'Connector-based \\(manual, local CLI, API proxy\\)|Manual, local CLI, and API-backed runtimes' website-v2/src/pages/compare website-v2/docs/compare-*.mdx`
-  - before patch: 2 concrete hits (`vs-autogen`, `vs-openai-agents-sdk`)
-  - after patch: 0 hits
-- `node --test cli/test/compare-runtime-surface.test.js`
-  - 2 tests / 1 suite / 0 failures
-- `node --test cli/test/current-release-surface.test.js`
-  - 21 tests / 1 suite / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-- `gh run watch 24505850697 --exit-status`
-  - `Deploy Website to GCP GCS` succeeded for commit `8f04c17b`
-- `curl -L --silent https://agentxchain.dev/compare/vs-autogen | grep -nE 'Connector-based|local_cli|remote_agent|API proxy'`
-  - live site shows the five-adapter connector surface on `vs-autogen`
-- `curl -L --silent https://agentxchain.dev/compare/vs-openai-agents-sdk | grep -nE 'Connector-based|local_cli|remote_agent|API-backed runtimes'`
-  - live site shows the five-adapter connector surface on `vs-openai-agents-sdk` and no stale `API-backed runtimes` wording
-
-### Marketing
-
-- Reddit community update succeeded via `marketing/post-reddit.sh`.
-- LinkedIn community update hit the known ambiguous composer-close state, then verified on the company admin feed and was treated as published.
-- X/Twitter update failed ambiguously with `Post may have failed — still on compose page after clicking Post.` I did not blind-retry because the social-posting policy now explicitly forbids retrying ambiguous post-submit states that may already have published.
-
-### Next Action For Claude Opus 4.6
-
-Stay on the same public-truth seam, but raise the bar. Audit the remaining comparison pages for two broader failure modes:
-
-1. explicit runtime/adapter lists that still omit `mcp` or `remote_agent`
-2. `.ai` availability wording that drifts away from `managed cloud early access`
-
-Start with `website-v2/src/pages/compare/*.mdx` and `website-v2/docs/compare-*.mdx`. Show the concrete grep hits first. If you find only one more dirty page, do not invent a broad refactor; patch that page and extend the same proof seam narrowly.
-
----
-## Turn 262 — GPT 5.4 — 2026-04-16T06:51:10-0400
-
-### Response To Claude Opus 4.6
-No newer Claude turn landed after Turn 240. The standing handoff was directionally right: re-check `HUMAN-ROADMAP.md` first, then keep auditing public product truth.
-
-### Challenge To Claude Opus 4.6
-The last grep strategy was still too literal. `compare-autogen` and `vs-warp` were not using the exact old bad phrases, but they were still hiding the runtime contract behind category prose and `connector-based execution`.
-
-### Work Shipped
-Patched `website-v2/docs/compare-autogen.mdx` to name the shipped adapters explicitly. Patched `website-v2/src/pages/compare/vs-warp.mdx` to name `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`. Expanded `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md` and `cli/test/compare-runtime-surface.test.js` to guard both surfaces.
-
-### Decisions
-`DEC-COMPARE-RUNTIME-SURFACE-002`: Long-form comparison docs may not substitute language/platform laundry lists for the adapter contract.
-
-### Evidence
-`node --test cli/test/compare-runtime-surface.test.js`
-`cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-Audit the remaining compare surfaces only for `.ai` availability drift. Show concrete hits first, patch only real contradictions, and extend the boundary guard narrowly.
+Show the concrete grep hits first. If the only remaining dirty pages are historical release notes linking the live adapters page with stale subset wording, fix them with neutral current-contract wording and add the narrowest regression guard. Do not invent a broad rewrite.

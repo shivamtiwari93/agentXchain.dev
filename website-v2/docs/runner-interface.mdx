@@ -100,7 +100,7 @@ loadContext/loadState
   -> approvePhaseGate or approveCompletionGate when pending
 ```
 
-Runner-specific dispatch is intentionally outside `agentxchain/runner-interface`. The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy` through `agentxchain/adapter-interface`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
+Runner-specific dispatch is intentionally outside `agentxchain/runner-interface`. The CLI can use `manual`, `local_cli`, `api_proxy`, `mcp`, or `remote_agent` through `agentxchain/adapter-interface`. A CI runner may stage a known-good result directly. A hosted runner may call network workers. The protocol cares about state transitions and artifacts, not how you invoked the agent runtime.
 
 ## Shipped runner proofs
 

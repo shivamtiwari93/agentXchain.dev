@@ -22,6 +22,7 @@ Publish a public-facing `/docs/runner-interface` page so third-party runner auth
 7. Explain that `runLoop` is a higher-level library composition surface and does not replace the primitive runner-interface proofs.
 8. Explain that `acceptTurn()` removes the accepted turn's dispatch and staging directories after commit, so runners must inspect or archive those artifacts before acceptance if they need them.
 9. Explain what is intentionally outside the runner interface: CLI parsing/output, dashboard, intake, export/report, adapter dispatch strategy.
+10. If the page enumerates shipped CLI adapter paths concretely, it must name the full current surface: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 
 ## Cross-Link Contract
 
@@ -37,3 +38,4 @@ Publish a public-facing `/docs/runner-interface` page so third-party runner auth
 - `AT-RID-003`: page links to both CI runner proof examples and distinguishes primitive runner-interface proof from `runLoop`
 - `AT-RID-004`: CLI, quickstart, and protocol docs link to `/docs/runner-interface`
 - `AT-RID-005`: page/spec document the real `writeDispatchBundle(root, state, config, opts?)` signature and `acceptTurn()` cleanup semantics
+- `AT-RID-006`: when the page enumerates CLI adapter paths, it names all five shipped adapters and does not omit `remote_agent`

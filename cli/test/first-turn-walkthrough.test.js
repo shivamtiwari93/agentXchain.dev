@@ -67,6 +67,17 @@ describe('first-turn walkthrough docs', () => {
     assert.ok(content.includes('/docs/cli'), 'must link to CLI reference');
   });
 
+  it('names the full shipped adapter surface in next steps', () => {
+    assert.ok(
+      content.includes('[Adapters](/docs/adapters) — configure all five shipped adapter paths (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`)'),
+      'must name all five shipped adapters in the next-steps adapters link',
+    );
+    assert.ok(
+      !content.includes('[Adapters](/docs/adapters) — configure automated agents (local CLI, API proxy, MCP)'),
+      'must not regress to the stale three-adapter onboarding wording',
+    );
+  });
+
   it('includes gate failure troubleshooting', () => {
     assert.ok(content.includes('planning_signoff'), 'must mention planning_signoff gate');
     assert.ok(content.includes('implementation_complete'), 'must mention implementation_complete gate');

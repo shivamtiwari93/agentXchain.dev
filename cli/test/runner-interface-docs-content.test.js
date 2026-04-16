@@ -114,4 +114,19 @@ describe('Runner interface docs surface', () => {
       'runner interface spec must describe acceptTurn cleanup semantics',
     );
   });
+
+  it('AT-RID-006: enumerated CLI adapter paths name the full shipped surface', () => {
+    assert.match(
+      PAGE,
+      /The CLI can use `manual`, `local_cli`, `api_proxy`, `mcp`, or `remote_agent` through `agentxchain\/adapter-interface`\./,
+      'runner interface docs must name all five shipped CLI adapter paths when enumerating them',
+    );
+    assert.doesNotMatch(
+      PAGE,
+      /The CLI can use `manual`, `local_cli`, `mcp`, or `api_proxy` through `agentxchain\/adapter-interface`\./,
+      'runner interface docs must not omit remote_agent from the enumerated CLI adapter list',
+    );
+    assert.match(PAGE_SPEC, /AT-RID-006/);
+    assert.match(PAGE_SPEC, /`manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`/);
+  });
 });
