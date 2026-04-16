@@ -116,7 +116,8 @@ describe('Blockers View — pending_gate mode', () => {
     assert.ok(html.includes('dev_to_qa'));
     assert.ok(html.includes('development'));
     assert.ok(html.includes('qa'));
-    assert.ok(html.includes('Pending Approval'));
+    assert.ok(html.includes('Approval State'));
+    assert.ok(html.includes('Awaiting human approval'));
   });
 
   it('renders gate evaluations section', () => {

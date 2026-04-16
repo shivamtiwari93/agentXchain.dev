@@ -10,6 +10,7 @@
  */
 
 import { getCoordinatorBlockerDetails } from '../../src/lib/coordinator-blocker-presentation.js';
+import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
 
 function esc(str) {
   if (!str) return '';
@@ -65,34 +66,52 @@ function renderBlockerRow(blocker) {
   return html;
 }
 
-function renderActiveGate(active) {
+function renderDetailRows(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  let html = '';
+  for (const detail of details) {
+    html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+  }
+  return html;
+}
+
+function renderActiveGate(active, coordinatorBlockers = null) {
   if (!active) return '';
 
+  const pendingGateDetails = active.pending === true
+    ? getCoordinatorPendingGateDetails({
+        pendingGate: coordinatorBlockers?.pending_gate,
+        active,
+      })
+    : [];
   let html = `<div class="gate-card">
     <h3>Active Gate</h3>
-    <dl class="detail-list">
-      <dt>Type</dt><dd>${esc(active.gate_type)}</dd>`;
-
-  if (active.gate_id) {
-    html += `<dt>Gate</dt><dd class="mono">${esc(active.gate_id)}</dd>`;
-  }
-  if (active.current_phase) {
-    html += `<dt>Current Phase</dt><dd>${esc(active.current_phase)}</dd>`;
-  }
-  if (active.target_phase) {
-    html += `<dt>Target Phase</dt><dd>${esc(active.target_phase)}</dd>`;
+    <dl class="detail-list">`;
+  if (pendingGateDetails.length > 0) {
+    html += renderDetailRows(pendingGateDetails);
+  } else {
+    html += `<dt>Type</dt><dd>${esc(active.gate_type)}</dd>`;
+    if (active.gate_id) {
+      html += `<dt>Gate</dt><dd class="mono">${esc(active.gate_id)}</dd>`;
+    }
+    if (active.current_phase) {
+      html += `<dt>Current Phase</dt><dd>${esc(active.current_phase)}</dd>`;
+    }
+    if (active.target_phase) {
+      html += `<dt>Target Phase</dt><dd>${esc(active.target_phase)}</dd>`;
+    }
+    if (Array.isArray(active.required_repos) && active.required_repos.length > 0) {
+      html += `<dt>Required Repos</dt><dd>${esc(active.required_repos.join(', '))}</dd>`;
+    }
+    if (Array.isArray(active.human_barriers) && active.human_barriers.length > 0) {
+      html += `<dt>Human Barriers</dt><dd>${esc(active.human_barriers.join(', '))}</dd>`;
+    }
   }
   if (typeof active.ready === 'boolean') {
     html += `<dt>Ready</dt><dd>${active.ready ? 'Yes' : 'No'}</dd>`;
-  }
-  if (active.pending === true) {
-    html += `<dt>Pending Approval</dt><dd>Yes</dd>`;
-  }
-  if (Array.isArray(active.required_repos) && active.required_repos.length > 0) {
-    html += `<dt>Required Repos</dt><dd>${esc(active.required_repos.join(', '))}</dd>`;
-  }
-  if (Array.isArray(active.human_barriers) && active.human_barriers.length > 0) {
-    html += `<dt>Human Barriers</dt><dd>${esc(active.human_barriers.join(', '))}</dd>`;
   }
 
   html += `</dl>`;
@@ -187,7 +206,7 @@ export function render({ coordinatorBlockers }) {
   }
 
   // Active gate detail
-  html += renderActiveGate(data.active);
+  html += renderActiveGate(data.active, data);
 
   // Recovery
   html += renderRecoveryCommand(data);

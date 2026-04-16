@@ -2,6 +2,7 @@ import {
   getCoordinatorBlockerDetails,
   summarizeCoordinatorAttention,
 } from '../../src/lib/coordinator-blocker-presentation.js';
+import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
 
 function esc(str) {
   if (!str) return '';
@@ -104,6 +105,18 @@ function renderPrimaryAction(action) {
     html += `<pre class="recovery-command mono" data-copy="${esc(action.command)}">${esc(action.command)}</pre>`;
   }
   html += `</div>`;
+  return html;
+}
+
+function renderDetailRows(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  let html = '';
+  for (const detail of details) {
+    html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+  }
   return html;
 }
 
@@ -221,18 +234,11 @@ export function render({
     html += `<div class="section"><h3>Coordinator Attention</h3><div class="initiative-grid">`;
     const blockerSnapshot = renderCoordinatorAttentionSnapshot(coordinatorBlockers);
     if (pendingGate) {
+      const pendingGateDetails = getCoordinatorPendingGateDetails({ pendingGate });
       html += `<div class="gate-card">
         <h3>Pending Gate</h3>
         <p class="section-subtitle">Approval is the only remaining action. Detailed gate diagnostics stay in the Gates and Blockers views.</p>
-        <dl class="detail-list">
-          <dt>Type</dt><dd>${esc(pendingGate.gate_type)}</dd>
-          <dt>Gate</dt><dd class="mono">${esc(pendingGate.gate)}</dd>`;
-      if (pendingGate.from) html += `<dt>From</dt><dd>${esc(pendingGate.from)}</dd>`;
-      if (pendingGate.to) html += `<dt>To</dt><dd>${esc(pendingGate.to)}</dd>`;
-      if (Array.isArray(pendingGate.required_repos) && pendingGate.required_repos.length > 0) {
-        html += `<dt>Repos</dt><dd>${esc(pendingGate.required_repos.join(', '))}</dd>`;
-      }
-      html += `</dl>`;
+        <dl class="detail-list">${renderDetailRows(pendingGateDetails)}</dl>`;
       if (!blockerSnapshot) {
         html += `<div class="gate-action">
           <p>Ordered coordinator actions are sourced from the Blockers contract.</p>

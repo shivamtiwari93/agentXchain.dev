@@ -14,6 +14,8 @@ function pushDetail(details, label, value, options = {}) {
   });
 }
 
+export { pushDetail };
+
 export function getCoordinatorBlockerDetails(blocker) {
   if (!isObject(blocker)) {
     return [];

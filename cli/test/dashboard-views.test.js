@@ -506,6 +506,8 @@ describe('Initiative View', () => {
         pending_gate: {
           gate_type: 'phase_transition',
           gate: 'phase_transition:integration->release',
+          from: 'integration',
+          to: 'release',
           required_repos: ['api', 'web'],
         },
         repo_runs: {
@@ -548,6 +550,10 @@ describe('Initiative View', () => {
 
     assert.ok(html.includes('srun_123'));
     assert.ok(html.includes('phase_transition:integration-&gt;release') || html.includes('phase_transition:integration->release'));
+    assert.ok(html.includes('Current Phase'));
+    assert.ok(html.includes('Target Phase'));
+    assert.ok(html.includes('Approval State'));
+    assert.ok(html.includes('Awaiting human approval'));
     assert.ok(html.includes('agentxchain multi approve-gate --from-blockers'));
     assert.ok(!html.includes('data-copy="agentxchain multi approve-gate"'));
     assert.ok(html.includes('run_api'));
@@ -1267,6 +1273,10 @@ describe('Gate View', () => {
     });
 
     assert.ok(html.includes('Phase Transition Gate'));
+    assert.ok(html.includes('Current Phase'));
+    assert.ok(html.includes('Target Phase'));
+    assert.ok(html.includes('Approval State'));
+    assert.ok(html.includes('Awaiting human approval'));
     assert.ok(html.includes('API integration accepted'));
     assert.ok(html.includes('Promote shared schema'));
     assert.ok(html.includes('backend_completion'));

@@ -5,6 +5,8 @@
  * Shows a narrow local approve action plus the exact CLI fallback command.
  */
 
+import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -126,6 +128,18 @@ function renderApproveControls({ buttonLabel, cliCommand }) {
       </div>`;
 }
 
+function renderDetailRows(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '';
+  }
+
+  let html = '';
+  for (const detail of details) {
+    html += `<dt>${esc(detail.label)}</dt><dd${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</dd>`;
+  }
+  return html;
+}
+
 export { findPostGateTurns, aggregateEvidence };
 
 function findCoordinatorGateRequest(history, pendingGate) {
@@ -227,22 +241,26 @@ export function render({
     const evidence = isCoordinator
       ? aggregateCoordinatorEvidence(postGateTurns)
       : aggregateEvidence(postGateTurns);
+    const coordinatorDetails = isCoordinator
+      ? getCoordinatorPendingGateDetails({ pendingGate: pendingTransition, includeHumanBarriers: false })
+      : [];
     html += `<div class="gate-card">
       <h3>Phase Transition Gate</h3>
-      <dl class="detail-list">
-        <dt>From</dt><dd>${esc(pendingTransition.from || state?.phase || coordinatorState?.phase)}</dd>
+      <dl class="detail-list">`;
+    if (isCoordinator) {
+      html += renderDetailRows(coordinatorDetails);
+    } else {
+      html += `<dt>From</dt><dd>${esc(pendingTransition.from || state?.phase || coordinatorState?.phase)}</dd>
         <dt>To</dt><dd>${esc(pendingTransition.to)}</dd>`;
-    if (pendingTransition.gate) {
-      html += `<dt>Gate</dt><dd class="mono">${esc(pendingTransition.gate)}</dd>`;
+      if (pendingTransition.gate) {
+        html += `<dt>Gate</dt><dd class="mono">${esc(pendingTransition.gate)}</dd>`;
+      }
     }
     if (pendingTransition.requested_by_turn) {
       html += `<dt>Requested By</dt><dd class="mono">${esc(pendingTransition.requested_by_turn)}</dd>`;
     }
     if (postGateTurns.length > 0) {
       html += `<dt>Evidence Turns</dt><dd>${postGateTurns.length} turn${postGateTurns.length !== 1 ? 's' : ''}</dd>`;
-    }
-    if (isCoordinator && Array.isArray(pendingTransition.required_repos) && pendingTransition.required_repos.length > 0) {
-      html += `<dt>Required Repos</dt><dd>${esc(pendingTransition.required_repos.join(', '))}</dd>`;
     }
     html += `</dl>`;
     if (evidence.summaries.length > 0) {
@@ -280,10 +298,15 @@ export function render({
     const evidence = isCoordinator
       ? aggregateCoordinatorEvidence(postGateTurns)
       : aggregateEvidence(postGateTurns);
+    const coordinatorDetails = isCoordinator
+      ? getCoordinatorPendingGateDetails({ pendingGate: pendingCompletion, includeHumanBarriers: false })
+      : [];
     html += `<div class="gate-card">
       <h3>Run Completion Gate</h3>
       <dl class="detail-list">`;
-    if (pendingCompletion.gate) {
+    if (isCoordinator) {
+      html += renderDetailRows(coordinatorDetails);
+    } else if (pendingCompletion.gate) {
       html += `<dt>Gate</dt><dd class="mono">${esc(pendingCompletion.gate)}</dd>`;
     }
     if (pendingCompletion.requested_by_turn) {
@@ -291,9 +314,6 @@ export function render({
     }
     if (postGateTurns.length > 0) {
       html += `<dt>Evidence Turns</dt><dd>${postGateTurns.length} turn${postGateTurns.length !== 1 ? 's' : ''}</dd>`;
-    }
-    if (isCoordinator && Array.isArray(pendingCompletion.required_repos) && pendingCompletion.required_repos.length > 0) {
-      html += `<dt>Required Repos</dt><dd>${esc(pendingCompletion.required_repos.join(', '))}</dd>`;
     }
     html += `</dl>`;
     if (evidence.summaries.length > 0) {
