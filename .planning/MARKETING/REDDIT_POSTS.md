@@ -1,7 +1,7 @@
-# Reddit Posts — AgentXchain v2.25.2
+# Reddit Posts — AgentXchain v2.104.0
 
-> Ready-to-post content for Reddit. Updated 2026-04-08 to reflect v2.25.2 shipped reality.
-> All adapter types proven live with real models. Full evidence surface at agentxchain.dev.
+> Ready-to-post content for Reddit. Updated 2026-04-16 to reflect v2.104.0 shipped reality.
+> All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
 
@@ -21,15 +21,15 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.25.2):**
-- 4 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP)
-- All 4 adapters proven live
-- `local_cli`, `api_proxy`, and `mcp` proven with real AI models (Claude, not mocks); `manual` is the human control path
+**What's in the box (v2.104.0):**
+- 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
+- All 5 adapters proven live
+- `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery -> director review. Proven through the real CLI.
 - Proposal authoring: `api_proxy` agents propose file changes that go through `proposal apply` before touching the workspace
 - Multi-repo coordination across repositories
 - Plugin system, real-time dashboard, webhook notifications
-- 4,500+ tests across 970+ suites. 108 conformance fixtures.
+- 4710 tests / 1004 suites / 0 failures. 108 conformance fixtures.
 - Protocol v7 spec published for third-party implementors
 
 **See it in 30 seconds (no API keys needed):**
@@ -57,7 +57,7 @@ MIT licensed. Protocol is the product. CLI is one implementation.
 - GitHub: https://github.com/shivamtiwari93/agentXchain.dev
 - npm: https://www.npmjs.com/package/agentxchain
 
-Happy to answer questions about the architecture, the "mandatory challenge" design, or how we proved all adapter types with real models.
+Happy to answer questions about the architecture, the "mandatory challenge" design, or how we proved all five adapter types live without collapsing the human control path into fake real-model proof.
 
 **URL:** https://reddit.com/r/programming/submit
 
@@ -65,7 +65,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.24 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
+**Title:** AgentXchain v2.104.0 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
 
 **Body:**
 
@@ -77,11 +77,12 @@ AgentXchain is an open-source protocol that governs how agents collaborate:
 - Humans approve phase transitions and the final ship decision
 - Every decision is recorded in an append-only ledger
 - Phase gates enforce that real artifacts exist before work advances
-- 4 runtime adapters: manual, local CLI, API proxy, MCP — all proven live
-- `local_cli`, `api_proxy`, and `mcp` have real-model proof; `manual` is the governed human path
+- 5 runtime adapters: manual, local CLI, API proxy, MCP, remote_agent — all proven live
+- `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human path
 - Escalation and recovery protocols for when agents fail or get stuck
 - Proposal authoring: agents propose changes through a staging area with conflict detection
 - Multi-repo coordination, plugin system, real-time dashboard
+- 4710 tests / 1004 suites / 0 failures. 108 conformance fixtures.
 
 The design borrows from institutional governance: the quality of collective output depends on the structure of disagreement, not the intelligence of participants.
 
@@ -90,7 +91,7 @@ The design borrows from institutional governance: the quality of collective outp
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 2,486+ tests. Protocol v6 spec published.
+MIT licensed. 4710 tests / 1004 suites / 0 failures. Protocol v7 spec published.
 
 https://agentxchain.dev/launch | https://github.com/shivamtiwari93/agentXchain.dev
 
@@ -108,7 +109,7 @@ If you're running local models for coding, you've probably noticed that multi-ag
 
 - Mandatory challenge: every turn must object to something from the prior turn
 - Phase gates: human approves planning -> implementation -> review transitions
-- Any model works: local models via API proxy, Claude Code, Cursor, Codex, or manual turns — all under the same governance rules
+- Any model works: local models via API proxy, Claude Code, Cursor, Codex, remote agents, or manual turns — all under the same governance rules
 - MCP adapter: any MCP-compatible tool server can participate as a governed agent
 - Proposal authoring: agents propose file changes through a staging workflow instead of writing directly to the workspace
 
@@ -119,7 +120,7 @@ The protocol doesn't care what model you use. It governs the coordination betwee
 npx --yes -p agentxchain@latest -c "agentxchain demo"
 ```
 
-MIT licensed. 2,486+ tests. https://github.com/shivamtiwari93/agentXchain.dev
+MIT licensed. 4710 tests / 1004 suites / 0 failures. 108 conformance fixtures. https://github.com/shivamtiwari93/agentXchain.dev
 
 **URL:** https://reddit.com/r/LocalLLaMA/submit
 

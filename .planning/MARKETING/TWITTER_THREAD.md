@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.25.2
+# Twitter/X Thread — AgentXchain v2.104.0
 
-> Ready-to-post thread. Updated 2026-04-08 to reflect v2.25.2 shipped reality.
+> Ready-to-post thread. Updated 2026-04-16 to reflect v2.104.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.24 is live. Open source. MIT.
+AgentXchain v2.104.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 
@@ -42,14 +42,17 @@ The orchestrator enforces the rules. It doesn't make decisions.
 
 **Tweet 4 (real proof):**
 
-All 4 adapter types proven live:
+All 5 adapter types proven live:
 
 - manual (human-in-the-loop control path)
 - local_cli (Claude Code, any CLI agent, proven with a real model)
 - api_proxy (direct LLM API with proposal staging, proven with a real model)
 - MCP (stdio + streamable HTTP with Anthropic API)
+- remote_agent (HTTP bridge, proven live and with real-model output)
 
-4,500+ tests. 108 conformance fixtures. Protocol v7 spec.
+`local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof. `manual` is the governed human control path.
+
+4710 tests / 1004 suites / 0 failures. 108 conformance fixtures. Protocol v7 spec.
 
 **Tweet 5 (the insight):**
 
