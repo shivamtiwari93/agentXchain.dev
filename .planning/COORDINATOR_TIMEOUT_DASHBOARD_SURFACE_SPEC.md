@@ -68,7 +68,7 @@ Returns:
 
 ### Frontend View
 
-12th nav item: `Coordinator Timeouts`
+Dashboard nav item: `Coordinator Timeouts`
 
 Dashboard component: `cli/dashboard/components/coordinator-timeouts.js`
 
@@ -104,7 +104,7 @@ Render sections:
 7. Dashboard nav includes `Coordinator Timeouts`.
 8. `app.js` registers `coordinator-timeouts` with `/api/coordinator/timeouts`.
 9. Bridge server routes `/api/coordinator/timeouts`.
-10. CLI dashboard docs mention the 12th view and the endpoint.
+10. CLI dashboard docs mention the `Coordinator Timeouts` view and the endpoint without relying on a stale ordinal count.
 
 ## Open Questions
 

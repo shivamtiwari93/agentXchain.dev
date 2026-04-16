@@ -12,6 +12,7 @@ import { render } from '../dashboard/components/coordinator-timeouts.js';
 
 const STATUS_SOURCE = readFileSync(new URL('../src/lib/dashboard/coordinator-timeout-status.js', import.meta.url), 'utf8');
 const VIEW_SOURCE = readFileSync(new URL('../dashboard/components/coordinator-timeouts.js', import.meta.url), 'utf8');
+const SPEC_SOURCE = readFileSync(new URL('../../.planning/COORDINATOR_TIMEOUT_DASHBOARD_SURFACE_SPEC.md', import.meta.url), 'utf8');
 
 function tempDir() {
   const dir = join(tmpdir(), `axc-coord-timeouts-${randomBytes(6).toString('hex')}`);
@@ -447,5 +448,11 @@ describe('Coordinator Timeouts Dashboard — wiring', () => {
     assert.doesNotMatch(STATUS_SOURCE, /status:\s*state\.status\s*\?\?\s*repoRun\?\.status/);
     assert.doesNotMatch(STATUS_SOURCE, /phase:\s*state\.phase\s*\?\?\s*repoRun\?\.phase/);
     assert.match(VIEW_SOURCE, /renderDetailRows\(repo\.details\)/);
+  });
+
+  it('AT-CDTRS-004: coordinator timeout spec tracks the shipped dashboard shell without stale ordinal claims', () => {
+    assert.match(SPEC_SOURCE, /Dashboard nav item: `Coordinator Timeouts`/);
+    assert.match(SPEC_SOURCE, /without relying on a stale ordinal count/);
+    assert.doesNotMatch(SPEC_SOURCE, /12th nav item|12th view/);
   });
 });
