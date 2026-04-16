@@ -29,7 +29,9 @@ Document the shipped `gate_actions` surface as a first-class operator mechanism 
 - The page must document the real runtime contract:
   - repo-local only
   - executes in the repo root via `/bin/sh -lc`
+  - has repo-root workspace write access; gate actions are not isolated in a scratch directory
   - `--dry-run` previews without executing hooks, actions, or state mutation
+  - each action may set `timeout_ms`; otherwise the runtime uses a 15-minute default per-action timeout
   - failures block the run with `typed_reason: gate_action_failed` and preserve the pending gate for retry
   - commands must be rerunnable/idempotent
 - The page must document the real evidence surfaces:
@@ -51,6 +53,8 @@ Document the shipped `gate_actions` surface as a first-class operator mechanism 
 - Docs imply gate actions work on auto-approved or non-human gates
 - Docs present gate actions as coordinator-level or hosted automation when the shipped feature is repo-local only
 - Docs recommend non-rerunnable commands as if they were safe defaults
+- Docs omit the workspace-write boundary or imply gate actions run in a clean sandbox
+- Docs omit the timeout contract and leave hung action behavior unexplained
 - Sidebar or `llms.txt` omit the public route
 
 ## Acceptance Tests
@@ -62,6 +66,7 @@ Document the shipped `gate_actions` surface as a first-class operator mechanism 
 - `AT-GADOC-005`: The page distinguishes gate actions from approval policy, policies, and notifications.
 - `AT-GADOC-006`: `llms.txt` includes the `/docs/gate-actions` route.
 - `AT-GADOC-007`: CLI and approval-policy docs cross-link to the dedicated gate-actions page.
+- `AT-GADOC-008`: The page documents the repo-root workspace-write boundary and the per-action timeout/default-timeout contract.
 
 ## Open Questions
 

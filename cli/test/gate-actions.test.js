@@ -145,6 +145,14 @@ describe('gate actions', () => {
     assert.ok(result.errors.some((entry) => entry.includes('gate_actions require requires_human_approval: true')));
   });
 
+  it('AT-GA-007: config validation rejects invalid timeout_ms values on gate actions', () => {
+    const config = makeConfig([{ label: 'publish', run: 'echo publish', timeout_ms: 999 }]);
+
+    const result = validateV4Config(config);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((entry) => entry.includes('timeout_ms must be an integer between 1000 and 3600000')));
+  });
+
   it('AT-GA-002: approve-transition --dry-run previews gate actions without mutating state or side effects', () => {
     const root = createFixture([
       { label: 'write preview file', run: 'node scripts/write-success.mjs preview.txt dry-run' },
@@ -273,5 +281,35 @@ describe('gate actions', () => {
     assert.equal(payload.subject.run.gate_actions.length, 2);
     assert.equal(payload.subject.run.gate_actions[1].status, 'failed');
     assert.equal(payload.subject.run.gate_actions[1].exit_code, 7);
+  });
+
+  it('AT-GA-008: timed-out gate actions block approval and record timeout evidence', () => {
+    const root = createFixture([
+      { label: 'hang publish', run: 'node scripts/hang-step.mjs', timeout_ms: 1000 },
+    ]);
+
+    writeFileSync(
+      join(root, 'scripts', 'hang-step.mjs'),
+      "setInterval(() => {}, 1000);\n",
+    );
+
+    const result = runCli(root, ['approve-transition']);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout + result.stderr, /Blocked By Gate Action/);
+    assert.match(result.stdout + result.stderr, /timeout after 1000ms/i);
+
+    const state = readState(root);
+    assert.equal(state.status, 'blocked');
+    assert.equal(state.pending_phase_transition?.gate, 'planning_signoff');
+    assert.equal(state.blocked_reason?.category, 'gate_action_failed');
+    assert.equal(state.blocked_reason?.gate_action?.timed_out, true);
+    assert.equal(state.blocked_reason?.gate_action?.timeout_ms, 1000);
+
+    const ledger = readLedger(root).filter((entry) => entry.type === 'gate_action');
+    assert.equal(ledger.length, 1);
+    assert.equal(ledger[0].status, 'failed');
+    assert.equal(ledger[0].timed_out, true);
+    assert.equal(ledger[0].timeout_ms, 1000);
+    assert.match(ledger[0].stderr_tail || '', /Timed out after 1000ms/);
   });
 });

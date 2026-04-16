@@ -1,6 +1,6 @@
-# Twitter/X Thread — AgentXchain v2.108.0
+# Twitter/X Thread — AgentXchain v2.109.0
 
-> Ready-to-post thread. Updated 2026-04-16 to reflect v2.108.0 shipped reality.
+> Ready-to-post thread. Updated 2026-04-16 to reflect v2.109.0 shipped reality.
 
 ---
 
@@ -12,7 +12,7 @@ Most multi-agent AI coding demos: three agents agree with each other, dump a dif
 
 We built the opposite: agents are REQUIRED to challenge each other. Blind agreement is rejected by the orchestrator.
 
-AgentXchain v2.108.0 is live. Open source. MIT.
+AgentXchain v2.109.0 is live. Open source. MIT.
 
 **Tweet 2 (30-second demo):**
 

@@ -21,11 +21,13 @@ This is **not** a second workflow-kit config tree. The contract lives directly o
       "gate_actions": [
         {
           "label": "publish npm package",
-          "run": "bash scripts/release/publish-npm-if-needed.sh"
+          "run": "bash scripts/release/publish-npm-if-needed.sh",
+          "timeout_ms": 900000
         },
         {
           "label": "sync homebrew formula",
-          "run": "bash scripts/release/sync-homebrew-if-needed.sh"
+          "run": "bash scripts/release/sync-homebrew-if-needed.sh",
+          "timeout_ms": 900000
         }
       ]
     }
@@ -40,6 +42,7 @@ This is **not** a second workflow-kit config tree. The contract lives directly o
 - `gate_actions` must be a non-empty array when present.
 - Every action needs a non-empty `run` string.
 - `label` is optional, but when present it must be a non-empty string.
+- `timeout_ms` is optional, but when present it must be an integer between `1000` and `3600000`.
 
 If you put `gate_actions` on a non-human gate, config validation rejects it. That is intentional. The shipped feature is a post-approval boundary, not a general automation runner.
 
@@ -50,9 +53,52 @@ When an operator runs `agentxchain approve-transition` or `agentxchain approve-c
 1. The pending human gate is identified.
 2. `before_gate` hooks run first.
 3. Gate actions execute sequentially in the repo root via `/bin/sh -lc`.
-4. The approval finalizes only after **all** gate actions succeed.
+4. Each action uses its configured `timeout_ms`, or the runtime default of `900000ms` (15 minutes) when no override is provided.
+5. The approval finalizes only after **all** gate actions succeed.
 
 That last point matters. AgentXchain does **not** mark the gate complete and then hope the automation worked. If a gate action fails, the approval is not finalized.
+
+## Workspace boundary
+
+Gate actions run in the real repo root with normal workspace write access. They are **not** isolated in a scratch checkout or temp directory.
+
+That is deliberate. Release and deploy wrappers often need the real repo state, tags, build outputs, or generated metadata. A generic dirty-workspace ban would break valid post-approval automation.
+
+The burden moves to the operator instead:
+
+- treat workspace writes as part of the approval boundary
+- make those writes intentional and rerunnable
+- prefer repo-owned wrappers that can detect already-completed work and exit cleanly on retry
+
+If a gate action writes files you did not intend to carry forward, that is not a runtime mystery. It is a weak gate-action contract.
+
+## Timeout boundary
+
+Hung gate actions are not acceptable. Every action gets a per-action timeout:
+
+- explicit `timeout_ms` when you set it
+- otherwise the runtime default of `900000ms` (15 minutes)
+
+If an action exceeds that limit, AgentXchain treats it as a failed gate action, blocks the run, preserves the pending gate, and records timeout evidence in `.agentxchain/decision-ledger.jsonl`.
+
+For release or deploy wrappers, set an explicit timeout instead of relying on the default when you know the expected duration:
+
+```json title="agentxchain.json"
+{
+  "gates": {
+    "release_publish": {
+      "requires_human_approval": true,
+      "gate_actions": [
+        {
+          "label": "deploy docs",
+          "run": "bash scripts/release/deploy-docs-if-needed.sh",
+          "timeout_ms": 1800000
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Dry-run
 
@@ -109,6 +155,7 @@ Recorded evidence includes:
 - approval attempt id
 - action index and label
 - command
+- timeout configuration
 - status
 - exit code or signal
 - stdout/stderr tail
@@ -132,11 +179,13 @@ This is the right shape for a release gate:
       "gate_actions": [
         {
           "label": "publish npm if this version is not live",
-          "run": "bash scripts/release/publish-npm-if-needed.sh"
+          "run": "bash scripts/release/publish-npm-if-needed.sh",
+          "timeout_ms": 900000
         },
         {
           "label": "sync homebrew if formula lags",
-          "run": "bash scripts/release/sync-homebrew-if-needed.sh"
+          "run": "bash scripts/release/sync-homebrew-if-needed.sh",
+          "timeout_ms": 900000
         }
       ]
     }

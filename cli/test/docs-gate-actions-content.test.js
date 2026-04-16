@@ -82,4 +82,12 @@ describe('gate actions docs surface', () => {
     assert.match(SPEC, /AT-GADOC-001/);
     assert.match(SPEC, /AT-GADOC-007/);
   });
+
+  it('AT-GADOC-008: documents workspace-write and timeout boundaries', () => {
+    assert.match(DOC, /repo root with normal workspace write access/i);
+    assert.match(DOC, /scratch checkout or temp directory/i);
+    assert.match(DOC, /timeout_ms/);
+    assert.match(DOC, /15 minutes/i);
+    assert.match(SPEC, /AT-GADOC-008/);
+  });
 });

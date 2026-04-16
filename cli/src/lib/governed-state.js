@@ -1281,6 +1281,8 @@ function blockRunForGateActionFailure(root, state, gateFailure, config) {
     : 'agentxchain approve-transition';
   const actionLabel = gateFailure.action_label || gateFailure.command || gateFailure.gate_id || 'gate action';
   const blockedAt = gateFailure.timestamp || new Date().toISOString();
+  const failureVerb = gateFailure.timed_out ? 'timed out' : 'failed';
+  const failureDetail = `Gate action ${failureVerb} for "${gateFailure.gate_id || 'unknown'}": ${actionLabel}`;
   const blockedState = {
     ...state,
     status: 'blocked',
@@ -1289,13 +1291,13 @@ function blockRunForGateActionFailure(root, state, gateFailure, config) {
       category: 'gate_action_failed',
       blocked_at: blockedAt,
       turn_id: gateFailure.requested_by_turn || null,
-      detail: `Gate action failed for "${gateFailure.gate_id || 'unknown'}": ${actionLabel}`,
+      detail: failureDetail,
       recovery: {
         typed_reason: 'gate_action_failed',
         owner: 'human',
         recovery_action: recoveryAction,
         turn_retained: false,
-        detail: `${gateFailure.gate_id || 'unknown'} action ${gateFailure.action_index || '?'} (${actionLabel})`,
+        detail: `${gateFailure.gate_id || 'unknown'} action ${gateFailure.action_index || '?'} (${actionLabel})${gateFailure.timed_out ? ` timed out after ${gateFailure.timeout_ms}ms` : ''}`,
       },
       gate_action: {
         attempt_id: gateFailure.attempt_id || null,
@@ -1306,6 +1308,8 @@ function blockRunForGateActionFailure(root, state, gateFailure, config) {
         command: gateFailure.command || null,
         exit_code: gateFailure.exit_code ?? null,
         stderr_tail: gateFailure.stderr_tail || null,
+        timeout_ms: gateFailure.timeout_ms ?? null,
+        timed_out: gateFailure.timed_out === true,
       },
     },
   };

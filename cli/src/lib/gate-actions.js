@@ -5,6 +5,16 @@ import { spawnSync } from 'child_process';
 
 const LEDGER_PATH = '.agentxchain/decision-ledger.jsonl';
 const MAX_OUTPUT_TAIL_CHARS = 1200;
+export const DEFAULT_GATE_ACTION_TIMEOUT_MS = 15 * 60 * 1000;
+const MIN_GATE_ACTION_TIMEOUT_MS = 1000;
+const MAX_GATE_ACTION_TIMEOUT_MS = 60 * 60 * 1000;
+
+function normalizeGateActionTimeoutMs(action) {
+  if (Number.isInteger(action?.timeout_ms)) {
+    return action.timeout_ms;
+  }
+  return DEFAULT_GATE_ACTION_TIMEOUT_MS;
+}
 
 export function validateGateActionsConfig(gates, errors) {
   if (!gates || typeof gates !== 'object' || Array.isArray(gates)) {
@@ -44,6 +54,15 @@ export function validateGateActionsConfig(gates, errors) {
       if ('label' in action && (typeof action.label !== 'string' || !action.label.trim())) {
         errors.push(`${prefix}.label must be a non-empty string when provided`);
       }
+      if ('timeout_ms' in action) {
+        if (!Number.isInteger(action.timeout_ms)
+          || action.timeout_ms < MIN_GATE_ACTION_TIMEOUT_MS
+          || action.timeout_ms > MAX_GATE_ACTION_TIMEOUT_MS) {
+          errors.push(
+            `${prefix}.timeout_ms must be an integer between ${MIN_GATE_ACTION_TIMEOUT_MS} and ${MAX_GATE_ACTION_TIMEOUT_MS} when provided`,
+          );
+        }
+      }
     }
   }
 }
@@ -60,6 +79,7 @@ export function getGateActions(config, gateId) {
       index: index + 1,
       label: typeof action.label === 'string' && action.label.trim() ? action.label.trim() : null,
       run: action.run.trim(),
+      timeout_ms: normalizeGateActionTimeoutMs(action),
     }));
 }
 
@@ -78,6 +98,11 @@ function trimOutputTail(value) {
 }
 
 function buildGateActionEntry(action, meta, runtimeResult, status) {
+  const timedOut = runtimeResult?.error?.code === 'ETIMEDOUT';
+  const stderrTail = trimOutputTail(runtimeResult?.stderr) || (timedOut ? `Timed out after ${action.timeout_ms}ms` : null);
+  const spawnError = timedOut
+    ? `Timed out after ${action.timeout_ms}ms`
+    : runtimeResult?.error?.message || null;
   return {
     type: 'gate_action',
     timestamp: new Date().toISOString(),
@@ -90,12 +115,14 @@ function buildGateActionEntry(action, meta, runtimeResult, status) {
     action_index: action.index,
     action_label: action.label,
     command: action.run,
+    timeout_ms: action.timeout_ms,
     status,
     exit_code: Number.isInteger(runtimeResult?.status) ? runtimeResult.status : null,
     signal: runtimeResult?.signal || null,
     stdout_tail: trimOutputTail(runtimeResult?.stdout),
-    stderr_tail: trimOutputTail(runtimeResult?.stderr),
-    spawn_error: runtimeResult?.error?.message || null,
+    stderr_tail: stderrTail,
+    spawn_error: spawnError,
+    timed_out: timedOut,
   };
 }
 
@@ -125,6 +152,8 @@ export function executeGateActions(root, config, meta, opts = {}) {
       },
       encoding: 'utf8',
       maxBuffer: 10 * 1024 * 1024,
+      timeout: action.timeout_ms,
+      killSignal: 'SIGTERM',
     });
 
     const status = runtimeResult.error || runtimeResult.status !== 0 ? 'failed' : 'succeeded';
@@ -170,6 +199,8 @@ export function normalizeGateActionEntry(entry) {
     stdout_tail: entry.stdout_tail || null,
     stderr_tail: entry.stderr_tail || null,
     spawn_error: entry.spawn_error || null,
+    timeout_ms: Number.isInteger(entry.timeout_ms) ? entry.timeout_ms : null,
+    timed_out: entry.timed_out === true,
     timestamp: entry.timestamp || null,
   };
 }

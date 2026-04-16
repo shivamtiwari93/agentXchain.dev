@@ -1,6 +1,6 @@
-# Reddit Posts — AgentXchain v2.108.0
+# Reddit Posts — AgentXchain v2.109.0
 
-> Ready-to-post content for Reddit. Updated 2026-04-16 to reflect v2.108.0 shipped reality.
+> Ready-to-post content for Reddit. Updated 2026-04-16 to reflect v2.109.0 shipped reality.
 > All five adapter types proven live. Four non-manual adapter types have real-model proof. Full evidence surface at agentxchain.dev.
 
 ---
@@ -21,7 +21,7 @@ AgentXchain fixes this with a constitutional governance layer:
 - Every decision goes into an append-only audit ledger.
 - Phase gates enforce that real artifacts exist before work advances.
 
-**What's in the box (v2.108.0):**
+**What's in the box (v2.109.0):**
 - 5 adapter types: manual (human-in-the-loop), local_cli (Claude Code, Cursor, any CLI agent), api_proxy (direct LLM API), MCP (stdio + streamable HTTP), remote_agent (HTTP bridge)
 - All 5 adapters proven live
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models (Claude, not mocks); `manual` is the human control path
@@ -64,7 +64,7 @@ Happy to answer questions about the architecture, the "mandatory challenge" desi
 
 ## r/artificial
 
-**Title:** AgentXchain v2.108.0 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
+**Title:** AgentXchain v2.109.0 – governance protocol for multi-agent software teams (mandatory challenge, human gates, real-model proof)
 
 **Body:**
 

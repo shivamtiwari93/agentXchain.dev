@@ -103,6 +103,10 @@ function printGateHookFailure(result, gateType, gateInfo) {
 
 function printGateActionFailure(result, gateInfo) {
   const failure = result.gateActionRun?.failed_action;
+  const exitLabel = failure?.timed_out
+    ? `timeout after ${failure.timeout_ms}ms`
+    : failure?.exit_code ?? failure?.signal ?? 'unknown';
+  const stderrOrError = failure?.stderr_tail || failure?.spawn_error || null;
 
   console.log('');
   console.log(chalk.yellow('  Run Completion Blocked By Gate Action'));
@@ -110,9 +114,9 @@ function printGateActionFailure(result, gateInfo) {
   console.log('');
   console.log(`  ${chalk.dim('Gate:')}     ${gateInfo.gate}`);
   console.log(`  ${chalk.dim('Action:')}   ${failure?.action_label || failure?.command || '(unknown)'}`);
-  console.log(`  ${chalk.dim('Exit:')}     ${failure?.exit_code ?? failure?.signal ?? 'unknown'}`);
-  if (failure?.stderr_tail) {
-    console.log(`  ${chalk.dim('stderr:')}   ${failure.stderr_tail}`);
+  console.log(`  ${chalk.dim('Exit:')}     ${exitLabel}`);
+  if (stderrOrError) {
+    console.log(`  ${chalk.dim('stderr:')}   ${stderrOrError}`);
   }
   console.log(`  ${chalk.dim('Retry:')}    agentxchain approve-completion`);
   console.log('');
