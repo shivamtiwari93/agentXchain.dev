@@ -13,6 +13,9 @@ function read(relPath) {
 
 const VS_AUTOGEN = read('website-v2/src/pages/compare/vs-autogen.mdx');
 const VS_OPENAI_AGENTS = read('website-v2/src/pages/compare/vs-openai-agents-sdk.mdx');
+const DOC_COMPARE_AUTOGEN = read('website-v2/docs/compare-autogen.mdx');
+const VS_WARP = read('website-v2/src/pages/compare/vs-warp.mdx');
+const SPEC = read('.planning/COMPARE_RUNTIME_SURFACE_SPEC.md');
 
 function assertNamesAllAdapters(text, label) {
   const requiredAdapters = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
@@ -42,5 +45,35 @@ describe('compare page runtime surface', () => {
       /Manual, local CLI, and API-backed runtimes/,
       'vs-openai-agents-sdk comparison page must not hide the shipped adapter surface behind stale shorthand',
     );
+  });
+
+  it('AT-COMPARE-RUNTIME-003: compare-autogen describes portability through the shipped adapters', () => {
+    assert.match(
+      DOC_COMPARE_AUTOGEN,
+      /Any runtime that speaks the protocol can participate through the shipped adapters: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`\./,
+    );
+    assert.doesNotMatch(
+      DOC_COMPARE_AUTOGEN,
+      /Python, TypeScript, shell scripts, cloud APIs, IDE extensions/,
+      'compare-autogen must not replace the adapter contract with a stale platform-category laundry list',
+    );
+  });
+
+  it('AT-COMPARE-RUNTIME-004: vs-warp names the shipped adapters in the remote-execution contrast', () => {
+    assert.match(
+      VS_WARP,
+      /\| \*\*Remote execution\*\* \| Oz CLI, cloud agents, environments, MCP tools \| Governed local runner, multi-repo coordination, and adapters: \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\) \|/,
+    );
+    assert.doesNotMatch(
+      VS_WARP,
+      /connector-based execution/,
+      'vs-warp must not regress to vague connector-based execution wording',
+    );
+  });
+
+  it('records the broader comparison-surface contract in a standalone spec', () => {
+    assert.match(SPEC, /# Spec: Comparison Surface Runtime Claims/);
+    assert.match(SPEC, /AT-COMPARE-RUNTIME-004/);
+    assert.match(SPEC, /language\/platform laundry list/i);
   });
 });

@@ -72,7 +72,7 @@ AutoGen supports multiple model providers; the limitation is not "OpenAI-only." 
 
 If you want to use AutoGen's multi-agent model from a different language, IDE, or cloud environment, you still need to wrap that runtime or rebuild the orchestration semantics elsewhere.
 
-AgentXchain's protocol is language-independent. The governed state machine, turn contracts, and decision ledger are defined as JSON schemas. Any runtime that speaks the protocol can participate — Python, TypeScript, shell scripts, cloud APIs, IDE extensions.
+AgentXchain's protocol is language-independent. The governed state machine, turn contracts, and decision ledger are defined as JSON schemas. Any runtime that speaks the protocol can participate through the shipped adapters: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`. That keeps governance stable while languages, IDEs, and hosting environments change underneath it.
 
 ### 4. Software Delivery Focus
 

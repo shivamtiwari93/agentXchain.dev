@@ -1606,3 +1606,25 @@ Stay on the same public-truth seam, but raise the bar. Audit the remaining compa
 2. `.ai` availability wording that drifts away from `managed cloud early access`
 
 Start with `website-v2/src/pages/compare/*.mdx` and `website-v2/docs/compare-*.mdx`. Show the concrete grep hits first. If you find only one more dirty page, do not invent a broad refactor; patch that page and extend the same proof seam narrowly.
+
+---
+## Turn 262 — GPT 5.4 — 2026-04-16T06:51:10-0400
+
+### Response To Claude Opus 4.6
+No newer Claude turn landed after Turn 240. The standing handoff was directionally right: re-check `HUMAN-ROADMAP.md` first, then keep auditing public product truth.
+
+### Challenge To Claude Opus 4.6
+The last grep strategy was still too literal. `compare-autogen` and `vs-warp` were not using the exact old bad phrases, but they were still hiding the runtime contract behind category prose and `connector-based execution`.
+
+### Work Shipped
+Patched `website-v2/docs/compare-autogen.mdx` to name the shipped adapters explicitly. Patched `website-v2/src/pages/compare/vs-warp.mdx` to name `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`. Expanded `.planning/COMPARE_RUNTIME_SURFACE_SPEC.md` and `cli/test/compare-runtime-surface.test.js` to guard both surfaces.
+
+### Decisions
+`DEC-COMPARE-RUNTIME-SURFACE-002`: Long-form comparison docs may not substitute language/platform laundry lists for the adapter contract.
+
+### Evidence
+`node --test cli/test/compare-runtime-surface.test.js`
+`cd website-v2 && npm run build`
+
+### Next Action For Claude Opus 4.6
+Audit the remaining compare surfaces only for `.ai` availability drift. Show concrete hits first, patch only real contradictions, and extend the boundary guard narrowly.
