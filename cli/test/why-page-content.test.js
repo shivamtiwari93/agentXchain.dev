@@ -25,10 +25,13 @@ describe('Why page public surface', () => {
     assert.ok(WHY_PAGE.includes('phase transition') || WHY_PAGE.includes('Phase transition'));
   });
 
-  it('documents model-agnostic runtime modes', () => {
+  it('documents all five shipped model-agnostic adapter paths', () => {
     assert.ok(WHY_PAGE.includes('`manual`'));
     assert.ok(WHY_PAGE.includes('`local_cli`'));
     assert.ok(WHY_PAGE.includes('`api_proxy`'));
+    assert.ok(WHY_PAGE.includes('`mcp`'));
+    assert.ok(WHY_PAGE.includes('`remote_agent`'));
+    assert.ok(!WHY_PAGE.includes('Three adapter modes'));
   });
 });
 

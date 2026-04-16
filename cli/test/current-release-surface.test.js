@@ -18,7 +18,10 @@ function readJson(relPath) {
 const PACKAGE = readJson('cli/package.json');
 const CHANGELOG = read('cli/CHANGELOG.md');
 const SIDEBARS = read('website-v2/sidebars.ts');
+const ROOT_README = read('README.md');
+const CLI_README = read('cli/README.md');
 const HOME = read('website-v2/src/pages/index.tsx');
+const WHY_PAGE = read('website-v2/src/pages/why.mdx');
 const PROTOCOL_DOCS = read('website-v2/docs/protocol.mdx');
 const CAPABILITIES = readJson('.agentxchain-conformance/capabilities.json');
 const IMPLEMENTOR_GUIDE = read('website-v2/docs/protocol-implementor-guide.mdx');
@@ -79,6 +82,17 @@ function extractCurrentProtocolLabel(text) {
   const titleMatch = text.match(/^title:\s*(Protocol v\d+)$/m);
   assert.ok(titleMatch, 'protocol docs must declare a current title in frontmatter');
   return titleMatch[1];
+}
+
+function assertNamesAllAdapters(text, label) {
+  const requiredAdapters = ['manual', 'local_cli', 'api_proxy', 'mcp', 'remote_agent'];
+  for (const adapter of requiredAdapters) {
+    assert.match(
+      text,
+      new RegExp(`\\b${adapter}\\b`),
+      `${label} must mention ${adapter}`,
+    );
+  }
 }
 
 describe('current release surface', () => {
@@ -219,5 +233,32 @@ describe('current release surface', () => {
       existsSync(releaseDocPath),
       `release doc ${CURRENT_RELEASE_DOC_ID}.mdx must exist (auto-included in sitemap at build)`,
     );
+  });
+
+  it('AT-CRS-018: root README uses the current protocol label and names all five shipped adapters', () => {
+    const currentProtocolLabel = extractCurrentProtocolLabel(PROTOCOL_DOCS);
+    assert.match(
+      ROOT_README,
+      new RegExp(`\\[${currentProtocolLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\(https://agentxchain\\.dev/docs/protocol/?\\)`),
+      'root README must link to protocol docs with the current title',
+    );
+    assertNamesAllAdapters(ROOT_README, 'root README');
+    assert.doesNotMatch(ROOT_README, /Protocol spec \(v6\)/);
+  });
+
+  it('AT-CRS-019: cli README uses the current protocol label and names all five shipped adapters', () => {
+    const currentProtocolLabel = extractCurrentProtocolLabel(PROTOCOL_DOCS);
+    assert.match(
+      CLI_README,
+      new RegExp(`\\[${currentProtocolLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]\\(https://agentxchain\\.dev/docs/protocol/?\\)`),
+      'cli README must link to protocol docs with the current title',
+    );
+    assertNamesAllAdapters(CLI_README, 'cli README');
+    assert.doesNotMatch(CLI_README, /Protocol spec \(v6\)/);
+  });
+
+  it('AT-CRS-020: why page names all five shipped adapters and rejects stale three-adapter framing', () => {
+    assertNamesAllAdapters(WHY_PAGE, 'why page');
+    assert.doesNotMatch(WHY_PAGE, /Three adapter modes/i);
   });
 });

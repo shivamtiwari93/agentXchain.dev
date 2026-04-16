@@ -36,7 +36,7 @@ The page MUST:
 3. Explain mandatory challenge as an enforced protocol rule, not a prompt suggestion.
 4. Show structured turn-result evidence with a concrete JSON example.
 5. Explain constitutional human authority using actual phase/ship approval checkpoints.
-6. Document runtime portability through `manual`, `local_cli`, and `api_proxy`.
+6. Document runtime portability through all five shipped adapter paths: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
 7. Link readers to the governed quickstart and protocol docs.
 
 The page MUST NOT:
@@ -61,7 +61,7 @@ Given the website files are read directly from the repo, when `website-v2/src/pa
 Given the public page content, when a reader scans the page, then it explicitly covers the governance bottleneck, the manager-worker critique, mandatory challenge, and human gate authority.
 
 ### AT-WHY-003: Runtime portability is explicit
-Given the public page content, when the runtime section renders, then it names `manual`, `local_cli`, and `api_proxy`.
+Given the public page content, when the runtime section renders, then it names `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`, and it does not collapse the product back to a stale three-adapter subset.
 
 ### AT-WHY-004: Discoverability surfaces expose the page
 Given the homepage and READMEs, when they are inspected, then each contains a link to the `/why/` page.

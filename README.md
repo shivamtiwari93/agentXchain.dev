@@ -26,7 +26,7 @@ If you want your own governed project after that, install the CLI once, then jum
 - Records accepted history in append-only JSONL plus `TALK.md`
 - Surfaces checkpointed continuity in `agentxchain status` and rebuilds lost session context with `agentxchain restart`
 - Supports cross-machine continuity via governed run `agentxchain export` + `agentxchain restore` for same-repo, same-commit checkouts
-- Supports `manual`, `local_cli`, `api_proxy`, and `mcp` runtimes under the same workflow
+- Supports `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` runtimes under the same workflow
 - Runs sequentially by default, with optional parallel governed turns up to the configured cap
 - Adds multi-repo coordinator flow with `agentxchain multi step`, `agentxchain multi resume`, `agentxchain multi approve-gate`, cross-repo context, and coordinator hooks
 - Adds continuous-delivery intake (`intake record`, `triage`, `approve`, `plan`, `start`, `scan`, `resolve`) for turning delivery signals into governed work
@@ -60,7 +60,7 @@ The protocol is the durable layer. Runners enforce it. Connectors bridge to agen
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Multi-session continuity](https://agentxchain.dev/docs/multi-session/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Protocol v7](https://agentxchain.dev/docs/protocol/)
 - [Protocol reference](https://agentxchain.dev/docs/protocol-reference/)
 - [Build your own runner](https://agentxchain.dev/docs/build-your-own-runner/)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
@@ -320,7 +320,7 @@ agentxchain export                           # export the portable raw governed/
 
 ### `agentxchain run`
 
-Drives a governed run from start to completion. Continuously assigns turns, dispatches to adapters (`local_cli`, `api_proxy`, `mcp`), handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). In non-TTY environments, gates fail closed unless `--auto-approve` is set.
+Drives a governed run from start to completion. Continuously assigns turns, dispatches to configured runtimes (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`), handles gate approvals, and manages rejection/retry until the run reaches a terminal state (`completed`, `blocked`, or `max_turns_reached`). In non-TTY environments, gates fail closed unless `--auto-approve` is set.
 
 ```bash
 agentxchain run --auto-approve     # CI / lights-out mode
@@ -335,6 +335,7 @@ agentxchain run --max-turns 10      # safety cap
 - `local_cli` is working
 - `mcp` is working for stdio tool-contract dispatch
 - `api_proxy` is implemented for synchronous `review_only` and `proposed` turns and stages a provider-backed result during `step`
+- `remote_agent` is working for governed HTTP request/response dispatch against long-running remote agents
 
 ## Example Governed Lifecycle
 
@@ -521,7 +522,7 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Protocol v7](https://agentxchain.dev/docs/protocol/)
 - [npm package](https://www.npmjs.com/package/agentxchain)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 - [AgentXchain.ai (commercial cloud)](https://agentxchain.ai)

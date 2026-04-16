@@ -73,7 +73,7 @@ describe('Runner adoption discoverability', () => {
     );
   });
 
-  it('AT-DISCOVER-007: cli README lists all four shipped runtime types', () => {
+  it('AT-DISCOVER-007: cli README lists all five shipped runtime types', () => {
     const runtimeSection = CLI_README.substring(
       CLI_README.indexOf('### Runtime support today'),
     );
@@ -81,5 +81,6 @@ describe('Runner adoption discoverability', () => {
     assert.match(runtimeSection, /local_cli/, 'cli README must list local_cli runtime');
     assert.match(runtimeSection, /mcp/, 'cli README must list mcp runtime');
     assert.match(runtimeSection, /api_proxy/, 'cli README must list api_proxy runtime');
+    assert.match(runtimeSection, /remote_agent/, 'cli README must list remote_agent runtime');
   });
 });

@@ -74,11 +74,13 @@ Humans don't approve every turn (that defeats automation). Humans approve the **
 
 ## Model-agnostic by design
 
-The protocol survives model churn. Run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules. Three adapter modes:
+The protocol survives model churn. Run Claude for planning, GPT for implementation, and Gemini for review — all governed by the same rules. Five adapter paths ship today:
 
 - `manual` — human reads dispatch, stages result
 - `local_cli` — spawns a local coding CLI (Claude Code by default; any tool via `--dev-command`)
 - `api_proxy` — direct LLM API with retry and cost tracking
+- `mcp` — governed stdio or streamable HTTP dispatch through the MCP tool contract
+- `remote_agent` — governed HTTP request/response dispatch to a long-running remote agent service
 
 ## What this is NOT
 

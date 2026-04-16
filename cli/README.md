@@ -17,7 +17,7 @@ Legacy IDE-window coordination is still shipped as a compatibility mode for team
 - [Templates](https://agentxchain.dev/docs/templates/)
 - [Export schema reference](https://agentxchain.dev/docs/export-schema/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Protocol v7](https://agentxchain.dev/docs/protocol/)
 - [Protocol reference](https://agentxchain.dev/docs/protocol-reference/)
 - [Build your own runner](https://agentxchain.dev/docs/build-your-own-runner/)
 - [Why governed multi-agent delivery matters](https://agentxchain.dev/why/)
@@ -278,6 +278,7 @@ The first-party governed workflow kit includes `.planning/SYSTEM_SPEC.md` alongs
 - `local_cli`: implemented
 - `mcp`: implemented for stdio and streamable HTTP tool-contract dispatch
 - `api_proxy`: implemented for synchronous `review_only` and `proposed` write-authority turns; stages a provider-backed result during `step`
+- `remote_agent`: implemented for governed HTTP request/response dispatch against long-running remote agents
 
 ## Legacy IDE Mode
 
@@ -314,7 +315,7 @@ Requires:
 - [Quickstart](https://agentxchain.dev/docs/quickstart/)
 - [CLI reference](https://agentxchain.dev/docs/cli/)
 - [Adapter reference](https://agentxchain.dev/docs/adapters/)
-- [Protocol spec (v6)](https://agentxchain.dev/docs/protocol/)
+- [Protocol v7](https://agentxchain.dev/docs/protocol/)
 - [GitHub](https://github.com/shivamtiwari93/agentXchain.dev)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
 

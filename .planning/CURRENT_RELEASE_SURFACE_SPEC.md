@@ -20,7 +20,10 @@ The guard reads:
 - `cli/CHANGELOG.md`
 - `website-v2/docs/releases/`
 - `website-v2/sidebars.ts`
+- `README.md`
+- `cli/README.md`
 - `website-v2/src/pages/index.tsx`
+- `website-v2/src/pages/why.mdx`
 - `website-v2/docs/protocol.mdx`
 - `.agentxchain-conformance/capabilities.json`
 - `website-v2/docs/protocol-implementor-guide.mdx`
@@ -44,12 +47,17 @@ The guard must enforce these invariants against the current `cli/package.json` v
 11. `website-v2/static/llms.txt` lists the current release-notes route.
 12. The current release doc exists in source so Docusaurus auto-generates a sitemap entry for its route at build time.
 13. The current release notes and top changelog section carry the same aggregate concrete test-count evidence line for the release.
+14. `README.md` uses the current protocol docs title and names all five shipped adapters instead of a stale subset.
+15. `cli/README.md` uses the current protocol docs title and names all five shipped adapters instead of a stale subset.
+16. `website-v2/src/pages/why.mdx` names all five shipped adapters and does not fall back to the stale `Three adapter modes` framing.
 
 ## Error Cases
 
 - If `package.json` is bumped but the release page is missing, the guard fails.
 - If the changelog is updated but the homepage badge, proof stat, or protocol CTA label is stale, the guard fails.
 - If the homepage connectors layer falls back to a stale adapter subset, the guard fails.
+- If either README falls back to `Protocol v6` or a stale four-adapter subset, the guard fails.
+- If the why page reintroduces the stale three-adapter framing or omits `mcp` / `remote_agent`, the guard fails.
 - If the implementor guide or capabilities example lags the package version, the guard fails.
 - If the current release doc exists but `llms.txt` omits its public route, the guard fails.
 - If the current release doc is missing, the auto-generated sitemap cannot include its public route and the guard fails.
@@ -74,3 +82,6 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - **AT-CRS-015**: The guard asserts the Homebrew mirror formula points at the current npm tarball.
 - **AT-CRS-016**: The guard asserts the Homebrew mirror maintainer README tracks the current version and tarball URL.
 - **AT-CRS-017**: The guard asserts the auto-generated sitemap contract stays satisfied by the presence of the current release doc source file.
+- **AT-CRS-018**: The guard asserts `README.md` uses the current protocol docs title and names all five shipped adapters.
+- **AT-CRS-019**: The guard asserts `cli/README.md` uses the current protocol docs title and names all five shipped adapters.
+- **AT-CRS-020**: The guard asserts `website-v2/src/pages/why.mdx` names all five shipped adapters and rejects the stale `Three adapter modes` wording.
