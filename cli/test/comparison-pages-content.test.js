@@ -127,7 +127,9 @@ describe('comparison pages content', () => {
     assertCommonPageContract(pages.metagpt, 'MetaGPT');
     assert.match(pages.metagpt, /Standard Operating Procedure|SOP/i, 'MetaGPT page must acknowledge SOPs');
     assert.match(pages.metagpt, /Product Manager|Architect|Engineer/i, 'MetaGPT page must acknowledge role assignments');
-    assert.match(pages.metagpt, /ICLR/i, 'MetaGPT page must acknowledge research backing');
+    assert.match(pages.metagpt, /ICLR 2024|AFlow/i, 'MetaGPT page must acknowledge current research backing precisely');
+    assert.match(pages.metagpt, /Data Interpreter|Researcher|Atoms/i, 'MetaGPT page must acknowledge current specialist or hosted-product surfaces');
+    assert.match(pages.metagpt, /breakpoint recovery|Serialization/i, 'MetaGPT page must acknowledge scoped recovery rather than restart-only phrasing');
     assert.match(pages.metagpt, /governed software delivery|delivery protocol/i);
     assert.match(pages.metagpt, /honest overlap|overlap/i, 'MetaGPT page must honestly acknowledge category overlap');
   });
@@ -151,9 +153,11 @@ describe('comparison pages content', () => {
 
   it('anchors public comparison claims to the competitive positioning matrix', () => {
     assert.match(POSITIONING_MATRIX, /\*\*CrewAI\*\*/);
+    assert.match(POSITIONING_MATRIX, /\*\*MetaGPT\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*LangGraph\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*OpenAI Agents SDK\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*AG2 \/ AutoGen\*\*/);
+    assert.match(POSITIONING_MATRIX, /Atoms|Data Interpreter|Researcher/i);
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
     assert.match(POSITIONING_MATRIX, /OpenAI Swarm README/);
