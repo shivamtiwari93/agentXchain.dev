@@ -155,4 +155,23 @@ describe('release planning surface classification', () => {
     assert.match(release241, /npx --yes -p agentxchain@<version> -c "agentxchain --version"/);
     assert.doesNotMatch(release241, /npx --yes agentxchain@<version> --version/);
   });
+
+  it('historical release notes do not understate the live adapters contract', () => {
+    const spec = read('.planning/HISTORICAL_ADAPTER_LINK_TRUTH_SPEC.md');
+    const release240 = read('website-v2/docs/releases/v2-24-0.mdx');
+    const release241 = read('website-v2/docs/releases/v2-24-1.mdx');
+    const expectedLine =
+      /See \[Adapters\]\(\/docs\/adapters\) for the current runtime contract across all five shipped adapter paths \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\)\./;
+    const staleSubset = /manual, local CLI, API-backed, and MCP paths/;
+
+    assert.match(spec, /AT-HALT-001/);
+    assert.match(spec, /AT-HALT-002/);
+    assert.match(spec, /AT-HALT-003/);
+
+    assert.match(release240, expectedLine);
+    assert.doesNotMatch(release240, staleSubset);
+
+    assert.match(release241, expectedLine);
+    assert.doesNotMatch(release241, staleSubset);
+  });
 });
