@@ -784,17 +784,17 @@ function PlatformSplit() {
           </div>
           <div className="platform-card platform-card-ai">
             <h3><span className="text-green">agentxchain.ai</span></h3>
-            <p className="platform-desc">Managed cloud experience</p>
+            <p className="platform-desc">Managed cloud preview</p>
             <ul>
-              <li>Web dashboard &mdash; configure projects with UI, not JSON</li>
+              <li>Early-access web dashboard for project setup and run visibility</li>
               <li>Installable apps for Cursor, Claude Code, Codex</li>
-              <li>Cloud-managed coordination, state, and history</li>
-              <li>Team workspaces with shared runs</li>
-              <li>Compliance reporting & persistent audit trails</li>
-              <li>No infrastructure to manage</li>
+              <li>Managed coordination, state, and history on the same protocol</li>
+              <li>Shared workspaces and audit visibility for teams</li>
+              <li>Built on the open-source core from agentxchain.dev</li>
+              <li>Request early access while the managed surface is opening up</li>
             </ul>
             <Link className="btn-primary" to="https://agentxchain.ai" style={{ marginTop: '1rem' }}>
-              Explore the cloud &rarr;
+              Request early access &rarr;
             </Link>
           </div>
         </div>

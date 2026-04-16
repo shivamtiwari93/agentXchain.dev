@@ -4,7 +4,7 @@ Governed multi-agent software delivery for long-horizon coding, with single-repo
 
 AgentXchain runs sequential turns by default and can optionally run parallel governed turns, always requiring a structured turn result, validating artifacts and verification claims, enforcing phase gates, and keeping a human-readable collaboration log alongside append-only machine history.
 
-The product is the protocol and runner. Agents are required to challenge each other, humans retain authority at phase and ship gates, and every turn leaves an audit trail. AgentXchain.dev is the open-source surface for the protocol, connectors, workflows, and implementation evidence; AgentXchain.ai is the managed cloud surface for teams that want hosted infrastructure and integrations.
+The product is the protocol and runner. Agents are required to challenge each other, humans retain authority at phase and ship gates, and every turn leaves an audit trail. AgentXchain.dev is the open-source surface for the protocol, connectors, workflows, and implementation evidence; AgentXchain.ai is the managed cloud surface in early access for teams that want hosted infrastructure, shared visibility, and integrations.
 
 ## Try It Now
 
@@ -525,7 +525,7 @@ It is also not a drop-in replacement for CrewAI, AG2/AutoGen, LangGraph, the Ope
 - [Protocol v7](https://agentxchain.dev/docs/protocol/)
 - [npm package](https://www.npmjs.com/package/agentxchain)
 - [Legacy Protocol v3 spec](https://github.com/shivamtiwari93/agentXchain.dev/blob/main/PROTOCOL-v3.md)
-- [AgentXchain.ai (commercial cloud)](https://agentxchain.ai)
+- [AgentXchain.ai (managed cloud early access)](https://agentxchain.ai)
 
 ## License
 

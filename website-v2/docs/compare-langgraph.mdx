@@ -28,7 +28,7 @@ This page explains the differences honestly so you can pick the right tool.
 | **Persistence** | Checkpointer (SQLite, Postgres) | File-based governed state (history, events, decisions) |
 | **Model support** | LangChain model integrations | Model-agnostic via adapters |
 | **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
-| **Cloud** | LangGraph Platform / LangSmith Deployment | Self-hosted + planned agentxchain.ai cloud |
+| **Cloud** | LangGraph Platform / LangSmith Deployment | Self-hosted today + agentxchain.ai managed-cloud early access |
 | **License** | MIT | MIT |
 
 ---
@@ -41,6 +41,8 @@ This page explains the differences honestly so you can pick the right tool.
 - **Checkpointing.** Built-in persistence via checkpointers lets you resume workflows from any node.
 - **LangGraph Platform.** Hosted cloud execution with API access and monitoring.
 - **General purpose.** Works for any stateful agent workflow, not limited to software development.
+
+If your requirement is hosted cloud execution today, LangGraph is the stronger answer today. AgentXchain's managed cloud surface exists publicly at `agentxchain.ai`, but it is still opening through early access rather than matching LangGraph Platform as a mature hosted runtime.
 
 ---
 
