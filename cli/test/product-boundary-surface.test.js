@@ -15,6 +15,7 @@ const ROOT_README = read('README.md');
 const HOME_PAGE = read('website-v2/src/pages/index.tsx');
 const LANGGRAPH_DOC = read('website-v2/docs/compare-langgraph.mdx');
 const CODEGEN_PAGE = read('website-v2/src/pages/compare/vs-codegen.mdx');
+const METAGPT_PAGE = read('website-v2/src/pages/compare/vs-metagpt.mdx');
 const OPENHANDS_PAGE = read('website-v2/src/pages/compare/vs-openhands.mdx');
 const SPEC = read('.planning/PRODUCT_BOUNDARY_SURFACE_SPEC.md');
 
@@ -67,7 +68,16 @@ describe('product boundary surface', () => {
     assert.doesNotMatch(CODEGEN_PAGE, /\| \*\*Hosting model\*\* \| Managed SaaS with SOC 2 compliance \| Self-hosted, local-first, open source \|/);
   });
 
-  it('AT-PBS-006: OpenHands comparison keeps AgentXchain hosting truthful', () => {
+  it('AT-PBS-006: MetaGPT comparison keeps AgentXchain hosted-product boundary truthful', () => {
+    assert.match(
+      METAGPT_PAGE,
+      /\| \*\*Hosted product\*\* \| Atoms \(formerly MGX \/ MetaGPT X\) for hosted app building and deployment \| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
+    );
+    assert.match(METAGPT_PAGE, /managed-cloud early access/i);
+    assert.doesNotMatch(METAGPT_PAGE, /managed `?\.ai`? surface later/i);
+  });
+
+  it('AT-PBS-007: OpenHands comparison keeps AgentXchain hosting truthful', () => {
     assert.match(
       OPENHANDS_PAGE,
       /\| \*\*Hosting\*\* \|.*Enterprise.*\| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
@@ -79,6 +89,6 @@ describe('product boundary surface', () => {
   it('records the product boundary contract in a standalone spec', () => {
     assert.match(SPEC, /# Product Boundary Surface Spec/);
     assert.match(SPEC, /AT-PBS-001/);
-    assert.match(SPEC, /AT-PBS-006/);
+    assert.match(SPEC, /AT-PBS-007/);
   });
 });
