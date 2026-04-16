@@ -51,17 +51,19 @@ cd cli
 # bump:release auto-aligns Homebrew mirror, runs inline preflight (tests, pack,
 # docs build) BEFORE creating the tag. If preflight fails, the commit exists but
 # no tag is created — safe to amend and re-run. See DEC-RELEASE-PROCESS-005.
-npm run bump:release -- --target-version <semver>
+npm run bump:release -- --target-version <semver> \
+  --coauthored-by "Your Name <email>"
 git push origin main --follow-tags
 
 # Option B: bump with skip-preflight (recovery / already-verified scenarios).
 # Only use when preflight has already been verified separately.
-npm run bump:release -- --target-version <semver> --skip-preflight
+npm run bump:release -- --target-version <semver> --skip-preflight \
+  --coauthored-by "Your Name <email>"
 npm run preflight:release:strict -- --target-version <semver>
 git push origin main --follow-tags
 ```
 
-> **Why `bump:release` instead of `npm version`?** Raw `npm version <semver>` from a subdirectory may update version files without creating the release commit and annotated tag. `release-bump.sh` separates the file update from git identity creation and verifies both before exiting. See `DEC-RIH-001`.
+> **Why `bump:release` instead of `npm version`?** Raw `npm version <semver>` from a subdirectory may update version files without creating the release commit and annotated tag. `release-bump.sh` separates the file update from git identity creation, requires an explicit `--coauthored-by` trailer value, and verifies both commit subject and trailer before exiting. See `DEC-RIH-001`.
 
 ### Verification Commands
 
@@ -119,7 +121,8 @@ Run:
 
 ```bash
 cd cli
-npm run bump:release -- --target-version <semver>
+npm run bump:release -- --target-version <semver> \
+  --coauthored-by "Your Name <email>"
 ```
 
 This fail-closed script:
@@ -129,9 +132,9 @@ This fail-closed script:
 4. **Auto-aligns the Homebrew mirror** — updates the formula URL and README version/tarball to the target version; carries the previous committed formula SHA and overwrites any hand-edited working-tree SHA (corrected post-publish by `sync-homebrew.sh`)
 5. Updates `package.json` and `package-lock.json` via `npm version --no-git-tag-version`
 6. Stages all version files and allowed release surfaces, including any older release-note docs touched by the ordering normalizer
-7. Creates a commit with message `<semver>`
+7. Creates a commit with subject `<semver>` plus body trailer `Co-Authored-By: <value from --coauthored-by>`
 8. Creates an annotated tag `v<semver>`
-9. Verifies both commit and tag exist before exiting
+9. Verifies commit subject, required trailer, and tag all exist before exiting
 
 Do not use raw `npm version <semver>` — it may update files without creating git identity when run from a subdirectory. Do not hand-edit the tag or let CI invent the version.
 

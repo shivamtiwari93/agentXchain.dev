@@ -15,6 +15,7 @@ const BUMP_SCRIPT = join(CLI_DIR, 'scripts', 'release-bump.sh');
 const NORMALIZE_RELEASE_NOTES_SCRIPT = join(CLI_DIR, 'scripts', 'normalize-release-note-sidebar-positions.mjs');
 const PKG_JSON = join(CLI_DIR, 'package.json');
 const FIXTURES = [];
+const DEFAULT_COAUTHOR = 'GPT 5.4 (Codex) <noreply@openai.com>';
 
 after(() => {
   for (const fixture of FIXTURES) {
@@ -106,8 +107,9 @@ end
   return fixture;
 }
 
-function runReleaseBump(cliDir, targetVersion, { skipPreflight = true } = {}) {
+function runReleaseBump(cliDir, targetVersion, { skipPreflight = true, coauthoredBy = DEFAULT_COAUTHOR } = {}) {
   const args = ['scripts/release-bump.sh', '--target-version', targetVersion];
+  if (coauthoredBy) args.push('--coauthored-by', coauthoredBy);
   if (skipPreflight) args.push('--skip-preflight');
   return spawnSync('bash', args, {
     cwd: cliDir,
@@ -286,6 +288,21 @@ describe('Release identity hardening', () => {
       );
     });
 
+    it('requires a coauthored-by trailer input and verifies the resulting trailer', () => {
+      assert.ok(
+        script.includes('--coauthored-by'),
+        'script must require a --coauthored-by flag',
+      );
+      assert.ok(
+        script.includes('Co-Authored-By: ${COAUTHORED_BY}'),
+        'script must commit with a Co-Authored-By trailer',
+      );
+      assert.ok(
+        script.includes('missing the required Co-Authored-By trailer'),
+        'script must verify the commit trailer after commit creation',
+      );
+    });
+
     it('runs pre-bump version-surface alignment guard', () => {
       assert.ok(
         script.includes('version-surface alignment') || script.includes('version-surface(s) not aligned'),
@@ -372,6 +389,7 @@ describe('Release identity hardening', () => {
       assert.match(spec, /AT-RIH-007/, 'spec must require release-surface inclusion proof');
       assert.match(spec, /AT-RIH-009/, 'spec must require Homebrew mirror release-surface proof');
       assert.match(spec, /AT-RIH-010/, 'spec must require discovery-surface release proof');
+      assert.match(spec, /AT-RIH-012/, 'spec must require trailer-bearing release identity proof');
     });
   });
 
@@ -396,6 +414,15 @@ describe('Release identity hardening', () => {
       }).trim();
       assert.equal(commitMessage, '2.20.0');
 
+      const commitBody = execFileSync('git', ['log', '-1', '--format=%B'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      }).trim();
+      assert.match(
+        commitBody,
+        new RegExp(`Co-Authored-By: ${DEFAULT_COAUTHOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      );
+
       const tagType = execFileSync('git', ['cat-file', '-t', 'v2.20.0'], {
         cwd: fixture.root,
         encoding: 'utf8',
@@ -418,6 +445,24 @@ describe('Release identity hardening', () => {
   });
 
   describe('AT-RIH-006: release-bump.sh fails closed before mutating version files', () => {
+    it('rejects a missing coauthored-by trailer before mutating version files', () => {
+      const fixture = createReleaseBumpFixture();
+      prepareTargetSurfaces(fixture.root, '2.20.0');
+
+      const result = runReleaseBump(fixture.cliDir, '2.20.0', { coauthoredBy: '' });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /--coauthored-by is required/);
+
+      const pkg = JSON.parse(readFileSync(join(fixture.cliDir, 'package.json'), 'utf8'));
+      assert.equal(pkg.version, '2.19.0');
+
+      const tagLookup = spawnSync('git', ['rev-parse', 'v2.20.0'], {
+        cwd: fixture.root,
+        encoding: 'utf8',
+      });
+      assert.notEqual(tagLookup.status, 0, 'target tag must not be created when trailer input is missing');
+    });
+
     it('rejects a dirty tree before updating package.json or creating a tag', () => {
       const fixture = createReleaseBumpFixture();
       writeFileSync(join(fixture.cliDir, 'DIRTY.txt'), 'untracked change\n');

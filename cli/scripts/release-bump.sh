@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Release identity creation — replaces raw `npm version <semver>`.
 # Creates version bump commit + annotated tag with fail-closed verification.
-# Usage: bash scripts/release-bump.sh --target-version <semver> [--skip-preflight]
+# Usage: bash scripts/release-bump.sh --target-version <semver> --coauthored-by "Name <email>" [--skip-preflight]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -10,10 +10,11 @@ REPO_ROOT="$(cd "${CLI_DIR}/.." && pwd)"
 cd "$CLI_DIR"
 
 TARGET_VERSION=""
+COAUTHORED_BY=""
 SKIP_PREFLIGHT=0
 
 usage() {
-  echo "Usage: bash scripts/release-bump.sh --target-version <semver> [--skip-preflight]" >&2
+  echo "Usage: bash scripts/release-bump.sh --target-version <semver> --coauthored-by \"Name <email>\" [--skip-preflight]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -32,6 +33,15 @@ while [[ $# -gt 0 ]]; do
       TARGET_VERSION="$2"
       shift 2
       ;;
+    --coauthored-by)
+      if [[ -z "${2:-}" ]]; then
+        echo "Error: --coauthored-by requires a trailer value like \"Name <email>\"" >&2
+        usage
+        exit 1
+      fi
+      COAUTHORED_BY="$2"
+      shift 2
+      ;;
     --skip-preflight)
       SKIP_PREFLIGHT=1
       shift
@@ -45,6 +55,12 @@ done
 
 if [[ -z "$TARGET_VERSION" ]]; then
   echo "Error: --target-version is required" >&2
+  usage
+  exit 1
+fi
+
+if [[ -z "$COAUTHORED_BY" ]]; then
+  echo "Error: --coauthored-by is required so the release commit carries the mandated trailer" >&2
   usage
   exit 1
 fi
@@ -280,11 +296,18 @@ echo "  OK: version files and allowed release surfaces staged"
 
 # 9. Create release commit
 echo "[9/10] Creating release commit..."
-git commit -m "${TARGET_VERSION}"
+git commit -m "${TARGET_VERSION}
+
+Co-Authored-By: ${COAUTHORED_BY}"
 RELEASE_SHA=$(git rev-parse HEAD)
 COMMIT_MSG=$(git log -1 --format=%s)
 if [[ "$COMMIT_MSG" != "$TARGET_VERSION" ]]; then
   echo "FAIL: commit message is '${COMMIT_MSG}', expected '${TARGET_VERSION}'" >&2
+  exit 1
+fi
+COMMIT_BODY=$(git log -1 --format=%B)
+if [[ "$COMMIT_BODY" != *"Co-Authored-By: ${COAUTHORED_BY}"* ]]; then
+  echo "FAIL: release commit body is missing the required Co-Authored-By trailer" >&2
   exit 1
 fi
 echo "  OK: commit ${RELEASE_SHA:0:7} with message '${TARGET_VERSION}'"
