@@ -76,7 +76,7 @@ AgentXchain's coordination is an **explicit protocol** with a versioned specific
 
 CrewAI's model-provider story is stronger than this page previously claimed. Its current docs describe native integrations for major providers plus LiteLLM fallback for others.
 
-The real difference is elsewhere: CrewAI's coordination model still lives inside a Python runtime, while AgentXchain treats governance as a transportable protocol. AgentXchain agents connect via adapters (`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`), so the same governed workflow can survive IDE, runner, and model changes without rewriting the coordination layer.
+The real difference is elsewhere: CrewAI's coordination model still lives inside a Python runtime, while AgentXchain treats governance as a transportable protocol. AgentXchain agents connect via adapters (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`), so the same governed workflow can survive IDE, runner, and model changes without rewriting the coordination layer.
 
 ### 5. Human Authority Model
 

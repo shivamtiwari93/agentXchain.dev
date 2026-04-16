@@ -10,6 +10,7 @@ Freeze the public comparison-surface contract for how AgentXchain's runtime surf
   - `website-v2/src/pages/compare/vs-autogen.mdx`
   - `website-v2/src/pages/compare/vs-openai-agents-sdk.mdx`
   - `website-v2/docs/compare-autogen.mdx`
+  - `website-v2/docs/compare-crewai.mdx`
   - `website-v2/src/pages/compare/vs-warp.mdx`
 - Guard:
   - `cli/test/compare-runtime-surface.test.js`
@@ -17,6 +18,7 @@ Freeze the public comparison-surface contract for how AgentXchain's runtime surf
 ## Behavior
 
 - If a comparison page enumerates AgentXchain runtimes or adapters explicitly, it must name all five shipped adapter paths: `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
+- When a comparison surface enumerates all five shipped adapters explicitly, it must use the canonical order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent` instead of ad hoc permutations.
 - If a long-form comparison doc explains protocol portability or runtime participation concretely, it must either name the shipped adapters explicitly or use clearly open-ended wording. It must not replace the adapter contract with category laundry lists such as `Python, TypeScript, shell scripts, cloud APIs, IDE extensions`.
 - If a comparison page summarizes the runtime surface without listing each adapter, it must use clearly open-ended wording such as `any agent runtime under protocol governance`; it must not imply a closed three-mode subset.
 - Public compare pages must reject stale shorthand such as `manual, local CLI, API proxy` and `Manual, local CLI, and API-backed runtimes` because those phrases understate the actual shipped surface.
@@ -27,14 +29,16 @@ Freeze the public comparison-surface contract for how AgentXchain's runtime surf
 - A page uses vague wording like `API-backed runtimes` that hides the full shipped adapter surface.
 - A long-form doc substitutes platform categories for the adapter contract and implies that protocol portability is just a language or IDE story.
 - Future compare pages add an explicit runtime list but leave out one of the five shipped adapters.
+- A comparison page names all five shipped adapters but shuffles them into a non-canonical order that drifts from the source-of-truth adapter docs.
 
 ## Acceptance Tests
 
 1. `AT-COMPARE-RUNTIME-001`: `vs-autogen.mdx` names all five shipped adapters and rejects the stale three-adapter wording.
 2. `AT-COMPARE-RUNTIME-002`: `vs-openai-agents-sdk.mdx` names all five shipped adapters and rejects the stale `API-backed runtimes` phrasing.
 3. `AT-COMPARE-RUNTIME-003`: `compare-autogen.mdx` explains protocol portability through the five shipped adapters and rejects the stale language/platform laundry list.
-4. `AT-COMPARE-RUNTIME-004`: `vs-warp.mdx` names the five shipped adapters in the remote-execution row and rejects the vague `connector-based execution` wording.
-5. `AT-COMPARE-RUNTIME-005`: `cd website-v2 && npm run build` succeeds after the comparison surfaces are updated.
+4. `AT-COMPARE-RUNTIME-004`: `compare-crewai.mdx` uses the canonical five-adapter order and rejects the stale shuffled order.
+5. `AT-COMPARE-RUNTIME-005`: `vs-warp.mdx` names the five shipped adapters in the remote-execution row and rejects the vague `connector-based execution` wording.
+6. `AT-COMPARE-RUNTIME-006`: `cd website-v2 && npm run build` succeeds after the comparison surfaces are updated.
 
 ## Open Questions
 

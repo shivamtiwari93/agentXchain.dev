@@ -14,6 +14,7 @@ function read(relPath) {
 const VS_AUTOGEN = read('website-v2/src/pages/compare/vs-autogen.mdx');
 const VS_OPENAI_AGENTS = read('website-v2/src/pages/compare/vs-openai-agents-sdk.mdx');
 const DOC_COMPARE_AUTOGEN = read('website-v2/docs/compare-autogen.mdx');
+const DOC_COMPARE_CREWAI = read('website-v2/docs/compare-crewai.mdx');
 const VS_WARP = read('website-v2/src/pages/compare/vs-warp.mdx');
 const SPEC = read('.planning/COMPARE_RUNTIME_SURFACE_SPEC.md');
 
@@ -59,7 +60,19 @@ describe('compare page runtime surface', () => {
     );
   });
 
-  it('AT-COMPARE-RUNTIME-004: vs-warp names the shipped adapters in the remote-execution contrast', () => {
+  it('AT-COMPARE-RUNTIME-004: compare-crewai uses the canonical five-adapter order', () => {
+    assert.match(
+      DOC_COMPARE_CREWAI,
+      /AgentXchain agents connect via adapters \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\)/,
+    );
+    assert.doesNotMatch(
+      DOC_COMPARE_CREWAI,
+      /AgentXchain agents connect via adapters \(`local_cli`, `api_proxy`, `mcp`, `remote_agent`, `manual`\)/,
+      'compare-crewai must not shuffle the canonical five-adapter order',
+    );
+  });
+
+  it('AT-COMPARE-RUNTIME-005: vs-warp names the shipped adapters in the remote-execution contrast', () => {
     assert.match(
       VS_WARP,
       /\| \*\*Remote execution\*\* \| Oz CLI, cloud agents, environments, MCP tools \| Governed local runner, multi-repo coordination, and adapters: \(`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`\) \|/,
@@ -73,7 +86,8 @@ describe('compare page runtime surface', () => {
 
   it('records the broader comparison-surface contract in a standalone spec', () => {
     assert.match(SPEC, /# Spec: Comparison Surface Runtime Claims/);
-    assert.match(SPEC, /AT-COMPARE-RUNTIME-004/);
+    assert.match(SPEC, /AT-COMPARE-RUNTIME-005/);
     assert.match(SPEC, /language\/platform laundry list/i);
+    assert.match(SPEC, /canonical order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`/i);
   });
 });
