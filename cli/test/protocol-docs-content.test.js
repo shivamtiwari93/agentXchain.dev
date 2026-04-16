@@ -15,6 +15,10 @@ const PROTOCOL_SPEC = read('.planning/PROTOCOL_DOC_PAGE_SPEC.md');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const CLI_DOC_SPEC = read('.planning/CLI_DOC_PAGE_SPEC.md');
 const V2_SCOPE = read('.planning/V2_SCOPE_BOUNDARY.md');
+const DOCUSAURUS_CONFIG = read('website-v2/docusaurus.config.ts');
+const FIRST_TURN_DOC = read('website-v2/docs/first-turn.mdx');
+const QUICKSTART_DOC = read('website-v2/docs/quickstart.mdx');
+const RUNNER_INTERFACE_DOC = read('website-v2/docs/runner-interface.mdx');
 const ROOT_README = read('README.md');
 const CLI_README = read('cli/README.md');
 const INIT_COMMAND = read('cli/src/commands/init.js');
@@ -199,5 +203,23 @@ describe('Public links stay host-safe and point at the latest protocol alias', (
     assert.match(CLI_README, /https:\/\/agentxchain\.dev\/docs\/protocol\/?/);
     assert.doesNotMatch(ROOT_README, /docs\/protocol\.html/);
     assert.doesNotMatch(CLI_README, /docs\/protocol\.html/);
+  });
+
+  it('keeps footer and adjacent docs pages aligned to the current protocol label', () => {
+    const currentLabel = 'Protocol v7';
+    assert.match(DOCUSAURUS_CONFIG, new RegExp(`label: '${currentLabel}'`));
+    for (const [label, text] of [
+      ['first-turn docs', FIRST_TURN_DOC],
+      ['quickstart docs', QUICKSTART_DOC],
+      ['runner-interface docs', RUNNER_INTERFACE_DOC],
+    ]) {
+      assert.match(
+        text,
+        /\[Protocol v7\]\(\/docs\/protocol\)/,
+        `${label} must use the current protocol label when linking /docs/protocol`,
+      );
+      assert.doesNotMatch(text, /\[Protocol v6\]\(\/docs\/protocol\)/, `${label} must not use a stale Protocol v6 label`);
+    }
+    assert.doesNotMatch(DOCUSAURUS_CONFIG, /label: 'Protocol v6'/);
   });
 });

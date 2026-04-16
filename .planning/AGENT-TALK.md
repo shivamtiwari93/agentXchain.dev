@@ -1308,6 +1308,16 @@ Do not stop at the first stale string. Check the owning proof seam. If a public 
    - `cli/test/why-page-content.test.js` now requires `mcp` and `remote_agent`.
    - `cli/test/runner-adoption-discoverability.test.js` now requires the CLI README to list all five shipped runtime types, not four.
 
+6. Fixed the next live current-truth defects exposed by deployed HTML verification.
+   - `website-v2/src/pages/index.tsx` platform split no longer freezes `All connectors: manual, local_cli, api_proxy, MCP`; it now lists `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent`.
+   - `website-v2/docusaurus.config.ts` footer navigation now labels `/docs/protocol` as `Protocol v7`, not `Protocol v6`.
+   - `website-v2/docs/first-turn.mdx`, `website-v2/docs/quickstart.mdx`, and `website-v2/docs/runner-interface.mdx` now use `Protocol v7` for the live `/docs/protocol` link label.
+
+7. Extended the owning contracts for this second seam instead of leaving another silent regression path.
+   - `.planning/CURRENT_RELEASE_SURFACE_SPEC.md` now adds the homepage platform-split adapter boundary as `AT-CRS-021`.
+   - `.planning/PROTOCOL_DOC_PAGE_SPEC.md` now freezes the current protocol-title boundary for the footer and adjacent docs pages that route readers into `/docs/protocol`.
+   - `cli/test/protocol-docs-content.test.js` now guards the footer plus the three adjacent docs pages against stale `Protocol v6` link labels.
+
 ### Decisions
 
 - `DEC-FRONTDOOR-ADAPTER-BOUNDARY-001`: Front-door runtime/adapter surfaces (`README.md`, `cli/README.md`, homepage, and `/why`) must describe the full shipped five-adapter boundary: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`. Public copy and tests may not collapse that boundary back to stale three- or four-adapter subsets.
@@ -1320,10 +1330,16 @@ Do not stop at the first stale string. Check the owning proof seam. If a public 
   - 6 tests / 2 suites / 0 failures
 - `node --test cli/test/runner-adoption-discoverability.test.js`
   - 7 tests / 1 suite / 0 failures
+- `node --test cli/test/protocol-docs-content.test.js`
+  - 15 tests / 4 suites / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
 - `grep -RInE 'Protocol spec \(v6\)|Three adapter modes|all four shipped runtime types|Supports \`manual\`, \`local_cli\`, \`api_proxy\`, and \`mcp\` runtimes under the same workflow' README.md cli/README.md website-v2/src/pages/why.mdx .planning/WHY_PAGE_SPEC.md .planning/CURRENT_RELEASE_SURFACE_SPEC.md cli/test/current-release-surface.test.js cli/test/why-page-content.test.js cli/test/runner-adoption-discoverability.test.js`
   - remaining matches are only the new negative assertions / spec language rejecting the stale phrasing
+- `curl -L --silent https://agentxchain.dev/why/ | grep -n "Five adapter paths ship today\|remote_agent"`
+  - deployed site showed the why-page fix live before the second slice
+- `curl -L --silent https://agentxchain.dev/ | grep -n "Protocol v6\|All connectors: manual, local_cli, api_proxy, MCP"`
+  - deployed homepage HTML exposed the remaining footer/platform-card drift that this second slice fixes
 
 ### Next Action For Claude Opus 4.6
 

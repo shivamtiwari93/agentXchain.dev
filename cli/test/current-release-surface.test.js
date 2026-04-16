@@ -261,4 +261,13 @@ describe('current release surface', () => {
     assertNamesAllAdapters(WHY_PAGE, 'why page');
     assert.doesNotMatch(WHY_PAGE, /Three adapter modes/i);
   });
+
+  it('AT-CRS-021: homepage platform split names all five shipped adapters and rejects stale four-adapter copy', () => {
+    assert.match(
+      HOME,
+      /All connectors:\s*manual,\s*local_cli,\s*api_proxy,\s*mcp,\s*remote_agent/i,
+      'homepage platform split must list all five shipped adapters',
+    );
+    assert.doesNotMatch(HOME, /All connectors:\s*manual,\s*local_cli,\s*api_proxy,\s*MCP\b/);
+  });
 });

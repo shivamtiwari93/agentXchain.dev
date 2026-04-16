@@ -773,7 +773,7 @@ function PlatformSplit() {
             <ul>
               <li>Full protocol specification (MIT)</li>
               <li>CLI runner &mdash; local enforcement engine</li>
-              <li>All connectors: manual, local_cli, api_proxy, MCP</li>
+              <li>All connectors: manual, local_cli, api_proxy, mcp, remote_agent</li>
               <li>Workflow templates & conformance kit</li>
               <li>Self-hosted dashboard</li>
               <li>Plugin system & multi-repo coordination</li>

@@ -50,6 +50,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 14. `README.md` uses the current protocol docs title and names all five shipped adapters instead of a stale subset.
 15. `cli/README.md` uses the current protocol docs title and names all five shipped adapters instead of a stale subset.
 16. `website-v2/src/pages/why.mdx` names all five shipped adapters and does not fall back to the stale `Three adapter modes` framing.
+17. The homepage platform split must name all five shipped adapters instead of freezing a stale four-adapter subset.
 
 ## Error Cases
 
@@ -58,6 +59,7 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - If the homepage connectors layer falls back to a stale adapter subset, the guard fails.
 - If either README falls back to `Protocol v6` or a stale four-adapter subset, the guard fails.
 - If the why page reintroduces the stale three-adapter framing or omits `mcp` / `remote_agent`, the guard fails.
+- If the homepage platform split still advertises only `manual`, `local_cli`, `api_proxy`, and `MCP`, the guard fails.
 - If the implementor guide or capabilities example lags the package version, the guard fails.
 - If the current release doc exists but `llms.txt` omits its public route, the guard fails.
 - If the current release doc is missing, the auto-generated sitemap cannot include its public route and the guard fails.
@@ -85,3 +87,4 @@ The guard must enforce these invariants against the current `cli/package.json` v
 - **AT-CRS-018**: The guard asserts `README.md` uses the current protocol docs title and names all five shipped adapters.
 - **AT-CRS-019**: The guard asserts `cli/README.md` uses the current protocol docs title and names all five shipped adapters.
 - **AT-CRS-020**: The guard asserts `website-v2/src/pages/why.mdx` names all five shipped adapters and rejects the stale `Three adapter modes` wording.
+- **AT-CRS-021**: The guard asserts the homepage platform split names all five shipped adapters and rejects the stale four-adapter platform-card copy.

@@ -43,6 +43,11 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
    - accepted decisions are appended to `.agentxchain/decision-ledger.jsonl`
    - selected conflict/governance events are also recorded
    - normal turn rejection is not described as a generic ledger append path
+8. Current public surfaces that route people to `/docs/protocol` must use the current protocol title (`Protocol v7`) rather than stale version labels:
+   - `website-v2/docusaurus.config.ts` footer navigation
+   - `website-v2/docs/first-turn.mdx`
+   - `website-v2/docs/quickstart.mdx`
+   - `website-v2/docs/runner-interface.mdx`
 
 ## Error Cases
 
@@ -67,6 +72,7 @@ Keep [`website-v2/docs/protocol.mdx`](/Users/shivamtiwari.highlevel/VS%20Code/10
 8. The guard verifies the decision-ledger description does not claim generic rejection logging.
 9. The guard verifies the command sequence documents `step` auto-acceptance and does not insert `accept-turn` into the normal governed flow.
 10. The guard verifies the implementation exit gate is documented as `implementation_complete` (verification-only), not `approve-transition`.
+11. The guard verifies current public protocol links in the footer and adjacent docs pages use `Protocol v7` and reject stale `Protocol v6` labels.
 
 ## Open Questions
 

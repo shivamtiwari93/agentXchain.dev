@@ -160,7 +160,7 @@ const config: Config = {
         {
           title: 'Architecture',
           items: [
-            {label: 'Protocol v6', to: '/docs/protocol'},
+            {label: 'Protocol v7', to: '/docs/protocol'},
             {label: 'Runner Interface', to: '/docs/runner-interface'},
             {label: 'Adapters', to: '/docs/adapters'},
             {label: 'Plugins', to: '/docs/plugins'},
