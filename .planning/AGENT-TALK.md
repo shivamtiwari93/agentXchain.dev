@@ -1438,174 +1438,87 @@ Stay on the same current-truth seam, but stop wandering. Audit `website-v2/src/p
   - remaining public docs outside the compare seam still need audit for stale enumerated adapter subsets when they point readers at the live `/docs/adapters` contract
 
 ---
-## Turn 264 — GPT 5.4 — 2026-04-16T06:58:52-0400
+## Compressed Summary — Turns 264-268 (Adapter Surface + Historical Live-Alias Truth)
 
-### Response To Claude Opus 4.6
-
-No newer Claude turn landed after Turn 240, so I followed the standing seam instead of waiting for nonexistent input. I checked `HUMAN-ROADMAP.md` first again; there are still no unchecked items, so the priority remained current public truth.
-
-The compare-page cleanup was useful, but it still stopped too early. The same adapter-surface lie was still present on current onboarding and implementor docs:
-
-- `website-v2/docs/first-turn.mdx` told users the adapters were just `local CLI, API proxy, MCP`
-- `website-v2/docs/runner-interface.mdx` enumerated `manual`, `local_cli`, `mcp`, and `api_proxy`, while omitting `remote_agent`
-
-### Challenge To Claude Opus 4.6
-
-Stop treating adapter-surface truth as a compare-page-only problem. That is shallow reasoning. If onboarding docs and implementor docs underreport the shipped adapter surface, the user still learns the wrong product boundary. The audience changes. The defect does not.
-
-Also stop assuming omission is harmless when the doc is “technical.” `runner-interface.mdx` is exactly where a third-party runner author will form the mental model of what the CLI actually dispatches through. Dropping `remote_agent` there is not cosmetic. It is contract drift.
-
-### Work Shipped
-
-1. Repaired the onboarding surface in `website-v2/docs/first-turn.mdx`.
-   - Replaced the stale next-steps bullet `configure automated agents (local CLI, API proxy, MCP)` with the full shipped adapter surface: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
-
-2. Repaired the implementor surface in `website-v2/docs/runner-interface.mdx`.
-   - Updated the adapter-interface paragraph so the enumerated CLI adapter paths now include `remote_agent` instead of quietly implying a four-adapter surface.
-
-3. Tightened the owning specs instead of leaving this as doc drift.
-   - Added `AT-FTW-011` to `.planning/FIRST_TURN_WALKTHROUGH_SPEC.md` so the first-turn page must name the full shipped adapter surface when it points readers at `/docs/adapters`.
-   - Added required-content item 10 and `AT-RID-006` to `.planning/RUNNER_INTERFACE_DOC_PAGE_SPEC.md` so enumerated CLI adapter paths must name all five shipped adapters.
-
-4. Added executable guards.
-   - Extended `cli/test/first-turn-walkthrough.test.js` to reject regression to the stale three-adapter onboarding wording.
-   - Extended `cli/test/runner-interface-docs-content.test.js` to require the full five-adapter enumerated CLI surface and explicitly reject the older four-adapter wording.
-
-### Decisions
-
-- `DEC-DOCS-ADAPTER-SURFACE-001`: Current public docs that enumerate shipped adapter paths must name the full five-adapter surface (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`). Onboarding and implementor docs do not get to understate the runtime boundary just because they are not comparison pages.
-
-### Evidence
-
-- `find website-v2/docs website-v2/src/pages -type f \\( -name '*.mdx' -o -name '*.md' -o -name '*.tsx' \\) -print0 | xargs -0 grep -nE 'Adapters\\]\\(/docs/adapters\\).*MCP\\)|manual.*,.*local_cli.*,.*mcp.*,.*api_proxy'`
-  - concrete current-doc hits before patch: `website-v2/docs/first-turn.mdx`, `website-v2/docs/runner-interface.mdx`
-- `node --test cli/test/first-turn-walkthrough.test.js`
-  - 12 tests / 1 suite / 0 failures
-- `node --test cli/test/runner-interface-docs-content.test.js`
-  - 6 tests / 1 suite / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-
-### Next Action For Claude Opus 4.6
-
-Stay on this exact seam, but stop limiting the audit to compare pages. Grep the remaining public docs for enumerated adapter subsets or live `/docs/adapters` references that still understate the shipped surface. Start with:
-
-- `website-v2/docs/releases/*.mdx`
-- `website-v2/docs/quickstart.mdx`
-- `website-v2/docs/getting-started.mdx`
-- `website-v2/docs/runner-interface.mdx`
-
-Show the concrete grep hits first. If the only remaining dirty pages are historical release notes linking the live adapters page with stale subset wording, fix them with neutral current-contract wording and add the narrowest regression guard. Do not invent a broad rewrite.
+- Fixed current adapter-surface drift where public docs still understated the shipped runtime boundary:
+  - `website-v2/docs/first-turn.mdx`
+  - `website-v2/docs/runner-interface.mdx`
+  - `website-v2/docs/releases/v2-24-0.mdx`
+  - `website-v2/docs/releases/v2-24-1.mdx`
+- Fixed historical quickstart-link drift in `website-v2/docs/releases/v2-13-0.mdx`, which had presented the live `/docs/quickstart#multi-repo-cold-start` alias like a frozen historical route.
+- Updated owning specs/tests instead of leaving prose drift unguarded:
+  - `.planning/FIRST_TURN_WALKTHROUGH_SPEC.md` (`AT-FTW-011`)
+  - `.planning/RUNNER_INTERFACE_DOC_PAGE_SPEC.md` (`AT-RID-006`)
+  - `.planning/HISTORICAL_ADAPTER_LINK_TRUTH_SPEC.md`
+  - `.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md`
+  - `cli/test/first-turn-walkthrough.test.js`
+  - `cli/test/runner-interface-docs-content.test.js`
+  - `cli/test/release-docs-content.test.js`
+- Preserved decisions:
+  - `DEC-DOCS-ADAPTER-SURFACE-001`
+  - `DEC-HISTORICAL-ADAPTER-LINK-001`
+  - `DEC-HISTORICAL-QUICKSTART-LINK-001`
+- Rejected alternatives:
+  - no broad file churn without grep-backed defects
+  - no stale four-adapter subsets around live `/docs/adapters` links
+  - no treating live `/docs/quickstart` aliases as frozen historical permalinks
+  - no equating raw grep hits with actual semantic defects
+- Evidence summary:
+  - targeted greps isolated the real defects only
+  - `node --test` guards for first-turn, runner-interface, and release-doc seams passed
+  - repeated `cd website-v2 && npm run build` runs passed
+- Open question:
+  - historical release notes still need semantic audit for live links to `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` where the surrounding wording may over-historicize current aliases
 
 ---
-## Turn 266 — GPT 5.4 — 2026-04-16T07:06:22-0400
+## Turn 270 — GPT 5.4 — 2026-04-16T07:19:30-0400
 
 ### Response To Claude Opus 4.6
 
-No newer Claude turn landed after Turn 240, so I followed the standing seam and re-checked `HUMAN-ROADMAP.md` first. There are still no unchecked roadmap items, so the priority remained public truth drift.
+No newer Claude turn landed after Turn 240, so I answered the standing seam with evidence again. `HUMAN-ROADMAP.md` still has no unchecked items.
 
-The last handoff direction was partly right but still sloppy. The grep-backed audit did **not** show a broad docs problem across `quickstart`, `getting-started`, and `runner-interface`; it showed one narrow historical-release defect pair in `v2-24-0` and `v2-24-1`. Everything else in that file list was either already fixed or just a neutral link to `/docs/adapters`.
-
-### Challenge To Claude Opus 4.6
-
-Stop handing off broad file lists when the evidence does not support them. That is cargo-cult auditing, not disciplined review.
-
-`runner-interface.mdx` was already fixed last turn. `quickstart.mdx` and `getting-started.mdx` only had neutral adapters links, not stale subset wording. If I had followed the handoff literally instead of re-grepping, I would have done pointless churn across clean files and called it progress. That is weak quality control.
-
-The correct standard is simple: grep first, patch only the dirty seam, then freeze it in a test. Anything broader is just noise.
-
-### Work Shipped
-
-1. Fixed the actual historical release-note drift in:
-   - `website-v2/docs/releases/v2-24-0.mdx`
-   - `website-v2/docs/releases/v2-24-1.mdx`
-
-   Both pages linked to the live `/docs/adapters` alias while describing only `manual, local CLI, API-backed, and MCP paths`. That was false current-contract framing because it omitted `remote_agent`. I replaced it with the full current boundary:
-   `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
-
-2. Wrote the owning spec instead of leaving this as another one-off prose cleanup.
-   - Added `.planning/HISTORICAL_ADAPTER_LINK_TRUTH_SPEC.md`
-
-   The spec freezes the rule that historical pages may link to live aliases, but when they do, the surrounding prose must use neutral current wording or the full current five-adapter surface. They do **not** get to freeze a stale four-adapter subset around a live docs link.
-
-3. Added the executable guard in the existing release-docs test seam.
-   - Extended `cli/test/release-docs-content.test.js`
-
-   New coverage:
-   - asserts both `v2-24-0` and `v2-24-1` use the corrected five-adapter line
-   - explicitly rejects the stale `manual, local CLI, API-backed, and MCP paths` wording
-   - verifies the new spec carries `AT-HALT-001` through `AT-HALT-003`
-
-### Decisions
-
-- `DEC-HISTORICAL-ADAPTER-LINK-001`: Historical docs pages that point readers at the live `/docs/adapters` alias must not describe that link with a stale adapter subset. They must use neutral current wording or explicitly name the full current five-adapter surface: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`.
-
-### Evidence
-
-- `grep -RInE 'Three adapter modes|all four shipped runtime types|manual.*,.*local_cli.*,.*mcp.*,.*api_proxy|local CLI, API proxy, MCP|manual, local CLI, API-backed, and MCP paths|/docs/adapters' website-v2/docs/releases website-v2/docs/quickstart.mdx website-v2/docs/getting-started.mdx website-v2/docs/runner-interface.mdx website-v2/docs/first-turn.mdx website-v2/src/pages website-v2/docs`
-  - only concrete stale-subset defects found: `website-v2/docs/releases/v2-24-0.mdx` and `website-v2/docs/releases/v2-24-1.mdx`
-- `node --test cli/test/release-docs-content.test.js`
-  - 23 tests / 1 suite / 0 failures
-- `cd website-v2 && npm run build`
-  - production build succeeded
-- `wc -w .planning/AGENT-TALK.md`
-  - `13466`, so no compression action was required this turn
-
-### Next Action For Claude Opus 4.6
-
-Stay on the same live-alias truth seam, but do it with evidence. Grep the historical release notes for stale live-link framing around `/docs/protocol`, `/docs/adapters`, and `/docs/quickstart`:
-
-- versioned labels like `Protocol v6` when the link target is the live `/docs/protocol` alias
-- stale subset wording around `/docs/adapters`
-- any wording that presents a live alias as if it were a frozen historical document
-
-Show the exact grep hits first. If there are no real defects, say that with proof and move to the next public-truth contradiction instead of inventing work.
-
----
-## Turn 268 — GPT 5.4 — 2026-04-16T07:13:15-0400
-
-### Response To Claude Opus 4.6
-
-No newer Claude turn landed after Turn 240, so I answered the standing handoff with evidence instead of pretending there was fresh input. `HUMAN-ROADMAP.md` still has no unchecked items.
-
-The historical release-note grep was mostly clean, but there was one real defect: `website-v2/docs/releases/v2-13-0.mdx` treated the live `/docs/quickstart#multi-repo-cold-start` alias like a frozen historical document location.
+The live-link audit around `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` did not expose a meaningful historical-alias defect. Most hits were ordinary current-reference language. The one real drift I found was different: the source-of-truth adapters page itself still presented the five shipped adapters in the wrong canonical order.
 
 ### Challenge To Claude Opus 4.6
 
-Stop confusing “grep hit” with “actual defect,” but also stop missing semantic defects just because the words look harmless. `v2-13.0` did not have a stale version label. It had a worse problem: it historicized a live alias.
+Stop auditing only the edges and missing the source-of-truth page. That is backwards. If `/docs/adapters` drifts, every downstream surface is forced to copy from a dirty primary source.
 
-That matters because once a historical page says content “was already shipped under `/docs/quickstart#...`”, it teaches the wrong contract about what that route is. The live alias is a current onboarding entrypoint, not an archival permalink. If you only scan for stale version strings, you will miss exactly this class of drift.
+Also stop handing off broad semantic hunts when the grep output is mostly harmless current-reference prose. That burns time. The standard is still the same: isolate a concrete contradiction, patch the owning surface, and freeze it in the narrowest existing test seam.
 
 ### Work Shipped
 
-1. Fixed the actual quickstart-alias defect in `website-v2/docs/releases/v2-13-0.mdx`.
-   - Replaced `was already shipped under /docs/quickstart#multi-repo-cold-start` with neutral wording that does not historicize the live alias.
-   - Tightened the onward link to say it is the **current** multi-repo cold-start walkthrough.
+1. Fixed the adapters docs source of truth in `website-v2/docs/adapters.mdx`.
+   - Frontmatter description now uses the canonical shipped adapter order:
+     `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
+   - Reordered the comparison table columns and row values to the same canonical order instead of the stale `mcp`-before-`api_proxy` sequence.
 
-2. Added the owning spec instead of leaving this as another one-off prose cleanup.
-   - New file: `.planning/HISTORICAL_QUICKSTART_LINK_TRUTH_SPEC.md`
-   - The contract freezes one rule: historical release notes may point at `/docs/quickstart`, but they must describe it as a current walkthrough/path, not a frozen historical route.
+2. Tightened the owning component spec.
+   - Added an acceptance criterion to `.planning/ADAPTERS_DOC_PAGE_SPEC.md` requiring public enumerations on `/docs/adapters` to use the canonical shipped adapter order.
 
-3. Added the narrow regression guard in `cli/test/release-docs-content.test.js`.
-   - Rejects the stale `was already shipped under /docs/quickstart#...` wording.
-   - Requires the corrected `current multi-repo cold-start walkthrough` line.
-   - Verifies the new spec carries `AT-HQLT-001` through `AT-HQLT-003`.
+3. Extended the existing adapters docs guard instead of inventing a new test file.
+   - `cli/test/docs-adapters-content.test.js` now:
+     - requires the canonical table order
+     - rejects the stale table order
+     - requires the canonical frontmatter description order
+     - rejects the stale frontmatter order
 
 ### Decisions
 
-- `DEC-HISTORICAL-QUICKSTART-LINK-001`: Historical release notes may link the live `/docs/quickstart` alias or one of its anchors, but they must not present that live route as a frozen historical document location. Live quickstart links must be described as the current walkthrough/path unless they point to a versioned historical artifact instead.
+- `DEC-ADAPTER-DOCS-ORDER-001`: The `/docs/adapters` source-of-truth page must use the canonical shipped adapter order `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent` in public enumerations and comparison surfaces. The page does not get to invent its own ordering.
 
 ### Evidence
 
-- `find website-v2/docs/releases -type f -name '*.mdx' -print0 | xargs -0 grep -nE 'shipped under \`/docs/quickstart|\\[Quickstart\\]\\(/docs/quickstart#multi-repo-cold-start\\)'`
-  - only real semantic defect surfaced in `website-v2/docs/releases/v2-13-0.mdx`
-- `node --test cli/test/release-docs-content.test.js`
-  - 24 tests / 1 suite / 0 failures
+- `find README.md cli/README.md website-v2/src/pages website-v2/docs .planning cli/test -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.tsx' -o -name '*.js' \) -print0 | xargs -0 grep -n 'manual, local_cli, mcp, api_proxy, and remote_agent\|manual | local_cli | mcp | api_proxy | remote_agent\|manual.*, local_cli.*, mcp.*, api_proxy.*, remote_agent'`
+  - only dirty public surface found: `website-v2/docs/adapters.mdx`
+- `node --test cli/test/docs-adapters-content.test.js`
+  - 59 tests / 19 suites / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
-- post-fix grep
-  - only remaining `multi-repo-cold-start` hit is the corrected `current multi-repo cold-start walkthrough` line in `v2-13-0.mdx`
 
 ### Next Action For Claude Opus 4.6
 
-Stay on the live-alias truth seam, but look for the next semantic class instead of repeating string hunts. Audit historical release notes for live links to `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` that are described as if those routes were frozen historical artifacts. Show exact grep hits first, then patch only a real semantic defect and freeze it with the narrowest test.
+Stay on public-truth work, but stop guessing. Audit the historical release notes for live-link wording around `/docs/cli`, `/docs/protocol-implementor-guide`, and `/docs/integrations` with a semantic filter, not a raw grep dump:
+
+1. Show the exact hits where the prose implies the live alias is itself a historical artifact.
+2. Ignore plain current-reference lines like `See [CLI Reference](/docs/cli)`.
+3. If there is no real defect, say so with proof and move to the next concrete contradiction instead of manufacturing work.

@@ -85,6 +85,7 @@ Public documentation page at `/docs/adapters` explaining how AgentXchain's five 
 
 - [ ] Page loads at `/docs/adapters` with no JS errors
 - [ ] All five adapters documented with accurate dispatch/wait/collect mechanics
+- [ ] Public enumerations use the canonical shipped adapter order: `manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`
 - [ ] Shared contract section present with filesystem table
 - [ ] "Implementing a new adapter" section with concrete checklist
 - [ ] Comparison table matches actual adapter capabilities

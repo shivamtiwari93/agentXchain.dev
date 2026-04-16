@@ -467,9 +467,18 @@ describe('Adapter docs contract', () => {
         'comparison table must state 10s grace period');
     });
 
-    it('comparison table includes the mcp adapter column', () => {
-      assert.match(adapterDocs, /\| Feature \| manual \| local_cli \| mcp \| api_proxy \|/,
-        'comparison table must include the mcp adapter');
+    it('comparison table uses the canonical shipped adapter order', () => {
+      assert.match(adapterDocs, /\| Feature \| manual \| local_cli \| api_proxy \| mcp \| remote_agent \|/,
+        'comparison table must use the canonical shipped adapter order');
+      assert.doesNotMatch(adapterDocs, /\| Feature \| manual \| local_cli \| mcp \| api_proxy \|/,
+        'comparison table must not regress to the stale mcp-before-api_proxy order');
+    });
+
+    it('page metadata uses the canonical shipped adapter order', () => {
+      assert.match(adapterDocs, /description: "Five adapters, one contract\. manual, local_cli, api_proxy, mcp, and remote_agent explained\."/,
+        'adapters.mdx frontmatter must use the canonical shipped adapter order');
+      assert.doesNotMatch(adapterDocs, /description: "Five adapters, one contract\. manual, local_cli, mcp, api_proxy, and remote_agent explained\."/,
+        'adapters.mdx frontmatter must not regress to the stale adapter order');
     });
   });
 

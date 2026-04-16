@@ -1,7 +1,7 @@
 ---
 sidebar_position: 4
 title: Adapters
-description: "Five adapters, one contract. manual, local_cli, mcp, api_proxy, and remote_agent explained."
+description: "Five adapters, one contract. manual, local_cli, api_proxy, mcp, and remote_agent explained."
 ---
 
 # Adapters
@@ -755,14 +755,14 @@ Use `remote_agent` when you have an external agent service that can accept gover
 
 ## Comparison table
 
-| Feature | manual | local_cli | mcp | api_proxy | remote_agent |
-|---------|--------|-----------|-----|-----------|--------------|
-| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — MCP tool call runs autonomously | Full — API call runs autonomously | Full — HTTP call runs autonomously |
-| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds to minutes | Seconds | Seconds to minutes |
-| **Cost** | Human time | Tool license + compute | Tool/runtime dependent | API tokens | Remote service dependent |
-| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | MCP stdio `tools/list` + `tools/call` | HTTP request body | HTTP POST with turn envelope |
-| **Retry logic** | N/A | Exit code based | None in v1 | Configurable exponential backoff with jitter | None in v1 — retry via `step --resume` |
-| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | Request timeout via MCP client call | HTTP timeout + retry policy | Configurable `timeout_ms` (default 120s) |
-| **Cost tracking** | N/A | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table | N/A — remote service reports cost in turn result |
-| **Write authority** | Any | Any | Any | `review_only` or `proposed` only | `review_only` or `proposed` only |
-| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Local MCP-based agent runtimes with an explicit governed-turn tool | Direct Anthropic, OpenAI, Google Gemini, or Ollama (local) review calls | External agent services, hosted agent platforms, cross-network governed execution |
+| Feature | manual | local_cli | api_proxy | mcp | remote_agent |
+|---------|--------|-----------|-----------|-----|--------------|
+| **Automation** | None — human does all work | Full — subprocess runs autonomously | Full — API call runs autonomously | Full — MCP tool call runs autonomously | Full — HTTP call runs autonomously |
+| **Latency** | Minutes (human speed) | Seconds to minutes | Seconds | Seconds to minutes | Seconds to minutes |
+| **Cost** | Human time | Tool license + compute | API tokens | Tool/runtime dependent | Remote service dependent |
+| **Prompt transport** | N/A (human reads files) | `argv`, `stdin`, or `dispatch_bundle_only` | HTTP request body | MCP stdio `tools/list` + `tools/call` | HTTP POST with turn envelope |
+| **Retry logic** | N/A | Exit code based | Configurable exponential backoff with jitter | None in v1 | None in v1 — retry via `step --resume` |
+| **Timeout handling** | Configurable poll timeout | SIGTERM → 10s grace → SIGKILL | HTTP timeout + retry policy | Request timeout via MCP client call | Configurable `timeout_ms` (default 120s) |
+| **Cost tracking** | N/A | N/A | Automatic token tracking; USD when the model has a pinned rate table | N/A | N/A — remote service reports cost in turn result |
+| **Write authority** | Any | Any | `review_only` or `proposed` only | Any | `review_only` or `proposed` only |
+| **Best for** | PM review, human QA, approvals | Claude Code (default), or any local CLI via `--dev-command` | Direct Anthropic, OpenAI, Google Gemini, or Ollama (local) review calls | Local MCP-based agent runtimes with an explicit governed-turn tool | External agent services, hosted agent platforms, cross-network governed execution |
