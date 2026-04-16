@@ -1,6 +1,6 @@
-# Show HN Draft — AgentXchain v2.0.0
+# Show HN Draft — AgentXchain v2.104.0
 
-> Draft for Hacker News submission. Ready to post after npm publish completes.
+> Ready-to-post draft. Updated 2026-04-16 to current release truth.
 
 ---
 
@@ -19,13 +19,21 @@ I got tired of multi-agent coding demos where three agents agree with each other
 AgentXchain is an open-source protocol + CLI for governed software delivery:
 
 - **Every turn must include an objection.** Blind agreement is rejected by the orchestrator.
-- **Human approval is required for phase transitions and final ship decisions.** Agents work between gates, but they cannot self-ship.
+- **The protocol requires human approval for phase transitions and ship decisions.** Agents work between gates, but they cannot self-ship.
 - **Structured audit trail.** Summary, objections, decisions, files changed, and verification evidence — all append-only JSONL. Every decision has provenance.
 - **Multi-repo orchestration.** v2 coordinates governed workflows across multiple repositories with cross-repo context, barrier evaluation, and coordinator-level hooks.
 - **Plugin system.** Install hook-based plugins for notifications (Slack) and reporting (JSON artifacts) without modifying the core workflow.
-- **The runtime is swappable.** Manual turns, local CLI agents (Claude Code, Codex, Aider), and API-backed agents all run under the same protocol.
+- **All 5 adapters proven live.** `manual`, `local_cli`, `api_proxy`, `mcp`, and `remote_agent` all run under the same governed protocol. `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path.
 
-Example flow:
+Fastest proof path:
+
+```bash
+npx --yes -p agentxchain@latest -c "agentxchain demo"
+```
+
+That runs a complete PM -> Dev -> QA governed lifecycle with objections, gates, decisions, and audit artifacts. No API keys required.
+
+If you want the real CLI flow instead of the demo:
 
 ```bash
 npm install -g agentxchain
@@ -36,19 +44,13 @@ agentxchain approve-transition
 agentxchain step --role dev
 ```
 
-For multi-repo initiatives:
-
-```bash
-agentxchain multi init
-agentxchain multi step          # dispatches to next repo
-agentxchain multi approve-gate  # approves phase/completion gates
-```
-
 The point is not “more agents.” The point is better convergence: disagreement by default, explicit gates, and a readable audit trail for how the team reached a ship decision.
 
-1000+ tests. MIT licensed. Protocol v6 spec published.
+4710 tests / 1004 suites / 0 failures. 108 conformance fixtures. MIT licensed. Protocol v7 spec published.
 
 GitHub: https://github.com/shivamtiwari93/agentXchain.dev
+npm: https://www.npmjs.com/package/agentxchain
+Docs: https://agentxchain.dev/docs/quickstart
 
 ---
 

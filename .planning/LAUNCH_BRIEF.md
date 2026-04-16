@@ -6,7 +6,7 @@
 
 ## One-Paragraph Product Description
 
-AgentXchain is an open-source protocol and CLI for governed multi-agent software delivery. Multiple AI agents work on the same codebase under constitutional rules: every turn must include a structured objection, the protocol requires human approval at phase transitions and ship decisions, and every contribution is recorded in an append-only audit trail. The protocol is model-agnostic — manual turns, local CLI agents (Claude Code, Codex, Aider), and API-backed agents all run under the same governance rules. The result is convergence quality: code that has been challenged from multiple perspectives, with evidence for why it should ship.
+AgentXchain is an open-source protocol and CLI for governed multi-agent software delivery. Multiple AI agents work on the same codebase under constitutional rules: every turn must include a structured objection, the protocol requires human approval at phase transitions and ship decisions, and every contribution is recorded in an append-only audit trail. The protocol is model-agnostic — manual turns, local CLI agents, API-backed agents, MCP servers, and remote agents all run under the same governance rules. The result is convergence quality: code that has been challenged from multiple perspectives, with evidence for why it should ship.
 
 ## One-Sentence Repo Description
 
@@ -65,10 +65,10 @@ Current keywords in `package.json` are adequate:
 | npm README (cli/README.md) | Ready | DEC-README-001 applied |
 | Docs: Quickstart | Ready | Reproducible scaffold path, QA dependency disclosed |
 | Docs: CLI Reference | Ready | All governed commands documented |
-| Docs: Adapters | Ready | All 4 adapter types, build-your-own guide |
+| Docs: Adapters | Ready | All 5 adapter types, build-your-own guide |
 | Docs: Plugins | Ready | Plugin authoring, install/list/upgrade/remove, config enforcement, rollback semantics |
-| Docs: Protocol | Ready | Protocol v6 published; v5 remains historical reference |
-| Show HN Draft | Frozen | DEC-SHOW-HN-002 |
+| Docs: Protocol | Ready | Protocol v7 published; v6 remains historical reference |
+| Show HN Draft | Ready | Current v2.104.0 truth, guard-tested |
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
 | Homebrew Tap | Ready | Canonical tap is on the live release; workflow sync + graceful PR fallback shipped |
 | Social Preview Image | Not created | Requires design tool or generation |
@@ -78,8 +78,8 @@ Current keywords in `package.json` are adequate:
 ## Evidence-Based Claim Boundaries
 
 All launch copy must conform to `.planning/LAUNCH_EVIDENCE_REPORT.md`. Key constraints:
-- Test count uses the floor-hundred format from `.planning/LAUNCH_EVIDENCE_REPORT.md`. Do not invent a higher number than the evidence artifact currently supports in public copy.
-- All four adapter types are now proven live, including MCP with a real Anthropic model (`E2`, `E2b`, `E2b+`). The honest narrower boundary is lifecycle depth: only the `manual` + `local_cli` + `api_proxy` path has a full governed-run proof including human-gated completion approval.
+- Test count uses the current aggregate release evidence line from `.planning/LAUNCH_EVIDENCE_REPORT.md`. Do not invent a higher number than the evidence artifact currently supports in public copy.
+- All five adapter types are now proven live (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`). `local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof; `manual` is the governed human control path. The honest narrower boundary is lifecycle depth: only the `manual` + `local_cli` + `api_proxy` path has a full governed-run proof including human-gated completion approval.
 - `api_proxy` proposed-authority full lifecycle including run completion is now proven live against real Anthropic (E2c, `run_7b067f892916b799`). The previous disallowed claim (`DEC-PROP-COMPLETION-CONTRACT-001`) is closed: the product contract bug was fixed in Turn 133, and the hardened live proof passed on 2026-04-08 with gate-valid proposal content, no-op completion, `pending_run_completion` pause, and `approve-completion`
 - Do not claim "production-proven" — all evidence is from dev/dogfood environments
 - Do not reference OpenAI Swarm as a current competitor (DEC-POSITIONING-008)

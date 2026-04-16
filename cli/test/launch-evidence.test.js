@@ -19,6 +19,31 @@ function countFixtures(dir) {
   return total;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function extractTopReleaseSection(changelog, version) {
+  const heading = `## ${version}`;
+  const start = changelog.indexOf(heading);
+  assert.notEqual(start, -1, `CHANGELOG must contain heading ${heading}`);
+  const afterStart = changelog.slice(start + heading.length);
+  const nextHeadingOffset = afterStart.search(/\n##\s+\d+\.\d+\.\d+/);
+  return nextHeadingOffset === -1 ? afterStart : afterStart.slice(0, nextHeadingOffset);
+}
+
+function extractEvidenceLine(section, version) {
+  const match = section.match(/(\d+ tests \/ \d+ suites \/ 0 failures)/);
+  assert.ok(match, `top changelog section for ${version} must contain an aggregate evidence line`);
+  return match[1];
+}
+
+const pkg = JSON.parse(read('cli/package.json'));
+const expectedVersion = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || pkg.version;
+const changelogSection = extractTopReleaseSection(read('cli/CHANGELOG.md'), expectedVersion);
+const expectedEvidenceLine = extractEvidenceLine(changelogSection, expectedVersion);
+const fixtureCount = countFixtures(resolve(ROOT, '.agentxchain-conformance', 'fixtures'));
+
 describe('Launch evidence report', () => {
   const report = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
 
@@ -39,13 +64,13 @@ describe('Launch evidence report', () => {
     }
   });
 
-  it('references the current test count floor', () => {
-    assert.match(report, /1000\+.*launch-copy floor/i,
-      'report should state the current launch-copy floor explicitly');
-    assert.match(report, /1033 tests\s*[,\/]\s*0 failures/i,
-      'report should record the current exact suite count verified on 2026-04-03');
-    assert.doesNotMatch(report, /900\+.*launch-copy floor/i,
-      'report should not retain the stale 900+ floor after crossing 1000+');
+  it('references the current aggregate release evidence line instead of stale launch-era floors', () => {
+    assert.match(report, new RegExp(escapeRegExp(expectedEvidenceLine)),
+      `report should contain the current aggregate evidence line ${expectedEvidenceLine}`);
+    assert.doesNotMatch(report, /1000\+.*launch-copy floor/i,
+      'report should not retain the stale launch-era 1000+ floor once exact release evidence is carried');
+    assert.doesNotMatch(report, /1033 tests\s*[,\/]\s*0 failures/i,
+      'report should not retain the obsolete 1033-test launch-era count as current truth');
   });
 
   it('removes stale prerelease references to old publish-gating placeholders', () => {
@@ -160,7 +185,7 @@ describe('Launch surfaces do not contain disallowed claims', () => {
 
       it('does not claim "full live end-to-end proof"', () => {
         assert.doesNotMatch(content, /full live (end.to.end|e2e) proof/i);
-        assert.doesNotMatch(content, /all adapters proven live/i);
+        assert.doesNotMatch(content, /\ball adapters proven live\b/i);
       });
 
       it('does not claim live proposed-authority run completion', () => {
@@ -208,7 +233,8 @@ describe('Launch surfaces do not contain disallowed claims', () => {
 
     it('does not retain the stale pre-MCP-proof constraint language', () => {
       assert.doesNotMatch(content, /live MCP evidence still does not exist/i);
-      assert.match(content, /All four adapter types are now proven live/i);
+      assert.match(content, /All five adapter types are now proven live/i);
+      assert.match(content, /`local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof/i);
       assert.match(content, /only the `manual` \+ `local_cli` \+ `api_proxy` path has a full governed-run proof/i);
     });
   });
@@ -228,16 +254,14 @@ describe('Website badge version matches package.json', () => {
 });
 
 describe('Conformance count surfaces stay aligned', () => {
-  const fixtureRoot = resolve(ROOT, '.agentxchain-conformance', 'fixtures');
-  const totalFixtures = countFixtures(fixtureRoot);
   const homepage = read('website-v2/src/pages/index.tsx');
   const guide = read('website-v2/docs/protocol-implementor-guide.mdx');
   const redditDrafts = read('.planning/MARKETING/REDDIT_POSTS.md');
   const twitterThread = read('.planning/MARKETING/TWITTER_THREAD.md');
 
   it('homepage stat and architecture copy match the real fixture corpus size', () => {
-    assert.equal(totalFixtures, 108, 'update this guard when the shipped corpus size changes intentionally');
-    assert.match(homepage, new RegExp(`stat-number\">${totalFixtures}`));
+    assert.equal(fixtureCount, 108, 'update this guard when the shipped corpus size changes intentionally');
+    assert.match(homepage, new RegExp(`stat-number\">${fixtureCount}`));
     assert.match(homepage, /stat-label">Conformance fixtures</);
   });
 
@@ -250,6 +274,27 @@ describe('Conformance count surfaces stay aligned', () => {
   it('marketing drafts use the current corpus size', () => {
     assert.match(redditDrafts, /\b108 conformance fixtures\b/);
     assert.match(twitterThread, /\b108 conformance fixtures\b/);
+  });
+});
+
+describe('Show HN draft truth', () => {
+  const draft = read('.planning/SHOW_HN_DRAFT.md');
+
+  it('tracks the current released version and evidence line', () => {
+    assert.match(draft, new RegExp(`v${escapeRegExp(expectedVersion)}`));
+    assert.match(draft, new RegExp(escapeRegExp(expectedEvidenceLine)));
+  });
+
+  it('tracks the shipped conformance and adapter proof boundary', () => {
+    assert.equal(fixtureCount, 108, 'update this guard when the shipped corpus size changes intentionally');
+    assert.match(draft, new RegExp(`\\b${fixtureCount} conformance fixtures\\b`));
+    assert.match(draft, /\bAll 5 adapters proven live\b/i);
+    assert.match(draft, /\bremote_agent\b/);
+    assert.match(draft, /`local_cli`, `api_proxy`, `mcp`, and `remote_agent` have real-model proof/i);
+    assert.match(draft, /`manual` is the governed human control path/i);
+    assert.match(draft, /Protocol v7 spec published/i);
+    assert.doesNotMatch(draft, /\b1000\+ tests\b/i);
+    assert.doesNotMatch(draft, /Protocol v6 spec published/i);
   });
 });
 
@@ -332,7 +377,7 @@ describe('Launch brief references evidence report', () => {
   });
 
   it('includes claim boundary constraints', () => {
-    assert.match(brief, /All four adapter types are now proven live/i);
+    assert.match(brief, /All five adapter types are now proven live/i);
     assert.match(brief, /proposed-authority.*proven live/i);
     assert.match(brief, /DEC-PROP-COMPLETION-CONTRACT-001/);
     assert.match(brief, /run_7b067f892916b799/);
@@ -344,6 +389,17 @@ describe('Launch brief references evidence report', () => {
     assert.match(brief, /local operator dashboard with observation plus narrow live gate approval/i);
     assert.match(brief, /authenticated `approve-gate` exists/i);
     assert.doesNotMatch(brief, /use "v2\.0 observation surface"/i);
+  });
+});
+
+describe('Release brief historical quarantine', () => {
+  const brief = read('.planning/RELEASE_BRIEF.md');
+
+  it('labels the v2.1.0 brief as historical and not a current-truth source', () => {
+    assert.match(brief, /\*\*SUPERSEDED\.\*\*/);
+    assert.match(brief, /historical snapshot of that abandoned release path/i);
+    assert.match(brief, /not a source of current release version, proof counts, or publish procedure/i);
+    assert.doesNotMatch(brief, /is now at v2\.\d+\.\d+/i);
   });
 });
 

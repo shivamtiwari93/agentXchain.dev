@@ -8,13 +8,13 @@
 
 ### E1 — Automated Test Suite
 
-- **Date**: continuously maintained through 2026-04-02
+- **Date**: continuously maintained through 2026-04-15
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 1033 tests, 0 failures across 235 suites
+- **Result**: 4710 tests / 1004 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
-  - Three adapter types: manual, local_cli, api_proxy (unit + integration)
+  - Five adapter types: manual, local_cli, api_proxy, mcp, remote_agent (unit, integration, and E2E proof surfaces)
   - Dispatch bundle generation and staging
   - Blocked state entry, persistence, and recovery
   - Phase gate evaluation and enforcement
@@ -23,7 +23,7 @@
   - Repo observer classification (product files vs orchestrator state)
   - Dashboard: bridge server, views, app shell, command-level CLI, E2E, content/docs assertions
   - Plugin system phase 1 + v2.1 hardening: manifest validation, install/list/remove/upgrade CLI, enforced `config_schema`, conflict-safe hook merge, atomic rollback, validated runtime config injection
-  - Protocol v6 docs surface: normative markdown, published HTML, versioned permalink, and planning-spec drift assertions
+  - Protocol v7 docs surface: normative markdown, published HTML, versioned permalink, and planning-spec drift assertions
   - Plugin docs surface: published HTML, CLI reference integration, nav consistency, planning-spec alignment, rollback/failure-mode documentation
   - Dispatch manifest integrity: finalize/verify, tamper detection (unexpected file, digest mismatch, missing file, size mismatch), supplement inclusion, adapter verification integration
   - HTTP hook transport: blocking/advisory verdicts, timeout fail-closed, env-backed header interpolation with unresolved-placeholder rejection, non-2xx failure handling, annotation recording, audit trail with transport field
@@ -96,7 +96,7 @@
   - MCP tool contract (13 arguments) correctly marshalled and result correctly extracted
   - Custom HTTP headers forwarded for streamable_http transport
   - Turn results pass validation and are accepted into governed history
-  - All four adapter types (`manual`, `local_cli`, `api_proxy`, `mcp`) now have live CLI execution evidence
+  - All five adapter types (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) now have live CLI execution evidence
 - **What it does NOT prove**:
   - MCP adapter behavior under production-scale context or long-running turns
   - Full governed lifecycle through MCP (one dev turn per transport, not a complete run)
@@ -295,7 +295,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "1000+ tests" | E1 (1033 tests as of 2026-04-03) | Use floor-hundred format per DEC-SHOW-HN-003. |
+| "4710 tests / 1004 suites / 0 failures" | E1 (current release verification through 2026-04-15) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -345,9 +345,9 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-03 exact suite count remains 1033 tests / 0 failures across 235 suites, which preserves the `1000+` launch-copy floor; 2026-04-07 targeted truth slices add 282 tests / 0 failures across 55 suites for review-artifact truth, dispatch-bundle truth, docs truth, and missing-status normalization
+- **Test count verified**: 2026-04-15 release verification is 4710 tests / 1004 suites / 0 failures. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
-- **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. Allowed claims updated to include all four adapters. Evidence gap E2b closed.
+- **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.
 - **2026-04-08 Scenario D**: Escalation & recovery proof (`run_ebf10c05d7419a0c`) exercises retry exhaustion → blocked escalation → operator recovery → eng_director intervention. Evidence gap closed.
 - **2026-04-08 Release truth**: `agentxchain@2.24.1` is live on npm, `npx` postflight proof now passes against the public registry, GitHub Release `v2.24.1` exists, and the canonical Homebrew tap formula matches the published tarball URL + SHA256. The last pre-launch actionable evidence gap is closed.
