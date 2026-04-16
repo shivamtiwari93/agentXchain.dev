@@ -73,10 +73,11 @@ Dashboard nav item: `Timeouts`
 Dashboard component: `cli/dashboard/components/timeouts.js`
 
 Render sections:
-1. **Header** — "Timeouts" with configured/not-configured badge.
-2. **Config Summary** — table showing each scope, limit, and action.
-3. **Live Pressure** — if the run is active, show exceeded (red) and warning (yellow) items with scope, turn identity when scope is `turn`, elapsed/limit, and action. If the run is paused on approval, still show phase/run live pressure plus a note that approval waits do not mutate timeout state but the clock continues.
-4. **Persisted Events** — table of past timeout events from the ledger: type, scope, phase, turn_id, elapsed/limit, action, timestamp. Empty-state message when no events.
+1. **Freshness banner** — websocket freshness via `liveMeta` (same contract as Timeline/Cross-Repo). Timeout data is time-sensitive — operators staring at the view need visibility into whether the displayed pressure values are current or stale.
+2. **Header** — "Timeouts" with configured/not-configured badge.
+3. **Config Summary** — table showing each scope, limit, and action.
+4. **Live Pressure** — if the run is active, show exceeded (red) and warning (yellow) items with scope, turn identity when scope is `turn`, elapsed/limit, and action. If the run is paused on approval, still show phase/run live pressure plus a note that approval waits do not mutate timeout state but the clock continues.
+5. **Persisted Events** — table of past timeout events from the ledger: type, scope, phase, turn_id, elapsed/limit, action, timestamp. Empty-state message when no events.
 
 ### Server Module
 
@@ -113,6 +114,7 @@ Render sections:
 12. Dashboard nav includes the `Timeouts` link.
 13. `app.js` VIEWS includes `timeouts` with correct fetch key and render function.
 14. Bridge server routes `/api/timeouts` to `readTimeoutStatus()`.
+15. `AT-TIMEOUT-DASH-FRESHNESS-001`: Timeouts view receives `liveMeta` from the live-observer and renders a freshness banner via `renderLiveStatus()`, matching Timeline/Cross-Repo parity.
 
 ## Open Questions
 

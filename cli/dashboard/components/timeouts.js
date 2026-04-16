@@ -4,8 +4,12 @@
  * Pure render function: takes data from /api/timeouts, returns HTML.
  * All evaluation is server-side. This view renders the snapshot.
  *
+ * Receives liveMeta from the live-observer for websocket freshness display.
+ *
  * See: TIMEOUT_DASHBOARD_SURFACE_SPEC.md
  */
+
+import { renderLiveStatus } from './live-status.js';
 
 function esc(str) {
   if (!str) return '';
@@ -165,7 +169,7 @@ function renderEvents(events) {
   return html;
 }
 
-export function render({ timeouts }) {
+export function render({ timeouts, liveMeta }) {
   if (!timeouts) {
     return `<div class="placeholder"><h2>Timeouts</h2><p>No timeout data available. Ensure a governed run is active.</p></div>`;
   }
@@ -182,6 +186,9 @@ export function render({ timeouts }) {
   }
 
   let html = `<div class="timeouts-view">`;
+
+  // Freshness banner — timeout data is time-sensitive so operators need visibility
+  html += renderLiveStatus(liveMeta);
 
   // Header
   html += `<div class="run-header"><div class="run-meta">`;

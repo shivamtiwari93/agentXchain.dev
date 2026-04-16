@@ -149,7 +149,7 @@ async function pickInitialView() {
 }
 
 function buildRenderData(viewName, data) {
-  const liveMeta = viewName === 'timeline'
+  const liveMeta = (viewName === 'timeline' || viewName === 'timeouts')
     ? buildLiveMeta({
       connected: liveObserverState.connected,
       lastRefreshAt: liveObserverState.lastRefreshAt,

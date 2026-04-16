@@ -654,4 +654,58 @@ describe('Timeouts Dashboard — wiring', () => {
     assert.match(SPEC_SOURCE, /Dashboard nav item: `Timeouts`/);
     assert.doesNotMatch(SPEC_SOURCE, /11th view|11th nav item|10 existing views/);
   });
+
+  it('AT-TIMEOUT-DASH-FRESHNESS-001: timeouts view renders liveMeta freshness banner', () => {
+    const liveMeta = {
+      title: 'Live Run Feed',
+      freshness_state: 'live',
+      freshness_label: 'Live',
+      refresh_detail: 'Updated 2026-04-16T14:00:00.000Z',
+      connection_detail: 'WebSocket connected',
+      event_detail: 'Last run event: turn_accepted at 2026-04-16T14:00:00.000Z',
+    };
+    const html = render({
+      timeouts: {
+        ok: true,
+        configured: true,
+        config: { per_turn_minutes: 30, per_phase_minutes: null, per_run_minutes: null, action: 'escalate', phase_overrides: [] },
+        live: { exceeded: [], warnings: [] },
+        live_context: { awaiting_approval: false, pending_gate_type: null, requested_at: null },
+        events: [],
+      },
+      liveMeta,
+    });
+    assert.ok(html.includes('live-status-banner'), 'must render live-status-banner element');
+    assert.ok(html.includes('Live Run Feed'), 'must render liveMeta title');
+    assert.ok(html.includes('WebSocket connected'), 'must render connection detail');
+  });
+
+  it('AT-TIMEOUT-DASH-FRESHNESS-001: timeouts view renders without liveMeta gracefully', () => {
+    const html = render({
+      timeouts: {
+        ok: true,
+        configured: true,
+        config: { per_turn_minutes: 30, per_phase_minutes: null, per_run_minutes: null, action: 'escalate', phase_overrides: [] },
+        live: { exceeded: [], warnings: [] },
+        live_context: { awaiting_approval: false, pending_gate_type: null, requested_at: null },
+        events: [],
+      },
+      liveMeta: null,
+    });
+    assert.ok(!html.includes('live-status-banner'), 'must not render banner when liveMeta is null');
+    assert.ok(html.includes('timeouts-view'), 'must still render the timeouts view');
+  });
+
+  it('app.js passes liveMeta to timeouts view', async () => {
+    const { readFileSync } = await import('fs');
+    const { join } = await import('path');
+    const appPath = join(import.meta.dirname, '..', 'dashboard', 'app.js');
+    const appContent = readFileSync(appPath, 'utf8');
+
+    assert.ok(
+      appContent.includes("'timeouts'") && appContent.includes('buildLiveMeta'),
+      'app.js must build liveMeta for timeouts view',
+    );
+    assert.match(appContent, /timeline.*\|\|.*timeouts|timeouts.*\|\|.*timeline/, 'timeouts must share liveMeta path with timeline');
+  });
 });
