@@ -1,13 +1,13 @@
 # Dashboard Docs Contract Spec
 
 > Status: **shipped**
-> Scope: truthful CLI docs coverage for the shipped read-only dashboard surface
+> Scope: truthful CLI docs coverage for the shipped local dashboard surface
 
 ---
 
 ## Purpose
 
-The dashboard is a public product surface, not an internal convenience. The CLI docs must describe the dashboard that actually ships: the real command flags, the real read-only bridge behavior, and the real SPA views. Docs that advertise nonexistent views or flags are product drift, not harmless copy debt.
+The dashboard is a public product surface, not an internal convenience. The CLI docs must describe the dashboard that actually ships: the real command flags, the real local/live bridge behavior, the real replay boundary, and the real SPA views. Docs that advertise nonexistent views or flags are product drift, not harmless copy debt.
 
 This spec narrows the work to the dashboard section on `/docs/cli` plus a repo-native content test that guards the contract against the shipped dashboard code.
 
@@ -51,25 +51,33 @@ The docs must describe exactly the shipped command surface:
 
 The docs must not advertise unsupported flags such as `--host`.
 
-### 2. Read-only and local-only behavior must be explicit
+### 2. Live-vs-replay and local-only behavior must be explicit
 
 The docs must state that:
 
-- the dashboard is read-only
+- `agentxchain dashboard` reads the current local repo/workspace state
+- `agentxchain replay export` is the artifact-backed read-only dashboard
 - the bridge binds locally (`127.0.0.1`)
 - approvals and recovery remain CLI actions, not dashboard mutations
+- partial coordinator artifacts do not fabricate missing nested child exports
 
 ### 3. View list must match the shipped SPA
 
-The docs must cover the seven shipped dashboard views:
+The docs must cover the thirteen shipped dashboard views:
 
 - Initiative
 - Cross-Repo
 - Timeline
+- Delegations
 - Decisions
 - Hooks
 - Blocked
 - Gates
+- Blockers
+- Artifacts
+- Run History
+- Timeouts
+- Coordinator Timeouts
 
 The docs may describe turn detail as part of the Timeline view, but not as a separate top-level view.
 
@@ -90,7 +98,7 @@ The content test must fail if:
 - docs flags diverge from the CLI command definition
 - docs list removed dashboard views
 - docs omit a shipped top-level view present in the dashboard navigation
-- docs weaken the read-only or local-only contract
+- docs weaken the live-vs-replay or local-only contract
 
 ---
 
@@ -109,7 +117,9 @@ The content test must fail if:
 
 1. `/docs/cli` documents `agentxchain dashboard` with `--port` default `3847` and `--no-open`.
 2. `/docs/cli` does not document `--host`.
-3. `/docs/cli` states the local-only, read-only bridge contract.
-4. `/docs/cli` covers every shipped dashboard nav view from `cli/dashboard/index.html`.
-5. `/docs/cli` mentions the exact approval commands surfaced by the dashboard.
-6. `cli/test/docs-dashboard-content.test.js` reads the dashboard command/docs/runtime files and passes.
+3. `/docs/cli` states the live-vs-replay dashboard boundary and keeps `dashboard`, `audit`, `report --input`, and `replay export` distinct.
+4. `/docs/cli` states the local-only bridge contract.
+5. `/docs/cli` covers every shipped dashboard nav view from `cli/dashboard/index.html`.
+6. `/docs/cli` mentions the exact approval commands surfaced by the dashboard.
+7. `/docs/cli` states the partial coordinator artifact boundary for report vs replay without fabricating failed-child nested exports.
+8. `cli/test/docs-dashboard-content.test.js` reads the dashboard command/docs/runtime files and passes.

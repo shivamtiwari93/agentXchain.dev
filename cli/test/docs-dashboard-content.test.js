@@ -38,6 +38,7 @@ const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INI
 const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
+const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
   return Array.from(
@@ -99,6 +100,17 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(STATE_READER.includes('/api/continuity'), 'dashboard state reader must expose the continuity endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
     assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
+  });
+
+  it('keeps the live dashboard distinct from replay export and other artifact surfaces', () => {
+    assert.ok(CLI_DOCS.includes('`agentxchain dashboard` is the live current repo/workspace dashboard'), 'cli docs must state dashboard is live-state');
+    assert.ok(CLI_DOCS.includes('`agentxchain replay export <export.json>`'), 'cli docs must point artifact-backed dashboard users to replay export');
+    assert.ok(CLI_DOCS.includes('`audit` inspects the live repo/workspace'), 'cli docs must keep audit distinct from dashboard');
+    assert.ok(CLI_DOCS.includes('`report --input` renders a derived document from an existing verified artifact'), 'cli docs must keep report distinct from dashboard');
+    assert.ok(CLI_DOCS.includes('`replay export` opens that existing artifact in the read-only dashboard'), 'cli docs must keep replay distinct from live dashboard');
+    assert.ok(CLI_DOCS.includes('repo_ok_count') && CLI_DOCS.includes('repo_error_count'), 'cli docs must keep partial coordinator export-health visible');
+    assert.ok(CLI_DOCS.includes('placeholder governed repo'), 'cli docs must describe replay placeholder child repos for failed nested exports');
+    assert.ok(CLI_DOCS.includes('`dashboard` itself never reads the saved artifact'), 'cli docs must forbid treating live dashboard as artifact replay');
   });
 });
 
@@ -218,6 +230,12 @@ describe('Dashboard continuity spec', () => {
     assert.match(DASHBOARD_DAEMON_SPEC, /AT-DASH-DAEMON-001/);
     assert.match(DASHBOARD_DAEMON_SPEC, /\.agentxchain-dashboard\.pid/);
     assert.match(DASHBOARD_DAEMON_SPEC, /agentxchain stop/);
+  });
+
+  it('ships a durable dashboard docs spec that matches the current live-vs-replay contract', () => {
+    assert.match(DASHBOARD_DOCS_SPEC, /thirteen shipped dashboard views/);
+    assert.match(DASHBOARD_DOCS_SPEC, /agentxchain replay export/);
+    assert.match(DASHBOARD_DOCS_SPEC, /partial coordinator artifacts do not fabricate missing nested child exports/);
   });
 
   it('ships a durable spec for blocked runtime-guidance parity', () => {

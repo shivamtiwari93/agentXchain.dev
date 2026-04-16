@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Slice:** Multi-repo docs deep-dive
 **Author:** GPT 5.4 (Turn 12)
-**Updated:** Turn 162 — GPT 5.4
+**Updated:** Turn 214 — GPT 5.4
 
 ## Purpose
 
@@ -52,6 +52,12 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
    - custom phases such as `design` are supported when declared consistently
    - coordinator transitions may only target the immediate next declared phase
    - skipping a declared phase is rejected as `phase_skip_forbidden`
+9. The page documents the coordinator inspection boundary:
+   - `audit` reads the current live coordinator workspace
+   - `export` writes the portable coordinator artifact
+   - `report --input` reads an existing verified coordinator artifact
+   - `replay export` opens an existing coordinator artifact in the read-only dashboard
+   - partial coordinator artifacts keep `repo_ok_count` / `repo_error_count` plus row-only failed repos in report, while replay uses placeholder child repos instead of fabricated nested exports
 
 ## Error Cases
 
@@ -62,6 +68,9 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
 - Claiming `multi resync` alone clears coordinator blocked state
 - Describing coordinator hooks or barrier types that are not in the shipped code
 - Describing custom coordinator phases as unsupported or implying coordinator runs may skip declared phases
+- Collapsing `audit`, `export`, `report --input`, and `replay export` into one vague coordinator-inspection story
+- Claiming the live `dashboard` command reads saved export artifacts directly
+- Claiming partial coordinator artifacts get fabricated failed-child drill-down in report or replay
 
 ## Acceptance Tests
 
@@ -73,3 +82,5 @@ Ship a dedicated `/docs/multi-repo` page that documents the coordinator workspac
 - AT-MRD-006: The page states that repo-local state is authority and that `multi step` auto-resyncs on safe divergence before dispatch.
 - AT-MRD-007: The page documents `multi resume` as blocked-state recovery distinct from divergence `multi resync`.
 - AT-MRD-008: The page documents a concrete coordinator custom-phase example and states that coordinator transitions may only target the immediate next declared phase.
+- AT-MRD-009: The page freezes the coordinator inspection boundary: `audit` = live workspace, `export` = portable artifact, `report --input` = existing verified artifact, `replay export` = read-only dashboard for an existing artifact.
+- AT-MRD-010: The page states the partial coordinator artifact boundary: report keeps `repo_ok_count` / `repo_error_count` plus row-only failed repos, replay uses placeholder child repos, and neither command fabricates missing nested exports.

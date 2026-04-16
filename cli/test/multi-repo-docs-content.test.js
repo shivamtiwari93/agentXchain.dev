@@ -135,6 +135,25 @@ describe('Multi-repo docs content', () => {
     assert.match(PAGE, /named_decisions\.decision_ids_by_repo/);
     assert.match(NAMED_DECISION_SPEC, /\*\*Status:\*\*\s+shipped/i);
   });
+
+  it('documents the coordinator inspection boundary instead of flattening audit, export, report, and replay', () => {
+    assert.match(PAGE, /agentxchain audit/);
+    assert.match(PAGE, /agentxchain export/);
+    assert.match(PAGE, /agentxchain report --input <coordinator-export\.json>/);
+    assert.match(PAGE, /agentxchain replay export <coordinator-export\.json>/);
+    assert.match(PAGE, /live current multi-repo state/i);
+    assert.match(PAGE, /portable coordinator artifact/i);
+    assert.match(PAGE, /derived summary from an existing verified artifact/i);
+    assert.match(PAGE, /read-only dashboard for an existing artifact/i);
+  });
+
+  it('documents the partial coordinator artifact boundary for report and replay', () => {
+    assert.match(PAGE, /repo_ok_count.*repo_error_count/s);
+    assert.match(PAGE, /failed repo row plus error/i);
+    assert.match(PAGE, /does not invent missing child drill-down/i);
+    assert.match(PAGE, /placeholder child repo/i);
+    assert.match(PAGE, /does not read a saved export artifact/i);
+  });
 });
 
 describe('Interface alignment end-to-end example', () => {
@@ -164,6 +183,8 @@ describe('Multi-repo doc spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+Shipped/i);
     assert.match(SPEC, /\/docs\/multi-repo/);
     assert.match(SPEC, /AT-MRD-001/);
-    assert.match(SPEC, /AT-MRD-008/);
+    assert.match(SPEC, /AT-MRD-010/);
+    assert.match(SPEC, /audit.*live coordinator workspace/i);
+    assert.match(SPEC, /replay export.*read-only dashboard/i);
   });
 });

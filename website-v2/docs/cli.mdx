@@ -1305,6 +1305,10 @@ Launches a local web dashboard with live updates via WebSocket. The bridge binds
 
 When `--daemon` is used, the dashboard writes `.agentxchain-dashboard.pid` and `.agentxchain-dashboard.json` in the project root after the bridge is actually listening. Stop the background dashboard with `agentxchain stop`.
 
+`agentxchain dashboard` is the live current repo/workspace dashboard. It does not open an export artifact from disk. If you want the read-only dashboard for an existing artifact, use `agentxchain replay export <export.json>` instead. Keep the artifact boundaries explicit: `audit` inspects the live repo/workspace, `report --input` renders a derived document from an existing verified artifact, and `replay export` opens that existing artifact in the read-only dashboard.
+
+That distinction survives partial coordinator artifacts. `report --input` keeps `repo_ok_count` / `repo_error_count` plus the failed repo row and error without inventing nested child sections. `replay export` keeps the same artifact readable in the dashboard, but restores a placeholder governed repo for the failed child path so coordinator layout validation still works. `dashboard` itself never reads the saved artifact; it reads the current local repo/workspace state.
+
 The shipped dashboard surface has thirteen top-level views:
 
 | View | Description |

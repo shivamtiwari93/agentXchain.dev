@@ -373,6 +373,15 @@ Run identity drift is the most dangerous coordinator blocked state. It means a c
 
 The local dashboard exposes coordinator state through the **Initiative** and **Cross-Repo** views, with gate and blocked panels reading from the same `.agentxchain/multirepo/` artifacts.
 
+Do not blur the coordinator inspection commands together:
+
+- Use `agentxchain audit` from the current coordinator workspace when you need the live current multi-repo state.
+- Use `agentxchain export` when you need a portable coordinator artifact you can attach, compare, verify, or archive.
+- Use `agentxchain report --input <coordinator-export.json>` when you want a derived summary from an existing verified artifact, not the live workspace.
+- Use `agentxchain replay export <coordinator-export.json>` when you want the read-only dashboard for an existing artifact instead of a text, markdown, json, or html report.
+
+That distinction matters most for partial coordinator artifacts. `report --input` keeps `repo_ok_count` / `repo_error_count`, preserves the failed repo row plus error, and does not invent missing child drill-down. `replay export` keeps the same verified coordinator artifact readable in the dashboard, but restores a placeholder child repo for failed nested exports so coordinator layout validation still works. `audit` is different from both: it inspects the current workspace directly and does not read a saved export artifact.
+
 Recovery follows one hard rule: repo-local governed state is authoritative. The coordinator is a derived control plane, not the source of truth. If someone accepts or rejects a turn directly in a child repo, `multi step` will detect that divergence and auto-resync when safe; otherwise `multi resync` rebuilds or blocks explicitly instead of guessing.
 
 Blocked-state recovery is a separate operator action:
