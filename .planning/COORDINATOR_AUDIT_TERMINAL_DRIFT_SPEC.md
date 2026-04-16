@@ -56,7 +56,7 @@ This is observability-only terminal drift. It must not imply the completed coord
 ## Acceptance Tests
 
 - `AT-AUDIT-009`: completed coordinator audit keeps child drift visible, sets `terminal_observability_note`, and keeps `next_actions` empty.
-- `AT-AUDIT-009`: text and markdown audit output render `Terminal drift note: ...` and omit `Next Actions:`.
+- `AT-AUDIT-011`: text and markdown audit output render `Terminal drift note: ...` and omit `Next Actions:`.
 - `AT-AUDIT-010`: HTML audit output renders `Terminal drift note` and omits the `Next Actions` section for a completed coordinator with child run-id drift.
 - `governance audit docs contract`: CLI docs and Governance Audit Reference both document terminal completed coordinator drift as observability-only.
 

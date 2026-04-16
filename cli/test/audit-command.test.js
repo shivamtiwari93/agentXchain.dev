@@ -379,6 +379,42 @@ function createCoordinatorWorkspace() {
   return root;
 }
 
+function createCompletedCoordinatorWorkspaceWithRunIdDrift() {
+  const root = createCoordinatorWorkspace();
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_audit_001',
+    status: 'completed',
+    phase: 'implementation',
+    blocked_reason: 'Repo "app" drifted earlier',
+    repo_runs: {
+      app: {
+        status: 'linked',
+        run_id: 'run_app_001',
+      },
+    },
+    pending_gate: null,
+  });
+
+  writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'child-app',
+    run_id: 'run_app_999',
+    status: 'blocked',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 0,
+    blocked_on: 'dispatch:awaiting_followup',
+    phase_gate_status: {},
+    budget_status: {},
+    protocol_mode: 'governed',
+  });
+
+  return root;
+}
+
 function cleanup() {
   for (const dir of [...tempDirs]) {
     try {
@@ -539,38 +575,7 @@ describe('agentxchain audit', () => {
   });
 
   it('AT-AUDIT-009: completed coordinator audit keeps terminal child drift observable without recovery guidance', () => {
-    const root = createCoordinatorWorkspace();
-
-    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
-      schema_version: '0.1',
-      super_run_id: 'srun_audit_001',
-      status: 'completed',
-      phase: 'implementation',
-      blocked_reason: 'Repo "app" drifted earlier',
-      repo_runs: {
-        app: {
-          status: 'linked',
-          run_id: 'run_app_001',
-        },
-      },
-      pending_gate: null,
-    });
-
-    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
-      schema_version: '1.1',
-      project_id: 'child-app',
-      run_id: 'run_app_999',
-      status: 'blocked',
-      phase: 'implementation',
-      active_turns: {},
-      retained_turns: {},
-      turn_sequence: 0,
-      blocked_on: 'dispatch:awaiting_followup',
-      phase_gate_status: {},
-      budget_status: {},
-      protocol_mode: 'governed',
-    });
-
+    const root = createCompletedCoordinatorWorkspaceWithRunIdDrift();
     const result = runCli(root, ['audit', '--format', 'json']);
 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
@@ -587,7 +592,10 @@ describe('agentxchain audit', () => {
       'Child repo run-id drift remains visible for audit, but this coordinator is already completed, so no recovery command is emitted.',
     );
     assert.deepEqual(parsed.subject.run.next_actions, []);
+  });
 
+  it('AT-AUDIT-011: completed coordinator audit text and markdown keep terminal child drift observable without next actions', () => {
+    const root = createCompletedCoordinatorWorkspaceWithRunIdDrift();
     const textResult = runCli(root, ['audit']);
     assert.equal(textResult.status, 0, `${textResult.stdout}\n${textResult.stderr}`);
     assert.match(textResult.stdout, /Terminal drift note: Child repo run-id drift remains visible for audit/);
@@ -600,38 +608,7 @@ describe('agentxchain audit', () => {
   });
 
   it('AT-AUDIT-010: completed coordinator audit html keeps terminal child drift observable without next actions', () => {
-    const root = createCoordinatorWorkspace();
-
-    writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
-      schema_version: '0.1',
-      super_run_id: 'srun_audit_001',
-      status: 'completed',
-      phase: 'implementation',
-      blocked_reason: 'Repo "app" drifted earlier',
-      repo_runs: {
-        app: {
-          status: 'linked',
-          run_id: 'run_app_001',
-        },
-      },
-      pending_gate: null,
-    });
-
-    writeJson(join(root, 'repos', 'app', '.agentxchain', 'state.json'), {
-      schema_version: '1.1',
-      project_id: 'child-app',
-      run_id: 'run_app_999',
-      status: 'blocked',
-      phase: 'implementation',
-      active_turns: {},
-      retained_turns: {},
-      turn_sequence: 0,
-      blocked_on: 'dispatch:awaiting_followup',
-      phase_gate_status: {},
-      budget_status: {},
-      protocol_mode: 'governed',
-    });
-
+    const root = createCompletedCoordinatorWorkspaceWithRunIdDrift();
     const htmlResult = runCli(root, ['audit', '--format', 'html']);
     assert.equal(htmlResult.status, 0, `${htmlResult.stdout}\n${htmlResult.stderr}`);
     assert.match(htmlResult.stdout, /<!DOCTYPE html>/);

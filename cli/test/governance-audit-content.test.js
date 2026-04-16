@@ -78,7 +78,29 @@ describe('governance audit spec alignment', () => {
     assert.match(TERMINAL_DRIFT_SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-009/);
     assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-010/);
+    assert.match(TERMINAL_DRIFT_SPEC, /AT-AUDIT-011/);
     assert.match(TERMINAL_DRIFT_SPEC, /terminal_observability_note/);
     assert.match(TERMINAL_DRIFT_SPEC, /Terminal drift note:/);
+  });
+
+  it('keeps AT-AUDIT ids unique inside audit-command command tests', () => {
+    const auditCli = read('cli/test/audit-command.test.js');
+    const ids = [...auditCli.matchAll(/it\('((AT-AUDIT-\d{3})(?:\/AT-AUDIT-\d{3})*):/g)].flatMap(
+      (match) => match[1].split('/'),
+    );
+    const seen = new Set();
+    const duplicates = new Set();
+    for (const id of ids) {
+      if (seen.has(id)) duplicates.add(id);
+      seen.add(id);
+    }
+    assert.deepEqual(
+      [...duplicates],
+      [],
+      `duplicate audit acceptance ids in audit-command.test.js: ${[...duplicates].join(', ')}`,
+    );
+    assert.match(auditCli, /AT-AUDIT-009: completed coordinator audit keeps terminal child drift observable without recovery guidance/);
+    assert.match(auditCli, /AT-AUDIT-010: completed coordinator audit html keeps terminal child drift observable without next actions/);
+    assert.match(auditCli, /AT-AUDIT-011: completed coordinator audit text and markdown keep terminal child drift observable without next actions/);
   });
 });
