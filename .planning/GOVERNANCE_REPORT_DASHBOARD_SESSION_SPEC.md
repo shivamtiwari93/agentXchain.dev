@@ -26,6 +26,7 @@ Human-readable report output adds a single summary line when the field is presen
 
 - `Dashboard session: ...` in `text`
 - `- Dashboard session: ...` in `markdown`
+- `Dashboard` metadata row in `html`
 
 ## Behavior
 
@@ -52,7 +53,7 @@ Human-readable report output adds a single summary line when the field is presen
 
 - Governed-run reports expose `subject.run.dashboard_session` when the verified export summary field is well-formed.
 - Older artifacts that predate `summary.dashboard_session` must still verify and report successfully; in that case `subject.run.dashboard_session` is `null`.
-- Human-readable text and markdown output render the snapshot summary line only when `subject.run.dashboard_session` is non-null.
+- Human-readable text, markdown, and html output render the snapshot summary only when `subject.run.dashboard_session` is non-null.
 - The summary line must distinguish:
   - running dashboard with URL and PID
   - pid-only warning state
@@ -71,7 +72,7 @@ Human-readable report output adds a single summary line when the field is presen
 - `AT-EXPORT-DASH-001`: run export with no dashboard session files emits `summary.dashboard_session.status === "not_running"`.
 - `AT-EXPORT-DASH-002`: run export with live PID + session emits `summary.dashboard_session.status === "running"` and captures URL/PID.
 - `AT-REPORT-DASH-001`: governed-run report JSON exposes `subject.run.dashboard_session` from a verified export artifact.
-- `AT-REPORT-DASH-002`: text and markdown report output render the dashboard session summary line for running snapshots.
+- `AT-REPORT-DASH-002`: text, markdown, and html report output render the dashboard session summary for running snapshots.
 - `AT-REPORT-DASH-003`: older artifacts without `summary.dashboard_session` still report successfully and surface `subject.run.dashboard_session === null`.
 
 ## Open Questions

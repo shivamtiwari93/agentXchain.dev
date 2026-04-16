@@ -1186,7 +1186,7 @@ describe('report CLI', () => {
     }
   });
 
-  it('AT-REPORT-011: report surfaces warn-mode budget state across all formats', () => {
+  it('AT-REPORT-011: report surfaces warn-mode budget state across text, json, markdown, and html', () => {
     const root = createGovernedProject();
     try {
       // Patch state to include warn-mode budget fields
@@ -1222,12 +1222,16 @@ describe('report CLI', () => {
       const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
       assert.equal(mdResult.status, 0, mdResult.stderr);
       assert.match(mdResult.stdout, /Budget: spent \$12\.50, remaining \$-2\.50 \*\*\[OVER BUDGET\]\*\*/);
+
+      const htmlResult = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
+      assert.equal(htmlResult.status, 0, htmlResult.stderr);
+      assert.match(htmlResult.stdout, /Budget<\/dt><dd>spent \$12\.50, remaining \$-2\.50 <span class="warn">\[OVER BUDGET\]<\/span>/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it('AT-REPORT-DEL-001/002/003: report surfaces delegation summary across json, text, and markdown', () => {
+  it('AT-REPORT-DEL-001/002/003: report surfaces delegation summary across json, text, markdown, and html', () => {
     const root = createGovernedProject();
     try {
       writeDelegationHistory(root);
@@ -1286,12 +1290,21 @@ describe('report CLI', () => {
       assert.match(markdownResult.stdout, /\| Parent Role \| Parent Turn \| Outcome \| Review Turn \| Delegation \| Child Turn \| Status \| Required Decisions \| Missing Decisions \| Charter \|/);
       assert.match(markdownResult.stdout, /\| director \| `turn_010` \| `mixed` \| `turn_013` \| `del-001` → `dev` \| `turn_011` \| `completed` \| DEC-101 \| — \| Build the API \|/);
       assert.match(markdownResult.stdout, /\|  \|  \|  \|  \| `del-002` → `qa` \| `turn_012` \| `failed` \| DEC-201 \| DEC-201 \| Test the API \|/);
+
+      const htmlResult = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
+      assert.equal(htmlResult.status, 0, htmlResult.stderr);
+      assert.match(htmlResult.stdout, /<h2>Delegation Summary<\/h2>/);
+      assert.match(htmlResult.stdout, /<td>director<\/td><td><code>turn_010<\/code><\/td>/);
+      assert.match(htmlResult.stdout, /<td><code>turn_013<\/code><\/td><td><code>del-001<\/code> &rarr; <code>dev<\/code><\/td><td><code>turn_011<\/code><\/td>/);
+      assert.match(htmlResult.stdout, /background:#f59e0b">mixed<\/span>/);
+      assert.match(htmlResult.stdout, /background:#22c55e">completed<\/span>/);
+      assert.match(htmlResult.stdout, /<td>DEC-101<\/td><td>—<\/td><td>Build the API<\/td>/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it('AT-REPORT-DASH-001/002/003: report surfaces dashboard session snapshot truthfully', () => {
+  it('AT-REPORT-DASH-001/002/003: report surfaces dashboard session snapshot truthfully across json, text, markdown, and html', () => {
     const root = createGovernedProject();
     try {
       let artifactPath = exportArtifact(root, 'dashboard-none.json');
@@ -1331,6 +1344,10 @@ describe('report CLI', () => {
       const markdownResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
       assert.equal(markdownResult.status, 0, markdownResult.stderr);
       assert.match(markdownResult.stdout, /- Dashboard session: `running at http:\/\/localhost:3847 \(PID: /);
+
+      const htmlResult = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
+      assert.equal(htmlResult.status, 0, htmlResult.stderr);
+      assert.match(htmlResult.stdout, /<dt>Dashboard<\/dt><dd><code>running at http:\/\/localhost:3847 \(PID: /);
 
       const legacyArtifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
       delete legacyArtifact.summary.dashboard_session;

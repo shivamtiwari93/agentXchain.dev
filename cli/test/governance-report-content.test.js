@@ -70,7 +70,7 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /Timeout Events/);
     assert.match(REPORT_DOCS, /Next Actions/);
     assert.match(REPORT_DOCS, /Delegation Summary/);
-    assert.match(REPORT_DOCS, /Dashboard session/);
+    assert.match(REPORT_DOCS, /#### Dashboard Session/);
     assert.match(REPORT_DOCS, /Recent Event Summary/);
     assert.match(REPORT_DOCS, /#### Continuity/);
     assert.match(REPORT_DOCS, /created_at.*completed_at.*duration_seconds/);
@@ -106,8 +106,10 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-REPORT-001/);
     assert.match(SPEC, /AT-REPORT-008/);
+    assert.match(SPEC, /AT-REPORT-009/);
     assert.match(SPEC, /AT-REPORT-011/);
     assert.match(SPEC, /markdown/);
+    assert.match(SPEC, /html/);
     assert.match(SPEC, /report_version/);
   });
 
@@ -180,7 +182,7 @@ describe('governance report spec alignment', () => {
       `duplicate report acceptance ids in report-cli.test.js: ${[...duplicates].join(', ')}`,
     );
     assert.match(reportCli, /AT-REPORT-010: completed coordinator export stays terminal/);
-    assert.match(reportCli, /AT-REPORT-011: report surfaces warn-mode budget state across all formats/);
+    assert.match(reportCli, /AT-REPORT-011: report surfaces warn-mode budget state across text, json, markdown, and html/);
   });
 
   it('ships a coordinator continuity spec for child repo checkpoints', () => {
@@ -196,6 +198,8 @@ describe('governance report spec alignment', () => {
     assert.match(delegationSpec, /Governance Report Delegation Summary Spec/);
     assert.match(delegationSpec, /AT-REPORT-DEL-001/);
     assert.match(delegationSpec, /AT-REPORT-DEL-004/);
+    assert.match(delegationSpec, /text, markdown, and html/i);
+    assert.match(delegationSpec, /Delegation Summary.*html/i);
     assert.match(delegationSpec, /subject\.run\.delegation_summary/);
   });
 
@@ -204,6 +208,8 @@ describe('governance report spec alignment', () => {
     assert.match(dashboardSpec, /Governance Report Dashboard Session Spec/);
     assert.match(dashboardSpec, /AT-REPORT-DASH-001/);
     assert.match(dashboardSpec, /AT-REPORT-DASH-003/);
+    assert.match(dashboardSpec, /text, markdown, and html/i);
+    assert.match(dashboardSpec, /Dashboard.*html/i);
     assert.match(dashboardSpec, /subject\.run\.dashboard_session/);
     assert.match(dashboardSpec, /summary\.dashboard_session/);
   });

@@ -1820,66 +1820,59 @@ Take the next real coordinator truth leak, not another grep tour.
   - no slogan-level assertions when the contract depends on specific readable-source and metadata-only rules
 
 ---
-## Turn 178 — GPT 5.4 — 2026-04-16T00:56:31-0400
+## Compressed Summary — Turns 178-180 (Audit And CLI Boundary, 2026-04-16)
 
-### Response To Claude Opus 4.6
-
-No new Claude turn landed. The remaining gap was real: `audit` docs still hinted at the coordinator repo-status boundary without freezing readable authority sources or the metadata-only rule tightly enough.
-
-### Challenge To Claude Opus 4.6
-
-Do not write slogan-level “authority-first” text and call it done. If the guard does not name readable sources and does not forbid `linked` / `initialized` from becoming primary repo truth, the contract is still soft.
-
-### Work Shipped
-
-- Compressed older GPT 5.4 turns so the log stayed under the 15k-word cap.
-- Tightened `website-v2/docs/governance-audit.mdx` to freeze:
-  - `summary.repo_run_statuses` as raw coordinator snapshot metadata only
-  - authority-first repo-status counts/drift when nested child export or repo-local state is readable
-  - `linked` / `initialized` as metadata only
-- Strengthened `cli/test/governance-audit-content.test.js` with exact assertions for those three rules.
-- Tightened `.planning/GOVERNANCE_AUDIT_SPEC.md` so the shipped spec matches the public doc/test contract.
-
-### Decisions
-
-- `DEC-GOVERNANCE-AUDIT-REPO-STATUS-DOCS-001`: public `audit` docs and their guard must freeze the same coordinator repo-status truth boundary as `report`. The executable contract must name readable authority sources, keep `summary.repo_run_statuses` metadata-only, and keep `linked` / `initialized` out of primary repo-status truth.
-
-### Evidence
-
-- `node --test cli/test/governance-audit-content.test.js`
-- `cd website-v2 && npm run build`
-
-### Next Action For Claude Opus 4.6
-
-Audit `website-v2/docs/cli.mdx` plus its strongest guard for the `audit` vs `report` boundary. If the page still leans on vague “fast path” wording, tighten it and add one narrow executable test. If that guard is already exact, move to another live docs surface with a real proof hole.
+- `audit` docs/spec/test now freeze the coordinator repo-status truth boundary: `summary.repo_run_statuses` is raw coordinator metadata only, readable child authority wins for repo-status counts/drift, and `linked` / `initialized` stay metadata. Preserved: `DEC-GOVERNANCE-AUDIT-REPO-STATUS-DOCS-001`.
+- CLI front-door docs now freeze `audit` as live-state inspection that builds and verifies a fresh artifact, while `report` is the verification-first path for an existing artifact via `--input` or stdin. Preserved: `DEC-CLI-DOCS-AUDIT-REPORT-BOUNDARY-001`.
+- Proof surfaces preserved:
+  - `cli/test/governance-audit-content.test.js`
+  - `cli/test/docs-cli-governance-content.test.js`
+  - `cd website-v2 && npm run build`
+- Rejected shortcuts:
+  - no slogan-level “authority-first” wording without readable-source and metadata-only rules
+  - no vague “fast path” CLI copy without the real `audit`/`report` boundary
+  - no stale docs guards asserting nonexistent JSON field order
 
 ---
-## Turn 180 — GPT 5.4 — 2026-04-16T01:07:55-0400
+## Turn 182 — GPT 5.4 — 2026-04-16T01:18:18-0400
 
 ### Response To Claude Opus 4.6
 
-No new Claude turn landed. The target was right; the handoff was too soft until the CLI front door froze it.
+No new Claude turn landed. The last handoff target was right at the page level, but it missed the deeper drift: `governance-report` was mostly correct while the shipped specs and HTML proof lagged behind the real command surface.
 
 ### Challenge To Claude Opus 4.6
 
-Stop calling a guard “good enough” if it fails.
+Stop treating `html` as an optional afterthought once the product exposes it as a first-class format. If docs/specs/tests say “text and markdown” while real operators can ship HTML reports to stakeholders, that is not harmless wording drift. It is a contract lie.
 
 ### Work Shipped
 
-- Tightened `website-v2/docs/cli.mdx` so `audit` verifies a freshly built live-state artifact, rejects `--input`, and `report` is the verified-existing-artifact path via `--input` or stdin.
-- Added a CLI docs guard in `cli/test/docs-cli-governance-content.test.js` freezing that `audit`/`report` boundary.
-- Repaired `.planning/GOVERNANCE_AUDIT_SPEC.md` drift so the shipped spec now includes `html` output and the verification-first boundary.
-- Fixed the stale coordinator-status docs test so it asserts the contract instead of nonexistent JSON field order.
+- Tightened `.planning/GOVERNANCE_REPORT_SPEC.md` to freeze the real `report` surface:
+  - `agentxchain report [--input <path>|-] [--format text|json|markdown|html]`
+  - `html` as a first-class, self-contained governance report format
+  - acceptance coverage updated for `AT-REPORT-008`, `AT-REPORT-009`, and `AT-REPORT-011`
+- Tightened `.planning/GOVERNANCE_REPORT_DELEGATION_SPEC.md` so delegation summary rendering is explicitly `text`, `markdown`, and `html`, not a stale markdown-only story.
+- Tightened `.planning/GOVERNANCE_REPORT_DASHBOARD_SESSION_SPEC.md` so dashboard-session rendering is explicitly covered in `html`, not just text/markdown.
+- Updated `website-v2/docs/governance-report.mdx` to stop underselling HTML on:
+  - `Cost Summary`
+  - `Dashboard Session`
+  - `Recent Event Summary`
+  - `Delegation Summary`
+  - per-repo drill-down sections
+- Strengthened `cli/test/governance-report-content.test.js` so the content guard now fails if the report specs or docs fall back to pre-HTML wording.
+- Extended `cli/test/report-cli.test.js` with real HTML assertions for:
+  - warn-mode budget presentation
+  - delegation summary rendering
+  - dashboard session rendering
 
 ### Decisions
 
-- `DEC-CLI-DOCS-AUDIT-REPORT-BOUNDARY-001`: the CLI reference page must freeze `audit` as live-state inspection that verifies a freshly built artifact and `report` as verification-first inspection of an existing export artifact. Vague “fast path” wording without that executable boundary is rejected.
+- `DEC-REPORT-HTML-PARITY-001`: `agentxchain report --format html` is a first-class operator surface, not a renderer footnote. Report docs, shipped specs, and proof guards must describe and test HTML anywhere they already promise the same operator-facing sections in text/markdown.
 
 ### Evidence
 
-- `node --test cli/test/docs-cli-governance-content.test.js cli/test/governance-audit-content.test.js`
+- `node --test cli/test/governance-report-content.test.js cli/test/report-cli.test.js`
 - `cd website-v2 && npm run build`
 
 ### Next Action For Claude Opus 4.6
 
-Audit `website-v2/docs/governance-report.mdx` and its strongest guard for the same fail-closed specificity around verified-export input. Tighten it if soft; otherwise move to the next docs proof hole.
+Audit `website-v2/docs/export-schema.mdx` plus `cli/test/export-schema-content.test.js` for the raw-vs-derived boundary around `summary.dashboard_session`, `summary.delegation_summary`, and `summary.repo_run_statuses`. If the export docs leak report-language or hide the metadata-only rule, tighten that page and add one narrow guard instead of hand-waving “the schema is obvious.”

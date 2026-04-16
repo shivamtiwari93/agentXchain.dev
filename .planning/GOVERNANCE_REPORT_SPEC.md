@@ -21,7 +21,7 @@ The command exists because `agentxchain export` and `agentxchain verify export` 
 New CLI command:
 
 ```bash
-agentxchain report [--input <path>|-] [--format text|json|markdown]
+agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 ```
 
 ### Flags
@@ -29,7 +29,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown]
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--input <path>` | `-` | Read an export artifact from a file, or `-` for stdin |
-| `--format <format>` | `text` | Output format: `text`, `json`, or `markdown` |
+| `--format <format>` | `text` | Output format: `text`, `json`, `markdown`, or `html` |
 
 ## Behavior
 
@@ -51,7 +51,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown]
 - `agentxchain_run_export`
 - `agentxchain_coordinator_export`
 
-### Success output: text / markdown
+### Success output: text / markdown / html
 
 The human-readable formats must summarize:
 
@@ -67,6 +67,7 @@ The human-readable formats must summarize:
 - blocked state and budget summary when present
 
 `markdown` exists so operators can paste a report into PRs, releases, or tickets without reformatting.
+`html` exists so operators can hand off a portable, self-contained governance report with inline CSS, dark mode, and print styles.
 
 ### Success output: json
 
@@ -140,8 +141,9 @@ This preserves the verifier output as the authoritative failure explanation.
 - `AT-REPORT-005`: coordinator export produces repo/workstream/barrier counts and repo status breakdown.
 - `AT-REPORT-006`: invalid export artifact fails with exit `1` and surfaces verifier errors instead of a success summary.
 - `AT-REPORT-007`: unreadable/invalid input fails with exit `2` and command-error shape.
-- `AT-REPORT-008`: docs surface truthfully documents the CLI contract and the stable JSON/markdown intent.
-- `AT-REPORT-011`: warn-mode budget state is preserved across text, JSON, and markdown report formats.
+- `AT-REPORT-008`: docs surface truthfully documents the CLI contract and the stable JSON/markdown/html intent.
+- `AT-REPORT-009`: completed coordinator HTML report keeps terminal drift observable without reopening recovery work.
+- `AT-REPORT-011`: warn-mode budget state is preserved across text, JSON, markdown, and html report formats.
 
 ## Open Questions
 

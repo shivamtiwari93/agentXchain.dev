@@ -122,7 +122,7 @@ When the governed project config includes `project.goal`, the derived report pre
 | `by_role` | `array` | Per-role breakdown sorted alphabetically. Each entry: `{ role, usd, turns, input_tokens, output_tokens }` |
 | `by_phase` | `array` | Per-phase breakdown sorted alphabetically. Each entry: `{ phase, usd, turns }` |
 
-Text and markdown output render a dedicated **Cost Summary** section with role and phase breakdowns between the budget line and the turn timeline.
+Text, markdown, and html output render a dedicated **Cost Summary** section with role and phase breakdowns between the budget line and the turn timeline.
 
 #### Dashboard Session
 
@@ -137,7 +137,7 @@ When present it has this shape:
 | `url` | `string \| null` | Dashboard URL when session metadata exists |
 | `started_at` | `string \| null` | Session start timestamp when known |
 
-Current exports always include this field. Older verified artifacts may surface `null` here because they predate the snapshot field. When the field is present, text and markdown output render a `Dashboard session` summary line near the top of the report.
+Current exports always include this field. Older verified artifacts may surface `null` here because they predate the snapshot field. When the field is present, text, markdown, and html output render the dashboard snapshot near the top of the report.
 
 #### Recent Event Summary
 
@@ -163,7 +163,7 @@ When present it has this shape:
 - `repo_id`
 - `summary`
 
-Text and markdown output render this digest near the top of the report as `Recent events` plus `Latest event`.
+Text, markdown, and html output render this digest near the top of the report as `Recent events` plus `Latest event`.
 
 #### Delegation Summary
 
@@ -196,7 +196,7 @@ Each delegation entry contains:
 | `status` | `"completed" \| "failed" \| "pending"` | Child outcome |
 | `child_turn_id` | `string \| null` | Child turn id, or `null` when not yet executed |
 
-When delegation chains exist, text and markdown output render a dedicated **Delegation Summary** section before the turn timeline.
+When delegation chains exist, text, markdown, and html output render a dedicated **Delegation Summary** section before the turn timeline.
 
 #### Recovery Summary
 
@@ -281,7 +281,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 - `continuity` — child session checkpoint metadata or `null`
 - `blocked_on` — current blocked-on value or `null`
 
-These fields are omitted for failed repos (`ok: false`). Text and markdown formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
+These fields are omitted for failed repos (`ok: false`). Text, markdown, and html formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
 When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
 When `subject.run.status = "completed"` and either `subject.run.run_id_mismatches` or `subject.run.repo_status_drifts` is non-empty, the report keeps that child repo drift visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.

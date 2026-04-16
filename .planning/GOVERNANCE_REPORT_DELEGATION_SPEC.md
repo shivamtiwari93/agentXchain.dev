@@ -17,7 +17,7 @@ No new CLI flags.
 Existing command:
 
 ```bash
-agentxchain report [--input <path>|-] [--format text|json|markdown]
+agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 ```
 
 Additive governed-run report field:
@@ -28,6 +28,7 @@ Additive human-readable sections when delegation data exists:
 
 - `Delegation Summary:` in `text`
 - `## Delegation Summary` in `markdown`
+- `Delegation Summary` table in `html`
 
 ## Behavior
 
@@ -40,7 +41,7 @@ Additive human-readable sections when delegation data exists:
   - `null` when history is unavailable
   - object with `total_delegations_issued` and `delegation_chains` otherwise
 
-### Text and markdown
+### Text, markdown, and html
 
 - Omit delegation sections when there are zero delegation chains.
 - When delegation chains exist, render:
@@ -66,7 +67,7 @@ Additive human-readable sections when delegation data exists:
 ## Acceptance Tests
 
 - `AT-REPORT-DEL-001`: JSON governed-run report includes `subject.run.delegation_summary` with chain outcome and child/review turn correlation.
-- `AT-REPORT-DEL-002`: text and markdown report formats render a delegation summary section when delegation chains exist.
+- `AT-REPORT-DEL-002`: text, markdown, and html report formats render a delegation summary section when delegation chains exist.
 - `AT-REPORT-DEL-003`: report omits delegation sections when there are no delegation chains.
 - `AT-REPORT-DEL-004`: docs surface truthfully documents `subject.run.delegation_summary` and the human-readable delegation summary sections.
 
