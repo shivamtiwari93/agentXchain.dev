@@ -119,6 +119,34 @@ function yesNo(value) {
   return value ? 'yes' : 'no';
 }
 
+function normalizeConflictingFiles(conflict) {
+  if (!conflict || typeof conflict !== 'object' || Array.isArray(conflict)) return [];
+  if (Array.isArray(conflict.conflicting_files)) {
+    return conflict.conflicting_files.filter((entry) => typeof entry === 'string' && entry.length > 0);
+  }
+  if (Array.isArray(conflict.files)) {
+    return conflict.files.filter((entry) => typeof entry === 'string' && entry.length > 0);
+  }
+  return [];
+}
+
+function normalizeAcceptedSinceTurnIds(conflict) {
+  if (!conflict || typeof conflict !== 'object' || Array.isArray(conflict)) return [];
+  if (Array.isArray(conflict.accepted_since_turn_ids)) {
+    return conflict.accepted_since_turn_ids.filter((entry) => typeof entry === 'string' && entry.length > 0);
+  }
+  if (Array.isArray(conflict.accepted_since)) {
+    return conflict.accepted_since
+      .map((entry) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object' && typeof entry.turn_id === 'string') return entry.turn_id;
+        return null;
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function summarizeBlockedOn(blockedOn) {
   if (!blockedOn) return 'none';
   if (typeof blockedOn === 'string') return blockedOn;
@@ -143,6 +171,9 @@ function renderGovernanceEventDetailText(lines, evt, indent) {
       if (evt.conflicting_files?.length > 0) {
         lines.push(`${indent}files: ${evt.conflicting_files.join(', ')}`);
       }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`${indent}accepted since: ${evt.accepted_since_turn_ids.join(', ')}`);
+      }
       if (evt.overlap_ratio != null) {
         lines.push(`${indent}overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
       }
@@ -151,8 +182,23 @@ function renderGovernanceEventDetailText(lines, evt, indent) {
       if (evt.conflicting_files?.length > 0) {
         lines.push(`${indent}files: ${evt.conflicting_files.join(', ')}`);
       }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`${indent}accepted since: ${evt.accepted_since_turn_ids.join(', ')}`);
+      }
+      if (evt.operator_reason) {
+        lines.push(`${indent}operator reason: ${evt.operator_reason}`);
+      }
       break;
     case 'conflict_resolution_selected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`${indent}files: ${evt.conflicting_files.join(', ')}`);
+      }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`${indent}accepted since: ${evt.accepted_since_turn_ids.join(', ')}`);
+      }
+      if (evt.overlap_ratio != null) {
+        lines.push(`${indent}overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
+      }
       if (evt.resolution_method) {
         lines.push(`${indent}resolution: ${evt.resolution_method}`);
       }
@@ -179,6 +225,9 @@ function renderGovernanceEventDetailMarkdown(lines, evt) {
       if (evt.conflicting_files?.length > 0) {
         lines.push(`  - Files: ${evt.conflicting_files.map((f) => `\`${f}\``).join(', ')}`);
       }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`  - Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `\`${turnId}\``).join(', ')}`);
+      }
       if (evt.overlap_ratio != null) {
         lines.push(`  - Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
       }
@@ -187,8 +236,21 @@ function renderGovernanceEventDetailMarkdown(lines, evt) {
       if (evt.conflicting_files?.length > 0) {
         lines.push(`  - Files: ${evt.conflicting_files.map((f) => `\`${f}\``).join(', ')}`);
       }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`  - Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `\`${turnId}\``).join(', ')}`);
+      }
+      if (evt.operator_reason) lines.push(`  - Operator reason: ${evt.operator_reason}`);
       break;
     case 'conflict_resolution_selected':
+      if (evt.conflicting_files?.length > 0) {
+        lines.push(`  - Files: ${evt.conflicting_files.map((f) => `\`${f}\``).join(', ')}`);
+      }
+      if (evt.accepted_since_turn_ids?.length > 0) {
+        lines.push(`  - Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `\`${turnId}\``).join(', ')}`);
+      }
+      if (evt.overlap_ratio != null) {
+        lines.push(`  - Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%`);
+      }
       if (evt.resolution_method) lines.push(`  - Resolution: \`${evt.resolution_method}\``);
       break;
     case 'operator_escalated':
@@ -480,14 +542,21 @@ function extractGovernanceEventDigest(artifact, relPath = '.agentxchain/decision
           })) : [];
           break;
         case 'conflict_detected':
-          base.conflicting_files = Array.isArray(d.conflict?.files) ? d.conflict.files : [];
+          base.conflicting_files = normalizeConflictingFiles(d.conflict);
+          base.accepted_since_turn_ids = normalizeAcceptedSinceTurnIds(d.conflict);
           base.overlap_ratio = typeof d.conflict?.overlap_ratio === 'number' ? d.conflict.overlap_ratio : null;
           break;
         case 'conflict_rejected':
-          base.conflicting_files = Array.isArray(d.conflict?.files) ? d.conflict.files : [];
+          base.conflicting_files = normalizeConflictingFiles(d.conflict);
+          base.accepted_since_turn_ids = normalizeAcceptedSinceTurnIds(d.conflict);
+          base.overlap_ratio = typeof d.conflict?.overlap_ratio === 'number' ? d.conflict.overlap_ratio : null;
+          base.operator_reason = d.operator_reason || null;
           break;
         case 'conflict_resolution_selected':
-          base.resolution_method = d.conflict?.resolution || null;
+          base.conflicting_files = normalizeConflictingFiles(d.conflict);
+          base.accepted_since_turn_ids = normalizeAcceptedSinceTurnIds(d.conflict);
+          base.overlap_ratio = typeof d.conflict?.overlap_ratio === 'number' ? d.conflict.overlap_ratio : null;
+          base.resolution_method = d.resolution_chosen || d.conflict?.resolution || null;
           break;
         case 'operator_escalated':
           base.blocked_on = d.blocked_on || null;
@@ -2420,7 +2489,19 @@ function renderHtmlGovEventDetail(evt) {
       break;
     case 'conflict_detected':
       if (evt.conflicting_files?.length > 0) parts.push(`<li>Files: ${evt.conflicting_files.map((f) => `<code>${esc(f)}</code>`).join(', ')}</li>`);
+      if (evt.accepted_since_turn_ids?.length > 0) parts.push(`<li>Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `<code>${esc(turnId)}</code>`).join(', ')}</li>`);
       if (evt.overlap_ratio != null) parts.push(`<li>Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%</li>`);
+      break;
+    case 'conflict_rejected':
+      if (evt.conflicting_files?.length > 0) parts.push(`<li>Files: ${evt.conflicting_files.map((f) => `<code>${esc(f)}</code>`).join(', ')}</li>`);
+      if (evt.accepted_since_turn_ids?.length > 0) parts.push(`<li>Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `<code>${esc(turnId)}</code>`).join(', ')}</li>`);
+      if (evt.operator_reason) parts.push(`<li>Operator reason: ${esc(evt.operator_reason)}</li>`);
+      break;
+    case 'conflict_resolution_selected':
+      if (evt.conflicting_files?.length > 0) parts.push(`<li>Files: ${evt.conflicting_files.map((f) => `<code>${esc(f)}</code>`).join(', ')}</li>`);
+      if (evt.accepted_since_turn_ids?.length > 0) parts.push(`<li>Accepted since: ${evt.accepted_since_turn_ids.map((turnId) => `<code>${esc(turnId)}</code>`).join(', ')}</li>`);
+      if (evt.overlap_ratio != null) parts.push(`<li>Overlap: ${(evt.overlap_ratio * 100).toFixed(0)}%</li>`);
+      if (evt.resolution_method) parts.push(`<li>Resolution: <code>${esc(evt.resolution_method)}</code></li>`);
       break;
     case 'operator_escalated':
       if (evt.reason) parts.push(`<li>Reason: ${esc(evt.reason)}</li>`);

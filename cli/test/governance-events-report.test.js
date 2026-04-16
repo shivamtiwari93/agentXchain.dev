@@ -147,7 +147,11 @@ describe('governance events in report', () => {
         role: 'dev',
         phase: 'planning',
         attempt: 1,
-        conflict: { files: ['src/index.js', 'src/lib.js'], overlap_ratio: 0.75 },
+        conflict: {
+          conflicting_files: ['src/index.js', 'src/lib.js'],
+          accepted_since_turn_ids: ['turn_001', 'turn_002'],
+          overlap_ratio: 0.75,
+        },
       },
     ]);
     roots.push(root);
@@ -158,7 +162,33 @@ describe('governance events in report', () => {
     assert.equal(govEvents.length, 1);
     assert.equal(govEvents[0].type, 'conflict_detected');
     assert.deepStrictEqual(govEvents[0].conflicting_files, ['src/index.js', 'src/lib.js']);
+    assert.deepStrictEqual(govEvents[0].accepted_since_turn_ids, ['turn_001', 'turn_002']);
     assert.equal(govEvents[0].overlap_ratio, 0.75);
+  });
+
+  it('report text output shows real conflict ledger details', () => {
+    const root = createGovernedProject([
+      {
+        timestamp: '2026-04-12T09:02:00.000Z',
+        decision: 'conflict_detected',
+        turn_id: 'turn_003',
+        role: 'dev',
+        phase: 'planning',
+        attempt: 1,
+        conflict: {
+          conflicting_files: ['src/index.js', 'src/lib.js'],
+          accepted_since_turn_ids: ['turn_001'],
+          overlap_ratio: 0.75,
+        },
+      },
+    ]);
+    roots.push(root);
+
+    const result = exportAndReport(root, 'text');
+    assert.ok(result.stdout.includes('Governance Events:'), 'text output should contain Governance Events section');
+    assert.ok(result.stdout.includes('files: src/index.js, src/lib.js'), 'text output should contain conflict files');
+    assert.ok(result.stdout.includes('accepted since: turn_001'), 'text output should contain accepted-since turn ids');
+    assert.ok(result.stdout.includes('overlap: 75%'), 'text output should contain overlap percentage');
   });
 
   it('report text output shows Governance Events section when events exist', () => {
@@ -248,7 +278,11 @@ describe('governance events in report', () => {
         role: 'dev',
         phase: 'planning',
         attempt: 1,
-        conflict: { files: ['README.md'] },
+        conflict: {
+          conflicting_files: ['README.md'],
+          accepted_since_turn_ids: ['turn_001'],
+        },
+        operator_reason: 'Rejected until the README branch is rebased.',
       },
     ]);
     roots.push(root);
@@ -257,5 +291,32 @@ describe('governance events in report', () => {
     assert.ok(result.stdout.includes('## Governance Events'), 'markdown output should contain Governance Events heading');
     assert.ok(result.stdout.includes('conflict_rejected'), 'markdown output should contain event type');
     assert.ok(result.stdout.includes('`README.md`'), 'markdown output should contain file reference');
+    assert.ok(result.stdout.includes('`turn_001`'), 'markdown output should contain accepted-since turn id');
+    assert.ok(result.stdout.includes('Rejected until the README branch is rebased.'), 'markdown output should contain operator reason');
+  });
+
+  it('report HTML output includes conflict resolution details from the real ledger shape', () => {
+    const root = createGovernedProject([
+      {
+        timestamp: '2026-04-12T09:03:00.000Z',
+        decision: 'conflict_resolution_selected',
+        turn_id: 'turn_004',
+        role: 'dev',
+        phase: 'planning',
+        conflict: {
+          conflicting_files: ['src/conflict.js'],
+          accepted_since_turn_ids: ['turn_002'],
+          overlap_ratio: 0.5,
+        },
+        resolution_chosen: 'human_merge',
+      },
+    ]);
+    roots.push(root);
+
+    const result = exportAndReport(root, 'html');
+    assert.ok(result.stdout.includes('Governance Events'), 'html output should contain Governance Events heading');
+    assert.ok(result.stdout.includes('src/conflict.js'), 'html output should contain conflict file');
+    assert.ok(result.stdout.includes('turn_002'), 'html output should contain accepted-since turn id');
+    assert.ok(result.stdout.includes('Resolution: <code>human_merge</code>'), 'html output should contain chosen resolution');
   });
 });

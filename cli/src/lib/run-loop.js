@@ -340,6 +340,26 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
       const acceptResult = acceptTurn(root, config, { turnId: turn.turn_id });
       if (!acceptResult.ok) {
         errors.push(`acceptTurn(${roleId}): ${acceptResult.error}`);
+
+        // Conflict-aware handling (DEC-RUN-LOOP-CONFLICT-001)
+        if (acceptResult.error_code === 'conflict') {
+          history.push({
+            role: roleId, turn_id: turn.turn_id, accepted: false,
+            error_code: 'conflict', accept_error: acceptResult.error,
+            conflict: acceptResult.conflict,
+          });
+          emit({
+            type: 'turn_conflicted', turn, role: roleId,
+            error_code: 'conflict', conflict: acceptResult.conflict,
+            state: acceptResult.state,
+          });
+          if (acceptResult.state?.status === 'blocked') {
+            emit({ type: 'blocked', state: acceptResult.state });
+            return { terminal: true, ok: false, stop_reason: 'conflict_loop', history, acceptedCount };
+          }
+          continue;
+        }
+
         // Record failure but try other turns
         history.push({ role: roleId, turn_id: turn.turn_id, accepted: false, accept_error: acceptResult.error });
         continue;
@@ -372,8 +392,10 @@ async function executeParallelTurns(root, config, state, maxConcurrent, callback
   if (acceptedCount === 0 && history.length > 0) {
     const allFailed = history.every(h => !h.accepted);
     if (allFailed) {
-      errors.push('All parallel turns failed acceptance — stalled');
-      return { terminal: true, ok: false, stop_reason: 'blocked', history, acceptedCount };
+      const allConflicts = history.every(h => h.error_code === 'conflict');
+      const stopReason = allConflicts ? 'conflict_stall' : 'blocked';
+      errors.push(`All parallel turns failed acceptance — ${stopReason}`);
+      return { terminal: true, ok: false, stop_reason: stopReason, history, acceptedCount };
     }
   }
 
@@ -419,6 +441,29 @@ async function dispatchAndProcess(root, config, turn, assignState, callbacks, em
     const acceptResult = acceptTurn(root, config);
     if (!acceptResult.ok) {
       errors.push(`acceptTurn(${roleId}): ${acceptResult.error}`);
+
+      // Conflict-aware handling (DEC-RUN-LOOP-CONFLICT-001)
+      if (acceptResult.error_code === 'conflict') {
+        history.push({
+          role: roleId, turn_id: turn.turn_id, accepted: false,
+          error_code: 'conflict', accept_error: acceptResult.error,
+          conflict: acceptResult.conflict,
+        });
+        emit({
+          type: 'turn_conflicted', turn, role: roleId,
+          error_code: 'conflict', conflict: acceptResult.conflict,
+          state: acceptResult.state,
+        });
+        // If the resulting state is blocked (conflict_loop), terminate
+        if (acceptResult.state?.status === 'blocked') {
+          emit({ type: 'blocked', state: acceptResult.state });
+          return { terminal: true, ok: false, stop_reason: 'conflict_loop', history };
+        }
+        // Otherwise the turn is conflicted but the run is still active — let the
+        // main loop re-enter and try another role or handle the paused state
+        return { terminal: false, accepted: false, history };
+      }
+
       return { terminal: true, ok: false, stop_reason: 'blocked', history };
     }
 

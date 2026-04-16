@@ -578,6 +578,45 @@ describe('agentxchain audit', () => {
     assert.match(parsed.input, /axc-audit-/);
   });
 
+  it('AT-AUDIT-016: governed project audit text surfaces real conflict ledger details', () => {
+    const root = createGovernedProject();
+    writeJsonl(join(root, '.agentxchain', 'decision-ledger.jsonl'), [
+      {
+        timestamp: '2026-04-16T13:00:00.000Z',
+        decision: 'conflict_detected',
+        turn_id: 'turn_001',
+        role: 'dev',
+        phase: 'implementation',
+        conflict: {
+          conflicting_files: ['src/app.js'],
+          accepted_since_turn_ids: ['turn_prev_001'],
+          overlap_ratio: 0.5,
+        },
+      },
+      {
+        timestamp: '2026-04-16T13:01:00.000Z',
+        decision: 'conflict_resolution_selected',
+        turn_id: 'turn_001',
+        role: 'dev',
+        phase: 'implementation',
+        conflict: {
+          conflicting_files: ['src/app.js'],
+          accepted_since_turn_ids: ['turn_prev_001'],
+          overlap_ratio: 0.5,
+        },
+        resolution_chosen: 'human_merge',
+      },
+    ]);
+
+    const result = runCli(root, ['audit']);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Governance Events:/);
+    assert.match(result.stdout, /files: src\/app\.js/);
+    assert.match(result.stdout, /accepted since: turn_prev_001/);
+    assert.match(result.stdout, /resolution: human_merge/);
+  });
+
   it('AT-AUDIT-004: coordinator workspace audit returns coordinator_workspace contract', () => {
     const root = createCoordinatorWorkspace();
     const result = runCli(root, ['audit', '--format', 'json']);
