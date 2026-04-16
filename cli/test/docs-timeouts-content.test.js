@@ -41,6 +41,10 @@ describe('Timeout docs content guard', () => {
       'must name the specific pending states that are exempt');
     assert.match(content, /evaluateTimeouts.*accept-turn|accept-turn.*evaluateTimeouts/i,
       'must document that evaluateTimeouts is only called from accept-turn');
+    assert.match(content, /do\s*\*\*not\*\*\s*pause the wall clock|do not pause the wall clock|clock.*continue/i,
+      'must document that approval waits do not pause the wall clock');
+    assert.match(content, /next accepted turn can immediately block|immediately block on `timeout:phase` or `timeout:run`/i,
+      'must document the next-acceptance timeout trap explicitly');
   });
 
   it('documents operator surfaces and recovery', () => {

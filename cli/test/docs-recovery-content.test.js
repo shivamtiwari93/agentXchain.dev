@@ -197,6 +197,11 @@ describe('Recovery docs — timeout operator contract', () => {
       /phase transition, run completion\)/i,
       'recovery docs must not claim timeout mutation happens on approve-transition or approve-completion'
     );
+    assert.match(
+      DOC,
+      /approval waits are exempt from timeout mutation, but they do not stop the phase\/run clock|next accepted turn can immediately block/i,
+      'recovery docs must explain approval-wait timeout visibility and the next accepted-turn trap'
+    );
   });
 });
 

@@ -197,6 +197,7 @@ function renderGovernedStatus(context, opts) {
   const activeTurnCount = getActiveTurnCount(state);
   const activeTurns = getActiveTurns(state);
   const singleActiveTurn = getActiveTurn(state);
+  const approvalPending = Boolean(state?.pending_phase_transition || state?.pending_run_completion);
   if (activeTurnCount > 1) {
     console.log(`  ${chalk.dim('Turns:')}    ${activeTurnCount} active`);
     for (const turn of Object.values(activeTurns)) {
@@ -327,12 +328,18 @@ function renderGovernedStatus(context, opts) {
     const pt = state.pending_phase_transition;
     console.log(`  ${chalk.dim('Pending:')}  ${formatGovernedPhase(pt.from)} → ${formatGovernedPhase(pt.to)}`);
     console.log(`  ${chalk.dim('Gate:')}     ${pt.gate} (requires human approval)`);
+    if (pt.requested_at) {
+      console.log(`  ${chalk.dim('Requested:')} ${pt.requested_at} (${timeSince(pt.requested_at)} ago)`);
+    }
   }
 
   if (state?.pending_run_completion) {
     const pc = state.pending_run_completion;
     console.log(`  ${chalk.dim('Pending:')}  ${chalk.bold('Run Completion')}`);
     console.log(`  ${chalk.dim('Gate:')}     ${pc.gate} (requires human approval)`);
+    if (pc.requested_at) {
+      console.log(`  ${chalk.dim('Requested:')} ${pc.requested_at} (${timeSince(pc.requested_at)} ago)`);
+    }
   }
 
   if (state?.status === 'completed') {
@@ -374,14 +381,20 @@ function renderGovernedStatus(context, opts) {
 
   renderWorkflowKitArtifactsSection(workflowKitArtifacts);
 
-  if (config.timeouts && state?.status === 'active') {
-    const activeTurn = getActiveTurn(state);
+  if (config.timeouts && (state?.status === 'active' || approvalPending)) {
+    const activeTurn = state?.status === 'active' ? getActiveTurn(state) : null;
     const turnResult = activeTurn ? { role: activeTurn.assigned_role } : undefined;
     const timeoutEval = evaluateTimeouts({ config, state, turn: activeTurn, turnResult, now: new Date().toISOString() });
     const allItems = [...timeoutEval.exceeded, ...timeoutEval.warnings];
-    if (allItems.length > 0) {
+    if (allItems.length > 0 || approvalPending) {
       console.log('');
       console.log(`  ${chalk.dim('Timeouts:')}`);
+      if (approvalPending) {
+        console.log(`    ${chalk.yellow('◷')} approval wait does not mutate timeout state; phase/run clocks keep ticking until the next accepted turn`);
+      }
+      if (approvalPending && allItems.length === 0) {
+        console.log(`    ${chalk.dim('No current phase/run timeout pressure.')}`);
+      }
       for (const item of allItems) {
         const isExceeded = timeoutEval.exceeded.includes(item);
         const elapsed = item.elapsed_minutes != null ? `${item.elapsed_minutes}m` : '?';
@@ -643,6 +656,7 @@ function formatRunStatus(status) {
 
 function timeSince(iso) {
   const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
   const sec = Math.floor(ms / 1000);
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);

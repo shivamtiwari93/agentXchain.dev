@@ -73,6 +73,30 @@ function emptyLiveTimeouts() {
   return { exceeded: [], warnings: [] };
 }
 
+function buildLiveContext(state) {
+  const pendingPhase = state?.pending_phase_transition;
+  const pendingCompletion = state?.pending_run_completion;
+  if (pendingPhase) {
+    return {
+      awaiting_approval: true,
+      pending_gate_type: 'phase_transition',
+      requested_at: typeof pendingPhase.requested_at === 'string' ? pendingPhase.requested_at : null,
+    };
+  }
+  if (pendingCompletion) {
+    return {
+      awaiting_approval: true,
+      pending_gate_type: 'run_completion',
+      requested_at: typeof pendingCompletion.requested_at === 'string' ? pendingCompletion.requested_at : null,
+    };
+  }
+  return {
+    awaiting_approval: false,
+    pending_gate_type: null,
+    requested_at: null,
+  };
+}
+
 function getActiveTurns(state) {
   if (!state?.active_turns || typeof state.active_turns !== 'object' || Array.isArray(state.active_turns)) {
     return [];
@@ -90,7 +114,8 @@ function annotateTurnTimeout(result, state, turn) {
 }
 
 export function evaluateDashboardTimeoutPressure(config, state, now = new Date()) {
-  if (!config?.timeouts || state?.status !== 'active') {
+  const approvalPending = Boolean(state?.pending_phase_transition || state?.pending_run_completion);
+  if (!config?.timeouts || (state?.status !== 'active' && !approvalPending)) {
     return emptyLiveTimeouts();
   }
 
@@ -100,16 +125,18 @@ export function evaluateDashboardTimeoutPressure(config, state, now = new Date()
     warnings: [...base.warnings],
   };
 
-  for (const turn of getActiveTurns(state)) {
-    const turnEval = evaluateTimeouts({ config, state, turn, now });
-    for (const item of turnEval.exceeded) {
-      if (item.scope === 'turn') {
-        live.exceeded.push(annotateTurnTimeout(item, state, turn));
+  if (state?.status === 'active') {
+    for (const turn of getActiveTurns(state)) {
+      const turnEval = evaluateTimeouts({ config, state, turn, now });
+      for (const item of turnEval.exceeded) {
+        if (item.scope === 'turn') {
+          live.exceeded.push(annotateTurnTimeout(item, state, turn));
+        }
       }
-    }
-    for (const item of turnEval.warnings) {
-      if (item.scope === 'turn') {
-        live.warnings.push(annotateTurnTimeout(item, state, turn));
+      for (const item of turnEval.warnings) {
+        if (item.scope === 'turn') {
+          live.warnings.push(annotateTurnTimeout(item, state, turn));
+        }
       }
     }
   }
@@ -172,6 +199,7 @@ export function readTimeoutStatus(workspacePath) {
         configured: false,
         config: null,
         live: null,
+        live_context: null,
         events: [],
       },
     };
@@ -190,12 +218,13 @@ export function readTimeoutStatus(workspacePath) {
   return {
     ok: true,
     status: 200,
-    body: {
-      ok: true,
-      configured: true,
-      config: configSummary,
-      live,
-      events,
-    },
-  };
+      body: {
+        ok: true,
+        configured: true,
+        config: configSummary,
+        live,
+        live_context: buildLiveContext(state),
+        events,
+      },
+    };
 }

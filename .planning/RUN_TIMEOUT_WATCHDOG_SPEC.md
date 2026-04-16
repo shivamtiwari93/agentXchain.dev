@@ -69,6 +69,8 @@ Timeouts are evaluated at **governed acceptance boundaries** only — not via ba
 
 This is consistent with the existing checkpoint-at-governance-boundary pattern (`DEC-SESSION-CHECKPOINT-001`).
 
+When a run is paused on `pending_phase_transition` or `pending_run_completion`, `status` still evaluates read-only phase/run timeout pressure. That visibility is advisory only: the timeout will not mutate state until a future `accept-turn`, but the operator must be warned that the elapsed wall clock can already exceed the configured limit.
+
 ### Timeout Detection
 
 ```
@@ -131,6 +133,7 @@ When `action === "skip_phase"`:
 - `AT-TIMEOUT-010`: Recovery from timeout block via `resume` clears the block and allows continuation.
 - `AT-TIMEOUT-011`: Config validation rejects `timeouts.action: "skip_phase"` and allows it only as a phase routing override.
 - `AT-TIMEOUT-012`: Blocked recovery descriptor has `typed_reason: 'timeout'` with scope, limit, and recovery action.
+- `AT-TIMEOUT-015`: `status` surfaces read-only phase/run timeout pressure during approval waits and explicitly warns that the next accepted turn may block.
 
 ## Open Questions
 

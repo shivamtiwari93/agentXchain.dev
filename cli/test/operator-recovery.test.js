@@ -232,6 +232,71 @@ describe('operator recovery surfaces', () => {
     }
   });
 
+  it('AT-AWTV-001: status warns about timeout pressure during pending approval waits', () => {
+    const dir = createGovernedProject({
+      config: {
+        timeouts: {
+          per_phase_minutes: 60,
+          per_run_minutes: 120,
+          action: 'escalate',
+        },
+      },
+      state: {
+        status: 'paused',
+        phase: 'implementation',
+        created_at: '2026-04-01T00:00:00Z',
+        phase_entered_at: '2026-04-01T00:00:00Z',
+        blocked_on: 'human_approval:planning_signoff',
+        pending_phase_transition: {
+          from: 'implementation',
+          to: 'qa',
+          gate: 'planning_signoff',
+          requested_by_turn: 'turn_impl_01',
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /approval wait does not mutate timeout state; phase\/run clocks keep ticking until the next accepted turn/i);
+      assert.match(result.stdout, /EXCEEDED phase/i);
+      assert.match(result.stdout, /EXCEEDED run/i);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-AWTV-002: status shows Requested for pending run completion approval waits', () => {
+    const dir = createGovernedProject({
+      config: {
+        timeouts: {
+          per_run_minutes: 120,
+          action: 'warn',
+        },
+      },
+      state: {
+        status: 'paused',
+        phase: 'qa',
+        blocked_on: 'human_approval:qa_ship_verdict',
+        pending_run_completion: {
+          gate: 'qa_ship_verdict',
+          requested_by_turn: 'turn_qa_02',
+          requested_at: '2026-04-01T21:00:00Z',
+        },
+      },
+    });
+
+    try {
+      const result = runCli(dir, ['status']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Requested:\s+2026-04-01T21:00:00Z/);
+      assert.match(result.stdout, /\(.*ago\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('approve-transition succeeds after a hook-blocked approval leaves pending transition intact', () => {
     const dir = createGovernedProject({
       state: {

@@ -82,14 +82,22 @@ function renderConfigTable(config) {
 }
 
 function renderLivePressure(live) {
+  const liveContext = live?.context || null;
   const hasExceeded = live.exceeded && live.exceeded.length > 0;
   const hasWarnings = live.warnings && live.warnings.length > 0;
+  const approvalNote = liveContext?.awaiting_approval
+    ? `<p style="color:var(--yellow)">Approval wait does not mutate timeout state, but phase/run clocks continue until the next accepted turn.${liveContext.requested_at ? ` Requested: <code>${esc(liveContext.requested_at)}</code>.` : ''}</p>`
+    : '';
 
   if (!hasExceeded && !hasWarnings) {
-    return `<div class="section"><h3>Live Pressure</h3><p style="color:var(--green)">No timeouts exceeded or approaching limits.</p></div>`;
+    const message = liveContext?.awaiting_approval
+      ? `<p style="color:var(--text-dim)">No current phase/run timeout pressure during this approval wait.</p>`
+      : `<p style="color:var(--green)">No timeouts exceeded or approaching limits.</p>`;
+    return `<div class="section"><h3>Live Pressure</h3>${approvalNote}${message}</div>`;
   }
 
   let html = `<div class="section"><h3>Live Pressure</h3>
+    ${approvalNote}
     <table class="data-table">
       <thead><tr><th>Status</th><th>Scope</th><th>Turn</th><th>Phase</th><th>Elapsed</th><th>Limit</th><th>Exceeded By</th><th>Action</th></tr></thead>
       <tbody>`;
@@ -190,7 +198,10 @@ export function render({ timeouts }) {
 
   // Live pressure
   if (timeouts.live) {
-    html += renderLivePressure(timeouts.live);
+    html += renderLivePressure({
+      ...timeouts.live,
+      context: timeouts.live_context || null,
+    });
   }
 
   // Persisted events

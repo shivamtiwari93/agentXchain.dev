@@ -154,6 +154,8 @@ When a run is waiting for an operator to approve a phase transition or run compl
 
 The structural guarantee is simple: `evaluateTimeouts()` is only called from `accept-turn`. Approval commands (`approve-transition`, `approve-completion`) never re-run timeout evaluation. This is by design, not by accident.
 
+Approval waits also do **not** pause the wall clock. If a run spends three days in `pending_phase_transition` or `pending_run_completion`, the next accepted turn can immediately block on `timeout:phase` or `timeout:run`. `agentxchain status` and the dashboard timeout view should surface that pressure during the approval wait so the operator is not surprised later.
+
 If your organization needs approval response-time enforcement (e.g., "approvals must happen within 4 hours"), that would be a separate `approval_sla` concern — not a timeout extension.
 
 ## Relationship to other controls

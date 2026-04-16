@@ -103,6 +103,7 @@ describe('Timeouts — readTimeoutStatus', () => {
       assert.equal(result.body.configured, false);
       assert.equal(result.body.config, null);
       assert.equal(result.body.live, null);
+      assert.equal(result.body.live_context, null);
       assert.deepEqual(result.body.events, []);
     } finally {
       rmSync(workspace, { recursive: true, force: true });
@@ -231,6 +232,11 @@ describe('Timeouts — readTimeoutStatus', () => {
       const result = readTimeoutStatus(workspace);
       assert.equal(result.ok, true);
       assert.deepEqual(result.body.live, { exceeded: [], warnings: [] });
+      assert.deepEqual(result.body.live_context, {
+        awaiting_approval: false,
+        pending_gate_type: null,
+        requested_at: null,
+      });
       assert.equal(result.body.events.length, 1);
       assert.equal(result.body.events[0].type, 'timeout');
     } finally {
@@ -251,6 +257,46 @@ describe('Timeouts — readTimeoutStatus', () => {
       assert.equal(result.ok, false);
       assert.equal(result.status, 404);
       assert.equal(result.body.code, 'state_missing');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-AWTV-003: returns read-only phase/run timeout pressure during approval waits', () => {
+    const workspace = tempDir();
+    try {
+      writeRepo(workspace, {
+        projectId: 'approval-wait-timeouts',
+        timeouts: {
+          per_phase_minutes: 60,
+          per_run_minutes: 120,
+          action: 'warn',
+        },
+      });
+
+      const statePath = join(workspace, '.agentxchain', 'state.json');
+      const state = JSON.parse(readFileSync(statePath, 'utf8'));
+      state.status = 'paused';
+      state.phase = 'implementation';
+      state.created_at = new Date(Date.now() - (5 * 60 * 60 * 1000)).toISOString();
+      state.phase_entered_at = new Date(Date.now() - (3 * 60 * 60 * 1000)).toISOString();
+      state.blocked_on = 'human_approval:implementation_signoff';
+      state.pending_phase_transition = {
+        from: 'implementation',
+        to: 'qa',
+        gate: 'implementation_signoff',
+      };
+      writeJson(statePath, state);
+
+      const result = readTimeoutStatus(workspace);
+      assert.equal(result.ok, true);
+      assert.ok(result.body.live.warnings.some((item) => item.scope === 'phase'));
+      assert.ok(result.body.live.warnings.some((item) => item.scope === 'run'));
+      assert.deepEqual(result.body.live_context, {
+        awaiting_approval: true,
+        pending_gate_type: 'phase_transition',
+        requested_at: null,
+      });
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }
@@ -433,6 +479,43 @@ describe('Timeouts View — render', () => {
     });
     assert.ok(html.includes('No timeouts exceeded'));
     assert.ok(html.includes('var(--green)'));
+  });
+
+  it('AT-AWTV-004: renders approval-wait note in live pressure', () => {
+    const html = render({
+      timeouts: {
+        ok: true,
+        configured: true,
+        config: {
+          per_phase_minutes: 120,
+          per_turn_minutes: null,
+          per_run_minutes: 480,
+          action: 'warn',
+          phase_overrides: [],
+        },
+        live: {
+          exceeded: [
+            {
+              scope: 'run',
+              phase: 'implementation',
+              limit_minutes: 480,
+              elapsed_minutes: 600,
+              exceeded_by_minutes: 120,
+              action: 'warn',
+            },
+          ],
+          warnings: [],
+        },
+        live_context: {
+          awaiting_approval: true,
+          pending_gate_type: 'phase_transition',
+          requested_at: '2026-04-08T23:45:00.000Z',
+        },
+        events: [],
+      },
+    });
+    assert.ok(html.includes('Approval wait does not mutate timeout state'));
+    assert.ok(html.includes('2026-04-08T23:45:00.000Z'));
   });
 
   it('renders persisted timeout events from ledger', () => {

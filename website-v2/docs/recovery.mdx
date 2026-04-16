@@ -110,6 +110,8 @@ Policy escalations are distinct from operator escalations. They are triggered au
 
 Timeouts are enforced when accepted work crosses the turn-acceptance boundary, and `agentxchain status` shows read-only timeout pressure or persisted timeout blocks. They do not currently re-fire on `approve-transition` or `approve-completion`. Per-phase timeouts can be overridden in `routing` with `timeout_minutes` and `timeout_action` per phase.
 
+Approval waits are exempt from timeout mutation, but they do not stop the phase/run clock. If a run sits in `pending_phase_transition` or `pending_run_completion` for days, the next accepted turn can immediately block on `timeout:phase` or `timeout:run`. That is why `status` should warn during the approval pause instead of waiting for the next acceptance boundary.
+
 For the full config and report/status surface, see [Timeouts](/docs/timeouts).
 
 ### Budget Exhaustion
