@@ -43,7 +43,8 @@ export async function approveTransitionCommand(opts) {
     if (result.gate_actions?.length > 0) {
       console.log(`  ${chalk.dim('Gate actions:')} ${result.gate_actions.length}`);
       for (const action of result.gate_actions) {
-        console.log(`    ${action.index}. ${action.label || action.run}`);
+        const timeoutHint = action.timeout_ms && action.timeout_ms !== 900_000 ? chalk.dim(` [timeout: ${action.timeout_ms}ms]`) : '';
+        console.log(`    ${action.index}. ${action.label || action.run}${timeoutHint}`);
         if (action.label) {
           console.log(`       ${chalk.dim(action.run)}`);
         }

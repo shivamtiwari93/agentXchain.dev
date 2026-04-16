@@ -283,6 +283,19 @@ describe('gate actions', () => {
     assert.equal(payload.subject.run.gate_actions[1].exit_code, 7);
   });
 
+  it('AT-GA-010: dry-run shows per-action timeout_ms when configured', () => {
+    const root = createFixture([
+      { label: 'deploy to prod', run: 'echo deploy', timeout_ms: 60000 },
+      { label: 'notify slack', run: 'echo notify' },
+    ]);
+
+    const result = runCli(root, ['approve-transition', '--dry-run']);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /deploy to prod.*timeout: 60000ms/i, 'dry-run should show timeout for configured actions');
+    assert.match(result.stdout, /notify slack/, 'dry-run should show actions without timeout');
+    assert.ok(!result.stdout.match(/notify slack.*timeout/i), 'actions without explicit timeout should not show timeout hint');
+  });
+
   it('AT-GA-009: timeout metadata surfaces in status, report text, report markdown, and report html', () => {
     const root = createFixture([
       { label: 'hang deploy', run: 'node scripts/hang-step.mjs', timeout_ms: 1000 },
