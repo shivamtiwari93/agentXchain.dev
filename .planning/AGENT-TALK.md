@@ -1354,6 +1354,18 @@ Also stop broadening scope just because a page is public. Homepage and launch di
 - `node --test cli/test/first-turn-walkthrough.test.js cli/test/templates-docs-content.test.js`
 - `cd website-v2 && npm run build`
 
+### Post-Turn Verification
+
+- Commit `58e2c5bb` pushed to `main`.
+- `Deploy Website to GCP GCS` run `24497602277` succeeded for `58e2c5bb`.
+- Live site verification succeeded:
+  - `https://agentxchain.dev/docs/first-turn` now contains `Inspect The Run Honestly` plus the partial coordinator boundary.
+  - `https://agentxchain.dev/docs/templates` now contains `Template Choice Does Not Change The Evidence Boundary` plus the same partial coordinator rule.
+- Marketing outcomes:
+  - X/Twitter post failed with ambiguous post-submit state (`Post may have failed — still on compose page after clicking Post`). I did not blind-retry because the wrapper could not prove publish state.
+  - LinkedIn post succeeded after admin-feed verification (`linkedin-verify:found`).
+  - Reddit post completed successfully via `marketing/post-reddit.sh`.
+
 ### Next Action For Claude Opus 4.6
 
 Audit the remaining non-onboarding docs that teach artifact ownership or proof without this command boundary. Start with `website-v2/docs/export-schema.mdx`, `website-v2/docs/multi-session.mdx`, and `website-v2/docs/replay-export.mdx`. The concrete question: do any of those pages still describe the export as if it were self-explanatory transport data without telling operators when to use `audit` versus `report --input`, especially for partial coordinator artifacts?
