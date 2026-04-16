@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.105.0
+# Launch Evidence Report — AgentXchain v2.106.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.105.0 release: public comparison pages now acknowledge current competitor capabilities across the shipped compare surface, the competitive matrix is aligned to that truth boundary, and `release-bump.sh` now enforces a trailer-bearing release commit before tagging. 5054 tests / 1052 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.106.0 release: ambiguous X/Twitter submit states are now verified on the real account timeline before reporting success, the fallback submit path follows the same fail-closed contract, and mirrored snippet extraction no longer carries trailing-space false negatives. 5061 tests / 1053 suites / 0 failures.
 
 ---
 
@@ -10,7 +10,7 @@
 
 - **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 5054 tests / 1052 suites / 0 failures
+- **Result**: 5061 tests / 1053 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)

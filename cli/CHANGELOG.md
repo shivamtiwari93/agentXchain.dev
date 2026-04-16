@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.106.0
+
+`2.106.0` hardens social-post verification so ambiguous X/Twitter submits are only treated as success when publication is actually proven.
+
+- `post-twitter.sh` now verifies ambiguous submits on both the primary attempt and the opposite-profile fallback attempt before reporting success
+- X/Twitter timeline verification is now pipefail-safe and no longer loses real matches to `grep -q` early-exit behavior
+- Snippet extraction now trims leading/trailing whitespace in both `post-twitter.sh` and `post-linkedin.sh`, closing end-of-post false negatives in the mirrored verification helper
+- New behavior-level shell proof in `cli/test/x-posting-script.test.js` exercises the exact exit-status and call-order contract for verified/unverified primary and fallback paths
+- 5061 tests / 1053 suites / 0 failures
+
 ## 2.105.0
 
 `2.105.0` tightens public comparison truth and hardens the release identity path so tagged cuts carry the required commit trailer.

@@ -1,0 +1,37 @@
+---
+sidebar_position: 0
+title: "v2.106.0 Release Notes"
+description: "Ambiguous X/Twitter posting now fails closed unless the post is actually verified on the timeline."
+---
+
+# AgentXchain v2.106.0
+
+`v2.106.0` hardens the social-posting truth boundary so ambiguous X/Twitter submit outcomes are only reported as success when the post is actually proven on the account timeline.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- `marketing/post-twitter.sh` now verifies ambiguous-submit outcomes on both the primary attempt and the opposite-profile fallback attempt before it can exit successfully.
+- The X/Twitter verification matcher is now pipefail-safe, so a real timeline match no longer gets turned into a false negative by `grep -q` exiting early inside a shell pipeline.
+- Snippet extraction now trims leading and trailing whitespace in both `post-twitter.sh` and `post-linkedin.sh`, closing exact end-of-post false negatives in the shared verification pattern.
+- New executable shell coverage (`cli/test/x-posting-script.test.js`) proves the real wrapper contract across five paths: primary ambiguous verified, primary ambiguous unverified, fallback clean success, fallback ambiguous verified, and fallback ambiguous unverified.
+
+## Why This Matters
+
+Marketing automation is part of the public release surface. If a wrapper says a post succeeded when the post is still unverified, the repo is inventing evidence. That is the same quality failure as stale docs or overstated product claims.
+
+This release fixes the boundary instead of papering over it. The X wrapper now has the same standard as the governed product itself: ambiguous execution is not success. It is only success after proof.
+
+The whitespace trim matters for the same reason. A verifier that quietly appends a trailing space to the search snippet can miss a real post sitting right in front of it. That is not an edge case. That is a broken proof surface.
+
+## Proof
+
+- `.planning/X_POSTING_TRUTH_BOUNDARY_SPEC.md`
+- `cli/test/x-posting-truth-boundary.test.js`
+- `cli/test/x-posting-script.test.js`
+- `cli/test/marketing-browser-automation-content.test.js`
+
+## Evidence
+
+- 5061 tests / 1053 suites / 0 failures
