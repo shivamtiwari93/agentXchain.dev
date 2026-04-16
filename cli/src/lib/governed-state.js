@@ -2672,6 +2672,12 @@ function _acceptGovernedTurnLocked(root, config, opts) {
     // DEC-RHTR-SPEC: Record conflict_loop blocked outcome in cross-run history (non-fatal)
     if (updatedState.status === 'blocked') {
       recordRunHistory(root, updatedState, config, 'blocked');
+      // DEC-CONFLICT-NOTIFY-001: Emit run_blocked notification for conflict-loop exhaustion
+      emitBlockedNotification(root, config, updatedState, {
+        category: 'conflict_loop',
+        blockedOn: updatedState.blocked_on,
+        recovery: updatedState.blocked_reason?.recovery || null,
+      }, currentTurn);
     }
 
     return {

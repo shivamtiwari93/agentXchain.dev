@@ -112,7 +112,7 @@ It does **not** add Slack/email/ticketing integrations directly. Those are downs
 2. Each configured webhook matching the event type receives one HTTP `POST` with the JSON payload.
 3. Delivery success means HTTP `2xx`. Any non-`2xx`, timeout, interpolation failure, or network error is recorded as a failed delivery in `.agentxchain/notification-audit.jsonl`.
 4. Notifications are emitted only for real governed lifecycle transitions already present in shipped code. No aspirational event names are documented.
-5. `run_blocked` fires for all blocked-state entries, including hook-caused blocks. `operator_escalation_raised` is an additional event emitted only for the explicit `agentxchain escalate` operator path.
+5. `run_blocked` fires for all blocked-state entries, including hook-caused blocks, policy escalations, and conflict-loop exhaustion (`category: 'conflict_loop'`). `operator_escalation_raised` is an additional event emitted only for the explicit `agentxchain escalate` operator path.
 6. `escalation_resolved` fires when a blocked run with `blocked_on` starting `escalation:` is reactivated through `step` or `resume`.
 7. `phase_transition_pending` and `run_completion_pending` fire when human approval becomes required after turn acceptance.
 8. `run_completed` fires for both direct completion and approval-mediated completion.
@@ -186,3 +186,4 @@ This file is exported by `agentxchain export` and verified by `agentxchain verif
 - `DEC-NOTIFY-003`: Delivery semantics are best-effort and never block governed execution.
 - `DEC-NOTIFY-004`: `.agentxchain/notification-audit.jsonl` is the evidence file for notification delivery.
 - `DEC-NOTIFY-005`: Only real lifecycle events already shipped in code are valid notification event types.
+- `DEC-CONFLICT-NOTIFY-001`: `turn_conflicted` is NOT a notification event. Individual conflict detections are recoverable intermediate states. The operator-actionable notification boundary is `run_blocked` with `category: 'conflict_loop'`, emitted only when conflict retries are exhausted (detection_count >= 3).
