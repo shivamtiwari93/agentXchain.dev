@@ -4,7 +4,7 @@
  * Tests the app-level behaviors that are NOT covered by pure component tests
  * or bridge E2E tests: routing, filter state persistence across rerenders,
  * XSS safety for unknown routes, live-refresh routing, and the shipped
- * thirteen-view shell registry.
+ * named-view shell registry.
  *
  * Strategy: since app.js is a browser ES module tightly coupled to DOM/WebSocket
  * APIs, we test the extractable logic (escapeHtml, buildRenderData, VIEWS registry)
@@ -389,7 +389,7 @@ describe('App Shell — VIEWS registry', () => {
    * The VIEWS object in app.js maps view names to { fetch, render } entries.
    * We prove the same contract by verifying each component's render function
    * handles its expected data shape and returns a string, while the registry
-   * itself still exposes the full shipped thirteen-view navigation surface.
+   * itself still exposes the full shipped named-view navigation surface.
    */
 
   const COMPONENTS = {
