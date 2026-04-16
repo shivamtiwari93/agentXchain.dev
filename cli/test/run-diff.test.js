@@ -594,7 +594,9 @@ describe('run diff docs contract', () => {
     assert.match(CLI_DOCS, /full run IDs or unique prefixes/i);
     assert.match(CLI_DOCS, /`--export` switches the command into artifact comparison mode/i);
     assert.match(CLI_DOCS, /ambiguous prefixes fail closed/i);
-    assert.match(CLI_DOCS, /authority-first repo-status/i);
+    assert.match(CLI_DOCS, /authority-first child repo-status/i);
+    assert.match(CLI_DOCS, /authority-first child repo status/i);
+    assert.match(CLI_DOCS, /summary\.repo_run_statuses[\s\S]*raw coordinator snapshot metadata only/i);
     assert.match(CLI_DOCS, /coordinator_repo_statuses/);
     assert.match(CLI_DOCS, /Comparison Summary/i);
     assert.match(CLI_DOCS, /Outcome: `unchanged \| improved \| changed \| regressed \| mixed`/);
