@@ -1,0 +1,37 @@
+---
+sidebar_position: 0
+title: "v2.110.0 Release Notes"
+description: "Gate-action timeout metadata now surfaces across all operator surfaces, and dry-run previews show per-action timeout configuration."
+---
+
+# AgentXchain v2.110.0
+
+`v2.110.0` closes the gate-action timeout parity gap: every operator-facing surface now distinguishes timed-out gate actions from generic failures, and dry-run previews show custom timeout configuration.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- **Gate-action timeout parity** — `status`, `report` (text, markdown, HTML), dashboard blocked view, and dashboard gate review now distinguish timed-out gate actions from generic failures. Previously these surfaces showed "failed" regardless of whether the action hit a timeout or exited with a non-zero code.
+- **Per-action timeout contract** — gate actions now support optional `timeout_ms` per action (1000ms–3600000ms, default 900000ms / 15 minutes). A timed-out action blocks the run, preserves the pending gate, and records structured timeout evidence (`timeout_ms`, `timed_out`) in the blocked-reason payload and decision ledger.
+- **Workspace boundary frozen** — gate actions execute in the real repository root with workspace write access. There is no sandbox or scratch environment. Operators must use intentional, rerunnable repo-owned scripts.
+- **Dry-run timeout preview** — `approve-transition --dry-run` and `approve-completion --dry-run` now display custom `timeout_ms` for actions that override the default 15-minute timeout, so operators can validate timeout configuration before approval.
+
+## Why This Matters
+
+When a gate action stalls instead of crashing, the operator needs to know it was a timeout, not a code bug. A "failed" label with exit code `null` is ambiguous — it could be a crash, a signal, or a timeout. Timeout-specific labeling across every surface (CLI status, reports, dashboard) removes that ambiguity and points operators directly at the right recovery path: adjusting the timeout or fixing the slow action.
+
+The dry-run improvement means operators no longer approve gates blind to timeout configuration. If an action has a custom 60-second timeout instead of the default 15 minutes, that information is visible before approval.
+
+## Proof
+
+- `.planning/GATE_ACTION_TIMEOUT_PARITY_SPEC.md`
+- `.planning/GATE_ACTIONS_SPEC.md` (updated with timeout/workspace boundary)
+- `cli/test/gate-actions.test.js` — 9 tests / 0 failures (includes AT-GA-009 timeout parity, AT-GA-010 dry-run timeout)
+- `cli/test/e2e-dashboard-gate-actions.test.js` — 2 tests / 0 failures
+- `cli/test/docs-gate-actions-content.test.js` — 10 tests / 0 failures
+
+## Evidence
+
+- All gate-action tests pass (9 + 2 + 10 = 21 tests / 0 failures)
+- `cd website-v2 && npm run build` — clean
