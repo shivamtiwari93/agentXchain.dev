@@ -31,6 +31,7 @@ agentxchain events [-f|--follow] [-t|--type <type>] [--since <timestamp>] [-j|--
 
 ### Event type rendering
 
+- `turn_conflicted`: appends conflicting files, overlap percentage, detection count, accepted-since turn IDs, and `run blocked` when the conflict loop exhausted retries
 - `turn_rejected`: appends reason and failed_stage from payload
 - `phase_entered`: appends from → to transition and trigger
 - `gate_failed`: appends from_phase → to_phase, first reason, gate_id
@@ -55,6 +56,7 @@ agentxchain events [-f|--follow] [-t|--type <type>] [--since <timestamp>] [-j|--
 - `AT-EVENTS-008`: `--type` hint shown when filtered result is empty
 - `AT-EVENTS-009`: turn_rejected rendering includes reason and failed_stage
 - `AT-EVENTS-010`: `--dir` flag overrides project root
+- `AT-EVENTS-011`: `--type turn_conflicted` surfaces durable conflict metadata inline from `.agentxchain/events.jsonl`
 
 ## Open Questions
 

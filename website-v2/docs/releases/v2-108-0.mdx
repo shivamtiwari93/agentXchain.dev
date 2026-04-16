@@ -1,0 +1,47 @@
+---
+sidebar_position: 0
+title: "v2.108.0 Release Notes"
+description: "Conflict observability is now durable, queryable, dashboard-visible, notification-correct, and reportable across the real operator surfaces."
+---
+
+# AgentXchain v2.108.0
+
+`v2.108.0` closes the remaining conflict-observability gaps across the real operator surfaces: report, event log, dashboard, notifications, and the `events` CLI.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- Governed reports now surface real conflict details from the decision ledger instead of dropping overlap information behind raw internal fields.
+- `turn_conflicted` is now persisted to `.agentxchain/events.jsonl`, making conflict detections durable for dashboard consumers, event queries, audits, and operator tooling.
+- The dashboard Timeline now fetches `/api/events?type=turn_conflicted&limit=10` and shows first-glance conflict metadata: overlapping files, overlap ratio, accepted-since turns, and detection count.
+- Conflict-loop exhaustion now emits the missing `run_blocked` notification with `category: conflict_loop`, so webhook-driven operators get paged only when the run is actually blocked.
+- `agentxchain events --type turn_conflicted` now renders conflict metadata inline, giving the CLI a real first-glance conflict view instead of a bare event label.
+- The public CLI docs now enumerate the full event set, including `turn_conflicted` and `budget_exceeded_warn`, and freeze the inline conflict rendering contract.
+
+## Why This Matters
+
+Conflict handling was already part of the governed runtime. The problem was observability drift.
+
+One surface had the ledger truth, another had callback-local events, another had a red label with no detail, and the notification path missed one of the actual blocked transitions. That is the kind of split-brain operator experience that makes long-horizon governed execution look less reliable than it is.
+
+`v2.108.0` fixes the boundary properly. Conflict state is now durable, queryable, dashboard-visible, report-visible, and notification-correct, with the CLI event stream carrying enough context to be useful on its own.
+
+## Proof
+
+- `.planning/RUN_LOOP_CONFLICT_AWARENESS_SPEC.md`
+- `.planning/DASHBOARD_CONFLICT_VISIBILITY_SPEC.md`
+- `.planning/CONFLICT_LOOP_NOTIFICATION_PARITY_SPEC.md`
+- `.planning/EVENTS_COMMAND_SPEC.md`
+- `cli/test/run-loop-conflict.test.js`
+- `cli/test/dashboard-views.test.js`
+- `cli/test/dashboard-app.test.js`
+- `cli/test/e2e-dashboard.test.js`
+- `cli/test/conflict-loop-notification.test.js`
+- `cli/test/events-command.test.js`
+- `cli/test/docs-cli-governance-content.test.js`
+
+## Evidence
+
+- 5095 tests / 1057 suites / 0 failures
+- `cd website-v2 && npm run build`

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { emitRunEvent } from '../src/lib/run-events.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -221,5 +222,30 @@ describe('agentxchain events', () => {
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.match(result.stdout, /run_started/);
     assert.match(result.stdout, /run_dirflag_/);
+  });
+
+  it('AT-EVENTS-011: --type turn_conflicted surfaces durable conflict metadata inline', () => {
+    const dir = createProject();
+    emitRunEvent(dir, 'turn_conflicted', {
+      run_id: 'run_conflict_001',
+      phase: 'implementation',
+      status: 'active',
+      turn: { turn_id: 'turn_conflict_001', role_id: 'dev' },
+      payload: {
+        conflicting_files: ['src/shared.js', 'src/conflict.js'],
+        accepted_since_turn_ids: ['turn_prev_001'],
+        overlap_ratio: 1,
+        detection_count: 2,
+      },
+    });
+
+    const result = runCli(dir, ['events', '--type', 'turn_conflicted']);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /turn_conflicted/);
+    assert.match(result.stdout, /src\/shared\.js, src\/conflict\.js/);
+    assert.match(result.stdout, /100% overlap/);
+    assert.match(result.stdout, /detection 2/);
+    assert.match(result.stdout, /accepted since turn_prev_001/);
+    assert.ok(!result.stdout.includes('run_started'), 'filter should only show turn_conflicted events');
   });
 });

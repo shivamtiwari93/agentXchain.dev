@@ -273,14 +273,18 @@ describe('CLI governance docs contract — admission control truth', () => {
 });
 
 describe('CLI governance docs contract — events observability', () => {
-  it('documents the full governed event set including gate_failed', () => {
+  it('documents the full governed event set including turn_conflicted and budget_exceeded_warn', () => {
     assert.match(
       docs,
-      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`/,
+      /run_started`, `phase_entered`, `turn_dispatched`, `turn_accepted`, `turn_rejected`, `turn_conflicted`, `run_blocked`, `run_completed`, `escalation_raised`, `escalation_resolved`, `gate_pending`, `gate_approved`, `gate_failed`, `budget_exceeded_warn`/,
     );
   });
 
-  it('documents inline text rendering for phase_entered and gate_failed', () => {
+  it('documents inline text rendering for turn_conflicted, phase_entered, and gate_failed', () => {
+    assert.match(
+      docs,
+      /`turn_conflicted` text entries include the conflicting files, overlap percentage, detection count, accepted-since turn IDs, and `run blocked`/i,
+    );
     assert.match(
       docs,
       /`phase_entered` text entries show the transition as `from → to \(trigger\)`/i,

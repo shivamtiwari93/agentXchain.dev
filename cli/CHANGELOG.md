@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.108.0
+
+`2.108.0` turns conflict observability into a first-class operator surface instead of scattering it across state files, dashboard guesses, and notification drift.
+
+- Conflict decisions now surface in governed reports, so accepted-turn overlap shows up in the real operator narrative instead of hiding in raw ledger fields
+- `turn_conflicted` is now a durable lifecycle event in `.agentxchain/events.jsonl`, not just an in-process callback detail
+- The dashboard timeline now reads `/api/events?type=turn_conflicted&limit=10` and renders conflict metadata directly in the Timeline view
+- Conflict-loop exhaustion now emits the missing `run_blocked` notification with `category: conflict_loop`, while intermediate conflict detections remain observability-only to avoid webhook noise
+- `agentxchain events --type turn_conflicted` now renders inline conflict details including overlapping files, overlap percentage, detection count, and accepted-since turn IDs
+- 5095 tests / 1057 suites / 0 failures
+
 ## 2.107.0
 
 `2.107.0` brings behavior-level proof parity to the social-post wrappers and removes artificial delay from the X/Twitter fixture path so that proof stays cheap enough to run.

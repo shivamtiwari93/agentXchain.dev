@@ -61,6 +61,9 @@ function printEvent(evt) {
   const runId = evt.run_id ? evt.run_id.slice(0, 12) : '—';
   const phase = evt.phase || '—';
   const turnInfo = evt.turn?.role_id ? ` [${evt.turn.role_id}]` : '';
+  const conflictDetail = evt.event_type === 'turn_conflicted'
+    ? ` — ${formatConflictDetail(evt)}`
+    : '';
   const rejectionDetail = evt.event_type === 'turn_rejected' && evt.payload?.reason
     ? ` — ${evt.payload.reason}${evt.payload.failed_stage ? ` (${evt.payload.failed_stage})` : ''}`
     : '';
@@ -70,7 +73,34 @@ function printEvent(evt) {
   const gateFailedDetail = evt.event_type === 'gate_failed' && evt.payload?.from_phase
     ? ` ${evt.payload.from_phase} → ${evt.payload.to_phase || '?'}${evt.payload.reasons?.length ? ` — ${evt.payload.reasons[0]}` : ''}${evt.payload.gate_id ? ` (${evt.payload.gate_id})` : ''}`
     : '';
-  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}`);
+  console.log(`${chalk.dim(ts)}  ${type}  ${chalk.cyan(runId)}  ${phase}${turnInfo}${conflictDetail}${rejectionDetail}${phaseTransitionDetail}${gateFailedDetail}`);
+}
+
+function formatConflictDetail(evt) {
+  const payload = evt.payload || {};
+  const fileSummary = summarizeList(payload.conflicting_files, 3) || 'unknown files';
+  const overlapRatio = typeof payload.overlap_ratio === 'number'
+    ? `${Math.round(payload.overlap_ratio * 100)}% overlap`
+    : null;
+  const detectionCount = Number.isInteger(payload.detection_count)
+    ? `detection ${payload.detection_count}`
+    : null;
+  const turnSummary = summarizeList(payload.accepted_since_turn_ids, 2);
+  const parts = [fileSummary, overlapRatio, detectionCount];
+  if (turnSummary) {
+    parts.push(`accepted since ${turnSummary}`);
+  }
+  if (evt.status === 'blocked') {
+    parts.push('run blocked');
+  }
+  return parts.filter(Boolean).join(' | ');
+}
+
+function summarizeList(items, limit) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  const shown = items.slice(0, limit).join(', ');
+  if (items.length <= limit) return shown;
+  return `${shown} +${items.length - limit} more`;
 }
 
 function colorEventType(type) {
@@ -81,12 +111,14 @@ function colorEventType(type) {
     turn_dispatched: chalk.blue,
     turn_accepted: chalk.green,
     turn_rejected: chalk.yellow,
+    turn_conflicted: chalk.redBright,
     phase_entered: chalk.magenta,
     escalation_raised: chalk.red.bold,
     escalation_resolved: chalk.green,
     gate_pending: chalk.yellow,
     gate_approved: chalk.green,
     gate_failed: chalk.red,
+    budget_exceeded_warn: chalk.yellowBright,
   };
   const colorFn = colors[type] || chalk.white;
   return colorFn(pad(type, 22));
