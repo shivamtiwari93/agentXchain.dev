@@ -132,6 +132,14 @@ describe('Launch evidence report', () => {
     assert.match(report, /No retries/i);
     assert.match(report, /REPEATABLE_MODEL_PROOF_SPEC\.md/);
   });
+
+  it('keeps live dashboard mutability truth aligned with shipped scope', () => {
+    assert.match(report, /Local dashboard for governance visibility with narrow live gate approval/i);
+    assert.match(report, /authenticated `approve-gate`/i);
+    assert.match(report, /WebSocket transport and `replay export` remain read-only/i);
+    assert.doesNotMatch(report, /"Read-only dashboard for governance visibility"/i);
+    assert.doesNotMatch(report, /dashboard-triggered approvals\)\./i);
+  });
 });
 
 describe('Launch surfaces do not contain disallowed claims', () => {

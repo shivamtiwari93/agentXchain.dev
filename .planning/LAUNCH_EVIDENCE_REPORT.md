@@ -313,7 +313,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 | "Governed state survives adapter failure" | E2 (local_cli quota exhaustion did not corrupt state) | |
 | "Schema validation catches non-compliant output" | E2 (QA turn failed initial validation, was normalized) | |
 | "Preemptive tokenization prevents wasted API calls" | E3 (local overflow short-circuit confirmed live) | |
-| "Read-only dashboard for governance visibility" | E4 (implemented, tested, documented) | |
+| "Local dashboard for governance visibility with narrow live gate approval" | E4 (implemented, tested, documented) | Current live dashboard supports authenticated `approve-gate`; WebSocket transport and `replay export` remain read-only. |
 | "Hook system for lifecycle customization" | E5 (8 phases, verdict handling, audit trail) | |
 | "MIT licensed" | `LICENSE` file in repo | |
 
@@ -328,7 +328,7 @@ Current evidence does NOT support these claims. Launch surfaces must not use thi
 | "Production-proven" or "battle-tested" | No production deployment evidence exists. All evidence is from development/dogfood environments. | Post-release operator evidence from real projects. |
 | "OpenAI Swarm" as a current competitor | DEC-POSITIONING-008: Swarm is deprecated. The replacement is the OpenAI Agents SDK. | N/A — use Agents SDK or omit. |
 | "Agents SDK has no governance" (or similar dismissive framing) | DEC-POSITIONING-010: The Agents SDK has handoffs, guardrails, human-in-the-loop, tracing, and sessions. It lacks mandatory challenge and delivery-phase gates, but it is not featureless. | Narrow the comparison to specific governance gaps, not blanket dismissal. |
-| "Dashboard is feature-complete" in public copy | Dashboard is v2.0 scope with explicit deferrals (dispatch-bundle inspection, editor deep links, dashboard-triggered approvals). | Ship deferred features or reword to "v2.0 observation surface." |
+| "Dashboard is feature-complete" in public copy | Dashboard still has explicit scope boundaries and is not feature-complete. Current live scope already includes authenticated dashboard `approve-gate`; deferred items are broader mutations plus deeper inspection affordances such as dispatch-bundle inspection and editor deep links. | Keep public copy narrow: local operator dashboard with observation plus limited live gate approval. |
 ## 4. Evidence Gaps
 
 These are the most valuable evidence items that do not yet exist. Ordered by launch value.
