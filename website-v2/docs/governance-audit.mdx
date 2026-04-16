@@ -43,6 +43,7 @@ Internally, `audit` builds the same export artifact that `agentxchain export` wo
 - `text` for local terminal inspection
 - `markdown` for paste-ready audit records
 - `json` for machine-readable derived reporting
+- `html` for portable, self-contained audit records with inline styles
 
 For governed projects the `json` payload keeps `subject.kind = "governed_run"`. For coordinator workspaces it keeps `subject.kind = "coordinator_workspace"`. The `input` field carries the resolved live project/workspace path instead of an export artifact filename.
 
@@ -68,6 +69,9 @@ agentxchain audit --format markdown
 
 # Structured JSON for automation
 agentxchain audit --format json
+
+# Portable HTML for a stakeholder or compliance review
+agentxchain audit --format html > governance-audit.html
 
 # Artifact-first workflow when you need a portable bundle
 agentxchain export --format json > governance-export.json

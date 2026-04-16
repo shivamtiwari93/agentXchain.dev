@@ -79,6 +79,7 @@ agentxchain audit [--format text|json|markdown|html]
 - `AT-AUDIT-005`: unsupported format fails closed with exit `2`.
 - `AT-AUDIT-006`: running outside a governed project or coordinator workspace fails closed with exit `2`.
 - `AT-AUDIT-007`: docs truthfully distinguish `audit` (live repo state, no `--input`, verifies a freshly built artifact) from `report` (verified export artifact inspection of an existing input).
+- `AT-AUDIT-012`: governance audit docs treat `html` as a first-class output contract and example path, not an undocumented format token.
 
 ## Open Questions
 
