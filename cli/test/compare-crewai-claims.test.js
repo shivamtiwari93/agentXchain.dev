@@ -60,17 +60,31 @@ describe('CrewAI comparison claims', () => {
   it('AT-CREWAI-CLAIMS-002: vs-crewai uses source-backed recovery wording', () => {
     assert.match(
       VS_CREWAI,
-      /\| \*\*Failure recovery\*\* \| Checkpointing and resume for crews, flows, and agents \|/,
+      /\| \*\*Workflow model\*\* \| Sequential or hierarchical crews, event-driven flows, A2A delegation \|/,
     );
-    assert.doesNotMatch(
+    assert.match(
       VS_CREWAI,
-      /Checkpoint\/resume from last completed task \(v1\.14\+\)/,
-      'vs-crewai must not pin the recovery claim to stale version-specific wording',
+      /\| \*\*Human review\*\* \| Task `human_input`, flow-level `@human_feedback`, webhook-based review\/resume loops \|/,
     );
+    assert.match(
+      VS_CREWAI,
+      /\| \*\*Failure recovery\*\* \| Checkpointing for crews, flows, and agents; replay\/resume from saved state \|/,
+    );
+    assert.match(
+      VS_CREWAI,
+      /\| \*\*Audit surface\*\* \| AMP tracing, exportable traces, and third-party observability integrations \|/,
+    );
+    assert.match(
+      VS_CREWAI,
+      /CrewAI can absolutely include human review, remote A2A delegation, and exportable tracing, but the delivery constitution is still application-defined\./,
+    );
+    assert.doesNotMatch(VS_CREWAI, /Checkpoint\/resume from last completed task \(v1\.14\+\)/);
   });
 
   it('records the CrewAI comparison claim boundary in a standalone spec', () => {
     assert.match(SPEC, /# Spec: CrewAI Comparison Claim Boundary/);
+    assert.match(SPEC, /A2A as a first-class delegation primitive/);
+    assert.match(SPEC, /webhook-based enterprise HITL review\/resume flows/);
     assert.match(SPEC, /task `human_input` and flow `@human_feedback`/);
     assert.match(SPEC, /no built-in cross-repo coordinator surface/i);
     assert.match(SPEC, /no audit trail/i);

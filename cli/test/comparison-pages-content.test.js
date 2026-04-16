@@ -76,6 +76,7 @@ describe('comparison pages content', () => {
     // CrewAI has guardrails and checkpoint/resume — page must acknowledge them
     assert.match(pages.crewai, /guardrail/i, 'CrewAI page must acknowledge task-level guardrails');
     assert.match(pages.crewai, /checkpoint|resume/i, 'CrewAI page must acknowledge checkpoint/resume capability');
+    assert.match(pages.crewai, /A2A/i, 'CrewAI page must acknowledge first-class A2A delegation support');
   });
 
   it('keeps the LangGraph page honest and code-backed', () => {

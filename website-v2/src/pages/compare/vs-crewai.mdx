@@ -7,7 +7,7 @@ description: "CrewAI is stronger for general agent orchestration. AgentXchain is
 
 ## The short answer
 
-**Choose CrewAI** if you need a broad agent orchestration framework with crews, flows, provider breadth, and stronger application-level observability today.
+**Choose CrewAI** if you need a broad agent orchestration framework with crews, flows, A2A delegation, provider breadth, and stronger application-level observability today.
 
 **Choose AgentXchain** if you need governed software delivery: mandated challenge, explicit phase gates, append-only decision history, and constitutional human authority at ship-critical moments.
 
@@ -18,17 +18,17 @@ They solve different problems. If your stack needs both runtime orchestration an
 | | CrewAI | AgentXchain |
 |---|---|---|
 | **Primary job** | Orchestrate agent crews and flows | Govern software delivery |
-| **Workflow model** | Sequential or hierarchical crews, event-driven flows | Role-based turns, objections, and phase gates |
+| **Workflow model** | Sequential or hierarchical crews, event-driven flows, A2A delegation | Role-based turns, objections, and phase gates |
 | **Quality gates** | Task-level guardrails with retry limits | Protocol-enforced mandatory challenge |
-| **Human review** | Task `human_input`, flow-level `@human_feedback`, approve/reject/revise loops | Phase-transition and run-completion gates |
-| **Failure recovery** | Checkpointing and resume for crews, flows, and agents | Blocked-state recovery, `multi resume`, coordinator handoff |
-| **Audit surface** | AMP tracing and third-party observability integrations | Append-only history, decision ledger, and objection trail |
+| **Human review** | Task `human_input`, flow-level `@human_feedback`, webhook-based review/resume loops | Phase-transition and run-completion gates |
+| **Failure recovery** | Checkpointing for crews, flows, and agents; replay/resume from saved state | Blocked-state recovery, `multi resume`, coordinator handoff |
+| **Audit surface** | AMP tracing, exportable traces, and third-party observability integrations | Append-only history, decision ledger, and objection trail |
 | **Best fit** | Agent applications and workflows | Auditable repo delivery |
 
 ## Choose CrewAI when
 
 - You are building a general multi-agent app, not a governed code-delivery system.
-- You want crew and flow abstractions with broad provider support and task-level guardrails.
+- You want crew and flow abstractions with A2A delegation, broad provider support, and task-level guardrails.
 - You need richer runtime observability than AgentXchain currently ships, or you want checkpoint/resume for failure recovery.
 - Your agents are coordinating research, support, or operations work rather than converging on one repository.
 
@@ -64,7 +64,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-CrewAI can absolutely include human review, but the delivery constitution is still application-defined. AgentXchain's wedge is narrower and stricter: the workflow itself enforces turn ownership, mandatory disagreement, and ship gating.
+CrewAI can absolutely include human review, remote A2A delegation, and exportable tracing, but the delivery constitution is still application-defined. AgentXchain's wedge is narrower and stricter: the workflow itself enforces turn ownership, mandatory disagreement, and ship gating.
 
 ## Using both together
 
