@@ -25,10 +25,10 @@ subject.run.repo_status_drifts: Array<{
 ## Behavior
 
 1. `subject.run.repo_status_counts` must be derived from the shared authority-first child repo status entries, not from `summary.repo_run_statuses`.
-2. When child repo authority is readable, the counted status must come from the child repo export/state.
+2. When a nested child export or repo-local state is readable, the counted status must come from that child authority.
 3. Coordinator linkage labels like `linked` and `initialized` may remain visible as metadata on other surfaces, but they must not become the primary counted report status when repo authority exists.
 4. `subject.run.repo_status_drifts` must expose status disagreements between coordinator state and child repo authority using the shared repo-status contract.
-5. Public report/audit docs must say this boundary explicitly: `summary.repo_run_statuses` remains raw coordinator snapshot metadata, while report/audit status counts and drift use authority-first child repo status when child authority is readable.
+5. Public report/audit docs must say this boundary explicitly: `summary.repo_run_statuses` remains raw coordinator snapshot metadata only, while report/audit status counts and drift use authority-first child repo status when a nested child export or repo-local state is readable.
 6. Text, markdown, and HTML report/audit output must render repo-status drift details when present.
 
 ## Error Cases

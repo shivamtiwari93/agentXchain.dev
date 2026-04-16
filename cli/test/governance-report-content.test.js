@@ -60,8 +60,10 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /repo_status_drifts/);
     assert.match(REPORT_DOCS, /terminal_observability_note/);
     assert.match(REPORT_DOCS, /summary\.repo_run_statuses/);
-    assert.match(REPORT_DOCS, /raw coordinator snapshot/i);
-    assert.match(REPORT_DOCS, /child authority first/i);
+    assert.match(REPORT_DOCS, /raw coordinator snapshot metadata only/i);
+    assert.match(REPORT_DOCS, /nested child export or repo-local state is readable/i);
+    assert.match(REPORT_DOCS, /child authority first for repo-status counts and drift/i);
+    assert.match(REPORT_DOCS, /linked` or `initialized` remain metadata only/i);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Repo Decisions/);
@@ -156,7 +158,8 @@ describe('governance report spec alignment', () => {
     assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /repo_status_counts/);
     assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /repo_status_drifts/);
     assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /summary\.repo_run_statuses/);
-    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /raw coordinator snapshot metadata/i);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /raw coordinator snapshot metadata only/i);
+    assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /nested child export or repo-local state is readable/i);
     assert.match(COORDINATOR_REPORT_REPO_STATUS_SPEC, /AT-COORD-REPORT-STATUS-004/);
   });
 
