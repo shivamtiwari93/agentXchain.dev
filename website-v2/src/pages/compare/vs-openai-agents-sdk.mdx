@@ -7,7 +7,7 @@ description: "The OpenAI Agents SDK is stronger for building agent apps. AgentXc
 
 ## The short answer
 
-**Choose the OpenAI Agents SDK** if you need lightweight primitives for building agent applications: handoffs, agents-as-tools, guardrails, built-in tracing, sessions, provider-agnostic model support, and built-in tool-approval interruptions that resume from `RunState`.
+**Choose the OpenAI Agents SDK** if you need a broad agent-application framework: handoffs, agents-as-tools, guardrails, built-in tracing with 25+ integrations, sessions with 9+ storage backends, provider-agnostic model support, MCP tool calling, sandbox agents for long-running container tasks, hosted tools (web search, file search, code interpreter, image generation, computer use), realtime voice agents, durable execution integrations (Temporal, Restate, DBOS), and built-in tool-approval interruptions that resume from serializable `RunState`.
 
 **Choose AgentXchain** if you need governance for multiple agents shipping software: mandatory challenge, explicit phase gates, append-only decision history, and human authority at ship-critical transitions.
 
@@ -18,9 +18,9 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 | | OpenAI Agents SDK | AgentXchain |
 |---|---|---|
 | **Primary job** | Build agent applications | Govern software delivery |
-| **Workflow model** | Handoffs, agents-as-tools, guardrails, sessions | Role-based turns, objections, and gates |
-| **Human involvement** | Built-in tool approvals / interruptions; broader delivery authority is app-defined | Protocol-native phase and completion gates |
-| **Audit surface** | Tracing and run/session state | Append-only decision and objection ledgers |
+| **Workflow model** | Handoffs, agents-as-tools, guardrails, sessions, MCP tool calling, sandbox agents, hosted tools, realtime voice agents | Role-based turns, objections, and gates |
+| **Human involvement** | Built-in tool approvals / interruptions with serializable `RunState`; broader delivery authority is app-defined | Protocol-native phase and completion gates |
+| **Audit surface** | Built-in tracing with 25+ integrations, sessions, and run state | Append-only decision and objection ledgers |
 | **Model support** | Provider-agnostic SDK with OpenAI plus 100+ other LLMs | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
 | **Mandatory challenge** | No built-in requirement | Yes, protocol-enforced |
 | **Best fit** | Agent apps and product features | Governed repo workflows |
@@ -28,9 +28,11 @@ This is not a replacement story. The Agents SDK builds agent systems. AgentXchai
 ## Choose the OpenAI Agents SDK when
 
 - You are building an agent application, not a governed repository workflow.
-- You want lightweight handoffs and agents-as-tools primitives.
-- You need built-in tracing, sessions, and guardrails around agent interactions.
-- You need built-in tool approvals that pause a run and resume from `RunState`.
+- You want handoffs, agents-as-tools, and manager-style orchestration primitives.
+- You need built-in tracing (with 25+ external integrations), sessions (9+ backends including Redis, SQLAlchemy, Dapr), and guardrails (input, output, and tool-level).
+- You need built-in tool approvals that pause a run and resume from serializable `RunState`, with durable execution integrations (Temporal, Restate, DBOS).
+- You want MCP tool calling (4 transports: hosted, Streamable HTTP, SSE, stdio) or hosted tools (web search, file search, code interpreter, image generation, computer use).
+- You want sandbox agents for long-running container-based tasks.
 - You want provider-agnostic model routing without inventing your own adapter layer first.
 - You want orchestration that stays inside your application code.
 
@@ -68,7 +70,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-The Agents SDK can absolutely support handoffs, sessions, tracing, provider-agnostic model routing, and built-in approval/resume flows. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
+The Agents SDK is a broad agent-application framework: handoffs, sessions, tracing with 25+ integrations, provider-agnostic model routing, MCP tool calling, sandbox agents, hosted tools, realtime voice agents, durable execution integrations, and built-in approval/resume flows. What it does not ship by default is a delivery constitution that requires challenge, controls phase advancement, and records accepted work in append-only delivery ledgers.
 
 ## Using both together
 
