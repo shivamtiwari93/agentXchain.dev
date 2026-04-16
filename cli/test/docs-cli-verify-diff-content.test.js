@@ -30,6 +30,8 @@ describe('verify diff docs contract', () => {
     assert.match(CLI_DOCS, /verifies both export artifacts first/i);
     assert.match(CLI_DOCS, /skips the diff entirely if either artifact fails verification/i);
     assert.match(CLI_DOCS, /Governance Regressions/i);
+    assert.match(CLI_DOCS, /authority-first child repo status/i);
+    assert.match(CLI_DOCS, /summary\.repo_run_statuses[\s\S]*raw coordinator snapshot metadata/i);
   });
 
   it('documents exit-code semantics truthfully', () => {
@@ -43,7 +45,8 @@ describe('verify diff spec alignment', () => {
   it('ships a standalone verify-diff spec with acceptance tests', () => {
     assert.match(SPEC, /\*\*Status:\*\*\s+shipped/i);
     assert.match(SPEC, /AT-VERIFY-DIFF-001/);
-    assert.match(SPEC, /AT-VERIFY-DIFF-005/);
+    assert.match(SPEC, /AT-VERIFY-DIFF-007/);
     assert.match(SPEC, /skip regression diff construction/i);
+    assert.match(SPEC, /summary\.repo_run_statuses[\s\S]*coordinator metadata only/i);
   });
 });

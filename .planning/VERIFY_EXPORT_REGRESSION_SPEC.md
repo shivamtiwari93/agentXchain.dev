@@ -63,6 +63,8 @@ All run-level regressions apply to the coordinator summary, plus:
 
 When both coordinator exports are already `completed`, child repo drift remains visible in `repo_status_changes` / `repo_export_changes` but does not count as a governance regression. That comparison is terminal observability, not operator-actionable recovery.
 
+A stale coordinator `summary.repo_run_statuses` entry alone must not create `REG-REPO-STATUS-*` when the nested child export authority is unchanged. Regression detection follows authority-first child repo status, not linkage metadata.
+
 ### Severity Levels
 
 - `error`: governance contract violation — something that was passing is now failing
@@ -100,6 +102,7 @@ The regression detector must not flag:
 13. **AT-REG-013**: Run export with new delegation `missing_decision_ids` produces delegation-contract regression
 14. **AT-COORD-TERM-DIFF-001**: Completed-to-completed coordinator child status drift appears in change output but does not emit `REG-REPO-STATUS-*`
 15. **AT-COORD-TERM-DIFF-002**: Completed-to-completed coordinator child export drift appears in change output but does not emit `REG-REPO-EXPORT-*`
+16. **AT-COORD-STATUS-TRUTH-002**: stale coordinator `summary.repo_run_statuses` failure does not create `REG-REPO-STATUS-*` when authority-first child status is unchanged
 
 ## Open Questions
 

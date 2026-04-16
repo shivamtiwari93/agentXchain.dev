@@ -24,6 +24,7 @@ agentxchain verify diff <left_export.json> <right_export.json> [--format text|js
    - whether the artifacts changed
    - whether governance regressions exist
    - the regression entries when present
+   - for coordinator exports, authority-first child repo status changes from nested child exports when readable, while `summary.repo_run_statuses` stays preserved as coordinator metadata only
 5. `overall: "pass"` means:
    - both exports verified successfully
    - diff construction succeeded
@@ -45,6 +46,7 @@ Text output prints:
 - structural change flag
 - governance regression count
 - regression entries when present
+- for coordinator exports, repo-status/regression results from the same authority-first child repo status contract used by `diff --export`, not raw `summary.repo_run_statuses`
 - explicit note when the diff is skipped because verification failed
 
 ### JSON output
@@ -80,6 +82,8 @@ JSON output shape:
 3. **AT-VERIFY-DIFF-003**: verified exports with a governance regression return exit code `1` and include the regression in text + JSON output
 4. **AT-VERIFY-DIFF-004**: if one export fails verification, diff construction is skipped and the command exits `1`
 5. **AT-VERIFY-DIFF-005**: mismatched export kinds return exit code `2`
+6. **AT-VERIFY-DIFF-006**: completed-to-completed coordinator child drift remains visible in `repo_status_changes` but does not fail `verify diff`
+7. **AT-VERIFY-DIFF-007**: stale coordinator `summary.repo_run_statuses` alone does not create a repo-status change or regression when authority-first child status is unchanged
 
 ## Open Questions
 

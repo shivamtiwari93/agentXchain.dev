@@ -391,4 +391,57 @@ describe('verify diff CLI', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('AT-VERIFY-DIFF-007: stale coordinator summary status alone does not create repo-status drift or regression', () => {
+    const root = createCompletedCoordinatorWorkspace();
+    try {
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1',
+        super_run_id: 'srun_verify_diff_001',
+        project_id: 'coord-verify-diff',
+        status: 'active',
+        phase: 'implementation',
+        repo_runs: {
+          web: { run_id: 'run_web-app_001', status: 'completed', phase: 'implementation' },
+          api: { run_id: 'run_api-service_001', status: 'completed', phase: 'implementation' },
+        },
+        pending_gate: null,
+        phase_gate_status: {},
+        created_at: '2026-04-15T00:00:00Z',
+        updated_at: '2026-04-15T00:00:00Z',
+      });
+      const left = exportArtifact(root, 'left.json');
+
+      writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+        schema_version: '0.1',
+        super_run_id: 'srun_verify_diff_001',
+        project_id: 'coord-verify-diff',
+        status: 'active',
+        phase: 'implementation',
+        repo_runs: {
+          web: { run_id: 'run_web-app_001', status: 'completed', phase: 'implementation' },
+          api: { run_id: 'run_api-service_001', status: 'failed', phase: 'implementation' },
+        },
+        pending_gate: null,
+        phase_gate_status: {},
+        created_at: '2026-04-15T00:00:00Z',
+        updated_at: '2026-04-15T00:05:00Z',
+      });
+
+      const right = exportArtifact(root, 'right.json');
+      const result = runCli(root, ['verify', 'diff', left, right, '--format', 'json']);
+      assert.equal(result.status, 0, result.stderr || result.stdout);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.overall, 'pass');
+      assert.ok(parsed.diff, 'diff should still be constructed');
+      assert.equal(parsed.diff.subject_kind, 'coordinator');
+      assert.equal(parsed.diff.left.repo_statuses.api, 'completed');
+      assert.equal(parsed.diff.right.repo_statuses.api, 'completed');
+      assert.equal(parsed.diff.right.coordinator_repo_statuses.api, 'failed');
+      assert.equal(parsed.diff.repo_status_changes.some((entry) => entry.key === 'api' && entry.changed), false);
+      assert.equal(parsed.diff.regressions.some((entry) => entry.category === 'repo_status'), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

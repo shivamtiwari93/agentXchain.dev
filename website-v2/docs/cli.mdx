@@ -1045,6 +1045,8 @@ agentxchain verify diff <left_export.json> <right_export.json> [--format text|js
 
 This matters because regression detection on unverified exports is theater. If either artifact has drifted, been truncated, or has an internal summary mismatch, the command skips the diff entirely if either artifact fails verification instead of pretending the regression output is reliable.
 
+For coordinator exports, `verify diff` keeps the repo-status truth boundary explicit. Repo-status changes and coordinator repo-status regressions come from authority-first child repo status when nested child exports are readable. `summary.repo_run_statuses` remains raw coordinator snapshot metadata and can stay visible in JSON output, but it must not create a false repo-status change or regression by itself.
+
 Typical use:
 
 ```bash
@@ -1060,6 +1062,7 @@ When both artifacts verify, the command reports:
 - whether the exports changed structurally
 - whether governance regressions exist
 - the concrete regression entries (`status`, `budget`, `gate`, `decisions`, `delegation`, and coordinator-only repo/barrier/event regressions)
+- for coordinator exports, authority-first child repo status changes alongside preserved coordinator snapshot metadata when present
 
 When either artifact fails verification, `verify diff` reports the left/right verification failures and skips the diff entirely if either artifact fails verification.
 
