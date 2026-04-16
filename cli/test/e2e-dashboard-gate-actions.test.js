@@ -203,6 +203,10 @@ function createFixture({ gateId, state, gateActions }) {
     join(root, 'scripts', 'fail-step.mjs'),
     "console.error('publish failed hard');\nprocess.exit(7);\n",
   );
+  writeFileSync(
+    join(root, 'scripts', 'hang-step.mjs'),
+    "setInterval(() => {}, 1000);\n",
+  );
 
   return root;
 }
@@ -282,6 +286,39 @@ describe('dashboard gate actions end-to-end', () => {
       assert.equal(gateActions.latest_attempt?.gate_type, 'run_completion');
       assert.ok(blockedHtml.includes('agentxchain approve-completion --dry-run'));
       assert.ok(!blockedHtml.includes('agentxchain approve-transition --dry-run'));
+    });
+  });
+
+  it('AT-DASH-GA-009: bridge -> render pipeline preserves timed-out gate-action evidence for blocked dashboard views', async () => {
+    const gateId = 'planning_signoff';
+    const root = createFixture({
+      gateId,
+      state: makePhaseTransitionState(gateId),
+      gateActions: [
+        { label: 'hang deploy', run: 'node scripts/hang-step.mjs', timeout_ms: 1000 },
+      ],
+    });
+
+    const approval = runCli(root, ['approve-transition']);
+    assert.notEqual(approval.status, 0);
+    assert.match(approval.stdout + approval.stderr, /timeout after 1000ms/i);
+
+    await withBridge(root, async (port) => {
+      const state = await getJson(port, '/api/state');
+      const gateActions = await getJson(port, '/api/gate-actions');
+      const gateHtml = renderGate({ state, history: [], gateActions });
+      const blockedHtml = renderBlocked({ state, gateActions });
+
+      assert.equal(state.status, 'blocked');
+      assert.equal(state.pending_phase_transition?.gate, gateId);
+      assert.equal(gateActions.configured[0]?.timeout_ms, 1000);
+      assert.equal(gateActions.latest_attempt?.gate_type, 'phase_transition');
+      assert.equal(gateActions.latest_attempt?.status, 'failed');
+      assert.equal(gateActions.latest_attempt?.actions[0]?.timed_out, true);
+      assert.equal(gateActions.latest_attempt?.actions[0]?.timeout_ms, 1000);
+      assert.ok(gateHtml.includes('timed out after 1000ms'));
+      assert.ok(blockedHtml.includes('timed out after 1000ms'));
+      assert.ok(blockedHtml.includes('agentxchain approve-transition --dry-run'));
     });
   });
 });

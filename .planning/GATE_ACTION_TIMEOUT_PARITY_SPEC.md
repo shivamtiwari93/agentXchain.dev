@@ -28,8 +28,9 @@ Ensure that when a gate action times out (as opposed to failing with a non-zero 
 
 - `AT-GA-009`: Timeout metadata surfaces in `status`, report text, report markdown, and report HTML — all four assert `timed out after 1000ms` pattern match.
 - `AT-GA-008`: Original timeout evidence storage test (unchanged).
-- All existing gate-action tests continue to pass (8/8).
-- Dashboard gate-action E2E tests continue to pass (2/2).
+- `AT-DASH-GA-009`: Dashboard bridge + blocked/gate rendering preserve timed-out gate-action evidence from a real CLI-produced blocked state.
+- All existing gate-action tests continue to pass.
+- Dashboard gate-action E2E tests continue to pass.
 
 ## Decision
 

@@ -89,6 +89,7 @@ When `blocked_reason.category === 'gate_action_failed'`:
 - `AT-DASH-GA-006`: Gate Review shows previous attempt status when a re-approval is pending
 - `AT-DASH-GA-007`: Blocked view shows `agentxchain approve-completion --dry-run` for run-completion gate-action failures
 - `AT-DASH-GA-008`: Bridge → render pipeline surfaces real CLI-produced gate-action failures without shape drift
+- `AT-DASH-GA-009`: Bridge → render pipeline preserves timed-out gate-action evidence (`timed_out`, `timeout_ms`, and human-readable `timed out after Nms`) for blocked dashboard views
 
 ## Out of Scope
 
