@@ -43,6 +43,22 @@ const expectedVersion = process.env.AGENTXCHAIN_RELEASE_TARGET_VERSION || pkg.ve
 const changelogSection = extractTopReleaseSection(read('cli/CHANGELOG.md'), expectedVersion);
 const expectedEvidenceLine = extractEvidenceLine(changelogSection, expectedVersion);
 const fixtureCount = countFixtures(resolve(ROOT, '.agentxchain-conformance', 'fixtures'));
+const launchEvidenceSpec = read('.planning/LAUNCH_EVIDENCE_SPEC.md');
+
+describe('Launch evidence spec', () => {
+  it('describes the artifact as current-release authority instead of a pre-release floor document', () => {
+    assert.match(launchEvidenceSpec, /current-release evidence authority/i);
+    assert.match(launchEvidenceSpec, /active current-release authority, not a frozen launch-era snapshot/i);
+    assert.doesNotMatch(launchEvidenceSpec, /pre-release evidence artifact/i);
+  });
+
+  it('freezes the exact release-evidence contract instead of a stale test-count floor', () => {
+    assert.match(launchEvidenceSpec, /current aggregate release evidence line from the top `cli\/CHANGELOG\.md` section/i);
+    assert.match(launchEvidenceSpec, /AT-EVIDENCE-004: The report carries the current aggregate release evidence line/i);
+    assert.match(launchEvidenceSpec, /AT-EVIDENCE-007:/);
+    assert.doesNotMatch(launchEvidenceSpec, /test count floor/i);
+  });
+});
 
 describe('Launch evidence report', () => {
   const report = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
