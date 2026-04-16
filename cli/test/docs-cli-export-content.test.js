@@ -15,6 +15,7 @@ const EXPORT_LIB = read('cli/src/lib/export.js');
 const EXPORT_CMD = read('cli/src/commands/export.js');
 const SPEC = read('.planning/RUN_EXPORT_SPEC.md');
 const COORD_SPEC = read('.planning/COORDINATOR_EXPORT_SPEC.md');
+const BOUNDARY_SPEC = read('.planning/CLI_EXPORT_AUDIT_REPORT_BOUNDARY_SPEC.md');
 
 describe('Export CLI docs contract', () => {
   it('registers export with --format and --output in the CLI entrypoint', () => {
@@ -37,6 +38,28 @@ describe('Export CLI docs contract', () => {
   it('documents the raw-byte integrity contract truthfully', () => {
     assert.match(CLI_DOCS, /content_base64/);
     assert.match(CLI_DOCS, /verify export/i);
+  });
+
+  it('AT-CLI-EAR-001/AT-CLI-EAR-004: keeps export distinct from audit and report', () => {
+    assert.match(CLI_DOCS, /portable artifact for handoff, restore, or offline review/i);
+    assert.match(CLI_DOCS, /use `export` and keep the artifact/i);
+    assert.match(CLI_DOCS, /If you need an immediate governance audit for the current repo, use `audit`/i);
+    assert.match(CLI_DOCS, /If you already have an artifact and want the derived summary, `report` verifies that existing artifact first/i);
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-001/);
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-004/);
+  });
+
+  it('AT-CLI-EAR-002/AT-CLI-EAR-003/AT-CLI-EAR-005: keeps audit and report source boundaries explicit', () => {
+    assert.match(CLI_DOCS, /`audit` is the fast path for the repo you are standing in right now/i);
+    assert.match(CLI_DOCS, /builds the same governed or coordinator export artifact that `agentxchain export` would build/i);
+    assert.match(CLI_DOCS, /verifies that freshly built artifact/i);
+    assert.match(CLI_DOCS, /`audit` does not accept `--input`/i);
+    assert.match(CLI_DOCS, /`report` is for a previously created export artifact passed via `--input <path>` or stdin/i);
+    assert.match(CLI_DOCS, /`report` turns a verified export artifact into a concise governance summary/i);
+    assert.match(CLI_DOCS, /It verifies the export artifact first and fails closed on invalid artifacts/i);
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-002/);
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-003/);
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-005/);
   });
 
   it('documents both governed project and coordinator workspace export', () => {
