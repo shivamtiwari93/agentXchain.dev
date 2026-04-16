@@ -31,6 +31,7 @@ const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 
 const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
+const COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC.md'), 'utf8');
 const COORDINATOR_DASHBOARD_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_DASHBOARD_REPO_STATUS_SPEC.md'), 'utf8');
 const COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_DASHBOARD_TIMEOUT_REPO_STATUS_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
@@ -143,6 +144,7 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('ordered next actions'), 'cli docs must describe blocked next-action ordering');
     assert.ok(CLI_DOCS.includes('pending_gate'), 'cli docs must describe pending_gate next-action parity');
     assert.ok(CLI_DOCS.includes('authority-first child repo status'), 'cli docs must describe authority-first coordinator repo rows');
+    assert.ok(CLI_DOCS.includes('same authority-first child repo status contract'), 'cli docs must describe shared coordinator next-action ownership');
     assert.ok(CLI_DOCS.includes('coordinator linkage remains detail metadata'), 'cli docs must describe linked/initialized as metadata only');
     assert.ok(CLI_DOCS.includes('coordinator linkage/drift metadata'), 'cli docs must describe coordinator timeout drift metadata');
     assert.ok(CLI_DOCS.includes('multi resync'), 'cli docs must describe coordinator resync next-action parity');
@@ -230,6 +232,14 @@ describe('Dashboard continuity spec', () => {
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-001/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /GET \/api\/coordinator\/blockers/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /agentxchain multi resync/);
+  });
+
+  it('ships a durable spec for coordinator next-action repo-status ownership', () => {
+    assert.match(COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC, /Coordinator Next Action Repo Status Spec/);
+    assert.match(COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC, /AT-CNARS-001/);
+    assert.match(COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC, /AT-CNARS-005/);
+    assert.match(COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC, /buildCoordinatorRepoStatusEntries/);
+    assert.match(COORDINATOR_NEXT_ACTION_REPO_STATUS_SPEC, /agentxchain multi resync/);
   });
 
   it('ships a durable spec for coordinator dashboard repo status truth', () => {

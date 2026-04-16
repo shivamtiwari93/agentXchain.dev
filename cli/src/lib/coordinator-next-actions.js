@@ -1,41 +1,33 @@
-function normalizeCoordinatorRepoStatus(status) {
-  if (status === 'linked' || status === 'initialized') {
-    return 'active';
-  }
-  return status || null;
+import { buildCoordinatorRepoStatusEntries } from './coordinator-repo-status-presentation.js';
+
+function collectCoordinatorRunIdMismatches(repoStatusEntries) {
+  return repoStatusEntries
+    .filter((entry) => entry?.run_id_mismatch)
+    .map((entry) => entry.run_id_mismatch);
+}
+
+function collectCoordinatorStatusDrift(repoStatusEntries) {
+  return repoStatusEntries
+    .filter((entry) => entry?.status_drift)
+    .map((entry) => entry.status_drift);
 }
 
 export function detectCoordinatorRunIdMismatches(repos, coordinatorRepoRuns) {
-  const mismatches = [];
-  for (const repo of Array.isArray(repos) ? repos : []) {
-    if (!repo?.ok) continue;
-    const expectedRunId = coordinatorRepoRuns?.[repo.repo_id]?.run_id ?? null;
-    const actualRunId = repo.run_id ?? null;
-    if (expectedRunId && expectedRunId !== actualRunId) {
-      mismatches.push({
-        repo_id: repo.repo_id,
-        expected_run_id: expectedRunId,
-        actual_run_id: actualRunId,
-      });
-    }
-  }
-  return mismatches;
+  return collectCoordinatorRunIdMismatches(
+    buildCoordinatorRepoStatusEntries({
+      coordinatorRepoRuns,
+      repoSnapshots: repos,
+    }),
+  );
 }
 
 export function detectCoordinatorRepoStatusDrift(repos, coordinatorRepoRuns) {
-  return (Array.isArray(repos) ? repos : [])
-    .filter((repo) => repo?.ok)
-    .filter((repo) => {
-      const coordinatorStatus = normalizeCoordinatorRepoStatus(
-        coordinatorRepoRuns?.[repo.repo_id]?.status || null,
-      );
-      return coordinatorStatus && repo.status && coordinatorStatus !== repo.status;
-    })
-    .map((repo) => ({
-      repo_id: repo.repo_id,
-      coordinator_status: coordinatorRepoRuns?.[repo.repo_id]?.status || null,
-      repo_status: repo.status || null,
-    }));
+  return collectCoordinatorStatusDrift(
+    buildCoordinatorRepoStatusEntries({
+      coordinatorRepoRuns,
+      repoSnapshots: repos,
+    }),
+  );
 }
 
 export function deriveCoordinatorNextActions({
@@ -51,10 +43,14 @@ export function deriveCoordinatorNextActions({
     return nextActions;
   }
 
+  const repoStatusEntries = buildCoordinatorRepoStatusEntries({
+    coordinatorRepoRuns,
+    repoSnapshots: repos,
+  });
   const mismatches = Array.isArray(runIdMismatches)
     ? runIdMismatches
-    : detectCoordinatorRunIdMismatches(repos, coordinatorRepoRuns);
-  const statusDrift = detectCoordinatorRepoStatusDrift(repos, coordinatorRepoRuns);
+    : collectCoordinatorRunIdMismatches(repoStatusEntries);
+  const statusDrift = collectCoordinatorStatusDrift(repoStatusEntries);
 
   if (mismatches.length > 0) {
     nextActions.push({
