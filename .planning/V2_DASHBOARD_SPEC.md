@@ -1,6 +1,8 @@
 # V2 Web Dashboard Spec
 
 > Non-CLI governance visibility for AgentXchain orchestrated runs
+>
+> Historical spec note: this document freezes the original v2.0 dashboard contract. It is not the current authority for live dashboard mutability. The current shipped contract is split across `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md` and `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`: the live local dashboard supports authenticated `approve-gate` HTTP mutations, the WebSocket channel remains read-only, and `replay export` remains the read-only artifact-backed dashboard.
 
 ---
 
@@ -14,10 +16,10 @@ The dashboard is the first v2 artifact that moves AgentXchain from a developer t
 
 ## Design Principles
 
-1. **Read-first, read-only in v2.0.** The dashboard is an observation surface. It reads `.agentxchain/` state files and ledgers. It does not become a second control plane in v2.0.
+1. **Read-first, read-only in v2.0.** This was the original v2.0 baseline: the dashboard was an observation surface that read `.agentxchain/` state files and ledgers and did not become a second control plane in v2.0. Later releases superseded the "fully read-only" assumption with a narrow authenticated `approve-gate` action on the live dashboard; replay stayed read-only.
 2. **No external service required for local use.** A lightweight local bridge server started by `agentxchain dashboard` is the v2.0 baseline. The hosted cloud dashboard (agentxchain.ai) is the commercial extension, not a prerequisite.
 3. **Protocol-native.** The dashboard renders protocol artifacts directly. It may hold ephemeral browser state for filtering and expansion, but `.agentxchain/` remains the only authority.
-4. **Single mutation surface.** The CLI remains the only write path in v2.0. The dashboard may show exact next actions and copyable commands, but it does not execute approvals, acceptances, or resumes itself.
+4. **Single mutation surface in v2.0.** The CLI remained the only write path in the original v2.0 scope. That specific constraint is now historical: the current live dashboard may execute authenticated `approve-gate` only, while broader recovery and arbitrary write paths still remain CLI-only.
 
 ---
 
@@ -59,7 +61,7 @@ The dashboard is the first v2 artifact that moves AgentXchain from a developer t
 
 ### Why a local bridge server instead of file access
 
-Browsers restrict reliable local file access, and `file://` produces inconsistent behavior across browsers and operating systems. A thin Node.js server started by `agentxchain dashboard` gives one predictable local transport, enables live invalidation events, and keeps the architecture aligned with the eventual cloud data source. The bridge is read-only in v2.0.
+Browsers restrict reliable local file access, and `file://` produces inconsistent behavior across browsers and operating systems. A thin Node.js server started by `agentxchain dashboard` gives one predictable local transport, enables live invalidation events, and keeps the architecture aligned with the eventual cloud data source. In the original v2.0 baseline the bridge was read-only; the current live bridge later added token-gated `approve-gate` over HTTP while keeping WebSocket read-only.
 
 ### Cloud extension (agentxchain.ai, post-v2.0)
 
@@ -168,7 +170,7 @@ When the run is awaiting a human gate (phase transition or run completion), the 
   - `agentxchain approve-completion`
 - Copy-to-clipboard affordance for the command (`data-copy` attribute with `navigator.clipboard` API, fallback to text selection)
 
-The dashboard does not approve gates itself in v2.0.
+The dashboard does not approve gates itself in this original v2.0 spec. That assumption is historical only; current live gate approval is defined in `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md`.
 
 In the local v2.0 baseline, evidence aggregation walks `history.jsonl` backwards from `pending_phase_transition.requested_by_turn` or `pending_run_completion.requested_by_turn` to the most recent accepted turn whose `phase_transition_request` is non-null (or run start). That accepted requesting turn is the phase-boundary marker because it is the field the orchestrator actually persists in `history.jsonl`; the dashboard must not invent a separate `phase_transition: true` marker. All turns after that boundary, through the requesting turn, are included. The dashboard does not invent an extra gate-summary file.
 
@@ -219,7 +221,7 @@ agentxchain dashboard [--port 3847] [--no-open]
 - Starts the local bridge server
 - Opens the default browser to `http://localhost:3847`
 - Watches `.agentxchain/` for live updates
-- Serves a read-only dashboard for the current repo
+- In this original v2.0 boundary, serves a read-only dashboard for the current repo
 - Exits when the terminal is interrupted (Ctrl+C)
 
 ---
@@ -228,7 +230,7 @@ agentxchain dashboard [--port 3847] [--no-open]
 
 1. **Local-only by default.** The bridge server binds to `127.0.0.1`, not `0.0.0.0`. No network exposure.
 2. **No authentication for local use.** If you can access the terminal, you can access the dashboard. This matches the CLI's threat model.
-3. **No write RPC in v2.0.** The bridge does not execute CLI commands or arbitrary shell commands. Mutation requests are rejected by design.
+3. **No write RPC in v2.0.** Historical v2.0 boundary only. The shipped live bridge later added authenticated `POST /api/actions/approve-gate`, but it still does not execute arbitrary shell commands or generic CLI recovery actions.
 4. **Read-only state access.** The bridge serves only the dashboard assets plus the defined JSON/JSONL resources. It does not expose arbitrary filesystem reads.
 5. **HTML interpolation must escape both quote characters.** Dashboard renderers build HTML strings directly, so text derived from governed artifacts must escape `&`, `<`, `>`, `"`, and `'`. Relying on a double-quoted-attribute convention alone is not a sufficient security contract.
 
@@ -239,7 +241,7 @@ agentxchain dashboard [--port 3847] [--no-open]
 - **Multi-repo view.** Superseded by `.planning/V2_DASHBOARD_MULTI_REPO_SPEC.md`. Local v2.0 dashboard includes read-only coordinator state integration; cloud remains the multi-tenant extension.
 - **User authentication.** Local dashboard has no auth. Cloud dashboard handles auth.
 - **Real-time agent output streaming.** The dashboard shows completed turns, not in-progress agent output. Streaming adapter stdout is a v2.1 consideration.
-- **Dashboard-triggered approvals or resume actions.** All mutations remain CLI-only in v2.0.
+- **Dashboard-triggered approvals or resume actions in v2.0.** Historical only. The later shipped live dashboard added authenticated `approve-gate` and still does not support generic resume/retry/dispatch mutations.
 - **Dispatch bundle / prompt inspection.** Deferred until the redaction and permission model is specified.
 - **Editor-protocol deep links.** v2.0 shows copyable file paths, not editor-specific `code://` handlers.
 - **Mobile layout.** Desktop-first. Mobile is deferred.
@@ -270,8 +272,8 @@ Given `decision-ledger.jsonl` contains entries from 3 agents, when the user filt
 ### AT-DASH-007: Bridge server is local-only
 Given the bridge server is started with `agentxchain dashboard`, when a connection attempt is made from a non-localhost address, then the connection is refused.
 
-### AT-DASH-008: Read-only bridge rejects mutation requests
-Given the bridge server is running, when a client requests a mutation action over HTTP or WebSocket, then the bridge rejects the request explicitly because v2.0 exposes no write RPC surface.
+### AT-DASH-008: Historical v2.0 read-only bridge rejects mutation requests
+Given the original v2.0 bridge server is running, when a client requests a mutation action over HTTP or WebSocket, then the bridge rejects the request explicitly because the v2.0 baseline exposed no write RPC surface. This acceptance point is historical and was later superseded by the narrower `AT-DASH-ACT-*` live-dashboard gate-approval contract.
 
 ### Security Verification: Dashboard renderers escape both quote characters
 Given governed artifact text containing `'` and `"`, when the dashboard renders that text into HTML content or attributes, then both quote characters are entity-escaped and do not rely on a component-specific attribute-quoting convention for safety.

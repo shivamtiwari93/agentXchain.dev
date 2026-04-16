@@ -1,6 +1,8 @@
 # V2 Scope Boundary — AgentXchain
 
 > Defines the exact feature boundary for v2.0.0, items explicitly deferred to v3, and items cut entirely.
+>
+> Historical release-boundary note: this file preserves the v2.0.0 scope decision. It is **not** the current authority for live dashboard mutability. The current shipped mutability contract lives in `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md` and `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`: the live local dashboard now supports authenticated `approve-gate` HTTP mutations, the WebSocket channel remains read-only, and `replay export` remains the read-only artifact-backed dashboard.
 
 ---
 
@@ -40,7 +42,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 
 ### V2-F2: Dashboard Multi-Repo Integration
 
-**Status:** Local dashboard v2.0 baseline is shipped (bridge server, 5 repo-local panels, WebSocket). Coordinator state integration extends it to 7 total views.
+**Status:** Historical v2.0 baseline is shipped (bridge server, 5 repo-local panels, WebSocket). Coordinator state integration extends it to 7 total views. Later releases expanded the view count and added a narrow authenticated live-dashboard gate-approval path; see the superseding dashboard specs noted above.
 
 **Scope:**
 - Dashboard bridge reads coordinator state files alongside repo-local state
@@ -52,7 +54,7 @@ This document freezes the v2.0.0 boundary: what ships, what does NOT ship, and w
 **What does NOT ship as part of V2-F2:**
 - No cloud-hosted dashboard. v2 dashboard remains localhost-only.
 - No multi-tenant persistence. State is read from filesystem, not from a database.
-- No write operations from dashboard. Dashboard remains read-only.
+- Historical v2.0 boundary only: no write operations from dashboard. This was later superseded by the shipped narrow `approve-gate` action in `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md`. Replay/export remains read-only.
 
 ### V2-F3: Coordinator Hook Payloads — Context Invalidation
 

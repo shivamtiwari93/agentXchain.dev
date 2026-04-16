@@ -1,6 +1,8 @@
 # V2.1 Scope Boundary — AgentXchain
 
 > Defines the exact feature boundary for v2.1.0 after the v2.0.0 release.
+>
+> Historical release-boundary note: this file preserves the v2.1.0 scope decision. It is not the current authority for live dashboard mutability. The current shipped dashboard mutability contract lives in `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md` and `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`: the live local dashboard supports authenticated `approve-gate` HTTP mutations, the WebSocket channel remains read-only, and `replay export` remains read-only.
 
 ---
 
@@ -136,7 +138,7 @@ The v2.1 surface touches four operator-facing areas:
   - phase
   - verdict
   - hook name
-- The dashboard remains read-only. Evidence depth improves; write authority does not.
+- Historical v2.1 scope only: the dashboard remained read-only and this slice added evidence depth without write authority. Later releases superseded that mutability boundary with the narrower live-dashboard `approve-gate` action; replay/export remained read-only.
 
 **Why this is in v2.1:**
 - v2.0 deliberately shipped the observation surface first.
@@ -145,7 +147,7 @@ The v2.1 surface touches four operator-facing areas:
 **What does NOT ship as part of V2.1-F3:**
 - No cloud-hosted dashboard
 - No real-time adapter stdout streaming
-- No dashboard-triggered approvals, retries, or dispatch
+- Historical v2.1 boundary only: no dashboard-triggered approvals, retries, or dispatch. Later releases added only authenticated `approve-gate`; retries, resume, and generic dispatch still remain out of scope.
 - No editor-specific deep links as a protocol requirement
 
 ---
@@ -160,9 +162,9 @@ The v2.1 surface touches four operator-facing areas:
 
 **Why deferred:** This is a runtime architecture change, not a release-hardening task.
 
-### V3-D3: Dashboard Write Actions
+### V3-D3: Dashboard Write Actions (beyond the narrow shipped gate-approval path)
 
-**Why deferred:** The constitutional model still requires CLI-backed explicit approval paths. Dashboard write authority changes the permission model and audit surface.
+**Why deferred:** The narrow live-dashboard `approve-gate` path shipped later, but broader dashboard write authority is still deferred. Generic recovery, dispatch, and multi-step mutation paths would change the permission model and audit surface materially.
 
 ### V3-D4: Streaming Agent Output
 
@@ -231,5 +233,5 @@ The v2.1 surface touches four operator-facing areas:
 - `DEC-V2_1-SCOPE-002`: Dispatch integrity is enforced at bundle finalization time with content-addressed manifests, not at initial file generation time.
 - `DEC-V2_1-SCOPE-003`: HTTP hooks are in v2.1 because they were already deferred from the hook spec and materially improve external policy integration.
 - `DEC-V2_1-SCOPE-004`: Plugin ecosystem hardening means enforced `config_schema` plus atomic upgrade flow; vague “ecosystem” language is not sufficient.
-- `DEC-V2_1-SCOPE-005`: Dashboard v2.1 work is evidence drill-down only. The dashboard remains read-only.
+- `DEC-V2_1-SCOPE-005`: Dashboard v2.1 work was evidence drill-down only. That original v2.1 read-only boundary is now historical; the current live-dashboard mutation contract is limited to authenticated `approve-gate` as defined in `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md`.
 - `DEC-V2_1-SCOPE-006`: Hook auto-approval of human gates is cut, not deferred.
