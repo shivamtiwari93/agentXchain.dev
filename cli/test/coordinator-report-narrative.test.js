@@ -1144,6 +1144,20 @@ describe('coordinator report narrative spec', () => {
     assert.match(spec, /blocked_reason/);
     assert.match(spec, /next_actions/);
   });
+
+  it('AT-COORD-EVENT-NAR-004: report.js imports the shared coordinator event narrative helper', () => {
+    const source = readFileSync(join(__dirname, '..', 'src', 'lib', 'report.js'), 'utf8');
+
+    assert.match(source, /import\s+\{\s*summarizeCoordinatorEvent\s*\}\s+from\s+'\.\/coordinator-event-narrative\.js'/);
+    assert.ok(
+      !source.includes('Generated cross-repo context for ${entry.target_repo_id || \'unknown\'}'),
+      'report.js must not carry a second local coordinator event summary implementation',
+    );
+    assert.ok(
+      !source.includes('Resynced state for ${resynced} repo'),
+      'report.js must not duplicate coordinator resync summary logic',
+    );
+  });
 });
 
 function textFileEntry(content) {

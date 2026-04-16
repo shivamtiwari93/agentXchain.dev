@@ -10,6 +10,7 @@ import {
   deriveCoordinatorNextActions,
   detectCoordinatorRunIdMismatches,
 } from './coordinator-next-actions.js';
+import { summarizeCoordinatorEvent } from './coordinator-event-narrative.js';
 
 export const GOVERNANCE_REPORT_VERSION = '0.1';
 
@@ -616,45 +617,6 @@ function extractRecoverySummary(artifact) {
     turn_id: blockedReason.turn_id || null,
     runtime_guidance: runtimeGuidance,
   };
-}
-
-function summarizeCoordinatorEvent(entry) {
-  const type = entry?.type || 'unknown';
-  const ts = entry?.timestamp || '';
-  switch (type) {
-    case 'run_initialized': {
-      const repoCount = entry.repo_runs ? Object.keys(entry.repo_runs).length : 0;
-      return `Coordinator run initialized with ${repoCount} repo${repoCount !== 1 ? 's' : ''}`;
-    }
-    case 'turn_dispatched':
-      return `Dispatched turn to ${entry.repo_id || 'unknown'} (${entry.role || '?'}) in workstream ${entry.workstream_id || 'unknown'}`;
-    case 'acceptance_projection': {
-      const turnRef = entry.repo_turn_id ? ` (turn ${entry.repo_turn_id})` : '';
-      const summaryText = entry.summary ? ` — ${entry.summary}` : '';
-      return `Projected acceptance from ${entry.repo_id || 'unknown'}${turnRef}${summaryText}`;
-    }
-    case 'context_generated': {
-      const upstreamCount = Array.isArray(entry.upstream_repo_ids) ? entry.upstream_repo_ids.length : 0;
-      return `Generated cross-repo context for ${entry.target_repo_id || 'unknown'} from ${upstreamCount} upstream repo${upstreamCount !== 1 ? 's' : ''}`;
-    }
-    case 'phase_transition_requested':
-      return `Requested phase transition: ${entry.from || '?'} → ${entry.to || '?'}`;
-    case 'phase_transition_approved':
-      return `Phase transition approved: ${entry.from || '?'} → ${entry.to || '?'}`;
-    case 'run_completion_requested':
-      return `Requested run completion (gate: ${entry.gate || 'unknown'})`;
-    case 'run_completed':
-      return 'Coordinator run completed';
-    case 'state_resynced': {
-      const resynced = Array.isArray(entry.resynced_repos) ? entry.resynced_repos.length : 0;
-      const barrierChanges = Array.isArray(entry.barrier_changes) ? entry.barrier_changes.length : 0;
-      return `Resynced state for ${resynced} repo${resynced !== 1 ? 's' : ''}, ${barrierChanges} barrier change${barrierChanges !== 1 ? 's' : ''}`;
-    }
-    case 'blocked_resolved':
-      return `Blocked state resolved: ${entry.from || '?'} → ${entry.to || '?'}`;
-    default:
-      return `${type} event${ts ? ` at ${ts}` : ''}`;
-  }
 }
 
 function extractCoordinatorTimeline(artifact) {

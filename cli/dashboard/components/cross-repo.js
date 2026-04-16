@@ -1,4 +1,5 @@
 import { renderLiveStatus } from './live-status.js';
+import { summarizeCoordinatorEvent } from '../../src/lib/coordinator-event-narrative.js';
 
 function esc(str) {
   if (!str) return '';
@@ -28,52 +29,52 @@ function describeEvent(entry) {
     case 'run_initialized':
       return {
         title: 'Coordinator Initialized',
-        detail: `${Object.keys(entry.repo_runs || {}).length} repo runs linked or initialized`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'turn_dispatched':
       return {
         title: 'Turn Dispatched',
-        detail: `${entry.role || 'agent'} dispatched to ${entry.repo_id} for ${entry.workstream_id}`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'acceptance_projection':
       return {
         title: 'Acceptance Projected',
-        detail: entry.summary || `${entry.repo_id} accepted ${entry.repo_turn_id || 'a turn'}`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'context_generated':
       return {
         title: 'Context Generated',
-        detail: `${entry.target_repo_id} received cross-repo context from ${(entry.upstream_repo_ids || []).join(', ') || 'no upstream repos'}`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'phase_transition_requested':
       return {
         title: 'Phase Gate Requested',
-        detail: `${entry.from || 'unknown'} -> ${entry.to || 'unknown'} (${entry.gate || 'gate'})`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'phase_transition_approved':
       return {
         title: 'Phase Gate Approved',
-        detail: `${entry.from || 'unknown'} -> ${entry.to || 'unknown'}`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'run_completion_requested':
       return {
         title: 'Completion Gate Requested',
-        detail: entry.gate || 'initiative_ship',
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'run_completed':
       return {
         title: 'Initiative Completed',
-        detail: entry.gate || 'completion approved',
+        detail: summarizeCoordinatorEvent(entry),
       };
     case 'state_resynced':
       return {
         title: 'Coordinator Resynced',
-        detail: `${(entry.resynced_repos || []).length} repos updated`,
+        detail: summarizeCoordinatorEvent(entry),
       };
     default:
       return {
         title: entry?.type || 'Unknown Event',
-        detail: entry?.repo_id || entry?.workstream_id || 'Coordinator history event',
+        detail: summarizeCoordinatorEvent(entry),
       };
   }
 }

@@ -9,6 +9,9 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { render as renderTimeline } from '../dashboard/components/timeline.js';
 import { filterEntries, render as renderLedger } from '../dashboard/components/ledger.js';
@@ -18,6 +21,8 @@ import { render as renderGate, findPostGateTurns, aggregateEvidence } from '../d
 import { render as renderInitiative } from '../dashboard/components/initiative.js';
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 import { render as renderRunHistory } from '../dashboard/components/run-history.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── Timeline View ──────────────────────────────────────────────────────────
 
@@ -783,6 +788,87 @@ describe('Cross-Repo View', () => {
     assert.ok(html.indexOf('Unknown Event') < html.indexOf('Turn Dispatched') || html.indexOf('mystery_event') < html.indexOf('Turn Dispatched'));
   });
 
+  it('AT-COORD-EVENT-NAR-003: renders shared summaries for the full recognized coordinator event set', () => {
+    const html = renderCrossRepo({
+      coordinatorState: { super_run_id: 'srun_456' },
+      coordinatorHistory: [
+        {
+          type: 'run_initialized',
+          timestamp: '2026-04-15T20:00:00Z',
+          repo_runs: { api: {}, web: {} },
+        },
+        {
+          type: 'turn_dispatched',
+          timestamp: '2026-04-15T20:01:00Z',
+          repo_id: 'api',
+          role: 'dev',
+          workstream_id: 'backend',
+          repo_turn_id: 'turn_api_001',
+        },
+        {
+          type: 'acceptance_projection',
+          timestamp: '2026-04-15T20:02:00Z',
+          repo_id: 'api',
+          repo_turn_id: 'turn_api_001',
+          summary: 'API integration accepted',
+        },
+        {
+          type: 'context_generated',
+          timestamp: '2026-04-15T20:03:00Z',
+          target_repo_id: 'web',
+          upstream_repo_ids: ['api'],
+          context_ref: '.agentxchain/multirepo/context/web-001.json',
+        },
+        {
+          type: 'phase_transition_requested',
+          timestamp: '2026-04-15T20:04:00Z',
+          from: 'implementation',
+          to: 'qa',
+          gate: 'phase_transition:implementation->qa',
+        },
+        {
+          type: 'phase_transition_approved',
+          timestamp: '2026-04-15T20:05:00Z',
+          from: 'implementation',
+          to: 'qa',
+        },
+        {
+          type: 'run_completion_requested',
+          timestamp: '2026-04-15T20:06:00Z',
+          gate: 'initiative_ship',
+        },
+        {
+          type: 'run_completed',
+          timestamp: '2026-04-15T20:07:00Z',
+        },
+        {
+          type: 'state_resynced',
+          timestamp: '2026-04-15T20:08:00Z',
+          resynced_repos: ['api'],
+          barrier_changes: [
+            {
+              barrier_id: 'sync_completion',
+              previous_status: 'pending',
+              new_status: 'satisfied',
+            },
+          ],
+        },
+      ],
+    });
+
+    assert.match(html, /Coordinator run initialized with 2 repos/);
+    assert.match(html, /Dispatched turn to api \(dev\) in workstream backend/);
+    assert.match(html, /Projected acceptance from api \(turn turn_api_001\) — API integration accepted/);
+    assert.match(html, /Generated cross-repo context for web from 1 upstream repo/);
+    assert.match(html, /Requested phase transition: implementation → qa/);
+    assert.match(html, /Phase transition approved: implementation → qa/);
+    assert.match(html, /Requested run completion \(gate: initiative_ship\)/);
+    assert.match(html, /Coordinator run completed/);
+    assert.match(html, /Resynced state for 1 repo, 1 barrier change/);
+    assert.match(html, /Context Ref:/);
+    assert.match(html, /sync_completion: pending -&gt; satisfied/);
+  });
+
   it('AT-DLO-004: renders live observer status for coordinator freshness', () => {
     const html = renderCrossRepo({
       coordinatorState: { super_run_id: 'srun_123' },
@@ -803,6 +889,20 @@ describe('Cross-Repo View', () => {
     assert.ok(html.includes('Stale'));
     assert.ok(html.includes('Updated 2026-04-15T16:09:00Z'));
     assert.ok(html.includes('Last coordinator event: turn_accepted from api at 2026-04-15T16:10:05Z'));
+  });
+
+  it('AT-COORD-EVENT-NAR-004: cross-repo view imports the shared coordinator event narrative helper', () => {
+    const source = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'cross-repo.js'), 'utf8');
+
+    assert.match(source, /import\s+\{\s*summarizeCoordinatorEvent\s*\}\s+from\s+'..\/..\/src\/lib\/coordinator-event-narrative\.js'/);
+    assert.ok(
+      !source.includes('received cross-repo context from'),
+      'cross-repo view must not keep stale local coordinator event summary copy',
+    );
+    assert.ok(
+      !source.includes('repos updated'),
+      'cross-repo view must not keep stale resync summary copy',
+    );
   });
 });
 
