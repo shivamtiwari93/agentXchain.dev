@@ -19,10 +19,10 @@ AutoGen is also a branding trap if you compare it lazily. The current project is
 |---|---|---|
 | **Primary job** | Multi-agent conversation and orchestration patterns | Governed software delivery |
 | **Interaction model** | AutoPattern, RoundRobinPattern, RandomPattern, ManualPattern, Swarm-style handoffs, custom routing | Role-based turns and governed phases |
-| **Quality controls** | Guardrails on agent outputs; no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
-| **Human involvement** | `human_input_mode`, user agents, manual speaker selection | Phase-transition and run-completion gates |
+| **Quality controls** | Guardrails and safeguards on agent outputs; no mandatory cross-role challenge | Mandatory protocol-enforced challenge between roles |
+| **Human involvement** | `human_input_mode`, user agents, and A2A/AG-UI human approval patterns | Phase-transition and run-completion gates |
 | **Interoperability** | A2A and AG-UI protocol support | Connector-based (`manual`, `local_cli`, `api_proxy`, `mcp`, `remote_agent`) |
-| **Audit surface** | Conversation history and observability integrations | Append-only decision and objection ledgers |
+| **Audit surface** | Conversation history, safeguard events, and OpenTelemetry tracing | Append-only decision and objection ledgers |
 | **Best fit** | Flexible agent conversations and workflows | Auditable code convergence |
 
 ## Choose AG2 / AutoGen when
@@ -64,7 +64,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-AG2 can include humans and manual control, and provides guardrails on agent outputs and Swarm-style handoffs for flexible coordination. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
+AG2 can include humans and manual control, and it now provides guardrails/safeguards, remote HITL, and tracing for flexible coordination. What it does not provide by default is a repository-delivery constitution that forces disagreement, records objections in append-only ledgers, and blocks shipping until explicit gates are cleared.
 
 ## Using both together
 

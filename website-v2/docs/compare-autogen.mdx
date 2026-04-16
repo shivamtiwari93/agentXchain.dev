@@ -21,14 +21,14 @@ This page explains the differences honestly so you can pick the right tool.
 | **Primary use case** | General-purpose multi-agent problem solving | Long-horizon software development |
 | **Agent definition** | Python classes (ConversableAgent, AssistantAgent) | JSON config with role charters and runtime bindings |
 | **Communication** | Free-form chat messages between agents | Structured turn results with decisions, artifacts, and status |
-| **State management** | Conversation history | Governed state machine with history, events, decisions |
-| **Governance** | None built-in | Core feature — audit trail, phase gates, decision carryover |
+| **State management** | Conversation history, context variables, and app-managed saved state | Governed state machine with history, events, decisions |
+| **Governance** | Guardrails, safeguards, and app-defined control; no built-in repository-delivery governance layer | Core feature — audit trail, phase gates, decision carryover |
 | **Protocol** | Implicit | Explicit versioned protocol (v7) with conformance tiers |
-| **Human oversight** | Human proxy agent in conversation | Structured approval gates, human roles, escalation |
+| **Human oversight** | `human_input_mode`, user agents, and A2A/AG-UI HITL flows | Structured approval gates, human roles, escalation |
 | **Model support** | Multi-provider model clients | Model-agnostic via adapters |
-| **IDE integration** | None (Python library) | Works with any IDE via adapters |
-| **Recovery** | Manual | Built-in recovery with state preservation |
-| **Multi-repo** | Not supported | Coordinator with cross-repo barriers |
+| **IDE / UI integration** | Python-first library plus AG-UI / app-defined integrations | Works with any IDE via adapters |
+| **Recovery** | Resume chats from saved message history; durability stays app-managed | Built-in recovery with state preservation |
+| **Multi-repo** | No built-in cross-repo coordinator surface | Coordinator with cross-repo barriers |
 | **License** | MIT (Creative Commons for docs) | MIT |
 
 ---
@@ -47,21 +47,21 @@ This page explains the differences honestly so you can pick the right tool.
 
 ### 1. Structured Governance vs. Free-Form Chat
 
-AutoGen agents communicate via unstructured chat messages. There is no formal decision record, no turn validation, and no way to prove what was agreed upon after the fact.
+AutoGen agents communicate via unstructured chat messages. Current AG2 releases add guardrails, safeguards, tracing, and human-in-the-loop patterns, but there is still no protocol-native decision ledger or repository ship-gate trail that proves what was accepted as delivery work after the fact.
 
 AgentXchain uses structured turn results with explicit fields: decisions (with IDs like `DEC-001`), artifacts, status updates, phase transition requests, and completion requests. Every turn is validated against the protocol before acceptance. Every decision is recorded in an append-only ledger.
 
 This matters because:
 - Chat-based coordination degrades over long conversations (context drift, forgotten agreements)
-- Free-form messages cannot be mechanically verified for compliance
-- Audit trails require structured data, not conversation transcripts
+- Conversation transcripts, guardrail events, and traces are not the same thing as protocol-validated delivery records
+- Audit trails for software delivery need structured decisions, objections, and gate outcomes
 
 ### 2. Convergence Over Conversation
 
 AutoGen optimizes for **agent conversations** — agents talking to each other until they reach a result. This works well for short tasks but creates problems at scale:
 
 - Conversations can loop without converging
-- There is no built-in mechanism to force decisions or advance phases
+- There is no built-in repository-delivery phase model with approval gates
 - No explicit boundary between "discussing" and "decided"
 
 AgentXchain optimizes for **convergence** — structured phase progression with explicit gates that prevent advancement until criteria are met. Decisions are recorded, challenges are required, and phase transitions must be approved. This is what makes long-horizon execution possible.
@@ -87,7 +87,7 @@ AgentXchain is purpose-built for **software delivery**: planning, implementation
 
 ### 5. State Durability
 
-AutoGen's state is primarily in-memory conversation history. If the process crashes, the conversation is lost.
+AG2 can resume group chats from saved message history, and its current docs expose conversation-oriented persistence, HITL, and tracing surfaces. The harder boundary is that durability stays app-managed and conversation-centric: you decide what to serialize, where to store it, and how to rehydrate it after failure.
 
 AgentXchain persists all state to disk in structured files:
 - `state.json` — current governed state machine
