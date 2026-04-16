@@ -12,8 +12,7 @@
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { buildInheritedContext } from './run-context-inheritance.js';
-import { validateParentRun } from './run-history.js';
+import { recordRunHistory, validateParentRun } from './run-history.js';
 
 const DEFAULT_MAX_CHAINS = 5;
 const DEFAULT_CHAIN_ON = ['completed'];
@@ -72,7 +71,6 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
     terminal_reason: null,
   };
 
-  let chainsRemaining = chainOpts.maxChains;
   let previousRunId = null;
   let lastExitCode = 0;
   let aborted = false;
@@ -92,11 +90,6 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
       if (previousRunId) {
         runOpts.continueFrom = previousRunId;
         runOpts.inheritContext = true;
-        runOpts.provenance = {
-          trigger: 'continuation',
-          parent_run_id: previousRunId,
-          created_by: 'chain',
-        };
       }
 
       const runStart = Date.now();
@@ -107,12 +100,11 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
       const stopReason = execution.result?.stop_reason || (execution.result?.ok ? 'completed' : 'unknown');
       const turnsExecuted = execution.result?.turns_executed || 0;
 
-      chainReport.runs.push({
-        run_id: runId,
-        status: stopReason,
-        turns: turnsExecuted,
-        duration_ms: runDuration,
-      });
+      chainReport.runs.push(buildRunReportEntry(execution, runDuration, {
+        fallbackRunId: runId,
+        fallbackStatus: stopReason,
+        fallbackTurns: turnsExecuted,
+      }));
       chainReport.total_turns += turnsExecuted;
       chainReport.total_duration_ms += runDuration;
 
@@ -137,15 +129,14 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
         break;
       }
 
-      // Check chains remaining
-      chainsRemaining--;
-      if (chainsRemaining <= 0) {
-        chainReport.terminal_reason = 'chain_limit_reached';
-        break;
-      }
-
       // Validate parent run exists for continuation
-      const validation = validateParentRun(context.root, runId);
+      let validation = validateParentRun(context.root, runId);
+      if (!validation.ok && execution.result?.state && (stopReason === 'completed' || stopReason === 'blocked')) {
+        const repair = recordRunHistory(context.root, execution.result.state, context.config, stopReason);
+        if (repair.ok) {
+          validation = validateParentRun(context.root, runId);
+        }
+      }
       if (!validation.ok) {
         log(`  Chain: cannot continue — ${validation.error}`);
         chainReport.terminal_reason = 'parent_validation_failed';
@@ -153,8 +144,9 @@ export async function executeChainedRun(context, opts, chainOpts, executeGoverne
       }
 
       // Cooldown
+      const continuationsRemaining = Math.max(0, maxRuns - (runNumber + 1));
       log('');
-      log(`  Chain: run ${stopReason} \u2192 starting continuation (${chainsRemaining} remaining)...`);
+      log(`  Chain: run ${stopReason} \u2192 starting continuation (${continuationsRemaining} remaining)...`);
       if (chainOpts.cooldownSeconds > 0) {
         log(`  Waiting ${chainOpts.cooldownSeconds}s...`);
         await sleep(chainOpts.cooldownSeconds * 1000);
@@ -230,4 +222,41 @@ function formatDuration(ms) {
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function buildRunReportEntry(execution, runDuration, fallback = {}) {
+  const state = execution?.result?.state || null;
+  const provenance = state?.provenance || null;
+
+  return {
+    run_id: state?.run_id || fallback.fallbackRunId || 'unknown',
+    status: execution?.result?.stop_reason || fallback.fallbackStatus || 'unknown',
+    turns: execution?.result?.turns_executed || fallback.fallbackTurns || 0,
+    duration_ms: runDuration,
+    provenance_trigger: provenance?.trigger || null,
+    parent_run_id: provenance?.parent_run_id || null,
+    inherited_context_summary: summarizeInheritedContext(state?.inherited_context || null),
+  };
+}
+
+function summarizeInheritedContext(inheritedContext) {
+  if (!inheritedContext) return null;
+
+  return {
+    parent_run_id: inheritedContext.parent_run_id || null,
+    parent_status: inheritedContext.parent_status || null,
+    inherited_at: inheritedContext.inherited_at || null,
+    parent_roles_used: Array.isArray(inheritedContext.parent_roles_used)
+      ? inheritedContext.parent_roles_used
+      : [],
+    parent_phases_completed_count: Array.isArray(inheritedContext.parent_phases_completed)
+      ? inheritedContext.parent_phases_completed.length
+      : 0,
+    recent_decisions_count: Array.isArray(inheritedContext.recent_decisions)
+      ? inheritedContext.recent_decisions.length
+      : 0,
+    recent_accepted_turns_count: Array.isArray(inheritedContext.recent_accepted_turns)
+      ? inheritedContext.recent_accepted_turns.length
+      : 0,
+  };
 }

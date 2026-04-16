@@ -28,3 +28,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node examples/governed-todo-app/run-auto.mjs --json
+      - name: Run governed todo app chain proof (text)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/governed-todo-app/run-chain-proof.mjs
+      - name: Run governed todo app chain proof (JSON)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node examples/governed-todo-app/run-chain-proof.mjs --json

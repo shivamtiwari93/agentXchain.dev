@@ -73,8 +73,32 @@ The chain module tracks:
   "chain_id": "chain-<uuid>",
   "started_at": "ISO8601",
   "runs": [
-    { "run_id": "...", "status": "completed", "turns": 5, "duration_ms": 12000 },
-    { "run_id": "...", "status": "completed", "turns": 3, "duration_ms": 8000 }
+    {
+      "run_id": "...",
+      "status": "completed",
+      "turns": 5,
+      "duration_ms": 12000,
+      "provenance_trigger": "manual",
+      "parent_run_id": null,
+      "inherited_context_summary": null
+    },
+    {
+      "run_id": "...",
+      "status": "completed",
+      "turns": 3,
+      "duration_ms": 8000,
+      "provenance_trigger": "continuation",
+      "parent_run_id": "gov-abc123",
+      "inherited_context_summary": {
+        "parent_run_id": "gov-abc123",
+        "parent_status": "completed",
+        "inherited_at": "ISO8601",
+        "parent_roles_used": ["pm", "dev", "qa"],
+        "parent_phases_completed_count": 3,
+        "recent_decisions_count": 2,
+        "recent_accepted_turns_count": 3
+      }
+    }
   ],
   "total_turns": 8,
   "total_duration_ms": 20000,
@@ -83,11 +107,16 @@ The chain module tracks:
 ```
 
 This summary is written to `.agentxchain/reports/chain-<chain_id>.json`.
+Each run entry must expose enough lineage to audit the chain without reopening live state:
+- `provenance_trigger`
+- `parent_run_id`
+- `inherited_context_summary` for continuation runs
 
 ### SIGINT Handling
 
 - First SIGINT: finish current turn, stop current run, do NOT chain.
 - Second SIGINT: hard exit.
+- Each governed run must remove its temporary SIGINT listener before the next chained run starts. Chaining may not accumulate multiple listeners inside one long-lived process.
 
 ### Terminal Output
 
@@ -121,7 +150,7 @@ agentxchain run --chain
 2. **Chain with manual roles**: Chaining skips manual roles (same as `run`).
 3. **Chain with blocked run not in chain_on**: Stop chaining, report last run's blocked reason.
 4. **Inherited context build failure**: Log warning, continue chaining without inherited context (degraded but not broken).
-5. **Parent run ID not found**: Should not happen (we just completed it), but if it does, stop chaining with error.
+5. **Parent run ID not found in run-history**: Attempt to repair the advisory run-history entry from the just-completed terminal state, then retry validation once. If it still cannot be validated, stop chaining with error.
 
 ## Acceptance Tests
 
@@ -129,10 +158,11 @@ agentxchain run --chain
 - `AT-CHAIN-002`: `--chain --max-chains 1` stops after 1 continuation (total 2 runs).
 - `AT-CHAIN-003`: `--chain --chain-on blocked` chains on blocked status.
 - `AT-CHAIN-004`: `--chain` with run that blocks does NOT chain when `chain_on` is default `completed`.
-- `AT-CHAIN-005`: Chain report written to `.agentxchain/reports/chain-*.json` with correct structure.
+- `AT-CHAIN-005`: Chain report written to `.agentxchain/reports/chain-*.json` with lineage and inherited-context summaries for child runs.
 - `AT-CHAIN-006`: Config-based chaining (`run_loop.chain.enabled: true`) works without CLI flags.
 - `AT-CHAIN-007`: CLI flags override config values.
 - `AT-CHAIN-008`: SIGINT during chained run prevents further chaining.
+- `AT-CHAIN-009`: Repeated chained runs do not leak SIGINT listeners across `executeGovernedRun()` invocations.
 
 ## Open Questions
 

@@ -206,7 +206,22 @@ describe('executeChainedRun — chain loop behavior', () => {
         ok: true,
         stop_reason: 'completed',
         turns_executed: 5,
-        state: { run_id: 'run-structure-test' },
+        state: {
+          run_id: 'run-structure-test',
+          provenance: {
+            trigger: 'continuation',
+            parent_run_id: 'run-parent-test',
+          },
+          inherited_context: {
+            parent_run_id: 'run-parent-test',
+            parent_status: 'completed',
+            inherited_at: '2026-04-16T23:55:00.000Z',
+            parent_roles_used: ['pm', 'dev', 'qa'],
+            parent_phases_completed: ['planning', 'implementation', 'qa'],
+            recent_decisions: [{ id: 'DEC-1' }],
+            recent_accepted_turns: [{ turn_id: 'turn-1' }, { turn_id: 'turn-2' }],
+          },
+        },
       },
     });
 
@@ -231,5 +246,16 @@ describe('executeChainedRun — chain loop behavior', () => {
     assert.ok(run.status, 'run entry must have status');
     assert.equal(typeof run.turns, 'number', 'run entry must have turns');
     assert.equal(typeof run.duration_ms, 'number', 'run entry must have duration_ms');
+    assert.equal(run.provenance_trigger, 'continuation');
+    assert.equal(run.parent_run_id, 'run-parent-test');
+    assert.deepEqual(run.inherited_context_summary, {
+      parent_run_id: 'run-parent-test',
+      parent_status: 'completed',
+      inherited_at: '2026-04-16T23:55:00.000Z',
+      parent_roles_used: ['pm', 'dev', 'qa'],
+      parent_phases_completed_count: 3,
+      recent_decisions_count: 1,
+      recent_accepted_turns_count: 2,
+    });
   });
 });

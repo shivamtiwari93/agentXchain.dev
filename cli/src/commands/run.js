@@ -176,8 +176,7 @@ export async function executeGovernedRun(context, opts = {}) {
   let aborted = false;
   let sigintCount = 0;
   const controller = new AbortController();
-
-  process.on('SIGINT', () => {
+  const onSigint = () => {
     sigintCount++;
     if (sigintCount >= 2) {
       process.exit(130);
@@ -185,37 +184,39 @@ export async function executeGovernedRun(context, opts = {}) {
     aborted = true;
     controller.abort();
     log(chalk.yellow('\nSIGINT received — finishing current turn, then stopping.'));
-  });
+  };
+  process.on('SIGINT', onSigint);
 
-  // ── Run header ──────────────────────────────────────────────────────────
-  log(chalk.cyan.bold('agentxchain run'));
-  log(chalk.dim(`  Max turns: ${maxTurns}  Gate mode: ${autoApprove ? 'auto-approve' : 'interactive'}`));
-  if (provenance) {
-    const provenanceSummary = summarizeRunProvenance(provenance);
-    if (provenanceSummary) {
-      log(`  ${chalk.dim('Origin:')}    ${chalk.magenta(provenanceSummary)}`);
+  try {
+    // ── Run header ──────────────────────────────────────────────────────────
+    log(chalk.cyan.bold('agentxchain run'));
+    log(chalk.dim(`  Max turns: ${maxTurns}  Gate mode: ${autoApprove ? 'auto-approve' : 'interactive'}`));
+    if (provenance) {
+      const provenanceSummary = summarizeRunProvenance(provenance);
+      if (provenanceSummary) {
+        log(`  ${chalk.dim('Origin:')}    ${chalk.magenta(provenanceSummary)}`);
+      }
     }
-  }
-  if (inheritedContext) {
-    const ic = inheritedContext;
-    const phasesCount = ic.parent_phases_completed?.length || 0;
-    const decisionsCount = ic.recent_decisions?.length || 0;
-    const turnsCount = ic.recent_accepted_turns?.length || 0;
-    const parts = [];
-    if (phasesCount) parts.push(`${phasesCount} phase${phasesCount !== 1 ? 's' : ''}`);
-    if (decisionsCount) parts.push(`${decisionsCount} decision${decisionsCount !== 1 ? 's' : ''}`);
-    if (turnsCount) parts.push(`${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`);
-    const detail = parts.length ? ` — ${parts.join(', ')}` : '';
-    log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${ic.parent_run_id} (${ic.parent_status || 'unknown'})${detail}`)}`);
-  }
-  log('');
+    if (inheritedContext) {
+      const ic = inheritedContext;
+      const phasesCount = ic.parent_phases_completed?.length || 0;
+      const decisionsCount = ic.recent_decisions?.length || 0;
+      const turnsCount = ic.recent_accepted_turns?.length || 0;
+      const parts = [];
+      if (phasesCount) parts.push(`${phasesCount} phase${phasesCount !== 1 ? 's' : ''}`);
+      if (decisionsCount) parts.push(`${decisionsCount} decision${decisionsCount !== 1 ? 's' : ''}`);
+      if (turnsCount) parts.push(`${turnsCount} turn${turnsCount !== 1 ? 's' : ''}`);
+      const detail = parts.length ? ` — ${parts.join(', ')}` : '';
+      log(`  ${chalk.dim('Inherits:')} ${chalk.magenta(`parent ${ic.parent_run_id} (${ic.parent_status || 'unknown'})${detail}`)}`);
+    }
+    log('');
 
-  // ── Track first-call for --role override ────────────────────────────────
-  let firstSelectRole = true;
-  let qaMissingCredentialsFallback = null;
+    // ── Track first-call for --role override ────────────────────────────────
+    let firstSelectRole = true;
+    let qaMissingCredentialsFallback = null;
 
-  // ── Callbacks ───────────────────────────────────────────────────────────
-  const callbacks = {
+    // ── Callbacks ───────────────────────────────────────────────────────────
+    const callbacks = {
     selectRole(state, cfg) {
       if (aborted) return null;
 
@@ -416,84 +417,87 @@ export async function executeGovernedRun(context, opts = {}) {
           break;
       }
     },
-  };
+    };
 
-  // ── Execute ─────────────────────────────────────────────────────────────
-  const runLoopOpts = {
-    maxTurns,
-    startNewRunFromCompleted: true,
-    startNewRunFromBlocked: opts.allowBlockedRestart ?? Boolean(provenance),
-  };
-  if (provenance) runLoopOpts.provenance = provenance;
-  if (inheritedContext) runLoopOpts.inheritedContext = inheritedContext;
-  const result = await runLoop(root, config, callbacks, runLoopOpts);
+    // ── Execute ─────────────────────────────────────────────────────────────
+    const runLoopOpts = {
+      maxTurns,
+      startNewRunFromCompleted: true,
+      startNewRunFromBlocked: opts.allowBlockedRestart ?? Boolean(provenance),
+    };
+    if (provenance) runLoopOpts.provenance = provenance;
+    if (inheritedContext) runLoopOpts.inheritedContext = inheritedContext;
+    const result = await runLoop(root, config, callbacks, runLoopOpts);
 
-  // ── Summary ─────────────────────────────────────────────────────────────
-  log('');
-  log(chalk.dim('─── Run Summary ───'));
-  log(`  Status:  ${result.ok ? chalk.green('completed') : chalk.yellow(result.stop_reason)}`);
-  log(`  Turns:   ${result.turns_executed}`);
-  log(`  Gates:   ${result.gates_approved} approved`);
-  log(`  Errors:  ${result.errors.length ? chalk.red(result.errors.length) : 'none'}`);
+    // ── Summary ─────────────────────────────────────────────────────────────
+    log('');
+    log(chalk.dim('─── Run Summary ───'));
+    log(`  Status:  ${result.ok ? chalk.green('completed') : chalk.yellow(result.stop_reason)}`);
+    log(`  Turns:   ${result.turns_executed}`);
+    log(`  Gates:   ${result.gates_approved} approved`);
+    log(`  Errors:  ${result.errors.length ? chalk.red(result.errors.length) : 'none'}`);
 
-  if (result.errors.length) {
-    for (const err of result.errors) {
-      log(chalk.red(`    ${err}`));
-    }
-  }
-
-  if (qaMissingCredentialsFallback) {
-    printManualQaFallback(log);
-  }
-
-  // Recovery guidance for blocked/rejected states
-  if (result.state && (result.stop_reason === 'blocked' || result.stop_reason === 'reject_exhausted' || result.stop_reason === 'dispatch_error')) {
-    const recovery = deriveRecoveryDescriptor(result.state, config);
-    if (recovery) {
-      log('');
-      log(chalk.yellow(`  Recovery: ${recovery.typed_reason}`));
-      log(chalk.dim(`  Action:   ${recovery.recovery_action}`));
-      if (recovery.detail) {
-        log(chalk.dim(`  Detail:   ${recovery.detail}`));
+    if (result.errors.length) {
+      for (const err of result.errors) {
+        log(chalk.red(`    ${err}`));
       }
     }
-  }
 
-  // ── Auto governance report ──────────────────────────────────────────────
-  if (opts.report !== false && result.state) {
-    try {
-      const reportsDir = join(root, '.agentxchain', 'reports');
-      mkdirSync(reportsDir, { recursive: true });
+    if (qaMissingCredentialsFallback) {
+      printManualQaFallback(log);
+    }
 
-      const exportResult = buildRunExport(root);
-      if (exportResult.ok) {
-        const runId = result.state.run_id || 'unknown';
-        const exportPath = join(reportsDir, `export-${runId}.json`);
-        writeFileSync(exportPath, JSON.stringify(exportResult.export, null, 2));
-
-        const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
-        const reportPath = join(reportsDir, `report-${runId}.md`);
-        writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
-
+    // Recovery guidance for blocked/rejected states
+    if (result.state && (result.stop_reason === 'blocked' || result.stop_reason === 'reject_exhausted' || result.stop_reason === 'dispatch_error')) {
+      const recovery = deriveRecoveryDescriptor(result.state, config);
+      if (recovery) {
         log('');
-        log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
-      } else {
-        log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
+        log(chalk.yellow(`  Recovery: ${recovery.typed_reason}`));
+        log(chalk.dim(`  Action:   ${recovery.recovery_action}`));
+        if (recovery.detail) {
+          log(chalk.dim(`  Detail:   ${recovery.detail}`));
+        }
       }
-    } catch (err) {
-      log(chalk.dim(`  Governance report failed: ${err.message}`));
     }
-  }
 
-  // ── Exit code ───────────────────────────────────────────────────────────
-  const successReasons = new Set(['completed', 'gate_held', 'caller_stopped', 'max_turns_reached']);
-  return {
-    exitCode: result.ok || successReasons.has(result.stop_reason) ? 0 : 1,
-    result,
-    skipped: false,
-    skipReason: null,
-    provenance: provenance || null,
-  };
+    // ── Auto governance report ──────────────────────────────────────────────
+    if (opts.report !== false && result.state) {
+      try {
+        const reportsDir = join(root, '.agentxchain', 'reports');
+        mkdirSync(reportsDir, { recursive: true });
+
+        const exportResult = buildRunExport(root);
+        if (exportResult.ok) {
+          const runId = result.state.run_id || 'unknown';
+          const exportPath = join(reportsDir, `export-${runId}.json`);
+          writeFileSync(exportPath, JSON.stringify(exportResult.export, null, 2));
+
+          const reportResult = buildGovernanceReport(exportResult.export, { input: exportPath });
+          const reportPath = join(reportsDir, `report-${runId}.md`);
+          writeFileSync(reportPath, formatGovernanceReportMarkdown(reportResult.report));
+
+          log('');
+          log(chalk.dim(`  Governance report: .agentxchain/reports/report-${runId}.md`));
+        } else {
+          log(chalk.dim(`  Governance report skipped: ${exportResult.error}`));
+        }
+      } catch (err) {
+        log(chalk.dim(`  Governance report failed: ${err.message}`));
+      }
+    }
+
+    // ── Exit code ───────────────────────────────────────────────────────────
+    const successReasons = new Set(['completed', 'gate_held', 'caller_stopped', 'max_turns_reached']);
+    return {
+      exitCode: result.ok || successReasons.has(result.stop_reason) ? 0 : 1,
+      result,
+      skipped: false,
+      skipReason: null,
+      provenance: provenance || null,
+    };
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
