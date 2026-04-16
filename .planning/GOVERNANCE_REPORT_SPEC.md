@@ -70,6 +70,7 @@ The human-readable formats must summarize:
 
 `markdown` exists so operators can paste a report into PRs, releases, or tickets without reformatting.
 `html` exists so operators can hand off a portable, self-contained governance report with inline CSS, dark mode, and print styles.
+For coordinator exports, `html` must preserve the same repo-detail boundary as the other human-readable formats: successful child repos render available drill-down sections, while failed child repos keep only the repo row plus error and no fabricated child detail sections.
 
 ### Success output: json
 
@@ -147,6 +148,7 @@ This preserves the verifier output as the authoritative failure explanation.
 - `AT-REPORT-009`: completed coordinator HTML report keeps terminal drift observable without reopening recovery work.
 - `AT-REPORT-011`: warn-mode budget state is preserved across text, JSON, markdown, and html report formats.
 - `AT-REPORT-012`: partial coordinator exports remain reportable with `repo_ok_count` / `repo_error_count` export-health visibility, and failed child repos keep no drill-down fields because no nested child export exists.
+- `AT-REPORT-013`: coordinator html report preserves export-health totals, keeps the failed child repo row visible without fabricated drill-down sections, and still renders available drill-down sections for successful child repos.
 
 ## Open Questions
 

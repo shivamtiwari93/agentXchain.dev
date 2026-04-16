@@ -20,7 +20,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 | `--input <path>` | `-` | Read an export artifact from a file, or `-` for stdin |
 | `--format <format>` | `text` | Output `text`, `json`, `markdown`, or `html` |
 
-The `html` format produces a self-contained, portable HTML file with inline CSS. It supports dark mode, print styles, and renders all governance surfaces (turns, decisions, gates, costs, delegations, repo decisions). Ideal for sharing with compliance stakeholders or archiving.
+The `html` format produces a self-contained, portable HTML file with inline CSS. It supports dark mode, print styles, and renders all governance surfaces (turns, decisions, gates, costs, delegations, repo decisions). For coordinator exports, HTML follows the same repo-detail contract as the other human-readable formats: successful child repos render available drill-down sections, while failed child repos keep only their repo row plus error. Ideal for sharing with compliance stakeholders or archiving.
 
 `report` verifies the export artifact first. It does not read live repo state directly. If the artifact fails verification, the command fails closed and returns verifier-backed errors instead of a success summary.
 
@@ -285,7 +285,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 
 These fields are omitted for failed repos (`ok: false`). Text, markdown, and html formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
 For failed repos, human-readable formats keep the repo row and error visible while omitting those drill-down sections entirely. That is intentional degradation, not missing rendering.
-When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
+When a child repo export contains `.agentxchain/session.json`, text, markdown, and html also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
 When `subject.run.status = "completed"` and either `subject.run.run_id_mismatches` or `subject.run.repo_status_drifts` is non-empty, the report keeps that child repo drift visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.
 

@@ -2917,6 +2917,102 @@ function renderCoordinatorHtml(report) {
       if (repo.gate_summary?.length > 0) {
         repoHtml += htmlSection('Gate Outcomes', '<ul>' + repo.gate_summary.map((g) => `<li><code>${esc(g.gate_id)}</code>: ${badge(g.status)}</li>`).join('') + '</ul>', 4);
       }
+      if (repo.gate_failures?.length > 0) {
+        let gateFailureHtml = '<ul>';
+        for (const failure of repo.gate_failures) {
+          const request = failure.gate_type === 'run_completion'
+            ? 'run completion'
+            : `${esc(failure.from_phase || '?')} &rarr; ${esc(failure.to_phase || '?')}`;
+          gateFailureHtml += `<li><code>${esc(failure.gate_id || 'unknown')}</code> (<code>${esc(failure.gate_type || 'unknown')}</code>) at <code>${esc(failure.failed_at || 'n/a')}</code> via ${failure.queued_request ? 'queued drain' : 'direct'} request: ${request}`;
+          if (failure.reasons?.length > 0) {
+            gateFailureHtml += '<ul>' + failure.reasons.map((reason) => `<li>${esc(reason)}</li>`).join('') + '</ul>';
+          }
+          gateFailureHtml += '</li>';
+        }
+        gateFailureHtml += '</ul>';
+        repoHtml += htmlSection('Gate Failures', gateFailureHtml, 4);
+      }
+      if (repo.approval_policy_events?.length > 0) {
+        let approvalHtml = '<ul>';
+        for (const evt of repo.approval_policy_events) {
+          const transition = evt.gate_type === 'run_completion'
+            ? 'run completion'
+            : `${esc(evt.from_phase || '?')} &rarr; ${esc(evt.to_phase || '?')}`;
+          const rule = evt.matched_rule
+            ? ` — rule: <code>${esc(typeof evt.matched_rule === 'object' ? JSON.stringify(evt.matched_rule) : evt.matched_rule)}</code>`
+            : '';
+          approvalHtml += `<li><strong>${esc(evt.action || 'unknown')}</strong> (${esc(evt.gate_type || 'unknown')}) ${transition}${rule} at <code>${esc(evt.timestamp || 'n/a')}</code>`;
+          if (evt.reason) approvalHtml += `<br>${esc(evt.reason)}`;
+          approvalHtml += '</li>';
+        }
+        approvalHtml += '</ul>';
+        repoHtml += htmlSection('Approval Policy', approvalHtml, 4);
+      }
+      if (repo.governance_events?.length > 0) {
+        let governanceHtml = '<ul>';
+        for (const evt of repo.governance_events) {
+          governanceHtml += `<li><strong>${esc(evt.type)}</strong> (<code>${esc(evt.role || '?')}</code>, <code>${esc(evt.phase || '?')}</code> phase) at <code>${esc(evt.timestamp || 'n/a')}</code>${renderHtmlGovEventDetail(evt)}</li>`;
+        }
+        governanceHtml += '</ul>';
+        repoHtml += htmlSection('Governance Events', governanceHtml, 4);
+      }
+      if (repo.timeout_events?.length > 0) {
+        let timeoutHtml = '<ul>';
+        for (const evt of repo.timeout_events) {
+          const label = evt.type === 'timeout_warning' ? 'Warning'
+            : evt.type === 'timeout_skip' ? 'Skip'
+            : evt.type === 'timeout_skip_failed' ? 'Skip Failed'
+            : 'Escalation';
+          const elapsed = evt.elapsed_minutes != null ? `${evt.elapsed_minutes}m` : '?';
+          const limit = evt.limit_minutes != null ? `${evt.limit_minutes}m` : '?';
+          const exceeded = evt.exceeded_by_minutes != null ? ` (+${evt.exceeded_by_minutes}m)` : '';
+          timeoutHtml += `<li><strong>${label}</strong> (<code>${esc(evt.scope || '?')}</code> scope) — ${elapsed}/${limit}${exceeded}, action: <code>${esc(evt.action || 'n/a')}</code>, phase: <code>${esc(evt.phase || 'n/a')}</code> at <code>${esc(evt.timestamp || 'n/a')}</code></li>`;
+        }
+        timeoutHtml += '</ul>';
+        repoHtml += htmlSection('Timeout Events', timeoutHtml, 4);
+      }
+      if (repo.hook_summary) {
+        const eventList = Object.entries(repo.hook_summary.events)
+          .sort(([left], [right]) => left.localeCompare(right, 'en'))
+          .map(([event, count]) => `${esc(event)}(${count})`)
+          .join(', ');
+        const hookHtml = htmlDl([
+          ['Total executions', String(repo.hook_summary.total)],
+          ['Blocked', String(repo.hook_summary.blocked)],
+          ...(eventList ? [['Events', eventList]] : []),
+        ]);
+        repoHtml += htmlSection('Hook Activity', hookHtml, 4);
+      }
+      if (repo.recovery_summary) {
+        const recovery = repo.recovery_summary;
+        let recoveryHtml = htmlDl([
+          ['Category', `<code>${esc(recovery.category || 'unknown')}</code>`],
+          ['Typed reason', `<code>${esc(recovery.typed_reason || 'unknown')}</code>`],
+          ['Owner', `<code>${esc(recovery.owner || 'unknown')}</code>`],
+          ['Action', `<code>${esc(recovery.recovery_action || 'n/a')}</code>`],
+          ['Detail', esc(recovery.detail || 'n/a')],
+          ['Turn retained', recovery.turn_retained == null ? 'n/a' : (recovery.turn_retained ? 'yes' : 'no')],
+        ]);
+        if (Array.isArray(recovery.runtime_guidance) && recovery.runtime_guidance.length > 0) {
+          recoveryHtml += htmlSection('Runtime Guidance', '<ul>' + recovery.runtime_guidance.map((entry) =>
+            `<li><code>${esc(entry.code)}</code> — <code>${esc(entry.command)}</code>: ${esc(entry.reason)}</li>`
+          ).join('') + '</ul>', 5);
+        }
+        repoHtml += htmlSection('Recovery', recoveryHtml, 4);
+      }
+      if (repo.continuity) {
+        const continuityPairs = [
+          ['Session', `<code>${esc(repo.continuity.session_id || 'unknown')}</code>`],
+          ['Checkpoint', `<code>${esc(repo.continuity.checkpoint_reason || 'unknown')}</code> at <code>${esc(repo.continuity.last_checkpoint_at || 'n/a')}</code>`],
+          ['Last turn', `<code>${esc(repo.continuity.last_turn_id || 'none')}</code>`],
+          ['Last role', `<code>${esc(repo.continuity.last_role || 'unknown')}</code>`],
+          ['Last phase', `<code>${esc(repo.continuity.last_phase || 'unknown')}</code>`],
+        ];
+        if (repo.continuity.stale_checkpoint) {
+          continuityPairs.push(['Warning', `<span class="warn">checkpoint tracks run <code>${esc(repo.continuity.run_id)}</code>, but repo export tracks <code>${esc(repo.run_id)}</code></span>`]);
+        }
+        repoHtml += htmlSection('Continuity', htmlDl(continuityPairs), 4);
+      }
     }
     sections.push(`<div class="section">${htmlSection('Repo Details', repoHtml)}</div>`);
   }

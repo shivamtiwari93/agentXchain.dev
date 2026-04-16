@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 import {
   mkdtempSync,
   mkdirSync,
+  readFileSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -145,18 +147,82 @@ function createCoordinatorWorkspace() {
   });
   writeJson(join(repoRoot, '.agentxchain', 'state.json'), {
     schema_version: '1.1', project_id: 'web-app', run_id: 'run_web_001',
-    status: 'active', phase: 'implementation', active_turns: {}, retained_turns: {},
-    turn_sequence: 0, blocked_on: null, phase_gate_status: {}, budget_status: {},
+    status: 'blocked', phase: 'implementation', active_turns: {}, retained_turns: {},
+    turn_sequence: 0, blocked_on: 'operator_escalation', phase_gate_status: { implementation_complete: 'failed' }, budget_status: {},
     protocol_mode: 'governed',
+    blocked_reason: {
+      category: 'operator_escalation',
+      blocked_at: '2026-04-14T00:07:00Z',
+      turn_id: 't1',
+      recovery: {
+        typed_reason: 'approval_policy_blocked',
+        owner: 'operator',
+        recovery_action: 'agentxchain approve-transition',
+        detail: 'Release approval still required.',
+        turn_retained: true,
+      },
+    },
   });
-  writeJsonl(join(repoRoot, '.agentxchain', 'history.jsonl'), [{ turn_id: 't1', role: 'dev', status: 'completed' }]);
-  writeJsonl(join(repoRoot, '.agentxchain', 'decision-ledger.jsonl'), [{ id: 'DEC-1', statement: 'Ready.' }]);
+  writeJsonl(join(repoRoot, '.agentxchain', 'history.jsonl'), [{
+    turn_id: 't1',
+    role: 'dev',
+    status: 'completed',
+    summary: 'Prepared release candidate.',
+    accepted_at: '2026-04-14T00:05:00Z',
+  }]);
+  writeJsonl(join(repoRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+    { id: 'DEC-1', statement: 'Ready.' },
+    {
+      type: 'approval_policy',
+      action: 'blocked',
+      gate_type: 'phase_transition',
+      from_phase: 'implementation',
+      to_phase: 'release',
+      reason: 'Release approval still required.',
+      timestamp: '2026-04-14T00:06:00Z',
+    },
+    {
+      decision: 'operator_escalated',
+      role: 'dev',
+      phase: 'implementation',
+      blocked_on: 'operator_escalation',
+      escalation: { reason: 'Need release approval before handoff.' },
+      timestamp: '2026-04-14T00:07:00Z',
+    },
+    {
+      type: 'timeout_warning',
+      scope: 'run',
+      phase: 'implementation',
+      limit_minutes: 30,
+      elapsed_minutes: 35,
+      exceeded_by_minutes: 5,
+      action: 'notify',
+      timestamp: '2026-04-14T00:08:00Z',
+    },
+  ]);
+  writeJsonl(join(repoRoot, '.agentxchain', 'hook-audit.jsonl'), [
+    { event: 'before_step', result: 'allowed' },
+    { event: 'before_transition', result: 'blocked', blocked: true },
+  ]);
+  writeJson(join(repoRoot, '.agentxchain', 'session.json'), {
+    session_id: 'session_web_html',
+    run_id: 'run_web_old',
+    started_at: '2026-04-14T00:00:00Z',
+    last_checkpoint_at: '2026-04-14T00:09:00Z',
+    last_turn_id: 't1',
+    last_phase: 'implementation',
+    last_role: 'dev',
+    checkpoint_reason: 'awaiting_operator',
+  });
 
   writeJson(join(root, 'agentxchain-multi.json'), {
     schema_version: '0.1',
     project: { id: 'coord-html', name: 'Coordinator HTML' },
-    repos: { web: { path: './repos/web', default_branch: 'main', required: true } },
-    workstreams: { sync: { phase: 'implementation', repos: ['web'], entry_repo: 'web', depends_on: [], completion_barrier: 'all_repos_accepted' } },
+    repos: {
+      web: { path: './repos/web', default_branch: 'main', required: true },
+      cli: { path: './repos/cli', default_branch: 'main', required: true },
+    },
+    workstreams: { sync: { phase: 'implementation', repos: ['web', 'cli'], entry_repo: 'web', depends_on: [], completion_barrier: 'all_repos_accepted' } },
     routing: { implementation: { entry_workstream: 'sync' } },
     gates: {},
     hooks: {},
@@ -164,12 +230,15 @@ function createCoordinatorWorkspace() {
   writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
     schema_version: '0.1', super_run_id: 'srun_001', project_id: 'coord-html',
     status: 'active', phase: 'implementation',
-    repo_runs: { web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' } },
+    repo_runs: {
+      web: { run_id: 'run_web_001', status: 'linked', phase: 'implementation' },
+      cli: { run_id: 'run_cli_001', status: 'initialized', phase: 'implementation' },
+    },
     pending_gate: null, phase_gate_status: {},
     created_at: '2026-04-14T00:00:00Z', updated_at: '2026-04-14T00:00:00Z',
   });
   writeJson(join(root, '.agentxchain', 'multirepo', 'barriers.json'), {
-    barrier_001: { workstream_id: 'sync', type: 'all_repos_accepted', status: 'pending', required_repos: ['web'], satisfied_repos: [] },
+    barrier_001: { workstream_id: 'sync', type: 'all_repos_accepted', status: 'pending', required_repos: ['web', 'cli'], satisfied_repos: [] },
   });
   writeJsonl(join(root, '.agentxchain', 'multirepo', 'history.jsonl'), [{ type: 'run_initialized' }]);
   writeJsonl(join(root, '.agentxchain', 'multirepo', 'decision-ledger.jsonl'), [{ id: 'DEC-C1', statement: 'Go.' }]);
@@ -195,7 +264,7 @@ describe('HTML governance report', () => {
       assert.match(result.stdout, /<html/);
       assert.match(result.stdout, /AgentXchain Governance Report/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -211,7 +280,7 @@ describe('HTML governance report', () => {
       assert.match(result.stdout, /Implemented HTML report format/);
       assert.match(result.stdout, /DEC-HTML-001/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -225,7 +294,7 @@ describe('HTML governance report', () => {
       assert.match(result.stdout, /\$0\.25/);
       assert.match(result.stdout, /\$1\.50/); // budget spent
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -241,7 +310,7 @@ describe('HTML governance report', () => {
       assert.doesNotMatch(result.stdout, /href="http/);
       assert.doesNotMatch(result.stdout, /src="http/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -286,7 +355,7 @@ describe('HTML governance report', () => {
       // Repo ID in coordinator config is "web" (not project.id "web-app")
       assert.match(result.stdout, /web/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -317,7 +386,7 @@ describe('HTML governance report', () => {
       assert.match(result.stdout, /prefers-color-scheme:dark/);
       assert.match(result.stdout, /@media print/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
     }
   });
 
@@ -330,7 +399,116 @@ describe('HTML governance report', () => {
       assert.match(result.stdout, /Gate Outcomes/);
       assert.match(result.stdout, /implementation_complete/);
     } finally {
-      try { require('node:fs').rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
+    }
+  });
+
+  it('AT-HTML-012: partial coordinator html keeps export health, failed repo row, and successful child drill-down sections', () => {
+    const root = createCoordinatorWorkspace();
+    const childRoot = createGovernedProject();
+    try {
+      const artifactPath = exportArtifact(root);
+      writeJson(join(childRoot, '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'html-test',
+        run_id: 'run_web_001',
+        status: 'blocked',
+        phase: 'implementation',
+        active_turns: {},
+        retained_turns: {},
+        turn_sequence: 1,
+        blocked_on: 'operator_escalation',
+        phase_gate_status: { implementation_complete: 'failed' },
+        budget_status: { spent_usd: 1.5, remaining_usd: 8.5 },
+        protocol_mode: 'governed',
+        created_at: '2026-04-14T00:00:00.000Z',
+        blocked_reason: {
+          category: 'operator_escalation',
+          blocked_at: '2026-04-14T00:07:00Z',
+          turn_id: 'turn_001',
+          recovery: {
+            typed_reason: 'approval_policy_blocked',
+            owner: 'operator',
+            recovery_action: 'agentxchain approve-transition',
+            detail: 'Release approval still required.',
+            turn_retained: true,
+          },
+        },
+      });
+      writeJsonl(join(childRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+        { id: 'DEC-HTML-001', turn_id: 'turn_001', role: 'dev', phase: 'implementation', statement: 'Ship HTML report format.' },
+        {
+          type: 'approval_policy',
+          action: 'blocked',
+          gate_type: 'phase_transition',
+          from_phase: 'implementation',
+          to_phase: 'release',
+          reason: 'Release approval still required.',
+          timestamp: '2026-04-14T00:06:00Z',
+        },
+        {
+          decision: 'operator_escalated',
+          role: 'dev',
+          phase: 'implementation',
+          blocked_on: 'operator_escalation',
+          escalation: { reason: 'Need release approval before handoff.' },
+          timestamp: '2026-04-14T00:07:00Z',
+        },
+        {
+          type: 'timeout_warning',
+          scope: 'run',
+          phase: 'implementation',
+          limit_minutes: 30,
+          elapsed_minutes: 35,
+          exceeded_by_minutes: 5,
+          action: 'notify',
+          timestamp: '2026-04-14T00:08:00Z',
+        },
+      ]);
+      writeJsonl(join(childRoot, '.agentxchain', 'hook-audit.jsonl'), [
+        { event: 'before_step', result: 'allowed' },
+        { event: 'before_transition', result: 'blocked', blocked: true },
+      ]);
+      writeJson(join(childRoot, '.agentxchain', 'session.json'), {
+        session_id: 'session_web_html',
+        run_id: 'run_web_old',
+        started_at: '2026-04-14T00:00:00Z',
+        last_checkpoint_at: '2026-04-14T00:09:00Z',
+        last_turn_id: 'turn_001',
+        last_phase: 'implementation',
+        last_role: 'dev',
+        checkpoint_reason: 'awaiting_operator',
+      });
+      const childArtifactPath = exportArtifact(childRoot);
+      const childArtifact = JSON.parse(readFileSync(childArtifactPath, 'utf8'));
+      const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
+      artifact.repos.web = { ok: true, path: './repos/web', export: childArtifact };
+      artifact.repos.cli = { ok: false, path: './repos/cli', error: 'permission denied' };
+      writeJson(artifactPath, artifact);
+
+      const result = runCli(root, ['report', '--input', artifactPath, '--format', 'html']);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /2 total, 1 exported, 1 failed/);
+      assert.match(result.stdout, /permission denied/);
+      assert.match(result.stdout, /<h4>Approval Policy<\/h4>/);
+      assert.match(result.stdout, /<h4>Governance Events<\/h4>/);
+      assert.match(result.stdout, /<h4>Timeout Events<\/h4>/);
+      assert.match(result.stdout, /<h4>Hook Activity<\/h4>/);
+      assert.match(result.stdout, /<h4>Recovery<\/h4>/);
+      assert.match(result.stdout, /<h4>Continuity<\/h4>/);
+      assert.match(result.stdout, /checkpoint tracks run <code>run_web_old<\/code>, but repo export tracks <code>run_web_001<\/code>/);
+
+      const failedRepoBlock = result.stdout.match(/<h3>cli<\/h3>([\s\S]*?)<h3>web<\/h3>/);
+      assert.ok(failedRepoBlock, 'failed repo block must be isolated before the next repo');
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Turn Timeline<\/h4>/);
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Decisions<\/h4>/);
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Gate Outcomes<\/h4>/);
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Hook Activity<\/h4>/);
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Recovery<\/h4>/);
+      assert.doesNotMatch(failedRepoBlock[1], /<h4>Continuity<\/h4>/);
+    } finally {
+      try { rmSync(root, { recursive: true }); } catch { /* ignore */ }
+      try { rmSync(childRoot, { recursive: true }); } catch { /* ignore */ }
     }
   });
 });
