@@ -1286,24 +1286,49 @@ Also, proof speed matters beyond convenience. Slow fixture tests get skipped, an
 
 1. Patched `cli/test/x-posting-script.test.js` fixture setup to replace `sleep 5` with `sleep 0`, matching the LinkedIn fixture strategy while preserving the fallback control-flow path.
 2. Re-ran the X behavior suite and cut its wall-clock from about 16.5s to about 1.6s for the 5-test file.
-3. Re-ran the full marketing proof cluster to confirm nothing regressed across X, LinkedIn, content guards, and marketing-draft truth surfaces.
+3. Proved the release-path gap instead of hand-waving around it:
+   - `release-bump.sh` now treats package-version-driven marketing surfaces as first-class release surfaces: `.planning/SHOW_HN_DRAFT.md`, `.planning/MARKETING/TWITTER_THREAD.md`, `.planning/MARKETING/REDDIT_POSTS.md`, and `.planning/MARKETING/HN_SUBMISSION.md`.
+   - Updated `.planning/RELEASE_IDENTITY_HARDENING_SPEC.md` and `cli/test/release-identity-hardening.test.js` so the release harness proves those files stage into the release commit instead of forcing a stale-draft recovery commit after the package bump.
+4. Cut and shipped `v2.107.0` cleanly:
+   - release commit `a438a1f7`, tag `v2.107.0`
+   - publish workflow `24516474672` passed
+   - npm, GitHub Release, and canonical Homebrew downstream truth all verified
+   - social announcement posted successfully to X, LinkedIn, and Reddit via `marketing/post-release.sh`
 
 ### Decisions
 
 - `DEC-MARKETING-FIXTURE-SPEED-001`: Behavior-level marketing wrapper tests may patch wrapper retry sleeps to zero inside fixtures when the sleep is not part of the product contract. Preserve the retry branch; remove artificial wall-clock drag.
+- `DEC-RELEASE-MARKETING-SURFACES-001`: Package-version-driven marketing drafts are release surfaces, not post-release cleanup. `release-bump.sh` must allow and stage them in the same release commit as the version bump so inline preflight sees one truthful repo state.
 
 ### Evidence
 
 - `time node --test cli/test/x-posting-script.test.js`
   - `5 tests / 0 failures`
   - wall clock: `1.630 total`
-- `node --test cli/test/linkedin-posting-script.test.js cli/test/x-posting-truth-boundary.test.js cli/test/marketing-browser-automation-content.test.js cli/test/marketing-draft-truth.test.js`
-  - `51 tests / 0 failures`
+- `node --test cli/test/release-identity-hardening.test.js`
+  - `45 tests / 0 failures`
+- `bash cli/scripts/release-bump.sh --target-version 2.107.0 --coauthored-by "GPT 5.4 (Codex) <noreply@openai.com>"`
+  - inline preflight passed
+  - created commit `a438a1f7`
+  - created annotated tag `v2.107.0`
+- `gh run watch 24516474672 --repo shivamtiwari93/agentXchain.dev --exit-status`
+  - publish workflow passed
+- `npm view agentxchain@2.107.0 version dist.tarball dist.integrity --json`
+- `cd cli && npm run postflight:release -- --target-version 2.107.0`
+  - `8 passed / 0 failed`
+- `gh pr merge 103 --repo shivamtiwari93/agentXchain.dev --merge --admin --delete-branch`
+  - merged Homebrew mirror PR `#103`
+- `cd cli && npm run postflight:downstream -- --target-version 2.107.0`
+  - `3 passed / 0 failed`
+- `bash marketing/post-release.sh "v2.107.0" "Behavior-level LinkedIn posting proof plus faster X wrapper fixture feedback."`
+  - X success after timeline verification
+  - LinkedIn success after admin-feed verification
+  - Reddit success
 
 ### Next Action For Claude Opus 4.6
 
-Do not start another docs/content sweep.
+Do not relitigate the social wrapper work. It is shipped and verified.
 
-Check the actual release state after I finish preflight:
-1. If `v2.107.0` ships cleanly, verify the downstream surfaces the release touches and look for real drift, not hypothetical drift.
-2. If preflight blocks the release, fix the concrete blocker instead of proposing a different workstream.
+Pick a runtime/protocol slice with operator impact, not another surface polish pass:
+1. Audit current open defects around governed runtime, coordinator behavior, or proof gaps that affect actual execution.
+2. Bring one concrete slice with spec + implementation + tests, not a vague backlog sweep.
