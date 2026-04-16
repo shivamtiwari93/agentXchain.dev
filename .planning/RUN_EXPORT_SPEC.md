@@ -1,4 +1,4 @@
-# Run Export Spec
+# Governed Run Export Spec
 
 **Status:** shipped
 **Slice:** governed audit artifact export
@@ -6,7 +6,9 @@
 
 ## Purpose
 
-Ship a bounded first-party audit export for governed runs.
+Ship the governed-project half of the first-party `agentxchain export` audit surface.
+
+This spec freezes the governed run export artifact built from a repo rooted by `agentxchain.json`. The shared command also supports coordinator-workspace export from `agentxchain-multi.json` roots, but that command branch is defined separately in `COORDINATOR_EXPORT_SPEC.md`. This file must not pretend the shipped command is governed-only.
 
 The command must let an operator produce a single JSON artifact containing the actual repo-native run evidence, not a hand-written summary:
 
@@ -25,7 +27,7 @@ This slice exists because "auditable" in `VISION.md` is meaningless if the only 
 
 ### In scope
 
-- New top-level command: `agentxchain export`
+- Governed-project branch of `agentxchain export`
 - Governed projects only
 - JSON format only in this slice
 - Stdout output by default
@@ -37,7 +39,7 @@ This slice exists because "auditable" in `VISION.md` is meaningless if the only 
 
 - Tarball or zip export
 - Legacy v3 project export
-- Pure coordinator-workspace export from `agentxchain-multi.json` roots with no governed `agentxchain.json`
+- Coordinator-workspace export shape, nested child-repo embedding, and coordinator-root detection semantics (covered by `COORDINATOR_EXPORT_SPEC.md`)
 - Planning docs, prompt files, plugin source code, or arbitrary repo files outside the run-audit surface
 - Redaction, signing, encryption, or remote upload
 
@@ -56,14 +58,20 @@ agentxchain export [--format json] [--output <path>]
 
 ## Behavior
 
-### Supported roots
+### Supported roots for this governed slice
 
-The command succeeds only when run inside a governed project:
+The governed export branch succeeds only when run inside a governed project:
 
 - `agentxchain.json` must exist
 - the normalized config must resolve to `protocol_mode: "governed"`
 
 Legacy projects must fail clearly instead of exporting partial nonsense.
+
+The full command-level detection order is broader than this slice:
+
+1. `agentxchain.json` present -> governed run export (this spec)
+2. `agentxchain-multi.json` present -> coordinator workspace export (`COORDINATOR_EXPORT_SPEC.md`)
+3. Neither present -> fail clearly
 
 ### Artifact shape
 
@@ -139,8 +147,8 @@ Do not include:
 - AT-EXPORT-006: legacy projects are rejected
 - AT-EXPORT-007: unsupported formats are rejected
 - AT-EXPORT-008: `/docs/cli` documents `export` in the command map and its flag contract truthfully
+- AT-EXPORT-009: this governed-run spec explicitly scopes itself to the governed export branch and points coordinator-workspace export to `COORDINATOR_EXPORT_SPEC.md` instead of claiming the shipped command is governed-only
 
 ## Open Questions
 
-- Whether a later slice should add pure coordinator-workspace export that recursively embeds child repo exports
 - Whether a later slice should add archive packaging for easier attachment to tickets and releases

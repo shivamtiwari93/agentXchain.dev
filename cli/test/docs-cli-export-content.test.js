@@ -133,6 +133,19 @@ describe('Run export spec alignment', () => {
     assert.match(SPEC, /AT-EXPORT-008/);
     assert.match(SPEC, /content_base64/);
   });
+
+  it('AT-EXPORT-009: scopes the planning spec to governed export and defers coordinator export to its own spec', () => {
+    assert.match(SPEC, /governed-project half of the first-party `agentxchain export` audit surface/i);
+    assert.match(SPEC, /COORDINATOR_EXPORT_SPEC\.md/);
+    assert.match(SPEC, /1\.\s+`agentxchain\.json` present -> governed run export/i);
+    assert.match(SPEC, /2\.\s+`agentxchain-multi\.json` present -> coordinator workspace export/i);
+    assert.match(SPEC, /AT-EXPORT-009/);
+    assert.equal(
+      /Pure coordinator-workspace export from `agentxchain-multi\.json` roots with no governed `agentxchain\.json`/.test(SPEC),
+      false,
+      'run export spec must not claim shipped coordinator export is out of scope',
+    );
+  });
 });
 
 describe('Coordinator export spec alignment', () => {
