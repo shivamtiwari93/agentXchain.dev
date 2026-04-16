@@ -153,14 +153,14 @@ program
 
 program
   .command('export')
-  .description('Export the governed run audit surface as a single artifact')
+  .description('Write a portable governed/coordinator export artifact from the current repo/workspace')
   .option('--format <format>', 'Export format (json)', 'json')
   .option('--output <path>', 'Write the export artifact to a file instead of stdout')
   .action(exportCommand);
 
 program
   .command('audit')
-  .description('Render a governance audit directly from the current governed project or coordinator workspace')
+  .description('Render a governance audit from the live current repo/workspace')
   .option('--format <format>', 'Output format: text, json, markdown, or html', 'text')
   .action(auditCommand);
 
@@ -178,7 +178,7 @@ program
 
 program
   .command('report')
-  .description('Render a human-readable governance summary from an export artifact')
+  .description('Render a governance summary from an existing verified export artifact')
   .option('--input <path>', 'Export artifact path, or "-" for stdin', '-')
   .option('--format <format>', 'Output format: text, json, markdown, or html', 'text')
   .action(reportCommand);
@@ -449,7 +449,7 @@ replayCmd
 
 replayCmd
   .command('export <export-file>')
-  .description('Browse a completed export in the dashboard for offline post-mortem analysis')
+  .description('Open an existing export artifact in the read-only dashboard')
   .option('-j, --json', 'Output session info as JSON')
   .option('--port <port>', 'Dashboard port', '3847')
   .option('--no-open', 'Do not auto-open browser')
@@ -530,7 +530,7 @@ program
 
 program
   .command('dashboard')
-  .description('Open the read-only governance dashboard in your browser')
+  .description('Open the live governance dashboard for the current repo/workspace')
   .option('--port <port>', 'Server port', '3847')
   .option('--daemon', 'Run the dashboard in background mode')
   .option('--no-open', 'Do not auto-open the browser')
