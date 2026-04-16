@@ -67,6 +67,8 @@ agentxchain verify diff /tmp/bench-baseline/run-export.json /tmp/bench-drift/run
 
 This is a fundamentally different diff shape: `baseline` has `["planning", "implementation", "qa"]` while `phase-drift` has `["planning", "design", "implementation", "qa"]`.
 
+Those saved benchmark artifacts are still **repo-local run exports today, not coordinator exports**. This release is proving workload and phase-regression behavior through `verify diff`; it is not quietly exercising coordinator repo-status logic.
+
 ## Completion-Recovery Workload
 
 Proves gate-failure recovery — a different failure class than validator rejection:
@@ -85,6 +87,8 @@ Proves gate-failure recovery — a different failure class than validator reject
 - `run-export.json` — full run export (verifiable via `agentxchain verify export`)
 - `verify-export.json` — verification report
 - `workload.json` — workload metadata including topology
+
+If operators later compare coordinator exports outside the benchmark flow, the same `verify diff` truth boundary still applies: `summary.repo_run_statuses` remains raw coordinator snapshot metadata, while coordinator repo-status changes and regressions come from authority-first child repo status when nested child exports are readable.
 
 ## Topology-Aware Config Generation
 

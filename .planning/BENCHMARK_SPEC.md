@@ -111,6 +111,7 @@ AgentXchain Benchmark — Governed Delivery Compliance
 - AT-BENCH-015: `agentxchain benchmark --stress --workload baseline` exits 1 with a clear conflict error
 - AT-BENCH-016: baseline and completion-recovery benchmark artifacts saved with `--output` compare cleanly through `verify diff`
 - AT-BENCH-021: benchmark docs/specs state that saved benchmark artifacts are repo-local today and that any future coordinator comparison still inherits `verify diff`'s authority-first child repo-status boundary
+- AT-BENCH-022: the `v2.102.0` release-notes page states that benchmark saved artifacts are repo-local today and separately restates the future coordinator `verify diff` truth boundary
 
 ## Open Questions
 
