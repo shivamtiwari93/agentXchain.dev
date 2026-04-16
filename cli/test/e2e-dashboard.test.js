@@ -666,6 +666,8 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(initiativeHtml.includes(primaryCommand));
     assert.ok(!initiativeHtml.includes('agentxchain multi resync'));
     assert.ok(initiativeHtml.includes('Approval Snapshot'));
+    assert.ok(initiativeHtml.includes('Required Repos'));
+    assert.ok(!initiativeHtml.includes('Pending Gate'));
     assert.ok(initiativeHtml.includes('Open Blockers view'));
     assert.ok(initiativeHtml.includes('backend_completion'));
     assert.ok(timelineHtml.includes('Turn Dispatched'));

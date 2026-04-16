@@ -22,7 +22,8 @@ Freeze one shared presentation contract for coordinator attention summary wordin
 
 1. Canonical snapshot presentation
    - Initiative coordinator attention snapshots must use one helper-backed contract.
-   - Snapshot detail rows use canonical labels:
+   - Snapshot detail rows use canonical labels.
+   - Non-pending coordinator attention snapshots use:
      - `Mode`
      - `Type`
      - `Gate`
@@ -30,8 +31,18 @@ Freeze one shared presentation contract for coordinator attention summary wordin
      - `Target Phase`
      - `Blockers`
      - `Primary Blocker`
+   - Pending-gate snapshots use:
+     - `Mode`
+     - `Type`
+     - `Gate`
+     - `Current Phase`
+     - `Target Phase`
+     - `Required Repos`
+     - `Approval State`
+     - `Human Barriers` when present
    - The shared snapshot subtitle is:
      - `First-glance coordinator attention only. Full blocker diagnostics stay in the Blockers view.`
+   - Initiative must not render a second private `Pending Gate` card when the shared `Approval Snapshot` is present.
 2. Canonical approval summary wording
    - When the coordinator is in `pending_gate` mode with no remaining blockers, the shared status summary is:
      - title: `Approval Snapshot`
@@ -54,6 +65,7 @@ Freeze one shared presentation contract for coordinator attention summary wordin
 - `AT-CBPS-004`: shared snapshot presentation emits canonical detail rows and shared subtitle.
 - `AT-CBPS-005`: shared status-card helper emits canonical pending-approval and no-blocker summaries.
 - `AT-CBPS-006`: Initiative and Blockers import shared summary helpers and no longer hardcode the legacy snapshot/status strings inline.
+- `AT-CBPS-007`: shared snapshot presentation absorbs pending-gate detail rows so Initiative does not render a second `Pending Gate` card.
 
 ## Open Questions
 

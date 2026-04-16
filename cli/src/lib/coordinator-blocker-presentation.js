@@ -1,3 +1,6 @@
+import { pushDetail } from './coordinator-presentation-detail.js';
+import { getCoordinatorPendingGateDetails } from './coordinator-pending-gate-presentation.js';
+
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -11,20 +14,6 @@ function normalizeMessage(value) {
   }
   return JSON.stringify(value);
 }
-
-function pushDetail(details, label, value, options = {}) {
-  if (value == null || value === '') {
-    return;
-  }
-
-  details.push({
-    label,
-    value: String(value),
-    mono: options.mono === true,
-  });
-}
-
-export { pushDetail };
 
 export function getCoordinatorBlockerDetails(blocker) {
   if (!isObject(blocker)) {
@@ -83,10 +72,19 @@ export function buildCoordinatorAttentionSnapshotPresentation(coordinatorBlocker
 
   const details = [];
   pushDetail(details, 'Mode', coordinatorBlockers?.mode);
-  pushDetail(details, 'Type', summary.active?.gate_type);
-  pushDetail(details, 'Gate', summary.active?.gate_id, { mono: true });
-  pushDetail(details, 'Current Phase', summary.active?.current_phase);
-  pushDetail(details, 'Target Phase', summary.active?.target_phase);
+  if (summary.title === 'Approval Snapshot') {
+    details.push(
+      ...getCoordinatorPendingGateDetails({
+        pendingGate: coordinatorBlockers?.pending_gate,
+        active: summary.active,
+      }),
+    );
+  } else {
+    pushDetail(details, 'Type', summary.active?.gate_type);
+    pushDetail(details, 'Gate', summary.active?.gate_id, { mono: true });
+    pushDetail(details, 'Current Phase', summary.active?.current_phase);
+    pushDetail(details, 'Target Phase', summary.active?.target_phase);
+  }
   if (summary.blockers.length > 0) {
     pushDetail(details, 'Blockers', summary.blockers.length);
   }

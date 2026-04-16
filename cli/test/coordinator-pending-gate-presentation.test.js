@@ -10,6 +10,7 @@ import {
 } from '../src/lib/coordinator-pending-gate-presentation.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const blockerPresentationSource = readFileSync(join(__dirname, '..', 'src', 'lib', 'coordinator-blocker-presentation.js'), 'utf8');
 const gateSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'gate.js'), 'utf8');
 const initiativeSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'initiative.js'), 'utf8');
 const blockersSource = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'blockers.js'), 'utf8');
@@ -59,11 +60,12 @@ describe('coordinator pending gate presentation helper', () => {
 
   it('AT-CPGP-002: coordinator renderers consume the shared helper instead of reading pending-gate identity fields inline', () => {
     assert.match(gateSource, /getCoordinatorPendingGateDetails/);
-    assert.match(initiativeSource, /getCoordinatorPendingGateDetails/);
     assert.match(blockersSource, /getCoordinatorPendingGateDetails/);
+    assert.match(blockerPresentationSource, /getCoordinatorPendingGateDetails/);
 
     assert.match(gateSource, /getCoordinatorPendingGateDetails\(\{ pendingGate: pendingTransition/);
     assert.doesNotMatch(gateSource, /isCoordinator && Array\.isArray\(pendingTransition\.required_repos\)/);
+    assert.doesNotMatch(initiativeSource, /getCoordinatorPendingGateDetails/);
     assert.doesNotMatch(initiativeSource, /pendingGate\.(gate_type|gate|from|to|required_repos)/);
     assert.match(blockersSource, /active\.pending === true[\s\S]*getCoordinatorPendingGateDetails/);
     assert.doesNotMatch(blockersSource, /Pending Approval/);

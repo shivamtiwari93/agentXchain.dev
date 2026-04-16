@@ -1,4 +1,4 @@
-import { pushDetail } from './coordinator-blocker-presentation.js';
+import { pushDetail } from './coordinator-presentation-detail.js';
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

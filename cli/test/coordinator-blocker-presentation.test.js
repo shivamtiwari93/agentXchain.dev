@@ -95,7 +95,6 @@ describe('coordinator blocker presentation helper', () => {
     assert.match(initiativeSource, /buildCoordinatorAttentionSnapshotPresentation/);
     assert.match(blockersSource, /getCoordinatorAttentionStatusCard/);
     assert.match(initiativeSource, /summarizeCoordinatorAttention/);
-    assert.match(initiativeSource, /getCoordinatorBlockerDetails/);
     assert.match(blockersSource, /getCoordinatorBlockerDetails/);
 
     assert.doesNotMatch(initiativeSource, /primaryBlocker\.(expected_run_id|actual_run_id|current_phase|required_phase)/);
@@ -178,5 +177,53 @@ describe('coordinator blocker presentation helper', () => {
     assert.doesNotMatch(initiativeSource, /First-glance coordinator attention only\./);
     assert.doesNotMatch(blockersSource, /Awaiting Approval|No Blockers/);
     assert.doesNotMatch(blockersSource, /All prerequisites are satisfied\. The coordinator is waiting for human gate approval\./);
+  });
+
+  it('AT-CBPS-007: approval snapshots absorb pending-gate detail rows so Initiative does not render a second pending-gate card', () => {
+    const presentation = buildCoordinatorAttentionSnapshotPresentation({
+      ok: true,
+      mode: 'pending_gate',
+      pending_gate: {
+        gate_type: 'phase_transition',
+        gate: 'phase_transition:integration->release',
+        from: 'integration',
+        to: 'release',
+        required_repos: ['api', 'web'],
+      },
+      active: {
+        gate_type: 'phase_transition',
+        gate_id: 'phase_transition:integration->release',
+        current_phase: 'integration',
+        target_phase: 'release',
+        blockers: [],
+        pending: true,
+      },
+      next_actions: [
+        {
+          command: 'agentxchain multi approve-gate',
+          reason: 'Coordinator is waiting on human gate approval.',
+        },
+      ],
+    });
+
+    assert.equal(presentation.title, 'Approval Snapshot');
+    assert.deepEqual(
+      presentation.details,
+      [
+        { label: 'Mode', value: 'pending_gate', mono: false },
+        { label: 'Type', value: 'phase_transition', mono: false },
+        { label: 'Gate', value: 'phase_transition:integration->release', mono: true },
+        { label: 'Current Phase', value: 'integration', mono: false },
+        { label: 'Target Phase', value: 'release', mono: false },
+        { label: 'Required Repos', value: 'api, web', mono: false },
+        { label: 'Approval State', value: 'Awaiting human approval', mono: false },
+      ],
+    );
+    assert.equal(
+      presentation.summaryMessage,
+      'All coordinator prerequisites are satisfied. Human approval is the remaining action.',
+    );
+    assert.doesNotMatch(initiativeSource, /<h3>Pending Gate<\/h3>/);
+    assert.doesNotMatch(initiativeSource, /Approval is the only remaining action\. Detailed gate diagnostics stay in the Gates and Blockers views\./);
   });
 });

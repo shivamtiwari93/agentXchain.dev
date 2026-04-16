@@ -1,9 +1,7 @@
 import {
   buildCoordinatorAttentionSnapshotPresentation,
-  getCoordinatorBlockerDetails,
   summarizeCoordinatorAttention,
 } from '../../src/lib/coordinator-blocker-presentation.js';
-import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
 
 function esc(str) {
   if (!str) return '';
@@ -203,20 +201,6 @@ export function render({
   if (pendingGate || coordinatorState.blocked_reason) {
     html += `<div class="section"><h3>Coordinator Attention</h3><div class="initiative-grid">`;
     const blockerSnapshot = renderCoordinatorAttentionSnapshot(coordinatorBlockers);
-    if (pendingGate) {
-      const pendingGateDetails = getCoordinatorPendingGateDetails({ pendingGate });
-      html += `<div class="gate-card">
-        <h3>Pending Gate</h3>
-        <p class="section-subtitle">Approval is the only remaining action. Detailed gate diagnostics stay in the Gates and Blockers views.</p>
-        <dl class="detail-list">${renderDetailRows(pendingGateDetails)}</dl>`;
-      if (!blockerSnapshot) {
-        html += `<div class="gate-action">
-          <p>Ordered coordinator actions are sourced from the Blockers contract.</p>
-          <p><a href="#blockers">Open Blockers view</a></p>
-        </div>`;
-      }
-      html += `</div>`;
-    }
     if (blockerSnapshot) {
       html += blockerSnapshot;
     } else if (coordinatorState.blocked_reason) {
