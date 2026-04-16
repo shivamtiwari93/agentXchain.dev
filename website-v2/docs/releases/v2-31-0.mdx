@@ -36,7 +36,7 @@ Ownership resolution is explicit so operators can distinguish configured ownersh
 - `--format markdown` renders `## Workflow Artifacts` with a stable table for audit-ready copy/paste
 - both formats omit the section when `workflow_kit` is absent or when the current phase has zero artifacts
 
-This makes the report the authoritative operator-observation path for workflow-kit state.
+At `v2.31.0`, this made `report` the authoritative **artifact-backed** operator-observation path for workflow-kit state. Later releases added `agentxchain audit` as the live workspace audit surface; `report` remained the verified-export path.
 
 ## Export scope now includes `.planning/`
 

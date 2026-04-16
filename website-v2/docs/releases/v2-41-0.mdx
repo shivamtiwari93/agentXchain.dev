@@ -17,7 +17,7 @@ Eight new governed-mode commands, all routed through `execCliCommand()`:
 - **Approve Run Completion** — modal confirmation dialog before invoking `agentxchain approve-completion`.
 - **Step** — launches `agentxchain step` in an integrated terminal for operator-visible adapter output.
 - **Run** — launches `agentxchain run` in an integrated terminal. Never runs as a hidden background process.
-- **Report** — renders the full governed report (timeline, decisions, workflow-kit artifacts, verification) from `agentxchain export` piped through `agentxchain report --format json`.
+- **Report** — renders the full governed report (timeline, decisions, workflow-kit artifacts, verification) from `agentxchain export` piped through `agentxchain report --format json`. That was the real IDE contract in `v2.41.0`; later releases switched the live workspace path to `agentxchain audit --format json`, while `report` remained the artifact-backed surface.
 - **Restart** — modal confirmation before invoking `agentxchain restart` for session recovery from checkpoint.
 - **Dashboard** — launches `agentxchain dashboard` in an integrated terminal to open the browser dashboard.
 
