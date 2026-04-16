@@ -263,6 +263,12 @@ Each `repos.<repo_id>` entry has this contract:
 
 The coordinator export does **not** fail just because one child repo export fails. Instead it records the bad repo as `ok: false` with an `error` string and still emits the coordinator artifact. That keeps coordinator-level evidence inspectable even when one repo is broken or missing.
 
+That partial-export shape is intentional. Downstream commands degrade on purpose instead of inventing a nested repo export that is not there:
+
+- [`agentxchain verify export`](./cli#verify-export) recursively verifies only `ok: true` child exports and rejects `summary.aggregated_events` claims that depend on a failed child repo with no embedded export proof.
+- [`agentxchain report`](./governance-report) and [`agentxchain audit`](./governance-audit) still render coordinator-level evidence and per-repo export health, but drill-down fields for the failed child repo stay absent because there is no nested run export to summarize.
+- [`agentxchain replay export`](./cli#replay-export) still starts by restoring successful child repos and a minimal placeholder governed repo for the failed path so coordinator views stay readable without pretending the missing child export was embedded.
+
 ### Included coordinator roots
 
 When present, the coordinator export collects:

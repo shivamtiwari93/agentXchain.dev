@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { verifyExportArtifact } from '../src/lib/export-verifier.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
@@ -297,6 +298,16 @@ describe('coordinator export CLI', () => {
       assert.equal(exported.repos.broken.ok, false);
       assert.equal(exported.repos.broken.path, './repos/broken');
       assert.ok(exported.repos.broken.error, 'broken repo must have an error message');
+      assert.equal(
+        exported.repos.broken.export,
+        undefined,
+        'failed child repo must not pretend to embed a nested export payload',
+      );
+      assert.equal(
+        verifyExportArtifact(exported).ok,
+        true,
+        'partial coordinator export must remain verifier-clean when failure is recorded per repo',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -17,6 +17,7 @@ const PROTOCOL_REFERENCE_DOCS = read('website-v2/docs/protocol-reference.mdx');
 const SIDEBARS = read('website-v2/sidebars.ts');
 const DOCS_SURFACE_SPEC = read('.planning/DOCS_SURFACE_SPEC.md');
 const SPEC = read('.planning/EXPORT_SCHEMA_REFERENCE_SPEC.md');
+const COORD_SPEC = read('.planning/COORDINATOR_EXPORT_SPEC.md');
 const EXPORT_VERIFIER_SOURCE = read('cli/src/lib/export-verifier.js');
 
 function read(relPath) {
@@ -516,6 +517,18 @@ describe('coordinator export schema docs contract', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('AT-EXPORT-REF-009: documents intentional downstream degradation for failed child repo exports', () => {
+    assert.match(EXPORT_DOCS, /partial-export shape is intentional/i);
+    assert.match(EXPORT_DOCS, /verify export.*only `ok: true` child exports/i);
+    assert.match(EXPORT_DOCS, /report.*audit.*per-repo export health/i);
+    assert.match(EXPORT_DOCS, /drill-down fields.*stay absent/i);
+    assert.match(EXPORT_DOCS, /replay export.*minimal placeholder governed repo/i);
+    assert.match(COORD_SPEC, /AT-COORD-EXPORT-009/);
+    assert.match(COORD_SPEC, /first-class artifact shape/i);
+    assert.match(COORD_SPEC, /drill-down fields.*stay absent/i);
+    assert.match(COORD_SPEC, /minimal placeholder governed repo/i);
   });
 
   it('AT-EXPORT-REF-008: distinguishes raw coordinator snapshot metadata from authority-first report/diff truth', () => {

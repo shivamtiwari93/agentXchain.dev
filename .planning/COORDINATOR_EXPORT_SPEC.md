@@ -105,6 +105,14 @@ Every included file entry preserves the original bytes in `content_base64` so th
 - `agentxchain-multi.json` valid but child repo path does not exist → child entry `ok: false`, coordinator export `ok: true`
 - `agentxchain-multi.json` valid but no `.agentxchain/multirepo/` yet → export still succeeds with empty `files` and `summary` showing null state
 
+## Downstream Consumption Contract
+
+Partial coordinator exports are a first-class artifact shape, not an accidental recovery path. When `repos.<repoId>.ok` is `false`, downstream surfaces must degrade intentionally instead of inventing a nested child export that does not exist:
+
+- `agentxchain verify export` recursively verifies only `ok: true` child exports and must reject `summary.aggregated_events` claims that depend on a failed child repo with no embedded export proof.
+- `agentxchain report` and `agentxchain audit` still render coordinator-level evidence and per-repo export health, but drill-down fields for the failed child repo stay absent because there is no nested run export to summarize.
+- `agentxchain replay export` still starts by restoring successful child repos and creating a minimal placeholder governed repo for each failed child path so coordinator views stay readable without pretending the missing child export was embedded.
+
 ## Acceptance Tests
 
 1. `AT-COORD-EXPORT-001`: Export from coordinator workspace produces `export_kind: "agentxchain_coordinator_export"`
@@ -115,6 +123,7 @@ Every included file entry preserves the original bytes in `content_base64` so th
 6. `AT-COORD-EXPORT-006`: `--output` writes coordinator export to file
 7. `AT-COORD-EXPORT-007`: Summary includes correct `repo_run_statuses`, `barrier_count`, `history_entries`
 8. `AT-COORD-EXPORT-008`: Coordinator export from governed project root still produces governed export (detection order)
+9. `AT-COORD-EXPORT-009`: A coordinator export with `repos.<repoId>.ok === false` remains verifier-clean, omits the missing nested export payload, and preserves downstream readability through export-health/report/audit/replay degradation rules
 
 ## Open Questions
 
