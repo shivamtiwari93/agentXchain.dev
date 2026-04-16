@@ -103,14 +103,14 @@ Why the restriction matters:
 
 ## Where timeouts evaluate
 
-Timeouts fire at governance boundaries, not through a background daemon:
+Timeouts fire at governed acceptance boundaries, not through a background daemon:
 
-1. `agentxchain accept-turn`
-2. `agentxchain approve-transition`
-3. `agentxchain approve-completion`
-4. `agentxchain status` for proactive read-only visibility
+1. `agentxchain accept-turn` for mutating enforcement of turn, phase, and run limits
+2. `agentxchain status` for proactive read-only visibility of current timeout pressure and persisted timeout blocks
 
-That means timeout evidence is deterministic and tied to governed state transitions.
+`approve-transition` and `approve-completion` do not currently re-run timeout mutation. The accepted-turn boundary is the authoritative enforcement point today, and the docs must stay honest about that.
+
+That keeps timeout evidence deterministic and tied to governed state transitions instead of background timers.
 
 ## Operator surfaces
 

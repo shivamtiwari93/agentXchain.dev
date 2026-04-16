@@ -108,7 +108,7 @@ Policy escalations are distinct from operator escalations. They are triggered au
 |---|---|---|
 | `timeout` | A turn, phase, or run exceeded its configured time limit (`timeouts` in `agentxchain.json`) | Check whether the timeout is caused by a stuck agent or legitimately long work. If the limit was too tight, raise it with `agentxchain config --set timeouts.per_turn_minutes <min>` (or `per_phase_minutes` / `per_run_minutes`), then `agentxchain resume` |
 
-Timeouts fire at governance boundaries (turn acceptance, phase transition, run completion) — not via background polling. The `agentxchain status` output shows which scope exceeded its limit and by how much. Per-phase timeouts can be overridden in `routing` with `timeout_minutes` and `timeout_action` per phase.
+Timeouts are enforced when accepted work crosses the turn-acceptance boundary, and `agentxchain status` shows read-only timeout pressure or persisted timeout blocks. They do not currently re-fire on `approve-transition` or `approve-completion`. Per-phase timeouts can be overridden in `routing` with `timeout_minutes` and `timeout_action` per phase.
 
 For the full config and report/status surface, see [Timeouts](/docs/timeouts).
 

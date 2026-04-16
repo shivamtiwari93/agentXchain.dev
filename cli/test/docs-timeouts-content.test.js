@@ -27,6 +27,13 @@ describe('Timeout docs content guard', () => {
     assert.ok(content.includes('routing-only'), 'must document skip_phase as routing-only');
   });
 
+  it('documents the actual enforcement boundary and rejects ghost approval-boundary claims', () => {
+    assert.match(content, /accept-turn/i, 'must document accept-turn as the mutating timeout boundary');
+    assert.match(content, /status/i, 'must document status as the read-only timeout surface');
+    assert.match(content, /do not currently re-run timeout mutation/i,
+      'must explicitly state that approval commands do not currently re-run timeout mutation');
+  });
+
   it('documents operator surfaces and recovery', () => {
     assert.ok(content.includes('agentxchain status'), 'must document status visibility');
     assert.ok(content.includes('agentxchain report'), 'must document report visibility');

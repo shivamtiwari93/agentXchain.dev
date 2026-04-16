@@ -60,12 +60,12 @@ Phase-level `timeout_minutes` overrides `timeouts.per_phase_minutes` for that sp
 
 ### Evaluation Points
 
-Timeouts are evaluated at **governance boundaries** only — not via background polling or daemon processes. This means:
+Timeouts are evaluated at **governed acceptance boundaries** only — not via background polling or daemon processes. This means:
 
-1. **Turn acceptance** (`accept-turn`): Check per-turn, per-phase, and per-run timeouts.
-2. **Phase transition approval** (`approve-transition`): Check per-phase and per-run timeouts.
-3. **Run completion approval** (`approve-completion`): Check per-run timeout.
-4. **`status` command**: Report timeout warnings and timeout-blocked recovery state from persisted state/ledger data.
+1. **Turn acceptance** (`accept-turn`): Check per-turn, per-phase, and per-run timeouts and mutate governed state when escalation is required.
+2. **`status` command**: Report read-only timeout pressure plus persisted timeout-blocked recovery state from state/ledger data.
+
+`approve-transition` and `approve-completion` do not currently re-run timeout mutation. Public docs and tests must not claim those approval commands enforce timeout transitions until the runtime actually does.
 
 This is consistent with the existing checkpoint-at-governance-boundary pattern (`DEC-SESSION-CHECKPOINT-001`).
 
@@ -119,7 +119,9 @@ When `action === "skip_phase"`:
 - `AT-TIMEOUT-001`: Turn timeout fires at acceptance when `started_at` + `per_turn_minutes` < `now()`. Run blocked with `timeout:turn`.
 - `AT-TIMEOUT-001A`: Accepted work is preserved when `AT-TIMEOUT-001` fires; the timeout blocks the run after history/ledger/state acceptance, not before.
 - `AT-TIMEOUT-002`: Phase timeout fires at acceptance when phase-entry timestamp + `per_phase_minutes` < `now()`. Run blocked with `timeout:phase`.
+- `AT-TIMEOUT-002A`: The subprocess CLI surface for `AT-TIMEOUT-002` renders `Reason: timeout`, `Action: agentxchain resume`, and `Detail: Phase timeout (...)`.
 - `AT-TIMEOUT-003`: Run timeout fires at acceptance when `created_at` + `per_run_minutes` < `now()`. Run blocked with `timeout:run`.
+- `AT-TIMEOUT-003A`: The subprocess CLI surface for `AT-TIMEOUT-003` renders `Reason: timeout`, `Action: agentxchain resume`, and `Detail: Run timeout ...`.
 - `AT-TIMEOUT-004`: `action: "warn"` logs to decision ledger but does not block.
 - `AT-TIMEOUT-005`: `action: "skip_phase"` auto-advances and records the skip in the ledger.
 - `AT-TIMEOUT-006`: Per-phase `timeout_minutes` override takes precedence over global `per_phase_minutes`.

@@ -185,6 +185,21 @@ describe('Recovery docs — conflict-loop operator contract (AT-CLR-003, AT-CLR-
   });
 });
 
+describe('Recovery docs — timeout operator contract', () => {
+  it('documents accept-turn enforcement and rejects nonexistent approval-boundary timeout mutation', () => {
+    assert.match(
+      DOC,
+      /accepted work crosses the turn-acceptance boundary|turn-acceptance boundary/i,
+      'recovery docs must tie timeout enforcement to turn acceptance'
+    );
+    assert.doesNotMatch(
+      DOC,
+      /phase transition, run completion\)/i,
+      'recovery docs must not claim timeout mutation happens on approve-transition or approve-completion'
+    );
+  });
+});
+
 describe('Recovery docs — no ghost commands', () => {
   it('does not claim a dedicated recover command exists', () => {
     // The docs should NOT suggest `agentxchain recover` as a command
