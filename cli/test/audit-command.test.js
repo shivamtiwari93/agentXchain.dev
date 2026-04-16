@@ -379,6 +379,43 @@ function createCoordinatorWorkspace() {
   return root;
 }
 
+function createPartialCoordinatorWorkspace() {
+  const root = createCoordinatorWorkspace();
+
+  writeJson(join(root, 'agentxchain-multi.json'), {
+    schema_version: '0.1',
+    project: { id: 'coord-audit', name: 'Coordinator Audit' },
+    repos: {
+      app: { path: './repos/app', default_branch: 'main', required: true },
+      broken: { path: './repos/missing', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      default: {
+        repos: ['app', 'broken'],
+      },
+    },
+  });
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_audit_001',
+    status: 'active',
+    phase: 'implementation',
+    repo_runs: {
+      app: {
+        status: 'active',
+        run_id: 'run_app_001',
+      },
+      broken: {
+        status: 'linked',
+        run_id: 'run_missing_001',
+      },
+    },
+  });
+
+  return root;
+}
+
 function createCompletedCoordinatorWorkspaceWithRunIdDrift() {
   const root = createCoordinatorWorkspace();
 
@@ -459,6 +496,28 @@ describe('agentxchain audit', () => {
     assert.equal(parsed.subject.kind, 'coordinator_workspace');
     assert.equal(parsed.subject.coordinator.project_name, 'Coordinator Audit');
     assert.equal(parsed.subject.run.repo_ok_count, 1);
+  });
+
+  it('AT-AUDIT-013: partial coordinator audit keeps export health visible and failed child drill-down absent', () => {
+    const root = createPartialCoordinatorWorkspace();
+    const result = runCli(root, ['audit', '--format', 'json']);
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.subject.kind, 'coordinator_workspace');
+    assert.equal(parsed.subject.run.repo_ok_count, 1);
+    assert.equal(parsed.subject.run.repo_error_count, 1);
+    assert.ok(Array.isArray(parsed.subject.coordinator_timeline));
+    assert.ok(parsed.subject.coordinator_timeline.length > 0);
+
+    const brokenRepo = parsed.subject.repos.find((repo) => repo.repo_id === 'broken');
+    assert.equal(brokenRepo.ok, false);
+    assert.match(brokenRepo.error, /no governed project found/i);
+    assert.equal(brokenRepo.turns, undefined);
+    assert.equal(brokenRepo.decisions, undefined);
+    assert.equal(brokenRepo.hook_summary, undefined);
+    assert.equal(brokenRepo.gate_summary, undefined);
+    assert.equal(brokenRepo.recovery_summary, undefined);
   });
 
   it('AT-CBAP-004: coordinator audit json preserves repo_run_id_mismatch next actions', () => {

@@ -50,6 +50,10 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /raw coordinator snapshot metadata only/i);
     assert.match(AUDIT_DOCS, /nested child export or repo-local state is readable/i);
     assert.match(AUDIT_DOCS, /linked` \/ `initialized` remain metadata only/i);
+    assert.match(AUDIT_DOCS, /freshly built coordinator export is partial/i);
+    assert.match(AUDIT_DOCS, /repo_ok_count.*repo_error_count.*export-health totals/i);
+    assert.match(AUDIT_DOCS, /must not invent child drill-down sections/i);
+    assert.match(AUDIT_DOCS, /turn timelines, decisions, gate outcomes, hook activity, and recovery details stay absent/i);
     assert.match(AUDIT_DOCS, /Terminal drift note:/);
     assert.match(AUDIT_DOCS, /`html` for portable, self-contained audit records with inline styles/i);
     assert.match(AUDIT_DOCS, /agentxchain audit --format html > governance-audit\.html/);
@@ -66,8 +70,11 @@ describe('governance audit spec alignment', () => {
     assert.match(SPEC, /AT-AUDIT-001/);
     assert.match(SPEC, /AT-AUDIT-007/);
     assert.match(SPEC, /AT-AUDIT-012/);
+    assert.match(SPEC, /AT-AUDIT-013/);
     assert.match(SPEC, /live repo state/i);
     assert.match(SPEC, /governed project or coordinator workspace/i);
+    assert.match(SPEC, /partial coordinator audits stay readable/i);
+    assert.match(SPEC, /repo_ok_count.*repo_error_count.*preserve export health/i);
   });
 
   it('freezes blocked-run audit parity in a standalone runtime spec', () => {

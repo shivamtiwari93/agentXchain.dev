@@ -1106,6 +1106,8 @@ describe('report CLI', () => {
       assert.equal(result.status, 0, result.stderr);
       const report = JSON.parse(result.stdout);
 
+      assert.equal(report.subject.run.repo_ok_count, 1, 'successful child export count should stay visible');
+      assert.equal(report.subject.run.repo_error_count, 1, 'failed child export count should stay visible');
       const failedRepo = report.subject.repos.find((r) => r.repo_id === 'cli');
       assert.equal(failedRepo.ok, false);
       assert.equal(failedRepo.error, 'permission denied');
@@ -1114,6 +1116,8 @@ describe('report CLI', () => {
       assert.equal(failedRepo.hook_summary, undefined, 'failed repo must not have hook_summary');
       assert.equal(failedRepo.gate_summary, undefined, 'failed repo must not have gate_summary');
       assert.equal(failedRepo.recovery_summary, undefined, 'failed repo must not have recovery_summary');
+      assert.ok(Array.isArray(report.subject.coordinator_timeline), 'coordinator-level evidence should remain readable');
+      assert.ok(report.subject.coordinator_timeline.length > 0, 'coordinator-level timeline should remain present');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -64,6 +64,10 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /nested child export or repo-local state is readable/i);
     assert.match(REPORT_DOCS, /child authority first for repo-status counts and drift/i);
     assert.match(REPORT_DOCS, /linked` or `initialized` remain metadata only/i);
+    assert.match(REPORT_DOCS, /Partial coordinator exports stay reportable/i);
+    assert.match(REPORT_DOCS, /repo_ok_count.*repo_error_count.*preserve export health/i);
+    assert.match(REPORT_DOCS, /failed repo keeps its `error` row/i);
+    assert.match(REPORT_DOCS, /omits turn timelines, decision lists, gate outcomes, hook activity, and recovery details/i);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
     assert.match(REPORT_DOCS, /Repo Decisions/);
@@ -108,9 +112,12 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /AT-REPORT-008/);
     assert.match(SPEC, /AT-REPORT-009/);
     assert.match(SPEC, /AT-REPORT-011/);
+    assert.match(SPEC, /AT-REPORT-012/);
     assert.match(SPEC, /markdown/);
     assert.match(SPEC, /html/);
     assert.match(SPEC, /report_version/);
+    assert.match(SPEC, /partial coordinator exports remain reportable/i);
+    assert.match(SPEC, /repo_ok_count.*repo_error_count.*export-health visibility/i);
   });
 
   it('ships a runtime blocked-guidance spec for governed run next actions', () => {

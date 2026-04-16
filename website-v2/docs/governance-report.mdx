@@ -256,6 +256,8 @@ Coordinator-export reports carry:
 
 `subject.run.repo_status_counts` and `subject.run.repo_status_drifts` do **not** reuse `summary.repo_run_statuses` as primary repo truth. That export field stays raw coordinator snapshot metadata only. When a nested child export or repo-local state is readable, report uses that child authority first for repo-status counts and drift. Coordinator linkage labels such as `linked` or `initialized` remain metadata only.
 
+Partial coordinator exports stay reportable. `subject.run.repo_ok_count` and `subject.run.repo_error_count` preserve export health even when one or more child repos have `ok: false`, and the coordinator-level timeline, barrier, decision, and next-action surfaces remain readable from the verified coordinator artifact. What does **not** happen is fake child drill-down: a failed repo keeps its `error` row, but report omits turn timelines, decision lists, gate outcomes, hook activity, and recovery details because there is no embedded child export to summarize.
+
 Each `subject.repos[]` row includes:
 
 - `repo_id`
@@ -282,6 +284,7 @@ When `ok` is `true`, child-repo drill-down fields are also present:
 - `blocked_on` — current blocked-on value or `null`
 
 These fields are omitted for failed repos (`ok: false`). Text, markdown, and html formats render per-repo Turn Timeline, Decisions, Gate Outcomes, Hook Activity, and Recovery sections when the data is non-empty.
+For failed repos, human-readable formats keep the repo row and error visible while omitting those drill-down sections entirely. That is intentional degradation, not missing rendering.
 When a child repo export contains `.agentxchain/session.json`, text and markdown also render per-repo Continuity sections with stale-checkpoint warnings when the checkpoint run id no longer matches the child export run id.
 
 When `subject.run.status = "completed"` and either `subject.run.run_id_mismatches` or `subject.run.repo_status_drifts` is non-empty, the report keeps that child repo drift visible for audit but does not reopen recovery guidance. In that case `subject.run.terminal_observability_note` is populated, text and markdown render `Terminal drift note: ...`, HTML renders a `Terminal drift note` metadata row, and the report still omits `Next Actions`.
