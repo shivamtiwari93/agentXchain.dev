@@ -520,6 +520,9 @@ export function validateV4Config(data, projectRoot) {
   if (data.notifications) {
     const notificationValidation = validateNotificationsConfig(data.notifications);
     errors.push(...notificationValidation.errors);
+    if (Array.isArray(notificationValidation.warnings)) {
+      warnings.push(...notificationValidation.warnings);
+    }
   }
 
   // Schedules (optional but validated if present)

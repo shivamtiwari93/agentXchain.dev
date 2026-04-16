@@ -14,6 +14,7 @@ import { getConnectorHealth } from '../lib/connector-health.js';
 import { readRepoDecisions, summarizeRepoDecisions } from '../lib/repo-decisions.js';
 import { deriveWorkflowKitArtifacts } from '../lib/workflow-kit-artifacts.js';
 import { evaluateTimeouts } from '../lib/timeout-evaluator.js';
+import { evaluateApprovalSlaReminders } from '../lib/notification-runner.js';
 import { summarizeRunProvenance } from '../lib/run-provenance.js';
 import { readRecentRunEventSummary } from '../lib/recent-event-summary.js';
 import { deriveConflictedTurnResolutionActions } from '../lib/conflict-actions.js';
@@ -125,6 +126,9 @@ function renderGovernedStatus(context, opts) {
   const repoDecisionSummary = summarizeRepoDecisions(readRepoDecisions(root), config);
 
   const workflowKitArtifacts = deriveWorkflowKitArtifacts(root, config, state);
+
+  // Fire approval SLA reminders as a side effect (webhook-only, no CLI output)
+  evaluateApprovalSlaReminders(root, config, state);
 
   if (opts.json) {
     const dashPid = getDashboardPid(root);

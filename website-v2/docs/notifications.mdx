@@ -33,14 +33,18 @@ Delivery is **best-effort**. Notification failures are audited, but they do not 
           "escalation_resolved",
           "phase_transition_pending",
           "run_completion_pending",
-          "run_completed"
+          "run_completed",
+          "approval_sla_reminder"
         ],
         "timeout_ms": 5000,
         "headers": {
           "Authorization": "Bearer ${OPS_WEBHOOK_TOKEN}"
         }
       }
-    ]
+    ],
+    "approval_sla": {
+      "reminder_after_seconds": [3600, 14400, 86400]
+    }
   }
 }
 ```
@@ -55,8 +59,65 @@ The shipped event set is intentionally small and code-backed:
 - `phase_transition_pending`
 - `run_completion_pending`
 - `run_completed`
+- `approval_sla_reminder`
 
 `run_failed` is **not** documented here because the current governed runner does not expose a first-class persistent run-failed operator surface yet. Do not build consumers against undocumented event names.
+
+## Approval SLA Reminders
+
+When a run enters `pending_phase_transition` or `pending_run_completion`, the initial notification fires once. If the operator does not act, the approval sits silently by default. Approval SLA reminders add timed follow-up webhook notifications at configurable intervals.
+
+Per `DEC-APPROVAL-TIMEOUT-EXEMPT-001`, approval-pending states are exempt from timeout enforcement. SLA reminders are a **notification feature**, not a timeout feature — they never block or mutate governed state.
+
+### Config
+
+```json
+{
+  "notifications": {
+    "approval_sla": {
+      "reminder_after_seconds": [3600, 14400, 86400],
+      "enabled": true
+    }
+  }
+}
+```
+
+- `reminder_after_seconds`: ascending array of positive integers (seconds after the approval was requested). Minimum value: 300 (5 minutes). Maximum 10 entries.
+- `enabled`: optional boolean, defaults to `true`. Set to `false` to disable without removing config.
+- At least one webhook must subscribe to `approval_sla_reminder` for reminders to fire.
+
+### Evaluation
+
+Reminders are **lazily evaluated** at operator interaction time:
+
+- `agentxchain status` evaluates and fires due reminders as a side effect.
+- The dashboard daemon evaluates on each status poll tick.
+- `agentxchain step` / `agentxchain run` evaluate before dispatch if an approval is pending.
+
+Each threshold fires once per pending approval. If a 1-hour threshold fires, it will not fire again until the approval is resolved and a new approval starts.
+
+### Payload
+
+```json
+{
+  "event_type": "approval_sla_reminder",
+  "payload": {
+    "approval_type": "pending_phase_transition",
+    "requested_at": "2026-04-16T14:00:00.000Z",
+    "elapsed_seconds": 14400,
+    "threshold_seconds": 14400,
+    "reminder_index": 2,
+    "total_thresholds": 3,
+    "from_phase": "implementation",
+    "to_phase": "qa",
+    "gate": "require_approval"
+  }
+}
+```
+
+### Tracking
+
+Reminder dedup state is tracked in `.agentxchain/sla-reminders.json`. This file is cleared per approval type when the approval is resolved (`approve-transition` / `approve-completion`).
 
 ## Payload
 

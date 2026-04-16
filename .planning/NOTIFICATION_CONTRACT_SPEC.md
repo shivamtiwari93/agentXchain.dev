@@ -68,6 +68,7 @@ It does **not** add Slack/email/ticketing integrations directly. Those are downs
 - `phase_transition_pending`
 - `run_completion_pending`
 - `run_completed`
+- `approval_sla_reminder` — timed follow-up for stale pending approvals (see `APPROVAL_SLA_REMINDERS_SPEC.md`)
 
 ### Webhook Payload
 

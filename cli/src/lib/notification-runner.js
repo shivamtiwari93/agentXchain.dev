@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -13,6 +13,7 @@ export const VALID_NOTIFICATION_EVENTS = [
   'phase_transition_pending',
   'run_completion_pending',
   'run_completed',
+  'approval_sla_reminder',
 ];
 
 const NOTIFICATION_NAME_RE = /^[a-z0-9_-]+$/;
@@ -166,10 +167,10 @@ export function validateNotificationsConfig(notifications) {
 
   if (!notifications || typeof notifications !== 'object' || Array.isArray(notifications)) {
     errors.push('notifications must be an object');
-    return { ok: false, errors };
+    return { ok: false, errors, warnings: [] };
   }
 
-  const allowedKeys = new Set(['webhooks']);
+  const allowedKeys = new Set(['webhooks', 'approval_sla']);
   for (const key of Object.keys(notifications)) {
     if (!allowedKeys.has(key)) {
       errors.push(`notifications contains unknown field "${key}"`);
@@ -177,12 +178,12 @@ export function validateNotificationsConfig(notifications) {
   }
 
   if (!('webhooks' in notifications)) {
-    return { ok: errors.length === 0, errors };
+    return { ok: errors.length === 0, errors, warnings: [] };
   }
 
   if (!Array.isArray(notifications.webhooks)) {
     errors.push('notifications.webhooks must be an array');
-    return { ok: false, errors };
+    return { ok: false, errors, warnings: [] };
   }
 
   if (notifications.webhooks.length > MAX_NOTIFICATION_WEBHOOKS) {
@@ -261,7 +262,51 @@ export function validateNotificationsConfig(notifications) {
     }
   });
 
-  return { ok: errors.length === 0, errors };
+  // Validate approval_sla if present
+  const warnings = [];
+  if (notifications.approval_sla !== undefined) {
+    const sla = notifications.approval_sla;
+    if (!sla || typeof sla !== 'object' || Array.isArray(sla)) {
+      errors.push('notifications.approval_sla must be an object');
+    } else {
+      const slaAllowed = new Set(['enabled', 'reminder_after_seconds']);
+      for (const key of Object.keys(sla)) {
+        if (!slaAllowed.has(key)) {
+          errors.push(`notifications.approval_sla contains unknown field "${key}"`);
+        }
+      }
+      if ('enabled' in sla && typeof sla.enabled !== 'boolean') {
+        errors.push('notifications.approval_sla.enabled must be a boolean');
+      }
+      if (!Array.isArray(sla.reminder_after_seconds) || sla.reminder_after_seconds.length === 0) {
+        errors.push('notifications.approval_sla.reminder_after_seconds must be a non-empty array of positive integers');
+      } else {
+        if (sla.reminder_after_seconds.length > 10) {
+          errors.push('notifications.approval_sla.reminder_after_seconds: maximum 10 thresholds');
+        }
+        let prev = 0;
+        for (let i = 0; i < sla.reminder_after_seconds.length; i++) {
+          const v = sla.reminder_after_seconds[i];
+          if (!Number.isInteger(v) || v <= 0) {
+            errors.push(`notifications.approval_sla.reminder_after_seconds[${i}]: must be a positive integer`);
+          } else if (v < 300) {
+            errors.push(`notifications.approval_sla.reminder_after_seconds[${i}]: minimum value is 300 (5 minutes)`);
+          } else if (v <= prev) {
+            errors.push(`notifications.approval_sla.reminder_after_seconds[${i}]: values must be strictly ascending`);
+          }
+          prev = v;
+        }
+      }
+      // Warn if no webhook subscribes to approval_sla_reminder
+      const hasSubscriber = Array.isArray(notifications.webhooks) &&
+        notifications.webhooks.some(w => Array.isArray(w.events) && w.events.includes('approval_sla_reminder'));
+      if (!hasSubscriber) {
+        warnings.push('notifications.approval_sla is configured but no webhook subscribes to "approval_sla_reminder"');
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings };
 }
 
 export function emitNotifications(root, config, state, eventType, payload = {}, turn = null) {
@@ -327,4 +372,115 @@ export function emitNotifications(root, config, state, eventType, payload = {}, 
   }
 
   return { ok: true, event_id: eventId, results };
+}
+
+const SLA_REMINDERS_PATH = '.agentxchain/sla-reminders.json';
+
+function readSlaReminders(root) {
+  try {
+    const filePath = join(root, SLA_REMINDERS_PATH);
+    if (!existsSync(filePath)) return [];
+    const data = JSON.parse(readFileSync(filePath, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+
+function writeSlaReminders(root, sent) {
+  const filePath = join(root, SLA_REMINDERS_PATH);
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, JSON.stringify(sent, null, 2) + '\n');
+}
+
+/**
+ * Evaluate and emit approval SLA reminders for pending approvals.
+ * Uses `.agentxchain/sla-reminders.json` for dedup tracking (not governed state).
+ * Returns { reminders_sent: string[], notifications_emitted: number }.
+ */
+export function evaluateApprovalSlaReminders(root, config, state) {
+  const result = { reminders_sent: [], notifications_emitted: 0 };
+
+  const sla = config?.notifications?.approval_sla;
+  if (!sla || sla.enabled === false) return result;
+  if (!Array.isArray(sla.reminder_after_seconds) || sla.reminder_after_seconds.length === 0) return result;
+
+  const webhooks = config?.notifications?.webhooks;
+  if (!Array.isArray(webhooks) || !webhooks.some(w => Array.isArray(w.events) && w.events.includes('approval_sla_reminder'))) {
+    return result;
+  }
+
+  if (!state) return result;
+
+  const sent = readSlaReminders(root);
+  const now = Date.now();
+  const pendingApprovals = [];
+
+  if (state.pending_phase_transition && state.pending_phase_transition.requested_at) {
+    pendingApprovals.push({
+      approval_type: 'pending_phase_transition',
+      requested_at: state.pending_phase_transition.requested_at,
+      from_phase: state.pending_phase_transition.from || null,
+      to_phase: state.pending_phase_transition.to || null,
+      gate: state.pending_phase_transition.gate || null,
+    });
+  }
+
+  if (state.pending_run_completion && state.pending_run_completion.requested_at) {
+    pendingApprovals.push({
+      approval_type: 'pending_run_completion',
+      requested_at: state.pending_run_completion.requested_at,
+      from_phase: null,
+      to_phase: null,
+      gate: state.pending_run_completion.gate || null,
+    });
+  }
+
+  let changed = false;
+  for (const approval of pendingApprovals) {
+    const requestedMs = new Date(approval.requested_at).getTime();
+    if (isNaN(requestedMs)) continue;
+    const elapsedSeconds = Math.floor((now - requestedMs) / 1000);
+
+    for (let i = 0; i < sla.reminder_after_seconds.length; i++) {
+      const threshold = sla.reminder_after_seconds[i];
+      const reminderKey = `${approval.approval_type}:${threshold}`;
+
+      if (elapsedSeconds >= threshold && !sent.includes(reminderKey)) {
+        const payload = {
+          approval_type: approval.approval_type,
+          requested_at: approval.requested_at,
+          elapsed_seconds: elapsedSeconds,
+          threshold_seconds: threshold,
+          reminder_index: i + 1,
+          total_thresholds: sla.reminder_after_seconds.length,
+        };
+        if (approval.from_phase) payload.from_phase = approval.from_phase;
+        if (approval.to_phase) payload.to_phase = approval.to_phase;
+        if (approval.gate) payload.gate = approval.gate;
+
+        emitNotifications(root, config, state, 'approval_sla_reminder', payload);
+        sent.push(reminderKey);
+        result.reminders_sent.push(reminderKey);
+        result.notifications_emitted++;
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    writeSlaReminders(root, sent);
+  }
+
+  return result;
+}
+
+/**
+ * Clear SLA reminder tracking for a resolved approval type.
+ * Called from approve-transition / approve-completion.
+ */
+export function clearSlaReminders(root, approvalType) {
+  const sent = readSlaReminders(root);
+  const filtered = sent.filter(k => !k.startsWith(`${approvalType}:`));
+  if (filtered.length !== sent.length) {
+    writeSlaReminders(root, filtered);
+  }
 }

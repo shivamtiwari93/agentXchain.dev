@@ -39,7 +39,7 @@ import {
 import { getMaxConcurrentTurns } from './normalized-config.js';
 import { getTurnStagingResultPath, getTurnStagingDir, getDispatchTurnDir, getReviewArtifactPath } from './turn-paths.js';
 import { runHooks } from './hook-runner.js';
-import { emitNotifications } from './notification-runner.js';
+import { emitNotifications, clearSlaReminders } from './notification-runner.js';
 import { emitRunEvent } from './run-events.js';
 import { writeSessionCheckpoint } from './session-checkpoint.js';
 import { recordRunHistory } from './run-history.js';
@@ -3893,6 +3893,7 @@ export function approvePhaseTransition(root, config) {
   };
 
   writeState(root, updatedState);
+  clearSlaReminders(root, 'pending_phase_transition');
   emitRunEvent(root, 'gate_approved', {
     run_id: updatedState.run_id,
     phase: updatedState.phase,
@@ -4005,6 +4006,7 @@ export function approveRunCompletion(root, config) {
   };
 
   writeState(root, updatedState);
+  clearSlaReminders(root, 'pending_run_completion');
 
   emitPendingLifecycleNotification(root, config, updatedState, 'run_completed', {
     completed_at: updatedState.completed_at,
