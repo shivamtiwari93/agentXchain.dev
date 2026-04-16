@@ -10,6 +10,7 @@
  */
 
 import { getCoordinatorBlockerDetails } from '../../src/lib/coordinator-blocker-presentation.js';
+import { buildCoordinatorGateEvaluationPresentation } from '../../src/lib/coordinator-gate-evaluation-presentation.js';
 import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
 
 function esc(str) {
@@ -87,6 +88,14 @@ function renderActiveGate(active, coordinatorBlockers = null) {
         active,
       })
     : [];
+  const evaluationPresentation = active.pending === true
+    ? null
+    : buildCoordinatorGateEvaluationPresentation({
+        gateType: active.gate_type,
+        evaluation: active,
+        includeReady: true,
+        includeBlockerCount: false,
+      });
   let html = `<div class="gate-card">
     <h3>Active Gate</h3>
     <dl class="detail-list">`;
@@ -94,24 +103,7 @@ function renderActiveGate(active, coordinatorBlockers = null) {
     html += renderDetailRows(pendingGateDetails);
   } else {
     html += `<dt>Type</dt><dd>${esc(active.gate_type)}</dd>`;
-    if (active.gate_id) {
-      html += `<dt>Gate</dt><dd class="mono">${esc(active.gate_id)}</dd>`;
-    }
-    if (active.current_phase) {
-      html += `<dt>Current Phase</dt><dd>${esc(active.current_phase)}</dd>`;
-    }
-    if (active.target_phase) {
-      html += `<dt>Target Phase</dt><dd>${esc(active.target_phase)}</dd>`;
-    }
-    if (Array.isArray(active.required_repos) && active.required_repos.length > 0) {
-      html += `<dt>Required Repos</dt><dd>${esc(active.required_repos.join(', '))}</dd>`;
-    }
-    if (Array.isArray(active.human_barriers) && active.human_barriers.length > 0) {
-      html += `<dt>Human Barriers</dt><dd>${esc(active.human_barriers.join(', '))}</dd>`;
-    }
-  }
-  if (typeof active.ready === 'boolean') {
-    html += `<dt>Ready</dt><dd>${active.ready ? 'Yes' : 'No'}</dd>`;
+    html += renderDetailRows(evaluationPresentation?.details || []);
   }
 
   html += `</dl>`;
@@ -217,21 +209,20 @@ export function render({ coordinatorBlockers }) {
     const { phase_transition, run_completion } = data.evaluations;
 
     if (phase_transition) {
+      const phasePresentation = buildCoordinatorGateEvaluationPresentation({
+        gateType: 'phase_transition',
+        evaluation: phase_transition,
+      });
       html += `<div class="turn-card" data-turn-expand>
         <div class="turn-header">
-          <span>Phase Transition</span>
-          ${badge(phase_transition.ready ? 'ready' : 'not ready', phase_transition.ready ? 'var(--green)' : 'var(--yellow)')}
+          <span>${esc(phasePresentation.title)}</span>
+          ${badge(phasePresentation.statusLabel, phase_transition.ready ? 'var(--green)' : 'var(--yellow)')}
         </div>
         <div class="turn-detail-panel">
-          <dl class="detail-list">`;
-      if (phase_transition.current_phase) html += `<dt>Current</dt><dd>${esc(phase_transition.current_phase)}</dd>`;
-      if (phase_transition.target_phase) html += `<dt>Target</dt><dd>${esc(phase_transition.target_phase)}</dd>`;
-      if (phase_transition.gate_id) html += `<dt>Gate</dt><dd class="mono">${esc(phase_transition.gate_id)}</dd>`;
-      html += `<dt>Blockers</dt><dd>${phase_transition.blockers?.length || 0}</dd>`;
-      html += `</dl>`;
-      if (phase_transition.blockers?.length > 0) {
+          <dl class="detail-list">${renderDetailRows(phasePresentation.details)}</dl>`;
+      if (phasePresentation.blockers.length > 0) {
         html += `<div class="annotation-list" style="margin-top:8px">`;
-        for (const b of phase_transition.blockers) {
+        for (const b of phasePresentation.blockers) {
           html += `<div class="annotation-card">
             <span class="mono">${esc(b.code || 'unknown')}</span>
             <span>${esc(b.message || '')}</span>
@@ -243,22 +234,20 @@ export function render({ coordinatorBlockers }) {
     }
 
     if (run_completion) {
+      const completionPresentation = buildCoordinatorGateEvaluationPresentation({
+        gateType: 'run_completion',
+        evaluation: run_completion,
+      });
       html += `<div class="turn-card" data-turn-expand>
         <div class="turn-header">
-          <span>Run Completion</span>
-          ${badge(run_completion.ready ? 'ready' : 'not ready', run_completion.ready ? 'var(--green)' : 'var(--yellow)')}
+          <span>${esc(completionPresentation.title)}</span>
+          ${badge(completionPresentation.statusLabel, run_completion.ready ? 'var(--green)' : 'var(--yellow)')}
         </div>
         <div class="turn-detail-panel">
-          <dl class="detail-list">`;
-      if (run_completion.gate_id) html += `<dt>Gate</dt><dd class="mono">${esc(run_completion.gate_id)}</dd>`;
-      html += `<dt>Blockers</dt><dd>${run_completion.blockers?.length || 0}</dd>`;
-      if (typeof run_completion.requires_human_approval === 'boolean') {
-        html += `<dt>Human Approval</dt><dd>${run_completion.requires_human_approval ? 'Required' : 'Not required'}</dd>`;
-      }
-      html += `</dl>`;
-      if (run_completion.blockers?.length > 0) {
+          <dl class="detail-list">${renderDetailRows(completionPresentation.details)}</dl>`;
+      if (completionPresentation.blockers.length > 0) {
         html += `<div class="annotation-list" style="margin-top:8px">`;
-        for (const b of run_completion.blockers) {
+        for (const b of completionPresentation.blockers) {
           html += `<div class="annotation-card">
             <span class="mono">${esc(b.code || 'unknown')}</span>
             <span>${esc(b.message || '')}</span>

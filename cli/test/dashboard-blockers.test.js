@@ -125,6 +125,9 @@ describe('Blockers View — pending_gate mode', () => {
     assert.ok(html.includes('Gate Evaluations'));
     assert.ok(html.includes('Phase Transition'));
     assert.ok(html.includes('Run Completion'));
+    assert.ok(html.includes('Current Phase'));
+    assert.ok(html.includes('Target Phase'));
+    assert.ok(html.includes('Blockers'));
   });
 });
 
@@ -289,6 +292,13 @@ describe('Blockers View — run_completion mode', () => {
     const html = render({ coordinatorBlockers: completionData });
     assert.ok(html.includes('Human Approval'));
     assert.ok(html.includes('Required'));
+  });
+
+  it('renders canonical run-completion evaluation labels', () => {
+    const html = render({ coordinatorBlockers: completionData });
+    assert.ok(html.includes('Required Repos'));
+    assert.ok(html.includes('Human Barriers'));
+    assert.ok(html.includes('Blockers'));
   });
 });
 

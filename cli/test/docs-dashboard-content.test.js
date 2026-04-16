@@ -33,6 +33,7 @@ const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_B
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
 const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
+const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 
 function extractNavViews(html) {
@@ -241,6 +242,15 @@ describe('Dashboard continuity spec', () => {
     assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /AT-CBPS-003/);
     assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /coordinator-next-actions/);
     assert.match(COORDINATOR_BLOCKER_PRESENTATION_SPEC, /typed blocker detail rows are shared/i);
+  });
+
+  it('ships a durable spec for coordinator gate evaluation presentation', () => {
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /Coordinator Gate Evaluation Presentation Spec/);
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /AT-CGEP-001/);
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /AT-CGEP-002/);
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /AT-CGEP-003/);
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /buildCoordinatorGateEvaluationPresentation/);
+    assert.match(COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC, /pending-gate presentation remains owned/i);
   });
 
   it('keeps initiative hierarchy acceptance ids executable in dashboard view tests', () => {
