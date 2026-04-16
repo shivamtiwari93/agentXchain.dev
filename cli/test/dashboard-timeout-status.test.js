@@ -21,6 +21,8 @@ import { initializeGovernedRun } from '../src/lib/governed-state.js';
 import { readTimeoutStatus } from '../src/lib/dashboard/timeout-status.js';
 import { render } from '../dashboard/components/timeouts.js';
 
+const SPEC_SOURCE = readFileSync(new URL('../../.planning/TIMEOUT_DASHBOARD_SURFACE_SPEC.md', import.meta.url), 'utf8');
+
 function tempDir() {
   const dir = join(tmpdir(), `axc-timeouts-${randomBytes(6).toString('hex')}`);
   mkdirSync(dir, { recursive: true });
@@ -563,5 +565,10 @@ describe('Timeouts Dashboard — wiring', () => {
 
     assert.ok(serverContent.includes("import { readTimeoutStatus }"), 'bridge-server must import readTimeoutStatus');
     assert.ok(serverContent.includes("'/api/timeouts'"), 'bridge-server must route /api/timeouts');
+  });
+
+  it('owning spec names the Timeouts view without stale ordinal shell claims', () => {
+    assert.match(SPEC_SOURCE, /Dashboard nav item: `Timeouts`/);
+    assert.doesNotMatch(SPEC_SOURCE, /11th view|11th nav item|10 existing views/);
   });
 });

@@ -15,6 +15,8 @@ import { tmpdir } from 'node:os';
 import { readWorkflowKitArtifacts } from '../src/lib/dashboard/workflow-kit-artifacts.js';
 import { render as renderArtifacts } from '../dashboard/components/artifacts.js';
 
+const WORKFLOW_KIT_SPEC = new URL('../../.planning/WORKFLOW_KIT_DASHBOARD_SPEC.md', import.meta.url);
+
 const BASE_CONFIG = {
   version: 3,
   project: 'test-project',
@@ -361,7 +363,7 @@ describe('Artifacts panel render', () => {
 
 describe('Dashboard artifacts integration', () => {
   // AT-WKDASH-010
-  it('dashboard nav includes Artifacts tab (13 views total)', async () => {
+  it('dashboard nav includes Artifacts tab', async () => {
     const { readFileSync } = await import('node:fs');
     const { join: pjoin, dirname } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
@@ -371,13 +373,18 @@ describe('Dashboard artifacts integration', () => {
 
     const indexHtml = readFileSync(pjoin(repoRoot, 'cli', 'dashboard', 'index.html'), 'utf8');
     const navLinks = Array.from(indexHtml.matchAll(/<a href="#([^"]+)"[^>]*>([^<]+)<\/a>/g));
-    assert.equal(navLinks.length, 13, 'dashboard nav must have 13 top-level views');
-
     const artifactsLink = navLinks.find(([, id]) => id === 'artifacts');
     assert.ok(artifactsLink, 'nav must include #artifacts link');
 
     const appJs = readFileSync(pjoin(repoRoot, 'cli', 'dashboard', 'app.js'), 'utf8');
     assert.ok(appJs.includes("artifacts: {"), 'app.js VIEWS must include artifacts entry');
     assert.ok(appJs.includes("workflowKitArtifacts: '/api/workflow-kit-artifacts'"), 'app.js API_MAP must include workflowKitArtifacts');
+  });
+
+  it('owning spec names the Artifacts view without stale ordinal shell claims', async () => {
+    const { readFileSync } = await import('node:fs');
+    const specSource = readFileSync(WORKFLOW_KIT_SPEC, 'utf8');
+    assert.match(specSource, /Dashboard nav item: `Artifacts`/);
+    assert.doesNotMatch(specSource, /9th view|9 views total/);
   });
 });

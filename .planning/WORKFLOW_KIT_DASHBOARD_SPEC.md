@@ -38,7 +38,7 @@ Expose workflow-kit artifact status as a live dashboard surface so operators can
 
 ### Dashboard Panel
 
-9th view: `#artifacts` — "Artifacts" nav tab.
+Dashboard nav item: `Artifacts`
 
 Renders:
 - Phase indicator
@@ -90,7 +90,7 @@ For config changes: `agentxchain.json` is not currently watched. The dashboard w
 - **AT-WKDASH-007**: Phase indicator shows current phase
 - **AT-WKDASH-008**: API endpoint returns correct shape with all fields
 - **AT-WKDASH-009**: API endpoint returns 404 when config missing
-- **AT-WKDASH-010**: Dashboard nav includes Artifacts tab (9 views total)
+- **AT-WKDASH-010**: Dashboard nav includes the `Artifacts` tab
 - **AT-WKDASH-011**: Artifacts sorted by path
 
 ## Open Questions

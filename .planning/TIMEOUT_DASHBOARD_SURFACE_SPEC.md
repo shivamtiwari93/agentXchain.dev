@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Add timeout visibility to the governed dashboard as an 11th view ("Timeouts"). Operators can observe live timeout pressure on active runs, review persisted timeout events from the decision ledger, and understand recovery actions — all without leaving the dashboard.
+Add timeout visibility to the governed dashboard through the `Timeouts` nav item. Operators can observe live timeout pressure on active runs, review persisted timeout events from the decision ledger, and understand recovery actions without leaving the dashboard.
 
 ## Interface
 
@@ -62,7 +62,7 @@ When no run state exists: `{ ok: false, status: 404, code: "state_missing", erro
 
 ### Frontend View
 
-11th nav item: `<a href="#timeouts">Timeouts</a>` — placed after "Run History".
+Dashboard nav item: `Timeouts`
 
 Dashboard component: `cli/dashboard/components/timeouts.js`
 
@@ -102,10 +102,10 @@ Render sections:
 8. Frontend `render()` shows config table, live pressure indicators, turn ids for turn-scoped rows, and event rows.
 9. Frontend `render()` shows placeholder when no timeouts configured.
 10. Frontend `render()` highlights exceeded items in red, warnings in yellow.
-11. Dashboard nav includes "Timeouts" link.
+11. Dashboard nav includes the `Timeouts` link.
 12. `app.js` VIEWS includes `timeouts` with correct fetch key and render function.
 13. Bridge server routes `/api/timeouts` to `readTimeoutStatus()`.
 
 ## Open Questions
 
-None. Pattern is established by 10 existing views.
+None. This follows the existing dashboard endpoint-plus-panel pattern.
