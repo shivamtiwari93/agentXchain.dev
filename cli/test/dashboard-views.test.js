@@ -486,7 +486,7 @@ describe('Hooks View', () => {
 });
 
 describe('Initiative View', () => {
-  it('renders placeholder when coordinator state is missing', () => {
+  it('AT-IVH-001 renders the existing placeholder when coordinator state is missing', () => {
     const html = renderInitiative({ coordinatorState: null });
     assert.ok(html.includes('No Initiative'));
     assert.ok(html.includes('agentxchain multi init'));
@@ -613,8 +613,116 @@ describe('Initiative View', () => {
     assert.ok(html.includes('Open Blockers view'));
     assert.ok(html.includes('#blockers'));
     assert.ok(html.includes('agentxchain multi resume'));
+  });
+
+  it('AT-IVH-003 keeps full ordered blocker actions in the Blockers view instead of inlining them in Initiative', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_ivh_003',
+        status: 'blocked',
+        phase: 'integration',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        repo_runs: {
+          api: { run_id: 'run_api_999', status: 'linked', phase: 'integration' },
+        },
+      },
+      coordinatorBlockers: {
+        ok: true,
+        mode: 'phase_transition',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        next_actions: [
+          {
+            code: 'repo_run_id_mismatch',
+            command: 'agentxchain multi resume',
+            reason: 'Coordinator run identity drift detected: Repo "api" run identity drifted from run_api_001 to run_api_999. Resume after reconciling the affected child repos.',
+          },
+          {
+            code: 'resync',
+            command: 'agentxchain multi resync',
+            reason: 'Rebuild coordinator state from child repo truth before attempting another step.',
+          },
+        ],
+        active: {
+          gate_type: 'phase_transition',
+          gate_id: 'phase_transition:integration->release',
+          current_phase: 'integration',
+          target_phase: 'release',
+          blockers: [
+            {
+              code: 'repo_run_id_mismatch',
+              message: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"',
+              repo_id: 'api',
+              expected_run_id: 'run_api_001',
+              actual_run_id: 'run_api_999',
+            },
+          ],
+        },
+      },
+    });
+
+    assert.ok(html.includes('Primary Action'));
+    assert.ok(html.includes('agentxchain multi resume'));
     assert.ok(!html.includes('<h3>Next Actions</h3>'));
     assert.ok(!html.includes('agentxchain multi resync'));
+    assert.ok(html.includes('Open Blockers view'));
+  });
+
+  it('AT-IVH-004 points to Blockers when additional blocker or action detail exists', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_ivh_004',
+        status: 'blocked',
+        phase: 'integration',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        repo_runs: {
+          api: { run_id: 'run_api_999', status: 'linked', phase: 'integration' },
+        },
+      },
+      coordinatorBlockers: {
+        ok: true,
+        mode: 'phase_transition',
+        blocked_reason: 'Repo "api" run identity drifted from run_api_001 to run_api_999',
+        next_actions: [
+          {
+            code: 'repo_run_id_mismatch',
+            command: 'agentxchain multi resume',
+            reason: 'Coordinator run identity drift detected: Repo "api" run identity drifted from run_api_001 to run_api_999. Resume after reconciling the affected child repos.',
+          },
+          {
+            code: 'resync',
+            command: 'agentxchain multi resync',
+            reason: 'Rebuild coordinator state from child repo truth before attempting another step.',
+          },
+        ],
+        active: {
+          gate_type: 'phase_transition',
+          gate_id: 'phase_transition:integration->release',
+          current_phase: 'integration',
+          target_phase: 'release',
+          blockers: [
+            {
+              code: 'repo_run_id_mismatch',
+              message: 'Repo "api" run identity drifted: coordinator expects "run_api_001" but repo has "run_api_999"',
+              repo_id: 'api',
+              expected_run_id: 'run_api_001',
+              actual_run_id: 'run_api_999',
+            },
+            {
+              code: 'repo_not_ready',
+              message: 'Repo "web" has not reached release yet.',
+              repo_id: 'web',
+              current_phase: 'integration',
+              required_phase: 'release',
+            },
+          ],
+        },
+      },
+    });
+
+    assert.ok(html.includes('additional blocker'));
+    assert.ok(html.includes('additional action'));
+    assert.ok(html.includes('Open Blockers view'));
+    assert.ok(html.includes('#blockers'));
   });
 
   it('AT-IV-RCS-001 renders compact cross-run constraint summary for decision-constrained barriers', () => {

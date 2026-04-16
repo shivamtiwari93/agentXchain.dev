@@ -225,9 +225,20 @@ describe('Dashboard continuity spec', () => {
 
   it('ships a durable spec for initiative view hierarchy', () => {
     assert.match(INITIATIVE_HIERARCHY_SPEC, /Initiative View Hierarchy Spec/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-001/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-002/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-003/);
+    assert.match(INITIATIVE_HIERARCHY_SPEC, /AT-IVH-004/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /`Blockers` view|Blockers view/);
     assert.match(INITIATIVE_HIERARCHY_SPEC, /first-glance overview surface/);
+  });
+
+  it('keeps initiative hierarchy acceptance ids executable in dashboard view tests', () => {
+    const dashboardViews = readFileSync(join(REPO_ROOT, 'cli', 'test', 'dashboard-views.test.js'), 'utf8');
+    assert.match(dashboardViews, /AT-IVH-001 renders the existing placeholder when coordinator state is missing/);
+    assert.match(dashboardViews, /AT-IVH-002 renders structured coordinator blockers as a summary with one primary action/);
+    assert.match(dashboardViews, /AT-IVH-003 keeps full ordered blocker actions in the Blockers view instead of inlining them in Initiative/);
+    assert.match(dashboardViews, /AT-IVH-004 points to Blockers when additional blocker or action detail exists/);
   });
 
   it('ships a durable spec for dashboard live observer freshness', () => {
