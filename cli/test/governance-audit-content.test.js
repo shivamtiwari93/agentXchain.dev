@@ -47,6 +47,9 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /summary\.repo_run_statuses/);
     assert.match(AUDIT_DOCS, /raw coordinator snapshot metadata/i);
     assert.match(AUDIT_DOCS, /authority-first child repo status/i);
+    assert.match(AUDIT_DOCS, /raw coordinator snapshot metadata only/i);
+    assert.match(AUDIT_DOCS, /nested child export or repo-local state is readable/i);
+    assert.match(AUDIT_DOCS, /linked` \/ `initialized` remain metadata only/i);
     assert.match(AUDIT_DOCS, /Terminal drift note:/);
     assert.match(AUDIT_DOCS, /Governance Report Reference/);
     assert.match(AUDIT_DOCS, /Export Schema Reference/);

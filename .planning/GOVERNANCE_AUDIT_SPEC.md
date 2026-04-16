@@ -52,6 +52,8 @@ agentxchain audit [--format text|json|markdown]
 - The `input` field or header line is the resolved governed project root or coordinator workspace root instead of a file path or `stdin`.
 - Governed audits render the same run-level report contract as `report`.
 - Coordinator audits render the same coordinator-workspace report contract as `report`.
+- For coordinator workspaces, `summary.repo_run_statuses` remains raw coordinator snapshot metadata only. `subject.run.repo_status_counts` and `subject.run.repo_status_drifts` must use authority-first child repo status when a nested child export or repo-local state is readable.
+- Coordinator linkage labels like `linked` / `initialized` may remain visible as metadata, but they must not become primary repo-status truth in `audit`.
 
 ### Exit codes
 
