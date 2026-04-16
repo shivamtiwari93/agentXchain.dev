@@ -134,14 +134,15 @@ describe('run-events', () => {
   });
 
   // Additional: VALID_RUN_EVENTS is complete
-  it('VALID_RUN_EVENTS contains all 13 event types', () => {
-    assert.equal(VALID_RUN_EVENTS.length, 13);
+  it('VALID_RUN_EVENTS contains all 14 event types', () => {
+    assert.equal(VALID_RUN_EVENTS.length, 14);
     assert.ok(VALID_RUN_EVENTS.includes('run_started'));
     assert.ok(VALID_RUN_EVENTS.includes('run_completed'));
     assert.ok(VALID_RUN_EVENTS.includes('run_blocked'));
     assert.ok(VALID_RUN_EVENTS.includes('turn_dispatched'));
     assert.ok(VALID_RUN_EVENTS.includes('turn_accepted'));
     assert.ok(VALID_RUN_EVENTS.includes('turn_rejected'));
+    assert.ok(VALID_RUN_EVENTS.includes('turn_conflicted'));
     assert.ok(VALID_RUN_EVENTS.includes('phase_entered'));
     assert.ok(VALID_RUN_EVENTS.includes('escalation_raised'));
     assert.ok(VALID_RUN_EVENTS.includes('escalation_resolved'));

@@ -2652,6 +2652,21 @@ function _acceptGovernedTurnLocked(root, config, opts) {
       },
     });
 
+    // DEC-RUN-LOOP-CONFLICT-002: Persist turn_conflicted as a durable run event
+    emitRunEvent(root, 'turn_conflicted', {
+      run_id: state.run_id,
+      phase: state.phase,
+      status: updatedState.status,
+      turn: { turn_id: currentTurn.turn_id, role_id: currentTurn.assigned_role },
+      payload: {
+        error_code: 'conflict',
+        detection_count: detectionCount,
+        conflicting_files: conflict.conflicting_files,
+        accepted_since_turn_ids: conflict.accepted_since.map(entry => entry.turn_id),
+        overlap_ratio: conflict.overlap_ratio,
+      },
+    });
+
     writeState(root, updatedState);
 
     // DEC-RHTR-SPEC: Record conflict_loop blocked outcome in cross-run history (non-fatal)

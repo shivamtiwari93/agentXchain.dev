@@ -8,13 +8,13 @@ The run-loop must classify acceptance failures by `error_code` and emit typed ev
 
 1. **Sequential mode**: `dispatchAndProcess()` returns `terminal: true` for all `!acceptResult.ok` cases, even when the resulting state is still `active` (conflict detection count < 3). This prematurely terminates the run-loop when it should continue with a different role.
 
-2. **Both modes**: No `turn_conflicted` event is emitted. The `governed-state.js` correctly records `conflict_detected` in the decision ledger, but the run-loop event stream (consumed by dashboard, report, event subscribers) never surfaces it.
+2. **Both modes**: ~~No `turn_conflicted` event is emitted.~~ **Fixed (DEC-RUN-LOOP-CONFLICT-001/002):** The run-loop emits `turn_conflicted` via the in-process callback AND `governed-state.js` persists it as a durable event to `events.jsonl`.
 
 3. **History entries**: Neither mode records `error_code` or conflict metadata in `turn_history`, so the run-loop result doesn't distinguish conflicts from other failures.
 
 ## Interface
 
-### New Event Type
+### Callback Event (in-process, run-loop)
 
 ```javascript
 {
@@ -26,6 +26,29 @@ The run-loop must classify acceptance failures by `error_code` and emit typed ev
   state: acceptResult.state,
 }
 ```
+
+### Durable Event (events.jsonl, governed-state.js — DEC-RUN-LOOP-CONFLICT-002)
+
+```javascript
+{
+  event_id: 'evt_...',
+  event_type: 'turn_conflicted',
+  timestamp: '...',
+  run_id: state.run_id,
+  phase: state.phase,
+  status: updatedState.status,  // 'active' or 'blocked'
+  turn: { turn_id, role_id },
+  payload: {
+    error_code: 'conflict',
+    detection_count: number,
+    conflicting_files: string[],
+    accepted_since_turn_ids: string[],
+    overlap_ratio: number,
+  },
+}
+```
+
+The durable event is emitted from `governed-state.js` (where all other lifecycle events originate), not from the run-loop. This ensures conflicts are persisted to `events.jsonl` and visible to dashboard, report, audit, and event-stream consumers.
 
 ### Updated History Entry
 
@@ -78,7 +101,8 @@ When acceptance fails with `error_code: 'conflict'`:
 - `AT-RLC-004`: History entry includes `error_code: 'conflict'` and conflict details
 - `AT-RLC-005`: Non-conflict acceptance failure preserves existing terminal behavior
 - `AT-RLC-006`: Parallel stall with all-conflict failures uses `stop_reason: 'conflict_stall'`
+- `AT-RLC-007`: `turn_conflicted` is persisted as a durable event in `events.jsonl` with conflict metadata in payload (DEC-RUN-LOOP-CONFLICT-002)
 
 ## Open Questions
 
-None. The `governed-state.js` conflict contract is stable and already returns `error_code: 'conflict'` with full conflict metadata.
+None. The `governed-state.js` conflict contract is stable and already returns `error_code: 'conflict'` with full conflict metadata. The durable event contract is now aligned with the callback event contract.

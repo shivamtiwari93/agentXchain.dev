@@ -6,7 +6,7 @@
  * decisions based on the resulting governed state.
  *
  * Spec: .planning/RUN_LOOP_CONFLICT_AWARENESS_SPEC.md
- * Decision: DEC-RUN-LOOP-CONFLICT-001
+ * Decisions: DEC-RUN-LOOP-CONFLICT-001, DEC-RUN-LOOP-CONFLICT-002
  */
 
 import { describe, it, beforeEach, after } from 'node:test';
@@ -20,6 +20,7 @@ import { fileURLToPath } from 'url';
 const cliRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const { runLoop } = await import(join(cliRoot, 'src', 'lib', 'run-loop.js'));
+const { readRunEvents } = await import(join(cliRoot, 'src', 'lib', 'run-events.js'));
 const { gitInit } = await import(join(cliRoot, 'test-support', 'git-test-helpers.js'));
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -341,6 +342,51 @@ describe('run-loop conflict awareness', () => {
 
     // The run should eventually terminate
     assert.equal(result.ok, false, 'Run should not be ok when conflicts stall it');
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('AT-RLC-007: turn_conflicted is persisted as a durable event in events.jsonl (DEC-RUN-LOOP-CONFLICT-002)', async () => {
+    const config = makeConflictConfig(2);
+    scaffoldProject(root, config);
+
+    const roleQueue = ['dev_a', 'dev_b'];
+    let roleIndex = 0;
+
+    await runLoop(root, config, {
+      selectRole: () => {
+        if (roleIndex >= roleQueue.length) return null;
+        return roleQueue[roleIndex++];
+      },
+      dispatch: async (ctx) => {
+        writeFileSync(join(root, 'src/shared.js'), `// ${ctx.turn.assigned_role}\n`);
+        return {
+          accept: true,
+          turnResult: makeTurnResult(ctx.turn, ctx.state, {
+            filesChanged: ['src/shared.js'],
+          }),
+        };
+      },
+      approveGate: () => true,
+    }, { maxTurns: 10 });
+
+    // Read durable events from events.jsonl
+    const durableEvents = readRunEvents(root, { type: 'turn_conflicted' });
+    assert.equal(durableEvents.length, 1, 'Exactly one turn_conflicted event should be persisted');
+
+    const evt = durableEvents[0];
+    assert.equal(evt.event_type, 'turn_conflicted');
+    assert.ok(evt.event_id, 'Should have event_id');
+    assert.ok(evt.timestamp, 'Should have timestamp');
+    assert.ok(evt.turn, 'Should have turn context');
+    assert.ok(evt.turn.turn_id, 'Should have turn_id');
+    assert.ok(evt.turn.role_id, 'Should have role_id');
+    assert.equal(evt.payload.error_code, 'conflict');
+    assert.ok(Array.isArray(evt.payload.conflicting_files), 'payload.conflicting_files should be an array');
+    assert.ok(evt.payload.conflicting_files.length > 0, 'Should have at least one conflicting file');
+    assert.ok(Array.isArray(evt.payload.accepted_since_turn_ids), 'payload.accepted_since_turn_ids should be an array');
+    assert.equal(typeof evt.payload.overlap_ratio, 'number');
+    assert.equal(typeof evt.payload.detection_count, 'number');
 
     rmSync(root, { recursive: true, force: true });
   });
