@@ -27,6 +27,7 @@ import { render as renderInitiative } from '../dashboard/components/initiative.j
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
 import { render as renderDelegations } from '../dashboard/components/delegations.js';
 import { render as renderBlockers } from '../dashboard/components/blockers.js';
+import { render as renderChain } from '../dashboard/components/chain.js';
 import { render as renderTimeouts } from '../dashboard/components/timeouts.js';
 import { render as renderCoordinatorTimeouts } from '../dashboard/components/coordinator-timeouts.js';
 import {
@@ -418,6 +419,7 @@ describe('App Shell — VIEWS registry', () => {
     initiative: renderInitiative,
     'cross-repo': renderCrossRepo,
     blockers: renderBlockers,
+    chain: renderChain,
     timeouts: renderTimeouts,
     'coordinator-timeouts': renderCoordinatorTimeouts,
   };
@@ -436,6 +438,7 @@ describe('App Shell — VIEWS registry', () => {
                    name === 'hooks' ? { audit: null, annotations: null } :
                    name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null, coordinatorRepoStatusRows: null } :
                    name === 'blockers' ? { coordinatorBlockers: null } :
+                   name === 'chain' ? { chainReports: null } :
                    name === 'timeouts' ? { timeouts: null } :
                    name === 'coordinator-timeouts' ? { coordinatorTimeouts: null } :
                    name === 'cross-repo' ? { coordinatorState: null, coordinatorHistory: [] } :
@@ -458,6 +461,7 @@ describe('App Shell — VIEWS registry', () => {
       'cross-repo',
       'blockers',
       'artifacts',
+      'chain',
       'run-history',
       'timeouts',
       'coordinator-timeouts',

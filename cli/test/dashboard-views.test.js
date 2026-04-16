@@ -20,6 +20,7 @@ import { render as renderBlocked } from '../dashboard/components/blocked.js';
 import { render as renderGate, findPostGateTurns, aggregateEvidence } from '../dashboard/components/gate.js';
 import { render as renderInitiative } from '../dashboard/components/initiative.js';
 import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js';
+import { render as renderChain } from '../dashboard/components/chain.js';
 import { render as renderRunHistory } from '../dashboard/components/run-history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -304,6 +305,82 @@ describe('Timeline View', () => {
     assert.ok(html.includes('docs/release.md'));
     assert.ok(html.includes('turn_010'));
     assert.ok(html.includes('100%'));
+  });
+});
+
+describe('Chain View', () => {
+  it('renders empty-state guidance when no chain reports exist', () => {
+    const html = renderChain({ chainReports: { latest: null, reports: [] } });
+    assert.ok(html.includes('No chain reports found'));
+    assert.ok(html.includes('agentxchain run --chain'));
+  });
+
+  it('renders latest chain summary, per-run lineage, and recent chain sessions', () => {
+    const html = renderChain({
+      chainReports: {
+        latest: {
+          chain_id: 'chain_latest_001',
+          started_at: '2026-04-16T23:00:00Z',
+          completed_at: '2026-04-16T23:09:00Z',
+          terminal_reason: 'chain_limit_reached',
+          total_turns: 9,
+          total_duration_ms: 540000,
+          runs: [
+            {
+              run_id: 'run_parent_001',
+              status: 'completed',
+              provenance_trigger: 'manual',
+              turns: 3,
+              duration_ms: 120000,
+              parent_run_id: null,
+              inherited_context_summary: null,
+            },
+            {
+              run_id: 'run_child_002',
+              status: 'completed',
+              provenance_trigger: 'continue',
+              turns: 3,
+              duration_ms: 180000,
+              parent_run_id: 'run_parent_001',
+              inherited_context_summary: {
+                parent_roles_used: ['pm', 'dev'],
+                parent_phases_completed_count: 2,
+                recent_decisions_count: 4,
+                recent_accepted_turns_count: 3,
+              },
+            },
+          ],
+        },
+        reports: [
+          {
+            chain_id: 'chain_latest_001',
+            started_at: '2026-04-16T23:00:00Z',
+            terminal_reason: 'chain_limit_reached',
+            total_turns: 9,
+            total_duration_ms: 540000,
+            runs: [{}, {}],
+          },
+          {
+            chain_id: 'chain_previous_001',
+            started_at: '2026-04-15T23:00:00Z',
+            terminal_reason: 'non_chainable_status',
+            total_turns: 4,
+            total_duration_ms: 120000,
+            runs: [{}],
+          },
+        ],
+      },
+    });
+
+    assert.ok(html.includes('Latest Chain Summary'));
+    assert.ok(html.includes('Latest Chain Lineage'));
+    assert.ok(html.includes('Recent Chain Sessions'));
+    assert.ok(html.includes('chain_latest_001'));
+    assert.ok(html.includes('chain_previous_001'));
+    assert.ok(html.includes('run_parent_001'));
+    assert.ok(html.includes('run_child_002'));
+    assert.ok(html.includes('continue'));
+    assert.ok(html.includes('2 roles, 2 phases, 4 decisions, 3 turns'));
   });
 });
 

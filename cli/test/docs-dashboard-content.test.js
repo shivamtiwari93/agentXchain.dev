@@ -39,6 +39,7 @@ const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.pla
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
 const LIVE_OBSERVER_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_LIVE_OBSERVER_SPEC.md'), 'utf8');
 const DASHBOARD_CONFLICT_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CONFLICT_VISIBILITY_SPEC.md'), 'utf8');
+const DASHBOARD_CHAIN_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_CHAIN_SURFACE_SPEC.md'), 'utf8');
 const DASHBOARD_DOCS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DOCS_CONTRACT_SPEC.md'), 'utf8');
 const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'initiative', label: 'Initiative' },
@@ -51,6 +52,7 @@ const EXPECTED_TOP_LEVEL_VIEWS = [
   { id: 'gate', label: 'Gates' },
   { id: 'blockers', label: 'Blockers' },
   { id: 'artifacts', label: 'Artifacts' },
+  { id: 'chain', label: 'Chain' },
   { id: 'run-history', label: 'Run History' },
   { id: 'timeouts', label: 'Timeouts' },
   { id: 'coordinator-timeouts', label: 'Coordinator Timeouts' },
@@ -105,6 +107,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
     assert.ok(CLI_DOCS.includes('/api/poll'), 'cli docs must document the dashboard poll endpoint');
+    assert.ok(CLI_DOCS.includes('/api/chain-reports'), 'cli docs must document the chain-reports endpoint');
     assert.ok(CLI_DOCS.includes('repo_run_id_mismatch'), 'cli docs must mention structured run identity drift blockers');
     assert.ok(CLI_DOCS.includes('SESSION_RECOVERY.md'), 'cli docs must mention the recovery report continuity surface');
     assert.ok(CLI_DOCS.includes('agentxchain restart'), 'cli docs must mention restart guidance in the dashboard surface');
@@ -114,6 +117,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/repo-status'), 'bridge server must expose the coordinator repo-status endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/workflow-kit-artifacts'), 'bridge server must expose the workflow-kit artifacts endpoint');
+    assert.ok(BRIDGE_SERVER.includes('/api/chain-reports'), 'bridge server must expose the chain-reports endpoint');
     assert.ok(STATE_READER.includes('/api/continuity'), 'dashboard state reader must expose the continuity endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
     assert.ok(BRIDGE_SERVER.includes('Dashboard WebSocket is read-only'), 'websocket must remain read-only');
@@ -172,7 +176,10 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('approve button'), 'cli docs must describe the dashboard approve action');
     assert.ok(CLI_DOCS.includes('Blockers'), 'cli docs must document coordinator blockers view');
     assert.ok(CLI_DOCS.includes('Artifacts'), 'cli docs must document workflow-kit artifacts view');
+    assert.ok(CLI_DOCS.includes('Chain'), 'cli docs must document chain view');
     assert.ok(CLI_DOCS.includes('Coordinator Timeouts'), 'cli docs must document coordinator timeout view');
+    assert.ok(CLI_DOCS.includes('latest chain report'), 'cli docs must describe latest chain visibility');
+    assert.ok(CLI_DOCS.includes('inherited-context summary'), 'cli docs must describe inherited context lineage visibility');
     assert.ok(CLI_DOCS.includes('continuity panel'), 'cli docs must describe the timeline continuity panel');
     assert.ok(CLI_DOCS.includes('/api/coordinator/timeouts'), 'cli docs must document coordinator timeouts endpoint');
     assert.ok(CLI_DOCS.includes('/api/coordinator/hooks/audit'), 'cli docs must document coordinator hooks audit endpoint');
@@ -257,6 +264,13 @@ describe('Dashboard continuity spec', () => {
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /AT-CA-003/);
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /GET \/api\/continuity/);
     assert.match(CONTINUITY_ACTIONABILITY_SPEC, /recommended_command/);
+  });
+
+  it('ships a durable spec for dashboard chain visibility', () => {
+    assert.match(DASHBOARD_CHAIN_SPEC, /Dashboard Chain Surface Spec/);
+    assert.match(DASHBOARD_CHAIN_SPEC, /AT-DASH-CHAIN-001/);
+    assert.match(DASHBOARD_CHAIN_SPEC, /GET \/api\/chain-reports/);
+    assert.match(DASHBOARD_CHAIN_SPEC, /Chain/);
   });
 
   it('ships a durable spec for dashboard daemon lifecycle', () => {

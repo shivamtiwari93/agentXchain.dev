@@ -5,9 +5,13 @@
  * run-chaining history without opening raw JSON files.
  */
 
-import { resolve, join } from 'path';
-import { existsSync, readdirSync, readFileSync } from 'fs';
 import chalk from 'chalk';
+import { findProjectRoot } from '../lib/config.js';
+import {
+  loadAllChainReports,
+  loadChainReport,
+  loadLatestChainReport,
+} from '../lib/chain-reports.js';
 
 /**
  * agentxchain chain latest — show the most recent chain report.
@@ -246,70 +250,3 @@ function pad(str, width) {
 }
 
 // ── Data Loading ──────────────────────────────────────────────────────────────
-
-function findProjectRoot(startDir) {
-  let dir = resolve(startDir);
-  while (true) {
-    if (existsSync(resolve(dir, 'agentxchain.json'))) return dir;
-    const parent = resolve(dir, '..');
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-function getReportsDir(root) {
-  return join(root, '.agentxchain', 'reports');
-}
-
-function loadAllChainReports(root) {
-  const reportsDir = getReportsDir(root);
-  if (!existsSync(reportsDir)) return [];
-
-  const files = readdirSync(reportsDir)
-    .filter(f => f.startsWith('chain-') && f.endsWith('.json'))
-    .sort()
-    .reverse(); // newest first (chain IDs contain UUID but files are sorted by creation)
-
-  const reports = [];
-  for (const file of files) {
-    try {
-      const content = readFileSync(join(reportsDir, file), 'utf8');
-      const report = JSON.parse(content);
-      reports.push(report);
-    } catch {
-      // Skip unparseable files
-    }
-  }
-
-  // Sort by started_at descending (newest first)
-  reports.sort((a, b) => {
-    const aTime = a.started_at ? new Date(a.started_at).getTime() : 0;
-    const bTime = b.started_at ? new Date(b.started_at).getTime() : 0;
-    return bTime - aTime;
-  });
-
-  return reports;
-}
-
-function loadLatestChainReport(root) {
-  const reports = loadAllChainReports(root);
-  return reports.length > 0 ? reports[0] : null;
-}
-
-function loadChainReport(root, chainId) {
-  const reportsDir = getReportsDir(root);
-
-  // Try exact filename first
-  const exactPath = join(reportsDir, `${chainId}.json`);
-  if (existsSync(exactPath)) {
-    try {
-      return JSON.parse(readFileSync(exactPath, 'utf8'));
-    } catch {
-      return null;
-    }
-  }
-
-  // Fall back to scanning all reports for matching chain_id
-  const reports = loadAllChainReports(root);
-  return reports.find(r => r.chain_id === chainId) || null;
-}

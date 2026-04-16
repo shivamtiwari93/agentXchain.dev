@@ -165,10 +165,12 @@ function createTestFixture() {
   const root = tmpDir();
   const axcDir = join(root, '.agentxchain');
   const multiDir = join(axcDir, 'multirepo');
+  const reportsDir = join(axcDir, 'reports');
   const dashDir = join(root, 'dashboard');
   const reposDir = join(root, 'repos');
   mkdirSync(axcDir, { recursive: true });
   mkdirSync(multiDir, { recursive: true });
+  mkdirSync(reportsDir, { recursive: true });
   mkdirSync(dashDir, { recursive: true });
   mkdirSync(reposDir, { recursive: true });
 
@@ -290,6 +292,59 @@ function createTestFixture() {
   // Dashboard HTML
   writeFileSync(join(dashDir, 'index.html'), '<html><body>Dashboard</body></html>');
   writeFileSync(join(dashDir, 'app.js'), 'console.log("dashboard")');
+
+  writeJson(join(reportsDir, 'chain-old.json'), {
+    chain_id: 'chain_old',
+    started_at: '2026-04-15T20:00:00.000Z',
+    completed_at: '2026-04-15T20:05:00.000Z',
+    terminal_reason: 'completed',
+    total_turns: 3,
+    total_duration_ms: 300000,
+    runs: [
+      {
+        run_id: 'run_old_001',
+        status: 'completed',
+        provenance_trigger: 'manual',
+        turns: 3,
+        duration_ms: 300000,
+        parent_run_id: null,
+        inherited_context_summary: null,
+      },
+    ],
+  });
+  writeJson(join(reportsDir, 'chain-new.json'), {
+    chain_id: 'chain_new',
+    started_at: '2026-04-16T20:00:00.000Z',
+    completed_at: '2026-04-16T20:09:00.000Z',
+    terminal_reason: 'chain_limit_reached',
+    total_turns: 9,
+    total_duration_ms: 540000,
+    runs: [
+      {
+        run_id: 'run_new_001',
+        status: 'completed',
+        provenance_trigger: 'manual',
+        turns: 3,
+        duration_ms: 120000,
+        parent_run_id: null,
+        inherited_context_summary: null,
+      },
+      {
+        run_id: 'run_new_002',
+        status: 'completed',
+        provenance_trigger: 'continue',
+        turns: 3,
+        duration_ms: 180000,
+        parent_run_id: 'run_new_001',
+        inherited_context_summary: {
+          parent_roles_used: ['pm', 'dev'],
+          parent_phases_completed_count: 2,
+          recent_decisions_count: 4,
+          recent_accepted_turns_count: 3,
+        },
+      },
+    ],
+  });
 
   return { root, axcDir, multiDir, dashDir, reposDir };
 }
@@ -418,6 +473,18 @@ describe('Dashboard Bridge Server', () => {
       assert.ok(Array.isArray(data));
       assert.equal(data.length, 1);
       assert.equal(data[0].turn_id, 'turn_001');
+    });
+
+    it('AT-DASH-CHAIN-001: GET /api/chain-reports returns latest plus newest-first reports', async () => {
+      const res = await httpGet(port, '/api/chain-reports');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.equal(data.latest.chain_id, 'chain_new');
+      assert.equal(data.reports.length, 2);
+      assert.equal(data.reports[0].chain_id, 'chain_new');
+      assert.equal(data.reports[1].chain_id, 'chain_old');
+      assert.equal(data.latest.runs[1].parent_run_id, 'run_new_001');
+      assert.equal(data.latest.runs[1].inherited_context_summary.recent_decisions_count, 4);
     });
 
     it('GET /api/continuity returns computed continuity status', async () => {
