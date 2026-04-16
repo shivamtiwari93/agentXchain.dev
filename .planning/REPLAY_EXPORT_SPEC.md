@@ -6,6 +6,12 @@
 
 This command is intentionally broader than `restore`. `restore` is a governed continuity surface and accepts only governed run exports. `replay export` is a read-only observability surface and accepts both governed run exports and coordinator exports.
 
+That does **not** make it interchangeable with the other artifact commands:
+
+- `audit` inspects the live current repo/workspace.
+- `report --input` reads an existing export artifact and renders a derived summary document.
+- `replay export` reads an existing export artifact and renders the read-only dashboard instead of a summary document.
+
 ## Interface
 
 ```
@@ -56,6 +62,8 @@ The replayed dashboard is inherently read-only:
 - WebSocket clients receive no invalidation events (static state)
 - The temporary replay workspace is disposable and is removed when the replay server stops
 
+Coordinator partial artifacts remain valid replay inputs. If `repos.<repoId>.ok === false`, replay still starts with a placeholder governed repo at that path. That is the same artifact boundary `report --input` uses for readable partial summaries; it is not permission to treat replay as a restore path or to fabricate a missing child export.
+
 ## Error Cases
 
 - Export file does not exist → exit 2 with clear message
@@ -76,6 +84,7 @@ The replayed dashboard is inherently read-only:
 - AT-REPLAY-EXPORT-007: temp directory is cleaned up on server stop
 - AT-REPLAY-EXPORT-008: run exports and coordinator exports are both valid replay inputs
 - AT-REPLAY-EXPORT-009: failed coordinator child exports do not block replay; placeholder repos preserve readable coordinator inspection
+- AT-REPLAY-EXPORT-010: docs keep `audit` live-state, `report --input` artifact-summary, and `replay export` artifact-dashboard boundaries explicit, including partial coordinator artifact truth
 
 ## Open Questions
 

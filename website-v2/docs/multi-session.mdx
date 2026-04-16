@@ -184,6 +184,14 @@ agentxchain resume
 
 This is **not** a general source-sync system. If the source workspace changed product files outside those governed roots, the export remains valid for reporting and verification, but restore will fail closed and name the blocking paths. The same boundary applies to coordinator exports: they remain valid audit/report/replay artifacts, but they are not valid restore inputs.
 
+Keep the command boundary explicit when you move that export between machines:
+
+- `agentxchain audit` still inspects the **live repo/workspace** you are currently in.
+- `agentxchain report --input /path/to/run-export.json` reads the saved artifact and renders the verified derived summary.
+- `agentxchain replay export /path/to/run-export.json` opens the saved artifact in the read-only dashboard for interactive post-mortem work.
+
+Coordinator partials do not break that rule. If a coordinator export contains `repos.<repo_id>.ok === false`, it is still a valid `report --input` or `replay export` artifact: `report` keeps `repo_ok_count` / `repo_error_count` plus the failed repo row and error, and `replay export` restores a placeholder governed repo for the missing child export. What it is **not** is a valid `restore` input.
+
 ## Operator Checklist
 
 | Scenario | Command | What happens |

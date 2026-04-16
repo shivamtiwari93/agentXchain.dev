@@ -9,6 +9,17 @@ This page documents the stable machine contract produced by `agentxchain export`
 
 This is **not** protocol v7 conformance. Export artifacts are an operator-facing audit and automation surface. They matter, but they are not part of the current protocol-v7 proof set. For the constitutional boundary, see [Protocol Reference v7](./protocol-reference).
 
+## Choose The Right Surface
+
+Do not treat the export artifact as self-explanatory transport data. AgentXchain has four adjacent operator surfaces here, and they are not interchangeable:
+
+- `agentxchain export` writes the raw portable artifact documented on this page.
+- `agentxchain audit` reads the **live current repo/workspace**, builds a fresh artifact, verifies it, and renders the derived governance summary.
+- `agentxchain report --input <file>` reads an **existing export artifact** and renders that derived summary without touching live repo state.
+- `agentxchain replay export <file>` reads an **existing export artifact** into a temporary read-only dashboard workspace for interactive inspection.
+
+That distinction matters even more for coordinator artifacts. Partial coordinator exports where `repos.<repo_id>.ok === false` are still valid report/replay inputs: `report` keeps `repo_ok_count` / `repo_error_count` plus the failed repo row and error, while `replay export` restores a minimal placeholder governed repo instead of inventing a missing child export. `audit` only applies to a live workspace you are standing in, not a saved artifact.
+
 ## Version And Kinds
 
 Current export artifact schema:

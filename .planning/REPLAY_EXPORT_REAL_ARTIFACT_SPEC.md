@@ -24,6 +24,12 @@ Accepted file-entry shapes inside `files`:
 
 ## Behavior
 
+Replay and report consume the same saved artifact class, but they are different operator surfaces:
+
+- `report --input` renders the derived summary from the saved artifact.
+- `replay export` restores the saved artifact into a temporary read-only dashboard workspace.
+- `audit` is not part of this path because it reads live repo/workspace state instead of an existing artifact.
+
 ### File restoration
 
 - For object-shaped file entries, replay must restore bytes from `content_base64`.
@@ -69,6 +75,7 @@ Accepted file-entry shapes inside `files`:
 - `AT-REPLAY-REAL-003`: replay restores a coordinator export and rehydrates successful child repo exports under their declared repo paths.
 - `AT-REPLAY-REAL-004`: replayed coordinator dashboard serves `/api/coordinator/events` from restored child repo event files.
 - `AT-REPLAY-REAL-005`: failed child repo exports do not block coordinator replay when other repos are restorable.
+- `AT-REPLAY-REAL-006`: real-artifact replay docs keep replay distinct from `report --input` and live-state `audit`, while preserving partial coordinator exports as valid replay inputs.
 
 ## Open Questions
 

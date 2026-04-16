@@ -370,6 +370,17 @@ describe('run export schema docs contract', () => {
     assert.match(SPEC, /export-time local snapshot/i);
     assert.match(SPEC, /history-derived summary/i);
   });
+
+  it('AT-EXPORT-REF-010: keeps export schema tied to the real audit/report/replay operator boundary', () => {
+    assert.match(EXPORT_DOCS, /`agentxchain export` writes the raw portable artifact/i);
+    assert.match(EXPORT_DOCS, /`agentxchain audit` reads the \*\*live current repo\/workspace\*\*/i);
+    assert.match(EXPORT_DOCS, /`agentxchain report --input <file>` reads an \*\*existing export artifact\*\*/i);
+    assert.match(EXPORT_DOCS, /`agentxchain replay export <file>` reads an \*\*existing export artifact\*\* into a temporary read-only dashboard workspace/i);
+    assert.match(EXPORT_DOCS, /partial coordinator exports where `repos\.<repo_id>\.ok === false` are still valid report\/replay inputs/i);
+    assert.match(SPEC, /AT-EXPORT-REF-010/);
+    assert.match(SPEC, /`export` writes the raw portable artifact/i);
+    assert.match(SPEC, /partial coordinator exports: they remain valid `report --input` and `replay export` inputs/i);
+  });
 });
 
 describe('verification report shape docs contract', () => {

@@ -46,6 +46,12 @@ Public docs surfaces:
 - Export artifacts are a stable operator-facing inspection contract.
 - They are not protocol v7 conformance surfaces.
 - The protocol reference page must say that directly and link to the export schema page instead of blurring the boundary.
+- The export schema page must keep the operator command boundary explicit instead of assuming the artifact explains itself:
+  - `export` writes the raw portable artifact
+  - `audit` reads live repo/workspace state and renders a freshly built verified artifact
+  - `report --input` reads an existing export artifact and renders the derived summary
+  - `replay export` reads an existing export artifact into the read-only dashboard
+- The same boundary must stay truthful for partial coordinator exports: they remain valid `report --input` and `replay export` inputs, while `audit` stays live-state only.
 
 ### Run export contract
 
@@ -126,6 +132,7 @@ The docs must explain that `verify export` re-derives `bytes` and `sha256` from 
 - `AT-EXPORT-REF-007`: the page documents `summary.aggregated_events` verification against embedded child-repo `events.jsonl`
 - `AT-EXPORT-REF-008`: the page distinguishes raw coordinator `summary.repo_run_statuses` snapshot metadata from the authority-first repo-status contract used by report/audit/diff when nested child exports are readable
 - `AT-EXPORT-REF-009`: the page distinguishes `summary.dashboard_session` as export-time local snapshot metadata and `summary.delegation_summary` as history-derived summary metadata, instead of implying either field is an independent live authority surface
+- `AT-EXPORT-REF-010`: the page states when to use `export` vs `audit` vs `report --input` vs `replay export`, and keeps partial coordinator artifacts valid for report/replay but not as a substitute for live-state `audit`
 
 ## Open Questions
 

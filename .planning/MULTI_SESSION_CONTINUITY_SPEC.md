@@ -66,6 +66,15 @@ No new commands or APIs. This spec validates that the existing `resume`, `accept
 5. The run transitions to `completed` without changing `run_id`
 6. `pending_run_completion` is cleared and the final gate is marked `passed`
 
+### Cross-Machine Artifact Boundary
+
+The docs for the restore slice must keep the exported-file follow-up actions explicit instead of blurring every post-export command together:
+
+1. `agentxchain audit` remains the live current-repo/workspace inspection path.
+2. `agentxchain report --input <export.json>` reads a saved export artifact and renders the verified derived summary.
+3. `agentxchain replay export <export.json>` reads that same saved artifact into the read-only dashboard.
+4. Coordinator partial artifacts (`repos.<repoId>.ok === false`) remain valid `report --input` and `replay export` inputs with export-health visibility, but they are not valid `restore` inputs.
+
 ## Invariants
 
 1. **`run_id` identity**: The same `run_id` persists across all sessions. No session creates a new run.
@@ -101,6 +110,9 @@ Turns assigned in later sessions have higher sequence numbers than turns from ea
 
 ### AT-SESSION-007: Cross-session phase-transition approval
 Request a planning-to-implementation transition in one process, then approve it in a different fresh process. Assert `status` surfaces `agentxchain approve-transition`, the phase advances to `implementation`, `pending_phase_transition` is cleared, and a later fresh process can resume into the same `run_id` with the `dev` role.
+
+### AT-SESSION-008: Restore docs keep audit/report/replay boundaries truthful
+The docs page must state that `audit` is live-state inspection, `report --input` reads an existing export artifact, `replay export` opens that artifact in the read-only dashboard, and coordinator partial exports remain valid for report/replay but not restore.
 
 ## Open Questions
 

@@ -30,6 +30,14 @@ describe('replay export docs contract', () => {
     assert.match(CLI_DOCS, /cleaned up automatically/i);
     assert.match(CLI_DOCS, /fully read-only: no gate approval and no live mutation path/i);
   });
+
+  it('AT-REPLAY-EXPORT-010: keeps replay distinct from audit and report instead of flattening artifact surfaces', () => {
+    assert.match(CLI_DOCS, /`audit` is for the \*\*live current repo\/workspace\*\*/i);
+    assert.match(CLI_DOCS, /`report --input` is for an \*\*existing export artifact\*\* when you want text, json, markdown, or html output/i);
+    assert.match(CLI_DOCS, /`replay export` is for an \*\*existing export artifact\*\* when you want the read-only dashboard/i);
+    assert.match(CLI_DOCS, /`report --input` keeps `repo_ok_count` \/ `repo_error_count` plus the failed repo row and error/i);
+    assert.match(CLI_DOCS, /`replay export` restores a placeholder governed repo for the failed child path/i);
+  });
 });
 
 describe('replay export spec contract', () => {
@@ -42,9 +50,13 @@ describe('replay export spec contract', () => {
     assert.match(SPEC, /placeholder governed repo/i);
     assert.match(SPEC, /AT-REPLAY-EXPORT-008/);
     assert.match(SPEC, /AT-REPLAY-EXPORT-009/);
+    assert.match(SPEC, /AT-REPLAY-EXPORT-010/);
+    assert.match(SPEC, /`audit` inspects the live current repo\/workspace/i);
+    assert.match(SPEC, /`report --input` reads an existing export artifact and renders a derived summary document/i);
   });
 
   it('keeps the real-artifact spec aligned with coordinator replay truth', () => {
+    assert.match(REAL_ARTIFACT_SPEC, /Replay and report consume the same saved artifact class/i);
     assert.match(REAL_ARTIFACT_SPEC, /Run export.*agentxchain_run_export/is);
     assert.match(REAL_ARTIFACT_SPEC, /Coordinator export.*agentxchain_coordinator_export/is);
     assert.match(REAL_ARTIFACT_SPEC, /restore the nested run-export files relative to that repo root/i);
@@ -53,5 +65,6 @@ describe('replay export spec contract', () => {
     assert.match(REAL_ARTIFACT_SPEC, /temp_dir/);
     assert.match(REAL_ARTIFACT_SPEC, /AT-REPLAY-REAL-003/);
     assert.match(REAL_ARTIFACT_SPEC, /AT-REPLAY-REAL-005/);
+    assert.match(REAL_ARTIFACT_SPEC, /AT-REPLAY-REAL-006/);
   });
 });

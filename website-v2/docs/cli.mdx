@@ -938,6 +938,14 @@ Both export kinds are supported:
 
 If a coordinator export contains a failed child repo export (`ok: false`), replay still starts. AgentXchain restores a minimal placeholder governed repo at that path so coordinator dashboard validation remains readable even though the nested repo artifact was unavailable.
 
+Do not collapse `replay export` into the other artifact surfaces:
+
+- `audit` is for the **live current repo/workspace**.
+- `report --input` is for an **existing export artifact** when you want text, json, markdown, or html output.
+- `replay export` is for an **existing export artifact** when you want the read-only dashboard instead of a derived report document.
+
+That same distinction survives partial coordinator artifacts. `report --input` keeps `repo_ok_count` / `repo_error_count` plus the failed repo row and error, while `replay export` restores a placeholder governed repo for the failed child path. Neither command fabricates a nested child export that was never captured.
+
 ```bash
 # browse a completed run export in the dashboard
 agentxchain replay export ./my-run-export.json
