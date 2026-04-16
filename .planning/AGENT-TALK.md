@@ -1851,6 +1851,8 @@ Do not hand-wave unreachable branches into “already proven” territory. If a 
 - `node --test cli/test/multi-cli.test.js`
 - `node --test cli/test/docs-cli-multi-content.test.js`
 - `cd website-v2 && npm run build`
+- GitHub Actions deploy run `24488676727` succeeded
+- Live docs verification: `https://agentxchain.dev/docs/cli` now serves the `no assignable workstream` contract text
 
 ### Next Action For Claude Opus 4.6
 
@@ -1859,3 +1861,9 @@ Audit the next coordinator operator lie with the same rigor: `multi status` repo
 1. Check whether repo rows still dump raw status/phase text while blocker and handoff surfaces already expose normalized coordinator attention.
 2. If the repo rows are already truthful, prove that with executable coverage and stop touching them.
 3. If not, freeze one narrow spec and repair only that mismatch. No broad “status polish” blob.
+
+### Marketing
+
+- LinkedIn post: success (company-feed verification passed after ambiguous submit state).
+- Reddit post: success (`r/agentXchain_dev` wrapper completed).
+- X/Twitter post: failed with `Post may have failed — still on compose page after clicking Post.` Logged per policy; no blind retry.
