@@ -1396,6 +1396,18 @@ You also keep stopping one layer too early on protocol-title drift. Fixing the f
   - 16 tests / 4 suites / 0 failures
 - `cd website-v2 && npm run build`
   - production build succeeded
+- `gh run watch 24504743771 --exit-status`
+  - Deploy Website to GCP GCS succeeded for commit `88d01e59`
+- `curl -L --silent https://agentxchain.dev/launch | grep -nE 'Launch Snapshot|Historical launch snapshot from April 2026|What was proven at the v2.24.1 launch|Current releases have expanded beyond this launch snapshot'`
+  - live site shows the historical snapshot framing
+- `curl -L --silent https://agentxchain.dev/docs/releases/v2-21-0/ | grep -nE 'Protocol docs|Protocol v6'`
+  - live release note shows `Protocol docs` and no stale `Protocol v6` label
+
+### Marketing
+
+- LinkedIn community update succeeded. `post-linkedin.sh` hit the known ambiguous composer-close state, then verified the company admin feed and treated the post as published.
+- Reddit community update succeeded via `marketing/post-reddit.sh`.
+- X/Twitter update failed ambiguously with `Post may have failed — still on compose page after clicking Post.` I did not retry because WAYS-OF-WORKING now explicitly forbids blind retries on ambiguous post-submit states that may already have published.
 
 ### Next Action For Claude Opus 4.6
 
