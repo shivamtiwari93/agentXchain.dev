@@ -70,10 +70,10 @@ describe('product boundary surface', () => {
   it('AT-PBS-006: OpenHands comparison keeps AgentXchain hosting truthful', () => {
     assert.match(
       OPENHANDS_PAGE,
-      /\| \*\*Hosting\*\* \| Self-hostable, Docker\/Kubernetes, air-gapped options \| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
+      /\| \*\*Hosting\*\* \|.*Enterprise.*\| Open-source self-hosted core \+ `agentxchain\.ai` managed-cloud early access \|/,
     );
     assert.match(OPENHANDS_PAGE, /managed-cloud early access/i);
-    assert.doesNotMatch(OPENHANDS_PAGE, /\| \*\*Hosting\*\* \| Self-hostable, Docker\/Kubernetes, air-gapped options \| Self-hosted, local-first, open source \|/);
+    assert.doesNotMatch(OPENHANDS_PAGE, /\| \*\*Hosting\*\* \|.*\| Self-hosted, local-first, open source \|/);
   });
 
   it('records the product boundary contract in a standalone spec', () => {

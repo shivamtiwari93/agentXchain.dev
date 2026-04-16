@@ -148,6 +148,7 @@ describe('comparison pages content', () => {
     assert.match(pages.openhands, /SDK/i, 'OpenHands page must acknowledge SDK');
     assert.match(pages.openhands, /sandbox/i, 'OpenHands page must acknowledge sandboxed execution');
     assert.match(pages.openhands, /model.agnostic/i, 'OpenHands page must acknowledge model-agnostic execution');
+    assert.match(pages.openhands, /Cloud.*RBAC|RBAC|Enterprise/i, 'OpenHands page must acknowledge Cloud/Enterprise tiers');
     assert.match(pages.openhands, /governed software delivery|governance protocol/i);
   });
 
@@ -157,6 +158,7 @@ describe('comparison pages content', () => {
     assert.match(POSITIONING_MATRIX, /\*\*LangGraph\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*OpenAI Agents SDK\*\*/);
     assert.match(POSITIONING_MATRIX, /\*\*AG2 \/ AutoGen\*\*/);
+    assert.match(POSITIONING_MATRIX, /\*\*OpenHands\*\*/);
     assert.match(POSITIONING_MATRIX, /Atoms|Data Interpreter|Researcher/i);
     assert.match(POSITIONING_MATRIX, /Command routing|parallel supersteps|subgraph composition/i);
     assert.match(POSITIONING_MATRIX, /multi-provider|provider-agnostic/i);
