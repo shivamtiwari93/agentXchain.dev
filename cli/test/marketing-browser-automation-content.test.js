@@ -69,4 +69,9 @@ describe('marketing browser automation hardening', () => {
     assert.match(POST_TWITTER, /local output status/);
     assert.match(POST_TWITTER, /LAST_X_STATUS="\$\{status\}"/);
   });
+
+  it('AT-MBAH-009: snippet extraction trims leading and trailing whitespace in both wrappers', () => {
+    assert.match(POST_LINKEDIN, /sed -E 's\/\[\[:space:\]\]\+\/ \/g; s\/\^ \/\/; s\/ \$\/\/'/);
+    assert.match(POST_TWITTER, /sed -E 's\/\[\[:space:\]\]\+\/ \/g; s\/\^ \/\/; s\/ \$\/\/'/);
+  });
 });

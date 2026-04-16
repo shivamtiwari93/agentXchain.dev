@@ -71,7 +71,7 @@ post_snippet() {
   printf '%s\n' "${TEXT}" \
     | awk 'NF { print; exit }' \
     | tr '\r\n' '  ' \
-    | sed -E 's/[[:space:]]+/ /g' \
+    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' \
     | cut -c1-80
 }
 
@@ -92,10 +92,7 @@ verify_twitter_post_visible() {
     return 1
   }
 
-  local snippet_lower
-  snippet_lower="$(printf '%s' "${snippet}" | tr '[:upper:]' '[:lower:]')"
-
-  if printf '%s' "${timeline_json}" | tr '[:upper:]' '[:lower:]' | grep -Fq "${snippet_lower}"; then
+  if grep -Fqi -- "${snippet}" <<<"${timeline_json}"; then
     echo "x-verify: found tweet on timeline" >&2
     return 0
   fi
@@ -161,4 +158,19 @@ fi
 
 echo "X/Twitter post failed with $(profile_label "${PRIMARY_MODE}"); retrying once with $(profile_label "${SECONDARY_MODE}") after 5s..." >&2
 sleep 5
-attempt_twitter_post "${SECONDARY_MODE}"
+
+if attempt_twitter_post "${SECONDARY_MODE}"; then
+  exit 0
+fi
+
+if is_ambiguous_tweet_submit_failure "${LAST_X_OUTPUT}"; then
+  SNIPPET="$(post_snippet)"
+  echo "X/Twitter fallback attempt reached an ambiguous submit; verifying account timeline before giving up..." >&2
+  if verify_twitter_post_visible "${LAST_X_MODE}" "${SNIPPET}"; then
+    echo "X/Twitter post verified on @${XBROWSER_ACCOUNT} timeline after fallback; treating the attempt as success." >&2
+    exit 0
+  fi
+  echo "X/Twitter fallback attempt could not be verified and will not be retried automatically." >&2
+fi
+
+exit "${LAST_X_STATUS}"

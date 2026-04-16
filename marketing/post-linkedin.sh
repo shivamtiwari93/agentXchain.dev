@@ -45,7 +45,7 @@ post_snippet() {
   printf '%s\n' "${TEXT}" \
     | awk 'NF { print; exit }' \
     | tr '\r\n' '  ' \
-    | sed -E 's/[[:space:]]+/ /g' \
+    | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' \
     | cut -c1-120
 }
 
