@@ -1,4 +1,5 @@
 import { getCoordinatorPendingGateDetails } from '../../src/lib/coordinator-pending-gate-presentation.js';
+import { buildCoordinatorRepoStatusRows } from '../../src/lib/coordinator-repo-status-presentation.js';
 
 /**
  * Blocked State view — renders current blocked state with recovery info.
@@ -69,12 +70,35 @@ function selectRelevantAuditEntries(state, audit) {
   return audit.slice(-3);
 }
 
+function getCoordinatorRepoRows(coordinatorState, coordinatorRepoStatusRows) {
+  if (Array.isArray(coordinatorRepoStatusRows) && coordinatorRepoStatusRows.length > 0) {
+    return coordinatorRepoStatusRows;
+  }
+
+  return buildCoordinatorRepoStatusRows({
+    config: null,
+    coordinatorRepoRuns: coordinatorState?.repo_runs || {},
+  });
+}
+
+function formatCoordinatorRepoCardMeta(row) {
+  const parts = [];
+  if (row?.run_id) {
+    parts.push(`run ${row.run_id}`);
+  }
+  for (const detail of Array.isArray(row?.details) ? row.details : []) {
+    parts.push(`${detail.label}: ${detail.value}`);
+  }
+  return parts.join(' | ') || '-';
+}
+
 export function render({
   state,
   audit = [],
   coordinatorState = null,
   coordinatorAudit = [],
   coordinatorBlockers = null,
+  coordinatorRepoStatusRows = null,
 }) {
   const activeState = state?.status === 'blocked' ? state : coordinatorState;
   const activeAudit = activeState === state ? audit : coordinatorAudit;
@@ -111,6 +135,9 @@ export function render({
       pendingGate: activeState.pending_gate,
       active: coordinatorBlockers?.active,
     })
+    : [];
+  const coordinatorRepoRows = isCoordinator
+    ? getCoordinatorRepoRows(coordinatorState, coordinatorRepoStatusRows)
     : [];
   const relevantAudit = selectRelevantAuditEntries(activeState, activeAudit);
 
@@ -170,12 +197,13 @@ export function render({
     </div>`;
   }
 
-  if (isCoordinator && activeState.repo_runs && Object.keys(activeState.repo_runs).length > 0) {
+  if (isCoordinator && coordinatorRepoRows.length > 0) {
     html += `<div class="section"><h3>Repo Status</h3><div class="annotation-list">`;
-    for (const [repoId, repoRun] of Object.entries(activeState.repo_runs)) {
+    for (const row of coordinatorRepoRows) {
       html += `<div class="annotation-card">
-        <span class="mono">${esc(repoId)}</span>
-        <span>${esc(`${repoRun.status || 'unknown'}${repoRun.phase ? ` [${repoRun.phase}]` : ''}`)}</span>
+        <span class="mono">${esc(row.repo_id || '-')}</span>
+        <span>${esc(`${row.status || 'unknown'}${row.phase ? ` [${row.phase}]` : ''}`)}</span>
+        <span>${esc(formatCoordinatorRepoCardMeta(row))}</span>
       </div>`;
     }
     html += `</div></div>`;

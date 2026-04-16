@@ -588,6 +588,72 @@ describe('Dashboard Bridge Server', () => {
       assert.equal(data[0].barrier_id, 'backend_completion');
     });
 
+    it('AT-CDRS-001: GET /api/coordinator/repo-status returns authority-first rows with coordinator linkage as metadata', async () => {
+      writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'api',
+        run_id: 'run_api_live',
+        status: 'completed',
+        phase: 'release',
+        active_turns: {},
+        turn_sequence: 3,
+        accepted_count: 3,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.reposDir, 'web', '.agentxchain', 'state.json'), {
+        schema_version: '1.1',
+        project_id: 'web',
+        run_id: 'run_web_live',
+        status: 'active',
+        phase: 'implementation',
+        active_turns: {},
+        turn_sequence: 1,
+        accepted_count: 1,
+        rejected_count: 0,
+        blocked_on: null,
+        blocked_reason: null,
+        next_recommended_role: null,
+      });
+      writeJson(join(fixture.multiDir, 'state.json'), {
+        super_run_id: 'srun_test_001',
+        status: 'active',
+        phase: 'implementation',
+        pending_gate: null,
+        repo_runs: {
+          api: { run_id: 'run_api_expected', status: 'linked', phase: 'implementation' },
+          web: { run_id: 'run_web_live', status: 'initialized', phase: 'implementation' },
+        },
+      });
+
+      const res = await httpGet(port, '/api/coordinator/repo-status');
+      assert.equal(res.status, 200);
+      const data = JSON.parse(res.body);
+      assert.ok(Array.isArray(data));
+      const byRepo = Object.fromEntries(data.map((entry) => [entry.repo_id, entry]));
+      assert.deepEqual(byRepo.api, {
+        repo_id: 'api',
+        run_id: 'run_api_live',
+        status: 'completed',
+        phase: 'release',
+        details: [
+          { label: 'coordinator', value: 'linked' },
+          { label: 'expected run', value: 'run_api_expected', mono: true },
+        ],
+      });
+      assert.deepEqual(byRepo.web, {
+        repo_id: 'web',
+        run_id: 'run_web_live',
+        status: 'active',
+        phase: 'implementation',
+        details: [
+          { label: 'coordinator', value: 'initialized' },
+        ],
+      });
+    });
+
     it('GET /api/coordinator/blockers returns structured repo_run_id_mismatch diagnostics', async () => {
       writeJson(join(fixture.reposDir, 'api', '.agentxchain', 'state.json'), {
         schema_version: '1.1',
@@ -1333,6 +1399,13 @@ HOOKEOF
 
     it('GET /api/coordinator/blockers returns 404 when coordinator state is missing', async () => {
       const res = await httpGet(emptyPort, '/api/coordinator/blockers');
+      assert.equal(res.status, 404);
+      const data = JSON.parse(res.body);
+      assert.equal(data.code, 'coordinator_config_missing');
+    });
+
+    it('GET /api/coordinator/repo-status returns 404 when coordinator state is missing', async () => {
+      const res = await httpGet(emptyPort, '/api/coordinator/repo-status');
       assert.equal(res.status, 404);
       const data = JSON.parse(res.body);
       assert.equal(data.code, 'coordinator_config_missing');

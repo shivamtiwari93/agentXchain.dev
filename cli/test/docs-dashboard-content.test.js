@@ -31,6 +31,7 @@ const CONTINUITY_ACTIONABILITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 
 const DASHBOARD_DAEMON_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'DASHBOARD_DAEMON_SPEC.md'), 'utf8');
 const RUNTIME_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'RUNTIME_BLOCKED_DASHBOARD_AUDIT_PARITY_SPEC.md'), 'utf8');
 const COORDINATOR_ACTION_PARITY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKED_ACTION_PARITY_SPEC.md'), 'utf8');
+const COORDINATOR_DASHBOARD_REPO_STATUS_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_DASHBOARD_REPO_STATUS_SPEC.md'), 'utf8');
 const INITIATIVE_HIERARCHY_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'INITIATIVE_VIEW_HIERARCHY_SPEC.md'), 'utf8');
 const COORDINATOR_BLOCKER_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_BLOCKER_PRESENTATION_SHARED_SPEC.md'), 'utf8');
 const COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC = readFileSync(join(REPO_ROOT, '.planning', 'COORDINATOR_GATE_EVALUATION_PRESENTATION_SPEC.md'), 'utf8');
@@ -80,6 +81,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(CLI_DOCS.includes('approve-completion'), 'cli docs must mention repo completion approval');
     assert.ok(CLI_DOCS.includes('X-AgentXchain-Token'), 'cli docs must document the local mutation token boundary');
     assert.ok(CLI_DOCS.includes('/api/coordinator/blockers'), 'cli docs must document the coordinator blockers endpoint');
+    assert.ok(CLI_DOCS.includes('/api/coordinator/repo-status'), 'cli docs must document the coordinator repo-status endpoint');
     assert.ok(CLI_DOCS.includes('/api/coordinator/ledger'), 'cli docs must document the coordinator ledger endpoint');
     assert.ok(CLI_DOCS.includes('/api/repo-decisions-summary'), 'cli docs must document the repo decision summary endpoint');
     assert.ok(CLI_DOCS.includes('/api/continuity'), 'cli docs must document the continuity endpoint');
@@ -90,6 +92,7 @@ describe('Dashboard docs contract — command surface', () => {
     assert.ok(BRIDGE_SERVER.includes("server.listen(port, '127.0.0.1'"), 'bridge server must bind to 127.0.0.1');
     assert.ok(BRIDGE_SERVER.includes('/api/actions/approve-gate'), 'bridge server must expose the approve-gate endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/coordinator/blockers'), 'bridge server must expose the coordinator blockers endpoint');
+    assert.ok(BRIDGE_SERVER.includes('/api/coordinator/repo-status'), 'bridge server must expose the coordinator repo-status endpoint');
     assert.ok(BRIDGE_SERVER.includes('/api/workflow-kit-artifacts'), 'bridge server must expose the workflow-kit artifacts endpoint');
     assert.ok(STATE_READER.includes('/api/continuity'), 'dashboard state reader must expose the continuity endpoint');
     assert.ok(BRIDGE_SERVER.includes('X-AgentXchain-Token'), 'bridge server must validate the dashboard mutation token');
@@ -138,6 +141,8 @@ describe('Dashboard docs contract — view surface', () => {
     assert.ok(CLI_DOCS.includes('runtime guidance'), 'cli docs must describe blocked runtime guidance visibility');
     assert.ok(CLI_DOCS.includes('ordered next actions'), 'cli docs must describe blocked next-action ordering');
     assert.ok(CLI_DOCS.includes('pending_gate'), 'cli docs must describe pending_gate next-action parity');
+    assert.ok(CLI_DOCS.includes('authority-first child repo status'), 'cli docs must describe authority-first coordinator repo rows');
+    assert.ok(CLI_DOCS.includes('coordinator linkage remains detail metadata'), 'cli docs must describe linked/initialized as metadata only');
     assert.ok(CLI_DOCS.includes('multi resync'), 'cli docs must describe coordinator resync next-action parity');
   });
 
@@ -223,6 +228,15 @@ describe('Dashboard continuity spec', () => {
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /AT-CBAP-001/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /GET \/api\/coordinator\/blockers/);
     assert.match(COORDINATOR_ACTION_PARITY_SPEC, /agentxchain multi resync/);
+  });
+
+  it('ships a durable spec for coordinator dashboard repo status truth', () => {
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /Coordinator Dashboard Repo Status Spec/);
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /AT-CDRS-001/);
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /AT-CDRS-004/);
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /GET \/api\/coordinator\/repo-status/);
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /linked/);
+    assert.match(COORDINATOR_DASHBOARD_REPO_STATUS_SPEC, /initialized/);
   });
 
   it('ships a durable spec for initiative view hierarchy', () => {

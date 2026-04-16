@@ -1284,7 +1284,7 @@ The shipped dashboard surface has thirteen top-level views:
 
 | View | Description |
 |------|-------------|
-| **Initiative** | First-glance multi-repo coordinator summary: repo runs, pending gate, blocked state, compact **Cross-Run Constraints** for decision-constrained barriers, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
+| **Initiative** | First-glance multi-repo coordinator summary: authority-first child repo status, pending gate, blocked state, compact **Cross-Run Constraints** for decision-constrained barriers, barrier snapshot, and one primary recovery action; full blocker diagnostics stay in the **Blockers** view sourced from `/api/coordinator/blockers` |
 | **Cross-Repo** | Coordinator event timeline across linked repos and workstreams, plus a live freshness banner showing websocket connection state, last dashboard refresh, and the last coordinator event seen |
 | **Timeline** | Run timeline with continuity status, connector health, active turns with live elapsed time, accepted history with per-turn duration and acceptance timestamp, a live freshness banner showing websocket connection state, last dashboard refresh, and the last repo-local run event seen, and expandable turn-level hook evidence; in coordinator workspaces the turn detail panel renders coordinator hook audit and annotations from `/api/coordinator/hooks/audit` and `/api/coordinator/hooks/annotations` alongside repo-local hook data |
 | **Delegations** | Repo-local delegation visibility: live `delegation_queue`, pending delegation review, and completed delegation chains reconstructed from accepted history metadata |
@@ -1333,6 +1333,8 @@ The bridge issues a per-process local mutation token from `GET /api/session`, an
 
 For coordinator workspaces, the bridge also exposes `GET /api/coordinator/blockers`, a computed read-only endpoint that returns the active coordinator gate context plus ordered next actions for `pending_gate`, `repo_run_id_mismatch`, and `multi resync` drift cases. Structured blockers such as `repo_run_id_mismatch` still include expected vs actual child `run_id` values. This exists so the dashboard can explain blocked multi-repo state without forcing operators to diff raw JSON files by hand or guess which recovery command comes next.
 
+The bridge also exposes `GET /api/coordinator/repo-status` for dashboard repo rows. That endpoint resolves child repo `.agentxchain/state.json` as primary truth when available, then keeps coordinator linkage labels like `linked` and `initialized` as metadata instead of presenting them as repo status.
+
 For repo-local governed runs, the shared **Decisions** view also reads `GET /api/repo-decisions-summary` so cross-run repo decisions surface first-glance binding, authority, and lineage signals without replacing the main turn-decision ledger.
 
 For coordinator workspaces, the shared **Decisions** view also reads `GET /api/coordinator/ledger` so coordinator-level decisions remain visible in the dashboard instead of disappearing behind a repo-local-only ledger view.
@@ -1367,7 +1369,7 @@ Everything else remains CLI-only. The dashboard does **not** execute arbitrary c
 - `agentxchain step --resume`
 - `agentxchain resume --role ...`
 
-For repo-local runs, the Timeline, Decisions, Hooks, Blocked, Gates, and Artifacts views render governed runtime state from `.agentxchain/` and `agentxchain.json`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views.
+For repo-local runs, the Timeline, Decisions, Hooks, Blocked, Gates, and Artifacts views render governed runtime state from `.agentxchain/` and `agentxchain.json`. If only coordinator state exists, the dashboard opens on Initiative first and uses the coordinator-specific views. Coordinator repo rows stay authority-first there too: child repo status/phase/run come from repo-local state when readable, while coordinator linkage remains detail metadata.
 
 For repo-local runs with delegation chains, accepted turns now preserve `delegations_issued`, `delegation_context`, and `delegation_review` metadata in `.agentxchain/history.jsonl`. The **Delegations** view uses that additive history truth to reconstruct completed chains instead of pretending delegation visibility only exists while the queue is live.
 

@@ -2,6 +2,7 @@ import {
   buildCoordinatorAttentionSnapshotPresentation,
   summarizeCoordinatorAttention,
 } from '../../src/lib/coordinator-blocker-presentation.js';
+import { buildCoordinatorRepoStatusRows } from '../../src/lib/coordinator-repo-status-presentation.js';
 
 function esc(str) {
   if (!str) return '';
@@ -169,17 +170,39 @@ function renderCoordinatorAttentionSnapshot(coordinatorBlockers) {
   return html;
 }
 
+function getCoordinatorRepoRows(coordinatorState, coordinatorRepoStatusRows) {
+  if (Array.isArray(coordinatorRepoStatusRows) && coordinatorRepoStatusRows.length > 0) {
+    return coordinatorRepoStatusRows;
+  }
+
+  return buildCoordinatorRepoStatusRows({
+    config: null,
+    coordinatorRepoRuns: coordinatorState?.repo_runs || {},
+  });
+}
+
+function renderRepoRowDetails(details) {
+  if (!Array.isArray(details) || details.length === 0) {
+    return '-';
+  }
+
+  return details.map((detail) => (
+    `<div><span class="detail-label">${esc(detail.label)}:</span> <span${detail.mono ? ' class="mono"' : ''}>${esc(detail.value)}</span></div>`
+  )).join('');
+}
+
 export function render({
   coordinatorState,
   coordinatorBarriers = {},
   barrierLedger = [],
   coordinatorBlockers = null,
+  coordinatorRepoStatusRows = null,
 }) {
   if (!coordinatorState) {
     return `<div class="placeholder"><h2>No Initiative</h2><p>No coordinator run found. Start one with <code class="mono">agentxchain multi init</code></p></div>`;
   }
 
-  const repoRuns = Object.entries(coordinatorState.repo_runs || {});
+  const repoRows = getCoordinatorRepoRows(coordinatorState, coordinatorRepoStatusRows);
   const barriers = Object.entries(coordinatorBarriers || {});
   const pendingGate = coordinatorState.pending_gate || null;
   const barrierCounts = summarizeBarriers(coordinatorBarriers);
@@ -194,7 +217,7 @@ export function render({
       <span class="mono run-id">${esc(coordinatorState.super_run_id)}</span>
       ${badge(coordinatorState.status || 'unknown', statusColor(coordinatorState.status))}
       <span class="phase-label">Phase: <strong>${esc(coordinatorState.phase || 'unknown')}</strong></span>
-      <span class="turn-count">${repoRuns.length} repo${repoRuns.length !== 1 ? 's' : ''}</span>
+      <span class="turn-count">${repoRows.length} repo${repoRows.length !== 1 ? 's' : ''}</span>
     </div>
   </div>`;
 
@@ -247,13 +270,14 @@ export function render({
   }
 
   html += `<div class="section"><h3>Repo Runs</h3><table class="data-table">
-    <thead><tr><th>Repo</th><th>Run</th><th>Status</th><th>Phase</th></tr></thead><tbody>`;
-  for (const [repoId, repoRun] of repoRuns) {
+    <thead><tr><th>Repo</th><th>Run</th><th>Status</th><th>Phase</th><th>Details</th></tr></thead><tbody>`;
+  for (const row of repoRows) {
     html += `<tr>
-      <td class="mono">${esc(repoId)}</td>
-      <td class="mono">${esc(repoRun.run_id || '-')}</td>
-      <td>${badge(repoRun.status || 'unknown', statusColor(repoRun.status))}</td>
-      <td>${esc(repoRun.phase || '-')}</td>
+      <td class="mono">${esc(row.repo_id || '-')}</td>
+      <td class="mono">${esc(row.run_id || '-')}</td>
+      <td>${badge(row.status || 'unknown', statusColor(row.status))}</td>
+      <td>${esc(row.phase || '-')}</td>
+      <td>${renderRepoRowDetails(row.details)}</td>
     </tr>`;
   }
   html += `</tbody></table></div>`;

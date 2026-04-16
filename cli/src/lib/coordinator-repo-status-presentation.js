@@ -46,6 +46,7 @@ export function buildCoordinatorRepoStatusRows({ config, coordinatorRepoRuns }) 
       details.push({
         label: 'expected run',
         value: coordinatorRepoRun.run_id,
+        mono: true,
       });
     }
 

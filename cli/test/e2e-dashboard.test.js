@@ -651,12 +651,14 @@ describe('Dashboard E2E acceptance', () => {
     const coordinatorBarriers = await getJson(port, '/api/coordinator/barriers');
     const barrierLedger = await getJson(port, '/api/coordinator/barrier-ledger');
     const coordinatorBlockers = await getJson(port, '/api/coordinator/blockers');
+    const coordinatorRepoStatusRows = await getJson(port, '/api/coordinator/repo-status');
 
     const initiativeHtml = renderInitiative({
       coordinatorState,
       coordinatorBarriers,
       barrierLedger,
       coordinatorBlockers,
+      coordinatorRepoStatusRows,
     });
     const timelineHtml = renderCrossRepo({ coordinatorState, coordinatorHistory });
     const primaryCommand = coordinatorBlockers.next_actions?.[0]?.command;
@@ -669,6 +671,7 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(initiativeHtml.includes('Required Repos'));
     assert.ok(!initiativeHtml.includes('Pending Gate'));
     assert.ok(initiativeHtml.includes('Open Blockers view'));
+    assert.ok(initiativeHtml.includes('coordinator'));
     assert.ok(initiativeHtml.includes('backend_completion'));
     assert.ok(timelineHtml.includes('Turn Dispatched'));
     assert.ok(timelineHtml.includes('Context Generated'));
@@ -685,9 +688,10 @@ describe('Dashboard E2E acceptance', () => {
     const coordinatorHistory = await getJson(port, '/api/coordinator/history');
     const coordinatorBarriers = await getJson(port, '/api/coordinator/barriers');
     const coordinatorAudit = await getJson(port, '/api/coordinator/hooks/audit');
+    const coordinatorRepoStatusRows = await getJson(port, '/api/coordinator/repo-status');
 
     const gateHtml = renderGate({ state: null, coordinatorState, coordinatorHistory, coordinatorBarriers });
-    const blockedHtml = renderBlocked({ state: null, coordinatorState, coordinatorAudit });
+    const blockedHtml = renderBlocked({ state: null, coordinatorState, coordinatorAudit, coordinatorRepoStatusRows });
 
     assert.ok(gateHtml.includes('agentxchain multi approve-gate'));
     assert.ok(gateHtml.includes('API integration accepted'));
@@ -695,6 +699,7 @@ describe('Dashboard E2E acceptance', () => {
     assert.ok(blockedHtml.includes('Approval State'));
     assert.ok(blockedHtml.includes('Awaiting human approval'));
     assert.ok(blockedHtml.includes('Required Repos'));
+    assert.ok(blockedHtml.includes('coordinator: linked'));
     assert.ok(blockedHtml.includes('release-guard'));
   });
 

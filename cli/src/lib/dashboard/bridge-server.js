@@ -19,6 +19,7 @@ import { FileWatcher } from './file-watcher.js';
 import { readRunEvents, RUN_EVENTS_PATH } from '../run-events.js';
 import { approvePendingDashboardGate } from './actions.js';
 import { readCoordinatorBlockerSnapshot } from './coordinator-blockers.js';
+import { readCoordinatorRepoStatusRows } from './coordinator-repo-status.js';
 import { readCoordinatorTimeoutStatus } from './coordinator-timeout-status.js';
 import { readAggregatedCoordinatorEvents, watchChildRepoEvents } from './coordinator-event-aggregation.js';
 import { readWorkflowKitArtifacts } from './workflow-kit-artifacts.js';
@@ -344,6 +345,12 @@ export function createBridgeServer({ agentxchainDir, dashboardDir, port = 3847, 
 
     if (pathname === '/api/coordinator/blockers') {
       const result = readCoordinatorBlockerSnapshot(workspacePath);
+      writeJson(res, result.status, result.body);
+      return;
+    }
+
+    if (pathname === '/api/coordinator/repo-status') {
+      const result = readCoordinatorRepoStatusRows(workspacePath);
       writeJson(res, result.status, result.body);
       return;
     }

@@ -415,7 +415,7 @@ describe('App Shell — VIEWS registry', () => {
       // Each component must handle null data gracefully
       const data = name === 'ledger' ? { ledger: null } :
                    name === 'hooks' ? { audit: null, annotations: null } :
-                   name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null } :
+                   name === 'initiative' ? { coordinatorState: null, coordinatorBarriers: null, barrierLedger: null, coordinatorBlockers: null, coordinatorRepoStatusRows: null } :
                    name === 'blockers' ? { coordinatorBlockers: null } :
                    name === 'timeouts' ? { timeouts: null } :
                    name === 'coordinator-timeouts' ? { coordinatorTimeouts: null } :
@@ -457,11 +457,16 @@ describe('App Shell — VIEWS registry', () => {
     assert.match(appSource, /createLiveEventFromMessage/);
   });
 
-  it('blocked view fetches coordinatorBlockers so coordinator next-actions can render truthfully', () => {
+  it('AT-CDRS-004: blocked and initiative fetch coordinatorRepoStatusRows so repo truth comes from the shared dashboard data path', () => {
     assert.match(
       appSource,
-      /blocked:\s*\{\s*fetch:\s*\['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers'\],\s*render:\s*renderBlocked\s*\}/,
+      /blocked:\s*\{\s*fetch:\s*\['state', 'audit', 'coordinatorState', 'coordinatorAudit', 'coordinatorBlockers', 'coordinatorRepoStatusRows'\],\s*render:\s*renderBlocked\s*\}/,
     );
+    assert.match(
+      appSource,
+      /initiative:\s*\{\s*fetch:\s*\['coordinatorState', 'coordinatorBarriers', 'barrierLedger', 'coordinatorBlockers', 'coordinatorRepoStatusRows'\],\s*render:\s*renderInitiative\s*\}/,
+    );
+    assert.match(appSource, /coordinatorRepoStatusRows:\s*'\/api\/coordinator\/repo-status'/);
   });
 });
 

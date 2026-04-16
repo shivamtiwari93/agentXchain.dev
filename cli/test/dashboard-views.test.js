@@ -23,6 +23,8 @@ import { render as renderCrossRepo } from '../dashboard/components/cross-repo.js
 import { render as renderRunHistory } from '../dashboard/components/run-history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const INITIATIVE_SOURCE = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'initiative.js'), 'utf8');
+const BLOCKED_SOURCE = readFileSync(join(__dirname, '..', 'dashboard', 'components', 'blocked.js'), 'utf8');
 
 // ── Timeline View ──────────────────────────────────────────────────────────
 
@@ -546,6 +548,28 @@ describe('Initiative View', () => {
           pending: true,
         },
       },
+      coordinatorRepoStatusRows: [
+        {
+          repo_id: 'api',
+          run_id: 'run_api_live',
+          status: 'active',
+          phase: 'integration',
+          details: [
+            { label: 'coordinator', value: 'linked', mono: false },
+            { label: 'expected run', value: 'run_api', mono: true },
+          ],
+        },
+        {
+          repo_id: 'web',
+          run_id: 'run_web_live',
+          status: 'active',
+          phase: 'integration',
+          details: [
+            { label: 'coordinator', value: 'initialized', mono: false },
+            { label: 'expected run', value: 'run_web', mono: true },
+          ],
+        },
+      ],
     });
 
     assert.ok(html.includes('srun_123'));
@@ -559,9 +583,44 @@ describe('Initiative View', () => {
     assert.ok(html.includes('agentxchain multi approve-gate --from-blockers'));
     assert.ok(!html.includes('Pending Gate'));
     assert.ok(!html.includes('data-copy="agentxchain multi approve-gate"'));
-    assert.ok(html.includes('run_api'));
+    assert.ok(html.includes('run_api_live'));
+    assert.ok(html.includes('coordinator'));
+    assert.ok(html.includes('expected run'));
     assert.ok(html.includes('backend_completion'));
     assert.ok(html.includes('partially_satisfied'));
+  });
+
+  it('AT-CDRS-002 renders authority-first repo rows for Initiative while keeping coordinator linkage as metadata', () => {
+    const html = renderInitiative({
+      coordinatorState: {
+        super_run_id: 'srun_dashboard_rows',
+        status: 'active',
+        phase: 'implementation',
+        repo_runs: {
+          api: { run_id: 'run_api_expected', status: 'linked', phase: 'implementation' },
+        },
+      },
+      coordinatorRepoStatusRows: [
+        {
+          repo_id: 'api',
+          run_id: 'run_api_live',
+          status: 'completed',
+          phase: 'release',
+          details: [
+            { label: 'coordinator', value: 'linked', mono: false },
+            { label: 'expected run', value: 'run_api_expected', mono: true },
+          ],
+        },
+      ],
+    });
+
+    assert.ok(html.includes('completed'));
+    assert.ok(html.includes('release'));
+    assert.ok(html.includes('run_api_live'));
+    assert.ok(html.includes('coordinator'));
+    assert.ok(html.includes('linked'));
+    assert.ok(html.includes('run_api_expected'));
+    assert.ok(!html.includes('linked [implementation]'));
   });
 
   it('AT-IVH-002 renders structured coordinator blockers as a summary with one primary action', () => {
@@ -1063,6 +1122,18 @@ describe('Blocked View', () => {
           },
         ],
       },
+      coordinatorRepoStatusRows: [
+        {
+          repo_id: 'api',
+          run_id: 'run_api_live',
+          status: 'active',
+          phase: 'integration',
+          details: [
+            { label: 'coordinator', value: 'linked', mono: false },
+            { label: 'expected run', value: 'run_api_expected', mono: true },
+          ],
+        },
+      ],
     });
 
     assert.ok(html.includes('coordinator_hook_violation'));
@@ -1077,6 +1148,44 @@ describe('Blocked View', () => {
     assert.ok(html.includes('Awaiting human approval'));
     assert.ok(html.includes('Repo Status'));
     assert.ok(html.includes('release-guard'));
+  });
+
+  it('AT-CDRS-003 renders authority-first repo rows for Blocked instead of raw coordinator repo_runs', () => {
+    const html = renderBlocked({
+      state: null,
+      coordinatorState: {
+        status: 'blocked',
+        blocked_reason: 'repo drift',
+        repo_runs: {
+          api: { status: 'linked', phase: 'implementation', run_id: 'run_api_expected' },
+        },
+      },
+      coordinatorRepoStatusRows: [
+        {
+          repo_id: 'api',
+          run_id: 'run_api_live',
+          status: 'completed',
+          phase: 'release',
+          details: [
+            { label: 'coordinator', value: 'linked', mono: false },
+            { label: 'expected run', value: 'run_api_expected', mono: true },
+          ],
+        },
+      ],
+    });
+
+    assert.ok(html.includes('completed [release]'));
+    assert.ok(html.includes('run run_api_live'));
+    assert.ok(html.includes('coordinator: linked'));
+    assert.ok(html.includes('expected run: run_api_expected'));
+    assert.ok(!html.includes('linked [implementation]'));
+  });
+
+  it('AT-CDRS-005 source guards keep Initiative and Blocked on the shared repo-row presenter instead of raw repoRun formatting', () => {
+    assert.match(INITIATIVE_SOURCE, /buildCoordinatorRepoStatusRows/);
+    assert.match(BLOCKED_SOURCE, /buildCoordinatorRepoStatusRows/);
+    assert.doesNotMatch(INITIATIVE_SOURCE, /repoRun\.status|repoRun\.phase/);
+    assert.doesNotMatch(BLOCKED_SOURCE, /repoRun\.status|repoRun\.phase/);
   });
 
   it('AT-RBDAP-002: renders runtime guidance and ordered next actions when present', () => {
