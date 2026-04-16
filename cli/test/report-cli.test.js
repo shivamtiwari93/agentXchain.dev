@@ -414,6 +414,139 @@ function createCoordinatorWorkspace() {
   return root;
 }
 
+function createPartialCoordinatorWorkspace() {
+  const root = createCoordinatorWorkspace();
+
+  writeJson(join(root, 'agentxchain-multi.json'), {
+    schema_version: '0.1',
+    project: { id: 'coord-report', name: 'Coordinator Report' },
+    repos: {
+      web: { path: './repos/web', default_branch: 'main', required: true },
+      broken: { path: './repos/missing', default_branch: 'main', required: true },
+    },
+    workstreams: {
+      sync: {
+        phase: 'implementation',
+        repos: ['web', 'broken'],
+        entry_repo: 'web',
+        depends_on: [],
+        completion_barrier: 'all_repos_accepted',
+      },
+    },
+    routing: {
+      implementation: { entry_workstream: 'sync' },
+    },
+    gates: {},
+    hooks: {},
+  });
+
+  writeJson(join(root, '.agentxchain', 'multirepo', 'state.json'), {
+    schema_version: '0.1',
+    super_run_id: 'srun_coord_report_001',
+    project_id: 'coord-report',
+    status: 'active',
+    phase: 'implementation',
+    repo_runs: {
+      web: { run_id: 'run_web_001', status: 'active', phase: 'implementation' },
+      broken: { run_id: 'run_missing_001', status: 'linked', phase: 'implementation' },
+    },
+    pending_gate: null,
+    phase_gate_status: {},
+    created_at: '2026-04-03T00:00:00Z',
+    updated_at: '2026-04-03T00:00:00Z',
+  });
+
+  const webRoot = join(root, 'repos', 'web');
+  writeJson(join(webRoot, '.agentxchain', 'state.json'), {
+    schema_version: '1.1',
+    project_id: 'web-app',
+    run_id: 'run_web_001',
+    status: 'blocked',
+    phase: 'implementation',
+    active_turns: {},
+    retained_turns: {},
+    turn_sequence: 1,
+    blocked_on: 'operator_escalation',
+    phase_gate_status: { implementation_complete: 'failed' },
+    budget_status: { spent_usd: 0.9, remaining_usd: 9.1 },
+    protocol_mode: 'governed',
+    blocked_reason: {
+      category: 'operator_escalation',
+      blocked_at: '2026-04-16T01:07:00.000Z',
+      turn_id: 'turn_001',
+      recovery: {
+        typed_reason: 'approval_policy_blocked',
+        owner: 'operator',
+        recovery_action: 'agentxchain approve-transition',
+        detail: 'Release approval still required.',
+        turn_retained: true,
+      },
+    },
+  });
+  writeJsonl(join(webRoot, '.agentxchain', 'history.jsonl'), [
+    {
+      turn_id: 'turn_001',
+      role: 'dev',
+      status: 'completed',
+      summary: 'Prepared release candidate.',
+      decisions: [{ id: 'DEC-WEB-REL-001' }],
+      objections: [],
+      files_changed: ['src/app.js'],
+      cost: { total_usd: 0.9 },
+      started_at: '2026-04-16T01:00:00.000Z',
+      duration_ms: 420000,
+      accepted_at: '2026-04-16T01:07:00.000Z',
+      accepted_sequence: 1,
+    },
+  ]);
+  writeJsonl(join(webRoot, '.agentxchain', 'decision-ledger.jsonl'), [
+    { id: 'DEC-WEB-REL-001', role: 'dev', phase: 'implementation', statement: 'Web repo ready for release review.' },
+    {
+      type: 'approval_policy',
+      action: 'blocked',
+      gate_type: 'phase_transition',
+      from_phase: 'implementation',
+      to_phase: 'release',
+      reason: 'Release approval still required.',
+      timestamp: '2026-04-16T01:05:00.000Z',
+    },
+    {
+      decision: 'operator_escalated',
+      role: 'dev',
+      phase: 'implementation',
+      blocked_on: 'operator_escalation',
+      escalation: { reason: 'Need release approval before handoff.' },
+      timestamp: '2026-04-16T01:06:00.000Z',
+    },
+    {
+      type: 'timeout_warning',
+      scope: 'run',
+      phase: 'implementation',
+      limit_minutes: 30,
+      elapsed_minutes: 35,
+      exceeded_by_minutes: 5,
+      action: 'notify',
+      timestamp: '2026-04-16T01:07:30.000Z',
+    },
+  ]);
+  writeJsonl(join(webRoot, '.agentxchain', 'hook-audit.jsonl'), [
+    { event: 'before_step', result: 'allowed' },
+    { event: 'before_transition', result: 'blocked', blocked: true },
+  ]);
+  writeJson(join(webRoot, '.agentxchain', 'session.json'), {
+    session_id: 'session_web_report',
+    run_id: 'run_web_old',
+    started_at: '2026-04-16T01:00:00.000Z',
+    last_checkpoint_at: '2026-04-16T01:08:00.000Z',
+    last_turn_id: 'turn_001',
+    last_phase: 'implementation',
+    last_role: 'dev',
+    checkpoint_reason: 'awaiting_operator',
+  });
+
+  return root;
+}
+
 function exportArtifact(root, fileName = 'artifact.json') {
   const result = runCli(root, ['export', '--output', fileName]);
   assert.equal(result.status, 0, result.stderr);
@@ -1118,6 +1251,59 @@ describe('report CLI', () => {
       assert.equal(failedRepo.recovery_summary, undefined, 'failed repo must not have recovery_summary');
       assert.ok(Array.isArray(report.subject.coordinator_timeline), 'coordinator-level evidence should remain readable');
       assert.ok(report.subject.coordinator_timeline.length > 0, 'coordinator-level timeline should remain present');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-REPORT-014: partial coordinator text and markdown keep export health, failed repo row-only output, and successful child drill-down sections', () => {
+    const root = createPartialCoordinatorWorkspace();
+    try {
+      const artifactPath = exportArtifact(root);
+
+      const textResult = runCli(root, ['report', '--input', artifactPath, '--format', 'text']);
+      assert.equal(textResult.status, 0, textResult.stderr);
+      assert.match(textResult.stdout, /Repos: 2 total, 1 exported cleanly, 1 failed/);
+      assert.match(textResult.stdout, /- broken: failed export, no governed project found/i);
+      assert.match(textResult.stdout, /- web: ok, status blocked, run run_web_001/);
+      assert.match(textResult.stdout, /  Approval Policy:/);
+      assert.match(textResult.stdout, /  Governance Events:/);
+      assert.match(textResult.stdout, /  Timeout Events:/);
+      assert.match(textResult.stdout, /  Hook Activity: 2 total, 1 blocked/);
+      assert.match(textResult.stdout, /  Recovery: operator_escalation — approval_policy_blocked/);
+      assert.match(textResult.stdout, /  Continuity:/);
+      assert.match(textResult.stdout, /WARNING: checkpoint tracks run run_web_old, but repo export tracks run_web_001/);
+      const brokenTextStart = textResult.stdout.indexOf('- broken:');
+      const webTextStart = textResult.stdout.indexOf('- web:', brokenTextStart + '- broken:'.length);
+      const brokenTextBlock = textResult.stdout.slice(brokenTextStart, webTextStart === -1 ? undefined : webTextStart);
+      assert.doesNotMatch(brokenTextBlock, /  Turn Timeline:/);
+      assert.doesNotMatch(brokenTextBlock, /  Decisions:/);
+      assert.doesNotMatch(brokenTextBlock, /  Gate Outcomes:/);
+      assert.doesNotMatch(brokenTextBlock, /  Hook Activity:/);
+      assert.doesNotMatch(brokenTextBlock, /  Recovery:/);
+      assert.doesNotMatch(brokenTextBlock, /  Continuity:/);
+
+      const mdResult = runCli(root, ['report', '--input', artifactPath, '--format', 'markdown']);
+      assert.equal(mdResult.status, 0, mdResult.stderr);
+      assert.match(mdResult.stdout, /- Repos: 2 total, 1 exported cleanly, 1 failed/);
+      assert.match(mdResult.stdout, /### web/);
+      assert.match(mdResult.stdout, /#### Approval Policy/);
+      assert.match(mdResult.stdout, /#### Governance Events/);
+      assert.match(mdResult.stdout, /#### Timeout Events/);
+      assert.match(mdResult.stdout, /#### Hook Activity/);
+      assert.match(mdResult.stdout, /#### Recovery/);
+      assert.match(mdResult.stdout, /#### Continuity/);
+      assert.match(mdResult.stdout, /checkpoint tracks run `run_web_old`, but repo export tracks `run_web_001`/);
+      assert.match(mdResult.stdout, /- `broken`: failed export, no governed project found/i);
+      const brokenMdStart = mdResult.stdout.indexOf('- `broken`:');
+      const webMdStart = mdResult.stdout.indexOf('### web', brokenMdStart + '- `broken`:'.length);
+      const brokenMdBlock = mdResult.stdout.slice(brokenMdStart, webMdStart === -1 ? undefined : webMdStart);
+      assert.doesNotMatch(brokenMdBlock, /#### Turn Timeline/);
+      assert.doesNotMatch(brokenMdBlock, /#### Decisions/);
+      assert.doesNotMatch(brokenMdBlock, /#### Gate Outcomes/);
+      assert.doesNotMatch(brokenMdBlock, /#### Hook Activity/);
+      assert.doesNotMatch(brokenMdBlock, /#### Recovery/);
+      assert.doesNotMatch(brokenMdBlock, /#### Continuity/);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

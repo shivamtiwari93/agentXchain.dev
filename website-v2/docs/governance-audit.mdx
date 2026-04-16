@@ -58,6 +58,8 @@ That same boundary applies when the freshly built coordinator export is partial.
 
 `html` follows the same repo-detail contract as the other human-readable audit formats. Successful child repos keep the available per-repo drill-down sections when the nested child export includes them, including Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity. Failed child repos stay row-only plus error even in HTML; the renderer must not fabricate `<h4>` child sections for a repo whose export build failed.
 
+That is not an HTML-only promise. `text`, `markdown`, and `html` all keep the failed repo row visible without fabricated child sections, and all three keep the successful child repo drill-down sections that the nested child export actually contains, including Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity.
+
 Completed coordinator workspaces follow the same terminal contract as `report`: if child repo drift remains visible after the coordinator is already `completed`, `audit` keeps `subject.run.run_id_mismatches` and `subject.run.repo_status_drifts` visible, populates `subject.run.terminal_observability_note`, and omits `subject.run.next_actions`. Text and markdown output render `Terminal drift note: ...`, while HTML output renders the same terminal drift note as visible report metadata instead of implying recovery work still exists.
 
 See [Governance Report Reference](./governance-report) for the full `subject` contract and human-readable section semantics.

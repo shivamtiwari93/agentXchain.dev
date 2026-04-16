@@ -68,6 +68,8 @@ describe('governance report docs contract', () => {
     assert.match(REPORT_DOCS, /repo_ok_count.*repo_error_count.*preserve export health/i);
     assert.match(REPORT_DOCS, /failed repo keeps its `error` row/i);
     assert.match(REPORT_DOCS, /omits turn timelines, decision lists, gate outcomes, hook activity, and recovery details/i);
+    assert.match(REPORT_DOCS, /`text`, `markdown`, and `html` all keep the failed repo row visible without fabricated child sections/i);
+    assert.match(REPORT_DOCS, /Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity/i);
     assert.match(REPORT_DOCS, /HTML follows the same repo-detail contract as the other human-readable formats/i);
     assert.match(REPORT_DOCS, /Barrier Transitions/);
     assert.match(REPORT_DOCS, /Coordinator Decisions/);
@@ -115,12 +117,14 @@ describe('governance report spec alignment', () => {
     assert.match(SPEC, /AT-REPORT-011/);
     assert.match(SPEC, /AT-REPORT-012/);
     assert.match(SPEC, /AT-REPORT-013/);
+    assert.match(SPEC, /AT-REPORT-014/);
     assert.match(SPEC, /markdown/);
     assert.match(SPEC, /html/);
     assert.match(SPEC, /report_version/);
     assert.match(SPEC, /partial coordinator exports remain reportable/i);
     assert.match(SPEC, /repo_ok_count.*repo_error_count.*export-health visibility/i);
     assert.match(SPEC, /html.*same repo-detail boundary/i);
+    assert.match(SPEC, /text, markdown, and html must keep the failed repo row visible without fabricated child sections/i);
   });
 
   it('ships a runtime blocked-guidance spec for governed run next actions', () => {
@@ -193,6 +197,7 @@ describe('governance report spec alignment', () => {
     );
     assert.match(reportCli, /AT-REPORT-010: completed coordinator export stays terminal/);
     assert.match(reportCli, /AT-REPORT-011: report surfaces warn-mode budget state across text, json, markdown, and html/);
+    assert.match(reportCli, /AT-REPORT-014: partial coordinator text and markdown keep export health, failed repo row-only output, and successful child drill-down sections/);
     assert.match(read('cli/test/report-html.test.js'), /AT-HTML-012: partial coordinator html keeps export health/);
   });
 

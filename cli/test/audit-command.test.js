@@ -643,6 +643,50 @@ describe('agentxchain audit', () => {
     assert.doesNotMatch(failedRepoBlock, /<h4>Continuity<\/h4>/);
   });
 
+  it('AT-AUDIT-015: partial coordinator audit text and markdown keep export health, failed repo row-only output, and successful child drill-down sections', () => {
+    const root = createPartialCoordinatorWorkspace();
+
+    const textResult = runCli(root, ['audit', '--format', 'text']);
+    assert.equal(textResult.status, 0, `${textResult.stdout}\n${textResult.stderr}`);
+    assert.match(textResult.stdout, /Repos: 2 total, 1 exported cleanly, 1 failed/);
+    assert.match(textResult.stdout, /- broken: failed export, no governed project found/i);
+    assert.match(textResult.stdout, /- app: ok, status blocked, run run_app_001/);
+    assert.match(textResult.stdout, /  Approval Policy:/);
+    assert.match(textResult.stdout, /  Governance Events:/);
+    assert.match(textResult.stdout, /  Timeout Events:/);
+    assert.match(textResult.stdout, /  Hook Activity: 2 total, 1 blocked/);
+    assert.match(textResult.stdout, /  Recovery: operator_escalation — approval_policy_blocked/);
+    assert.match(textResult.stdout, /  Continuity:/);
+    assert.match(textResult.stdout, /WARNING: checkpoint tracks run run_app_old, but repo export tracks run_app_001/);
+    const brokenTextBlock = textResult.stdout.slice(textResult.stdout.indexOf('- broken:'));
+    assert.doesNotMatch(brokenTextBlock, /  Turn Timeline:/);
+    assert.doesNotMatch(brokenTextBlock, /  Decisions:/);
+    assert.doesNotMatch(brokenTextBlock, /  Gate Outcomes:/);
+    assert.doesNotMatch(brokenTextBlock, /  Hook Activity:/);
+    assert.doesNotMatch(brokenTextBlock, /  Recovery:/);
+    assert.doesNotMatch(brokenTextBlock, /  Continuity:/);
+
+    const mdResult = runCli(root, ['audit', '--format', 'markdown']);
+    assert.equal(mdResult.status, 0, `${mdResult.stdout}\n${mdResult.stderr}`);
+    assert.match(mdResult.stdout, /- Repos: 2 total, 1 exported cleanly, 1 failed/);
+    assert.match(mdResult.stdout, /### app/);
+    assert.match(mdResult.stdout, /#### Approval Policy/);
+    assert.match(mdResult.stdout, /#### Governance Events/);
+    assert.match(mdResult.stdout, /#### Timeout Events/);
+    assert.match(mdResult.stdout, /#### Hook Activity/);
+    assert.match(mdResult.stdout, /#### Recovery/);
+    assert.match(mdResult.stdout, /#### Continuity/);
+    assert.match(mdResult.stdout, /checkpoint tracks run `run_app_old`, but repo export tracks `run_app_001`/);
+    assert.match(mdResult.stdout, /- `broken`: failed export, no governed project found/i);
+    const brokenMdBlock = mdResult.stdout.slice(mdResult.stdout.indexOf('- `broken`:'));
+    assert.doesNotMatch(brokenMdBlock, /#### Turn Timeline/);
+    assert.doesNotMatch(brokenMdBlock, /#### Decisions/);
+    assert.doesNotMatch(brokenMdBlock, /#### Gate Outcomes/);
+    assert.doesNotMatch(brokenMdBlock, /#### Hook Activity/);
+    assert.doesNotMatch(brokenMdBlock, /#### Recovery/);
+    assert.doesNotMatch(brokenMdBlock, /#### Continuity/);
+  });
+
   it('AT-CBAP-004: coordinator audit json preserves repo_run_id_mismatch next actions', () => {
     const root = createCoordinatorWorkspace();
 

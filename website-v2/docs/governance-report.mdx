@@ -258,6 +258,8 @@ Coordinator-export reports carry:
 
 Partial coordinator exports stay reportable. `subject.run.repo_ok_count` and `subject.run.repo_error_count` preserve export health even when one or more child repos have `ok: false`, and the coordinator-level timeline, barrier, decision, and next-action surfaces remain readable from the verified coordinator artifact. What does **not** happen is fake child drill-down: a failed repo keeps its `error` row, but report omits turn timelines, decision lists, gate outcomes, hook activity, and recovery details because there is no embedded child export to summarize.
 
+That repo-detail boundary applies across every human-readable report format, not just HTML. `text`, `markdown`, and `html` all keep the failed repo row visible without fabricated child sections, and all three still render the successful child repo drill-down sections that actually exist in the embedded export, including Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity.
+
 Each `subject.repos[]` row includes:
 
 - `repo_id`

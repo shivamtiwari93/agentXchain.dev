@@ -52,6 +52,7 @@ agentxchain report [--input <path>|-] [--format text|json|markdown|html]
 - `agentxchain_coordinator_export`
 
 For partial coordinator exports where `repos.<repoId>.ok === false`, report must preserve coordinator-level readability and export-health totals while omitting child drill-down fields for the failed repo. A missing embedded child export is not permission to synthesize turns, decisions, gates, hooks, or recovery data.
+That boundary applies across every human-readable report format, not just HTML: text, markdown, and html must keep the failed repo row visible without fabricated child sections, while successful child repos still render whatever drill-down sections the embedded export actually contains.
 
 ### Success output: text / markdown / html
 
@@ -149,6 +150,7 @@ This preserves the verifier output as the authoritative failure explanation.
 - `AT-REPORT-011`: warn-mode budget state is preserved across text, JSON, markdown, and html report formats.
 - `AT-REPORT-012`: partial coordinator exports remain reportable with `repo_ok_count` / `repo_error_count` export-health visibility, and failed child repos keep no drill-down fields because no nested child export exists.
 - `AT-REPORT-013`: coordinator html report preserves export-health totals, keeps the failed child repo row visible without fabricated drill-down sections, and still renders available drill-down sections for successful child repos.
+- `AT-REPORT-014`: partial coordinator text and markdown reports preserve the same repo-detail boundary as html: export-health totals remain visible, failed child repos stay row-only plus error, and successful child repos keep available drill-down sections.
 
 ## Open Questions
 

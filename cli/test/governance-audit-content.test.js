@@ -55,6 +55,7 @@ describe('governance audit docs contract', () => {
     assert.match(AUDIT_DOCS, /must not invent child drill-down sections/i);
     assert.match(AUDIT_DOCS, /turn timelines, decisions, gate outcomes, hook activity, and recovery details stay absent/i);
     assert.match(AUDIT_DOCS, /`html` follows the same repo-detail contract as the other human-readable audit formats/i);
+    assert.match(AUDIT_DOCS, /`text`, `markdown`, and `html` all keep the failed repo row visible without fabricated child sections/i);
     assert.match(AUDIT_DOCS, /Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, and Continuity/i);
     assert.match(AUDIT_DOCS, /must not fabricate `?<h4>`? child sections/i);
     assert.match(AUDIT_DOCS, /Terminal drift note:/);
@@ -75,11 +76,13 @@ describe('governance audit spec alignment', () => {
     assert.match(SPEC, /AT-AUDIT-012/);
     assert.match(SPEC, /AT-AUDIT-013/);
     assert.match(SPEC, /AT-AUDIT-014/);
+    assert.match(SPEC, /AT-AUDIT-015/);
     assert.match(SPEC, /live repo state/i);
     assert.match(SPEC, /governed project or coordinator workspace/i);
     assert.match(SPEC, /partial coordinator audits stay readable/i);
     assert.match(SPEC, /repo_ok_count.*repo_error_count.*preserve export health/i);
     assert.match(SPEC, /successful child repos keep any available drill-down sections in HTML/i);
+    assert.match(SPEC, /text, markdown, and html all keep failed child repos row-only plus error/i);
   });
 
   it('freezes blocked-run audit parity in a standalone runtime spec', () => {
@@ -125,5 +128,6 @@ describe('governance audit spec alignment', () => {
     assert.match(auditCli, /AT-AUDIT-010: completed coordinator audit html keeps terminal child drift observable without next actions/);
     assert.match(auditCli, /AT-AUDIT-011: completed coordinator audit text and markdown keep terminal child drift observable without next actions/);
     assert.match(auditCli, /AT-AUDIT-014: partial coordinator audit html keeps export health, failed repo row, and successful child drill-down sections/);
+    assert.match(auditCli, /AT-AUDIT-015: partial coordinator audit text and markdown keep export health, failed repo row-only output, and successful child drill-down sections/);
   });
 });

@@ -56,6 +56,7 @@ agentxchain audit [--format text|json|markdown|html]
 - Coordinator linkage labels like `linked` / `initialized` may remain visible as metadata, but they must not become primary repo-status truth in `audit`.
 - Partial coordinator audits stay readable when a child repo export fails. `subject.run.repo_ok_count` / `subject.run.repo_error_count` preserve export health, the failed repo row keeps its error visible, and child drill-down fields remain absent because `audit` built no nested child export for that repo.
 - HTML parity is part of the operator contract, not an implementation accident. For partial coordinator audits, successful child repos keep any available drill-down sections in HTML (Approval Policy, Governance Events, Timeout Events, Hook Activity, Recovery, Continuity), while failed child repos remain row-only plus error with no fabricated child sections.
+- Text and markdown parity are part of the same operator contract. For partial coordinator audits, text, markdown, and html all keep failed child repos row-only plus error, while successful child repos keep any available drill-down sections already present in the nested child export.
 
 ### Exit codes
 
@@ -84,6 +85,7 @@ agentxchain audit [--format text|json|markdown|html]
 - `AT-AUDIT-012`: governance audit docs treat `html` as a first-class output contract and example path, not an undocumented format token.
 - `AT-AUDIT-013`: partial coordinator audits remain readable with export-health totals, while failed child repos keep no drill-down fields because the built artifact contains no nested child export for that repo.
 - `AT-AUDIT-014`: partial coordinator audit HTML preserves the same repo-detail boundary as `report` HTML: successful child repos keep available drill-down sections, while failed child repos stay row-only plus error.
+- `AT-AUDIT-015`: partial coordinator audit text and markdown preserve the same repo-detail boundary as HTML: export-health totals remain visible, failed child repos stay row-only plus error, and successful child repos keep available drill-down sections.
 
 ## Open Questions
 
