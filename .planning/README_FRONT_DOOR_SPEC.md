@@ -32,6 +32,12 @@ The front-door docs must:
 5. Preserve legacy IDE-window coordination as compatibility mode, but not as the primary product story.
 6. Link to the public docs surface on `agentxchain.dev`.
 7. Mention the scaffold-time local dev override path (`--dev-command`, `--dev-prompt-transport`) when describing governed setup.
+8. Keep the front-door inspection boundary truthful:
+   - `dashboard` and `audit` read the live current repo/workspace
+   - `export` writes the portable raw artifact
+   - `report --input` reads an existing verified artifact into a derived governance summary
+   - `replay export` reads an existing verified artifact into the read-only dashboard
+   - partial coordinator artifacts remain valid for `report --input` and `replay export`, preserve `repo_ok_count` / `repo_error_count`, and do not fabricate failed-child drill-down
 
 ## Error Cases
 
@@ -40,6 +46,8 @@ The front-door docs must:
 - README implies `api_proxy` is general-purpose when current support is review-only.
 - README references examples or commands that do not exist in-tree.
 - Repo README and npm README tell different product stories.
+- README collapses live inspection (`dashboard`, `audit`) and artifact inspection (`report --input`, `replay export`) into one vague "reporting" story.
+- README omits partial coordinator artifact behavior where it mentions export-backed inspection.
 
 ## Acceptance Tests
 
@@ -48,6 +56,8 @@ The front-door docs must:
 3. `README.md`, `cli/README.md`, and `examples/governed-todo-app/README.md` contain no `.agentxchain/staging/turn-result.json` singleton references.
 4. Both READMEs link to `https://agentxchain.dev/docs/quickstart`, `https://agentxchain.dev/docs/cli`, and `https://agentxchain.dev/docs/protocol`.
 5. Example README instructs the operator to use the turn-specific staging path printed by `step`.
+6. `README.md` and `cli/README.md` keep `dashboard`/`audit` as live-state surfaces, `export` as the portable artifact surface, and `report --input`/`replay export` as existing-artifact surfaces.
+7. When `README.md` or `cli/README.md` mention partial coordinator artifacts, they preserve `repo_ok_count` / `repo_error_count` visibility and explicitly reject fabricated failed-child drill-down.
 
 ## Open Questions
 

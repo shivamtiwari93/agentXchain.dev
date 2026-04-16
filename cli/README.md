@@ -173,7 +173,7 @@ agentxchain step
 | `verify turn` | Replay a staged turn's declared machine-evidence commands to confirm reproducibility before acceptance |
 | `replay turn` | Replay an accepted turn's machine-evidence commands from history for audit and drift detection |
 | `verify protocol` | Run the shipped protocol conformance suite against a target implementation |
-| `dashboard` | Open the local governance dashboard in your browser for repo-local runs or multi-repo coordinator initiatives, including pending gate approvals |
+| `dashboard` | Open the live local governance dashboard in your browser for the current repo/workspace or multi-repo coordinator initiative, including pending gate approvals |
 | `run [--auto-approve] [--max-turns N] [--dry-run]` | Drive a governed run from start to completion — dispatches turns, handles gates, manages rejection/retry |
 
 ### Governed proof and inspection
@@ -183,6 +183,7 @@ agentxchain step
 | `audit [--format json]` | Live governance audit report for the current repo/workspace with cost summary, decision history, and artifact inventory |
 | `diff <left> <right>` | Compare two governed runs side by side (phase, decisions, artifacts, timing) |
 | `report` | Generate a governance report from a verified export artifact (`--input <path>` or stdin) |
+| `replay export <export-file>` | Open an existing verified export artifact in the read-only dashboard for offline post-mortem inspection |
 | `events [--type <type>] [--limit N]` | Inspect the lifecycle event stream (turns, phases, gates, governance events) |
 | `history [--limit N] [--role <role>]` | Query accepted-turn history from append-only JSONL |
 | `role list\|show` | List all configured roles or inspect a single role's charter, runtime, and phase assignment |
@@ -207,6 +208,8 @@ Partial coordinator artifacts are first-class here too: `audit` and `report` kee
 | `export [--output <path>]` | Export the portable raw governed/coordinator artifact for continuity or offline review |
 | `restore --input <path>` | Restore run state from a prior export on a same-repo, same-commit checkout |
 | `restart` | Rebuild lost session context from `.agentxchain/session.json` |
+
+`dashboard` and `audit` read the live current repo/workspace. `report --input` and `replay export` read an existing verified export artifact instead: `report` renders a derived summary, while `replay export` opens the read-only dashboard. Partial coordinator artifacts remain first-class here too: `report` and `replay export` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.
 
 ### Shared utilities
 

@@ -19,19 +19,21 @@ Keep the README front doors discoverable without turning them into an unreadable
    - proof and inspection commands
    - automation, plugins, and continuity commands
 4. `doctor` must remain discoverable in governed surfaces without relying on the legacy compatibility section.
-5. No command should disappear from the front door solely because the structure changed.
+5. Artifact-inspection commands that are first-class operator paths must remain discoverable in the grouped structure, including `replay export`.
+6. No command should disappear from the front door solely because the structure changed.
 
 ## Error Cases
 
 - A future edit collapses the governed command matrix back into one oversized table.
 - A command moves back into legacy-only framing even though it is part of governed operation.
 - A grouped heading exists, but key commands are missing from the relevant governed section.
+- `replay export` disappears from the front door even though it is the shipped artifact-backed dashboard path.
 
 ## Acceptance Tests
 
 - `README.md` contains grouped governed command headings under `Canonical Governed Commands`.
 - `cli/README.md` contains multiple governed command-group headings under `Command Sets`.
-- `run`, `audit`, `doctor`, `connector check`, `plugin list-available`, `export`, and `restore` remain discoverable after the restructure.
+- `run`, `audit`, `doctor`, `connector check`, `plugin list-available`, `export`, `restore`, and `replay export` remain discoverable after the restructure.
 
 ## Open Questions
 

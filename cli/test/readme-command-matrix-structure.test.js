@@ -41,7 +41,7 @@ describe('AT-README-MATRIX-002: cli/README.md splits governed commands into mult
 });
 
 describe('AT-README-MATRIX-003: critical governed commands remain discoverable after restructuring', () => {
-  const criticalCommands = ['run', 'audit', 'doctor', 'connector check', 'plugin list-available', 'export', 'restore'];
+  const criticalCommands = ['run', 'audit', 'doctor', 'connector check', 'plugin list-available', 'export', 'restore', 'replay export'];
   for (const cmd of criticalCommands) {
     it(`both READMEs still mention ${cmd}`, () => {
       assert.ok(readmeContent.includes(cmd), `README.md must still mention "${cmd}"`);

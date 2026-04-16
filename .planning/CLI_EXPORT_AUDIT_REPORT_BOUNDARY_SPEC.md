@@ -14,6 +14,11 @@ Freeze the front-door CLI contract for the three adjacent governance surfaces th
 
 These are intentionally related, but they are **not interchangeable**. If the CLI reference or repo READMEs blur them, operators lose the artifact boundary, restore/handoff guidance becomes sloppy, and future docs drift starts from the front door.
 
+Front-door docs must also keep the adjacent dashboard boundary explicit:
+
+- `agentxchain dashboard` reads the live current repo/workspace
+- `agentxchain replay export <file>` reads an existing verified artifact into the read-only dashboard
+
 ## Interface
 
 The front-door docs surfaces must present these commands as three distinct surfaces:
@@ -63,12 +68,15 @@ The front-door docs must make the operator choice explicit:
 - use `export` when you need the portable raw artifact
 - use `audit` when you need the live current-repo audit
 - use `report` when you already have an artifact and want the verified derived summary
+- use `replay export` when you already have an artifact and want the read-only dashboard instead of a derived summary
+- keep `dashboard` distinct from `replay export`: `dashboard` is live-state only
 
 ### Partial coordinator rule
 
 - Front-door docs must say partial coordinator artifacts are valid, readable surfaces.
 - `audit` and `report` must keep per-repo export-health visibility (`repo_ok_count` / `repo_error_count`) plus the failed repo row and error when `repos.<repoId>.ok === false`.
 - Front-door docs must say failed child repos do **not** get fabricated drill-down sections when the nested child export is unavailable.
+- Front-door docs must say partial coordinator artifacts remain valid for `replay export` as well as `report`.
 
 ## Error Cases
 
@@ -76,6 +84,8 @@ The front-door docs must make the operator choice explicit:
 - CLI docs describe `audit` as reading `--input`
 - CLI docs describe `report` as reading live repo state directly
 - CLI docs describe `export` as if it were already the derived report surface
+- Front-door docs imply `dashboard` can open a saved export artifact
+- Front-door docs omit `replay export` from the operator choice boundary
 - Front-door docs fail to mention that partial coordinator artifacts remain readable without fabricating failed-child drill-down
 
 ## Acceptance Tests
@@ -87,6 +97,7 @@ The front-door docs must make the operator choice explicit:
 - `AT-CLI-EAR-005`: Guard tests fail if the CLI front door blurs those three surfaces back into one interchangeable summary path.
 - `AT-CLI-EAR-006`: `README.md` and `cli/README.md` keep `audit` live-state, `report` verified-artifact, and `export` portable-artifact boundaries truthful.
 - `AT-CLI-EAR-007`: front-door docs state the partial coordinator boundary: export-health counts stay visible, failed repos keep row + error, and failed-child drill-down stays absent.
+- `AT-CLI-EAR-008`: front-door docs keep `dashboard` live-state only, `replay export` existing-artifact only, and preserve the same partial coordinator boundary for `replay export`.
 
 ## Open Questions
 

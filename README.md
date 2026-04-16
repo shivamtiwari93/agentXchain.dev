@@ -276,15 +276,16 @@ agentxchain reject-turn --turn <id> --reason "..."
 agentxchain reject-turn --turn <id> --reassign
 agentxchain approve-transition
 agentxchain approve-completion
-agentxchain dashboard
+agentxchain dashboard                        # live dashboard for the current repo/workspace
 ```
 
 ### Proof And Inspection
 
 ```bash
-agentxchain audit                            # live governance audit report
+agentxchain audit                            # live governance audit report for the current repo/workspace
 agentxchain diff <left> <right>              # compare two governed runs or two export artifacts (--export)
-agentxchain report                           # generate governance report
+agentxchain report --input <export.json>     # generate governance report from a verified export artifact
+agentxchain replay export <export.json>      # open an existing export artifact in the read-only dashboard
 agentxchain events                           # inspect lifecycle event stream
 agentxchain history                          # query accepted-turn history
 agentxchain role list                        # list configured roles and charters
@@ -312,8 +313,10 @@ agentxchain multi resume                        # clear a blocked coordinator af
 agentxchain plugin list
 agentxchain plugin list-available
 agentxchain plugin install slack-notify
-agentxchain export                           # export run state for cross-machine continuity
+agentxchain export                           # export the portable raw governed/coordinator artifact
 ```
+
+`dashboard` and `audit` read the live current repo/workspace. `export` writes the portable raw artifact. `report --input` reads an existing verified artifact into a derived summary, and `replay export` opens that existing artifact in the read-only dashboard. Partial coordinator artifacts stay valid for `report --input` and `replay export`: they keep repo rows plus `repo_ok_count` / `repo_error_count`, but they do not fabricate child drill-down for the failed repo.
 
 ### `agentxchain run`
 
@@ -428,6 +431,7 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - `audit`: live governance audit report for the current repo/workspace with cost summary, decision history, and artifact inventory
 - `diff <left> <right>`: compare two governed runs side by side (phase, decisions, artifacts, timing)
 - `report`: generate a governance report from a verified export artifact (`--input` or stdin)
+- `replay export <export-file>`: open an existing verified export artifact in the read-only dashboard for offline post-mortem inspection
 - `events`: inspect the lifecycle event stream (turns, phases, gates, governance events)
 - `history`: query accepted-turn history from append-only JSONL
 - `role list`: list all configured roles with their charters, runtimes, and phase assignments
@@ -441,7 +445,7 @@ See [Lights-Out Scheduling](https://agentxchain.dev/docs/lights-out-scheduling/)
 - `connector check`: live health probes for all configured connectors (api_proxy, remote_agent, MCP)
 - `export`: export the portable raw governed/coordinator artifact for continuity or offline review (`restore` remains run-export-only; coordinator exports are for audit/report/replay)
 
-Partial coordinator artifacts are first-class here too: `audit` and `report` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.
+`dashboard` and `audit` read the live current repo/workspace. `report --input` and `replay export` read an existing verified export artifact instead: `report` renders a derived governance document, while `replay export` opens the read-only dashboard. Partial coordinator artifacts are first-class here too: `report` and `replay export` keep repo rows plus `repo_ok_count` / `repo_error_count` export-health totals when a child export fails, and they do not fabricate child drill-down for the failed repo.
 
 ### Shared project utilities
 

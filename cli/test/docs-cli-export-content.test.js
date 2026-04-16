@@ -83,6 +83,16 @@ describe('Export CLI docs contract', () => {
     assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-007/);
   });
 
+  it('AT-CLI-EAR-008: front-door docs keep dashboard live-state and replay export artifact-state explicit', () => {
+    for (const doc of [ROOT_README, CLI_README]) {
+      assert.match(doc, /`dashboard` and `audit` read the live current repo\/workspace/i);
+      assert.match(doc, /`report --input` and `replay export` read an existing verified export artifact/i);
+      assert.match(doc, /`replay export` opens the read-only dashboard/i);
+      assert.doesNotMatch(doc, /dashboard.*open.*saved export artifact/i);
+    }
+    assert.match(BOUNDARY_SPEC, /AT-CLI-EAR-008/);
+  });
+
   it('documents both governed project and coordinator workspace export', () => {
     assert.match(CLI_DOCS, /governed project/i);
     assert.match(CLI_DOCS, /coordinator workspace/i);
