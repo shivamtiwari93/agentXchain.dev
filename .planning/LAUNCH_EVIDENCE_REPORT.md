@@ -1,6 +1,6 @@
-# Launch Evidence Report — AgentXchain v2.104.0
+# Launch Evidence Report — AgentXchain v2.105.0
 
-> Single-source evidence artifact for launch-facing claims. Updated 2026-04-15 for the v2.104.0 release: governed planning artifacts can now be regenerated with `agentxchain generate planning`, the scaffold contract is centralized in one builder, and tagged publish verification now proves the release workflow contract via the publish-gate subset. 4710 tests / 1004 suites / 0 failures.
+> Single-source evidence artifact for launch-facing claims. Updated 2026-04-16 for the v2.105.0 release: public comparison pages now acknowledge current competitor capabilities across the shipped compare surface, the competitive matrix is aligned to that truth boundary, and `release-bump.sh` now enforces a trailer-bearing release commit before tagging. 5054 tests / 1052 suites / 0 failures.
 
 ---
 
@@ -8,9 +8,9 @@
 
 ### E1 — Automated Test Suite
 
-- **Date**: continuously maintained through 2026-04-15
+- **Date**: continuously maintained through 2026-04-16
 - **Location**: `cli/test/` (run via `cd cli && node --test`)
-- **Result**: 4710 tests / 1004 suites / 0 failures
+- **Result**: 5054 tests / 1052 suites / 0 failures
 - **What it proves**:
   - Governed state machine transitions: init, step, accept, reject, approve-transition, approve-completion, resume, migrate
   - Schema validation for turn results (v1 schema)
@@ -295,7 +295,7 @@ Each claim is anchored to specific evidence. Launch surfaces may use these claim
 
 | Claim | Evidence | Notes |
 |-------|----------|-------|
-| "4710 tests / 1004 suites / 0 failures" | E1 (current release verification through 2026-04-15) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
+| "5054 tests / 1052 suites / 0 failures" | E1 (current release verification through 2026-04-16) | Use the current aggregate release evidence line; do not inflate beyond the verified count. |
 | "Every turn must include an objection / blind agreement is rejected" | E1 (schema validation tests, governed-state tests) | Protocol-level enforcement, not a suggestion. |
 | "The protocol requires human approval for phase transitions and final completion" | E1 (gate-evaluator tests, governed-state tests) + E2 (planning gate approved live, final completion approved live) | Phrase this as a protocol guarantee first; live approval evidence now exists for the three-adapter dogfood path. |
 | "Append-only audit trail" / "structured history" | E1 (history.jsonl tests) + E2 (live history entries captured) | |
@@ -345,7 +345,7 @@ These are the most valuable evidence items that do not yet exist. Ordered by lau
 
 ## Audit
 
-- **Test count verified**: 2026-04-15 release verification is 4710 tests / 1004 suites / 0 failures. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
+- **Test count verified**: 2026-04-16 release verification is 5054 tests / 1052 suites / 0 failures. Public launch copy must use this current aggregate evidence line instead of stale launch-era floors.
 - **Launch surfaces checked**: SHOW_HN_DRAFT.md, LAUNCH_BRIEF.md, README.md, website-v2/src/pages/index.tsx, website-v2/src/pages/why.mdx — no disallowed claims found; 2026-04-07 completion-proof refresh removed the stale "final completion unproven" constraint
 - **Evidence sources read**: LIVE_SCENARIO_A_REPORT.md, LIVE_API_PROXY_PREFLIGHT_REPORT.md, MCP_LIVE_DOGFOOD_REPORT.md, test suite output
 - **2026-04-07 MCP dogfood**: Live MCP proof added for both stdio (`turn_e41e35ba8eea9768`) and streamable_http (`turn_5292f4de9e01ea71`) transports. This expanded the launch-era live CLI total from the original three-adapter path to four adapters before later `remote_agent` proof completed the current five-adapter surface. Evidence gap E2b closed.

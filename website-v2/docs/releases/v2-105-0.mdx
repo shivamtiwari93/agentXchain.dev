@@ -1,0 +1,38 @@
+---
+sidebar_position: 0
+title: "v2.105.0 Release Notes"
+description: "Comparison pages now keep competitor capabilities truthful, and the release bump path enforces a trailer-bearing commit before tagging."
+---
+
+# AgentXchain v2.105.0
+
+`v2.105.0` repairs public comparison truth across the competitive surface and hardens the release identity path so tagged cuts cannot skip the required commit trailer.
+
+**Released:** 2026-04-16
+
+## What Changed
+
+- Public comparison pages now acknowledge the current official runtime capabilities of CrewAI, LangGraph, AG2/AutoGen, Devin, OpenHands, MetaGPT, and the OpenAI Agents SDK.
+- The contrast is now explicit and honest: those products can offer rich runtime primitives, tracing, sessions, HITL, or orchestration, but AgentXchain differentiates on governed repository delivery, decision-ledger semantics, challenge requirements, phase gates, and cross-repo convergence.
+- The competitive positioning matrix and compare-specific guard tests were tightened so future edits have to preserve that truth boundary instead of sliding back into stale or overstated claims.
+- `release-bump.sh` now requires `--coauthored-by`, writes the `Co-Authored-By:` trailer into the release commit body, and verifies that trailer before it creates the annotated release tag.
+- Release-path proof blockers were cleaned up around coordinator mismatch formatting, multi-repo approval messaging, remote-agent connection-failure expectations, and the restore README boundary.
+
+## Why This Matters
+
+Comparison pages are part of the product contract, not disposable marketing copy. If they understate current competitor capabilities, the AgentXchain contrast gets weaker, not stronger, because the reader can spot the drift immediately.
+
+This release fixes that by moving every comparison back to the real product boundary: AgentXchain is not claiming that other frameworks lack runtime features they clearly ship. It is claiming that governed long-horizon repository delivery still needs a stronger constitutional layer.
+
+The same rule applies to releases themselves. A tagged cut that silently omits the required `Co-Authored-By` trailer is a broken release identity path. `v2.105.0` closes that gap in the shipped tooling instead of relying on manual cleanup after the fact.
+
+## Proof
+
+- Updated comparison specs and tests for CrewAI, LangGraph, AG2/AutoGen, Devin, OpenHands, MetaGPT, and the OpenAI Agents SDK
+- Competitive positioning matrix refreshed to match the repaired comparison boundaries
+- Release identity hardening coverage expanded in `cli/test/release-identity-hardening.test.js`
+- Full CLI suite re-run after fixing stale expectation drift in the blocking surfaces
+
+## Evidence
+
+- 5054 tests / 1052 suites / 0 failures

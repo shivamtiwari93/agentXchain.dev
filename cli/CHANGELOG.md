@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.105.0
+
+`2.105.0` tightens public comparison truth and hardens the release identity path so tagged cuts carry the required commit trailer.
+
+- Comparison pages now acknowledge the current official runtime capabilities of CrewAI, LangGraph, AG2/AutoGen, Devin, OpenHands, MetaGPT, and the OpenAI Agents SDK instead of leaning on stale shorthand
+- The competitive positioning matrix and compare-specific docs/tests now freeze those truth boundaries, so future edits have to keep the contrast on repository-delivery governance rather than denying competitor runtime features
+- `release-bump.sh` now requires `--coauthored-by`, writes the `Co-Authored-By:` trailer into the release commit body, and verifies that trailer before creating the annotated tag
+- Release-path drift guards were repaired around coordinator blocker output, multi-repo approval phrasing, remote-agent connection-failure handling, and the restore README boundary
+- 5054 tests / 1052 suites / 0 failures
+
 ## 2.104.0
 
 `2.104.0` closes a workflow-kit recovery gap and hardens the tagged publish gate around the actual workflow contract.
