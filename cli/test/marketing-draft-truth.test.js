@@ -54,6 +54,7 @@ const fixtureCount = countFixtures(join(ROOT, '.agentxchain-conformance', 'fixtu
 const launchPageSpec = read('.planning/LAUNCH_PAGE_SPEC.md');
 const marketingSpecPath = join(ROOT, '.planning', 'MARKETING_DRAFT_TRUTH_SPEC.md');
 const marketingSpec = read('.planning/MARKETING_DRAFT_TRUTH_SPEC.md');
+const launchEvidenceReport = read('.planning/LAUNCH_EVIDENCE_REPORT.md');
 
 const drafts = [
   ['Twitter thread', read('.planning/MARKETING/TWITTER_THREAD.md')],
@@ -75,15 +76,29 @@ describe('marketing draft truth spec', () => {
       'AT-MARKETING-TRUTH-004',
       'AT-MARKETING-TRUTH-005',
       'AT-MARKETING-TRUTH-006',
+      'AT-MARKETING-TRUTH-007',
     ]) {
       assert.match(marketingSpec, new RegExp(id));
     }
+  });
+
+  it('defines canonical numeric authority instead of split authority between changelog and report', () => {
+    assert.match(marketingSpec, /Canonical current release truth sources:/);
+    assert.match(marketingSpec, /Exact release version and aggregate evidence numbers are canonical in `cli\/package\.json` and the top `cli\/CHANGELOG\.md` section/i);
+    assert.match(marketingSpec, /\.planning\/LAUNCH_EVIDENCE_REPORT\.md` must mirror the same current version and aggregate evidence line/i);
   });
 
   it('keeps the launch-page spec honest about historical launch page vs current drafts', () => {
     assert.match(launchPageSpec, /historical v2\.24\.1 launch snapshot/i);
     assert.match(launchPageSpec, /Launch-linked drafts under `\.planning\/MARKETING\/` must track current release truth/);
     assert.match(launchPageSpec, /all five adapter types are proven live/i);
+  });
+
+  it('keeps the launch evidence report aligned with the changelog-derived evidence line', () => {
+    assert.match(launchEvidenceReport, new RegExp(`v${escapeRegExp(expectedVersion)}`),
+      `LAUNCH_EVIDENCE_REPORT must mention v${expectedVersion}`);
+    assert.match(launchEvidenceReport, new RegExp(escapeRegExp(expectedEvidenceLine)),
+      `LAUNCH_EVIDENCE_REPORT must carry ${expectedEvidenceLine}`);
   });
 });
 
