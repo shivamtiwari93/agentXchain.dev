@@ -356,6 +356,19 @@ describe('run export schema docs contract', () => {
     assert.match(EXPORT_DOCS, /superseding_active_count/);
     assert.match(EXPORT_DOCS, /overridden_with_successor_count/);
   });
+
+  it('AT-EXPORT-REF-009: distinguishes export-time snapshot metadata from history-derived summary metadata', () => {
+    assert.match(EXPORT_DOCS, /export-time operator snapshot/i);
+    assert.match(EXPORT_DOCS, /validates only the stored object shape and status-consistent invariants/i);
+    assert.match(EXPORT_DOCS, /do \*\*not\*\* prove a live dashboard is still running/i);
+    assert.match(EXPORT_DOCS, /derived export summary, not an independent authority ledger/i);
+    assert.match(EXPORT_DOCS, /reconstructed from embedded `.agentxchain\/history\.jsonl` delegation records/i);
+    assert.match(EXPORT_DOCS, /underlying history remains the authority inside the artifact/i);
+    assert.match(SPEC, /AT-EXPORT-REF-009/);
+    assert.match(SPEC, /protocol v7 conformance/i);
+    assert.match(SPEC, /export-time local snapshot/i);
+    assert.match(SPEC, /history-derived summary/i);
+  });
 });
 
 describe('verification report shape docs contract', () => {

@@ -19,8 +19,9 @@ The exporter and verifier already enforce a stable JSON schema, but that truth l
 - File-entry contract: `format`, `bytes`, `sha256`, `content_base64`, `data`
 - Summary-field semantics for run and coordinator artifacts
 - Explicit distinction between raw coordinator snapshot fields and downstream operator-facing comparison/report truth
+- Explicit distinction between export-time summary metadata and richer downstream report surfaces
 - Child-repo embedding and failure contract for coordinator exports
-- Explicit statement that export artifacts are a stable operator contract, not protocol v6 conformance
+- Explicit statement that export artifacts are a stable operator contract, not protocol v7 conformance
 - Code-backed docs guard built from actual exporter and verifier behavior
 
 ### Out of scope
@@ -28,7 +29,7 @@ The exporter and verifier already enforce a stable JSON schema, but that truth l
 - Changing the exporter schema
 - New export formats
 - Detached signatures, attestations, or encryption
-- Promoting export artifacts into protocol v6 conformance
+- Promoting export artifacts into protocol v7 conformance
 
 ## Interface
 
@@ -43,7 +44,7 @@ Public docs surfaces:
 ### Boundary
 
 - Export artifacts are a stable operator-facing inspection contract.
-- They are not protocol v6 conformance surfaces.
+- They are not protocol v7 conformance surfaces.
 - The protocol reference page must say that directly and link to the export schema page instead of blurring the boundary.
 
 ### Run export contract
@@ -69,6 +70,8 @@ The docs must cover the real nested `project` and `summary` fields, including:
 - `summary.hook_audit_entries`, `summary.notification_audit_entries`
 - `summary.dispatch_artifact_files`, `summary.staging_artifact_files`
 - `summary.intake_present`, `summary.coordinator_present`
+- `summary.dashboard_session` as an export-time local snapshot validated for schema/invariants only, not live daemon truth
+- `summary.delegation_summary` as a derived convenience summary reconstructed from embedded history, not an independent authority ledger
 
 ### Coordinator export contract
 
@@ -105,21 +108,24 @@ The docs must explain that `verify export` re-derives `bytes` and `sha256` from 
 
 ## Error Cases
 
-1. The docs blur export schema with protocol v6 conformance
+1. The docs blur export schema with protocol v7 conformance
 2. The docs omit coordinator child-repo failure semantics
 3. The docs omit real top-level or nested keys
 4. The docs blur raw coordinator snapshot metadata with downstream operator-facing report/diff truth
-5. The docs claim fields or behaviors not emitted by exporter/verifier code
+5. The docs blur export-time metadata with live downstream report behavior
+6. The docs claim fields or behaviors not emitted by exporter/verifier code
 
 ## Acceptance Tests
 
 - `AT-EXPORT-REF-001`: `/docs/export-schema` exists and is wired into docs navigation
-- `AT-EXPORT-REF-002`: the page states export artifacts are an operator contract, not protocol v6 conformance
+- `AT-EXPORT-REF-002`: the page states export artifacts are an operator contract, not protocol v7 conformance
 - `AT-EXPORT-REF-003`: the page documents the actual run export top-level, project, summary, and file-entry keys emitted by `buildRunExport()`
 - `AT-EXPORT-REF-004`: the page documents the actual coordinator export top-level, coordinator, summary, and per-repo keys emitted by `buildCoordinatorExport()`
 - `AT-EXPORT-REF-005`: the page documents the real child-repo failure contract (`ok: false` plus `error`) without claiming coordinator export failure
 - `AT-EXPORT-REF-006`: `/docs/protocol-reference` links to the export schema page and keeps the non-normative boundary explicit
+- `AT-EXPORT-REF-007`: the page documents `summary.aggregated_events` verification against embedded child-repo `events.jsonl`
 - `AT-EXPORT-REF-008`: the page distinguishes raw coordinator `summary.repo_run_statuses` snapshot metadata from the authority-first repo-status contract used by report/audit/diff when nested child exports are readable
+- `AT-EXPORT-REF-009`: the page distinguishes `summary.dashboard_session` as export-time local snapshot metadata and `summary.delegation_summary` as history-derived summary metadata, instead of implying either field is an independent live authority surface
 
 ## Open Questions
 

@@ -121,7 +121,14 @@ Every current run export includes a dashboard-session snapshot object:
 | `url` | Dashboard URL when session metadata exists, else `null` |
 | `started_at` | Session start timestamp when known, else `null` |
 
-This is an operator snapshot, not protocol state. It is derived at export time using the same dashboard-session logic used by `doctor` and `status --json`.
+This is an export-time operator snapshot, not protocol state. It is derived at export time using the same dashboard-session logic used by `doctor` and `status --json`.
+
+This field is intentionally local and machine-specific:
+
+- it records what the exporting workspace observed at export time
+- `verify export` validates only the stored object shape and status-consistent invariants
+- verifier-clean artifacts do **not** prove a live dashboard is still running on some later machine
+- downstream surfaces such as [`agentxchain report`](./governance-report) may render this snapshot, but they must treat it as artifact metadata rather than re-probing live daemon state through the export contract
 
 ### `summary.delegation_summary`
 
@@ -151,6 +158,12 @@ Each delegation entry:
 | `charter` | Description of the delegated work |
 | `status` | `"completed"`, `"failed"`, or `"pending"` |
 | `child_turn_id` | Turn that executed the delegation, or `null` if not yet executed |
+
+This is a derived export summary, not an independent authority ledger:
+
+- it is reconstructed from embedded `.agentxchain/history.jsonl` delegation records
+- `verify export` fails closed when the summary disagrees with that embedded history
+- operator-facing surfaces may render the summary for convenience, but the underlying history remains the authority inside the artifact
 
 ### Included governed roots
 
@@ -272,7 +285,7 @@ Each successful child repo entry then embeds the full governed run export for th
 - run-export summary fields against exported `state` and `files`
 - `summary.delegation_summary` reconstructed from embedded `.agentxchain/history.jsonl` — verifies `total_delegations_issued` and `delegation_chains` match the history entries
 - `summary.repo_decisions` reconstructed from embedded `.agentxchain/repo-decisions.jsonl` — verifies `total`, `active_count`, `overridden_count`, and decision arrays match the file
-- `summary.dashboard_session` schema validation — verifies status enum, PID/URL/started_at types, and status-consistent invariants (e.g., `running` requires a PID, `not_running` requires all-null fields)
+- `summary.dashboard_session` schema validation — verifies status enum, PID/URL/started_at types, and status-consistent invariants (e.g., `running` requires a PID, `not_running` requires all-null fields), but does not probe live dashboard state
 - coordinator-export summary fields against exported multirepo state and barriers
 - coordinator `summary.aggregated_events` consistency against embedded child-repo `events.jsonl` data when that summary is present
 - recursive verification of each nested child export when `repos.<repo_id>.ok === true`
