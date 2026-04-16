@@ -1,4 +1,4 @@
-# Hacker News Submission — AgentXchain v2.104.0
+# Hacker News Submission — AgentXchain v2.105.0
 
 > Ready-to-post. Updated 2026-04-16.
 
@@ -34,12 +34,12 @@ npx --yes -p agentxchain@latest -c "agentxchain demo"
 
 This runs a complete governed lifecycle: PM scopes a feature, raises a risk. Dev implements and resolves the risk, raises a new one. QA reviews against acceptance criteria and raises a compliance gap. Three different perspectives, three different failure classes caught.
 
-**What's shipped in v2.104.0:**
+**What's shipped in v2.105.0:**
 - All 5 adapters proven live (manual, local CLI, API proxy, MCP, remote_agent)
 - `local_cli`, `api_proxy`, `mcp`, and `remote_agent` proven with real AI models; `manual` is the human-in-the-loop control path
 - Escalation and recovery: retry exhaustion -> blocked state -> operator recovery, proven through the real CLI
 - Proposal authoring: agents propose changes through a staging area with conflict detection
-- 4710 tests / 1004 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
+- 5054 tests / 1052 suites / 0 failures, 108 conformance fixtures, Protocol v7 spec for third-party implementors
 - Post-release `npx` install verification as part of the release process
 
 **Architecture:**
