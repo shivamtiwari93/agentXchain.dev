@@ -245,8 +245,8 @@ describe('E2E coordinator gate blocker surfacing', () => {
       assert.notEqual(blockedStep.exitCode, 0, 'multi step must fail when repo-local run identity drifts');
       assert.match(blockedStep.stderr, /Coordinator resync entered blocked state:/);
       assert.match(blockedStep.stderr, /\[repo_run_id_mismatch\] Repo "web" run identity drifted:/);
-      assert.match(blockedStep.stderr, new RegExp(`expected:\\s+${expectedRunId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-      assert.match(blockedStep.stderr, new RegExp(`actual:\\s+${(expectedRunId + '-tampered').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+      assert.match(blockedStep.stderr, new RegExp(`Expected:\\s+${expectedRunId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+      assert.match(blockedStep.stderr, new RegExp(`Actual:\\s+${(expectedRunId + '-tampered').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     } finally {
       rmSync(workspace, { recursive: true, force: true });
     }

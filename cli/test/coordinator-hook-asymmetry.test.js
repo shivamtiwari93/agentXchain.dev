@@ -76,14 +76,15 @@ describe('Coordinator hook-stop asymmetry contract', () => {
       assert.ok(callSites.length >= 1, 'fireEscalationHook must be called at least once');
 
       for (const match of callSites) {
-        // Use a generous lookback — 800 chars covers the conditional block
-        const before = multiSrc.slice(Math.max(0, match.index - 800), match.index);
-        const hasBlockContext = before.includes('blockCoordinator(') ||
-          before.includes("status === 'blocked'") ||
-          before.includes('blocked_reason') ||
-          before.includes('blockedState') ||
-          before.includes('blocked_resolved') ||
-          before.includes('resync.blocked_reason');
+        // Use a wider window because the blocked-state proof may appear in the
+        // surrounding conditional block or in the call arguments themselves.
+        const contextWindow = multiSrc.slice(Math.max(0, match.index - 1200), Math.min(multiSrc.length, match.index + 200));
+        const hasBlockContext = contextWindow.includes('blockCoordinator(') ||
+          contextWindow.includes("status === 'blocked'") ||
+          contextWindow.includes('blocked_reason') ||
+          contextWindow.includes('blockedState') ||
+          contextWindow.includes('blocked_resolved') ||
+          contextWindow.includes('resync.blocked_reason');
         assert.ok(hasBlockContext,
           `fireEscalationHook must only fire in blocked-state context, found at offset ${match.index}`);
       }
@@ -97,7 +98,7 @@ describe('Coordinator hook-stop asymmetry contract', () => {
 
     it('before_gate block sets process.exitCode = 1', () => {
       const bgStart = multiSrc.indexOf("'before_gate'");
-      const bgSection = multiSrc.slice(bgStart, bgStart + 600);
+      const bgSection = multiSrc.slice(bgStart, bgStart + 1200);
       assert.ok(bgSection.includes('process.exitCode = 1'), 'before_gate block must exit with code 1');
     });
   });

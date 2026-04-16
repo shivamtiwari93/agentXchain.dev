@@ -317,6 +317,7 @@ agentxchain export                           # export the portable raw governed/
 ```
 
 `dashboard` and `audit` read the live current repo/workspace. `export` writes the portable raw artifact. `report --input` reads an existing verified artifact into a derived summary, and `replay export` opens that existing artifact in the read-only dashboard. Partial coordinator artifacts stay valid for `report --input` and `replay export`: they keep repo rows plus `repo_ok_count` / `repo_error_count`, but they do not fabricate child drill-down for the failed repo.
+Cross-machine continuity stays narrow: `restore` only accepts governed run exports from the same repo at the same git `HEAD`; coordinator exports are for audit/report/replay, not restore.
 
 ### `agentxchain run`
 

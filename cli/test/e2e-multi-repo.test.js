@@ -234,7 +234,7 @@ describe('E2E multi-repo lifecycle', () => {
 
       const approvePhase = runCli(workspace, ['multi', 'approve-gate']);
       assert.equal(approvePhase.status, 0, `stderr: ${approvePhase.stderr}`);
-      assert.match(approvePhase.stdout, /planning → implementation/);
+      assert.match(approvePhase.stdout, /planning -> implementation/);
 
       const implementationApiDispatch = runCli(workspace, ['multi', 'step', '--json']);
       assert.equal(implementationApiDispatch.status, 0, `stderr: ${implementationApiDispatch.stderr}`);

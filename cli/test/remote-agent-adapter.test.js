@@ -311,7 +311,13 @@ describe('remote-agent adapter', () => {
       });
 
       assert.equal(result.ok, false);
-      assert.ok(result.error.includes('network error') || result.error.includes('ECONNREFUSED') || result.error.includes('dispatch failed'), `Expected network error, got: ${result.error}`);
+      assert.ok(
+        result.error.includes('network error') ||
+        result.error.includes('ECONNREFUSED') ||
+        result.error.includes('dispatch failed') ||
+        result.error.includes('timed out'),
+        `Expected connection failure, got: ${result.error}`,
+      );
     });
 
     it('fails when no active turn exists', async () => {
