@@ -15,6 +15,7 @@ const V2_SCOPE = read('.planning/V2_SCOPE_BOUNDARY.md');
 const V2_DASHBOARD = read('.planning/V2_DASHBOARD_SPEC.md');
 const V21_SCOPE = read('.planning/V2_1_SCOPE_BOUNDARY.md');
 const V21_DRILLDOWN = read('.planning/V2_1_DASHBOARD_DRILLDOWN_SPEC.md');
+const DASHBOARD_IMPL_PLAN = read('.planning/DASHBOARD_IMPLEMENTATION_PLAN.md');
 const HISTORICAL_SPEC = read('.planning/DASHBOARD_HISTORICAL_SCOPE_QUARANTINE_SPEC.md');
 
 describe('Dashboard historical scope quarantine', () => {
@@ -52,10 +53,20 @@ describe('Dashboard historical scope quarantine', () => {
     assert.match(V21_DRILLDOWN, /replay export.*read-only/i);
   });
 
+  it('AT-DASH-HIST-005: keeps the dashboard implementation plan historical without teaching obsolete mutability as current truth', () => {
+    assert.match(DASHBOARD_IMPL_PLAN, /Historical implementation-plan note/i);
+    assert.match(DASHBOARD_IMPL_PLAN, /not the current authority for live dashboard mutability/i);
+    assert.match(DASHBOARD_IMPL_PLAN, /DASHBOARD_GATE_ACTIONS_SPEC\.md/);
+    assert.match(DASHBOARD_IMPL_PLAN, /DASHBOARD_DOCS_CONTRACT_SPEC\.md/);
+    assert.match(DASHBOARD_IMPL_PLAN, /authenticated `approve-gate` HTTP mutation/i);
+    assert.match(DASHBOARD_IMPL_PLAN, /WebSocket channel.*read-only/i);
+    assert.match(DASHBOARD_IMPL_PLAN, /Historical v2\.0 baseline: read-only/i);
+  });
+
   it('ships a durable quarantine spec for these historical dashboard files', () => {
     assert.match(HISTORICAL_SPEC, /Dashboard Historical Scope Quarantine Spec/);
     assert.match(HISTORICAL_SPEC, /AT-DASH-HIST-001/);
-    assert.match(HISTORICAL_SPEC, /AT-DASH-HIST-004/);
+    assert.match(HISTORICAL_SPEC, /AT-DASH-HIST-005/);
     assert.match(HISTORICAL_SPEC, /approve-gate/);
     assert.match(HISTORICAL_SPEC, /WebSocket remains read-only/);
   });

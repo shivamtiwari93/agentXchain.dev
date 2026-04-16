@@ -24,6 +24,7 @@ Without that quarantine, the repo tells two incompatible stories at once: "dashb
 - `.planning/V2_DASHBOARD_SPEC.md`
 - `.planning/V2_1_SCOPE_BOUNDARY.md`
 - `.planning/V2_1_DASHBOARD_DRILLDOWN_SPEC.md`
+- `.planning/DASHBOARD_IMPLEMENTATION_PLAN.md`
 
 ### Current authority files they must reference
 
@@ -43,6 +44,7 @@ Without that quarantine, the repo tells two incompatible stories at once: "dashb
    - `replay export` remains the read-only artifact-backed dashboard
 3. Historical files may keep original v2/v2.1 wording such as "dashboard remains read-only," but only when the surrounding text makes the time boundary explicit.
 4. The quarantine must not erase the original release-boundary meaning of the files.
+5. Historical implementation plans may keep obsolete slice structure and old constraints, but only when they label that scope as historical and point to the current mutability authority.
 
 ## Error Cases
 
@@ -50,6 +52,7 @@ Without that quarantine, the repo tells two incompatible stories at once: "dashb
 2. A historical file points only to replay/read-only behavior and omits the live `approve-gate` path: fail the guard.
 3. A historical file implies WebSocket became writable: fail the guard.
 4. A historical file erases its original v2/v2.1 boundary instead of labeling it as historical: fail the guard.
+5. A non-quarantined implementation plan still teaches "read-only dashboard" as current product truth: fail the guard.
 
 ## Acceptance Tests
 
@@ -57,6 +60,7 @@ Without that quarantine, the repo tells two incompatible stories at once: "dashb
 2. `AT-DASH-HIST-002`: `V2_DASHBOARD_SPEC.md` keeps its original v2.0 read-only boundary but labels it as historical and references the superseding live-vs-replay contract.
 3. `AT-DASH-HIST-003`: `V2_1_SCOPE_BOUNDARY.md` marks v2.1 read-only language as historical and does not keep "dashboard write actions" deferred as if no write path ever shipped.
 4. `AT-DASH-HIST-004`: `V2_1_DASHBOARD_DRILLDOWN_SPEC.md` labels its read-only assumption as historical and points to the current live-dashboard authority.
+5. `AT-DASH-HIST-005`: `DASHBOARD_IMPLEMENTATION_PLAN.md` is explicitly quarantined as a historical v2.0 implementation plan and does not teach its read-only baseline as current dashboard truth.
 
 ## Open Questions
 

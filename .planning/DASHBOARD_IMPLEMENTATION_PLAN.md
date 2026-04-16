@@ -1,13 +1,16 @@
 # V2.0 Dashboard — Implementation Plan
 
-> Derived from `V2_DASHBOARD_SPEC.md` (post DEC-DASH-002/003/004 corrections).
-> Read-only. Local bridge server. Vanilla ES modules. No framework build chain.
+> Historical implementation-plan note: this file preserves the original v2.0 dashboard delivery plan and is not the current authority for live dashboard mutability.
+> Original source: `V2_DASHBOARD_SPEC.md` (post DEC-DASH-002/003/004 corrections).
+> Current authority for the shipped live dashboard mutation boundary: `.planning/DASHBOARD_GATE_ACTIONS_SPEC.md` and `.planning/DASHBOARD_DOCS_CONTRACT_SPEC.md`.
+> Later releases superseded the original read-only live-dashboard boundary with a narrow authenticated `approve-gate` HTTP mutation; the WebSocket channel and `replay export` remain read-only.
+> Historical v2.0 baseline: read-only local bridge server, vanilla ES modules, no framework build chain.
 
 ---
 
 ## Guiding Constraints
 
-1. **Read-only in v2.0** (DEC-DASH-002). No write RPC, no CLI proxy, no mutation surface.
+1. **Historical v2.0 baseline: read-only in v2.0** (DEC-DASH-002). No write RPC, no CLI proxy, no mutation surface in this original v2.0 slice.
 2. **Vanilla ES modules** (OQ-DASH-001 resolution). No Preact, no Svelte, no bundler. Ship as static assets served by the bridge.
 3. **Invalidation + refetch** (DEC-DASH-003). WebSocket sends change events; SPA refetches via HTTP. No delta protocol.
 4. **Single-repo, single-run** (non-goal: multi-repo). Dashboard shows the `.agentxchain/` directory of the current working directory.
