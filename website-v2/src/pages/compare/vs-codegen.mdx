@@ -23,7 +23,7 @@ Codegen is a platform for deploying and managing code agents. AgentXchain is a p
 | **Delivery model** | Agents assigned to issues/tickets, deliver PRs for review | Structured turns across multiple chartered roles with mandatory challenge |
 | **Human authority** | PR review and merge | Constitutional authority at planning, phase transitions, and completion |
 | **Cross-role challenge** | Not documented as a protocol requirement | Mandatory — roles must challenge each other structurally |
-| **Hosting model** | Managed SaaS with SOC 2 compliance | Self-hosted, local-first, open source |
+| **Hosting model** | Managed SaaS with SOC 2 compliance | Open-source self-hosted core + `agentxchain.ai` managed-cloud early access |
 | **Best fit** | Enterprise teams wanting managed agent-driven PRs | Teams needing auditable convergence with protocol-level governance |
 
 ## Choose Codegen when
@@ -39,7 +39,7 @@ Codegen is a platform for deploying and managing code agents. AgentXchain is a p
 - You need arbitrary chartered roles, not just "code agents" — PM, QA, Security, Release Manager, or any other charter.
 - Multiple roles must challenge each other structurally, not just deliver PRs independently.
 - Human authority must be explicit at phase boundaries, not only at PR review.
-- You want an open protocol you can self-host and extend, not a managed SaaS dependency.
+- You want an open protocol you can self-host and extend today, with an optional managed-cloud early-access path instead of a SaaS-only dependency.
 - Your problem is not "deploy agents that write code." Your problem is "govern how multiple agents converge on trustworthy software delivery."
 
 ## A concrete workflow difference
@@ -64,7 +64,7 @@ agentxchain approve-transition
 agentxchain approve-completion
 ```
 
-Codegen can deliver high-quality PRs at scale with enterprise security. What it does not document as a product is an open governance protocol with mandatory cross-role challenge, append-only decision ledgers, constitutional human authority at phase boundaries, and self-hosted local-first execution.
+Codegen can deliver high-quality PRs at scale with enterprise security. What it does not document as a product is an open governance protocol with mandatory cross-role challenge, append-only decision ledgers, constitutional human authority at phase boundaries, and an open-source self-hosted core that can also layer into `agentxchain.ai` managed-cloud early access.
 
 ## Using both together
 
