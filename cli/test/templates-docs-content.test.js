@@ -218,6 +218,30 @@ describe('Templates docs surface', () => {
     }
   });
 
+  it('keeps the evidence boundary explicit even when template shape changes', () => {
+    for (const term of [
+      'agentxchain audit --format markdown',
+      'agentxchain export --format json > governance-export.json',
+      'agentxchain report --input governance-export.json --format markdown',
+      'live current repo or workspace',
+      'existing export artifact',
+      'repo_ok_count',
+      'repo_error_count',
+      'failed repo row and error',
+    ]) {
+      assert.ok(TEMPLATES_DOC_SOURCE.includes(term), `templates docs must mention ${term}`);
+    }
+
+    for (const term of [
+      'audit` is the live current repo/workspace inspection path',
+      'report --input ...` reads an existing export artifact',
+      'repo_ok_count',
+      'repo_error_count',
+    ]) {
+      assert.ok(TEMPLATES_SPEC.includes(term), `templates spec must mention ${term}`);
+    }
+  });
+
   it('documents explicit workflow_kit custom artifact proof honestly', () => {
     for (const term of [
       'Explicit `workflow_kit` for custom phases',

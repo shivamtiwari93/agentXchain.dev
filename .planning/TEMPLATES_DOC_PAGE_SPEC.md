@@ -23,6 +23,7 @@ This page must document the real product contract:
 - blueprint-backed templates may be init-only when they redefine team topology or the default runtime mix
 - authoring a new blueprint-backed template is a CLI-source extension, not a runtime operator command
 - `status` and `status --json` keep template choice visible to operators and automation
+- template choice does not change the `audit` / `export` / `report --input` evidence boundary
 
 ## Interface
 
@@ -185,6 +186,18 @@ The front-door repo docs and fast-start docs must keep the discovery commands vi
 - `cli/README.md` must show `agentxchain template list --phase-templates`
 - `website-v2/docs/getting-started.mdx` must show `agentxchain template list --phase-templates`
 
+### 7a. Preserve the evidence boundary honestly
+
+The templates page must state that template choice does not create a different audit/report mode.
+
+It must teach:
+
+- `agentxchain audit` is the live current repo/workspace inspection path
+- `agentxchain export` writes the portable artifact
+- `agentxchain report --input ...` reads an existing export artifact
+- template-specific planning files and workflow-kit artifacts surface through those same commands
+- coordinator partial artifacts keep `repo_ok_count` / `repo_error_count` plus the failed repo row and error, but do not fabricate failed-child drill-down
+
 ### 8. Describe blueprint authoring honestly
 
 The page must not imply operators can drop arbitrary local template manifests into an existing install.
@@ -225,6 +238,7 @@ It must state the real extension path:
 12. `README.md` and `cli/README.md` link to `/docs/templates` and show both `agentxchain template list` and `agentxchain template list --phase-templates`.
 13. `website-v2/docs/getting-started.mdx` shows `agentxchain template list --phase-templates` as part of the custom-phase workflow.
 14. The page documents blueprint authoring as a built-in CLI extension path via `cli/src/templates/governed/<id>.json` and `VALID_GOVERNED_TEMPLATE_IDS`, not as an operator runtime command.
+15. The page documents the shared `audit` / `export` / `report --input` evidence boundary and preserves the partial coordinator artifact rule.
 
 ## Open Questions
 

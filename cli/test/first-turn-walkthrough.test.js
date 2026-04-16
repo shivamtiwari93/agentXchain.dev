@@ -46,6 +46,17 @@ describe('first-turn walkthrough docs', () => {
     assert.ok(content.includes('DEC-001'), 'must show at least one decision ID example');
   });
 
+  it('teaches the evidence boundary instead of flattening everything into the ledger', () => {
+    assert.ok(content.includes('agentxchain audit --format markdown'), 'must show audit command');
+    assert.ok(content.includes('agentxchain export --format json > governance-export.json'), 'must show export command');
+    assert.ok(content.includes('agentxchain report --input governance-export.json --format markdown'), 'must show report --input command');
+    assert.ok(content.includes('live current repo or workspace'), 'must describe audit as live-state inspection');
+    assert.ok(content.includes('existing export artifact'), 'must describe report as artifact-backed');
+    assert.ok(content.includes('repo_ok_count'), 'must preserve partial coordinator export-health visibility');
+    assert.ok(content.includes('repo_error_count'), 'must preserve partial coordinator export-health visibility');
+    assert.ok(content.includes('failed repo row plus error'), 'must preserve failed repo row visibility');
+  });
+
   it('shows an objection example', () => {
     assert.ok(content.includes('OBJ-001'), 'must show at least one objection ID example');
     assert.ok(content.includes('objections'), 'must explain objections');

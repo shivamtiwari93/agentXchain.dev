@@ -21,6 +21,12 @@ The quickstart is comprehensive but dense (500+ lines). An evaluator who just ra
   - `step` waits for the staged result and auto-accepts the turn when validation passes
   - planning gate covers `.planning/PM_SIGNOFF.md`, `.planning/ROADMAP.md`, and `.planning/SYSTEM_SPEC.md`
   - QA completion gate covers `.planning/acceptance-matrix.md`, `.planning/ship-verdict.md`, and `.planning/RELEASE_NOTES.md`
+  - evidence commands keep the same front-door boundary as the CLI reference:
+    - `audit` is the live repo/workspace summary
+    - `export` is the portable artifact
+    - `report --input` reads an existing export artifact
+  - the page must not teach the decision ledger as if it were the only operator inspection surface
+  - the page must preserve the partial coordinator artifact rule even though the walkthrough itself is single-repo
 
 ## Acceptance Tests
 
@@ -33,6 +39,7 @@ The quickstart is comprehensive but dense (500+ lines). An evaluator who just ra
 - `AT-FTW-007`: Guard test ensures the page exists and contains key structural markers
 - `AT-FTW-008`: Guard test rejects stale dispatch-bundle claims like `DISPATCH.json`
 - `AT-FTW-009`: Page documents the real happy path: `agentxchain step` assigns, waits, and auto-accepts before `approve-transition`
+- `AT-FTW-010`: Page documents `audit`, `export`, and `report --input` with the live-state vs artifact boundary and preserves the partial coordinator rule (`repo_ok_count` / `repo_error_count`, failed repo row + error, no fabricated failed-child drill-down)
 
 ## Not In Scope
 

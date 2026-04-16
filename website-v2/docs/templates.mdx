@@ -104,6 +104,28 @@ The JSON output exposes a dedicated `workflow_kit` block so automation can disti
 
 The workflow-kit proof now includes `.planning/SYSTEM_SPEC.md`. First-party governed planning is not allowed to exit with no subsystem contract at all.
 
+## Template Choice Does Not Change The Evidence Boundary
+
+Templates change scaffold intent and planning artifacts. They do **not** create a separate audit/report mode.
+
+Use the same evidence commands regardless of whether the repo is `generic`, `cli-tool`, `web-app`, or a blueprint-backed `enterprise-app`:
+
+```bash
+agentxchain audit --format markdown
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
+
+The contract stays the same:
+
+- `audit` inspects the **live current repo or workspace**
+- `export` writes the **portable governed or coordinator artifact**
+- `report --input` reads an **existing export artifact**, not live repo state
+
+Template-specific planning files and workflow-kit artifacts show up through those same surfaces. If a template adds `ARCHITECTURE.md`, `SECURITY_REVIEW.md`, `command-surface.md`, or other planning files, `audit` sees them from live state and `report --input` renders them from the saved artifact.
+
+That same rule applies in coordinator workspaces too. Partial artifacts remain readable: `audit` and `report` keep `repo_ok_count` / `repo_error_count` export-health visibility plus the failed repo row and error, but they do not invent failed-child drill-down when a nested child export is unavailable.
+
 ### Explicit `workflow_kit` for custom phases
 
 If you explicitly declare `workflow_kit` in `agentxchain.json`, `template validate` stops pretending the built-in 3-phase scaffold is your whole contract. It uses your declared artifacts instead.

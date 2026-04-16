@@ -321,6 +321,22 @@ After one full PM → Dev → QA cycle:
 
 The decision ledger is the **governance proof**. Any auditor, any future agent, any operator can read it and understand: what was decided, by whom, when, and why. No decisions can be deleted or edited after acceptance.
 
+## Inspect The Run Honestly
+
+Do not collapse every proof surface into a vague "report the run" mental model. AgentXchain keeps three distinct evidence commands:
+
+```bash
+agentxchain audit --format markdown
+agentxchain export --format json > governance-export.json
+agentxchain report --input governance-export.json --format markdown
+```
+
+- `audit` reads the **live current repo or workspace** and renders the governance report immediately.
+- `export` writes the **portable artifact** you can archive, diff, share, or verify elsewhere.
+- `report --input` reads an **existing export artifact**. It does not inspect live repo state directly.
+
+That same boundary still holds later when you move beyond a single repo into coordinator workspaces. Partial artifacts are valid evidence, not corruption: `audit` and `report` keep `repo_ok_count` / `repo_error_count`, preserve the failed repo row plus error, and do not fabricate failed-child drill-down when a nested child export is missing.
+
 ## Common Gate Failures
 
 | Failure | Cause | Fix |
