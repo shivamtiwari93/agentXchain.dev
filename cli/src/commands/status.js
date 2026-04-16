@@ -249,8 +249,14 @@ function renderGovernedStatus(context, opts) {
     if (singleActiveTurn.status === 'conflicted' && singleActiveTurn.conflict_state) {
       const cs = singleActiveTurn.conflict_state;
       const files = cs.conflict_error?.conflicting_files || [];
+      const count = cs.detection_count || 1;
       const [reassignAction, mergeAction] = deriveConflictedTurnResolutionActions(singleActiveTurn.turn_id);
-      console.log(`  ${chalk.dim('Conflict:')} ${chalk.red(`${files.length} file(s) conflicting`)} — detection #${cs.detection_count || 1}`);
+      console.log(`  ${chalk.dim('Conflict:')} ${chalk.red(`${files.length} file(s) conflicting`)} — detection #${count}`);
+      if (cs.conflict_error?.overlap_ratio != null) {
+        console.log(`  ${chalk.dim('Overlap:')}  ${(cs.conflict_error.overlap_ratio * 100).toFixed(0)}%`);
+      }
+      const suggestion = cs.conflict_error?.suggested_resolution || 'reject_and_reassign';
+      console.log(`  ${chalk.dim('Suggest:')}  ${suggestion}`);
       console.log(`  ${chalk.dim('Resolve:')}  ${chalk.cyan(reassignAction.command)}`);
       console.log(`  ${chalk.dim('     or:')}  ${chalk.cyan(mergeAction.command)}`);
     }

@@ -75,9 +75,18 @@ Hook blocks during assignment require `resume --role` to re-assign. Hook tamper 
 
 ### Turn Conflicts
 
+When a turn's `files_changed` overlap with files accepted by another turn since the conflicting turn was assigned, the governed-state layer detects a conflict. The first two detections mark the turn as `conflicted` but the run stays `active`. On the **third consecutive detection** (detection count ≥ 3), the run transitions to `blocked` with `typed_reason: 'conflict_loop'`.
+
+`agentxchain status` shows both resolution options, the number of conflicting files, the detection count, and the overlap percentage. The suggested resolution is based on file overlap:
+
+- **Overlap < 50%** → `reject_and_reassign` (re-dispatch with conflict context; faster automation recovery)
+- **Overlap ≥ 50%** → `human_merge` (too many overlapping files for clean re-dispatch; operator resolves manually)
+
+The suggestion is guidance, not enforcement — operators may choose either path regardless of overlap.
+
 | State | Cause | Recovery |
 |---|---|---|
-| `conflict_loop` | Repeated conflicting changes across turns | Default surfaced action: `agentxchain reject-turn --turn <id> --reassign`; alternate manual path: `agentxchain accept-turn --turn <id> --resolution human_merge` |
+| `conflict_loop` | 3+ consecutive conflict detections on the same turn | Default surfaced action: `agentxchain reject-turn --turn <id> --reassign`; alternate manual path: `agentxchain accept-turn --turn <id> --resolution human_merge` |
 
 | Condition | Recovery |
 |---|---|

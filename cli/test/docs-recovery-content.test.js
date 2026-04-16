@@ -159,6 +159,32 @@ describe('Recovery docs — implementation-backed contracts', () => {
   });
 });
 
+describe('Recovery docs — conflict-loop operator contract (AT-CLR-003, AT-CLR-004)', () => {
+  it('AT-CLR-003: documents the 3-detection threshold for conflict-loop blocking', () => {
+    assert.match(
+      DOC,
+      /third consecutive detection|detection count.*3|3\+.*consecutive/i,
+      'recovery docs must explain the 3-detection threshold'
+    );
+  });
+
+  it('AT-CLR-004: documents both resolution paths with the overlap heuristic', () => {
+    assert.ok(
+      DOC.includes('reject-turn') && DOC.includes('--reassign'),
+      'must document reject-turn --reassign path'
+    );
+    assert.ok(
+      DOC.includes('accept-turn') && DOC.includes('--resolution human_merge'),
+      'must document accept-turn --resolution human_merge path'
+    );
+    assert.match(
+      DOC,
+      /overlap.*50%|50%.*overlap/i,
+      'must document the 50% overlap heuristic boundary'
+    );
+  });
+});
+
 describe('Recovery docs — no ghost commands', () => {
   it('does not claim a dedicated recover command exists', () => {
     // The docs should NOT suggest `agentxchain recover` as a command
