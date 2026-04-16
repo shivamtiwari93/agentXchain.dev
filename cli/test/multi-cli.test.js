@@ -9,6 +9,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const MULTI_SOURCE = readFileSync(join(__dirname, '..', 'src', 'commands', 'multi.js'), 'utf8');
+const MULTI_STEP_SOURCE = (() => {
+  const start = MULTI_SOURCE.indexOf('export async function multiStepCommand');
+  const end = MULTI_SOURCE.indexOf('function maybeRequestCoordinatorGate', start);
+  return start >= 0 && end > start ? MULTI_SOURCE.slice(start, end) : '';
+})();
 const MULTI_RESYNC_SOURCE = (() => {
   const start = MULTI_SOURCE.indexOf('export async function multiResyncCommand');
   const end = MULTI_SOURCE.indexOf('// ── Hook helpers', start);
@@ -203,6 +208,41 @@ function makeMultiWorkspace() {
   writeJson(
     join(workspace, 'agentxchain-multi.json'),
     buildCoordinatorConfig({ web: './repos/web', api: './repos/api' }),
+  );
+  return { workspace, webRepo, apiRepo };
+}
+
+function makePlanningImplementationMultiWorkspace() {
+  const workspace = mkdtempSync(join(tmpdir(), 'axc-multi-cli-'));
+  const webRepo = join(workspace, 'repos', 'web');
+  const apiRepo = join(workspace, 'repos', 'api');
+  writeGovernedRepo(webRepo, 'web', {
+    routing: {
+      planning: {
+        entry_role: 'pm',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['qa', 'human'],
+      },
+    },
+  });
+  writeGovernedRepo(apiRepo, 'api', {
+    routing: {
+      planning: {
+        entry_role: 'pm',
+        allowed_next_roles: ['dev', 'human'],
+      },
+      implementation: {
+        entry_role: 'dev',
+        allowed_next_roles: ['qa', 'human'],
+      },
+    },
+  });
+  writeJson(
+    join(workspace, 'agentxchain-multi.json'),
+    buildPlanningImplementationCoordinatorConfig({ web: './repos/web', api: './repos/api' }),
   );
   return { workspace, webRepo, apiRepo };
 }
@@ -664,6 +704,50 @@ describe('multi resync CLI', () => {
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+  it('AT-CLI-MR-031: multi step with no assignable workstream prints gate-blocker diagnostics', () => {
+    const { workspace } = makePlanningImplementationMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const historyPath = join(workspace, '.agentxchain', 'multirepo', 'history.jsonl');
+      const existingHistory = readFileSync(historyPath, 'utf8');
+      writeFileSync(
+        historyPath,
+        `${existingHistory}${JSON.stringify({
+          type: 'acceptance_projection',
+          timestamp: new Date().toISOString(),
+          super_run_id: 'test-super-run',
+          repo_id: 'api',
+          workstream_id: 'planning_sync',
+          repo_turn_id: 'turn-api-001',
+        })}\n${JSON.stringify({
+          type: 'acceptance_projection',
+          timestamp: new Date().toISOString(),
+          super_run_id: 'test-super-run',
+          repo_id: 'web',
+          workstream_id: 'planning_sync',
+          repo_turn_id: 'turn-web-001',
+        })}\n`,
+      );
+
+      const result = runCli(workspace, ['multi', 'step']);
+      assert.notEqual(result.status, 0, 'multi step must fail when the next gate is not ready');
+      assert.match(result.stderr, /No assignable workstream: workstream_complete/);
+      assert.match(result.stderr, /Workstream "planning_sync" already has accepted projections for all repos/);
+      assert.match(result.stderr, /Coordinator phase gate is not ready:/);
+      assert.match(result.stderr, /Barrier "planning_sync_completion" is "pending"/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-032: multi step gate-blocker path does not carry private run-id detail labels', () => {
+    assert.match(MULTI_STEP_SOURCE, /printCoordinatorBlockerDetails\(gate\.blockers, console\.error\)/);
+    assert.doesNotMatch(MULTI_STEP_SOURCE, /expected:\s*\$\{blocker\.expected_run_id\}/);
+    assert.doesNotMatch(MULTI_STEP_SOURCE, /actual:\s*\$\{blocker\.actual_run_id\}/);
+  });
 });
 
 describe('multi approve-gate CLI', () => {
@@ -1045,7 +1129,7 @@ describe('multi help surface', () => {
 
   it('AT-CLI-MR-030: multi command imports shared coordinator blocker presentation helpers for resync output', () => {
     assert.match(MULTI_SOURCE, /getCoordinatorBlockerDetails/);
-    assert.match(MULTI_RESYNC_SOURCE, /printCoordinatorMismatchDetails/);
+    assert.match(MULTI_RESYNC_SOURCE, /printCoordinatorBlockerDetails/);
     assert.doesNotMatch(MULTI_RESYNC_SOURCE, /expected:\s*\$\{mismatch\.expected_run_id\}/);
     assert.doesNotMatch(MULTI_RESYNC_SOURCE, /actual:\s*\$\{mismatch\.actual_run_id\}/);
   });

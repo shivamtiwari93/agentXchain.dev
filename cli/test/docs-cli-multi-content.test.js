@@ -16,6 +16,7 @@ const SPEC = read('.planning/CLI_DOCS_MULTI_CONTRACT_SPEC.md');
 const PENDING_GATE_SPEC = read('.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md');
 const HANDOFF_SPEC = read('.planning/COORDINATOR_CLI_HANDOFF_OUTPUT_SPEC.md');
 const RESYNC_SPEC = read('.planning/COORDINATOR_CLI_RESYNC_OUTPUT_SPEC.md');
+const STEP_BLOCKER_SPEC = read('.planning/COORDINATOR_CLI_STEP_BLOCKER_OUTPUT_SPEC.md');
 
 function extractSection(startHeading) {
   const start = CLI_DOCS.indexOf(startHeading);
@@ -151,6 +152,13 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /blocked `multi resync` prints the same typed mismatch rows plus the ordered recovery next actions/i);
   });
 
+  it('AT-DOCS-MULTI-012: documents multi step no-assignment gate-blocker output', () => {
+    assert.match(multiSection, /no assignable workstream/i);
+    assert.match(multiSection, /gate blocker list/i);
+    assert.match(multiSection, /typed run-identity blockers/i);
+    assert.match(multiSection, /Repo`, `Expected`, and `Actual`/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });
@@ -187,6 +195,12 @@ describe('CLI multi spec alignment', () => {
     assert.ok(RESYNC_SPEC.length > 0, 'resync spec file must exist');
     assert.match(RESYNC_SPEC, /multi resync/i);
     assert.match(RESYNC_SPEC, /next_actions/i);
+  });
+
+  it('step blocker spec exists and references multi step', () => {
+    assert.ok(STEP_BLOCKER_SPEC.length > 0, 'step blocker spec file must exist');
+    assert.match(STEP_BLOCKER_SPEC, /multi step/i);
+    assert.match(STEP_BLOCKER_SPEC, /No assignable workstream/i);
   });
 });
 
