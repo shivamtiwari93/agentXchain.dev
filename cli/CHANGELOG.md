@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.110.0
+
+`2.110.0` closes the gate-action timeout parity gap: every operator-facing surface now distinguishes timed-out gate actions from generic failures, and dry-run previews show custom timeout configuration.
+
+- Gate-action timeout parity: `status`, `report` (text/markdown/HTML), dashboard blocked view, and dashboard gate review now show "timed out after Nms" instead of generic "failed" when a gate action hits its timeout
+- Per-action `timeout_ms` support (1s–1hr, default 15min) with structured timeout evidence in blocked-reason payload and decision ledger
+- Workspace boundary frozen: gate actions execute in the repo root with workspace write access, documented explicitly in spec and operator guide
+- Dry-run timeout preview: `--dry-run` shows custom timeout configuration for actions that override the 15-minute default
+- 9 gate-action tests + 2 dashboard E2E + 10 docs tests = 21 tests / 0 failures
+
 ## 2.109.0
 
 `2.109.0` ships governed gate actions as a complete operator surface — runtime execution, CLI dry-run, dedicated docs page, dashboard visibility with gate-type-correct recovery — and hardens the release pipeline for rerun safety.
