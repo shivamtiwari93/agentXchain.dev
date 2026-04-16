@@ -410,8 +410,18 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /still requires an approving review and github-actions cannot self-approve PRs it created\. Canonical downstream truth is complete; repo mirror follow-up remains at/,
-      'workflow must warn explicitly when approval deadlock leaves the mirror PR open',
+      /Auto-closing — canonical tap is already correct/,
+      'workflow must auto-close mirror PRs that cannot be self-merged (DEC-HOMEBREW-MIRROR-AUTOCLOSE-001)',
+    );
+    assert.match(
+      workflow,
+      /gh pr close "\$PR_NUMBER" --comment.*--delete-branch/,
+      'workflow must close the PR and delete the branch when auto-merge fails',
+    );
+    assert.match(
+      workflow,
+      /status=auto_closed/,
+      'workflow must emit auto_closed status when mirror PR is closed',
     );
     assert.match(
       workflow,
@@ -430,8 +440,8 @@ describe('homebrew sync automation contract', () => {
     );
     assert.match(
       workflow,
-      /did not merge after auto-merge handling/,
-      'workflow must warn explicitly if the mirror PR never reaches merged state',
+      /did not merge after auto-merge handling\. Auto-closing/,
+      'workflow must auto-close the mirror PR if auto-merge times out',
     );
   });
 

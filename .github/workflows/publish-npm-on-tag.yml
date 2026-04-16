@@ -288,36 +288,35 @@ jobs:
             if gh pr merge "$PR_NUMBER" --auto --squash --delete-branch 2>/dev/null; then
               echo "Auto-merge enabled for Homebrew mirror PR #${PR_NUMBER}."
             else
-              echo "::warning::Could not enable auto-merge for Homebrew mirror PR #${PR_NUMBER}. Canonical downstream truth is already handled; repo mirror follow-up remains at ${PR_URL}."
-              echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
+              echo "Auto-merge could not be enabled for Homebrew mirror PR #${PR_NUMBER}. Auto-closing — canonical tap is already correct."
+              CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. This repo mirror PR could not be self-merged due to branch protection (required review). Closing automatically — agents will sync the repo mirror on the next push. To eliminate this fallback entirely, configure \`REPO_PUSH_TOKEN\` (admin PAT with \`contents:write\` on this repo)."
+              gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
+              echo "status=auto_closed" >> "$GITHUB_OUTPUT"
               exit 0
             fi
           else
-            echo "::warning::Regular merge failed for Homebrew mirror PR #${PR_NUMBER}: ${MERGE_ERR}"
-            echo "::warning::Canonical downstream truth is already handled; repo mirror follow-up remains at ${PR_URL}."
-            echo "status=needs_manual_followup" >> "$GITHUB_OUTPUT"
+            echo "Regular merge failed for Homebrew mirror PR #${PR_NUMBER}: ${MERGE_ERR}. Auto-closing — canonical tap is already correct."
+            CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. This repo mirror PR could not be merged: ${MERGE_ERR}. Closing automatically — agents will sync the repo mirror on the next push."
+            gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
+            echo "status=auto_closed" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          for attempt in $(seq 1 36); do
+          for attempt in $(seq 1 12); do
             PR_STATE="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
             if [[ "$PR_STATE" == "MERGED" ]]; then
               echo "Homebrew mirror PR #${PR_NUMBER} merged."
               echo "status=merged" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            if [[ "$attempt" -lt 36 ]]; then
-              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/36)..."
+            if [[ "$attempt" -lt 12 ]]; then
+              echo "Waiting for Homebrew mirror PR #${PR_NUMBER} to merge (attempt ${attempt}/12)..."
               sleep 10
             fi
           done
-          CURRENT_REVIEW_DECISION="$(gh pr view "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // empty')"
-          if [[ "$CURRENT_REVIEW_DECISION" != "APPROVED" ]]; then
-            echo "::warning::Homebrew mirror PR #${PR_NUMBER} still requires an approving review and github-actions cannot self-approve PRs it created. Canonical downstream truth is complete; repo mirror follow-up remains at ${PR_URL}."
-            echo "status=manual_approval_required" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Homebrew mirror PR #${PR_NUMBER} did not merge after auto-merge handling. Canonical downstream truth is complete; repo mirror follow-up remains at ${PR_URL}."
-            echo "status=auto_merge_pending" >> "$GITHUB_OUTPUT"
-          fi
+          echo "Homebrew mirror PR #${PR_NUMBER} did not merge after auto-merge handling. Auto-closing — canonical tap is already correct."
+          CLOSE_COMMENT="Canonical Homebrew tap (\`shivamtiwari93/homebrew-tap\`) is already updated for v${RELEASE_TAG#v}. Auto-merge was enabled but the PR did not merge within the timeout. Closing automatically — agents will sync the repo mirror on the next push. To eliminate this fallback entirely, configure \`REPO_PUSH_TOKEN\` (admin PAT with \`contents:write\` on this repo)."
+          gh pr close "$PR_NUMBER" --comment "$CLOSE_COMMENT" --delete-branch 2>/dev/null || true
+          echo "status=auto_closed" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Create GitHub Release

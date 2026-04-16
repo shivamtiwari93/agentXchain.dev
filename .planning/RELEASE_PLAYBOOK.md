@@ -235,7 +235,7 @@ This command:
 In CI, the publish workflow runs sync automatically after postflight if `HOMEBREW_TAP_TOKEN` is configured. Without the token, first-time publish is blocked before npm mutation. Reruns can still update the repo mirror without the token, but downstream truth must pass before the workflow can finish green.
 The tag workflow requests `pull-requests: write`, creates or reuses a PR (`chore/homebrew-sync-v<version>`) for the repo-mirror update, submits the approval review, enables squash auto-merge with branch deletion, and waits for the PR to reach `MERGED`.
 Workflow reruns update that same branch with `--force-with-lease` and reuse the open PR instead of failing on duplicate branch or PR creation.
-If PR creation, approval, or merge enablement fails after the branch push, the workflow fails closed. A pushed orphan branch or still-open mirror PR is not release-complete follow-through.
+If auto-merge cannot be enabled or times out (typically due to branch protection requiring a review that `github-actions[bot]` cannot self-approve), the workflow **auto-closes the PR** with an explanatory comment and deletes the branch (`DEC-HOMEBREW-MIRROR-AUTOCLOSE-001`). The canonical tap is always correct at this point. Agents sync the repo mirror on their next push. To eliminate the PR fallback entirely, configure `REPO_PUSH_TOKEN` (admin PAT with `contents:write`).
 If the repo mirror is already current but the canonical tap is stale, `--push-tap` still pushes the tap update. Repo-mirror equality is not allowed to short-circuit public-tap truth.
 
 #### Invariants
