@@ -283,6 +283,54 @@ describe('gate actions', () => {
     assert.equal(payload.subject.run.gate_actions[1].exit_code, 7);
   });
 
+  it('AT-GA-009: timeout metadata surfaces in status, report text, report markdown, and report html', () => {
+    const root = createFixture([
+      { label: 'hang deploy', run: 'node scripts/hang-step.mjs', timeout_ms: 1000 },
+    ]);
+
+    writeFileSync(
+      join(root, 'scripts', 'hang-step.mjs'),
+      "setInterval(() => {}, 1000);\n",
+    );
+
+    const approval = runCli(root, ['approve-transition']);
+    assert.notEqual(approval.status, 0);
+
+    // status must distinguish timed out from generic failure
+    const status = runCli(root, ['status']);
+    assert.equal(status.status, 0, status.stderr);
+    assert.match(status.stdout, /timed out after 1000ms/i, 'status should show timeout label');
+
+    // export for report piping
+    const exported = runCli(root, ['export']);
+    assert.equal(exported.status, 0, exported.stderr);
+
+    function pipeReport(format) {
+      return spawnSync(process.execPath, [CLI_BIN, 'report', '--input', '-', '--format', format], {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, NO_COLOR: '1' },
+        input: exported.stdout,
+        timeout: 20_000,
+      });
+    }
+
+    // text report
+    const textReport = pipeReport('text');
+    assert.equal(textReport.status, 0, textReport.stderr);
+    assert.match(textReport.stdout, /timed_out after 1000ms/, 'text report should show timeout tag');
+
+    // markdown report
+    const mdReport = pipeReport('markdown');
+    assert.equal(mdReport.status, 0, mdReport.stderr);
+    assert.match(mdReport.stdout, /timed out after 1000ms/i, 'markdown report should show timeout');
+
+    // html report
+    const htmlReport = pipeReport('html');
+    assert.equal(htmlReport.status, 0, htmlReport.stderr);
+    assert.match(htmlReport.stdout, /timed out after 1000ms/i, 'html report should show timeout');
+  });
+
   it('AT-GA-008: timed-out gate actions block approval and record timeout evidence', () => {
     const root = createFixture([
       { label: 'hang publish', run: 'node scripts/hang-step.mjs', timeout_ms: 1000 },

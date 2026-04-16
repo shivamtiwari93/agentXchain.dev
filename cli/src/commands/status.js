@@ -358,9 +358,9 @@ function renderGovernedStatus(context, opts) {
     for (const action of gateActionAttempt.actions) {
       const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
       const outcome = action.status === 'failed'
-        ? chalk.red('failed')
+        ? (action.timed_out ? chalk.red(`timed out after ${action.timeout_ms}ms`) : chalk.red('failed'))
         : chalk.green('succeeded');
-      const exit = action.exit_code == null ? '' : ` (exit ${action.exit_code})`;
+      const exit = action.timed_out ? '' : (action.exit_code == null ? '' : ` (exit ${action.exit_code})`);
       console.log(`    ${action.action_index || '?'}. ${label} — ${outcome}${exit}`);
       if (action.status === 'failed' && action.stderr_tail) {
         console.log(`      ${chalk.dim(action.stderr_tail)}`);

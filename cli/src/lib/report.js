@@ -1444,7 +1444,8 @@ export function formatGovernanceReportText(report) {
       for (const action of run.gate_actions) {
         const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
         const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
-        lines.push(`  - ${action.gate_id || 'unknown'} | ${action.gate_type || 'unknown'} | action ${action.action_index || '?'} | ${action.status} | ${label} | exit: ${exit} | at: ${action.timestamp || 'n/a'}`);
+        const timeoutTag = action.timed_out ? ` | timed_out after ${action.timeout_ms}ms` : '';
+        lines.push(`  - ${action.gate_id || 'unknown'} | ${action.gate_type || 'unknown'} | action ${action.action_index || '?'} | ${action.status} | ${label} | exit: ${exit}${timeoutTag} | at: ${action.timestamp || 'n/a'}`);
         if (action.stderr_tail) {
           lines.push(`      stderr: ${action.stderr_tail}`);
         }
@@ -2014,7 +2015,8 @@ export function formatGovernanceReportMarkdown(report) {
       for (const action of run.gate_actions) {
         const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
         const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
-        lines.push(`- \`${action.gate_id || 'unknown'}\` (${action.gate_type || 'unknown'}) action ${action.action_index || '?'} — **${action.status}** at \`${action.timestamp || 'n/a'}\`: ${label} (exit \`${exit}\`)`);
+        const mdTimeout = action.timed_out ? ` ⏱ timed out after ${action.timeout_ms}ms` : '';
+        lines.push(`- \`${action.gate_id || 'unknown'}\` (${action.gate_type || 'unknown'}) action ${action.action_index || '?'} — **${action.status}** at \`${action.timestamp || 'n/a'}\`: ${label} (exit \`${exit}\`)${mdTimeout}`);
         if (action.stderr_tail) {
           lines.push(`  - stderr: ${action.stderr_tail}`);
         }
@@ -2723,7 +2725,8 @@ function renderRunHtml(report) {
     for (const action of run.gate_actions) {
       const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
       const exit = action.exit_code == null ? 'n/a' : String(action.exit_code);
-      gaHtml += `<li><code>${esc(action.gate_id || 'unknown')}</code> (${esc(action.gate_type || 'unknown')}) action ${esc(String(action.action_index || '?'))} — <strong>${esc(action.status)}</strong> at <code>${esc(action.timestamp || 'n/a')}</code>: ${esc(label)} (exit <code>${esc(exit)}</code>)`;
+      const htmlTimeout = action.timed_out ? ` <em>⏱ timed out after ${esc(String(action.timeout_ms))}ms</em>` : '';
+      gaHtml += `<li><code>${esc(action.gate_id || 'unknown')}</code> (${esc(action.gate_type || 'unknown')}) action ${esc(String(action.action_index || '?'))} — <strong>${esc(action.status)}</strong> at <code>${esc(action.timestamp || 'n/a')}</code>: ${esc(label)} (exit <code>${esc(exit)}</code>)${htmlTimeout}`;
       if (action.stderr_tail) {
         gaHtml += `<br><code>${esc(action.stderr_tail)}</code>`;
       }

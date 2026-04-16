@@ -240,9 +240,12 @@ function renderGateActionsSection(gateActions) {
       html += `<ul>`;
       for (const a of attempt.actions) {
         const aLabel = a.action_label || a.command || `action ${a.action_index || '?'}`;
-        const outcome = a.status === 'failed' ? '❌' : '✅';
-        const exitStr = a.exit_code != null ? ` (exit ${a.exit_code})` : '';
-        html += `<li>${outcome} ${esc(aLabel)}${esc(exitStr)}</li>`;
+        const outcome = a.status === 'failed'
+          ? (a.timed_out ? '⏱' : '❌')
+          : '✅';
+        const timeoutStr = a.timed_out ? ` timed out after ${a.timeout_ms}ms` : '';
+        const exitStr = a.timed_out ? '' : (a.exit_code != null ? ` (exit ${a.exit_code})` : '');
+        html += `<li>${outcome} ${esc(aLabel)}${esc(exitStr)}${esc(timeoutStr)}</li>`;
       }
       html += `</ul>`;
     }

@@ -120,8 +120,10 @@ function renderGateActionFailure(gateActions, state) {
     html += `<div class="annotation-list">`;
     for (const action of actions) {
       const label = action.action_label || action.command || `action ${action.action_index || '?'}`;
-      const outcome = action.status === 'failed' ? '❌ failed' : '✅ succeeded';
-      const exitStr = action.exit_code != null ? ` (exit ${action.exit_code})` : '';
+      const outcome = action.status === 'failed'
+        ? (action.timed_out ? `⏱ timed out after ${action.timeout_ms}ms` : '❌ failed')
+        : '✅ succeeded';
+      const exitStr = action.timed_out ? '' : (action.exit_code != null ? ` (exit ${action.exit_code})` : '');
       html += `<div class="annotation-card">
         <span class="mono">${esc(String(action.action_index || '?'))}.</span>
         <span>${esc(label)}</span>
