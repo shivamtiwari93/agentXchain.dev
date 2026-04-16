@@ -68,7 +68,7 @@ Current keywords in `package.json` are adequate:
 | Docs: Adapters | Ready | All 5 adapter types, build-your-own guide |
 | Docs: Plugins | Ready | Plugin authoring, install/list/upgrade/remove, config enforcement, rollback semantics |
 | Docs: Protocol | Ready | Protocol v7 published; v6 remains historical reference |
-| Show HN Draft | Ready | Current v2.105.0 truth, guard-tested |
+| Show HN Draft | Ready | Current v2.106.0 truth, guard-tested |
 | GitHub Actions (publish) | Ready | Tag-scoped, tested |
 | Homebrew Tap | Ready | Canonical tap is on the live release; workflow sync + graceful PR fallback shipped |
 | Social Preview Image | Not created | Requires design tool or generation |
