@@ -138,6 +138,31 @@ When `action === "skip_phase"`:
 2. Should there be a `per_turn_minutes` per-role override? E.g., QA roles might need longer than dev roles.
 3. Should timeout warnings appear in the dashboard? (Likely yes, but the dashboard component is a separate slice.)
 
+## Approval-Pending Exemption
+
+Timeout enforcement does **not** apply to runs paused on human approval gates (`pending_phase_transition` or `pending_run_completion`).
+
+### Rationale
+
+- Pending approval states are explicit governance pauses where the human is sovereign (VISION.md: "Humans remain sovereign").
+- No agent work happens during an approval wait — no cost accrues, no drift occurs.
+- Timing out a pending approval would punish operators for not responding instantly, undermining the governance model.
+- `skip_phase` already cannot bypass gates that still require human approval — the runtime already protects this boundary.
+- If an organization wants approval SLAs (e.g., "approvals must happen within 4 hours"), that is a notification/reminder concern, not a timeout-block concern. A future `approval_sla` config surface could handle that independently.
+
+### Invariant
+
+`evaluateTimeouts()` is only called from `acceptGovernedTurn()`. It is never called from `approvePhaseTransition()` or `approveRunCompletion()`. This call-site restriction is the structural guarantee that approval-pending state cannot trigger timeout mutation. Public docs, specs, and tests must not claim otherwise.
+
+### Decision
+
+`DEC-APPROVAL-TIMEOUT-EXEMPT-001`: Approval-pending states (`pending_phase_transition`, `pending_run_completion`) are exempt from timeout enforcement. Timeouts evaluate only at the `accept-turn` boundary. Approval commands do not re-run timeout mutation. If approval SLA enforcement is needed in the future, it must be a separate config surface, not a timeout extension.
+
+### Acceptance Tests
+
+- `AT-TIMEOUT-013`: `approve-transition` does not call `evaluateTimeouts()` and does not block on timeout even when `per_phase_minutes` is exceeded.
+- `AT-TIMEOUT-014`: `approve-completion` does not call `evaluateTimeouts()` and does not block on timeout even when `per_run_minutes` is exceeded.
+
 ## Relationship To Existing Mechanisms
 
 - **Budget enforcement**: Budget caps spend; timeouts cap time. Both are governance boundaries that fire at acceptance. They compose naturally.

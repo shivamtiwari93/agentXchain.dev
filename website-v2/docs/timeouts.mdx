@@ -146,6 +146,16 @@ Typical operator flow:
 
 For the broader blocked-state matrix, see [Recovery](/docs/recovery).
 
+## Approval-pending exemption
+
+Timeouts do **not** fire on runs paused for human approval (`pending_phase_transition` or `pending_run_completion`).
+
+When a run is waiting for an operator to approve a phase transition or run completion, that is an explicit governance pause — the operator is sovereign, and no agent work is happening. Timing out that pause would punish operators for not responding instantly, which contradicts the governance model.
+
+The structural guarantee is simple: `evaluateTimeouts()` is only called from `accept-turn`. Approval commands (`approve-transition`, `approve-completion`) never re-run timeout evaluation. This is by design, not by accident.
+
+If your organization needs approval response-time enforcement (e.g., "approvals must happen within 4 hours"), that would be a separate `approval_sla` concern — not a timeout extension.
+
 ## Relationship to other controls
 
 | Mechanism | Purpose | Difference from timeouts |

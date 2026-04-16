@@ -34,6 +34,15 @@ describe('Timeout docs content guard', () => {
       'must explicitly state that approval commands do not currently re-run timeout mutation');
   });
 
+  it('documents the approval-pending exemption (DEC-APPROVAL-TIMEOUT-EXEMPT-001)', () => {
+    assert.match(content, /approval-pending exemption/i,
+      'must have an approval-pending exemption section');
+    assert.match(content, /pending_phase_transition|pending_run_completion/i,
+      'must name the specific pending states that are exempt');
+    assert.match(content, /evaluateTimeouts.*accept-turn|accept-turn.*evaluateTimeouts/i,
+      'must document that evaluateTimeouts is only called from accept-turn');
+  });
+
   it('documents operator surfaces and recovery', () => {
     assert.ok(content.includes('agentxchain status'), 'must document status visibility');
     assert.ok(content.includes('agentxchain report'), 'must document report visibility');
