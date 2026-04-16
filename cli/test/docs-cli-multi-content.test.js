@@ -15,6 +15,7 @@ const MULTI_IMPL = read('cli/src/commands/multi.js');
 const SPEC = read('.planning/CLI_DOCS_MULTI_CONTRACT_SPEC.md');
 const PENDING_GATE_SPEC = read('.planning/COORDINATOR_CLI_PENDING_GATE_PRESENTATION_SPEC.md');
 const HANDOFF_SPEC = read('.planning/COORDINATOR_CLI_HANDOFF_OUTPUT_SPEC.md');
+const RESYNC_SPEC = read('.planning/COORDINATOR_CLI_RESYNC_OUTPUT_SPEC.md');
 
 function extractSection(startHeading) {
   const start = CLI_DOCS.indexOf(startHeading);
@@ -142,6 +143,14 @@ describe('CLI multi docs contract', () => {
     assert.match(multiSection, /`next_action`\/`next_actions`/i);
   });
 
+  it('AT-DOCS-MULTI-011: documents multi resync typed mismatch rows and post-resync handoff output', () => {
+    assert.match(multiSection, /multi resync --dry-run/i);
+    assert.match(multiSection, /typed mismatch rows/i);
+    assert.match(multiSection, /Repo`, `Expected`, and `Actual`/i);
+    assert.match(multiSection, /successful `multi resync` prints the preserved `Pending Gate` detail rows/i);
+    assert.match(multiSection, /blocked `multi resync` prints the same typed mismatch rows plus the ordered recovery next actions/i);
+  });
+
   it('references agentxchain-multi.json as the config prerequisite', () => {
     assert.match(multiSection, /agentxchain-multi\.json/);
   });
@@ -172,6 +181,12 @@ describe('CLI multi spec alignment', () => {
     assert.ok(HANDOFF_SPEC.length > 0, 'handoff spec file must exist');
     assert.match(HANDOFF_SPEC, /multi approve-gate/i);
     assert.match(HANDOFF_SPEC, /multi resume/i);
+  });
+
+  it('resync output spec exists and references multi resync', () => {
+    assert.ok(RESYNC_SPEC.length > 0, 'resync spec file must exist');
+    assert.match(RESYNC_SPEC, /multi resync/i);
+    assert.match(RESYNC_SPEC, /next_actions/i);
   });
 });
 

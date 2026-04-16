@@ -9,6 +9,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = join(__dirname, '..', 'bin', 'agentxchain.js');
 const MULTI_SOURCE = readFileSync(join(__dirname, '..', 'src', 'commands', 'multi.js'), 'utf8');
+const MULTI_RESYNC_SOURCE = (() => {
+  const start = MULTI_SOURCE.indexOf('export async function multiResyncCommand');
+  const end = MULTI_SOURCE.indexOf('// ── Hook helpers', start);
+  return start >= 0 && end > start ? MULTI_SOURCE.slice(start, end) : '';
+})();
 
 function writeJson(path, value) {
   writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
@@ -475,6 +480,125 @@ describe('multi resync CLI', () => {
     }
   });
 
+  it('AT-CLI-MR-026: multi resync --dry-run prints canonical run-identity mismatch detail rows', () => {
+    const { workspace, apiRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const apiStatePath = join(apiRepo, '.agentxchain', 'state.json');
+      const apiState = JSON.parse(readFileSync(apiStatePath, 'utf8'));
+      apiState.run_id = 'run_api_reinitialized';
+      writeJson(apiStatePath, apiState);
+
+      const result = runCli(workspace, ['multi', 'resync', '--dry-run']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.ok(result.stdout.includes('[repo_run_id_mismatch]'), result.stdout);
+      assert.ok(result.stdout.includes('Repo: api'), result.stdout);
+      assert.ok(result.stdout.includes('Expected: run_'), result.stdout);
+      assert.ok(result.stdout.includes('Actual: run_api_reinitialized'), result.stdout);
+      assert.ok(result.stdout.includes('Run without --dry-run to resync.'), result.stdout);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-027: blocked multi resync prints shared mismatch details and ordered next actions', () => {
+    const { workspace, apiRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const apiStatePath = join(apiRepo, '.agentxchain', 'state.json');
+      const apiState = JSON.parse(readFileSync(apiStatePath, 'utf8'));
+      apiState.run_id = 'run_api_reinitialized';
+      writeJson(apiStatePath, apiState);
+
+      const result = runCli(workspace, ['multi', 'resync']);
+      assert.notEqual(result.status, 0, 'run-identity drift must block resync');
+      assert.ok(result.stderr.includes('Coordinator resync entered blocked state'), result.stderr);
+      assert.ok(result.stderr.includes('Repo: api'), result.stderr);
+      assert.ok(result.stderr.includes('Expected: run_'), result.stderr);
+      assert.ok(result.stderr.includes('Actual: run_api_reinitialized'), result.stderr);
+      assert.match(result.stderr, /Next Actions:/);
+      assert.match(result.stderr, /agentxchain multi resume/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-028: successful multi resync prints pending-gate details and ordered next actions', () => {
+    const { workspace, webRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const webStatePath = join(webRepo, '.agentxchain', 'state.json');
+      const webState = JSON.parse(readFileSync(webStatePath, 'utf8'));
+      webState.status = 'completed';
+      writeJson(webStatePath, webState);
+
+      const result = runCli(workspace, ['multi', 'resync']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.ok(result.stdout.includes('Resync complete.'), result.stdout);
+      assert.ok(result.stdout.includes('Repos resynced: web'), result.stdout);
+      assert.ok(result.stdout.includes('Pending Gate:'), result.stdout);
+      assert.ok(result.stdout.includes('Approval State: Awaiting human approval'), result.stdout);
+      assert.match(result.stdout, /Next Actions:/);
+      assert.match(result.stdout, /agentxchain multi approve-gate/);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('AT-CLI-MR-029: successful multi resync --json returns post-resync handoff fields', () => {
+    const { workspace, webRepo } = makeMultiWorkspace();
+    try {
+      const init = runCli(workspace, ['multi', 'init']);
+      assert.equal(init.status, 0, `stderr: ${init.stderr}`);
+
+      const coordinatorStatePath = join(workspace, '.agentxchain', 'multirepo', 'state.json');
+      const coordinatorState = JSON.parse(readFileSync(coordinatorStatePath, 'utf8'));
+      coordinatorState.status = 'paused';
+      coordinatorState.pending_gate = {
+        gate: 'phase_transition:implementation->qa',
+        gate_type: 'phase_transition',
+        from: 'implementation',
+        to: 'qa',
+        required_repos: ['api', 'web'],
+      };
+      writeJson(coordinatorStatePath, coordinatorState);
+
+      const webStatePath = join(webRepo, '.agentxchain', 'state.json');
+      const webState = JSON.parse(readFileSync(webStatePath, 'utf8'));
+      webState.status = 'completed';
+      writeJson(webStatePath, webState);
+
+      const result = runCli(workspace, ['multi', 'resync', '--json']);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      const parsed = JSON.parse(result.stdout);
+      assert.equal(parsed.ok, true);
+      assert.equal(parsed.status, 'paused');
+      assert.equal(parsed.pending_gate?.gate, 'phase_transition:implementation->qa');
+      assert.equal(parsed.next_action, 'agentxchain multi approve-gate');
+      assert.equal(parsed.next_actions?.[0]?.command, 'agentxchain multi approve-gate');
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('AT-CLI-MR-014: blocked multi step prints shared coordinator next_actions', () => {
     const { workspace } = makeMultiWorkspace();
     try {
@@ -917,5 +1041,12 @@ describe('multi help surface', () => {
     assert.doesNotMatch(MULTI_SOURCE, /const fromTo = pg\.from && pg\.to/);
     assert.doesNotMatch(MULTI_SOURCE, /Pending Gate: \$\{pg\.gate\}/);
     assert.doesNotMatch(MULTI_SOURCE, /Coordinator has a pending gate: \$\{state\.pending_gate\.gate\}/);
+  });
+
+  it('AT-CLI-MR-030: multi command imports shared coordinator blocker presentation helpers for resync output', () => {
+    assert.match(MULTI_SOURCE, /getCoordinatorBlockerDetails/);
+    assert.match(MULTI_RESYNC_SOURCE, /printCoordinatorMismatchDetails/);
+    assert.doesNotMatch(MULTI_RESYNC_SOURCE, /expected:\s*\$\{mismatch\.expected_run_id\}/);
+    assert.doesNotMatch(MULTI_RESYNC_SOURCE, /actual:\s*\$\{mismatch\.actual_run_id\}/);
   });
 });

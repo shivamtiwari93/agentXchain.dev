@@ -11,6 +11,7 @@
  */
 
 import chalk from 'chalk';
+import { getCoordinatorBlockerDetails } from '../lib/coordinator-blocker-presentation.js';
 import {
   normalizeCoordinatorGateApprovalFailure,
   normalizeCoordinatorGateApprovalSuccess,
@@ -261,6 +262,52 @@ function printCoordinatorGateApprovalFailure(failure, write = console.error) {
     write(`  Detail:    ${failure.recovery_summary.detail}`);
   }
   printCoordinatorNextActions(failure.next_actions, write);
+}
+
+function normalizeCoordinatorMismatchForPresentation(mismatch) {
+  if (!mismatch || typeof mismatch !== 'object' || Array.isArray(mismatch)) {
+    return null;
+  }
+
+  if (mismatch.code === 'repo_run_id_mismatch') {
+    return {
+      code: mismatch.code,
+      repo_id: mismatch.repo_id ?? null,
+      expected_run_id: mismatch.expected_run_id ?? null,
+      actual_run_id: mismatch.actual_run_id ?? null,
+      message: mismatch.message || null,
+    };
+  }
+
+  if (mismatch.type === 'run_id_mismatch') {
+    return {
+      code: 'repo_run_id_mismatch',
+      repo_id: mismatch.repo_id ?? null,
+      expected_run_id: mismatch.coordinator_run_id ?? mismatch.expected_run_id ?? null,
+      actual_run_id: mismatch.repo_run_id ?? mismatch.actual_run_id ?? null,
+      message: mismatch.detail || mismatch.message || null,
+    };
+  }
+
+  return {
+    code: mismatch.code || mismatch.type || null,
+    message: mismatch.message || mismatch.detail || null,
+  };
+}
+
+function printCoordinatorMismatchDetails(mismatches, write = console.error) {
+  for (const mismatch of Array.isArray(mismatches) ? mismatches : []) {
+    const normalized = normalizeCoordinatorMismatchForPresentation(mismatch);
+    if (!normalized?.message) {
+      continue;
+    }
+
+    const codeTag = normalized.code ? `[${normalized.code}] ` : '';
+    write(`  - ${codeTag}${normalized.message}`);
+    for (const detail of getCoordinatorBlockerDetails(normalized)) {
+      write(`    ${detail.label}: ${detail.value}`);
+    }
+  }
 }
 
 // ── multi step ─────────────────────────────────────────────────────────────
@@ -730,9 +777,7 @@ export async function multiResyncCommand(options) {
       console.log(JSON.stringify({ diverged: true, mismatches: divergence.mismatches }, null, 2));
     } else {
       console.log(`Divergence detected (${divergence.mismatches.length} mismatch(es)):`);
-      for (const m of divergence.mismatches) {
-        console.log(`  [${m.type}] ${m.detail}`);
-      }
+      printCoordinatorMismatchDetails(divergence.mismatches, console.log);
       console.log('');
       console.log('Run without --dry-run to resync.');
     }
@@ -741,9 +786,17 @@ export async function multiResyncCommand(options) {
 
   // Step 2: Resync
   const result = resyncFromRepoAuthority(workspacePath, state, configResult.config);
+  const updatedState = loadCoordinatorState(workspacePath) || state;
+  const nextActions = deriveCoordinatorCliNextActions(updatedState, configResult.config);
 
   if (options.json) {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify({
+      ...result,
+      status: updatedState.status ?? null,
+      pending_gate: updatedState.pending_gate ?? null,
+      next_action: nextActions[0]?.command ?? null,
+      next_actions: nextActions,
+    }, null, 2));
     return;
   }
 
@@ -758,9 +811,14 @@ export async function multiResyncCommand(options) {
         console.log(`    ${bc.barrier_id}: ${bc.previous_status} → ${bc.new_status}`);
       }
     }
+    if (updatedState.pending_gate) {
+      printCoordinatorPendingGate(updatedState.pending_gate);
+    }
+    printCoordinatorNextActions(nextActions);
   } else {
-    console.error('Resync completed with blocked state:');
-    console.error(`  Reason: ${result.blocked_reason}`);
+    console.error(`Coordinator resync entered blocked state: ${result.blocked_reason || 'unknown reason'}`);
+    printCoordinatorMismatchDetails(result.mismatch_details, console.error);
+    printCoordinatorNextActions(nextActions, console.error);
     process.exitCode = 1;
   }
 }
