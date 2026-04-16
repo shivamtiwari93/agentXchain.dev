@@ -20,14 +20,14 @@ What it did **not** have was a direct operator command for the common case: "sho
 New CLI command:
 
 ```bash
-agentxchain audit [--format text|json|markdown]
+agentxchain audit [--format text|json|markdown|html]
 ```
 
 ### Flags
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--format <format>` | `text` | Output `text`, `json`, or `markdown` |
+| `--format <format>` | `text` | Output `text`, `json`, `markdown`, or `html` |
 
 ## Behavior
 
@@ -43,12 +43,12 @@ agentxchain audit [--format text|json|markdown]
 ### Internal execution model
 
 - `audit` builds the same export artifact that `agentxchain export` would build for the current directory.
-- It then runs the same verification-first report builder that powers `agentxchain report`.
+- It then verifies that freshly built artifact and runs the same verification-first report builder that powers `agentxchain report`.
 - The rendered output contract matches `report` for the selected format.
 
 ### Success output
 
-- `text`, `json`, and `markdown` output reuse the existing governance report renderer.
+- `text`, `json`, `markdown`, and `html` output reuse the existing governance report renderer.
 - The `input` field or header line is the resolved governed project root or coordinator workspace root instead of a file path or `stdin`.
 - Governed audits render the same run-level report contract as `report`.
 - Coordinator audits render the same coordinator-workspace report contract as `report`.
@@ -78,7 +78,7 @@ agentxchain audit [--format text|json|markdown]
 - `AT-AUDIT-004`: coordinator workspace audit renders `subject.kind = coordinator_workspace`.
 - `AT-AUDIT-005`: unsupported format fails closed with exit `2`.
 - `AT-AUDIT-006`: running outside a governed project or coordinator workspace fails closed with exit `2`.
-- `AT-AUDIT-007`: docs truthfully distinguish `audit` (live repo) from `report` (verified export artifact).
+- `AT-AUDIT-007`: docs truthfully distinguish `audit` (live repo state, no `--input`, verifies a freshly built artifact) from `report` (verified export artifact inspection of an existing input).
 
 ## Open Questions
 

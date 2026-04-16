@@ -324,6 +324,27 @@ describe('CLI governance docs contract — recent event evidence', () => {
   });
 });
 
+describe('CLI governance docs contract — audit/report boundary', () => {
+  it('freezes audit as live-state inspection and report as verified-artifact inspection', () => {
+    assert.match(
+      docs,
+      /`audit` is the fast path.*reads \*\*live repo state\*\*.*verifies that freshly built artifact/i,
+    );
+    assert.match(
+      docs,
+      /`audit` does not accept `--input`; it is the live-state inspection path, not the offline artifact reader/i,
+    );
+    assert.match(
+      docs,
+      /`report` is for a previously created export artifact passed via `--input <path>` or stdin/i,
+    );
+    assert.match(
+      docs,
+      /`report` verifies that existing artifact first and fails closed on invalid input/i,
+    );
+  });
+});
+
 describe('CLI governance docs contract — report governance events', () => {
   it('documents governance events in the report command description', () => {
     assert.match(
@@ -349,7 +370,11 @@ describe('CLI governance docs contract — coordinator status observability', ()
     );
     assert.match(
       docs,
-      /blocked_reason.*created_at.*updated_at.*phase_gate_status/,
+      /`multi status` renders coordinator observability.*completion marker with timestamp/i,
+    );
+    assert.match(
+      docs,
+      /In `--json` mode, `multi status`.*`next_action`\/`next_actions`/i,
     );
   });
 });
