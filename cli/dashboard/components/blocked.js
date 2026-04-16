@@ -92,11 +92,22 @@ function formatCoordinatorRepoCardMeta(row) {
   return parts.join(' | ') || '-';
 }
 
-function renderGateActionFailure(gateActions) {
+function getGateActionDryRunCommand(gateActions, state) {
+  const gateType = gateActions?.latest_attempt?.gate_type
+    || (state?.pending_run_completion ? 'run_completion' : null)
+    || (state?.pending_phase_transition ? 'phase_transition' : null);
+
+  return gateType === 'run_completion'
+    ? 'agentxchain approve-completion --dry-run'
+    : 'agentxchain approve-transition --dry-run';
+}
+
+function renderGateActionFailure(gateActions, state) {
   if (!gateActions?.latest_attempt || gateActions.latest_attempt.status !== 'failed') return '';
 
   const attempt = gateActions.latest_attempt;
   const actions = Array.isArray(attempt.actions) ? attempt.actions : [];
+  const dryRunCommand = getGateActionDryRunCommand(gateActions, state);
 
   let html = `<div class="section"><h3>Gate Action Failure</h3>`;
   html += `<dl class="detail-list">`;
@@ -124,7 +135,7 @@ function renderGateActionFailure(gateActions) {
   }
 
   html += `<p class="recovery-hint">Re-run with dry-run first:</p>`;
-  html += `<pre class="recovery-command mono" data-copy="agentxchain approve-transition --dry-run">agentxchain approve-transition --dry-run</pre>`;
+  html += `<pre class="recovery-command mono" data-copy="${esc(dryRunCommand)}">${esc(dryRunCommand)}</pre>`;
   html += `</div>`;
   return html;
 }
@@ -209,7 +220,7 @@ export function render({
   // Gate-action failure detail (only for gate_action_failed blocks)
   const category = String(reason).toLowerCase();
   if (category.includes('gate_action_failed') && !isCoordinator) {
-    html += renderGateActionFailure(gateActions);
+    html += renderGateActionFailure(gateActions, activeState);
   }
 
   if (runtimeGuidance.length > 0) {

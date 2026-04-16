@@ -68,7 +68,7 @@ Returns `{ configured: [], latest_attempt: null }` when no gate is pending or no
 
 When a pending gate has configured `gate_actions`:
 - Show a "Gate Actions" section after the evidence summary, before the approve controls
-- List each configured action: index, label (or command), and `run` command
+- List each configured action: index, label (or command), and the exact `run` command
 - If a previous attempt exists, show attempt status and per-action outcomes
 
 ### Blocked State component (`blocked.js`)
@@ -77,7 +77,7 @@ When `blocked_reason.category === 'gate_action_failed'`:
 - Show a "Gate Action Failure" section with the latest attempt details
 - For each action in the attempt: index, label, status, exit code
 - For the failed action: show `stderr_tail` in a `<pre>` block
-- Show the `--dry-run` CLI command as guidance
+- Show the gate-type-correct `--dry-run` CLI command as guidance
 
 ## Acceptance Tests
 
@@ -87,6 +87,8 @@ When `blocked_reason.category === 'gate_action_failed'`:
 - `AT-DASH-GA-004`: Blocked view renders gate-action failure details when `category === 'gate_action_failed'`
 - `AT-DASH-GA-005`: Blocked view shows stderr tail for the failed action
 - `AT-DASH-GA-006`: Gate Review shows previous attempt status when a re-approval is pending
+- `AT-DASH-GA-007`: Blocked view shows `agentxchain approve-completion --dry-run` for run-completion gate-action failures
+- `AT-DASH-GA-008`: Bridge → render pipeline surfaces real CLI-produced gate-action failures without shape drift
 
 ## Out of Scope
 

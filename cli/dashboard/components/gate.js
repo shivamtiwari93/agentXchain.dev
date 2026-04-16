@@ -224,7 +224,11 @@ function renderGateActionsSection(gateActions) {
     html += `<ul>`;
     for (const action of configured) {
       const label = action.label || action.run || `action ${action.index || '?'}`;
-      html += `<li><span class="mono">${esc(String(action.index || '?'))}.</span> ${esc(label)}</li>`;
+      html += `<li><div><span class="mono">${esc(String(action.index || '?'))}.</span> ${esc(label)}</div>`;
+      if (action.run) {
+        html += `<div class="mono">${esc(action.run)}</div>`;
+      }
+      html += `</li>`;
     }
     html += `</ul>`;
   }
